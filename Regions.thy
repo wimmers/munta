@@ -1,10 +1,14 @@
-(*<*)
+chapter \<open>The Classic Construction for Decidability\<close>
+
 theory Regions
 imports Timed_Automata Misc
 begin
 
-(* XXX Add citation *)
-text \<open>A formalization of regions in the correct version of P. Bouyer\<close>
+text \<open>
+  The following is a formalization of regions in the correct version of Patricia Bouyer et al.
+\<close>
+
+section \<open>Definition of Regions\<close>
 
 type_synonym 'c ceiling = "('c \<Rightarrow> nat)"
 
@@ -76,21 +80,18 @@ declare Succ.intros[intro]
 
 declare Succ.cases[elim]
 
-text \<open>
-  These choices are tricky. The first one forces us to add 'del region.cases' to fastforce and
-  blast proofs in a few places. On the other hand elim is not enough, we would need eager application
-  in quite a few places. On the other hand, this would mess up about all proofs for any of the two.
-\<close>
 declare region.cases[elim]
 declare valid_region.cases[elim]
 
-text \<open>First we show that all valid intervals are distinct\<close>
+section \<open>Basic Properties\<close>
+
+text \<open>First we show that all valid intervals are distinct.\<close>
 
 lemma valid_intv_distinct:
   "valid_intv c I \<Longrightarrow> valid_intv c I' \<Longrightarrow> intv_elem x u I \<Longrightarrow> intv_elem x u I' \<Longrightarrow> I = I'"
 by (cases I; cases I'; auto)
 
-text \<open>From this we show that all valid regions are distinct\<close>
+text \<open>From this we show that all valid regions are distinct.\<close>
 
 lemma valid_regions_distinct:
   "valid_region X k I r \<Longrightarrow> valid_region X k I' r' \<Longrightarrow> v \<in> region X I r \<Longrightarrow> v \<in> region X I' r'
@@ -456,6 +457,9 @@ proof goal_cases
   case A: 1
   from Succ.intros[OF A(2) A(3) regions_closed[OF A(1,3,2,4)] A(4)] A(5) show ?case by auto
 qed
+
+
+section \<open>Set of Regions\<close>
 
 text \<open>
   The first property Bouyer shows is that these regions form a 'set of regions'.
@@ -967,8 +971,6 @@ proof
   qed
 qed
 
-text \<open>Made definitions more precise compared to Bouyer\<close>
-
 lemma closest_prestable_2:
   fixes I X k r
   defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
@@ -1288,7 +1290,7 @@ proof
   qed
 qed
 
-subsection \<open>Putting the proof that we have a set of regions together\<close>
+subsection \<open>Putting the Proof for the 'Set of Regions' Property Together\<close>
 
 subsubsection \<open>Misc\<close>
 
@@ -1893,9 +1895,7 @@ proof -
 qed
 
 
-section \<open>
-  Compability with clock constraints.
-\<close>
+section \<open>Compability With Clock Constraints\<close>
 
 definition ccval ("\<lbrace>_\<rbrace>" [100]) where "ccval cc \<equiv> {v. v \<turnstile> cc}"
 
@@ -2056,7 +2056,8 @@ proof (induction cc)
   ultimately show ?case unfolding ccompatible_def by auto
 qed (auto intro: ccompatible1 ccompatible2 ccompatible3 ccompatible4 ccompatible5)
 
-section \<open> Resetting maintains a set of regions \<close>
+
+section \<open>Compability with Resets\<close>
 
 definition region_set
 where
@@ -2659,7 +2660,7 @@ next
   ultimately show ?case by presburger
 qed
 
-section \<open>Soundness and completeness of the region-abstracted operational semantics\<close>
+section \<open>A Semantics Based on Regions\<close>
 
 subsection \<open>Single step\<close>
 
@@ -2768,8 +2769,6 @@ text \<open>
   Compare this to lemma step_z_sound. This version is weaker because for regions we may very well
   arrive at a successor for which not every valuation can be reached by the predecessor.
   This is the case for e.g. the region with only Greater (k x) bounds.
-
-  Addendum: Is this property stronger for \<beta>-Regions?
 \<close>
 
 lemma step_r_sound:
@@ -2805,7 +2804,7 @@ next
   qed
 qed
 
-subsection \<open>Multi step\<close>
+subsection \<open>Multi Step\<close>
 
 inductive
   steps_r :: "('a, 'c, t, 's) ta \<Rightarrow> ('c, t) zone set \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
@@ -2831,7 +2830,7 @@ by blast+
 
 text \<open>
   Note how it is important to define the multi-step semantics "the right way round".
-  This also the direction P. Bouyer implies for her implicit induction.
+  This also the direction Bouyer implies for her implicit induction.
 \<close>
 
 lemma steps_r_sound:
@@ -2889,4 +2888,3 @@ next
 qed
 
 end
-(*>*)

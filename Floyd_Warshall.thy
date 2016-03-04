@@ -1,8 +1,10 @@
 theory Floyd_Warshall
-imports Main
+  imports Main
 begin
 
-text \<open>Stuff\<close>
+chapter \<open>Floyd-Warshall Algorithm for the All-Pairs Shortest Paths Problem\<close>
+
+subsubsection \<open>Auxiliary\<close>
 
 lemma distinct_list_single_elem_decomp: "{xs. set xs \<subseteq> {0} \<and> distinct xs} = {[], [0]}"
 proof (standard, goal_cases)
@@ -19,7 +21,8 @@ proof (standard, goal_cases)
   thus ?case by blast
 qed simp
 
-text \<open>Cycles in lists\<close>
+
+section \<open>Cycles in Lists\<close>
 
 abbreviation "cnt x xs \<equiv> length (filter (\<lambda>y. x = y) xs)"
 
@@ -356,9 +359,11 @@ by (meson distinct.simps(2) order_refl remove_all_cycles_distinct
 lemma rem_cycles_subs: "set (rem_cycles i j xs) \<subseteq> set xs"
 by (meson order_trans remove_all_cycles_subs remove_all_subs remove_all_rev_subs)
 
+section \<open>Definition of the Algorithm\<close>
+
 text \<open>
-  Formalization of the Floyd-Warshall algorithm on a linearly ordered abelian semigroup.
-  However, we would not need an abelian monoid if we had the right type class.
+  We formalize the Floyd-Warshall algorithm on a linearly ordered abelian semigroup.
+  However, we would not need an \<open>abelian\<close> monoid if we had the right type class.
 \<close>
 
 class linordered_ab_monoid_add = linordered_ab_semigroup_add +
@@ -384,7 +389,6 @@ by (cases "i = i'", cases "j = j'") (auto simp: fw_upd_def upd_def)
 
 fun fw :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mat" where
   "fw m n 0       0       0        = fw_upd m 0 0 0" |
-  (* "fw m n 0 0 0 = m" | *)
   "fw m n (Suc k) 0       0        = fw_upd (fw m n k n n) (Suc k) 0 0" |
   "fw m n k       (Suc i) 0        = fw_upd (fw m n k i n) k (Suc i) 0" |
   "fw m n k       i       (Suc j)  = fw_upd (fw m n k i j) k i (Suc j)"
@@ -470,7 +474,6 @@ next
     case (Suc j) thus ?case by (simp add: fw_upd_def upd_def)
   qed
 qed
-
 
 lemma single_iteration_inv:
   "i' \<le> i \<Longrightarrow> j' \<le> j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n\<Longrightarrow> fw m n k i j i' j' = fw m n k i' j' i' j'"
@@ -880,6 +883,8 @@ next
 qed
 
 
+subsection \<open>Length of Paths\<close>
+
 fun len :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat list \<Rightarrow> 'a" where
   "len m u v [] = m u v" |
   "len m u v (w#ws) = m u w + len m w v ws"
@@ -889,6 +894,9 @@ by (induction ys arbitrary: x xs) (simp add: assoc)+
 
 lemma len_comp: "len m a c (xs @ b # ys) = len m a b xs + len m b c ys"
 by (induction xs arbitrary: a) (auto simp: assoc)
+
+
+subsection \<open>Shortening Negative Cycles\<close>
 
 lemma remove_cycles_neg_cycles_aux:
   fixes i xs ys
@@ -1103,7 +1111,7 @@ proof -
   qed
 qed
 
-section \<open>Definition of shortest paths\<close>
+section \<open>Definition of Shortest Paths\<close>
 
 definition D :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a" where
   "D m i j k \<equiv> Min {len m i j xs | xs. set xs \<subseteq> {0..k} \<and> i \<notin> set xs \<and> j \<notin> set xs \<and> distinct xs}"
@@ -1243,6 +1251,14 @@ proof -
     unfolding A_distinct_def by fastforce
   qed
 qed
+
+
+section \<open>Result Under The Absence of Negative Cycles\<close>
+
+text \<open>
+  This proves that the algorithm correctly computes shortest paths under the absence of negative
+  cycles by a standard argument.
+\<close>
 
 theorem fw_shortest_path_up_to:
   "cycle_free_up_to m k n \<Longrightarrow> i' \<le> i \<Longrightarrow> j' \<le> j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n
@@ -1481,7 +1497,7 @@ proof (rule ccontr, goal_cases)
 qed
 
 
-section \<open>Presence of negative cycles\<close>
+section \<open>Result Under the Presence of Negative Cycles\<close>
 
 lemma not_cylce_free_dest: "\<not> cycle_free m n \<Longrightarrow> \<exists> k \<le> n. \<not> cycle_free_up_to m k n"
 by (auto simp add: cycle_free_def cycle_free_up_to_def)
@@ -1715,9 +1731,6 @@ proof -
   }
   ultimately show ?thesis by auto
 qed
-
-abbreviation (latex output) mult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<otimes>" 70)
-where "mult a b \<equiv> a + b"
 
 end (* End of local class context *)
 end (* End of theory *)

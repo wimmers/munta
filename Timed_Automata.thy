@@ -1,26 +1,15 @@
-(* chapter {* Diagonal-free Timed Automata in Isabelle/HOL *} *)
+chapter \<open>Basic Definitions and Semantics\<close>
 
-section \<open>Diagonal-Free Timed Automata in Isabelle/HOL\<close>
-
-(*<*)
 theory Timed_Automata
   imports Main
 begin
-(*>*)
-(*<*)
-subsection \<open>Time\<close>
 
-text \<open>
-  Our basic formalizations of Timed Automata and DBMs are not strictly defined on reals
-  as a time space. Instead we use a derived type class to model time
-  (where \<open>linordered_ab_group_add\<close> is a type class for totally ordered abelian groups):
-\<close>
+section \<open>Time\<close>
 
 class time = linordered_ab_group_add +
   assumes dense: "x < y \<Longrightarrow> \<exists>z. x < z \<and> z < y"
   assumes non_trivial: "\<exists> x. x \<noteq> 0"
-(*>*)
-(*<*)
+
 begin
 
 lemma non_trivial_neg: "\<exists> x. x < 0"
@@ -36,8 +25,7 @@ proof -
 qed
 
 end
-(*>*)
-(*<*)
+
 datatype ('c, 't :: time) cconstraint =
   AND "('c, 't) cconstraint" "('c, 't) cconstraint" |
   LT 'c 't |
@@ -45,25 +33,13 @@ datatype ('c, 't :: time) cconstraint =
   EQ 'c 't |
   GT 'c 't |
   GE 'c 't
-(*>*)
-subsection \<open>Syntactic Definition\<close>
 
-(*
+section \<open>Syntactic Definition\<close>
+
 text \<open>
-  For instance, the constraint @{term "AND (LT c\<^sub>1 1) (EQ d\<^sub>2 2)"} postulates that @{term "c\<^sub>1"} is
-  smaller than one and that @{term "c\<^sub>2"} is 2.
-\<close>
-*)
-
-(*<*)
-text \<open>\noindent
-  \label{section:TimedAutomata}
-  %For an informal description of timed automata we refer to Bengtsson and Yi \cite{kanade_timed_2004}.
+  For an informal description of timed automata we refer to Bengtsson and Yi \cite{BengtssonY03}.
   We define a timed automaton \<open>A\<close>
 \<close>
-(*>*)
-
-(*<*)
 
 type_synonym
   ('c, 'time, 's) invassn = "'s \<Rightarrow> ('c, 'time) cconstraint"
@@ -73,10 +49,6 @@ type_synonym
 
 type_synonym
   ('a, 'c, 'time, 's) ta = "('a, 'c, 'time, 's) transition set * ('c, 'time, 's) invassn"
-
-(*>*)
-
-(*<*)
 
 definition trans_of :: "('a, 'c, 'time, 's) ta \<Rightarrow> ('a, 'c, 'time, 's) transition set" where
   "trans_of \<equiv> fst"
@@ -88,65 +60,7 @@ abbreviation transition ::
 ("_ \<turnstile> _ \<longrightarrow>\<^bsup>_,_,_\<^esup> _" [61,61,61,61,61,61] 61) where
   "(A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l') \<equiv> (l,g,a,r,l') \<in> trans_of A"
 
-(*>*)
-
-text \<open>
-  Compared to, say DFAs, %say finite state-machines,
-  timed automata introduce, in addition to the ideas of locations
-  and transitions among them, a notion of clocks.
-  We will fix a type @{typ "'c"} for the space of clocks, type @{typ "'t"} for time, and a type
-  @{typ "'s"} for locations. While most of our formalizations only require @{typ "'t"} to belong
-  to a custom type class for totally ordered dense abelian groups, we worked on the concrete
-  type \<open>real\<close> for the region construction for simplicity.
-
-  Locations and transitions are guarded with \<open>clock constraints\<close>, which have to be fulfilled to stay
-  in a location or to transition among them.
-  The following datatype models the variants of these constraints: @{datatype[display] cconstraint}
-  We define a timed automaton \<open>A\<close> as a pair \<open>(T, I)\<close> where
-  @{term[show_types] "I :: ('c, 't, 's) invassn"} is an assignment of clock invariants to locations;
-  and \<open>T\<close> is a set of transitions written as @{term "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"} where
-    \<^item> @{term[show_types] "l :: 's"} and @{term[show_types] "l' :: 's"} are start and successor location,
-    \<^item> @{term[show_types] "a :: 'a"} is an action label,
-    \<^item> and @{term[show_types] "r :: 'c list"} is a list of clocks that will be reset to zero
-      when the transition is taken.
-
-  \noindent
-  Standard definitions of timed automata would include a fixed set of locations with designated a
-  start location and a set of end locations. The language emptiness problem usually asks if any
-  number of legal transitions can be taken to reach an end location from the start location.
-  Thus we can confine ourselves to study reachability and implicitly assume the set of locations
-  to be given by the transitions of the automaton.
-  Note that although the definition of clocks constraints
-  allows constants from the whole time space, we will later crucially restrict them to the natural
-  numbers in order to obtain decidability.
-\<close>
-
-(*<*)
-text \<open>
- as a quadruple \<open>(N, l\<^bsub>0\<^esub>, T, I)\<close> where:
-  \begin{itemize}
-    \item $N$ is a set of locations (or nodes) of type @{typ 's},
-    \item \<open>l\<^bsub>0\<^esub> \<in> N\<close> is a single initial location,
-    \item \<open>T\<close> is a set of transitions as defined below,
-    %\item and \<open>I\<close> is function of type @{typ "'s \<Rightarrow> ('c, 'time) cconstraint"} assigning clock
-    %      invariants to locations.
-    \item and \<open>I\<close> is an assignment of clock invariants to locations.
-  \end{itemize}
-  Transitions are tuples of the form \<open>(l,g,a,r,l')\<close>
-  of type @{typ "'s * ('c, 'time) cconstraint * 'a * 'c list * 's"},
-  where $l$ and $l'$ are a start and a successor location, $a$ of type @{typ 'a} is an action label,
-  $g$ is a clock constraint guarding the transition, and $r$ is a \textit{list} of clocks that will be reset
-  when the transition is taken.
-  We introduce the sugared notation @{term "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"} to denote that @{term "(l,g,a,r,l') \<in> T"}.
-  %Locations are also often referred to as nodes and we will use the two terms interchangeably from now on.
-  %We have not yet formalized the concept of clock constraints.
-  %To do this, we define an inductive datatpe
-  %@{typ "('c, 't) cconstraint"}
-\<close>
-(*>*)
-
-(*<*)
-subsubsection \<open>Collecting Information About Clocks\<close>
+subsection \<open>Collecting Information About Clocks\<close>
 
 fun collect_clks :: "('c, 't :: time) cconstraint \<Rightarrow> 'c set"
 where
@@ -190,22 +104,14 @@ where
   "\<lbrakk>\<forall>(x,m) \<in> clkp_set A. m \<le> k x \<and> x \<in> X \<and> m \<in> \<nat>; collect_clkvt (trans_of A) \<subseteq> X; finite X\<rbrakk>
   \<Longrightarrow> valid_abstraction A X k"
 
-(*>*)
+section \<open>Operational Semantics\<close>
 
-subsection \<open>Operational Semantics\<close>
-
-(*<*)
-(* subsubsection \<open>Clock Valuations\<close> *)
-(*>*)
-(*<*)
 type_synonym ('c, 't) cval = "'c \<Rightarrow> 't"
-(*>*)
-(*<*)
+
 definition cval_add :: "('c,'t) cval \<Rightarrow> 't::time \<Rightarrow> ('c,'t) cval" (infixr "\<oplus>" 64)
 where
   "u \<oplus> d = (\<lambda> x. u x + d)"
-(*>*)
-(*<*)
+
 inductive clock_val :: "('c, 't) cval \<Rightarrow> ('c, 't::time) cconstraint \<Rightarrow> bool" ("_ \<turnstile> _" [62, 62] 62)
 where
   "\<lbrakk>u \<turnstile> cc1; u \<turnstile> cc2\<rbrakk> \<Longrightarrow> u \<turnstile> AND cc1 cc2" |
@@ -214,9 +120,6 @@ where
   "\<lbrakk>u c = d\<rbrakk> \<Longrightarrow> u \<turnstile> EQ c d" |
   "\<lbrakk>u c \<ge> d\<rbrakk> \<Longrightarrow> u \<turnstile> GE c d" |
   "\<lbrakk>u c > d\<rbrakk> \<Longrightarrow> u \<turnstile> GT c d"
-(*>*)
-
-(*<*)
 
 declare clock_val.intros[intro]
 
@@ -236,10 +139,6 @@ abbreviation clock_set_abbrv :: "'c list \<Rightarrow> 't::time \<Rightarrow> ('
 ("[_\<rightarrow>_]_" [65,65,65] 65)
 where
   "[r \<rightarrow> t]u \<equiv> clock_set r t u"
-
-(*>*)
-
-(*<*)
 
 inductive step_t ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> ('t::time) \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
@@ -284,45 +183,6 @@ where
 
 inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>"
 
-(*>*)
-
-text \<open>
-  We want to define an operational semantics for timed automata via an inductive relation, as they
-  are particularly enjoyable to work with in Isabelle/HOL.
-  Compared to standard automata, states of timed automata are pairs of a location and
-  a \<^emph>\<open>clock valuation\<close> of type @{typ  "'c \<Rightarrow> 't"} assigning time values to clocks.
-  Time lapse is modeled by shifting a clock valuation \<open>u\<close> by a constant value \<open>d\<close>:
-  @{thm cval_add_def}.
-  Finally, we connect clock valuations and constraints by writing, for instance,
-  \<open>u \<turnstile> AND (LT c\<^sub>1 1) (EQ c\<^sub>2 2)\<close> if \<open>u c\<^sub>1 < 1\<close> and \<open>u c\<^sub>2 = 2\<close>.
-
-  Using these definitions, the operational semantics can be defined as relations between pairs of locations and clock
-  valuations.
-  %More specifically, we define \<^emph>\<open>action steps\<close>:
-  %  @{thm [mode = Rule, show_types = false, show_sorts = false] step_a.intros};
-  %and \<^emph>\<open>delay steps\<close>: %, written as @{term "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l',u'\<rangle>"}, via
-  %  @{thm [mode = Rule, show_types = false, show_sorts = false] step_t.intros}.
-  More specifically, we define \<^emph>\<open>action steps\<close> via %, written as @{term "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l',u'\<rangle>"}, via
-  \begin{center}
-    @{thm [mode = Rule, show_types = false, show_sorts = false] step_a.intros}
-  \end{center}
-  and \<^emph>\<open>delay steps\<close> via %, written as @{term "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l',u'\<rangle>"}, via
-  \begin{center}
-    @{thm [mode = Rule, show_types = false, show_sorts = false] step_t.intros}
-  \end{center}\dotdot
-  %Here @{term "inv_of A l"} denotes the invariant assigned to node $l$ in automaton $A$
-  Here @{term[show_types = false] "inv_of (T, I) = I"}
-  and the notation %@{term [show_types = true, show_sorts = false] "[r \<rightarrow> 0]u"}
-  \<open>[r \<rightarrow> 0]u\<close> means that we update the clocks in \<open>r\<close> to \<open>0\<close> in \<open>u\<close>.
-  %We use @{term "u \<turnstile> g"} to express that $u$ fulfills constraint $g$.
-  % , while we leave the valuation $u$ untouched for the clocks outside of $r$.
-  %Clocks assignments and constraints are related by another inductive relation:
-    %{thm [display, names_short] clock_val.intros}
-  We write @{term "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>"} if either @{term "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l',u'\<rangle>"} or
-  @{term "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l',u'\<rangle>"}.
-\<close>
-
-(*<*)
 declare step.intros[intro]
 
 inductive
@@ -334,13 +194,9 @@ where
 
 declare steps.intros[intro]
 
-(*>*)
+section \<open>Zone Semantics\<close>
 
-subsection \<open>Zone Semantics\<close>
-(*<*)
 type_synonym ('c, 't) zone = "('c, 't) cval set"
-(*>*)
-(*<*)
 
 definition zone_delay :: "('c, ('t::time)) zone \<Rightarrow> ('c, 't) zone"
 ("_\<^sup>\<up>" [71] 71)
@@ -351,34 +207,6 @@ definition zone_set :: "('c, 't::time) zone \<Rightarrow> 'c list \<Rightarrow> 
 ("_\<^bsub>_ \<rightarrow> 0\<^esub>" [71] 71)
 where
   "zone_set Z r = {[r \<rightarrow> (0::'t)]u | u . u \<in> Z}"
-
-(*>*)
-text \<open>
-  The first conceptual step to get from this abstract operational semantics towards concrete
-  algorithms on DBMs is to consider \<^emph>\<open>zones\<close>. %, which are sets of valuations.
-  Informally, the concept is simple; a zone is the set of clock valuations fulfilling a clock
-  constraint: %(i.e. the solutions of a clock constraint):
-  \<open>('c, 't) zone \<equiv> ('c \<Rightarrow> 't) set\<close>.
-  This allows us to abstract from a concrete state \<open>\<langle>l, u\<rangle>\<close> to a pair of node and zone
-  \<open>\<langle>l, Z\<rangle>\<close>. We need the following operations on zones:
-  %\setlist[description]{font=\normalfont\ttfamily}
-  %\begin{description}
-  %  \isastyle
-  %  \item[up:] @{thm zone_delay_def}
-  %  \item[reset:] @{thm zone_set_def}
-  %\end{description}
-  \begin{description}
-    \item[up:] @{thm[show_types = false, show_sorts = false] zone_delay_def}
-    \item[reset:] @{thm[show_types = false, show_sorts = false] zone_set_def}
-  \end{description}
-\<close>
-(*<*)
-text \<open>
-  \<^descr>\<^bold>\<open>up:\<close> @{thm[show_types = false, show_sorts = false] zone_delay_def}
-  \<^descr>\<^bold>\<open>reset:\<close> @{thm[show_types = false, show_sorts = false] zone_set_def}
-\<close>
-(*>*)
-(*<*)
 
 inductive step_z ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
@@ -392,18 +220,6 @@ inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto> \<lang
 
 declare step_z.intros[intro]
 
-(*>*)
-
-text \<open>\noindent
-  Naturally, we define the operational semantics with zones by means of
-  another inductive relation: %{thm [display] step_z.intros}
-  \begin{center}
-  @{thm [mode = Axiom] step_z.intros(1)} \\[1em]
-  @{thm [mode = Rule] step_z.intros(2)} \\[1em]
-  \end{center}
-\<close>
-
-(*<*)
 lemma step_z_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> (\<forall> u' \<in> Z'. \<exists> u \<in> Z.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>)"
 proof (induction rule: step_z.induct, goal_cases)
@@ -440,8 +256,8 @@ next
 qed
 
 text \<open>
-Corresponds to version in papers --
-not strong enough for inductive proof over transitive closure relation.
+  Corresponds to version in old papers --
+  not strong enough for inductive proof over transitive closure relation.
 \<close>
 lemma step_z_complete1:
   "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> \<exists> Z. A \<turnstile> \<langle>l, {u}\<rangle> \<leadsto> \<langle>l', Z\<rangle> \<and> u' \<in> Z"
@@ -471,10 +287,6 @@ lemma step_z_complete2:
   "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> \<exists> Z. A \<turnstile> \<langle>l, {u}\<rangle> \<leadsto> \<langle>l', Z\<rangle> \<and> u' \<in> Z"
 using step_z_complete by fast
 
-(*>*)
-
-(*<*)
-
 inductive
   steps_z :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>* \<langle>_, _\<rangle>" [61,61,61] 61)
@@ -483,15 +295,6 @@ where
   step: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>* \<langle>l'', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'', Z''\<rangle>"
 
 declare steps_z.intros[intro]
-
-(* Soundness *)
-
-text \<open>Abstain from quantifying u explicitly for ease of proof
-Compare: {@text "A \<turnstile> \<langle>l, {u0}\<rangle> \<leadsto>* \<langle>l',Z\<rangle> \<Longrightarrow> (\<forall> u \<in> Z. A \<turnstile> \<langle>l, u0\<rangle> \<rightarrow>* \<langle>l',u\<rangle>)"}
-Generalize from one starting sate for induction to work out.
-Compare ease of proof to wpd-forte94-full.pdf
-Alternation as explicit assumption?
-\<close>
 
 lemma steps_z_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> u' \<in> Z' \<Longrightarrow> \<exists> u \<in> Z. A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
@@ -515,33 +318,4 @@ next
   with Z' show ?case by blast
 qed
 
-(*>*)
-
-text \<open>\noindent
-  %When we turn to the discussion of DBMs in \refSection{DBM}, we will implicitly show that the mentioned
-  %zone operations really yield zones from zones, in the sense of solution sets of clock constraints.
-  With the help of two easy inductive arguments one can show %that our zone abstracted semantics really
-  %capture the right notion, i.e. the soundness and completeness of our semantics
-  %the soundness and completeness of our semantics:
-  soundness and completeness of this semantics \wrt the original semantics
-  (where \<open>*\<close> is the \<^emph>\<open>Kleene star\<close> operator):
-  % (using the Kleene star operation analogous to the above).
-  \begin{description}%[font=\itshape]
-    \item[(Soundness)] @{thm steps_z_sound}
-    \item[(Completeness)] @{thm steps_z_complete}
-  \end{description}
-  %that this semantics is sound: \begin{center}@{thm steps_z_sound};\end{center}
-  %and complete \wrt to the
-  %original semantics: \begin{center}@{thm steps_z_complete}\end{center}\dotdot
-  This is an example of where proof assistants really shine. Not only are our Isabelle proofs
-  shorter to write down % XXX ADD in Isar + citation?
-  than for example the proof given in \cite{{YiPD94}} --
-  we have also found that the less general version given there (i.e. where @{term "Z = {u}"})
-  yields an induction hypothesis
-  that is not strong enough in the case of the completeness proof. This slight lapse is hard to detect
-  in a human-written proof.
-\<close>
-
-(*<*)
 end
-(*>*)

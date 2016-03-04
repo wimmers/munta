@@ -1,45 +1,33 @@
-(*<*)
 theory DBM
   imports Floyd_Warshall Timed_Automata
 begin
-(*>*)
-(*<*)
-datatype ('t::time) DBMEntry = Le 't | Lt 't | INF ("\<infinity>")
-(*>*)
 
-(*<*)
+chapter \<open>Difference Bound Matrices\<close>
+
+section \<open>Definitions\<close>
+
 text \<open>
-  Difference Bound Matrices constrain differences of clocks (or more precisely, the difference of
-  values assigned to individual clocks by a valuation).
-  The possible constraints are given by the following datatype: @{datatype[display] "DBMEntry"}
-  This yields a simple definition of \dbms:
+  Difference Bound Matrices (DBMs) constrain differences of clocks
+  (or more precisely, the difference of values assigned to individual clocks by a valuation).
+  The possible constraints are given by the following datatype:
 \<close>
+
+datatype ('t::time) DBMEntry = Le 't | Lt 't | INF ("\<infinity>")
+
+text \<open>\noindent This yields a simple definition of \dbms:\<close>
 
 type_synonym 't DBM = "nat \<Rightarrow> nat \<Rightarrow> 't DBMEntry"
 
 text \<open>\noindent
   To relate clocks with rows and columns of
-  a DBM, we use a clock numbering % $v$ of type @{typ "'c \<Rightarrow> nat"} to map clocks to indices.
-  @{term[show_types] "v :: 'c \<Rightarrow> nat"}. DBMs will regularly be  accompanied by a natural number $n$,
-  %which can be thought of the number of clocks constrained by the matrix.
+  a DBM, we use a clock numbering \<open>v\<close> of type @{typ "'c \<Rightarrow> nat"} to map clocks to indices.
+  DBMs will regularly be  accompanied by a natural number $n$,
   which designates the number of clocks constrained by the matrix.
-  To be able to represent the full set of clock constraints with DBMs, we add an imaginary % artificial
+  To be able to represent the full set of clock constraints with DBMs, we add an imaginary
   clock \<open>\<zero>\<close>, which shall be assigned to 0 in every valuation.
-  Zero column and row will always be reserved for \<open>\<zero>\<close>
-  (\ie \<open>\<forall>c. v c > 0\<close>).
-  If necessary, we assume that $v$ is an injection for indices less or equal to $n$.
-  Informally, the zone \<open>[M]\<^bsub>v,n\<^esub>\<close> represented by a DBM \<open>M\<close> is defined as
-    @{text[display] "{u | \<forall>c\<^sub>1,c\<^sub>2. \<forall>d. v c\<^sub>1, v c\<^sub>2 \<le> n \<longrightarrow> (M (v c\<^sub>1) (v c\<^sub>2) = Lt d \<longrightarrow> u c\<^sub>1 - u c\<^sub>2 < d)
-       \<and> (M (v c\<^sub>1) (v c\<^sub>2) = Le d \<longrightarrow> u c\<^sub>1 - u c\<^sub>2 \<le> d)}"}
-  assuming that \<open>v \<zero> = 0\<close>.
-  %We write \<open>u \<turnstile>\<^bsub>v,n\<^esub> M\<close> to denote that clock valuation $u$ adheres to all constraints
-  %imposed by DBM $M$ given clock numbering $v$.
-  %Using this intuition we can precisely define the zone represented by a DBM. We first define
-  %when a difference between clocks fulfills the corresponding constraint:
+  In the following predicate we explicitly keep track of \<open>\<zero>\<close>.
 \<close>
-(*>*)
 
-(*<*)
 inductive dbm_entry_val :: "('c, 't) cval \<Rightarrow> 'c option \<Rightarrow> 'c option \<Rightarrow> ('t::time) DBMEntry \<Rightarrow> bool"
 where
   "u r \<le> d \<Longrightarrow> dbm_entry_val u (Some r) None (Le d)" |
@@ -50,17 +38,6 @@ where
   "u r - u c < d \<Longrightarrow> dbm_entry_val u (Some r) (Some c) (Lt d)" |
   "dbm_entry_val _ _ _ \<infinity>"
 
-text \<open>
-  Here, we specifically keep track of \<open>\<zero>\<close> by representing it as None in predicate
-  \<open>dbm_entry_val\<close>, while representing any other clock \<open>c\<close> as @{term "Some c"}.
-  We instructed Isabelle to automatically greedily apply these rules also for backward reasoning
-  to allow convenient reasoning about clock differences. % constraints?
-\<close>
-
-(*>*)
-
-(*<*)
-
 declare dbm_entry_val.intros[intro]
 inductive_cases[elim!]: "dbm_entry_val u None (Some c) (Le d)"
 inductive_cases[elim!]: "dbm_entry_val u (Some c) None (Le d)"
@@ -69,19 +46,11 @@ inductive_cases[elim!]: "dbm_entry_val u (Some c) None (Lt d)"
 inductive_cases[elim!]: "dbm_entry_val u (Some r) (Some c) (Le d)"
 inductive_cases[elim!]: "dbm_entry_val u (Some r) (Some c) (Lt d)"
 
-(*>*)
-
-(*<*)
-
 fun dbm_entry_bound :: "('t::time) DBMEntry \<Rightarrow> 't"
 where
   "dbm_entry_bound (Le t) = t" |
   "dbm_entry_bound (Lt t) = t" |
   "dbm_entry_bound \<infinity> = 0"
-  
-(*>*)
-
-(*<*)
 
 inductive dbm_lt :: "('t::time) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> bool"
 ("_ \<prec> _" [51, 51] 50)
@@ -100,12 +69,9 @@ definition dbm_le :: "('t::time) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow
 where
   "dbm_le a b \<equiv> (a \<prec> b) \<or> a = b"
 
-(*>*)
-
-(*<*)
 text \<open>
   Now a valuation is contained in the zone represented by a DBM if it fulfills all individual
-  constraints: % for clocks that are assigned an index smaller less or equal to n:
+  constraints:
 \<close>
 
 definition DBM_val_bounded :: "('c \<Rightarrow> nat) \<Rightarrow> ('c, 't) cval \<Rightarrow> ('t::time) DBM \<Rightarrow> nat \<Rightarrow> bool"
@@ -120,26 +86,6 @@ abbreviation DBM_val_bounded_abbrev ::
 ("_ \<turnstile>\<^bsub>_,_\<^esub> _")
 where
   "u \<turnstile>\<^bsub>v,n\<^esub> M \<equiv> DBM_val_bounded v u M n"
-
-text \<open>
-  %We have \<open>a \<prec> \<infinity>\<close> if \<open>a \<noteq> \<infinity>\<close> and \<open>\<le>\<^sub>1 x \<prec> \<le>\<^sub>2 y\<close> if \<open>x < y\<close> or \<open>x \<le> y\<close> and \<open>\<close>
-  We use \<open>a \<prec> \<infinity>\<close> if \<open>a \<noteq> \<infinity>\<close>, \<open>\<le>\<^sub>1 x \<prec> \<le>\<^sub>2 y\<close> if \<open>x < y\<close> and \<open>Lt x \<prec> Le y\<close> if \<open>x \<le> y\<close>, extending
-  to \<open>\<preceq>\<close> in the obvious way.
-\<close>
-
-text \<open>
-  The ordering \<open>\<prec>\<close> is defined via:
-    \begin{center}
-      @{thm[mode = Rule] dbm_lt.intros(3)} @{thm[mode = Rule] dbm_lt.intros(4)}
-      @{thm[mode = Rule] dbm_lt.intros(4)} @{thm[mode = Rule] dbm_lt.intros(5)}
-      @{thm[mode = Rule] dbm_lt.intros(1)} @{thm[mode = Rule] dbm_lt.intros(2)}
-    \end{center}
-  and extended to \<open>\<preceq>\<close> in the obvious way.
-\<close>
-
-(*>*)
-
-(*<*)
 
 abbreviation
   "dmin a b \<equiv> if a \<prec> b then a else b"
@@ -321,6 +267,8 @@ lemma dbm_le_not_inf:
   "a \<preceq> b \<Longrightarrow> b \<noteq> \<infinity> \<Longrightarrow> a \<noteq> \<infinity>"
 by (cases "a = b") (auto simp: dbm_le_def)
 
+section \<open>DBM Entries Form a Linearly Ordered Abelian Monoid\<close>
+
 instantiation DBMEntry :: (time) linorder
 begin
   definition less_eq: "op \<le> \<equiv> dbm_le"
@@ -388,6 +336,9 @@ lemma inf_not_lt[simp]: "\<infinity> \<prec> x = False" by auto
 lemma any_le_inf: "x \<le> \<infinity>" by (metis less_eq dmb_le_dbm_entry_bound_inf le_cases)
 
 
+section \<open>Basic Properties of DBMs\<close>
+
+subsection \<open>DBMs and Length of Paths\<close>
 
 lemma dbm_entry_val_add_1: "dbm_entry_val u (Some c) (Some d) a \<Longrightarrow>  dbm_entry_val u (Some d) None b
        \<Longrightarrow> dbm_entry_val u (Some c) None (dbm_add a b)"
@@ -463,7 +414,6 @@ next
   case 3 thus ?thesis by (cases b) auto
 qed
 
-(* XXX Introduced this notation only for paper, now hiding it again *)
 no_notation dbm_add (infixl "\<otimes>" 70)
 
 lemma DBM_val_bounded_len_1'_aux:
@@ -748,8 +698,4 @@ next
   thus ?case using 2(4) unfolding DBM_val_bounded_def by simp 
 qed
 
-(*>*)
-
-(*<*)
 end
-(*>*)

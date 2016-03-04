@@ -1,13 +1,11 @@
-(*<*)
+subsection \<open>Semantics Based on DBMs\<close>
+
 theory DBM_Zone_Semantics
 imports DBM_Operations
 begin
 
-section \<open>DBM zone semantics\<close>
+subsection \<open>Single Step\<close>
 
-text \<open>
-  Mention weird mixture of zones and clocks representing zones.
-\<close>
 inductive step_z_dbm ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('t::time) DBM
     \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> ('t::time) DBM \<Rightarrow> bool"
@@ -22,13 +20,6 @@ where
 inductive_cases step_z_cases: "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l', D'\<rangle>"
 
 declare step_z_dbm.intros[intro]
-
-(*
-lemma step_z_dbm_sound:
-  "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',D'\<rangle>
-   \<Longrightarrow> (\<forall> u' \<in> [D']\<^bsub>v,n\<^esub>. \<exists> u \<in> [D]\<^bsub>v,n\<^esub>.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>)"
-by (induction rule: step_z_dbm.induct) (rule step_z_sound)
-*)
 
 lemma step_z_dbm_preserves_int:
   assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
@@ -210,7 +201,7 @@ proof -
 qed
 
 
-subsection \<open>Multi step\<close>
+subsection \<open>Multi Step\<close>
 
 inductive steps_z_dbm ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('t::time) DBM

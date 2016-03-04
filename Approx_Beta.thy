@@ -1,7 +1,8 @@
-(*<*)
 theory Approx_Beta
   imports DBM_Zone_Semantics Regions_Beta Closure
 begin
+
+chapter \<open>Correctness of \<open>\<beta>\<close>-approximation from \<open>\<alpha>\<close>-regions\<close>
 
 text \<open>Instantiating real\<close>
 
@@ -37,7 +38,7 @@ using finite non_empty clock_numbering not_in_X by (unfold_locales) (auto simp: 
 
 abbreviation "Approx\<^sub>\<beta> \<equiv> beta_interp.Approx\<^sub>\<beta>"
 
-section \<open>Preparing Bouyer's theorem\<close>
+section \<open>Preparing Bouyer's Theorem\<close>
 
 lemma region_dbm:
   assumes "R \<in> \<R>"
@@ -800,7 +801,8 @@ apply (cases x) using Ints_cases by auto
 
 abbreviation "vabstr \<equiv> beta_interp.vabstr"
 
-section \<open>Bouyer's main theorem connecting \<open>\<alpha>\<close>-regions and \<open>\<beta>\<close>-approximation\<close>
+
+section \<open>Bouyer's Main Theorem\<close>
 
 theorem region_zone_intersect_empty_approx_correct:
   assumes "R \<in> \<R>" "Z \<subseteq> V" "R \<inter> Z = {}" "vabstr Z M"
@@ -1944,7 +1946,8 @@ proof -
   qed
 qed
 
-section \<open>The nice corollaries of Bouyer's theorem\<close>
+
+section \<open>Nice Corollaries of Bouyer's Theorem\<close>
 
 lemma \<R>_V: "\<Union> \<R> = V" unfolding V_def \<R>_def using region_cover[of X _ k] by auto
 
@@ -2005,7 +2008,7 @@ next
   ultimately show ?thesis using *(1,4) unfolding V'_def by auto
 qed
 
-subsection \<open>A new zone semantics abstracting with \<open>Approx\<^sub>\<beta>\<close>\<close>
+section \<open>A New Zone Semantics Abstracting with \<open>Approx\<^sub>\<beta>\<close>\<close>
 
 lemma step_z_V':
   assumes "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle>" "valid_abstraction A X k" "\<forall>c\<in>clk_set A. v c \<le> n" "Z \<in> V'"
@@ -2026,7 +2029,7 @@ lemma steps_z_V':
 by (induction rule: steps_z.induct) (auto intro: step_z_V')
 
 
-subsubsection \<open>Single step\<close>
+subsection \<open>Single Step\<close>
 
 inductive step_z_beta ::
   "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
@@ -2057,7 +2060,7 @@ lemma step_z_alpha_complete:
  apply (drule apx_empty_iff')
 by blast
 
-subsubsection \<open>Multi step\<close>
+subsection \<open>Multi step\<close>
 
 inductive
   steps_z_beta :: "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
@@ -2217,4 +2220,3 @@ using steps_z_beta_complete by fast
 end
 
 end
-(*>*)

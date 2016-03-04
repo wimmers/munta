@@ -1,25 +1,19 @@
-(*<*)
-
 theory DBM_Basics
   imports DBM Paths_Cycles
 begin
-
-text \<open>Move-somewhere bucket\<close>
 
 fun get_const where
   "get_const (Le c) = c" |
   "get_const (Lt c) = c" |
   "get_const \<infinity> = undefined"
 
-text \<open>DBMs\<close>
+
+subsection \<open>Discourse on updating DBMs\<close>
 
 abbreviation DBM_update :: "('t::time) DBM \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('t DBMEntry) \<Rightarrow> ('t::time) DBM"
 where
   "DBM_update M m n v \<equiv> (\<lambda> x y. if m = x \<and> n = y then v else M x y)"
   
-
-text \<open>Update DBMs\<close>
-
 fun DBM_upd :: "('t::time) DBM \<Rightarrow> (nat \<Rightarrow> nat \<Rightarrow> 't DBMEntry) \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't DBM"
 where
   "DBM_upd M f 0 0 _ = DBM_update M 0 0 (f 0 0)" |
@@ -70,6 +64,9 @@ proof -
   also have "\<dots> = f i j" by (cases i; cases j; fastforce)
   finally show ?thesis .
 qed
+
+
+subsection \<open>Zones and DBMs\<close>
 
 definition DBM_zone_repr :: "('t::time) DBM \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> ('c, 't :: time) zone"
 ("[_]\<^bsub>_,_\<^esub>" [72,72,72] 72)
@@ -131,9 +128,8 @@ proof -
   thus "u \<in> [M']\<^bsub>v,n\<^esub>" by (simp add: DBM_zone_repr_def)
 qed
 
-subsection \<open>
-  DBMs without negative cycles
-\<close>
+
+subsection \<open>DBMs Without Negative Cycles are Non-Empty\<close>
 
 text \<open>
   We need all of these assumptions for the proof that matrices without negative cycles
@@ -250,7 +246,7 @@ proof -
 qed
 
 subsection \<open>
-  Negative Cycles on DBMs
+  Negative Cycles in DBMs
 \<close>
 
 lemma DBM_val_bounded_neg_cycle1:
@@ -317,7 +313,7 @@ proof -
   qed
 qed
 
-subsection \<open>Fix me\<close>
+subsection \<open>Floyd-Warshall Algorithm Preservers Zones\<close>
 
 lemma D_dest: "x = D m i j k \<Longrightarrow>
   x \<in> {len m i j xs |xs. set xs \<subseteq> {0..k} \<and> i \<notin> set xs \<and> j \<notin> set xs \<and> distinct xs}"
@@ -709,9 +705,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
 qed
 
 
-text \<open>
-  Main theorem for fixing a value in non-empty DBMs to working towards a valuation.
-\<close>
+subsection \<open>The Characteristic Property of Canonical DBMs\<close>
 
 theorem fix_index':
   fixes M :: "(('a :: time) DBMEntry) mat"
@@ -990,6 +984,8 @@ proof -
   from FW_not_empty[OF this] show ?thesis by auto
 qed
 
+subsection \<open>Floyd-Warshall and Empty DBMs\<close>
+
 theorem FW_detects_empty_zone:
   "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k) \<Longrightarrow> \<forall> c. v c \<le> n \<longrightarrow> v c > 0
   \<Longrightarrow> [FW M n]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> (\<exists> i\<le>n. (FW M n) i i < Le 0)"
@@ -1026,7 +1022,7 @@ qed
    and we want to reuse this as a variable name, so we hide it away *)
 hide_const D
 
-subsection \<open>Mixed corollaries\<close>
+subsection \<open>Mixed Corollaries\<close>
 
 lemma cyc_free_not_empty:
   assumes "cyc_free M n" "\<forall>c. v c \<le> n \<longrightarrow> 0 < v c"
@@ -1122,11 +1118,4 @@ lemma canonical_empty_zone:
 using FW_detects_empty_zone[OF assms(1,2), of M] FW_canonical_id[OF assms(3)] unfolding neutral
 by simp
 
-(*
-abbreviation
-  "canonical M n \<equiv> \<forall> i j k. i \<le> n \<and> j \<le> n \<and> k \<le> n \<longrightarrow> M i k \<preceq> dbm_add (M i j) (M j k)"
-*)
-
 end
-
-(*>*)

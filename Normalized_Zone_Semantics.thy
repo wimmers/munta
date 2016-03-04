@@ -1,13 +1,12 @@
-(*<*)
+chapter \<open>Forward Analysis with DBMs and Widening\<close>
+
 theory Normalized_Zone_Semantics
   imports DBM_Zone_Semantics Approx_Beta
 begin
 
-section \<open>Normalized DBM zone semantics\<close>
+section \<open>DBM-based Semantics with Normalization\<close>
 
-subsection \<open>A new zone semantics abstracting with \<open>Closure\<^sub>\<alpha>\<close>\<close>
-
-subsubsection \<open>Single step\<close>
+subsection \<open>Single Step\<close>
 
 inductive step_z_norm ::
   "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> bool"
@@ -254,7 +253,7 @@ proof -
   qed
 qed
 
-subsubsection \<open>Multi step\<close>
+subsection \<open>Multi step\<close>
 
 declare steps_z_norm.intros[intro]
 
@@ -306,7 +305,7 @@ lemma norm_beta_equiv_multi:
 using norm_beta_complete_multi[OF _ assms] norm_beta_sound_multi[OF _ assms] by metis
 
 
-subsection \<open>Connecting with soundness and completeness theorems for approximating semantics\<close>
+subsection \<open>Connecting with Correctness Results for Approximating Semantics\<close>
 
 lemma steps_z_norm_complete':
   assumes "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>* \<langle>l',Z\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
@@ -336,7 +335,8 @@ proof -
   from steps_z_beta_sound[OF this _ assms(3) valid_dbm_V'] assms(2,4,5) show ?thesis by blast
 qed
 
-section \<open>The final result about language emptiness\<close>
+
+section \<open>The Final Result About Language Emptiness\<close>
 
 lemma steps_z_norm_complete:
   assumes "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" "u \<in> [D]\<^bsub>v,n\<^esub>"
@@ -358,7 +358,7 @@ theorem steps_z_norm_decides_emptiness:
 using steps_z_norm_sound[OF _ assms] steps_z_norm_complete[OF _ _ assms] by fast
 
 
-section \<open>Finiteness of the search space\<close>
+section \<open>Finiteness of the Search Space\<close>
 
 abbreviation "dbm_default M \<equiv> (\<forall> i > n. \<forall> j. M i j = \<one>) \<and> (\<forall> j > n. \<forall> i. M i j = \<one>)"
 
@@ -611,4 +611,3 @@ proof -
 qed
 
 end
-(*>*)

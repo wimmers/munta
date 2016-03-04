@@ -2,7 +2,7 @@ theory Paths_Cycles
   imports Floyd_Warshall Timed_Automata
 begin
 
-section \<open>Length and Distinct\<close>
+chapter \<open>Library for Paths, Arcs and Lengths\<close>
 
 lemma length_eq_distinct:
   assumes "set xs = set ys" "distinct xs" "length xs = length ys"
@@ -85,7 +85,7 @@ next
   then show ?case by (cases "k = x") auto
 qed
 
-section \<open>Length of paths\<close>
+section \<open>Length of Paths\<close>
 
 lemmas (in linordered_ab_monoid_add) comm = add.commute
 
@@ -106,9 +106,7 @@ next
   thus ?case by simp
 qed
 
-section \<open>
-  Canonical matrices
-\<close>
+section \<open>Canonical Matrices\<close>
 
 abbreviation
   "canonical M n \<equiv> \<forall> i j k. i \<le> n \<and> j \<le> n \<and> k \<le> n \<longrightarrow> M i k \<le> M i j + M j k"
@@ -133,9 +131,7 @@ next
   finally show ?case by simp
 qed
 
-section \<open>
-  Cycle rotation
-\<close>
+section \<open>Cycle Rotation\<close>
 
 lemma cycle_rotate:
   fixes M :: "('a :: linordered_ab_monoid_add) mat"
@@ -284,9 +280,7 @@ proof -
   qed
 qed
 
-section \<open>
-  Equivalent decisions of cycle-freeness
-\<close>
+section \<open>Equivalent Characterizations of Cycle-Freeness\<close>
 
 lemma negative_cycle_dest_diag:
   "\<not> cycle_free M n \<Longrightarrow> \<exists> i xs. i \<le> n \<and> set xs \<subseteq> {0..n} \<and> len M i i xs < \<one>"
@@ -327,7 +321,7 @@ lemma cycle_free_0_0:
   shows "M 0 0 \<ge> \<one>"
 using cyc_free_diag_dest[OF cycle_free_diag_dest[OF assms], of 0 "[]"] by auto
 
-section \<open>More theorems related to Floyd-Warshall\<close>
+section \<open>More Theorems Related to Floyd-Warshall\<close>
 
 lemma D_cycle_free_len_dest:
   "cycle_free m n
@@ -468,13 +462,10 @@ qed
 
 lemmas FW_canonical_id = fw_canonical_id[OF _ order.refl order.refl order.refl]
 
-section \<open>Approx Beta\<close>
+section \<open>Helper Lemmas for Bouyer's Theorem on Approximation\<close>
 
 lemma aux1: "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> set xs \<subseteq> {0..n} \<Longrightarrow> (a,b) \<in> set (arcs i j xs) \<Longrightarrow> a \<le> n \<and> b \<le> n"
 by (induction xs arbitrary: i) auto
-(* XXX Send to mailing list: This loops
-  apply (induction arbitrary: i rule: arcs.induct)
-*)
 
 lemma arcs_distinct1:
   "i \<notin> set xs \<Longrightarrow> j \<notin> set xs \<Longrightarrow> distinct xs \<Longrightarrow> xs \<noteq> [] \<Longrightarrow> (a,b) \<in> set (arcs i j xs) \<Longrightarrow> a \<noteq> b"
@@ -764,7 +755,7 @@ lemma arcs_ex_head:
   "\<exists> b. (i, b) \<in> set (arcs i j xs)"
 by (cases xs) auto
 
-subsection \<open>successive lib\<close>
+subsection \<open>Successive\<close>
 
 fun successive where
   "successive _ [] = True" |

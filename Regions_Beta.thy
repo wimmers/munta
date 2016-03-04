@@ -1,12 +1,10 @@
-(*<*)
 theory Regions_Beta
 imports Misc DBM_Normalization DBM_Operations
 begin
 
-section \<open>Finer grained regions for correct approximation\<close>
+chapter \<open>Refinement to \<open>\<beta>\<close>-regions\<close>
 
-(* XXX Add citation *)
-subsection \<open>A formalization of \<open>\<beta>\<close> regions in the correct version of P. Bouyer\<close>
+section \<open>Definition\<close>
 
 type_synonym 'c ceiling = "('c \<Rightarrow> nat)"
 
@@ -92,6 +90,7 @@ where
    \<forall> x \<in> X. \<forall> y \<in> X. isGreater (I x) \<or> isGreater (I y) \<longrightarrow> intv'_elem x y u (J x y)
   \<Longrightarrow> u \<in> region X I J r"
 
+
 text \<open>Defining the unique element of a partition that contains a valuation\<close>
 
 definition part ("[_]\<^sub>_" [61,61] 61) where "part v \<R> \<equiv> THE R. R \<in> \<R> \<and> v \<in> R"
@@ -123,6 +122,8 @@ declare intv'_elem.intros[intro]
 
 declare region.cases[elim]
 declare valid_region.cases[elim]
+
+section \<open>Basic Properties\<close>
 
 text \<open>First we show that all valid intervals are distinct\<close>
 
@@ -333,14 +334,13 @@ lemma region_cover_V: "v \<in> V \<Longrightarrow> \<exists> R. R \<in> \<R> \<a
 
 text \<open>
   Note that we cannot show that every region is non-empty anymore.
-  The problem are regions fixing differences between to an 'infeasible' constant.
+  The problem are regions fixing differences between an 'infeasible' constant.
 \<close>
 
 text \<open>
   We can show that there is always exactly one region a valid valuation belongs to.
-  Note that we never needed region non-emptiness for that.
+  Note that we do not need non-emptiness for that.
 \<close>
-
 lemma regions_partition:
   "\<forall>x \<in> X. 0 \<le> v x \<Longrightarrow> \<exists>! R \<in> \<R>. v \<in> R"
 proof goal_cases
@@ -564,6 +564,8 @@ qed
 
 end
 
+section \<open>Approximation with \<open>\<beta>\<close>-regions\<close>
+
 locale Beta_Regions' = Beta_Regions +
   fixes v n not_in_X
   assumes clock_numbering: "\<forall> c. v c > 0 \<and> (\<forall>x. \<forall>y. v x \<le> n \<and> v y \<le> n \<and> v x = v y \<longrightarrow> x = y)"
@@ -770,7 +772,7 @@ unfolding apx_def using empty_zone_dbm by blast
 
 end
 
-subsection \<open>\<beta>-normalization can be calculated\<close>
+section \<open>Computing \<beta>-Approximation\<close>
 
 context Beta_Regions'
 begin
@@ -2118,103 +2120,6 @@ proof -
   then show ?thesis by blast
 qed
 
-(*
-lemma norm_min:
-  assumes "normalized M1" "[M]\<^bsub>v,n\<^esub> \<subseteq> [M1]\<^bsub>v,n\<^esub>" "norm M M2 (k o v') n"
-          "canonical M n" "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
-  shows "[M2]\<^bsub>v,n\<^esub> \<subseteq> [M1]\<^bsub>v,n\<^esub>"
-proof -
-  thm DBM_canonical_subset_le
-  have le: "\<And> i j. i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> i \<noteq> j\<Longrightarrow> M i j \<le> M1 i j" using assms(2,4,5)
-  by (auto intro!: DBM_canonical_subset_le)
-  from assms have "[M1]\<^bsub>v,n\<^esub> \<noteq> {}" by auto
-  with neg_diag_empty_spec have "\<forall> i\<le>n. M1 i i \<ge> Le 0" unfolding neutral by force
-  moreover
-  { fix i j assume "i \<le> n" "j \<le> n" "i \<noteq> j"
-    note le = le[OF this(1,2)]
-    have "M2 i j \<le> M1 i j"
-    proof (cases "i = 0")
-      case True
-      show ?thesis
-      proof (cases "j = 0")
-        case True
-        with \<open>i = 0\<close> \<open>i \<noteq> j\<close> show ?thesis by auto
-      next
-        case False
-        then have "j > 0" by auto
-        note j = this \<open>j \<le> n\<close>
-        then obtain c where c: "v c = j" "c \<in> X" "v' (v c) = c"
-        using clock_numbering(2) v_v' by blast
-        show ?thesis
-        proof (cases "M 0 (v c) \<prec> Lt (- k c)")
-          case False
-          with c j assms(3) have "M2 0 j = M 0 j" unfolding norm_def by auto
-          with le \<open>i = 0\<close> j show ?thesis by auto
-        next
-          case True
-          with c j assms(3) have "M2 0 j = Lt (- k c)" unfolding norm_def by auto
-          with assms(1) c(1,3) j \<open>i = 0\<close> show ?thesis unfolding normalized by fastforce
-        qed
-      qed
-    next
-      case False
-      then have "i > 0" by auto
-      note i = this \<open>i \<le> n\<close>
-      then obtain c1 where c1: "v c1 = i" "c1 \<in> X" "v' (v c1) = c1"
-      using clock_numbering(2) v_v' by blast
-      show ?thesis
-      proof (cases "j = 0")
-        case True
-        show ?thesis
-        proof (cases "Le (k c1) \<prec> M (v c1) 0")
-          case False
-          with c1 i assms(3) have "M2 i 0 = M i 0" unfolding norm_def by auto
-          with le \<open>j = 0\<close> i show ?thesis by auto
-        next
-          case True
-          with le c1(1) \<open>j = 0\<close> i have "M1 i 0 > Le (k c1)" unfolding less[symmetric] by auto
-          moreover from True c1 i assms(3) have "M2 i 0 = \<infinity>" unfolding norm_def by auto
-          moreover from assms(1) c1(1,3) i have "M1 i 0 \<le> Le (k c1) \<or> M1 i 0 = \<infinity>"
-          unfolding normalized by auto
-          ultimately show ?thesis using \<open>j = 0\<close> by auto
-        qed
-      next
-        case False
-        then have "j > 0" by auto
-        note j = this \<open>j \<le> n\<close>
-        then obtain c2 where c2: "v c2 = j" "c2 \<in> X" "v' (v c2) = c2"
-        using clock_numbering(2) v_v' by blast
-        show ?thesis
-        proof (cases "Le (k c1) \<prec> M (v c1) (v c2)")
-          case False
-          note F = this
-          show ?thesis
-          proof (cases "M (v c1) (v c2) \<prec> Lt (- real (k c2))")
-            case False
-            with c1 c2 i j F assms(3) have "M2 i j = M i j" unfolding norm_def by auto
-            with le i j \<open>i \<noteq> j\<close> show ?thesis by auto
-          next
-            case True
-            with c1 c2 F assms(3) i j have "M2 i j = Lt (- k c2)" unfolding norm_def by auto
-            moreover from assms(1) c1 c2 i j have "M1 i j = \<infinity> \<or> M1 i j \<ge> Lt (- k c2)"
-            unfolding normalized by fastforce
-            ultimately show ?thesis by auto
-          qed
-        next
-          case True
-          with le c1 c2  i j \<open>i \<noteq> j\<close> have "M1 i j > Le (k c1)" unfolding less[symmetric] by auto
-          moreover from True c1 c2 i j assms(3) have "M2 i j = \<infinity>" unfolding norm_def by auto
-          moreover from assms(1) c1 c2 i j have "M1 i j = \<infinity> \<or> M1 i j \<le> Le (k c1)"
-          unfolding normalized by fastforce
-          ultimately show ?thesis by auto
-        qed
-      qed
-    qed
-  }
-  ultimately show ?thesis using DBM_le_subset'[folded less_eq, of M2 M1] assms(1,2,4) by fastforce
-qed
-*)
-
 lemma apx_norm_eq:
   assumes "canonical M n" "[M]\<^bsub>v,n\<^esub> \<subseteq> V" "dbm_int M n"
   shows "Approx\<^sub>\<beta> ([M]\<^bsub>v,n\<^esub>) = [norm M (k o v') n]\<^bsub>v,n\<^esub>"
@@ -2256,7 +2161,8 @@ qed
 
 end        
 
-subsection \<open>\<beta>-boundedness theorems for Bouyer's theorem\<close>
+
+section \<open>Auxiliary \<beta>-boundedness Theorems\<close>
 
 context Beta_Regions'
 begin
@@ -3170,4 +3076,3 @@ qed
 end
 
 end
-(*>*)

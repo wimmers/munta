@@ -1,9 +1,10 @@
-(*<*)
+chapter \<open>Forward Analysis on DBMs\<close>
+
 theory DBM_Operations
   imports DBM_Basics
 begin
 
-subsection \<open>Auxiliary\<close>
+section \<open>Auxiliary\<close>
 
 lemma gt_swap:
   fixes a b c :: "'t :: time"
@@ -17,13 +18,11 @@ lemma le_swap:
   shows "c \<le> b + a"
 by (simp add: add.commute assms)
 
-text \<open>Clock numberings\<close>
-
 abbreviation clock_numbering :: "('c \<Rightarrow> nat) \<Rightarrow> bool"
 where
   "clock_numbering v \<equiv> \<forall> c. v c > 0"
 
-text \<open>DBM operations\<close>
+section \<open>Time Lapse\<close>
 
 definition up :: "('t::time) DBM \<Rightarrow> ('t::time) DBM"
 where
@@ -585,7 +584,7 @@ proof (clarsimp, goal_cases)
   with m(5) u' show ?case by fastforce
 qed
 
-text \<open>From clock constraints to DBMs\<close>
+section \<open>From Clock Constraints to DBMs\<close>
 
 fun And :: "('t :: time) DBM \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
   "And M1 M2 = (\<lambda> i j. min (M1 i j) (M2 i j))"
@@ -813,7 +812,7 @@ lemma dbm_abstr_zone_eq:
 using dbm_abstr_soundness dbm_abstr_completeness assms unfolding DBM_zone_repr_def by metis
 
 
-subsection \<open>DBM and\<close>
+section \<open>Zone Intersection\<close>
 
 lemma DBM_and_complete:
   assumes "DBM_val_bounded v u M1 n" "DBM_val_bounded v u M2 n"
@@ -870,7 +869,8 @@ next
   unfolding DBM_val_bounded_def by auto
 qed
 
-text \<open>DBM clock reset\<close>
+
+section \<open>Clock Reset\<close>
 
 definition
   DBM_reset :: "('t :: time) DBM \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't \<Rightarrow> 't DBM \<Rightarrow> bool"
@@ -880,9 +880,7 @@ where
     \<and> M' k k = M k k
     \<and> (\<forall>i \<le> n. \<forall>j \<le> n.
         i \<noteq> k \<and> j \<noteq> k \<longrightarrow> M' i j = min (dbm_add (M i k) (M k j)) (M i j))"
-(*
-lemmas DBM_reset_def' = DBM_reset_def[unfolded min_min_equiv, folded mult]
-*)
+
 
 lemma DBM_reset_mono:
   assumes "DBM_reset M n k d M'" "i \<le> n" "j \<le> n" "i \<noteq> k" "j \<noteq> k"
@@ -2346,7 +2344,7 @@ proof -
   with DBM_reset'_sound'[OF assms(2,3)] assms(4) show ?thesis unfolding DBM_zone_repr_def by blast
 qed
 
-section \<open>Stuff that previously was elsewhere\<close>
+section \<open>Misc Preservation Lemmas\<close>
 
 lemma get_const_sum[simp]:
   "a \<noteq> \<infinity> \<Longrightarrow> b \<noteq> \<infinity> \<Longrightarrow> get_const a \<in> \<int> \<Longrightarrow> get_const b \<in> \<int> \<Longrightarrow> get_const (a + b) \<in> \<int>"
@@ -2453,7 +2451,7 @@ unfolding up_def min_def
  apply auto
 unfolding mult[symmetric] by (auto dest: sum_not_inf_dest)
 
-(* XXX Definitely a candidate for cleaning *)
+(* Definitely a candidate for cleaning *)
 lemma DBM_reset_int_preservation':
   assumes "dbm_int M n" "DBM_reset M n k d M'" "d \<in> \<int>" "k \<le> n"
   shows "dbm_int M' n"
@@ -2623,4 +2621,3 @@ next
 qed
 
 end
-(*>*)

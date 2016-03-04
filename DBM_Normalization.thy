@@ -1,7 +1,10 @@
-(*<*)
+section \<open>Normalization of DBMs\<close>
+
 theory DBM_Normalization
 imports DBM_Basics
 begin
+
+text \<open>This is the implementation of the common approximation operation.\<close>
 
 fun norm_upper :: "('t::time) DBMEntry \<Rightarrow> 't \<Rightarrow> ('t::time) DBMEntry"
 where
@@ -11,9 +14,8 @@ fun norm_lower :: "('t::time) DBMEntry \<Rightarrow> 't \<Rightarrow> ('t::time)
 where
   "norm_lower e t = (if e \<prec> Lt t then Lt t else e)"
 
-(* The 'nat \<Rightarrow> 't function gives a clock ceiling for every the clock belonging to every index *)
 text \<open>
-  Note that literature pretends that k would have some (presumably infinite bound) in k
+  Note that literature pretends that \<open>\<zero>\<close> would have some (presumably infinite bound) in \<open>k\<close>
   and thus defines normalization uniformly. The easiest way to get around this seems to explicate
   this in the definition as below.
 \<close>
@@ -25,7 +27,7 @@ where
     if i \<le> n \<and> j \<le> n then norm_lower (norm_upper (M i j) ub) lb else M i j
   "
 
-section \<open>Completeness and soundness of normalization\<close>
+section \<open>Normalization is a Widening Operator\<close>
 
 lemma norm_mono:
   assumes "\<forall>c. v c > 0" "u \<in> [M]\<^bsub>v,n\<^esub>"
@@ -117,4 +119,3 @@ proof -
 qed
 
 end
-(*>*)

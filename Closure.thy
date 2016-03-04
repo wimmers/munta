@@ -1,9 +1,8 @@
-(*<*)
 theory Closure
   imports Regions
 begin
 
-section \<open>The \<alpha>-Closure as defined by P. Bouyer\<close>
+section \<open>Correct Approximation of Zones with \<open>\<alpha>\<close>-regions\<close>
 
 locale AlphaClosure =
   fixes X k \<R> and V :: "('c, t) cval set"
@@ -27,7 +26,7 @@ where
   "cla Z = \<Union> {R \<in> \<R>. R \<inter> Z \<noteq> {}}"
 
 
-subsubsection \<open>The nice and easy properties proved by P. Bouyer\<close>
+subsubsection \<open>The nice and easy properties proved by Bouyer\<close>
 
 lemma closure_constraint_id:
   "\<forall>(x, m)\<in>collect_clock_pairs g. m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat> \<Longrightarrow> Closure\<^sub>\<alpha> \<lbrace>g\<rbrace> = \<lbrace>g\<rbrace> \<inter> V"
@@ -200,9 +199,10 @@ lemma cla_mono:
   "Z \<subseteq> Z' \<Longrightarrow> Closure\<^sub>\<alpha> Z \<subseteq> Closure\<^sub>\<alpha> Z'"
 using closure_V_int cla_mono'[of "Z' \<inter> V" "Z \<inter> V"] by auto
 
-subsection \<open>A new zone semantics abstracting with \<open>Closure\<^sub>\<alpha>\<close>\<close>
 
-subsubsection \<open>Single step\<close>
+section \<open>A New Zone Semantics Abstracting with \<open>Closure\<^sub>\<alpha>\<close>\<close>
+
+subsection \<open>Single step\<close>
 
 inductive step_z_alpha ::
   "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
@@ -229,7 +229,8 @@ lemma step_z_V: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'
  apply (rule reset_V)
 by blast
 
-text \<open>Single-step soundness and completeness follows trivially from cla_empty_iff\<close>
+
+text \<open>Single-step soundness and completeness follows trivially from \<open>cla_empty_iff\<close>.\<close>
 
 lemma step_z_alpha_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {} \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
@@ -257,7 +258,7 @@ lemma zone_delay_mono:
 unfolding zone_delay_def by auto
 
 
-subsubsection \<open>Multi step\<close>
+subsection \<open>Multi step\<close>
 
 inductive
   steps_z_alpha :: "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
@@ -343,6 +344,7 @@ next
   done
   with A(5) show ?thesis by auto
 qed
+
 
 text \<open>
   Turning P. Bouyers argument for multiple steps into an inductive proof is not direct.
@@ -679,4 +681,3 @@ using steps_z_alpha_complete by fast
 end
 
 end
-(*>*)
