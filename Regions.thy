@@ -2766,7 +2766,7 @@ next
 qed
 
 text \<open>
-  Compare this to lemma step_z_sound. This version is weaker because for regions we may very well
+  Compare this to lemma \<open>step_z_sound\<close>. This version is weaker because for regions we may very well
   arrive at a successor for which not every valuation can be reached by the predecessor.
   This is the case for e.g. the region with only Greater (k x) bounds.
 \<close>

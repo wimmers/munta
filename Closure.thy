@@ -272,7 +272,7 @@ declare steps_z_alpha.intros[intro]
 lemma subset_int_mono: "A \<subseteq> B \<Longrightarrow> A \<inter> C \<subseteq> B \<inter> C" by blast
 
 text \<open>P. Bouyer's calculation for @{term "Post(Closure\<^sub>\<alpha> Z, e) \<subseteq> Closure\<^sub>\<alpha>(Post (Z, e))"}\<close>
-text \<open>This is now obsolete as we argue solely with monotonicty of steps_z \wrt \<open>Closure\<^sub>\<alpha>\<close>\<close>
+text \<open>This is now obsolete as we argue solely with monotonicty of \<open>steps_z\<close> w.r.t \<open>Closure\<^sub>\<alpha>\<close>\<close>
 
 lemma calc:
   "valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> A \<turnstile> \<langle>l, Closure\<^sub>\<alpha> Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>

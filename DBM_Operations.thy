@@ -1317,7 +1317,7 @@ proof -
 qed
 
 text \<open>
-  Lemma FW_canonical_id allows us to prove correspondences between reset and canonical,
+  Lemma \<open>FW_canonical_id\<close> allows us to prove correspondences between reset and canonical,
   like for the two below.
   Can be left out for the rest because of the triviality of the correspondence.
 \<close>

@@ -14,7 +14,7 @@ text \<open>
 
 datatype ('t::time) DBMEntry = Le 't | Lt 't | INF ("\<infinity>")
 
-text \<open>\noindent This yields a simple definition of \dbms:\<close>
+text \<open>\noindent This yields a simple definition of DBMs:\<close>
 
 type_synonym 't DBM = "nat \<Rightarrow> nat \<Rightarrow> 't DBMEntry"
 

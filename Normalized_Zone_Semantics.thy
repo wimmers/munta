@@ -450,7 +450,7 @@ qed
 end
 
 
-section \<open>Appendix: standard clock numberings for concrete models\<close>
+section \<open>Appendix: Standard Clock Numberings for Concrete Models\<close>
 
 locale Regions' =
   fixes X and k :: "'c \<Rightarrow> nat" and v :: "'c \<Rightarrow> nat" and n :: nat and not_in_X

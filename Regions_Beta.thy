@@ -772,7 +772,7 @@ unfolding apx_def using empty_zone_dbm by blast
 
 end
 
-section \<open>Computing \<beta>-Approximation\<close>
+section \<open>Computing \<open>\<beta>\<close>-Approximation\<close>
 
 context Beta_Regions'
 begin
@@ -2162,7 +2162,7 @@ qed
 end        
 
 
-section \<open>Auxiliary \<beta>-boundedness Theorems\<close>
+section \<open>Auxiliary \<open>\<beta>\<close>-boundedness Theorems\<close>
 
 context Beta_Regions'
 begin

@@ -705,7 +705,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
 qed
 
 
-subsection \<open>The Characteristic Property of Canonical DBMs\<close>
+section \<open>The Characteristic Property of Canonical DBMs\<close>
 
 theorem fix_index':
   fixes M :: "(('a :: time) DBMEntry) mat"

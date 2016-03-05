@@ -1858,7 +1858,7 @@ proof -
             "M\<^sub>R z 0 = Le d \<and> M\<^sub>R 0 z = Le (-d) \<or> M\<^sub>R z 0 = Lt d \<and> M\<^sub>R 0 z = Lt (-d + 1)"
             "d \<le> k (v' z)" "0 \<le> d"
           unfolding v'_def by auto
-          text \<open>Needs property that len of integral dbm entries is integral & definition of M_R\<close>
+          text \<open>Needs property that len of integral dbm entries is integral and definition of \<open>M_R\<close>\<close>
           from this (1) have rr: "?r \<ge> M\<^sub>R z 0"
           proof (standard, goal_cases)
             case A: 1

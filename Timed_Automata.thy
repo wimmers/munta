@@ -1,8 +1,8 @@
-chapter \<open>Basic Definitions and Semantics\<close>
-
 theory Timed_Automata
   imports Main
 begin
+
+chapter \<open>Basic Definitions and Semantics\<close>
 
 section \<open>Time\<close>
 
