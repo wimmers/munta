@@ -313,6 +313,132 @@ proof -
   qed
 qed
 
+paragraph \<open>Nicer Path Boundedness Theorems\<close>
+
+lemma DBM_val_bounded_len_1:
+  fixes v
+  assumes "DBM_val_bounded v u M n" "v c \<le> n" "set vs \<subseteq> {0..n}" "\<forall> k \<le> n. (\<exists> c. v c = k)"
+  shows "dbm_entry_val u (Some c) None (len M (v c) 0 vs)" using assms
+proof (induction "length vs" arbitrary: vs rule: less_induct)
+  case A: less
+  show ?case
+  proof (cases "0 \<in> set vs")
+    case False
+    with DBM_val_bounded_len_1'_aux[OF A(2,3)] A(4,5) show ?thesis by fastforce
+  next
+    case True
+    then obtain xs ys where vs: "vs = xs @ 0 # ys" by (meson split_list)
+    from len_decomp[OF this] have "len M (v c) 0 vs = len M (v c) 0 xs + len M 0 0 ys" .
+    moreover have "len M 0 0 ys \<ge> \<one>"
+    proof (rule ccontr, goal_cases)
+      case 1
+      then have "len M 0 0 ys < \<one>" by simp
+      with DBM_val_bounded_neg_cycle[OF assms(1), of 0 ys] vs A(4,5) show False by auto
+    qed
+    ultimately have *: "len M (v c) 0 vs \<ge> len M (v c) 0 xs" using add_mono_neutr by simp
+    from vs A have "dbm_entry_val u (Some c) None (len M (v c) 0 xs)" by auto
+    from dbm_entry_val_mono_3[OF this, of "len M (v c) 0 vs"] * show ?thesis unfolding less_eq by auto
+  qed
+qed
+
+lemma DBM_val_bounded_len_2:
+  fixes v
+  assumes "DBM_val_bounded v u M n" "v c \<le> n" "set vs \<subseteq> {0..n}" "\<forall> k \<le> n. (\<exists> c. v c = k)"
+  shows "dbm_entry_val u None (Some c) (len M 0 (v c) vs)" using assms
+proof (induction "length vs" arbitrary: vs rule: less_induct)
+  case A: less
+  show ?case
+  proof (cases "0 \<in> set vs")
+    case False
+    with DBM_val_bounded_len_2'_aux[OF A(2,3)] A(4,5) show ?thesis by fastforce
+  next
+    case True
+    then obtain xs ys where vs: "vs = xs @ 0 # ys" by (meson split_list)
+    from len_decomp[OF this] have "len M 0 (v c) vs = len M 0 0 xs + len M 0 (v c) ys" .
+    moreover have "len M 0 0 xs \<ge> \<one>"
+    proof (rule ccontr, goal_cases)
+      case 1
+      then have "len M 0 0 xs < \<one>" by simp
+      with DBM_val_bounded_neg_cycle[OF assms(1), of 0 xs] vs A(4,5) show False by auto
+    qed
+    ultimately have *: "len M 0 (v c) vs \<ge> len M 0 (v c) ys" by (simp add: add_mono_neutl) 
+    from vs A have "dbm_entry_val u None (Some c) (len M 0 (v c) ys)" by auto
+    from dbm_entry_val_mono_2[OF this] * show ?thesis unfolding less_eq by auto
+  qed
+qed
+
+lemma DBM_val_bounded_len_3:
+  fixes v
+  assumes "DBM_val_bounded v u M n" "v c1 \<le> n" "v c2 \<le> n" "set vs \<subseteq> {0..n}"
+          "\<forall> k \<le> n. (\<exists> c. v c = k)"
+  shows "dbm_entry_val u (Some c1) (Some c2) (len M (v c1) (v c2) vs)" using assms
+proof (cases "0 \<in> set vs")
+  case False
+  with DBM_val_bounded_len_3'_aux[OF assms(1-3)] assms(4-) show ?thesis by fastforce
+next
+  case True
+  then obtain xs ys where vs: "vs = xs @ 0 # ys" by (meson split_list)
+  from assms(4,5) vs DBM_val_bounded_len_1[OF assms(1,2)] DBM_val_bounded_len_2[OF assms(1,3)]
+  have
+    "dbm_entry_val u (Some c1) None (len M (v c1) 0 xs)"
+    "dbm_entry_val u None (Some c2) (len M 0 (v c2) ys)"
+  by auto
+  from dbm_entry_val_add_4[OF this] len_decomp[OF vs, of M] show ?thesis unfolding mult by auto
+qed
+
+text \<open>An equivalent way of handling \<zero>\<close>
+
+fun val_0 :: "('c \<Rightarrow> ('a :: linordered_ab_group_add)) \<Rightarrow> 'c option \<Rightarrow> 'a" where
+  "val_0 u None = 0" |
+  "val_0 u (Some c) = u c"
+
+notation val_0 ("_\<^sub>\<zero> _" [90,90] 90)
+
+term "val_0 u (Some 3) + 1"
+
+lemma dbm_entry_val_None_None[dest]:
+  "dbm_entry_val u None None l \<Longrightarrow> l = \<infinity>"
+by (auto elim: dbm_entry_val.cases)
+
+lemma dbm_entry_val_dbm_lt:
+  assumes "dbm_entry_val u x y l"
+  shows "Lt (u\<^sub>\<zero> x - u\<^sub>\<zero> y) \<prec> l"
+using assms
+  apply (cases x; cases y)
+by (cases rule: dbm_entry_val.cases, auto)+
+
+lemma dbm_lt_dbm_entry_val_1:
+  assumes "Lt (u x) \<prec> l"
+  shows "dbm_entry_val u (Some x) None l"
+using assms by (cases rule: dbm_lt.cases) auto
+
+lemma dbm_lt_dbm_entry_val_2:
+  assumes "Lt (- u x) \<prec> l"
+  shows "dbm_entry_val u None (Some x) l"
+using assms by (cases rule: dbm_lt.cases) auto
+
+lemma dbm_lt_dbm_entry_val_3:
+  assumes "Lt (u x - u y) \<prec> l"
+  shows "dbm_entry_val u (Some x) (Some y) l"
+using assms by (cases rule: dbm_lt.cases) auto
+
+text \<open>A more uniform theorem for boundedness by paths\<close>
+
+lemma DBM_val_bounded_len:
+  fixes v
+  defines "v' \<equiv> \<lambda> x. if x = None then 0 else v (the x)"
+  assumes "DBM_val_bounded v u M n" "v' x \<le> n" "v' y \<le> n" "set vs \<subseteq> {0..n}"
+          "\<forall> k \<le> n. (\<exists> c. v c = k)" "x \<noteq> None \<or> y \<noteq> None"
+  shows "Lt (u\<^sub>\<zero> x - u\<^sub>\<zero> y) \<prec> len M (v' x) (v' y) vs" using assms
+apply -
+apply (rule dbm_entry_val_dbm_lt)
+apply (cases x; cases y)
+   apply simp_all
+  apply (rule DBM_val_bounded_len_2; auto)
+ apply (rule DBM_val_bounded_len_1; auto)
+apply (rule DBM_val_bounded_len_3; auto)
+done
+
 subsection \<open>Floyd-Warshall Algorithm Preservers Zones\<close>
 
 lemma D_dest: "x = D m i j k \<Longrightarrow>

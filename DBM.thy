@@ -488,6 +488,53 @@ lemma nat_list_0 [intro]:
   "x \<in> set xs \<Longrightarrow> 0 \<notin> set (xs :: nat list) \<Longrightarrow> x > 0"
 by (induction xs) auto
 
+lemma DBM_val_bounded_len'1:
+  fixes v
+  assumes "DBM_val_bounded v u m n" "0 \<notin> set vs" "v c \<le> n"
+          "\<forall> k \<in> set vs. k > 0 \<longrightarrow> k \<le> n \<and> (\<exists> c. v c = k)"
+  shows "dbm_entry_val u (Some c) None (len m (v c) 0 vs)"
+using DBM_val_bounded_len_1'_aux[OF assms(1,3)] assms(2,4) by fastforce
+
+lemma DBM_val_bounded_len'2:
+  fixes v
+  assumes "DBM_val_bounded v u m n" "0 \<notin> set vs" "v c \<le> n"
+          "\<forall> k \<in> set vs. k > 0 \<longrightarrow> k \<le> n \<and> (\<exists> c. v c = k)"
+  shows "dbm_entry_val u None (Some c) (len m 0 (v c) vs)"
+using DBM_val_bounded_len_2'_aux[OF assms(1,3)] assms(2,4) by fastforce
+
+lemma DBM_val_bounded_len'3:
+  fixes v
+  assumes "DBM_val_bounded v u m n" "cnt 0 vs \<le> 1" "v c1 \<le> n" "v c2 \<le> n"
+          "\<forall> k \<in> set vs. k > 0 \<longrightarrow> k \<le> n \<and> (\<exists> c. v c = k)"
+  shows "dbm_entry_val u (Some c1) (Some c2) (len m (v c1) (v c2) vs)"
+proof -
+  show ?thesis
+  proof (cases "\<forall> k \<in> set vs. k > 0")
+    case True
+    with assms have "\<forall> k \<in> set vs. k > 0 \<and> k \<le> n \<and> (\<exists> c. v c = k)" by auto
+    with DBM_val_bounded_len_3'_aux[OF assms(1,3,4)] show ?thesis by auto
+  next
+    case False
+    then have "\<exists> k \<in> set vs. k = 0" by auto
+    then obtain us ws where vs: "vs = us @ 0 # ws" by (meson split_list_last) 
+    with cnt_at_most_1_D[of 0 "us"] assms(2) have
+      "0 \<notin> set us" "0 \<notin> set ws"
+    by auto
+    with vs have vs: "vs = us @ 0 # ws" "\<forall> k \<in> set us. k > 0" "\<forall> k \<in> set ws. k > 0" by auto
+    with assms(5) have v:
+      "\<forall>k\<in>set us. 0 < k \<and> k \<le> n \<and> (\<exists>c. v c = k)" "\<forall>k\<in>set ws. 0 < k \<and> k \<le> n \<and> (\<exists>c. v c = k)"
+    by auto
+    with dbm_entry_val_add_4 [OF DBM_val_bounded_len_1'_aux[OF assms(1,3) v(1)] DBM_val_bounded_len_2'_aux[OF assms(1,4) v(2)]]
+    have "dbm_entry_val u (Some c1) (Some c2) (dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws))" by auto
+    moreover from vs have "len m (v c1) (v c2) vs = dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws)"
+    by (simp add: len_comp mult)
+    ultimately show ?thesis by auto
+  qed
+qed
+
+
+paragraph \<open>Now unused\<close>
+
 lemma DBM_val_bounded_len':
   fixes v
   defines "vo \<equiv> \<lambda> k. if k = 0 then None else Some (SOME c. v c = k)"
@@ -548,112 +595,6 @@ proof -
     ultimately show ?thesis using c1 c2 by auto
   qed
 qed
-
-lemma DBM_val_bounded_len'1:
-  fixes v
-  assumes "DBM_val_bounded v u m n" "0 \<notin> set vs" "v c \<le> n"
-          "\<forall> k \<in> set vs. k > 0 \<longrightarrow> k \<le> n \<and> (\<exists> c. v c = k)"
-  shows "dbm_entry_val u (Some c) None (len m (v c) 0 vs)"
-using DBM_val_bounded_len_1'_aux[OF assms(1,3)] assms(2,4) by fastforce
-
-lemma DBM_val_bounded_len'2:
-  fixes v
-  assumes "DBM_val_bounded v u m n" "0 \<notin> set vs" "v c \<le> n"
-          "\<forall> k \<in> set vs. k > 0 \<longrightarrow> k \<le> n \<and> (\<exists> c. v c = k)"
-  shows "dbm_entry_val u None (Some c) (len m 0 (v c) vs)"
-using DBM_val_bounded_len_2'_aux[OF assms(1,3)] assms(2,4) by fastforce
-
-lemma DBM_val_bounded_len'3:
-  fixes v
-  assumes "DBM_val_bounded v u m n" "cnt 0 vs \<le> 1" "v c1 \<le> n" "v c2 \<le> n"
-          "\<forall> k \<in> set vs. k > 0 \<longrightarrow> k \<le> n \<and> (\<exists> c. v c = k)"
-  shows "dbm_entry_val u (Some c1) (Some c2) (len m (v c1) (v c2) vs)"
-proof -
-  show ?thesis
-  proof (cases "\<forall> k \<in> set vs. k > 0")
-    case True
-    with assms have "\<forall> k \<in> set vs. k > 0 \<and> k \<le> n \<and> (\<exists> c. v c = k)" by auto
-    with DBM_val_bounded_len_3'_aux[OF assms(1,3,4)] show ?thesis by auto
-  next
-    case False
-    then have "\<exists> k \<in> set vs. k = 0" by auto
-    then obtain us ws where vs: "vs = us @ 0 # ws" by (meson split_list_last) 
-    with cnt_at_most_1_D[of 0 "us"] assms(2) have
-      "0 \<notin> set us" "0 \<notin> set ws"
-    by auto
-    with vs have vs: "vs = us @ 0 # ws" "\<forall> k \<in> set us. k > 0" "\<forall> k \<in> set ws. k > 0" by auto
-    with assms(5) have v:
-      "\<forall>k\<in>set us. 0 < k \<and> k \<le> n \<and> (\<exists>c. v c = k)" "\<forall>k\<in>set ws. 0 < k \<and> k \<le> n \<and> (\<exists>c. v c = k)"
-    by auto
-    with dbm_entry_val_add_4 [OF DBM_val_bounded_len_1'_aux[OF assms(1,3) v(1)] DBM_val_bounded_len_2'_aux[OF assms(1,4) v(2)]]
-    have "dbm_entry_val u (Some c1) (Some c2) (dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws))" by auto
-    moreover from vs have "len m (v c1) (v c2) vs = dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws)"
-    by (simp add: len_comp mult)
-    ultimately show ?thesis by auto
-  qed
-qed
-
-lemma DBM_val_bounded_len':
-  fixes v
-  defines "vo \<equiv> \<lambda> k. if k = 0 then None else Some (SOME c. v c = k)"
-  assumes "DBM_val_bounded v u m n" "i \<noteq> 0 \<or> j \<noteq> 0"
-          "\<forall> k \<in> set (i # j # vs). k > 0 \<longrightarrow> k \<le> n \<and> (\<exists> c. v c = k)"
-  shows "dbm_entry_val u (vo i) (vo j) (len m i j vs)" using assms
-proof (induction "length vs" arbitrary: i vs rule: less_induct)
-  case less
-  show ?case
-  proof (cases "\<forall> k \<in> set vs. k > 0")
-    case True
-    with less.prems have *: "\<forall> k \<in> set vs. k > 0 \<and> k \<le> n \<and> (\<exists> c. v c = k)" by auto
-    show ?thesis
-    proof (cases "i = 0")
-      case True
-      then have i: "vo i = None" by (simp add: vo_def)
-      show ?thesis
-      proof (cases "j = 0")
-        case True with less.prems \<open>i = 0\<close> show ?thesis by auto
-      next
-        case False
-        with less.prems obtain c2 where c2: "j \<le> n" "v c2 = j" "vo j = Some c2"
-        unfolding vo_def by (fastforce intro: someI)
-        with \<open>i = 0\<close> i DBM_val_bounded_len_2'_aux[OF less.prems(1) _ *] show ?thesis by auto
-      qed
-    next
-      case False
-      with less.prems obtain c1 where c1: "i \<le> n" "v c1 = i" "vo i = Some c1"
-      unfolding vo_def by (fastforce intro: someI)
-      show ?thesis
-      proof (cases "j = 0")
-        case True
-        with DBM_val_bounded_len_1'_aux[OF less.prems(1) _ *] c1 show ?thesis by (auto simp: vo_def)
-      next
-        case False
-        with less.prems obtain c2 where c2: "j \<le> n" "v c2 = j" "vo j = Some c2"
-        unfolding vo_def by (fastforce intro: someI)
-        with c1 DBM_val_bounded_len_3'_aux[OF less.prems(1) _ _ *] show ?thesis by auto
-      qed
-    qed
-  next
-    case False
-    then have "\<exists> us ws. vs = us @ 0 # ws \<and> (\<forall> k \<in> set us. k > 0)"
-    proof (induction vs)
-      case Nil then show ?case by auto
-    next
-      case (Cons x vs)
-      show ?case
-      proof (cases "x = 0")
-        case True then show ?thesis by fastforce
-      next
-        case False
-        with Cons.prems have "\<not> (\<forall>a\<in>set vs. 0 < a)" by auto
-        from Cons.IH[OF this] obtain us ws where "vs = us @ 0 # ws" "\<forall>a\<in>set us. 0 < a" by auto
-        with False have "x # vs = (x # us) @ 0 # ws" "\<forall>a\<in>set (x # us). 0 < a" by auto
-        then show ?thesis by blast
-      qed
-    qed
-    then obtain us ws where vs: "vs = us @ 0 # ws" "\<forall> k \<in> set us. k > 0" by blast
-    then show ?thesis
-oops
 
 lemma DBM_val_bounded_len_1: "DBM_val_bounded v u m n \<Longrightarrow> v c \<le> n \<Longrightarrow> \<forall> c \<in> set cs. v c \<le> n
       \<Longrightarrow> dbm_entry_val u (Some c) None (len m (v c) 0 (map v cs))"
