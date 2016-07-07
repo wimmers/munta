@@ -1688,7 +1688,6 @@ proof (induction "card C" arbitrary: C I r v v' t rule: less_induct)
     obtain I' r'
       where   stability:
         "\<forall> v \<in> region X I r. \<forall> t\<ge>0. (v \<oplus> t) \<notin> region X I r \<longrightarrow> (\<exists>t'\<le>t. (v \<oplus> t') \<in> region X I' r' \<and> t' \<ge> 0)"
-      and succ_not_refl: "\<forall> v \<in> region X I' r'. \<forall> t\<ge>0. (v \<oplus> t) \<notin> region X I r"
       and critical_mono: "\<forall> v \<in> region X I r. \<forall>t. \<forall> t'.
                             {x. x \<in> X \<and> (\<exists> c. I' x = Intv c \<and> (v \<oplus> t') x + (t - t') \<ge> real (c + 1))}
                             = {x. x \<in> X \<and> (\<exists> c. I x  = Intv c \<and> v x + t \<ge> real (c + 1))} - ?M"
