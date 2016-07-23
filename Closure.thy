@@ -619,7 +619,7 @@ proof (cases rule: step_z.cases, assumption, goal_cases)
     apply (rule subset_int_mono)
     apply (rule A(2))
   done
-  ultimately show ?thesis by auto
+  ultimately show ?thesis by meson
 next
   case A: (2 g a r)
   let ?W' = "zone_set (W \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
@@ -631,7 +631,7 @@ next
     apply (rule subset_int_mono)
     apply (rule A(2))
   done
-  ultimately show ?thesis by auto
+  ultimately show ?thesis by meson
 qed
 
 lemma step_z_alpha_mono:

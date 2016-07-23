@@ -357,19 +357,24 @@ theorem steps_z_norm_decides_emptiness:
      \<longleftrightarrow> (\<exists> u \<in> [D]\<^bsub>v,n\<^esub>. \<exists> u'. A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
 using steps_z_norm_sound[OF _ assms] steps_z_norm_complete[OF _ _ assms] by fast
 
+end
 
 section \<open>Finiteness of the Search Space\<close>
 
-abbreviation "dbm_default M \<equiv> (\<forall> i > n. \<forall> j. M i j = \<one>) \<and> (\<forall> j > n. \<forall> i. M i j = \<one>)"
+abbreviation "dbm_default M n \<equiv> (\<forall> i > n. \<forall> j. M i j = \<one>) \<and> (\<forall> j > n. \<forall> i. M i j = \<one>)"
 
 lemma "a \<in> \<int> \<Longrightarrow> \<exists> b. a = real_of_int b" using Ints_cases by auto
 
 lemma norm_default_preservation:
-  "dbm_default M \<Longrightarrow> dbm_default (norm M (k o v') n)"
+  "dbm_default M n \<Longrightarrow> dbm_default (norm M k n) n"
 by (simp add: norm_def)
 
+
+context Regions
+begin
+
 lemma normalized_integral_dbms_finite:
-  "finite {norm M (k o v') n | M. dbm_int M n \<and> dbm_default M}"
+  "finite {norm M (k o v') n | M. dbm_int M n \<and> dbm_default M n}"
 proof -
   let ?u = "Max {(k o v') i | i. i \<le> n}" let ?l = "- ?u"
   let ?S = "(Le ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
@@ -377,10 +382,10 @@ proof -
     "finite {f. \<forall>x y. (x \<in> {0..n} \<and> y \<in> {0..n} \<longrightarrow> f x y \<in> ?S)
                 \<and> (x \<notin> {0..n} \<longrightarrow> f x y = \<one>) \<and> (y \<notin> {0..n} \<longrightarrow> f x y = \<one>)}" (is "finite ?R")
   by auto
-  { fix M :: "t DBM" assume A: "dbm_int M n" "dbm_default M"
+  { fix M :: "t DBM" assume A: "dbm_int M n" "dbm_default M n"
     let ?M = "norm M (k o v') n"
     from beta_interp.norm_int_preservation[OF A(1)] norm_default_preservation[OF A(2)] have
-      A: "dbm_int ?M n" "dbm_default ?M"
+      A: "dbm_int ?M n" "dbm_default ?M n"
     by blast+
     { fix i j assume "i \<in> {0..n}" "j \<in> {0..n}"
       then have B: "i \<le> n" "j \<le> n" by auto
@@ -443,7 +448,7 @@ proof -
     { fix i j assume "j \<notin> {0..n}"
       with A(2) have "?M i j = \<one>" by auto
     } moreover note the = calculation
-  } then have "{norm M (k o v') n | M. dbm_int M n \<and> dbm_default M} \<subseteq> ?R" by blast
+  } then have "{norm M (k o v') n | M. dbm_int M n \<and> dbm_default M n} \<subseteq> ?R" by blast
   with fin show ?thesis by (blast intro: finite_subset)
 qed
 

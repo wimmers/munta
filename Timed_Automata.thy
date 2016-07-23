@@ -26,13 +26,14 @@ qed
 
 end
 
-datatype ('c, 't :: time) cconstraint =
-  AND "('c, 't) cconstraint" "('c, 't) cconstraint" |
+datatype ('c, 't :: time) acconstraint =
   LT 'c 't |
   LE 'c 't |
   EQ 'c 't |
   GT 'c 't |
   GE 'c 't
+
+type_synonym ('c, 't) cconstraint = "('c, 't) acconstraint list"
 
 section \<open>Syntactic Definition\<close>
 
@@ -62,23 +63,29 @@ abbreviation transition ::
 
 subsection \<open>Collecting Information About Clocks\<close>
 
-fun collect_clks :: "('c, 't :: time) cconstraint \<Rightarrow> 'c set"
+fun constraint_clk :: "('c, 't :: time) acconstraint \<Rightarrow> 'c"
 where
-  "collect_clks (AND cc1 cc2) = collect_clks cc1 \<union> collect_clks cc2" |
-  "collect_clks (LT c _) = {c}" |
-  "collect_clks (LE c _) = {c}" |
-  "collect_clks (EQ c _) = {c}" |
-  "collect_clks (GE c _) = {c}" |
-  "collect_clks (GT c _) = {c}"
+  "constraint_clk (LT c _) = c" |
+  "constraint_clk (LE c _) = c" |
+  "constraint_clk (EQ c _) = c" |
+  "constraint_clk (GE c _) = c" |
+  "constraint_clk (GT c _) = c"
 
-fun collect_clock_pairs :: "('c, 't :: time) cconstraint \<Rightarrow> ('c * 't) set"
+definition collect_clks :: "('c, 't :: time) cconstraint \<Rightarrow> 'c set"
 where
-  "collect_clock_pairs (LT x m) = {(x, m)}" |
-  "collect_clock_pairs (LE x m) = {(x, m)}" |
-  "collect_clock_pairs (EQ x m) = {(x, m)}" |
-  "collect_clock_pairs (GE x m) = {(x, m)}" |
-  "collect_clock_pairs (GT x m) = {(x, m)}" |
-  "collect_clock_pairs (AND cc1 cc2) = (collect_clock_pairs cc1 \<union> collect_clock_pairs cc2)"
+  "collect_clks cc \<equiv> constraint_clk ` set cc"
+
+fun constraint_pair :: "('c, 't :: time) acconstraint \<Rightarrow> ('c * 't)"
+where
+  "constraint_pair (LT x m) = (x, m)" |
+  "constraint_pair (LE x m) = (x, m)" |
+  "constraint_pair (EQ x m) = (x, m)" |
+  "constraint_pair (GE x m) = (x, m)" |
+  "constraint_pair (GT x m) = (x, m)"
+
+definition collect_clock_pairs :: "('c, 't :: time) cconstraint \<Rightarrow> ('c * 't) set"
+where
+  "collect_clock_pairs cc = constraint_pair ` set cc"
 
 definition collect_clkt :: "('a, 'c, 't::time, 's) transition set \<Rightarrow> ('c *'t) set"
 where
@@ -112,23 +119,45 @@ definition cval_add :: "('c,'t) cval \<Rightarrow> 't::time \<Rightarrow> ('c,'t
 where
   "u \<oplus> d = (\<lambda> x. u x + d)"
 
+term list_all
+
+inductive clock_val_a ("_ \<turnstile>\<^sub>a _" [62, 62] 62) where
+  "\<lbrakk>u c < d\<rbrakk> \<Longrightarrow> u \<turnstile>\<^sub>a LT c d" |
+  "\<lbrakk>u c \<le> d\<rbrakk> \<Longrightarrow> u \<turnstile>\<^sub>a LE c d" |
+  "\<lbrakk>u c = d\<rbrakk> \<Longrightarrow> u \<turnstile>\<^sub>a EQ c d" |
+  "\<lbrakk>u c \<ge> d\<rbrakk> \<Longrightarrow> u \<turnstile>\<^sub>a GE c d" |
+  "\<lbrakk>u c > d\<rbrakk> \<Longrightarrow> u \<turnstile>\<^sub>a GT c d"
+
+inductive_cases[elim!]: "u \<turnstile>\<^sub>a LT c d"
+inductive_cases[elim!]: "u \<turnstile>\<^sub>a LE c d"
+inductive_cases[elim!]: "u \<turnstile>\<^sub>a EQ c d"
+inductive_cases[elim!]: "u \<turnstile>\<^sub>a GE c d"
+inductive_cases[elim!]: "u \<turnstile>\<^sub>a GT c d"
+
+declare clock_val_a.intros[intro]
+
+(*
+fun clock_val_a :: "('c, 't) cval \<Rightarrow> ('c, 't::time) acconstraint \<Rightarrow> bool" ("_ \<turnstile>\<^sub>a _" [62, 62] 62) where
+  "u \<turnstile>\<^sub>a LT c d = (u c < d)" |
+  "u \<turnstile>\<^sub>a LE c d = (u c \<le> d)" |
+  "u \<turnstile>\<^sub>a EQ c d = (u c = d)" |
+  "u \<turnstile>\<^sub>a GE c d = (u c \<ge> d)" |
+  "u \<turnstile>\<^sub>a GT c d = (u c > d)"
+*)
+
+(*
+fun clock_val :: "('c, 't) cval \<Rightarrow> ('c, 't::time) cconstraint \<Rightarrow> bool" ("_ \<turnstile> _" [62, 62] 62)
+where
+  "u \<turnstile> cc = list_all (clock_val_a u) cc"
+*)
+
 inductive clock_val :: "('c, 't) cval \<Rightarrow> ('c, 't::time) cconstraint \<Rightarrow> bool" ("_ \<turnstile> _" [62, 62] 62)
 where
-  "\<lbrakk>u \<turnstile> cc1; u \<turnstile> cc2\<rbrakk> \<Longrightarrow> u \<turnstile> AND cc1 cc2" |
-  "\<lbrakk>u c < d\<rbrakk> \<Longrightarrow> u \<turnstile> LT c d" |
-  "\<lbrakk>u c \<le> d\<rbrakk> \<Longrightarrow> u \<turnstile> LE c d" |
-  "\<lbrakk>u c = d\<rbrakk> \<Longrightarrow> u \<turnstile> EQ c d" |
-  "\<lbrakk>u c \<ge> d\<rbrakk> \<Longrightarrow> u \<turnstile> GE c d" |
-  "\<lbrakk>u c > d\<rbrakk> \<Longrightarrow> u \<turnstile> GT c d"
+  "list_all (clock_val_a u) cc \<Longrightarrow> u \<turnstile> cc"
+
+inductive_cases[elim!]: "u \<turnstile> cc"
 
 declare clock_val.intros[intro]
-
-inductive_cases[elim!]: "u \<turnstile> AND cc1 cc2"
-inductive_cases[elim!]: "u \<turnstile> LT c d"
-inductive_cases[elim!]: "u \<turnstile> LE c d"
-inductive_cases[elim!]: "u \<turnstile> EQ c d"
-inductive_cases[elim!]: "u \<turnstile> GE c d"
-inductive_cases[elim!]: "u \<turnstile> GT c d"
 
 fun clock_set :: "'c list \<Rightarrow> 't::time \<Rightarrow> ('c,'t) cval \<Rightarrow> ('c,'t) cval"
 where

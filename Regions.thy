@@ -1,7 +1,7 @@
 chapter \<open>The Classic Construction for Decidability\<close>
 
 theory Regions
-imports Timed_Automata Misc
+imports Timed_Automata TA_Misc
 begin
 
 text \<open>
@@ -1898,66 +1898,66 @@ section \<open>Compability With Clock Constraints\<close>
 
 definition ccval ("\<lbrace>_\<rbrace>" [100]) where "ccval cc \<equiv> {v. v \<turnstile> cc}"
 
-definition ccompatible
+definition acompatible
 where
-  "ccompatible \<R> cc \<equiv> \<forall> R \<in> \<R>. R \<subseteq> ccval cc \<or> ccval cc \<inter> R = {}"
+  "acompatible \<R> ac \<equiv> \<forall> R \<in> \<R>. R \<subseteq> {v. v \<turnstile>\<^sub>a ac} \<or> {v. v \<turnstile>\<^sub>a ac} \<inter> R = {}"
 
 lemma ccompatible1:
   fixes X k fixes c :: real
   defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
   assumes "c \<le> k x" "c \<in> \<nat>" "x \<in> X"
-  shows "ccompatible \<R> (EQ x c)" using assms unfolding ccompatible_def
+  shows "acompatible \<R> (EQ x c)" using assms unfolding acompatible_def
 proof (auto, goal_cases)
   case A: (1 I r v u)
-  from A(3) obtain d where d: "c = of_nat d" unfolding Nats_def by auto
-  with A(8) have u: "u x = c" "u x = d" unfolding ccval_def by auto
+  from A(3,9) obtain d where d: "c = of_nat d" unfolding Nats_def by auto
+  with A(8,9) have u: "u x = c" "u x = d" unfolding ccval_def by auto
   have "I x = Const d"
   proof (cases "I x", goal_cases)
     case (1 c')
-    with A(4,9) have "u x = c'" by fastforce
+    with A have "u x = c'" by fastforce
     with 1 u show ?case by auto
   next
     case (2 c')
-    with A(4,9) have "c' < u x" "u x < c' + 1" by fastforce+
+    with A have "c' < u x" "u x < c' + 1" by fastforce+
     with 2 u show ?case by auto
   next
     case (3 c')
-    with A(4,9) have "c' < u x" by fastforce
+    with A have "c' < u x" by fastforce
     moreover from 3 A(4,5) have "c' \<ge> k x" by fastforce
     ultimately show ?case using u A(2) by auto
   qed
   with A(4,6) d have "v x = c" by fastforce
-  with A(3,5) have "v \<turnstile> EQ x c" by auto
-  with A(7) show False unfolding ccval_def by auto
+  with A(3,5) have "v \<turnstile>\<^sub>a EQ x c" by auto
+  with A show False unfolding ccval_def by auto
 qed
 
 lemma ccompatible2:
   fixes X k fixes c :: real
   defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
   assumes "c \<le> k x" "c \<in> \<nat>" "x \<in> X"
-  shows "ccompatible \<R> (LT x c)" using assms unfolding ccompatible_def
+  shows "acompatible \<R> (LT x c)" using assms unfolding acompatible_def
 proof (auto, goal_cases)
   case A: (1 I r v u)
   from A(3) obtain d :: nat where d: "c = of_nat d" unfolding Nats_def by blast
-  with A(8) have u: "u x < c" "u x < d" unfolding ccval_def by auto
+  with A have u: "u x < c" "u x < d" unfolding ccval_def by auto
   have "v x < c"
   proof (cases "I x", goal_cases)
     case (1 c')
-    with A(4,6,9) have "u x = c'" "v x = c'" by fastforce+
+    with A have "u x = c'" "v x = c'" by fastforce+
     with u show "v x < c" by auto
   next
     case (2 c')
-    with A(4,6,9) have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
+    with A have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
     with u A(3) have "c' + 1 \<le> d" by auto
     with d have "c' + 1 \<le> c" by auto
     with B u show "v x < c" by auto
   next
     case (3 c')
-    with A(4,9) have "c' < u x" by fastforce
+    with A have "c' < u x" by fastforce
     moreover from 3 A(4,5) have "c' \<ge> k x" by fastforce
     ultimately show ?case using u A(2) by auto
   qed
-  with A(4,6) have "v \<turnstile> LT x c" by auto
+  with A(4,6) have "v \<turnstile>\<^sub>a LT x c" by auto
   with A(7) show False unfolding ccval_def by auto
 qed
 
@@ -1965,27 +1965,27 @@ lemma ccompatible3:
   fixes X k fixes c :: real
   defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
   assumes "c \<le> k x" "c \<in> \<nat>" "x \<in> X"
-  shows "ccompatible \<R> (LE x c)" using assms unfolding ccompatible_def
+  shows "acompatible \<R> (LE x c)" using assms unfolding acompatible_def
 proof (auto, goal_cases)
   case A: (1 I r v u)
   from A(3) obtain d :: nat where d: "c = of_nat d" unfolding Nats_def by blast
-  with A(8) have u: "u x \<le> c" "u x \<le> d" unfolding ccval_def by auto
+  with A have u: "u x \<le> c" "u x \<le> d" unfolding ccval_def by auto
   have "v x \<le> c"
   proof (cases "I x", goal_cases)
-    case (1 c') with A(4,6,9) u show ?case by fastforce
+    case (1 c') with A u show ?case by fastforce
   next
     case (2 c')
-    with A(4,6,9) have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
+    with A have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
     with u A(3) have "c' + 1 \<le> d" by auto
     with d u A(3) have "c' + 1 \<le> c" by auto
     with B u show "v x \<le> c" by auto
   next
     case (3 c')
-    with A(4,9) have "c' < u x" by fastforce
+    with A have "c' < u x" by fastforce
     moreover from 3 A(4,5) have "c' \<ge> k x" by fastforce
     ultimately show ?case using u A(2) by auto
   qed
-  with A(4,6) have "v \<turnstile> LE x c" by auto
+  with A(4,6) have "v \<turnstile>\<^sub>a LE x c" by auto
   with A(7) show False unfolding ccval_def by auto
 qed
 
@@ -1993,17 +1993,17 @@ lemma ccompatible4:
   fixes X k fixes c :: real
   defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
   assumes "c \<le> k x" "c \<in> \<nat>" "x \<in> X"
-  shows "ccompatible \<R> (GT x c)" using assms unfolding ccompatible_def
+  shows "acompatible \<R> (GT x c)" using assms unfolding acompatible_def
 proof (auto, goal_cases)
   case A: (1 I r v u)
   from A(3) obtain d :: nat where d: "c = of_nat d" unfolding Nats_def by blast
-  with A(8) have u: "u x > c" "u x > d" unfolding ccval_def by auto
+  with A have u: "u x > c" "u x > d" unfolding ccval_def by auto
   have "v x > c"
   proof (cases "I x", goal_cases)
-    case (1 c') with A(4,6,9) u show ?case by fastforce
+    case (1 c') with A u show ?case by fastforce
   next
     case (2 c')
-    with A(4,6,9) have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
+    with A have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
     with d u have "c' \<ge> c" by auto
     with B u show "v x > c" by auto
   next
@@ -2012,7 +2012,7 @@ proof (auto, goal_cases)
     moreover from 3 A(4,5) have "c' \<ge> k x" by fastforce
     ultimately show ?case using A(2) u(1) by auto
   qed
-  with A(4,6) have "v \<turnstile> GT x c" by auto
+  with A(4,6) have "v \<turnstile>\<^sub>a GT x c" by auto
   with A(7) show False unfolding ccval_def by auto
 qed
 
@@ -2020,17 +2020,17 @@ lemma ccompatible5:
   fixes X k fixes c :: real
   defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
   assumes "c \<le> k x" "c \<in> \<nat>" "x \<in> X"
-  shows "ccompatible \<R> (GE x c)" using assms unfolding ccompatible_def
+  shows "acompatible \<R> (GE x c)" using assms unfolding acompatible_def
 proof (auto, goal_cases)
   case A: (1 I r v u)
   from A(3) obtain d :: nat where d: "c = of_nat d" unfolding Nats_def by blast
-  with A(8) have u: "u x \<ge> c" "u x \<ge> d" unfolding ccval_def by auto
+  with A have u: "u x \<ge> c" "u x \<ge> d" unfolding ccval_def by auto
   have "v x \<ge> c"
   proof (cases "I x", goal_cases)
-    case (1 c') with A(4,6,9) u show ?case by fastforce
+    case (1 c') with A u show ?case by fastforce
   next
     case (2 c')
-    with A(4,6,9) have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
+    with A have B: "c' < u x" "u x < c' + 1" "c' < v x" "v x < c' + 1" by fastforce+
     with d u have "c' \<ge> c" by auto
     with B u show "v x \<ge> c" by auto
   next
@@ -2039,9 +2039,20 @@ proof (auto, goal_cases)
     moreover from 3 A(4,5) have "c' \<ge> k x" by fastforce
     ultimately show ?case using A(2) u(1) by auto
   qed
-  with A(4,6) have "v \<turnstile> GE x c" by auto
+  with A(4,6) have "v \<turnstile>\<^sub>a GE x c" by auto
   with A(7) show False unfolding ccval_def by auto
 qed
+
+lemma acompatible:
+  fixes X k fixes c :: real
+  defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
+  assumes "c \<le> k x" "c \<in> \<nat>" "x \<in> X" "constraint_pair ac = (x, c)"
+  shows "acompatible \<R> ac" using assms
+by (cases ac) (auto intro: ccompatible1 ccompatible2 ccompatible3 ccompatible4 ccompatible5)
+
+definition ccompatible
+where
+  "ccompatible \<R> cc \<equiv> \<forall> R \<in> \<R>. R \<subseteq> \<lbrace>cc\<rbrace> \<or> \<lbrace>cc\<rbrace> \<inter> R = {}"
 
 lemma ccompatible:
   fixes X k fixes c :: nat
@@ -2049,12 +2060,16 @@ lemma ccompatible:
   assumes "\<forall>(x,m) \<in> collect_clock_pairs cc. m \<le> k x \<and> x \<in> X \<and> m \<in> \<nat>"
   shows "ccompatible \<R> cc" using assms
 proof (induction cc)
-  case (AND cc1 cc2)
-  then have IH: "ccompatible \<R> cc1" "ccompatible \<R> cc2" by auto
-  moreover have "\<lbrace>AND cc1 cc2\<rbrace> = \<lbrace>cc1\<rbrace> \<inter> \<lbrace>cc2\<rbrace>" unfolding ccval_def by auto
-  ultimately show ?case unfolding ccompatible_def by auto
-qed (auto intro: ccompatible1 ccompatible2 ccompatible3 ccompatible4 ccompatible5)
-
+  case Nil
+  then show ?case by (auto simp: ccompatible_def ccval_def)
+next
+  case (Cons ac cc)
+  then have "ccompatible \<R> cc" by (auto simp: collect_clock_pairs_def)
+  moreover have
+    "acompatible \<R> ac"
+  using Cons.prems by (auto intro: acompatible simp: collect_clock_pairs_def \<R>_def)
+  ultimately show ?case unfolding ccompatible_def acompatible_def ccval_def by fastforce
+qed
 
 section \<open>Compability with Resets\<close>
 
@@ -2842,7 +2857,7 @@ next
   from emptiness_preservance[OF step.hyps(2)] step.prems have "R' \<noteq> {}" by fastforce
   with step obtain u' where u': "u' \<in> R'" "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l',u'\<rangle>" by auto
   with step_r_sound[OF step(2,4,5)] obtain u'' where "u'' \<in> R''" "A \<turnstile> \<langle>l', u'\<rangle> \<rightarrow> \<langle>l'',u''\<rangle>" by blast
-  with u' show ?case by (auto intro: steps_alt)
+  with u' show ?case by - (rule bexI[where x = u'']; blast intro: steps_alt)
 qed
 
 lemma steps_r_sound':

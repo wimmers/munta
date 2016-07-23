@@ -589,227 +589,259 @@ section \<open>From Clock Constraints to DBMs\<close>
 fun And :: "('t :: time) DBM \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
   "And M1 M2 = (\<lambda> i j. min (M1 i j) (M2 i j))"
 
+fun abstra :: "('c, 't::time) acconstraint \<Rightarrow> 't DBM \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't DBM"
+where
+  "abstra (EQ c d) M v =
+    (\<lambda> i j . if i = 0 \<and> j = v c then min (M i j) (Le (-d)) else if i = v c \<and> j = 0 then min (M i j) (Le d) else M i j)" |
+  "abstra (LT c d) M v =
+    (\<lambda> i j . if i = v c \<and> j = 0 then min (M i j) (Lt d) else M i j)" |
+  "abstra (LE c d) M v =
+    (\<lambda> i j . if i = v c \<and> j = 0 then min (M i j) (Le d) else M i j)" |
+  "abstra (GT c d) M v =
+    (\<lambda> i j. if i = 0 \<and> j = v c then min (M i j) (Lt (- d)) else M i j)" |
+  "abstra (GE c d) M v =
+    (\<lambda> i j. if i = 0 \<and> j = v c then min (M i j) (Le (- d)) else M i j)"
+
 fun abstr :: "('c, 't::time) cconstraint \<Rightarrow> 't DBM \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't DBM"
 where
-  "abstr (AND cc1 cc2) M v = And (abstr cc1 M v) (abstr cc2 M v)" |
-  "abstr (EQ c d) M v =
-    (\<lambda> i j . if i = 0 \<and> j = v c then Le (-d) else if i = v c \<and> j = 0 then Le d else M i j)" |
-  "abstr (LT c d) M v =
-    (\<lambda> i j . if i = 0 \<and> j = v c then \<infinity> else if i = v c \<and> j = 0 then Lt d else M i j)" |
-  "abstr (LE c d) M v =
-    (\<lambda> i j . if i = 0 \<and> j = v c then \<infinity> else if i = v c \<and> j = 0 then Le d else M i j)" |
-  "abstr (GT c d) M v =
-    (\<lambda> i j. if i = 0 \<and> j = v c then Lt (- d) else if i = v c \<and> j = 0 then \<infinity> else M i j)" |
-  "abstr (GE c d) M v =
-    (\<lambda> i j. if i = 0 \<and> j = v c then Le (- d) else if i = v c \<and> j = 0 then \<infinity> else M i j)"
+  "abstr cc M v = fold (\<lambda> ac M. abstra ac M v) cc M"
+
+(* XXX Move *)
+lemma collect_clks_Cons[simp]:
+  "collect_clks (ac # cc) = insert (constraint_clk ac) (collect_clks cc)"
+unfolding collect_clks_def by auto
 
 lemma abstr_id1:
   "c \<notin> collect_clks cc \<Longrightarrow> clock_numbering' v n \<Longrightarrow> \<forall> c \<in> collect_clks cc. v c \<le> n
     \<Longrightarrow> abstr cc M v 0 (v c) = M 0 (v c)"
-by (induction cc) auto
+apply (induction cc arbitrary: M c)
+apply (simp; fail)
+ subgoal for a
+  apply simp
+  apply (cases a)
+ by auto
+done
 
 lemma abstr_id2:
   "c \<notin> collect_clks cc \<Longrightarrow> clock_numbering' v n \<Longrightarrow> \<forall> c \<in> collect_clks cc. v c \<le> n
     \<Longrightarrow> abstr cc M v (v c) 0 = M (v c) 0"
-by (induction cc) auto
+apply (induction cc arbitrary: M c)
+apply (simp; fail)
+ subgoal for a
+  apply simp
+  apply (cases a)
+ by auto
+done
 
 text \<open>
   This lemma is trivial because we constrained our theory to difference constraints.
 \<close>
 
-lemma abstr_id3:
-  "clock_numbering v \<Longrightarrow> abstr cc M v (v c1) (v c2) = M (v c1) (v c2)"
-proof goal_cases
-  case 1
+lemma abstra_id3:
+  assumes "clock_numbering v"
+  shows "abstra ac M v (v c1) (v c2) = M (v c1) (v c2)"
+proof -
   have "\<And>c. v c = 0 \<Longrightarrow> False"
   proof -
     fix c assume "v c = 0"
-    moreover from 1 have "v c > 0" by auto
+    moreover from assms have "v c > 0" by auto
     ultimately show False by linarith
   qed
-  then show ?case by ((induction cc), auto, fastforce)
+  then show ?thesis by (cases ac) auto
 qed
 
-lemma dbm_abstr_soundness :
-  "\<lbrakk>u \<turnstile> cc; clock_numbering' v n; \<forall> c \<in> collect_clks cc. v c \<le> n\<rbrakk>
-    \<Longrightarrow> DBM_val_bounded v u (abstr cc (\<lambda> i j. \<infinity>) v) n"
+lemma abstr_id3:
+  "clock_numbering v \<Longrightarrow> abstr cc M v (v c1) (v c2) = M (v c1) (v c2)"
+by (induction cc arbitrary: M) (auto simp add: abstra_id3)
+
+lemma abstra_id3':
+  assumes "\<forall>c. 0 < v c"
+  shows "abstra ac M v 0 0 = M 0 0"
+proof -
+  have "\<And>c. v c = 0 \<Longrightarrow> False"
+  proof -
+    fix c assume "v c = 0"
+    moreover from assms have "v c > 0" by auto
+    ultimately show False by linarith
+  qed
+  then show ?thesis by (cases ac) auto
+qed
+
+lemma abstr_id3':
+  "clock_numbering v \<Longrightarrow> abstr cc M v 0 0 = M 0 0"
+by (induction cc arbitrary: M) (auto simp add: abstra_id3')
+
+(* XXX Move *)
+lemma clock_numberingD:
+  assumes "clock_numbering v" "v c = 0"
+  shows "A"
+proof-
+  from assms(1) have "v c > 0" by auto
+  with \<open>v c = 0\<close> show ?thesis by linarith
+qed
+
+lemma dbm_abstra_soundness:
+  "\<lbrakk>u \<turnstile>\<^sub>a ac; u \<turnstile>\<^bsub>v,n\<^esub> M; clock_numbering' v n; v (constraint_clk ac) \<le> n\<rbrakk>
+    \<Longrightarrow> DBM_val_bounded v u (abstra ac M v) n"
 proof (unfold DBM_val_bounded_def, auto, goal_cases)
-  case 1
-  from this(3) have "abstr cc (\<lambda>i j. \<infinity>) v 0 0 = \<infinity>" by (induction cc) auto
-  then show ?case unfolding dbm_le_def by auto
+  case prems: 1
+  from abstra_id3'[OF this(4)] have "abstra ac M v 0 0 = M 0 0" .
+  with prems show ?case unfolding dbm_le_def by auto
 next
-  case (2 c)
+  case prems: (2 c)
   then have "clock_numbering' v n" by auto
-  note A = 2(1) this 2(5,2)
+  note A = prems(1) this prems(6,3)
+  let ?c = "constraint_clk ac"
   show ?case
-  proof (cases "c \<in> collect_clks cc")
+  proof (cases "c = ?c")
     case True
-    then show ?thesis using A(1,4)
-    proof (induction rule: collect_clks.induct)
-      case (1 cc1 cc2)
-      { assume cc: "c \<in> collect_clks cc1" "c \<in> collect_clks cc2"
-        with 1 have ?case by auto linarith
-      } note both = this
-      show ?case
-      proof (cases "c \<in> collect_clks cc1")
-        case True
-        note cc1 = this
-        with 1 have *: "dbm_entry_val u None (Some c) (abstr cc1 (\<lambda>i j. \<infinity>) v 0 (v c))" by auto
-        show ?thesis
-        proof (cases "c \<in> collect_clks cc2")
-          case True with cc1 both show ?thesis by auto
-        next
-          case False
-          from abstr_id1[OF False A(2)] 1(5)
-          have
-            "min (abstr cc1 (\<lambda>i j. \<infinity>) v 0 (v c)) (abstr cc2 (\<lambda>i j. \<infinity>) v 0 (v c))
-            = abstr cc1 (\<lambda>i j. \<infinity>) v 0 (v c)"
-          by (simp add: any_le_inf min.absorb1)
-          with * show ?thesis by auto
-        qed
-      next
-        case False
-        note cc1 = this
-        show ?thesis
-        proof (cases "c \<in> collect_clks cc2")
-          case True
-          with 1 have *: "dbm_entry_val u None (Some c) (abstr cc2 (\<lambda>i j. \<infinity>) v 0 (v c))" by auto
-          from abstr_id1[OF cc1 A(2)] 1(5)
-          have
-            "min (abstr cc1 (\<lambda>i j. \<infinity>) v 0 (v c)) (abstr cc2 (\<lambda>i j. \<infinity>) v 0 (v c))
-            = abstr cc2 (\<lambda>i j. \<infinity>) v 0 (v c)"
-          by (simp add: any_le_inf min.absorb2)
-          with * show ?thesis by auto
-        next
-          case False
-          with 1 cc1 show ?thesis by auto
-        qed
-      qed
-    qed auto
+    then show ?thesis using prems by (cases ac) (auto split: split_min intro: clock_numberingD)
   next
     case False
-    from abstr_id1[OF this A(2,4)] show ?thesis by auto
+    then show ?thesis using A(3) prems by (cases ac) auto
   qed
 next
-  case (3 c)
+  case prems: (3 c)
   then have "clock_numbering' v n" by auto
-  note A = 3(1) this 3(5,2)
-  from A(2) have gt0: "v c > 0" by auto
+  then have gt0: "v c > 0" by auto
+  let ?c = "constraint_clk ac"
   show ?case
-  proof (cases "c \<in> collect_clks cc")
+  proof (cases "c = ?c")
     case True
-    then show ?thesis using A(1,4)
-    proof (induction rule: collect_clks.induct)
-      case (1 cc1 cc2)
-      { assume cc: "c \<in> collect_clks cc1" "c \<in> collect_clks cc2"
-        with 1 have ?case by auto linarith
-      } note both = this
-      show ?case
-      proof (cases "c \<in> collect_clks cc1")
-        case True
-        note cc1 = this
-        with 1 have *: "dbm_entry_val u (Some c) None (abstr cc1 (\<lambda>i j. \<infinity>) v (v c) 0)" by auto
-        show ?thesis
-        proof (cases "c \<in> collect_clks cc2")
-          case True with cc1 both show ?thesis by auto
-        next
-          case False
-          from abstr_id2[OF False A(2)] 1(5)
-          have
-            "min (abstr cc1 (\<lambda>i j. \<infinity>) v (v c) 0) (abstr cc2 (\<lambda>i j. \<infinity>) v (v c) 0)
-            = abstr cc1 (\<lambda>i j. \<infinity>) v (v c) 0"
-          by (simp add: any_le_inf min.absorb1)
-          with * show ?thesis by auto
-        qed
-      next
-        case False
-        note cc1 = this
-        show ?thesis
-        proof (cases "c \<in> collect_clks cc2")
-          case True
-          with 1 have *: "dbm_entry_val u (Some c) None (abstr cc2 (\<lambda>i j. \<infinity>) v (v c) 0)"
-          by auto
-          from abstr_id2[OF cc1 A(2)] 1(5)
-          have
-            "min (abstr cc1 (\<lambda>i j. \<infinity>) v (v c) 0) (abstr cc2 (\<lambda>i j. \<infinity>) v (v c) 0)
-            = abstr cc2 (\<lambda>i j. \<infinity>) v (v c) 0"
-          by (simp add: any_le_inf min.absorb2)
-          with * show ?thesis by auto
-        next
-          case False
-          with 1 cc1 show ?thesis by auto
-        qed
-      qed
-    qed (insert gt0, auto)
+    then show ?thesis using prems gt0 by (cases ac) (auto split: split_min intro: clock_numberingD)
   next
     case False
-    from abstr_id2[OF this A(2,4)] show ?thesis by auto
+    then show ?thesis using \<open>clock_numbering' v n\<close> prems by (cases ac) auto
   qed
 next
   text \<open>Trivial because of missing difference constraints\<close>
-  case (4 c1 c2)
-  from abstr_id3[OF this(3)] have "abstr cc (\<lambda>i j. \<infinity>) v (v c1) (v c2) = \<infinity>" by auto
-  then show ?case by auto
+  case prems: (4 c1 c2)
+  from abstra_id3[OF this(4)] have "abstra ac M v (v c1) (v c2) = M (v c1) (v c2)" by auto
+  with prems show ?case by auto
 qed
 
-lemma dbm_abstr_completeness:
-  "\<lbrakk>DBM_val_bounded v u (abstr cc (\<lambda> i j. \<infinity>) v) n; \<forall>c. v c > 0; \<forall> c \<in> collect_clks cc. v c \<le> n\<rbrakk>
-    \<Longrightarrow> u \<turnstile> cc"
-proof (induction cc, goal_cases)
-  case (1 cc1 cc2)
-  then have AND: "u \<in> [abstr (AND cc1 cc2) (\<lambda>i j. \<infinity>) v]\<^bsub>v,n\<^esub>" by (simp add: DBM_zone_repr_def)
-  from 1 have "\<forall>i j. i \<le> n \<longrightarrow> j \<le> n
-    \<longrightarrow> (abstr (AND cc1 cc2) (\<lambda>i j. \<infinity>) v) i j \<preceq> (abstr cc1 (\<lambda>i j. \<infinity>) v) i j"
-  by (simp add: less_eq[symmetric])
-  from DBM_le_subset[OF this AND] 1 have "u \<turnstile> cc1" unfolding DBM_zone_repr_def by auto
-  from 1 have "\<forall>i j. i \<le> n \<longrightarrow> j \<le> n
-    \<longrightarrow> (abstr (AND cc1 cc2) (\<lambda>i j. \<infinity>) v) i j \<preceq> (abstr cc2 (\<lambda>i j. \<infinity>) v) i j"
-  by (simp add: less_eq[symmetric])
-  from DBM_le_subset[OF this AND] 1 have "u \<turnstile> cc2" unfolding DBM_zone_repr_def by auto
-  from \<open>u \<turnstile> cc1\<close> \<open>u \<turnstile> cc2\<close> show ?case by auto
-next
-  case (2 c d)
-  from this have "v c \<le> n" by auto
-  with 2(1) have "dbm_entry_val u (Some c) None ((abstr (LT c d) (\<lambda>i j. \<infinity>) v) (v c) 0)"
+lemma DBM_triv:
+  "u \<turnstile>\<^bsub>v,n\<^esub> \<lambda>i j. \<infinity>"
+unfolding DBM_val_bounded_def by (auto simp: dbm_le_def)
+
+lemma dbm_abstr_soundness':
+  "\<lbrakk>u \<turnstile> cc; u \<turnstile>\<^bsub>v,n\<^esub> M; clock_numbering' v n; \<forall> c \<in> collect_clks cc. v c \<le> n\<rbrakk>
+    \<Longrightarrow> DBM_val_bounded v u (abstr cc M v) n"
+apply (induction cc arbitrary: M)
+ apply simp
+apply auto
+by (drule dbm_abstra_soundness) auto
+
+lemmas dbm_abstr_soundness = dbm_abstr_soundness'[OF _ DBM_triv]
+
+lemma dbm_abstra_completeness:
+  "\<lbrakk>DBM_val_bounded v u (abstra ac M v) n; \<forall>c. v c > 0; v (constraint_clk ac) \<le> n\<rbrakk>
+    \<Longrightarrow> u \<turnstile>\<^sub>a ac"
+proof (cases ac, goal_cases)
+  case prems: (1 c d)
+  with assms have "v c \<le> n" by auto
+  with prems(1,4) have "dbm_entry_val u (Some c) None ((abstra (LT c d) M v) (v c) 0)"
   by (auto simp: DBM_val_bounded_def)
-  moreover from 2(2) have "v c > 0" by auto
-  ultimately show ?case by auto
+  moreover from prems(2) have "v c > 0" by auto
+  ultimately show ?case using prems(4) by (auto dest: dbm_entry_dbm_min3)
 next
-  case (3 c d)
+  case prems: (2 c d)
   from this have "v c \<le> n" by auto
-  with 3(1) have "dbm_entry_val u (Some c) None ((abstr (LE c d) (\<lambda>i j. \<infinity>) v) (v c) 0)"
+  with prems(1,4) have "dbm_entry_val u (Some c) None ((abstra (LE c d) M v) (v c) 0)"
   by (auto simp: DBM_val_bounded_def)
-  moreover from 3(2) have "v c > 0" by auto
-  ultimately show ?case by auto
+  moreover from prems(2) have "v c > 0" by auto
+  ultimately show ?case using prems(4) by (auto dest: dbm_entry_dbm_min3)
 next
-  case (4 c d)
+  case prems: (3 c d)
   from this have c: "v c > 0" "v c \<le> n" by auto
-  with 4(1) have B:
-    "dbm_entry_val u (Some c) None ((abstr (EQ c d) (\<lambda>i j. \<infinity>) v) (v c) 0)"
-    "dbm_entry_val u None (Some c) ((abstr (EQ c d) (\<lambda>i j. \<infinity>) v) 0 (v c))"
+  with prems(1,4) have B:
+    "dbm_entry_val u (Some c) None ((abstra (EQ c d) M v) (v c) 0)"
+    "dbm_entry_val u None (Some c) ((abstra (EQ c d) M v) 0 (v c))"
   by (auto simp: DBM_val_bounded_def)
-  from c B have "u c \<le> d" "- u c \<le> -d" by auto
-  then show ?case by auto
+  from c B have "u c \<le> d" "- u c \<le> -d" by (auto dest: dbm_entry_dbm_min2 dbm_entry_dbm_min3)
+  with prems(4) show ?case by auto
 next
-  case (5 c d)
+  case prems: (4 c d)
   from this have "v c \<le> n" by auto
-  with 5(1) have "dbm_entry_val u None (Some c) ((abstr (GT c d) (\<lambda>i j. \<infinity>) v) 0 (v c))"
+  with prems(1,4) have "dbm_entry_val u None (Some c) ((abstra (GT c d) M v) 0 (v c))"
   by (auto simp: DBM_val_bounded_def)
-  moreover from 5(2) have "v c > 0" by auto
-  ultimately show ?case by auto
+  moreover from prems(2) have "v c > 0" by auto
+  ultimately show ?case using prems(4) by (auto dest!: dbm_entry_dbm_min2)
 next
-  case (6 c d)
+  case prems: (5 c d)
   from this have "v c \<le> n" by auto
-  with 6(1) have "dbm_entry_val u None (Some c) ((abstr (GE c d) (\<lambda>i j. \<infinity>) v) 0 (v c))"
+  with prems(1,4) have "dbm_entry_val u None (Some c) ((abstra (GE c d) M v) 0 (v c))"
   by (auto simp: DBM_val_bounded_def)
-  moreover from 6(2) have "v c > 0" by auto
-  ultimately show ?case by auto
+  moreover from prems(2) have "v c > 0" by auto
+  ultimately show ?case using prems(4) by (auto dest!: dbm_entry_dbm_min2)
 qed
+
+lemma abstra_mono:
+  "abstra ac M v i j \<le> M i j"
+by (cases ac) auto
+
+lemma abstra_subset:
+  "[abstra ac M v]\<^bsub>v,n\<^esub> \<subseteq> [M]\<^bsub>v,n\<^esub>"
+using abstra_mono
+ apply (simp add: less_eq)
+ apply safe
+by (rule DBM_le_subset; force)
+
+lemma abstr_subset:
+  "[abstr cc M v]\<^bsub>v,n\<^esub> \<subseteq> [M]\<^bsub>v,n\<^esub>"
+apply (induction cc arbitrary: M)
+ apply (simp; fail)
+using abstra_subset by fastforce
+
+(* XXX Move *)
+lemma [simp]:
+  "u \<turnstile> []"
+by force
+
+lemma clock_val_Cons:
+  assumes "u \<turnstile>\<^sub>a ac" "u \<turnstile> cc"
+  shows "u \<turnstile> (ac # cc)"
+using assms by (induction cc) auto
+
+lemma abstra_commute:
+  "abstra ac1 (abstra ac2 M v) v = abstra ac2 (abstra ac1 M v) v"
+using assms by (cases ac1; cases ac2; fastforce simp add: min.commute min.left_commute)
+
+lemma dbm_abstr_completeness_aux:
+  "\<lbrakk>DBM_val_bounded v u (abstr cc (abstra ac M v) v) n; \<forall>c. v c > 0; v (constraint_clk ac) \<le> n\<rbrakk>
+    \<Longrightarrow> u \<turnstile>\<^sub>a ac"
+apply (induction cc arbitrary: M)
+ apply (auto intro: dbm_abstra_completeness; fail)
+apply simp
+apply (subst (asm) abstra_commute)
+by auto
+
+lemma dbm_abstr_completeness:
+  "\<lbrakk>DBM_val_bounded v u (abstr cc M v) n; \<forall>c. v c > 0; \<forall> c \<in> collect_clks cc. v c \<le> n\<rbrakk>
+    \<Longrightarrow> u \<turnstile> cc"
+apply (induction cc arbitrary: M)
+ apply (simp; fail)
+apply (rule clock_val_Cons)
+apply (rule dbm_abstr_completeness_aux)
+by auto
 
 lemma dbm_abstr_zone_eq:
   assumes "clock_numbering' v n" "\<forall>c\<in>collect_clks cc. v c \<le> n"
   shows "[abstr cc (\<lambda>i j. \<infinity>) v]\<^bsub>v,n\<^esub> = {u. u \<turnstile> cc}"
 using dbm_abstr_soundness dbm_abstr_completeness assms unfolding DBM_zone_repr_def by metis
+
+lemma dbm_abstr_zone_eq2:
+  assumes "clock_numbering' v n" "\<forall>c\<in>collect_clks cc. v c \<le> n"
+  shows "[abstr cc M v]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub> \<inter> {u. u \<turnstile> cc}"
+apply standard
+ apply (rule Int_greatest)
+  apply (rule abstr_subset)
+ unfolding DBM_zone_repr_def
+ apply safe
+ apply (rule dbm_abstr_completeness)
+   using assms apply auto[3]
+apply (rule dbm_abstr_soundness')
+using assms by auto
 
 
 section \<open>Zone Intersection\<close>
@@ -2504,18 +2536,6 @@ next
   from DBM_reset_int_preservation[OF this Cons.prems(2), of "v c"] Cons.prems(3,4) show ?case by auto
 qed
 
-lemma int_zone_dbm:
-  assumes "clock_numbering' v n"
-    "\<forall> (_,d) \<in> collect_clock_pairs cc. d \<in> \<int>" "\<forall> c \<in> collect_clks cc. v c \<le> n"
-  obtains M where "{u. u \<turnstile> cc} = [M]\<^bsub>v,n\<^esub>"
-            and   "\<forall> i \<le> n. \<forall> j \<le> n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
-proof -
-  let ?M = "abstr cc (\<lambda>i j. \<infinity>) v"
-  from assms(2) have "\<forall> i \<le> n. \<forall> j \<le> n. ?M i j \<noteq> \<infinity> \<longrightarrow> get_const (?M i j) \<in> \<int>"
-  by (induction cc) (auto simp: min_def)
-  with dbm_abstr_zone_eq[OF assms(1) assms(3)] show ?thesis by (auto intro: that)
-qed
-
 lemma reset_set1:
   "\<forall>c \<in> set cs. ([cs\<rightarrow>d]u) c = d"
 by (induction cs) auto
@@ -2562,13 +2582,43 @@ where
   "global_clock_numbering A v n \<equiv>
     clock_numbering' v n \<and> (\<forall> c \<in> clk_set A. v c \<le> n) \<and> (\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c. v c = k))"
 
+lemma dbm_int_abstra:
+  assumes "dbm_int M n" "snd (constraint_pair ac) \<in> \<int>"
+  shows "dbm_int (abstra ac M v) n"
+using assms by (cases ac) (auto split: split_min)
+
 lemma dbm_int_abstr:
+  assumes "dbm_int M n" "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
+  shows "dbm_int (abstr g M v) n"
+using assms
+proof (induction g arbitrary: M)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons ac cc)
+  from Cons.IH[OF dbm_int_abstra, OF Cons.prems(1)] Cons.prems(2-) have
+    "dbm_int (abstr cc (abstra ac M v) v) n"
+  unfolding collect_clock_pairs_def by force
+  then show ?case by auto
+qed
+
+lemma dbm_int_abstr':
   assumes "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
   shows "dbm_int (abstr g (\<lambda>i j. \<infinity>) v) n"
-using assms
-  apply (induction g)
-       apply auto[]
-unfolding min_def by auto
+ apply (rule dbm_int_abstr)
+using assms by auto
+
+lemma int_zone_dbm:
+  assumes "clock_numbering' v n"
+    "\<forall> (_,d) \<in> collect_clock_pairs cc. d \<in> \<int>" "\<forall> c \<in> collect_clks cc. v c \<le> n"
+  obtains M where "{u. u \<turnstile> cc} = [M]\<^bsub>v,n\<^esub>"
+            and   "\<forall> i \<le> n. \<forall> j \<le> n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
+proof -
+  let ?M = "abstr cc (\<lambda>i j. \<infinity>) v"
+  from assms(2) have "\<forall> i \<le> n. \<forall> j \<le> n. ?M i j \<noteq> \<infinity> \<longrightarrow> get_const (?M i j) \<in> \<int>"
+  by (rule dbm_int_abstr')
+  with dbm_abstr_zone_eq[OF assms(1) assms(3)] show ?thesis by (auto intro: that)
+qed
 
 lemma dbm_int_inv_abstr:
   assumes "\<forall>(x,m) \<in> clkp_set A. m \<in> \<nat>"
@@ -2576,7 +2626,7 @@ lemma dbm_int_inv_abstr:
 proof -
   from assms have "\<forall> (x, m) \<in> collect_clock_pairs (inv_of A l). m \<in> \<int>"
   unfolding clkp_set_def collect_clki_def inv_of_def using Nats_subset_Ints by auto
-  from dbm_int_abstr[OF this] show ?thesis .
+  from dbm_int_abstr'[OF this] show ?thesis .
 qed
 
 lemma dbm_int_guard_abstr:
@@ -2587,10 +2637,14 @@ proof -
   by (auto elim: valid_abstraction.cases)
   then have "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
   unfolding clkp_set_def collect_clkt_def using assms(2) Nats_subset_Ints by fastforce
-  from dbm_int_abstr[OF this] show ?thesis .
+  from dbm_int_abstr'[OF this] show ?thesis .
 qed
 
-lemma collect_clks_id: "collect_clks cc = fst ` collect_clock_pairs cc" by (induction cc) auto
+lemma collect_clks_id: "collect_clks cc = fst ` collect_clock_pairs cc"
+proof -
+  have "constraint_clk ac = fst (constraint_pair ac)" for ac by (cases ac) auto
+  then show ?thesis unfolding collect_clks_def collect_clock_pairs_def by auto
+qed
 
 subsection \<open>Unused theorems\<close>
 

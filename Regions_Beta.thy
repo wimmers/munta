@@ -1,5 +1,5 @@
 theory Regions_Beta
-imports Misc DBM_Normalization DBM_Operations
+imports TA_Misc DBM_Normalization DBM_Operations
 begin
 
 chapter \<open>Refinement to \<open>\<beta>\<close>-regions\<close>
