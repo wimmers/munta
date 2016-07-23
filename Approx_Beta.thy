@@ -60,14 +60,14 @@ lemma region_dbm:
 proof -
   from assms obtain I r where R: "R = region X I r" "valid_region X k I r" unfolding \<R>_def by blast
   let ?X\<^sub>0 = "{x \<in> X. \<exists>d. I x = Regions.intv.Intv d}"
-  def f \<equiv> "\<lambda> x. if isIntv (I x) then Lt (intv_const (I x) + 1)
-                 else if isConst (I x) then Le (intv_const (I x))
+  def f \<equiv> "\<lambda> x. if isIntv (I x) then Lt (real (intv_const (I x) + 1))
+                 else if isConst (I x) then Le (real (intv_const (I x)))
                  else \<infinity>"
-  def g \<equiv> "\<lambda> x. if isIntv (I x) then Lt (- intv_const (I x))
-                 else if isConst (I x) then Le (- intv_const (I x))
-                 else Lt (- k x)"
+  def g \<equiv> "\<lambda> x. if isIntv (I x) then Lt (- real (intv_const (I x)))
+                 else if isConst (I x) then Le (- real (intv_const (I x)))
+                 else Lt (- real (k x))"
   def h \<equiv> "\<lambda> x y. if isIntv (I x) \<and> isIntv (I y) then
-                      if (y, x) \<in> r \<and> (x, y) \<notin> r then Lt (int (intv_const (I x)) - intv_const (I y) + 1)
+                      if (y, x) \<in> r \<and> (x, y) \<notin> r then Lt (real_of_int (int (intv_const (I x)) - intv_const (I y) + 1))
                       else if (x, y) \<in> r \<and> (y, x) \<notin> r then Lt (int (intv_const (I x)) - intv_const (I y))
                       else Le (int (intv_const (I x)) - intv_const (I y))
                    else if isConst (I x) \<and> isConst (I y) then Le (int (intv_const (I x)) - intv_const (I y))
@@ -796,7 +796,7 @@ proof -
 qed
 
 lemma dbm_entry_int:
-  "x \<noteq> \<infinity> \<Longrightarrow> get_const x \<in> \<int> \<Longrightarrow> \<exists> d :: int. x = Le d \<or> x = Lt d"
+  "(x :: t DBMEntry) \<noteq> \<infinity> \<Longrightarrow> get_const x \<in> \<int> \<Longrightarrow> \<exists> d :: int. x = Le d \<or> x = Lt d"
 apply (cases x) using Ints_cases by auto
 
 abbreviation "vabstr \<equiv> beta_interp.vabstr"

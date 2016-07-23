@@ -12,7 +12,7 @@ text \<open>
   The possible constraints are given by the following datatype:
 \<close>
 
-datatype ('t::time) DBMEntry = Le 't | Lt 't | INF ("\<infinity>")
+datatype 't DBMEntry = Le 't | Lt 't | INF ("\<infinity>")
 
 text \<open>\noindent This yields a simple definition of DBMs:\<close>
 

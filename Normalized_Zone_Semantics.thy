@@ -377,7 +377,7 @@ lemma normalized_integral_dbms_finite:
   "finite {norm M (k o v') n | M. dbm_int M n \<and> dbm_default M n}"
 proof -
   let ?u = "Max {(k o v') i | i. i \<le> n}" let ?l = "- ?u"
-  let ?S = "(Le ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
+  let ?S = "(Le ` real_of_int ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
   from finite_set_of_finite_funs2[of "{0..n}" "{0..n}" ?S] have fin:
     "finite {f. \<forall>x y. (x \<in> {0..n} \<and> y \<in> {0..n} \<longrightarrow> f x y \<in> ?S)
                 \<and> (x \<notin> {0..n} \<longrightarrow> f x y = \<one>) \<and> (y \<notin> {0..n} \<longrightarrow> f x y = \<one>)}" (is "finite ?R")

@@ -2735,7 +2735,7 @@ proof (goal_cases)
     moreover from clock_numbering(1) have "v c > 0" by auto
     ultimately show False by auto
   qed
-  let ?M = "\<lambda> i j. if (i = v x \<and> j = v y) then Lt m else if i = j \<or> i = 0 then Le 0 else \<infinity>"
+  let ?M = "\<lambda> i j. if (i = v x \<and> j = v y) then Lt (real_of_int m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
   have "{u \<in> V. u x - u y < m} = [?M]\<^bsub>v,n\<^esub>" unfolding DBM_zone_repr_def DBM_val_bounded_def
   using * ** proof (auto, goal_cases)
     case (1 u c)
@@ -2793,7 +2793,7 @@ proof (goal_cases)
     moreover from clock_numbering(1) have "v c > 0" by auto
     ultimately show False by auto
   qed
-  let ?M = "\<lambda> i j. if (i = v x \<and> j = v y) then Le m else if i = j \<or> i = 0 then Le 0 else \<infinity>"
+  let ?M = "\<lambda> i j. if (i = v x \<and> j = v y) then Le (real_of_int m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
   have "{u \<in> V. u x - u y \<le> m} = [?M]\<^bsub>v,n\<^esub>" unfolding DBM_zone_repr_def DBM_val_bounded_def
   using * **
   proof (auto, goal_cases)
@@ -2849,7 +2849,7 @@ proof (goal_cases)
     moreover from clock_numbering(1) have "v c > 0" by auto
     ultimately show False by auto
   qed
-  let ?M = "\<lambda> i j. if (i = v x \<and> j = 0) then Lt m else if i = j \<or> i = 0 then Le 0 else \<infinity>"
+  let ?M = "\<lambda> i j. if (i = v x \<and> j = 0) then Lt (real_of_int m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
   have "{u \<in> V. u x < m} = [?M]\<^bsub>v,n\<^esub>" unfolding DBM_zone_repr_def DBM_val_bounded_def
   using * **
   proof (auto, goal_cases)
@@ -2899,7 +2899,7 @@ proof goal_cases
   obtain M where "vabstr {u \<in> V. u x > m} M" "normalized M"
   proof (cases "m \<ge> 0")
     case True
-    let ?M = "\<lambda> i j. if (i = 0 \<and> j = v x) then Lt (-m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
+    let ?M = "\<lambda> i j. if (i = 0 \<and> j = v x) then Lt (-real_of_int m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
     have "{u \<in> V. u x > m} = [?M]\<^bsub>v,n\<^esub>" unfolding DBM_zone_repr_def DBM_val_bounded_def
     using * **
     proof (auto, goal_cases)
@@ -2957,7 +2957,7 @@ proof -
     moreover from clock_numbering(1) have "v c > 0" by auto
     ultimately show False by auto
   qed
-  let ?M = "\<lambda> i j. if (i = v x \<and> j = 0) then Le m else if i = j \<or> i = 0 then Le 0 else \<infinity>"
+  let ?M = "\<lambda> i j. if (i = v x \<and> j = 0) then Le (real_of_int m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
   have "{u \<in> V. u x \<le> m} = [?M]\<^bsub>v,n\<^esub>" unfolding DBM_zone_repr_def DBM_val_bounded_def
   using * **
   proof (auto, goal_cases)
@@ -3017,7 +3017,7 @@ proof -
   obtain M where "vabstr {u \<in> V. u x \<ge> m} M" "normalized M"
   proof (cases "m \<ge> 0")
     case True
-    let ?M = "\<lambda> i j. if (i = 0 \<and> j = v x) then Le (-m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
+    let ?M = "\<lambda> i j. if (i = 0 \<and> j = v x) then Le (-real_of_int m) else if i = j \<or> i = 0 then Le 0 else \<infinity>"
     have "{u \<in> V. u x \<ge> m} = [?M]\<^bsub>v,n\<^esub>" unfolding DBM_zone_repr_def DBM_val_bounded_def
     using * **
     proof (auto, goal_cases)
