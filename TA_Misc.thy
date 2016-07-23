@@ -1,5 +1,5 @@
 (*<*)
-theory Misc
+theory TA_Misc
   imports Main Real
 begin
 
