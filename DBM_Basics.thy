@@ -76,9 +76,9 @@ where
 lemma dbm_entry_val_mono_1:
   "dbm_entry_val u (Some c) (Some c') b \<Longrightarrow> b \<preceq> b' \<Longrightarrow> dbm_entry_val u (Some c) (Some c') b'"
 proof (induction b, goal_cases)
-  case 1 thus ?case using le_dbm_le le_dbm_lt by (induction b'; fastforce)
+  case 1 thus ?case using le_dbm_le le_dbm_lt by - (cases b'; fastforce)
 next
-  case 2 thus ?case using lt_dbm_le lt_dbm_lt by (induction b'; fastforce)
+  case 2 thus ?case using lt_dbm_le lt_dbm_lt by (cases b'; fastforce)
 next
   case 3 thus ?case unfolding dbm_le_def by auto
 qed
@@ -86,9 +86,9 @@ qed
 lemma dbm_entry_val_mono_2:
   "dbm_entry_val u None (Some c) b \<Longrightarrow> b \<preceq> b' \<Longrightarrow> dbm_entry_val u None (Some c) b'"
 proof (induction b, goal_cases)
-  case 1 thus ?case using le_dbm_le le_dbm_lt by (induction b'; fastforce)
+  case 1 thus ?case using le_dbm_le le_dbm_lt by - (cases b'; fastforce)
 next
-  case 2 thus ?case using lt_dbm_le lt_dbm_lt by (induction b'; fastforce)
+  case 2 thus ?case using lt_dbm_le lt_dbm_lt by (cases b'; fastforce)
 next
   case 3 thus ?case unfolding dbm_le_def by auto
 qed
@@ -96,9 +96,9 @@ qed
 lemma dbm_entry_val_mono_3:
   "dbm_entry_val u (Some c) None b \<Longrightarrow> b \<preceq> b' \<Longrightarrow> dbm_entry_val u (Some c) None b'"
 proof (induction b, goal_cases)
-  case 1 thus ?case using le_dbm_le le_dbm_lt by (induction b'; fastforce)
+  case 1 thus ?case using le_dbm_le le_dbm_lt by - (cases b'; fastforce)
 next
-  case 2 thus ?case using lt_dbm_le lt_dbm_lt by (induction b'; fastforce)
+  case 2 thus ?case using lt_dbm_le lt_dbm_lt by (cases b'; fastforce)
 next
   case 3 thus ?case unfolding dbm_le_def by auto
 qed
@@ -139,6 +139,8 @@ text \<open>
     * Time is dense
 \<close>
 lemmas (in linordered_ab_monoid_add) comm = add.commute
+
+instance time \<subseteq> linordered_cancel_ab_monoid_add by (standard; simp)
 
 lemma sum_gt_neutral_dest':
   "(a :: (('a :: time) DBMEntry)) \<ge> \<one> \<Longrightarrow> a + b > \<one> \<Longrightarrow> \<exists> d. Le d \<le> a \<and> Le (-d) \<le> b \<and> d \<ge> 0"

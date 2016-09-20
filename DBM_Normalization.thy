@@ -6,11 +6,11 @@ begin
 
 text \<open>This is the implementation of the common approximation operation.\<close>
 
-fun norm_upper :: "('t::time) DBMEntry \<Rightarrow> 't \<Rightarrow> ('t::time) DBMEntry"
+fun norm_upper :: "('t::linorder) DBMEntry \<Rightarrow> 't \<Rightarrow> 't DBMEntry"
 where
   "norm_upper e t = (if Le t \<prec> e then \<infinity> else e)"
   
-fun norm_lower :: "('t::time) DBMEntry \<Rightarrow> 't \<Rightarrow> ('t::time) DBMEntry"
+fun norm_lower :: "('t::linorder) DBMEntry \<Rightarrow> 't \<Rightarrow> 't DBMEntry"
 where
   "norm_lower e t = (if e \<prec> Lt t then Lt t else e)"
 
@@ -19,7 +19,7 @@ text \<open>
   and thus defines normalization uniformly. The easiest way to get around this seems to explicate
   this in the definition as below.
 \<close>
-definition norm :: "('t::time) DBM \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> nat \<Rightarrow> 't DBM"
+definition norm :: "('t :: linordered_ab_group_add) DBM \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> nat \<Rightarrow> 't DBM"
 where
   "norm M k n \<equiv> \<lambda> i j.
     let ub = if i > 0 then (k i) else 0 in

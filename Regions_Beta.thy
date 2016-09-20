@@ -573,7 +573,7 @@ locale Beta_Regions' = Beta_Regions +
   assumes not_in_X: "not_in_X \<notin> X"
 begin
 
-definition "v' \<equiv> \<lambda> i. if i \<le> n then (THE c. c \<in> X \<and> v c = i) else not_in_X"
+definition "v' \<equiv> \<lambda> i. if 0 < i \<and> i \<le> n then (THE c. c \<in> X \<and> v c = i) else not_in_X"
 
 lemma v_v':
   "\<forall> c \<in> X. v' (v c) = c"
@@ -585,7 +585,7 @@ abbreviation
 definition normalized:
   "normalized M \<equiv>
     (\<forall> i j. 0 < i \<and> i \<le> n \<and> 0 < j \<and> j \<le> n \<and> M i j \<noteq> \<infinity> \<longrightarrow>
-       Lt (- ((k o v') j)) \<le> M i j \<and> M i j \<le> Le ((k o v') i))
+       Lt (- (real((k o v') j))) \<le> M i j \<and> M i j \<le> Le ((k o v') i))
     \<and> (\<forall> i \<le> n. i > 0 \<longrightarrow> (M i 0 \<le> Le ((k o v') i) \<or> M i 0 = \<infinity>) \<and> Lt (- ((k o v') i)) \<le> M 0 i)"
 
 definition apx_def:
@@ -1858,6 +1858,7 @@ next
 qed
 
 lemma norm_int_preservation:
+  fixes M :: "real DBM"
   assumes "dbm_int M n" "i \<le> n" "j \<le> n" "norm M (k o v') n i j \<noteq> \<infinity>"
   shows "get_const (norm M (k o v') n i j) \<in> \<int>"
 using assms unfolding norm_def by (auto simp: Let_def)
@@ -1992,7 +1993,7 @@ lemma norm_V_preservation:
 proof (cases "[M]\<^bsub>v,n\<^esub> = {}")
   case True
   obtain i where i: "i \<le> n" "M i i < \<one>" by (metis True assms(2) canonical_empty_zone_spec)
-  have "\<not> Le (k (v' i)) < Le 0" unfolding less by (cases "k (v' i) = 0", auto)
+  have "\<not> Le (real (k (v' i))) < Le 0" unfolding less by (cases "k (v' i) = 0", auto)
   with i have "?M i i < \<one>" unfolding norm_def by (auto simp: neutral less Let_def)
   with neg_diag_empty_spec[OF \<open>i \<le> n\<close>] have "[?M]\<^bsub>v,n\<^esub> = {}" .
   then show ?thesis by auto
@@ -2040,7 +2041,7 @@ proof -
         qed
       next
         case True
-        have "Lt (- k c) \<prec> Le 0" by auto
+        have "Lt (real_of_int (- k c)) \<prec> Le 0" by auto
         with True c assms(3) have "?M2 0 (v c) = Lt (- k c)" unfolding less norm_def by auto
         moreover from assms(1) c have "Lt (- k c) \<le> M1 0 (v c)" unfolding normalized by auto
         ultimately show ?thesis using le c bound by (auto intro: dbm_entry_val_mono_2[folded less_eq])
@@ -2125,8 +2126,9 @@ lemma apx_norm_eq:
   shows "Approx\<^sub>\<beta> ([M]\<^bsub>v,n\<^esub>) = [norm M (k o v') n]\<^bsub>v,n\<^esub>"
 proof -
   let ?M = "norm M (k o v') n"
-  from assms norm_V_preservation norm_int_preservation norm_normalizes
-  have *: "vabstr ([?M]\<^bsub>v,n\<^esub>) ?M" "normalized ?M" "[?M]\<^bsub>v,n\<^esub> \<subseteq> V" by presburger+
+  from assms norm_V_preservation norm_int_preservation norm_normalizes have *:
+    "vabstr ([?M]\<^bsub>v,n\<^esub>) ?M" "normalized ?M" "[?M]\<^bsub>v,n\<^esub> \<subseteq> V"
+  by auto
   from dbm_regions'[OF this] obtain U where U: "U \<subseteq> \<R>" "[?M]\<^bsub>v,n\<^esub> = \<Union>U" by auto
   from assms(3) have **: "[M]\<^bsub>v,n\<^esub> \<subseteq> [?M]\<^bsub>v,n\<^esub>" by (simp add: norm_mono clock_numbering(1) subsetI) 
   show ?thesis

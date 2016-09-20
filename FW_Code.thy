@@ -136,4 +136,19 @@ corollary
     else \<forall>i \<le> n. \<forall>j \<le> n. M' i j = D M i j n \<and> cycle_free M n)>\<^sub>t"
 by (rule cons_rule[OF _ _ fw_impl_correct[THEN hfrefD, THEN hn_refineD]]) (sep_auto simp: fw_spec_def)+
 
+thm fw_impl'_def
+
+abbreviation "FW m n \<equiv> fw m n n n n"
+
+definition "FW' = uncurry oo FW o curry"
+
+definition "FW'' n M = FW' M n"
+
+term swap
+
+lemma fw_impl'_refine_FW'':
+  "(fw_impl' n, RETURN o PR_CONST (FW'' n)) \<in> Id \<rightarrow> \<langle>Id\<rangle> nres_rel"
+unfolding fw_impl'_def[abs_def] FW''_def[abs_def] FW'_def using for_rec3_fw
+by (force simp: pw_le_iff pw_nres_rel_iff refine_pw_simps)
+
 end

@@ -85,11 +85,12 @@ lemma non_empty_cycle_free:
 by (meson assms clock_numbering(2) neg_cycle_empty negative_cycle_dest_diag)
 
 lemma norm_empty_diag_preservation:
+  fixes M :: "real DBM"
   assumes "i \<le> n"
   assumes "M i i < Le 0"
   shows "norm M (k o v') n i i < Le 0"
 proof -
-  have "\<not> Le (k (v' i)) \<prec> Le 0" by auto
+  have "\<not> Le (real (k (v' i))) \<prec> Le 0" by auto
   with assms show ?thesis unfolding norm_def by (auto simp: Let_def less)
 qed
 
@@ -528,7 +529,7 @@ qed
 
 definition
   "finite_ta A \<equiv> finite (clkp_set A) \<and> finite (collect_clkvt (trans_of A))
-                 \<and> (\<forall>(_,m::real) \<in> clkp_set A. m \<in> \<nat>) \<and> clk_set A \<noteq> {} \<and> -clk_set A \<noteq> {}"
+                 \<and> (\<forall>(_,m) \<in> clkp_set A. m \<in> \<nat>) \<and> clk_set A \<noteq> {} \<and> -clk_set A \<noteq> {}"
 
 lemma finite_ta_Regions':
   fixes A :: "('a, 'c, real, 's) ta"
@@ -546,11 +547,12 @@ proof -
 qed
 
 lemma finite_ta_RegionsD:
+  fixes A :: "('a, 'c, t, 's) ta"
   assumes "finite_ta A"
-  obtains k :: "'b \<Rightarrow> nat" and v n x where
+  obtains k :: "'c \<Rightarrow> nat" and v n x where
     "Regions' (clk_set A) v n x" "valid_abstraction A (clk_set A) k" "global_clock_numbering A v n"
 proof -
-  from standard_abstraction assms obtain k :: "'b \<Rightarrow> nat" where k:
+  from standard_abstraction assms obtain k :: "'c \<Rightarrow> nat" where k:
     "valid_abstraction A (clk_set A) k" 
   unfolding finite_ta_def by blast
   from finite_ta_Regions'[OF assms] obtain v n x where *: "Regions' (clk_set A) v n x" .
@@ -603,7 +605,7 @@ proof -
     "Regions' (clk_set A) v n x" "valid_abstraction A (clk_set A) k" "global_clock_numbering A v n"
   .
   from this(1) interpret interp: Regions' "clk_set A" k v n x .
-  def v' \<equiv> "\<lambda> i. if i \<le> n then (THE c. c \<in> clk_set A \<and> v c = i) else x"
+  def v' \<equiv> "\<lambda> i. if 0 < i \<and> i \<le> n then (THE c. c \<in> clk_set A \<and> v c = i) else x"
   { fix l D l' D'
     assume step: "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub>* \<langle>l',D'\<rangle>"
     and valid: "valid_dbm D n" and non_empty: "[D']\<^bsub>v,n\<^esub> \<noteq> {}"

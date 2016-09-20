@@ -7,8 +7,8 @@ begin
 subsection \<open>Single Step\<close>
 
 inductive step_z_dbm ::
-  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('t::time) DBM
-    \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> ('t::time) DBM \<Rightarrow> bool"
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> 't :: {linordered_cancel_ab_monoid_add,uminus} DBM
+    \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> 't DBM \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
 where
   step_t_z_dbm:
@@ -22,6 +22,7 @@ inductive_cases step_z_cases: "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\
 declare step_z_dbm.intros[intro]
 
 lemma step_z_dbm_preserves_int:
+  fixes D D' :: "('t :: {time, ring_1} DBM)"
   assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
           "dbm_int D n"
   shows "dbm_int D' n"

@@ -52,7 +52,7 @@ where
   "dbm_entry_bound (Lt t) = t" |
   "dbm_entry_bound \<infinity> = 0"
 
-inductive dbm_lt :: "('t::time) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> bool"
+inductive dbm_lt :: "('t::linorder) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> bool"
 ("_ \<prec> _" [51, 51] 50)
 where
   "dbm_lt (Lt _) \<infinity>" |
@@ -64,7 +64,7 @@ where
 
 declare dbm_lt.intros[intro]
 
-definition dbm_le :: "('t::time) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> bool"
+definition dbm_le :: "('t::linorder) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> bool"
 ("_ \<preceq> _" [51, 51] 50)
 where
   "dbm_le a b \<equiv> (a \<prec> b) \<or> a = b"
@@ -190,7 +190,7 @@ lemma not_dbm_le_lt_impl: "\<not> Le a \<prec> Lt b \<Longrightarrow> a \<ge> b"
 
 (*<*)
 
-fun dbm_add :: "('t::time) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> 't DBMEntry" (infixl "\<otimes>" 70)
+fun dbm_add :: "('t::linordered_cancel_ab_semigroup_add) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> 't DBMEntry" (infixl "\<otimes>" 70)
 where
   "dbm_add \<infinity>     _      = \<infinity>" |
   "dbm_add _      \<infinity>     = \<infinity>" |
@@ -202,7 +202,7 @@ where
 thm dbm_add.simps
 
 lemma aux_4: "x \<prec> y \<Longrightarrow> \<not> dbm_add x z \<prec> dbm_add y z \<Longrightarrow> dbm_add x z = dbm_add y z"
-by (cases x y rule: dbm_lt.cases) ((cases z), auto)+
+by (cases x y rule: dbm_lt.cases; cases z; auto)
 
 lemma aux_5: "\<not> x \<prec> y \<Longrightarrow> dbm_add x z \<prec> dbm_add y z \<Longrightarrow> dbm_add y z = dbm_add x z"
 proof -
@@ -269,7 +269,7 @@ by (cases "a = b") (auto simp: dbm_le_def)
 
 section \<open>DBM Entries Form a Linearly Ordered Abelian Monoid\<close>
 
-instantiation DBMEntry :: (time) linorder
+instantiation DBMEntry :: (linorder) linorder
 begin
   definition less_eq: "op \<le> \<equiv> dbm_le"
   definition less: "op < = dbm_lt"
@@ -287,14 +287,20 @@ begin
   qed
 end
 
-instantiation DBMEntry :: (time) linordered_ab_monoid_add
+(* XXX Clean this dependency stack *)
+class linordered_cancel_ab_monoid_add =
+  linordered_cancel_ab_semigroup_add + zero +
+    assumes neutl[simp]: "0 + x = x"
+    assumes neutr[simp]: "x + 0 = x"
+
+instantiation DBMEntry :: (linordered_cancel_ab_monoid_add) linordered_ab_monoid_add
 begin
   definition mult: "op + = dbm_add"
   definition neutral: "neutral = Le 0"
   instance proof ((standard; unfold mult neutral less less_eq), goal_cases)
-    case (1 a b c) thus ?case by (cases a; cases b; cases c; auto)
+    case (1 a b c) thus ?case by (cases a; cases b; cases c; auto simp: add.assoc)
   next
-    case (2 a b) thus ?case by (cases a; cases b) auto
+    case (2 a b) thus ?case by (cases a; cases b; auto simp: add.commute)
   next
     case (3 a b c)
     thus ?case unfolding dbm_le_def
@@ -309,9 +315,10 @@ begin
   qed
 end
 
-interpretation linordered_monoid: linordered_ab_monoid_add dbm_add dbm_le dbm_lt "Le 0"
-  apply (standard, fold neutral mult less_eq less)
-using add.commute add.commute add_left_mono assoc by auto
+interpretation linordered_monoid:
+  linordered_ab_monoid_add dbm_add dbm_le dbm_lt "Le (0::'t::linordered_cancel_ab_monoid_add)"
+ apply (standard, fold neutral mult less_eq less)
+using add.commute by (auto intro: add_left_mono simp: add.assoc)
 
 lemma Le_Le_dbm_lt_D[dest]: "Le a \<prec> Lt b \<Longrightarrow> a < b" by (cases rule: dbm_lt.cases) auto
 lemma Le_Lt_dbm_lt_D[dest]: "Le a \<prec> Le b \<Longrightarrow> a < b" by (cases rule: dbm_lt.cases) auto

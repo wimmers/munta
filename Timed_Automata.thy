@@ -26,7 +26,7 @@ qed
 
 end
 
-datatype ('c, 't :: time) acconstraint =
+datatype ('c, 't) acconstraint =
   LT 'c 't |
   LE 'c 't |
   EQ 'c 't |
@@ -63,7 +63,7 @@ abbreviation transition ::
 
 subsection \<open>Collecting Information About Clocks\<close>
 
-fun constraint_clk :: "('c, 't :: time) acconstraint \<Rightarrow> 'c"
+fun constraint_clk :: "('c, 't) acconstraint \<Rightarrow> 'c"
 where
   "constraint_clk (LT c _) = c" |
   "constraint_clk (LE c _) = c" |
@@ -71,11 +71,11 @@ where
   "constraint_clk (GE c _) = c" |
   "constraint_clk (GT c _) = c"
 
-definition collect_clks :: "('c, 't :: time) cconstraint \<Rightarrow> 'c set"
+definition collect_clks :: "('c, 't) cconstraint \<Rightarrow> 'c set"
 where
   "collect_clks cc \<equiv> constraint_clk ` set cc"
 
-fun constraint_pair :: "('c, 't :: time) acconstraint \<Rightarrow> ('c * 't)"
+fun constraint_pair :: "('c, 't) acconstraint \<Rightarrow> ('c * 't)"
 where
   "constraint_pair (LT x m) = (x, m)" |
   "constraint_pair (LE x m) = (x, m)" |
@@ -83,23 +83,23 @@ where
   "constraint_pair (GE x m) = (x, m)" |
   "constraint_pair (GT x m) = (x, m)"
 
-definition collect_clock_pairs :: "('c, 't :: time) cconstraint \<Rightarrow> ('c * 't) set"
+definition collect_clock_pairs :: "('c, 't) cconstraint \<Rightarrow> ('c * 't) set"
 where
   "collect_clock_pairs cc = constraint_pair ` set cc"
 
-definition collect_clkt :: "('a, 'c, 't::time, 's) transition set \<Rightarrow> ('c *'t) set"
+definition collect_clkt :: "('a, 'c, 't, 's) transition set \<Rightarrow> ('c *'t) set"
 where
   "collect_clkt S = \<Union> {collect_clock_pairs (fst (snd t)) | t . t \<in> S}"
 
-definition collect_clki :: "('c, 't :: time, 's) invassn \<Rightarrow> ('c *'t) set"
+definition collect_clki :: "('c, 't, 's) invassn \<Rightarrow> ('c *'t) set"
 where
   "collect_clki I = \<Union> {collect_clock_pairs (I x) | x. True}"
 
-definition clkp_set :: "('a, 'c, 't :: time, 's) ta \<Rightarrow> ('c *'t) set"
+definition clkp_set :: "('a, 'c, 't, 's) ta \<Rightarrow> ('c *'t) set"
 where
   "clkp_set A = collect_clki (inv_of A) \<union> collect_clkt (trans_of A)"
 
-definition collect_clkvt :: "('a, 'c, 't::time, 's) transition set \<Rightarrow> 'c set"
+definition collect_clkvt :: "('a, 'c, 't, 's) transition set \<Rightarrow> 'c set"
 where
   "collect_clkvt S = \<Union> {set ((fst o snd o snd o snd) t) | t . t \<in> S}"
 
@@ -115,7 +115,7 @@ section \<open>Operational Semantics\<close>
 
 type_synonym ('c, 't) cval = "'c \<Rightarrow> 't"
 
-definition cval_add :: "('c,'t) cval \<Rightarrow> 't::time \<Rightarrow> ('c,'t) cval" (infixr "\<oplus>" 64)
+definition cval_add :: "('c,'t) cval \<Rightarrow> 't::plus \<Rightarrow> ('c,'t) cval" (infixr "\<oplus>" 64)
 where
   "u \<oplus> d = (\<lambda> x. u x + d)"
 

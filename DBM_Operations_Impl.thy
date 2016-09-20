@@ -18,13 +18,9 @@ definition
         else M i j
     )"
 
-class linordered_cancel_ab_monoid_add = linordered_cancel_ab_semigroup_add + linordered_ab_monoid_add
-
-thm add_strict_left_mono
-
 (* XXX However, DBM entries are NOT a member of this typeclass *)
 lemma canonical_is_cyc_free:
-  fixes M :: "nat \<Rightarrow> nat \<Rightarrow> ('b :: linordered_cancel_ab_monoid_add)"
+  fixes M :: "nat \<Rightarrow> nat \<Rightarrow> ('b :: {linordered_cancel_ab_semigroup_add, linordered_ab_monoid_add})"
   assumes "canonical M n"
   shows "cyc_free M n"
 proof (cases "\<forall> i \<le> n. \<one> \<le> M i i")
@@ -84,19 +80,21 @@ apply (cases a; cases b; cases c)
 apply auto
 oops
 
+instance linordered_ab_group_add \<subseteq> linordered_cancel_ab_monoid_add by standard auto
+
 lemma [simp]:
-  fixes d :: "'c :: time"
+  fixes d :: "'c :: linordered_ab_group_add"
   shows "Le d + Le (-d) = Le 0"
 unfolding mult by simp
 
 lemma [simp]:
-  fixes d :: "'c :: time"
+  fixes d :: "'c :: linordered_ab_group_add"
   shows "Le (-d) + Le d = Le 0"
 unfolding mult by simp
 
 lemma canonical_reset_canonical:
   fixes n :: nat
-  assumes "canonical M n" "d \<ge> 0" "M 0 0 = Le 0" "M x x = Le 0" "x > 0"
+  assumes "canonical M n" "(d :: 't :: linordered_ab_group_add) \<ge> 0" "M 0 0 = Le 0" "M x x = Le 0" "x > 0"
   shows "canonical (reset_canonical M x d) n"
 apply safe
 subgoal for i j k
@@ -394,6 +392,7 @@ lemma reset_canonical_diag_presv:
 unfolding reset_canonical_def using assms by auto
 
 lemma reset_cycle_free:
+  fixes M :: "('t :: time) DBM"
   assumes "cycle_free M n"
       and prems: "\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c. v c = k)" "clock_numbering' v n" "k > 0" "k \<le> n"
   shows "cycle_free (reset M n k d) n"
@@ -493,7 +492,7 @@ unfolding reset''_def reset'''_def by simp+
 type_synonym 'a DBM' = "nat \<times> nat \<Rightarrow> 'a DBMEntry"
 
 definition
-  "reset_canonical_upd (M :: ('a :: time) DBM') (n:: nat) (k:: nat) d =
+  "reset_canonical_upd (M :: ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBM') (n:: nat) (k:: nat) d =
     fold (\<lambda> i M. if i = k then M else M((k, i) := Le d + M(0,i), (i, k) := Le (-d) + M(i, 0)))
       (* [1..<n+1] *) (map nat [1..n])
       (M((k, 0) := Le d, (0, k) := Le (-d)))
@@ -603,7 +602,7 @@ apply simp
 oops
 
 lemma reset_canonical_upd_reset_canonical:
-  fixes i j k n :: nat and M :: "nat \<times> nat \<Rightarrow> ('a :: time) DBMEntry"
+  fixes i j k n :: nat and M :: "nat \<times> nat \<Rightarrow> ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBMEntry"
   assumes "k > 0" "i \<le> n" "j \<le> n" "\<forall> i \<le> n. \<forall> j \<le> n. M (i, j) = M' i j"
   shows "(reset_canonical_upd M n k d)(i,j) = (reset_canonical M' k d) i j" (is "?M(i,j) = _")
 proof (cases "i = k")
@@ -712,7 +711,7 @@ using assms
 done
 
 lemma reset'''_reset'_upd':
-  fixes n:: nat and cs :: "nat list" and M :: "('a :: time) DBM'"
+  fixes n:: nat and cs :: "nat list" and M :: "('a :: {linordered_cancel_ab_monoid_add,uminus}) DBM'"
   assumes "\<forall> c \<in> set cs. c \<noteq> 0" "i \<le> n" "j \<le> n"
   shows "(reset'_upd M n cs d) (i, j) = (reset''' (curry M) n cs d) i j"
 using reset'''_reset'_upd[where M = M and M' = "curry M", OF assms] by simp
@@ -774,7 +773,7 @@ by (induction n) (auto simp: one_upto_Suc'')
 
 (* Version to be made executable *)
 lemma reset_canonical_upd_alt_def:
-  "reset_canonical_upd (M :: ('a :: time) DBM') ( n:: nat) (k :: nat) d =
+  "reset_canonical_upd (M :: ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBM') ( n:: nat) (k :: nat) d =
     fold 
       (\<lambda> i M. 
         if i = k then 
@@ -790,25 +789,6 @@ lemma reset_canonical_upd_alt_def:
   "
 unfolding reset_canonical_upd_def by (simp add: upto_from_1_upt cong: if_cong)
 
-thm op_mtx_get_def
-
-term nfoldli
-
-term "Le 0" term "\<one>"
-
-instantiation DBMEntry :: (time) zero
-begin
-  definition "0 = Le 0"
-  instance ..
-end
-
-term Lt
-instance DBMEntry :: ("{countable,time}") countable
-apply (rule countable_classI[of "(\<lambda>Le (a::'a) \<Rightarrow> to_nat (0::nat,a) | DBM.Lt a \<Rightarrow> to_nat (1::nat,a) | DBM.INF \<Rightarrow> to_nat (2::nat,undefined::'a) )"])
-apply (simp split: DBMEntry.splits)
-done
-
-instance DBMEntry :: ("{heap,time}") heap ..
 
 section \<open>Delay\<close>
 
@@ -830,7 +810,7 @@ lemma up_canonical_preservation:
   shows "canonical (up M) n"
 unfolding up_def using assms by (simp add: dbm_entry_simps)
 
-definition up_canonical :: "('t :: time) DBM \<Rightarrow> 't DBM" where
+definition up_canonical :: "'t DBM \<Rightarrow> 't DBM" where
   "up_canonical M = (\<lambda> i j. if i > 0 \<and> j = 0 then \<infinity> else M i j)"
 
 lemma up_canonical_eq_up:
@@ -859,7 +839,7 @@ unfolding up_canonical_def using assms by auto
 (* XXX Move *)
 no_notation Ref.update ("_ := _" 62)
 
-definition up_canonical_upd :: "('a :: time) DBM' \<Rightarrow> nat \<Rightarrow> ('a :: time) DBM'" where
+definition up_canonical_upd :: "'t DBM' \<Rightarrow> nat \<Rightarrow> 't DBM'" where
   "up_canonical_upd M n = fold (\<lambda> i M. M((i,0) := \<infinity>)) [1..<n+1] M"
 
 lemma up_canonical_upd_rec:
@@ -956,31 +936,72 @@ apply safe
  using assms(1-3) prems by (auto simp: cyc_free_not_empty[OF canonical_cyc_free])
 by (auto simp: less_eq intro: DBM_le_subset)
 
-definition dbm_subset :: "nat \<Rightarrow> ('a :: time) DBM' \<Rightarrow> 'a DBM' \<Rightarrow> bool" where
-  "dbm_subset n M M' = pointwise_cmp (op \<le>) n (curry M) (curry M')"
+definition check_diag :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> bool" where
+  "check_diag n M \<equiv> \<exists> i \<le> n. M (i, i) < Le 0"
 
-term fold
+lemma check_diag_empty:
+  fixes n :: nat and v
+  assumes surj: "\<forall> k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
+  assumes "check_diag n M"
+  shows "[curry M]\<^bsub>v,n\<^esub> = {}"
+using assms neg_diag_empty[OF surj, where M = "curry M"] unfolding check_diag_def neutral by auto
+
+definition dbm_subset :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> 't DBM' \<Rightarrow> bool" where
+  "dbm_subset n M M' \<equiv> check_diag n M \<or> pointwise_cmp (op \<le>) n (curry M) (curry M')"
+
+lemma canonical_nonneg_diag_non_empty:
+  assumes "canonical M n" "\<forall>i\<le>n. \<one> \<le> M i i" "\<forall>c. v c \<le> n \<longrightarrow> 0 < v c"
+  shows "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
+ apply (rule cyc_free_not_empty)
+ apply (rule canonical_cyc_free)
+using assms by auto
+
+lemma subset_eq_dbm_subset:
+  assumes "canonical (curry M) n \<or> check_diag n M" "\<forall> i \<le> n. M (i, i) \<le> \<one>" "\<forall> i \<le> n. M' (i, i) \<le> \<one>"
+      and cn: "clock_numbering' v n" and surj: "\<forall> k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
+  shows "[curry M]\<^bsub>v,n\<^esub> \<subseteq> [curry M']\<^bsub>v,n\<^esub> \<longleftrightarrow> dbm_subset n M M'"
+proof (cases "check_diag n M")
+  case True
+  with check_diag_empty[OF surj] show ?thesis unfolding dbm_subset_def by auto
+next
+  case F: False
+  with assms(1) have canonical: "canonical (curry M) n" by fast
+  show ?thesis
+  proof (cases "check_diag n M'")
+    case True
+    from F cn have
+      "[curry M]\<^bsub>v,n\<^esub> \<noteq> {}"
+     apply -
+     apply (rule canonical_nonneg_diag_non_empty[OF canonical])
+    unfolding check_diag_def neutral[symmetric] by auto
+    moreover from F True have
+      "\<not> dbm_subset n M M'"
+    unfolding dbm_subset_def pointwise_cmp_def check_diag_def by fastforce
+    ultimately show ?thesis using check_diag_empty[OF surj True] by auto
+  next
+    case False
+    with F assms(2,3) have
+      "\<forall> i \<le> n. M (i, i) = \<one>" "\<forall> i \<le> n. M' (i, i) = \<one>"
+    unfolding check_diag_def neutral[symmetric] by fastforce+
+    with F False show ?thesis unfolding dbm_subset_def
+    by (subst subset_eq_pointwise_le[OF canonical _ _ cn]; auto)
+  qed
+qed
 
 lemma pointwise_cmp_alt_def:
   "pointwise_cmp P n M M' =
     list_all (\<lambda> i. list_all (\<lambda> j. P (M i j) (M' i j)) [0..<Suc n]) [0..<Suc n]"
 unfolding pointwise_cmp_def by (fastforce simp: list_all_iff)
 
+(* XXX Implement *)
 lemma dbm_subset_alt_def[code]:
   "dbm_subset n M M' =
-    list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n]"
+    (check_diag n M \<or>
+    list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n])"
 by (simp add: dbm_subset_def pointwise_cmp_alt_def)
-
-term foldli
-
-term conj
 
 definition pointwise_cmp_alt_def where
   "pointwise_cmp_alt_def P n M M' = fold (\<lambda> i b. fold (\<lambda> j b. P (M i j) (M' i j) \<and> b) [1..<Suc n] b) [1..<Suc n] True"
-
-term foldli
-
-term "\<not> x"
 
 lemma list_all_foldli:
   "list_all P xs = foldli xs (\<lambda> x. x = True) (\<lambda> x _. P x) True"
@@ -1069,7 +1090,7 @@ apply (simp; fail)
  using abstra_canonical_diag_preservation[where v = v and ac = ac] by auto
 done
 
-fun abstra_upd :: "(nat, 't::time) acconstraint \<Rightarrow> 't DBM' \<Rightarrow> 't DBM'"
+fun abstra_upd :: "(nat, 't::{linorder,uminus}) acconstraint \<Rightarrow> 't DBM' \<Rightarrow> 't DBM'"
 where
   "abstra_upd (EQ c d) M =
     (let m0c = op_mtx_get M (0, c); mc0 = op_mtx_get M(c, 0) in M((0, c) := min m0c (Le (-d)), (c, 0) := min mc0 (Le d)))" |
@@ -1181,7 +1202,7 @@ term op_list_get
 term fold
 
 (* XXX Possible to optimize norm_lower/norm_upper combinations? *)
-definition norm_upd_line :: "('t::time) DBM' \<Rightarrow> ('t list) \<Rightarrow> 't \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't DBM'"
+definition norm_upd_line :: "('t::{linordered_ab_group_add}) DBM' \<Rightarrow> 't list \<Rightarrow> 't \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't DBM'"
 where
   "norm_upd_line M k ub i n =
     fold
@@ -1220,7 +1241,7 @@ by ((induction n, simp add: norm_upd_line_def,
      simp del: norm_lower.simps norm_upper.simps add: norm_upd_line_out_of_bounds norm_upd_line_Suc_unfold)
     ; fail)+
 
-definition norm_upd :: "('t::time) DBM' \<Rightarrow> ('t list) \<Rightarrow> nat \<Rightarrow> 't DBM'"
+definition norm_upd :: "('t :: linordered_ab_group_add) DBM' \<Rightarrow> 't list \<Rightarrow> nat \<Rightarrow> 't DBM'"
 where
   "norm_upd M k n \<equiv>
     fold (\<lambda> i M. norm_upd_line M k (op_list_get k i) i n) [1..<Suc n] (norm_upd_line M k 0 0 n)
@@ -1342,6 +1363,7 @@ lemma norm_int_preservation:
 using assms unfolding norm_def by (auto simp: Let_def)
 
 lemma norm_upd_int_preservation:
+  fixes M :: "('t :: {linordered_ab_group_add, ring_1}) DBM'"
   assumes "dbm_int (curry M) n" "\<forall> c \<in> set k. c \<in> \<int>" "length k = Suc n"
   shows "dbm_int (curry (norm_upd M k n)) n"
 proof -
@@ -1354,6 +1376,21 @@ qed
 
 
 section \<open>Refinement\<close>
+
+instantiation DBMEntry :: (linordered_cancel_ab_monoid_add) zero
+begin
+  definition "0 = Le 0"
+  instance ..
+end
+
+instance DBMEntry :: ("{countable}") countable
+apply (rule countable_classI[of "(\<lambda>Le (a::'a) \<Rightarrow> to_nat (0::nat,a) | DBM.Lt a \<Rightarrow> to_nat (1::nat,a) | DBM.INF \<Rightarrow> to_nat (2::nat,undefined::'a) )"])
+apply (simp split: DBMEntry.splits)
+done
+
+instance DBMEntry :: ("{heap}") heap ..
+
+instance int :: linordered_cancel_ab_monoid_add by (standard; simp)
 
 (* XXX Move *)
 lemma [code]:
@@ -1381,49 +1418,27 @@ lemma [sepref_import_param]: "(uminus,uminus) \<in> (Id::(_*_)set)\<rightarrow>I
 
 term reset_canonical_upd
 
+term "reset_canonical_upd :: int DBM' \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int DBM'"
+
+term "(uncurry2 (uncurry (\<lambda>x. RETURN ooo (reset_canonical_upd :: int DBM' \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int DBM')x)))"
+
+term "SYNTH (uncurry2 (uncurry (\<lambda>x. RETURN ooo (reset_canonical_upd :: int DBM' \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int DBM')x))) ([\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn)"
+
+term "[\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn"
+
 sepref_definition reset_canonical_upd_impl' is
   "uncurry2 (uncurry (\<lambda>x. RETURN ooo reset_canonical_upd x))" ::
   "[\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn"
-  unfolding reset_canonical_upd_alt_def[abs_def] op_mtx_set_def[symmetric] (*op_mtx_get_def*)
-using [[goals_limit = 1]]
-  apply sepref_keep
-  done
+unfolding reset_canonical_upd_alt_def[abs_def] op_mtx_set_def[symmetric] by sepref
 
 sepref_definition reset_canonical_upd_impl is
   "uncurry2 (uncurry (\<lambda>x. RETURN ooo reset_canonical_upd x))" ::
   "[\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn"
-  unfolding reset_canonical_upd_alt_def[abs_def] op_mtx_set_def[symmetric] (*op_mtx_get_def*)
-using [[goals_limit = 1]]
-  apply sepref_keep
-  done
+unfolding reset_canonical_upd_alt_def[abs_def] op_mtx_set_def[symmetric] by sepref
 
 sepref_definition up_canonical_upd_impl is
   "uncurry (RETURN oo up_canonical_upd)" :: "[\<lambda>(_,i). i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-  unfolding up_canonical_upd_def[abs_def] op_mtx_set_def[symmetric]
-using [[goals_limit = 1]]
-  apply sepref_keep
-  done
-
-term "SYNTH (uncurry2 (\<lambda> x. (RETURN ooo dbm_subset) x))"
-term "uncurry2 (RETURN ooo dbm_subset)"
-term dbm_subset
-term "SYNTH (uncurry2 (RETURN ooo dbm_subset))"
-term "uncurry2 (uncurry (\<lambda>x. RETURN ooo reset_canonical_upd x))"
-term "SYNTH (uncurry2 (uncurry (\<lambda>x. RETURN ooo reset_canonical_upd x)))"
-term "mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow>\<^sub>a mtx_assn"
-term "(nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>d *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn)"
-term "(nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a mtx_assn)"
-
-(* lemma [sepref_import_param]: "(list_all,list_all) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp *)
-
-thm sepref_monadify_comb
-
-term foldli
-term nfoldli
-term EVAL
-
-thm fold_eq_nfoldli
-
+unfolding up_canonical_upd_def[abs_def] op_mtx_set_def[symmetric] by sepref
 
 lemma [sepref_import_param]: "(op \<le> :: _ DBMEntry \<Rightarrow> _,op\<le>) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
 lemma [sepref_import_param]: "(min :: _ DBMEntry \<Rightarrow> _,min) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
@@ -1432,38 +1447,51 @@ lemma [sepref_opt_simps]:
   "(x = True) = x"
 by simp
 
+term check_diag
+
+(*
+sepref_register check_diag :: "nat \<Rightarrow> 'a :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> bool"
+
+lemma [sepref_import_param]: "((\<lambda> x y. True) :: _ \<Rightarrow> _ DBMEntry i_mtx \<Rightarrow> bool, check_diag) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
+*)
+
+(* XXX dummy definition *)
+sepref_definition check_diag_impl' is
+  "uncurry (RETURN oo check_diag)" ::
+  "[\<lambda>(i, _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
+sorry
+
+lemmas [sepref_fr_rules] = check_diag_impl'.refine
+
+sepref_register check_diag :: "nat \<Rightarrow> _ :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> bool"
+
+term "\<lambda> x y. RETURN True"
+
 sepref_definition dbm_subset_impl' is
   "uncurry2 (RETURN ooo dbm_subset)" ::
   "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-  (* unfolding dbm_subset_def[abs_def] pointwise_cmp_alt_def[abs_def] *)
-  unfolding dbm_subset_alt_def[abs_def] list_all_foldli
-using [[goals_limit = 4]]
-  apply sepref_keep
-done
+unfolding dbm_subset_alt_def[abs_def] list_all_foldli
+apply sepref_dbg_preproc
+  apply sepref_dbg_cons_init
+  apply sepref_dbg_id
+  apply sepref_dbg_monadify
+  apply sepref_dbg_opt_init
+  apply sepref_dbg_trans_keep
+sorry
 
-thm itypeI[of n "TYPE (nat)"]
-
+  
 
 context
   notes [id_rules] = itypeI[of n "TYPE (nat)"]
     and [sepref_import_param] = IdI[of n]
 begin
 
-term "uncurry (RETURN oo dbm_subset n)"
-
 sepref_definition dbm_subset_impl is
   "uncurry (RETURN oo dbm_subset n)" ::
   "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-unfolding dbm_subset_alt_def[abs_def] list_all_foldli by sepref
+unfolding dbm_subset_alt_def[abs_def] list_all_foldli (* by sepref *) sorry
 
 end
-
-term abstra_upd
-
-term "acconstraint_assn id_assn"
-term mtx_assn
-
-term nbn_rel
 
 abbreviation "clock_assn \<equiv> pure (nbn_rel (Suc n))"
 
@@ -1483,8 +1511,6 @@ lemma [sepref_import_param]: "(Le,Le) \<in> Id\<rightarrow>Id" by simp
 
 lemmas [sepref_opt_simps] = zero_clock_def
 
-thm sepref_frame_normrel_eqs
-
 sepref_definition abstra_upd_impl is
   "uncurry (RETURN oo abstra_upd)" ::
   "(acconstraint_assn clock_assn id_assn)\<^sup>k *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
@@ -1492,32 +1518,18 @@ sepref_definition abstra_upd_impl is
 using [[goals_limit = 1]] by sepref
 
 sepref_register abstra_upd ::
-  "(nat, ('a :: time)) acconstraint \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx"
+  "(nat, ('a :: {linordered_cancel_ab_monoid_add,uminus,heap})) acconstraint \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx"
 
 lemmas [sepref_fr_rules] = abstra_upd_impl.refine
 
-thm sepref_fr_rules
-
-term abstr_upd
-
 sepref_definition abstr_upd_impl is
   "uncurry (RETURN oo abstr_upd)" :: "(list_assn (acconstraint_assn clock_assn id_assn))\<^sup>k *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
-  unfolding abstr_upd_alt_def
-using [[goals_limit = 1]] by sepref
-
-
-term "norm_upd M k n"
+  unfolding abstr_upd_alt_def by sepref
 
 lemma [sepref_import_param]: "(norm_lower, norm_lower) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
 lemma [sepref_import_param]: "(norm_upper, norm_upper) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
-(*lemma [sepref_import_param]:
-  "(0::nat, 0) \<in> nbn_rel (Suc n)"
-unfolding zero_clock_def by auto
-*)
 
-term "0 :: ('a :: time)"
-
-definition zero_clock2 :: "_ :: time" where
+definition zero_clock2 :: "_ :: linordered_cancel_ab_monoid_add" where
   "zero_clock2 = 0"
 
 sepref_register zero_clock2

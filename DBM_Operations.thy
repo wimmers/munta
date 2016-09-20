@@ -24,7 +24,8 @@ where
 
 section \<open>Time Lapse\<close>
 
-definition up :: "('t::time) DBM \<Rightarrow> ('t::time) DBM"
+definition
+  up :: "('t::linordered_cancel_ab_semigroup_add) DBM \<Rightarrow> ('t::linordered_cancel_ab_semigroup_add) DBM"
 where
   "up M \<equiv>
     \<lambda> i j. if i > 0 then if j = 0 then \<infinity> else min (dbm_add (M i 0) (M 0 j)) (M i j) else M i j"
@@ -586,10 +587,11 @@ qed
 
 section \<open>From Clock Constraints to DBMs\<close>
 
-fun And :: "('t :: time) DBM \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
+fun And :: "('t :: {linordered_cancel_ab_monoid_add}) DBM \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
   "And M1 M2 = (\<lambda> i j. min (M1 i j) (M2 i j))"
 
-fun abstra :: "('c, 't::time) acconstraint \<Rightarrow> 't DBM \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't DBM"
+fun abstra ::
+  "('c, 't::{linordered_cancel_ab_monoid_add,uminus}) acconstraint \<Rightarrow> 't DBM \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't DBM"
 where
   "abstra (EQ c d) M v =
     (\<lambda> i j . if i = 0 \<and> j = v c then min (M i j) (Le (-d)) else if i = v c \<and> j = 0 then min (M i j) (Le d) else M i j)" |
@@ -602,7 +604,7 @@ where
   "abstra (GE c d) M v =
     (\<lambda> i j. if i = 0 \<and> j = v c then min (M i j) (Le (- d)) else M i j)"
 
-fun abstr :: "('c, 't::time) cconstraint \<Rightarrow> 't DBM \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't DBM"
+fun abstr ::"('c, 't::{linordered_cancel_ab_monoid_add,uminus}) cconstraint \<Rightarrow> 't DBM \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't DBM"
 where
   "abstr cc M v = fold (\<lambda> ac M. abstra ac M v) cc M"
 
@@ -1014,7 +1016,8 @@ qed
 
 text \<open>Implementation of DBM reset\<close>
 
-definition reset :: "('t::time) DBM \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't \<Rightarrow> 't DBM"
+definition
+  reset :: "('t::{linordered_cancel_ab_semigroup_add,uminus}) DBM \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't \<Rightarrow> 't DBM"
 where
   "reset M n k d =
     (\<lambda> i j.
@@ -1026,7 +1029,9 @@ where
         else min (dbm_add (M i k) (M k j)) (M i j)
        )"
 
-fun reset' :: "('t::time) DBM \<Rightarrow> nat \<Rightarrow> 'c list \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't \<Rightarrow> 't DBM"
+fun
+  reset' ::
+  "('t::{linordered_cancel_ab_semigroup_add,uminus}) DBM \<Rightarrow> nat \<Rightarrow> 'c list \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't \<Rightarrow> 't DBM"
 where
   "reset' M n [] v d = M" |
   "reset' M n (c # cs) v d = reset (reset' M n cs v d) n (v c) d"
@@ -2258,7 +2263,7 @@ next
 qed
 
 lemma DBM_reset'_resets':
-  fixes M v c n d cs
+  fixes M :: "('t :: time) DBM" and v c n d cs
   assumes "clock_numbering' v n" "\<forall> c \<in> set cs. v c \<le> n" "DBM_val_bounded v u (reset' M n cs v d) n"
           "DBM_val_bounded v u'' M n"
   shows "\<forall>c \<in> set cs. u c = d"
@@ -2287,6 +2292,7 @@ next
 qed
 
 lemma DBM_reset'_neg_diag_preservation':
+  fixes M :: "('t :: time) DBM"
   assumes "k\<le>n" "M k k < \<one>" "clock_numbering v" "\<forall> c \<in> set cs. v c \<le> n"
   shows "reset' M n cs v d k k < \<one>" using assms
 proof (induction cs)
@@ -2473,7 +2479,7 @@ lemma And_int_preservation:
 using assms by (auto simp: min_def)
 
 lemma up_int_preservation:
-  "dbm_int M n \<Longrightarrow> dbm_int (up M) n"
+  "dbm_int (M :: (('t :: {time, ring_1}) DBM)) n \<Longrightarrow> dbm_int (up M) n"
 unfolding up_def min_def
  apply safe
  apply (case_tac "i = 0")
@@ -2521,11 +2527,13 @@ proof clarify
 qed
 
 lemma DBM_reset_int_preservation:
+  fixes M :: "('t :: {time,ring_1}) DBM"
   assumes "dbm_int M n" "d \<in> \<int>" "0 < k" "k \<le> n"
   shows "dbm_int (reset M n k d) n"
 using assms(3-) DBM_reset_int_preservation'[OF assms(1) DBM_reset_reset assms(2)] by blast
 
 lemma DBM_reset'_int_preservation:
+  fixes M :: "('t :: {time, ring_1}) DBM"
   assumes "dbm_int M n" "d \<in> \<int>" "\<forall>c. v c > 0" "\<forall> c \<in> set cs. v c \<le> n"
   shows "dbm_int (reset' M n cs v d) n" using assms
 proof (induction cs)
@@ -2577,7 +2585,7 @@ proof
 qed
 
 abbreviation global_clock_numbering ::
-  "('a, 'c, 't :: time, 's) ta \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> bool"
+  "('a, 'c, 't, 's) ta \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> bool"
 where
   "global_clock_numbering A v n \<equiv>
     clock_numbering' v n \<and> (\<forall> c \<in> clk_set A. v c \<le> n) \<and> (\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c. v c = k))"
@@ -2662,6 +2670,7 @@ lemma canonical_cyc_free2:
 using canonical_cyc_free by blast
 
 lemma DBM_reset'_diag_preservation:
+  fixes M :: "('t :: time) DBM"
   assumes "\<forall>k\<le>n. M k k \<le> \<one>" "clock_numbering v" "\<forall> c \<in> set cs. v c \<le> n"
   shows "\<forall>k\<le>n. reset' M n cs v d k k \<le> \<one>" using assms
 proof (induction cs)

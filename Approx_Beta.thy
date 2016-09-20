@@ -488,7 +488,7 @@ apply (induction rule: arcs.induct)
   apply (case_tac "M a' x")
 by auto
 
-lemma dbm_add_strict_right_mono_neutral: "a < Le d \<Longrightarrow> a + Le (-d) < Le 0"
+lemma dbm_add_strict_right_mono_neutral: "a < Le (d :: 't :: time) \<Longrightarrow> a + Le (-d) < Le 0"
 unfolding less mult by (cases a) (auto elim!: dbm_lt.cases)
 
 lemma dbm_lt_not_inf_less[intro]: "A \<noteq> \<infinity> \<Longrightarrow> A \<prec> \<infinity>" by (cases A) auto
