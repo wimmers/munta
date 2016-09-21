@@ -944,14 +944,14 @@ abbreviation "acri \<equiv> rel_acconstraint (op =) ri"
 abbreviation "acri' n \<equiv> rel_acconstraint (eq_onp (\<lambda> x. x < Suc n)) ri"
 
 abbreviation
-  "RI' n \<equiv> (rel_prod (eq_onp (\<lambda> x. x < Suc n)) (eq_onp (\<lambda> x. x < Suc n)) ===> rel_DBMEntry ri)"
+  "RI n \<equiv> (rel_prod (eq_onp (\<lambda> x. x < Suc n)) (eq_onp (\<lambda> x. x < Suc n)) ===> rel_DBMEntry ri)"
 
 lemma rel_DBMEntry_map_DBMEntry_ri [simp, intro]:
   "rel_DBMEntry ri (map_DBMEntry real_of_int x) x"
 by (cases x) (auto simp: ri_def)
 
-lemma RI'_fun_upd[transfer_rule]:
-  "(RI' n ===> op = ===> rel_DBMEntry ri ===> RI' n) fun_upd fun_upd"
+lemma RI_fun_upd[transfer_rule]:
+  "(RI n ===> op = ===> rel_DBMEntry ri ===> RI n) fun_upd fun_upd"
 unfolding rel_fun_def eq_onp_def by auto
 
 lemma min_ri_transfer[transfer_rule]:
@@ -976,8 +976,8 @@ lemma ri_neg[transfer_rule, intro]:
   "ri a b \<Longrightarrow> ri (-a) (-b)"
 unfolding ri_def by auto
 
-lemma abstra_upd_RI'[transfer_rule]:
-  "(acri' n ===> RI' n ===> RI' n) abstra_upd abstra_upd"
+lemma abstra_upd_RI[transfer_rule]:
+  "(acri' n ===> RI n ===> RI n) abstra_upd abstra_upd"
  apply rule
  apply rule
  subgoal for x y _ _
@@ -985,8 +985,8 @@ lemma abstra_upd_RI'[transfer_rule]:
  using min_ri_transfer unfolding eq_onp_def rel_fun_def by (auto dest: ri_neg)
 done
 
-lemma abstr_upd_RI'[transfer_rule]:
-  "(list_all2 (acri' n) ===> RI' n ===> RI' n) abstr_upd abstr_upd"
+lemma abstr_upd_RI[transfer_rule]:
+  "(list_all2 (acri' n) ===> RI n ===> RI n) abstr_upd abstr_upd"
 unfolding abstr_upd_def by transfer_prover
 
 lemma uminus_RI[transfer_rule]:
@@ -1088,15 +1088,15 @@ lemma [transfer_rule]:
   "(eq_onp P ===> op = ===> op =) op + op +"
 unfolding eq_onp_def rel_fun_def by auto
 
-lemma up_canonical_upd_RI'2[transfer_rule]:
-  "(RI' n ===> (eq_onp (\<lambda> x. x < Suc n)) ===> RI' n) up_canonical_upd up_canonical_upd"
+lemma up_canonical_upd_RI2[transfer_rule]:
+  "(RI n ===> (eq_onp (\<lambda> x. x < Suc n)) ===> RI n) up_canonical_upd up_canonical_upd"
 unfolding up_canonical_upd_def[abs_def] by transfer_prover
 
-lemma up_canonical_upd_RI'[transfer_rule]:
-  "(RI' n ===> (eq_onp (\<lambda> x. x = n)) ===> RI' n) up_canonical_upd up_canonical_upd"
+lemma up_canonical_upd_RI[transfer_rule]:
+  "(RI n ===> (eq_onp (\<lambda> x. x = n)) ===> RI n) up_canonical_upd up_canonical_upd"
 unfolding up_canonical_upd_def[abs_def] by transfer_prover
 
-lemma up_canonical_upd_RI'3[transfer_rule]:
+lemma up_canonical_upd_RI3[transfer_rule]:
   "((rel_prod op = op = ===>
    rel_DBMEntry op =) ===> (eq_onp (\<lambda> x. x = n)) ===> (rel_prod op = op = ===>
    rel_DBMEntry op =)) up_canonical_upd up_canonical_upd"
@@ -1106,11 +1106,11 @@ lemma norm_upd_line_transfer[transfer_rule]:
   fixes n :: nat
   notes eq_onp_Suc[of n, transfer_rule] zero_nat_transfer[transfer_rule]
   shows
-    "(RI' n
+    "(RI n
     ===> (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n)
     ===> ri ===> eq_onp (\<lambda> x. x < Suc n)
     ===> eq_onp (\<lambda> x. x = n)
-    ===> RI' n)
+    ===> RI n)
     norm_upd_line norm_upd_line"
 unfolding norm_upd_line_def[abs_def] op_list_get_def by transfer_prover
 
@@ -1118,7 +1118,7 @@ lemma norm_upd_transfer[transfer_rule]:
   fixes n :: nat
   notes eq_onp_Suc[of n, transfer_rule] zero_nat_transfer[transfer_rule]
   shows
-    "(RI' n ===> (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n) ===> eq_onp (\<lambda> x. x = n)  ===> RI' n)
+    "(RI n ===> (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n) ===> eq_onp (\<lambda> x. x = n)  ===> RI n)
     norm_upd norm_upd"
 unfolding norm_upd_def[abs_def] op_list_get_def by transfer_prover
 
@@ -1309,12 +1309,7 @@ lemma FW_RI_transfer[transfer_rule]:
 by standard+ (drule rel_funD[OF fw_RI_transfer]; auto simp: rel_fun_def eq_onp_def)
 
 lemma FW_RI_transfer'[transfer_rule]:
-  "(RI ===> eq_onp (\<lambda> x. x = n) ===> RI) FW' FW'"
-apply transfer_prover_start
-using FW_RI_transfer[of n] unfolding FW'_def uncurry_def[abs_def] rel_fun_def oops
-
-lemma FW_RI'_transfer[transfer_rule]:
-  "(RI' n ===> eq_onp (\<lambda> x. x = n) ===> RI' n) FW' FW'"
+  "(RI n ===> eq_onp (\<lambda> x. x = n) ===> RI n) FW' FW'"
 using FW_RI_transfer[of n] unfolding FW'_def uncurry_def[abs_def] rel_fun_def by auto
 
 definition RI_I :: "nat \<Rightarrow> (nat, real, 's) invassn \<Rightarrow> (nat, int, 's) invassn \<Rightarrow> bool" where
@@ -1352,19 +1347,19 @@ lemma [transfer_rule]:
   "(eq_onp (\<lambda>x. x < int (Suc n)) ===> eq_onp (\<lambda>x. x < Suc n)) nat nat"
 unfolding eq_onp_def rel_fun_def by auto
 
-lemma reset_canonical_upd_RI'_aux:
-  "(RI' n ===> eq_onp (\<lambda> x. x < Suc n) ===> ri ===> RI' n)
+lemma reset_canonical_upd_RI_aux:
+  "(RI n ===> eq_onp (\<lambda> x. x < Suc n) ===> ri ===> RI n)
   (reset_canonical_upd' n) (reset_canonical_upd' n)"
 unfolding reset_canonical_upd'_def[abs_def] reset_canonical_upd_def[abs_def] by transfer_prover
 
-lemma reset_canonical_upd_RI'[transfer_rule]:
-  "(RI' n ===> eq_onp (\<lambda> x. x = n) ===> eq_onp (\<lambda> x. x < Suc n) ===> ri ===> RI' n)
+lemma reset_canonical_upd_RI[transfer_rule]:
+  "(RI n ===> eq_onp (\<lambda> x. x = n) ===> eq_onp (\<lambda> x. x < Suc n) ===> ri ===> RI n)
   reset_canonical_upd reset_canonical_upd"
-using reset_canonical_upd_RI'_aux unfolding reset_canonical_upd'_def[abs_def] rel_fun_def eq_onp_def
+using reset_canonical_upd_RI_aux unfolding reset_canonical_upd'_def[abs_def] rel_fun_def eq_onp_def
 by auto
 
-lemma reset'_upd_RI'[transfer_rule]:
-  "(RI' n ===> eq_onp (\<lambda> x. x = n) ===> list_all2 (eq_onp (\<lambda> x. x < Suc n)) ===> ri ===> RI' n)
+lemma reset'_upd_RI[transfer_rule]:
+  "(RI n ===> eq_onp (\<lambda> x. x = n) ===> list_all2 (eq_onp (\<lambda> x. x < Suc n)) ===> ri ===> RI n)
   reset'_upd reset'_upd"
 unfolding reset'_upd_def[abs_def] by transfer_prover
 
@@ -1372,10 +1367,10 @@ unfolding reset'_upd_def[abs_def] by transfer_prover
 definition "ri_len n = (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n)"
 
 lemma RI_complete:
-  assumes lifts: "RI' n D M" "RI_A n A' A" "list_all2 ri k' k"
+  assumes lifts: "RI n D M" "RI_A n A' A" "list_all2 ri k' k"
       and step: "A' \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
       and len: "length k' = Suc n"
-  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',M'\<rangle> \<and> RI' n D' M'"
+  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',M'\<rangle> \<and> RI n D' M'"
 using step proof cases
   case prems: step_t_impl
   let ?M' =
@@ -1384,7 +1379,7 @@ using step proof cases
   note [transfer_rule] = lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
   have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
-  have "RI' n D' ?M'" unfolding prems by transfer_prover
+  have "RI n D' ?M'" unfolding prems by transfer_prover
   with \<open>l' = l\<close> show ?thesis by auto
 next
   case prems: (step_a_impl g' a r')
@@ -1404,15 +1399,15 @@ next
   note [transfer_rule] = g'[unfolded \<open>r' = r\<close>]
     lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
   have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
-  have "RI' n D' ?M'" unfolding prems \<open>r' = r\<close> by transfer_prover
+  have "RI n D' ?M'" unfolding prems \<open>r' = r\<close> by transfer_prover
   with g' show ?thesis unfolding \<open>r' = r\<close> by auto
 qed
 
 lemma IR_complete:
-  assumes lifts: "RI' n D M" "RI_A n A' A" "list_all2 ri k' k"
+  assumes lifts: "RI n D M" "RI_A n A' A" "list_all2 ri k' k"
       and step: "A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',M'\<rangle>"
       and len: "length k' = Suc n"
-  shows "\<exists> D'. A' \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle> \<and> RI' n D' M'"
+  shows "\<exists> D'. A' \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle> \<and> RI n D' M'"
 using step proof cases
   case prems: step_t_impl
   let ?D' =
@@ -1421,7 +1416,7 @@ using step proof cases
   note [transfer_rule] = lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
   have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
-  have "RI' n ?D' M'" unfolding prems by transfer_prover
+  have "RI n ?D' M'" unfolding prems by transfer_prover
   with \<open>l' = l\<close> show ?thesis by auto
 next
   case prems: (step_a_impl g a r)
@@ -1441,7 +1436,7 @@ next
   note [transfer_rule] = g'[unfolded \<open>r' = r\<close>]
     lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
   have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
-  have "RI' n ?D' M'" unfolding prems by transfer_prover
+  have "RI n ?D' M'" unfolding prems by transfer_prover
   with g' show ?thesis unfolding \<open>r' = r\<close> by auto
 qed
 
@@ -1853,8 +1848,8 @@ abbreviation "conv_t \<equiv> \<lambda> (l,g,a,r,l'). (l,conv_cc g,a,r,l')"
 
 abbreviation "conv_A \<equiv> \<lambda> (T, I). (conv_t ` T, conv_cc o I)"
 
-lemma RI'_zone_equiv:
-  assumes "RI' n M M'"
+lemma RI_zone_equiv:
+  assumes "RI n M M'"
   shows "[curry M]\<^bsub>v,n\<^esub> = [curry (conv_M M')]\<^bsub>v,n\<^esub>"
 using assms unfolding DBM_zone_repr_def DBM_val_bounded_def rel_fun_def eq_onp_def
  apply clarsimp
@@ -2125,41 +2120,41 @@ lemma canonical_conv_rev:
   shows "canonical (curry M) n"
 using assms by (auto intro: canonical_conv_aux_rev)
 
-lemma canonical_RI'_aux1:
+lemma canonical_RI_aux1:
   assumes "(rel_DBMEntry ri) a1 b1" "(rel_DBMEntry ri) a2 b2" "(rel_DBMEntry ri) a3 b3" "a1 \<le> a2 + a3"
   shows "b1 \<le> b2 + b3"
 using assms unfolding ri_def less_eq mult dbm_le_def
 by (cases a1; cases a2; cases a3; cases b1; cases b2; cases b3) (auto elim!: dbm_lt.cases)
 
-lemma canonical_RI'_aux2:
+lemma canonical_RI_aux2:
   assumes "(rel_DBMEntry ri) a1 b1" "(rel_DBMEntry ri) a2 b2" "(rel_DBMEntry ri) a3 b3" "b1 \<le> b2 + b3"
   shows "a1 \<le> a2 + a3"
 using assms unfolding ri_def less_eq mult dbm_le_def
 by (cases a1; cases a2; cases a3; cases b1; cases b2; cases b3) (auto elim!: dbm_lt.cases)
 
-lemma canonical_RI':
-  assumes "RI' n D M"
+lemma canonical_RI:
+  assumes "RI n D M"
   shows "canonical (curry D) n = canonical (curry M) n"
 using assms unfolding rel_fun_def eq_onp_def
  apply safe
  subgoal for i j k
- by (rule canonical_RI'_aux1[of "D (i, k)" _ "D (i, j)" _ "D (j, k)"]; auto)
+ by (rule canonical_RI_aux1[of "D (i, k)" _ "D (i, j)" _ "D (j, k)"]; auto)
  subgoal for i j k
- by (rule canonical_RI'_aux2[of _ "M (i, k)" _ "M (i, j)" _ "M (j, k)"]; auto)
+ by (rule canonical_RI_aux2[of _ "M (i, k)" _ "M (i, j)" _ "M (j, k)"]; auto)
 done
 
-lemma RI'_conv_M:
-  "(RI' n) (conv_M M) M"
+lemma RI_conv_M:
+  "(RI n) (conv_M M) M"
 by (auto simp: rel_fun_def DBMEntry.rel_map(1) ri_def eq_onp_def DBMEntry.rel_refl)
 
 lemma canonical_conv_M_FW':
   "canonical (curry (conv_M (FW' M n))) n = canonical (curry (FW' (conv_M M) n)) n"
 proof -
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
-  note [transfer_rule] = RI'_conv_M
-  have 1: "RI' n (FW' (conv_M M) n) (FW' M n)" by transfer_prover
-  have 2: "RI' n (conv_M (FW' M n)) (FW' M n)" by (rule RI'_conv_M)
-  from canonical_RI'[OF 1] canonical_RI'[OF 2] show ?thesis by simp
+  note [transfer_rule] = RI_conv_M
+  have 1: "RI n (FW' (conv_M M) n) (FW' M n)" by transfer_prover
+  have 2: "RI n (conv_M (FW' M n)) (FW' M n)" by (rule RI_conv_M)
+  from canonical_RI[OF 1] canonical_RI[OF 2] show ?thesis by simp
 qed
 
 lemma diag_conv:
@@ -2182,25 +2177,25 @@ lemma dbm_int_conv_rev:
   shows "dbm_int (curry Z) n"
 using assms by (auto intro: map_DBMEntry_int_const dest: map_DBMEntry_not_inf)
 
-lemma neutral_RI':
+lemma neutral_RI:
   assumes "rel_DBMEntry ri a b"
   shows "a \<ge> \<one> \<longleftrightarrow> b \<ge> \<one>"
 using assms by (cases a; cases b; auto simp: neutral ri_def less_eq dbm_le_def elim!: dbm_lt.cases)
 
-lemma diag_RI':
-  assumes "RI' n D M" "i \<le> n"
+lemma diag_RI:
+  assumes "RI n D M" "i \<le> n"
   shows "D (i, i) \<ge> \<one> \<longleftrightarrow> M (i, i) \<ge> \<one>"
-using neutral_RI' assms unfolding rel_fun_def eq_onp_def by auto
+using neutral_RI assms unfolding rel_fun_def eq_onp_def by auto
 
 lemma diag_conv_M:
   assumes "i \<le> n"
   shows "curry (conv_M (FW' M n)) i i \<ge> \<one> \<longleftrightarrow> curry (FW' (conv_M M) n) i i \<ge> \<one>"
 proof -
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
-  note [transfer_rule] = RI'_conv_M
-  have 1: "RI' n (FW' (conv_M M) n) (FW' M n)" by transfer_prover
-  have 2: "RI' n (conv_M (FW' M n)) (FW' M n)" by (rule RI'_conv_M)
-  from \<open>i \<le> n\<close> diag_RI'[OF 1] diag_RI'[OF 2] show ?thesis by simp
+  note [transfer_rule] = RI_conv_M
+  have 1: "RI n (FW' (conv_M M) n) (FW' M n)" by transfer_prover
+  have 2: "RI n (conv_M (FW' M n)) (FW' M n)" by (rule RI_conv_M)
+  from \<open>i \<le> n\<close> diag_RI[OF 1] diag_RI[OF 2] show ?thesis by simp
 qed
 
 lemma conv_dbm_entry_mono_rev:
@@ -2528,10 +2523,10 @@ begin
     have "length ?k = Suc n" using length_k' by auto
     let ?A = "conv_A A"
     have A: "RI_A n ?A A" by (rule RI_A_conv_A)
-    have M_conv: "RI' n (conv_M M) M" unfolding eq_onp_def by auto
-    have "RI' n (conv_M D) D" unfolding eq_onp_def by auto
+    have M_conv: "RI n (conv_M M) M" unfolding eq_onp_def by auto
+    have "RI n (conv_M D) D" unfolding eq_onp_def by auto
     from IR_complete[OF this A k step \<open>length ?k = _\<close>] obtain M' where M':
-      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI' n M' D'"
+      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI n M' D'"
     by auto
     from
       step_impl_sound[of ?A l "conv_M D" "map k [0..<Suc n]",
@@ -2558,11 +2553,11 @@ begin
       "?A \<turnstile>\<^sub>I \<langle>l, conv_M M\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M''''\<rangle>" "[curry M'''']\<^bsub>v,n\<^esub> = [curry ?M']\<^bsub>v,n\<^esub>"
     by (auto simp: k_simp_1)
     from RI_complete[OF M_conv A k this(1) \<open>length ?k = _\<close>] obtain MM where MM:
-      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', MM\<rangle>" "RI' n M'''' MM"
+      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', MM\<rangle>" "RI n M'''' MM"
     by auto
     moreover from MM(2) M''''(2) M'''(2) M''(2) M'(2) have
       "[curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M MM)]\<^bsub>v,n\<^esub>"
-    by (auto dest!: RI'_zone_equiv[where v = v])
+    by (auto dest!: RI_zone_equiv[where v = v])
     ultimately show ?thesis by auto
   qed
 
@@ -2738,9 +2733,9 @@ begin
     have "length ?k = Suc n" using length_k' by auto
     let ?A = "conv_A A"
     have A: "RI_A n ?A A" by (rule RI_A_conv_A)
-    have "RI' n (conv_M D) D" unfolding eq_onp_def by auto
+    have "RI n (conv_M D) D" unfolding eq_onp_def by auto
     from IR_complete[OF this A k step \<open>length ?k = _\<close>] obtain M' where M':
-      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI' n M' D'"
+      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI n M' D'"
     by auto
     from
       step_impl_sound[of ?A l "conv_M D" "map k [0..<Suc n]",
@@ -2754,7 +2749,7 @@ begin
       "valid_dbm M''"
     by auto
     then have "[M'']\<^bsub>v,n\<^esub> \<subseteq> V" by cases
-    with M''(2) RI'_zone_equiv[OF M'(2)] show ?thesis by auto
+    with M''(2) RI_zone_equiv[OF M'(2)] show ?thesis by auto
   qed
 
   lemma check_diag_empty_spec:
@@ -2898,9 +2893,9 @@ begin
     have "length ?k = Suc n" using length_k' by auto
     let ?A = "conv_A A"
     have A: "RI_A n ?A A" by (rule RI_A_conv_A)
-    have "RI' n (conv_M D) D" unfolding eq_onp_def by auto
+    have "RI n (conv_M D) D" unfolding eq_onp_def by auto
     from IR_complete[OF this A k step \<open>length ?k = _\<close>] obtain M' where M':
-      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI' n M' D'"
+      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI n M' D'"
     by auto
     show ?thesis
     proof (cases "check_diag n D")
@@ -2913,7 +2908,7 @@ begin
         "?A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l', M''\<rangle>" "[curry M']\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
       by (auto simp add: k_simp_1)
       with k_simp_2 have "step_z_norm' ?A l (curry (conv_M D)) l' M''" by auto
-      with M'(2) M''(2) show ?thesis by (auto dest!: RI'_zone_equiv[where v = v])
+      with M'(2) M''(2) show ?thesis by (auto dest!: RI_zone_equiv[where v = v])
     next
       case True (* XXX This part is duplicated very often *)
       with step_impl_neg_diag_preservation[OF step] have
@@ -2953,8 +2948,8 @@ begin
    using canonical_reachable reachable apply (simp only: check_diag_def neutral; blast)
   using valid_dbm_reachable reachable diag_reachable' by auto
 
-  lemma RI'_init_dbm:
-    "RI' n init_dbm init_dbm"
+  lemma RI_init_dbm:
+    "RI n init_dbm init_dbm"
   unfolding init_dbm_def rel_fun_def ri_def by auto
 
   lemma steps_z_norm'_valid_dbm_preservation:
@@ -3011,7 +3006,7 @@ begin
       apply (rule exI[where x = "curry init_dbm"])
       apply standard
       apply blast
-    using RI'_zone_equiv[symmetric] RI'_init_dbm by fastforce
+    using RI_zone_equiv[symmetric] RI_init_dbm by fastforce
   next
     case (step l M l' M')
     from step have reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)" unfolding E_closure by auto
@@ -3041,7 +3036,7 @@ begin
     have "length ?k = Suc n" using length_k' by auto
     let ?A = "conv_A A"
     have A: "RI_A n ?A A" by (rule RI_A_conv_A)
-    have M_conv: "RI' n (conv_M M) M" unfolding eq_onp_def by auto
+    have M_conv: "RI n (conv_M M) M" unfolding eq_onp_def by auto
     from step k_simp_2 have step': "?A \<turnstile> \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l', M'\<rangle>" by auto
     let ?M' = "uncurry M'"
     from
@@ -3052,11 +3047,11 @@ begin
       "?A \<turnstile>\<^sub>I \<langle>l, conv_M M\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M''\<rangle>" "[curry M'']\<^bsub>v,n\<^esub> = [curry ?M']\<^bsub>v,n\<^esub>"
     by (auto simp: k_simp_1)
     from RI_complete[OF M_conv A k this(1) \<open>length ?k = _\<close>] obtain MM where MM:
-      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', MM\<rangle>" "RI' n M'' MM"
+      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', MM\<rangle>" "RI n M'' MM"
     by auto
     moreover from MM(2) M''(2) M''(2) have
       "[M']\<^bsub>v,n\<^esub> = [curry (conv_M MM)]\<^bsub>v,n\<^esub>"
-    by (auto dest!: RI'_zone_equiv[where v = v])
+    by (auto dest!: RI_zone_equiv[where v = v])
     ultimately show ?thesis by auto
   qed
 
