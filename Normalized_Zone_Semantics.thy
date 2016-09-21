@@ -22,6 +22,13 @@ where
   step: "A \<turnstile> \<langle>l, Z\<rangle>  \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l'', Z''\<rangle>
         \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l'', Z''\<rangle>"
 
+lemma norm_empty_diag_preservation_real:
+  fixes k :: "nat \<Rightarrow> nat"
+  assumes "i \<le> n"
+  assumes "M i i < Le 0"
+  shows "norm M (real o k) n i i < Le 0"
+using assms unfolding norm_def by (force simp: Let_def less dest: dbm_lt_trans)
+
 context Regions
 begin
 
@@ -89,16 +96,6 @@ lemma non_empty_cycle_free:
   shows "cycle_free M n"
 by (meson assms clock_numbering(2) neg_cycle_empty negative_cycle_dest_diag)
 
-lemma norm_empty_diag_preservation:
-  fixes M :: "real DBM"
-  assumes "i \<le> n"
-  assumes "M i i < Le 0"
-  shows "norm M (k o v') n i i < Le 0"
-proof -
-  have "\<not> Le (real (k (v' i))) \<prec> Le 0" by auto
-  with assms show ?thesis unfolding norm_def by (auto simp: Let_def less)
-qed
-
 lemma norm_FW_empty:
   assumes "valid_dbm M"
   assumes "[M]\<^bsub>v,n\<^esub> = {}"
@@ -107,7 +104,9 @@ proof -
   from assms(2) cyc_free_not_empty clock_numbering(1) cycle_free_diag_equiv have "\<not> cycle_free M n"
   by metis
   from FW_neg_cycle_detect[OF this] obtain i where i: "i \<le> n" "FW M n i i < \<one>" by auto
-  with norm_empty_diag_preservation[folded neutral] have "?M i i < \<one>" .
+  with norm_empty_diag_preservation_real[folded neutral] have
+    "?M i i < \<one>"
+  unfolding comp_def by auto
   with \<open>i \<le> n\<close> show ?thesis using beta_interp.neg_diag_empty_spec by auto 
 qed
 
@@ -384,24 +383,27 @@ lemma norm_default_preservation:
   "dbm_default M n \<Longrightarrow> dbm_default (norm M k n) n"
 by (simp add: norm_def)
 
+instance int :: linordered_cancel_ab_monoid_add by (standard; simp)
 
-context Regions
-begin
+lemma [simp]:
+  "\<infinity> < x = False"
+unfolding less by auto
 
+(* XXX Copy from Normalized_Zone_Semantics *)
 lemma normalized_integral_dbms_finite:
-  "finite {norm M (k o v') n | M. dbm_int M n \<and> dbm_default M n}"
+  "finite {norm M (k :: nat \<Rightarrow> nat) n | M. dbm_default M n}"
 proof -
-  let ?u = "Max {(k o v') i | i. i \<le> n}" let ?l = "- ?u"
-  let ?S = "(Le ` real_of_int ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
+  let ?u = "Max {k i | i. i \<le> n}" let ?l = "- ?u"
+  let ?S = "(Le ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
   from finite_set_of_finite_funs2[of "{0..n}" "{0..n}" ?S] have fin:
     "finite {f. \<forall>x y. (x \<in> {0..n} \<and> y \<in> {0..n} \<longrightarrow> f x y \<in> ?S)
                 \<and> (x \<notin> {0..n} \<longrightarrow> f x y = \<one>) \<and> (y \<notin> {0..n} \<longrightarrow> f x y = \<one>)}" (is "finite ?R")
   by auto
-  { fix M :: "t DBM" assume A: "dbm_int M n" "dbm_default M n"
-    let ?M = "norm M (k o v') n"
-    from beta_interp.norm_int_preservation[OF A(1)] norm_default_preservation[OF A(2)] have
-      A: "dbm_int ?M n" "dbm_default ?M n"
-    by blast+
+  { fix M :: "int DBM" assume A: "dbm_default M n"
+    let ?M = "norm M k n"
+    from norm_default_preservation[OF A] have
+      A: "dbm_default ?M n"
+    by auto
     { fix i j assume "i \<in> {0..n}" "j \<in> {0..n}"
       then have B: "i \<le> n" "j \<le> n" by auto
       have "?M i j \<in> ?S"
@@ -410,8 +412,7 @@ proof -
       next
         case False
         note not_inf = this
-        with B A(1) have "get_const (?M i j) \<in> \<int>" by auto
-        moreover have "?l \<le> get_const (?M i j) \<and> get_const (?M i j) \<le> ?u"
+        have "?l \<le> get_const (?M i j) \<and> get_const (?M i j) \<le> ?u"
         proof (cases "i = 0")
           case True
           show ?thesis
@@ -424,11 +425,17 @@ proof -
             finally show ?thesis using not_inf by auto
           next
             case False
-            with \<open>i = 0\<close> B not_inf have "?M i j \<le> Le 0" "Lt (-real (k (v' j))) \<le> ?M i j"
-            by (unfold norm_def, auto simp: Let_def, unfold less[symmetric], auto)
-            with not_inf have "get_const (?M i j) \<le> 0" "-k (v' j) \<le> get_const (?M i j)"
+            with \<open>i = 0\<close> B not_inf have "?M i j \<le> Le 0" "Lt (-int (k j)) \<le> ?M i j"
+            unfolding norm_def
+              apply (simp del: norm_upper.simps norm_lower.simps)
+              apply (auto simp: less[symmetric]; fail)
+              using \<open>i = 0\<close> B not_inf apply (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
+              apply (drule leI)
+              apply (drule leI)
+            by (rule order.trans; fastforce)
+            with not_inf have "get_const (?M i j) \<le> 0" "-k j \<le> get_const (?M i j)"
             by (cases "?M i j"; auto)+
-            moreover from \<open>j \<le> n\<close> have "- (k o v') j \<ge> ?l" by (auto intro: Max_ge)
+            moreover from \<open>j \<le> n\<close> have "- k j \<ge> ?l" by (auto intro: Max_ge)
             ultimately show ?thesis by auto
           qed
         next
@@ -437,47 +444,51 @@ proof -
           show ?thesis
           proof (cases "j = 0")
             case True
-            with \<open>i > 0\<close> A(1) B not_inf have "Lt 0 \<le> ?M i j" "?M i j \<le> Le (real ((k \<circ> v') i))"
-            by (unfold norm_def, auto simp: Let_def, unfold less[symmetric], auto)
-            with not_inf have "0 \<le> get_const (?M i j)" "get_const (?M i j) \<le> k (v' i)"
+            with \<open>i > 0\<close> A(1) B not_inf have "Lt 0 \<le> ?M i j" "?M i j \<le> Le (int (k i))"
+            unfolding norm_def
+              apply (simp del: norm_upper.simps norm_lower.simps)
+              apply (auto simp: less[symmetric])[]
+              
+             using \<open>i > 0\<close> \<open>j = 0\<close> A(1) B not_inf unfolding norm_def
+            by (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
+            with not_inf have "0 \<le> get_const (?M i j)" "get_const (?M i j) \<le> k i"
             by (cases "?M i j"; auto)+
-            moreover from \<open>i \<le> n\<close> have "(k o v') i \<le> ?u" by (auto intro: Max_ge)
+            moreover from \<open>i \<le> n\<close> have "k i \<le> ?u" by (auto intro: Max_ge)
             ultimately show ?thesis by auto
           next
             case False
             with \<open>i > 0\<close> A(1) B not_inf have
-              "Lt (-real ((k \<circ> v') j)) \<le> ?M i j" "?M i j \<le> Le (real ((k \<circ> v') i))"
-            by (unfold norm_def, auto simp: Let_def, unfold less[symmetric], auto)
-            with not_inf have "- k (v' j) \<le> get_const (?M i j)" "get_const (?M i j) \<le> k (v' i)"
+              "Lt (-int (k j)) \<le> ?M i j" "?M i j \<le> Le (int (k i))"
+            unfolding norm_def
+              apply (simp del: norm_upper.simps norm_lower.simps)
+              apply (auto simp: less[symmetric])[]
+             using \<open>i > 0\<close> \<open>j \<noteq> 0\<close> A(1) B not_inf unfolding norm_def
+            by (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
+            with not_inf have "- k j \<le> get_const (?M i j)" "get_const (?M i j) \<le> k i"
             by (cases "?M i j"; auto)+
-            moreover from \<open>i \<le> n\<close> \<open>j \<le> n\<close> have "(k o v') i \<le> ?u" "(k o v') j \<le> ?u" by (auto intro: Max_ge)
+            moreover from \<open>i \<le> n\<close> \<open>j \<le> n\<close> have "k i \<le> ?u" "k j \<le> ?u" by (auto intro: Max_ge)
             ultimately show ?thesis by auto
           qed
         qed
-        ultimately show ?thesis by (cases "?M i j"; auto elim: Ints_cases)
+        then show ?thesis by (cases "?M i j"; auto elim: Ints_cases)
       qed
     } moreover
     { fix i j assume "i \<notin> {0..n}"
-      with A(2) have "?M i j = \<one>" by auto
+      with A have "?M i j = \<one>" by auto
     } moreover
     { fix i j assume "j \<notin> {0..n}"
-      with A(2) have "?M i j = \<one>" by auto
+      with A have "?M i j = \<one>" by auto
     } moreover note the = calculation
-  } then have "{norm M (k o v') n | M. dbm_int M n \<and> dbm_default M n} \<subseteq> ?R" by blast
+  } then have "{norm M k n | M. dbm_default M n} \<subseteq> ?R" by blast
   with fin show ?thesis by (blast intro: finite_subset)
 qed
 
-end
-
 subsection \<open>Additional Useful Properties of the Normalized Semantics\<close>
-
-context Regions
-begin
 
 text \<open>Obsolete\<close>
 lemma norm_diag_preservation:
   assumes "\<forall>l\<le>n. M1 l l \<le> \<one>"
-  shows "\<forall>l\<le>n. (norm M1 (k o v') n) l l \<le> \<one>" (is "\<forall> l \<le> n. ?M l l \<le> \<one>")
+  shows "\<forall>l\<le>n. (norm M1 (k :: nat \<Rightarrow> nat) n) l l \<le> \<one>" (is "\<forall> l \<le> n. ?M l l \<le> \<one>")
 proof safe
   fix j assume j: "j \<le> n"
   show "?M j j \<le> \<one>"
@@ -486,16 +497,19 @@ proof safe
     with j assms show ?thesis unfolding norm_def neutral less_eq dbm_le_def by auto
   next
     case False
-    have *: "real ((k \<circ> v') j) \<ge> 0" by auto
+    have *: "k j \<ge> 0" by auto
     from j assms have **: "M1 j j \<le> Le 0" unfolding neutral by auto
-    have "norm_upper (M1 j j) (real ((k \<circ> v') j)) = M1 j j"
+    have "norm_upper (M1 j j) (k j) = M1 j j"
     using * ** apply (cases "M1 j j") apply auto by fastforce+
     with assms(1) j False have
-      "?M j j = norm_lower (M1 j j) (- real ((k \<circ> v') j))"
+      "?M j j = norm_lower (M1 j j) (- k j)"
     unfolding norm_def by auto
     with ** show ?thesis unfolding neutral by auto
   qed
 qed
+
+context Regions
+begin
 
 lemma norm_FW_equiv:
   assumes valid: "dbm_int D n" "dbm_int M n" "[D]\<^bsub>v,n\<^esub> \<subseteq> V"

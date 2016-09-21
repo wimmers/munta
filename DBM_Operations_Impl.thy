@@ -949,6 +949,15 @@ using assms neg_diag_empty[OF surj, where M = "curry M"] unfolding check_diag_de
 definition dbm_subset :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> 't DBM' \<Rightarrow> bool" where
   "dbm_subset n M M' \<equiv> check_diag n M \<or> pointwise_cmp (op \<le>) n (curry M) (curry M')"
 
+lemma dbm_subset_refl:
+  "dbm_subset n M M"
+unfolding dbm_subset_def pointwise_cmp_def by simp
+
+lemma dbm_subset_trans:
+  assumes "dbm_subset n M1 M2" "dbm_subset n M2 M3"
+  shows "dbm_subset n M1 M3"
+using assms unfolding dbm_subset_def pointwise_cmp_def check_diag_def by fastforce
+
 lemma canonical_nonneg_diag_non_empty:
   assumes "canonical M n" "\<forall>i\<le>n. \<one> \<le> M i i" "\<forall>c. v c \<le> n \<longrightarrow> 0 < v c"
   shows "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
@@ -1344,17 +1353,23 @@ apply (cases "i = Suc n")
 done
 done
 
-lemma norm_upd_norm:
+lemma norm_upd_norm_aux':
   assumes "i \<le> n" "j \<le> n"
   shows "(norm_upd M k n) (i, j) = (norm (curry M) (\<lambda> i. k ! i) n) i j"
 using assms unfolding norm_upd_def
  apply (subst norm_upd_norm_aux[OF assms])
 by (simp add: norm_entry_def norm_def del: norm_upper.simps norm_lower.simps)
 
-(* XXX Easy to prove by cases over bounds. However, most likely not necessary. *)
-lemma
+lemma norm_upd_norm:
+  "norm_upd M k n (i, j) = norm (curry M) (\<lambda> i. k ! i) n i j"
+ apply (cases "i > n")
+ apply (simp add: norm_upd_out_of_bounds1 norm_def; fail)
+ apply (cases "j > n"; simp add: norm_upd_out_of_bounds2 norm_def norm_upd_norm_aux')
+done
+
+lemma norm_upd_norm':
   "curry (norm_upd M k n) = norm (curry M) (\<lambda> i. k ! i) n"
-using norm_upd_norm oops
+by (simp add: curry_def norm_upd_norm)       
 
 (* XXX Copy from Regions Beta, original should be moved *)
 lemma norm_int_preservation:
