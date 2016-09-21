@@ -2466,17 +2466,50 @@ using assms
  apply (rule fw_int_aux_Suc_a[of n])
 by auto
 
+abbreviation "dbm_int M n \<equiv> \<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
+
+abbreviation "dbm_int_all M \<equiv> \<forall> i. \<forall> j. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
+
+lemma dbm_intI:
+  "dbm_int_all M \<Longrightarrow> dbm_int M n"
+by auto
+
 lemma FW_int_preservation:
-  assumes "\<forall> i \<le> n. \<forall> j \<le> n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
-  shows "\<forall> i \<le> n. \<forall> j \<le> n. FW M n i j \<noteq> \<infinity> \<longrightarrow> get_const (FW M n i j) \<in> \<int>"
+  assumes "dbm_int M n"
+  shows "dbm_int (FW M n) n"
 by (blast intro: fw_int_preservation[OF assms(1)])
 
-abbreviation "dbm_int M n \<equiv> \<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
+lemma FW_int_all_preservation:
+  assumes "dbm_int_all M"
+  shows "dbm_int_all (FW M n)"
+using assms
+ apply clarify
+ subgoal for i j
+ apply (cases "i \<le> n")
+ apply (cases "j \<le> n")
+ by (auto intro: fw_int_preservation[OF dbm_intI[OF assms(1)]] simp: FW_out_of_bounds1 FW_out_of_bounds2)
+done
+
+lemma And_int_all_preservation[intro]:
+  assumes "dbm_int_all M1" "dbm_int_all M2"
+  shows "dbm_int_all (And M1 M2)"
+using assms by (auto simp: min_def)
 
 lemma And_int_preservation:
   assumes "dbm_int M1 n" "dbm_int M2 n"
   shows "dbm_int (And M1 M2) n"
 using assms by (auto simp: min_def)
+
+lemma up_int_all_preservation:
+  "dbm_int_all (M :: (('t :: {time, ring_1}) DBM)) \<Longrightarrow> dbm_int_all (up M)"
+unfolding up_def min_def
+ apply safe
+ apply (case_tac "i = 0")
+  apply fastforce
+ apply (case_tac "j = 0")
+  apply fastforce
+ apply auto
+unfolding mult[symmetric] by (auto dest: sum_not_inf_dest)
 
 lemma up_int_preservation:
   "dbm_int (M :: (('t :: {time, ring_1}) DBM)) n \<Longrightarrow> dbm_int (up M) n"
@@ -2531,6 +2564,22 @@ lemma DBM_reset_int_preservation:
   assumes "dbm_int M n" "d \<in> \<int>" "0 < k" "k \<le> n"
   shows "dbm_int (reset M n k d) n"
 using assms(3-) DBM_reset_int_preservation'[OF assms(1) DBM_reset_reset assms(2)] by blast
+
+lemma DBM_reset_int_all_preservation:
+  fixes M :: "('t :: {time,ring_1}) DBM"
+  assumes "dbm_int_all M" "d \<in> \<int>"
+  shows "dbm_int_all (reset M n k d)"
+using assms
+ apply clarify
+ subgoal for i j
+ by (cases "i = k"; cases "j = k"; auto simp: reset_def min_def mult[symmetric] dest!: sum_not_inf_dest)
+done
+
+lemma DBM_reset'_int_all_preservation:
+  fixes M :: "('t :: {time, ring_1}) DBM"
+  assumes "dbm_int_all M" "d \<in> \<int>"
+  shows "dbm_int_all (reset' M n cs v d)" using assms
+by (induction cs) (simp | rule DBM_reset_int_all_preservation)+
 
 lemma DBM_reset'_int_preservation:
   fixes M :: "('t :: {time, ring_1}) DBM"
@@ -2589,6 +2638,52 @@ abbreviation global_clock_numbering ::
 where
   "global_clock_numbering A v n \<equiv>
     clock_numbering' v n \<and> (\<forall> c \<in> clk_set A. v c \<le> n) \<and> (\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c. v c = k))"
+
+lemma dbm_int_all_abstra:
+  assumes "dbm_int_all M" "snd (constraint_pair ac) \<in> \<int>"
+  shows "dbm_int_all (abstra ac M v)"
+using assms by (cases ac) (auto split: split_min)
+
+lemma dbm_int_all_abstr:
+  assumes "dbm_int_all M" "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
+  shows "dbm_int_all (abstr g M v)"
+using assms
+proof (induction g arbitrary: M)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons ac cc)
+  from Cons.IH[OF dbm_int_all_abstra, OF Cons.prems(1)] Cons.prems(2-) have
+    "dbm_int_all (abstr cc (abstra ac M v) v)"
+  unfolding collect_clock_pairs_def by force
+  then show ?case by auto
+qed
+
+lemma dbm_int_all_abstr':
+  assumes "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
+  shows "dbm_int_all (abstr g (\<lambda>i j. \<infinity>) v)"
+ apply (rule dbm_int_all_abstr)
+using assms by auto
+
+lemma dbm_int_all_inv_abstr:
+  assumes "\<forall>(x,m) \<in> clkp_set A. m \<in> \<nat>"
+  shows "dbm_int_all (abstr (inv_of A l) (\<lambda>i j. \<infinity>) v)"
+proof -
+  from assms have "\<forall> (x, m) \<in> collect_clock_pairs (inv_of A l). m \<in> \<int>"
+  unfolding clkp_set_def collect_clki_def inv_of_def using Nats_subset_Ints by auto
+  from dbm_int_all_abstr'[OF this] show ?thesis .
+qed
+
+lemma dbm_int_all_guard_abstr:
+  assumes "valid_abstraction A X k" "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  shows "dbm_int_all (abstr g (\<lambda>i j. \<infinity>) v)"
+proof -
+  from assms have "\<forall>(x,m) \<in> clkp_set A. m \<le> k x \<and> x \<in> X \<and> m \<in> \<nat>"
+  by (auto elim: valid_abstraction.cases)
+  then have "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
+  unfolding clkp_set_def collect_clkt_def using assms(2) Nats_subset_Ints by fastforce
+  from dbm_int_all_abstr'[OF this] show ?thesis .
+qed
 
 lemma dbm_int_abstra:
   assumes "dbm_int M n" "snd (constraint_pair ac) \<in> \<int>"

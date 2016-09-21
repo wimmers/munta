@@ -70,14 +70,19 @@ apply (rule FW_zone_equiv[OF assms]) using clock_numbering(2) by auto
 
 lemma cn_weak: "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" using clock_numbering(2) by blast
 
-lemma valid_dbm_non_empty_diag:
-  assumes "valid_dbm M" "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
+lemma dbm_non_empty_diag:
+  assumes "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
   shows "\<forall> k \<le> n. M k k \<ge> \<one>"
 proof safe
   fix k assume k: "k \<le> n"
   have "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" using clock_numbering(2) by blast
-  from k not_empty_cyc_free[OF this assms(2)] show "\<one> \<le> M k k" by (simp add: cyc_free_diag_dest')
+  from k not_empty_cyc_free[OF this assms(1)] show "\<one> \<le> M k k" by (simp add: cyc_free_diag_dest')
 qed
+
+lemma negative_diag_empty:
+  assumes "\<exists> k \<le> n. M k k < \<one>"
+  shows "[M]\<^bsub>v,n\<^esub> = {}"
+using dbm_non_empty_diag assms by force
 
 lemma non_empty_cycle_free:
   assumes "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
@@ -114,7 +119,7 @@ proof -
   note cyc_free = non_empty_cycle_free[OF assms(2)]
   from assms(1) FW_zone_equiv_spec[of M] have "[M]\<^bsub>v,n\<^esub> = [FW M n]\<^bsub>v,n\<^esub>" by (auto simp: neutral)
   with beta_interp.apx_norm_eq[OF fw_canonical[OF cyc_free] _ FW_int_preservation]
-      valid_dbm_non_empty_diag[OF assms(1,2)] assms(1)
+      dbm_non_empty_diag[OF assms(2)] assms(1)
  show "Approx\<^sub>\<beta> ([M]\<^bsub>v,n\<^esub>) = [norm (FW M n) (k o v') n]\<^bsub>v,n\<^esub>" by auto
  
 qed
@@ -140,29 +145,6 @@ next
   from FW_zone_equiv_spec[of M, folded neutral] assms show "[FW M n]\<^bsub>v,n\<^esub> \<subseteq> V" by fastforce
 qed
 
-text \<open>Obsolete\<close>
-lemma norm_diag_preservation:
-  assumes "\<forall>l\<le>n. M1 l l \<le> \<one>"
-  shows "\<forall>l\<le>n. (norm M1 (k o v') n) l l \<le> \<one>" (is "\<forall> l \<le> n. ?M l l \<le> \<one>")
-proof safe
-  fix j assume j: "j \<le> n"
-  show "?M j j \<le> \<one>"
-  proof (cases "j = 0")
-    case True
-    with j assms show ?thesis unfolding norm_def neutral less_eq dbm_le_def by auto
-  next
-    case False
-    have *: "real ((k \<circ> v') j) \<ge> 0" by auto
-    from j assms have **: "M1 j j \<le> Le 0" unfolding neutral by auto
-    have "norm_upper (M1 j j) (real ((k \<circ> v') j)) = M1 j j"
-    using * ** apply (cases "M1 j j") apply auto by fastforce+
-    with assms(1) j False have
-      "?M j j = norm_lower (M1 j j) (- real ((k \<circ> v') j))"
-    unfolding norm_def by auto
-    with ** show ?thesis unfolding neutral by auto
-  qed
-qed
-
 lemma norm_FW_valid_preservation_non_empty:
   assumes "valid_dbm M" "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
   shows "valid_dbm (norm (FW M n) (k o v') n)" (is "valid_dbm ?M")
@@ -176,6 +158,24 @@ proof -
     from beta_interp.norm_V_preservation[OF _ this ] valid show "[?M]\<^bsub>v,n\<^esub> \<subseteq> V" by fast
   qed
 qed
+
+lemma norm_int_all_preservation:
+  fixes M :: "real DBM"
+  assumes "dbm_int_all M"
+  shows "dbm_int_all (norm M (k o v') n)"
+using assms unfolding norm_def by (auto simp: Let_def)
+
+lemma step_z_norm_int_all_preservation:
+  assumes
+    "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "dbm_int_all D"
+  shows "dbm_int_all D'"
+using assms
+ apply cases
+ apply simp
+ apply (rule norm_int_all_preservation[simplified])
+ apply (rule FW_int_all_preservation)
+ apply (erule step_z_dbm_preserves_int_all)
+by fast+
 
 lemma norm_FW_valid_preservation_empty:
   assumes "valid_dbm M" "[M]\<^bsub>v,n\<^esub> = {}"
@@ -194,6 +194,14 @@ lemma norm_FW_valid_preservation:
   assumes "valid_dbm M"
   shows "valid_dbm (norm (FW M n) (k o v') n)"
 using assms norm_FW_valid_preservation_empty norm_FW_valid_preservation_non_empty by metis
+
+lemma step_z_norm_valid_dbm_preservation:
+  assumes
+    "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
+  shows "valid_dbm D'"
+using assms by cases (simp; rule norm_FW_valid_preservation[simplified]; erule step_z_valid_dbm; fast)
+
+
 
 lemma norm_beta_sound:
   assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
@@ -253,6 +261,14 @@ proof -
     by fastforce+
   qed
 qed
+
+lemma norm_beta_empty:
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+  and     "valid_dbm D" "[D]\<^bsub>v,n\<^esub> = {}"
+  shows   "[D']\<^bsub>v,n\<^esub> = {}" using assms
+oops
+
+
 
 subsection \<open>Multi step\<close>
 
@@ -364,8 +380,6 @@ section \<open>Finiteness of the Search Space\<close>
 
 abbreviation "dbm_default M n \<equiv> (\<forall> i > n. \<forall> j. M i j = \<one>) \<and> (\<forall> j > n. \<forall> i. M i j = \<one>)"
 
-lemma "a \<in> \<int> \<Longrightarrow> \<exists> b. a = real_of_int b" using Ints_cases by auto
-
 lemma norm_default_preservation:
   "dbm_default M n \<Longrightarrow> dbm_default (norm M k n) n"
 by (simp add: norm_def)
@@ -452,6 +466,90 @@ proof -
   } then have "{norm M (k o v') n | M. dbm_int M n \<and> dbm_default M n} \<subseteq> ?R" by blast
   with fin show ?thesis by (blast intro: finite_subset)
 qed
+
+end
+
+subsection \<open>Additional Useful Properties of the Normalized Semantics\<close>
+
+context Regions
+begin
+
+text \<open>Obsolete\<close>
+lemma norm_diag_preservation:
+  assumes "\<forall>l\<le>n. M1 l l \<le> \<one>"
+  shows "\<forall>l\<le>n. (norm M1 (k o v') n) l l \<le> \<one>" (is "\<forall> l \<le> n. ?M l l \<le> \<one>")
+proof safe
+  fix j assume j: "j \<le> n"
+  show "?M j j \<le> \<one>"
+  proof (cases "j = 0")
+    case True
+    with j assms show ?thesis unfolding norm_def neutral less_eq dbm_le_def by auto
+  next
+    case False
+    have *: "real ((k \<circ> v') j) \<ge> 0" by auto
+    from j assms have **: "M1 j j \<le> Le 0" unfolding neutral by auto
+    have "norm_upper (M1 j j) (real ((k \<circ> v') j)) = M1 j j"
+    using * ** apply (cases "M1 j j") apply auto by fastforce+
+    with assms(1) j False have
+      "?M j j = norm_lower (M1 j j) (- real ((k \<circ> v') j))"
+    unfolding norm_def by auto
+    with ** show ?thesis unfolding neutral by auto
+  qed
+qed
+
+lemma norm_FW_equiv:
+  assumes valid: "dbm_int D n" "dbm_int M n" "[D]\<^bsub>v,n\<^esub> \<subseteq> V"
+      and equiv: "[D]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  shows "[norm (FW D n) (k o v') n]\<^bsub>v,n\<^esub> = [norm (FW M n) (k o v') n]\<^bsub>v,n\<^esub>"
+proof (cases "[D]\<^bsub>v,n\<^esub> = {}")
+  case False
+  with equiv fw_shortest local.non_empty_cycle_free FW_zone_equiv_spec have
+    "canonical (FW D n) n" "canonical (FW M n) n" "[FW D n]\<^bsub>v,n\<^esub> = [D]\<^bsub>v,n\<^esub>" "[FW M n]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  by blast+
+  with valid equiv show ?thesis
+   apply -
+   apply (subst beta_interp.apx_norm_eq[symmetric])
+   prefer 4
+   apply (subst beta_interp.apx_norm_eq[symmetric])
+  by (simp add: FW_int_preservation)+
+next
+  case True
+  show ?thesis
+   apply (subst norm_FW_empty)
+   prefer 3
+   apply (subst norm_FW_empty)
+  using valid equiv True by blast+
+qed
+
+(* XXX Maybe move *)
+lemma step_z_norm_mono:
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+  and     "valid_dbm D" "valid_dbm M"
+  and "[D]\<^bsub>v,n\<^esub> \<subseteq> [M]\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^sub>\<N> \<langle>l', M'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub>"
+proof -
+  from norm_beta_sound[OF assms(1,2,3,4)] have "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle>" .
+  from step_z_beta_mono[OF this assms(6)] assms(5) obtain Z where
+    "A \<turnstile> \<langle>l, [M]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z\<rangle>" "[D']\<^bsub>v,n\<^esub> \<subseteq> Z"
+  by auto
+  with norm_beta_complete[OF this(1) assms(2,3,5)] show ?thesis by metis
+qed
+
+lemma step_z_norm_equiv:
+  assumes step: "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>"
+      and prems: "global_clock_numbering A v n" "valid_abstraction A X k"
+      and valid: "valid_dbm D" "valid_dbm M"
+      and equiv: "[D]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^sub>\<N> \<langle>l', M'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+using step
+ apply cases
+ apply (frule step_z_dbm_equiv[OF prems(1)])
+ apply (rule equiv)
+ apply clarify
+ apply (drule norm_FW_equiv[rotated 3])
+ prefer 4
+ apply blast
+using step_z_valid_dbm[OF _ prems] valid by (simp add: valid_dbm.simps)+
 
 end
 

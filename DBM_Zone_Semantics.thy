@@ -21,6 +21,33 @@ inductive_cases step_z_cases: "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\
 
 declare step_z_dbm.intros[intro]
 
+lemma step_z_dbm_preserves_int_all:
+  fixes D D' :: "('t :: {time, ring_1} DBM)"
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+          "dbm_int_all D"
+  shows "dbm_int_all D'"
+using assms
+proof (cases, goal_cases)
+  case (1 D'')
+  hence "clock_numbering' v n" "\<forall>c\<in>clk_set A. v c \<le> n" by blast+
+  from 1(2) have "\<forall> (x, m) \<in> clkp_set A. m \<in> \<nat>" by (auto elim: valid_abstraction.cases)
+  from dbm_int_all_inv_abstr[OF this] 1 have D''_int: "dbm_int_all D''" by simp
+  show ?thesis unfolding 1(5) by (intro And_int_all_preservation up_int_all_preservation dbm_int_inv_abstr D''_int 1)
+next
+  case (2 g a r)
+  hence assms: "clock_numbering' v n" "\<forall>c\<in>clk_set A. v c \<le> n" "\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c. v c = k)" by blast+
+  from 2(2) have *: "\<forall> (x, m) \<in> clkp_set A. m \<in> \<nat>" by (auto elim: valid_abstraction.cases)
+  from dbm_int_all_inv_abstr[OF this] have D'_int:
+    "dbm_int_all (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)"
+  by simp
+  from dbm_int_all_guard_abstr 2 have D''_int: "dbm_int_all (abstr g (\<lambda>i j. \<infinity>) v)" by simp
+  have "set r \<subseteq> clk_set A" using 2(5) unfolding trans_of_def collect_clkvt_def by fastforce
+  hence **:"\<forall>c\<in>set r. v c \<le> n" using assms(2) by fastforce
+  show ?thesis unfolding 2(4)
+  by (intro And_int_all_preservation DBM_reset'_int_all_preservation dbm_int_all_inv_abstr 2 D''_int)
+     (simp_all add: assms(1) * **)
+qed
+
 lemma step_z_dbm_preserves_int:
   fixes D D' :: "('t :: {time, ring_1} DBM)"
   assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
@@ -247,6 +274,33 @@ next
   by blast
   with D' show ?case by blast
 qed
+
+subsection \<open>Additional Useful Properties\<close>
+
+lemma step_z_equiv:
+  assumes "global_clock_numbering A v n" "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto> \<langle>l', Z\<rangle>" "[D]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  shows "A \<turnstile> \<langle>l, [M]\<^bsub>v,n\<^esub>\<rangle> \<leadsto> \<langle>l', Z\<rangle>"
+using step_z_dbm_complete[OF assms(1)] step_z_dbm_sound[OF _ assms(1), THEN step_z_sound]
+assms(2,3) by force
+
+lemma step_z_dbm_equiv:
+  assumes "global_clock_numbering A v n" "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l', D'\<rangle>" "[D]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l', M'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+proof -
+  from step_z_dbm_sound[OF assms(2,1)] have "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle>" .
+  with step_z_equiv[OF assms(1) this assms(3)] have "A \<turnstile> \<langle>l, [M]\<^bsub>v,n\<^esub>\<rangle> \<leadsto> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle>" by auto
+  from step_z_dbm_DBM[OF this assms(1)] show ?thesis by auto
+qed
+
+lemma step_z_empty:
+  assumes "A \<turnstile> \<langle>l, {}\<rangle> \<leadsto> \<langle>l', Z\<rangle>"
+  shows "Z = {}"
+using step_z_sound[OF assms] by auto
+
+lemma step_z_dbm_empty:
+  assumes "global_clock_numbering A v n" "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l', D'\<rangle>" "[D]\<^bsub>v,n\<^esub> = {}"
+  shows "[D']\<^bsub>v,n\<^esub> = {}"
+using step_z_dbm_sound[OF assms(2,1)] assms(3) by - (rule step_z_empty, auto)
 
 end
 (*>*)

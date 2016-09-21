@@ -356,6 +356,16 @@ qed
 
 abbreviation "FW m n \<equiv> fw m n n n n"
 
+lemma FW_out_of_bounds1:
+  assumes "i > n"
+  shows "(FW M n) i j = M i j"
+by (simp add: fw_out_of_bounds1[OF assms])
+
+lemma FW_out_of_bounds2:
+  assumes "j > n"
+  shows "(FW M n) i j = M i j"
+by (simp add: fw_out_of_bounds2[OF assms])
+
 lemma FW_cyc_free_preservation:
   "cyc_free m n \<Longrightarrow> cyc_free (FW m n) n"
 apply (rule D_cyc_free_preservation)

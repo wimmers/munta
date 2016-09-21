@@ -393,6 +393,36 @@ fun fw :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Righta
   "fw m n k       (Suc i) 0        = fw_upd (fw m n k i n) k (Suc i) 0" |
   "fw m n k       i       (Suc j)  = fw_upd (fw m n k i j) k i (Suc j)"
 
+lemma fw_upd_out_of_bounds1:
+  assumes "i' > i"
+  shows "(fw_upd M k i j) i' j' = M i' j'"
+using assms unfolding fw_upd_def upd_def by (auto split: split_min)
+
+lemma fw_upd_out_of_bounds2:
+  assumes "j' > j"
+  shows "(fw_upd M k i j) i' j' = M i' j'"
+using assms unfolding fw_upd_def upd_def by (auto split: split_min)
+
+lemma fw_out_of_bounds1:
+  assumes "i' > n" "i \<le> n"
+  shows "(fw M n k i j) i' j' = M i' j'"
+using assms
+ apply (induction _ "(k, i, j)" arbitrary: k i j rule: wf_induct[of "less_than <*lex*> less_than <*lex*> less_than"])
+ apply (auto; fail)
+ subgoal for k i j
+ by (cases k; cases i; cases j; auto simp add: fw_upd_out_of_bounds1)
+done
+
+lemma fw_out_of_bounds2:
+  assumes "j' > n" "j \<le> n"
+  shows "(fw M n k i j) i' j' = M i' j'"
+using assms
+ apply (induction _ "(k, i, j)" arbitrary: k i j rule: wf_induct[of "less_than <*lex*> less_than <*lex*> less_than"])
+ apply (auto; fail)
+ subgoal for k i j
+ by (cases k; cases i; cases j; auto simp add: fw_upd_out_of_bounds2)
+done
+
 lemma fw_invariant_aux_1:
   "j'' \<le> j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fw m n k i j i' j' \<le> fw m n k i j'' i' j'"
 proof (induction j)
