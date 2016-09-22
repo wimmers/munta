@@ -1445,18 +1445,10 @@ sepref_register dbm_subset' ::
 
 lemmas [sepref_fr_rules] = dbm_subset'_impl.refine check_diag_impl.refine
 
-(* XXX Optimize for short circuiting or *)
-(*
-  ML implementation:
-  let
-    x = _
-    xa = _
-  in x orelse xa
-*)
 sepref_definition dbm_subset_impl' is
   "uncurry2 (RETURN ooo dbm_subset)" ::
   "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] by sepref
+unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv by sepref
 
 context
   notes [id_rules] = itypeI[of n "TYPE (nat)"]
