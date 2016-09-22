@@ -879,6 +879,10 @@ lemma check_diag_empty:
   shows "[curry M]\<^bsub>v,n\<^esub> = {}"
 using assms neg_diag_empty[OF surj, where M = "curry M"] unfolding check_diag_def neutral by auto
 
+lemma check_diag_alt_def:
+  "check_diag n M = list_ex (\<lambda> i. op_mtx_get M (i, i) < Le 0) [0..<Suc n]"
+unfolding check_diag_def list_ex_iff by fastforce
+
 definition dbm_subset :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> 't DBM' \<Rightarrow> bool" where
   "dbm_subset n M M' \<equiv> check_diag n M \<or> pointwise_cmp (op \<le>) n (curry M) (curry M')"
 
@@ -941,26 +945,35 @@ lemma pointwise_cmp_alt_def:
     list_all (\<lambda> i. list_all (\<lambda> j. P (M i j) (M' i j)) [0..<Suc n]) [0..<Suc n]"
 unfolding pointwise_cmp_def by (fastforce simp: list_all_iff)
 
-(* XXX Implement *)
 lemma dbm_subset_alt_def[code]:
   "dbm_subset n M M' =
-    (check_diag n M \<or>
+    (list_ex (\<lambda> i. op_mtx_get M (i, i) < Le 0) [0..<Suc n] \<or>
     list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n])"
-by (simp add: dbm_subset_def pointwise_cmp_alt_def)
+by (simp add: dbm_subset_def check_diag_alt_def pointwise_cmp_alt_def)
 
+(* XXX Unused *)
 definition pointwise_cmp_alt_def where
   "pointwise_cmp_alt_def P n M M' = fold (\<lambda> i b. fold (\<lambda> j b. P (M i j) (M' i j) \<and> b) [1..<Suc n] b) [1..<Suc n] True"
 
 lemma list_all_foldli:
-  "list_all P xs = foldli xs (\<lambda> x. x = True) (\<lambda> x _. P x) True"
-apply (induction xs)
-apply simp
-apply simp
-subgoal for x xs
+  "list_all P xs = foldli xs (\<lambda>x. x = True) (\<lambda> x _. P x) True"
+ apply (induction xs)
+ apply (simp; fail)
+ subgoal for x xs
+  apply simp
   apply (induction xs)
-by auto
-done
+ by auto
+ done
 
+lemma list_ex_foldli:
+  "list_ex P xs = foldli xs Not (\<lambda> x y. P x \<or> y) False"
+ apply (induction xs)
+ apply (simp; fail)
+ subgoal for x xs
+  apply simp
+  apply (induction xs)
+ by auto
+ done
 
 section \<open>Constraints\<close>
 
@@ -1353,6 +1366,20 @@ lemma [code]:
   "dbm_lt \<infinity> x = False"
 by auto
 
+definition dbm_subset' :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> 't DBM' \<Rightarrow> bool" where
+  "dbm_subset' n M M' \<equiv> pointwise_cmp (op \<le>) n (curry M) (curry M')"
+
+lemma dbm_subset'_alt_def:
+  "dbm_subset' n M M' \<equiv>
+    list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n]"
+by (simp add: dbm_subset'_def pointwise_cmp_alt_def neutral)
+
+lemma dbm_subset_alt_def'[code]:
+  "dbm_subset n M M' =
+    (list_ex (\<lambda> i. op_mtx_get M (i, i) < \<one>) [0..<Suc n] \<or>
+    list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n])"
+by (simp add: dbm_subset_def check_diag_alt_def pointwise_cmp_alt_def neutral)
+
 context
   fixes n :: nat
 begin
@@ -1390,56 +1417,57 @@ sepref_definition up_canonical_upd_impl is
   "uncurry (RETURN oo up_canonical_upd)" :: "[\<lambda>(_,i). i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
 unfolding up_canonical_upd_def[abs_def] op_mtx_set_def[symmetric] by sepref
 
-lemma [sepref_import_param]: "(op \<le> :: _ DBMEntry \<Rightarrow> _,op\<le>) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
-lemma [sepref_import_param]: "(min :: _ DBMEntry \<Rightarrow> _,min) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
+(* XXX Which version is better for this constant? *)
+(* lemmas [sepref_import_param] = Relation.IdI[of \<one>] *)
+lemma [sepref_import_param]:
+  "(Le 0, \<one>) \<in> Id"
+unfolding neutral by simp
+
+sepref_definition check_diag_impl is
+  "uncurry (RETURN oo check_diag)" ::
+  "[\<lambda>(i, _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
+unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] by sepref
 
 lemma [sepref_opt_simps]:
   "(x = True) = x"
 by simp
 
-term check_diag
+sepref_definition dbm_subset'_impl is
+  "uncurry2 (RETURN ooo dbm_subset')" ::
+  "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
+unfolding dbm_subset'_alt_def[abs_def] list_all_foldli by sepref
 
+sepref_register check_diag ::
+  "nat \<Rightarrow> _ :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> bool"
+
+sepref_register dbm_subset' ::
+  "nat \<Rightarrow> 'a :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> bool"
+
+lemmas [sepref_fr_rules] = dbm_subset'_impl.refine check_diag_impl.refine
+
+(* XXX Optimize for short circuiting or *)
 (*
-sepref_register check_diag :: "nat \<Rightarrow> 'a :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> bool"
-
-lemma [sepref_import_param]: "((\<lambda> x y. True) :: _ \<Rightarrow> _ DBMEntry i_mtx \<Rightarrow> bool, check_diag) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
+  ML implementation:
+  let
+    x = _
+    xa = _
+  in x orelse xa
 *)
-
-(* XXX dummy definition *)
-sepref_definition check_diag_impl' is
-  "uncurry (RETURN oo check_diag)" ::
-  "[\<lambda>(i, _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-sorry
-
-lemmas [sepref_fr_rules] = check_diag_impl'.refine
-
-sepref_register check_diag :: "nat \<Rightarrow> _ :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> bool"
-
-term "\<lambda> x y. RETURN True"
-
 sepref_definition dbm_subset_impl' is
   "uncurry2 (RETURN ooo dbm_subset)" ::
   "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-unfolding dbm_subset_alt_def[abs_def] list_all_foldli
-apply sepref_dbg_preproc
-  apply sepref_dbg_cons_init
-  apply sepref_dbg_id
-  apply sepref_dbg_monadify
-  apply sepref_dbg_opt_init
-  apply sepref_dbg_trans_keep
-sorry
-
-  
+unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] by sepref
 
 context
   notes [id_rules] = itypeI[of n "TYPE (nat)"]
     and [sepref_import_param] = IdI[of n]
 begin
 
+(* XXX Optimize for short circuiting or *)
 sepref_definition dbm_subset_impl is
   "uncurry (RETURN oo dbm_subset n)" ::
   "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-unfolding dbm_subset_alt_def[abs_def] list_all_foldli (* by sepref *) sorry
+unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] by sepref
 
 end
 
@@ -1459,7 +1487,10 @@ lemma [sepref_import_param]: "(Le,Le) \<in> Id\<rightarrow>Id" by simp
 lemma [sepref_import_param]: "(\<infinity>,\<infinity>) \<in> Id" by simp
 lemma [sepref_import_param]: "(Le,Le) \<in> Id\<rightarrow>Id" by simp
 
+lemma [sepref_import_param]: "(min :: _ DBMEntry \<Rightarrow> _, min) \<in> Id \<rightarrow> Id \<rightarrow> Id" by simp
+
 lemmas [sepref_opt_simps] = zero_clock_def
+
 
 sepref_definition abstra_upd_impl is
   "uncurry (RETURN oo abstra_upd)" ::
@@ -1487,18 +1518,22 @@ sepref_register zero_clock2
 lemma [sepref_import_param]: "(zero_clock2, zero_clock2) \<in> Id" by simp
 lemma [sepref_import_param]: "(Suc, Suc) \<in> Id \<rightarrow> Id" by simp
 
+(* lemmas [sepref_opt_simps] = zero_clock2_def *)
+
+(* XXX Optimize to use IArrays instead of lists *)
 sepref_definition norm_upd_impl is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a (list_assn id_assn)\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-  unfolding norm_upd_def[abs_def] norm_upd_line_def zero_clock2_def[symmetric]
-using [[goals_limit = 1]] by sepref
+unfolding norm_upd_def[abs_def] norm_upd_line_def zero_clock2_def[symmetric] by sepref
 
 export_code abstr_upd_impl in SML_imp
 
 export_code abstra_upd_impl in SML_imp
 
-
 export_code dbm_subset_impl in SML_imp
+
+(* XXX This fails. Why? *)
+(* export_code norm_upd_impl in SML *)
 
 end
 
