@@ -721,15 +721,15 @@ definition n_eq ("_ =\<^sub>_ _" [51,51] 50) where
   "n_eq M n M' \<equiv> \<forall> i \<le> n. \<forall> j \<le> n. M i j = M' i j"
 
 lemma canonical_eq_upto:
+  fixes A B :: "real DBM"
   assumes
-    "clock_numbering' v n" "canonical A n" "canonical B n"
+    "clock_numbering' v n" "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
+    "canonical A n" "canonical B n"
     "[A]\<^bsub>v,n\<^esub> \<noteq> {}" "[A]\<^bsub>v,n\<^esub> = [B]\<^bsub>v,n\<^esub>"
     "\<forall> i \<le> n. A i i = \<one>" "\<forall> i \<le> n. B i i = \<one>"
   shows "A =\<^sub>n B"
 unfolding n_eq_def
-using
-  DBM_canonical_subset_le[OF assms(1) \<open>canonical A n\<close>, of B]
-  DBM_canonical_subset_le[OF assms(1) \<open>canonical B n\<close>, of A] assms(4-)
+using assms
 apply -
 apply standard
 apply standard
@@ -738,7 +738,10 @@ apply standard
 subgoal for i j
   apply (cases "i = j")
   apply fastforce
-by (rule order.antisym; auto)
+  apply (rule order.antisym)
+  apply (rule DBM_canonical_subset_le; auto)
+  apply (rule DBM_canonical_subset_le; auto)
+done
 done
 
 lemma up_canonical_upd_up_canonical':
@@ -1582,6 +1585,7 @@ lemma norm_impl_correct:
    apply (rule norm_eq_upto)
    apply (rule canonical_eq_upto)
    apply (rule assms)
+   apply (rule assms)
    apply assumption
    apply assumption
    using \<open>clock_numbering' v n\<close>
@@ -2244,6 +2248,7 @@ by (auto intro: conv_dbm_entry_mono_rev)
 
 (* XXX Unused *)
 lemma dbm_subset_correct:
+  fixes D :: "real DBM'"
   assumes "dbm_subset n D M"
       and "canonical (curry D) n"
       and "\<forall>i\<le>n. (curry D) i i \<le> \<one>"
@@ -2259,6 +2264,7 @@ by blast+
 
 (* XXX Unused *)
 lemma dbm_subset_correct':
+  fixes D M :: "real DBM'"
   assumes "canonical (curry D) n \<or> check_diag n D"
       and "\<forall>i\<le>n. (curry D) i i \<le> \<one>"
       and "\<forall>i\<le>n. (curry M) i i \<le> \<one>"

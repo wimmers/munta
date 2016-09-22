@@ -123,8 +123,6 @@ proof -
  
 qed
 
-print_statement step_z_norm.inducts
-
 (* Crudely copied from step_z_norm.inducts *)
 lemma step_z_norm_induct[case_names _ step_z_norm step_z_refl]:
   assumes "x1 \<turnstile> \<langle>x2, x3\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub> \<langle>x7,x8\<rangle>"

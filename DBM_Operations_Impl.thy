@@ -7,6 +7,12 @@ theory DBM_Operations_Impl
           "../IRF/Refine_Imperative_HOL/Examples/Worklist_Subsumption"
 begin
 
+section \<open>Misc\<close>
+
+lemma fold_last:
+  "fold f (xs @ [x]) a = f x (fold f xs a)"
+by simp
+
 section \<open>Reset\<close>
 
 definition
@@ -40,95 +46,56 @@ lemma dbm_neg_add:
 using assms unfolding neutral mult less
 by (cases a) auto
 
-lemma canonical_is_cyc_free':
-  fixes M :: "('t ::time) DBM"
-  assumes "canonical M n"
-  shows "cyc_free M n"
-proof (cases "\<forall> i \<le> n. \<one> \<le> M i i")
-  case True
-  with assms show ?thesis by (rule canonical_cyc_free)
-next
-  case False
-  then obtain i where "i \<le> n" "M i i < \<one>" by auto
-  then have "M i i + M i i < \<one>" using dbm_neg_add by fastforce
-  with \<open>i \<le> n\<close> assms show ?thesis oops
-
-term dbm_le
-
-lemma
-  fixes a :: "('t :: time) DBMEntry"
-  assumes "a < \<one>"
-  shows "a + a < a"
-using assms unfolding neutral mult less
-apply (cases a)
-apply auto
-oops
-
-lemma
-  fixes a b c :: "('t :: time) DBMEntry"
-  assumes "a < b" "c \<noteq> \<infinity>"
-  shows "a + c \<le> b + c"
-using assms unfolding mult less by (cases a; cases b; cases c) (auto simp: less_eq dbm_le_def)
-
-lemma
-  fixes a b c :: "('t :: time) DBMEntry"
-  assumes "a < b" "c \<noteq> \<infinity>"
-  shows "a + c < b + c"
-using assms
-unfolding mult less
-apply (cases a; cases b; cases c)
-apply auto
-oops
-
 instance linordered_ab_group_add \<subseteq> linordered_cancel_ab_monoid_add by standard auto
 
-lemma [simp]:
+lemma Le_cancel_1[simp]:
   fixes d :: "'c :: linordered_ab_group_add"
   shows "Le d + Le (-d) = Le 0"
 unfolding mult by simp
 
-lemma [simp]:
+lemma Le_cancel_2[simp]:
   fixes d :: "'c :: linordered_ab_group_add"
   shows "Le (-d) + Le d = Le 0"
 unfolding mult by simp
 
 lemma canonical_reset_canonical:
   fixes n :: nat
-  assumes "canonical M n" "(d :: 't :: linordered_ab_group_add) \<ge> 0" "M 0 0 = Le 0" "M x x = Le 0" "x > 0"
+  assumes "canonical M n" "(d :: 't :: linordered_ab_group_add) \<ge> 0"
+    "M 0 0 = Le 0" "M x x = Le 0" "x > 0"
   shows "canonical (reset_canonical M x d) n"
-apply safe
-subgoal for i j k
-unfolding reset_canonical_def
-using assms
-apply clarsimp
-apply safe
-apply (simp_all only: neutral[symmetric])
-apply (simp; fail)
-apply (simp; fail)
-apply (subst add.assoc[symmetric])
-apply (subst add.commute[symmetric])
-apply (subst add.assoc)
-apply (force intro: add_mono_neutr simp: add.assoc)
-apply (subst add.assoc[symmetric])
-apply (simp add: neutral[symmetric]; fail)
-apply (simp add: neutral[symmetric]; fail)
-apply (simp add: neutral[symmetric]; fail)
-apply (force intro: add_mono_neutr simp: add.assoc)
-apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
-apply (simp; fail)
-apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
-apply (simp; fail)
-apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
-apply (subst add.assoc[symmetric])
-apply (subst (2) add.commute)
-apply (force intro: add_mono_right simp: add.assoc neutral[symmetric])
-apply (simp; fail)
-apply (force intro: add_mono_right simp: add.assoc neutral[symmetric])
-apply (fastforce simp: add.assoc[symmetric] add.commute neutral[symmetric])
-done
+ apply safe
+ subgoal for i j k
+ unfolding reset_canonical_def
+ using assms
+ apply clarsimp
+ apply safe
+ apply (simp_all only: neutral[symmetric])
+ apply (simp; fail)
+ apply (simp; fail)
+ subgoal
+  apply (subst add.assoc[symmetric])
+  apply (subst add.commute[symmetric])
+  apply (subst add.assoc)
+ by (force intro: add_mono_neutr simp: add.commute add.assoc)
+ apply (subst add.assoc[symmetric]; simp add: neutral[symmetric]; fail)
+ apply (simp add: neutral[symmetric]; fail)
+ apply (simp add: neutral[symmetric]; fail)
+ apply (force intro: add_mono_neutr simp: add.assoc)
+ apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
+ apply (simp; fail)
+ apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
+ apply (simp; fail)
+ apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
+ apply (subst add.assoc[symmetric]; subst (2) add.commute;
+   force intro: add_mono_right simp: add.assoc neutral[symmetric]
+ )
+ apply (simp; fail)
+ apply (force intro: add_mono_right simp: add.assoc neutral[symmetric])
+ apply (fastforce simp: add.assoc[symmetric] add.commute neutral[symmetric])
+ done
 done
 
-lemma [simp]:
+lemma canonicalD[simp]:
   assumes "canonical M n" "i \<le> n" "j \<le> n" "k \<le> n"
   shows "min (dbm_add (M i k) (M k j)) (M i j) = M i j"
 using assms unfolding mult[symmetric] min_def by fastforce
@@ -329,8 +296,6 @@ next
   qed
 qed
 
-thm DBM_reset_diag_preservation
-
 lemma reset_canonical_diag_preservation:
   fixes k :: nat
   assumes "k > 0"
@@ -498,11 +463,6 @@ definition
       (M((k, 0) := Le d, (0, k) := Le (-d)))
   "
 
-(* XXX Move *)
-lemma fold_last:
-  "fold f (xs @ [x]) a = f x (fold f xs a)"
-by simp
-
 lemma one_upto_Suc:
   "[1..<Suc i + 1] = [1..<i+1] @ [Suc i]"
 by (simp add: )
@@ -588,19 +548,6 @@ lemma reset_canonical_upd_id:
   shows "(reset_canonical_upd M n k d) (i,j) = M (i,j)"
 using assms by (induction n; simp add: reset_canonical_upd_def upto_rec2)
 
-lemma reset_canonical_int_preservation:
-  assumes "dbm_int (curry M) n" "d \<in> \<int>"
-  shows "dbm_int (curry ((reset_canonical_upd M n k d))) n"
-using assms
-apply (induction n)
-apply (auto simp: reset_canonical_upd_def)[]
-unfolding reset_canonical_upd_def
-apply (subst upto_rec2)
-apply simp
-apply (subst (2) upto_rec2)
-apply simp
-oops
-
 lemma reset_canonical_upd_reset_canonical:
   fixes i j k n :: nat and M :: "nat \<times> nat \<Rightarrow> ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBMEntry"
   assumes "k > 0" "i \<le> n" "j \<le> n" "\<forall> i \<le> n. \<forall> j \<le> n. M (i, j) = M' i j"
@@ -648,7 +595,6 @@ next
   qed
 qed
 
-(* XXX Remove *)
 lemma reset_canonical_upd_reset_canonical':
   fixes i j k n :: nat
   assumes "k > 0" "i \<le> n" "j \<le> n"
@@ -906,26 +852,13 @@ unfolding up_canonical_upd_def by (induction n) auto
 
 section \<open>Inclusion\<close>
 
-print_statement Regions_Beta.Beta_Regions'.DBM_canonical_subset_le
-
-(* XXX Copy from Beta_Regions *)
-lemma DBM_canonical_subset_le:
-  assumes prems: "clock_numbering' v n"
-  assumes "canonical M n"
-    and "[M]\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub>"
-    and "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
-    and "i \<le> n"
-    and "j \<le> n"
-    and "i \<noteq> j"
-  shows "M i j \<le> M' i j"
-sorry
-
 definition pointwise_cmp where
   "pointwise_cmp P n M M' = (\<forall> i \<le> n. \<forall> j \<le> n. P (M i j) (M' i j))"
 
 lemma subset_eq_pointwise_le:
+  fixes M :: "real DBM"
   assumes "canonical M n" "\<forall> i \<le> n. M i i = \<one>" "\<forall> i \<le> n. M' i i = \<one>"
-      and prems: "clock_numbering' v n"
+      and prems: "clock_numbering' v n" "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
   shows "[M]\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub> \<longleftrightarrow> pointwise_cmp (op \<le>) n M M'"
 unfolding pointwise_cmp_def
 apply safe
@@ -965,7 +898,13 @@ lemma canonical_nonneg_diag_non_empty:
  apply (rule canonical_cyc_free)
 using assms by auto
 
+text \<open>
+  The type constraint in this lemma is due to @{thm DBM_canonical_subset_le}.
+  Proving it for a more general class of types is possible but also tricky due to a missing
+  setup for arithmetic.
+\<close>
 lemma subset_eq_dbm_subset:
+  fixes M :: "real DBM'"
   assumes "canonical (curry M) n \<or> check_diag n M" "\<forall> i \<le> n. M (i, i) \<le> \<one>" "\<forall> i \<le> n. M' (i, i) \<le> \<one>"
       and cn: "clock_numbering' v n" and surj: "\<forall> k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
   shows "[curry M]\<^bsub>v,n\<^esub> \<subseteq> [curry M']\<^bsub>v,n\<^esub> \<longleftrightarrow> dbm_subset n M M'"
@@ -993,7 +932,7 @@ next
       "\<forall> i \<le> n. M (i, i) = \<one>" "\<forall> i \<le> n. M' (i, i) = \<one>"
     unfolding check_diag_def neutral[symmetric] by fastforce+
     with F False show ?thesis unfolding dbm_subset_def
-    by (subst subset_eq_pointwise_le[OF canonical _ _ cn]; auto)
+    by (subst subset_eq_pointwise_le[OF canonical _ _ cn surj]; auto)
   qed
 qed
 
@@ -1206,10 +1145,6 @@ using assms by (cases ac; fastforce dest: clock_numberingD)
 
 section \<open>Normalization\<close>
 
-term op_list_get
-
-term fold
-
 (* XXX Possible to optimize norm_lower/norm_upper combinations? *)
 definition norm_upd_line :: "('t::{linordered_ab_group_add}) DBM' \<Rightarrow> 't list \<Rightarrow> 't \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't DBM'"
 where
@@ -1264,9 +1199,9 @@ lemma norm_upd_out_of_bounds_aux1:
       (norm_upd_line M k 0 0 m)
     (i, j) = M (i, j)"
 using assms
-apply (induction n)
-apply (simp add: norm_upd_line_alt_def del: upt_Suc norm_lower.simps norm_upper.simps; fail)
-apply (subst upt_Suc_append; simp add: norm_upd_line_alt_def del: upt_Suc)
+ apply (induction n)
+ apply (simp add: norm_upd_line_alt_def del: upt_Suc norm_lower.simps norm_upper.simps; fail)
+ apply (subst upt_Suc_append; simp add: norm_upd_line_alt_def del: upt_Suc)
 done
 
 (* XXX Unused remove? *)
