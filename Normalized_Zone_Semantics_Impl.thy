@@ -2283,7 +2283,7 @@ locale Reachability_Problem =
     and l\<^sub>0 :: 's
     and F :: "'s list"
     and trans_fun :: "('a, nat, int, 's) transition_fun"
-  assumes finite:  "finite_ta A"
+  assumes finite: "finite_ta A"
       and finite_trans: "finite (trans_of A)"
       and triv_clock_numbering: "clk_set A = {1..card (clk_set A)}"
       and valid: "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0" "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
@@ -3226,5 +3226,91 @@ begin
   done
 
   end (* End of locale context *)
+
+  value "[1,2] ! 0"
+
+  value "fst (1,2,3)"
+
+  term concat
+
+  term enumerate
+
+  subsection \<open>Pre-compiled automata with states and clocks as natural numbers\<close>
+  locale Reachability_Problem_precompiled =
+    fixes n :: nat -- "Number of states. States are 0 through n - 1"
+      and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
+      and inv :: "(nat, int) cconstraint list" -- "Clock invariants on states"
+      and trans :: "((nat, int) cconstraint * nat list * nat) list list"
+          -- "Transitions between states"
+      and start :: nat -- "Starting state"
+      and final :: "nat list" -- "Final states"
+    assumes inv_length: "length inv \<ge> n"
+        and trans_length: "length trans \<ge> n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
+        and k_length: "length k \<ge> n + 1" -- "Zero entry is just a dummy for the zero clock"
+        (* and state_set: "map fst (concat trans) \<union> map (snd o snd) (concat trans) \<subseteq> {0..<n}" *)
+        and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
+        and clock_set:
+          "\<forall> cc \<in> set inv. \<forall> c \<in> collect_clks cc. 0 < c \<and> c \<le> n"
+          "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> c \<in> collect_clks g. 0 < c \<and> c \<le> n"
+          "\<forall> xs \<in> set trans. \<forall> (_, r, _) \<in> set xs. \<forall> c \<in> set r. 0 < c \<and> c \<le> n"
+        and k_ceiling:
+          "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. k ! c \<ge> d"
+          "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. k ! c \<ge> d"
+        assumes n_gt_0[intro, simp]: "n > 0"
+        assumes has_clock: "collect_clks (inv ! 0) \<noteq> {}"
+  begin
+    text \<open>Definition of the corresponding automaton\<close>
+    definition "label a \<equiv> \<lambda> (g, r, l'). (g, a, r, l')"
+    definition "I l \<equiv> if l < n then inv ! l else []"
+    definition "T \<equiv> {(l, label i (trans ! l ! i)) | l i. l < n \<and> i < length (trans ! l)}"
+    definition "A \<equiv> (T, I)"
+
+    text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
+    definition
+      "trans_fun l \<equiv>
+        if l < n then map (\<lambda> i. label i (trans ! l ! i)) [0..<length (trans ! l)] else []"
+
+    (* declare [[simproc add: finite_Collect]] *)
+
+    lemma finite_T:
+      "finite (trans_of A)"
+    unfolding trans_of_def A_def T_def sorry
+
+    lemma has_clock':
+      "clk_set A \<noteq> {}"
+    using has_clock collect_clks_inv_clk_set[of A 0] unfolding A_def I_def[abs_def] inv_of_def by auto
+
+    lemma clk_set:
+      "clk_set A = {1..n}"
+    
+
+oops
+
+    lemma clk_set_eq:
+      "clk_set A = {1..card (clk_set A)}"
+    unfolding A_def T_def I_def apply auto
+
+    sublocale Reachability_Problem A _ _ trans_fun
+    apply standard
+
+oops
+  text \<open>Pre-compiled automata with states as natural numbers.\<close>
+  locale Reachability_Problem_compiled =
+  fixes A :: "('a, nat, int, nat) ta"
+    and l\<^sub>0 :: nat
+    and F :: "nat list"
+    and trans_fun :: "('a, nat, int, nat) transition_fun"
+  assumes finite:  "finite_ta A"
+      and finite_trans: "finite (trans_of A)"
+      and triv_clock_numbering: "clk_set A = {1..card (clk_set A)}"
+      and valid: "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0" "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
+      and not_empty: "clk_set A \<noteq> {}"
+      and trans_fun: "(trans_fun, trans_of A) \<in> transition_rel"
+
+  begin
+
+  
+
+  end
 
 end
