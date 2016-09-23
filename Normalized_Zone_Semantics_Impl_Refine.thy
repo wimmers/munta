@@ -28,21 +28,21 @@ begin
   context Reachability_Problem
   begin
 
+  thm step_impl.intros
+
   definition succs where
     "succs \<equiv> \<lambda> (l, D).
-      (l, norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (abstr_upd (inv_of A l) D) n)) n) k' n) #
-      rev (map (\<lambda> (g,a,r,l'). (l', norm_upd (FW' (abstr_upd (inv_of A l') (reset'_upd (abstr_upd g D) n r 0)) n) k' n)) (trans_fun l))"
-
-  term nfoldli
+      (l, FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n)) n) k' n) n) #
+      rev (map (\<lambda> (g,a,r,l'). (l', FW' (norm_upd (FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n) k' n) n)) (trans_fun l))"
 
   definition succs' where
     "succs' \<equiv> \<lambda> (l, D). do
       {
-        let delay = (l, norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (abstr_upd (inv_of A l) (op_mtx_copy D)) n)) n) k' n);
+        let delay = (l, FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) (op_mtx_copy D)) n) n)) n) k' n) n);
         xs \<leftarrow> nfoldli (trans_fun l) (\<lambda> _. True) (\<lambda> (g,a,r,l') xs. do
           {
-            let reset = fold (\<lambda>c M. reset_canonical_upd M n c 0) r (abstr_upd g (op_mtx_copy D));
-            let action = (l', norm_upd (FW' (abstr_upd (inv_of A l') reset) n) k' n);
+            let reset = fold (\<lambda>c M. reset_canonical_upd M n c 0) r (FW' (abstr_upd g (op_mtx_copy D)) n);
+            let action = (l', FW' (norm_upd (FW' (abstr_upd (inv_of A l') reset) n) k' n) n);
             RETURN (action # xs)
           }
         ) [];
@@ -156,7 +156,7 @@ begin
 
   lemma [sepref_import_param]: "(l\<^sub>0, l\<^sub>0) \<in> Id" by simp
 
-  sepref_definition a\<^sub>0_imp is
+  sepref_definition a\<^sub>0_impl is
     "uncurry0 (RETURN a\<^sub>0)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a state_assn"
   unfolding a\<^sub>0_def by sepref
 
@@ -266,8 +266,6 @@ oops
 
   term inv_of
 
-  lemmas [sepref_fr_rules] = abstr_upd_impl.refine up_canonical_upd_impl.refine norm_upd_impl.refine
-
   print_statement abstr_upd_impl.refine[to_hnr]
 
   thm sepref_frame_normrel_eqs
@@ -280,7 +278,7 @@ oops
 
   theorem FW_refine[sepref_fr_rules]:
     "(fw_impl n, RETURN o (\<lambda> M. FW M n)) \<in> (mtx_curry_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_curry_assn n"
-  sorry
+  oops
 
   term "(\<lambda> M. FW' M n)"
 
@@ -292,9 +290,11 @@ oops
 
   theorem FW'_refine[sepref_fr_rules]:
     "(fw_impl n, \<lambda> M. RETURN (FW' M n)) \<in> (mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
-  using FW_refine unfolding FW'_def sorry
+  oops
 
   lemmas fw_impl.refine[sepref_fr_rules]
+
+  thm fw_impl.refine[sepref_fr_rules] fw_impl'_refine_FW'' fw_impl.refine[FCOMP fw_impl'_refine_FW'']
 
   lemmas [sepref_fr_rules] = fw_impl.refine[FCOMP fw_impl'_refine_FW'']
 
@@ -315,16 +315,23 @@ oops
 
   thm sepref_monadify_comb
 
-  (* XXX Move to locale assumptions *)
+  thm trans_fun
+
+  lemma trans_fun_trans_of[intro]:
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  using trans_fun unfolding X_def transition_rel_def transition_\<alpha>_def[abs_def] build_rel_def by auto
+
+  lemma trans_of_trans_fun[intro]:
+    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> (g, a, r, l') \<in> set (trans_fun l)"
+  using trans_fun unfolding X_def transition_rel_def transition_\<alpha>_def[abs_def] build_rel_def by auto
+
   lemma trans_fun_clock_bounds1:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> \<forall> c \<in> set r. c \<le> n"
-  sorry
-
-  term collect_clks
+  using n_bounded reset_clk_set[OF trans_fun_trans_of] unfolding X_def by fastforce
 
   lemma trans_fun_clock_bounds2:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> \<forall> c \<in> collect_clks g. c \<le> n"
-  sorry
+  using n_bounded collect_clocks_clk_set[OF trans_fun_trans_of] unfolding X_def by fastforce
 
   abbreviation "clock_rel \<equiv> nbn_rel (Suc n)"
 
@@ -369,8 +376,10 @@ oops
   apply (simp add: list_assn_pure_conv)
   oops
 
-  lemmas [sepref_fr_rules] = reset_canonical_upd_impl.refine
-thm to_hnr_post(3)
+  lemmas [sepref_fr_rules] =
+    abstr_upd_impl.refine up_canonical_upd_impl.refine norm_upd_impl.refine
+    reset_canonical_upd_impl.refine
+  thm to_hnr_post(3)
   thm reset_canonical_upd_impl.refine[to_hnr]
 
   lemma b_rel_subtype[sepref_frame_match_rules]:
@@ -391,6 +400,8 @@ thm to_hnr_post(3)
 
   lemmas [safe_constraint_rules] = CN_FALSEI[of is_pure "asmtx_assn n a" for n a]
 
+  lemma [sepref_opt_simps]: "UNPROTECT n = n" by simp
+
   sepref_definition succs_impl is
     "RETURN o succs" :: "state_assn\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn"
   unfolding comp_def succs'_succs[symmetric] succs'_def inv_map_lookup_def[symmetric, of "inv_of A"]
@@ -399,6 +410,20 @@ thm to_hnr_post(3)
 using [[goals_limit = 1]]
   apply sepref
 done
+
+
+
+  sublocale Worklist1 E a\<^sub>0 F_rel subsumes succs
+  apply standard
+  unfolding succs_def E_def
+  apply standard
+   apply (auto; fail)
+  by (safe, erule step_impl.cases; force)
+
+  sublocale Worklist2 E a\<^sub>0 F_rel subsumes succs state_assn succs_impl a\<^sub>0_impl F_impl subsumes_impl
+  by standard (rule a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine)+
+
+(*
 oops
   apply sepref_dbg_preproc
   apply sepref_dbg_cons_init
@@ -567,7 +592,7 @@ oops
   apply sepref_dbg_id_step
 oops
   apply sepref_keep
-
+*)
   definition dbm_subset' where
     "dbm_subset' = dbm_subset n"
 
@@ -619,12 +644,7 @@ using [[goals_limit=3]]
   apply sepref_dbg_trans_keep
   apply sepref_dbg_tran
 
-  sublocale Worklist1 E a\<^sub>0 F_rel subsumes succs
-  apply standard
-  unfolding succs_def E_def
-  apply auto
-  using trans_fun unfolding transition_rel_def transition_\<alpha>_def[abs_def] apply auto[]
-  sorry
+
 
   sepref_definition dbm_subset_impl is
   "uncurry (RETURN oo dbm_subset n)" ::
