@@ -2277,20 +2277,46 @@ using assms
  apply (auto; fail)
 by blast+
 
+lemma finite_collect_clock_pairs[intro, simp]:
+  "finite (collect_clock_pairs x)"
+unfolding collect_clock_pairs_def by auto
+
+
 
 locale Reachability_Problem =
   fixes A :: "('a, nat, int, 's) ta" (* :: "('a, 'c, 't::time, 's) ta" *)
     and l\<^sub>0 :: 's
     and F :: "'s list"
     and trans_fun :: "('a, nat, int, 's) transition_fun"
-  assumes finite: "finite_ta A"
-      and finite_trans: "finite (trans_of A)"
+  assumes finite_trans[intro, simp]: "finite (trans_of A)"
+      and finite_inv[intro]: "finite (range (inv_of A))"
       and triv_clock_numbering: "clk_set A = {1..card (clk_set A)}"
-      and valid: "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0" "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
       and not_empty: "clk_set A \<noteq> {}"
+      and consts_nats: "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
       and trans_fun: "(trans_fun, trans_of A) \<in> transition_rel"
 
 begin
+
+  lemma clock_range:
+    "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0"
+  using triv_clock_numbering by force
+
+  lemma consts_ints:
+    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
+  using consts_nats unfolding Nats_def by auto
+
+  lemma finite_clkp_set_A[intro, simp]:
+    "finite (clkp_set A)"
+  unfolding clkp_set_def collect_clki_alt_def collect_clkt_alt_def by fast
+
+  lemma finite_collect_clkvt[intro]:
+    "finite (collect_clkvt (trans_of A))"
+  unfolding collect_clkvt_def using [[simproc add: finite_Collect]] by auto
+
+  lemma finite_ta_A[intro, simp]:
+    "finite_ta A"
+  unfolding finite_ta_def using consts_nats not_empty triv_clock_numbering by fastforce
+  
 
   definition "X \<equiv> clk_set A"
   (* definition "v \<equiv> default_numbering X" *)
@@ -2374,7 +2400,7 @@ begin
     apply (simp add: k'_def)
     apply (simp add: k'_def)
     apply (simp add: a\<^sub>0_def)
-    using valid by (auto simp: n_def X_def)
+    using clock_range consts_ints by (auto simp: n_def X_def)
     moreover have **: "l \<in> locations" if "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)" for l M
     using that unfolding E_closure locations_def
      apply (induction rule: steps_impl.induct)
@@ -2438,7 +2464,7 @@ begin
 
   lemma k_0:
     "k 0 = 0"
-  using valid(1) unfolding k_def default_ceiling_def by auto
+  using clock_range unfolding k_def default_ceiling_def by auto
 
   lemma k_simp_2:
     "(k \<circ> v') = k"
@@ -2473,10 +2499,11 @@ begin
     "global_clock_numbering A v n"
   using triv_clock_numbering unfolding v_def n_def[unfolded X_def, symmetric] by force
 
+  thm finite_ta_RegionsD_int(2)
+
   lemma valid_abstraction:
     "valid_abstraction A X k"
-  unfolding k_def X_def using Reachability_Problem.finite Reachability_Problem_axioms
-  by (blast intro: finite_ta_RegionsD_int(2))
+  unfolding k_def X_def using finite_ta_A by (blast intro: finite_ta_RegionsD_int(2))
 
   lemma triv_numbering':
     "\<forall> c \<in> clk_set A. v c = c"
@@ -2594,7 +2621,7 @@ begin
     using that FW'_diag_preservation[OF that(2)] diag by auto
     have *:
       "\<forall> c \<in> collect_clks (inv_of A l). c \<noteq> 0"
-    using valid(1) collect_clks_inv_clk_set[of A l] by auto
+    using clock_range collect_clks_inv_clk_set[of A l] by auto
     from step diag * show ?thesis
      apply cases
 
@@ -2623,10 +2650,10 @@ begin
           apply assumption
          apply (erule FW')
          apply (erule abstr_upd_diag_preservation')
-         apply (metis (no_types) valid(1) collect_clocks_clk_set subsetCE)
-        apply (metis (no_types) valid(1) collect_clks_inv_clk_set subsetCE)
+         apply (metis (no_types) clock_range collect_clocks_clk_set subsetCE)
+        apply (metis (no_types) clock_range collect_clks_inv_clk_set subsetCE)
        apply (drule reset_clk_set)
-      using valid(1) by blast
+      using clock_range by blast
     done
   qed
 
@@ -2646,12 +2673,12 @@ begin
       apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
         apply assumption
-       apply (metis (no_types) valid(1) collect_clks_inv_clk_set subsetCE)
+       apply (metis (no_types) clock_range collect_clks_inv_clk_set subsetCE)
       apply (subst up_canonical_upd_diag_preservation)
       apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
         apply assumption
-       apply (metis (no_types) valid(1) collect_clks_inv_clk_set subsetCE)
+       apply (metis (no_types) clock_range collect_clks_inv_clk_set subsetCE)
     by auto
 
     subgoal -- "action step"
@@ -2662,17 +2689,17 @@ begin
       apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
         apply assumption
-       apply (metis (no_types) valid(1) collect_clks_inv_clk_set subsetCE)
+       apply (metis (no_types) clock_range collect_clks_inv_clk_set subsetCE)
       apply (subst reset'_upd_diag_preservation)
        defer
        apply assumption
       apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
          apply assumption
-        apply (metis (no_types) valid(1) collect_clocks_clk_set subsetCE)
+        apply (metis (no_types) clock_range collect_clocks_clk_set subsetCE)
        apply assumption+
      apply (drule reset_clk_set)
-    using valid(1) by blast
+    using clock_range by blast
   done
 
   lemma step_impl_canonical:
@@ -2711,7 +2738,7 @@ begin
         FW'_int_preservation norm_upd_int_preservation abstr_upd_int_preservation[rotated]
         up_canonical_upd_int_preservation
     )
-   using valid(2) assms unfolding clkp_set_def collect_clki_def by (auto simp: k'_def)
+   using consts_ints assms unfolding clkp_set_def collect_clki_def by (auto simp: k'_def)
 
    subgoal premises prems
     unfolding prems
@@ -2719,9 +2746,9 @@ begin
         FW'_int_preservation norm_upd_int_preservation abstr_upd_int_preservation[rotated]
         reset'_upd_int_preservation
     )
-    using assms prems(3) valid(2) collect_clock_pairs_inv_clkp_set[of A l']
+    using assms prems(3) consts_ints collect_clock_pairs_inv_clkp_set[of A l']
     apply (auto dest!: collect_clock_pairs_trans_clkp_set simp: k'_def)
-   using prems(3) valid(1) by (auto dest!: reset_clk_set)
+   using prems(3) clock_range by (auto dest!: reset_clk_set)
   done
 
   lemmas valid_abstraction' = valid_abstraction_conv[OF valid_abstraction, unfolded X_alt_def]
@@ -3328,14 +3355,6 @@ begin
       clk_set_simp_1[symmetric] clk_set_simp_2[symmetric] clk_set_simp_3[symmetric]
       )
 
-    
-    print_syntax
-
-    term Collect
-
-    term "{x * 2 + n | x n. x + n > 0}"
-
-
     (* XXX Interesting for finiteness *)
     (* XXX Move *)
     lemma Collect_fold_pair:
@@ -3392,10 +3411,6 @@ begin
       clkp_set_def collect_clki_alt_def collect_clkt_alt_def A_def trans_of_def inv_of_def
       T_def I_def[abs_def] label_def
     using k_ceiling inv_length trans_length by (force dest: nth_mem)    
-
-    lemma finite_collect_clock_pairs[intro, simp]:
-      "finite (collect_clock_pairs x)"
-    unfolding collect_clock_pairs_def by auto
 
     lemma finite_range_inv_of_A[intro, simp]:
       "finite (range (inv_of A))"
