@@ -3412,6 +3412,7 @@ begin
 
     sublocale Reachability_Problem A _ _ trans_fun
     apply standard
+    apply auto
 
 oops
   text \<open>Pre-compiled automata with states as natural numbers.\<close>
