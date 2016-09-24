@@ -3238,26 +3238,34 @@ begin
   subsection \<open>Pre-compiled automata with states and clocks as natural numbers\<close>
   locale Reachability_Problem_precompiled =
     fixes n :: nat -- "Number of states. States are 0 through n - 1"
+      and m :: nat -- "Number of clocks"
       and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
       and inv :: "(nat, int) cconstraint list" -- "Clock invariants on states"
       and trans :: "((nat, int) cconstraint * nat list * nat) list list"
           -- "Transitions between states"
       and start :: nat -- "Starting state"
       and final :: "nat list" -- "Final states"
-    assumes inv_length: "length inv \<ge> n"
-        and trans_length: "length trans \<ge> n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
+      and clk_set'
+    assumes inv_length: "length inv = n"
+        and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
         and k_length: "length k \<ge> n + 1" -- "Zero entry is just a dummy for the zero clock"
         (* and state_set: "map fst (concat trans) \<union> map (snd o snd) (concat trans) \<subseteq> {0..<n}" *)
         and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
+        (*
         and clock_set:
-          "\<forall> cc \<in> set inv. \<forall> c \<in> collect_clks cc. 0 < c \<and> c \<le> n"
-          "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> c \<in> collect_clks g. 0 < c \<and> c \<le> n"
-          "\<forall> xs \<in> set trans. \<forall> (_, r, _) \<in> set xs. \<forall> c \<in> set r. 0 < c \<and> c \<le> n"
+          "\<forall> cc \<in> set inv. \<forall> c \<in> collect_clks cc. 0 < c \<and> c \<le> m"
+          "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> c \<in> collect_clks g. 0 < c \<and> c \<le> m"
+          "\<forall> xs \<in> set trans. \<forall> (_, r, _) \<in> set xs. \<forall> c \<in> set r. 0 < c \<and> c \<le> m"
+        *)
         and k_ceiling:
-          "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. k ! c \<ge> d"
-          "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. k ! c \<ge> d"
-        assumes n_gt_0[intro, simp]: "n > 0"
-        assumes has_clock: "collect_clks (inv ! 0) \<noteq> {}"
+          "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. k ! c \<ge> d \<and> d \<in> \<nat>"
+          "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. k ! c \<ge> d \<and> d \<in> \<nat>"
+        (* XXX How to do this right? *)
+        assumes clk_set'_def: "clk_set' = \<Union>
+      (collect_clks ` set inv \<union> (\<lambda> (g, r, _). collect_clks g \<union> set r) ` set (concat trans))"
+        (* assumes has_clock: "collect_clks (inv ! 0) \<noteq> {}" *)
+        assumes clock_set: (* "clk_set' \<noteq> {}" *) "clk_set' = {1..m}"
+        and m_gt_0: "m > 0"
   begin
     text \<open>Definition of the corresponding automaton\<close>
     definition "label a \<equiv> \<lambda> (g, r, l'). (g, a, r, l')"
@@ -3270,25 +3278,137 @@ begin
       "trans_fun l \<equiv>
         if l < n then map (\<lambda> i. label i (trans ! l ! i)) [0..<length (trans ! l)] else []"
 
-    (* declare [[simproc add: finite_Collect]] *)
+    lemma trans_fun_trans_of[intro, simp]:
+      "(trans_fun, trans_of A) \<in> transition_rel"
+    unfolding transition_rel_def transition_\<alpha>_def[abs_def] br_def
+    trans_fun_def[abs_def] trans_of_def A_def T_def by fastforce
 
-    lemma finite_T:
+    lemma collect_clock_pairs_empty[simp]:
+      "collect_clock_pairs [] = {}"
+    unfolding collect_clock_pairs_def by auto
+
+    lemma aux:
+      "x \<in> set xs \<Longrightarrow> \<exists> i < length xs. xs ! i = x"
+    by (metis index_less_size_conv nth_index)
+
+    lemma clk_set_simp_1:
+      "\<Union> (collect_clks ` set inv) = fst ` collect_clki (inv_of A)"
+    unfolding A_def inv_of_def collect_clki_def I_def[abs_def] using inv_length
+    by (auto simp add: collect_clks_id image_Union dest: nth_mem dest!: aux)
+    
+    lemma clk_set_simp_2:
+      "\<Union> ((\<lambda> (g, r, _). set r) ` set (concat trans)) = collect_clkvt (trans_of A)"
+    unfolding A_def trans_of_def collect_clkvt_def T_def[abs_def] label_def using trans_length
+     apply (auto simp add: image_Union dest: nth_mem)
+     apply (drule aux)
+     apply (drule aux)
+     apply force
+     apply (auto dest!: nth_mem)
+     (* XXX Find these instances automatically *)
+     apply (rule_tac x = "trans ! a" in bexI)
+     apply (rule_tac x = "trans ! a ! i" in bexI)
+    by auto
+
+    lemma clk_set_simp_3:
+      "\<Union> ((\<lambda> (g, r, _). collect_clks g) ` set (concat trans)) = fst ` collect_clkt (trans_of A)"
+    unfolding A_def trans_of_def collect_clkt_def T_def[abs_def] label_def using trans_length
+     apply (auto simp add: collect_clks_id image_Union dest: nth_mem)
+     apply (auto dest!: aux)[]
+     apply force
+     apply (auto dest!: nth_mem)
+     apply (rule_tac x = "trans ! aa" in bexI)
+     apply (rule_tac x = "trans ! aa ! i" in bexI)
+    by auto
+
+    lemma clk_set'_eq[simp]:
+      "clk_set A = clk_set'"
+    by (auto simp:
+      clk_set'_def clkp_set_def
+      image_Un image_Union
+      clk_set_simp_1[symmetric] clk_set_simp_2[symmetric] clk_set_simp_3[symmetric]
+      )
+
+    
+    print_syntax
+
+    term Collect
+
+    term "{x * 2 + n | x n. x + n > 0}"
+
+
+    (* XXX Interesting for finiteness *)
+    (* XXX Move *)
+    lemma Collect_fold_pair:
+      "{f a b | a b. P a b} = (\<lambda> (a, b). f a b) ` {(a, b). P a b}"
+    by auto
+
+    (* XXX Interesting case of proving finiteness *)
+    lemma finite_T[intro, simp]:
       "finite (trans_of A)"
-    unfolding trans_of_def A_def T_def sorry
+    proof -
+      have
+        "{(l, i). l < n \<and> i < length (trans ! l)}
+        = \<Union> ((\<lambda> l. {(l, i) | i. i < length (trans ! l)}) ` {l. l < n})"
+      by auto
+      then show ?thesis unfolding trans_of_def A_def T_def by (auto simp: Collect_fold_pair)
+    qed
+
+    (* XXX Move *)
+    lemma finite_collect_clks[intro, simp]:
+      "finite (collect_clks x)"
+    unfolding collect_clks_def by auto
+
+    lemma finite_clk_set':
+      "finite (clk_set')"
+    unfolding clk_set'_def by auto
+
+    lemma
+      "clk_set' \<noteq> {}"
+    using clock_set m_gt_0 by auto
 
     lemma has_clock':
       "clk_set A \<noteq> {}"
-    using has_clock collect_clks_inv_clk_set[of A 0] unfolding A_def I_def[abs_def] inv_of_def by auto
+    using clock_set m_gt_0 by auto
 
     lemma clk_set:
-      "clk_set A = {1..n}"
-    
-
-oops
+      "clk_set A = {1..m}"
+    using clock_set m_gt_0 by auto
 
     lemma clk_set_eq:
       "clk_set A = {1..card (clk_set A)}"
-    unfolding A_def T_def I_def apply auto
+    using clk_set by auto
+
+    lemma
+      "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0"
+    using clock_set by auto
+
+    lemma
+      "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
+    unfolding Ints_def by auto
+
+    lemma clkp_set_consts_nat:
+      "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
+    unfolding
+      clkp_set_def collect_clki_alt_def collect_clkt_alt_def A_def trans_of_def inv_of_def
+      T_def I_def[abs_def] label_def
+    using k_ceiling inv_length trans_length by (force dest: nth_mem)    
+
+    lemma finite_collect_clock_pairs[intro, simp]:
+      "finite (collect_clock_pairs x)"
+    unfolding collect_clock_pairs_def by auto
+
+    lemma finite_range_inv_of_A[intro, simp]:
+      "finite (range (inv_of A))"
+    unfolding inv_of_def A_def I_def[abs_def] by (auto intro: finite_subset[where B = "{[]}"])
+
+    lemma finite_clkp_set_A[intro, simp]:
+      "finite (clkp_set A)"
+    unfolding clkp_set_def collect_clki_alt_def collect_clkt_alt_def by fast
+
+    lemma finite_ta_A[intro, simp]:
+      "finite_ta A"
+    unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat 
+    by auto (force simp: clk_set_simp_2[symmetric])+
 
     sublocale Reachability_Problem A _ _ trans_fun
     apply standard
