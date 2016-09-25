@@ -1823,21 +1823,6 @@ proof -
 qed
 
 
-section \<open>Mapping Transitions\<close>
-
-type_synonym
-  ('a, 'c, 'time, 's) transition_fun = "'s \<Rightarrow> (('c, 'time) cconstraint * 'a * 'c list * 's) list"
-
-definition transition_\<alpha> :: "('a, 'c, 'time, 's) transition_fun \<Rightarrow> ('a, 'c, 'time, 's) transition set"
-where
-  "transition_\<alpha> f = {(s, t) | s t. t \<in> set (f s)}"
-
-definition transition_rel where
-  "transition_rel = (br transition_\<alpha> (\<lambda>_. True))"
-
-
-
-
 section \<open>Reachability Checker\<close>
 
 abbreviation conv_M :: "int DBM' \<Rightarrow> real DBM'" where "conv_M \<equiv> op o (map_DBMEntry real_of_int)"
@@ -2291,13 +2276,12 @@ locale Reachability_Problem =
   fixes A :: "('a, nat, int, 's) ta" (* :: "('a, 'c, 't::time, 's) ta" *)
     and l\<^sub>0 :: 's
     and F :: "'s list"
-    and trans_fun :: "('a, nat, int, 's) transition_fun"
   assumes finite_trans[intro, simp]: "finite (trans_of A)"
       and finite_inv[intro]: "finite (range (inv_of A))"
       and triv_clock_numbering: "clk_set A = {1..card (clk_set A)}"
       and not_empty: "clk_set A \<noteq> {}"
       and consts_nats: "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
-      and trans_fun: "(trans_fun, trans_of A) \<in> transition_rel"
+      
 
 begin
 
