@@ -3251,8 +3251,7 @@ begin
       and inv :: "(nat, int) cconstraint list" -- "Clock invariants on states"
       and trans :: "((nat, int) cconstraint * nat list * nat) list list"
           -- "Transitions between states"
-      and start :: nat -- "Starting state"
-      and final :: "nat list" -- "Final states"
+      and final :: "nat list" -- "Final states. Initial location is 0"
       and clk_set'
     assumes inv_length: "length inv = n"
         and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
@@ -3266,6 +3265,7 @@ begin
       (collect_clks ` set inv \<union> (\<lambda> (g, r, _). collect_clks g \<union> set r) ` set (concat trans))"
         assumes clock_set: "clk_set' = {1..m}"
         and m_gt_0: "m > 0"
+        and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
   begin
     text \<open>Definition of the corresponding automaton\<close>
     definition "label a \<equiv> \<lambda> (g, r, l'). (g, a, r, l')"
@@ -3273,20 +3273,11 @@ begin
     definition "T \<equiv> {(l, label i (trans ! l ! i)) | l i. l < n \<and> i < length (trans ! l)}"
     definition "A \<equiv> (T, I)"
 
-    text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
-    definition
-      "trans_fun l \<equiv>
-        if l < n then map (\<lambda> i. label i (trans ! l ! i)) [0..<length (trans ! l)] else []"
-
-    lemma trans_fun_trans_of[intro, simp]:
-      "(trans_fun, trans_of A) \<in> transition_rel"
-    unfolding transition_rel_def transition_\<alpha>_def[abs_def] br_def
-    trans_fun_def[abs_def] trans_of_def A_def T_def by fastforce
-
     lemma collect_clock_pairs_empty[simp]:
       "collect_clock_pairs [] = {}"
     unfolding collect_clock_pairs_def by auto
 
+    (* XXX Rename. Move? *)
     lemma aux:
       "x \<in> set xs \<Longrightarrow> \<exists> i < length xs. xs ! i = x"
     by (metis index_less_size_conv nth_index)
@@ -3394,7 +3385,7 @@ begin
     unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat 
     by auto (force simp: clk_set_simp_2[symmetric])+
 
-    sublocale Reachability_Problem A _ _ trans_fun
+    sublocale Reachability_Problem A 0 final
     using has_clock clkp_set_consts_nat clk_set_eq by - (standard, auto)
 
   end (* End of locale *)

@@ -56,7 +56,10 @@ begin
   definition state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
     "state_set T = fst ` T \<union> (snd o snd o snd o snd) ` T"
 
-  locale Reachability_Problem_Impl = Reachability_Problem A for A :: "('a, nat, int, 's) ta" +
+  locale Reachability_Problem_Impl =
+    Reachability_Problem A l\<^sub>0 F
+    for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s list" +
+
     fixes trans_fun :: "('a, nat, int, 's) transition_fun"
       and inv_fun :: "(nat, int, 's) invassn"
     assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel"
@@ -607,6 +610,48 @@ done
   sublocale Worklist2 E a\<^sub>0 F_rel subsumes succs state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl
   by standard (rule a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine)+
 
+end (* End of locale *)
+
+context Reachability_Problem_precompiled
+begin
+
+  text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
+  definition
+    "trans_fun l \<equiv>
+      if l < n then map (\<lambda> i. label i (trans ! l ! i)) [0..<length (trans ! l)] else []"
+
+  lemma trans_fun_trans_of[intro, simp]:
+    "(trans_fun, trans_of A) \<in> transition_rel"
+  unfolding transition_rel_def transition_\<alpha>_def[abs_def] br_def
+  trans_fun_def[abs_def] trans_of_def A_def T_def by fastforce
+
+  definition "inv_fun l \<equiv> inv ! l"
+
+  lemma state_set_n[intro, simp]:
+    "state_set (trans_of A) \<subseteq> {0..<n}"
+  unfolding state_set_def trans_of_def A_def T_def label_def using state_set trans_length
+  by (force dest: nth_mem)
+
+  lemma inv_fun_inv_of[intro, simp]:
+    "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
+  using state_set_n unfolding inv_rel_def inv_fun_def[abs_def] inv_of_def A_def I_def[abs_def]
+  by auto
+
+  lemma start_states[intro, simp]:
+    "0 \<in> state_set (trans_of A)"
+  proof -
+    obtain g r l' where "trans ! 0 ! 0 = (g, r, l')" by (metis prod_cases3)
+    with start_has_trans n_gt_0 trans_length show ?thesis
+    unfolding state_set_def trans_of_def A_def T_def label_def by force
+  qed
+
+  term Reachability_Problem_Impl
+
+  sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun by standard auto
+
+end (* End of locale *)
+
+
 (*
 oops
   apply sepref_dbg_preproc
@@ -652,128 +697,6 @@ oops
   apply sepref_dbg_cons_init
 
   apply sepref_dbg_id
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-oops
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
-  apply sepref_dbg_id_step
 oops
   apply sepref_keep
 *)
