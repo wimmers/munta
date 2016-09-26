@@ -62,10 +62,12 @@ begin
 
     fixes trans_fun :: "('a, nat, int, 's) transition_fun"
       and inv_fun :: "(nat, int, 's) invassn"
+      and ceiling :: "int list"
     assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel"
         and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
         (* XXX *)
         and start_location_in_states: "l\<^sub>0 \<in> state_set (trans_of A)"
+        and ceiling: "(ceiling, k') \<in> \<langle>Id\<rangle>list_rel"
   begin
 
   thm step_impl.intros
@@ -392,7 +394,7 @@ oops
 
   sepref_register "PR_CONST k'"
 
-  lemma [sepref_import_param]: "(k', PR_CONST k') \<in> \<langle>Id\<rangle> list_rel" by simp
+  lemma [sepref_import_param]: "(ceiling, PR_CONST k') \<in> \<langle>Id\<rangle> list_rel" using ceiling by simp
 
   lemma [def_pat_rules]: "(Reachability_Problem.k' $ A) \<equiv> PR_CONST k'" by simp
 
@@ -596,7 +598,7 @@ oops
   apply (rewrite "HOL_list.fold_custom_empty")
 using [[goals_limit = 1]]
   apply sepref
-done
+  done
 
 
 
@@ -645,9 +647,46 @@ begin
     unfolding state_set_def trans_of_def A_def T_def label_def by force
   qed
 
-  term Reachability_Problem_Impl
+  lemma [simp]:
+    "Reachability_Problem.n A = m"
+  unfolding n_def X_def using clock_set by auto
 
-  sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun by standard auto
+  lemma fst_clkp_set'D:
+    assumes "(c, d) \<in> clkp_set'"
+    shows "c > 0" "c \<le> m" "d \<in> range int"
+  using assms clock_set consts_nats unfolding Nats_def clk_set'_def by force+
+
+  (* XXX Move *)
+  lemma mono_nat:
+    "mono nat"
+  by rule auto
+
+  lemma k_k'[intro]:
+    "map int k = k'"
+   apply (rule nth_equalityI)
+    using k_length length_k' apply (auto; fail)
+   unfolding k'_def k_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
+   using k_ceiling apply safe
+    subgoal for i by (cases "i = 0") auto
+   apply (frule fst_clkp_set'D(1))
+   apply clarsimp
+   apply (subst mono_Max_commute[OF mono_nat])
+     using finite_clkp_set_A [[simproc add: finite_Collect]]
+     apply (auto intro: finite_Image simp: clkp_set'_eq; fail)
+    apply (auto; fail)
+   apply (subst Max_insert)
+     using finite_clkp_set_A
+     apply (auto simp: clkp_set'_eq elim: finite_vimageI[unfolded inj_on_def]; fail)
+    apply (auto dest: fst_clkp_set'D(3); fail)
+   apply simp
+   apply (rule cong[of Max, OF HOL.refl])
+   apply safe
+    apply force
+   apply (force dest: fst_clkp_set'D(3))
+  done
+  
+
+  sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun k by standard auto
 
 end (* End of locale *)
 

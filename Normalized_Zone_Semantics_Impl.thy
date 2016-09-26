@@ -3253,20 +3253,33 @@ begin
           -- "Transitions between states"
       and final :: "nat list" -- "Final states. Initial location is 0"
       and clk_set'
+      and clkp_set'
     assumes inv_length: "length inv = n"
         and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
         and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
-        and k_length: "length k \<ge> n + 1" -- "Zero entry is just a dummy for the zero clock"
-        and k_ceiling:
-          "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. k ! c \<ge> d \<and> d \<in> \<nat>"
-          "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. k ! c \<ge> d \<and> d \<in> \<nat>"
+        and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
         (* XXX How to do this right? *)
-        assumes clk_set'_def: "clk_set' = \<Union>
-      (collect_clks ` set inv \<union> (\<lambda> (g, r, _). collect_clks g \<union> set r) ` set (concat trans))"
+        assumes clkp_set'_def: "clkp_set' = \<Union>
+      (collect_clock_pairs ` set inv \<union> (\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans))"
+        (* XXX Make this an abbreviation? *)
+        assumes clk_set'_def: "clk_set' =
+      (fst ` clkp_set' \<union> \<Union> ((\<lambda> (_, r, _). set r) ` set (concat trans)))"
+        assumes k_ceiling: "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
+        assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
         assumes clock_set: "clk_set' = {1..m}"
         and m_gt_0: "m > 0"
         and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
   begin
+    lemma k_ceiling:
+      "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. k ! c \<ge> d \<and> d \<in> \<nat>"
+      "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. k ! c \<ge> d \<and> d \<in> \<nat>"
+    oops
+
+    lemma consts_nats':
+      "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. d \<in> \<nat>"
+      "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. d \<in> \<nat>"
+    using consts_nats unfolding clkp_set'_def by fastforce+
+
     text \<open>Definition of the corresponding automaton\<close>
     definition "label a \<equiv> \<lambda> (g, r, l'). (g, a, r, l')"
     definition "I l \<equiv> if l < n then inv ! l else []"
@@ -3282,8 +3295,8 @@ begin
       "x \<in> set xs \<Longrightarrow> \<exists> i < length xs. xs ! i = x"
     by (metis index_less_size_conv nth_index)
 
-    lemma clk_set_simp_1:
-      "\<Union> (collect_clks ` set inv) = fst ` collect_clki (inv_of A)"
+    lemma clkp_set_simp_1:
+      "\<Union> (collect_clock_pairs ` set inv) = collect_clki (inv_of A)"
     unfolding A_def inv_of_def collect_clki_def I_def[abs_def] using inv_length
     by (auto simp add: collect_clks_id image_Union dest: nth_mem dest!: aux)
     
@@ -3300,8 +3313,8 @@ begin
      apply (rule_tac x = "trans ! a ! i" in bexI)
     by auto
 
-    lemma clk_set_simp_3:
-      "\<Union> ((\<lambda> (g, r, _). collect_clks g) ` set (concat trans)) = fst ` collect_clkt (trans_of A)"
+    lemma clkp_set_simp_3:
+      "\<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans)) = collect_clkt (trans_of A)"
     unfolding A_def trans_of_def collect_clkt_def T_def[abs_def] label_def using trans_length
      apply (auto simp add: collect_clks_id image_Union dest: nth_mem)
      apply (auto dest!: aux)[]
@@ -3311,13 +3324,15 @@ begin
      apply (rule_tac x = "trans ! aa ! i" in bexI)
     by auto
 
+    lemma clkp_set'_eq:
+      "clkp_set A = clkp_set'"
+    by (auto simp: clkp_set'_def clkp_set_def image_Un image_Union
+      clkp_set_simp_1[symmetric] clkp_set_simp_3[symmetric]
+      )
+
     lemma clk_set'_eq[simp]:
       "clk_set A = clk_set'"
-    by (auto simp:
-      clk_set'_def clkp_set_def
-      image_Un image_Union
-      clk_set_simp_1[symmetric] clk_set_simp_2[symmetric] clk_set_simp_3[symmetric]
-      )
+    by (auto simp: clkp_set'_eq clk_set'_def clk_set_simp_2[symmetric])
 
     (* XXX Interesting for finiteness *)
     (* XXX Move *)
@@ -3336,10 +3351,6 @@ begin
       then show ?thesis unfolding trans_of_def A_def T_def by (auto simp: Collect_fold_pair)
     qed
 
-    lemma finite_clk_set':
-      "finite (clk_set')"
-    unfolding clk_set'_def by auto
-
     (* XXX *)
     lemma
       "clk_set' \<noteq> {}"
@@ -3347,7 +3358,7 @@ begin
 
     lemma has_clock[intro]:
       "clk_set A \<noteq> {}"
-    using clock_set m_gt_0 by auto
+    using clock_set m_gt_0 by simp
 
     lemma clk_set:
       "clk_set A = {1..m}"
@@ -3370,7 +3381,7 @@ begin
     unfolding
       clkp_set_def collect_clki_alt_def collect_clkt_alt_def A_def trans_of_def inv_of_def
       T_def I_def[abs_def] label_def
-    using k_ceiling inv_length trans_length by (force dest: nth_mem)    
+    using consts_nats' inv_length trans_length by (force dest: nth_mem)
 
     lemma finite_range_inv_of_A[intro, simp]:
       "finite (range (inv_of A))"
