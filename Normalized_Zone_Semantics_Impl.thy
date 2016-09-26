@@ -1,6 +1,7 @@
 theory Normalized_Zone_Semantics_Impl
   imports
     Normalized_Zone_Semantics
+    (* XXX Reordering these lets transfer proofs fail *)
     "../IRF/Refine_Imperative_HOL/Examples/Worklist_Subsumption_Impl"
     DBM_Operations_Impl
     FW_Code

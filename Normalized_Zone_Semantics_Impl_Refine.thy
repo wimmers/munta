@@ -1,5 +1,6 @@
 theory Normalized_Zone_Semantics_Impl_Refine
-  imports Normalized_Zone_Semantics_Impl DBM_Operations_Impl_Refine
+  imports
+    Normalized_Zone_Semantics_Impl DBM_Operations_Impl_Refine
 begin
 
   lemma aux1: "fold (\<lambda> x xs. f x # xs) xs zs @ ys = fold (\<lambda> x xs. f x # xs) xs (zs@ys)"
@@ -29,24 +30,20 @@ begin
 
   type_synonym
     ('a, 'c, 'time, 's) transition_fun = "'s \<Rightarrow> (('c, 'time) cconstraint * 'a * 'c list * 's) list"
-  
-  definition transition_\<alpha> :: "('a, 'c, 'time, 's) transition_fun \<Rightarrow> ('a, 'c, 'time, 's) transition set"
-  where
-    "transition_\<alpha> f = {(s, t) | s t. t \<in> set (f s)}"
-
-  definition transition_rel where
-    "transition_rel = (br transition_\<alpha> (\<lambda>_. True))"
 
   (*
-  definition inv_\<alpha> :: "('c, 'time, 's) invassn \<Rightarrow> _"
+  definition transition_\<alpha> ::
+    "'s set \<Rightarrow> ('a, 'c, 'time, 's) transition_fun \<Rightarrow> ('a, 'c, 'time, 's) transition set"
   where
-    "inv_\<alpha> f = {(s, t) | s t. t \<in> set (f s)}"
-  
-  term inv_\<alpha>
-  
+    "transition_\<alpha> X f = {(s, t) | s t. s \<in> X \<and> t \<in> set (f s)}"
+
+  definition transition_rel where
+    "transition_rel X = (br (transition_\<alpha> X) (\<lambda>_. True))"
   *)
 
-  term b_rel  
+  (* XXX Can this be constructed from other primitives? *)
+  definition transition_rel where
+    "transition_rel X = {(f, r). \<forall> l \<in> X. \<forall> x. (l, x) \<in> r \<longleftrightarrow> x \<in> set (f l)}"
 
   definition inv_rel where -- "Invariant assignments for a restricted state set"
     (* XXX Or use "inv_rel X = Id_on X \<rightarrow> Id" ? *)
@@ -63,14 +60,15 @@ begin
     fixes trans_fun :: "('a, nat, int, 's) transition_fun"
       and inv_fun :: "(nat, int, 's) invassn"
       and ceiling :: "int list"
-    assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel"
+    assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
         and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
         (* XXX *)
-        and start_location_in_states: "l\<^sub>0 \<in> state_set (trans_of A)"
+        and start_location_in_states[intro]: "l\<^sub>0 \<in> state_set (trans_of A)"
         and ceiling: "(ceiling, k') \<in> \<langle>Id\<rangle>list_rel"
   begin
 
-  thm step_impl.intros
+  (* XXX Should this be something different? *)
+  abbreviation "states \<equiv> (state_set (trans_of A))"
 
   definition succs where
     "succs \<equiv> \<lambda> (l, D).
@@ -331,38 +329,9 @@ begin
   done
  
 
-  term pure
-(*
-  lemma [sepref_fr_rules]:
-    assumes "CONSTRAINT (IS_PURE IS_BELOW_ID) B"
-    shows "(return o inv_of, RETURN o inv_of) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a inv_map_assn (list_assn (acconstraint_assn (clock_assn n) int_assn))"
-  using assms inv_of_rel
-  apply sepref_to_hoare
-  apply (sep_auto simp: IS_BELOW_ID_def IS_PURE_def inv_map_assn_def pure_def split: prod.split)
-oops
-*)
-(*  using assms by sepref_to_hoare (sep_auto simp: IS_BELOW_ID_def IS_PURE_def inv_map_assn_def pure_def) *)
-
-  (* definition inv_map_lookup :: "('c \<Rightarrow> 'b) \<Rightarrow> _" where "inv_map_lookup M a = M a" *)
-
-(*
-  lemma inv_map_lookup_fr_rule[sepref_fr_rules]:
-    assumes "CONSTRAINT (IS_PURE IS_ID) B"
-    shows
-      "(uncurry (return oo inv_map_lookup), uncurry (RETURN oo inv_map_lookup))
-      \<in> (inv_map_assn B)\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow>\<^sub>a B"
-  using assms by sepref_to_hoare (sep_auto simp: IS_ID_def IS_PURE_def inv_map_assn_def pure_def)
-
-  thm inv_map_lookup_fr_rule[to_hnr]
-*)
-
-  term inv_of
-
   print_statement abstr_upd_impl.refine[to_hnr]
 
   thm sepref_frame_normrel_eqs
-
-  (* sepref_register inv_map_lookup *)
 
   term fw_impl term fw_impl'
 
@@ -410,120 +379,41 @@ oops
   thm trans_fun
 
   lemma trans_fun_trans_of[intro]:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-  using trans_fun unfolding X_def transition_rel_def transition_\<alpha>_def[abs_def] build_rel_def by auto
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  using trans_fun unfolding transition_rel_def by auto
 
   lemma trans_of_trans_fun[intro]:
-    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> (g, a, r, l') \<in> set (trans_fun l)"
-  using trans_fun unfolding X_def transition_rel_def transition_\<alpha>_def[abs_def] build_rel_def by auto
+    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> l \<in> states \<Longrightarrow> (g, a, r, l') \<in> set (trans_fun l)"
+  using trans_fun unfolding transition_rel_def by auto
 
   lemma trans_fun_clock_bounds1:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> \<forall> c \<in> set r. c \<le> n"
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> set r. c \<le> n"
   using n_bounded reset_clk_set[OF trans_fun_trans_of] unfolding X_def by fastforce
 
   lemma trans_fun_clock_bounds2:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> \<forall> c \<in> collect_clks g. c \<le> n"
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> collect_clks g. c \<le> n"
   using n_bounded collect_clocks_clk_set[OF trans_fun_trans_of] unfolding X_def by fastforce
 
-  lemma trans_fun_states1:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> state_set (trans_of A)"
-  unfolding state_set_def
+  lemma trans_fun_states:
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> l' \<in> state_set (trans_of A)"
    apply (drule trans_fun_trans_of)
-   apply (rule UnI1)
-  by force
-
-  lemma trans_fun_states2:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l' \<in> state_set (trans_of A)"
-  unfolding state_set_def
-   apply (drule trans_fun_trans_of)
+   apply auto[]
+   unfolding state_set_def
    apply (rule UnI2)
   by force
 
+  lemma trans_of_states[intro]:
+    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> l \<in> states \<Longrightarrow> l' \<in> states"
+  by (auto intro: trans_fun_states)
+
   abbreviation "clock_rel \<equiv> nbn_rel (Suc n)"
-
-  lemma (* [sepref_import_param]: *)
-    "(trans_fun, trans_fun)
-    \<in> Id \<rightarrow> \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle> acconstraint_rel\<rangle> list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle> list_rel \<times>\<^sub>r Id\<rangle> list_rel"
-  apply (rule fun_relI)
-  apply simp
-  subgoal for x x'
-  proof -
-    { fix l :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
-      assume "\<forall> g a r l'. (g, a, r, l') \<in> set l \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n)" 
-      then have "(l, l) \<in> \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r Id\<rangle>list_rel"
-      proof (induction l)
-        case Nil then show ?case by simp
-      next
-        case (Cons x xs)
-        then obtain g a r l' where [simp]: "x = (g, a, r, l')" by (cases x)
-        from Cons.prems have r_bounds: "\<forall> c \<in> set r. c \<le> n" by auto
-        from Cons.prems have "\<forall> c \<in> collect_clks g. c \<le> n" by auto
-        then have "(g, g) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
-          apply (induction g)
-          apply simp
-          apply simp
-          subgoal for a
-          apply (cases a)
-          by (auto simp: acconstraint_rel_def p2rel_def rel2p_def)
-        done
-        moreover from r_bounds have "(r, r) \<in> \<langle>nbn_rel (Suc n)\<rangle>list_rel" by (induction r) auto
-        ultimately have "(x, x) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r Id" by simp
-        moreover from Cons have
-          "(xs, xs) \<in> \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r Id\<rangle>list_rel"
-        by force
-        ultimately show ?case by simp
-      qed
-    }
-    from this[of "trans_fun x'"] trans_fun_clock_bounds1 trans_fun_clock_bounds2 show ?thesis by auto
-  qed
-  done
-
-  lemma (* [sepref_import_param]: *)
-    "(trans_fun, trans_fun)
-    \<in> Id \<rightarrow> \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle> acconstraint_rel\<rangle> list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle> list_rel \<times>\<^sub>r location_rel\<rangle> list_rel"
-  apply (rule fun_relI)
-  apply simp
-  subgoal for x x'
-  proof -
-    { fix l :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
-      assume "\<forall> g a r l'. (g, a, r, l') \<in> set l \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> state_set (trans_of A)"
-      then have "(l, l) \<in> \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r location_rel\<rangle>list_rel"
-      proof (induction l)
-        case Nil then show ?case by simp
-      next
-        case (Cons x xs)
-        then obtain g a r l' where [simp]: "x = (g, a, r, l')" by (cases x)
-        from Cons.prems have r_bounds: "\<forall> c \<in> set r. c \<le> n" by auto
-        from Cons.prems have "\<forall> c \<in> collect_clks g. c \<le> n" by auto
-        then have "(g, g) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
-          apply (induction g)
-          apply simp
-          apply simp
-          subgoal for a
-          apply (cases a)
-          by (auto simp: acconstraint_rel_def p2rel_def rel2p_def)
-        done
-        moreover from r_bounds have "(r, r) \<in> \<langle>nbn_rel (Suc n)\<rangle>list_rel" by (induction r) auto
-        moreover from Cons.prems have "(l', l') \<in> location_rel" by auto
-        ultimately have
-          "(x, x) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r location_rel"
-        by simp
-        moreover from Cons have
-          "(xs, xs) \<in> \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r location_rel\<rangle>list_rel"
-        by force
-        ultimately show ?case by simp
-      qed
-    }
-    from this[of "trans_fun x'"] trans_fun_clock_bounds1 trans_fun_clock_bounds2 trans_fun_states2 show ?thesis by auto
-  qed
-  done
 
   lemma [sepref_import_param]:
     "(trans_fun, trans_fun)
     \<in> location_rel \<rightarrow> \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle> acconstraint_rel\<rangle> list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle> list_rel \<times>\<^sub>r location_rel\<rangle> list_rel"
   apply (rule fun_relI)
   apply simp
-  subgoal for x x'
+  subgoal premises prems for x x'
   proof -
     { fix l :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
       assume "\<forall> g a r l'. (g, a, r, l') \<in> set l \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> state_set (trans_of A)"
@@ -554,16 +444,9 @@ oops
         ultimately show ?case by simp
       qed
     }
-    from this[of "trans_fun x'"] trans_fun_clock_bounds1 trans_fun_clock_bounds2 trans_fun_states2 show ?thesis by auto
+    with prems trans_fun_clock_bounds1 trans_fun_clock_bounds2 trans_fun_states show ?thesis by auto
   qed
   done
-
-  (*
-  lemma [sepref_fr_rules]:
-    "(return o trans_fun, RETURN o trans_fun) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (prod_assn (list_assn (acconstraint_assn (clock_assn n) int_assn)) (prod_assn id_assn (prod_assn id_assn id_assn)))"
-  apply (simp add: list_assn_pure_conv)
-  oops
-  *)
 
   lemmas [sepref_fr_rules] =
     abstr_upd_impl.refine up_canonical_upd_impl.refine norm_upd_impl.refine
@@ -593,20 +476,22 @@ oops
 
   sepref_definition succs_impl is
     "RETURN o succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
-  unfolding comp_def succs'_succs[symmetric] succs'_def (* inv_map_lookup_def[symmetric, of "inv_of A"] *)
-  FW''_def[symmetric] rev_map_fold reset'_upd_def inv_of_A_def[symmetric]
-  apply (rewrite "HOL_list.fold_custom_empty")
-using [[goals_limit = 1]]
-  apply sepref
-  done
+  unfolding
+    comp_def succs'_succs[symmetric] succs'_def
+    FW''_def[symmetric] rev_map_fold reset'_upd_def inv_of_A_def[symmetric]
+   apply (rewrite "HOL_list.fold_custom_empty")
+  by sepref
 
 
+  lemma reachable_states:
+    "reachable (l', M) \<Longrightarrow> l' \<in> states"
+  unfolding reachable_def E_closure
+  by (induction l \<equiv> l\<^sub>0 _ _ _ _ _  rule: steps_impl_induct) (auto elim: step_impl.cases)
 
   sublocale Worklist1 E a\<^sub>0 F_rel subsumes succs
   apply standard
-  unfolding succs_def E_def
-  apply standard
-   apply (auto; fail)
+  apply (auto split: prod.split dest!: reachable_states)
+   unfolding succs_def E_def apply (auto; fail)
   by (safe, erule step_impl.cases; force)
 
   sublocale Worklist2 E a\<^sub>0 F_rel subsumes succs state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl
@@ -619,20 +504,19 @@ begin
 
   text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
   definition
-    "trans_fun l \<equiv>
-      if l < n then map (\<lambda> i. label i (trans ! l ! i)) [0..<length (trans ! l)] else []"
-
-  lemma trans_fun_trans_of[intro, simp]:
-    "(trans_fun, trans_of A) \<in> transition_rel"
-  unfolding transition_rel_def transition_\<alpha>_def[abs_def] br_def
-  trans_fun_def[abs_def] trans_of_def A_def T_def by fastforce
-
-  definition "inv_fun l \<equiv> inv ! l"
+    "trans_fun l \<equiv> map (\<lambda> i. label i (trans ! l ! i)) [0..<length (trans ! l)]"
 
   lemma state_set_n[intro, simp]:
     "state_set (trans_of A) \<subseteq> {0..<n}"
   unfolding state_set_def trans_of_def A_def T_def label_def using state_set trans_length
   by (force dest: nth_mem)
+
+  lemma trans_fun_trans_of[intro, simp]:
+    "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
+  using state_set_n unfolding transition_rel_def trans_fun_def[abs_def] trans_of_def A_def T_def
+  by fastforce
+
+  definition "inv_fun l \<equiv> inv ! l"
 
   lemma inv_fun_inv_of[intro, simp]:
     "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
@@ -688,113 +572,8 @@ begin
 
   sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun k by standard auto
 
+  thm succs_impl_def
+
 end (* End of locale *)
 
-
-(*
-oops
-  apply sepref_dbg_preproc
-  apply sepref_dbg_cons_init
-  apply sepref_dbg_id
-  apply sepref_dbg_monadify
-  apply sepref_dbg_opt_init
-  apply sepref_dbg_trans_keep
-oops
-  apply sepref_dbg_trans
-  apply print_slot
-  apply sepref_dbg_opt
-  apply sepref_dbg_cons_solve
-  apply sepref_dbg_cons_solve
-  apply sepref_dbg_constraints
-oops
-  apply sepref_keep
-  apply sepref_dbg_trans_keep
-oops
-  apply sepref_dbg_trans_step_keep
-  apply sepref_dbg_frame
-oops
-  apply sepref_dbg_frame
-oops
-  apply sepref_dbg_trans_step_keep
-oops
-  apply sepref_dbg_preproc
-  apply sepref_dbg_cons_init
-  apply sepref_dbg_id
-  apply sepref_dbg_monadify
-  apply sepref_keep
-  unfolding APP_def PROTECT2_def
-using [[goals_limit = 1]]
-  apply sepref_dbg_trans_keep
-  apply sepref_dbg_trans_step_keep
-  apply (tactic \<open>Sepref_Translate.side_unfold_tac @{context} 1\<close>)
-  apply clarsimp
-  ML_val Sepref_Translate.side_unfold_tac
-  thm sepref.norm_rel_eqs
-  apply sepref_dbg_frame
-oops
-  apply sepref_dbg_preproc
-  apply sepref_dbg_cons_init
-
-  apply sepref_dbg_id
-oops
-  apply sepref_keep
-*)
-  definition dbm_subset' where
-    "dbm_subset' = dbm_subset n"
-
-  lemma subsumes_alt_def:
-    "subsumes = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset' M M')"
-  unfolding subsumes_def dbm_subset'_def by simp
-
-  sepref_definition dbm_subset'_impl is
-    "uncurry (RETURN oo PR_CONST dbm_subset')" :: "(mtx_assn n)\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding dbm_subset'_def dbm_subset_alt_def[abs_def] list_all_foldli PR_CONST_def by sepref
-
-  lemmas [sepref_fr_rules] = dbm_subset'_impl.refine
-
-  sepref_register "PR_CONST dbm_subset'" :: "'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> bool"
-
-  term n ML_val "@{term n}"
-
-  lemma [def_pat_rules]: "Reachability_Problem.dbm_subset' $ A \<equiv> UNPROTECT dbm_subset'" by simp
-
-  thm intf_of_assn
-
-  sepref_definition subsumes_impl is
-    "uncurry (RETURN oo subsumes)" :: "(prod_assn id_assn (mtx_assn n))\<^sup>k *\<^sub>a (prod_assn id_assn (mtx_assn n))\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding subsumes_alt_def by sepref
-  apply sepref_keep
-using [[goals_limit=1]]
-  apply sepref_dbg_trans_keep
-oops
-  apply sepref_dbg_preproc
-  apply sepref_dbg_cons_init
-  apply sepref_dbg_id
-oops
-  apply sepref_dbg_monadify
-  apply sepref_dbg_opt_init
-  apply sepref_dbg_trans
-  apply sepref_dbg_opt
-  apply sepref_dbg_cons_solve
-  apply sepref_dbg_cons_solve
-  apply sepref_dbg_constraints
-
-oops
-  apply sepref_keep
-using [[goals_limit=3]]
-  apply sepref_dbg_trans_keep
-  oops
-  apply sepref_dbg_monadify
-  apply sepref_dbg_opt_init
-using [[goals_limit=3]]
-  apply sepref_dbg_trans_keep
-  apply sepref_dbg_tran
-
-
-
-  sepref_definition dbm_subset_impl is
-  "uncurry (RETURN oo dbm_subset n)" ::
-  "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-unfolding dbm_subset_alt_def[abs_def] list_all_foldli by sepref
-
-end
+end (* End of theory *)
