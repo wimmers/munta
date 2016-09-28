@@ -3245,7 +3245,7 @@ begin
 
 
   subsection \<open>Pre-compiled automata with states and clocks as natural numbers\<close>
-  locale Reachability_Problem_precompiled =
+  locale Reachability_Problem_precompiled_defs =
     fixes n :: nat -- "Number of states. States are 0 through n - 1"
       and m :: nat -- "Number of clocks"
       and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
@@ -3253,39 +3253,37 @@ begin
       and trans :: "((nat, int) cconstraint * nat list * nat) list list"
           -- "Transitions between states"
       and final :: "nat list" -- "Final states. Initial location is 0"
-      and clk_set'
-      and clkp_set'
-    assumes inv_length: "length inv = n"
-        and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
-        and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
-        and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
-        (* XXX How to do this right? *)
-        assumes clkp_set'_def: "clkp_set' = \<Union>
-      (collect_clock_pairs ` set inv \<union> (\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans))"
-        (* XXX Make this an abbreviation? *)
-        assumes clk_set'_def: "clk_set' =
-      (fst ` clkp_set' \<union> \<Union> ((\<lambda> (_, r, _). set r) ` set (concat trans)))"
-        assumes k_ceiling: "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
-        assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
-        assumes clock_set: "clk_set' = {1..m}"
-        and m_gt_0: "m > 0"
-        and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
   begin
-    lemma k_ceiling:
-      "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. k ! c \<ge> d \<and> d \<in> \<nat>"
-      "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. k ! c \<ge> d \<and> d \<in> \<nat>"
-    oops
-
-    lemma consts_nats':
-      "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. d \<in> \<nat>"
-      "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. d \<in> \<nat>"
-    using consts_nats unfolding clkp_set'_def by fastforce+
+    definition "clkp_set' \<equiv> \<Union>
+      (collect_clock_pairs ` set inv \<union> (\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans))"
+    definition clk_set'_def: "clk_set' =
+      (fst ` clkp_set' \<union> \<Union> ((\<lambda> (_, r, _). set r) ` set (concat trans)))"
 
     text \<open>Definition of the corresponding automaton\<close>
     definition "label a \<equiv> \<lambda> (g, r, l'). (g, a, r, l')"
     definition "I l \<equiv> if l < n then inv ! l else []"
     definition "T \<equiv> {(l, label i (trans ! l ! i)) | l i. l < n \<and> i < length (trans ! l)}"
     definition "A \<equiv> (T, I)"
+  end
+
+  locale Reachability_Problem_precompiled = Reachability_Problem_precompiled_defs +
+    assumes inv_length: "length inv = n"
+        and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
+        and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
+        and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
+        (* XXX Make this an abbreviation? *)
+        assumes k_ceiling:
+          "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
+        assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
+        assumes clock_set: "clk_set' = {1..m}"
+        and m_gt_0: "m > 0"
+        and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
+  begin
+
+    lemma consts_nats':
+      "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. d \<in> \<nat>"
+      "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. d \<in> \<nat>"
+    using consts_nats unfolding clkp_set'_def by fastforce+
 
     lemma collect_clock_pairs_empty[simp]:
       "collect_clock_pairs [] = {}"

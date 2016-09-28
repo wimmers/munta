@@ -579,29 +579,33 @@ begin
     "mono nat"
   by rule auto
 
+  lemma
+    assumes "int n = y"
+    shows "n = nat y"
+  using assms by auto
+
+  lemma k_ceiling':
+    "\<forall>c\<in>{1..m}. k ! c = nat (Max ({d. (c, d) \<in> clkp_set'} \<union> {0}))"
+  using k_ceiling by auto (* XXX *)
+
   lemma k_k'[intro]:
     "map int k = k'"
-   apply (rule nth_equalityI)
-    using k_length length_k' apply (auto; fail)
-   unfolding k'_def k_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
-   using k_ceiling apply safe
-    subgoal for i by (cases "i = 0") auto
-   apply (frule fst_clkp_set'D(1))
-   apply clarsimp
-   apply (subst mono_Max_commute[OF mono_nat])
-     using finite_clkp_set_A [[simproc add: finite_Collect]]
-     apply (auto intro: finite_Image simp: clkp_set'_eq; fail)
+    apply (rule nth_equalityI)
+     using k_length length_k' apply (auto; fail)
+    unfolding k'_def k_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
+    using k_ceiling' k_ceiling(2) apply safe
+     subgoal for i by (cases "i = 0") auto
+    apply (frule fst_clkp_set'D(1))
+    apply clarsimp
+    apply (rule cong[of nat, OF HOL.refl])
+    apply (subst Max_insert)
+    using finite_clkp_set_A [[simproc add: finite_Collect]]
+    apply (auto intro: finite_Image simp: clkp_set'_eq; fail)
     apply (auto; fail)
-   apply (subst Max_insert)
-     using finite_clkp_set_A
-     apply (auto simp: clkp_set'_eq elim: finite_vimageI[unfolded inj_on_def]; fail)
-    apply (auto dest: fst_clkp_set'D(3); fail)
-   apply simp
-   apply (rule cong[of Max, OF HOL.refl])
-   apply safe
-    apply force
-   apply (force dest: fst_clkp_set'D(3))
-  done
+    subgoal for i
+     using Max_in[of "{d. (i, d) \<in> clkp_set'}"] fst_clkp_set'D(3) finite_clkp_set_A
+    by (force intro: finite_Image simp: clkp_set'_eq)
+    done
 
   lemma iarray_k'[intro]:
     "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
@@ -610,8 +614,6 @@ begin
   sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun "IArray k"
     apply standard
   using iarray_k' by auto
-  
-  thm succs_impl_def
 
   lemma F_reachable_correct:
     "F_reachable \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
