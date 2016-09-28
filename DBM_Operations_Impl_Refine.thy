@@ -1,5 +1,7 @@
 theory DBM_Operations_Impl_Refine
-  imports DBM_Operations_Impl
+  imports
+    DBM_Operations_Impl
+    "~~/src/HOL/Library/IArray"
 begin
 
 section \<open>Refinement\<close>
@@ -176,10 +178,23 @@ sepref_register zero_clock2
 lemma [sepref_import_param]: "(zero_clock2, zero_clock2) \<in> Id" by simp
 lemma [sepref_import_param]: "(Suc, Suc) \<in> Id \<rightarrow> Id" by simp
 
-(* lemmas [sepref_opt_simps] = zero_clock2_def *)
+abbreviation
+  "iarray_assn x y \<equiv> pure (br IArray (\<lambda>_. True)) y x"
 
-(* XXX Optimize to use IArrays instead of lists *)
+lemma [sepref_fr_rules]:
+  "(uncurry (return oo IArray.sub), uncurry (RETURN oo op_list_get))
+  \<in> iarray_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+unfolding br_def by sepref_to_hoare sep_auto
+
+lemmas [sepref_opt_simps] = zero_clock2_def
+
 sepref_definition norm_upd_impl is
+  "uncurry2 (RETURN ooo norm_upd)" ::
+   "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a iarray_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
+unfolding norm_upd_def[abs_def] norm_upd_line_def zero_clock2_def[symmetric]
+by sepref
+
+sepref_definition norm_upd_impl' is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a (list_assn id_assn)\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
 unfolding norm_upd_def[abs_def] norm_upd_line_def zero_clock2_def[symmetric] by sepref
@@ -203,16 +218,9 @@ export_code dbm_subset_impl checking SML
 
 code_thms dbm_subset
 
-term dbm_lt
-
 (*
 code_pred dbm_lt .
 code_thms dbm_lt
-*)
-
-(* 
-lemma [code]:
-  ""
 *)
 
 (* lemmas dbm_lt.simps[code] *)

@@ -1,6 +1,7 @@
 theory Normalized_Zone_Semantics_Impl_Refine
   imports
     Normalized_Zone_Semantics_Impl DBM_Operations_Impl_Refine
+    "~~/src/HOL/Library/IArray"
 begin
 
   lemma aux1: "fold (\<lambda> x xs. f x # xs) xs zs @ ys = fold (\<lambda> x xs. f x # xs) xs (zs@ys)"
@@ -59,13 +60,18 @@ begin
 
     fixes trans_fun :: "('a, nat, int, 's) transition_fun"
       and inv_fun :: "(nat, int, 's) invassn"
-      and ceiling :: "int list"
+      and ceiling :: "int iarray"
     assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
         and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
         (* XXX *)
         and start_location_in_states[intro]: "l\<^sub>0 \<in> state_set (trans_of A)"
-        and ceiling: "(ceiling, k') \<in> \<langle>Id\<rangle>list_rel"
+        and ceiling:
+          "(uncurry0 (return ceiling), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   begin
+
+  lemma [sepref_fr_rules]:
+    "(uncurry0 (return ceiling), uncurry0 (RETURN (PR_CONST k'))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+  using ceiling by auto
 
   (* XXX Should this be something different? *)
   abbreviation "states \<equiv> (state_set (trans_of A))"
@@ -153,7 +159,9 @@ begin
   term dbm_subset_impl
 
   (* XXX Might want to apply the same "cleaning" to dbm_subset' as to check_diag *)
-  
+
+  ML \<open>Proof.theorem NONE (K I)\<close>  
+
   (* XXX Remove other implementations *)
   sepref_definition dbm_subset_impl'' is
     "uncurry (RETURN oo PR_CONST (dbm_subset n))" :: "(mtx_assn n)\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -363,7 +371,7 @@ begin
 
   sepref_register "PR_CONST k'"
 
-  lemma [sepref_import_param]: "(ceiling, PR_CONST k') \<in> \<langle>Id\<rangle> list_rel" using ceiling by simp
+  (* lemma [sepref_import_param]: "(ceiling, PR_CONST k') \<in> \<langle>Id\<rangle> list_rel" using ceiling by simp *)
 
   lemma [def_pat_rules]: "(Reachability_Problem.k' $ A) \<equiv> PR_CONST k'" by simp
 
@@ -474,6 +482,13 @@ begin
 
   lemma [sepref_opt_simps]: "UNPROTECT n = n" by simp
 
+  (*
+  lemma [sepref_fr_rules]:
+    "hn_refine emp (return (IArray k')) emp iarray_assn (RETURN $ (PR_CONST k'))"
+  unfolding br_def by sepref_to_hoare sep_auto
+  *)
+
+
   sepref_definition succs_impl is
     "RETURN o succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
   unfolding
@@ -502,9 +517,28 @@ end (* End of locale *)
 context Reachability_Problem_precompiled
 begin
 
+  term IArray.of_fun term IArray.sub term IArray
+  
+  lemma
+    "(IArray xs) !! i = xs ! i"
+  by auto
+
   text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
+  (*
   definition
-    "trans_fun l \<equiv> map (\<lambda> i. label i (trans ! l ! i)) [0..<length (trans ! l)]"
+    "trans_fun l \<equiv> map (\<lambda> i. label i ((IArray trans) !! l ! i)) [0..<length (trans ! l)]"
+  *)
+
+  definition
+    "trans_map \<equiv> map (\<lambda> xs. map (\<lambda> i. label i (xs ! i)) [0..<length xs]) trans"
+
+  definition
+    "trans_fun l \<equiv> (IArray trans_map) !! l"
+  
+  lemma trans_fun_alt_def:
+    "l < n
+    \<Longrightarrow> trans_fun l = map (\<lambda> i. label i ((IArray trans) !! l ! i)) [0..<length (trans ! l)]"
+  unfolding trans_fun_def trans_map_def by (auto simp: trans_length)
 
   lemma state_set_n[intro, simp]:
     "state_set (trans_of A) \<subseteq> {0..<n}"
@@ -513,10 +547,10 @@ begin
 
   lemma trans_fun_trans_of[intro, simp]:
     "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
-  using state_set_n unfolding transition_rel_def trans_fun_def[abs_def] trans_of_def A_def T_def
-  by fastforce
+  using state_set_n unfolding transition_rel_def trans_of_def A_def T_def
+  by (fastforce simp: trans_fun_alt_def)
 
-  definition "inv_fun l \<equiv> inv ! l"
+  definition "inv_fun l \<equiv> (IArray inv) !! l"
 
   lemma inv_fun_inv_of[intro, simp]:
     "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
@@ -568,12 +602,153 @@ begin
     apply force
    apply (force dest: fst_clkp_set'D(3))
   done
-  
 
-  sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun k by standard auto
+  lemma iarray_k'[intro]:
+    "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+  unfolding br_def by sepref_to_hoare sep_auto
+
+  sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun "IArray k"
+    apply standard
+  using iarray_k' by auto
+  
+  thm succs_impl_def
+
+  lemma F_reachable_correct:
+    "F_reachable \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
+  unfolding F_reachable_def reachable_def using reachability_check by simp
+
+  definition
+    "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
+
+  theorem reachability_check:
+    "(uncurry0 reachability_checker,
+      uncurry0 (
+        RETURN (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
+      )
+     ) 
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  using hnr_F_reachable unfolding reachability_checker_def F_reachable_correct .
+
+  subsubsection \<open>Post-processing\<close>
+
+  ML \<open>
+    fun pull_let u t =
+      let
+        val t1 = abstract_over (u, t);
+        val r1 = Const (@{const_name "HOL.Let"}, dummyT) $ u $ Abs ("I", dummyT, t1);
+        val ct1 = Syntax.check_term @{context} r1;
+        val g1 =
+          Goal.prove @{context} [] [] (Logic.mk_equals (t, ct1))
+          (fn {context, ...} => EqSubst.eqsubst_tac context [0] [@{thm Let_def}] 1
+          THEN resolve_tac context [@{thm Pure.reflexive}] 1)
+      in g1 end;
+
+    fun get_rhs thm =
+      let
+        val Const ("Pure.eq", _) $ _ $ r = Thm.full_prop_of thm
+      in r end;
+
+    fun get_lhs thm =
+      let
+        val Const ("Pure.imp", _) $ (Const ("Pure.eq", _) $ l $ _) $ _ = Thm.full_prop_of thm
+      in l end;
+
+    fun pull_tac' u ctxt thm =
+      let
+        val l = get_lhs thm;
+        val rewr = pull_let u l;
+      in Local_Defs.unfold_tac ctxt [rewr] thm end;
+    
+    fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
+  \<close>
+
+  ML \<open>
+    val th = @{thm succs_impl_def}
+    val r = get_rhs th;
+    val u1 = @{term "IArray (map int k)"};
+    val rewr1 = pull_let u1 r;
+    val r2 = get_rhs rewr1;
+    val u2 = @{term "inv_fun"};
+    val rewr2 = pull_let u2 r2;
+    val r3 = get_rhs rewr2;
+    val u3 = @{term "trans_fun"};
+    val rewr3 = pull_let u3 r3;
+    val mytac = fn ctxt => SELECT_GOAL (Local_Defs.unfold_tac ctxt [rewr1, rewr2, rewr3]) 1;
+  \<close>
+
+  lemma inv_fun_alt_def:
+    "inv_fun i \<equiv> let I = (IArray inv) in I !! i"
+  unfolding inv_fun_def by simp
+
+  lemma inv_fun_rewr:
+    "(let I0 = trans_fun; I = inv_fun; I1 = y in xx I0 I I1) \<equiv>
+     (let I0 = trans_fun; I = (IArray inv); I' = \<lambda> i. I !! i; I1 = y in xx I0 I' I1)"
+  unfolding inv_fun_def[abs_def] by simp
+
+  lemma inv_fun_rewr':
+    "(let I = inv_fun in xx I) \<equiv>
+     (let I = (IArray inv); I' = \<lambda> i. I !! i in xx I')"
+  unfolding inv_fun_def[abs_def] by simp
+
+  schematic_goal succs_impl_alt_def':
+    "succs_impl \<equiv> ?impl"
+  unfolding succs_impl_def 
+   apply (tactic \<open>mytac @{context}\<close>)
+   unfolding inv_fun_rewr' trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
+  by (rule Pure.reflexive)
+
+  schematic_goal succs_impl_alt_def:
+    "succs_impl \<equiv> ?impl"
+  unfolding succs_impl_def
+   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
+  by (rule Pure.reflexive)
+
+  concrete_definition succs_impl' uses succs_impl_alt_def
+
+  thm succs_impl'_def succs_impl'.refine
+
+
+  schematic_goal reachability_checker_alt_def[code]:
+    "reachability_checker \<equiv> ?impl"
+  unfolding succs_impl_def reachability_checker_def
+   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
+  by (rule Pure.reflexive)
 
   thm succs_impl_def
 
+  term hnr_op_F_reachable
+
+  thm reachability_check
+  
+  thm hnr_F_reachable
+
+  thm succs_impl_def
+  term succs_impl
+  thm worklist_algo2_def
+
 end (* End of locale *)
+
+term Reachability_Problem_precompiled
+
+term "Reachability_Problem_precompiled.reachability_checker"
+
+thm Reachability_Problem_precompiled.reachability_checker_alt_def
+
+export_code Reachability_Problem_precompiled.reachability_checker in SML
+
+definition "bla i \<equiv> (IArray [1..10]) !! i"
+
+export_code bla in SML
 
 end (* End of theory *)
