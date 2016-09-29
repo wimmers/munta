@@ -472,6 +472,13 @@ begin
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   using hnr_F_reachable unfolding reachability_checker_def F_reachable_correct .
 
+  corollary reachability_checker_hoare:
+    "<emp> reachability_checker
+    <\<lambda> r. \<up>(r \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final))>\<^sub>t"
+   apply (rule cons_post_rule)
+   using reachability_check[to_hnr] apply (simp add: hn_refine_def)
+  by (sep_auto simp: pure_def)
+
   subsubsection \<open>Post-processing\<close>
 
   ML \<open>
@@ -674,14 +681,6 @@ lemmas Reachability_Problem_precompiled_defs.check_ceiling_def[code]
 
 export_code Reachability_Problem_precompiled in SML module_name Test
 
-export_code Reachability_Problem_precompiled_defs.check_nat in SML module_name Test
-
-export_code Reachability_Problem_precompiled_defs.clkp_set' in SML
-
-export_code Reachability_Problem_precompiled_defs.clk_set' in SML
-
-export_code check_length in SML
-
 concrete_definition succs_impl' uses Reachability_Problem_precompiled.succs_impl_alt_def
 
 thm succs_impl'_def succs_impl'.refine
@@ -689,13 +688,37 @@ thm succs_impl'_def succs_impl'.refine
 concrete_definition reachability_checker_impl
   uses Reachability_Problem_precompiled.reachability_checker_alt_def
 
-export_code reachability_checker_impl in SML module_name TA
-
-lemmas Reachability_Problem_precompiled_def[code]
-
-export_code Reachability_Problem_precompiled in SML
+export_code reachability_checker_impl in SML_imp module_name TA
 
 thm reachability_checker_impl_def reachability_checker_impl.refine
+
+term Reachability_Problem_precompiled.reachability_checker
+
+definition [code]:
+  "check_and_verify n m k I T final \<equiv>
+    if Reachability_Problem_precompiled n m k I T
+    then reachability_checker_impl m k I T final \<bind> (\<lambda> x. return (Some x))
+    else return None"
+
+lemmas [sep_heap_rules] = Reachability_Problem_precompiled.reachability_checker_hoare
+
+theorem reachability_check:
+  "(uncurry0 (check_and_verify n m k I T final),
+    uncurry0 (
+       RETURN (
+        if (Reachability_Problem_precompiled n m k I T)
+        then Some (
+          \<exists> l' u u'.
+            conv_A (Reachability_Problem_precompiled_defs.A n I T) \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>
+            \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
+          )
+        else None
+        
+       )
+    )
+   ) 
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+by sepref_to_hoare (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
 
 definition "bla i \<equiv> (IArray [1..10]) !! i"
 
