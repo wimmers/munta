@@ -624,10 +624,19 @@ subsection \<open>Check preconditions\<close>
 context Reachability_Problem_precompiled_defs
 begin
 
+  abbreviation
+    "check_nat_subs \<equiv> \<forall> (_, d) \<in> clkp_set'. d \<ge> 0"
+
+  lemma check_nat_subs:
+    "check_nat_subs \<longleftrightarrow> snd ` clkp_set' \<subseteq> \<nat>"
+  unfolding Nats_def apply safe
+  subgoal for _ _ b using rangeI[of int "nat b"] by auto
+  by auto
+
   definition
     "check_pre \<equiv>
       length inv = n \<and> length trans = n \<and> length k = m + 1 \<and> m > 0 \<and> n > 0 \<and> trans ! 0 \<noteq> []
-      \<and> k ! 0 = 0 \<and> snd ` clkp_set' \<subseteq> \<nat> \<and> clk_set' = {1..m}
+      \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}
       \<and> (\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n)"
 
   abbreviation
@@ -664,8 +673,8 @@ begin
   qed
 
   lemma check_axioms:
-      "Reachability_Problem_precompiled n m k inv trans \<longleftrightarrow> check_pre \<and> check_ceiling"
-  unfolding Reachability_Problem_precompiled_def check_ceiling check_pre_def by auto
+    "Reachability_Problem_precompiled n m k inv trans \<longleftrightarrow> check_pre \<and> check_ceiling"
+  unfolding Reachability_Problem_precompiled_def check_ceiling check_pre_def check_nat_subs by auto
 
 end
 
@@ -719,6 +728,13 @@ theorem reachability_check:
    ) 
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
 by sepref_to_hoare (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
+
+export_code check_and_verify in SML_imp module_name Checker
+
+definition
+  "test \<equiv> check_and_verify 1 1 [0,2] [[EQ 1 2]] [[([], [], 0)]] [0]"
+
+ML_val \<open>@{code test} ()\<close>
 
 definition "bla i \<equiv> (IArray [1..10]) !! i"
 
