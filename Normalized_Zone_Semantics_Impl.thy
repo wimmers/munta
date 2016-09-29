@@ -2273,6 +2273,8 @@ by blast+
 
 
 
+definition "subsumes n = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset n M M')"
+
 locale Reachability_Problem =
   fixes A :: "('a, nat, int, 's) ta" (* :: "('a, 'c, 't::time, 's) ta" *)
     and l\<^sub>0 :: 's
@@ -2347,8 +2349,6 @@ begin
   definition "F_rel \<equiv> \<lambda> (l, M). l \<in> set F \<and> \<not> check_diag n M"
   
   definition "a\<^sub>0 = (l\<^sub>0, init_dbm)"
-
-  definition "subsumes = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset n M M')"
 
   definition "E = (\<lambda> (l, M) (l', M'). step_impl A l M k' n l' M')"
 
@@ -3232,7 +3232,7 @@ begin
   using reachable_decides_emptiness'[of l'] check_diag_empty_spec reachable_empty_check_diag
   unfolding F_rel_def by auto
 
-  sublocale Search_Space E a\<^sub>0 F_rel subsumes
+  sublocale Search_Space E a\<^sub>0 F_rel "subsumes n"
    apply standard
    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply assumption
    using dbm_subset_refl apply (auto simp: subsumes_def; fail)
