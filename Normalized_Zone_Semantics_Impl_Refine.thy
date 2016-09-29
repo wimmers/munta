@@ -2,6 +2,7 @@ theory Normalized_Zone_Semantics_Impl_Refine
   imports
     Normalized_Zone_Semantics_Impl DBM_Operations_Impl_Refine
     "~~/src/HOL/Library/IArray"
+    Code_Numeral
 begin
 
   lemma rev_map_fold_append_aux:
@@ -601,7 +602,85 @@ begin
   term succs_impl
   thm worklist_algo2_def
 
+    (*
+        and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
+        (* XXX Make this an abbreviation? *)
+        assumes k_ceiling:
+          "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
+        assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
+        assumes clock_set: "clk_set' = {1..m}"
+   *)
+
 end (* End of locale *)
+
+subsection \<open>Check preconditions\<close>
+context Reachability_Problem_precompiled_defs
+begin
+
+  definition
+    "check_pre \<equiv>
+      length inv = n \<and> length trans = n \<and> length k = m + 1 \<and> m > 0 \<and> n > 0 \<and> trans ! 0 \<noteq> []
+      \<and> k ! 0 = 0 \<and> snd ` clkp_set' \<subseteq> \<nat> \<and> clk_set' = {1..m}
+      \<and> (\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n)"
+
+  abbreviation
+    "check_k_in c \<equiv> k ! c = 0 \<or> (c, k ! c) \<in> clkp_set'"
+
+  definition
+    "check_ceiling \<equiv>
+      (\<forall> (c, d) \<in> clkp_set'. 0 < c \<and> c \<le> m \<longrightarrow> k ! c \<ge> d) \<and> (\<forall> c \<in> {1..m}. check_k_in c)"
+
+  lemma finite_clkp_set'[intro, simp]:
+    "finite clkp_set'"
+  unfolding clkp_set'_def by auto
+
+  lemma check_ceiling:
+    "check_ceiling \<longleftrightarrow> (\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0 :: int}))"
+  unfolding check_ceiling_def
+  proof (safe, goal_cases)
+    case prems: (1 c)
+    then show ?case
+     apply -
+     apply (rule HOL.sym)
+     apply (rule Max_eqI)
+    using [[simproc add: finite_Collect]] by (auto intro: finite_Image)
+  next
+    case prems: (2 a b)
+    then show ?case
+      apply simp
+      apply (rule Max_ge)
+    using [[simproc add: finite_Collect]] by (auto intro: finite_Image)
+  next
+    case prems: (3 c)
+    with Max_in[of "{d. (c, d) \<in> clkp_set'} \<union> {0}"] show ?case
+    using [[simproc add: finite_Collect]] by (force intro: finite_Image)
+  qed
+
+  lemma check_axioms:
+      "Reachability_Problem_precompiled n m k inv trans \<longleftrightarrow> check_pre \<and> check_ceiling"
+  unfolding Reachability_Problem_precompiled_def check_ceiling check_pre_def by auto
+
+end
+
+lemmas Reachability_Problem_precompiled_defs.check_axioms[code]
+
+lemmas Reachability_Problem_precompiled_defs.clkp_set'_def[code]
+
+lemmas Reachability_Problem_precompiled_defs.clk_set'_def[code]
+
+lemmas Reachability_Problem_precompiled_defs.check_pre_def[code]
+
+lemmas Reachability_Problem_precompiled_defs.check_ceiling_def[code]
+
+export_code Reachability_Problem_precompiled in SML module_name Test
+
+export_code Reachability_Problem_precompiled_defs.check_nat in SML module_name Test
+
+export_code Reachability_Problem_precompiled_defs.clkp_set' in SML
+
+export_code Reachability_Problem_precompiled_defs.clk_set' in SML
+
+export_code check_length in SML
 
 concrete_definition succs_impl' uses Reachability_Problem_precompiled.succs_impl_alt_def
 
@@ -610,7 +689,11 @@ thm succs_impl'_def succs_impl'.refine
 concrete_definition reachability_checker_impl
   uses Reachability_Problem_precompiled.reachability_checker_alt_def
 
-export_code reachability_checker_impl checking SML
+export_code reachability_checker_impl in SML module_name TA
+
+lemmas Reachability_Problem_precompiled_def[code]
+
+export_code Reachability_Problem_precompiled in SML
 
 thm reachability_checker_impl_def reachability_checker_impl.refine
 
