@@ -134,11 +134,14 @@ begin
 
   lemmas [sepref_fr_rules] = check_diag_impl.refine
 
+  term check_diag_impl
+  term check_diag_impl'
+
   sepref_definition check_diag_impl'' is
     "RETURN o PR_CONST (check_diag n)" :: "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] PR_CONST_def by sepref
 
-  lemmas [sepref_fr_rules] = check_diag_impl''.refine
+  lemmas [sepref_fr_rules] = check_diag_impl.refine
 
   (* lemma [def_pat_rules]: "check_diag $ n $ t = PR_CONST (check_diag n) $ t" by simp *)
 
@@ -169,13 +172,19 @@ begin
     dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv PR_CONST_def
   by sepref
 
-  lemmas [sepref_fr_rules] = dbm_subset_impl''.refine
+  (* lemmas [sepref_fr_rules] = dbm_subset_impl''.refine *)
+
+  lemmas [sepref_fr_rules] = dbm_subset_impl.refine
+
+  term dbm_subset_impl
 
   term "PR_CONST (dbm_subset n)"
 
   sepref_register "PR_CONST (dbm_subset n)" :: "'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> bool"
 
-  lemma [def_pat_rules]: "dbm_subset $ (Reachability_Problem.n $ A) \<equiv> PR_CONST (dbm_subset n)" by simp
+  lemma [def_pat_rules]:
+    "dbm_subset $ (Reachability_Problem.n $ A) \<equiv> PR_CONST (dbm_subset n)"
+  by simp
 
   abbreviation "location_rel \<equiv> b_rel (\<lambda> x. x \<in> state_set (trans_of A))"
 
@@ -245,6 +254,7 @@ begin
 
   term check_diag_impl
 
+  (* XXX Make implementation more efficient *)
   sepref_definition F_impl is
     "RETURN o F_rel" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding F_rel_alt_def by sepref
@@ -565,7 +575,7 @@ begin
     unfolding state_set_def trans_of_def A_def T_def label_def by force
   qed
 
-  lemma [simp]:
+  lemma num_clocks[simp]:
     "Reachability_Problem.n A = m"
   unfolding n_def X_def using clock_set by auto
 
@@ -711,12 +721,33 @@ begin
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
   by (rule Pure.reflexive)
 
-  concrete_definition succs_impl' uses succs_impl_alt_def
+  lemma reachability_checker_alt_def':
+    "reachability_checker \<equiv>
+      let
+        sub = subsumes_impl;
+        start = a\<^sub>0_impl;
+        final = F_impl;
+        succs = succs_impl
+      in worklist_algo2 sub start final succs"
+  unfolding reachability_checker_def by simp
 
-  thm succs_impl'_def succs_impl'.refine
+  schematic_goal reachability_checker_alt_def:
+    "reachability_checker \<equiv> ?impl"
+  unfolding reachability_checker_alt_def' succs_impl_def
+   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
+   unfolding trans_map_def label_def
+   unfolding init_dbm_impl_def a\<^sub>0_impl_def
+   unfolding F_impl_def
+   unfolding subsumes_impl_def
+   unfolding num_clocks
+  by (rule Pure.reflexive)
 
-
-  schematic_goal reachability_checker_alt_def[code]:
+  schematic_goal reachability_checker_alt_def:
     "reachability_checker \<equiv> ?impl"
   unfolding succs_impl_def reachability_checker_def
    apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
@@ -725,7 +756,8 @@ begin
    unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
-  by (rule Pure.reflexive)
+   unfolding num_clocks
+  oops
 
   thm succs_impl_def
 
@@ -741,13 +773,16 @@ begin
 
 end (* End of locale *)
 
-term Reachability_Problem_precompiled
+concrete_definition succs_impl' uses Reachability_Problem_precompiled.succs_impl_alt_def
 
-term "Reachability_Problem_precompiled.reachability_checker"
+thm succs_impl'_def succs_impl'.refine
 
-thm Reachability_Problem_precompiled.reachability_checker_alt_def
+concrete_definition reachability_checker_impl
+  uses Reachability_Problem_precompiled.reachability_checker_alt_def
 
-export_code Reachability_Problem_precompiled.reachability_checker in SML
+export_code reachability_checker_impl checking SML
+
+thm reachability_checker_impl_def reachability_checker_impl.refine
 
 definition "bla i \<equiv> (IArray [1..10]) !! i"
 

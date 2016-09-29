@@ -122,12 +122,14 @@ context
 begin
 
 sepref_definition dbm_subset_impl is
-  "uncurry (RETURN oo dbm_subset n)" :: "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv by sepref
+  "uncurry (RETURN oo PR_CONST (dbm_subset n))" :: "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv PR_CONST_def
+by sepref
 
 sepref_definition check_diag_impl is
-  "RETURN o check_diag n" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] by sepref
+  "RETURN o PR_CONST (check_diag n)" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] PR_CONST_def
+by sepref
 
 end
 
@@ -205,10 +207,11 @@ export_code abstra_upd_impl in SML_imp
 
 export_code dbm_subset_impl in SML_imp
 
-(* XXX This fails. Why? *)
-(* export_code norm_upd_impl in SML *)
-
 end
+
+export_code norm_upd_impl checking SML
+
+export_code reset_canonical_upd_impl checking SML
 
 export_code reset_canonical_upd_impl checking SML
 
