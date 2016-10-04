@@ -729,15 +729,7 @@ theorem reachability_check:
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
 by sepref_to_hoare (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
 
-export_code check_and_verify in SML_imp module_name Checker
-
-definition
-  "test \<equiv> check_and_verify 1 1 [0,2] [[EQ 1 2]] [[([], [], 0)]] [0]"
-
-ML_val \<open>@{code test} ()\<close>
-
-definition "bla i \<equiv> (IArray [1..10]) !! i"
-
-export_code bla in SML
+export_code open check_and_verify in Eval module_name Reachability_Checker
+  file "Reachability_Checker.ml"
 
 end (* End of theory *)
