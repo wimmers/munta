@@ -729,7 +729,6 @@ theorem reachability_check:
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
 by sepref_to_hoare (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
 
-export_code open check_and_verify in Eval module_name Reachability_Checker
-  file "Reachability_Checker.ml"
+export_code open check_and_verify checking SML_imp
 
 end (* End of theory *)
