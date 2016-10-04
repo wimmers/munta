@@ -15,7 +15,7 @@ ML_val \<open>@{code test} ()\<close>
 
 ML_val \<open>@{code test2} ()\<close>
 
-export_code open check_and_verify in Eval module_name Reachability_Checker
+export_code open check_and_verify in SML_imp module_name Reachability_Checker
   file "Reachability_Checker.ml"
 
 ML_file "Reachability_Checker.ml"
