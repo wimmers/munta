@@ -52,14 +52,58 @@ ML_val \<open>
     [[([], ([1], 1)), ([GT (2, 5)], ([], 2))], [([LE (1, 2)], ([], 0))], []] [2]
   ()\<close>
 
-ML_file "~/UPPAAL/test_ta/Test1.ml"
+ML_file "~/UPPAAL/test_ta/Test1a.ml"
+
+ML_file "~/UPPAAL/test_ta/Test11.ml"
 
 ML_file "~/UPPAAL/test_ta/Test1b.ml"
 
-ML_val \<open>Test1 ()\<close>
-ML_val \<open>Test1b ()\<close>
+ML_file "~/UPPAAL/test_ta/Tutorial_1.ml"
+ML_file "~/UPPAAL/test_ta/Tutorial_11.ml"
 
+ML_file "~/UPPAAL/test_ta/Tutorial_2.ml"
 
+ML_file "~/UPPAAL/test_ta/Tutorial_3a.ml"
 
+ML_file "~/UPPAAL/test_ta/Tutorial_3b.ml"
+
+ML_file "~/UPPAAL/test_ta/Tutorial_4a.ml"
+ML_file "~/UPPAAL/test_ta/Tutorial_4b.ml"
+ML_file "~/UPPAAL/test_ta/Tutorial_2x2a.ml"
+ML_file "~/UPPAAL/test_ta/Tutorial_2x2b.ml"
+ML_file "~/UPPAAL/test_ta/broadcast_test.ml"
+ML_file "~/UPPAAL/test_ta/broadcast_test2.ml"
+ML_file "~/UPPAAL/test_ta/PM_Test_1.ml"
+ML_file "~/UPPAAL/test_ta/PM_Test_2.ml"
+ML_file "~/UPPAAL/test_ta/PM_Test_3.ml"
+ML_file "~/UPPAAL/test_ta/PM_Test_4.ml"
+
+ML_val \<open>Test1a () = SOME true\<close>
+ML_val \<open>Test11 () = SOME true\<close>
+ML_val \<open>Test1b () = SOME true\<close>
+ML_val \<open>Tutorial_1 () = SOME true\<close>
+ML_val \<open>Tutorial_11 () = SOME true\<close>
+text \<open>Final location: fail\<close>
+ML_val \<open>Tutorial_2 () = SOME false\<close>
+text \<open>Final location: end\<close>
+ML_val \<open>Tutorial_3a () = SOME true\<close>
+text \<open>Final location: fail\<close>
+ML_val \<open>Tutorial_3b () = SOME false\<close>
+text \<open>Final location: bright\<close>
+ML_val \<open>Tutorial_4a () = SOME true\<close>
+text \<open>Final location: fail\<close>
+ML_val \<open>Tutorial_4b () = SOME false\<close>
+ML_val \<open>Tutorial_2x2a () = SOME true\<close>
+ML_val \<open>Tutorial_2x2b () = SOME true\<close>
+ML_val \<open>broadcast_test () = SOME true\<close>
+ML_val \<open>broadcast_test2 () = SOME false\<close>
+text \<open>E<> PURI_test.interval\<close>
+ML_val \<open>PM_Test_1 () = SOME true\<close>
+text \<open>E<> PURI_test.URI_fail\<close>
+ML_val \<open>PM_Test_2 () = SOME false\<close>
+text \<open>E<> Pvv.two_a\<close>
+ML_val \<open>PM_Test_3 () = SOME true\<close>
+text \<open>E<> Pvv.LRI_fail\<close>
+ML_val \<open>PM_Test_4 () = SOME false\<close>
 
 end
