@@ -1449,8 +1449,7 @@ proof -
       proof (cases "I x")
         case (Const c)
         with x \<open>v \<in> R\<close> \<open>v' \<in> R\<close> A(1) have "v x = c" "v' x = c" by fastforce+
-        then have "frac (v x) \<le> frac (v y)" "frac (v' x) \<le> frac (v' y)" unfolding frac_def
-        by (simp, linarith)+
+        then have "frac (v x) \<le> frac (v y)" "frac (v' x) \<le> frac (v' y)" unfolding frac_def by simp+
         then show ?thesis by auto
       next
         case (Intv c)
@@ -2354,7 +2353,7 @@ proof -
         next
           case False
           from L_intv[OF False] have "0 \<le> Max ?L" "Max ?L < 1" by auto
-          from floor_nat_add_id[OF this] T False show ?thesis by (auto, linarith)
+          from floor_nat_add_id[OF this] T False show ?thesis by auto
         qed
       qed
       { assume "?L \<noteq> {}" "?U \<noteq> {}"

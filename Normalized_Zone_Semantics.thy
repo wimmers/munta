@@ -73,7 +73,7 @@ qed
 
 lemma FW_zone_equiv_spec:
   shows "[M]\<^bsub>v,n\<^esub> = [FW M n]\<^bsub>v,n\<^esub>"
-apply (rule FW_zone_equiv[OF assms]) using clock_numbering(2) by auto
+apply (rule FW_zone_equiv) using clock_numbering(2) by auto
 
 lemma cn_weak: "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" using clock_numbering(2) by blast
 

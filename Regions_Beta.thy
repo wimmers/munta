@@ -1831,7 +1831,7 @@ proof (safe, goal_cases)
     case True with 1 show ?thesis unfolding norm_def less by (auto simp: Let_def)
   next
     case False
-    with assms 1 show ?thesis unfolding norm_def by (auto simp: Let_def)
+    with 1 show ?thesis unfolding norm_def by (auto simp: Let_def)
   qed
 next
   case (2 i j)
@@ -1839,7 +1839,7 @@ next
   then have *: "Lt (- k (v' j)) < Le (k (v' i))" by (auto intro: Lt_lt_LeI)
   show ?case
   proof (cases "M i j \<le> Le (real (k (v' i)))")
-    case False with assms 2 show ?thesis unfolding norm_def less_eq dbm_le_def by (auto simp: Let_def)
+    case False with 2 show ?thesis unfolding norm_def less_eq dbm_le_def by (auto simp: Let_def)
   next
     case True with 2 show ?thesis unfolding norm_def by (auto simp: Let_def)
   qed
@@ -1848,18 +1848,18 @@ next
   show ?case
   proof (cases "M i 0 \<le> Le (real (k (v' i)))")
     case False then have "Le (real (k (v' i))) \<prec> M i 0" unfolding less_eq dbm_le_def by auto
-    with assms 3 show ?thesis unfolding norm_def by auto
+    with 3 show ?thesis unfolding norm_def by auto
   next
     case True
-    with assms 3 show ?thesis unfolding norm_def less_eq dbm_le_def by (auto simp: Let_def)
+    with 3 show ?thesis unfolding norm_def less_eq dbm_le_def by (auto simp: Let_def)
   qed
 next
   case (4 i)
   show ?case
   proof (cases "M 0 i < Lt (- real (k (v' i)))")
-    case True with assms 4 show ?thesis unfolding norm_def less by auto
+    case True with 4 show ?thesis unfolding norm_def less by auto
   next
-    case False with assms 4 show ?thesis unfolding norm_def by (auto simp: Let_def)
+    case False with 4 show ?thesis unfolding norm_def by (auto simp: Let_def)
   qed
 qed
 

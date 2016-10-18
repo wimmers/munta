@@ -1980,7 +1980,7 @@ qed
 definition "V' \<equiv> {Z. Z \<subseteq> V \<and> (\<exists> M. vabstr Z M)}"
 
 corollary approx_\<beta>_closure_\<alpha>': "Z \<in> V' \<Longrightarrow> Approx\<^sub>\<beta> Z \<subseteq> Closure\<^sub>\<alpha> Z"
-using approx_\<beta>_closure_\<alpha> assms unfolding V'_def by auto
+using approx_\<beta>_closure_\<alpha> unfolding V'_def by auto
 
 text \<open>We could prove this more directly too (without using \<open>Closure\<^sub>\<alpha> Z\<close>), obviously\<close>
 lemma apx_empty_iff:
