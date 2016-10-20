@@ -2,7 +2,7 @@ theory Normalized_Zone_Semantics_Impl
   imports
     Normalized_Zone_Semantics
     (* XXX Reordering these lets transfer proofs fail *)
-    "../IRF/Refine_Imperative_HOL/Examples/Worklist_Subsumption_Impl"
+    Worklist_Subsumption_Impl1
     DBM_Operations_Impl
     FW_Code
 begin
@@ -937,9 +937,8 @@ using assms by (cases a; cases b) (auto simp: less elim!: dbm_lt.cases)
 
 (* Begin lifting syntax *)
 context
+  includes lifting_syntax
 begin
-
-interpretation lifting_syntax .
 
 definition "ri = (\<lambda> a b. real_of_int b = a)"
 
@@ -960,7 +959,7 @@ unfolding rel_fun_def eq_onp_def by auto
 
 lemma min_ri_transfer[transfer_rule]:
   "(rel_DBMEntry ri ===> rel_DBMEntry ri ===> rel_DBMEntry ri) min min"
-using assms unfolding rel_fun_def
+unfolding rel_fun_def
   apply (simp split: split_min)
   apply safe
 
@@ -3325,7 +3324,7 @@ begin
 
     lemma clkp_set'_eq:
       "clkp_set A = clkp_set'"
-    by (auto simp: clkp_set'_def clkp_set_def image_Un image_Union
+    by (fastforce simp: clkp_set'_def clkp_set_def image_Un image_Union
       clkp_set_simp_1[symmetric] clkp_set_simp_3[symmetric]
       )
 

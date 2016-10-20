@@ -25,10 +25,10 @@ begin
   (* XXX Can this be constructed from other primitives? *)
   definition transition_rel where
     "transition_rel X = {(f, r). \<forall> l \<in> X. \<forall> x. (l, x) \<in> r \<longleftrightarrow> x \<in> set (f l)}"
-
+    
   definition inv_rel where -- "Invariant assignments for a restricted state set"
     (* XXX Or use "inv_rel X = Id_on X \<rightarrow> Id" ? *)
-    "inv_rel X = b_rel (\<lambda> x. x \<in> X) \<rightarrow> Id"
+    "inv_rel X = b_rel Id (\<lambda> x. x \<in> X) \<rightarrow> Id"
 
   (* XXX Map from automaton? *)
   definition state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
@@ -104,7 +104,7 @@ begin
     "dbm_subset $ (Reachability_Problem.n $ A) \<equiv> PR_CONST (dbm_subset n)"
   by simp
 
-  abbreviation "location_rel \<equiv> b_rel (\<lambda> x. x \<in> state_set (trans_of A))"
+  abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> state_set (trans_of A))"
 
   abbreviation "location_assn \<equiv> pure location_rel"
 
@@ -127,8 +127,8 @@ begin
 
   (* XXX Somewhat peculiar use of the zero instance for DBM entries *)
   lemma init_dbm_alt_def:
-    "init_dbm = op_asmtx_dfltNxN (Suc n) (Le 0)"
-  unfolding init_dbm_def op_asmtx_dfltNxN_def zero_DBMEntry_def by auto
+    "init_dbm = op_amtx_dfltNxM (Suc n) (Suc n) (Le 0)"
+  unfolding init_dbm_def op_amtx_dfltNxM_def zero_DBMEntry_def by auto
 
   lemma [sepref_import_param]: "(Le 0, PR_CONST (Le 0)) \<in> Id" by simp
 
@@ -219,11 +219,9 @@ begin
     shows
     "(return o inv_fun, RETURN o PR_CONST inv_of_A)
     \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (acconstraint_assn (clock_assn n) int_assn)"
-  using assms inv_fun_rel
-   apply (simp add: aconstraint_assn_pure_conv list_assn_pure_conv inv_of_A_def)
+    using inv_fun_rel
+   apply (simp add: b_assn_pure_conv aconstraint_assn_pure_conv list_assn_pure_conv inv_of_A_def)
   by sepref_to_hoare (sep_auto simp: pure_def)
-
-  thm fw_impl.refine[sepref_fr_rules] fw_impl'_refine_FW'' fw_impl.refine[FCOMP fw_impl'_refine_FW'']
 
   lemmas [sepref_fr_rules] = fw_impl.refine[FCOMP fw_impl'_refine_FW'']
 
@@ -314,21 +312,25 @@ begin
   sepref_register op_HOL_list_empty
 
   lemma b_rel_subtype[sepref_frame_match_rules]:
-    "hn_val (b_rel P) a b \<Longrightarrow>\<^sub>t hn_val Id a b"
+    "hn_val (b_rel R P) a b \<Longrightarrow>\<^sub>t hn_val R a b"
   by (rule enttI) (sep_auto simp: hn_ctxt_def pure_def)
 
   lemma b_rel_subtype_merge[sepref_frame_merge_rules]:
-    "hn_val (b_rel p) a b \<or>\<^sub>A hn_val Id a b \<Longrightarrow>\<^sub>t hn_val Id a b"
-    "hn_val Id a b \<or>\<^sub>A hn_val (b_rel p) a b \<Longrightarrow>\<^sub>t hn_val Id a b"
+    "hn_val (b_rel R p) a b \<or>\<^sub>A hn_val R a b \<Longrightarrow>\<^sub>t hn_val R a b"
+    "hn_val R a b \<or>\<^sub>A hn_val (b_rel R p) a b \<Longrightarrow>\<^sub>t hn_val R a b"
   by (simp add: b_rel_subtype entt_disjE)+
 
   lemma [def_pat_rules]: "(Reachability_Problem_Impl.inv_of_A $ A) \<equiv> PR_CONST inv_of_A" by simp
 
   lemmas [safe_constraint_rules] = CN_FALSEI[of is_pure "asmtx_assn n a" for n a]
 
-  lemma [sepref_opt_simps]: "UNPROTECT n = n" by simp
-
-  sepref_decl_op (no_mop, no_def) n :: "nat_rel" .
+  lemma n_pat: "Reachability_Problem.n $ A \<equiv> UNPROTECT n" by simp
+  
+  context
+    notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
+      and [sepref_import_param] = IdI[of n]
+      and [def_pat_rules] = n_pat
+  begin
 
   sepref_definition succs_impl is
     "RETURN o succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
@@ -338,6 +340,7 @@ begin
    apply (rewrite "HOL_list.fold_custom_empty")
   by sepref
 
+  end (* End sepref setup *)
 
   lemma reachable_states:
     "reachable (l', M) \<Longrightarrow> l' \<in> states"
@@ -351,7 +354,9 @@ begin
   by (safe, erule step_impl.cases; force)
 
   sublocale Worklist2 E a\<^sub>0 F_rel "subsumes n" succs state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl
-  by standard (rule a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine)+
+    apply standard
+    apply (unfold PR_CONST_def)
+  by (rule a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine)+
 
 end (* End of locale *)
 

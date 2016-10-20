@@ -1,6 +1,7 @@
 theory DBM_Operations_Impl_Refine
   imports
     DBM_Operations_Impl
+    Sepref_Acconstraint
     "~~/src/HOL/Library/IArray"
 begin
 
@@ -133,7 +134,7 @@ by sepref
 
 end
 
-abbreviation "clock_assn \<equiv> pure (nbn_rel (Suc n))"
+abbreviation "clock_assn \<equiv> nbn_assn (Suc n)"
 
 definition zero_clock :: nat where
   "zero_clock = 0"
@@ -157,8 +158,7 @@ lemmas [sepref_opt_simps] = zero_clock_def
 sepref_definition abstra_upd_impl is
   "uncurry (RETURN oo abstra_upd)" ::
   "(acconstraint_assn clock_assn id_assn)\<^sup>k *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
-  unfolding abstra_upd_alt_def[abs_def] zero_clock_def[symmetric]
-using [[goals_limit = 1]] by sepref
+unfolding abstra_upd_alt_def[abs_def] zero_clock_def[symmetric] by sepref
 
 sepref_register abstra_upd ::
   "(nat, ('a :: {linordered_cancel_ab_monoid_add,uminus,heap})) acconstraint \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx"
@@ -167,7 +167,7 @@ lemmas [sepref_fr_rules] = abstra_upd_impl.refine
 
 sepref_definition abstr_upd_impl is
   "uncurry (RETURN oo abstr_upd)" :: "(list_assn (acconstraint_assn clock_assn id_assn))\<^sup>k *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
-  unfolding abstr_upd_alt_def by sepref
+unfolding abstr_upd_alt_def by sepref
 
 lemma [sepref_import_param]: "(norm_lower, norm_lower) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
 lemma [sepref_import_param]: "(norm_upper, norm_upper) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
@@ -220,13 +220,6 @@ export_code up_canonical_upd_impl checking SML
 export_code dbm_subset_impl checking SML
 
 code_thms dbm_subset
-
-(*
-code_pred dbm_lt .
-code_thms dbm_lt
-*)
-
-(* lemmas dbm_lt.simps[code] *)
 
 lemma [code]:
   "dbm_le a b = (a = b \<or> (a \<prec> b))"

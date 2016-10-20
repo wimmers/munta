@@ -1,6 +1,5 @@
 theory FW_Code
-  imports "../IRF/Refine_Imperative_HOL/IICF/IICF"
-          "../IRF/Refine_Imperative_HOL/IICF/Impl/IICF_Array_Sqmatrix"
+  imports "IICF/IICF"
           Floyd_Warshall
           Refine_More
 begin
@@ -55,7 +54,7 @@ abbreviation "mtx_assn \<equiv> asmtx_assn (Suc n) id_assn::('a mtx \<Rightarrow
 sepref_definition fw_upd_impl is
   "uncurry2 (uncurry fw_upd')" ::
   "[\<lambda> (((_,k),i),j). k \<le> n \<and> i \<le> n \<and> j \<le> n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding fw_upd'_def[abs_def] by sepref_keep
+unfolding fw_upd'_def[abs_def] by sepref
 
 declare fw_upd_impl.refine[sepref_fr_rules]
 
@@ -64,30 +63,24 @@ sepref_register fw_upd' :: "'a i_mtx \<Rightarrow> nat \<Rightarrow> nat \<Right
 definition
   "fw_impl' (M :: 'a mtx) = for_rec3 fw_upd' M n n n n"
 
-lemma [sepref_fr_rules]:
-  "(uncurry0 (return n), uncurry0 (RETURN n)) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a node_assn"
-by (sep_auto intro!: hfrefI hn_refineI simp: pure_def)
+context
+  notes [id_rules] = itypeI[of n "TYPE (nat)"]
+    and [sepref_import_param] = IdI[of n]
+begin
 
-sepref_register n
-
-declare imp_nfoldli_def[sepref_opt_simps del]
 sepref_definition fw_impl is
   "fw_impl'" :: "mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
 unfolding fw_impl'_def[abs_def] for_rec3_eq
  apply (subst (1) nfoldli_assert'[symmetric])
  apply (subst (1) nfoldli_assert'[symmetric])
  apply (subst (1) nfoldli_assert'[symmetric])
- apply sepref_keep
-done
+by sepref
 
-thm sepref_opt_simps TrueI sepref_opt_simps2
+end (* End of sepref setup *)
 
-print_theorems
-
-end
+end (* End of n *)
 
 export_code fw_impl in SML_imp
-thm fw_impl.refine
 
 definition fw_spec where
   "fw_spec n M \<equiv> SPEC (\<lambda> M'. 
@@ -136,15 +129,11 @@ corollary
     else \<forall>i \<le> n. \<forall>j \<le> n. M' i j = D M i j n \<and> cycle_free M n)>\<^sub>t"
 by (rule cons_rule[OF _ _ fw_impl_correct[THEN hfrefD, THEN hn_refineD]]) (sep_auto simp: fw_spec_def)+
 
-thm fw_impl'_def
-
 abbreviation "FW m n \<equiv> fw m n n n n"
 
 definition "FW' = uncurry oo FW o curry"
 
 definition "FW'' n M = FW' M n"
-
-term swap
 
 lemma fw_impl'_refine_FW'':
   "(fw_impl' n, RETURN o PR_CONST (FW'' n)) \<in> Id \<rightarrow> \<langle>Id\<rangle> nres_rel"

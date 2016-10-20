@@ -1,23 +1,7 @@
 theory Refine_More
-imports "../IRF/Refine_Imperative_HOL/IICF/IICF"
-          "../IRF/Refine_Imperative_HOL/IICF/Impl/IICF_Array_Sqmatrix"
+imports "IICF/IICF"
           Floyd_Warshall (* XXX Why need this here? *)
 begin
-
-lemma [simp]:
-  "\<not> P aa \<Longrightarrow> nfoldli ys P f aa = RETURN aa"
-by (cases ys) auto
-
-lemma nfoldli_append:
-  "nfoldli (xs @ ys) P f a = nfoldli xs P f a \<bind> nfoldli ys P f"
- apply (induction xs arbitrary: a)
- apply (simp; fail)
- apply (clarsimp; metis)
-done
-
-lemma upt_append_single:
-  "[0..<n] @ [n] = [0..<Suc n]"
-by simp
 
 
 context
