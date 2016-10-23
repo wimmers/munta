@@ -2277,13 +2277,12 @@ definition "subsumes n = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset n 
 locale Reachability_Problem =
   fixes A :: "('a, nat, int, 's) ta" (* :: "('a, 'c, 't::time, 's) ta" *)
     and l\<^sub>0 :: 's
-    and F :: "'s list"
+    and F :: "'s \<Rightarrow> bool"
   assumes finite_trans[intro, simp]: "finite (trans_of A)"
       and finite_inv[intro]: "finite (range (inv_of A))"
       and triv_clock_numbering: "clk_set A = {1..card (clk_set A)}"
       and not_empty: "clk_set A \<noteq> {}"
       and consts_nats: "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
-      
 
 begin
 
@@ -2345,7 +2344,7 @@ begin
     "finite locations"
   unfolding locations_def using finite_trans by auto
 
-  definition "F_rel \<equiv> \<lambda> (l, M). l \<in> set F \<and> \<not> check_diag n M"
+  definition "F_rel \<equiv> \<lambda> (l, M). F l \<and> \<not> check_diag n M"
   
   definition "a\<^sub>0 = (l\<^sub>0, init_dbm)"
 
@@ -3227,7 +3226,7 @@ begin
 
   theorem reachability_check:
     "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))
-    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> l' \<in> set F)"
+    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')"
   using reachable_decides_emptiness'[of l'] check_diag_empty_spec reachable_empty_check_diag
   unfolding F_rel_def by auto
 
@@ -3242,6 +3241,14 @@ begin
 
   end (* End of locale context *)
 
+  (* XXX Rename. Move? *)
+  lemma aux:
+    "x \<in> set xs \<Longrightarrow> \<exists> i < length xs. xs ! i = x"
+  by (metis index_less_size_conv nth_index)
+  
+  lemma collect_clock_pairs_empty[simp]:
+    "collect_clock_pairs [] = {}"
+  unfolding collect_clock_pairs_def by auto
 
   subsection \<open>Pre-compiled automata with states and clocks as natural numbers\<close>
   locale Reachability_Problem_precompiled_defs =
@@ -3263,6 +3270,7 @@ begin
     definition "I l \<equiv> if l < n then inv ! l else []"
     definition "T \<equiv> {(l, label i (trans ! l ! i)) | l i. l < n \<and> i < length (trans ! l)}"
     definition "A \<equiv> (T, I)"
+    definition "F \<equiv> \<lambda> x. x \<in> set final"
   end
 
   locale Reachability_Problem_precompiled = Reachability_Problem_precompiled_defs +
@@ -3283,15 +3291,6 @@ begin
       "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. d \<in> \<nat>"
       "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. d \<in> \<nat>"
     using consts_nats unfolding clkp_set'_def by fastforce+
-
-    lemma collect_clock_pairs_empty[simp]:
-      "collect_clock_pairs [] = {}"
-    unfolding collect_clock_pairs_def by auto
-
-    (* XXX Rename. Move? *)
-    lemma aux:
-      "x \<in> set xs \<Longrightarrow> \<exists> i < length xs. xs ! i = x"
-    by (metis index_less_size_conv nth_index)
 
     lemma clkp_set_simp_1:
       "\<Union> (collect_clock_pairs ` set inv) = collect_clki (inv_of A)"
@@ -3394,7 +3393,7 @@ begin
     unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat 
     by auto (force simp: clk_set_simp_2[symmetric])+
 
-    sublocale Reachability_Problem A 0 final
+    sublocale Reachability_Problem A 0 "PR_CONST F"
     using has_clock clkp_set_consts_nat clk_set_eq by - (standard, auto)
 
   end (* End of locale *)

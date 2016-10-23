@@ -25,7 +25,8 @@ begin
   (* XXX Can this be constructed from other primitives? *)
   definition transition_rel where
     "transition_rel X = {(f, r). \<forall> l \<in> X. \<forall> x. (l, x) \<in> r \<longleftrightarrow> x \<in> set (f l)}"
-    
+
+  (* XXX Rename *)
   definition inv_rel where -- "Invariant assignments for a restricted state set"
     (* XXX Or use "inv_rel X = Id_on X \<rightarrow> Id" ? *)
     "inv_rel X = b_rel Id (\<lambda> x. x \<in> X) \<rightarrow> Id"
@@ -36,13 +37,15 @@ begin
 
   locale Reachability_Problem_Impl =
     Reachability_Problem A l\<^sub>0 F
-    for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s list" +
+    for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" +
 
     fixes trans_fun :: "('a, nat, int, 's) transition_fun"
       and inv_fun :: "(nat, int, 's) invassn"
+      and F_fun :: "'s \<Rightarrow> bool"
       and ceiling :: "int iarray"
     assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
         and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
+        and F_fun: "(F_fun, F) \<in> inv_rel (state_set (trans_of A))"
         (* XXX *)
         and start_location_in_states[intro]: "l\<^sub>0 \<in> state_set (trans_of A)"
         and ceiling:
@@ -154,12 +157,14 @@ begin
 
   (* XXX Better implementation? *)
   lemma F_rel_alt_def:
-    "F_rel = (\<lambda> (l, M). List.member F l  \<and> \<not> check_diag n M)"
-  unfolding F_rel_def by (auto simp: List.member_def)
+    "F_rel = (\<lambda> (l, M). F l  \<and> \<not> check_diag n M)"
+  unfolding F_rel_def by auto
 
   sepref_register F
 
-  lemma [sepref_import_param]: "(F, F) \<in> Id" by simp
+  lemma [sepref_fr_rules]:
+    "(return o F_fun, RETURN o F) \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  using F_fun by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def)
 
   (* XXX Better implementation? *)
   lemma [sepref_import_param]: "(List.member, List.member) \<in> Id \<rightarrow> location_rel \<rightarrow> Id" by auto
@@ -171,6 +176,7 @@ begin
   sepref_register "PR_CONST (check_diag n)" :: "'e DBMEntry i_mtx \<Rightarrow> bool"
 
   (* XXX Make implementation more efficient *)
+  (* Check F_fun or empty diag first? *)
   sepref_definition F_impl is
     "RETURN o F_rel" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding F_rel_alt_def short_circuit_conv by sepref
@@ -216,7 +222,6 @@ begin
   qed
 
   lemma [sepref_fr_rules]:
-    shows
     "(return o inv_fun, RETURN o PR_CONST inv_of_A)
     \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (acconstraint_assn (clock_assn n) int_assn)"
     using inv_fun_rel
@@ -363,8 +368,6 @@ end (* End of locale *)
 context Reachability_Problem_precompiled
 begin
 
-  term IArray.of_fun term IArray.sub term IArray
-  
   lemma
     "(IArray xs) !! i = xs ! i"
   by auto
@@ -402,6 +405,12 @@ begin
     "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
   using state_set_n unfolding inv_rel_def inv_fun_def[abs_def] inv_of_def A_def I_def[abs_def]
   by auto
+
+  definition "final_fun = List.member final"
+
+  lemma final_fun_final[intro, simp]:
+    "(final_fun, F) \<in> inv_rel (state_set (trans_of A))"
+  using state_set_n unfolding F_def final_fun_def inv_rel_def by (auto simp: in_set_member)
 
   lemma start_states[intro, simp]:
     "0 \<in> state_set (trans_of A)"
@@ -457,13 +466,14 @@ begin
     "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   unfolding br_def by sepref_to_hoare sep_auto
 
-  sublocale Reachability_Problem_Impl A 0 final trans_fun inv_fun "IArray k"
+  sublocale Reachability_Problem_Impl A 0 "PR_CONST F" trans_fun inv_fun final_fun "IArray k"
     apply standard
   using iarray_k' by auto
 
   lemma F_reachable_correct:
-    "F_reachable \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
-  unfolding F_reachable_def reachable_def using reachability_check by simp
+    "F_reachable
+    \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
+  unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
 
   definition
     "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
@@ -586,6 +596,7 @@ begin
    unfolding trans_map_def label_def
    unfolding init_dbm_impl_def a\<^sub>0_impl_def
    unfolding F_impl_def
+   unfolding final_fun_def[abs_def]
    unfolding subsumes_impl_def
    unfolding num_clocks
   by (rule Pure.reflexive)
@@ -601,27 +612,6 @@ begin
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
    unfolding num_clocks
   oops
-
-  thm succs_impl_def
-
-  term hnr_op_F_reachable
-
-  thm reachability_check
-  
-  thm hnr_F_reachable
-
-  thm succs_impl_def
-  term succs_impl
-  thm worklist_algo2_def
-
-    (*
-        and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
-        (* XXX Make this an abbreviation? *)
-        assumes k_ceiling:
-          "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
-        assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
-        assumes clock_set: "clk_set' = {1..m}"
-   *)
 
 end (* End of locale *)
 
