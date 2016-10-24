@@ -95,32 +95,27 @@ begin
 
   lemma collect_clki_product_invariant:
     "collect_clki product_invariant = \<Union> (collect_clki ` set I)"
-  unfolding collect_clki_def product_invariant_def
-  apply (simp add: image_Union)
-  apply auto
-  subgoal
-    unfolding collect_clock_pairs_def by fastforce
-  subgoal premises prems for a b aa ba x
-  proof -
-    let ?L = "map (\<lambda> _. x) [0..<length N]"
-    let ?x = "collect_clock_pairs
-                   (concat
-                     (map (\<lambda>p. if p < length N then (I ! p) (?L ! p) else [])
-                       [0..<length ?L]))"
-    show ?thesis
-      apply (rule exI[where x = ?x])
-      apply rule
-       apply (rule exI[where x = ?L])
-       apply simp
-      apply simp
-      using prems
-      apply -
-      apply (drule aux)
-      unfolding collect_clock_pairs_def
-      apply auto
-      by fastforce
-  qed
-  done
+    unfolding collect_clki_def product_invariant_def
+    apply (simp add: image_Union)
+    apply safe
+    subgoal
+      unfolding collect_clock_pairs_def by fastforce
+    apply clarsimp
+    subgoal premises prems for a b aa ba x
+    proof -
+      let ?L = "map (\<lambda> _. x) [0..<length N]"
+      let ?x = "collect_clock_pairs
+        (concat
+        (map (\<lambda>p. if p < length N then (I ! p) (?L ! p) else [])
+        [0..<length ?L]))"
+      show ?thesis
+        apply (rule exI[where x = ?x])
+        apply rule
+         apply (rule exI; rule HOL.refl)
+        apply simp
+        using prems unfolding collect_clock_pairs_def by (fastforce dest: aux)
+    qed
+    done
 
   lemma states_length:
     assumes "L \<in> states"
@@ -142,7 +137,13 @@ begin
     unfolding collect_clkvt_def product_trans_def product_trans_i_def product_trans_s_def
     by (fastforce dest: states_length)
 
-  (* XXX Clean *)
+  (* XXX Move? *)
+  lemma list_update_nth_split:
+    assumes "j < length xs"
+    shows "P (xs[i := x] ! j) = ((i = j \<longrightarrow> P x) \<and> (i \<noteq> j \<longrightarrow> P (xs ! j)))"
+      using assms by (cases "i = j") auto
+
+  (* XXX No conditional split *)
   lemma statesI_aux:
     fixes L
     assumes L: "L \<in> states"
@@ -154,10 +155,9 @@ begin
     apply rule
     using L apply (simp add: states_def)
     apply rule
-    subgoal for p'
-      apply (cases "p' = p")
-      using assms L by (auto simp: states_def)
-    done
+    apply (subst list_update_nth_split)
+    using assms apply (auto simp: states_def)
+    by blast
 
   context
     assumes states_not_empty: "states \<noteq> {}"
@@ -166,7 +166,16 @@ begin
       \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, Out a, r2, l2') \<in> T ! q) |
       (l1, g1, Out a, r1, l1')
       \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, In a, r2, l2') \<in> T ! q) | _ \<Rightarrow> True"
-  begin
+begin
+
+  lemma product_trans_s_alt_def:
+    "product_trans_s =
+      {(L, g, a, r, L') | L g a r L'. \<exists> p q g1 g2 r1 r2 l1' l2'.
+      L \<in> states \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
+      g = g1 @ g2 \<and> r = r1 @ r2 \<and> L' = L[p:=l1', q:=l2']
+        \<and> (L!p, g1, In a, r1, l1') \<in> T!p \<and> (L!q, g2, Out a, r2, l2') \<in> T!q
+      }"
+    unfolding product_trans_s_def by (safe; metis)
 
   lemma collect_clkt_product_trans_sups:
     "collect_clkt product_trans \<supseteq> \<Union> (collect_clkt ` set T)"
@@ -179,53 +188,44 @@ begin
         "p < length T" "T ! p = trans"
       by (auto dest!: aux)
     from states_not_empty obtain L where L: "L \<in> states" by auto
+    have "length T = length L" by (auto simp: states_length[OF \<open>L \<in> states\<close>])
     show "x \<in> collect_clkt product_trans"
     proof (cases a')
       case a': (In a)
       with x p trans_complete obtain q l2 g2 r2 l2' where trans2:
         "q < length T" "(l2, g2, Out a, r2, l2') \<in> T ! q" "p \<noteq> q"
         by atomize_elim fastforce
-      moreover have *: "x \<in> collect_clock_pairs (g1 @ g2)" using x(3) by (auto simp: collect_clock_pairs_def)
-      moreover have "L[p := l1, q := l2] \<in> states" (is "?L \<in> _")
+      have "L[p := l1, q := l2] \<in> states" (is "?L \<in> _")
         using L p(1) x(1,2) trans2 unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
       moreover have "?L ! p = l1" "?L ! q = l2"
         using \<open>p \<noteq> q\<close> \<open>p < length T\<close> \<open>q < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      ultimately have "(?L, g1 @ g2, a, r1 @ r2, ?L[p := l1', q := l2']) \<in> product_trans_s"
-        using p(1) x(1,2) trans2 unfolding p(2)[symmetric] a' product_trans_s_def
-        by (fastforce simp: states_length[OF \<open>L \<in> states\<close>])
-      with * show ?thesis unfolding collect_clkt_def product_trans_def by force
-      (*
+      moreover note t = calculation
+      have "(?L, g1 @ g2, a, r1 @ r2, ?L[p := l1', q := l2']) \<in> product_trans_s"
+        unfolding product_trans_s_alt_def
         apply clarsimp
-        apply (rule exI[where x = "collect_clock_pairs (g1 @ g2)"])
-        apply rule
-         apply (rule exI[where x = "L[p := l1, q := l2]"])
-         apply (rule exI[where x = "g1 @ g2"])
-         apply rule
-          apply simp
-         apply (rule exI[where x = a])
-         apply (rule exI[where x = "r1 @ r2"])
-         apply (rule exI[where x = "L[p := l1, q := l2, p := l1', q := l2']"])
-         apply simp
-        unfolding states_length[OF \<open>L \<in> states\<close>]
-        using fanc unfolding p(2)[symmetric]
-         apply -
-         apply (rule disjI2)
-        by (fastforce simp: a')+
-        *)
+        using t p(1) x(1,2) trans2 unfolding p(2)[symmetric] a' \<open>length T = length L\<close>
+        by metis
+      moreover have "x \<in> collect_clock_pairs (g1 @ g2)"
+        using x(3) by (auto simp: collect_clock_pairs_def)
+      ultimately show ?thesis unfolding collect_clkt_def product_trans_def by force
     next
       case a': (Out a)
       with x p trans_complete obtain q l2 g2 r2 l2' where trans2:
         "q < length T" "(l2, g2, In a, r2, l2') \<in> T ! q" "p \<noteq> q"
         by atomize_elim fastforce
-      moreover have *: "x \<in> collect_clock_pairs (g2 @ g1)" using x(3) by (auto simp: collect_clock_pairs_def)
-      moreover have "L[q := l2, p := l1] \<in> states" (is "?L \<in> _")
+      have "L[q := l2, p := l1] \<in> states" (is "?L \<in> _")
         using L p(1) x(1,2) trans2 unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
       moreover have "?L ! p = l1" "?L ! q = l2"
         using \<open>p \<noteq> q\<close> \<open>p < length T\<close> \<open>q < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      ultimately have "(?L, g2 @ g1, a, r2 @ r1, ?L[q := l2', p := l1']) \<in> product_trans_s"
-        using p(1) x(1,2) trans2 unfolding p(2)[symmetric] a' product_trans_s_def
-        by (fastforce simp: states_length[OF \<open>L \<in> states\<close>])
-      with * show ?thesis unfolding collect_clkt_def product_trans_def by force
+      moreover note t = calculation
+      have "(?L, g2 @ g1, a, r2 @ r1, ?L[q := l2', p := l1']) \<in> product_trans_s"
+        unfolding product_trans_s_alt_def
+        apply clarsimp
+        using t p(1) x(1,2) trans2 unfolding p(2)[symmetric] a' \<open>length T = length L\<close>
+        by metis
+      moreover have "x \<in> collect_clock_pairs (g2 @ g1)"
+        using x(3) by (auto simp: collect_clock_pairs_def)
+      ultimately show ?thesis unfolding collect_clkt_def product_trans_def by force
     next
       case a': (Sil a)
       have "L[p := l1] \<in> states" (is "?L \<in> _")
@@ -358,46 +358,84 @@ begin
     ultimately show ?thesis by auto
   qed
 
+lemma
+  assumes A: "finite A"
+  shows "finite {(a,b,c) | a b c. a \<in> A \<and> b < (n :: nat) \<and> P c}"
+  using assms [[simproc add: finite_Collect]] apply simp
+  oops
+
+lemma
+  assumes A: "finite A"
+  shows "finite {(d, c, a, b) | a b c d. d < n \<and> P c \<and> (a, b) \<in> A}"
+  using assms
+  using [[simproc add: finite_Collect]] apply simp
+  oops
+  
+  thm Finite_Set.finite_Collect_bounded_ex
+lemma rewr:
+    "\<exists>x. P1 \<and> Q1 x \<equiv> P1 \<and> (\<exists>x. Q1 x)"
+  by simp
+  
+lemma
+  assumes A: "finite A"
+  shows "finite {t. \<exists> a c. a \<in> A \<and> P c \<and> t = (a,c)}"
+  using [[simp_trace]] apply simp
+  oops
+
+  lemma finite_Collect_bounded_ex_4 [simp]:
+    assumes "finite {(a,b,c,d) | a b c d. P a b c d}"
+    shows
+      "finite {x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
+      \<longleftrightarrow> (\<forall> a b c d. P a b c d \<longrightarrow> finite {x. Q x a b c d})"
+  proof -
+    have *:
+      "{x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
+      = {x. \<exists> t. t \<in> {(a,b,c,d) | a b c d. P a b c d} \<and> (\<exists>a b c d. t = (a, b, c, d) \<and> Q x a b c d)}"
+      by simp
+    show ?thesis apply (subst *)
+      apply (subst finite_Collect_bounded_ex)
+      using assms by simp+
+  qed
+
   lemma finite_product_trans_s:
     "finite product_trans_s"
   proof -
     let ?N = "\<Union> (trans_of ` set N)"
+    (* XXX Possible intro weakening for finiteness method *)
+    have "(g1, In a, r1, l1') \<in> snd ` ?N" if
+      "(L ! p, g1, In a, r1, l1') \<in> map trans_of N ! p" "p < length L" "L \<in> states"
+      for L p g1 a r1 l1'
+      using that by (auto simp: states_length dest: nth_mem)
     let ?S = "{(L, p, q, g1, g2, a, r1, r2, l1', l2')|L p q g1 g2 a r1 r2 l1' l2'.
       L \<in> states \<and> (L ! p, g1, In a, r1, l1') \<in> map trans_of N ! p \<and>
         (L ! q, g2, Out a, r2, l2') \<in> map trans_of N ! q \<and> p < length L \<and> q < length L}"
-    (*
-    let ?R = "{(L, p, q, g1, a, r1, l1', g2, b, r2, l2')|L p q g1 a r1 l1' g2 b r2 l2'.
-      L \<in> states \<and> p < length L \<and> q < length L \<and> (g1, In a, r1, l1') \<in> snd ` ?N \<and> (g2, Out b, r2, l2') \<in> snd ` ?N}"
-     have "finite ?R" using finite_states
-      using [[simproc add: finite_Collect]]
+    define F1 where "F1 \<equiv> {(g1, a, r1, l1') | g1 a r1 l1'. (g1, In a, r1, l1') \<in> snd ` ?N}"
+    have fin1: "finite F1" unfolding F1_def using finite_trans
+      using [[simproc add: finite_Collect]] by (auto simp: inj_on_def intro: finite_vimageI)
+    define F2 where "F2 \<equiv> {(g1, a, r1, l1') | g1 a r1 l1'. (g1, Out a, r1, l1') \<in> snd ` ?N}"
+    have fin2: "finite F2" unfolding F2_def using finite_trans
+      using [[simproc add: finite_Collect]] by (auto simp: inj_on_def intro: finite_vimageI)
+    define R where "R \<equiv> {(L, p, q, g1, g2, a, r1, r2, l1', l2')|L p q g1 g2 a r1 r2 l1' l2'.
+      L \<in> states \<and> p < length L \<and> q < length L \<and> (g1, a, r1, l1') \<in> F1 \<and> (g2, a, r2, l2') \<in> F2}"
+
+    have R_alt_def: "R = {t. \<exists> L p q g1 a r1 l1' g2 r2 l2'.
+      L \<in> states \<and> p < length L \<and> q < length L
+      \<and> (g1, a, r1, l1') \<in> F1 \<and> (g2, a, r2, l2') \<in> F2
+      \<and> t = (L, p, q, g1, g2, a, r1, r2, l1', l2')
+      }"
+      unfolding R_def by auto
+    have "?S \<subseteq> R" by (fastforce simp: R_alt_def F1_def F2_def states_length dest: nth_mem)
+    moreover have "finite R"
+      unfolding R_alt_def
+      using fin1 fin2 finite_states
       apply simp
-    *)
-    let ?R = "{(L, p, q, g1, g2, a, r1, r2, l1', l2')|L p q g1 g2 a r1 r2 l1' l2'.
-      L \<in> states \<and> p < length L \<and> q < length L \<and> (g1, In a, r1, l1') \<in> snd ` ?N \<and> (g2, Out a, r2, l2') \<in> snd ` ?N}"
-    have "?S \<subseteq> ?R" by (fastforce simp: states_length dest: nth_mem)
-    moreover have "finite ?R" using finite_states
+      apply (subst finite_Collect_bounded_ex_4)
       using [[simproc add: finite_Collect]]
-      apply -
-      apply simp
-      sorry
-    (*
-      apply rule
-      apply rule
-       apply (rule finite_subset[where B = "{(p, L). p < length L \<and> L \<in> states}"])
-        apply force
-      using states_length
-        (* XXX Perfect situation for a finiteness cong *)
-       apply -
-       apply (rule finite_subset[where B = "{(p, L). p < length N \<and> L \<in> states}"]; fastforce)
-      using finite_trans
-      apply -
-      apply auto[]
-      apply (rule finite_vimageI)
-       apply (auto; fail)
-      unfolding inj_on_def
-      by (auto; fail) *)
+      by (auto simp: inj_on_def intro: finite_vimageI intro!: finite_imageI)
     ultimately have "finite ?S" by (rule finite_subset)
-    moreover have "product_trans_s \<subseteq> (\<lambda> (L, p, q, g1, g2, a, r1, r2, l1', l2'). (L, g1 @ g2, a, r1 @ r2, L[p := l1', q := l2'])) ` ?S"
+    moreover have
+      "product_trans_s
+      \<subseteq> (\<lambda> (L, p, q, g1, g2, a, r1, r2, l1', l2'). (L, g1 @ g2, a, r1 @ r2, L[p := l1', q := l2'])) ` ?S"
       unfolding product_trans_s_def apply (rule)
        apply simp
        apply safe[]

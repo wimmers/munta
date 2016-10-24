@@ -104,7 +104,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
       by (fastforce dest!: nth_mem simp: trans_length_simp elim: bexI[rotated])
 
     lemma clkp_set_simp_3:
-          "\<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (concat (concat trans))) = collect_clkt (trans_of A)"
+      "\<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (concat (concat trans))) = collect_clkt (trans_of A)"
       apply (simp add: product.product_ta_def trans_of_def)
       apply (subst product.collect_clkt_product_trans)
         apply (rule states_not_empty)
@@ -117,11 +117,11 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
        using trans_length apply (fastforce dest!: aux)
       by (fastforce dest!: nth_mem simp: trans_length_simp elim: bexI[rotated])
 
-        lemma clkp_set'_eq:
-          "clkp_set A = clkp_set'"
-        by (simp add: clkp_set'_def clkp_set_def image_Un image_Union
-          clkp_set_simp_1[symmetric] clkp_set_simp_3[symmetric] del: product.inv_of_product
-          ) fastforce
+    lemma clkp_set'_eq:
+      "clkp_set A = clkp_set'"
+    by (simp add: clkp_set'_def clkp_set_def image_Un image_Union
+      clkp_set_simp_1[symmetric] clkp_set_simp_3[symmetric] del: product.inv_of_product
+      ) fastforce
 
     lemma clk_set'_eq[simp]:
       "clk_set A = clk_set'"
