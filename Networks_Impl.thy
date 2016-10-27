@@ -72,11 +72,14 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
       apply (fastforce dest!: aux)
     by (fastforce dest!: nth_mem)
 
+    lemma init_states:
+      "init \<in> product.states"
+      unfolding product.states_def
+      unfolding N_def trans_of_def T_def init_def using n_gt_0 p_gt_0 start_has_trans by fastforce
+  
     lemma states_not_empty:
       "product.states \<noteq> {}"
-      unfolding product.states_def apply clarsimp
-      apply (rule exI[where x = "repeat 0 (length N)"])
-      unfolding N_def trans_of_def T_def using n_gt_0 p_gt_0 start_has_trans by fastforce
+      using init_states by blast
 
     lemma length_prod_T [simp]: "length product.T = p"
       unfolding N_def by auto

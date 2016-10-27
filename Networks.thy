@@ -159,15 +159,6 @@ begin
     using assms apply (auto simp: states_def)
     by blast
 
-  context
-    assumes states_not_empty: "states \<noteq> {}"
-    assumes trans_complete:
-      "\<forall> p < length T. \<forall> t1 \<in> T ! p. case t1 of (l1, g1, In a, r1, l1')
-      \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, Out a, r2, l2') \<in> T ! q) |
-      (l1, g1, Out a, r1, l1')
-      \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, In a, r2, l2') \<in> T ! q) | _ \<Rightarrow> True"
-  begin
-
   lemma product_trans_s_alt_def:
     "product_trans_s =
       {(L, g, a, r, L') | L g a r L'. \<exists> p q g1 g2 r1 r2 l1' l2'.
@@ -176,6 +167,15 @@ begin
         \<and> (L!p, g1, In a, r1, l1') \<in> T!p \<and> (L!q, g2, Out a, r2, l2') \<in> T!q
       }"
     unfolding product_trans_s_def by (safe; metis)
+  
+  context
+    assumes states_not_empty: "states \<noteq> {}"
+    assumes trans_complete:
+      "\<forall> p < length T. \<forall> t1 \<in> T ! p. case t1 of (l1, g1, In a, r1, l1')
+      \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, Out a, r2, l2') \<in> T ! q) |
+      (l1, g1, Out a, r1, l1')
+      \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, In a, r2, l2') \<in> T ! q) | _ \<Rightarrow> True"
+  begin
 
   lemma collect_clkt_product_trans_sups:
     "collect_clkt product_trans \<supseteq> \<Union> (collect_clkt ` set T)"

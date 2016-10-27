@@ -73,6 +73,70 @@ locale Networks_Reachability_Problem_precompiled' = Networks_Reachability_Proble
     "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, a, _, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
 begin
 
+  lemma state_set_states:
+    "state_set (trans_of A) \<subseteq> product.states"
+    unfolding state_set_def trans_of_def product.product_trans_def product.states_def
+      product.product_trans_def product.product_ta_def product.product_trans_i_def product.product_trans_s_def
+    apply auto
+       apply blast
+      apply blast
+     apply (subst list_update_nth_split)
+      apply assumption
+     apply (subst (asm) nth_map)
+      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+     apply force
+    apply (subst list_update_nth_split)
+     apply (simp; fail)
+    apply safe
+     apply (subst (asm) (2) nth_map)
+      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+     apply force
+    apply (subst list_update_nth_split)
+     apply assumption
+    apply (subst (asm) nth_map)
+     apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+    apply force
+    done
+
+  lemma states_n:
+    "product.states \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
+    unfolding product.states_def
+    apply simp
+    unfolding N_def trans_of_def T_def
+    using state_set trans_length apply safe
+    apply (drule aux)
+    apply safe
+    using state_set
+    apply clarsimp
+    apply rotate_tac
+    subgoal for x i
+      apply (erule ballE[where x = i])
+       apply auto
+      unfolding process_length(2)[symmetric]
+      by (force dest: nth_mem) (* XXX Slow *)
+    done
+
+  lemma state_set_n:
+    "state_set (trans_of A) \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
+    using states_n state_set_states by blast
+
+  lemma T_T:
+    "product.T = map T [0..<p]"
+    unfolding T_def trans_of_def N_def by auto
+
+  lemma states_length_p:
+    assumes "l \<in> product.states"
+    shows "length l = p"
+      using assms length_N product.states_length by simp
+
+  lemma trans_length_simp[simp]:
+    assumes "i < p"
+    shows "length (trans ! i) = n"
+      using assms trans_length process_length by (auto dest: nth_mem)
+
+  (* XXX Rename this way *)
+  lemmas mem_nth = aux
+
   text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
 
   (*
@@ -137,71 +201,6 @@ begin
 
   definition
     "trans_fun L \<equiv> trans_s_fun L @ trans_i_fun L"
-
-  lemma state_set_states:
-    "state_set (trans_of A) \<subseteq> product.states"
-    unfolding state_set_def trans_of_def product.product_trans_def product.states_def
-      product.product_trans_def product.product_ta_def product.product_trans_i_def product.product_trans_s_def
-    apply auto
-       apply blast
-      apply blast
-     apply (subst list_update_nth_split)
-      apply assumption
-     apply (subst (asm) nth_map)
-      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-     apply force
-    apply (subst list_update_nth_split)
-     apply (simp; fail)
-    apply safe
-     apply (subst (asm) (2) nth_map)
-      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-     apply force
-    apply (subst list_update_nth_split)
-     apply assumption
-    apply (subst (asm) nth_map)
-     apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-    apply force
-    done
-
-  lemma states_n:
-    "product.states \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
-    unfolding product.states_def
-    apply simp
-    unfolding N_def trans_of_def T_def
-    using state_set trans_length apply safe
-    apply (drule aux)
-    apply safe
-    using state_set
-    apply clarsimp
-    apply rotate_tac
-    subgoal for x i
-      apply (erule ballE[where x = i])
-       apply auto
-      unfolding process_length(2)[symmetric]
-      by (force dest: nth_mem) (* XXX Slow *)
-    done
-
-  (* XXX Unnecessary *)
-  lemma state_set_n:
-    "state_set (trans_of A) \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
-    using states_n state_set_states by blast
-
-  lemma T_T:
-    "product.T = map T [0..<p]"
-    unfolding T_def trans_of_def N_def by auto
-
-  lemma states_length_p:
-    assumes "l \<in> product.states"
-    shows "length l = p"
-      using assms length_N product.states_length by simp
-
-  lemma trans_length_simp[simp]:
-    assumes "i < p"
-    shows "length (trans ! i) = n"
-      using assms trans_length process_length by (auto dest: nth_mem)
-
-  (* XXX Rename this way *)
-  lemmas mem_nth = aux
 
   lemma trans_i_fun_trans_fun:
     assumes "(g, a, r, L') \<in> set (trans_i_fun L)"
@@ -429,12 +428,11 @@ begin
       "L ! q < n"
     using assms states_n by (force dest: nth_mem)
 
-  lemma trans_fun_trans_of[intro, simp]:
-    "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
+  lemma trans_fun_trans_of':
+    "(trans_fun, trans_of A) \<in> transition_rel (product.states)"
     unfolding transition_rel_def T_def
     apply simp
     apply rule
-    apply (drule set_mp[OF state_set_states])
     unfolding trans_of_def
     apply safe
     subgoal for L g a r L'
@@ -511,26 +509,88 @@ begin
       done
     done
 
-  definition "inv_fun l \<equiv> (IArray inv) !! l"
+  lemma trans_fun_trans_of[intro, simp]:
+    "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
+    using trans_fun_trans_of' state_set_states unfolding transition_rel_def T_def by blast
+
+  definition "inv_fun L \<equiv> concat (map (\<lambda> i. IArray (map IArray inv) !! i !! (L ! i)) [0..<p])"
+
+  lemma I_I:
+    "product.I = map I [0..<p]"
+    unfolding I_def inv_of_def N_def by auto
 
   lemma inv_fun_inv_of[intro, simp]:
     "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
-  using state_set_n unfolding inv_rel_def inv_fun_def[abs_def] inv_of_def A_def I_def[abs_def]
-  by auto
+    unfolding inv_rel_def apply clarsimp
+    using state_set_states process_length(1)
+    unfolding inv_fun_def product.product_invariant_def I_I
+    by - (rule arg_cong[where f = concat]; force simp add: states_length_p I_def)
 
-  definition "final_fun = List.member final"
+  definition "final_fun L = list_ex (\<lambda> i. List.member (final ! i) (L ! i)) [0..<p]"
+
+  term list_ex term List.member
+
+  term local.F
+
+  lemma final_fun_final[intro, simp]:
+    "(final_fun, local.F) \<in> inv_rel (state_set (trans_of A))"
+    using state_set_n unfolding F_def final_fun_def inv_rel_def in_set_member[symmetric] list_ex_iff
+    by force
 
   lemma final_fun_final[intro, simp]:
     "(final_fun, F) \<in> inv_rel (state_set (trans_of A))"
-  using state_set_n unfolding F_def final_fun_def inv_rel_def by (auto simp: in_set_member)
+    using state_set_n unfolding F_def final_fun_def inv_rel_def apply (auto simp: in_set_member)
+    oops
+
+  thm conj_ac(3)[symmetric]
 
   lemma start_states[intro, simp]:
-    "0 \<in> state_set (trans_of A)"
+    "init \<in> state_set (trans_of A)"
   proof -
-    obtain g r l' where "trans ! 0 ! 0 = (g, r, l')" by (metis prod_cases3)
-    with start_has_trans n_gt_0 trans_length show ?thesis
-    unfolding state_set_def trans_of_def A_def T_def label_def by force
-  qed
+    obtain g a r l' where *: "trans ! 0 ! 0 ! 0 = (g, a, r, l')" by (metis prod_cases3)
+    then show ?thesis
+    proof (cases a)
+      case prems: (In a')
+      from * n_gt_0 p_gt_0 start_has_trans have
+        "(0, g, a, r, l') \<in> T 0"
+        unfolding T_def by force
+      moreover with prems trans_complete(1) n_gt_0 p_gt_0 start_has_trans obtain q l2 g2 r2 l2' where
+        "q<p" "0 \<noteq> q" "(l2, g2, Out a', r2, l2') \<in> T q"
+        apply safe
+        apply (erule allE[where x = 0])
+        by fastforce
+      ultimately show ?thesis unfolding product.product_ta_def trans_of_def product.product_trans_def
+        unfolding
+        product.product_trans_s_alt_def T_T apply safe
+        subgoal premises prems
+          using prems(1-4) init_states states_length_p[of init] p_gt_0 apply auto
+          apply rule
+          apply (rule UnI2)
+          apply rule
+          apply (subst conj_commute)
+          apply (subst conj_commute)
+          apply (simp only: ex_simps(1,2)[symmetric])
+          apply (rule exI[where x = init])
+          apply (simp only: conj_ac(3))
+          apply (subst ex_comm)
+          apply (rule exI[where x = a'])
+          apply (subst ex_comm)
+          apply (subst (3) ex_comm)
+          apply (subst (2) ex_comm)
+          apply (subst ex_comm)
+          apply (rule exI[where x = 0])
+            apply (subst (3) ex_comm)
+          apply (subst (2) ex_comm)
+          apply (subst ex_comm)
+          apply simp
+          apply (rule exI)
+          apply rule
+           apply assumption
+          apply rule
+           apply assumption
+          unfolding \<open>a = _\<close>
+          apply auto
+          oops
 
   lemma num_clocks[simp]:
     "Reachability_Problem.n A = m"
@@ -540,16 +600,6 @@ begin
     assumes "(c, d) \<in> clkp_set'"
     shows "c > 0" "c \<le> m" "d \<in> range int"
   using assms clock_set consts_nats unfolding Nats_def clk_set'_def by force+
-
-  (* XXX Move *)
-  lemma mono_nat:
-    "mono nat"
-  by rule auto
-
-  lemma
-    assumes "int n = y"
-    shows "n = nat y"
-  using assms by auto
 
   lemma k_ceiling':
     "\<forall>c\<in>{1..m}. k ! c = nat (Max ({d. (c, d) \<in> clkp_set'} \<union> {0}))"
@@ -576,16 +626,46 @@ begin
 
   lemma iarray_k'[intro]:
     "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-  unfolding br_def by sepref_to_hoare sep_auto
+    unfolding br_def by sepref_to_hoare sep_auto
 
-  sublocale Reachability_Problem_Impl A 0 "PR_CONST F" trans_fun inv_fun final_fun "IArray k"
+  lemma init_has_trans:
+    "init \<in> fst ` (trans_of A) \<longleftrightarrow> trans_fun init \<noteq> []"
     apply standard
-  using iarray_k' by auto
+    using trans_fun_trans_of unfolding transition_rel_def apply force
+    using trans_fun_trans_of' init_states unfolding transition_rel_def by fast
+
+  lemma
+    assumes "init \<in> fst ` (trans_of A)"
+      shows "init \<in> state_set (trans_of A)"
+  using assms by (rule UnI1)
+
+end (* End of locale assuming specific format for actions *)
+
+locale Networks_Reachability_Problem_precompiled'' = Networks_Reachability_Problem_precompiled' +
+  assumes init_in_state_set:
+      "init \<in> state_set (trans_of A)"
+begin
+
+  sublocale impl:
+    Reachability_Problem_Impl A init "PR_CONST local.F" trans_fun inv_fun final_fun "IArray k"
+    apply standard
+    unfolding state_set_def
+        apply rule
+       apply rule
+      apply (auto; fail)
+     apply (rule init_in_state_set)
+    by rule
+
+  lemma
+    "impl.F_reachable \<longleftrightarrow> F_reachable"
+    unfolding F_reachable_def impl.F_reachable_def impl.F_rel_def F_rel_def
+    oops
 
   lemma F_reachable_correct:
-    "F_reachable
-    \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
-  unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
+    "impl.F_reachable
+    \<longleftrightarrow> (\<exists> L' u u'. conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i)))"
+    unfolding impl.F_reachable_def impl.reachable_def using impl.reachability_check unfolding F_def
+    by auto
 
   definition
     "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
