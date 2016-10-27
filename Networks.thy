@@ -64,6 +64,12 @@ lemma lists_of_len_finite:
   shows "finite {xs. set xs \<subseteq> S \<and> length xs = n}"
   using assms by (rule finite_lists_length_eq)
 
+(* XXX Move? *)
+lemma list_update_nth_split:
+  assumes "j < length xs"
+  shows "P (xs[i := x] ! j) = ((i = j \<longrightarrow> P x) \<and> (i \<noteq> j \<longrightarrow> P (xs ! j)))"
+    using assms by (cases "i = j") auto
+
 locale Product_TA_Defs =
   fixes N :: "('a, 'c, 't, 's) nta"
 begin
@@ -137,12 +143,6 @@ begin
     unfolding collect_clkvt_def product_trans_def product_trans_i_def product_trans_s_def
     by (fastforce dest: states_length)
 
-  (* XXX Move? *)
-  lemma list_update_nth_split:
-    assumes "j < length xs"
-    shows "P (xs[i := x] ! j) = ((i = j \<longrightarrow> P x) \<and> (i \<noteq> j \<longrightarrow> P (xs ! j)))"
-      using assms by (cases "i = j") auto
-
   (* XXX No conditional split *)
   lemma statesI_aux:
     fixes L
@@ -166,7 +166,7 @@ begin
       \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, Out a, r2, l2') \<in> T ! q) |
       (l1, g1, Out a, r1, l1')
       \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, In a, r2, l2') \<in> T ! q) | _ \<Rightarrow> True"
-begin
+  begin
 
   lemma product_trans_s_alt_def:
     "product_trans_s =
