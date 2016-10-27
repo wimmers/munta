@@ -3,6 +3,68 @@ theory Networks_Impl_Refine
     Normalized_Zone_Semantics_Impl_Refine Networks_Impl
 begin
 
+(* XXX Move *)
+subsection \<open>Invariants on folds\<close>
+
+lemma fold_acc_preserv:
+  assumes "\<And> x acc. P acc \<Longrightarrow> P (f x acc)" "P acc"
+  shows "P (fold f xs acc)"
+  using assms(2) by (induction xs arbitrary: acc) (auto intro: assms(1))
+
+lemma fold_acc_ev_preserv':
+  fixes x
+  assumes
+    "\<And> x acc. P acc \<Longrightarrow> P (f x acc)" "\<And> x acc. Q acc \<Longrightarrow> Q (f x acc)"
+    "\<And> acc. Q acc \<Longrightarrow> P (f x acc)" "x \<in> set xs" "Q acc"
+  shows "P (fold f xs acc) \<and> Q (fold f xs acc)"
+  using assms(4,5) apply (induction xs arbitrary: acc)
+  using assms(1,2,3) by (auto intro: fold_acc_preserv)
+
+lemma fold_acc_ev_preserv:
+  fixes x
+  assumes
+    "\<And> x acc. P acc \<Longrightarrow> Q acc \<Longrightarrow> P (f x acc)" "\<And> x acc. Q acc \<Longrightarrow> Q (f x acc)"
+    "\<And> acc. Q acc \<Longrightarrow> P (f x acc)" "x \<in> set xs" "Q acc"
+  shows "P (fold f xs acc) \<and> Q (fold f xs acc)"
+  apply (rule fold_acc_ev_preserv'[where P = "\<lambda> acc. P acc \<and> Q acc" and Q = Q, THEN conjunct1])
+  by (auto intro: assms)
+
+lemmas fold_ev_preserv = fold_acc_ev_preserv[where Q = "\<lambda> _. True", simplified]
+
+lemma fold_evD':
+  assumes "\<not> P acc" "P (fold f xs acc)"
+    shows "\<exists> x ys zs. xs = ys @ x # zs \<and> \<not> P (fold f ys acc) \<and> P (f x (fold f ys acc))"
+  using assms
+  apply (induction xs arbitrary: acc)
+   apply (simp; fail)
+  subgoal premises prems for x xs acc
+    apply (cases "P (f x acc)")
+     using prems(2-) apply fastforce
+     apply (drule prems(1))
+     using prems apply simp
+     apply clarsimp
+     subgoal for xa ys zs
+       apply (rule exI[where x = xa])
+       apply (rule exI[where x = "x # ys"])
+       by fastforce
+     done
+   done
+
+lemma fold_evD:
+  assumes
+    "P y (fold f xs acc)" "\<not> P y acc" "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> x = y"
+    "Q acc" "\<And> acc x. Q acc \<Longrightarrow> Q (f x acc)" "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> R y"
+  shows "\<exists> ys zs. xs = ys @ y # zs \<and> \<not> P y (fold f ys acc) \<and> P y (f y (fold f ys acc)) \<and> R y"
+proof -
+  from fold_evD'[OF assms(2,1)] obtain x ys zs where *:
+    "xs = ys @ x # zs" "\<not> P y (fold f ys acc)" "P y (f x (fold f ys acc))"
+    by auto
+  moreover from assms(4-) have "Q (fold f ys acc)" by (auto intro: fold_acc_preserv)
+  ultimately show ?thesis using assms(3,6) by auto
+qed
+
+lemmas fold_evD'' = fold_evD[where R = "\<lambda> _. True", simplified]
+
 no_notation Ref.update ("_ := _" 62)
 
 locale Networks_Reachability_Problem_precompiled' = Networks_Reachability_Problem_precompiled +
@@ -20,33 +82,33 @@ begin
         case a of Sil a \<Rightarrow> (g, a, r, l')) o filter (\<lambda> (g, a, r, l').
         case a of Sil a \<Rightarrow> True | _ \<Rightarrow> False))) trans"
   *)
-  
+
   definition
     "trans_i_map =
       map (map (List.map_filter
         (\<lambda> (g, a, r, l'). case a of Sil a \<Rightarrow> Some (g, a, r, l') | _ \<Rightarrow> None)
       )) trans"
-  
+
   definition
     "trans_in_map \<equiv>
       map (map (map
         (\<lambda> (g, a, r, l'). case a of In a \<Rightarrow> (g, a, r, l')) o filter (\<lambda> (g, a, r, l').
           case a of In a \<Rightarrow> True | _ \<Rightarrow> False))
           ) trans"
-  
+
   definition
     "trans_out_map \<equiv>
       map (map (map
         (\<lambda> (g, a, r, l'). case a of Out a \<Rightarrow> (g, a, r, l')) o filter (\<lambda> (g, a, r, l').
           case a of Out a \<Rightarrow> True | _ \<Rightarrow> False))
           ) trans"
-  
+
   abbreviation
     "nested_list_to_iarray xs \<equiv> IArray (map IArray xs)"
 
   definition
     "actions_by_state i \<equiv> fold (\<lambda> t acc. acc[fst (snd t) := (i, t) # (acc ! fst (snd t))])"
-  
+
   definition
     "all_actions_by_state t L \<equiv>
       fold (\<lambda> i. actions_by_state i (t !! i !! (L ! i))) [0..<p] (repeat [] na)"
@@ -56,7 +118,7 @@ begin
       map (\<lambda> (i, g1, a, r1, l1). List.map_filter
       (\<lambda> (j, g2, _, r2, l2). if i \<noteq> j then Some (g1 @ g2, a, r1 @ r2, L[i := l1, j := l2]) else None)
       OUT)"
-    
+
   definition
     "trans_s_fun L \<equiv>
       let
@@ -69,22 +131,13 @@ begin
   definition
     "trans_i_from L i \<equiv>
     map (\<lambda> (g, a, r, l'). (g, a, r, L[i := l'])) ((IArray (map IArray trans_i_map)) !! i !! (L ! i))"
-  
+
   definition
     "trans_i_fun L \<equiv> concat (map (trans_i_from L) [0..<p])"
-  
+
   definition
     "trans_fun L \<equiv> trans_s_fun L @ trans_i_fun L"
-  
-  thm product.states_def
-  
-  thm state_set
-  
-  lemma
-    assumes "x \<in> set (map f xs)"
-    shows "x \<in> f ` set xs"
-    using assms by auto
-  
+
   lemma state_set_states:
     "state_set (trans_of A) \<subseteq> product.states"
     unfolding state_set_def trans_of_def product.product_trans_def product.states_def
@@ -109,7 +162,7 @@ begin
      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
     apply force
     done
-  
+
   lemma states_n:
     "product.states \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
     unfolding product.states_def
@@ -127,89 +180,39 @@ begin
       unfolding process_length(2)[symmetric]
       by (force dest: nth_mem) (* XXX Slow *)
     done
-  
+
   (* XXX Unnecessary *)
   lemma state_set_n:
     "state_set (trans_of A) \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
     using states_n state_set_states by blast
-  
-  lemma
-    assumes "a \<in> C" "C \<subseteq> B"
-    shows "a \<in> B"
-      oops
-  
-      term T
-      
+
   lemma T_T:
     "product.T = map T [0..<p]"
     unfolding T_def trans_of_def N_def by auto
-  
+
   lemma states_length_p:
     assumes "l \<in> product.states"
     shows "length l = p"
       using assms length_N product.states_length by simp
-      
-  lemmas [simp, intro] = state_set_states
-  
-  thm trans_length
-  
+
   lemma trans_length_simp[simp]:
     assumes "i < p"
     shows "length (trans ! i) = n"
       using assms trans_length process_length by (auto dest: nth_mem)
-  
-  term IArray.list_of
-  print_statement ballE
-  
+
   (* XXX Rename this way *)
   lemmas mem_nth = aux
-  
-  lemma
-    assumes
-      "a = b" "b \<in> S"
-    shows "a \<in> S"
-      using assms by (rule ssubst)
-  
+
   lemma trans_i_fun_trans_fun:
     assumes "(g, a, r, L') \<in> set (trans_i_fun L)"
     shows "(g, a, r, L') \<in> set (trans_fun L)"
     using assms unfolding trans_fun_def by auto
-  
+
   lemma trans_s_fun_trans_fun:
     assumes "(g, a, r, L') \<in> set (trans_s_fun L)"
     shows "(g, a, r, L') \<in> set (trans_fun L)"
       using assms unfolding trans_fun_def by auto
-  
-  term "all_actions_by_state (IArray (map IArray trans_out_map))"
-  
-  lemma orRot:
-    fixes a b :: bool
-    shows "(a \<or> b) = (b \<or> a)"
-    by (simp add: disj_ac(1))
-  
-  lemma
-    "(a \<and> b \<or> c) = ((a \<or> c) \<and> (b \<or> c))"
-    by (rule disj_conj_distribR)
-  
-  lemma
-    "\<exists> x y. Q x y \<and> R y \<or> P x \<and> R1 y \<or> Q1 y"
-  
-    apply (subst disj_ac)
-    apply (subst disj_conj_distribR)
-    oops
-    
-  lemma
-    "(a, b) = (c, d) \<longleftrightarrow> a = c \<and> b = d"
-    by (simp add: )
-  
-  term trans_out_map
-  
-  (* XXX Unused *)
-  lemma case_In_tup:
-    assumes "t = (g1, In a, r1, l1')"
-    shows "(g1, a, r1, l1') = (case t of (g, In aa, r, l') \<Rightarrow> (g, aa, r, l'))"
-    using assms by simp
-  
+
   lemma in_trans_in_mapI:
     assumes
       "q < p" "l < n" "i < length (trans ! q ! l)"
@@ -217,7 +220,7 @@ begin
     shows "(g1, a, r1, l1') \<in> set (IArray (map IArray trans_in_map) !! q !! l)"
     using assms process_length(2) trans_length unfolding trans_in_map_def
     by (force dest: nth_mem intro!: image_eqI[where x = "(g1, In a, r1, l1')"])
-  
+
   lemma in_trans_out_mapI:
     assumes
       "q < p" "l < n" "i < length (trans ! q ! l)"
@@ -225,7 +228,7 @@ begin
     shows "(g1, a, r1, l1') \<in> set (IArray (map IArray trans_out_map) !! q !! l)"
     using assms process_length(2) trans_length unfolding trans_out_map_def
     by (force dest: nth_mem intro!: image_eqI[where x = "(g1, Out a, r1, l1')"])
-    
+
   lemma in_trans_in_mapD:
     assumes
       "(g1, a, r1, l1') \<in> set (IArray (map IArray trans_in_map) !! q !! l)"
@@ -234,7 +237,7 @@ begin
       "i < length (trans ! q ! l) \<and> (g1, In a, r1, l1') = trans ! q ! l ! i"
     using assms process_length(2) unfolding trans_in_map_def
     by (fastforce dest: mem_nth split: act.split_asm)
-  
+
   (* XXX Remove duplication *)
   lemma in_trans_out_mapD:
     assumes
@@ -244,38 +247,7 @@ begin
       "i < length (trans ! q ! l) \<and> (g1, Out a, r1, l1') = trans ! q ! l ! i"
     using assms process_length(2) unfolding trans_out_map_def
     by (fastforce dest: mem_nth split: act.split_asm)
-  
-  (* XXX Move *)
-  lemma fold_acc_preserv:
-    assumes "\<And> x acc. P acc \<Longrightarrow> P (f x acc)" "P acc"
-    shows "P (fold f xs acc)"
-    using assms(2) by (induction xs arbitrary: acc) (auto intro: assms(1))
-  
-  lemma fold_ev_preserv:
-    fixes x
-    assumes "\<And> x acc. P acc \<Longrightarrow> P (f x acc)" "x \<in> set xs" "\<And> acc. P (f x acc)"
-    shows "P (fold f xs acc)"
-    using assms(2) apply (induction xs arbitrary: acc)
-    using assms(1,3) by (auto intro: fold_acc_preserv)
-  
-  lemma fold_acc_ev_preserv':
-    fixes x
-    assumes
-      "\<And> x acc. P acc \<Longrightarrow> P (f x acc)" "\<And> x acc. Q acc \<Longrightarrow> Q (f x acc)"
-      "\<And> acc. Q acc \<Longrightarrow> P (f x acc)" "x \<in> set xs" "Q acc"
-    shows "P (fold f xs acc) \<and> Q (fold f xs acc)"
-    using assms(4,5) apply (induction xs arbitrary: acc)
-    using assms(1,2,3) by (auto intro: fold_acc_preserv)
-  
-  lemma fold_acc_ev_preserv:
-    fixes x
-    assumes
-      "\<And> x acc. P acc \<Longrightarrow> Q acc \<Longrightarrow> P (f x acc)" "\<And> x acc. Q acc \<Longrightarrow> Q (f x acc)"
-      "\<And> acc. Q acc \<Longrightarrow> P (f x acc)" "x \<in> set xs" "Q acc"
-    shows "P (fold f xs acc) \<and> Q (fold f xs acc)"
-    apply (rule fold_acc_ev_preserv'[where P = "\<lambda> acc. P acc \<and> Q acc" and Q = Q, THEN conjunct1])
-    by (auto intro: assms)
-  
+
   lemma in_actions_by_stateI:
     assumes
       "(g1, a, r1, l1') \<in> set xs" "a < length acc"
@@ -290,7 +262,7 @@ begin
         )
       apply (subst list_update_nth_split; auto)
     by auto
-  
+
   lemma in_actions_by_state_preserv:
     assumes
       "(q, g1, a, r1, l1') \<in> set (acc ! a)" "a < length acc"
@@ -302,11 +274,11 @@ begin
         )
     apply (subst list_update_nth_split; auto)
     by auto
-  
+
   lemma length_actions_by_state_preserv[simp]:
     shows "length (actions_by_state y xs acc) = length acc"
     unfolding actions_by_state_def by (auto intro: fold_acc_preserv simp: list_update_nth_split)
-  
+
   lemma in_all_actions_by_stateI:
     assumes
       "a < na" "q < p" "L ! q < n" "(g1, a, r1, l1') \<in> set (M !! q !! (L ! q))"
@@ -319,71 +291,7 @@ begin
         )
         apply (rule in_actions_by_state_preserv[THEN conjunct1])
     using assms by (auto intro: in_actions_by_stateI[THEN conjunct1])
-  
-  lemma fold_evD[rotated]:
-    assumes "\<not> P acc" "P (fold f xs acc)"
-      shows "\<exists> x ys zs. xs = ys @ x # zs \<and> \<not> P (fold f ys acc) \<and> P (f x (fold f ys acc))"
-    using assms
-    apply (induction xs arbitrary: acc)
-     apply (simp; fail)
-    subgoal premises prems for x xs acc
-      apply (cases "P (f x acc)")
-       using prems(2-) apply fastforce
-       apply (drule prems(1))
-       using prems apply simp
-       apply clarsimp
-       subgoal for xa ys zs
-         apply (rule exI[where x = xa])
-         apply (rule exI[where x = "x # ys"])
-         by fastforce
-       done
-     done
-  
-  lemma fold_evD':
-    assumes "P y (fold f xs acc)" "\<not> P y acc" "\<And> acc x. \<not> P y acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> x = y"
-    shows "\<exists> ys zs. xs = ys @ y # zs \<and> \<not> P y (fold f ys acc) \<and> P y (f y (fold f ys acc))"
-  proof -
-    from fold_evD[OF assms(1,2)] obtain x ys zs where
-      "xs = ys @ x # zs" "\<not> P y (fold f ys acc)" "P y (f x (fold f ys acc))"
-      by auto
-    with assms(3)[OF _ this(3)] show ?thesis by auto
-  qed
-  
-  lemma fold_evD'':
-    assumes
-      "P y (fold f xs acc)" "\<not> P y acc" "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> x = y"
-      "Q acc" "\<And> acc x. Q acc \<Longrightarrow> Q (f x acc)"
-    shows "\<exists> ys zs. xs = ys @ y # zs \<and> \<not> P y (fold f ys acc) \<and> P y (f y (fold f ys acc))"
-  proof -
-    from fold_evD[OF assms(1,2)] obtain x ys zs where
-      "xs = ys @ x # zs" "\<not> P y (fold f ys acc)" "P y (f x (fold f ys acc))"
-      by auto
-    moreover from assms(4-) have "Q (fold f ys acc)" by (auto intro: fold_acc_preserv)
-    ultimately show ?thesis using assms(3) by auto
-  qed
-  
-  lemma fold_evD''':
-    assumes
-      "P y (fold f xs acc)" "\<not> P y acc" "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> x = y"
-      "Q acc" "\<And> acc x. Q acc \<Longrightarrow> Q (f x acc)" "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> R y"
-    shows "\<exists> ys zs. xs = ys @ y # zs \<and> \<not> P y (fold f ys acc) \<and> P y (f y (fold f ys acc)) \<and> R y"
-  proof -
-    from fold_evD[OF assms(1,2)] obtain x ys zs where *:
-      "xs = ys @ x # zs" "\<not> P y (fold f ys acc)" "P y (f x (fold f ys acc))"
-      by auto
-    moreover from assms(4-) have "Q (fold f ys acc)" by (auto intro: fold_acc_preserv)
-    ultimately show ?thesis using assms(3,6) by auto
-  qed
-  
-  lemma
-    assumes "\<not> P acc" "P (fold f xs acc)"
-    obtains x ys zs where "xs = ys @ x # zs" "\<not> P (fold f ys acc)" "P (f x (fold f ys acc))"
-    using assms
-    apply (induction xs)
-     apply (simp; fail)
-    apply simp
-    oops
-  
+
   lemma actions_by_state_inj:
     assumes "j < length acc"
     shows "\<forall> (q, a) \<in> set (actions_by_state i xs acc ! j). (q, a) \<notin> set (acc ! j) \<longrightarrow> i = q"
@@ -395,12 +303,12 @@ begin
     subgoal for x acc
       by (cases "fst (snd x) = j"; simp)
     using assms by auto
-  
+
   lemma actions_by_state_inj':
     assumes "j < length acc" "(q, a) \<notin> set (acc ! j)" "(q, a) \<in> set (actions_by_state i xs acc ! j)"
     shows "i = q"
     using actions_by_state_inj[OF assms(1)] assms(2-) by fast
-  
+
   lemma in_actions_by_stateD:
     assumes
       "(q, g, a, t) \<in> set (actions_by_state i xs acc ! j)" "(q, g, a, t) \<notin> set (acc ! j)" "j < length acc"
@@ -408,7 +316,7 @@ begin
       "(g, a, t) \<in> set xs \<and> j = a"
     using assms unfolding actions_by_state_def
     apply -
-    apply (drule fold_evD'''
+    apply (drule fold_evD
         [where y = "(g, a, t)" and Q = "\<lambda> acc'. length acc' = length acc" and R = "\<lambda> (_, a', t). a' = j"]
         )
          apply assumption
@@ -417,7 +325,7 @@ begin
        apply simp+
      apply (subst (asm) list_update_nth_split[of j]; force)
     by auto
-  
+
   lemma in_all_actions_by_stateD:
     assumes
       "(q, g1, a, r1, l1') \<in> set (all_actions_by_state M L ! a')" "a' < na"
@@ -441,12 +349,12 @@ begin
       then show ?thesis by simp
     qed
     by (auto intro: fold_acc_preserv dest!: in_actions_by_stateD)
-  
+
   lemma length_all_actions_by_state_preserv:
       "length (all_actions_by_state M L) = na"
     unfolding all_actions_by_state_def
     by (auto intro: fold_acc_preserv simp add: length_actions_by_state_preserv)
-  
+
   lemma less_naI:
     assumes
       "q < p"
@@ -455,7 +363,7 @@ begin
       "j < length (trans ! q ! l)"
     shows "a < na"
     using action_set assms process_length(2) trans_length by (force dest!: nth_mem)
-  
+
   lemma in_actions_trans_in_mapI:
     assumes
       "pa < p"
@@ -466,7 +374,7 @@ begin
     apply (rule in_all_actions_by_stateI)
     using assms action_set process_length(2) trans_length apply (fastforce dest!: nth_mem)
     using assms by (fastforce intro: in_trans_in_mapI)+
-  
+
   lemma in_actions_trans_out_mapI:
     assumes
       "pa < p"
@@ -477,7 +385,7 @@ begin
     apply (rule in_all_actions_by_stateI)
     using assms action_set process_length(2) trans_length apply (fastforce dest!: nth_mem)
     using assms by (fastforce intro: in_trans_out_mapI)+
-  
+
   lemma in_pairs_by_actionI:
     assumes
       "pa \<noteq> q"
@@ -489,12 +397,7 @@ begin
     apply clarsimp
     apply (rule bexI[rotated], assumption)
     by (force simp: set_map_filter)+
-  
-  lemma less_allD:
-    assumes "\<forall> x < a. P x" "y < a"
-    shows "P y"
-      using assms by auto
-  
+
   lemma in_pairs_by_actionD:
     assumes
       "(g, a, r, L') \<in> set (pairs_by_action L xs ys)"
@@ -513,12 +416,12 @@ begin
       unfolding pairs_by_action_def using assms(2,3) by (force split: if_split_asm simp: set_map_filter)
     then show ?thesis by - (rule that; auto)
   qed
-  
+
   lemma in_trans_funD:
     assumes "y \<in> set (trans_fun L)"
     shows "y \<in> set (trans_s_fun L) \<or> y \<in> set (trans_i_fun L)"
       using assms unfolding trans_fun_def by auto
-  
+
   lemma states_len[intro]:
     assumes
       "q < p" "L \<in> product.states"
@@ -692,7 +595,7 @@ begin
       uncurry0 (
         RETURN (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
       )
-     ) 
+     )
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   using hnr_F_reachable unfolding reachability_checker_def F_reachable_correct .
 
@@ -732,7 +635,7 @@ begin
         val l = get_lhs thm;
         val rewr = pull_let u l;
       in Local_Defs.unfold_tac ctxt [rewr] thm end;
-    
+
     fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
   \<close>
 
@@ -766,7 +669,7 @@ begin
 
   schematic_goal succs_impl_alt_def':
     "succs_impl \<equiv> ?impl"
-  unfolding succs_impl_def 
+  unfolding succs_impl_def
    apply (tactic \<open>mytac @{context}\<close>)
    unfolding inv_fun_rewr' trans_fun_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
@@ -926,10 +829,10 @@ theorem reachability_check:
             \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
           )
         else None
-        
+
        )
     )
-   ) 
+   )
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
 by sepref_to_hoare (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
 
