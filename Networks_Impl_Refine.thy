@@ -646,8 +646,8 @@ locale Networks_Reachability_Problem_precompiled'' = Networks_Reachability_Probl
       "init \<in> state_set (trans_of A)"
 begin
 
-  sublocale impl:
-    Reachability_Problem_Impl A init "PR_CONST local.F" trans_fun inv_fun final_fun "IArray k"
+  sublocale
+    Reachability_Problem_Impl A init "PR_CONST F" trans_fun inv_fun final_fun "IArray k"
     apply standard
     unfolding state_set_def
         apply rule
@@ -656,16 +656,13 @@ begin
      apply (rule init_in_state_set)
     by rule
 
-  lemma
-    "impl.F_reachable \<longleftrightarrow> F_reachable"
-    unfolding F_reachable_def impl.F_reachable_def impl.F_rel_def F_rel_def
-    oops
-
   lemma F_reachable_correct:
-    "impl.F_reachable
-    \<longleftrightarrow> (\<exists> L' u u'. conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i)))"
-    unfolding impl.F_reachable_def impl.reachable_def using impl.reachability_check unfolding F_def
-    by auto
+    "F_reachable
+    \<longleftrightarrow> (\<exists> L' u u'.
+        conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i))
+      )"
+    unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
 
   definition
     "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"

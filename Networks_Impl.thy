@@ -76,7 +76,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
       "init \<in> product.states"
       unfolding product.states_def
       unfolding N_def trans_of_def T_def init_def using n_gt_0 p_gt_0 start_has_trans by fastforce
-  
+
     lemma states_not_empty:
       "product.states \<noteq> {}"
       using init_states by blast
@@ -194,7 +194,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
     unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat
     by auto (force simp: clk_set_simp_2[symmetric])+
 
-    sublocale Reachability_Problem A
+    sublocale Reachability_Problem A init "PR_CONST F"
       using has_clock clkp_set_consts_nat clk_set_eq by - (standard; blast)
 
   end (* End of locale *)
