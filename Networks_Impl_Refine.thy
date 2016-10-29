@@ -65,79 +65,17 @@ qed
 
 lemmas fold_evD'' = fold_evD[where R = "\<lambda> _. True", simplified]
 
+(* XXX Rename this way *)
+lemmas mem_nth = aux
+
 no_notation Ref.update ("_ := _" 62)
 
-locale Networks_Reachability_Problem_precompiled' = Networks_Reachability_Problem_precompiled +
+locale Network_Reachability_Problem_precompiled_defs' =
+  Network_Reachability_Problem_precompiled_defs +
   fixes na :: nat
-  assumes action_set:
-    "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, a, _, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
 begin
 
-  lemma state_set_states:
-    "state_set (trans_of A) \<subseteq> product.states"
-    unfolding state_set_def trans_of_def product.product_trans_def product.states_def
-      product.product_trans_def product.product_ta_def product.product_trans_i_def product.product_trans_s_def
-    apply auto
-       apply blast
-      apply blast
-     apply (subst list_update_nth_split)
-      apply assumption
-     apply (subst (asm) nth_map)
-      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-     apply force
-    apply (subst list_update_nth_split)
-     apply (simp; fail)
-    apply safe
-     apply (subst (asm) (2) nth_map)
-      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-     apply force
-    apply (subst list_update_nth_split)
-     apply assumption
-    apply (subst (asm) nth_map)
-     apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-    apply force
-    done
-
-  lemma states_n:
-    "product.states \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
-    unfolding product.states_def
-    apply simp
-    unfolding N_def trans_of_def T_def
-    using state_set trans_length apply safe
-    apply (drule aux)
-    apply safe
-    using state_set
-    apply clarsimp
-    apply rotate_tac
-    subgoal for x i
-      apply (erule ballE[where x = i])
-       apply auto
-      unfolding process_length(2)[symmetric]
-      by (force dest: nth_mem) (* XXX Slow *)
-    done
-
-  lemma state_set_n:
-    "state_set (trans_of A) \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
-    using states_n state_set_states by blast
-
-  lemma T_T:
-    "product.T = map T [0..<p]"
-    unfolding T_def trans_of_def N_def by auto
-
-  lemma states_length_p:
-    assumes "l \<in> product.states"
-    shows "length l = p"
-      using assms length_N product.states_length by simp
-
-  lemma trans_length_simp[simp]:
-    assumes "i < p"
-    shows "length (trans ! i) = n"
-      using assms trans_length process_length by (auto dest: nth_mem)
-
-  (* XXX Rename this way *)
-  lemmas mem_nth = aux
-
-  text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
+text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
 
   (*
   definition
@@ -211,6 +149,76 @@ begin
     assumes "(g, a, r, L') \<in> set (trans_s_fun L)"
     shows "(g, a, r, L') \<in> set (trans_fun L)"
       using assms unfolding trans_fun_def by auto
+
+end (* End of locale for implementation definitions *)
+
+locale Network_Reachability_Problem_precompiled' =
+  Network_Reachability_Problem_precompiled +
+  Network_Reachability_Problem_precompiled_defs' +
+  assumes action_set:
+    "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, a, _, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
+begin
+
+  lemma state_set_states:
+    "state_set (trans_of A) \<subseteq> product.states"
+    unfolding state_set_def trans_of_def product.product_trans_def product.states_def
+      product.product_trans_def product.product_ta_def product.product_trans_i_def product.product_trans_s_def
+    apply auto
+       apply blast
+      apply blast
+     apply (subst list_update_nth_split)
+      apply assumption
+     apply (subst (asm) nth_map)
+      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+     apply force
+    apply (subst list_update_nth_split)
+     apply (simp; fail)
+    apply safe
+     apply (subst (asm) (2) nth_map)
+      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+     apply force
+    apply (subst list_update_nth_split)
+     apply assumption
+    apply (subst (asm) nth_map)
+     apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+    apply force
+    done
+
+  lemma states_n:
+    "product.states \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
+    unfolding product.states_def
+    apply simp
+    unfolding N_def trans_of_def T_def
+    using state_set trans_length apply safe
+    apply (drule aux)
+    apply safe
+    using state_set
+    apply clarsimp
+    apply rotate_tac
+    subgoal for x i
+      apply (erule ballE[where x = i])
+       apply auto
+      unfolding process_length(2)[symmetric]
+      by (force dest: nth_mem) (* XXX Slow *)
+    done
+
+  lemma state_set_n:
+    "state_set (trans_of A) \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
+    using states_n state_set_states by blast
+
+  lemma T_T:
+    "product.T = map T [0..<p]"
+    unfolding T_def trans_of_def N_def by auto
+
+  lemma states_length_p:
+    assumes "l \<in> product.states"
+    shows "length l = p"
+      using assms length_N product.states_length by simp
+
+  lemma trans_length_simp[simp]:
+    assumes "i < p"
+    shows "length (trans ! i) = n"
+      using assms trans_length process_length by (auto dest: nth_mem)
 
   lemma in_trans_in_mapI:
     assumes
@@ -351,8 +359,7 @@ begin
 
   lemma length_all_actions_by_state_preserv:
       "length (all_actions_by_state M L) = na"
-    unfolding all_actions_by_state_def
-    by (auto intro: fold_acc_preserv simp add: length_actions_by_state_preserv)
+    unfolding all_actions_by_state_def by (auto intro: fold_acc_preserv)
 
   lemma less_naI:
     assumes
@@ -641,51 +648,7 @@ begin
 
 end (* End of locale assuming specific format for actions *)
 
-locale Networks_Reachability_Problem_precompiled'' = Networks_Reachability_Problem_precompiled' +
-  assumes init_in_state_set:
-      "init \<in> state_set (trans_of A)"
-begin
-
-  sublocale
-    Reachability_Problem_Impl A init "PR_CONST F" trans_fun inv_fun final_fun "IArray k"
-    apply standard
-    unfolding state_set_def
-        apply rule
-       apply rule
-      apply (auto; fail)
-     apply (rule init_in_state_set)
-    by rule
-
-  lemma F_reachable_correct:
-    "F_reachable
-    \<longleftrightarrow> (\<exists> L' u u'.
-        conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i))
-      )"
-    unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
-
-  definition
-    "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
-
-  theorem reachability_check:
-    "(uncurry0 reachability_checker,
-      uncurry0 (
-        RETURN (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
-      )
-     )
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  using hnr_F_reachable unfolding reachability_checker_def F_reachable_correct .
-
-  corollary reachability_checker_hoare:
-    "<emp> reachability_checker
-    <\<lambda> r. \<up>(r \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final))>\<^sub>t"
-   apply (rule cons_post_rule)
-   using reachability_check[to_hnr] apply (simp add: hn_refine_def)
-  by (sep_auto simp: pure_def)
-
-  subsubsection \<open>Post-processing\<close>
-
-  ML \<open>
+ML \<open>
     fun pull_let u t =
       let
         val t1 = abstract_over (u, t);
@@ -716,41 +679,55 @@ begin
     fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
   \<close>
 
-  ML \<open>
-    val th = @{thm succs_impl_def}
-    val r = get_rhs th;
-    val u1 = @{term "IArray (map int k)"};
-    val rewr1 = pull_let u1 r;
-    val r2 = get_rhs rewr1;
-    val u2 = @{term "inv_fun"};
-    val rewr2 = pull_let u2 r2;
-    val r3 = get_rhs rewr2;
-    val u3 = @{term "trans_fun"};
-    val rewr3 = pull_let u3 r3;
-    val mytac = fn ctxt => SELECT_GOAL (Local_Defs.unfold_tac ctxt [rewr1, rewr2, rewr3]) 1;
-  \<close>
+locale Network_Reachability_Problem_precompiled'' = Network_Reachability_Problem_precompiled' +
+  assumes init_in_state_set:
+      "init \<in> state_set (trans_of A)"
+begin
 
-  lemma inv_fun_alt_def:
-    "inv_fun i \<equiv> let I = (IArray inv) in I !! i"
-  unfolding inv_fun_def by simp
+  sublocale
+    Reachability_Problem_Impl A init "PR_CONST F" trans_fun inv_fun final_fun "IArray k"
+    apply standard
+    unfolding state_set_def
+        apply rule
+       apply rule
+      apply (auto; fail)
+     apply (rule init_in_state_set)
+    by rule
 
-  lemma inv_fun_rewr:
-    "(let I0 = trans_fun; I = inv_fun; I1 = y in xx I0 I I1) \<equiv>
-     (let I0 = trans_fun; I = (IArray inv); I' = \<lambda> i. I !! i; I1 = y in xx I0 I' I1)"
-  unfolding inv_fun_def[abs_def] by simp
+  lemma F_reachable_correct:
+    "F_reachable
+    \<longleftrightarrow> (\<exists> L' u u'.
+        conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i))
+      )"
+    unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
 
-  lemma inv_fun_rewr':
-    "(let I = inv_fun in xx I) \<equiv>
-     (let I = (IArray inv); I' = \<lambda> i. I !! i in xx I')"
-  unfolding inv_fun_def[abs_def] by simp
+  definition
+    "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
 
-  schematic_goal succs_impl_alt_def':
-    "succs_impl \<equiv> ?impl"
-  unfolding succs_impl_def
-   apply (tactic \<open>mytac @{context}\<close>)
-   unfolding inv_fun_rewr' trans_fun_def[abs_def]
-   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
-  by (rule Pure.reflexive)
+  theorem reachability_check:
+    "(uncurry0 reachability_checker,
+      uncurry0 (
+        RETURN (\<exists> L' u u'.
+        conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i)))
+      )
+     )
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  using hnr_F_reachable unfolding reachability_checker_def F_reachable_correct .
+
+  corollary reachability_checker_hoare:
+    "<emp> reachability_checker
+    <\<lambda> r. \<up>(r \<longleftrightarrow> (\<exists> L' u u'.
+        conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i)))
+       )
+    >\<^sub>t"
+   apply (rule cons_post_rule)
+   using reachability_check[to_hnr] apply (simp add: hn_refine_def)
+  by (sep_auto simp: pure_def)
+
+  subsubsection \<open>Post-processing\<close>
 
   schematic_goal succs_impl_alt_def:
     "succs_impl \<equiv> ?impl"
@@ -758,10 +735,14 @@ begin
    apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
-   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def] trans_s_fun_def trans_i_fun_def trans_i_from_def
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
   by (rule Pure.reflexive)
+
+thm trans_s_fun_def
 
   lemma reachability_checker_alt_def':
     "reachability_checker \<equiv>
@@ -771,18 +752,20 @@ begin
         final = F_impl;
         succs = succs_impl
       in worklist_algo2 sub start final succs"
-  unfolding reachability_checker_def by simp
+    unfolding reachability_checker_def by simp
 
   schematic_goal reachability_checker_alt_def:
     "reachability_checker \<equiv> ?impl"
-  unfolding reachability_checker_alt_def' succs_impl_def
+    unfolding reachability_checker_alt_def' succs_impl_def
+    (*apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>) *)
    apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
-   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
-   unfolding trans_map_def label_def
+    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+    unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def trans_i_from_def
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
    unfolding init_dbm_impl_def a\<^sub>0_impl_def
    unfolding F_impl_def
    unfolding final_fun_def[abs_def]
@@ -790,22 +773,21 @@ begin
    unfolding num_clocks
   by (rule Pure.reflexive)
 
-  schematic_goal reachability_checker_alt_def:
-    "reachability_checker \<equiv> ?impl"
-  unfolding succs_impl_def reachability_checker_def
-   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
-   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
-   unfolding num_clocks
-  oops
-
 end (* End of locale *)
 
+(* XXX Move *)
+lemma bex_n_simp:
+  "(\<exists> x \<in> set [0..<n]. P x) \<longleftrightarrow> (\<exists> x < n. P x)"
+  by auto
+
+(* XXX Move *)
+lemma ball_n_simp:
+  "(\<forall> x \<in> set [0..<n]. P x) \<longleftrightarrow> (\<forall> x < n. P x)"
+  by auto
+
 subsection \<open>Check preconditions\<close>
-context Reachability_Problem_precompiled_defs
+
+context Network_Reachability_Problem_precompiled_defs
 begin
 
   abbreviation
@@ -819,9 +801,12 @@ begin
 
   definition
     "check_pre \<equiv>
-      length inv = n \<and> length trans = n \<and> length k = m + 1 \<and> m > 0 \<and> n > 0 \<and> trans ! 0 \<noteq> []
+      length inv = p \<and> length trans = p
+      \<and> (\<forall> I \<in> set inv. length I = n) \<and> (\<forall> T \<in> set trans. length T = n)
+      \<and> length k = m + 1 \<and> p > 0 \<and> m > 0 \<and> n > 0
+      \<and> (\<forall> q < p. trans ! q ! 0 \<noteq> [])
       \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}
-      \<and> (\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n)"
+      \<and> (\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < n)"
 
   abbreviation
     "check_k_in c \<equiv> k ! c = 0 \<or> (c, k ! c) \<in> clkp_set'"
@@ -856,30 +841,112 @@ begin
     using [[simproc add: finite_Collect]] by (force intro: finite_Image)
   qed
 
+  definition
+    "check_trans_complete \<equiv>
+      (\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, In a, r1, l1')
+        \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'. q1 \<noteq> q2 \<and> (l2, g2, Out a, r2, l2') \<in> T q2 | _ \<Rightarrow> True)
+      \<and> (\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, Out a, r1, l1')
+        \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'. q1 \<noteq> q2 \<and> (l2, g2, In a, r2, l2') \<in> T q2 | _ \<Rightarrow> True)"
+
+  (* XXX Simplify proofs further up with this? *)
+  lemma T_alt_def:
+    "T i = {(l, t) | l t. l < n \<and> t \<in> set (trans ! i ! l)}"
+    unfolding T_def
+    apply safe
+     apply (force dest!: nth_mem)
+    by (force dest!: mem_nth)
+
+  lemma check_trans_1:
+    "(\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, In a, r1, l1')
+          \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'. q1 \<noteq> q2 \<and> (l2, g2, Out a, r2, l2') \<in> T q2 | _ \<Rightarrow> True)
+    \<longleftrightarrow>
+    list_all (\<lambda> q1. list_all (\<lambda> l. list_all (\<lambda> t1. case t1 of (g1, In a, r1, l1')
+          \<Rightarrow> list_ex (\<lambda> q2. q1 \<noteq> q2 \<and>
+              list_ex (\<lambda> l. list_ex (\<lambda> t. fst (snd t) = Out a) (trans ! q2 ! l)) [0..<n])
+            [0..<p]
+      | _ \<Rightarrow> True)
+          (trans ! q1 ! l))
+        [0..<n])
+      [0..<p]"
+    unfolding list_ex_iff list_all_iff T_alt_def bex_n_simp ball_n_simp
+    by (force split: act.split) (* XXX Slow *)
+
+  lemma check_trans_2:
+    "(\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, Out a, r1, l1')
+          \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'. q1 \<noteq> q2 \<and> (l2, g2, In a, r2, l2') \<in> T q2 | _ \<Rightarrow> True)
+    \<longleftrightarrow>
+    list_all (\<lambda> q1. list_all (\<lambda> l. list_all (\<lambda> t1. case t1 of (g1, Out a, r1, l1')
+          \<Rightarrow> list_ex (\<lambda> q2. q1 \<noteq> q2 \<and>
+              list_ex (\<lambda> l. list_ex (\<lambda> t. fst (snd t) = In a) (trans ! q2 ! l)) [0..<n])
+            [0..<p]
+      | _ \<Rightarrow> True)
+          (trans ! q1 ! l))
+        [0..<n])
+      [0..<p]"
+    unfolding list_ex_iff list_all_iff T_alt_def bex_n_simp ball_n_simp
+    by (force split: act.split) (* XXX Slow *)
+
+  lemma check_trans_complete_alt_def:
+    "check_trans_complete \<longleftrightarrow>
+      list_all (\<lambda> q1. list_all (\<lambda> l. list_all (\<lambda> t1. case t1 of (g1, In a, r1, l1')
+        \<Rightarrow> list_ex (\<lambda> q2. q1 \<noteq> q2 \<and>
+            list_ex (\<lambda> l. list_ex (\<lambda> t. fst (snd t) = Out a) (trans ! q2 ! l)) [0..<n])
+          [0..<p]
+    | _ \<Rightarrow> True)
+        (trans ! q1 ! l))
+      [0..<n])
+    [0..<p]
+   \<and> list_all (\<lambda> q1. list_all (\<lambda> l. list_all (\<lambda> t1. case t1 of (g1, Out a, r1, l1')
+        \<Rightarrow> list_ex (\<lambda> q2. q1 \<noteq> q2 \<and>
+            list_ex (\<lambda> l. list_ex (\<lambda> t. fst (snd t) = In a) (trans ! q2 ! l)) [0..<n])
+          [0..<p]
+    | _ \<Rightarrow> True)
+        (trans ! q1 ! l))
+      [0..<n])
+    [0..<p]"
+    unfolding check_trans_complete_def check_trans_1 check_trans_2 by (rule HOL.refl)
+
   lemma check_axioms:
-    "Reachability_Problem_precompiled n m k inv trans \<longleftrightarrow> check_pre \<and> check_ceiling"
-  unfolding Reachability_Problem_precompiled_def check_ceiling check_pre_def check_nat_subs by auto
+    "Network_Reachability_Problem_precompiled p n m k inv trans
+    \<longleftrightarrow> check_pre \<and> check_ceiling \<and> check_trans_complete"
+    unfolding
+      Network_Reachability_Problem_precompiled_def check_ceiling check_pre_def
+      check_trans_complete_def check_nat_subs
+    by auto
 
 end
 
-lemmas Reachability_Problem_precompiled_defs.check_axioms[code]
+lemmas Network_Reachability_Problem_precompiled_defs.check_axioms[code]
 
-lemmas Reachability_Problem_precompiled_defs.clkp_set'_def[code]
+lemmas Network_Reachability_Problem_precompiled_defs.clkp_set'_def[code]
 
-lemmas Reachability_Problem_precompiled_defs.clk_set'_def[code]
+lemmas Network_Reachability_Problem_precompiled_defs.clk_set'_def[code]
 
-lemmas Reachability_Problem_precompiled_defs.check_pre_def[code]
+lemmas Network_Reachability_Problem_precompiled_defs.check_pre_def[code]
 
-lemmas Reachability_Problem_precompiled_defs.check_ceiling_def[code]
+lemmas Network_Reachability_Problem_precompiled_defs.check_ceiling_def[code]
 
-export_code Reachability_Problem_precompiled in SML module_name Test
+lemmas Network_Reachability_Problem_precompiled_defs.check_trans_complete_alt_def[code]
 
-concrete_definition succs_impl' uses Reachability_Problem_precompiled.succs_impl_alt_def
+lemmas Network_Reachability_Problem_precompiled_defs.init_def[code]
+
+lemmas [code] =
+  Network_Reachability_Problem_precompiled_defs'.trans_out_map_def
+  Network_Reachability_Problem_precompiled_defs'.trans_in_map_def
+  Network_Reachability_Problem_precompiled_defs'.trans_i_map_def
+  Network_Reachability_Problem_precompiled_defs'.all_actions_by_state_def
+  Network_Reachability_Problem_precompiled_defs'.actions_by_state_def
+  Network_Reachability_Problem_precompiled_defs'.pairs_by_action_def
+
+
+export_code Network_Reachability_Problem_precompiled in SML module_name Test
+
+concrete_definition succs_impl' uses Network_Reachability_Problem_precompiled''.succs_impl_alt_def
 
 thm succs_impl'_def succs_impl'.refine
 
 concrete_definition reachability_checker_impl
-  uses Reachability_Problem_precompiled.reachability_checker_alt_def
+  uses Network_Reachability_Problem_precompiled''.reachability_checker_alt_def
 
 export_code reachability_checker_impl in SML_imp module_name TA
 

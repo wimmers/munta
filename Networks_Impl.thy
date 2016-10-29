@@ -38,7 +38,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
     "snd o (\<lambda> i. (f i, g i)) = g"
   by auto
 
-  locale Networks_Reachability_Problem_precompiled = Network_Reachability_Problem_precompiled_defs +
+  locale Network_Reachability_Problem_precompiled = Network_Reachability_Problem_precompiled_defs +
     assumes process_length: "length inv = p" "length trans = p"
         and inv_length: "\<forall> I \<in> set inv. length I = n"
         and trans_length: "\<forall> T \<in> set trans. length T = n"
@@ -53,8 +53,10 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
         and m_gt_0: "m > 0"
         and n_gt_0: "n > 0" and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
         and trans_complete:
-        "\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, In a, r1, l1') \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'. q1 \<noteq> q2 \<and> (l2, g2, Out a, r2, l2') \<in> T q2"
-        "\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, Out a, r1, l1') \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'. q1 \<noteq> q2 \<and> (l2, g2, In a, r2, l2') \<in> T q2"
+          "\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, In a, r1, l1') \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'.
+            q1 \<noteq> q2 \<and> (l2, g2, Out a, r2, l2') \<in> T q2 | _ \<Rightarrow> True"
+          "\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, Out a, r1, l1') \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 r2 l2'.
+            q1 \<noteq> q2 \<and> (l2, g2, In a, r2, l2') \<in> T q2 | _ \<Rightarrow> True"
   begin
 
     lemma consts_nats':
