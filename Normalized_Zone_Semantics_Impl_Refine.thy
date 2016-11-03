@@ -35,29 +35,33 @@ begin
   definition state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
     "state_set T = fst ` T \<union> (snd o snd o snd o snd) ` T"
 
-  locale Reachability_Problem_Impl =
-    Reachability_Problem A l\<^sub>0 F
-    for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" +
+locale Reachability_Problem_Impl_Defs =
+  Reachability_Problem A l\<^sub>0 F
+  for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" +
 
-    fixes trans_fun :: "('a, nat, int, 's) transition_fun"
-      and inv_fun :: "(nat, int, 's) invassn"
-      and F_fun :: "'s \<Rightarrow> bool"
-      and ceiling :: "int iarray"
-    assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
-        and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
-        and F_fun: "(F_fun, F) \<in> inv_rel (state_set (trans_of A))"
-        (* XXX *)
-        and start_location_in_states[intro]: "l\<^sub>0 \<in> state_set (trans_of A)"
-        and ceiling:
-          "(uncurry0 (return ceiling), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-  begin
+  fixes trans_fun :: "('a, nat, int, 's) transition_fun"
+    and inv_fun :: "(nat, int, 's) invassn"
+    and F_fun :: "'s \<Rightarrow> bool"
+    and ceiling :: "int iarray"
+begin
+  
+  (* XXX Should this be something different? *)
+  abbreviation "states \<equiv> {l\<^sub>0} \<union> (state_set (trans_of A))"
+  
+end
+
+locale Reachability_Problem_Impl =
+  Reachability_Problem_Impl_Defs A for A :: "('a, nat, int, 's) ta" +
+  assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states"
+      and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel states"
+      and F_fun: "(F_fun, F) \<in> inv_rel states"
+      and ceiling:
+        "(uncurry0 (return ceiling), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+begin
 
   lemma [sepref_fr_rules]:
     "(uncurry0 (return ceiling), uncurry0 (RETURN (PR_CONST k'))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   using ceiling by auto
-
-  (* XXX Should this be something different? *)
-  abbreviation "states \<equiv> (state_set (trans_of A))"
 
   definition succs where
     "succs \<equiv> \<lambda> (l, D).
@@ -107,7 +111,7 @@ begin
     "dbm_subset $ (Reachability_Problem.n $ A) \<equiv> PR_CONST (dbm_subset n)"
   by simp
 
-  abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> state_set (trans_of A))"
+  abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> states)"
 
   abbreviation "location_assn \<equiv> pure location_rel"
 
@@ -149,7 +153,7 @@ begin
 
   lemma [sepref_import_param]:
     "(l\<^sub>0, l\<^sub>0) \<in> location_rel"
-  using start_location_in_states by auto
+  by auto
 
   sepref_definition a\<^sub>0_impl is
     "uncurry0 (RETURN a\<^sub>0)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a state_assn'"
@@ -202,7 +206,7 @@ begin
   using n_bounded collect_clks_inv_clk_set[of A l] unfolding X_def by auto
 
   lemma inv_fun_rel:
-    assumes "l \<in> state_set (trans_of A)"
+    assumes "l \<in> states"
     shows "(inv_fun l, inv_of A l) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
   proof -
     have "(xs, xs) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
@@ -278,7 +282,7 @@ begin
   subgoal premises prems for x x'
   proof -
     { fix l :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
-      assume "\<forall> g a r l'. (g, a, r, l') \<in> set l \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> state_set (trans_of A)"
+      assume "\<forall> g a r l'. (g, a, r, l') \<in> set l \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> states"
       then have "(l, l) \<in> \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r location_rel\<rangle>list_rel"
       proof (induction l)
         case Nil then show ?case by simp
@@ -350,13 +354,16 @@ begin
   lemma reachable_states:
     "reachable (l', M) \<Longrightarrow> l' \<in> states"
   unfolding reachable_def E_closure
-  by (induction l \<equiv> l\<^sub>0 _ _ _ _ _  rule: steps_impl_induct) (auto elim: step_impl.cases)
+  by (induction l \<equiv> l\<^sub>0 _ _ _ _ _  rule: steps_impl_induct; force elim!: step_impl.cases simp: state_set_def)
 
   sublocale Worklist1 E a\<^sub>0 F_rel "subsumes n" succs
-  apply standard
-  apply (auto split: prod.split dest!: reachable_states)
-   unfolding succs_def E_def apply (auto; fail)
-  by (safe, erule step_impl.cases; force)
+    apply standard
+    apply (clarsimp split: prod.split dest!: reachable_states)
+    apply safe
+    unfolding succs_def E_def
+       apply (auto; fail)
+      apply (auto; fail)
+    by (safe, erule step_impl.cases; force)+
 
   sublocale Worklist2 E a\<^sub>0 F_rel "subsumes n" succs state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl
     apply standard
@@ -367,6 +374,8 @@ end (* End of locale *)
 
 context Reachability_Problem_precompiled
 begin
+
+  sublocale Defs: Reachability_Problem_Impl_Defs A 0 "PR_CONST F" by standard
 
   lemma
     "(IArray xs) !! i = xs ! i"
@@ -395,25 +404,25 @@ begin
   by (force dest: nth_mem)
 
   lemma trans_fun_trans_of[intro, simp]:
-    "(trans_fun, trans_of A) \<in> transition_rel (state_set (trans_of A))"
-  using state_set_n unfolding transition_rel_def trans_of_def A_def T_def
+    "(trans_fun, trans_of A) \<in> transition_rel Defs.states"
+  using state_set_n n_gt_0 unfolding transition_rel_def trans_of_def A_def T_def
   by (fastforce simp: trans_fun_alt_def)
 
   definition "inv_fun l \<equiv> (IArray inv) !! l"
 
   lemma inv_fun_inv_of[intro, simp]:
-    "(inv_fun, inv_of A) \<in> inv_rel (state_set (trans_of A))"
-  using state_set_n unfolding inv_rel_def inv_fun_def[abs_def] inv_of_def A_def I_def[abs_def]
+    "(inv_fun, inv_of A) \<in> inv_rel Defs.states"
+  using state_set_n n_gt_0 unfolding inv_rel_def inv_fun_def[abs_def] inv_of_def A_def I_def[abs_def]
   by auto
 
   definition "final_fun = List.member final"
 
   lemma final_fun_final[intro, simp]:
-    "(final_fun, F) \<in> inv_rel (state_set (trans_of A))"
+    "(final_fun, F) \<in> inv_rel Defs.states"
   using state_set_n unfolding F_def final_fun_def inv_rel_def by (auto simp: in_set_member)
 
   lemma start_states[intro, simp]:
-    "0 \<in> state_set (trans_of A)"
+    "0 \<in> Defs.states"
   proof -
     obtain g r l' where "trans ! 0 ! 0 = (g, r, l')" by (metis prod_cases3)
     with start_has_trans n_gt_0 trans_length show ?thesis
@@ -466,9 +475,10 @@ begin
     "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   unfolding br_def by sepref_to_hoare sep_auto
 
-  sublocale Reachability_Problem_Impl A 0 "PR_CONST F" trans_fun inv_fun final_fun "IArray k"
+  sublocale Reachability_Problem_Impl 0 "PR_CONST F" trans_fun inv_fun final_fun "IArray k" A
+    unfolding PR_CONST_def
     apply standard
-  using iarray_k' by auto
+    using iarray_k' by fastforce+
 
   lemma F_reachable_correct:
     "F_reachable

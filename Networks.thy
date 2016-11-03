@@ -1,5 +1,6 @@
 theory Networks
   imports Timed_Automata Normalized_Zone_Semantics_Impl
+    "~/Formalizations/Experiments/Reordering_Quantifiers"
 begin
 
 no_notation Ref.update ("_ := _" 62)
@@ -37,6 +38,27 @@ where
      \<rbrakk> \<Longrightarrow> N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>"
 
 inductive_cases[elim!]: "N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>"
+
+inductive steps_n ::
+  "('a, 'c, 't, 's) nta \<Rightarrow> 's list \<Rightarrow> ('c, ('t::time)) cval
+  \<Rightarrow> 's list \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
+("_ \<turnstile>\<^sub>N \<langle>_, _\<rangle> \<rightarrow>* \<langle>_,_\<rangle>" [61,61,61] 61)
+where
+  refl: "N \<turnstile>\<^sub>N \<langle>l, Z\<rangle> \<rightarrow>* \<langle>l, Z\<rangle>" |
+  step: "N \<turnstile>\<^sub>N \<langle>l, Z\<rangle> \<rightarrow>* \<langle>l', Z'\<rangle> \<Longrightarrow> N \<turnstile>\<^sub>N \<langle>l', Z'\<rangle> \<rightarrow> \<langle>l'', Z''\<rangle>
+        \<Longrightarrow> N \<turnstile>\<^sub>N \<langle>l, Z\<rangle> \<rightarrow>* \<langle>l'', Z''\<rangle>"
+
+declare steps_n.intros[intro]
+
+lemma stepI2:
+  "N \<turnstile>\<^sub>N \<langle>l, Z\<rangle> \<rightarrow>* \<langle>l'', Z''\<rangle>" if "N \<turnstile>\<^sub>N \<langle>l', Z'\<rangle> \<rightarrow>* \<langle>l'', Z''\<rangle>" "N \<turnstile>\<^sub>N \<langle>l, Z\<rangle> \<rightarrow> \<langle>l', Z'\<rangle>"
+  using that
+  apply induction
+   apply rule
+    apply (rule refl)
+   apply assumption
+  apply simp
+  by (rule; assumption)
 
 lemma step_n_t_I:
   "\<lbrakk>\<forall> p \<in> {..<length N}. u \<turnstile> inv_of (N!p) (L!p); \<forall> p \<in> {..<length N}. u \<oplus> d \<turnstile> inv_of (N!p) (L!p);
@@ -381,21 +403,70 @@ lemma
   shows "finite {t. \<exists> a c. a \<in> A \<and> P c \<and> t = (a,c)}"
   using [[simp_trace]] apply simp
   oops
-
-  lemma finite_Collect_bounded_ex_4 [simp]:
-    assumes "finite {(a,b,c,d) | a b c d. P a b c d}"
-    shows
-      "finite {x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
-      \<longleftrightarrow> (\<forall> a b c d. P a b c d \<longrightarrow> finite {x. Q x a b c d})"
+  
+  
+  (*
+  lemma finite_product_trans_s:
+    "finite product_trans_s"
   proof -
-    have *:
-      "{x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
-      = {x. \<exists> t. t \<in> {(a,b,c,d) | a b c d. P a b c d} \<and> (\<exists>a b c d. t = (a, b, c, d) \<and> Q x a b c d)}"
-      by simp
-    show ?thesis apply (subst *)
-      apply (subst finite_Collect_bounded_ex)
-      using assms by simp+
+    let ?N = "\<Union> (trans_of ` set N)"
+    (* XXX Possible intro weakening for finiteness method *)
+    have "(g1, In a, r1, l1') \<in> snd ` ?N" if
+      "(L ! p, g1, In a, r1, l1') \<in> map trans_of N ! p" "p < length L" "L \<in> states"
+      for L p g1 a r1 l1'
+      using that by (auto simp: states_length dest: nth_mem)
+    let ?S = "{(L, p, q, g1, g2, a, r1, r2, l1', l2')|L p q g1 g2 a r1 r2 l1' l2'.
+      L \<in> states \<and> (L ! p, g1, In a, r1, l1') \<in> map trans_of N ! p \<and>
+        (L ! q, g2, Out a, r2, l2') \<in> map trans_of N ! q \<and> p < length L \<and> q < length L}"
+    have S_alt_def: "?S = {t. \<exists> L p q g1 g2 a r1 r2 l1' l2'.
+      L \<in> states \<and> (L ! p, g1, In a, r1, l1') \<in> map trans_of N ! p \<and>
+        (L ! q, g2, Out a, r2, l2') \<in> map trans_of N ! q \<and> p < length L \<and> q < length L
+        \<and> t = (L, p, q, g1, g2, a, r1, r2, l1', l2')}" by auto
+    have "finite ?S"
+      unfolding S_alt_def using finite_states
+      supply [[simproc add: ex_reorder]]
+      apply simp
+      apply clarsimp
+      apply (simp only: ex_simps[symmetric])
+      oops
+      supply [[simproc del: ex_reorder]]
+      apply simp
+      
+    define F1 where "F1 \<equiv> {(g1, a, r1, l1') | g1 a r1 l1'. (g1, In a, r1, l1') \<in> snd ` ?N}"
+    have fin1: "finite F1" unfolding F1_def using finite_trans
+      using [[simproc add: finite_Collect]] by (auto simp: inj_on_def intro: finite_vimageI)
+    define F2 where "F2 \<equiv> {(g1, a, r1, l1') | g1 a r1 l1'. (g1, Out a, r1, l1') \<in> snd ` ?N}"
+    have fin2: "finite F2" unfolding F2_def using finite_trans
+      using [[simproc add: finite_Collect]] by (auto simp: inj_on_def intro: finite_vimageI)
+    define R where "R \<equiv> {(L, p, q, g1, g2, a, r1, r2, l1', l2')|L p q g1 g2 a r1 r2 l1' l2'.
+      L \<in> states \<and> p < length L \<and> q < length L \<and> (g1, a, r1, l1') \<in> F1 \<and> (g2, a, r2, l2') \<in> F2}"
+
+    have R_alt_def: "R = {t. \<exists> L p q g1 a r1 l1' g2 r2 l2'.
+      L \<in> states \<and> p < length L \<and> q < length L
+      \<and> (g1, a, r1, l1') \<in> F1 \<and> (g2, a, r2, l2') \<in> F2
+      \<and> t = (L, p, q, g1, g2, a, r1, r2, l1', l2')
+      }"
+      unfolding R_def by auto
+    have "?S \<subseteq> R" by (fastforce simp: R_alt_def F1_def F2_def states_length dest: nth_mem)
+    moreover have "finite R"
+      unfolding R_alt_def
+      using fin1 fin2 finite_states
+      using [[simproc add: finite_Collect]]
+      by (auto simp: inj_on_def intro: finite_vimageI intro!: finite_imageI)
+    ultimately have "finite ?S" by (rule finite_subset)
+    moreover have
+      "product_trans_s
+      \<subseteq> (\<lambda> (L, p, q, g1, g2, a, r1, r2, l1', l2'). (L, g1 @ g2, a, r1 @ r2, L[p := l1', q := l2'])) ` ?S"
+      unfolding product_trans_s_def apply (rule)
+       apply simp
+       apply safe[]
+      subgoal for a aa ab ac b L p q g1 g2 ad r1 r2 l1' l2'
+        apply (rule image_eqI[where x = "(L, p, q, g1, g2, ad, r1, r2, l1', l2')"])
+        by auto
+      done
+    ultimately show ?thesis by (auto intro: finite_subset)
   qed
+*)
 
   lemma finite_product_trans_s:
     "finite product_trans_s"
@@ -428,8 +499,6 @@ lemma
     moreover have "finite R"
       unfolding R_alt_def
       using fin1 fin2 finite_states
-      apply simp
-      apply (subst finite_Collect_bounded_ex_4)
       using [[simproc add: finite_Collect]]
       by (auto simp: inj_on_def intro: finite_vimageI intro!: finite_imageI)
     ultimately have "finite ?S" by (rule finite_subset)
@@ -513,15 +582,58 @@ begin
     shows "u \<turnstile> inv_of (N ! p) (L!p)"
   using assms unfolding product_invariant_def by (force intro: concat_guard)
 
+  lemma states_step:
+    "L' \<in> states" if "N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>" "L \<in> states"
+    using that unfolding states_def apply safe
+        apply simp
+       apply simp
+      apply force
+     apply (subst list_update_nth_split)
+      apply simp
+     apply rule
+      apply clarsimp
+    subgoal premises prems for p g a r l'
+      using prems(3,5) by force
+     apply clarsimp
+     apply (auto; fail)
+    apply (subst list_update_nth_split)
+     apply (simp; fail)
+    apply safe
+     apply simp
+    subgoal premises prems
+      using prems(3,6) by force
+    apply (subst list_update_nth_split)
+     apply simp
+    apply safe
+     apply simp
+    subgoal premises prems
+      using prems(3,5) by force
+    by auto
+  
+  lemma states_steps:
+    "L' \<in> states" if "N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>" "L \<in> states"
+    using that apply (induction N \<equiv> N _ _ _ _ rule: steps_n.induct)
+     apply assumption
+    apply simp
+    by (rule states_step; assumption)
+
 end
+
+lemma steps_altI:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<rightarrow>* \<langle>l'', Z''\<rangle>" if
+  "A \<turnstile> \<langle>l, Z\<rangle> \<rightarrow>* \<langle>l', Z'\<rangle>" "A \<turnstile> \<langle>l', Z'\<rangle> \<rightarrow> \<langle>l'', Z''\<rangle>"
+  using that by (induction; blast)
 
 (* Network + valid start state *)
 locale Product_TA =
   Product_TA_Defs' N for N :: "('a, 'c, 't :: time, 's) nta" +
   fixes L :: "'s list"
-  assumes len[simp]: "length L = length N"
-      and states[intro]: "L \<in> states"
+  assumes states[intro]: "L \<in> states"
 begin
+
+  lemma
+    len[simp]: "length L = length N"
+  using states unfolding states_def by auto
 
   lemma product_complete:
     assumes step: "N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>"
@@ -587,6 +699,40 @@ begin
     by (auto intro: product_invariantD intro!: step_n_s)
   qed
 
+  lemma states_product_step[intro]:
+    "L' \<in> states" if "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>"
+    by (blast intro: product_sound states_step that)
+  
+  lemma product_steps_sound:
+    "N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>" if "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>"
+    using that states proof (induction A \<equiv> product_ta _ _ _ _ rule: steps.induct)
+    case (refl l u)
+    then show ?case by blast
+  next
+    case prems: (step l u l' u' l'' u'')
+    interpret interp: Product_TA N l by standard (rule prems)
+    from prems have *: "N \<turnstile>\<^sub>N \<langle>l', u'\<rangle> \<rightarrow>* \<langle>l'',u''\<rangle>" by auto
+    show ?case
+      apply (rule stepI2)
+       apply (rule *)
+      using prems by (auto intro: interp.product_sound)
+  qed
+  
+  lemma product_steps_complete:
+    "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>" if "N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>"
+    using that states proof (induction N \<equiv> N _ _ _ _ rule: steps_n.induct)
+    case (refl l Z)
+    then show ?case by blast
+  next
+    case prems: (step l Z l' Z' l'' Z'')
+    interpret interp: Product_TA N l' by standard (blast intro: prems states_steps)
+    from prems show ?case by - (rule steps_altI, auto intro!: interp.product_complete)
+  qed
+  
+  lemma product_correct:
+    "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle> \<longleftrightarrow> N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>"
+    by (metis product_steps_complete product_steps_sound)
+  
   end (* End context: network + valid start state *)
 
 end (* End of theory *)

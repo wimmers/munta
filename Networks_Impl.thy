@@ -198,6 +198,26 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
 
     sublocale Reachability_Problem A init "PR_CONST F"
       using has_clock clkp_set_consts_nat clk_set_eq by - (standard; blast)
+    thm init_states
+    
+  lemma [simp]:
+    "fst ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S = fst ` S"
+    by force
+  
+  lemma [simp]:
+    "(snd \<circ> snd \<circ> snd \<circ> snd) ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S
+    = (snd \<circ> snd \<circ> snd \<circ> snd) ` S"
+    by force
+  
+  lemma map_trans_of:
+    "map trans_of (map conv_A N) = map (op ` conv_t) (map trans_of N)"
+    by (simp add: trans_of_def split: prod.split)
+  
+  lemma [simp]:
+    "Product_TA_Defs.states (map conv_A N) = Product_TA_Defs.states N"
+    unfolding Product_TA_Defs.states_def map_trans_of by simp
+
+  sublocale product': Product_TA "map conv_A N" init by standard (simp add: init_states)
 
   end (* End of locale *)
 
