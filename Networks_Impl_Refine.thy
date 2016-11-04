@@ -749,22 +749,16 @@ begin
      apply (simp only: ex_simps[symmetric])
      apply (tactic \<open>rotate_ex_tac @{context} 1\<close>)
      apply (fastforce simp add: states_length_p)
-    apply (tactic \<open>rotate_ex_tac @{context} 1\<close>)
-    apply (simp add: states_length_p trans_of_def image_Collect N_def)
-    subgoal for L pa q g1 g2 ah r1 r2 l1' l2'
-      (* XXX Use tactic here *)
-      apply (rule exI[where x = pa])
-      apply (rule exI[where x = q])
-      apply (rule exI)
-      apply (rule exI)
-      apply rule
-      apply (rule HOL.refl)
-      apply (rule exI)
-      apply (rule exI)
-      apply rule
-       apply (rule HOL.refl)
-      by force
-    done
+    apply (simp add: states_length_p trans_of_def image_Collect N_def del: ex_simps)
+    apply (tactic \<open>rearrange_ex_tac @{context} 1\<close>)
+    apply (simp only: ex_simps)
+    apply (rule, rule, assumption)
+    apply (simp only: ex_simps[symmetric])
+    apply (tactic \<open>rearrange_ex_tac @{context} 1\<close>)
+    apply simp
+    apply (rule, rule, assumption, rule, assumption)
+    apply (rule exI, rule exI, rule conjI, rule HOL.refl)+
+    by force
 
   lemma product_trans_conv:
     "product'.product_trans = conv_t ` product.product_trans"
