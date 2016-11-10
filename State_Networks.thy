@@ -516,20 +516,23 @@ begin
 
   thm states_step
 
-  lemma prod_sound:
+  lemma prod_sound':
     assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
+           \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
     using assms proof cases
     case (step_t d)
     then show ?thesis
     proof cases
       case prems: 1
       then have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>L', u'\<rangle>" unfolding inv_of_simp by fast
-      from product_delay_sound[OF this] prems show ?thesis
+      with product_delay_sound[OF this] prems show ?thesis
         apply simp
+        apply rule
         apply (subst A_unfold)
         apply (rule step_sn_t)
-        by (simp add: Len)+
+          apply (simp add: Len)+
+        by (blast intro!: inv)+
     qed
   next
     case (step_a a)
@@ -547,10 +550,12 @@ begin
           unfolding prod_trans_i_def by force
         with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Act (c, m))\<^esub> \<langle>L', u'\<rangle>"
           unfolding inv_of_simp by - rule
-        from product_action_sound[OF this] prems * show ?thesis
+        with product_action_sound[OF this] prems * show ?thesis
           apply (subst A_unfold)
-          apply (rule step_sn_i)
-          by (simp add: Len)+
+          apply (rule conjI)
+           apply (rule step_sn_i)
+               apply (simp add: Len)+
+          by blast
       next
         case 2
         then obtain ci co mi mo where *:
@@ -560,21 +565,27 @@ begin
           unfolding prod_trans_s_def by auto
         with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Syn (ci, mi) (co, mo))\<^esub> \<langle>L', u'\<rangle>"
           unfolding inv_of_simp by - rule
-        from product_action_sound[OF this] prems * show ?thesis
+        with product_action_sound[OF this] prems * show ?thesis
           apply (subst A_unfold)
-          apply (rule step_sn_s)
-          by (simp add: Len)+
+          apply (rule conjI)
+           apply (rule step_sn_s)
+                apply (simp add: Len)+
+          by blast
       qed
     qed
   qed
+  
+  lemmas prod_sound = prod_sound'[THEN conjunct1]
+  lemmas prod_inv_1 = prod_sound'[THEN conjunct2, THEN conjunct1]
+  lemmas prod_inv_2 = prod_sound'[THEN conjunct2, THEN conjunct2]
 
   lemma states_prod_step[intro]:
     "L' \<in> states" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    sorry
+    using that by (intro states_product_step prod_inv_1)
 
   lemma inv_prod_step[intro]:
     "\<forall>p<length P. (P ! p) (L' ! p) s'" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    sorry
+    using that by (intro states_product_step prod_inv_2)
 
   lemma prod_steps_sound:
     assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>"
