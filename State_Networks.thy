@@ -101,7 +101,7 @@ locale Prod_TA_Defs =
   fixes A :: "('a, 'c, 't, 's, 'st) snta"
 begin
 
-  interpretation Product_TA_Defs "fst A" .
+  sublocale Product_TA_Defs "fst A" .
 
 term product_ta
 
@@ -165,165 +165,6 @@ term product_ta
   lemma collect_clkvt_prod_trans_subs:
     "collect_clkvt prod_trans \<subseteq> collect_clkvt T'"
     unfolding collect_clkvt_def prod_trans_def prod_trans_i_def prod_trans_s_def by fastforce
-
-  (* XXX No conditional split *)
-  (*
-  lemma statesI_aux:
-    fixes L
-    assumes L: "L \<in> states"
-    assumes
-      "p < length T"
-      "(l, g, a, r, l') \<in> T ! p"
-    shows "(L[p := l]) \<in> states"
-    unfolding states_def apply clarsimp
-    apply rule
-    using L apply (simp add: states_def)
-    apply rule
-    apply (subst list_update_nth_split)
-    using assms apply (auto simp: states_def)
-    by blast
-*)
-(*
-  lemma product_trans_s_alt_def:
-    "product_trans_s =
-      {(L, g, a, r, L') | L g a r L'. \<exists> p q g1 g2 r1 r2 l1' l2'.
-      L \<in> states \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-      g = g1 @ g2 \<and> r = r1 @ r2 \<and> L' = L[p:=l1', q:=l2']
-        \<and> (L!p, g1, In a, r1, l1') \<in> T!p \<and> (L!q, g2, Out a, r2, l2') \<in> T!q
-      }"
-    unfolding product_trans_s_def by (safe; metis)
-*)
-  (*
-  context
-    assumes states_not_empty: "states \<noteq> {}"
-    assumes trans_complete:
-      "\<forall> p < length T. \<forall> t1 \<in> T ! p. case t1 of (l1, g1, In a, r1, l1')
-      \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, Out a, r2, l2') \<in> T ! q) |
-      (l1, g1, Out a, r1, l1')
-      \<Rightarrow> \<exists> q < length T. p \<noteq> q \<and> (\<exists> l2 g2 r2 l2'. (l2, g2, In a, r2, l2') \<in> T ! q) | _ \<Rightarrow> True"
-  begin
-
-  lemma collect_clkt_product_trans_sups:
-    "collect_clkt product_trans \<supseteq> \<Union> (collect_clkt ` set T)"
-  proof
-    fix x assume "x \<in> \<Union> (collect_clkt ` set T)"
-    then obtain trans l1 g1 a' r1 l1' where x:
-      "trans \<in> set T" "(l1, g1, a', r1, l1') \<in> trans" "x \<in> collect_clock_pairs g1"
-      unfolding collect_clkt_def by force
-    then obtain p where p:
-        "p < length T" "T ! p = trans"
-      by (auto dest!: aux)
-    from states_not_empty obtain L where L: "L \<in> states" by auto
-    have "length T = length L" by (auto simp: states_length[OF \<open>L \<in> states\<close>])
-    show "x \<in> collect_clkt product_trans"
-    proof (cases a')
-      case a': (In a)
-      with x p trans_complete obtain q l2 g2 r2 l2' where trans2:
-        "q < length T" "(l2, g2, Out a, r2, l2') \<in> T ! q" "p \<noteq> q"
-        by atomize_elim fastforce
-      have "L[p := l1, q := l2] \<in> states" (is "?L \<in> _")
-        using L p(1) x(1,2) trans2 unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
-      moreover have "?L ! p = l1" "?L ! q = l2"
-        using \<open>p \<noteq> q\<close> \<open>p < length T\<close> \<open>q < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      moreover note t = calculation
-      have "(?L, g1 @ g2, a, r1 @ r2, ?L[p := l1', q := l2']) \<in> product_trans_s"
-        unfolding product_trans_s_alt_def
-        apply clarsimp
-        using t p(1) x(1,2) trans2 unfolding p(2)[symmetric] a' \<open>length T = length L\<close>
-        by metis
-      moreover have "x \<in> collect_clock_pairs (g1 @ g2)"
-        using x(3) by (auto simp: collect_clock_pairs_def)
-      ultimately show ?thesis unfolding collect_clkt_def product_trans_def by force
-    next
-      case a': (Out a)
-      with x p trans_complete obtain q l2 g2 r2 l2' where trans2:
-        "q < length T" "(l2, g2, In a, r2, l2') \<in> T ! q" "p \<noteq> q"
-        by atomize_elim fastforce
-      have "L[q := l2, p := l1] \<in> states" (is "?L \<in> _")
-        using L p(1) x(1,2) trans2 unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
-      moreover have "?L ! p = l1" "?L ! q = l2"
-        using \<open>p \<noteq> q\<close> \<open>p < length T\<close> \<open>q < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      moreover note t = calculation
-      have "(?L, g2 @ g1, a, r2 @ r1, ?L[q := l2', p := l1']) \<in> product_trans_s"
-        unfolding product_trans_s_alt_def
-        apply clarsimp
-        using t p(1) x(1,2) trans2 unfolding p(2)[symmetric] a' \<open>length T = length L\<close>
-        by metis
-      moreover have "x \<in> collect_clock_pairs (g2 @ g1)"
-        using x(3) by (auto simp: collect_clock_pairs_def)
-      ultimately show ?thesis unfolding collect_clkt_def product_trans_def by force
-    next
-      case a': (Sil a)
-      have "L[p := l1] \<in> states" (is "?L \<in> _")
-        using L p(1) x(1,2) unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
-      moreover have "?L ! p = l1"
-        using \<open>p < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      ultimately have "(?L, g1, a, r1, ?L[p := l1']) \<in> product_trans_i"
-        using x p unfolding product_trans_i_def a' by (force simp: states_length[OF \<open>L \<in> states\<close>])
-      with x(3) show ?thesis unfolding collect_clkt_def product_trans_def by force
-    qed
-  qed
-
-  lemma collect_clkvt_product_trans_sups:
-    "collect_clkvt product_trans \<supseteq> \<Union> (collect_clkvt ` set T)"
-  proof
-    fix x assume "x \<in> \<Union> (collect_clkvt ` set T)"
-    then obtain trans l1 g1 a' r1 l1' where x:
-      "trans \<in> set T" "(l1, g1, a', r1, l1') \<in> trans" "x \<in> set r1"
-      unfolding collect_clkvt_def by force
-    then obtain p where p:
-        "p < length T" "T ! p = trans"
-      by (auto dest!: aux)
-    from states_not_empty obtain L where L: "L \<in> states" by auto
-    show "x \<in> collect_clkvt product_trans"
-    proof (cases a')
-      case a': (In a)
-      with x p trans_complete obtain q l2 g2 r2 l2' where trans2:
-        "q < length T" "(l2, g2, Out a, r2, l2') \<in> T ! q" "p \<noteq> q"
-        by atomize_elim fastforce
-      moreover have "L[p := l1, q := l2] \<in> states" (is "?L \<in> _")
-        using L p(1) x(1,2) trans2 unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
-      moreover have "?L ! p = l1" "?L ! q = l2"
-        using \<open>p \<noteq> q\<close> \<open>p < length T\<close> \<open>q < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      ultimately have "(?L, g1 @ g2, a, r1 @ r2, ?L[p := l1', q := l2']) \<in> product_trans_s"
-        using p(1) x trans2 unfolding p(2)[symmetric] a' product_trans_s_def
-        by (fastforce simp: states_length[OF \<open>L \<in> states\<close>])
-      with x(3) show ?thesis unfolding collect_clkvt_def product_trans_def by force
-    next
-      case a': (Out a)
-      with x p trans_complete obtain q l2 g2 r2 l2' where trans2:
-        "q < length T" "(l2, g2, In a, r2, l2') \<in> T ! q" "p \<noteq> q"
-        by atomize_elim fastforce
-      moreover have "L[q := l2, p := l1] \<in> states" (is "?L \<in> _")
-        using L p(1) x(1,2) trans2 unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
-      moreover have "?L ! p = l1" "?L ! q = l2"
-        using \<open>p \<noteq> q\<close> \<open>p < length T\<close> \<open>q < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      ultimately have "(?L, g2 @ g1, a, r2 @ r1, ?L[q := l2', p := l1']) \<in> product_trans_s"
-        using p(1) x trans2 unfolding p(2)[symmetric] a' product_trans_s_def
-        by (fastforce simp: states_length[OF \<open>L \<in> states\<close>])
-      with x(3) show ?thesis unfolding collect_clkvt_def product_trans_def by force
-    next
-      case a': (Sil a)
-      have "L[p := l1] \<in> states" (is "?L \<in> _")
-        using L p(1) x(1,2) unfolding p(2)[symmetric] by (auto intro!: statesI_aux)
-      moreover have "?L ! p = l1"
-        using \<open>p < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
-      ultimately have "(?L, g1, a, r1, ?L[p := l1']) \<in> product_trans_i"
-        using x p unfolding product_trans_i_def a' by (force simp: states_length[OF \<open>L \<in> states\<close>])
-      with x(3) show ?thesis unfolding collect_clkvt_def product_trans_def by force
-    qed
-  qed
-
-  lemma collect_clkt_product_trans:
-    "collect_clkt product_trans = \<Union> (collect_clkt ` set T)"
-    using collect_clkt_product_trans_sups collect_clkt_product_trans_subs by simp
-
-  lemma collect_clkvt_product_trans:
-    "collect_clkvt product_trans = \<Union> (collect_clkvt ` set T)"
-  using collect_clkvt_product_trans_sups collect_clkvt_product_trans_subs by simp
-
-  end (* End of context for syntactic 1-to-1 correspondence for transitions *)
-*)
 
 term N term P
 
@@ -410,7 +251,7 @@ locale Prod_TA_Defs' =
   Prod_TA_Defs A for A :: "('a, 'c, 't :: time, 's, 'st) snta"
 begin
 
-  interpretation Product_TA_Defs' "fst A".
+  sublocale Product_TA_Defs' "fst A".
 
   thm Networks.Product_TA_Defs'.product_invariantD product_invariantD
 
@@ -451,7 +292,7 @@ locale Prod_TA =
       and inv: "\<forall>p<length P. (P ! p) (L ! p) s"
 begin
 
-  interpretation Product_TA N L by standard rule
+  sublocale Product_TA N L by standard rule
 
   term product_ta
 
