@@ -61,13 +61,13 @@ proof -
 qed
 
 (* XXX Unused *)
-(* This is for automata carrying real time annotations *)
+(* This is for automata carrying int time annotations *)
 lemma standard_abstraction_int:
   assumes "finite (clkp_set A)" "finite (collect_clkvt (trans_of A))" "\<forall>(_,m::int) \<in> clkp_set A. m \<in> \<nat>"
-  shows "valid_abstraction A (clk_set A) (default_ceiling A)"
+      and "clk_set A \<subseteq> X" "finite X"
+  shows "valid_abstraction A X (default_ceiling A)"
 proof -
-  from assms have 1: "finite (clk_set A)" by auto
-  have 2: "collect_clkvt (trans_of A) \<subseteq> clk_set A" by auto
+  from \<open>_ \<subseteq> X\<close> have 2: "collect_clkvt (trans_of A) \<subseteq> X" by auto
   from assms obtain L where L: "distinct L" "set L = clkp_set A" by (meson finite_distinct_list)
   let ?M = "\<lambda> c. {m . (c, m) \<in> clkp_set A}"
   let ?X = "clk_set A"
@@ -82,10 +82,10 @@ proof -
     with A have "?k c = nat (Max (?M c))" by auto
     from fin A have "Max (?M c) \<ge> m" by auto
     moreover from A assms(3) have "m \<in> \<nat>" by auto
-    ultimately have "m \<le> ?k c" "m \<in> \<nat>" "c \<in> clk_set A" using A by force+
+    ultimately have "m \<le> ?k c" "m \<in> \<nat>" "c \<in> X" using A \<open>clk_set A \<subseteq> X\<close> by force+
   }
-  then have "\<forall>(x, m)\<in>clkp_set A. m \<le> ?k x \<and> x \<in> clk_set A \<and> m \<in> \<nat>" by blast
-  with 1 2 have "valid_abstraction A ?X ?k" by - (standard, assumption+)
+  then have "\<forall>(x, m)\<in>clkp_set A. m \<le> ?k x \<and> x \<in> X \<and> m \<in> \<nat>" by blast
+  with \<open>finite X\<close> 2 have "valid_abstraction A X ?k" by - (standard; assumption)
   then show ?thesis unfolding default_ceiling_def by auto
 qed
 
@@ -2270,25 +2270,25 @@ using assms
  apply (auto; fail)
 by blast+
 
-
-
 definition "subsumes n = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset n M M')"
+
 
 locale Reachability_Problem =
   fixes A :: "('a, nat, int, 's) ta" (* :: "('a, 'c, 't::time, 's) ta" *)
     and l\<^sub>0 :: 's
     and F :: "'s \<Rightarrow> bool"
+    and n :: nat
   assumes finite_trans[intro, simp]: "finite (trans_of A)"
       and finite_inv[intro]: "finite (range (inv_of A))"
-      and triv_clock_numbering: "clk_set A = {1..card (clk_set A)}"
-      and not_empty: "clk_set A \<noteq> {}"
+      and clocks_n: "clk_set A \<subseteq> {1..n}"
       and consts_nats: "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
+      and n_gt0[intro, simp]: "n > 0"
 
 begin
 
   lemma clock_range:
-    "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0"
-  using triv_clock_numbering by force
+    "\<forall>c\<in>clk_set A. c \<le> n \<and> c \<noteq> 0"
+  using clocks_n by force
 
   lemma consts_ints:
     "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
@@ -2302,14 +2302,7 @@ begin
     "finite (collect_clkvt (trans_of A))"
   unfolding collect_clkvt_def using [[simproc add: finite_Collect]] by auto
 
-  lemma finite_ta_A[intro, simp]:
-    "finite_ta A"
-  unfolding finite_ta_def using consts_nats not_empty triv_clock_numbering by fastforce
-  
-
-  definition "X \<equiv> clk_set A"
-  (* definition "v \<equiv> default_numbering X" *)
-  definition "n \<equiv> card X"
+  definition "X \<equiv> {1..n}"
   (* Tailored towards the needs of the specific implementation semantics *)
   definition "v i \<equiv> if i > 0 \<and> i \<le> n then i else (Suc n)"
   definition "x \<equiv> SOME x. x \<notin> X"
@@ -2324,19 +2317,14 @@ begin
     from \<open>i > n\<close> have "i \<notin> {1..n}" by auto
     then have
       "i \<notin> clk_set A"
-    using triv_clock_numbering unfolding n_def X_def by fast
+    using clocks_n unfolding X_def by fast
     then have "{m. (i, m) \<in> clkp_set A} = {}" by auto
     then show ?thesis unfolding k_def default_ceiling_def by auto
-  qed 
-
-  lemma n_gt_0[intro, simp]:
-    "n > 0"
-  unfolding n_def X_def using not_empty card_0_eq finite_atLeastAtMost gr0I triv_clock_numbering
-  by force 
+  qed
 
   lemma n_bounded:
     "\<forall> c \<in> X. c \<le> n"
-  unfolding n_def X_def using triv_clock_numbering by auto
+  unfolding X_def by auto
 
   definition "locations \<equiv> {l\<^sub>0} \<union> fst ` trans_of A \<union> (snd o snd o snd o snd) ` trans_of A"
 
@@ -2387,7 +2375,7 @@ begin
     apply (simp add: k'_def)
     apply (simp add: k'_def)
     apply (simp add: a\<^sub>0_def)
-    using clock_range consts_ints by (auto simp: n_def X_def)
+    using clock_range consts_ints by (auto simp: X_def)
     moreover have **: "l \<in> locations" if "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)" for l M
     using that unfolding E_closure locations_def
      apply (induction rule: steps_impl.induct)
@@ -2409,15 +2397,11 @@ begin
 
   lemma finite_X:
     "finite X"
-  using triv_clock_numbering unfolding X_def by (metis finite_atLeastAtMost)
-
-  lemma X_unfold:
-    "X = {1..<Suc (card X)}"
-  unfolding X_def using triv_clock_numbering atLeastLessThanSuc_atLeastAtMost by blast 
+  unfolding X_def by (metis finite_atLeastAtMost)
 
   lemma X_alt_def:
     "X = {1..<Suc n}"
-  using X_unfold n_def by auto
+  unfolding X_def by auto
 
   lemma v_bij:
     "bij_betw v {1..<Suc n} {1..n}"
@@ -2430,8 +2414,8 @@ begin
   sublocale Regions' "{1..<Suc n}" k v n "Suc n"
     apply standard
     apply (simp; fail)
-    using default_numbering(2)[OF finite_X] apply (subst (asm) X_unfold) apply (simp add: v_def n_def; fail)
-    using default_numbering(3)[OF finite_X] apply (subst (asm) X_unfold) apply (simp add: v_def n_def; fail)
+    using default_numbering(2)[OF finite_X] apply (subst (asm) X_def) apply (simp add: v_def; fail)
+    using default_numbering(3)[OF finite_X] apply (subst (asm) X_def) apply (simp add: v_def; fail)
     apply (rule v_bij)
   by auto
 
@@ -2484,17 +2468,22 @@ begin
 
   lemma global_clock_numbering:
     "global_clock_numbering A v n"
-  using triv_clock_numbering unfolding v_def n_def[unfolded X_def, symmetric] by force
+    using clocks_n unfolding v_def by auto
 
   thm finite_ta_RegionsD_int(2)
 
+  lemma clk_set_X:
+    "clk_set A \<subseteq> X"
+    unfolding X_def using clocks_n .
+  
   lemma valid_abstraction:
     "valid_abstraction A X k"
-  unfolding k_def X_def using finite_ta_A by (blast intro: finite_ta_RegionsD_int(2))
+    unfolding k_def X_def
+    by (rule standard_abstraction_int; force intro!: consts_nats clk_set_X[unfolded X_def])
 
   lemma triv_numbering':
     "\<forall> c \<in> clk_set A. v c = c"
-  using triv_numbering triv_clock_numbering unfolding n_def X_def by auto
+    using triv_numbering clocks_n by auto
 
   lemma triv_numbering'':
     "\<forall> c \<in> clk_set (conv_A A). v c = c"
@@ -2505,19 +2494,18 @@ begin
 
   lemma RI_I_conv_cc:
     "RI_I n (conv_cc o snd A) (snd A)"
-  using X_def[symmetric]
-  unfolding RI_I_def rel_fun_def clkp_set_def collect_clki_alt_def inv_of_def X_alt_def
-  by (fastforce intro: ri_conv_cc)
+  using clocks_n
+  unfolding RI_I_def rel_fun_def clkp_set_def collect_clki_alt_def inv_of_def
+  by (force intro: ri_conv_cc)
 
   lemma ri_conv_t:
     assumes "t \<in> fst A"
     shows "(RI_T n) (conv_t t) t"
   unfolding RI_T_def apply (auto split: prod.split)
   apply (rule ri_conv_cc)
-  using assms using X_def[symmetric] unfolding clkp_set_def collect_clkt_alt_def trans_of_def X_alt_def
+  using assms using clocks_n unfolding clkp_set_def collect_clkt_alt_def trans_of_def
   apply fastforce
-  using assms using X_def[symmetric] unfolding clkp_set_def collect_clkvt_alt_def trans_of_def X_alt_def
-  eq_onp_def
+  using assms using clocks_n unfolding clkp_set_def collect_clkvt_alt_def trans_of_def eq_onp_def
   by (fastforce intro: list_all2I simp: zip_same)
 
   lemma RI_T_conv_t:
@@ -3393,8 +3381,8 @@ begin
     unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat 
     by auto (force simp: clk_set_simp_2[symmetric])+
 
-    sublocale Reachability_Problem A 0 "PR_CONST F"
-    using has_clock clkp_set_consts_nat clk_set_eq by - (standard, auto)
+    sublocale Reachability_Problem A 0 "PR_CONST F" m
+    using has_clock clkp_set_consts_nat clk_set m_gt_0 by - (standard, auto)
 
   end (* End of locale *)
 
