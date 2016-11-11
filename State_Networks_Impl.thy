@@ -47,6 +47,7 @@ end
   locale Network_Reachability_Problem_precompiled = Network_Reachability_Problem_precompiled_defs +
     assumes process_length: "length inv = p" "length trans = p" "length pred = p"
       and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []"
+      and discrete_state_finite: "\<forall> i < p. \<forall> l < length (trans ! i). finite {s. (pred ! i ! l) s}"
       and lengths:
         "\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i)"
       and state_set: "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, _, _, l) \<in> set xs. l < length T"
@@ -130,8 +131,6 @@ lemma processes_have_trans_alt:
     using process_length(2)
     by (fastforce dest!: nth_mem elim: bexI[rotated]) (* XXX Magic *)
   
-  
-  
   lemma clkp_set_simp_3:
     "\<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (concat (concat trans))) \<supseteq> collect_clkt (trans_of A)"
     apply (simp add: product.product_ta_def trans_of_def)
@@ -158,13 +157,30 @@ lemma processes_have_trans_alt:
     "{f a b | a b. P a b} = (\<lambda> (a, b). f a b) ` {(a, b). P a b}" for P
     by auto
   
+  lemma [simp]:
+    "product.p = p"
+    unfolding product.p_def by simp
+  
       (* XXX Interesting case of proving finiteness *)
   lemma finite_T[intro, simp]:
     "finite (trans_of A)"
     unfolding product.prod_ta_def trans_of_def
   proof (simp, rule product.finite_prod_trans, goal_cases)
     case 1
-    then show ?case sorry
+    have *: "l < length (trans ! q)" if "l \<in> state_set (trans_of (product.N ! q))" "q < p" for l q
+      using that state_set
+      unfolding trans_of_def apply simp
+      apply (erule disjE)
+      unfolding N_def
+       apply simp
+      unfolding T_def
+       apply force
+      unfolding make_trans_def
+      apply clarsimp
+      using process_length(2)
+      apply (fastforce dest!: nth_mem split: prod.split_asm)
+      done
+    with process_length(3) discrete_state_finite show ?case by simp (auto simp: N_def P_def)
   next
     case 2
     show ?case
