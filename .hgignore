@@ -2,3 +2,6 @@ syntax: glob
 
 .DS_Store
 *~
+.hg
+output/document/*
+*.orig
