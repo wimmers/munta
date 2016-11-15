@@ -36,8 +36,8 @@ begin
     "state_set T = fst ` T \<union> (snd o snd o snd o snd) ` T"
 
 locale Reachability_Problem_Impl_Defs =
-  Reachability_Problem A l\<^sub>0 F
-  for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" +
+  Reachability_Problem A l\<^sub>0 F n
+  for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat +
 
   fixes trans_fun :: "('a, nat, int, 's) transition_fun"
     and inv_fun :: "(nat, int, 's) invassn"
@@ -108,7 +108,7 @@ begin
   sepref_register "PR_CONST (dbm_subset n)" :: "'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> bool"
 
   lemma [def_pat_rules]:
-    "dbm_subset $ (Reachability_Problem.n $ A) \<equiv> PR_CONST (dbm_subset n)"
+    "dbm_subset $ n \<equiv> PR_CONST (dbm_subset n)"
   by simp
 
   abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> states)"
@@ -175,7 +175,7 @@ begin
 
   lemmas [sepref_fr_rules] = check_diag_impl.refine
 
-  lemma [def_pat_rules]: "check_diag $ (Reachability_Problem.n $ A) \<equiv> PR_CONST (check_diag n)" by simp
+  lemma [def_pat_rules]: "check_diag $ n \<equiv> PR_CONST (check_diag n)" by simp
 
   sepref_register "PR_CONST (check_diag n)" :: "'e DBMEntry i_mtx \<Rightarrow> bool"
 
@@ -203,7 +203,7 @@ begin
 
   lemma trans_fun_clock_bounds3:
     "\<forall> c \<in> collect_clks (inv_of A l). c \<le> n"
-  using n_bounded collect_clks_inv_clk_set[of A l] unfolding X_def by auto
+  using collect_clks_inv_clk_set[of A l] clocks_n by force
 
   lemma inv_fun_rel:
     assumes "l \<in> states"
@@ -234,11 +234,11 @@ begin
 
   lemmas [sepref_fr_rules] = fw_impl.refine[FCOMP fw_impl'_refine_FW'']
 
-  lemma [def_pat_rules]: "FW'' $ (Reachability_Problem.n $ A) \<equiv> UNPROTECT (FW'' n)" by simp
+  lemma [def_pat_rules]: "FW'' $ n \<equiv> UNPROTECT (FW'' n)" by simp
 
   sepref_register "PR_CONST k'"
 
-  lemma [def_pat_rules]: "(Reachability_Problem.k' $ A) \<equiv> PR_CONST k'" by simp
+  lemma [def_pat_rules]: "(Reachability_Problem.k' $ A $ n) \<equiv> PR_CONST k'" by simp
 
   lemma [simp]:
     "length k' > n"
@@ -254,11 +254,11 @@ begin
 
   lemma trans_fun_clock_bounds1:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> set r. c \<le> n"
-  using n_bounded reset_clk_set[OF trans_fun_trans_of] unfolding X_def by fastforce
+  using clocks_n reset_clk_set[OF trans_fun_trans_of] by fastforce
 
   lemma trans_fun_clock_bounds2:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> collect_clks g. c \<le> n"
-  using n_bounded collect_clocks_clk_set[OF trans_fun_trans_of] unfolding X_def by fastforce
+  using clocks_n collect_clocks_clk_set[OF trans_fun_trans_of] by fastforce
 
   lemma trans_fun_states:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> l' \<in> state_set (trans_of A)"
@@ -331,14 +331,13 @@ begin
 
   lemma [def_pat_rules]: "(Reachability_Problem_Impl.inv_of_A $ A) \<equiv> PR_CONST inv_of_A" by simp
 
-  lemmas [safe_constraint_rules] = CN_FALSEI[of is_pure "asmtx_assn n a" for n a]
-
-  lemma n_pat: "Reachability_Problem.n $ A \<equiv> UNPROTECT n" by simp
+  lemmas [safe_constraint_rules] = CN_FALSEI[of is_pure "asmtx_assn n a" for a]
+ 
+  sepref_register n
   
   context
     notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
       and [sepref_import_param] = IdI[of n]
-      and [def_pat_rules] = n_pat
   begin
 
   sepref_definition succs_impl is
@@ -375,7 +374,7 @@ end (* End of locale *)
 context Reachability_Problem_precompiled
 begin
 
-  sublocale Defs: Reachability_Problem_Impl_Defs A 0 "PR_CONST F" by standard
+  sublocale Defs: Reachability_Problem_Impl_Defs A 0 "PR_CONST F" m by standard
 
   lemma
     "(IArray xs) !! i = xs ! i"
@@ -429,10 +428,6 @@ begin
     unfolding state_set_def trans_of_def A_def T_def label_def by force
   qed
 
-  lemma num_clocks[simp]:
-    "Reachability_Problem.n A = m"
-  unfolding n_def X_def using clock_set by auto
-
   lemma fst_clkp_set'D:
     assumes "(c, d) \<in> clkp_set'"
     shows "c > 0" "c \<le> m" "d \<in> range int"
@@ -475,7 +470,7 @@ begin
     "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   unfolding br_def by sepref_to_hoare sep_auto
 
-  sublocale Reachability_Problem_Impl 0 "PR_CONST F" trans_fun inv_fun final_fun "IArray k" A
+  sublocale Reachability_Problem_Impl 0 "PR_CONST F" m trans_fun inv_fun final_fun "IArray k" A
     unfolding PR_CONST_def
     apply standard
     using iarray_k' by fastforce+
@@ -608,7 +603,6 @@ begin
    unfolding F_impl_def
    unfolding final_fun_def[abs_def]
    unfolding subsumes_impl_def
-   unfolding num_clocks
   by (rule Pure.reflexive)
 
   schematic_goal reachability_checker_alt_def:
@@ -620,7 +614,6 @@ begin
    unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
-   unfolding num_clocks
   oops
 
 end (* End of locale *)

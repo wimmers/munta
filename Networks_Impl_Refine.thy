@@ -88,20 +88,20 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
   definition
     "trans_i_map =
       map (map (List.map_filter
-        (\<lambda> (g, a, r, l'). case a of Sil a \<Rightarrow> Some (g, a, r, l') | _ \<Rightarrow> None)
+        (\<lambda> (g, (a, b), r, l'). case a of Sil a \<Rightarrow> Some (g, (a, b), r, l') | _ \<Rightarrow> None)
       )) trans"
 
   definition
     "trans_in_map \<equiv>
       map (map (map
-        (\<lambda> (g, a, r, l'). case a of In a \<Rightarrow> (g, a, r, l')) o filter (\<lambda> (g, a, r, l').
+        (\<lambda> (g, (a, b), r, l'). case a of In a \<Rightarrow> (g, (a, b), r, l')) o filter (\<lambda> (g, (a, b), r, l').
           case a of In a \<Rightarrow> True | _ \<Rightarrow> False))
           ) trans"
 
   definition
     "trans_out_map \<equiv>
       map (map (map
-        (\<lambda> (g, a, r, l'). case a of Out a \<Rightarrow> (g, a, r, l')) o filter (\<lambda> (g, a, r, l').
+        (\<lambda> (g, (a, b), r, l'). case a of Out a \<Rightarrow> (g, (a, b), r, l')) o filter (\<lambda> (g, (a, b), r, l').
           case a of Out a \<Rightarrow> True | _ \<Rightarrow> False))
           ) trans"
 
@@ -110,7 +110,7 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
 
   (* XXX Optimize by using a better data structure? *)
   definition
-    "actions_by_state i \<equiv> fold (\<lambda> t acc. acc[fst (snd t) := (i, t) # (acc ! fst (snd t))])"
+    "actions_by_state i \<equiv> fold (\<lambda> t acc. acc[fst (fst (snd t)) := (i, t) # (acc ! fst (fst (snd t)))])"
 
   definition
     "all_actions_by_state t L \<equiv>
@@ -118,8 +118,9 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
 
   definition
     "pairs_by_action L OUT \<equiv> concat o
-      map (\<lambda> (i, g1, a, r1, l1). List.map_filter
-      (\<lambda> (j, g2, _, r2, l2). if i \<noteq> j then Some (g1 @ g2, a, r1 @ r2, L[i := l1, j := l2]) else None)
+      map (\<lambda> (i, g1, (a, b1), r1, l1). List.map_filter
+      (\<lambda> (j, g2, (_, b2), r2, l2).
+        if i \<noteq> j then Some (g1 @ g2, (a, Syn b1 b2), r1 @ r2, L[i := l1, j := l2]) else None)
       OUT)"
 
   definition
@@ -133,7 +134,8 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
 
   definition
     "trans_i_from L i \<equiv>
-    map (\<lambda> (g, a, r, l'). (g, a, r, L[i := l'])) ((IArray (map IArray trans_i_map)) !! i !! (L ! i))"
+    map (\<lambda> (g, (a, b), r, l'). (g, (a, Act b), r, L[i := l']))
+      ((IArray (map IArray trans_i_map)) !! i !! (L ! i))"
 
   definition
     "trans_i_fun L \<equiv> concat (map (trans_i_from L) [0..<p])"
@@ -157,10 +159,10 @@ locale Network_Reachability_Problem_precompiled' =
   Network_Reachability_Problem_precompiled +
   Network_Reachability_Problem_precompiled_defs' +
   assumes action_set:
-    "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, a, _, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
+    "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, (a, _), _, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
 begin
 
-  sublocale Defs: Reachability_Problem_Impl_Defs A init "PR_CONST F" by standard
+  sublocale Defs: Reachability_Problem_Impl_Defs A init "PR_CONST F" m by standard
 
   lemma state_set_states:
     "state_set (trans_of A) \<subseteq> product.states"
@@ -226,61 +228,65 @@ begin
   lemma in_trans_in_mapI:
     assumes
       "q < p" "l < n" "i < length (trans ! q ! l)"
-      "(g1, In a, r1, l1') = trans ! q ! l ! i"
-    shows "(g1, a, r1, l1') \<in> set (IArray (map IArray trans_in_map) !! q !! l)"
+      "(g1, (In a, b), r1, l1') = trans ! q ! l ! i"
+    shows "(g1, (a, b), r1, l1') \<in> set (IArray (map IArray trans_in_map) !! q !! l)"
     using assms process_length(2) trans_length unfolding trans_in_map_def
-    by (force dest: nth_mem intro!: image_eqI[where x = "(g1, In a, r1, l1')"])
+    by (force dest: nth_mem intro!: image_eqI[where x = "(g1, (In a, b), r1, l1')"])
 
   lemma in_trans_out_mapI:
     assumes
       "q < p" "l < n" "i < length (trans ! q ! l)"
-      "(g1, Out a, r1, l1') = trans ! q ! l ! i"
-    shows "(g1, a, r1, l1') \<in> set (IArray (map IArray trans_out_map) !! q !! l)"
+      "(g1, (Out a, b), r1, l1') = trans ! q ! l ! i"
+    shows "(g1, (a, b), r1, l1') \<in> set (IArray (map IArray trans_out_map) !! q !! l)"
     using assms process_length(2) trans_length unfolding trans_out_map_def
-    by (force dest: nth_mem intro!: image_eqI[where x = "(g1, Out a, r1, l1')"])
+    by (force dest: nth_mem intro!: image_eqI[where x = "(g1, (Out a, b), r1, l1')"])
 
   lemma in_trans_in_mapD:
     assumes
-      "(g1, a, r1, l1') \<in> set (IArray (map IArray trans_in_map) !! q !! l)"
+      "(g1, (a, b), r1, l1') \<in> set (IArray (map IArray trans_in_map) !! q !! l)"
       "q < p" "l < n"
     obtains i where
-      "i < length (trans ! q ! l) \<and> (g1, In a, r1, l1') = trans ! q ! l ! i"
+      "i < length (trans ! q ! l) \<and> (g1, (In a, b), r1, l1') = trans ! q ! l ! i"
     using assms process_length(2) unfolding trans_in_map_def
     by (fastforce dest: mem_nth split: act.split_asm)
 
   (* XXX Remove duplication *)
   lemma in_trans_out_mapD:
     assumes
-      "(g1, a, r1, l1') \<in> set (IArray (map IArray trans_out_map) !! q !! l)"
+      "(g1, (a, b), r1, l1') \<in> set (IArray (map IArray trans_out_map) !! q !! l)"
       "q < p" "l < n"
     obtains i where
-      "i < length (trans ! q ! l) \<and> (g1, Out a, r1, l1') = trans ! q ! l ! i"
+      "i < length (trans ! q ! l) \<and> (g1, (Out a, b), r1, l1') = trans ! q ! l ! i"
     using assms process_length(2) unfolding trans_out_map_def
     by (fastforce dest: mem_nth split: act.split_asm)
 
   lemma in_actions_by_stateI:
     assumes
-      "(g1, a, r1, l1') \<in> set xs" "a < length acc"
-    shows "(q, g1, a, r1, l1') \<in> set (actions_by_state q xs acc ! a) \<and> a < length (actions_by_state q xs acc)"
+      "(g1, (a, b), r1, l1') \<in> set xs" "a < length acc"
+    shows
+      "(q, g1, (a, b), r1, l1') \<in> set (actions_by_state q xs acc ! a)
+      \<and> a < length (actions_by_state q xs acc)"
     using assms unfolding actions_by_state_def
     apply (induction xs arbitrary: acc)
      apply (simp; fail)
     apply simp
     apply (erule disjE)
      apply (rule fold_acc_preserv
-        [where P = "\<lambda> acc. (q, g1, a, r1, l1') \<in> set (acc ! a) \<and> a < length acc"]
+        [where P = "\<lambda> acc. (q, g1, (a, b), r1, l1') \<in> set (acc ! a) \<and> a < length acc"]
         )
       apply (subst list_update_nth_split; auto)
     by auto
 
   lemma in_actions_by_state_preserv:
     assumes
-      "(q, g1, a, r1, l1') \<in> set (acc ! a)" "a < length acc"
-    shows "(q, g1, a, r1, l1') \<in> set (actions_by_state y xs acc ! a) \<and> a < length (actions_by_state y xs acc)"
+      "(q, g1, (a, b), r1, l1') \<in> set (acc ! a)" "a < length acc"
+    shows
+      "(q, g1, (a, b), r1, l1') \<in> set (actions_by_state y xs acc ! a)
+      \<and> a < length (actions_by_state y xs acc)"
     using assms unfolding actions_by_state_def
     apply -
     apply (rule fold_acc_preserv
-        [where P = "\<lambda> acc. (q, g1, a, r1, l1') \<in> set (acc ! a) \<and> a < length acc"]
+        [where P = "\<lambda> acc. (q, g1, (a, b), r1, l1') \<in> set (acc ! a) \<and> a < length acc"]
         )
     apply (subst list_update_nth_split; auto)
     by auto
@@ -291,12 +297,12 @@ begin
 
   lemma in_all_actions_by_stateI:
     assumes
-      "a < na" "q < p" "L ! q < n" "(g1, a, r1, l1') \<in> set (M !! q !! (L ! q))"
+      "a < na" "q < p" "L ! q < n" "(g1, (a, b), r1, l1') \<in> set (M !! q !! (L ! q))"
     shows
-      "(q, g1, a, r1, l1') \<in> set (all_actions_by_state M L ! a)"
+      "(q, g1, (a, b), r1, l1') \<in> set (all_actions_by_state M L ! a)"
     unfolding all_actions_by_state_def
     apply (rule fold_acc_ev_preserv
-        [where P = "\<lambda> acc. (q, g1, a, r1, l1') \<in> set (acc ! a)" and Q = "\<lambda> acc. a < length acc",
+        [where P = "\<lambda> acc. (q, g1, (a, b), r1, l1') \<in> set (acc ! a)" and Q = "\<lambda> acc. a < length acc",
           THEN conjunct1]
         )
         apply (rule in_actions_by_state_preserv[THEN conjunct1])
@@ -311,7 +317,7 @@ begin
           "\<lambda> acc'. (\<forall> (q, a) \<in> set (acc' ! j). (q, a) \<notin> set (acc ! j) \<longrightarrow> i = q) \<and> j < length acc'",
           THEN conjunct1])
     subgoal for x acc
-      by (cases "fst (snd x) = j"; simp)
+      by (cases "fst (fst (snd x)) = j"; simp)
     using assms by auto
 
   lemma actions_by_state_inj':
@@ -321,13 +327,15 @@ begin
 
   lemma in_actions_by_stateD:
     assumes
-      "(q, g, a, t) \<in> set (actions_by_state i xs acc ! j)" "(q, g, a, t) \<notin> set (acc ! j)" "j < length acc"
+      "(q, g, (a, b), t) \<in> set (actions_by_state i xs acc ! j)" "(q, g, (a, b), t) \<notin> set (acc ! j)"
+      "j < length acc"
     shows
-      "(g, a, t) \<in> set xs \<and> j = a"
+      "(g, (a, b), t) \<in> set xs \<and> j = a"
     using assms unfolding actions_by_state_def
     apply -
     apply (drule fold_evD
-        [where y = "(g, a, t)" and Q = "\<lambda> acc'. length acc' = length acc" and R = "\<lambda> (_, a', t). a' = j"]
+        [where y = "(g, (a, b), t)" and Q = "\<lambda> acc'. length acc' = length acc"
+          and R = "\<lambda> (_, (a', _), t). a' = j"]
         )
          apply assumption
       (* XXX Define asm split rule *)
@@ -338,9 +346,9 @@ begin
 
   lemma in_all_actions_by_stateD:
     assumes
-      "(q, g1, a, r1, l1') \<in> set (all_actions_by_state M L ! a')" "a' < na"
+      "(q, g1, (a, b), r1, l1') \<in> set (all_actions_by_state M L ! a')" "a' < na"
     shows
-      "(g1, a, r1, l1') \<in> set (M !! q !! (L ! q)) \<and> q < p \<and> a' = a"
+      "(g1, (a, b), r1, l1') \<in> set (M !! q !! (L ! q)) \<and> q < p \<and> a' = a"
     using assms
     unfolding all_actions_by_state_def
     apply -
@@ -367,7 +375,7 @@ begin
   lemma less_naI:
     assumes
       "q < p"
-      "(g1, In a, r1, l1') = trans ! q ! l ! j"
+      "(g1, (In a, b), r1, l1') = trans ! q ! l ! j"
       "l < n"
       "j < length (trans ! q ! l)"
     shows "a < na"
@@ -376,10 +384,10 @@ begin
   lemma in_actions_trans_in_mapI:
     assumes
       "pa < p"
-      "(g1, In a, r1, l1') = trans ! pa ! (L ! pa) ! j"
+      "(g1, (In a, b), r1, l1') = trans ! pa ! (L ! pa) ! j"
       "L ! pa < n"
       "j < length (trans ! pa ! (L ! pa))"
-    shows "(pa, g1, a, r1, l1') \<in> set (all_actions_by_state (IArray (map IArray trans_in_map)) L ! a)"
+    shows "(pa, g1, (a, b), r1, l1') \<in> set (all_actions_by_state (IArray (map IArray trans_in_map)) L ! a)"
     apply (rule in_all_actions_by_stateI)
     using assms action_set process_length(2) trans_length apply (fastforce dest!: nth_mem)
     using assms by (fastforce intro: in_trans_in_mapI)+
@@ -387,10 +395,10 @@ begin
   lemma in_actions_trans_out_mapI:
     assumes
       "pa < p"
-      "(g1, Out a, r1, l1') = trans ! pa ! (L ! pa) ! j"
+      "(g1, (Out a, b), r1, l1') = trans ! pa ! (L ! pa) ! j"
       "L ! pa < n"
       "j < length (trans ! pa ! (L ! pa))"
-    shows "(pa, g1, a, r1, l1') \<in> set (all_actions_by_state (IArray (map IArray trans_out_map)) L ! a)"
+    shows "(pa, g1, (a, b), r1, l1') \<in> set (all_actions_by_state (IArray (map IArray trans_out_map)) L ! a)"
     apply (rule in_all_actions_by_stateI)
     using assms action_set process_length(2) trans_length apply (fastforce dest!: nth_mem)
     using assms by (fastforce intro: in_trans_out_mapI)+
@@ -398,9 +406,9 @@ begin
   lemma in_pairs_by_actionI:
     assumes
       "pa \<noteq> q"
-      "(pa, g1, a, r1, l1') \<in> set ys"
-      "(q, g2, a, r2, l2') \<in> set xs"
-    shows "(g1 @ g2, a, r1 @ r2, L[pa := l1', q := l2']) \<in> set (pairs_by_action L xs ys)"
+      "(pa, g1, (a, b1), r1, l1') \<in> set ys"
+      "(q, g2, (a, b2), r2, l2') \<in> set xs"
+    shows "(g1 @ g2, (a, Syn b1 b2), r1 @ r2, L[pa := l1', q := l2']) \<in> set (pairs_by_action L xs ys)"
     using assms
     unfolding pairs_by_action_def
     apply clarsimp
@@ -409,19 +417,19 @@ begin
 
   lemma in_pairs_by_actionD:
     assumes
-      "(g, a, r, L') \<in> set (pairs_by_action L xs ys)"
-      "\<forall> (q, g, a'', r, L') \<in> set xs. a'' = a'"
-      "\<forall> (q, g, a'', r, L') \<in> set ys. a'' = a'"
-    obtains pa q g1 g2 r1 r2 l1' l2' where
+      "(g, (a, b), r, L') \<in> set (pairs_by_action L xs ys)"
+      "\<forall> (q, g, (a'', b), r, L') \<in> set xs. a'' = a'"
+      "\<forall> (q, g, (a'', n), r, L') \<in> set ys. a'' = a'"
+    obtains pa q g1 g2 b1 b2 r1 r2 l1' l2' where
       "pa \<noteq> q"
-      "(pa, g1, a, r1, l1') \<in> set ys"
-      "(q, g2, a, r2, l2') \<in> set xs"
+      "(pa, g1, (a, b1), r1, l1') \<in> set ys"
+      "(q, g2, (a, b2), r2, l2') \<in> set xs"
       "L' = L[pa := l1', q := l2']"
-      "g = g1 @ g2" "r = r1 @ r2"
+      "g = g1 @ g2" "b = Syn b1 b2" "r = r1 @ r2"
   proof -
-    from assms(1) obtain pa q g1 g2 r1 r2 l1' l2' where
-      "(q, g1, a, r1, l1') \<in> set ys" "(pa, g2, a, r2, l2') \<in> set xs" "pa \<noteq> q"
-      "Some (g1 @ g2, a, r1 @ r2, L[q := l1', pa := l2']) = Some (g, a, r, L')"
+    from assms(1) obtain pa q g1 g2 b1 b2 r1 r2 l1' l2' where
+      "(q, g1, (a, b1), r1, l1') \<in> set ys" "(pa, g2, (a, b2), r2, l2') \<in> set xs" "pa \<noteq> q"
+      "Some (g1 @ g2, a, Syn b1 b2, r1 @ r2, L[q := l1', pa := l2']) = Some (g, a, b, r, L')"
       unfolding pairs_by_action_def using assms(2,3) by (force split: if_split_asm simp: set_map_filter)
     then show ?thesis by - (rule that; auto)
   qed
@@ -445,7 +453,7 @@ begin
     apply rule
     unfolding trans_of_def
     apply safe
-    subgoal for L g a r L'
+    subgoal for L g a b r L'
       unfolding product.product_ta_def product.product_trans_def
       apply simp
       apply safe
@@ -464,9 +472,9 @@ begin
         using process_length(2)
         apply simp
         apply (drule nth_mem)
-        subgoal premises prems for pa l' j
+        subgoal premises prems for pa b l' j
         proof -
-          have "(g, Sil a, r, l') \<in> set (trans ! pa ! (L ! pa))" using prems by auto
+          have "(g, (Sil a, b), r, l') \<in> set (trans ! pa ! (L ! pa))" using prems by auto
           then show ?thesis by (force simp: set_map_filter)
         qed
         done
@@ -480,7 +488,7 @@ begin
         unfolding trans_fun_def trans_s_fun_def
         by (fastforce intro: less_naI in_actions_trans_out_mapI in_actions_trans_in_mapI in_pairs_by_actionI)
       done
-    subgoal for L g a r L'
+    subgoal for L g a b r L'
       apply (drule in_trans_funD)
       apply (erule disjE)
       unfolding product.product_ta_def product.product_trans_def
@@ -550,58 +558,6 @@ begin
     by force
 
   thm conj_ac(3)[symmetric]
-
-  lemma start_states[intro, simp]:
-    "init \<in> state_set (trans_of A)"
-  proof -
-    obtain g a r l' where *: "trans ! 0 ! 0 ! 0 = (g, a, r, l')" by (metis prod_cases3)
-    then show ?thesis
-    proof (cases a)
-      case prems: (In a')
-      from * n_gt_0 p_gt_0 start_has_trans have
-        "(0, g, a, r, l') \<in> T 0"
-        unfolding T_def by force
-      moreover with prems trans_complete(1) n_gt_0 p_gt_0 start_has_trans obtain q l2 g2 r2 l2' where
-        "q<p" "0 \<noteq> q" "(l2, g2, Out a', r2, l2') \<in> T q"
-        apply safe
-        apply (erule allE[where x = 0])
-        by fastforce
-      ultimately show ?thesis unfolding product.product_ta_def trans_of_def product.product_trans_def
-        unfolding
-        product.product_trans_s_alt_def T_T apply safe
-        subgoal premises prems
-          using prems(1-4) init_states states_length_p[of init] p_gt_0 apply auto
-          apply rule
-          apply (rule UnI2)
-          apply rule
-          apply (subst conj_commute)
-          apply (subst conj_commute)
-          apply (simp only: ex_simps(1,2)[symmetric])
-          apply (rule exI[where x = init])
-          apply (simp only: conj_ac(3))
-          apply (subst ex_comm)
-          apply (rule exI[where x = a'])
-          apply (subst ex_comm)
-          apply (subst (3) ex_comm)
-          apply (subst (2) ex_comm)
-          apply (subst ex_comm)
-          apply (rule exI[where x = 0])
-            apply (subst (3) ex_comm)
-          apply (subst (2) ex_comm)
-          apply (subst ex_comm)
-          apply simp
-          apply (rule exI)
-          apply rule
-           apply assumption
-          apply rule
-           apply assumption
-          unfolding \<open>a = _\<close>
-          apply auto
-          oops
-
-  lemma num_clocks[simp]:
-    "Reachability_Problem.n A = m"
-  unfolding n_def X_def using clock_set by auto
 
   lemma fst_clkp_set'D:
     assumes "(c, d) \<in> clkp_set'"
@@ -683,7 +639,7 @@ context Network_Reachability_Problem_precompiled'
 begin
 
   sublocale
-    Reachability_Problem_Impl init "PR_CONST F" trans_fun inv_fun final_fun "IArray k" A
+    Reachability_Problem_Impl init "PR_CONST F" m trans_fun inv_fun final_fun "IArray k" A
     unfolding PR_CONST_def by (standard; rule)
 
   lemma length_states[intro, simp]:
@@ -846,7 +802,6 @@ thm trans_s_fun_def
    unfolding F_impl_def
    unfolding final_fun_def[abs_def]
    unfolding subsumes_impl_def
-   unfolding num_clocks
   by (rule Pure.reflexive)
 
 end (* End of locale *)
