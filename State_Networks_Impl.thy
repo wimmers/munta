@@ -22,7 +22,7 @@ qed
 abbreviation "repeat x n \<equiv> map (\<lambda> _. x) [0..<n]"
 
 subsection \<open>Pre-compiled networks with states and clocks as natural numbers\<close>
-locale Network_Reachability_Problem_precompiled_defs =
+locale State_Network_Reachability_Problem_precompiled_defs =
   fixes p :: nat -- "Number of processes"
     and m :: nat -- "Number of clocks"
     and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
@@ -61,8 +61,8 @@ end
     "snd o (\<lambda> i. (f i, g i)) = g"
   by auto
 
-locale Network_Reachability_Problem_precompiled_raw =
-  Network_Reachability_Problem_precompiled_defs +
+locale State_Network_Reachability_Problem_precompiled_raw =
+  State_Network_Reachability_Problem_precompiled_defs +
   assumes process_length: "length inv = p" "length trans = p" "length pred = p"
     and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []"
     and lengths:
@@ -78,7 +78,8 @@ locale Network_Reachability_Problem_precompiled_raw =
     and m_gt_0: "m > 0"
     and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
 
-locale Network_Reachability_Problem_precompiled = Network_Reachability_Problem_precompiled_raw +
+locale State_Network_Reachability_Problem_precompiled =
+  State_Network_Reachability_Problem_precompiled_raw +
   assumes discrete_state_finite: "\<forall> i < p. \<forall> l < length (trans ! i). finite {s. (pred ! i ! l) s}"
 begin
   
@@ -271,6 +272,8 @@ lemma processes_have_trans_alt:
     "Product_TA_Defs.states (map conv_A (fst N)) = Product_TA_Defs.states (fst N)"
     unfolding Product_TA_Defs.states_def map_trans_of by simp
   
+  (* sublocale product': Prod_TA "map conv_A (fst N)" init by standard (simp add: init_states) *)
+  
   sublocale product': Product_TA "map conv_A (fst N)" init by standard (simp add: init_states)
   
 end (* End of locale *)
@@ -299,7 +302,7 @@ fun modify :: "(nat, int) upd \<Rightarrow> int list \<Rightarrow> int list" whe
 | "modify (inc i) s = s[i := s ! i + 1]"
 | "modify (dec i) s = s[i := s ! i - 1]"
 
-locale Network_Reachability_Problem_precompiled_int_vars_defs =
+locale State_Network_Reachability_Problem_precompiled_int_vars_defs =
   fixes p :: nat -- "Number of processes"
     and m :: nat -- "Number of clocks"
     and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
@@ -323,9 +326,9 @@ begin
 
 end
 
-locale Network_Reachability_Problem_precompiled_int_vars =
-  Network_Reachability_Problem_precompiled_int_vars_defs p m k inv pred trans final r bounds +
-  Network_Reachability_Problem_precompiled_raw p m k inv pred' trans' final
+locale State_Network_Reachability_Problem_precompiled_int_vars =
+  State_Network_Reachability_Problem_precompiled_int_vars_defs p m k inv pred trans final r bounds +
+  State_Network_Reachability_Problem_precompiled_raw p m k inv pred' trans' final
   for p m k inv pred trans final r bounds
 begin
 
@@ -353,7 +356,7 @@ begin
     "finite {s. length s = r \<and> (\<forall>i<r. fst (bounds ! i) < s ! i \<and> s ! i < snd (bounds ! i))}"
     using finite_lists_boundedI by force
 
-  sublocale Network_Reachability_Problem_precompiled p m k inv pred' trans' final
+  sublocale State_Network_Reachability_Problem_precompiled p m k inv pred' trans' final
     apply standard
     apply safe
     apply (simp only: trans'_length_pred)

@@ -2,6 +2,7 @@ theory Networks_Impl
   imports Normalized_Zone_Semantics_Impl Networks
 begin
 
+(* XXX Replace by List.replicate? *)
 abbreviation "repeat x n \<equiv> map (\<lambda> _. x) [0..<n]"
 
 subsection \<open>Pre-compiled networks with states and clocks as natural numbers\<close>

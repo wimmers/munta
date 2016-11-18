@@ -155,6 +155,31 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
 
 end (* End of locale for implementation definitions *)
 
+context Product_TA_Defs
+begin
+
+  lemma state_set_states:
+    "state_set (trans_of product_ta) \<subseteq> states"
+    unfolding state_set_def trans_of_def product_trans_def states_def
+      product_trans_def product_ta_def product_trans_i_def product_trans_s_def
+    apply auto
+       apply blast
+      apply blast
+     apply (subst list_update_nth_split)
+      apply simp
+     apply force
+    apply (subst list_update_nth_split)
+     apply (simp; fail)
+    apply safe
+     apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+     apply force
+    apply (subst list_update_nth_split)
+     apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
+    apply force
+    done
+
+end
+
 locale Network_Reachability_Problem_precompiled' =
   Network_Reachability_Problem_precompiled +
   Network_Reachability_Problem_precompiled_defs' +
@@ -163,31 +188,6 @@ locale Network_Reachability_Problem_precompiled' =
 begin
 
   sublocale Defs: Reachability_Problem_Impl_Defs A init "PR_CONST F" m by standard
-
-  lemma state_set_states:
-    "state_set (trans_of A) \<subseteq> product.states"
-    unfolding state_set_def trans_of_def product.product_trans_def product.states_def
-      product.product_trans_def product.product_ta_def product.product_trans_i_def product.product_trans_s_def
-    apply auto
-       apply blast
-      apply blast
-     apply (subst list_update_nth_split)
-      apply assumption
-     apply (subst (asm) nth_map)
-      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-     apply force
-    apply (subst list_update_nth_split)
-     apply (simp; fail)
-    apply safe
-     apply (subst (asm) (2) nth_map)
-      apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-     apply force
-    apply (subst list_update_nth_split)
-     apply assumption
-    apply (subst (asm) nth_map)
-     apply (simp add: Network_Reachability_Problem_precompiled_defs.N_def)
-    apply force
-    done
 
   lemma states_n:
     "product.states \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
@@ -209,7 +209,7 @@ begin
 
   lemma state_set_n:
     "state_set (trans_of A) \<subseteq> {xs. length xs = p \<and> set xs \<subseteq> {0..<n}}"
-    using states_n state_set_states by blast
+    using states_n product.state_set_states by blast
 
   lemma T_T:
     "product.T = map T [0..<p]"
@@ -485,7 +485,8 @@ begin
         unfolding T_T T_def states_length_p
         apply clarsimp
           (* Could be a lemma from here *)
-        unfolding trans_fun_def trans_s_fun_def
+        unfolding trans_s_fun_def
+        apply clarsimp
         by (fastforce intro: less_naI in_actions_trans_out_mapI in_actions_trans_in_mapI in_pairs_by_actionI)
       done
     subgoal for L g a b r L'
@@ -529,7 +530,7 @@ begin
 
   lemma trans_fun_trans_of[intro, simp]:
     "(trans_fun, trans_of A) \<in> transition_rel Defs.states"
-    using trans_fun_trans_of' state_set_states init_states
+    using trans_fun_trans_of' product.state_set_states init_states
     unfolding state_set_def transition_rel_def T_def by blast
 
   definition "inv_fun L \<equiv> concat (map (\<lambda> i. IArray (map IArray inv) !! i !! (L ! i)) [0..<p])"
@@ -541,7 +542,7 @@ begin
   lemma inv_fun_inv_of[intro, simp]:
     "(inv_fun, inv_of A) \<in> inv_rel Defs.states"
     unfolding inv_rel_def state_set_def apply clarsimp
-    using state_set_states process_length(1) n_gt_0
+    using product.state_set_states process_length(1) n_gt_0
     unfolding inv_fun_def product.product_invariant_def I_I init_def
     by - (rule arg_cong[where f = concat]; force simp add: states_length_p I_def)
 
@@ -644,7 +645,7 @@ begin
 
   lemma length_states[intro, simp]:
     "length L' = p" if "L' \<in> states"
-    using that state_set_states init_states states_length_p unfolding state_set_def by auto
+    using that product.state_set_states init_states states_length_p unfolding state_set_def by auto
 
   (* XXX Unused *)
   lemma length_reachable:
