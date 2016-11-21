@@ -65,7 +65,6 @@ end
 locale State_Network_Reachability_Problem_precompiled_raw =
   State_Network_Reachability_Problem_precompiled_defs +
   assumes process_length: "length inv = p" "length trans = p" "length pred = p"
-    and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []"
     and lengths:
     "\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i)"
     and state_set: "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, _, _, l) \<in> set xs. l < length T"
@@ -79,6 +78,8 @@ locale State_Network_Reachability_Problem_precompiled_raw =
   assumes clock_set: "clk_set' = {1..m}"
     and p_gt_0: "p > 0"
     and m_gt_0: "m > 0"
+    (* XXX Can get rid of these two? *)
+    and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []" -- \<open>Necessary for refinement\<close>
     and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
 
 locale State_Network_Reachability_Problem_precompiled =
@@ -363,12 +364,18 @@ begin
   definition trans' where "trans' =
     map (map (map (\<lambda> (g, c, a, r, m, l). (g, \<lambda> s. check c (op ! s), a, r, modify m, l)))) trans"
 
+  definition "s\<^sub>0 \<equiv> repeat 0 r"
+
 end
 
 locale State_Network_Reachability_Problem_precompiled_int_vars =
   State_Network_Reachability_Problem_precompiled_int_vars_defs p m k inv pred trans final r bounds +
   State_Network_Reachability_Problem_precompiled_raw p m k inv pred' trans' final
-  for p m k inv pred trans final r bounds
+  for p m k inv pred trans final r bounds +
+  fixes na :: nat -- "Number of action labels"
+  assumes init_pred: "\<forall>i<p. (pred' ! i ! 0) s\<^sub>0"
+    and actions_bounded:
+    "\<forall>T\<in>set trans'. \<forall>xs\<in>set T. \<forall>(_, _, a, _)\<in>set xs. pred_act (\<lambda>a. a < na) a"
 begin
 
   lemma trans'_length:
