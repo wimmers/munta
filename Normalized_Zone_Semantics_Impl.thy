@@ -2272,8 +2272,7 @@ by blast+
 
 definition "subsumes n = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset n M M')"
 
-
-locale Reachability_Problem =
+locale Reachability_Problem_no_ceiling =
   fixes A :: "('a, nat, int, 's) ta" (* :: "('a, 'c, 't::time, 's) ta" *)
     and l\<^sub>0 :: 's
     and F :: "'s \<Rightarrow> bool"
@@ -2283,17 +2282,22 @@ locale Reachability_Problem =
       and clocks_n: "clk_set A \<subseteq> {1..n}"
       and consts_nats: "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
       and n_gt0[intro, simp]: "n > 0"
-
 begin
 
   lemma clock_range:
-    "\<forall>c\<in>clk_set A. c \<le> n \<and> c \<noteq> 0"
-  using clocks_n by force
-
-  lemma consts_ints:
-    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
-  using consts_nats unfolding Nats_def by auto
-
+      "\<forall>c\<in>clk_set A. c \<le> n \<and> c \<noteq> 0"
+    using clocks_n by force
+  
+  definition "X \<equiv> {1..n}"
+  
+  lemma clk_set_X:
+    "clk_set A \<subseteq> X"
+    unfolding X_def using clocks_n .
+  
+  lemma finite_X:
+    "finite X"
+  unfolding X_def by (metis finite_atLeastAtMost)
+  
   lemma finite_clkp_set_A[intro, simp]:
     "finite (clkp_set A)"
   unfolding clkp_set_def collect_clki_alt_def collect_clkt_alt_def by fast
@@ -2302,25 +2306,40 @@ begin
     "finite (collect_clkvt (trans_of A))"
   unfolding collect_clkvt_def using [[simproc add: finite_Collect]] by auto
 
-  definition "X \<equiv> {1..n}"
+end
+
+locale Reachability_Problem_Defs =
+  Reachability_Problem_no_ceiling +
+  fixes k :: "nat \<Rightarrow> nat"
+begin
+
+definition "k' \<equiv> map (int o k) [0..<Suc n]"
+
+definition "F_rel \<equiv> \<lambda> (l, M). F l \<and> \<not> check_diag n M"
+  
+definition "a\<^sub>0 = (l\<^sub>0, init_dbm)"
+
+end
+
+locale Reachability_Problem =
+  Reachability_Problem_Defs +
+  assumes k_ceiling: "\<forall>(x,m) \<in> clkp_set A. m \<le> k x"
+      and k_bound: "\<forall> i > n. k i = 0"
+      and k_0: "k 0 = 0"
+begin
+
+  lemma consts_ints:
+    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
+  using consts_nats unfolding Nats_def by auto
+
   (* Tailored towards the needs of the specific implementation semantics *)
   definition "v i \<equiv> if i > 0 \<and> i \<le> n then i else (Suc n)"
   definition "x \<equiv> SOME x. x \<notin> X"
-  definition "k \<equiv> default_ceiling A"
-
-  definition "k' \<equiv> map (int o k) [0..<Suc n]"
 
   lemma k_bound:
     assumes "i > n"
     shows "k i = 0"
-  proof -
-    from \<open>i > n\<close> have "i \<notin> {1..n}" by auto
-    then have
-      "i \<notin> clk_set A"
-    using clocks_n unfolding X_def by fast
-    then have "{m. (i, m) \<in> clkp_set A} = {}" by auto
-    then show ?thesis unfolding k_def default_ceiling_def by auto
-  qed
+  using k_bound oops
 
   lemma n_bounded:
     "\<forall> c \<in> X. c \<le> n"
@@ -2331,10 +2350,6 @@ begin
   lemma finite_locations:
     "finite locations"
   unfolding locations_def using finite_trans by auto
-
-  definition "F_rel \<equiv> \<lambda> (l, M). F l \<and> \<not> check_diag n M"
-  
-  definition "a\<^sub>0 = (l\<^sub>0, init_dbm)"
 
   definition "E = (\<lambda> (l, M) (l', M'). step_impl A l M k' n l' M')"
 
@@ -2395,10 +2410,6 @@ begin
     ultimately show ?thesis by (auto intro: finite_subset)
   qed
 
-  lemma finite_X:
-    "finite X"
-  unfolding X_def by (metis finite_atLeastAtMost)
-
   lemma X_alt_def:
     "X = {1..<Suc n}"
   unfolding X_def by auto
@@ -2432,10 +2443,6 @@ begin
       with map_nth[OF this] show ?thesis by auto
     qed
   qed
-
-  lemma k_0:
-    "k 0 = 0"
-  using clock_range unfolding k_def default_ceiling_def by auto
 
   lemma k_simp_2:
     "(k \<circ> v') = k"
@@ -2471,15 +2478,10 @@ begin
     using clocks_n unfolding v_def by auto
 
   thm finite_ta_RegionsD_int(2)
-
-  lemma clk_set_X:
-    "clk_set A \<subseteq> X"
-    unfolding X_def using clocks_n .
   
   lemma valid_abstraction:
     "valid_abstraction A X k"
-    unfolding k_def X_def
-    by (rule standard_abstraction_int; force intro!: consts_nats clk_set_X[unfolded X_def])
+    using k_ceiling consts_nats clk_set_X unfolding X_def by (auto intro!: valid_abstraction.intros)
 
   lemma triv_numbering':
     "\<forall> c \<in> clk_set A. v c = c"
@@ -3227,163 +3229,207 @@ begin
    apply (auto simp: F_rel_def subsumes_def dest: check_diag_subset; fail)
   done
 
-  end (* End of locale context *)
+end (* End of locale context *)
 
-  (* XXX Rename. Move? *)
-  lemma aux:
-    "x \<in> set xs \<Longrightarrow> \<exists> i < length xs. xs ! i = x"
-  by (metis index_less_size_conv nth_index)
+context Reachability_Problem_no_ceiling
+begin
+
+  context
+  begin
+
+  private abbreviation "k \<equiv> default_ceiling A"
+
+  lemma k_bound:
+    assumes "i > n"
+    shows "k i = 0"
+  proof -
+    from \<open>i > n\<close> have "i \<notin> {1..n}" by auto
+    then have
+      "i \<notin> clk_set A"
+      using clocks_n by fast
+    then have "{m. (i, m) \<in> clkp_set A} = {}" by auto
+    then show ?thesis unfolding default_ceiling_def by auto
+  qed
+
+  lemma k_0:
+   "k 0 = 0"
+    using clock_range unfolding default_ceiling_def by auto
   
-  lemma collect_clock_pairs_empty[simp]:
-    "collect_clock_pairs [] = {}"
-  unfolding collect_clock_pairs_def by auto
+  lemma valid_abstraction:
+     "valid_abstraction A X k"
+    by (rule standard_abstraction_int;
+        force intro!: consts_nats clk_set_X[unfolded X_def] clk_set_X finite_X)
+  
+  (* XXX This is a bit clumsy *)
+  lemma k_ge:
+    "\<forall>(x,m) \<in> clkp_set A. m \<le> k x"
+    using valid_abstraction by (auto elim!: valid_abstraction.cases)
 
-  subsection \<open>Pre-compiled automata with states and clocks as natural numbers\<close>
-  locale Reachability_Problem_precompiled_defs =
-    fixes n :: nat -- "Number of states. States are 0 through n - 1"
-      and m :: nat -- "Number of clocks"
-      and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
-      and inv :: "(nat, int) cconstraint list" -- "Clock invariants on states"
-      and trans :: "((nat, int) cconstraint * nat list * nat) list list"
-          -- "Transitions between states"
-      and final :: "nat list" -- "Final states. Initial location is 0"
-  begin
-    definition "clkp_set' \<equiv> \<Union>
-      (collect_clock_pairs ` set inv \<union> (\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans))"
-    definition clk_set'_def: "clk_set' =
-      (fst ` clkp_set' \<union> \<Union> ((\<lambda> (_, r, _). set r) ` set (concat trans)))"
-
-    text \<open>Definition of the corresponding automaton\<close>
-    definition "label a \<equiv> \<lambda> (g, r, l'). (g, a, r, l')"
-    definition "I l \<equiv> if l < n then inv ! l else []"
-    definition "T \<equiv> {(l, label i (trans ! l ! i)) | l i. l < n \<and> i < length (trans ! l)}"
-    definition "A \<equiv> (T, I)"
-    definition "F \<equiv> \<lambda> x. x \<in> set final"
   end
+  
+  sublocale default_ceiling: Reachability_Problem A l\<^sub>0 F n "default_ceiling A"
+    apply standard
+    apply (rule k_ge)
+    by (blast intro: k_ge k_bound k_0)+
 
-  locale Reachability_Problem_precompiled = Reachability_Problem_precompiled_defs +
-    assumes inv_length: "length inv = n"
-        and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
-        and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
-        and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
-        (* XXX Make this an abbreviation? *)
-        assumes k_ceiling:
-          "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
-        assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
-        assumes clock_set: "clk_set' = {1..m}"
-        and m_gt_0: "m > 0"
-        and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
-  begin
+end
+  
 
-    lemma consts_nats':
-      "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. d \<in> \<nat>"
-      "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. d \<in> \<nat>"
-    using consts_nats unfolding clkp_set'_def by fastforce+
+(* XXX Rename. Move? *)
+lemma aux:
+  "x \<in> set xs \<Longrightarrow> \<exists> i < length xs. xs ! i = x"
+by (metis index_less_size_conv nth_index)
 
-    lemma clkp_set_simp_1:
-      "\<Union> (collect_clock_pairs ` set inv) = collect_clki (inv_of A)"
-    unfolding A_def inv_of_def collect_clki_def I_def[abs_def] using inv_length
-    by (auto simp add: collect_clks_id image_Union dest: nth_mem dest!: aux)
-    
-    lemma clk_set_simp_2:
-      "\<Union> ((\<lambda> (g, r, _). set r) ` set (concat trans)) = collect_clkvt (trans_of A)"
-    unfolding A_def trans_of_def collect_clkvt_def T_def[abs_def] label_def using trans_length
-     apply (auto simp add: image_Union dest: nth_mem)
-     apply (drule aux)
-     apply (drule aux)
-     apply force
-     apply (auto dest!: nth_mem)
-     (* XXX Find these instances automatically *)
-     apply (rule_tac x = "trans ! a" in bexI)
-     apply (rule_tac x = "trans ! a ! i" in bexI)
+lemma collect_clock_pairs_empty[simp]:
+  "collect_clock_pairs [] = {}"
+unfolding collect_clock_pairs_def by auto
+
+subsection \<open>Pre-compiled automata with states and clocks as natural numbers\<close>
+locale Reachability_Problem_precompiled_defs =
+  fixes n :: nat -- "Number of states. States are 0 through n - 1"
+    and m :: nat -- "Number of clocks"
+    and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
+    and inv :: "(nat, int) cconstraint list" -- "Clock invariants on states"
+    and trans :: "((nat, int) cconstraint * nat list * nat) list list"
+        -- "Transitions between states"
+    and final :: "nat list" -- "Final states. Initial location is 0"
+begin
+  definition "clkp_set' \<equiv> \<Union>
+    (collect_clock_pairs ` set inv \<union> (\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans))"
+  definition clk_set'_def: "clk_set' =
+    (fst ` clkp_set' \<union> \<Union> ((\<lambda> (_, r, _). set r) ` set (concat trans)))"
+
+  text \<open>Definition of the corresponding automaton\<close>
+  definition "label a \<equiv> \<lambda> (g, r, l'). (g, a, r, l')"
+  definition "I l \<equiv> if l < n then inv ! l else []"
+  definition "T \<equiv> {(l, label i (trans ! l ! i)) | l i. l < n \<and> i < length (trans ! l)}"
+  definition "A \<equiv> (T, I)"
+  definition "F \<equiv> \<lambda> x. x \<in> set final"
+end
+
+locale Reachability_Problem_precompiled = Reachability_Problem_precompiled_defs +
+  assumes inv_length: "length inv = n"
+      and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
+      and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
+      and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
+      (* XXX Make this an abbreviation? *)
+      assumes k_ceiling:
+        "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
+      assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
+      assumes clock_set: "clk_set' = {1..m}"
+      and m_gt_0: "m > 0"
+      and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
+begin
+
+  lemma consts_nats':
+    "\<forall> cc \<in> set inv. \<forall> (c, d) \<in> collect_clock_pairs cc. d \<in> \<nat>"
+    "\<forall> xs \<in> set trans. \<forall> (g, _) \<in> set xs. \<forall> (c, d) \<in> collect_clock_pairs g. d \<in> \<nat>"
+  using consts_nats unfolding clkp_set'_def by fastforce+
+
+  lemma clkp_set_simp_1:
+    "\<Union> (collect_clock_pairs ` set inv) = collect_clki (inv_of A)"
+  unfolding A_def inv_of_def collect_clki_def I_def[abs_def] using inv_length
+  by (auto simp add: collect_clks_id image_Union dest: nth_mem dest!: aux)
+  
+  lemma clk_set_simp_2:
+    "\<Union> ((\<lambda> (g, r, _). set r) ` set (concat trans)) = collect_clkvt (trans_of A)"
+  unfolding A_def trans_of_def collect_clkvt_def T_def[abs_def] label_def using trans_length
+   apply (auto simp add: image_Union dest: nth_mem)
+   apply (drule aux)
+   apply (drule aux)
+   apply force
+   apply (auto dest!: nth_mem)
+   (* XXX Find these instances automatically *)
+   apply (rule_tac x = "trans ! a" in bexI)
+   apply (rule_tac x = "trans ! a ! i" in bexI)
+  by auto
+
+  lemma clkp_set_simp_3:
+    "\<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans)) = collect_clkt (trans_of A)"
+  unfolding A_def trans_of_def collect_clkt_def T_def[abs_def] label_def using trans_length
+   apply (auto simp add: collect_clks_id image_Union dest: nth_mem)
+   apply (auto dest!: aux)[]
+   apply force
+   apply (auto dest!: nth_mem)
+   apply (rule_tac x = "trans ! aa" in bexI)
+   apply (rule_tac x = "trans ! aa ! i" in bexI)
+  by auto
+
+  lemma clkp_set'_eq:
+    "clkp_set A = clkp_set'"
+  by (fastforce simp: clkp_set'_def clkp_set_def image_Un image_Union
+    clkp_set_simp_1[symmetric] clkp_set_simp_3[symmetric]
+    )
+
+  lemma clk_set'_eq[simp]:
+    "clk_set A = clk_set'"
+  by (auto simp: clkp_set'_eq clk_set'_def clk_set_simp_2[symmetric])
+
+  (* XXX Interesting for finiteness *)
+  (* XXX Move *)
+  lemma Collect_fold_pair:
+    "{f a b | a b. P a b} = (\<lambda> (a, b). f a b) ` {(a, b). P a b}"
+  by auto
+
+  (* XXX Interesting case of proving finiteness *)
+  lemma finite_T[intro, simp]:
+    "finite (trans_of A)"
+  proof -
+    have
+      "{(l, i). l < n \<and> i < length (trans ! l)}
+      = \<Union> ((\<lambda> l. {(l, i) | i. i < length (trans ! l)}) ` {l. l < n})"
     by auto
+    then show ?thesis unfolding trans_of_def A_def T_def by (auto simp: Collect_fold_pair)
+  qed
 
-    lemma clkp_set_simp_3:
-      "\<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (concat trans)) = collect_clkt (trans_of A)"
-    unfolding A_def trans_of_def collect_clkt_def T_def[abs_def] label_def using trans_length
-     apply (auto simp add: collect_clks_id image_Union dest: nth_mem)
-     apply (auto dest!: aux)[]
-     apply force
-     apply (auto dest!: nth_mem)
-     apply (rule_tac x = "trans ! aa" in bexI)
-     apply (rule_tac x = "trans ! aa ! i" in bexI)
-    by auto
+  (* XXX *)
+  lemma
+    "clk_set' \<noteq> {}"
+  using clock_set m_gt_0 by auto
 
-    lemma clkp_set'_eq:
-      "clkp_set A = clkp_set'"
-    by (fastforce simp: clkp_set'_def clkp_set_def image_Un image_Union
-      clkp_set_simp_1[symmetric] clkp_set_simp_3[symmetric]
-      )
+  lemma has_clock[intro]:
+    "clk_set A \<noteq> {}"
+  using clock_set m_gt_0 by simp
 
-    lemma clk_set'_eq[simp]:
-      "clk_set A = clk_set'"
-    by (auto simp: clkp_set'_eq clk_set'_def clk_set_simp_2[symmetric])
+  lemma clk_set:
+    "clk_set A = {1..m}"
+  using clock_set m_gt_0 by auto
 
-    (* XXX Interesting for finiteness *)
-    (* XXX Move *)
-    lemma Collect_fold_pair:
-      "{f a b | a b. P a b} = (\<lambda> (a, b). f a b) ` {(a, b). P a b}"
-    by auto
+  lemma clk_set_eq:
+    "clk_set A = {1..card (clk_set A)}"
+  using clk_set by auto
 
-    (* XXX Interesting case of proving finiteness *)
-    lemma finite_T[intro, simp]:
-      "finite (trans_of A)"
-    proof -
-      have
-        "{(l, i). l < n \<and> i < length (trans ! l)}
-        = \<Union> ((\<lambda> l. {(l, i) | i. i < length (trans ! l)}) ` {l. l < n})"
-      by auto
-      then show ?thesis unfolding trans_of_def A_def T_def by (auto simp: Collect_fold_pair)
-    qed
+  lemma
+    "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0"
+  using clock_set by auto
 
-    (* XXX *)
-    lemma
-      "clk_set' \<noteq> {}"
-    using clock_set m_gt_0 by auto
+  lemma
+    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
+  unfolding Ints_def by auto
 
-    lemma has_clock[intro]:
-      "clk_set A \<noteq> {}"
-    using clock_set m_gt_0 by simp
+  lemma clkp_set_consts_nat:
+    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
+  unfolding
+    clkp_set_def collect_clki_alt_def collect_clkt_alt_def A_def trans_of_def inv_of_def
+    T_def I_def[abs_def] label_def
+  using consts_nats' inv_length trans_length by (force dest: nth_mem)
 
-    lemma clk_set:
-      "clk_set A = {1..m}"
-    using clock_set m_gt_0 by auto
+  lemma finite_range_inv_of_A[intro, simp]:
+    "finite (range (inv_of A))"
+  unfolding inv_of_def A_def I_def[abs_def] by (auto intro: finite_subset[where B = "{[]}"])
 
-    lemma clk_set_eq:
-      "clk_set A = {1..card (clk_set A)}"
-    using clk_set by auto
+  lemma finite_clkp_set_A[intro, simp]:
+    "finite (clkp_set A)"
+  unfolding clkp_set_def collect_clki_alt_def collect_clkt_alt_def by fast
 
-    lemma
-      "\<forall>c\<in>clk_set A. c \<le> card (clk_set A) \<and> c \<noteq> 0"
-    using clock_set by auto
+  lemma finite_ta_A[intro, simp]:
+    "finite_ta A"
+  unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat 
+  by auto (force simp: clk_set_simp_2[symmetric])+
 
-    lemma
-      "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
-    unfolding Ints_def by auto
+  sublocale Reachability_Problem_no_ceiling A 0 "PR_CONST F" m
+    using has_clock clkp_set_consts_nat clk_set m_gt_0 by - (standard; auto)
 
-    lemma clkp_set_consts_nat:
-      "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
-    unfolding
-      clkp_set_def collect_clki_alt_def collect_clkt_alt_def A_def trans_of_def inv_of_def
-      T_def I_def[abs_def] label_def
-    using consts_nats' inv_length trans_length by (force dest: nth_mem)
-
-    lemma finite_range_inv_of_A[intro, simp]:
-      "finite (range (inv_of A))"
-    unfolding inv_of_def A_def I_def[abs_def] by (auto intro: finite_subset[where B = "{[]}"])
-
-    lemma finite_clkp_set_A[intro, simp]:
-      "finite (clkp_set A)"
-    unfolding clkp_set_def collect_clki_alt_def collect_clkt_alt_def by fast
-
-    lemma finite_ta_A[intro, simp]:
-      "finite_ta A"
-    unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat 
-    by auto (force simp: clk_set_simp_2[symmetric])+
-
-    sublocale Reachability_Problem A 0 "PR_CONST F" m
-    using has_clock clkp_set_consts_nat clk_set m_gt_0 by - (standard, auto)
-
-  end (* End of locale *)
+end (* End of locale *)
 
 end

@@ -196,7 +196,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
   unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat
   by auto (force simp: clk_set_simp_2[symmetric])+
 
-  sublocale Reachability_Problem A init "PR_CONST F" m
+  sublocale Reachability_Problem_no_ceiling A init "PR_CONST F" m
     using has_clock clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
     
   lemma [simp]:

@@ -36,7 +36,7 @@ begin
     "state_set T = fst ` T \<union> (snd o snd o snd o snd) ` T"
 
 locale Reachability_Problem_Impl_Defs =
-  Reachability_Problem A l\<^sub>0 F n
+  Reachability_Problem_no_ceiling A l\<^sub>0 F n
   for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat +
 
   fixes trans_fun :: "('a, nat, int, 's) transition_fun"
@@ -51,7 +51,9 @@ begin
 end
 
 locale Reachability_Problem_Impl =
-  Reachability_Problem_Impl_Defs A for A :: "('a, nat, int, 's) ta" +
+  Reachability_Problem_Impl_Defs A l\<^sub>0 F n +
+  Reachability_Problem A l\<^sub>0 F n k
+  for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat and k + 
   assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states"
       and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel states"
       and F_fun: "(F_fun, F) \<in> inv_rel states"
@@ -236,9 +238,11 @@ begin
 
   lemma [def_pat_rules]: "FW'' $ n \<equiv> UNPROTECT (FW'' n)" by simp
 
-  sepref_register "PR_CONST k'"
+sepref_register "PR_CONST k'"
 
-  lemma [def_pat_rules]: "(Reachability_Problem.k' $ A $ n) \<equiv> PR_CONST k'" by simp
+term "Reachability_Problem_Defs.k' n k"
+
+  lemma [def_pat_rules]: "(Reachability_Problem_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp 
 
   lemma [simp]:
     "length k' > n"
@@ -345,7 +349,7 @@ begin
   unfolding
     comp_def succs'_succs[symmetric] succs'_def
     FW''_def[symmetric] rev_map_fold reset'_upd_def inv_of_A_def[symmetric]
-   apply (rewrite "HOL_list.fold_custom_empty")
+  apply (rewrite "HOL_list.fold_custom_empty")
   by sepref
 
   end (* End sepref setup *)
@@ -448,10 +452,10 @@ begin
   using k_ceiling by auto (* XXX *)
 
   lemma k_k'[intro]:
-    "map int k = k'"
+    "map int k = default_ceiling.k'"
     apply (rule nth_equalityI)
-     using k_length length_k' apply (auto; fail)
-    unfolding k'_def k_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
+     using k_length default_ceiling.length_k' apply (auto; fail)
+    unfolding default_ceiling.k'_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
     using k_ceiling' k_ceiling(2) apply safe
      subgoal for i by (cases "i = 0") auto
     apply (frule fst_clkp_set'D(1))
@@ -467,18 +471,22 @@ begin
     done
 
   lemma iarray_k'[intro]:
-    "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+    "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN default_ceiling.k'))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   unfolding br_def by sepref_to_hoare sep_auto
 
-  sublocale Reachability_Problem_Impl 0 "PR_CONST F" m trans_fun inv_fun final_fun "IArray k" A
+term Reachability_Problem_Impl
+
+  sublocale Reachability_Problem_Impl trans_fun inv_fun final_fun "IArray k" A 0 "PR_CONST F" m "default_ceiling A"
     unfolding PR_CONST_def
     apply standard
     using iarray_k' by fastforce+
 
   lemma F_reachable_correct:
-    "F_reachable
+    "default_ceiling.F_reachable
     \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
-  unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
+    unfolding default_ceiling.F_reachable_def default_ceiling.reachable_def
+    using default_ceiling.reachability_check unfolding F_def by auto
 
   definition
     "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"

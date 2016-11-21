@@ -570,10 +570,10 @@ begin
   using k_ceiling by auto (* XXX *)
 
   lemma k_k'[intro]:
-    "map int k = k'"
+    "map int k = default_ceiling.k'"
     apply (rule nth_equalityI)
-     using k_length length_k' apply (auto; fail)
-    unfolding k'_def k_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
+     using k_length default_ceiling.length_k' apply (auto; fail)
+    unfolding default_ceiling.k'_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
     using k_ceiling' k_ceiling(2) apply safe
      subgoal for i by (cases "i = 0") auto
     apply (frule fst_clkp_set'D(1))
@@ -589,7 +589,8 @@ begin
     done
 
   lemma iarray_k'[intro]:
-    "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+    "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN default_ceiling.k'))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
     unfolding br_def by sepref_to_hoare sep_auto
 
   lemma init_has_trans:
@@ -640,7 +641,8 @@ context Network_Reachability_Problem_precompiled'
 begin
 
   sublocale
-    Reachability_Problem_Impl init "PR_CONST F" m trans_fun inv_fun final_fun "IArray k" A
+    Reachability_Problem_Impl
+      trans_fun inv_fun final_fun "IArray k" A init "PR_CONST F" m "default_ceiling A"
     unfolding PR_CONST_def by (standard; rule)
 
   lemma length_states[intro, simp]:
@@ -649,23 +651,24 @@ begin
 
   (* XXX Unused *)
   lemma length_reachable:
-  "length L' = p" if "E\<^sup>*\<^sup>* a\<^sub>0 (L', u)"
-    using that reachable_states unfolding reachable_def by auto
+  "length L' = p" if "default_ceiling.E\<^sup>*\<^sup>* default_ceiling.a\<^sub>0 (L', u)"
+    using that reachable_states unfolding default_ceiling.reachable_def by auto
 
   lemma length_steps:
   "length L' = p" if "conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>" "\<forall>c\<in>{1..m}. u c = 0"
-    using that reachable_decides_emptiness'[of L'] by (auto intro: length_reachable)
+    using that default_ceiling.reachable_decides_emptiness'[of L'] by (auto intro: length_reachable)
 
   lemma F_reachable_correct':
-    "F_reachable
+    "default_ceiling.F_reachable
     \<longleftrightarrow> (\<exists> L' u u'.
         conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i))
       )"
-    unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
+    unfolding default_ceiling.F_reachable_def default_ceiling.reachable_def
+    using default_ceiling.reachability_check unfolding F_def by auto
 
   lemma F_reachable_correct'':
-    "F_reachable
+    "default_ceiling.F_reachable
     \<longleftrightarrow> (\<exists> L' u u'.
         conv_A A \<turnstile> \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < p. L' ! i \<in> set (final ! i))
@@ -728,7 +731,7 @@ begin
     by simp
 
   lemma F_reachable_correct:
-    "F_reachable
+    "default_ceiling.F_reachable
     \<longleftrightarrow> (\<exists> L' u u'.
         map conv_A N \<turnstile>\<^sub>N \<langle>init, u\<rangle> \<rightarrow>* \<langle>L', u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < p. L' ! i \<in> set (final ! i))
