@@ -1,7 +1,38 @@
 theory State_Networks_Impl_Refine
   imports
     Normalized_Zone_Semantics_Impl_Refine State_Networks_Impl Networks_Impl_Refine
+    "~/Isabelle/Util/ML_Util"
 begin
+
+subsection \<open>Method setup for quantifier trickery\<close>
+
+ML \<open>fun mini_ex ctxt = SIMPLE_METHOD (mini_ex_tac ctxt 1)\<close>
+ML \<open>fun defer_ex ctxt = SIMPLE_METHOD (defer_ex_tac ctxt 1)\<close>
+
+method_setup mini_existential =
+  \<open>Scan.succeed mini_ex\<close> \<open>Miniscope existential quantifiers\<close>
+method_setup defer_existential =
+  \<open>Scan.succeed defer_ex\<close> \<open>Rotate first conjunct under existential quantifiers to last position\<close>
+
+method mini_ex = ((simp only: ex_simps[symmetric])?, mini_existential, (simp)?)
+method defer_ex = ((simp only: ex_simps[symmetric])?, defer_existential, (simp)?)
+method defer_ex' = (defer_existential, (simp)?)
+
+method solve_triv =
+  fo_assumption | refl_match | simp; fail | assumption | (erule image_eqI[rotated], solve_triv)
+
+method solve_ex_triv2 = (((rule exI)+)?, (rule conjI)+, solve_triv)
+
+method solve_conj_triv = solve_triv | (rule conjI, solve_conj_triv)
+
+method solve_conj_triv2 =
+  (match conclusion in
+    "_ \<and> _" \<Rightarrow> \<open>rule conjI, solve_conj_triv2\<close>
+  \<bar> _ \<Rightarrow> solve_triv)
+
+method solve_ex_triv = (((rule exI)+)?, solve_conj_triv)
+
+subsection \<open>Executable successor computation\<close>
 
 no_notation Ref.update ("_ := _" 62)
 no_notation test_bit (infixl "!!" 100)
@@ -464,7 +495,6 @@ begin
     "(trans_fun, trans_of A) \<in> transition_rel states'"
     unfolding transition_rel_def T_def
     apply simp
-    apply rule
     unfolding trans_of_def
     apply safe
     subgoal for L s g a r L' s'
@@ -475,34 +505,24 @@ begin
         apply (rule trans_i_fun_trans_fun)
         unfolding product.prod_trans_i_alt_def product.product_trans_i_def
         apply safe
-        unfolding T_T T_def states_length_p
-        apply clarsimp
+        unfolding T_T T_def states_length_p product.product_trans_def
           (* Could be a lemma from here *)
-        unfolding trans_fun_def trans_i_fun_def trans_i_from_def trans_i_map_def
-          unfolding make_trans_def
+        unfolding trans_fun_def trans_i_fun_def trans_i_from_def trans_i_map_def make_trans_def
         apply clarsimp
-        unfolding product.product_trans_def
         apply (rule bexI)
          prefer 2
          apply simp
         using process_length(2)
         apply simp
-        apply (drule nth_mem)
-        apply (drule nth_mem)
+        apply (drule nth_mem)+
         subgoal premises prems for pa c m l' j
         proof -
           have "(g, c, Sil a, r, m, l') \<in> set (trans ! pa ! (L ! pa))"
             using prems by (auto split: prod.split_asm)
-          with prems show ?thesis apply (simp add: set_map_filter)
-            using [[simproc add: ex_reorder, simproc add: ex_reorder4]]
-            apply simp
-            apply (rule exI, rule conjI)
-             apply (rotate_tac 3) (* XXX This would be unnecessary if we were using fo-resolution *)
-             apply assumption
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
-            apply simp
-            apply (rule exI, rule conjI, (simp; fail))+
-            by fastforce
+          with prems show ?thesis
+            using [[simproc add: ex_reorder]]
+            apply (simp add: set_map_filter)
+            by (solve_ex_triv22; fastforce intro!: exI)+
         qed
         done
       subgoal
@@ -513,7 +533,7 @@ begin
         apply clarsimp
           (* Could be a lemma from here *)
         unfolding trans_s_fun_def
-        apply clarsimp thm less_naI
+        apply clarsimp
         apply (subgoal_tac "a < na") (* XXX *)
         unfolding make_trans_def
         apply (rule bexI)
@@ -533,7 +553,6 @@ begin
         unfolding product.prod_trans_s_alt_def product.product_trans_s_def
         apply safe
         unfolding T_T T_def states_length_p
-        apply simp
         unfolding trans_s_fun_def
         apply clarsimp
         subgoal for x
@@ -552,82 +571,54 @@ begin
           apply (simp only: ex_simps[symmetric])
           unfolding states'_def
           subgoal
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-            apply (tactic \<open>rearrange_ex_fixed_2 @{context} 1\<close>)
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-            apply (simp only: ex_simps)
-            apply (simp only: ex_simps[symmetric])
+            apply (defer_existential, mini_existential)
+            apply (defer_existential, mini_existential)
+            apply mini_ex
             unfolding P_unfold
             apply simp
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
-            apply simp
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>, simp)+
+            apply defer_ex
+            apply (mini_existential, simp)+
             apply (simp add: states_length_p)
-            apply ((rule exI)+, rule conjI, simp)
-            apply ((rule exI)+, rule conjI, simp)
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
+            apply solve_ex_triv22
+            apply defer_ex'
+            apply defer_existential
             apply ((rule exI)+, rule conjI, simp)+
              apply (rule conjI)
-              apply ((rule exI)+, rule conjI, simp)
-              apply simp
+              apply solve_ex_triv22
             unfolding make_trans_def
               apply clarsimp
               apply safe
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
+            apply defer_ex'
+            apply (rule conjI, (rule; assumption))
+            apply mini_ex
+            apply defer_ex'
+            apply (rule conjI, (rule; assumption))
+            apply (mini_existential, simp)+
+            apply defer_ex
+            apply mini_ex
+            apply solve_ex_triv22
             apply simp
-            apply (rule conjI)
-             apply (rule; assumption)
-            apply (simp only: ex_simps[symmetric])
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-            apply simp
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
-            apply simp
-            apply (rule conjI)
-             apply (rule; assumption)
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>, simp)+
-            apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
-            apply (simp only: ex_simps[symmetric])
-            apply (simp only: conj_assoc)
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-            apply simp
-            apply ((rule exI)+, rule conjI, assumption)
-            apply simp
-            apply ((rule exI)+, rule conjI, simp)
-            apply (simp only: ex_simps[symmetric])
-            apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-            apply simp
-            apply ((rule exI)+, rule conjI, simp)
-            by simp
+            apply solve_ex_triv22
+            apply mini_ex
+            by (solve_ex_triv22; simp)
           done
         done
       subgoal
         apply simp
         apply (rule disjI1)
+        using process_length(2) states_len
         unfolding product.prod_trans_i_alt_def product.product_trans_i_def
         unfolding T_T T_def trans_i_fun_def trans_i_from_def trans_i_map_def states'_def
-        using process_length(2) states_len
-        apply (clarsimp simp: set_map_filter states_length_p)
         unfolding P_unfold make_trans_def
-        apply (clarsimp split: if_split_asm)
-        apply (clarsimp split: act.split_asm)
+        apply (clarsimp simp: set_map_filter states_length_p)
+        apply (clarsimp split: if_split_asm act.split_asm)
         unfolding P_unfold[unfolded process_length(2)[symmetric]] thm P_unfold[unfolded process_length(2)[symmetric]]
         subgoal
-          apply (tactic \<open>defer_ex_tac @{context} 1\<close>)
+          apply solve_ex_triv22
           apply simp
-          using [[simproc add: ex_reorder4]]
-          apply simp
-          apply (rule exI)
           apply (rule conjI)
-           apply assumption
-          apply simp
-          apply (rule exI)
-          apply (rule conjI)
-           apply ((rule exI)+, rule conjI, simp)
-          by (force dest!: mem_nth)+
+           apply solve_ex_triv22
+          by (force dest!: mem_nth)
         done
       done
     done
@@ -841,73 +832,51 @@ begin
   lemma product_trans_i_conv:
     "product'.product_trans_i = conv_t ` product.product_trans_i"
     unfolding product'.product_trans_i_def product.product_trans_i_def
-    apply clarsimp
-    apply safe
-    unfolding T_T
-     apply (subst (asm) (2) N_def)
-     apply (force simp add: states_length_p trans_of_def image_Collect)
-    (* XXX Use tactic here *)
-    by (force simp: trans_of_def N_def states_length_p)
+    by (simp; force simp add: T_T states_length_p trans_of_def image_Collect N_def)
 
-  lemma *[simp]:
+  lemma P_P[simp]:
     "product'.P = P"
     by simp
 
-  lemma **[simp]:
+  lemma p_p[simp]:
     "product'.p = p"
     unfolding product'.p_def by simp
 
   lemma prod_trans_i_conv:
     "product'.prod_trans_i = conv_t ` product.prod_trans_i"
-    unfolding product'.prod_trans_i_alt_def product.prod_trans_i_alt_def product_trans_i_conv * **
+    unfolding
+      product'.prod_trans_i_alt_def product.prod_trans_i_alt_def product_trans_i_conv
+      p_p P_P
     apply (simp add: image_Collect)
     apply (rule Collect_cong)
     apply safe
      apply metis
-    subgoal
-      apply (rule exI)+
-      by force
-    done
+    by ((rule exI)+; force)
 
   lemma product_trans_t_conv:
     "product'.product_trans_s = conv_t ` product.product_trans_s"
     unfolding product'.product_trans_s_def product.product_trans_s_def
-    apply clarsimp
     apply safe
     unfolding T_T
-     apply (subst (asm) (2) N_def)
-     apply (subst (asm) (2) N_def)
-     apply simp
-     apply (simp add: states_length_p trans_of_def image_Collect)
-     apply (simp only: ex_simps[symmetric])
-     apply (tactic \<open>rotate_ex_tac @{context} 1\<close>)
-     apply (fastforce simp add: states_length_p)
-    apply (simp add: states_length_p trans_of_def image_Collect N_def del: ex_simps)
-    apply (tactic \<open>rearrange_ex_tac @{context} 1\<close>)
-    apply (simp only: ex_simps)
-    apply (rule, rule, assumption)
-    apply (simp only: ex_simps[symmetric])
-    apply (tactic \<open>rearrange_ex_tac @{context} 1\<close>)
-    apply simp
-    apply (rule, rule, assumption, rule, assumption)
-    apply (rule exI, rule exI, rule conjI, rule HOL.refl)+
-    by force
+    subgoal
+      apply (simp add: image_Collect)
+      apply (clarsimp simp add: states_length_p trans_of_def N_def image_iff)
+      subgoal
+        apply defer_ex
+        by solve_ex_triv22+
+      done
+    by (solve_ex_triv22+; force simp: states_length_p image_Collect N_def trans_of_def)
 
   lemma prod_trans_s_conv:
     "product'.prod_trans_s = conv_t ` product.prod_trans_s"
-    unfolding product'.prod_trans_s_alt_def product.prod_trans_s_alt_def product_trans_t_conv * **
+    unfolding product'.prod_trans_s_alt_def product.prod_trans_s_alt_def product_trans_t_conv p_p P_P
     apply (simp add: image_Collect)
     apply (rule Collect_cong)
     apply safe
-     apply metis
+     subgoal
+      by solve_ex_triv22+
     subgoal
-      apply simp
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (rule exI)+
-      by force
+      by solve_ex_triv22+
     done
 
   lemma prod_trans_conv:
