@@ -522,7 +522,7 @@ begin
           with prems show ?thesis
             using [[simproc add: ex_reorder]]
             apply (simp add: set_map_filter)
-            by (solve_ex_triv22; fastforce intro!: exI)+
+            by (solve_ex_triv; fastforce intro!: exI)+
         qed
         done
       subgoal
@@ -579,12 +579,12 @@ begin
             apply defer_ex
             apply (mini_existential, simp)+
             apply (simp add: states_length_p)
-            apply solve_ex_triv22
+            apply solve_ex_triv
             apply defer_ex'
             apply defer_existential
             apply ((rule exI)+, rule conjI, simp)+
              apply (rule conjI)
-              apply solve_ex_triv22
+              apply solve_ex_triv
             unfolding make_trans_def
               apply clarsimp
               apply safe
@@ -596,11 +596,11 @@ begin
             apply (mini_existential, simp)+
             apply defer_ex
             apply mini_ex
-            apply solve_ex_triv22
+            apply solve_ex_triv
             apply simp
-            apply solve_ex_triv22
+            apply solve_ex_triv
             apply mini_ex
-            by (solve_ex_triv22; simp)
+            by (solve_ex_triv; simp)
           done
         done
       subgoal
@@ -614,10 +614,10 @@ begin
         apply (clarsimp split: if_split_asm act.split_asm)
         unfolding P_unfold[unfolded process_length(2)[symmetric]] thm P_unfold[unfolded process_length(2)[symmetric]]
         subgoal
-          apply solve_ex_triv22
+          apply solve_ex_triv
           apply simp
           apply (rule conjI)
-           apply solve_ex_triv22
+           apply solve_ex_triv
           by (force dest!: mem_nth)
         done
       done
@@ -863,9 +863,9 @@ begin
       apply (clarsimp simp add: states_length_p trans_of_def N_def image_iff)
       subgoal
         apply defer_ex
-        by solve_ex_triv22+
+        by solve_ex_triv+
       done
-    by (solve_ex_triv22+; force simp: states_length_p image_Collect N_def trans_of_def)
+    by (solve_ex_triv+; force simp: states_length_p image_Collect N_def trans_of_def)
 
   lemma prod_trans_s_conv:
     "product'.prod_trans_s = conv_t ` product.prod_trans_s"
@@ -874,9 +874,9 @@ begin
     apply (rule Collect_cong)
     apply safe
      subgoal
-      by solve_ex_triv22+
+      by solve_ex_triv+
     subgoal
-      by solve_ex_triv22+
+      by solve_ex_triv+
     done
 
   lemma prod_trans_conv:
