@@ -612,21 +612,6 @@ lemma A_unfold:
   "A \<equiv> (N, P)"
   by auto
 
-lemma network_step_delay:
-  assumes step: "(N, P) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" and len: "length L = p"
-  obtains a where "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', u'\<rangle>"
-  subgoal premises prems
-    using step
-    apply -
-      apply (rule prems)
-      apply simp
-      apply (rule step_n_t)
-      subgoal
-        unfolding N_s_def by (auto simp: inv_of_def)
-      apply assumption
-      done
-    oops
-
 lemma network_step:
   assumes step: "(N, P) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" and len: "length L = p"
   obtains a where "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', u'\<rangle>"
