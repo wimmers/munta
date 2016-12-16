@@ -1200,178 +1200,189 @@ next
             by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
               (* XXX Metis-free proof? *)
                         apply (auto simp: inv_simp p_def prod.N_s_length)
-            by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
+          apply (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
+            subgoal premises prems for pc_g pc_ga pc_u pc_ua q'
+            using prems(11) \<open>q' < _\<close> unfolding state_ta_def state_pred_def
+            by (fastforce simp: p_def split: option.splits)
+          done
     done
 qed
 
-(*
-lemma states_prod_step[intro]:
-    "L' \<in> states" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    using that by (intro states_product_step prod_inv_1)
+lemma equiv_complete':
+  assumes step: "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  shows "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle> \<and> L' \<in> defs.states' s'
+      \<and> (\<forall> q < p. (defs.P ! q) (L' ! q) s')"
+    using step proof cases
+    case (step_u_t N P d I)
+    note [simp] = A_simp[OF this(1)]
+    from step_u_t(2-) show ?thesis
+      apply (auto simp: state_ta_def p_def state_inv_def intro: step_sn_t) sorry
+  next
+    case (step_u_i P pc_g uu uv uw ux pc_u uy uz va r N I l a l' p)
+    note [simp] = A_simp[OF this(1)]
+    from step_u_i(2-) show ?thesis
+      apply -
+      apply (simp add: prod.N_s_length)
+      apply (subst state_ta_unfold)
+      apply (frule steps_P_guard(1))
+        apply assumption
+        apply (simp; fail)
+      apply (drule steps_P_guard(2))
+        apply assumption
+        apply (simp; fail)
+      apply (frule steps_P_upd(1))
+        apply assumption
+        apply (simp; fail)
+      apply (drule steps_P_upd(2))
+        apply assumption
+        apply (simp; fail)
+      apply (drule N_transD)
+       apply assumption
+        apply safe
+      apply (rule step_sn_i)
+        apply assumption
+                apply auto
+        apply (simp add: state_ta_def p_def state_inv_def state_pred_def; fail)
+       apply (simp add: prod.N_s_length; fail)
+        by (fastforce simp: p_def intro: steps_P intro!: states'_updI)+
+  next
+    case (step_u_s P pc_g1 vb vc vd ve pc_g2 vf vg vh vi pc_u2 vj vk s1 vl r2 pc_u1 r1 vm vn vo vp N I l1 a l1' p' l2 l2' q)
+    note [simp] = A_simp[OF this(1)]
+    from \<open>q < length L\<close> have "q < p" by (simp add: prod.N_s_length)
+    from step_u_s(2-) show ?thesis
+      apply -
+      apply (simp add: prod.N_s_length)
+      apply (subst state_ta_unfold)
+      apply (frule steps_P_guard(1))
+        apply assumption
+        apply (simp; fail)
+      apply (drule steps_P_guard(2))
+        apply assumption
+       apply (simp; fail)
+      apply (frule steps_P_guard(1))
+        apply (rule \<open>q < p\<close>)
+        apply (simp; fail)
+      apply (drule steps_P_guard(2))
+        apply (rule \<open>q < p\<close>)
+        apply (simp; fail)
+      apply (frule steps_P_upd(1))
+        apply (rule \<open>q < p\<close>)
+        apply (simp; fail)
+      apply (drule steps_P_upd(2))
+        apply (rule \<open>q < p\<close>)
+       apply (simp; fail)
+      apply (drule steps_P_reset[simplified])
+        apply (frule steps_P_upd(1))
+        apply assumption
+        apply (simp; fail)
+      apply (drule steps_P_upd(2))
+        apply assumption
+        apply (simp; fail)
+      apply (drule N_transD)
+       apply assumption
+      apply (drule N_transD)
+       apply assumption
+        apply safe
+      apply (rule step_sn_s)
+                         apply assumption
+                        apply assumption
+                apply auto
+        apply (simp add: state_ta_def p_def state_inv_def state_pred_def; fail)
+         apply (simp add: prod.N_s_length; fail)
+        apply (simp add: prod.N_s_length; fail)
+       apply (simp add: p_def)
+       apply (erule allE)
+       apply (erule impE)
+        apply (rotate_tac 5)
+        apply assumption
+        apply (fastforce simp: p_def intro: steps_P intro!: states'_updI'')
+       apply (fastforce simp: p_def intro: steps_P intro!: states'_updI'')
+        apply (simp add: p_def)
+       apply (erule allE)
+       apply (erule impE)
+        apply (rotate_tac 5)
+        apply assumption
+        by (fastforce simp: p_def intro: steps_P intro!: states'_updI'') (* XXX Cleanup *)
+   qed
 
-  lemma inv_prod_step[intro]:
-    "\<forall>p<length P. (P ! p) (L' ! p) s'" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    using that by (intro states_product_step prod_inv_2)
+lemma equiv_complete'':
+  assumes step: "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+    shows "(\<forall>q<p. \<exists>pc st s'' rs pcs.
+             exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
+             Some ((pc, st, s'', True, rs), pcs))"
+proof -
+  from assms equiv_complete' have "\<forall>q<p. (defs.P ! q) (L' ! q) s'" by simp
+  then show ?thesis
+    unfolding state_ta_def state_pred_def by (fastforce split: option.splits)
+qed
 
-*)
-
-  lemma prod_steps_sound':
+  lemma equiv_steps_sound':
     assumes step: "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    shows "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> L' \<in> defs.states' s'"
+    shows "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> L' \<in> defs.states' s' \<and>
+        (\<forall>q<p. \<exists>pc st s'' rs pcs.
+             exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
+             Some ((pc, st, s'', True, rs), pcs))"
     using step states inv
   proof (induction A \<equiv> state_ta L s u L' s' u' arbitrary: rule: steps_sn.induct)
     case (refl L s u)
     then show ?case by blast
   next
     case prems: (step L s u L' s' u' L'' s'' u'')
-    from prems(3) prems(1,2,4-) have *: "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" "L' \<in> defs.states' s'"
+    from prems have *:
+      "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" "L' \<in> defs.states' s'"
+      "(\<forall>q<p. \<exists>pc st s'' rs pcs.
+             exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
+             Some ((pc, st, s'', True, rs), pcs))"
       by auto
-    interpret interp: Equiv_TA A n L' s' u' apply standard
-           apply (rule *)
-      using pred_time_indep apply blast
-      using upd_time_indep apply blast
-      using clock_conj apply blast
-       apply (simp add: Len)
-        sorry
-    from prems(3) have "A \<turnstile>\<^sub>n \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" "L'' \<in> defs.states' s''"
+    interpret interp: Equiv_TA A n L' s' u'
+      using pred_time_indep upd_time_indep clock_conj by unfold_locales (auto simp: Len intro!: *)
+    from prems(3) have
+      "A \<turnstile>\<^sub>n \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" "L'' \<in> defs.states' s''"
+      "\<forall>q<p. \<exists>pc st s''' rs pcs.
+              exec PF n ((I ! q) (L'' ! q), [], s'', True, []) [] =
+              Some ((pc, st, s''', True, rs), pcs)"
       by (force dest!: interp.equiv_sound')+
-    with * interp.states show ?case apply - apply (assumption | rule)+
-        done
-      apply rule
-       apply rule
-        apply assumption+
-        unfolding prod.states'_simp[of s' s'']
-        apply (simp add: prod.states'_simp[symmetric
-
-  qed
-    case (refl u)
-    then show ?case by blas
-  next
-    case prems: (step u l' u' u'' L s)
-    obtain L'' s'' where "l' = (L'', s'')" by force
-    interpret interp: Prod_TA A L s by (standard; rule prems Len)
-    from prems(3)[OF \<open>l' = _\<close>] prems(1,2,4-) have *: "A \<turnstile> \<langle>L'', s'', u'\<rangle> \<rightarrow>* \<langle>L', s', u''\<rangle>"
-      unfolding \<open>l' = _\<close> using  interp.inv_prod_step by auto
-    show ?case
-      apply (rule stepI2)
-      using * prems by (auto simp: \<open>l' = _\<close> intro: interp.prod_sound)
+    with * interp.states show ?case by - (assumption | rule)+
   qed
 
-lemma equiv_correct:
-  "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-  oops
-
-term defs.prod_ta
-
-lemma prod_correct:
-    "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    by (metis prod_steps_complete prod_steps_sound
-
-  lemma prod_sound':
-    assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
-           \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
-    using assms proof cases
-    case (step_t d)
-    then show ?thesis
-    proof cases
-      case prems: 1
-      then have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>L', u'\<rangle>" unfolding inv_of_simp by fast
-      with product_delay_sound[OF this] prems show ?thesis
-        apply simp
-        apply rule
-        apply (subst A_unfold)
-        apply (rule step_sn_t)
-          apply (simp add: Len)+
-        by (blast intro!: inv)+
-    qed
-  next
-    case (step_a a)
-    from Len have [simp]: "length P = p" by (simp add: p_def)
-    from step_a show ?thesis
-    proof cases
-      case prems: (1 g r)
-      from this(1) show ?thesis
-        apply -
-      proof (drule prod_ta_cases, erule disjE, goal_cases)
-        case 1
-        then obtain c m where *:
-          "s' = m s" "\<forall>q<p. (P ! q) (L ! q) s"
-          "\<forall>q<p. (P ! q) (L' ! q) (m s)" "product_ta \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Act (c, m)),r\<^esup> L'" "c s"
-          unfolding prod_trans_i_def by force
-        with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Act (c, m))\<^esub> \<langle>L', u'\<rangle>"
-          unfolding inv_of_simp by - rule
-        with product_action_sound[OF this] prems * show ?thesis
-          apply (subst A_unfold)
-          apply (rule conjI)
-           apply (rule step_sn_i)
-               apply (simp add: Len)+
-          by blast
-      next
-        case 2
-        then obtain ci co mi mo where *:
-          "s' = mi (mo s)" "\<forall>q<p. (P ! q) (L ! q) s"
-          "\<forall>q<p. (P ! q) (L' ! q) s'" "product_ta \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Syn (ci, mi) (co, mo)),r\<^esup> L'"
-          "ci s" "co s"
-          unfolding prod_trans_s_def by auto
-        with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Syn (ci, mi) (co, mo))\<^esub> \<langle>L', u'\<rangle>"
-          unfolding inv_of_simp by - rule
-        with product_action_sound[OF this] prems * show ?thesis
-          apply (subst A_unfold)
-          apply (rule conjI)
-           apply (rule step_sn_s)
-                apply (simp add: Len)+
-          by blast
-      qed
-    qed
-  qed
-
-  lemmas prod_sound = prod_sound'[THEN conjunct1]
-  lemmas prod_inv_1 = prod_sound'[THEN conjunct2, THEN conjunct1]
-  lemmas prod_inv_2 = prod_sound'[THEN conjunct2, THEN conjunct2]
-
-  lemma states_prod_step[intro]:
-    "L' \<in> states" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    using that by (intro states_product_step prod_inv_1)
-
-  lemma inv_prod_step[intro]:
-    "\<forall>p<length P. (P ! p) (L' ! p) s'" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    using that by (intro states_product_step prod_inv_2)
-
-  lemma prod_steps_sound:
-    assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>"
-    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    using step states inv
-  proof (induction A \<equiv> prod_ta l \<equiv> "(L, s)" _ l' \<equiv> "(L', s')" _ arbitrary: L s rule: steps.induct)
-    case (refl u)
-    then show ?case by blast
-  next
-    case prems: (step u l' u' u'' L s)
-    obtain L'' s'' where "l' = (L'', s'')" by force
-    interpret interp: Prod_TA A L s by (standard; rule prems Len)
-    from prems(3)[OF \<open>l' = _\<close>] prems(1,2,4-) have *: "A \<turnstile> \<langle>L'', s'', u'\<rangle> \<rightarrow>* \<langle>L', s', u''\<rangle>"
-      unfolding \<open>l' = _\<close> using  interp.inv_prod_step by auto
-    show ?case
-      apply (rule stepI2)
-      using * prems by (auto simp: \<open>l' = _\<close> intro: interp.prod_sound)
-  qed
-
-  lemma prod_steps_complete:
-    "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>" if "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    using that states inv proof (induction A \<equiv> A L _ _ _ _ _ rule: steps_sn.induct)
+lemma equiv_steps_complete':
+    "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> L' \<in> defs.states' s' \<and>
+        (\<forall>q<p. \<exists>pc st s'' rs pcs.
+             exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
+             Some ((pc, st, s'', True, rs), pcs))" if "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
+    using that states inv proof (induction A \<equiv> A n \<equiv> n _ _ _ _ _ _ rule: steps_un.induct)
     case (refl L s u)
     then show ?case by blast
   next
     case prems: (step L s u L' s' u' L'' s'' u'')
-    interpret interp: Prod_TA A L' s' apply standard
-      using prems by - (assumption | rule Prod_TA_Defs'.states_steps Len Prod_TA_Defs'.inv_steps)+
-    from prems show ?case by - (rule steps_altI, auto intro!: interp.prod_complete)
+    from prems have *:
+      "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" "L' \<in> defs.states' s'"
+      "(\<forall>q<p. \<exists>pc st s'' rs pcs.
+             exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
+             Some ((pc, st, s'', True, rs), pcs))"
+      by auto
+    interpret interp: Equiv_TA A n L' s' u'
+      using pred_time_indep upd_time_indep clock_conj by unfold_locales (auto simp: Len intro!: *)
+    from interp.equiv_complete'[OF prems(3)] interp.equiv_complete''[OF prems(3)] have
+      "state_ta \<turnstile> \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" "L'' \<in> defs.states' s''"
+      "\<forall>q<p. \<exists>pc st s''' rs pcs.
+              exec PF n ((I ! q) (L'' ! q), [], s'', True, []) [] =
+              Some ((pc, st, s''', True, rs), pcs)"
+      by auto
+    with * interp.states show ?case by - (assumption | rule)+
   qed
 
-  lemma prod_correct:
-    "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<longleftrightarrow> A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    by (metis prod_steps_complete prod_steps_sound)
+  lemmas equiv_steps_sound = equiv_steps_sound'[THEN conjunct1]
+  lemmas equiv_steps_complete = equiv_steps_complete'[THEN conjunct1]
 
-  end (* End context: network + valid start state *)
+  lemma equiv_correct:
+    "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
+    using equiv_steps_sound equiv_steps_complete by metis
+
+  lemma prod_correct:
+    "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
+    by (metis prod.prod_correct equiv_correct)
+
+  end (* End context: UPPAAL network + valid start state *)
 
 end (* End of theory *)
