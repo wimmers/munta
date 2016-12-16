@@ -1,6 +1,5 @@
-theory Asm_Clocks_State_Networks
+theory UPPAAL_State_Networks
   imports State_Networks Normalized_Zone_Semantics UPPAAL_Asm_Clocks
-    "~/Formalizations/Experiments/Reordering_Quantifiers"
 begin
 
 no_notation Ref.update ("_ := _" 62)
@@ -26,15 +25,20 @@ type_synonym
   ('c, 'time, 's) invassn = "'s \<Rightarrow> ('c, 'time) cconstraint"
 
 type_synonym
-  ('a, 'c, 's) transition = "'s * addr * 'a * addr * 's"
+  ('a, 's) transition = "'s * addr * 'a * addr * 's"
 
 type_synonym
-  ('a, 'c, 'time, 's) uta = "('a, 'c, 's) transition set * ('c, 'time, 's) invassn"
+  ('a, 'c, 'time, 's) uta = "('a, 's) transition set * ('c, 'time, 's) invassn"
 
 type_synonym
-  ('a, 'time, 's) unta = "'time programc \<times> ('a act, nat, 'time, 's) uta list \<times> ('s \<Rightarrow> addr) list"
+  ('a, 'time, 's) unta =
+  "'time programc \<times> ('a act, nat, 'time, 's) uta list \<times> ('s \<Rightarrow> addr) list \<times> (int * int) list"
 
 term stepsc
+
+definition
+  "bounded bounds s \<equiv>
+   length s = length bounds \<and> (\<forall> i < length s. fst (bounds ! i) < s ! i \<and> s ! i < snd (bounds ! i))"
 
 inductive step_u ::
   "('a, 't :: time, 's) unta \<Rightarrow> nat \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> (nat, 't) cval
@@ -47,9 +51,10 @@ where
         stepst P n (u \<oplus> d) ((I ! p) (L ! p), [], s, True, []) (pc, st, s', True, rs);
       \<forall> p < length N. u \<turnstile> snd (N ! p) (L ! p);
       \<forall> p < length N. u \<oplus> d \<turnstile> snd (N ! p) (L ! p);
-      d \<ge> 0
+      d \<ge> 0;
+      bounded B s
      \<rbrakk>
-    \<Longrightarrow> (P, N, I) \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L, s, u \<oplus> d\<rangle>" |
+    \<Longrightarrow> (P, N, I, B) \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L, s, u \<oplus> d\<rangle>" |
   step_u_i:
     "\<lbrakk>
       stepst P n u (pc_g, [], s, True, []) (_, _, _, True, _);
@@ -58,9 +63,10 @@ where
         stepst P n u' ((I ! p) (L' ! p), [], s', True, []) (pc, st, s, True, rs);
       (l, pc_g, Sil a, pc_u, l') \<in> fst (N ! p);
       \<forall> p < length N. u' \<turnstile> snd (N ! p) (L' ! p);
-      L!p = l; p < length L; L' = L[p := l']; u' = [r\<rightarrow>0]u
+      L!p = l; p < length L; L' = L[p := l']; u' = [r\<rightarrow>0]u;
+      bounded B s'
      \<rbrakk>
-    \<Longrightarrow> (P, N, I) \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" |
+    \<Longrightarrow> (P, N, I, B) \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" |
   step_u_s:
     "\<lbrakk>
       stepst P n u (pc_g1, [], s, True, []) (_, _, _, True, _);
@@ -77,8 +83,9 @@ where
       (l2, pc_g2, Out a, pc_u2, l2') \<in> fst (N ! q);
       \<forall> p < length N. u' \<turnstile> snd (N ! p) (L' ! p);
       L!p = l1; L!q = l2; p < length L; q < length L; p \<noteq> q;
-      L' = L[p := l1', q := l2']; u' = [(r1 @ r2)\<rightarrow>0]u
-     \<rbrakk> \<Longrightarrow> (P, N, I) \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+      L' = L[p := l1', q := l2']; u' = [(r1 @ r2)\<rightarrow>0]u;
+      bounded B s'
+     \<rbrakk> \<Longrightarrow> (P, N, I, B) \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
 
 inductive_cases[elim!]: "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
 
@@ -122,7 +129,8 @@ begin
 
 abbreviation "N \<equiv> fst (snd A)"
 abbreviation "P \<equiv> fst A"
-abbreviation "I \<equiv> snd (snd A)"
+abbreviation "I \<equiv> fst (snd (snd A))"
+abbreviation "B \<equiv> snd (snd (snd A))"
 abbreviation "P' \<equiv> stripfp P"
 abbreviation "PF \<equiv> stripfp P"
 abbreviation "PT \<equiv> striptp P"
@@ -189,7 +197,7 @@ definition "
   state_pred i \<equiv> \<lambda> l s.
     case (exec P' n ((I ! i) l, [], s, True, []) []) of
       None \<Rightarrow> False
-    | Some ((_, _, _, f, _), _) \<Rightarrow> f
+    | Some ((_, _, _, f, _), _) \<Rightarrow> f \<and> bounded B s
   "
 
 definition "
@@ -696,6 +704,7 @@ locale Equiv_TA =
   assumes Len: "length N = length I"
       and inv: "\<forall> q < p. \<exists> pc st s' rs pcs.
         exec P' n ((I ! q) (L ! q), [], s, True, []) [] = Some ((pc, st, s', True, rs), pcs)"
+      and bounded: "bounded B s"
 begin
 
 lemma [simp]:
@@ -708,7 +717,7 @@ lemma [simp]:
 
 lemma inv':
   "\<forall>p<length defs.P. (defs.P ! p) (L ! p) s"
-  using inv unfolding state_ta_def state_pred_def by (force simp: p_def)
+  using inv bounded unfolding state_ta_def state_pred_def by (force simp: p_def)
 
 lemma inv'':
   "\<exists> pc st s' rs. stepst P n u' ((I ! q) (L ! q), [], s, True, []) (pc, st, s', True, rs)"
@@ -719,11 +728,11 @@ proof -
 qed
 
 lemma A_simp[simp]:
-  "PP = P" "N' = N" "I' = I" if "A = (PP, N', I')"
+  "PP = P" "N' = N" "I' = I" "B' = B" if "A = (PP, N', I', B')"
 using that by auto
 
 lemma A_unfold:
-  "A = (P, N, I)"
+  "A = (P, N, I, B)"
   by simp
 
 sublocale prod: Prod_TA state_ta by standard (auto simp: inv')
@@ -857,6 +866,12 @@ proof -
   ultimately show ?thesis by (blast intro: stepst_mono)
 qed
 
+lemma P_bounded:
+  assumes
+    "(defs.P ! q) (L' ! q) s'" "q < p"
+  shows "bounded B s'"
+  using assms unfolding state_pred_def state_ta_def by (auto split: option.splits)
+
 lemma P_steps:
   assumes
     "(defs.P ! q) (L' ! q) s'"
@@ -875,6 +890,7 @@ lemma steps_P:
   assumes
     "stepst P n u' ((I ! q) (L' ! q), [], s', True, []) (pc, st, s'', True, rs)"
     "q < p" "L' \<in> defs.states' s'"
+    "bounded B s'"
   shows
     "(defs.P ! q) (L' ! q) s'"
 proof -
@@ -882,13 +898,14 @@ proof -
   from stepst_f_equiv[OF this] assms(1) obtain pcs' where
     "exec PF n ((I ! q) (L' ! q), [], s', True, []) [] = Some ((pc, st, s'', True, rs), pcs')"
     by blast
-  with \<open>q < p\<close> show ?thesis unfolding state_pred_def state_ta_def by simp
+  with \<open>q < p\<close> \<open>bounded B s'\<close> show ?thesis unfolding state_pred_def state_ta_def by simp
 qed
 
 lemma P_iff:
-  "(\<exists> pc st rs s''. stepst P n u' ((I ! q) (L' ! q), [], s', True, []) (pc, st, s'', True, rs))
+  "(\<exists> pc st rs s''. stepst P n u' ((I ! q) (L' ! q), [], s', True, []) (pc, st, s'', True, rs)
+  \<and> bounded B s')
   \<longleftrightarrow> (defs.P ! q) (L' ! q) s'" if "q < p" "L' \<in> defs.states' s'"
-  using that by (metis steps_P P_steps)
+  using that by (metis steps_P P_steps P_bounded)
 
 lemma states'_updI':
   assumes "(L' ! q, g, (a, c, m), f, l') \<in> fst (defs.N ! q)" "L' \<in> defs.states' s''"
@@ -925,7 +942,7 @@ lemma equiv_sound:
     apply (frule prod.A_simp(1))
     apply (frule prod.A_simp(2))
     apply (rule step_u_t)
-    using inv'' by (auto simp: inv_simp p_def)
+    using inv'' bounded by (auto simp: inv_simp p_def)
 next
   case (step_sn_i l g a c m f l' N p r I)
   then show ?thesis
@@ -957,7 +974,7 @@ next
           apply (fastforce simp: p_def)
          apply (fastforce simp: p_def)
         by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
-      by (auto simp: inv_simp p_def prod.N_s_length)
+      by (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
     done
 next
   case (step_sn_s l1 g1 a ci mi f1 l1' N p l2 g2 co mo f2 l2' q r1 r2 I)
@@ -1004,7 +1021,7 @@ next
           apply (fastforce simp: p_def)
          apply (fastforce simp: p_def)
             by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
-              by (auto simp: inv_simp p_def prod.N_s_length)+
+              by (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
     done
 qed
 
@@ -1114,7 +1131,7 @@ lemma equiv_sound':
     apply (frule prod.A_simp(2))
     apply (rule conjI)
     apply (rule step_u_t)
-    using inv inv'' by (auto simp: inv_simp p_def)
+    using inv inv'' bounded by (auto simp: inv_simp p_def)
 next
   case (step_sn_i l g a c m f l' N p r I)
   then show ?thesis
@@ -1146,7 +1163,7 @@ next
           apply (fastforce simp: p_def)
          apply (fastforce simp: p_def)
         by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
-              apply (auto simp: inv_simp p_def prod.N_s_length)
+                apply (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
        apply (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
       subgoal premises prems for pc_g pc_u q
         using prems(7) \<open>q < _\<close> unfolding state_ta_def state_pred_def
@@ -1199,7 +1216,7 @@ next
          apply (fastforce simp: p_def)
             by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
               (* XXX Metis-free proof? *)
-                        apply (auto simp: inv_simp p_def prod.N_s_length)
+                        apply (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
           apply (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
             subgoal premises prems for pc_g pc_ga pc_u pc_ua q'
             using prems(11) \<open>q' < _\<close> unfolding state_ta_def state_pred_def
@@ -1305,42 +1322,46 @@ lemma equiv_complete':
         by (fastforce simp: p_def intro: steps_P intro!: states'_updI'') (* XXX Cleanup *)
    qed
 
-lemma equiv_complete'':
-  assumes step: "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-    shows "(\<forall>q<p. \<exists>pc st s'' rs pcs.
-             exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
-             Some ((pc, st, s'', True, rs), pcs))"
-proof -
-  from assms equiv_complete' have "\<forall>q<p. (defs.P ! q) (L' ! q) s'" by simp
-  then show ?thesis
-    unfolding state_ta_def state_pred_def by (fastforce split: option.splits)
-qed
+  lemma equiv_complete'':
+    assumes step: "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" "p > 0"
+      shows "(\<forall>q<p. \<exists>pc st s'' rs pcs.
+               exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
+               Some ((pc, st, s'', True, rs), pcs))" (is ?A)
+            "bounded B s'" (is ?B)
+  proof -
+    from assms equiv_complete' have *: "\<forall>q<p. (defs.P ! q) (L' ! q) s'" by simp
+    then show ?A unfolding state_ta_def state_pred_def by (fastforce split: option.splits)
+    from \<open>p > 0\<close> * have "(defs.P ! 0) (L' ! 0) s'" by auto
+    with \<open>p > 0\<close> show ?B unfolding state_ta_def state_pred_def by (auto split: option.splits)
+  qed
 
   lemma equiv_steps_sound':
     assumes step: "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
     shows "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> L' \<in> defs.states' s' \<and>
         (\<forall>q<p. \<exists>pc st s'' rs pcs.
              exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
-             Some ((pc, st, s'', True, rs), pcs))"
+             Some ((pc, st, s'', True, rs), pcs)) \<and> bounded B s'"
     using step states inv
-  proof (induction A \<equiv> state_ta L s u L' s' u' arbitrary: rule: steps_sn.induct)
-    case (refl L s u)
-    then show ?case by blast
+  proof (induction A \<equiv> state_ta L \<equiv> L s \<equiv> s u \<equiv> u L' s' u' arbitrary: rule: steps_sn.induct)
+    case (refl)
+    with bounded show ?case by blast
   next
-    case prems: (step L s u L' s' u' L'' s'' u'')
+    case prems: (step L' s' u' L'' s'' u'')
     from prems have *:
       "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" "L' \<in> defs.states' s'"
       "(\<forall>q<p. \<exists>pc st s'' rs pcs.
              exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
              Some ((pc, st, s'', True, rs), pcs))"
+      "bounded B s'"
       by auto
     interpret interp: Equiv_TA A n L' s' u'
-      using pred_time_indep upd_time_indep clock_conj by unfold_locales (auto simp: Len intro!: *)
+      using pred_time_indep upd_time_indep clock_conj * by unfold_locales (auto simp: Len intro!: *)
     from prems(3) have
       "A \<turnstile>\<^sub>n \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" "L'' \<in> defs.states' s''"
       "\<forall>q<p. \<exists>pc st s''' rs pcs.
               exec PF n ((I ! q) (L'' ! q), [], s'', True, []) [] =
               Some ((pc, st, s''', True, rs), pcs)"
+      "bounded B s''"
       by (force dest!: interp.equiv_sound')+
     with * interp.states show ?case by - (assumption | rule)+
   qed
@@ -1349,25 +1370,28 @@ lemma equiv_steps_complete':
     "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> L' \<in> defs.states' s' \<and>
         (\<forall>q<p. \<exists>pc st s'' rs pcs.
              exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
-             Some ((pc, st, s'', True, rs), pcs))" if "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    using that states inv proof (induction A \<equiv> A n \<equiv> n _ _ _ _ _ _ rule: steps_un.induct)
-    case (refl L s u)
-    then show ?case by blast
+             Some ((pc, st, s'', True, rs), pcs)) \<and> bounded B s'"
+    if "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" "p > 0"
+    using that states inv proof (induction A \<equiv> A n \<equiv> n L \<equiv> L s \<equiv> s u \<equiv> u _ _ _ rule: steps_un.induct)
+    case refl
+    with bounded show ?case by blast
   next
-    case prems: (step L s u L' s' u' L'' s'' u'')
+    case prems: (step L' s' u' L'' s'' u'')
     from prems have *:
       "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" "L' \<in> defs.states' s'"
       "(\<forall>q<p. \<exists>pc st s'' rs pcs.
              exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
              Some ((pc, st, s'', True, rs), pcs))"
+      "bounded B s'"
       by auto
     interpret interp: Equiv_TA A n L' s' u'
       using pred_time_indep upd_time_indep clock_conj by unfold_locales (auto simp: Len intro!: *)
-    from interp.equiv_complete'[OF prems(3)] interp.equiv_complete''[OF prems(3)] have
+    from interp.equiv_complete'[OF prems(3)] interp.equiv_complete''[OF prems(3) \<open>p > 0\<close>] have
       "state_ta \<turnstile> \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" "L'' \<in> defs.states' s''"
       "\<forall>q<p. \<exists>pc st s''' rs pcs.
               exec PF n ((I ! q) (L'' ! q), [], s'', True, []) [] =
               Some ((pc, st, s''', True, rs), pcs)"
+      "bounded B s''"
       by auto
     with * interp.states show ?case by - (assumption | rule)+
   qed
@@ -1376,12 +1400,12 @@ lemma equiv_steps_complete':
   lemmas equiv_steps_complete = equiv_steps_complete'[THEN conjunct1]
 
   lemma equiv_correct:
-    "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    using equiv_steps_sound equiv_steps_complete by metis
+    "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" if "p > 0"
+    using that equiv_steps_sound equiv_steps_complete by metis
 
   lemma prod_correct:
-    "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-    by (metis prod.prod_correct equiv_correct)
+    "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" if "p > 0"
+    by (metis prod.prod_correct equiv_correct that)
 
   end (* End context: UPPAAL network + valid start state *)
 
