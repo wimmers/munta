@@ -203,8 +203,6 @@ definition
   definition
     "prod_trans \<equiv> prod_trans_i \<union> prod_trans_s"
 
-  term Product_TA_Defs.product_invariant
-
   definition
     "prod_invariant \<equiv> \<lambda> (L, s). I' s L"
 
@@ -220,42 +218,38 @@ definition
     "inv_of prod_ta (L, s) = I' s L"
     unfolding inv_of_def prod_ta_def prod_invariant_def by simp
 
-lemma I'_simp:
-  "I' s L = I' s' L"
-  unfolding Product_TA_Defs.product_ta_def inv_of_def Product_TA_Defs.product_invariant_def N_s_def
-  apply simp
-  apply (rule arg_cong[where f = concat])
-  by simp
-
-
-term A
+  lemma I'_simp:
+    "I' s L = I' s' L"
+    unfolding Product_TA_Defs.product_ta_def inv_of_def Product_TA_Defs.product_invariant_def N_s_def
+    apply simp
+    apply (rule arg_cong[where f = concat])
+    by simp
 
   lemma collect_clki_prod_invariant:
     "collect_clki prod_invariant = collect_clki (I' s)"
-    unfolding prod_invariant_def
-    collect_clki_def
+    unfolding prod_invariant_def collect_clki_def
+    apply (simp split: prod.split)
+    apply safe
+     apply (subst (asm) I'_simp[where s' = s])
+    by auto
 
-    using I'_simp
-    oops
+  lemma collect_clki_prod_invariant':
+    "collect_clki prod_invariant \<subseteq> \<Union> {collect_clki (snd (fst A ! p)) | p. p < length (fst A)}"
+    unfolding collect_clki_prod_invariant[of s]
+    unfolding inv_of_def Product_TA_Defs.product_ta_def
+    unfolding Product_TA_Defs.product_invariant_def
+    unfolding inv_of_def N_s_def
+    unfolding collect_clki_def
+    unfolding collect_clock_pairs_def
+    by auto
 
-  (*
-  lemma states_length:
-    assumes "L \<in> states"
-    shows "length L = length N"
-    using assms unfolding states_def by auto
-    *)
-
-    (*
   lemma collect_clkt_prod_trans_subs:
-    "collect_clkt prod_trans \<subseteq> collect_clkt T'"
+    "collect_clkt prod_trans \<subseteq> collect_clkt (\<Union> (T' ` UNIV))"
     unfolding collect_clkt_def prod_trans_def prod_trans_i_def prod_trans_s_def by fastforce
 
   lemma collect_clkvt_prod_trans_subs:
-    "collect_clkvt prod_trans \<subseteq> collect_clkvt T'"
+    "collect_clkvt prod_trans \<subseteq> collect_clkvt (\<Union> (T' ` UNIV))"
     unfolding collect_clkvt_def prod_trans_def prod_trans_i_def prod_trans_s_def by fastforce
-*)
-
-term N term P
 
 lemma T_simp:
   "T ! q = trans_of (N ! q)" if "q < length N"

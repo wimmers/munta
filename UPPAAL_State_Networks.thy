@@ -5,6 +5,23 @@ begin
 no_notation Ref.update ("_ := _" 62)
 no_notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
+(* XXX Move *)
+lemma finite_lists_length_eq:
+  "finite {s. length s = r \<and> set s \<subseteq> S}" if "finite S"
+  by (rule finite_lists_length_le[OF that, THEN finite_subset[rotated], where n1 = r]) auto
+
+ (* XXX Move *)
+lemma finite_lists_boundedI:
+  assumes "\<forall> i < r. finite (S i)"
+    shows "finite {s. length s = r \<and> (\<forall>i<r. s ! i \<in> S i)}" (is "finite ?R")
+proof -
+  let ?S = "\<Union> {S i | i. i < r}"
+  have "?R \<subseteq> {s. length s = r \<and> set s \<subseteq> ?S}"
+    by (auto dest!: aux)
+  moreover have "finite \<dots>" by (rule finite_lists_length_eq) (use assms in auto)
+  ultimately show ?thesis by (rule finite_subset)
+qed
+
 section \<open>Networks of Timed Automata with Shared State and UPPAAL-style Assembler guards and updates\<close>
 
 subsection \<open>Syntax and Operational Semantics\<close>
@@ -136,8 +153,6 @@ abbreviation "PF \<equiv> stripfp P"
 abbreviation "PT \<equiv> striptp P"
 definition "p \<equiv> length N"
 
-term "((a, b), c)"
-
 definition "make_f pc_u \<equiv> \<lambda> s.
   case (exec P' n (pc_u, [], s, True, []) []) of
     None \<Rightarrow> []
@@ -157,10 +172,6 @@ definition "make_c pc_g \<equiv> \<lambda> s.
   case (exec PT n (pc_g, [], s, True, []) []) of
     None \<Rightarrow> False
   | Some ((_, _, _, f, _), _) \<Rightarrow> f"
-
-term map_filter
-
-term P
 
 definition "make_g pc_g \<equiv> \<lambda> s.
   case (exec PT n (pc_g, [], s, True, []) []) of
@@ -208,11 +219,22 @@ definition "
   state_ta \<equiv> (map (\<lambda> p. (state_trans p, state_inv p)) [0..<p], map state_pred [0..<p])
 "
 
-term state_ta
-
-term Prod_TA_Defs
-
 sublocale defs: Prod_TA_Defs state_ta .
+
+lemma finite_state:
+    "\<forall> q < p. \<forall> l. finite {s. (defs.P ! q) l s}"
+proof safe
+  fix q l assume \<open>q < p\<close>
+  let ?S = "{s. (defs.P ! q) l s}"
+  from \<open>q < p\<close> have "?S \<subseteq> {s. bounded B s}"
+    unfolding state_ta_def state_pred_def by (auto split: option.splits)
+  also have
+    "\<dots> \<subseteq> {s. length s = length B \<and> (\<forall>i<length B. fst (B ! i) < s ! i \<and> s ! i < snd (B ! i))}"
+    unfolding bounded_def by auto
+  finally have "?S \<subseteq> \<dots>" .
+  moreover have "finite \<dots>" unfolding bounded_def using finite_lists_boundedI by force
+  ultimately show "finite ?S" by (rule finite_subset)
+qed
 
 end (* End of definitions locale *)
 
