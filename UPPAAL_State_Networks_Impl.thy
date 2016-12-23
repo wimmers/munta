@@ -619,7 +619,7 @@ end
 locale UPPAAL_Reachability_Problem_precompiled_start_state =
   UPPAAL_Reachability_Problem_precompiled _ _ _ _ _ pred
   for pred :: "nat list list" +
-  fixes s\<^sub>0 :: "nat list"
+  fixes s\<^sub>0 :: "int list" (* XXX Why does nat not work? *)
   assumes start_pred:
     "\<forall> q < p. \<exists> pc st s' rs pcs.
        exec P' n ((pred ! q ! (init ! q)), [], s\<^sub>0, True, []) [] = Some ((pc, st, s', True, rs), pcs)"

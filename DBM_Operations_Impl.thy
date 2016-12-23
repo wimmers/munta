@@ -717,10 +717,10 @@ by (induction n) (auto simp: one_upto_Suc'')
 (* Version to be made executable *)
 lemma reset_canonical_upd_alt_def:
   "reset_canonical_upd (M :: ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBM') ( n:: nat) (k :: nat) d =
-    fold 
-      (\<lambda> i M. 
-        if i = k then 
-          M 
+    fold
+      (\<lambda> i M.
+        if i = k then
+          M
         else do {
           let m0i = op_mtx_get M(0,i);
           let mi0 = op_mtx_get M(i, 0);
@@ -1105,7 +1105,7 @@ using assms by (cases ac) auto
 lemma abstra_upd_out_of_bounds2:
   assumes "constraint_clk ac \<le> n" "j > n"
   shows "(abstra_upd ac M) (i, j) = M (i, j)"
-using assms by (cases ac) auto  
+using assms by (cases ac) auto
 
 lemma abstr_upd_out_of_bounds1:
   assumes "\<forall> c \<in> collect_clks cc. c \<le> n" "i > n"
@@ -1191,7 +1191,7 @@ lemma norm_upd_line_alt_def:
    )"
  apply (clarsimp simp del: norm_lower.simps norm_upper.simps)
  apply safe
-by ((induction n, simp add: norm_upd_line_def, 
+by ((induction n, simp add: norm_upd_line_def,
      simp del: norm_lower.simps norm_upper.simps add: norm_upd_line_out_of_bounds norm_upd_line_Suc_unfold)
     ; fail)+
 
@@ -1298,9 +1298,6 @@ apply (cases "i = Suc n")
 done
 done
 
-(* XXX *)
-hide_const Real_Vector_Spaces.norm_class.norm
-
 lemma norm_upd_norm_aux':
   assumes "i \<le> n" "j \<le> n"
   shows "(norm_upd M k n) (i, j) = (norm (curry M) (\<lambda> i. k ! i) n) i j"
@@ -1317,7 +1314,7 @@ done
 
 lemma norm_upd_norm':
   "curry (norm_upd M k n) = norm (curry M) (\<lambda> i. k ! i) n"
-by (simp add: curry_def norm_upd_norm)       
+by (simp add: curry_def norm_upd_norm)
 
 (* XXX Copy from Regions Beta, original should be moved *)
 lemma norm_int_preservation:

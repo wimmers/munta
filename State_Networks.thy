@@ -380,10 +380,10 @@ begin
 
   lemma prod_trans_i_alt_def:
     "prod_trans_i =
-      {((L, s), g, a, r, (L', m s)) | L s g c a r m L'.
+      {((L, s), g, a, r, (L', s')) | L s g c a r m L' s'.
        (L, g, (a, Act (c, m)), r, L') \<in> T' s \<and>
-       (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) (m s))
-       \<and> c s}"
+       (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
+       \<and> c s \<and> Some s' = m s}"
     unfolding prod_trans_i_def by (safe; metis)
 
   term case_prod

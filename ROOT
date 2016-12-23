@@ -7,3 +7,7 @@ session "Timed_Automata" = "HOL" +
   document_files
     "root.tex"
     "root.bib"
+
+session "TA" = "$AFP/thys/Refine_Imperative_HOL" +
+  theories [document = false]
+    Normalized_Zone_Semantics
