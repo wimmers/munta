@@ -276,7 +276,7 @@ locale UPPAAL_Reachability_Problem_precompiled =
     and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []" -- \<open>Necessary for refinement\<close>
     and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
   (* XXX Do not need this but a useful cautios check for the user? *)
-  assumes resets_zero: "\<forall> x c. Some (INSTR (STORE c x)) \<in> set prog \<longrightarrow> x = 0"
+  assumes resets_zero: "\<forall> x c. Some (INSTR (STOREC c x)) \<in> set prog \<longrightarrow> x = 0"
 
 (*
 locale UPPAAL_Reachability_Problem_precompiled =

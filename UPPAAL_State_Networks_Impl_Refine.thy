@@ -1569,6 +1569,35 @@ subsection \<open>Check preconditions\<close>
 context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
+definition
+  "collect_cexp = {ac. Some (CEXP ac) \<in> set prog}"
+
+lemma collect_cexp_alt_def:
+  "collect_cexp =
+    set (List.map_filter
+      (\<lambda> x. case x of Some (CEXP ac) \<Rightarrow> Some ac | _ \<Rightarrow> None)
+       prog)"
+  unfolding collect_cexp_def set_map_filter by (auto split: option.split_asm instrc.split_asm)
+
+lemma clkp_set'_alt_def:
+  "clkp_set' =
+    \<Union> (collect_clock_pairs ` set (concat inv)) \<union> (constraint_pair ` collect_cexp)"
+  unfolding clkp_set'_def collect_cexp_def by auto
+
+definition
+  "collect_store = {(c, x). Some (INSTR (STOREC c x)) \<in> set prog}"
+
+lemma collect_store_alt_def:
+  "collect_store =
+    set (List.map_filter
+      (\<lambda> x. case x of Some (INSTR (STOREC c x)) \<Rightarrow> Some (c, x) | _ \<Rightarrow> None)
+       prog)"
+  unfolding collect_store_def set_map_filter
+  by (auto split: option.split_asm instrc.split_asm instr.split_asm)
+
+lemma clk_set'_alt_def: "clk_set' = (fst ` clkp_set' \<union> fst ` collect_store)"
+  unfolding clk_set'_def collect_store_def by auto
+
   abbreviation
     "check_nat_subs \<equiv> \<forall> (_, d) \<in> clkp_set'. d \<ge> 0"
 
@@ -1578,52 +1607,81 @@ begin
   subgoal for _ _ b using rangeI[of int "nat b"] by auto
   by auto
 
+definition
+  "check_resets \<equiv> \<forall> x c. Some (INSTR (STOREC c x)) \<in> set prog \<longrightarrow> x = 0"
+
+lemma check_resets_alt_def:
+  "check_resets =
+    (\<forall> (c, x) \<in> collect_store. x = 0)"
+  unfolding check_resets_def collect_store_def by auto
+
+term
+  "length inv = p \<and> length trans = p \<and> length pred = p
+      \<and> (\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i))
+      \<and> (\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < length T)
+      \<and> length k = m + 1 \<and> p > 0 \<and> m > 0
+      \<and> (\<forall> i < p. trans ! i \<noteq> []) \<and> (\<forall> q < p. trans ! q ! 0 \<noteq> [])
+      \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}"
+
   definition
     "check_pre \<equiv>
       length inv = p \<and> length trans = p \<and> length pred = p
       \<and> (\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i))
-      \<and> (\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, _, _, l) \<in> set xs. l < length T)
+      \<and> (\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < length T)
       \<and> length k = m + 1 \<and> p > 0 \<and> m > 0
       \<and> (\<forall> i < p. trans ! i \<noteq> []) \<and> (\<forall> q < p. trans ! q ! 0 \<noteq> [])
-      \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}"
+      \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}
+      \<and> check_resets
+      "
 
   definition
     "check_ceiling \<equiv> \<forall> (c, d) \<in> clkp_set'. k ! c \<ge> d"
 
   lemma finite_clkp_set'[intro, simp]:
     "finite clkp_set'"
-    unfolding clkp_set'_def by auto
+    unfolding clkp_set'_def
+    using [[simproc add: finite_Collect]]
+    by (auto intro!: finite_vimageI finite_imageI simp: inj_on_def)
 
   lemma check_axioms:
-    "State_Network_Reachability_Problem_precompiled_raw p m k inv pred trans
+    "UPPAAL_Reachability_Problem_precompiled p m k inv pred trans prog
     \<longleftrightarrow> check_pre \<and> check_ceiling"
     unfolding
-      State_Network_Reachability_Problem_precompiled_raw_def
-      check_ceiling_def check_pre_def check_nat_subs
+      UPPAAL_Reachability_Problem_precompiled_def
+      check_ceiling_def check_pre_def check_nat_subs check_resets_def
     by auto
 end
 
 lemmas [code] =
-  State_Network_Reachability_Problem_precompiled_defs.check_axioms
-  State_Network_Reachability_Problem_precompiled_defs.clkp_set'_def
-  State_Network_Reachability_Problem_precompiled_defs.clk_set'_def
-  State_Network_Reachability_Problem_precompiled_defs.check_pre_def
-  State_Network_Reachability_Problem_precompiled_defs.check_ceiling_def
-  State_Network_Reachability_Problem_precompiled_defs.init_def
+  UPPAAL_Reachability_Problem_precompiled_defs.collect_cexp_alt_def
+  UPPAAL_Reachability_Problem_precompiled_defs.collect_store_alt_def
+  UPPAAL_Reachability_Problem_precompiled_defs.check_resets_alt_def
+
+  export_code UPPAAL_Reachability_Problem_precompiled_defs.collect_cexp in SML module_name Test
 
 lemmas [code] =
-  State_Network_Reachability_Problem_precompiled_defs'.trans_out_map_def
-  State_Network_Reachability_Problem_precompiled_defs'.trans_in_map_def
-  State_Network_Reachability_Problem_precompiled_defs'.trans_i_map_def
-  State_Network_Reachability_Problem_precompiled_defs'.all_actions_by_state_def
-  State_Network_Reachability_Problem_precompiled_defs'.actions_by_state_def
-  State_Network_Reachability_Problem_precompiled_defs'.pairs_by_action_def
+  UPPAAL_Reachability_Problem_precompiled_defs.check_axioms
+  UPPAAL_Reachability_Problem_precompiled_defs.clkp_set'_alt_def
+  UPPAAL_Reachability_Problem_precompiled_defs.clk_set'_alt_def
+  UPPAAL_Reachability_Problem_precompiled_defs.check_pre_def
+  UPPAAL_Reachability_Problem_precompiled_defs.check_ceiling_def
+  UPPAAL_Reachability_Problem_precompiled_defs.init_def
 
 lemmas [code] =
-  State_Network_Reachability_Problem_precompiled'_axioms_def
-  State_Network_Reachability_Problem_precompiled'_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.trans_out_map_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.trans_in_map_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.trans_i_map_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.all_actions_by_state_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.actions_by_state_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.pairs_by_action_def
 
-export_code State_Network_Reachability_Problem_precompiled_raw in SML module_name Test
+lemmas [code] =
+  UPPAAL_Reachability_Problem_precompiled'_axioms_def
+  UPPAAL_Reachability_Problem_precompiled'_def
+
+export_code UPPAAL_Reachability_Problem_precompiled_defs.clk_set' in SML module_name Test
+
+export_code UPPAAL_Reachability_Problem_precompiled in SML module_name Test
 
 lemmas [code] =
   State_Network_Reachability_Problem_precompiled_int_vars_def
