@@ -68,11 +68,15 @@ lemma finite_rangeI:
   shows "finite (range prod_invariant)"
   using assms by (metis finite_range_I' range_prod_invariant)
 
+thm prod_trans_i_alt_def
+
 end
 
 
 context Equiv_TA_Defs
 begin
+
+thm defs.prod_trans_i_alt_def
 
 lemma states'_len_simp[simp]:
   "length L = p" if "L \<in> defs.states' s"
@@ -214,6 +218,8 @@ begin
   definition "k_fun \<equiv> \<lambda> i. if i \<le> m then k ! i else 0"
 
   sublocale equiv: Equiv_TA_Defs N max_steps .
+
+  thm equiv.defs.prod_trans_i_alt_def
 
   abbreviation "EA \<equiv> equiv.state_ta"
 
@@ -622,11 +628,16 @@ locale UPPAAL_Reachability_Problem_precompiled_start_state =
   fixes s\<^sub>0 :: "int list" (* XXX Why does nat not work? *)
   assumes start_pred:
     "\<forall> q < p. \<exists> pc st s' rs pcs.
-       exec P' n ((pred ! q ! (init ! q)), [], s\<^sub>0, True, []) [] = Some ((pc, st, s', True, rs), pcs)"
+       exec (stripfp PROG) max_steps ((pred ! q ! (init ! q)), [], s\<^sub>0, True, []) []
+     = Some ((pc, st, s', True, rs), pcs)"
 begin
 
+  thm equiv.defs.prod_trans_i_alt_def
+
+  abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
+
   sublocale product':
-    Equiv_TA "(conv_prog (fst N), (map conv_A' (fst (snd N))), snd (snd N))" max_steps init s\<^sub>0
+    Equiv_TA "conv N" max_steps init s\<^sub>0
   apply standard
         prefer 5
     apply (simp; fail)
@@ -634,6 +645,8 @@ begin
 
   sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m k_fun
     using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
+
+      thm equiv.defs.prod_trans_i_alt_def
 
   lemma [simp]:
     "fst ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S = fst ` S"

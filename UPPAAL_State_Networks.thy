@@ -703,7 +703,7 @@ definition
 
 locale Equiv_TA =
   Equiv_TA_Defs A n for A :: "('a, 't :: time, 's) unta" and n :: nat +
-  fixes L :: "'s list" and s :: "int list" and u :: "(nat, 't) cval"
+  fixes L :: "'s list" and s :: "int list"
   assumes states[intro]: "L \<in> defs.states' s"
       (*
       and pred_time_indep:
@@ -937,7 +937,7 @@ lemma states'_updI':
   unfolding Product_TA_Defs.states_def
   apply clarsimp
   subgoal for p
-    by (cases "p = q"; force simp: prod.trans_of_N_s_2 prod.N_s_length)
+    by (cases "p = q"; force simp: prod.trans_of_N_s_2 Prod_TA_Defs.N_s_length)
   done
 
 lemma states'_updI:
@@ -971,7 +971,7 @@ next
     apply (simp)
     apply (frule prod.A_simp(1))
     apply (frule prod.A_simp(2))
-    apply (simp add: prod.N_s_length)
+    apply (simp add: Prod_TA_Defs.N_s_length)
     apply (subst A_unfold)
     apply (drule trans_state_taD)
      apply assumption
@@ -996,7 +996,7 @@ next
           apply (fastforce simp: p_def)
          apply (fastforce simp: p_def)
         by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
-      by (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
+      by (auto simp: inv_simp p_def Prod_TA_Defs.N_s_length intro!: P_bounded)
     done
 next
   case (step_sn_s l1 g1 a ci mi f1 l1' N p l2 g2 co mo f2 l2' q r1 r2 I)
@@ -1004,7 +1004,7 @@ next
     apply (simp)
     apply (frule prod.A_simp(1))
     apply (frule prod.A_simp(2))
-    apply (simp add: prod.N_s_length)
+    apply (simp add: Prod_TA_Defs.N_s_length)
     apply (subst A_unfold)
     apply (drule trans_state_taD)
      apply assumption
@@ -1043,7 +1043,7 @@ next
           apply (fastforce simp: p_def)
          apply (fastforce simp: p_def)
             by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
-              by (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
+              by (auto simp: inv_simp p_def Prod_TA_Defs.N_s_length intro!: P_bounded) (* XXX Slow *)
     done
 qed
 
@@ -1064,7 +1064,7 @@ lemma equiv_complete:
     note [simp] = A_simp[OF this(1)]
     from step_u_i(2-) show ?thesis
       apply -
-      apply (simp add: prod.N_s_length)
+      apply (simp add: Prod_TA_Defs.N_s_length)
       apply (subst state_ta_unfold)
       apply (frule steps_P_guard(1))
         apply assumption
@@ -1084,15 +1084,15 @@ lemma equiv_complete:
         apply assumption
                 apply auto
         apply (simp add: state_ta_def p_def state_inv_def state_pred_def; fail)
-       apply (simp add: prod.N_s_length; fail)
+       apply (simp add: Prod_TA_Defs.N_s_length; fail)
       by (fastforce simp: p_def intro: steps_P intro!: states'_updI)
   next
     case (step_u_s P pc_g1 vb vc vd ve pc_g2 vf vg vh vi pc_u2 vj vk s1 vl r2 pc_u1 r1 vm vn vo vp N I l1 a l1' p' l2 l2' q)
     note [simp] = A_simp[OF this(1)]
-    from \<open>q < length L\<close> have "q < p" by (simp add: prod.N_s_length)
+    from \<open>q < length L\<close> have "q < p" by (simp add: Prod_TA_Defs.N_s_length)
     from step_u_s(2-) show ?thesis
       apply -
-      apply (simp add: prod.N_s_length)
+      apply (simp add: Prod_TA_Defs.N_s_length)
       apply (subst state_ta_unfold)
       apply (frule steps_P_guard(1))
         apply assumption
@@ -1128,8 +1128,8 @@ lemma equiv_complete:
                         apply assumption
                 apply auto
         apply (simp add: state_ta_def p_def state_inv_def state_pred_def; fail)
-         apply (simp add: prod.N_s_length; fail)
-        apply (simp add: prod.N_s_length; fail)
+         apply (simp add: Prod_TA_Defs.N_s_length; fail)
+        apply (simp add: Prod_TA_Defs.N_s_length; fail)
        apply (simp add: p_def)
        apply (erule allE)
        apply (erule impE)
@@ -1160,7 +1160,7 @@ next
     apply (simp)
     apply (frule prod.A_simp(1))
     apply (frule prod.A_simp(2))
-    apply (simp add: prod.N_s_length)
+    apply (simp add: Prod_TA_Defs.N_s_length)
     apply (subst A_unfold)
     apply (drule trans_state_taD)
      apply assumption
@@ -1185,7 +1185,7 @@ next
           apply (fastforce simp: p_def)
          apply (fastforce simp: p_def)
         by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
-                apply (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
+                apply (auto simp: inv_simp p_def Prod_TA_Defs.N_s_length intro!: P_bounded)
        apply (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
       subgoal premises prems for pc_g pc_u q
         using prems(7) \<open>q < _\<close> unfolding state_ta_def state_pred_def
@@ -1198,7 +1198,7 @@ next
     apply (simp)
     apply (frule prod.A_simp(1))
     apply (frule prod.A_simp(2))
-    apply (simp add: prod.N_s_length)
+    apply (simp add: Prod_TA_Defs.N_s_length)
     apply (subst A_unfold)
     apply (drule trans_state_taD)
      apply assumption
@@ -1238,7 +1238,8 @@ next
          apply (fastforce simp: p_def)
             by (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
               (* XXX Metis-free proof? *)
-                        apply (auto simp: inv_simp p_def prod.N_s_length intro!: P_bounded)
+                          apply (auto simp: inv_simp p_def Prod_TA_Defs.N_s_length intro!: P_bounded)
+            (* XXX Slow *)
           apply (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
             subgoal premises prems for pc_g pc_ga pc_u pc_ua q'
             using prems(11) \<open>q' < _\<close> unfolding state_ta_def state_pred_def
@@ -1261,7 +1262,7 @@ lemma equiv_complete':
     note [simp] = A_simp[OF this(1)]
     from step_u_i(2-) show ?thesis
       apply -
-      apply (simp add: prod.N_s_length)
+      apply (simp add: Prod_TA_Defs.N_s_length)
       apply (subst state_ta_unfold)
       apply (frule steps_P_guard(1))
         apply assumption
@@ -1282,15 +1283,15 @@ lemma equiv_complete':
         apply assumption
                 apply auto
         apply (simp add: state_ta_def p_def state_inv_def state_pred_def; fail)
-       apply (simp add: prod.N_s_length; fail)
+       apply (simp add: Prod_TA_Defs.N_s_length; fail)
         by (fastforce simp: p_def intro: steps_P intro!: states'_updI)+
   next
     case (step_u_s P pc_g1 vb vc vd ve pc_g2 vf vg vh vi pc_u2 vj vk s1 vl r2 pc_u1 r1 vm vn vo vp N I l1 a l1' p' l2 l2' q)
     note [simp] = A_simp[OF this(1)]
-    from \<open>q < length L\<close> have "q < p" by (simp add: prod.N_s_length)
+    from \<open>q < length L\<close> have "q < p" by (simp add: Prod_TA_Defs.N_s_length)
     from step_u_s(2-) show ?thesis
       apply -
-      apply (simp add: prod.N_s_length)
+      apply (simp add: Prod_TA_Defs.N_s_length)
       apply (subst state_ta_unfold)
       apply (frule steps_P_guard(1))
         apply assumption
@@ -1327,8 +1328,8 @@ lemma equiv_complete':
                         apply assumption
                 apply auto
         apply (simp add: state_ta_def p_def state_inv_def state_pred_def; fail)
-         apply (simp add: prod.N_s_length; fail)
-        apply (simp add: prod.N_s_length; fail)
+         apply (simp add: Prod_TA_Defs.N_s_length; fail)
+        apply (simp add: Prod_TA_Defs.N_s_length; fail)
        apply (simp add: p_def)
        apply (erule allE)
        apply (erule impE)
@@ -1376,7 +1377,7 @@ lemma equiv_complete':
              Some ((pc, st, s'', True, rs), pcs))"
       "bounded B s'"
       by auto
-    interpret interp: Equiv_TA A n L' s' u'
+    interpret interp: Equiv_TA A n L' s'
       using pred_time_indep upd_time_indep clock_conj * by unfold_locales (auto simp: Len intro!: *)
     from prems(3) have
       "A \<turnstile>\<^sub>n \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" "L'' \<in> defs.states' s''"
@@ -1406,7 +1407,7 @@ lemma equiv_steps_complete':
              Some ((pc, st, s'', True, rs), pcs))"
       "bounded B s'"
       by auto
-    interpret interp: Equiv_TA A n L' s' u'
+    interpret interp: Equiv_TA A n L' s'
       using pred_time_indep upd_time_indep clock_conj by unfold_locales (auto simp: Len intro!: *)
     from interp.equiv_complete'[OF prems(3)] interp.equiv_complete''[OF prems(3) \<open>p > 0\<close>] have
       "state_ta \<turnstile> \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" "L'' \<in> defs.states' s''"

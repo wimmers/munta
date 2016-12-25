@@ -584,9 +584,15 @@ thm finite_states
 end (* End of context for finiteness of automaton *)
 *)
 
-abbreviation "states' s \<equiv> Product_TA_Defs.states (N_s s)"
+  abbreviation "states' s \<equiv> Product_TA_Defs.states (N_s s)"
+
+  lemma N_s_length:
+    "length (N_s s) = p"
+    unfolding N_s_def p_def by simp
 
 end (* End locale for product TA definition *)
+
+thm Prod_TA_Defs.N_s_length
 
 locale Prod_TA_Defs' =
   Prod_TA_Defs A for A :: "('a, 'c, 't :: time, 's, 'st) snta"
@@ -642,10 +648,6 @@ lemma network_step:
       done
     done
   done
-
-  lemma N_s_length:
-    "length (N_s s) = p"
-    unfolding N_s_def p_def by simp
 
 lemma trans_of_N_s_1:
   "(fst ` trans_of (N_s s ! q)) = fst ` fst (N ! q)" if "q < p"
