@@ -1221,11 +1221,38 @@ lemma p_p:
     by ((rule exI)+; force)
   term "product'.defs.states'"
 
+lemma T_s_unfold_1':
+  "fst ` product'.defs.T_s q s = fst ` fst (product'.N ! q)" if "q < p"
+  using \<open>q < p\<close>
+  unfolding product'.defs.T_s_def
+  unfolding product'.state_ta_def
+  unfolding product'.state_trans_t_def p_p
+  by force
+
+lemma T_s_unfold_2':
+  "(snd o snd o snd o snd) ` product'.defs.T_s q s = (snd o snd o snd o snd) ` fst (product'.N ! q)"
+  if "q < p"
+  using \<open>q < p\<close>
+  unfolding product'.defs.T_s_def
+  unfolding product'.state_ta_def
+  unfolding product'.state_trans_t_def p_p
+  by force
+
+lemma product_states'_alt_def:
+  "product'.defs.states' s =
+    {L. length L = p \<and>
+      (\<forall> q < p. L ! q \<in> fst ` fst (product'.N ! q)
+              \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (product'.N ! q))}"
+  unfolding Product_TA_Defs.states_def
+  unfolding product'.defs.N_s_def trans_of_def
+  unfolding product'.defs.p_def[symmetric] product'.p_p p_p
+  using T_s_unfold_1' T_s_unfold_2'
+  by force
+
 lemma states'_conv[simp]:
   "product'.defs.states' s = equiv.defs.states' s"
-  sorry
-
-term "map (trans_of (equiv.defs.N_s s)"
+  unfolding product_states'_alt_def equiv_states'_alt_def
+  unfolding N_def T_def by simp
 
 lemma p_p_2[simp]:
   "product'.defs.p = p"
