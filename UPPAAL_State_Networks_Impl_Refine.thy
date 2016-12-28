@@ -943,8 +943,13 @@ end
 locale UPPAAL_Reachability_Problem_precompiled'' =
   UPPAAL_Reachability_Problem_precompiled' +
   assumes bounded: "bounded bounds s\<^sub>0"
-      and init_states: "L \<in> equiv.defs.states' s\<^sub>0"
 begin
+
+  lemma init_states:
+    "init \<in> equiv.defs.states' s\<^sub>0"
+    using processes_have_trans start_has_trans
+    unfolding equiv_states'_alt_def
+    unfolding init_def N_def T_def by force
 
   lemma start_pred':
     "(\<forall> i < p. (pred ! i ! (init ! i)) s\<^sub>0)"
@@ -1675,14 +1680,7 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs'.actions_by_state_def
   UPPAAL_Reachability_Problem_precompiled_defs'.pairs_by_action_def
 
-lemmas [code] =
-  UPPAAL_Reachability_Problem_precompiled'_axioms_def
-  UPPAAL_Reachability_Problem_precompiled'_def
-
-export_code UPPAAL_Reachability_Problem_precompiled_defs.clk_set' in SML module_name Test
-
-export_code UPPAAL_Reachability_Problem_precompiled in SML module_name Test
-
+(*
 lemmas [code] =
   State_Network_Reachability_Problem_precompiled_int_vars_def
   State_Network_Reachability_Problem_precompiled_int_vars_defs.pred'_def
@@ -1690,16 +1688,73 @@ lemmas [code] =
   State_Network_Reachability_Problem_precompiled_int_vars_defs.checkb_def
   State_Network_Reachability_Problem_precompiled_int_vars_axioms_def
   State_Network_Reachability_Problem_precompiled_int_vars_defs.s\<^sub>0_def
+*)
 
 code_pred clock_val_a .
 
-export_code State_Network_Reachability_Problem_precompiled_int_vars in SML module_name Test
+(* export_code State_Network_Reachability_Problem_precompiled_int_vars in SML module_name Test *)
 
 concrete_definition reachability_checker_impl
-  uses State_Network_Reachability_Problem_precompiled_int_vars.reachability_checker_alt_def
+  uses UPPAAL_Reachability_Problem_precompiled''.reachability_checker_alt_def
 
 lemmas [code] =
-  State_Network_Reachability_Problem_precompiled_defs.P_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.make_cconstr_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.make_reset_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.check_pred_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.check_g_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.runf_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.runt_def
+  UPPAAL_Reachability_Problem_precompiled_defs.PROG_def
+
+lemmas [code] =
+  UPPAAL_Reachability_Problem_precompiled_defs.P_def
+
+lemma exec_code[code]:
+  "exec prog n (pc, st, m, f, rs) pcs =
+  (case n of 0 \<Rightarrow> None
+   | Suc n \<Rightarrow>
+    (case prog pc of None \<Rightarrow> None
+     | Some instr \<Rightarrow>
+         if instr = HALT
+         then Some ((pc, st, m, f, rs), pc # pcs)
+         else case UPPAAL_Asm.step instr
+                    (pc, st, m, f, rs) of
+              None \<Rightarrow> None
+              | Some s \<Rightarrow> exec prog n s (pc # pcs)))"
+  by (cases n) auto
+
+lemmas [code] =
+  UPPAAL_Reachability_Problem_precompiled'_axioms_def
+  UPPAAL_Reachability_Problem_precompiled'_def
+
+  thm UPPAAL_Reachability_Problem_precompiled_start_state_axioms_def
+
+lemma start_pred[code]:
+    "UPPAAL_Reachability_Problem_precompiled_start_state_axioms = (\<lambda> p max_steps prog pred s\<^sub>0.
+  (\<forall> q < p.
+       case (exec
+        (stripfp (UPPAAL_Reachability_Problem_precompiled_defs.PROG prog))
+          max_steps
+          ((pred ! q ! (UPPAAL_Reachability_Problem_precompiled_defs.init p ! q)), [], s\<^sub>0, True, [])
+          [])
+      of Some ((pc, st, s', True, rs), pcs) \<Rightarrow> True | _ \<Rightarrow> False))"
+  unfolding UPPAAL_Reachability_Problem_precompiled_start_state_axioms_def
+  by (rule ext)+ (fastforce split: option.splits bool.split_asm)+
+
+lemmas [code] =
+  UPPAAL_Reachability_Problem_precompiled_defs.PROG_def
+  UPPAAL_Reachability_Problem_precompiled_defs.init_def
+  UPPAAL_Reachability_Problem_precompiled_start_state_def
+  UPPAAL_Reachability_Problem_precompiled''_def
+  UPPAAL_Reachability_Problem_precompiled''_axioms_def
+  UPPAAL_Reachability_Problem_precompiled_defs.N_def
+
+lemmas [code] =
+  Equiv_TA_Defs.state_ta_def Prod_TA_Defs.N_s_def Product_TA_Defs.states_def
+
+export_code UPPAAL_Reachability_Problem_precompiled''_axioms in SML module_name Test
+
+export_code UPPAAL_Reachability_Problem_precompiled'' in SML module_name Test
 
 export_code reachability_checker_impl in SML_imp module_name TA
 
@@ -1708,28 +1763,39 @@ thm reachability_checker_impl_def reachability_checker_impl.refine
 hide_const check_and_verify
 
 definition [code]:
-  "check_and_verify p m k I P T final r bounds na \<equiv>
-    if State_Network_Reachability_Problem_precompiled_int_vars p m k I P T r bounds na
-    then reachability_checker_impl p m k I P T r bounds na final \<bind> (\<lambda> x. return (Some x))
+  "check_and_verify p m k max_steps I T prog final bounds P s\<^sub>0 na \<equiv>
+    if UPPAAL_Reachability_Problem_precompiled'' p m k max_steps I T prog bounds P s\<^sub>0 na
+    then
+      reachability_checker_impl p m k max_steps I T prog bounds P s\<^sub>0 na final
+      \<bind> (\<lambda> x. return (Some x))
     else return None"
 
 lemmas [sep_heap_rules] =
-  State_Network_Reachability_Problem_precompiled_int_vars.reachability_checker_hoare
+  UPPAAL_Reachability_Problem_precompiled''.reachability_checker_hoare
 
-abbreviation "N p I P T r bounds \<equiv>
-  State_Network_Reachability_Problem_precompiled_defs.N p I
-    (State_Network_Reachability_Problem_precompiled_int_vars_defs.pred' P r bounds)
+term UPPAAL_Reachability_Problem_precompiled_defs.N
+
+  abbreviation "N \<equiv> UPPAAL_Reachability_Problem_precompiled_defs.N"
+
+  (*
+abbreviation "N p I P T prog bounds max_steps \<equiv>
+  UPPAAL_Reachability_Problem_precompiled_defs.N p I
+    (UPPAAL_Reachability_Problem_precompiled_defs.pred' P r bounds)
     (State_Network_Reachability_Problem_precompiled_int_vars_defs.trans' T)"
+*)
+
+  term "conv (N p I P T prog bounds) \<turnstile>\<^sub>max_steps
+              \<langle>repeat 0 p, repeat 0 r, u\<rangle> \<rightarrow>* \<langle>l', s', u'\<rangle>"
 
 theorem reachability_check:
-  "(uncurry0 (check_and_verify p m k I P T final r bounds na),
+  "(uncurry0 (check_and_verify p m k max_steps I T prog final bounds P s\<^sub>0 na),
     uncurry0 (
-       RETURN (
-        if State_Network_Reachability_Problem_precompiled_int_vars p m k I P T r bounds na
+       Refine_Basic.RETURN (
+        if UPPAAL_Reachability_Problem_precompiled'' p m k max_steps I T prog bounds P s\<^sub>0 na
         then Some (
           \<exists> l' s' u u'.
-            (map conv_A (fst (N p I P T r bounds)), snd (N p I P T r bounds)) \<turnstile>
-              \<langle>repeat 0 p, repeat 0 r, u\<rangle> \<rightarrow>* \<langle>l', s', u'\<rangle>
+            conv (N p I P T prog bounds) \<turnstile>\<^sub>max_steps
+              \<langle>repeat 0 p, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', s', u'\<rangle>
             \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> q < p. l' ! q \<in> set (final ! q))
           )
         else None
@@ -1740,8 +1806,7 @@ theorem reachability_check:
   apply sepref_to_hoare
    apply  (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
   by (sep_auto simp:
-      check_and_verify_def State_Network_Reachability_Problem_precompiled_defs.init_def
-      State_Network_Reachability_Problem_precompiled_int_vars_defs.s\<^sub>0_def
+      check_and_verify_def UPPAAL_Reachability_Problem_precompiled_defs.init_def
      )+
 
 export_code open check_and_verify checking SML_imp

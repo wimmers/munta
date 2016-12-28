@@ -622,6 +622,8 @@ end
 
   end
 
+abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
+
 locale UPPAAL_Reachability_Problem_precompiled_start_state =
   UPPAAL_Reachability_Problem_precompiled _ _ _ _ _ pred
   for pred :: "nat list list" +
@@ -631,10 +633,6 @@ locale UPPAAL_Reachability_Problem_precompiled_start_state =
        exec (stripfp PROG) max_steps ((pred ! q ! (init ! q)), [], s\<^sub>0, True, []) []
      = Some ((pc, st, s', True, rs), pcs)"
 begin
-
-  thm equiv.defs.prod_trans_i_alt_def
-
-  abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
 
   sublocale product':
     Equiv_TA "conv N" max_steps init s\<^sub>0
