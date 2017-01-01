@@ -255,59 +255,20 @@ locale UPPAAL_Reachability_Problem_precompiled' =
     "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, a, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
 begin
 
-  thm equiv.defs.prod_trans_i_alt_def
-
   sublocale Reachability_Problem_Impl_Defs A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m
     by standard
-
-  term A term N term "Product_TA_Defs.states (fst N)" term "state_set (trans_of A)"
-
-  term P
-
-  (*
-  definition
-    "states' =
-    {(L, s). L \<in> equiv.defs.states' s \<and>
-      (\<forall> q < p.
-        case runf (pred ! q ! (L ! q)) s of
-          Some ((_, _, _, True, _), _) \<Rightarrow> True
-        | _ \<Rightarrow> False)}"
-*)
 
   definition
     "states' = {(L, s). L \<in> equiv.defs.states' s \<and> check_pred L s}"
 
-lemma equiv_states'_alt_def:
-  "equiv.defs.states' s =
-    {L. length L = p \<and>
-      (\<forall> q < p. L ! q \<in> fst ` fst (equiv.N ! q)
-              \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (equiv.N ! q))}"
-  unfolding Product_TA_Defs.states_def
-  unfolding equiv.defs.N_s_def trans_of_def
-  by (simp add: T_s_unfold_1 T_s_unfold_2)
-
-lemma
-  "length L = q" if "L \<in> equiv.defs.states' s" for L
-  using that
-  unfolding Product_TA_Defs.states_def
-    apply simp
-  unfolding equiv.defs.N_s_def trans_of_def
-  apply simp
-  unfolding equiv.defs.T_s_def
-  apply simp
-  unfolding Equiv_TA_Defs.state_ta_def Equiv_TA_Defs.state_trans_t_def
-  apply simp
-  apply clarify
-    oops
-
-  lemma T_T:
-    "product.T = map T [0..<p]"
-    unfolding T_def trans_of_def N_def by auto
-
-  lemma states_length_p:
-    assumes "l \<in> product.states"
-    shows "length l = p"
-      using assms length_N product.states_length by simp
+  lemma equiv_states'_alt_def:
+    "equiv.defs.states' s =
+      {L. length L = p \<and>
+        (\<forall> q < p. L ! q \<in> fst ` fst (equiv.N ! q)
+                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (equiv.N ! q))}"
+    unfolding Product_TA_Defs.states_def
+    unfolding equiv.defs.N_s_def trans_of_def
+    by (simp add: T_s_unfold_1 T_s_unfold_2)
 
   lemma in_trans_in_mapI:
     assumes
@@ -487,29 +448,6 @@ lemma
     using assms action_set process_length(2) apply (fastforce dest!: nth_mem)
     using assms by (fastforce intro: in_trans_out_mapI)+
 
-  thm pairs_by_action_def
-
-  (* XXX Scratch *)
-  lemma
-    "card (C :: 'a1 set) \<le> card (B :: 'a2 set)" if "inj_on f C" "finite C" "finite B" for f :: "('a1 \<Rightarrow> 'a2)"
-      using that oops
-
-      thm pairs_by_action_def
-
-  lemma in_pairs_by_actionI:
-    assumes
-      "pa \<noteq> q"
-      "(pa, g1, a, m1, l1') \<in> set ys"
-      "(q, g2, a, m2, l2') \<in> set xs"
-      "\<forall> q' < p. (P ! q') (L[pa := l1', q := l2'] ! q') (m1 (m2 s))"
-    shows "(g1 @ g2, a, r1 @ r2, L[pa := l1', q := l2'], m1 (m2 s)) \<in> set (pairs_by_action (L, s) xs ys)"
-    using assms
-    unfolding pairs_by_action_def
-    apply clarsimp
-    apply (rule bexI[rotated], assumption)
-    apply (simp add: set_map_filter)
-    by blast
-
   lemma in_pairs_by_actionD2:
     assumes
       "(g, a, r, L', s') \<in> set (pairs_by_action (L, s) xs ys)"
@@ -614,13 +552,6 @@ lemma
     "L \<in> equiv.defs.states' s" if "(L, s) \<in> states'"
     using that unfolding states'_def by auto
 
-  lemma states_states[intro]:
-    "L \<in> product.states" if "(L, s) \<in> states'"
-    using that unfolding states'_def by simp
-
-  term "\<forall>q<p. (equiv.defs.P ! q) (L ! q) s" term "P ! q"
-    term "check_pred L s"
-
   lemma P_unfold:
     "(\<forall>q<p. (equiv.defs.P ! q) (L ! q) s) \<longleftrightarrow> (check_pred L s)"
     unfolding equiv.state_ta_def equiv.state_pred_def check_pred_def using process_length(3)
@@ -648,51 +579,51 @@ lemma
     "(equiv.I ! q) l = pred ! q ! l" if "q < p"
     unfolding N_def P_def using \<open>q < p\<close> process_length(3) by simp
 
-lemma transD:
-  assumes
-    "(pc_g, a, pc_u, l') = trans ! q ! (L ! q) ! j"
-    "L ! q < length (trans ! q)" "j < length (trans ! q ! (L ! q))"
-    "q < p"
-  shows "(L ! q, pc_g, a, pc_u, l') \<in> fst (equiv.N ! q)"
-  using assms unfolding N_def T_def by simp solve_ex_triv
+  lemma transD:
+    assumes
+      "(pc_g, a, pc_u, l') = trans ! q ! (L ! q) ! j"
+      "L ! q < length (trans ! q)" "j < length (trans ! q ! (L ! q))"
+      "q < p"
+    shows "(L ! q, pc_g, a, pc_u, l') \<in> fst (equiv.N ! q)"
+    using assms unfolding N_def T_def by simp solve_ex_triv
 
-lemma trans_ND:
-  assumes
-    "(L ! q, pc_g, a, pc_u, l') \<in> fst (equiv.N ! q)"
-    "q < p"
-  shows
-    "equiv.defs.N_s s ! q \<turnstile> L ! q
-      \<longrightarrow>\<^bsup>equiv.make_g pc_g s,(a, equiv.make_c pc_g, equiv.make_mf pc_u),equiv.make_f pc_u s\<^esup> l'"
-  using assms
-  unfolding equiv.defs.N_s_def trans_of_def equiv.defs.T_s_def
-  unfolding equiv.state_ta_def equiv.state_trans_t_def
-  by clarsimp solve_ex_triv+
+  lemma trans_ND:
+    assumes
+      "(L ! q, pc_g, a, pc_u, l') \<in> fst (equiv.N ! q)"
+      "q < p"
+    shows
+      "equiv.defs.N_s s ! q \<turnstile> L ! q
+        \<longrightarrow>\<^bsup>equiv.make_g pc_g s,(a, equiv.make_c pc_g, equiv.make_mf pc_u),equiv.make_f pc_u s\<^esup> l'"
+    using assms
+    unfolding equiv.defs.N_s_def trans_of_def equiv.defs.T_s_def
+    unfolding equiv.state_ta_def equiv.state_trans_t_def
+    by clarsimp solve_ex_triv+
 
-lemma make_f_unfold:
-  "equiv.make_f pc s = make_reset pc s"
-  unfolding make_reset_def equiv.make_f_def runf_def by simp
+  lemma make_f_unfold:
+    "equiv.make_f pc s = make_reset pc s"
+    unfolding make_reset_def equiv.make_f_def runf_def by simp
 
-lemma make_g_simp:
-  assumes "check_g pc_g s = Some g1"
-  shows "g1 = equiv.make_g pc_g s"
-  using assms unfolding check_g_def equiv.make_g_def runt_def
-  by (clarsimp split: option.splits bool.splits simp: make_cconstr_def)
+  lemma make_g_simp:
+    assumes "check_g pc_g s = Some g1"
+    shows "g1 = equiv.make_g pc_g s"
+    using assms unfolding check_g_def equiv.make_g_def runt_def
+    by (clarsimp split: option.splits bool.splits simp: make_cconstr_def)
 
-lemma make_c_simp:
-  assumes "check_g pc_g s = Some g1"
-  shows "equiv.make_c pc_g s"
-  using assms unfolding check_g_def equiv.make_c_def runt_def
-  by (clarsimp split: option.splits bool.splits simp: make_cconstr_def)
+  lemma make_c_simp:
+    assumes "check_g pc_g s = Some g1"
+    shows "equiv.make_c pc_g s"
+    using assms unfolding check_g_def equiv.make_c_def runt_def
+    by (clarsimp split: option.splits bool.splits simp: make_cconstr_def)
 
-lemma make_reset_simp:
-  assumes "runf pc_u s = Some ((y1, y2, s1, y3, r2), y4)"
-  shows "make_reset pc_u s = r2"
-  using assms unfolding runf_def make_reset_def by (auto split: option.splits)
+  lemma make_reset_simp:
+    assumes "runf pc_u s = Some ((y1, y2, s1, y3, r2), y4)"
+    shows "make_reset pc_u s = r2"
+    using assms unfolding runf_def make_reset_def by (auto split: option.splits)
 
-lemma make_mf_simp:
-  assumes "runf pc_u s = Some ((y1, y2, s1, y3, r2), y4)"
-  shows "equiv.make_mf pc_u s = Some s1"
-  using assms unfolding runf_def equiv.make_mf_def by (auto split: option.splits)
+  lemma make_mf_simp:
+    assumes "runf pc_u s = Some ((y1, y2, s1, y3, r2), y4)"
+    shows "equiv.make_mf pc_u s = Some s1"
+    using assms unfolding runf_def equiv.make_mf_def by (auto split: option.splits)
 
   lemma trans_fun_trans_of':
     "(trans_fun, trans_of A) \<in> transition_rel states'"
@@ -916,9 +847,9 @@ end
 context Equiv_TA_Defs
 begin
 
-lemma p_p:
-  "defs.p = p"
-  by simp
+  lemma p_p:
+    "defs.p = p"
+    by simp
 
 end
 
@@ -926,27 +857,19 @@ context
   Prod_TA_Defs
 begin
 
-  term states'
-
-    term "trans_of (product s''')"
-
-    term states'
-
-
-      term "(fst A ! q)" term "Product_TA_Defs.states" term states'
-
-lemma states'_alt_def:
-  "states' s =
-  {L. length L = p \<and> (\<forall> q < p. (L ! q) \<in> fst ` (fst (fst A ! q)) \<union> (snd o snd o snd o snd) ` (fst (fst A ! q)))}"
-  unfolding trans_of_def Product_TA_Defs.product_ta_def N_s_def
-  unfolding Product_TA_Defs.product_trans_def
-  unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
-  apply simp
-  apply safe
-  unfolding T_s_def
-    apply (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def)
-   apply (force simp: Product_TA_Defs.states_def trans_of_def p_def)
-  by (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def image_iff)
+  lemma states'_alt_def:
+    "states' s =
+    {L. length L = p \<and>
+        (\<forall> q < p. (L ! q) \<in> fst ` (fst (fst A ! q)) \<union> (snd o snd o snd o snd) ` (fst (fst A ! q)))}"
+    unfolding trans_of_def Product_TA_Defs.product_ta_def N_s_def
+    unfolding Product_TA_Defs.product_trans_def
+    unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
+    apply simp
+    apply safe
+    unfolding T_s_def
+      apply (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def)
+     apply (force simp: Product_TA_Defs.states_def trans_of_def p_def)
+    by (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def image_iff)
 
 end
 
@@ -958,181 +881,172 @@ context
   Equiv_TA_Defs
 begin
 
-  term state_set
-
-lemma state_set_subs: (* XXX Clean *)
-  "state_set (trans_of (defs.product s''))
-\<subseteq> {L. length L = defs.p \<and> (\<forall>q<defs.p. L ! q \<in> State_Networks.state_set (fst (defs.N ! q)))}"
-  unfolding defs.states'_alt_def[symmetric]
-  unfolding defs.N_s_def
-  unfolding state_set_def Product_TA_Defs.states_def
-  unfolding trans_of_def
-  unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
-  unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
-  unfolding defs.T_s_def
-    unfolding Product_TA_Defs.states_def trans_of_def
-    apply simp
-    apply safe
-            apply (simp; fail)
-    using [[goals_limit = 1]]
-           apply force
+  lemma state_set_subs: (* XXX Clean *)
+    "state_set (trans_of (defs.product s''))
+  \<subseteq> {L. length L = defs.p \<and> (\<forall>q<defs.p. L ! q \<in> State_Networks.state_set (fst (defs.N ! q)))}"
+    unfolding defs.states'_alt_def[symmetric]
+    unfolding defs.N_s_def
+    unfolding state_set_def Product_TA_Defs.states_def
+    unfolding trans_of_def
+    unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
+    unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
+    unfolding defs.T_s_def
+      unfolding Product_TA_Defs.states_def trans_of_def
+      apply simp
+      apply safe
+              apply (simp; fail)
+      using [[goals_limit = 1]]
+             apply force
+            apply force
+           apply (force simp: image_iff)
           apply force
+         apply (case_tac "pa = q")
+          apply (force simp: image_iff)
          apply (force simp: image_iff)
         apply force
-       apply (case_tac "pa = q")
-        apply (force simp: image_iff)
-       apply (force simp: image_iff)
-      apply force
-     apply (case_tac "qa = q")
-      apply force
-    apply (case_tac "qa = pa")
-      by (force simp: image_iff)+
+       apply (case_tac "qa = q")
+        apply force
+      apply (case_tac "qa = pa")
+        by (force simp: image_iff)+
 
 end
-
-
-term "{(a, f b) | a b. P a b}"
-
-ML \<open>
-  val x = @{term "(a, x) \<in> {(a, f b) | a b. P a b}"}
-\<close>
 
 context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
-lemma N_s_state_indep:
-  assumes "(L ! q, g, a, r, l') \<in> map trans_of (equiv.defs.N_s s) ! q" "q < p"
-  obtains g r where "(L ! q, g, a, r, l') \<in> map trans_of (equiv.defs.N_s s') ! q"
-  using assms unfolding trans_of_def equiv.defs.N_s_def equiv.defs.T_s_def by force
+  lemma N_s_state_indep:
+    assumes "(L ! q, g, a, r, l') \<in> map trans_of (equiv.defs.N_s s) ! q" "q < p"
+    obtains g r where "(L ! q, g, a, r, l') \<in> map trans_of (equiv.defs.N_s s') ! q"
+    using assms unfolding trans_of_def equiv.defs.N_s_def equiv.defs.T_s_def by force
 
-lemma fst_product_state_indep:
-  "fst ` fst (equiv.defs.product s) = fst ` fst (equiv.defs.product s')"
-  unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
-  unfolding Product_TA_Defs.product_trans_s_def Product_TA_Defs.product_trans_i_def
-  apply simp
-  unfolding equiv.defs.states'_alt_def
-  apply clarsimp
-  apply rule
-  subgoal
-    apply rule
+  lemma fst_product_state_indep:
+    "fst ` fst (equiv.defs.product s) = fst ` fst (equiv.defs.product s')"
+    unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
+    unfolding Product_TA_Defs.product_trans_s_def Product_TA_Defs.product_trans_i_def
+    apply simp
+    unfolding equiv.defs.states'_alt_def
     apply clarsimp
-    apply (erule disjE)
-     apply (erule conjE exE)+
-     apply (erule N_s_state_indep)
-      apply (simp; fail)
-     apply (rule img_fst)
-     apply (rule Set.UnI1)
-     apply (subst mem_Collect_eq)
-     apply solve_ex_triv+
-    apply (erule conjE exE)+
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (rule img_fst)
-    apply (rule Set.UnI2)
-    apply (subst mem_Collect_eq)
-    apply (rule exI)+
-    apply (rule conjI)
-     defer
-    by solve_ex_triv+
-  subgoal
     apply rule
-    apply clarsimp
-    apply (erule disjE)
-     apply (erule conjE exE)+
-     apply (erule N_s_state_indep)
-      apply (simp; fail)
-     apply (rule img_fst)
-     apply (rule Set.UnI1)
-     apply (subst mem_Collect_eq)
-     apply solve_ex_triv+
-    apply (erule conjE exE)+
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (rule img_fst)
-    apply (rule Set.UnI2)
-    apply (subst mem_Collect_eq)
-    apply (rule exI)+
-    apply (rule conjI)
-     defer
-    by solve_ex_triv+
-  done
+    subgoal
+      apply rule
+      apply clarsimp
+      apply (erule disjE)
+       apply (erule conjE exE)+
+       apply (erule N_s_state_indep)
+        apply (simp; fail)
+       apply (rule img_fst)
+       apply (rule Set.UnI1)
+       apply (subst mem_Collect_eq)
+       apply solve_ex_triv+
+      apply (erule conjE exE)+
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (rule img_fst)
+      apply (rule Set.UnI2)
+      apply (subst mem_Collect_eq)
+      apply (rule exI)+
+      apply (rule conjI)
+       defer
+      by solve_ex_triv+
+    subgoal
+      apply rule
+      apply clarsimp
+      apply (erule disjE)
+       apply (erule conjE exE)+
+       apply (erule N_s_state_indep)
+        apply (simp; fail)
+       apply (rule img_fst)
+       apply (rule Set.UnI1)
+       apply (subst mem_Collect_eq)
+       apply solve_ex_triv+
+      apply (erule conjE exE)+
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (rule img_fst)
+      apply (rule Set.UnI2)
+      apply (subst mem_Collect_eq)
+      apply (rule exI)+
+      apply (rule conjI)
+       defer
+      by solve_ex_triv+
+    done
 
-lemma last_product_state_indep:
-  "(snd o snd o snd o snd) ` fst (equiv.defs.product s)
- = (snd o snd o snd o snd) ` fst (equiv.defs.product s')"
-  unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
-  unfolding Product_TA_Defs.product_trans_s_def Product_TA_Defs.product_trans_i_def
-  apply simp
-  unfolding equiv.defs.states'_alt_def
-  apply clarsimp
-  apply rule
-  subgoal
-    apply rule
+  lemma last_product_state_indep:
+    "(snd o snd o snd o snd) ` fst (equiv.defs.product s)
+   = (snd o snd o snd o snd) ` fst (equiv.defs.product s')"
+    unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
+    unfolding Product_TA_Defs.product_trans_s_def Product_TA_Defs.product_trans_i_def
+    apply simp
+    unfolding equiv.defs.states'_alt_def
     apply clarsimp
-    apply (erule disjE)
-     apply (erule conjE exE)+
-     apply (erule N_s_state_indep)
+    apply rule
+    subgoal
+      apply rule
+      apply clarsimp
+      apply (erule disjE)
+       apply (erule conjE exE)+
+       apply (erule N_s_state_indep)
+        apply (simp; fail)
+       apply (rule )
+        prefer 2
+        apply (rule Set.UnI1)
+        apply (subst mem_Collect_eq)
+        apply solve_ex_triv+
+      apply (erule conjE exE)+
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (rule )
+       defer
+       apply (rule Set.UnI2)
+       apply (subst mem_Collect_eq)
+       apply (rule exI)+
+       apply (rule conjI)
+        defer
+        apply solve_ex_triv+
+       defer
+       apply (rule HOL.refl)
+      by simp
+    subgoal
+      apply rule
+      apply clarsimp
+      apply (erule disjE)
+      apply (erule conjE exE)+
+      apply (erule N_s_state_indep)
       apply (simp; fail)
-     apply (rule )
+      apply (rule )
       prefer 2
       apply (rule Set.UnI1)
       apply (subst mem_Collect_eq)
       apply solve_ex_triv+
-    apply (erule conjE exE)+
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (rule )
-     defer
-     apply (rule Set.UnI2)
-     apply (subst mem_Collect_eq)
-     apply (rule exI)+
-     apply (rule conjI)
+      apply (erule conjE exE)+
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (erule N_s_state_indep, (simp; fail))
+      apply (rule )
+      defer
+      apply (rule Set.UnI2)
+      apply (subst mem_Collect_eq)
+      apply (rule exI)+
+      apply (rule conjI)
       defer
       apply solve_ex_triv+
-     defer
-     apply (rule HOL.refl)
-    by simp
-  subgoal
-    apply rule
-    apply clarsimp
-    apply (erule disjE)
-    apply (erule conjE exE)+
-    apply (erule N_s_state_indep)
-    apply (simp; fail)
-    apply (rule )
-    prefer 2
-    apply (rule Set.UnI1)
-    apply (subst mem_Collect_eq)
-    apply solve_ex_triv+
-    apply (erule conjE exE)+
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (erule N_s_state_indep, (simp; fail))
-    apply (rule )
-    defer
-    apply (rule Set.UnI2)
-    apply (subst mem_Collect_eq)
-    apply (rule exI)+
-    apply (rule conjI)
-    defer
-    apply solve_ex_triv+
-    defer
-    apply (rule HOL.refl)
-    by simp
-  done
+      defer
+      apply (rule HOL.refl)
+      by simp
+    done
 
-lemma state_set_T':
-  "state_set (equiv.defs.T' s'') \<supseteq> fst ` state_set (trans_of A)"
-  unfolding trans_of_def
-  unfolding state_set_def
-  unfolding Prod_TA_Defs.prod_ta_def equiv.defs.prod_trans_def
-  apply simp
-  unfolding equiv.defs.prod_trans_i_def equiv.defs.prod_trans_s_def
-  unfolding trans_of_def
-  apply safe
-     apply (subst fst_product_state_indep; force)
-    apply (subst fst_product_state_indep; force)
-   apply (subst (asm) last_product_state_indep; force)
-  by (subst (asm) last_product_state_indep; force)
+  lemma state_set_T':
+    "state_set (equiv.defs.T' s'') \<supseteq> fst ` state_set (trans_of A)"
+    unfolding trans_of_def
+    unfolding state_set_def
+    unfolding Prod_TA_Defs.prod_ta_def equiv.defs.prod_trans_def
+    apply simp
+    unfolding equiv.defs.prod_trans_i_def equiv.defs.prod_trans_s_def
+    unfolding trans_of_def
+    apply safe
+       apply (subst fst_product_state_indep; force)
+      apply (subst fst_product_state_indep; force)
+     apply (subst (asm) last_product_state_indep; force)
+    by (subst (asm) last_product_state_indep; force)
 
   lemma state_set_T'2[simplified]:
     "length L = equiv.defs.p"
@@ -1140,28 +1054,18 @@ lemma state_set_T':
     if "(L, s) \<in> state_set (trans_of A)"
     using subset_trans [OF state_set_T' equiv.state_set_subs] that by blast+
 
-lemma state_set_states':
-  "L \<in> equiv.defs.states' s" if "(L, s) \<in> state_set (trans_of A)"
-  using state_set_T'2[OF that] unfolding equiv.defs.states'_alt_def by simp
+  lemma state_set_states':
+    "L \<in> equiv.defs.states' s" if "(L, s) \<in> state_set (trans_of A)"
+    using state_set_T'2[OF that] unfolding equiv.defs.states'_alt_def by simp
 
-lemma state_set_pred:
-  "\<forall>q<p. (equiv.defs.P ! q) (L ! q) s" if "(L, s) \<in> state_set (trans_of A)"
-  using that
-  unfolding Normalized_Zone_Semantics_Impl_Refine.state_set_def
-  unfolding trans_of_def Prod_TA_Defs.prod_ta_def Prod_TA_Defs.prod_trans_def
-  unfolding Prod_TA_Defs.prod_trans_i_def Prod_TA_Defs.prod_trans_s_def
-  by force
+  lemma state_set_pred:
+    "\<forall>q<p. (equiv.defs.P ! q) (L ! q) s" if "(L, s) \<in> state_set (trans_of A)"
+    using that
+    unfolding Normalized_Zone_Semantics_Impl_Refine.state_set_def
+    unfolding trans_of_def Prod_TA_Defs.prod_ta_def Prod_TA_Defs.prod_trans_def
+    unfolding Prod_TA_Defs.prod_trans_i_def Prod_TA_Defs.prod_trans_s_def
+    by force
 
-lemma
-  "state_set (trans_of A) \<subseteq> equiv.defs.states' s"
-
-  lemma state_set_states:
-      "fst ` state_set (trans_of A) \<subseteq> Product_TA_Defs.states (fst N)"
-      apply (rule subset_trans[rotated])
-       apply (rule Product_TA_Defs.state_set_states)
-      unfolding state_set_def[symmetric]
-      apply safe
-      using state_set_T' unfolding state_set_def by simp
 end
 
 lemma (in UPPAAL_Reachability_Problem_precompiled') state_set_states:
@@ -1203,10 +1107,6 @@ begin
     unfolding init_def N_def T_def by force
 
   lemma start_pred':
-    "(\<forall> i < p. (pred ! i ! (init ! i)) s\<^sub>0)"
-    using start_pred unfolding init_def by auto
-
-  lemma start_pred':
     "check_pred init s\<^sub>0"
     using start_pred bounded unfolding check_pred_def runf_def list_all_iff
     by (fastforce split: option.split)
@@ -1222,33 +1122,17 @@ begin
   definition
     "inv_fun \<equiv> \<lambda> (L, _). concat (map (\<lambda> i. IArray (map IArray inv) !! i !! (L ! i)) [0..<p])"
 
-  lemma I_I:
-    "product.I = map I [0..<p]"
-    unfolding I_def inv_of_def N_def by auto
-
   lemma states_states':
     "states \<subseteq> states'"
     using state_set_states start_states' by auto
 
-lemma [simp]:
-  "length L = p" if "(L, s) \<in> states'"
-  using that  unfolding states'_def by auto
+  lemma [simp]:
+    "length L = p" if "(L, s) \<in> states'"
+    using that  unfolding states'_def by auto
 
-lemma
-  "product'.defs.I' s L \<equiv> conv_cc (concat (map (\<lambda> q. I q (L ! q)) [0..<p]))"
-  using [[show_abbrevs = false]]
-  unfolding Product_TA_Defs.product_ta_def inv_of_def Product_TA_Defs.product_invariant_def
-  apply simp
-    using [[show_abbrevs]]
-    using product'.prod.inv_of_product
-      apply (simp add: Prod_TA_Defs.N_s_length Prod_TA_Defs.p_def)
-  unfolding I' oops
-
-term "product'.defs.I'" term I
-
-lemma inv_simp:
-  "I q (L ! q) = inv ! q ! (L ! q)" if "q < p" "(L, s) \<in> states'"
-  unfolding I_def using that states'_states'[OF that(2)] lengths by (auto dest!: states_len)
+  lemma inv_simp:
+    "I q (L ! q) = inv ! q ! (L ! q)" if "q < p" "(L, s) \<in> states'"
+    unfolding I_def using that states'_states'[OF that(2)] lengths by (auto dest!: states_len)
 
   lemma inv_fun_inv_of':
     "(inv_fun, inv_of A) \<in> inv_rel states'"
@@ -1273,10 +1157,6 @@ lemma inv_simp:
 
   definition "final_fun \<equiv> \<lambda> (L, s). list_ex (\<lambda> i. List.member (final ! i) (L ! i)) [0..<p]"
 
-  term list_ex term List.member
-
-  term local.F
-
   lemma final_fun_final':
     "(final_fun, (\<lambda> (l, s). F l)) \<in> inv_rel states'"
     unfolding F_def final_fun_def inv_rel_def in_set_member[symmetric] list_ex_iff
@@ -1290,15 +1170,6 @@ lemma inv_simp:
     assumes "(c, d) \<in> clkp_set A"
     shows "c > 0" "c \<le> m" "d \<in> range int"
     using assms clock_set consts_nats clkp_set'_subs unfolding Nats_def clk_set'_def by force+
-
-  (*
-  lemma fst_clkp_set'D:
-    assumes "(c, d) \<in> clkp_set'"
-    shows "c > 0" "c \<le> m" "d \<in> range int"
-    using assms clock_set consts_nats clkp_set'_subs unfolding Nats_def clk_set'_def apply auto
-     apply force
-*)
-
 
   lemma k_ceiling':
     "\<forall>c\<in>{1..m}. k ! c = nat (Max ({d. (c, d) \<in> clkp_set'} \<union> {0}))"
@@ -1315,10 +1186,9 @@ lemma inv_simp:
      unfolding k'_def apply (simp add: k_length del: upt_Suc)
      unfolding k_fun_def by simp
 
-       term k'
-
   lemma iarray_k'[intro]:
-    "(uncurry0 (return (IArray (map int k))), uncurry0 (Refine_Basic.RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+    "(uncurry0 (return (IArray (map int k))), uncurry0 (Refine_Basic.RETURN k'))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
     unfolding br_def by sepref_to_hoare sep_auto
 
   lemma init_has_trans:
@@ -1326,11 +1196,6 @@ lemma inv_simp:
     apply standard
     using trans_fun_trans_of unfolding transition_rel_def apply force
     using trans_fun_trans_of' start_states' unfolding transition_rel_def by fast
-
-  lemma
-    assumes "(init, s\<^sub>0) \<in> fst ` (trans_of A)"
-      shows "(init, s\<^sub>0) \<in> state_set (trans_of A)"
-  using assms oops
 
 end (* End of locale assuming specific format for actions *)
 
@@ -1374,8 +1239,6 @@ begin
       "PR_CONST ((\<lambda> (l, s). F l))" m k_fun
     unfolding PR_CONST_def by (standard; rule)
 
-  thm states_states'
-
   (* XXX Unused *)
   lemma length_reachable:
   "length L' = p" if "E\<^sup>*\<^sup>* a\<^sub>0 ((L', s), u)"
@@ -1385,8 +1248,6 @@ begin
   lemma length_steps:
   "length L' = p" if "conv_A A \<turnstile> \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>" "\<forall>c\<in>{1..m}. u c = 0"
     using that reachable_decides_emptiness'[of "(L', s')"] by (auto intro: length_reachable)
-
-  term F_reachable
 
   lemma F_reachable_correct':
     "F_reachable
@@ -1406,183 +1267,135 @@ begin
 
 end
 
-thm Equiv_TA_Defs.p_p
+context UPPAAL_Reachability_Problem_precompiled''
+begin
 
-lemma p_p:
-  "Prod_TA_Defs.p (Equiv_TA_Defs.state_ta N max_steps) = Equiv_TA_Defs.p N"
-  unfolding Prod_TA_Defs.p_def equiv.p_def oops
-    thm p_p
+  lemma T_s_unfold_1':
+    "fst ` product'.defs.T_s q s = fst ` fst (product'.N ! q)" if "q < p"
+    using \<open>q < p\<close>
+    unfolding product'.defs.T_s_def
+    unfolding product'.state_ta_def
+    unfolding product'.state_trans_t_def p_p
+    by force
 
-      context UPPAAL_Reachability_Problem_precompiled''
-  begin
+  lemma T_s_unfold_2':
+    "(snd o snd o snd o snd) ` product'.defs.T_s q s = (snd o snd o snd o snd) ` fst (product'.N ! q)"
+    if "q < p"
+    using \<open>q < p\<close>
+    unfolding product'.defs.T_s_def
+    unfolding product'.state_ta_def
+    unfolding product'.state_trans_t_def p_p
+    by force
 
-   lemma product_invariant_conv:
-    "product'.product_invariant = conv_cc o product.defs.product_invariant"
-    unfolding product'.product_invariant_def product.product_invariant_def
-    apply clarsimp
+  lemma product_states'_alt_def:
+    "product'.defs.states' s =
+      {L. length L = p \<and>
+        (\<forall> q < p. L ! q \<in> fst ` fst (product'.N ! q)
+                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (product'.N ! q))}"
+    unfolding Product_TA_Defs.states_def
+    unfolding product'.defs.N_s_def trans_of_def
+    unfolding product'.defs.p_def[symmetric] product'.p_p p_p
+    using T_s_unfold_1' T_s_unfold_2'
+    by force
+
+  lemma states'_conv[simp]:
+    "product'.defs.states' s = equiv.defs.states' s"
+    unfolding product_states'_alt_def equiv_states'_alt_def
+    unfolding N_def T_def by simp
+
+  lemma PF_PF:
+    "product'.PF = equiv.PF"
+    apply simp
+    unfolding stripfp_def
     apply (rule ext)
-    apply (simp add: map_concat)
-    apply(tactic \<open>Cong_Tac.cong_tac @{context} @{thm cong} 1\<close>)
-     apply simp
-    by (simp add: inv_of_def split: prod.split)
-
-  lemma product_invariant_conv:
-    "product'.product_invariant = conv_cc o product.product_invariant"
-    unfolding product'.product_invariant_def product.product_invariant_def
     apply clarsimp
+    subgoal for x
+      apply (cases "PROG x")
+       apply simp
+      subgoal for a
+        by (cases a) auto
+      done
+    done
+
+  lemma PT_PT:
+    "product'.PT = equiv.PT"
+    apply simp
+    unfolding striptp_def
     apply (rule ext)
-    apply (simp add: map_concat)
-    apply(tactic \<open>Cong_Tac.cong_tac @{context} @{thm cong} 1\<close>)
-     apply simp
-    by (simp add: inv_of_def split: prod.split)
-
-  lemma prod_invariant_conv:
-    "product'.prod_invariant = conv_cc o product.prod_invariant"
-    unfolding product'.prod_invariant_def product.prod_invariant_def product_invariant_conv by auto
-
-  lemma product_trans_i_conv:
-    "product'.product_trans_i = conv_t ` product.product_trans_i"
-    unfolding product'.product_trans_i_def product.product_trans_i_def
-    by (simp; force simp add: T_T states_length_p trans_of_def image_Collect N_def)
-
-  lemma prod_trans_i_conv:
-    "product'.prod_trans_i = conv_t ` product.prod_trans_i"
-    unfolding
-      product'.prod_trans_i_alt_def product.prod_trans_i_alt_def product_trans_i_conv
-      p_p P_P
-    apply (simp add: image_Collect)
-    apply (rule Collect_cong)
-    apply safe
-     apply metis
-    by ((rule exI)+; force)
-  term "product'.defs.states'"
-
-lemma T_s_unfold_1':
-  "fst ` product'.defs.T_s q s = fst ` fst (product'.N ! q)" if "q < p"
-  using \<open>q < p\<close>
-  unfolding product'.defs.T_s_def
-  unfolding product'.state_ta_def
-  unfolding product'.state_trans_t_def p_p
-  by force
-
-lemma T_s_unfold_2':
-  "(snd o snd o snd o snd) ` product'.defs.T_s q s = (snd o snd o snd o snd) ` fst (product'.N ! q)"
-  if "q < p"
-  using \<open>q < p\<close>
-  unfolding product'.defs.T_s_def
-  unfolding product'.state_ta_def
-  unfolding product'.state_trans_t_def p_p
-  by force
-
-lemma product_states'_alt_def:
-  "product'.defs.states' s =
-    {L. length L = p \<and>
-      (\<forall> q < p. L ! q \<in> fst ` fst (product'.N ! q)
-              \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (product'.N ! q))}"
-  unfolding Product_TA_Defs.states_def
-  unfolding product'.defs.N_s_def trans_of_def
-  unfolding product'.defs.p_def[symmetric] product'.p_p p_p
-  using T_s_unfold_1' T_s_unfold_2'
-  by force
-
-lemma states'_conv[simp]:
-  "product'.defs.states' s = equiv.defs.states' s"
-  unfolding product_states'_alt_def equiv_states'_alt_def
-  unfolding N_def T_def by simp
-
-lemma PF_PF:
-  "product'.PF = equiv.PF"
-  apply simp
-  unfolding stripfp_def
-  apply (rule ext)
-  apply clarsimp
-  subgoal for x
-    apply (cases "PROG x")
-     apply simp
-    subgoal for a
-      by (cases a) auto
+    apply clarsimp
+    subgoal for x
+      apply (cases "PROG x")
+       apply simp
+      subgoal for a
+        by (cases a) auto
+      done
     done
-  done
 
-lemma PT_PT:
-  "product'.PT = equiv.PT"
-  apply simp
-  unfolding striptp_def
-  apply (rule ext)
-  apply clarsimp
-  subgoal for x
-    apply (cases "PROG x")
+  lemma P_P[simp]:
+    "product'.defs.P = equiv.defs.P"
+    unfolding Equiv_TA_Defs.state_ta_def
+    unfolding Equiv_TA_Defs.p_def
+    unfolding Equiv_TA_Defs.state_pred_def
+    using PF_PF by (auto split: option.split)
+
+  lemma map_map_filter:
+    "map f (List.map_filter g xs) = List.map_filter (map_option f o g) xs"
+    by (induction xs; simp add: List.map_filter_simps split: option.split)
+
+
+  lemma make_g_conv:
+    "product'.make_g = conv_cc oo equiv.make_g"
+    unfolding Equiv_TA_Defs.make_g_def PT_PT PF_PF apply simp
+    apply (rule ext)
+    apply (rule ext)
+    apply simp
+    apply (auto split: option.splits simp: map_map_filter)
+    apply (rule arg_cong2[where f = List.map_filter])
+    by (auto split: option.split instrc.split)
+
+  lemma make_c_conv:
+    "product'.make_c = equiv.make_c"
+    unfolding Equiv_TA_Defs.make_c_def PT_PT by simp
+
+  lemma make_f_conv:
+    "product'.make_f = equiv.make_f"
+    unfolding Equiv_TA_Defs.make_f_def PF_PF by simp
+
+  lemma make_mf_conv:
+    "product'.make_mf = equiv.make_mf"
+    unfolding Equiv_TA_Defs.make_mf_def PF_PF by simp
+
+  lemmas make_convs = make_g_conv make_c_conv make_f_conv make_mf_conv
+
+  lemma state_trans_conv:
+    "Equiv_TA_Defs.state_trans_t (conv N) max_steps q
+    = (\<lambda> (a, b, c). (a, \<lambda> x. conv_cc (b x), c)) ` equiv.state_trans q" if \<open>q < p\<close>
+    unfolding Equiv_TA_Defs.state_trans_t_def image_Collect
+    using \<open>q < _\<close> make_convs by (force split: prod.splits)+
+
+  lemma map_conv_t:
+    "map trans_of (product'.defs.N_s s) ! q = conv_t ` (map trans_of (equiv.defs.N_s s) ! q)"
+    if \<open>q < p\<close>
+    using \<open>q < p\<close>
+    apply (subst nth_map)
+    unfolding product'.defs.N_s_length p_p_2
+     apply assumption
+    apply (subst nth_map)
+    unfolding equiv.defs.N_s_length
      apply simp
-    subgoal for a
-      by (cases a) auto
-    done
-  done
-
-lemma P_P[simp]:
-  "product'.defs.P = equiv.defs.P"
-  unfolding Equiv_TA_Defs.state_ta_def
-  unfolding Equiv_TA_Defs.p_def
-  unfolding Equiv_TA_Defs.state_pred_def
-  using PF_PF by (auto split: option.split)
-
-lemma map_map_filter:
-  "map f (List.map_filter g xs) = List.map_filter (map_option f o g) xs"
-  by (induction xs; simp add: List.map_filter_simps split: option.split)
-
-
-lemma make_g_conv:
-  "product'.make_g = conv_cc oo equiv.make_g"
-  unfolding Equiv_TA_Defs.make_g_def PT_PT PF_PF apply simp
-  apply (rule ext)
-  apply (rule ext)
-  apply simp
-  apply (auto split: option.splits simp: map_map_filter)
-  apply (rule arg_cong2[where f = List.map_filter])
-  by (auto split: option.split instrc.split)
-
-lemma make_c_conv:
-  "product'.make_c = equiv.make_c"
-  unfolding Equiv_TA_Defs.make_c_def PT_PT by simp
-
-lemma make_f_conv:
-  "product'.make_f = equiv.make_f"
-  unfolding Equiv_TA_Defs.make_f_def PF_PF by simp
-
-lemma make_mf_conv:
-  "product'.make_mf = equiv.make_mf"
-  unfolding Equiv_TA_Defs.make_mf_def PF_PF by simp
-
-lemmas make_convs = make_g_conv make_c_conv make_f_conv make_mf_conv
-
-lemma state_trans_conv:
-  "Equiv_TA_Defs.state_trans_t (conv N) max_steps q
-  = (\<lambda> (a, b, c). (a, \<lambda> x. conv_cc (b x), c)) ` equiv.state_trans q" if \<open>q < p\<close>
-  unfolding Equiv_TA_Defs.state_trans_t_def image_Collect
-  using \<open>q < _\<close> make_convs by (force split: prod.splits)+
-
-lemma map_conv_t:
-  "map trans_of (product'.defs.N_s s) ! q = conv_t ` (map trans_of (equiv.defs.N_s s) ! q)"
-  if \<open>q < p\<close>
-  using \<open>q < p\<close>
-  apply (subst nth_map)
-  unfolding product'.defs.N_s_length p_p_2
-   apply assumption
-  apply (subst nth_map)
-  unfolding equiv.defs.N_s_length
-   apply simp
-  unfolding trans_of_def Prod_TA_Defs.N_s_def
-  unfolding len_equiv_N len_product'_N
-  apply simp
-  unfolding Prod_TA_Defs.T_s_def
-  unfolding image_Collect
-  unfolding Equiv_TA_Defs.state_ta_def Equiv_TA_Defs.p_def
-  apply simp
-  using state_trans_conv[of q]
-  apply simp
-  apply auto
-   apply force
-  apply solve_ex_triv+
-  unfolding image_iff by force (* XXX Slow *)
+    unfolding trans_of_def Prod_TA_Defs.N_s_def
+    unfolding len_equiv_N len_product'_N
+    apply simp
+    unfolding Prod_TA_Defs.T_s_def
+    unfolding image_Collect
+    unfolding Equiv_TA_Defs.state_ta_def Equiv_TA_Defs.p_def
+    apply simp
+    using state_trans_conv[of q]
+    apply simp
+    apply auto
+     apply force
+    apply solve_ex_triv+
+    unfolding image_iff by force (* XXX Slow *)
 
   lemma product_trans_t_conv:
     "Product_TA_Defs.product_trans_s (product'.defs.N_s s)
@@ -1637,26 +1450,26 @@ lemma map_conv_t:
       by solve_ex_triv+
     done
 
-lemma prod_trans_i_conv:
-    "product'.defs.prod_trans_i = conv_t ` equiv.defs.prod_trans_i"
-    unfolding product'.defs.prod_trans_i_alt_def
-    unfolding equiv.defs.prod_trans_i_alt_def
-    unfolding product_trans_t_conv'
-    unfolding p_p_2 P_P
-    apply simp
-    apply safe
-    unfolding p_p P_P
-     apply (simp add: image_Collect)
-     apply solve_ex_triv
-    subgoal
-      apply defer_ex
-      apply defer_ex
-      by solve_ex_triv+
-    subgoal
-      apply defer_ex
-      apply defer_ex
-      by solve_ex_triv+
-    done
+  lemma prod_trans_i_conv:
+      "product'.defs.prod_trans_i = conv_t ` equiv.defs.prod_trans_i"
+      unfolding product'.defs.prod_trans_i_alt_def
+      unfolding equiv.defs.prod_trans_i_alt_def
+      unfolding product_trans_t_conv'
+      unfolding p_p_2 P_P
+      apply simp
+      apply safe
+      unfolding p_p P_P
+       apply (simp add: image_Collect)
+       apply solve_ex_triv
+      subgoal
+        apply defer_ex
+        apply defer_ex
+        by solve_ex_triv+
+      subgoal
+        apply defer_ex
+        apply defer_ex
+        by solve_ex_triv+
+      done
 
   lemma prod_trans_conv:
     "product'.defs.prod_trans = conv_t ` equiv.defs.prod_trans"
@@ -1665,32 +1478,28 @@ lemma prod_trans_i_conv:
     unfolding prod_trans_s_conv
     unfolding prod_trans_i_conv image_Un ..
 
-lemma prod_invariant_conv:
-  "product'.defs.prod_invariant = (map conv_ac \<circ>\<circ> Prod_TA_Defs.prod_invariant) EA"
-  apply (rule ext)
-  apply safe
-  unfolding product'.defs.prod_invariant_def equiv.defs.prod_invariant_def
-  unfolding Product_TA_Defs.product_ta_def inv_of_def
-  apply simp
-  unfolding Product_TA_Defs.product_invariant_def List.map_concat
-  apply (simp add: Prod_TA_Defs.N_s_length)
-  unfolding Equiv_TA_Defs.p_p Equiv_TA_Defs.p_def apply simp
-  apply (rule cong[where f = concat])
-   apply (rule HOL.refl)
-  unfolding Prod_TA_Defs.N_s_def inv_of_def Equiv_TA_Defs.state_ta_def
-  unfolding Equiv_TA_Defs.p_def unfolding Equiv_TA_Defs.state_inv_def
-  by (simp split: prod.split)
+  lemma prod_invariant_conv:
+    "product'.defs.prod_invariant = (map conv_ac \<circ>\<circ> Prod_TA_Defs.prod_invariant) EA"
+    apply (rule ext)
+    apply safe
+    unfolding product'.defs.prod_invariant_def equiv.defs.prod_invariant_def
+    unfolding Product_TA_Defs.product_ta_def inv_of_def
+    apply simp
+    unfolding Product_TA_Defs.product_invariant_def List.map_concat
+    apply (simp add: Prod_TA_Defs.N_s_length)
+    unfolding Equiv_TA_Defs.p_p Equiv_TA_Defs.p_def apply simp
+    apply (rule cong[where f = concat])
+     apply (rule HOL.refl)
+    unfolding Prod_TA_Defs.N_s_def inv_of_def Equiv_TA_Defs.state_ta_def
+    unfolding Equiv_TA_Defs.p_def unfolding Equiv_TA_Defs.state_inv_def
+    by (simp split: prod.split)
 
   lemma prod_conv: "product'.defs.prod_ta = conv_A A"
     unfolding product'.defs.prod_ta_def
     unfolding equiv.defs.prod_ta_def
     by (simp add: prod_invariant_conv[symmetric] prod_trans_conv[symmetric])
 
-  thm F_reachable_correct'' product'.prod_correct[symmetric] prod_conv
-
-  term "Equiv_TA (conv N) max_steps init s\<^sub>0" term "(conv N) \<turnstile>\<^sub>n \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
-  typ "('a, 't :: time, 's) unta" term "conv N"
-    lemma F_reachable_correct:
+  lemma F_reachable_correct:
     "F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
@@ -1740,8 +1549,6 @@ lemma prod_invariant_conv:
    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
   by (rule Pure.reflexive)
-
-thm trans_s_fun_def
 
   lemma reachability_checker_alt_def':
     "reachability_checker \<equiv>
@@ -1811,34 +1618,34 @@ subsection \<open>Check preconditions\<close>
 context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
-definition
-  "collect_cexp = {ac. Some (CEXP ac) \<in> set prog}"
+  definition
+    "collect_cexp = {ac. Some (CEXP ac) \<in> set prog}"
 
-lemma collect_cexp_alt_def:
-  "collect_cexp =
-    set (List.map_filter
-      (\<lambda> x. case x of Some (CEXP ac) \<Rightarrow> Some ac | _ \<Rightarrow> None)
-       prog)"
-  unfolding collect_cexp_def set_map_filter by (auto split: option.split_asm instrc.split_asm)
+  lemma collect_cexp_alt_def:
+    "collect_cexp =
+      set (List.map_filter
+        (\<lambda> x. case x of Some (CEXP ac) \<Rightarrow> Some ac | _ \<Rightarrow> None)
+         prog)"
+    unfolding collect_cexp_def set_map_filter by (auto split: option.split_asm instrc.split_asm)
 
-lemma clkp_set'_alt_def:
-  "clkp_set' =
-    \<Union> (collect_clock_pairs ` set (concat inv)) \<union> (constraint_pair ` collect_cexp)"
-  unfolding clkp_set'_def collect_cexp_def by auto
+  lemma clkp_set'_alt_def:
+    "clkp_set' =
+      \<Union> (collect_clock_pairs ` set (concat inv)) \<union> (constraint_pair ` collect_cexp)"
+    unfolding clkp_set'_def collect_cexp_def by auto
 
-definition
-  "collect_store = {(c, x). Some (INSTR (STOREC c x)) \<in> set prog}"
+  definition
+    "collect_store = {(c, x). Some (INSTR (STOREC c x)) \<in> set prog}"
 
-lemma collect_store_alt_def:
-  "collect_store =
-    set (List.map_filter
-      (\<lambda> x. case x of Some (INSTR (STOREC c x)) \<Rightarrow> Some (c, x) | _ \<Rightarrow> None)
-       prog)"
-  unfolding collect_store_def set_map_filter
-  by (auto split: option.split_asm instrc.split_asm instr.split_asm)
+  lemma collect_store_alt_def:
+    "collect_store =
+      set (List.map_filter
+        (\<lambda> x. case x of Some (INSTR (STOREC c x)) \<Rightarrow> Some (c, x) | _ \<Rightarrow> None)
+         prog)"
+    unfolding collect_store_def set_map_filter
+    by (auto split: option.split_asm instrc.split_asm instr.split_asm)
 
-lemma clk_set'_alt_def: "clk_set' = (fst ` clkp_set' \<union> fst ` collect_store)"
-  unfolding clk_set'_def collect_store_def by auto
+  lemma clk_set'_alt_def: "clk_set' = (fst ` clkp_set' \<union> fst ` collect_store)"
+    unfolding clk_set'_def collect_store_def by auto
 
   abbreviation
     "check_nat_subs \<equiv> \<forall> (_, d) \<in> clkp_set'. d \<ge> 0"
@@ -1849,21 +1656,13 @@ lemma clk_set'_alt_def: "clk_set' = (fst ` clkp_set' \<union> fst ` collect_stor
   subgoal for _ _ b using rangeI[of int "nat b"] by auto
   by auto
 
-definition
-  "check_resets \<equiv> \<forall> x c. Some (INSTR (STOREC c x)) \<in> set prog \<longrightarrow> x = 0"
+  definition
+    "check_resets \<equiv> \<forall> x c. Some (INSTR (STOREC c x)) \<in> set prog \<longrightarrow> x = 0"
 
-lemma check_resets_alt_def:
-  "check_resets =
-    (\<forall> (c, x) \<in> collect_store. x = 0)"
-  unfolding check_resets_def collect_store_def by auto
-
-term
-  "length inv = p \<and> length trans = p \<and> length pred = p
-      \<and> (\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i))
-      \<and> (\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < length T)
-      \<and> length k = m + 1 \<and> p > 0 \<and> m > 0
-      \<and> (\<forall> i < p. trans ! i \<noteq> []) \<and> (\<forall> q < p. trans ! q ! 0 \<noteq> [])
-      \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}"
+  lemma check_resets_alt_def:
+    "check_resets =
+      (\<forall> (c, x) \<in> collect_store. x = 0)"
+    unfolding check_resets_def collect_store_def by auto
 
   definition
     "check_pre \<equiv>
@@ -1899,7 +1698,7 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.collect_store_alt_def
   UPPAAL_Reachability_Problem_precompiled_defs.check_resets_alt_def
 
-  export_code UPPAAL_Reachability_Problem_precompiled_defs.collect_cexp in SML module_name Test
+export_code UPPAAL_Reachability_Problem_precompiled_defs.collect_cexp in SML module_name Test
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.check_axioms
@@ -1917,19 +1716,7 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs'.actions_by_state_def
   UPPAAL_Reachability_Problem_precompiled_defs'.pairs_by_action_def
 
-(*
-lemmas [code] =
-  State_Network_Reachability_Problem_precompiled_int_vars_def
-  State_Network_Reachability_Problem_precompiled_int_vars_defs.pred'_def
-  State_Network_Reachability_Problem_precompiled_int_vars_defs.trans'_def
-  State_Network_Reachability_Problem_precompiled_int_vars_defs.checkb_def
-  State_Network_Reachability_Problem_precompiled_int_vars_axioms_def
-  State_Network_Reachability_Problem_precompiled_int_vars_defs.s\<^sub>0_def
-*)
-
 code_pred clock_val_a .
-
-(* export_code State_Network_Reachability_Problem_precompiled_int_vars in SML module_name Test *)
 
 concrete_definition reachability_checker_impl
   uses UPPAAL_Reachability_Problem_precompiled''.reachability_checker_alt_def
@@ -1963,8 +1750,6 @@ lemma exec_code[code]:
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled'_axioms_def
   UPPAAL_Reachability_Problem_precompiled'_def
-
-  thm UPPAAL_Reachability_Problem_precompiled_start_state_axioms_def
 
 lemma start_pred[code]:
     "UPPAAL_Reachability_Problem_precompiled_start_state_axioms = (\<lambda> p max_steps prog pred s\<^sub>0.
@@ -2010,19 +1795,7 @@ definition [code]:
 lemmas [sep_heap_rules] =
   UPPAAL_Reachability_Problem_precompiled''.reachability_checker_hoare
 
-term UPPAAL_Reachability_Problem_precompiled_defs.N
-
-  abbreviation "N \<equiv> UPPAAL_Reachability_Problem_precompiled_defs.N"
-
-  (*
-abbreviation "N p I P T prog bounds max_steps \<equiv>
-  UPPAAL_Reachability_Problem_precompiled_defs.N p I
-    (UPPAAL_Reachability_Problem_precompiled_defs.pred' P r bounds)
-    (State_Network_Reachability_Problem_precompiled_int_vars_defs.trans' T)"
-*)
-
-  term "conv (N p I P T prog bounds) \<turnstile>\<^sub>max_steps
-              \<langle>repeat 0 p, repeat 0 r, u\<rangle> \<rightarrow>* \<langle>l', s', u'\<rangle>"
+abbreviation "N \<equiv> UPPAAL_Reachability_Problem_precompiled_defs.N"
 
 theorem reachability_check:
   "(uncurry0 (check_and_verify p m k max_steps I T prog final bounds P s\<^sub>0 na),
