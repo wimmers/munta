@@ -58,9 +58,6 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
         case a of Sil a \<Rightarrow> True | _ \<Rightarrow> False))) trans"
   *)
 
-term "trans_of A"
-term trans
-
   definition
     "trans_i_map =
       map (map (List.map_filter
@@ -92,37 +89,37 @@ term trans
     "all_actions_by_state t L \<equiv>
       fold (\<lambda> i. actions_by_state i (t !! i !! (L ! i))) [0..<p] (repeat [] na)"
 
-abbreviation "PF \<equiv> stripfp PROG"
-abbreviation "PT \<equiv> striptp PROG"
-definition "runf pc s \<equiv> exec PF max_steps (pc, [], s, True, []) []"
-definition "runt pc s \<equiv> exec PT max_steps (pc, [], s, True, []) []"
+  abbreviation "PF \<equiv> stripfp PROG"
+  abbreviation "PT \<equiv> striptp PROG"
+  definition "runf pc s \<equiv> exec PF max_steps (pc, [], s, True, []) []"
+  definition "runt pc s \<equiv> exec PT max_steps (pc, [], s, True, []) []"
 
-definition
-  "check_pred L s \<equiv>
-    list_all
-      (\<lambda> q.
-        case runf (pred ! q ! (L ! q)) s of
-          Some ((_, _, _, f, _), _) \<Rightarrow> f \<and> bounded bounds s
-        | None \<Rightarrow> False
+  definition
+    "check_pred L s \<equiv>
+      list_all
+        (\<lambda> q.
+          case runf (pred ! q ! (L ! q)) s of
+            Some ((_, _, _, f, _), _) \<Rightarrow> f \<and> bounded bounds s
+          | None \<Rightarrow> False
+        )
+        [0..<p]
+      "
+
+  definition
+    "make_cconstr pcs = List.map_filter
+      (\<lambda> pc.
+        case PROG pc of
+          Some (CEXP ac) \<Rightarrow> Some ac
+        | _ \<Rightarrow> None
       )
-      [0..<p]
-    "
+      pcs"
 
-definition
-  "make_cconstr pcs = List.map_filter
-    (\<lambda> pc.
-      case PROG pc of
-        Some (CEXP ac) \<Rightarrow> Some ac
+  definition
+    "check_g pc s \<equiv>
+      case runt pc s of
+        Some ((_, _, _, True, _), pcs) \<Rightarrow> Some (make_cconstr pcs)
       | _ \<Rightarrow> None
-    )
-    pcs"
-
-definition
-  "check_g pc s \<equiv>
-    case runt pc s of
-      Some ((_, _, _, True, _), pcs) \<Rightarrow> Some (make_cconstr pcs)
-    | _ \<Rightarrow> None
-    "
+      "
 
    definition
     "trans_i_from \<equiv> \<lambda> (L, s) i.
@@ -230,12 +227,12 @@ context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
   lemma T_s_unfold_1:
-  "fst ` equiv.defs.T_s q s = fst ` fst (equiv.N ! q)" if "q < p"
-  using \<open>q < p\<close>
-  unfolding equiv.defs.T_s_def
-  unfolding equiv.state_ta_def
-  unfolding equiv.state_trans_t_def
-  by force
+    "fst ` equiv.defs.T_s q s = fst ` fst (equiv.N ! q)" if "q < p"
+    using \<open>q < p\<close>
+    unfolding equiv.defs.T_s_def
+    unfolding equiv.state_ta_def
+    unfolding equiv.state_trans_t_def
+    by force
 
   lemma T_s_unfold_2:
     "(snd o snd o snd o snd) ` equiv.defs.T_s q s = (snd o snd o snd o snd) ` fst (equiv.N ! q)"
@@ -247,6 +244,375 @@ begin
     by force
 
 end
+
+context Equiv_TA_Defs
+begin
+
+  lemma p_p:
+    "defs.p = p"
+    by simp
+
+end
+
+context
+  Prod_TA_Defs
+begin
+
+  lemma states'_alt_def:
+    "states' s =
+    {L. length L = p \<and>
+        (\<forall> q < p. (L ! q) \<in> fst ` (fst (fst A ! q)) \<union> (snd o snd o snd o snd) ` (fst (fst A ! q)))}"
+    unfolding trans_of_def Product_TA_Defs.product_ta_def N_s_def
+    unfolding Product_TA_Defs.product_trans_def
+    unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
+    apply simp
+    apply safe
+    unfolding T_s_def
+      apply (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def)
+     apply (force simp: Product_TA_Defs.states_def trans_of_def p_def)
+    by (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def image_iff)
+
+end
+
+(*
+fun step_approx :: "instr \<Rightarrow> addr set" where
+  "step_approx (JMPZ q) (pc, _) = {pc + 1, q}" |
+  "step_approx CALL (pc, q # st, _) = {nat q}
+    (if q \<ge> 0 then Some (nat q, int pc # st, m, f, rs) else None)" |
+  "step RETURN (pc, q # st, m, f, rs) =
+    (if q \<ge> 0 then Some (nat q + 1, st, m, f, rs) else None)" |
+  (*
+  "step HALT s = Some s" |
+  *)
+  "step (STOREC c d) (pc, st, m, f, rs) =
+    (if d = 0 then Some (pc + 1, st, m, f, c # rs) else None)" |
+  "step (SETF b) (pc, st, m, f, rs) = Some (pc + 1, st, m, b, rs)" |
+  "step _ _ = None"
+*)
+
+fun steps_approx :: "nat \<Rightarrow> 't instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
+  "steps_approx 0 prog pc = (if pc < length prog then {pc} else {})" |
+  "steps_approx (Suc n) prog pc =
+    (
+      if pc \<ge> length prog
+      then {}
+      else
+        case prog ! pc of
+          None \<Rightarrow> {pc}
+        | Some cmd \<Rightarrow>
+          let succs =
+            (
+              case cmd of
+                CEXP ac \<Rightarrow> {pc + 1}
+              | INSTR instr \<Rightarrow>
+                  case instr of
+                    CALL   \<Rightarrow> {..<length prog}
+                  | RETURN \<Rightarrow> {..<length prog}
+                  | JMPZ pc' \<Rightarrow> {pc + 1, pc'}
+                  | HALT \<Rightarrow> {}
+                  |    _ \<Rightarrow> {pc + 1}
+            )
+          in {pc} \<union> \<Union> (steps_approx n prog ` succs)
+    )
+  "
+
+lemma bounded_less_simp[simp]:
+  "\<forall>q\<in>{..<p::nat}. P q \<equiv> \<forall> q < p. P q"
+  by (rule eq_reflection) auto
+
+context
+  fixes prog :: "int instrc option list"
+begin
+
+private abbreviation "P i \<equiv> if i < length prog then prog ! i else None"
+
+lemma steps_out_of_range:
+  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc \<ge> length prog"
+  shows "pc' = pc"
+  using assms by cases auto
+
+lemma stepsc_steps_approx:
+  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
+  shows "pc' \<in> steps_approx n prog pc"
+  using assms
+  apply (induction "conv_prog P" n u "(pc, st, s, f, rs)" "(pc', st', s', f', rs')" arbitrary: pc st s f rs rule: stepsc.induct)
+   apply (simp split: option.split)
+  apply clarsimp
+  apply rule
+   apply (simp split: if_split_asm; fail)
+  apply (clarsimp split: option.split)
+  apply rule
+   apply (simp split: if_split_asm; fail)
+  apply (case_tac z)
+   apply (simp split: option.split_asm if_split_asm)
+   apply (case_tac x1)
+                  apply (simp split: if_split_asm)
+                 apply (auto elim: UPPAAL_Asm.step.elims)[]
+                apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+               apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+              apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+             apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+            apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+           apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+          apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+         apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+        apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+       apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+       apply (case_tac "q < length prog")
+        apply force
+       apply (drule steps_out_of_range; simp)
+      apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+      apply (case_tac "q + 1 < length prog")
+       apply force
+      apply (drule steps_out_of_range; simp)
+     apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+    apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+   apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+  by (force split: if_split_asm)
+
+definition
+  "time_indep_check pc n \<equiv>
+    \<forall> pc' \<in> steps_approx n prog pc. pc' < length prog
+    \<longrightarrow> (case prog ! pc' of Some cmd \<Rightarrow> is_instr cmd | _ \<Rightarrow> True)"
+
+lemma time_indep_overapprox:
+  assumes
+    "time_indep_check pc n"
+  shows "time_indep (conv_prog P) n (pc, st, s, f, rs)"
+proof -
+  { fix pc' st' s' f' rs' cmd u
+    assume A:
+      "stepsc (conv_prog local.P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')"
+      "conv_prog local.P pc' = Some cmd"
+    have "is_instr cmd"
+    proof (cases "pc' < length prog")
+      case True
+      with A(2) obtain cmd' where "prog ! pc' = Some cmd'" by auto
+      with True stepsc_steps_approx[OF A(1)] A(2) assms show ?thesis
+        by (cases cmd') (auto simp: time_indep_check_def)
+    next
+      case False
+      with A(2) show ?thesis by (auto split: option.split_asm)
+    qed
+  }
+  then show ?thesis unfolding time_indep_def by blast
+qed
+
+end
+
+abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
+
+locale UPPAAL_Reachability_Problem_precompiled_start_state =
+  UPPAAL_Reachability_Problem_precompiled _ _ _ _ _ pred
+  for pred :: "nat list list" +
+  fixes s\<^sub>0 :: "int list" (* XXX Why does nat not work? *)
+  assumes start_pred:
+    "\<forall> q < p. \<exists> pc st s' rs pcs.
+       exec (stripfp PROG) max_steps ((pred ! q ! (init ! q)), [], s\<^sub>0, True, []) []
+     = Some ((pc, st, s', True, rs), pcs)"
+      and bounded: "bounded bounds s\<^sub>0"
+      and pred_time_indep: "\<forall> x \<in> set pred. \<forall> pc \<in> set x. time_indep_check prog pc max_steps"
+      and upd_time_indep:
+        "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, pc_u, _) \<in> set xs.
+           time_indep_check prog pc_u max_steps"
+begin
+
+sublocale defs':
+  Equiv_TA_Defs "conv N" max_steps .
+
+    lemma equiv_states'_alt_def:
+    "equiv.defs.states' s =
+      {L. length L = p \<and>
+        (\<forall> q < p. L ! q \<in> fst ` fst (equiv.N ! q)
+                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (equiv.N ! q))}"
+    unfolding Product_TA_Defs.states_def
+    unfolding equiv.defs.N_s_def trans_of_def
+    by (simp add: T_s_unfold_1 T_s_unfold_2)
+
+  lemma init_states:
+    "init \<in> equiv.defs.states' s\<^sub>0"
+    using processes_have_trans start_has_trans
+    unfolding equiv_states'_alt_def
+    unfolding init_def N_def T_def by force
+
+  lemma p_p[simp]:
+    "defs'.p = p"
+    unfolding defs'.p_def by simp
+
+  lemma T_s_unfold_1':
+    "fst ` defs'.defs.T_s q s = fst ` fst (defs'.N ! q)" if "q < p"
+    using \<open>q < p\<close>
+    unfolding defs'.defs.T_s_def
+    unfolding defs'.state_ta_def
+    unfolding defs'.state_trans_t_def p_p
+    by force
+
+  lemma T_s_unfold_2':
+    "(snd o snd o snd o snd) ` defs'.defs.T_s q s = (snd o snd o snd o snd) ` fst (defs'.N ! q)"
+    if "q < p"
+    using \<open>q < p\<close>
+    unfolding defs'.defs.T_s_def
+    unfolding defs'.state_ta_def
+    unfolding defs'.state_trans_t_def p_p
+    by force
+
+  lemma product_states'_alt_def:
+    "defs'.defs.states' s =
+      {L. length L = p \<and>
+        (\<forall> q < p. L ! q \<in> fst ` fst (defs'.N ! q)
+                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (defs'.N ! q))}"
+    unfolding Product_TA_Defs.states_def
+    unfolding defs'.defs.N_s_def trans_of_def
+    using T_s_unfold_1' T_s_unfold_2'
+    by force
+
+  lemma states'_conv[simp]:
+    "defs'.defs.states' s = equiv.defs.states' s"
+    unfolding product_states'_alt_def equiv_states'_alt_def
+    unfolding N_def T_def by simp
+
+  lemma [intro]:
+    "init \<in> defs'.defs.states' s\<^sub>0"
+    using init_states by simp
+
+  lemma [intro]:
+    "bounded defs'.B s\<^sub>0"
+    using bounded unfolding bounded_def N_def by simp
+
+  lemma
+    "defs'.I = equiv.I"
+    by simp
+
+  lemma PF_PF[simp]:
+    "defs'.PF = equiv.PF"
+    apply simp
+    unfolding stripfp_def
+    apply (rule ext)
+    apply clarsimp
+    subgoal for x
+      apply (cases "equiv.P x")
+       apply simp
+      subgoal for a
+        by (cases a) auto
+      done
+    done
+
+  lemma PF_PROG[simp]:
+    "equiv.PF = stripfp PROG"
+    unfolding N_def by simp
+
+  lemma I_simp[simp]:
+    "(equiv.I ! q) l = pred ! q ! l" if "q < p"
+    unfolding N_def P_def using \<open>q < p\<close> process_length(3) by simp
+
+  lemma
+    "defs'.P = conv_prog PROG"
+    by (simp add: N_def)
+
+  lemma states_len[intro]:
+    assumes
+      "q < p" "L \<in> equiv.defs.states' s"
+    shows
+      "L ! q < length (trans ! q)"
+    using assms unfolding Product_TA_Defs.states_def
+    apply simp
+    unfolding trans_of_def equiv.defs.N_s_def
+    apply (simp add: T_s_unfold_1 T_s_unfold_2)
+    unfolding N_def
+    apply simp
+    unfolding T_def
+      using state_set
+    unfolding process_length(2)[symmetric]
+    apply auto
+    apply (erule allE)
+    apply (erule impE)
+     apply assumption
+    apply auto
+    by (clarsimp dest!: nth_mem; force)
+
+  lemma equiv_P_simp:
+    "equiv.P = PROG"
+    unfolding N_def by simp
+
+  lemma [intro]:
+    "time_indep (conv_prog equiv.P) max_steps (pred ! q ! (L ! q), [], s, True, [])"
+    if "q < p" "L \<in> equiv.defs.states' s"
+  proof -
+    from that lengths process_length have "q < length pred" "L ! q < length (pred ! q)" by auto
+    then have "pred ! q \<in> set pred" "pred ! q ! (L ! q) \<in> set (pred ! q)" by auto
+    with pred_time_indep time_indep_overapprox show ?thesis
+      by (auto simp: PROG_def equiv_P_simp)
+  qed
+
+  lemma [intro]:
+    "time_indep (conv_prog PROG) max_steps (pc_u, [], s, True, [])"
+    if "q < p" "(l, pc_g, a, pc_u, l') \<in> T q"
+  proof -
+    from that lengths process_length have
+      "q < length trans" "l < length (trans ! q)" "(pc_g, a, pc_u, l') \<in> set (trans ! q ! l)"
+      unfolding T_def by auto
+    moreover then have "trans ! q \<in> set trans" "trans ! q ! l \<in> set (trans ! q)" by auto
+    ultimately show ?thesis using upd_time_indep time_indep_overapprox
+      unfolding PROG_def by blast
+  qed
+
+  sublocale product':
+    Equiv_TA "conv N" max_steps init s\<^sub>0
+    apply standard
+      apply rule
+        prefer 4
+         apply (simp; fail)
+    prefer 5
+        apply rule
+       prefer 4
+    unfolding PF_PF using start_pred apply simp
+      apply (simp; blast)
+     apply clarsimp
+     apply safe
+    unfolding N_def
+      apply simp
+      apply blast
+      using [[show_abbrevs = false]]
+  sorry
+
+  sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m k_fun
+    using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
+
+  lemma [simp]:
+    "fst ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S = fst ` S"
+    by force
+
+  lemma [simp]:
+    "(snd \<circ> snd \<circ> snd \<circ> snd) ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S
+    = (snd \<circ> snd \<circ> snd \<circ> snd) ` S"
+    by force
+
+  (*
+  lemma map_trans_of:
+    "map trans_of (map conv_A (fst N)) = map (op ` conv_t) (map trans_of (fst N))"
+    by (simp add: trans_of_def split: prod.split)
+
+  lemma [simp]:
+    "Product_TA_Defs.states (map conv_A (fst N)) = Product_TA_Defs.states (fst N)"
+    unfolding Product_TA_Defs.states_def map_trans_of by simp
+
+  lemma [simp]:
+    "product.P = P"
+    unfolding N_def by simp
+
+  lemma start_pred':
+    "\<forall> i < p. (pred ! i ! (init ! i)) s\<^sub>0"
+    using start_pred unfolding init_def by auto
+
+  lemma start_pred'':
+    "\<forall> i < p. ((P ! i) (init ! i)) s\<^sub>0"
+    using start_pred' process_length(3) unfolding P_def by auto
+
+  sublocale product': Prod_TA "(map conv_A (fst N), snd N)" init s\<^sub>0
+    by (standard; simp add: init_states start_pred'')
+      *)
+
+end (* End of locale *)
 
 locale UPPAAL_Reachability_Problem_precompiled' =
   UPPAAL_Reachability_Problem_precompiled_start_state +
@@ -260,15 +626,6 @@ begin
 
   definition
     "states' = {(L, s). L \<in> equiv.defs.states' s \<and> check_pred L s}"
-
-  lemma equiv_states'_alt_def:
-    "equiv.defs.states' s =
-      {L. length L = p \<and>
-        (\<forall> q < p. L ! q \<in> fst ` fst (equiv.N ! q)
-                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (equiv.N ! q))}"
-    unfolding Product_TA_Defs.states_def
-    unfolding equiv.defs.N_s_def trans_of_def
-    by (simp add: T_s_unfold_1 T_s_unfold_2)
 
   lemma in_trans_in_mapI:
     assumes
@@ -527,27 +884,6 @@ begin
     shows "y \<in> set (trans_s_fun L) \<or> y \<in> set (trans_i_fun L)"
       using assms unfolding trans_fun_def by auto
 
-  lemma states_len[intro]:
-    assumes
-      "q < p" "L \<in> equiv.defs.states' s"
-    shows
-      "L ! q < length (trans ! q)"
-    using assms unfolding Product_TA_Defs.states_def
-    apply simp
-    unfolding trans_of_def equiv.defs.N_s_def
-    apply (simp add: T_s_unfold_1 T_s_unfold_2)
-    unfolding N_def
-    apply simp
-    unfolding T_def
-      using state_set
-    unfolding process_length(2)[symmetric]
-    apply auto
-    apply (erule allE)
-    apply (erule impE)
-     apply assumption
-    apply auto
-    by (clarsimp dest!: nth_mem; force)
-
   lemma states'_states'[intro]:
     "L \<in> equiv.defs.states' s" if "(L, s) \<in> states'"
     using that unfolding states'_def by auto
@@ -567,17 +903,7 @@ begin
     "equiv.PT = PT"
     unfolding striptp_def N_def by simp
 
-  lemma [simp]:
-    "equiv.PF = PF"
-    unfolding striptp_def N_def by simp
-
-  lemma [simp]:
-    "equiv.P = PROG"
-    unfolding N_def by simp
-
-  lemma I_simp[simp]:
-    "(equiv.I ! q) l = pred ! q ! l" if "q < p"
-    unfolding N_def P_def using \<open>q < p\<close> process_length(3) by simp
+  lemmas [simp] = equiv_P_simp
 
   lemma transD:
     assumes
@@ -844,39 +1170,6 @@ begin
 
 end
 
-context Equiv_TA_Defs
-begin
-
-  lemma p_p:
-    "defs.p = p"
-    by simp
-
-end
-
-context
-  Prod_TA_Defs
-begin
-
-  lemma states'_alt_def:
-    "states' s =
-    {L. length L = p \<and>
-        (\<forall> q < p. (L ! q) \<in> fst ` (fst (fst A ! q)) \<union> (snd o snd o snd o snd) ` (fst (fst A ! q)))}"
-    unfolding trans_of_def Product_TA_Defs.product_ta_def N_s_def
-    unfolding Product_TA_Defs.product_trans_def
-    unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
-    apply simp
-    apply safe
-    unfolding T_s_def
-      apply (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def)
-     apply (force simp: Product_TA_Defs.states_def trans_of_def p_def)
-    by (fastforce simp: Product_TA_Defs.states_def trans_of_def p_def image_iff)
-
-end
-
-lemma bounded_less_than:
-  "(\<forall> x \<in> {..<n}. P x) \<longleftrightarrow> (\<forall> x < n. P x)"
-  by auto
-
 context
   Equiv_TA_Defs
 begin
@@ -1072,34 +1365,29 @@ lemma (in UPPAAL_Reachability_Problem_precompiled') state_set_states:
   "state_set (trans_of A) \<subseteq> states'"
   using state_set_states' state_set_pred unfolding states'_def P_unfold by auto
 
-locale UPPAAL_Reachability_Problem_precompiled'' =
-  UPPAAL_Reachability_Problem_precompiled' +
-  assumes bounded: "bounded bounds s\<^sub>0"
+context UPPAAL_Reachability_Problem_precompiled'
 begin
 
-  lemma p_p[simp]:
-    "product'.p = p"
-    unfolding product'.p_def by simp
-
   lemma p_p_2[simp]:
-  "product'.defs.p = p"
-  unfolding product'.p_p p_p ..
+  "defs'.defs.p = p"
+  unfolding defs'.p_p p_p ..
 
   lemma len_product'_N[simp]:
-    "length product'.defs.N = p"
-    unfolding product'.defs.p_def[symmetric] by (rule p_p_2)
+    "length defs'.defs.N = p"
+    unfolding defs'.defs.p_def[symmetric] by (rule p_p_2)
 
   lemma len_equiv_N:
     "length equiv.defs.N = p"
     unfolding equiv.defs.p_def[symmetric] by simp
 
   lemma
-    "product'.p = p"
-    unfolding product'.p_def by simp
+    "defs'.p = p"
+    unfolding defs'.p_def by simp
 
   lemma equiv_p_p: "equiv.p = p"
     by simp
 
+      (* R *)
   lemma init_states:
     "init \<in> equiv.defs.states' s\<^sub>0"
     using processes_have_trans start_has_trans
@@ -1193,7 +1481,7 @@ begin
     using trans_fun_trans_of unfolding transition_rel_def apply force
     using trans_fun_trans_of' start_states' unfolding transition_rel_def by fast
 
-end (* End of locale assuming specific format for actions *)
+end (* End of context *)
 
 ML \<open>
     fun pull_let u t =
@@ -1226,7 +1514,7 @@ ML \<open>
     fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
   \<close>
 
-context UPPAAL_Reachability_Problem_precompiled''
+context UPPAAL_Reachability_Problem_precompiled'
 begin
 
   sublocale impl:
@@ -1261,60 +1549,8 @@ begin
       )"
     unfolding F_reachable_correct' using length_steps by metis
 
-end
-
-context UPPAAL_Reachability_Problem_precompiled''
-begin
-
-  lemma T_s_unfold_1':
-    "fst ` product'.defs.T_s q s = fst ` fst (product'.N ! q)" if "q < p"
-    using \<open>q < p\<close>
-    unfolding product'.defs.T_s_def
-    unfolding product'.state_ta_def
-    unfolding product'.state_trans_t_def p_p
-    by force
-
-  lemma T_s_unfold_2':
-    "(snd o snd o snd o snd) ` product'.defs.T_s q s = (snd o snd o snd o snd) ` fst (product'.N ! q)"
-    if "q < p"
-    using \<open>q < p\<close>
-    unfolding product'.defs.T_s_def
-    unfolding product'.state_ta_def
-    unfolding product'.state_trans_t_def p_p
-    by force
-
-  lemma product_states'_alt_def:
-    "product'.defs.states' s =
-      {L. length L = p \<and>
-        (\<forall> q < p. L ! q \<in> fst ` fst (product'.N ! q)
-                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (product'.N ! q))}"
-    unfolding Product_TA_Defs.states_def
-    unfolding product'.defs.N_s_def trans_of_def
-    unfolding product'.defs.p_def[symmetric] product'.p_p p_p
-    using T_s_unfold_1' T_s_unfold_2'
-    by force
-
-  lemma states'_conv[simp]:
-    "product'.defs.states' s = equiv.defs.states' s"
-    unfolding product_states'_alt_def equiv_states'_alt_def
-    unfolding N_def T_def by simp
-
-  lemma PF_PF:
-    "product'.PF = equiv.PF"
-    apply simp
-    unfolding stripfp_def
-    apply (rule ext)
-    apply clarsimp
-    subgoal for x
-      apply (cases "PROG x")
-       apply simp
-      subgoal for a
-        by (cases a) auto
-      done
-    done
-
   lemma PT_PT:
-    "product'.PT = equiv.PT"
+    "defs'.PT = equiv.PT"
     apply simp
     unfolding striptp_def
     apply (rule ext)
@@ -1328,7 +1564,7 @@ begin
     done
 
   lemma P_P[simp]:
-    "product'.defs.P = equiv.defs.P"
+    "defs'.defs.P = equiv.defs.P"
     unfolding Equiv_TA_Defs.state_ta_def
     unfolding Equiv_TA_Defs.p_def
     unfolding Equiv_TA_Defs.state_pred_def
@@ -1340,7 +1576,7 @@ begin
 
 
   lemma make_g_conv:
-    "product'.make_g = conv_cc oo equiv.make_g"
+    "defs'.make_g = conv_cc oo equiv.make_g"
     unfolding Equiv_TA_Defs.make_g_def PT_PT PF_PF apply simp
     apply (rule ext)
     apply (rule ext)
@@ -1350,15 +1586,15 @@ begin
     by (auto split: option.split instrc.split)
 
   lemma make_c_conv:
-    "product'.make_c = equiv.make_c"
+    "defs'.make_c = equiv.make_c"
     unfolding Equiv_TA_Defs.make_c_def PT_PT by simp
 
   lemma make_f_conv:
-    "product'.make_f = equiv.make_f"
+    "defs'.make_f = equiv.make_f"
     unfolding Equiv_TA_Defs.make_f_def PF_PF by simp
 
   lemma make_mf_conv:
-    "product'.make_mf = equiv.make_mf"
+    "defs'.make_mf = equiv.make_mf"
     unfolding Equiv_TA_Defs.make_mf_def PF_PF by simp
 
   lemmas make_convs = make_g_conv make_c_conv make_f_conv make_mf_conv
@@ -1370,11 +1606,11 @@ begin
     using \<open>q < _\<close> make_convs by (force split: prod.splits)+
 
   lemma map_conv_t:
-    "map trans_of (product'.defs.N_s s) ! q = conv_t ` (map trans_of (equiv.defs.N_s s) ! q)"
+    "map trans_of (defs'.defs.N_s s) ! q = conv_t ` (map trans_of (equiv.defs.N_s s) ! q)"
     if \<open>q < p\<close>
     using \<open>q < p\<close>
     apply (subst nth_map)
-    unfolding product'.defs.N_s_length p_p_2
+    unfolding defs'.defs.N_s_length p_p_2
      apply assumption
     apply (subst nth_map)
     unfolding equiv.defs.N_s_length
@@ -1394,7 +1630,7 @@ begin
     unfolding image_iff by force (* XXX Slow *)
 
   lemma product_trans_t_conv:
-    "Product_TA_Defs.product_trans_s (product'.defs.N_s s)
+    "Product_TA_Defs.product_trans_s (defs'.defs.N_s s)
      = conv_t ` Product_TA_Defs.product_trans_s (equiv.defs.N_s s)"
     unfolding Product_TA_Defs.product_trans_s_def
     apply (simp only: states'_conv)
@@ -1410,7 +1646,7 @@ begin
       done
 
   lemma product_trans_t_conv':
-    "Product_TA_Defs.product_trans_i (product'.defs.N_s s)
+    "Product_TA_Defs.product_trans_i (defs'.defs.N_s s)
      = conv_t ` Product_TA_Defs.product_trans_i (equiv.defs.N_s s)"
     unfolding Product_TA_Defs.product_trans_i_def
     apply (simp only: states'_conv)
@@ -1426,8 +1662,8 @@ begin
       done
 
   lemma prod_trans_s_conv:
-    "product'.defs.prod_trans_s = conv_t ` equiv.defs.prod_trans_s"
-    unfolding product'.defs.prod_trans_s_alt_def
+    "defs'.defs.prod_trans_s = conv_t ` equiv.defs.prod_trans_s"
+    unfolding defs'.defs.prod_trans_s_alt_def
     unfolding equiv.defs.prod_trans_s_alt_def
     unfolding product_trans_t_conv
     unfolding p_p_2 P_P
@@ -1447,8 +1683,8 @@ begin
     done
 
   lemma prod_trans_i_conv:
-      "product'.defs.prod_trans_i = conv_t ` equiv.defs.prod_trans_i"
-      unfolding product'.defs.prod_trans_i_alt_def
+      "defs'.defs.prod_trans_i = conv_t ` equiv.defs.prod_trans_i"
+      unfolding defs'.defs.prod_trans_i_alt_def
       unfolding equiv.defs.prod_trans_i_alt_def
       unfolding product_trans_t_conv'
       unfolding p_p_2 P_P
@@ -1468,17 +1704,17 @@ begin
       done
 
   lemma prod_trans_conv:
-    "product'.defs.prod_trans = conv_t ` equiv.defs.prod_trans"
-    unfolding product'.defs.prod_trans_def
+    "defs'.defs.prod_trans = conv_t ` equiv.defs.prod_trans"
+    unfolding defs'.defs.prod_trans_def
     unfolding equiv.defs.prod_trans_def
     unfolding prod_trans_s_conv
     unfolding prod_trans_i_conv image_Un ..
 
   lemma prod_invariant_conv:
-    "product'.defs.prod_invariant = (map conv_ac \<circ>\<circ> Prod_TA_Defs.prod_invariant) EA"
+    "defs'.defs.prod_invariant = (map conv_ac \<circ>\<circ> Prod_TA_Defs.prod_invariant) EA"
     apply (rule ext)
     apply safe
-    unfolding product'.defs.prod_invariant_def equiv.defs.prod_invariant_def
+    unfolding defs'.defs.prod_invariant_def equiv.defs.prod_invariant_def
     unfolding Product_TA_Defs.product_ta_def inv_of_def
     apply simp
     unfolding Product_TA_Defs.product_invariant_def List.map_concat
@@ -1490,8 +1726,8 @@ begin
     unfolding Equiv_TA_Defs.p_def unfolding Equiv_TA_Defs.state_inv_def
     by (simp split: prod.split)
 
-  lemma prod_conv: "product'.defs.prod_ta = conv_A A"
-    unfolding product'.defs.prod_ta_def
+  lemma prod_conv: "defs'.defs.prod_ta = conv_A A"
+    unfolding defs'.defs.prod_ta_def
     unfolding equiv.defs.prod_ta_def
     by (simp add: prod_invariant_conv[symmetric] prod_trans_conv[symmetric])
 
@@ -1599,16 +1835,6 @@ begin
 end
 *)
 
-(* XXX Move *)
-lemma bex_n_simp:
-  "(\<exists> x \<in> set [0..<n]. P x) \<longleftrightarrow> (\<exists> x < n. P x)"
-  by auto
-
-(* XXX Move *)
-lemma ball_n_simp:
-  "(\<forall> x \<in> set [0..<n]. P x) \<longleftrightarrow> (\<forall> x < n. P x)"
-  by auto
-
 subsection \<open>Check preconditions\<close>
 
 context UPPAAL_Reachability_Problem_precompiled_defs
@@ -1715,7 +1941,7 @@ lemmas [code] =
 code_pred clock_val_a .
 
 concrete_definition reachability_checker_impl
-  uses UPPAAL_Reachability_Problem_precompiled''.reachability_checker_alt_def
+  uses UPPAAL_Reachability_Problem_precompiled'.reachability_checker_alt_def
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs'.make_cconstr_def
@@ -1748,31 +1974,37 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled'_def
 
 lemma start_pred[code]:
-    "UPPAAL_Reachability_Problem_precompiled_start_state_axioms = (\<lambda> p max_steps prog pred s\<^sub>0.
+  "UPPAAL_Reachability_Problem_precompiled_start_state_axioms = (\<lambda> p max_steps trans prog bounds pred s\<^sub>0.
   (\<forall> q < p.
        case (exec
         (stripfp (UPPAAL_Reachability_Problem_precompiled_defs.PROG prog))
           max_steps
           ((pred ! q ! (UPPAAL_Reachability_Problem_precompiled_defs.init p ! q)), [], s\<^sub>0, True, [])
           [])
-      of Some ((pc, st, s', True, rs), pcs) \<Rightarrow> True | _ \<Rightarrow> False))"
+      of Some ((pc, st, s', True, rs), pcs) \<Rightarrow> True | _ \<Rightarrow> False)
+  \<and> bounded bounds s\<^sub>0
+  \<and> (\<forall>x\<in>set pred. \<forall>pc\<in>set x. time_indep_check prog pc max_steps)
+  \<and> (\<forall>T\<in>set trans. \<forall>xs\<in>set T. \<forall>(_, _, pc_u, _)\<in>set xs. time_indep_check prog pc_u max_steps)
+  )"
   unfolding UPPAAL_Reachability_Problem_precompiled_start_state_axioms_def
-  by (rule ext)+ (fastforce split: option.splits bool.split_asm)+
+  by (rule ext)+ (fastforce split: option.splits bool.split_asm)
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.PROG_def
   UPPAAL_Reachability_Problem_precompiled_defs.init_def
   UPPAAL_Reachability_Problem_precompiled_start_state_def
+  (*
   UPPAAL_Reachability_Problem_precompiled''_def
   UPPAAL_Reachability_Problem_precompiled''_axioms_def
+  *)
   UPPAAL_Reachability_Problem_precompiled_defs.N_def
 
 lemmas [code] =
   Equiv_TA_Defs.state_ta_def Prod_TA_Defs.N_s_def Product_TA_Defs.states_def
 
-export_code UPPAAL_Reachability_Problem_precompiled''_axioms in SML module_name Test
+export_code UPPAAL_Reachability_Problem_precompiled'_axioms in SML module_name Test
 
-export_code UPPAAL_Reachability_Problem_precompiled'' in SML module_name Test
+export_code UPPAAL_Reachability_Problem_precompiled' in SML module_name Test
 
 export_code reachability_checker_impl in SML_imp module_name TA
 
@@ -1782,14 +2014,14 @@ hide_const check_and_verify
 
 definition [code]:
   "check_and_verify p m k max_steps I T prog final bounds P s\<^sub>0 na \<equiv>
-    if UPPAAL_Reachability_Problem_precompiled'' p m k max_steps I T prog bounds P s\<^sub>0 na
+    if UPPAAL_Reachability_Problem_precompiled' p m k max_steps I T prog bounds P s\<^sub>0 na
     then
       reachability_checker_impl p m k max_steps I T prog bounds P s\<^sub>0 na final
       \<bind> (\<lambda> x. return (Some x))
     else return None"
 
 lemmas [sep_heap_rules] =
-  UPPAAL_Reachability_Problem_precompiled''.reachability_checker_hoare
+  UPPAAL_Reachability_Problem_precompiled'.reachability_checker_hoare
 
 abbreviation "N \<equiv> UPPAAL_Reachability_Problem_precompiled_defs.N"
 
@@ -1797,7 +2029,7 @@ theorem reachability_check:
   "(uncurry0 (check_and_verify p m k max_steps I T prog final bounds P s\<^sub>0 na),
     uncurry0 (
        Refine_Basic.RETURN (
-        if UPPAAL_Reachability_Problem_precompiled'' p m k max_steps I T prog bounds P s\<^sub>0 na
+        if UPPAAL_Reachability_Problem_precompiled' p m k max_steps I T prog bounds P s\<^sub>0 na
         then Some (
           \<exists> l' s' u u'.
             conv (N p I P T prog bounds) \<turnstile>\<^sub>max_steps

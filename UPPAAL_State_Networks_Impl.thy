@@ -620,66 +620,6 @@ lemma [simp]:
 end
 *)
 
-  end
-
-abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
-
-locale UPPAAL_Reachability_Problem_precompiled_start_state =
-  UPPAAL_Reachability_Problem_precompiled _ _ _ _ _ pred
-  for pred :: "nat list list" +
-  fixes s\<^sub>0 :: "int list" (* XXX Why does nat not work? *)
-  assumes start_pred:
-    "\<forall> q < p. \<exists> pc st s' rs pcs.
-       exec (stripfp PROG) max_steps ((pred ! q ! (init ! q)), [], s\<^sub>0, True, []) []
-     = Some ((pc, st, s', True, rs), pcs)"
-begin
-
-  sublocale product':
-    Equiv_TA "conv N" max_steps init s\<^sub>0
-  apply standard
-        prefer 5
-    apply (simp; fail)
-  sorry
-
-  sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m k_fun
-    using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
-
-      thm equiv.defs.prod_trans_i_alt_def
-
-  lemma [simp]:
-    "fst ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S = fst ` S"
-    by force
-
-  lemma [simp]:
-    "(snd \<circ> snd \<circ> snd \<circ> snd) ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S
-    = (snd \<circ> snd \<circ> snd \<circ> snd) ` S"
-    by force
-
-  (*
-  lemma map_trans_of:
-    "map trans_of (map conv_A (fst N)) = map (op ` conv_t) (map trans_of (fst N))"
-    by (simp add: trans_of_def split: prod.split)
-
-  lemma [simp]:
-    "Product_TA_Defs.states (map conv_A (fst N)) = Product_TA_Defs.states (fst N)"
-    unfolding Product_TA_Defs.states_def map_trans_of by simp
-
-  lemma [simp]:
-    "product.P = P"
-    unfolding N_def by simp
-
-  lemma start_pred':
-    "\<forall> i < p. (pred ! i ! (init ! i)) s\<^sub>0"
-    using start_pred unfolding init_def by auto
-
-  lemma start_pred'':
-    "\<forall> i < p. ((P ! i) (init ! i)) s\<^sub>0"
-    using start_pred' process_length(3) unfolding P_def by auto
-
-  sublocale product': Prod_TA "(map conv_A (fst N), snd N)" init s\<^sub>0
-    by (standard; simp add: init_states start_pred'')
-      *)
-
 end (* End of locale *)
 
 end (* End of theory *)
