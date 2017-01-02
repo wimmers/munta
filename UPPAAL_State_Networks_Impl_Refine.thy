@@ -1171,10 +1171,6 @@ begin
     shows "c > 0" "c \<le> m" "d \<in> range int"
     using assms clock_set consts_nats clkp_set'_subs unfolding Nats_def clk_set'_def by force+
 
-  lemma k_ceiling':
-    "\<forall>c\<in>{1..m}. k ! c = nat (Max ({d. (c, d) \<in> clkp_set'} \<union> {0}))"
-    using k_ceiling oops (* XXX *)
-
   lemma
     "\<forall>i<Suc m. k ! i = k_fun i"
     unfolding k_fun_def by simp
