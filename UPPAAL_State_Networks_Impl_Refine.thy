@@ -400,6 +400,484 @@ qed
 
 end
 
+fun conj_instr :: "'t instrc \<Rightarrow> addr \<Rightarrow> bool" where
+  "conj_instr (CEXP _) _ = True" |
+  "conj_instr (INSTR COPY) _ = True" |
+  "conj_instr (INSTR (JMPZ pc)) pc_t = (pc = pc_t)" |
+  "conj_instr (INSTR instr.AND) _ = True" |
+  "conj_instr _ _ = False"
+
+(*
+inductive is_conj_block :: "'t instrc option list \<Rightarrow> addr \<Rightarrow> addr \<Rightarrow> bool" where
+  (* "is_conj_block prog pc pc" if "prog ! pc = Some (INSTR HALT)" | *)
+  "is_conj_block prog pc (pc' + 1)" if
+  "prog ! (pc' + 1) = Some (INSTR HALT)" "is_conj_block prog pc pc'" |
+  "is_conj_block prog pc pc" if "prog ! pc = Some (CEXP ac)" |
+  "is_conj_block prog pc (pc' + 3)" if
+  "prog ! (pc' + 1) = Some (INSTR COPY)" "prog ! (pc' + 2) = Some (CEXP ac)"
+  "prog ! (pc' + 3) = Some (INSTR instr.AND)"
+  "is_conj_block prog pc pc'" |
+  "is_conj_block prog pc (pc' + 4)" if
+  "prog ! (pc' + 1) = Some (INSTR COPY)"
+  "prog ! (pc' + 2) = Some (INSTR (JMPZ pc_t))" "prog ! pc_t = Some (INSTR HALT)"
+  "prog ! (pc' + 3) = Some (CEXP ac)" "prog ! (pc' + 4) = Some (INSTR instr.AND)"
+  "is_conj_block prog pc pc'"
+*)
+
+inductive is_conj_block' :: "'t instrc option list \<Rightarrow> addr \<Rightarrow> addr \<Rightarrow> bool" where
+  "is_conj_block' prog pc pc" if
+  "pc < length prog"
+  "prog ! pc = Some (INSTR HALT)" |
+  (*
+  "is_conj_block' prog pc (pc + 2)" if
+  "pc + 2 < length prog"
+  "prog ! (pc) = Some (INSTR COPY)" "prog ! (pc + 1) = Some (CEXP ac)"
+  "prog ! (pc + 2) = Some (INSTR instr.AND)" |
+  *)
+  (*
+  "is_conj_block' prog pc (pc' + 2)" if
+  "pc' + 2 < length prog"
+  "prog ! (pc') = Some (INSTR COPY)" "prog ! (pc' + 1) = Some (CEXP ac)"
+  "prog ! (pc' + 2) = Some (INSTR instr.AND)"
+  "is_conj_block' prog pc pc'"
+  *)
+  "is_conj_block' prog pc pc'" if
+  "pc' < length prog"
+  "prog ! pc = Some (INSTR COPY)" "prog ! (pc + 1) = Some (CEXP ac)"
+  "prog ! (pc + 2) = Some (INSTR instr.AND)"
+  "is_conj_block' prog (pc + 3) pc'" |
+  "is_conj_block' prog pc pc'" if
+  "pc' < length prog"
+  "prog ! pc = Some (INSTR COPY)"
+  "prog ! (pc + 1) = Some (INSTR (JMPZ pc'))" (* "prog ! pc_t = Some (INSTR HALT)" *)
+  "prog ! (pc + 2) = Some (CEXP ac)"
+  "prog ! (pc + 3) = Some (INSTR instr.AND)"
+  "is_conj_block' prog (pc + 4) pc'"
+
+inductive_cases stepscE: "stepsc prog n u (pc, st, m, f, rs) (pc', st', m', f', rs')"
+
+code_pred is_conj_block' .
+
+code_thms is_conj_block'
+
+lemma stepsc_reverseE':
+  assumes "stepsc prog (Suc n) u s s''" "s'' \<noteq> s"
+  obtains pc' st' m' f' rs' cmd where
+    "stepc cmd u (pc', st', m', f', rs') = Some s''"
+    "prog pc' = Some cmd"
+    "stepsc prog n u s (pc', st', m', f', rs')"
+  apply atomize_elim
+  using assms
+proof (induction prog "Suc n" u s s'' arbitrary: n rule: stepsc.induct) thm stepsc.induct
+  case (1 prog n u start)
+  then show ?case by simp
+next
+  case prems: (2 cmd u pc st m f rs s prog n s')
+  then show ?case
+  proof (cases "s' = s")
+    case True
+    with prems show ?thesis
+      apply simp
+      apply solve_ex_triv+
+      by (auto elim: stepsc.cases)
+  next
+    case False
+    with prems(3) have "n > 0" by (auto elim!: stepsc.cases)
+    then obtain n' where "n = Suc n'" by (cases n) auto
+    from prems(4)[OF this False] obtain cmd pc' st' m' f' rs' where
+      "stepc cmd u (pc', st', m', f', rs') = Some s'" "prog pc' = Some cmd"
+      "stepsc prog n' u s (pc', st', m', f', rs')"
+      by atomize_elim
+    with prems show ?thesis unfolding \<open>n = _\<close> by blast
+  qed
+qed
+
+lemma stepsc_reverseE:
+  assumes "stepsc prog n u s s''" "s'' \<noteq> s"
+  obtains n' pc' st' m' f' rs' cmd where
+    "n = Suc n'"
+    "stepc cmd u (pc', st', m', f', rs') = Some s''"
+    "prog pc' = Some cmd"
+    "stepsc prog n' u s (pc', st', m', f', rs')"
+proof -
+  from assms have "n > 0" by (auto elim!: stepsc.cases)
+  then obtain n' where "n = Suc n'" by (cases n) auto
+  with assms show ?thesis by (auto elim!: stepsc_reverseE' intro!: that)
+qed
+
+lemma
+  "pc = pc' - 1" if
+  "stepc (CEXP cc) u (pc, st, m, f, rs) = Some (pc', st', m', f', rs')"
+  using that by auto
+
+lemma
+  "pc = pc' - 1" if
+  "stepc (INSTR instr) u (pc, st, m, f, rs) = Some (pc', st', m', f', rs')"
+  "\<not> (\<exists> x. instr = JMPZ pc')" "instr \<noteq> RETURN" "instr \<noteq> CALL"
+  using that by (auto split: option.split_asm if_split_asm elim!: step.elims)
+
+lemma stepc_pc_no_jump:
+  "pc = pc' - 1" if
+  "stepc cmd u (pc, st, m, f, rs) = Some (pc', st', m', f', rs')"
+  "cmd \<noteq> INSTR (JMPZ pc')" "cmd \<noteq> INSTR RETURN" "cmd \<noteq> INSTR CALL"
+  using that by (cases cmd) (auto split: option.split_asm if_split_asm elim!: step.elims)
+
+inductive stepsn :: "'t programc \<Rightarrow> nat \<Rightarrow> (nat, 't :: time) cval \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool"
+  for prog where
+  "stepsn prog 0 u start start" | (*
+  "stepsc prog (Suc n) u s s'" if
+    "stepc cmd u (pc, st, m, f, rs) = Some s'"
+    "stepsc prog n u s (pc, st, m, f, rs)"
+    "prog pc = Some cmd" *)
+  "stepsn prog (Suc n) u (pc, st, m, f, rs) s'" if
+    "stepc cmd u (pc, st, m, f, rs) = Some s"
+    "prog pc = Some cmd"
+    "stepsn prog n u s s'"
+
+declare stepsn.intros[intro]
+
+lemma stepsc_stepsn:
+  assumes "stepsc P n u s s'"
+  obtains n' where "stepsn P n' u s s'" "n' < n"
+  using assms by induction auto
+
+lemma stepsn_stepsc:
+  assumes "stepsn P n' u s s'" "n' < n"
+  shows "stepsc P n u s s'"
+  using assms
+  proof (induction arbitrary: n)
+    case (1 u start)
+    then obtain n' where "n = Suc n'" by (cases n) auto
+    then show ?case by auto
+  next
+    case (2 cmd u pc st m f rs s n s' n')
+    from \<open>_ < n'\<close> have "n < n' - 1" by simp
+    from 2(4)[OF this] 2(1,2,3,5) show ?case
+    proof -
+      have "(\<exists>fa n fb p. P = fa \<and> n' = Suc n \<and> u = fb \<and> (pc, st, m, f, rs) = p \<and> s' = p) \<or> (\<exists>i fa n is isa b ns p fb na pa. P = fb \<and> n' = Suc na \<and> u = fa \<and> (pc, st, m, f, rs) = (n, is, isa, b, ns) \<and> s' = pa \<and> stepc i fa (n, is, isa, b, ns) = Some p \<and> fb n = Some i \<and> stepsc fb na fa p pa)"
+        using "2.prems" Suc_pred' \<open>P pc = Some cmd\<close> \<open>stepc cmd u (pc, st, m, f, rs) = Some s\<close> \<open>stepsc P (n' - 1) u s s'\<close> gr_implies_not_zero by blast
+      then show ?thesis
+        by blast
+    qed
+  qed
+
+lemma stepsn_extend:
+  assumes "stepsn P n1 u s s1" "stepsn P n2 u s s2" "n1 \<le> n2"
+  shows "stepsn P (n2 - n1) u s1 s2"
+using assms
+proof (induction arbitrary: n2 s2)
+  case (1 u start)
+  then show ?case by simp
+next
+  case (2 cmd u pc st m f rs s n s')
+  from 2(1,2,5-) have "stepsn P (n2 - 1) u s s2" by (auto elim: stepsn.cases)
+  from 2(4)[OF this] \<open>Suc n <= _\<close> show ?case by simp
+qed
+
+(* XXX Move *)
+lemma stepsc_halt:
+  "s' = (pc, s)" if "stepsc P n u (pc, s) s'" "P pc = Some (INSTR HALT)"
+  using that by (induction P n u "(pc, s)" s') auto
+
+lemma stepsn_halt:
+  "s' = (pc, s)" if "stepsn P n u (pc, s) s'" "P pc = Some (INSTR HALT)"
+  apply (rule stepsc_halt[OF stepsn_stepsc[where n = "Suc n"]])
+  using that by simp+
+
+lemma is_conj_block'_pc_mono:
+  "pc \<le> pc'" if "is_conj_block' prog pc pc'"
+  using that by induction auto
+
+lemma is_conj_block'_len_prog:
+  "pc' < length prog" if "is_conj_block' prog pc pc'"
+  using that by induction auto
+
+lemma is_conj_block'_halt:
+  "prog ! pc' = Some (INSTR HALT)" if "is_conj_block' prog pc pc'"
+  using that by induction auto
+
+lemma numeral_4_eq_4:
+  "4 = Suc (Suc (Suc (Suc 0)))"
+  by simp
+
+lemma is_conj_block'_is_conj:
+  assumes "is_conj_block' P pc pc'"
+    and "stepsn (\<lambda> i. if i < length P then P ! i else None) n u (pc, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
+    and "P ! pc_t = Some (INSTR HALT)"
+    (* and "pc < pc_t" (* "pc_t \<le> pc'" *) *)
+  shows "f \<and> pc_t = pc'"
+  using assms
+proof (induction arbitrary: n st s f rs)
+  case (1 pc prog)
+  with stepsn_halt[OF this(3)] show ?case by simp
+next
+  case prems: (2 pc' prog pc ac)
+  let ?P = "(\<lambda>i. if i < length prog then prog ! i else None)"
+  consider (0) "n = 0" | (1) "n = 1" | (2) "n = 2" | (3) "n \<ge> 3" by force
+  then show ?case
+  proof cases
+    case 0
+    with prems show ?thesis by (auto elim!: stepsn.cases)
+  next
+    case 1
+    with prems show ?thesis by (auto elim!: stepsn.cases simp: int_of_def split: if_split_asm)
+  next
+    case 2
+    with prems show ?thesis by (auto elim!: stepsn.cases simp: int_of_def numeral_2_eq_2 split: if_split_asm)
+  next
+    case 3
+    from prems have "pc + 2 < length prog" by (auto dest: is_conj_block'_pc_mono)
+    with prems(2-4) obtain st1 s1 rs1 where
+      "stepsn ?P 3 u (pc, st, s, f, rs) (pc + 3, st1, s1, f \<and> (u \<turnstile>\<^sub>a ac), rs1)"
+      by (force simp: int_of_def numeral_3_eq_3)
+    from stepsn_extend[OF this prems(7) 3] have
+      "stepsn ?P (n - 3) u (pc + 3, st1, s1, f \<and> (u \<turnstile>\<^sub>a ac), rs1) (pc_t, st_t, s_t, True, rs_t)" .
+    from prems(6)[OF this \<open>prog ! pc_t = _\<close>] have "pc_t = pc'" "u \<turnstile>\<^sub>a ac" f by auto
+    then show ?thesis by simp
+  qed
+next
+  case prems: (3 pc' prog pc ac)
+  let ?P = "(\<lambda>i. if i < length prog then prog ! i else None)"
+  consider (0) "n = 0" | (1) "n = 1" | (2) "n = 2" | (3) "n = 3" | (4) "n \<ge> 4" by force
+  then show ?case
+  proof cases
+    case 0
+    with prems show ?thesis by (auto elim!: stepsn.cases)
+  next
+    case 1
+    with prems show ?thesis by (auto elim!: stepsn.cases simp: int_of_def split: if_split_asm)
+  next
+    case 2
+    with prems show ?thesis by (auto elim!: stepsn.cases simp: int_of_def numeral_2_eq_2 split: if_split_asm)
+  next
+    case 3
+    with prems show ?thesis
+      by (auto elim!: stepsn.cases simp: int_of_def numeral_3_eq_3 split: if_split_asm dest!: is_conj_block'_halt)
+  next
+    case 4
+    from prems have "pc + 3 < length prog" by (auto dest: is_conj_block'_pc_mono)
+    show ?thesis
+    proof (cases f)
+      case True
+      with \<open>pc + 3 < _\<close> prems(2-6) obtain st1 s1 rs1 where
+        "stepsn ?P 4 u (pc, st, s, f, rs) (pc + 4, st1, s1, f \<and> (u \<turnstile>\<^sub>a ac), rs1)"
+      by (force simp: int_of_def numeral_3_eq_3 numeral_4_eq_4)
+      from stepsn_extend[OF this prems(8) 4] have
+        "stepsn ?P (n - 4) u (pc + 4, st1, s1, f \<and> (u \<turnstile>\<^sub>a ac), rs1) (pc_t, st_t, s_t, True, rs_t)" .
+      from prems(7)[OF this \<open>prog ! pc_t = _\<close>] have "pc_t = pc'" "u \<turnstile>\<^sub>a ac" f by auto
+      then show ?thesis by simp
+    next
+      case False
+      with \<open>pc + 3 < _\<close> prems(1-6) obtain st1 s1 rs1 where
+        "stepsn ?P 2 u (pc, st, s, f, rs) (pc', st1, s1, False, rs1)"
+        by (force simp: int_of_def numeral_2_eq_2)
+      from stepsn_extend[OF this prems(8)] 4 have
+        "stepsn ?P (n - 2) u (pc', st1, s1, False, rs1) (pc_t, st_t, s_t, True, rs_t)" by simp
+      from stepsn_halt[OF this] prems(1,6) show ?thesis by (auto dest: is_conj_block'_halt)
+    qed
+  qed
+qed
+
+lemma is_conj_block'_is_conj':
+  assumes "is_conj_block' P pc pc'"
+    and "stepst (\<lambda> i. if i < length P then P ! i else None) n u (pc, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
+    (* and "pc < pc_t" (* "pc_t \<le> pc'" *) *)
+  shows "f \<and> pc_t = pc'"
+  using assms
+  unfolding stepst_def by (auto split: if_split_asm elim!: is_conj_block'_is_conj stepsc_stepsn)
+
+lemma is_conj_block'_is_conj2:
+  assumes "is_conj_block' P (pc + 1) pc'" "P ! pc = Some (CEXP ac)"
+    and "stepst (\<lambda> i. if i < length P then P ! i else None) n u (pc, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
+  shows "(u \<turnstile>\<^sub>a ac) \<and> pc_t = pc'"
+proof -
+  let ?P = "(\<lambda> i. if i < length P then P ! i else None)"
+  from assms(1) have "pc < pc'" "pc' < length P"
+    by (auto dest: is_conj_block'_pc_mono is_conj_block'_len_prog)
+  with assms(2,3) obtain st' s' rs' where
+    "stepst ?P (n - 1) u (pc + 1, st', s', u \<turnstile>\<^sub>a ac, rs') (pc_t, st_t, s_t, True, rs_t)"
+    unfolding stepst_def
+    apply (clarsimp split: if_split_asm)
+    apply (erule stepsc.cases)
+    by auto
+  from is_conj_block'_is_conj'[OF assms(1) this] show ?thesis .
+qed
+
+lemma is_conj_block'_is_conj3:
+  assumes "is_conj_block' P (pc + 2) pc'" "P ! pc = Some (CEXP ac)" "P ! (pc + 1) = Some (INSTR instr.AND)"
+    and "stepst (\<lambda> i. if i < length P then P ! i else None) n u (pc, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
+  shows "(u \<turnstile>\<^sub>a ac) \<and> pc_t = pc'"
+proof -
+  let ?P = "(\<lambda> i. if i < length P then P ! i else None)"
+  from assms(1) have "pc < pc'" "pc' < length P"
+    by (auto dest: is_conj_block'_pc_mono is_conj_block'_len_prog)
+  with assms(2,3,4) obtain st' s' rs' f where
+    "stepst ?P (n - 2) u (pc + 2, st', s', f \<and> (u \<turnstile>\<^sub>a ac), rs') (pc_t, st_t, s_t, True, rs_t)"
+    unfolding stepst_def
+    apply (clarsimp split: if_split_asm)
+    apply (erule stepsc.cases)
+     apply force
+    apply (erule stepsc.cases)
+    by (auto split: if_split_asm option.split_asm elim!: UPPAAL_Asm.step.elims)
+  from is_conj_block'_is_conj'[OF assms(1) this] show ?thesis by simp
+qed
+
+definition
+  "is_conj_block P pc pc' \<equiv>
+   (\<exists> ac. P ! pc = Some (CEXP ac)) \<and> is_conj_block' P (pc + 1) pc'
+   \<or> (\<exists> ac.
+      P ! pc = Some (CEXP ac)) \<and> P ! (pc + 1) = Some (INSTR instr.AND)
+      \<and> is_conj_block' P (pc + 2) pc'"
+
+lemma is_conj_block_alt_def[code]:
+"is_conj_block P pc pc' \<equiv>
+   (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False) \<and> is_conj_block' P (pc + 1) pc'
+   \<or> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False) \<and> P ! (pc + 1) = Some (INSTR instr.AND)
+      \<and> is_conj_block' P (pc + 2) pc'"
+  unfolding is_conj_block_def
+  by (rule eq_reflection) (auto split: option.split_asm instrc.split_asm)
+
+lemma is_conj_block_is_conj:
+  assumes "is_conj_block P pc pc'" "P ! pc = Some (CEXP ac)"
+    and
+      "stepst
+        (\<lambda> i. if i < length P then P ! i else None) n u
+        (pc, st, s, f, rs)
+        (pc_t, st_t, s_t, True, rs_t)"
+  shows "(u \<turnstile>\<^sub>a ac) \<and> pc_t = pc'"
+  using assms
+  unfolding is_conj_block_def
+  apply safe
+  by ((drule is_conj_block'_is_conj2 is_conj_block'_is_conj3; simp), simp)+
+
+lemma is_conj_block'_decomp:
+  "is_conj_block P pc' pc''" if
+  "is_conj_block' P pc pc''" "P ! pc' = Some (CEXP ac)" "pc \<le> pc'" "pc' \<le> pc''"
+  using that
+proof (induction arbitrary: pc')
+  case (1 pc prog)
+  then show ?case by (simp add: is_conj_block_def)
+next
+  case prems: (2 pc'' prog pc ac)
+  with \<open>pc \<le> _\<close> consider "pc' = pc" | "pc' = Suc pc" | "pc' = Suc (Suc pc)" | "pc + 3 \<le> pc'"
+    by force
+  then show ?case using prems by cases (auto simp add: numeral_3_eq_3 is_conj_block_def)
+next
+  case prems: (3 pc'' prog pc ac)
+  with \<open>pc \<le> _\<close> consider
+    "pc' = pc" | "pc' = Suc pc" | "pc' = Suc (Suc pc)" | "pc' = Suc (Suc (Suc pc))" | "pc + 4 \<le> pc'"
+    by force
+  then show ?case using prems by cases (auto simp add: numeral_3_eq_3 numeral_4_eq_4 is_conj_block_def)+
+qed
+
+lemma is_conj_block_decomp:
+  "is_conj_block P pc' pc''" if
+  "is_conj_block P pc pc''" "P ! pc' = Some (CEXP ac)" "pc \<le> pc'" "pc' \<le> pc''"
+  using that
+  apply (subst (asm) is_conj_block_def)
+  apply safe
+  (* XXX Should work without metis *)
+  apply (metis
+    One_nat_def add_Suc_right diff_diff_cancel diff_is_0_eq diff_le_self gr_zeroI
+    is_conj_block'_decomp le_simps(3) mpl_lem pl_pl_mm that(1))
+  by (metis
+    One_nat_def Suc_1 add.right_neutral add_Suc_right instrc.simps(4) is_conj_block'_decomp
+    le_antisym not_less_eq_eq option.inject that(1))
+
+lemma steps_approx_finite[intro,simp]:
+  "finite (steps_approx n P pc_s)"
+  by (induction rule: steps_approx.induct; clarsimp split: option.split instrc.split instr.split)
+
+abbreviation "conv_P \<equiv> map (map_option (map_instrc real_of_int))"
+
+lemma stepst_stepc_extend:
+  "stepst P n u (pc', s') (pc'', s'')"
+  if "stepst P n u (pc, s) (pc'', s'')" "stepsc P n u (pc, s) (pc', s')"
+proof -
+  from that have "P pc'' = Some (INSTR HALT)" unfolding stepst_def by auto
+  from that obtain n1 n2 where *:
+    "stepsn P n1 u (pc, s) (pc'', s'')" "stepsn P n2 u (pc, s) (pc', s')" "n1 < n" "n2 < n"
+    unfolding stepst_def by (auto elim!: stepsc_stepsn)
+  show ?thesis
+  proof (cases "n1 \<ge> n2")
+    case True
+    from stepsn_extend[OF *(2,1) this] \<open>n1 < _\<close> \<open>n2 < _\<close> \<open>P pc'' = _\<close> show ?thesis
+      unfolding stepst_def by (auto intro: stepsn_stepsc)
+  next
+    case False
+    with stepsn_extend[OF *(1,2)] \<open>n1 < _\<close> \<open>n2 < _\<close> \<open>P pc'' = _\<close> show ?thesis
+      unfolding stepst_def by (auto intro: stepsn_stepsc dest!: stepsn_halt)
+  qed
+qed
+
+context
+  fixes P :: "int instrc option list"
+    and n :: nat
+begin
+
+private abbreviation "prog i \<equiv> if i < length P then P ! i else None"
+
+lemma conv_P_conj_block'[intro]:
+  "is_conj_block' (conv_P P) pc pc'" if "is_conj_block' P pc pc'"
+  using that
+  apply induction
+    apply (rule is_conj_block'.intros(1))
+     apply (simp; fail)
+    apply (simp; fail)
+   apply (rule is_conj_block'.intros(2))
+       apply (simp; fail)
+      apply (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog)
+     apply (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog)
+    apply (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog)
+   apply (simp; fail)
+  apply (rule is_conj_block'.intros(3))
+       apply (simp; fail)
+      apply (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog)
+     apply (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog)
+    apply (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog)
+   apply (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog)
+  apply (simp; fail)
+  done
+
+lemma conv_P_conj_block[intro]:
+  "is_conj_block (conv_P P) pc pc'" if "is_conj_block P pc pc'"
+  using that[unfolded is_conj_block_def]
+  apply safe
+  by (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog simp: is_conj_block_def)+
+
+lemma stepst_conv_P:
+  "stepst (\<lambda> i. if i < length (conv_P P) then conv_P P ! i else None) n u s s'" if
+  "stepst (conv_prog prog) n u s s'" using that unfolding stepst_def
+  apply safe
+  subgoal for pc a aa ab b z
+    apply rotate_tac
+    by (induction "conv_prog prog" n u s "(pc, a, aa, ab, b)" rule: stepsc.induct)
+      (auto split: if_split_asm)
+  by (auto split: if_split_asm)
+
+lemma is_conj:
+  fixes pc_s :: addr and u :: "nat \<Rightarrow> real"
+  defines "S \<equiv> steps_approx n P pc_s"
+  defines "pc_c \<equiv> Min {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)}"
+  (* XXX Can make this less sharp too *)
+  assumes "is_conj_block P pc_c (Max S)" "S \<noteq> {}"
+    and "stepst (conv_prog prog) n u (pc_s, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
+    and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
+    and "P ! pc' = Some (CEXP ac)" "pc' < length P"
+  shows "(u \<turnstile>\<^sub>a conv_ac ac) \<and> pc_t = Max S"
+proof -
+  from stepst_stepc_extend[OF assms(5,6)] have *:
+    "stepst (conv_prog prog) n u (pc', st', s', f', rs') (pc_t, st_t, s_t, True, rs_t)" .
+  from \<open>stepsc _ _ _ _ _\<close> \<open>P ! pc' = _\<close> \<open>pc' < _\<close> have "pc_c \<le> pc'" "pc' \<le> Max S"
+    unfolding pc_c_def S_def by (auto intro: stepsc_steps_approx Min_le Max_ge)
+  from is_conj_block_decomp[OF assms(3) \<open>P ! pc' = _\<close> this] have "is_conj_block P pc' (Max S)" .
+  then have "is_conj_block (conv_P P) pc' (Max S)" by auto
+  from is_conj_block_is_conj[OF this _ stepst_conv_P[OF *]] \<open>P ! pc' = _\<close> \<open>pc' < _\<close> show ?thesis
+    by auto
+qed
+
+end
+
 abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
 
 locale UPPAAL_Reachability_Problem_precompiled_start_state =

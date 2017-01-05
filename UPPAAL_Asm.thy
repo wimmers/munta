@@ -36,16 +36,13 @@ definition int_of :: "bool \<Rightarrow> int" where
 fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
   "step (JMPZ q) (pc, st, m, f, rs) = Some (if f then (pc + 1) else q, st, m, f, rs)" |
   "step ADD (pc, a # b # st, m, f, rs) = Some (pc + 1, (a + b) # st, m, f, rs)" |
-  "step NOT (pc, b # st, m , f, rs) =
+  "step NOT (pc, b # st, m , f, rs) = Some (pc + 1, st, m, \<not> f, rs)" |
+  "step AND (pc, b # st, m, f, rs) =
     (if b = 0 \<or> b = 1
-     then Some (pc + 1, int_of (b = 0) # st, m, f, rs)
+     then Some (pc + 1, st, m, b = 1 \<and> f, rs)
      else None)" |
-  "step AND (pc, a # b # st, m, f, rs) =
-    (if (a = 0 \<or> a = 1) \<and> (b = 0 \<or> b = 1)
-     then Some (pc + 1, int_of (a = 1 \<and> b = 1) # st, m, f, rs)
-     else None)" |
-  "step LE (pc, a # b # st, m, f, rs) = Some (pc + 1, int_of (a \<le> b) # st, m, f, rs)" |
-  "step LT (pc, a # b # st, m, f, rs) = Some (pc + 1, int_of (a < b) # st, m, f, rs)" |
+  "step LE (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a \<le> b, rs)" |
+  "step LT (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a < b, rs)" |
   "step (PUSH v) (pc, st, m, f, rs) = Some (pc + 1, v # st, m, f, rs)" |
   "step POP (pc, v # st, m, f, rs) = Some (pc + 1, st, m, f, rs)" |
   "step (LID r) (pc, st, m, f, rs) = Some (pc + 1, m ! r # st, m, f, rs)" |

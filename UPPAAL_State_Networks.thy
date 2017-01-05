@@ -715,9 +715,11 @@ locale Equiv_TA =
       "\<forall> l pc_g a l' pc_u s. \<forall> q < p. (l, pc_g, a, pc_u, l') \<in> fst (N ! q)
     \<longrightarrow> time_indep P n (pc_u, [], s, True, [])"
     and clock_conj:
-      "\<forall> l pc_g a l' pc_u s u pc' st s' f' rs ac. \<forall> q < p. (l, pc_g, a, pc_u, l') \<in> fst (N ! q)
-      \<and> stepsc P n u (pc_g, [], s, True, []) (pc', st, s', f', rs) \<and> P pc' = Some (CEXP ac) \<longrightarrow>
-        u \<turnstile>\<^sub>a ac"
+      "\<forall> l pc_g a l' pc_u s u. \<forall> q < p. (l, pc_g, a, pc_u, l') \<in> fst (N ! q) \<and>
+        (\<exists> pc' st s' rs. stepst P n u (pc_g, [], s, True, []) (pc', st, s', True, rs)) \<longrightarrow>
+        (\<forall> pc' st s' f' rs ac.
+        stepsc P n u (pc_g, [], s, True, []) (pc', st, s', f', rs) \<and> P pc' = Some (CEXP ac) \<longrightarrow>
+        u \<turnstile>\<^sub>a ac)"
     (* Reset clocks may not depend on state. XXX *)
     (*
     and "\<forall> l pc_g a pc_u l'. (l, pc_g, In a, pc_u, l') \<in> fst (N ! q) \<longrightarrow> state_indep P pc_u"
@@ -848,10 +850,10 @@ lemma steps_P_guard:
   shows
     "make_c pc_g s'" (is "?A") "u' \<turnstile> make_g pc_g s'" (is "?B")
 proof -
-  from stepst_t_complete[OF _ assms(1)] clock_conj assms(2-) obtain pcs where
+  from stepst_t_complete[OF _ assms(1)] clock_conj assms obtain pcs where
     "exec PT n (pc_g, [], s', True, []) [] = Some ((pc, st, s'', True, rs), pcs)"
     "\<forall> pc\<in>set pcs. \<forall>ac. P pc = Some (CEXP ac) \<longrightarrow> u' \<turnstile>\<^sub>a ac"
-    by auto
+    by fastforce
   then show ?A ?B unfolding make_c_def make_g_def
     by (auto split: option.split instrc.split_asm simp: list_all_iff set_map_filter intro!: clock_val.intros)
 qed
