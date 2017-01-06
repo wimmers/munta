@@ -614,18 +614,16 @@ begin
 
 end (* End of context for equivalence *)
 
-  term time_indep
-
-    term "exec PT n (pc_g, [], s', True, []) [] = Some (s'', pcs)"
-
-    thm steps_exec
-
 lemma exec_acc:
   assumes "exec P n s pcs = Some (s', pcs')"
   shows "\<exists> pcs''. pcs' = pcs'' @ pcs"
-  using assms
-  sorry
+  using assms by (induction P n s pcs rule: exec.induct; force split: option.split_asm if_split_asm)
 
+lemma exec_acc':
+  assumes "Some (s', pcs') = exec P n s pcs"
+  shows "\<exists> pcs''. pcs' = pcs'' @ pcs"
+  using assms
+  using assms exec_acc by metis
 
 lemma exec_min_steps:
   assumes "exec P n s pcs = Some (s', pcs' @ pcs)"
@@ -672,9 +670,9 @@ next
     case False
     with 2 obtain pcs'' where "pcs' = pcs'' @ [pc']"
       apply atomize_elim
-      apply (rule exec_acc)
-        sorry
-    with False 2 \<open>P pc' = _\<close> \<open>Suc n = _\<close>[symmetric] show ?thesis by (auto split: option.split_asm elim: steps.cases)
+      by (erule exec.elims) (auto dest: exec_acc' split: option.split_asm if_split_asm)
+    with False 2 \<open>P pc' = _\<close> \<open>Suc n = _\<close>[symmetric] show ?thesis
+      by (auto split: option.split_asm elim: steps.cases)
   qed
 qed
 
@@ -700,6 +698,44 @@ definition
       stepsc P n u (pc, st, s1, f, rs) (pc', st, s1', f', rs1) \<and>
       stepsc P n u (pc, st, s2, f, rs) (pc', st, s2', f', rs2)
   \<longrightarrow> rs1 = rs2"
+
+lemma exec_len:
+  "n \<ge> (length pcs' - length pcs)" if "exec P n s pcs = Some (s', pcs')"
+  using that
+  by (induction P n s pcs arbitrary: rule: exec.induct)
+     (force split: option.split_asm if_split_asm)+
+
+lemma steps_striptp_stepsc:
+  assumes "
+    \<And> pc st m f rs ac.
+      steps (striptp P) n s' (pc, st, m, f, rs) \<Longrightarrow> P pc = Some (CEXP ac)
+      \<Longrightarrow> u' \<turnstile>\<^sub>a ac
+    "
+    and "steps (striptp P) n s' s''"
+  shows "stepsc P n u' s' s''"
+  using assms(2,1)
+proof (induction "striptp P" n s' s'')
+  case (1 n start)
+  show ?case by rule
+next
+  case (2 cmd pc st m f rs s n s')
+  have "u' \<turnstile>\<^sub>a ac"
+    if "P pc = Some (CEXP ac)" "UPPAAL_Asm.steps (striptp P) n s (pc, st, m, f, rs)"
+    for pc st m f rs ac
+    using that 2(1-3) by - (rule 2(5); force)
+  with 2(4) have "stepsc P n u' s s'" by auto
+  with 2(1-3) show ?case
+    apply (cases "P pc")
+     apply (simp add: striptp_def)
+    subgoal for cmd'
+      apply (cases cmd')
+      subgoal
+        by (force split: option.split simp: striptp_def)
+      subgoal
+        by (rule stepsc.intros) (auto intro!: 2(5) simp: striptp_def)
+      done
+    done
+qed
 
 locale Equiv_TA =
   Equiv_TA_Defs A n for A :: "('a, 't :: time, 's) unta" and n :: nat +
@@ -868,25 +904,28 @@ proof -
   from assms(1) \<open>q < p\<close> obtain pc st s'' rs pcs where *:
     "exec PT n (pc_g, [], s', True, []) [] = Some ((pc, st, s'', True, rs), pcs)"
     unfolding make_c_def state_ta_def by (fastforce split: option.splits)
-  with assms(2) have
+  with exec_min_steps[of PT n _ "[]" _ pcs] have **:
+    "exec PT (length pcs) (pc_g, [], s', True, []) [] = Some ((pc, st, s'', True, rs), pcs @ [])"
+    by auto
+  from * assms(2) have
     "u' \<turnstile> List.map_filter (\<lambda>pc. case P pc of
         None \<Rightarrow> None
       | Some (INSTR xa) \<Rightarrow> Map.empty xa
       | Some (CEXP xa) \<Rightarrow> Some xa) pcs" unfolding make_g_def
     by auto
-  moreover from * exec_min_steps[of PT n _ "[]" _ pcs] exec_steps_visited[of PT pcs _ "[]"] have "pc \<in> set pcs"
+  moreover from ** exec_steps_visited[of PT pcs _ "[]"] have "pc \<in> set pcs"
     if "steps PT (length pcs) (pc_g, [], s', True, []) (pc, st, m, f, rs)" for pc st m f rs
     using that by fastforce
   ultimately have "u' \<turnstile>\<^sub>a ac"
     if "steps PT (length pcs) (pc_g, [], s', True, []) (pc, st, m, f, rs)" "P pc = Some (CEXP ac)"
     for pc st m f rs ac
     using that by (force split: option.splits simp: list_all_iff set_map_filter)
-  then have "\<forall>pc' st s'' f' rs ac. stepsc P (length pcs) u' (pc_g, [], s', True, []) (pc', st, s'', f', rs) \<and> P pc' = Some (CEXP ac) \<longrightarrow> u' \<turnstile>\<^sub>a ac"
-    sorry
-  from stepst_t_equiv[OF this] * exec_min_steps[of PT n _ "[]" _ pcs] have
-    "stepst P (length pcs) u' (pc_g, [], s', True, []) (pc, st, s'', True, rs)"
-    by fastforce
-  moreover have "n \<ge> length pcs" sorry
+  moreover from ** have
+    "steps PT (length pcs) (pc_g, [], s', True, []) (pc, st, s'', True, rs)" "PT pc = Some HALT"
+    by (auto dest: exec_steps)
+  ultimately have "stepst P (length pcs) u' (pc_g, [], s', True, []) (pc, st, s'', True, rs)"
+    by (auto intro: steps_striptp_stepsc simp: stepst_def striptp_def elim: stript.elims)
+  moreover from exec_len[OF *] have "n \<ge> length pcs" by simp
   ultimately show ?thesis by (blast intro: stepst_mono)
 qed
 
@@ -1258,7 +1297,10 @@ lemma equiv_complete':
     case (step_u_t N P d I)
     note [simp] = A_simp[OF this(1)]
     from step_u_t(2-) show ?thesis
-      apply (auto simp: state_ta_def p_def state_inv_def intro: step_sn_t) sorry
+      apply safe
+      subgoal
+        by (auto simp: state_ta_def p_def state_inv_def intro: step_sn_t)
+      by (fastforce simp: p_def intro: steps_P intro!: states'_updI)+
   next
     case (step_u_i P pc_g uu uv uw ux pc_u uy uz va r N I l a l' p)
     note [simp] = A_simp[OF this(1)]
