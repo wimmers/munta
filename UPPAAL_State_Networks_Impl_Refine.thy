@@ -810,13 +810,6 @@ proof -
   qed
 qed
 
-context
-  fixes P :: "int instrc option list"
-    and n :: nat
-begin
-
-private abbreviation "prog i \<equiv> if i < length P then P ! i else None"
-
 lemma conv_P_conj_block'[intro]:
   "is_conj_block' (conv_P P) pc pc'" if "is_conj_block' P pc pc'"
   using that
@@ -845,6 +838,14 @@ lemma conv_P_conj_block[intro]:
   apply safe
   by (frule is_conj_block'_pc_mono; force dest: is_conj_block'_len_prog simp: is_conj_block_def)+
 
+context
+  fixes P :: "int instrc option list"
+    and pc_s :: addr
+    and n :: nat
+begin
+
+private abbreviation "prog i \<equiv> if i < length P then P ! i else None"
+
 lemma stepst_conv_P:
   "stepst (\<lambda> i. if i < length (conv_P P) then conv_P P ! i else None) n u s s'" if
   "stepst (conv_prog prog) n u s s'" using that unfolding stepst_def
@@ -856,25 +857,75 @@ lemma stepst_conv_P:
   by (auto split: if_split_asm)
 
 lemma is_conj:
-  fixes pc_s :: addr and u :: "nat \<Rightarrow> real"
+  fixes u :: "nat \<Rightarrow> real"
   defines "S \<equiv> steps_approx n P pc_s"
   defines "pc_c \<equiv> Min {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)}"
-  (* XXX Can make this less sharp too *)
-  assumes "is_conj_block P pc_c (Max S)" "S \<noteq> {}"
+  assumes "is_conj_block P pc_c (Max S)"
     and "stepst (conv_prog prog) n u (pc_s, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
     and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
     and "P ! pc' = Some (CEXP ac)" "pc' < length P"
   shows "(u \<turnstile>\<^sub>a conv_ac ac) \<and> pc_t = Max S"
 proof -
-  from stepst_stepc_extend[OF assms(5,6)] have *:
+  from stepst_stepc_extend[OF assms(4,5)] have *:
     "stepst (conv_prog prog) n u (pc', st', s', f', rs') (pc_t, st_t, s_t, True, rs_t)" .
   from \<open>stepsc _ _ _ _ _\<close> \<open>P ! pc' = _\<close> \<open>pc' < _\<close> have "pc_c \<le> pc'" "pc' \<le> Max S"
     unfolding pc_c_def S_def by (auto intro: stepsc_steps_approx Min_le Max_ge)
-  from is_conj_block_decomp[OF assms(3) \<open>P ! pc' = _\<close> this] have "is_conj_block P pc' (Max S)" .
+  from is_conj_block_decomp[OF assms(3) \<open>P ! pc' = _\<close> this] have
+    "is_conj_block P pc' (Max S)" .
   then have "is_conj_block (conv_P P) pc' (Max S)" by auto
-  from is_conj_block_is_conj[OF this _ stepst_conv_P[OF *]] \<open>P ! pc' = _\<close> \<open>pc' < _\<close> show ?thesis
+  from is_conj_block_is_conj[OF this _ stepst_conv_P[OF *]] \<open>P ! pc' = _\<close> \<open>pc' < _\<close>
+    show ?thesis
     by auto
 qed
+
+lemma is_conj':
+  fixes u :: "nat \<Rightarrow> real"
+  defines "S \<equiv> steps_approx n P pc_s"
+  assumes "{pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} = {}"
+    and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
+    and "P ! pc' = Some (CEXP ac)" "pc' < length P"
+  shows False
+  using stepsc_steps_approx[OF assms(3,5)] assms(4) assms(2) unfolding S_def by auto
+
+definition
+  "conjunction_check \<equiv>
+    let S = steps_approx n P pc_s; S' = {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} in
+      S' = {} \<or> is_conj_block P (Min S') (Max S)
+  "
+
+lemma conjunction_check_alt_def[code]:
+  "conjunction_check =
+    (
+     let
+        S = steps_approx n P pc_s;
+        S' = {pc. pc \<in> S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
+      in
+        S' = {} \<or> is_conj_block P (Min S') (Max S)
+    )
+  "
+proof -
+  let ?S = "steps_approx n P pc_s"
+  have "
+    {pc. pc \<in> ?S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
+  = {pc. \<exists> ac. pc \<in> ?S \<and> P ! pc = Some (CEXP ac)}
+  " by safe (auto split: option.splits instrc.splits)
+  show ?thesis unfolding conjunction_check_def Let_def \<open>_ = _\<close> ..
+qed
+
+lemma conjunction_check:
+  fixes u :: "nat \<Rightarrow> real"
+  assumes "conjunction_check"
+    and "stepst (conv_prog prog) n u (pc_s, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
+    and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
+    and "P ! pc' = Some (CEXP ac)" "pc' < length P"
+  shows "u \<turnstile>\<^sub>a conv_ac ac"
+  using assms
+  unfolding conjunction_check_def Let_def
+  apply -
+  apply (erule disjE)
+   apply (drule is_conj'; simp)
+  apply (subst is_conj; simp)
+  done
 
 end
 
@@ -893,6 +944,9 @@ locale UPPAAL_Reachability_Problem_precompiled_start_state =
       and upd_time_indep:
         "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, pc_u, _) \<in> set xs.
            time_indep_check prog pc_u max_steps"
+     and clock_conj:
+       "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (pc_g, _, _, _) \<in> set xs.
+           conjunction_check prog pc_g max_steps"
 begin
 
 sublocale defs':
@@ -1034,24 +1088,43 @@ sublocale defs':
       unfolding PROG_def by blast
   qed
 
+  lemma [intro]:
+    "u \<turnstile>\<^sub>a ac" if
+    "q < defs'.p"
+    "(l, pc_g, a, pc_u, l') \<in> fst (defs'.N ! q)"
+    "stepst defs'.P max_steps u (pc_g, [], s, True, []) (pc_t, st_t, s_t, True, rs_t)"
+    "stepsc defs'.P max_steps u (pc_g, [], s, True, []) (pc', st, s', f', rs)"
+    "defs'.P pc' = Some (CEXP ac)"
+  proof -
+    let ?P = "conv_P prog"
+    from that(5) obtain ac' where
+      "ac = conv_ac ac'" "prog ! pc' = Some (CEXP ac')" "pc' < length prog"
+      apply (clarsimp split: option.split_asm if_split_asm simp add: PROG_def N_def)
+      subgoal for z
+        by (cases z) auto
+      done
+    with that have "u \<turnstile>\<^sub>a conv_ac ac'"
+      apply -
+      apply (rule conjunction_check)
+      using clock_conj apply simp_all
+      unfolding N_def apply simp_all
+      using lengths process_length(2) by (force dest!: nth_mem simp: PROG_def N_def T_def)+
+    with \<open>ac = _\<close> show ?thesis by simp
+  qed
+
   sublocale product':
     Equiv_TA "conv N" max_steps init s\<^sub>0
     apply standard
-      apply rule
-        prefer 4
-         apply (simp; fail)
-    prefer 5
-        apply rule
-       prefer 4
+          apply rule
+         apply (simp; blast)
+         subgoal
+           apply clarsimp
+           apply (force simp: N_def)
+           done
+       apply blast
+      apply (simp; fail)
     unfolding PF_PF using start_pred apply simp
-      apply (simp; blast)
-     apply clarsimp
-     apply safe
-    unfolding N_def
-      apply simp
-      apply blast
-      using [[show_abbrevs = false]]
-  sorry
+    by rule
 
   sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m k_fun
     using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
@@ -2463,9 +2536,17 @@ lemma start_pred[code]:
   \<and> bounded bounds s\<^sub>0
   \<and> (\<forall>x\<in>set pred. \<forall>pc\<in>set x. time_indep_check prog pc max_steps)
   \<and> (\<forall>T\<in>set trans. \<forall>xs\<in>set T. \<forall>(_, _, pc_u, _)\<in>set xs. time_indep_check prog pc_u max_steps)
+  \<and> (\<forall>T\<in>set trans. \<forall>xs\<in>set T. \<forall>(pc_g, _, _, _)\<in>set xs. conjunction_check prog pc_g max_steps)
   )"
   unfolding UPPAAL_Reachability_Problem_precompiled_start_state_axioms_def
-  by (rule ext)+ (fastforce split: option.splits bool.split_asm)
+  apply (rule ext)+
+  apply safe
+   apply (fastforce split: option.split_asm bool.split_asm)
+  subgoal premises prems
+    using prems(1,6) by (fastforce split: option.split_asm bool.split_asm)
+  done
+
+export_code UPPAAL_Reachability_Problem_precompiled_start_state_axioms
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.PROG_def
