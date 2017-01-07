@@ -856,14 +856,51 @@ lemma P_steps_reset:
     "(\<exists>pc st s'' f. stepst P n u (pc_u, [], s', True, []) (pc, st, s'', f, make_f pc_u s')) \<or>
        (\<nexists>pc st s'' f r'. stepst P n u (pc_u, [], s', True, []) (pc, st, s'', f, r')) \<and>
        make_f pc_u s' = []"
-  using assms sorry
+proof (cases "\<exists>pc st s'' f r'. stepst P n u (pc_u, [], s', True, []) (pc, st, s'', f, r')")
+  case True
+  then obtain pc st s'' f r' where *:
+    "stepst P n u (pc_u, [], s', True, []) (pc, st, s'', f, r')"
+    by blast
+  from assms upd_time_indep have "time_indep P n (pc_u, [], s', True, [])" by auto
+  from * stepst_f_equiv[OF this, symmetric, where pcs = "[]"] show ?thesis
+    unfolding make_f_def by (force split: option.split)
+next
+  case False
+  from assms upd_time_indep have "time_indep P n (pc_u, [], s', True, [])" by auto
+  from False stepst_f_equiv[OF this, where pcs = "[]"] show ?thesis
+    unfolding make_f_def by (auto split: option.split)
+qed
 
 lemma steps_P_reset:
   assumes
     "(\<exists>pc st s'' f. stepst P n u (pc_u, [], s', True, []) (pc, st, s'', f, r)) \<or>
      (\<nexists>pc st s'' f r'. stepst P n u (pc_u, [], s', True, []) (pc, st, s'', f, r')) \<and> r = []"
+    "q < p" "(l, pc_g, a, pc_u, l') \<in> fst (N ! q)"
   shows "make_f pc_u s' = r"
-    using assms sorry
+  using assms(1)
+proof (safe, goal_cases)
+  case prems: (1 pc st s'' f)
+  from assms upd_time_indep have "time_indep P n (pc_u, [], s', True, [])" by auto
+  from stepst_f_equiv[OF this, symmetric] prems \<open>q < p\<close> obtain pc st f pcs where
+    "exec PF n (pc_u, [], s', True, []) [] = Some ((pc, st, s'', f, r), pcs)"
+    unfolding make_f_def state_ta_def by (fastforce split: option.splits)
+  then show ?case unfolding make_f_def by (auto split: option.split)
+next
+  case prems: 2
+  have "exec PF n (pc_u, [], s', True, []) [] = None"
+  proof (cases "exec PF n (pc_u, [], s', True, []) []")
+    case None
+    then show ?thesis .
+  next
+    case (Some a)
+    obtain pc'' st'' s'' f'' rs'' pcs'' where "a = ((pc'', st'', s'', f'', rs''), pcs'')"
+      by (cases a, case_tac a) auto
+    from assms upd_time_indep have "time_indep P n (pc_u, [], s', True, [])" by auto
+    from stepst_f_equiv[OF this] \<open>_ = Some a\<close> prems \<open>a = _\<close> show ?thesis by auto metis
+  qed
+  then show ?case unfolding make_f_def by simp
+qed
+
 
 lemma steps_P_upd:
   assumes
@@ -1154,7 +1191,9 @@ lemma equiv_complete:
         apply (rule \<open>q < p\<close>)
        apply (simp; fail)
       apply (drule steps_P_reset[simplified])
-        apply (frule steps_P_upd(1))
+        apply assumption
+        apply (simp; fail)
+      apply (frule steps_P_upd(1))
         apply assumption
         apply (simp; fail)
       apply (drule steps_P_upd(2))
@@ -1356,7 +1395,9 @@ lemma equiv_complete':
         apply (rule \<open>q < p\<close>)
        apply (simp; fail)
       apply (drule steps_P_reset[simplified])
-        apply (frule steps_P_upd(1))
+        apply assumption
+        apply (simp; fail)
+      apply (frule steps_P_upd(1))
         apply assumption
         apply (simp; fail)
       apply (drule steps_P_upd(2))
