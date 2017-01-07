@@ -221,6 +221,17 @@ definition "
 
 sublocale defs: Prod_TA_Defs state_ta .
 
+lemma bounded_finite:
+    "finite {s. bounded B s}" (is "finite ?S")
+proof -
+  have
+    "?S \<subseteq> {s. length s = length B \<and> (\<forall>i<length B. fst (B ! i) < s ! i \<and> s ! i < snd (B ! i))}"
+    unfolding bounded_def by auto
+  moreover have "finite \<dots>" unfolding bounded_def using finite_lists_boundedI by force
+  ultimately show "finite ?S" by (rule finite_subset)
+qed
+
+(* XXX Unused *)
 lemma finite_state:
     "\<forall> q < p. \<forall> l. finite {s. (defs.P ! q) l s}"
 proof safe
@@ -228,11 +239,7 @@ proof safe
   let ?S = "{s. (defs.P ! q) l s}"
   from \<open>q < p\<close> have "?S \<subseteq> {s. bounded B s}"
     unfolding state_ta_def state_pred_def by (auto split: option.splits)
-  also have
-    "\<dots> \<subseteq> {s. length s = length B \<and> (\<forall>i<length B. fst (B ! i) < s ! i \<and> s ! i < snd (B ! i))}"
-    unfolding bounded_def by auto
-  finally have "?S \<subseteq> \<dots>" .
-  moreover have "finite \<dots>" unfolding bounded_def using finite_lists_boundedI by force
+  moreover have "finite \<dots>" by (rule bounded_finite)
   ultimately show "finite ?S" by (rule finite_subset)
 qed
 

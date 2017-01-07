@@ -415,10 +415,16 @@ lemma clk_set'_subs:
     "finite (trans_of A)"
   unfolding trans_of_def equiv.defs.prod_ta_def
   proof (simp, rule equiv.defs.finite_prod_trans, goal_cases)
-      case 1
-      then show ?case sorry
+    case (1 s)
+    show "\<forall>l q. q < equiv.defs.p \<longrightarrow> (equiv.defs.P ! q) l s \<longrightarrow> (bounded equiv.B) s"
+      apply simp
+      unfolding equiv.state_ta_def equiv.state_pred_def
+      by (simp split: option.split)
   next
     case 2
+    show "finite {s. bounded equiv.B s}" by (rule equiv.bounded_finite)
+  next
+    case 3
     show ?case
     proof
       fix A assume A: "A \<in> set equiv.defs.N"

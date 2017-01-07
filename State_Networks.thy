@@ -12,6 +12,24 @@ lemma finite_Collect_bounded_ex_2 [simp]:
   using assms finite_Collect_bounded_ex[OF assms, where Q = "\<lambda> x. \<lambda> (a, b). Q x a b"]
   by clarsimp (* force, simp *)
 
+lemma finite_Collect_bounded_ex_5 [simp]:
+  assumes "finite {(a,b,c,d,e) . P a b c d e}"
+  shows
+    "finite {x. \<exists>a b c d e. P a b c d e \<and> Q x a b c d e}
+    \<longleftrightarrow> (\<forall> a b c d e. P a b c d e \<longrightarrow> finite {x. Q x a b c d e})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e). Q x a b c d e"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_6 [simp]:
+  assumes "finite {(a,b,c,d,e,f) . P a b c d e f}"
+  shows
+    "finite {x. \<exists>a b c d e f. P a b c d e f \<and> Q x a b c d e f}
+    \<longleftrightarrow> (\<forall> a b c d e f. P a b c d e f \<longrightarrow> finite {x. Q x a b c d e f})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f). Q x a b c d e f"]
+  by clarsimp (* force, simp *)
+
 lemma finite_Collect_bounded_ex_7 [simp]:
   assumes "finite {(a,b,c,d,e,f,g) . P a b c d e f g}"
   shows
@@ -267,8 +285,10 @@ lemma prod_state_set_subs:
 abbreviation "N \<equiv> fst A"
 
 context
+  fixes Q
   assumes finite_state:
-    "\<forall> q < p. \<forall> l. finite {s. (P ! q) l s}"
+    "\<forall> l. \<forall> q < p. (P ! q) l s \<longrightarrow> Q s"
+    "finite {s. Q s}"
       and finite_trans: "\<forall> A \<in> set N. finite (fst A)"
       and p_gt_0: "p > 0"
 begin
@@ -277,8 +297,8 @@ begin
     "finite {s. \<forall>q<p. (P ! q) (L ! q) s}" (is "finite ?S")
   proof -
     from p_gt_0 obtain q where "q < p" by blast
-    then have "?S \<subseteq> {s. (P ! q) (L ! q) s}" by auto
-    moreover have "finite \<dots>" using finite_state \<open>q < p\<close> by auto
+    then have "?S \<subseteq> {s. Q s}" using finite_state(1) by auto
+    moreover have "finite \<dots>" by (rule finite_state(2))
     ultimately show ?thesis by (rule finite_subset)
   qed
 
@@ -296,7 +316,7 @@ begin
      apply simp
     unfolding inj_on_def by auto
 
-  lemma
+  lemma finite_states:
     "finite (Product_TA_Defs.states (N_s s))"
     using finite_trans' by (rule Product_TA_Defs.finite_states)
 
@@ -304,79 +324,76 @@ begin
     "finite (T' s)"
     using finite_trans' by (rule Product_TA_Defs.finite_trans_of_product)
 
-  lemma
-    "finite {t. \<exists> N s. N \<in> set (N_s s) \<and> t \<in> fst N \<and> (P ! p) (fst t) s}"
-  proof -
-    have "finite {t. \<exists>p s. t \<in> T_s p s \<and> p < length N \<and> (P ! p) (fst t) s}"
-    unfolding N_s_def
-    using [[simproc add: finite_Collect]]
-    unfolding T_s_def
-    using finite_state finite_trans
-    apply auto
-    sorry
-    then have "finite {t. \<exists> N s. N \<in> set (N_s s) \<and> t \<in> fst N \<and> (P ! p) (fst t) s}"
-      unfolding N_s_def apply auto
-      using [[simproc add: finite_Collect]]
-      sorry
-    then show ?thesis .
-  qed
-
+  (* XXX Duplicated proof, what is the better way? *)
   lemma finite_product_1:
-    "finite (trans_of (product s))"
+    "finite (T' s)"
     unfolding product_def
     unfolding trans_of_def Product_TA_Defs.product_ta_def
     apply simp
     unfolding Product_TA_Defs.product_trans_def
-    apply safe
-    unfolding Product_TA_Defs.product_trans_i_def
-    unfolding N_s_def T_s_def
-    sorry
-
-  lemma
-    "finite (N_s ` UNIV)"
-    unfolding N_s_def oops
-
-  lemma finite_range_product:
-    "finite (trans_of ` range product)"
-    unfolding product_def
-    unfolding trans_of_def Product_TA_Defs.product_ta_def
-    unfolding image_def
-    apply auto
-    oops
-    (*
-    apply simp
-    unfolding Product_TA_Defs.product_trans_def
-    apply safe
-    unfolding Product_TA_Defs.product_trans_i_def
-    unfolding N_s_def T_s_def
-    apply forc
-    apply aut
-    oops
-*)
-
-  lemma
-    "finite {s. T' s \<noteq> {}}"
-    unfolding trans_of_def Product_TA_Defs.product_ta_def
-    apply simp
-    unfolding N_s_def
-    unfolding T_s_def
-    oops
-
-    (*
-  lemma finite_state':
-    "\<forall> q < p. \<forall> l \<in> state_set T'. finite {s. (P ! q) (l ! q) s}"
-    using finite_state prod_state_set_subs by simp
-
-  lemma finite_state'':
-    "finite {s. \<forall> q < p. (P ! q) (l ! q) s}" if \<open>p > 0\<close> \<open>l \<in> state_set T'\<close>
-  proof -
-    from \<open>p > 0\<close> obtain q where "q < p" by auto
-    with finite_state' \<open>l \<in> _\<close> have "finite {s. (P ! q) (l ! q) s}" by auto
-    then show ?thesis by (rule rev_finite_subset) (auto intro: \<open>q < p\<close>)
+  proof safe
+    have "Product_TA_Defs.product_trans_i (N_s s)
+        \<subseteq> {(L, g, (a, Act (aa, b)), r, L[p := l']) |L p g a aa b r l'.
+            L \<in> Product_TA_Defs.states (N_s s) \<and> p < length (N_s s) \<and>
+            (L ! p, g, (Sil a, aa, b), r, l') \<in> \<Union> (trans_of ` set (N_s s))}"
+      unfolding Product_TA_Defs.product_trans_i_def
+      by (fastforce simp: Product_TA_Defs.states_length)
+    moreover have "finite \<dots>"
+      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
+      using finite_states[of s] apply clarsimp
+      apply (subst finite_Collect_bounded_ex_6)
+      subgoal premises prems for y y'
+      proof -
+        (* XXX Rewriting could be automated -- consider approach taken in next case *)
+        have "
+              {(a, b, c, d, e, f). \<exists>x\<in>set (N_s s). x \<turnstile> y ! y' \<longrightarrow>\<^bsup>a,(Sil b, c, d),e\<^esup> f}
+            = {xx. \<exists> x a b c d e f. x\<in>set (N_s s) \<and> x \<turnstile> y ! y' \<longrightarrow>\<^bsup>a,(Sil b, c, d),e\<^esup> f
+                   \<and> xx = (a, b, c, d, e, f)}"
+          by force
+        moreover have "finite \<dots>" (* XXX finite_Collect_bounded_ex is not crucial here *)
+          using finite_trans'[of s]
+          using [[simproc add: finite_Collect]]
+          by (auto simp: inj_on_def intro: finite_vimageI simp del: finite_Collect_bounded_ex)
+        ultimately show ?thesis by simp
+      qed
+      by auto
+    ultimately show "finite (Product_TA_Defs.product_trans_i (N_s s))" by (rule finite_subset)
+  next
+    have "Product_TA_Defs.product_trans_s (N_s s)
+        \<subseteq> {(L, g1 @ g2, (a, Syn b1 b2), r1 @ r2, L[p := l1', q := l2']) |L p q g1 g2 a b1 b2 r1 r2 l1' l2'.
+              L \<in> Product_TA_Defs.states (N_s s) \<and>
+              p < length (N_s s) \<and> q < length (N_s s) \<and>
+              (L ! p, g1, (In a, b1), r1, l1') \<in> map trans_of (N_s s) ! p \<and>
+              (L ! q, g2, (Out a, b2), r2, l2') \<in> map trans_of (N_s s) ! q \<and> p \<noteq> q}"
+      unfolding Product_TA_Defs.product_trans_s_def
+      by (fastforce simp: Product_TA_Defs.states_length)
+    moreover have "finite \<dots>"
+      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
+      apply simp
+      using finite_states[of s]
+      apply clarsimp
+      subgoal
+        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
+        apply simp
+        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
+        apply simp
+        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
+        apply simp
+        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
+        apply simp
+        apply (subst finite_Collect_bounded_ex_6)
+        subgoal
+          using [[simproc add: finite_Collect]] finite_trans'[of s]
+          by (auto simp: inj_on_def intro: finite_vimageI)
+        apply safe
+        apply (subst finite_Collect_bounded_ex_5)
+        subgoal
+          using [[simproc add: finite_Collect]] finite_trans'[of s]
+          by (auto 4 3 simp: simp: inj_on_def intro: finite_vimageI)
+        by auto
+      done
+    ultimately show "finite (Product_TA_Defs.product_trans_s (N_s s))" by (rule finite_subset)
   qed
-*)
-
-  thm prod_trans_i_def
 
   lemma prod_trans_i_alt_def:
     "prod_trans_i =
@@ -386,203 +403,70 @@ begin
        \<and> c s \<and> Some s' = m s}"
     unfolding prod_trans_i_def by (safe; metis)
 
-  term case_prod
-
-  lemma Collect_case_prod_rewr:
-    "{(a, b). Q a b} = {x. \<exists> a b. x = (a, b) \<and> Q a b}"
-    by auto
-
-  lemma  bla:
-    "finite {(a, b) | a b. Q (f a b)}" if "inj f" "finite {x. Q x}"
-    using that apply auto
-    using [[simproc add: finite_Collect]]
-    oops
+  (* XXX Wierd proof, should there be some automation for this? *)
+  lemma Some_finite:
+    "finite {x. Some x = y}"
+    using not_finite_existsD by fastforce
 
   lemma finite_prod_trans:
     "finite prod_trans" if "p > 0"
-    unfolding prod_trans_def prod_trans_i_alt_def prod_trans_s_def
-    apply safe
-    subgoal
-      using finite_state' finite_product_1
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (subst finite_Collect_bounded_ex_8)
-       apply auto
-      unfolding trans_of_def
-      apply (simp split: prod.split_asm add: Collect_case_prod_rewr)
-      sorry
-    subgoal
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
+    unfolding prod_trans_def
+  proof safe
+    have "prod_trans_i \<subseteq>
+        {((L, s), g, a, r, (L', s')) | L s g c a r m L' s'.
+         Q s \<and>
+         (L, g, (a, Act (c, m)), r, L') \<in> T' s \<and>
+         (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
+         \<and> c s \<and> Some s' = m s}
+      "
+      unfolding prod_trans_i_alt_def
+      using finite_state(1) p_gt_0 by force
+    moreover have
+      "finite \<dots>"
       apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
       apply simp
-      apply (subst finite_Collect_bounded_ex_10)
-       apply auto
-      using finite_product_1
-      unfolding trans_of_def sorry
-    done
+      apply (tactic \<open>mini_ex_tac @{context} 1\<close>, simp only: ex_simps)
+      using finite_state(2) apply clarsimp
+      apply (subst finite_Collect_bounded_ex_7)
+      using [[simproc add: finite_Collect]] finite_state' finite_product_1
+      by (auto 4 3 simp: inj_on_def intro: finite_vimageI)
+    ultimately show "finite prod_trans_i" by (rule finite_subset)
+  next
+    have "prod_trans_s \<subseteq>
+        {((L, s), g, a, r, (L', s')) | L s g ci co a r mi mo L' s' so.
+          Q s \<and>
+          product s \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Syn (ci, mi) (co, mo)),r\<^esup> L' \<and>
+          (\<forall>q<p. (P ! q) (L ! q) s) \<and> (\<forall>q<p. (P ! q) (L' ! q) s') \<and>
+          ci s \<and> co s \<and> Some so = mo s \<and> Some s' = mi so}
+      "
+      unfolding prod_trans_s_def
+      using finite_state(1) p_gt_0 by fastforce
+    moreover have
+      "finite \<dots>"
+      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
+      apply simp
+      apply (tactic \<open>mini_ex_tac @{context} 1\<close>, simp only: ex_simps)
+      using finite_state(2) apply clarsimp
+      apply (subst finite_Collect_bounded_ex_9)
+
+      subgoal
+        using [[simproc add: finite_Collect]] finite_state' finite_product_1
+        by (auto 4 3 simp: inj_on_def intro: finite_vimageI)[]
+
+      apply safe
+      subgoal for s a b c d e f g h i
+        apply (rule finite_subset[where B =
+              "(\<lambda> s'. ((a, s), b, e, f, i, s')) ` { s'. \<exists> so. Some so = h s \<and> Some s' = g so}"
+              ])
+         apply force
+        apply (rule finite_imageI)
+        apply (subst finite_Collect_bounded_ex)
+        by (force intro: Some_finite)+
+      done
+    ultimately show "finite prod_trans_s" by (rule finite_subset)
+  qed
 
 end (* End of context for finiteness of automaton *)
-
-(*
-context
-  assumes finite_state:
-    "\<forall> q < p. \<forall> l \<in> state_set (fst (N ! q)). finite {s. (P ! q) l s}"
-      and finite_trans: "\<forall> A \<in> set N. finite (fst A)"
-begin
-
-thm Product_TA_Defs.finite_states
-
-lemma finite_trans':
-  "\<forall>A\<in>set (N_s s). finite (trans_of A)"
-unfolding N_s_def apply auto
-  unfolding trans_of_def T_s_def
-  apply simp
-  apply (drule nth_mem)
-  using finite_trans
-  using [[simproc add: finite_Collect]]
-  apply auto
-  apply (rule finite_imageI)
-  apply (rule finite_vimageI)
-   apply simp
-  unfolding inj_on_def by auto
-
-lemma
-  "finite (Product_TA_Defs.states (N_s s))"
-  using finite_trans' by (rule Product_TA_Defs.finite_states)
-
-lemma
-  "finite (T' s)"
-  using finite_trans' by (rule Product_TA_Defs.finite_trans_of_product)
-
-term "(N_s s)"
-
-lemma
-  "finite {t. \<exists> N s. N \<in> set (N_s s) \<and> t \<in> fst N \<and> (P ! p) (fst t) s}"
-proof -
-  have "finite {t. \<exists>p s. t \<in> T_s p s \<and> p < length N \<and> (P ! p) (fst t) s}"
-  unfolding N_s_def
-  using [[simproc add: finite_Collect]]
-  unfolding T_s_def
-  using finite_state finite_trans
-  apply auto
-  sorry
-  then have "finite {t. \<exists> N s. N \<in> set (N_s s) \<and> t \<in> fst N \<and> (P ! p) (fst t) s}"
-    unfolding N_s_def apply auto
-    using [[simproc add: finite_Collect]]
-    sorry
-  then show ?thesis .
-qed
-
-
-
-term "trans_of (product s)"
-lemma finite_product_1:
-  "finite (trans_of (product s))"
-  unfolding product_def
-  unfolding trans_of_def Product_TA_Defs.product_ta_def
-  apply simp
-  unfolding Product_TA_Defs.product_trans_def
-  apply safe
-  unfolding Product_TA_Defs.product_trans_i_def
-  unfolding N_s_def T_s_def
-  sorry
-
-lemma
-  "finite (N_s ` UNIV)"
-  unfolding N_s_def oops
-
-lemma finite_range_product:
-  "finite (trans_of ` range product)"
-  unfolding product_def
-  unfolding trans_of_def Product_TA_Defs.product_ta_def
-  unfolding image_def
-  apply auto
-  apply simp
-  unfolding Product_TA_Defs.product_trans_def
-  apply safe
-  unfolding Product_TA_Defs.product_trans_i_def
-  unfolding N_s_def T_s_def
-  apply forc
-  apply aut
-  oops
-
-lemma
-  "" " \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Act (c, m)),r\<^esup> L'"
-
-lemma
-  "finite {s. T' s \<noteq> {}}"
-  unfolding trans_of_def Product_TA_Defs.product_ta_def
-  apply simp
-  unfolding N_s_def
-  unfolding T_s_def
-  oops
-
-term state_set
-
-lemma finite_state':
-  "\<forall> q < p. \<forall> l \<in> state_set T'. finite {s. (P ! q) (l ! q) s}"
-  using finite_state prod_state_set_subs by simp
-
-lemma finite_state'':
-  "finite {s. \<forall> q < p. (P ! q) (l ! q) s}" if \<open>p > 0\<close> \<open>l \<in> state_set T'\<close>
-proof -
-  from \<open>p > 0\<close> obtain q where "q < p" by auto
-  with finite_state' \<open>l \<in> _\<close> have "finite {s. (P ! q) (l ! q) s}" by auto
-  then show ?thesis by (rule rev_finite_subset) (auto intro: \<open>q < p\<close>)
-qed
-
-thm prod_trans_i_def
-
-lemma prod_trans_i_alt_def:
-  "prod_trans_i =
-    {((L, s), g, a, r, (L', m s)) | L s g c a r m L'.
-     (L, g, (a, Act (c, m)), r, L') \<in> T' s \<and>
-     (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) (m s))
-     \<and> c s}"
-  unfolding prod_trans_i_def by (safe; metis)
-
-lemma finite_prod_trans:
-  "finite prod_trans" if "p > 0"
-  unfolding prod_trans_def prod_trans_i_alt_def prod_trans_s_def
-  apply safe
-  subgoal
-    apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-    using [[simproc add: ex_reorder4]]
-    apply simp
-    apply (subst finite_Collect_bounded_ex_7)
-    subgoal
-      using [[simproc add: finite_Collect]] finite_trans_of_product[OF finite_trans]
-      by (auto intro!: finite_imageI finite_vimageI simp: inj_on_def)
-    apply safe
-    (* When unfolding regular_def
-    apply (tactic \<open>defer_ex_tac @{context} 1\<close>) (* XXX *)
-    *)
-    apply (subst finite_Collect_bounded_ex)
-    by (auto intro: finite_state'' \<open>p > 0\<close>)
-  subgoal
-    apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-    apply (tactic \<open>rearrange_ex_fixed_5 @{context} 1\<close>)
-    apply (use [[simproc add: ex_reorder4]] in simp)
-    apply (subst finite_Collect_bounded_ex_9)
-    subgoal
-      using [[simproc add: finite_Collect]] finite_trans_of_product[OF finite_trans]
-      by (auto intro!: finite_imageI finite_vimageI simp: inj_on_def)
-    apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-    apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-    apply safe
-    apply (subst finite_Collect_bounded_ex)
-    by (auto intro: finite_state'' \<open>p > 0\<close>)
-  done
-
-thm finite_product_trans_i[OF finite_trans] finite_product_trans_s[OF finite_trans]
-
-thm finite_trans_of_product[OF finite_trans]
-thm finite_states
-
-end (* End of context for finiteness of automaton *)
-*)
 
   abbreviation "states' s \<equiv> Product_TA_Defs.states (N_s s)"
 
