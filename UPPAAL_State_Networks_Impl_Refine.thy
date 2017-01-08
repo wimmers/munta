@@ -1,14 +1,11 @@
 theory UPPAAL_State_Networks_Impl_Refine
   imports
-    Normalized_Zone_Semantics_Impl_Refine UPPAAL_State_Networks_Impl Networks_Impl_Refine
+    UPPAAL_State_Networks_Impl Normalized_Zone_Semantics_Impl_Refine TA_Impl_Misc
     "~/Isabelle/Util/ML_Util"
 begin
 
-context Prod_TA
-begin
-
-  thm inv_of_product
-  end
+(* XXX Rename this way *)
+lemmas mem_nth = aux
 
 subsection \<open>Method setup for quantifier trickery\<close>
 
@@ -2523,6 +2520,7 @@ lemma exec_code[code]:
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled'_axioms_def
   UPPAAL_Reachability_Problem_precompiled'_def
+  pred_act_def
 
 lemma start_pred[code]:
   "UPPAAL_Reachability_Problem_precompiled_start_state_axioms = (\<lambda> p max_steps trans prog bounds pred s\<^sub>0.
