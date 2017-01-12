@@ -180,6 +180,27 @@ lemma product_trans_guards:
 
 end
 
+datatype bexp =
+  not bexp | "and" bexp bexp | or bexp bexp | imply bexp bexp | -- "Boolean connectives"
+  loc nat nat | -- "Is process p in location l?"
+  eq nat int -- "Does var i equal x?" |
+  le nat int |
+  lt nat int |
+  ge nat int |
+  gt nat int
+
+fun check_bexp :: "bexp \<Rightarrow> nat list \<Rightarrow> int list \<Rightarrow> bool" where
+  "check_bexp (not a) L s \<longleftrightarrow> \<not> check_bexp a L s" |
+  "check_bexp (and a b ) L s \<longleftrightarrow> check_bexp a L s \<and> check_bexp b L s" |
+  "check_bexp (or a b ) L s \<longleftrightarrow> check_bexp a L s \<or> check_bexp b L s" |
+  "check_bexp (imply a b ) L s \<longleftrightarrow> (check_bexp a L s \<longrightarrow> check_bexp b L s)" |
+  "check_bexp (loc p l) L _ \<longleftrightarrow> L ! p = l" |
+  "check_bexp (eq i x) _ s \<longleftrightarrow> s ! i = x" |
+  "check_bexp (le i x) _ s \<longleftrightarrow> s ! i \<le> x" |
+  "check_bexp (lt i x) _ s \<longleftrightarrow> s ! i < x" |
+  "check_bexp (ge i x) _ s \<longleftrightarrow> s ! i \<ge> x" |
+  "check_bexp (gt i x) _ s \<longleftrightarrow> s ! i > x"
+
 abbreviation "repeat x n \<equiv> map (\<lambda> _. x) [0..<n]"
 
 abbreviation "conv_prog P pc \<equiv> map_option (map_instrc real_of_int) (P pc)"
@@ -196,7 +217,7 @@ locale UPPAAL_Reachability_Problem_precompiled_defs =
     and trans :: "(addr * nat act * addr * nat) list list list"
       -- "Transitions between states per process"
     and prog :: "int instrc option list"
-    and final :: "nat list list" -- "Final states per process. Initial location is 0"
+    and formula :: bexp -- "Model checking formula"
     and bounds :: "(int * int) list"
 begin
   definition "clkp_set' \<equiv>
@@ -214,7 +235,7 @@ begin
   definition N :: "(nat, int, nat) unta" where
     "N \<equiv> (PROG, map (\<lambda> i. (T i, I i)) [0..<p], P, bounds)"
   definition "init \<equiv> repeat (0::nat) p"
-  definition "F s \<equiv> \<exists> i < length s. s ! i \<in> set (final ! i)"
+  definition "F \<equiv> check_bexp formula"
   definition "k_fun \<equiv> \<lambda> i. if i \<le> m then k ! i else 0"
 
   sublocale equiv: Equiv_TA_Defs N max_steps .
@@ -269,6 +290,7 @@ locale UPPAAL_Reachability_Problem_precompiled =
     "\<forall> (c, d) \<in> clkp_set'. int (k ! c) \<ge> d"
     "k ! 0 = 0"
   assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
+  (* XXX This could also be subset for now but is left like this as an input sanity check right now *)
   assumes clock_set: "clk_set' = {1..m}"
     and p_gt_0: "p > 0"
     and m_gt_0: "m > 0"
@@ -445,7 +467,7 @@ lemma clk_set'_subs:
     qed
   qed (auto simp: p_gt_0)
 
-sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m k_fun
+sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m k_fun
   using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
 
 lemma [simp]:

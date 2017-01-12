@@ -1,3 +1,4 @@
+(*
 session "Timed_Automata" = "HOL" +
   options [document = pdf, document_output = "output"]
   theories [document = false]
@@ -7,7 +8,16 @@ session "Timed_Automata" = "HOL" +
   document_files
     "root.tex"
     "root.bib"
+*)
 
-session "TA" = "$AFP/thys/Refine_Imperative_HOL" +
+session "TA" = "Refine_Imperative_HOL" +
   theories [document = false]
     Normalized_Zone_Semantics
+
+session "TA_Impl" = "TA" +
+  theories [document = false]
+    Normalized_Zone_Semantics_Impl_Refine
+
+session "TA_All" = "TA_Impl" +
+  theories [document = false]
+    UPPAAL_State_Networks_Impl_Refine

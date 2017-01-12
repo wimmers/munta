@@ -453,9 +453,41 @@ inductive is_conj_block' :: "'t instrc option list \<Rightarrow> addr \<Rightarr
 
 inductive_cases stepscE: "stepsc prog n u (pc, st, m, f, rs) (pc', st', m', f', rs')"
 
-code_pred is_conj_block' .
+function check_conj_block' :: "'t instrc option list \<Rightarrow> addr \<Rightarrow> addr option" where
+  "check_conj_block' prog pc = (
+    if pc \<ge> length prog then None
+    else if prog ! pc = Some (INSTR HALT) then Some pc
+    else if
+      prog ! pc = Some (INSTR COPY) \<and> (case prog ! (pc + 1) of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)
+      \<and> prog ! (pc + 2) = Some (INSTR instr.AND)
+    then check_conj_block' prog (pc + 3)
+    else if
+      prog ! pc = Some (INSTR COPY) \<and> (case prog ! (pc + 2) of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)
+      \<and> prog ! (pc + 3) = Some (INSTR instr.AND)
+      \<and> (case prog ! (pc + 1) of Some (INSTR (JMPZ pc')) \<Rightarrow> True | _ \<Rightarrow> False)
+    then
+      (case (prog ! (pc + 1), check_conj_block' prog (pc + 4)) of (Some (INSTR (JMPZ pc')), Some pc'')
+        \<Rightarrow> if pc' = pc'' then Some pc' else None | _ \<Rightarrow> None)
+    else None
+    )
+  "
+  by pat_completeness auto
 
-code_thms is_conj_block'
+termination
+  by (relation "measure (\<lambda> (prog, pc). length prog - pc)") auto
+
+lemma is_conj_block'_len_prog:
+  "pc' < length prog" if "is_conj_block' prog pc pc'"
+  using that by induction auto
+
+lemma check_conj_block':
+  "check_conj_block' prog pc = Some pc' \<Longrightarrow> is_conj_block' prog pc pc'"
+  apply (induction prog pc rule: check_conj_block'.induct)
+    apply (erule check_conj_block'.elims)
+  by (auto
+        split: if_split_asm option.split_asm instrc.split_asm instr.split_asm
+        simp del: check_conj_block'.simps
+        intro: is_conj_block'.intros is_conj_block'_len_prog)
 
 lemma stepsc_reverseE':
   assumes "stepsc prog (Suc n) u s s''" "s'' \<noteq> s"
@@ -583,10 +615,6 @@ lemma stepsn_halt:
 
 lemma is_conj_block'_pc_mono:
   "pc \<le> pc'" if "is_conj_block' prog pc pc'"
-  using that by induction auto
-
-lemma is_conj_block'_len_prog:
-  "pc' < length prog" if "is_conj_block' prog pc pc'"
   using that by induction auto
 
 lemma is_conj_block'_halt:
@@ -884,10 +912,23 @@ lemma is_conj':
   shows False
   using stepsc_steps_approx[OF assms(3,5)] assms(4) assms(2) unfolding S_def by auto
 
+term is_conj_block
+
+definition
+"check_conj_block pc pc' \<equiv>
+   (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False) \<and> check_conj_block' P (pc + 1) = Some pc'
+   \<or> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False) \<and> P ! (pc + 1) = Some (INSTR instr.AND)
+      \<and> check_conj_block' P (pc + 2) = Some pc'"
+
+lemma check_conj_block:
+  "check_conj_block pc pc' \<Longrightarrow> is_conj_block P pc pc'"
+  unfolding is_conj_block_alt_def check_conj_block_def
+  by (auto dest!: check_conj_block' simp del: check_conj_block'.simps)
+
 definition
   "conjunction_check \<equiv>
     let S = steps_approx n P pc_s; S' = {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} in
-      S' = {} \<or> is_conj_block P (Min S') (Max S)
+      S' = {} \<or> check_conj_block (Min S') (Max S)
   "
 
 lemma conjunction_check_alt_def[code]:
@@ -897,7 +938,7 @@ lemma conjunction_check_alt_def[code]:
         S = steps_approx n P pc_s;
         S' = {pc. pc \<in> S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
       in
-        S' = {} \<or> is_conj_block P (Min S') (Max S)
+        S' = {} \<or> check_conj_block (Min S') (Max S)
     )
   "
 proof -
@@ -921,6 +962,7 @@ lemma conjunction_check:
   apply -
   apply (erule disjE)
    apply (drule is_conj'; simp)
+    apply (drule check_conj_block)
   apply (subst is_conj; simp)
   done
 
@@ -1123,9 +1165,6 @@ sublocale defs':
     unfolding PF_PF using start_pred apply simp
     by rule
 
-  sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m k_fun
-    using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
-
   lemma [simp]:
     "fst ` (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` S = fst ` S"
     by force
@@ -1169,7 +1208,8 @@ locale UPPAAL_Reachability_Problem_precompiled' =
     "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, a, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
 begin
 
-  sublocale Reachability_Problem_Impl_Defs A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l)" m
+  (* XXX Why are we re-doing this here? *)
+  sublocale Reachability_Problem_Impl_Defs A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m
     by standard
 
   definition
@@ -1991,15 +2031,15 @@ begin
     "(inv_fun, inv_of A) \<in> inv_rel states"
     using inv_fun_inv_of' states_states' by (rule inv_rel_mono)
 
-  definition "final_fun \<equiv> \<lambda> (L, s). list_ex (\<lambda> i. List.member (final ! i) (L ! i)) [0..<p]"
+  definition "final_fun \<equiv> \<lambda> (L, s). check_bexp formula L s"
 
   lemma final_fun_final':
-    "(final_fun, (\<lambda> (l, s). F l)) \<in> inv_rel states'"
+    "(final_fun, (\<lambda> (l, s). F l s)) \<in> inv_rel states'"
     unfolding F_def final_fun_def inv_rel_def in_set_member[symmetric] list_ex_iff
      by (force dest!: states'_states')
 
   lemma final_fun_final[intro, simp]:
-    "(final_fun, (\<lambda> (l, s). F l)) \<in> inv_rel states"
+    "(final_fun, (\<lambda> (l, s). F l s)) \<in> inv_rel states"
     using final_fun_final' states_states' by (rule inv_rel_mono)
 
   lemma fst_clkp_setD:
@@ -2068,7 +2108,7 @@ begin
   sublocale impl:
     Reachability_Problem_Impl
       trans_fun inv_fun final_fun "IArray (map int k)" A "(init, s\<^sub>0)"
-      "PR_CONST ((\<lambda> (l, s). F l))" m k_fun
+      "PR_CONST ((\<lambda> (l, s). F l s))" m k_fun
     unfolding PR_CONST_def by (standard; rule)
 
   (* XXX Unused *)
@@ -2085,7 +2125,7 @@ begin
     "F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv_A A \<turnstile> \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < length L'. L' ! i \<in> set (final ! i))
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
       )"
     unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
 
@@ -2093,7 +2133,7 @@ begin
     "F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv_A A \<turnstile> \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < p. L' ! i \<in> set (final ! i))
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
       )"
     unfolding F_reachable_correct' using length_steps by metis
 
@@ -2283,7 +2323,7 @@ begin
     "F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < p. L' ! i \<in> set (final ! i))
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
       )"
       unfolding F_reachable_correct''
       apply (subst product'.prod_correct[symmetric])
@@ -2298,7 +2338,7 @@ begin
       uncurry0 (
         Refine_Basic.RETURN (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < p. L' ! i \<in> set (final ! i)))
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s')
       )
      )
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -2308,7 +2348,7 @@ begin
     "<emp> reachability_checker
     <\<lambda> r. \<up>(r \<longleftrightarrow> (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> i < p. L' ! i \<in> set (final ! i)))
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s')
        )
     >\<^sub>t"
    apply (rule cons_post_rule)
@@ -2461,6 +2501,7 @@ begin
       UPPAAL_Reachability_Problem_precompiled_def
       check_ceiling_def check_pre_def check_nat_subs check_resets_def
     by auto
+
 end
 
 lemmas [code] =
@@ -2522,26 +2563,48 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled'_def
   pred_act_def
 
-lemma start_pred[code]:
-  "UPPAAL_Reachability_Problem_precompiled_start_state_axioms = (\<lambda> p max_steps trans prog bounds pred s\<^sub>0.
-  (\<forall> q < p.
+definition
+  "init_pred_check \<equiv> \<lambda> p prog max_steps pred s\<^sub>0.
+    (\<forall> q < p.
        case (exec
         (stripfp (UPPAAL_Reachability_Problem_precompiled_defs.PROG prog))
           max_steps
           ((pred ! q ! (UPPAAL_Reachability_Problem_precompiled_defs.init p ! q)), [], s\<^sub>0, True, [])
           [])
       of Some ((pc, st, s', True, rs), pcs) \<Rightarrow> True | _ \<Rightarrow> False)
+  "
+
+definition
+  "time_indep_check1 \<equiv> \<lambda> pred prog max_steps.
+   (\<forall>x\<in>set pred. \<forall>pc\<in>set x. time_indep_check prog pc max_steps)
+  "
+
+definition
+  "time_indep_check2 \<equiv> \<lambda> trans prog max_steps.
+  (\<forall>T\<in>set trans. \<forall>xs\<in>set T. \<forall>(_, _, pc_u, _)\<in>set xs. time_indep_check prog pc_u max_steps)
+  "
+
+definition
+  "conjunction_check2 \<equiv> \<lambda> trans prog max_steps.
+  (\<forall>T\<in>set trans. \<forall>xs\<in>set T. \<forall>(pc_g, _, _, _)\<in>set xs. conjunction_check prog pc_g max_steps)
+  "
+
+lemma start_pred[code]:
+  "UPPAAL_Reachability_Problem_precompiled_start_state_axioms = (\<lambda> p max_steps trans prog bounds pred s\<^sub>0.
+    init_pred_check p prog max_steps pred s\<^sub>0
   \<and> bounded bounds s\<^sub>0
-  \<and> (\<forall>x\<in>set pred. \<forall>pc\<in>set x. time_indep_check prog pc max_steps)
-  \<and> (\<forall>T\<in>set trans. \<forall>xs\<in>set T. \<forall>(_, _, pc_u, _)\<in>set xs. time_indep_check prog pc_u max_steps)
-  \<and> (\<forall>T\<in>set trans. \<forall>xs\<in>set T. \<forall>(pc_g, _, _, _)\<in>set xs. conjunction_check prog pc_g max_steps)
+  \<and> time_indep_check1 pred prog max_steps
+  \<and> time_indep_check2 trans prog max_steps
+  \<and> conjunction_check2 trans prog max_steps
   )"
   unfolding UPPAAL_Reachability_Problem_precompiled_start_state_axioms_def
+  unfolding init_pred_check_def bounded_def time_indep_check1_def time_indep_check2_def
+    conjunction_check2_def
   apply (rule ext)+
   apply safe
    apply (fastforce split: option.split_asm bool.split_asm)
   subgoal premises prems
-    using prems(1,6) by (fastforce split: option.split_asm bool.split_asm)
+    using prems(1,7) by (fastforce split: option.split_asm bool.split_asm)
   done
 
 export_code UPPAAL_Reachability_Problem_precompiled_start_state_axioms
@@ -2583,15 +2646,15 @@ lemmas [sep_heap_rules] =
 abbreviation "N \<equiv> UPPAAL_Reachability_Problem_precompiled_defs.N"
 
 theorem reachability_check:
-  "(uncurry0 (check_and_verify p m k max_steps I T prog final bounds P s\<^sub>0 na),
+  "(uncurry0 (check_and_verify p m k max_steps I T prog formula bounds P s\<^sub>0 na),
     uncurry0 (
        Refine_Basic.RETURN (
         if UPPAAL_Reachability_Problem_precompiled' p m k max_steps I T prog bounds P s\<^sub>0 na
         then Some (
-          \<exists> l' s' u u'.
+          \<exists> L' s' u u'.
             conv (N p I P T prog bounds) \<turnstile>\<^sub>max_steps
-              \<langle>repeat 0 p, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', s', u'\<rangle>
-            \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> (\<exists> q < p. l' ! q \<in> set (final ! q))
+              \<langle>repeat 0 p, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
+            \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
           )
         else None
        )
@@ -2599,11 +2662,13 @@ theorem reachability_check:
    )
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   apply sepref_to_hoare
-   apply  (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
+   apply (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
   by (sep_auto simp:
       check_and_verify_def UPPAAL_Reachability_Problem_precompiled_defs.init_def
      )+
 
-export_code open check_and_verify checking SML_imp
+export_code open
+  check_and_verify init_pred_check time_indep_check1 time_indep_check1 conjunction_check2
+  checking SML_imp
 
 end (* End of theory *)
