@@ -355,6 +355,7 @@ lemma stepsc_steps_approx:
          apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
         apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
        apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+      apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
        apply (case_tac "q < length prog")
         apply force
        apply (drule steps_out_of_range; simp)

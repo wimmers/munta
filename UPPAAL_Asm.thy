@@ -11,8 +11,9 @@ datatype instr =
   ADD |
   NOT |
   AND |
-  LE |
   LT |
+  LE |
+  EQ |
   PUSH int -- "Push value on stack" |
   POP |
   LID reg -- "Push register value on stack" |
@@ -41,8 +42,9 @@ fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
     (if b = 0 \<or> b = 1
      then Some (pc + 1, st, m, b = 1 \<and> f, rs)
      else None)" |
-  "step LE (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a \<le> b, rs)" |
   "step LT (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a < b, rs)" |
+  "step LE (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a \<le> b, rs)" |
+  "step EQ (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a = b, rs)" |
   "step (PUSH v) (pc, st, m, f, rs) = Some (pc + 1, v # st, m, f, rs)" |
   "step POP (pc, v # st, m, f, rs) = Some (pc + 1, st, m, f, rs)" |
   "step (LID r) (pc, st, m, f, rs) = Some (pc + 1, m ! r # st, m, f, rs)" |
