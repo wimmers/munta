@@ -408,148 +408,11 @@ lemma FW'_int_preservation:
   shows "dbm_int (curry (FW' M n)) n"
 using FW_int_preservation[OF assms] unfolding FW'_def curry_def by auto
 
-(* XXX Unused *)
-  (*
-lemma step_impl_dbm_default:
-  assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "\<forall> c \<in> clk_set A. c \<le> n"
-  shows "dbm_default (curry D') n"
-using assms
-apply safe
-
- apply (cases rule: step_impl.cases)
- apply assumption
-
-  apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
-  apply (subst abstr_upd_out_of_bounds1[where n = n])
-  using collect_clks_inv_clk_set[of A] apply fastforce
-  apply assumption
-  apply (simp add: up_canonical_out_of_bounds1 FW'_out_of_bounds1)
-  apply (subst abstr_upd_out_of_bounds1[where n = n])
-  using collect_clks_inv_clk_set[of A] apply fastforce
-  apply assumption
-  apply (simp; fail)
-
-  apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
-  apply (subst abstr_upd_out_of_bounds1[where n = n])
-  using collect_clks_inv_clk_set[of A] apply fastforce
-  apply assumption
-  apply (subst reset'_upd_out_of_bounds1[where n = n])
-  apply (fastforce simp: collect_clkvt_def)
-  apply assumption
-  apply (simp add: FW'_out_of_bounds1)
-  apply (subst abstr_upd_out_of_bounds1[where n = n])
-  apply (auto simp: constraint_clk_constraint_pair clkp_set_def collect_clkt_def collect_clks_def
-    collect_clock_pairs_def; blast; fail)
-  apply assumption
-  apply (simp; fail)
-
- apply (cases rule: step_impl.cases)
- apply assumption
-
-  apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
-  apply (subst abstr_upd_out_of_bounds2[where n = n])
-  using collect_clks_inv_clk_set[of A] apply fastforce
-  apply assumption
-  apply (simp add: up_canonical_out_of_bounds2 FW'_out_of_bounds2)
-  apply (subst abstr_upd_out_of_bounds2[where n = n])
-  using collect_clks_inv_clk_set[of A] apply fastforce
-  apply assumption
-  apply (simp; fail)
-
-  apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
-  apply (subst abstr_upd_out_of_bounds2[where n = n])
-  using collect_clks_inv_clk_set[of A] apply fastforce
-  apply assumption
-  apply (subst reset'_upd_out_of_bounds2[where n = n])
-  apply (fastforce simp: collect_clkvt_def)
-  apply assumption
-  apply (simp add: FW'_out_of_bounds2)
-  apply (subst abstr_upd_out_of_bounds2[where n = n])
-  apply (auto simp: constraint_clk_constraint_pair clkp_set_def collect_clkt_def collect_clks_def
-    collect_clock_pairs_def; blast; fail)
-  apply assumption
-  apply (simp; fail)
-done
-*)
-
-(* XXX Unused *)
-lemma step_impl_norm_dbm_default:
-  assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "\<forall> c \<in> clk_set A. c \<le> n"
-  shows "\<exists> M. D' = FW' (norm_upd M k n) n \<and> dbm_default (curry M) n"
-using assms
- apply (cases rule: step_impl.cases)
-  subgoal -- "Step is a time delay step"
-  apply (rule exI[where x =
-      "FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n)) n"]
-    )
-  apply standard
-  apply (simp; fail)
-  apply safe
-
-    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (simp add: up_canonical_out_of_bounds1 FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (simp; fail)
-
-    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (simp add: up_canonical_out_of_bounds2 FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (simp; fail)
-  done
-
-  subgoal for g a r -- "Step is an action step"
-  apply (rule exI[where x =
-      "FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n"]
-    )
-  apply standard
-  apply (simp; fail)
-  apply safe
-
-    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (subst reset'_upd_out_of_bounds1[where n = n])
-    apply (fastforce simp: collect_clkvt_def)
-    apply assumption
-    apply (simp add: FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    apply (auto simp: constraint_clk_constraint_pair clkp_set_def collect_clkt_def collect_clks_def
-      collect_clock_pairs_def; blast; fail)
-    apply assumption
-    apply (simp; fail)
-
-    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (subst reset'_upd_out_of_bounds2[where n = n])
-    apply (fastforce simp: collect_clkvt_def)
-    apply assumption
-    apply (simp add: FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    apply (auto simp: constraint_clk_constraint_pair clkp_set_def collect_clkt_def collect_clks_def
-      collect_clock_pairs_def; blast; fail)
-    apply assumption
-    apply (simp; fail)
- done
-oops
-
- lemma step_impl_norm_dbm_default_dbm_int:
+lemma step_impl_norm_dbm_default_dbm_int:
   assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "dbm_int (curry D) n"
-          "\<forall> c \<in> clk_set A. c \<le> n \<and> c \<noteq> 0" "\<forall> (_, d)  \<in> clkp_set A. d \<in> \<int>"
+    "\<forall> c \<in> clk_set A. c \<le> n \<and> c \<noteq> 0" "\<forall> (_, d)  \<in> clkp_set A. d \<in> \<int>"
   shows "dbm_default (curry D') n \<and> dbm_int (curry D') n"
-using assms
+  using assms
  apply (cases rule: step_impl.cases)
 
   subgoal -- "Step is a time delay step"
@@ -628,106 +491,6 @@ using assms
  done
 done
 
-(*
-lemma step_impl_norm_dbm_default_dbm_int:
-  assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n,a\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "dbm_int (curry D) n"
-          "\<forall> c \<in> clk_set A. c \<le> n \<and> c \<noteq> 0" "\<forall> (_, d)  \<in> clkp_set A. d \<in> \<int>"
-  shows "\<exists> M. D' = FW' (norm_upd M k n) n \<and> dbm_default (curry M) n \<and> dbm_int (curry M) n"
-using assms
- apply (cases rule: step_impl.cases)
-
-  subgoal -- "Step is a time delay step"
-  apply (rule exI[where x =
-      "FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n)) n"]
-    )
-  apply standard
-  apply (simp; fail)
-  apply standard
-  apply standard
-  apply safe[]
-
-    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforc
-    apply assumption
-    apply (simp add: up_canonical_out_of_bounds1 FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforc
-    apply assumption
-    apply (simp; fail)
-
-    apply standard
-    apply safe[]
-    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (simp add: up_canonical_out_of_bounds2 FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (simp; fail)
-
-    apply (rule FW'_int_preservation)
-    apply (rule abstr_upd_int_preservation)
-    defer
-    apply (rule up_canonical_upd_int_preservation)
-    apply (rule FW'_int_preservation)
-    apply (rule abstr_upd_int_preservation)
-    defer
-    apply (simp add: clkp_set_def collect_clki_def; fast)+
-  done
-
-  subgoal for g a r -- "Step is an action step"
-  apply (rule exI[where x = "FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n"])
-  apply standard
-  apply (simp; fail)
-  apply standard
-  apply standard
-  apply safe[]
-
-    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (subst reset'_upd_out_of_bounds1[where n = n])
-    apply (fastforce simp: collect_clkvt_def)
-    apply assumption
-    apply (simp add: FW'_out_of_bounds1)
-    apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clocks_clk_set apply fast
-    apply assumption
-    apply (simp; fail)
-
-    apply safe[]
-    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
-    apply assumption
-    apply (subst reset'_upd_out_of_bounds2[where n = n])
-    apply (fastforce simp: collect_clkvt_def)
-    apply assumption
-    apply (simp add: FW'_out_of_bounds2)
-    apply (subst abstr_upd_out_of_bounds2[where n = n])
-    using collect_clocks_clk_set apply fast
-    apply assumption
-    apply (simp; fail)
-
-    apply (rule FW'_int_preservation)
-    apply (rule abstr_upd_int_preservation)
-    defer
-    apply (rule reset'_upd_int_preservation)
-    apply (rule FW'_int_preservation)
-    apply (rule abstr_upd_int_preservation)
-    apply (simp add: clkp_set_def collect_clkt_def; fast)
-    apply assumption
-    apply simp
-    apply (auto dest!: reset_clk_set; fail)
-    apply (simp add: clkp_set_def collect_clki_def; fast)
- done
-done
-*)
-
 inductive steps_impl ::
   "('a, nat, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('t :: linordered_ab_group_add) DBM'
   \<Rightarrow> ('t list) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> 't DBM' \<Rightarrow> bool"
@@ -757,16 +520,6 @@ lemma steps_impl_induct[consumes 1, case_names refl step]:
         P A l Z k n l''' (FW' (norm_upd Z''' k n) n)"
   shows "P A x2 x3 k n x6 x7"
   using assms by (induction A\<equiv>A x2 x3 k \<equiv> k n \<equiv> n x6 x7; blast)
-
-(* XXX Unused *)
-lemma steps_impl_dbm_default:
-  assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "\<forall> c \<in> clk_set A. c \<le> n"
-  shows "dbm_default (curry D') n"
-using assms
- apply induction
- apply (simp; fail)
- apply (rule step_impl_dbm_default)
-(* by auto *) oops
 
 lemma steps_impl_norm_dbm_default_dbm_int:
   assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l', D'\<rangle>"
@@ -3808,16 +3561,18 @@ begin
     assumes V: "[M]\<^bsub>v,n\<^esub> \<subseteq> V" and canonical: "canonical M n"
     shows "(\<exists> i \<le> n. M i i < \<one>) \<or> (\<forall> i \<in> {1..<Suc n}. M 0 i \<le> \<one>)"
   proof clarify
+    (*
     fix i assume A: "\<not> (\<exists>i\<le>n. M i i < \<one>)" "i \<in> {1..<Suc n}"
-    with assms have "cyc_free M n" sorry
-    from \<open>i \<in> _\<close> have "v i = i" sorry
+    with assms have "cyc_free M n"
+    from \<open>i \<in> _\<close> have "v i = i"
     show "M 0 i \<le> \<one>"
     proof (rule ccontr)
       assume F: "\<not> M 0 i \<le> \<one>"
       from F have "M 0 i > Le 0" unfolding neutral by auto
-      then obtain d u where "d > 0" "u \<in> [M]\<^bsub>v,n\<^esub>" "- u i = d" sorry
+      then obtain d u where "d > 0" "u \<in> [M]\<^bsub>v,n\<^esub>" "- u i = d"
       with V \<open>i \<in> _\<close> show False unfolding V_def by force
     qed
+    *)
     oops
 
   lemma clock_val_cong:
