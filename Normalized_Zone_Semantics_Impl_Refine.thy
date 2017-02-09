@@ -44,16 +44,16 @@ locale Reachability_Problem_Impl_Defs =
     and F_fun :: "'s \<Rightarrow> bool"
     and ceiling :: "int iarray"
 begin
-  
+
   (* XXX Should this be something different? *)
   abbreviation "states \<equiv> {l\<^sub>0} \<union> (state_set (trans_of A))"
-  
+
 end
 
 locale Reachability_Problem_Impl =
   Reachability_Problem_Impl_Defs A l\<^sub>0 F n +
   Reachability_Problem A l\<^sub>0 F n k
-  for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat and k + 
+  for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat and k +
   assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states"
       and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel states"
       and F_fun: "(F_fun, F) \<in> inv_rel states"
@@ -65,25 +65,33 @@ begin
     "(uncurry0 (return ceiling), uncurry0 (RETURN (PR_CONST k'))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   using ceiling by auto
 
+  thm E_alt_def
+
   definition succs where
     "succs \<equiv> \<lambda> (l, D).
-      (l, FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n)) n) k' n) n) #
-      rev (map (\<lambda> (g,a,r,l'). (l', FW' (norm_upd (FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n) k' n) n)) (trans_fun l))"
+      rev (map (\<lambda> (g,a,r,l').
+      let
+        D' = FW' (abstr_upd (inv_of A l) (up_canonical_upd D n)) n;
+        D'' = FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D') n) n r 0)) n;
+        D''' = FW' (norm_upd D'' k' n) n
+      in
+        (l', D''')) (trans_fun l))"
 
   definition succs' where
     "succs' \<equiv> \<lambda> (l, D). do
       {
-        let delay = (l, FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) (op_mtx_copy D)) n) n)) n) k' n) n);
         xs \<leftarrow> nfoldli (trans_fun l) (\<lambda> _. True) (\<lambda> (g,a,r,l') xs. do
           {
-            let reset = fold (\<lambda>c M. reset_canonical_upd M n c 0) r (FW' (abstr_upd g (op_mtx_copy D)) n);
+            let delay = FW' (abstr_upd (inv_of A l) (up_canonical_upd (op_mtx_copy D) n)) n;
+            let reset = fold (\<lambda>c M. reset_canonical_upd M n c 0) r (FW' (abstr_upd g delay) n);
             let action = (l', FW' (norm_upd (FW' (abstr_upd (inv_of A l') reset) n) k' n) n);
             RETURN (action # xs)
           }
         ) [];
-        RETURN (delay # xs)
+        RETURN xs
       }"
 
+  (** XXX Unused *)
   lemma RETURN_split:
     "RETURN (f a b) = do
       {
@@ -98,7 +106,6 @@ begin
   unfolding succs'_def succs_def rev_map_fold
     apply (cases lD)
     apply simp
-    apply (rewrite in "_ = \<hole>" RETURN_split[where f = "op #"])
     apply (rewrite fold_eq_nfoldli)
     apply (simp add: reset'_upd_def)
     apply (fo_rule arg_cong fun_cong)+
@@ -148,7 +155,7 @@ begin
   sepref_definition init_dbm_impl is
     "uncurry0 (RETURN (init_dbm :: nat \<times> nat \<Rightarrow> _))" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a (mtx_assn n)"
   unfolding init_dbm_alt_def by sepref
-  
+
   lemmas [sepref_fr_rules] = init_dbm_impl.refine
 
   sepref_register l\<^sub>0
@@ -238,11 +245,11 @@ begin
 
   lemma [def_pat_rules]: "FW'' $ n \<equiv> UNPROTECT (FW'' n)" by simp
 
-sepref_register "PR_CONST k'"
+  sepref_register "PR_CONST k'"
 
-term "Reachability_Problem_Defs.k' n k"
+  term "Reachability_Problem_Defs.k' n k"
 
-  lemma [def_pat_rules]: "(Reachability_Problem_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp 
+  lemma [def_pat_rules]: "(Reachability_Problem_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp
 
   lemma [simp]:
     "length k' > n"
@@ -336,9 +343,9 @@ term "Reachability_Problem_Defs.k' n k"
   lemma [def_pat_rules]: "(Reachability_Problem_Impl.inv_of_A $ A) \<equiv> PR_CONST inv_of_A" by simp
 
   lemmas [safe_constraint_rules] = CN_FALSEI[of is_pure "asmtx_assn n a" for a]
- 
+
   sepref_register n
-  
+
   context
     notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
       and [sepref_import_param] = IdI[of n]
@@ -362,18 +369,72 @@ term "Reachability_Problem_Defs.k' n k"
   sublocale Worklist1 E a\<^sub>0 F_rel "subsumes n" succs
     apply standard
     apply (clarsimp split: prod.split dest!: reachable_states)
-    apply safe
-    unfolding succs_def E_def
-       apply (auto; fail)
-      apply (auto; fail)
-    by (safe, erule step_impl.cases; force)+
+    unfolding succs_def E_alt_def by force
 
   sublocale Worklist2 E a\<^sub>0 F_rel "subsumes n" succs state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl
     apply standard
     apply (unfold PR_CONST_def)
   by (rule a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine)+
 
+  paragraph \<open>Implementation for the invariant precondition check\<close>
+
+  definition
+    "unbounded_dbm' = unbounded_dbm"
+
+  lemma unbounded_dbm_alt_def:
+    "unbounded_dbm = op_amtx_new (Suc n) (Suc n) (unbounded_dbm')"
+    unfolding unbounded_dbm'_def
+    by simp
+
+  text \<open>We need the custom rule here because unbounded_dbm is higher-order constant\<close>
+  lemma [sepref_fr_rules]:
+    "(uncurry0 (return unbounded_dbm'), uncurry0 (RETURN (PR_CONST (unbounded_dbm'))))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a pure (nat_rel \<times>\<^sub>r nat_rel \<rightarrow> Id)"
+    by sepref_to_hoare sep_auto
+
+  sepref_register "init_dbm :: nat \<times> nat \<Rightarrow> _" :: "'e DBMEntry i_mtx"
+
+  sepref_register "unbounded_dbm :: nat \<times> nat \<Rightarrow> int DBMEntry" :: "'b DBMEntry i_mtx"
+  sepref_register "unbounded_dbm' :: nat \<times> nat \<Rightarrow> _ DBMEntry"
+
+  text \<open>Necessary to solve side conditions of @{term op_amtx_new}\<close>
+  lemma unbounded_dbm'_bounded:
+    "mtx_nonzero unbounded_dbm' \<subseteq> {0..<Suc n} \<times> {0..<Suc n}"
+    unfolding mtx_nonzero_def unbounded_dbm'_def unbounded_dbm_def zero_DBMEntry_def by auto
+
+  text \<open>We need to pre-process the lemmas due to a failure of \<open>TRADE\<close>\<close>
+  lemma unbounded_dbm'_bounded_1:
+    "(a, b) \<in> mtx_nonzero unbounded_dbm' \<Longrightarrow> a < Suc n"
+    using unbounded_dbm'_bounded by auto
+
+  lemma unbounded_dbm'_bounded_2:
+    "(a, b) \<in> mtx_nonzero unbounded_dbm' \<Longrightarrow> b < Suc n"
+    using unbounded_dbm'_bounded by auto
+
+  context
+    notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
+      and [sepref_import_param] = IdI[of n]
+  begin
+
+  sepref_definition unbounded_dbm_impl is
+    "uncurry0 (RETURN (PR_CONST unbounded_dbm))" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a mtx_assn n"
+    supply unbounded_dbm'_bounded_1[simp] unbounded_dbm'_bounded_2[simp]
+    using unbounded_dbm'_bounded
+    apply (subst unbounded_dbm_alt_def)
+    unfolding PR_CONST_def by sepref
+
+  sepref_definition start_inv_check_impl is
+    "uncurry0 (RETURN (start_inv_check :: bool))" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    unfolding start_inv_check_def
+      FW''_def[symmetric] rev_map_fold reset'_upd_def inv_of_A_def[symmetric]
+    supply [sepref_fr_rules] = unbounded_dbm_impl.refine
+    by sepref
+
+  end
+
 end (* End of locale *)
+
+datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
 
 context Reachability_Problem_precompiled
 begin
@@ -395,7 +456,7 @@ begin
 
   definition
     "trans_fun l \<equiv> (IArray trans_map) !! l"
-  
+
   lemma trans_fun_alt_def:
     "l < n
     \<Longrightarrow> trans_fun l = map (\<lambda> i. label i ((IArray trans) !! l ! i)) [0..<length (trans ! l)]"
@@ -475,37 +536,116 @@ begin
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   unfolding br_def by sepref_to_hoare sep_auto
 
-term Reachability_Problem_Impl
-
-  sublocale Reachability_Problem_Impl trans_fun inv_fun final_fun "IArray k" A 0 "PR_CONST F" m "default_ceiling A"
+  sublocale Reachability_Problem_Impl
+    trans_fun inv_fun final_fun "IArray k" A 0 "PR_CONST F" m "default_ceiling A"
     unfolding PR_CONST_def
     apply standard
     using iarray_k' by fastforce+
 
   lemma F_reachable_correct:
     "default_ceiling.F_reachable
-    \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
+    \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
     unfolding default_ceiling.F_reachable_def default_ceiling.reachable_def
     using default_ceiling.reachability_check unfolding F_def by auto
 
   definition
-    "reachability_checker \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
+    "reachability_checker' \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
+
+  theorem reachability_check':
+    "(uncurry0 reachability_checker',
+      uncurry0 (
+        RETURN (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
+      )
+     )
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  using hnr_F_reachable unfolding reachability_checker'_def F_reachable_correct .
+
+  corollary reachability_checker'_hoare:
+    "<emp> reachability_checker'
+    <\<lambda> r. \<up>(r \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final))>\<^sub>t"
+   apply (rule cons_post_rule)
+   using reachability_check'[to_hnr] apply (simp add: hn_refine_def)
+   by (sep_auto simp: pure_def)
+
+  definition reachability_checker where
+    "reachability_checker \<equiv> do
+      {
+        init_sat \<leftarrow> start_inv_check_impl;
+        if init_sat then do
+          { x \<leftarrow> reachability_checker';
+            return (if x then REACHABLE else UNREACHABLE)
+          }
+        else
+          return INIT_INV_ERR
+      }"
 
   theorem reachability_check:
     "(uncurry0 reachability_checker,
-      uncurry0 (
-        RETURN (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
+       uncurry0 (
+        RETURN (
+          if default_ceiling.start_inv_check
+          then
+            if
+              \<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
+            then REACHABLE
+            else UNREACHABLE
+          else INIT_INV_ERR
+        )
+       )
       )
-     ) 
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  using hnr_F_reachable unfolding reachability_checker_def F_reachable_correct .
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  proof -
+    define check_A where
+      "check_A \<equiv> \<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final"
+    define check_B where
+      "check_B \<equiv> \<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final"
+    note F_reachable_equiv' =
+      default_ceiling.F_reachable_equiv
+      [unfolded F_def PR_CONST_def check_A_def[symmetric] check_B_def[symmetric]]
+    show ?thesis
+      unfolding reachability_checker_def
+      unfolding check_A_def[symmetric] check_B_def[symmetric]
+      using F_reachable_equiv'
+      supply reachability_check'
+        [unfolded check_A_def[symmetric], to_hnr, unfolded hn_refine_def, rule_format, sep_heap_rules]
+      supply start_inv_check_impl.refine[to_hnr, unfolded hn_refine_def, rule_format, sep_heap_rules]
+      apply sepref_to_hoare
+      by (sep_auto simp: pure_def)
+  qed
+
+  corollary reachability_checker_hoare':
+    "<emp> reachability_checker
+    <\<lambda> r.
+    \<up>(r = (
+      if (\<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> u \<turnstile> inv_of (conv_A A) 0)
+        then
+          if
+            \<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
+          then REACHABLE
+          else UNREACHABLE
+        else INIT_INV_ERR
+      ))
+    >\<^sub>t"
+   unfolding default_ceiling.start_inv_check_correct[symmetric]
+   apply (rule cons_post_rule)
+   using reachability_check[to_hnr] apply (simp add: hn_refine_def)
+   by (sep_auto simp: pure_def)
 
   corollary reachability_checker_hoare:
     "<emp> reachability_checker
-    <\<lambda> r. \<up>(r \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final))>\<^sub>t"
+    <\<lambda> r.
+    \<up>(
+        if \<not> (\<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> u \<turnstile> inv_of (conv_A A) 0)
+          then r = INIT_INV_ERR
+        else if \<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
+          then r = REACHABLE
+        else r = UNREACHABLE
+      )
+    >\<^sub>t"
+   unfolding default_ceiling.start_inv_check_correct[symmetric]
    apply (rule cons_post_rule)
    using reachability_check[to_hnr] apply (simp add: hn_refine_def)
-  by (sep_auto simp: pure_def)
+   by (sep_auto simp: pure_def)
 
   subsubsection \<open>Post-processing\<close>
 
@@ -536,7 +676,7 @@ term Reachability_Problem_Impl
         val l = get_lhs thm;
         val rewr = pull_let u l;
       in Local_Defs.unfold_tac ctxt [rewr] thm end;
-    
+
     fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
   \<close>
 
@@ -570,7 +710,7 @@ term Reachability_Problem_Impl
 
   schematic_goal succs_impl_alt_def':
     "succs_impl \<equiv> ?impl"
-  unfolding succs_impl_def 
+  unfolding succs_impl_def
    apply (tactic \<open>mytac @{context}\<close>)
    unfolding inv_fun_rewr' trans_fun_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
@@ -587,19 +727,23 @@ term Reachability_Problem_Impl
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
   by (rule Pure.reflexive)
 
-  lemma reachability_checker_alt_def':
-    "reachability_checker \<equiv>
+  lemma reachability_checker'_alt_def':
+    "reachability_checker' \<equiv>
       let
         sub = subsumes_impl;
         start = a\<^sub>0_impl;
         final = F_impl;
         succs = succs_impl
       in worklist_algo2 sub start final succs"
-  unfolding reachability_checker_def by simp
+  unfolding reachability_checker'_def by simp
 
   schematic_goal reachability_checker_alt_def:
     "reachability_checker \<equiv> ?impl"
-  unfolding reachability_checker_alt_def' succs_impl_def
+    unfolding reachability_checker_def
+    unfolding reachability_checker'_alt_def' succs_impl_def
+    unfolding
+      start_inv_check_impl_def unbounded_dbm_impl_def unbounded_dbm'_def
+      default_ceiling.unbounded_dbm_def
    apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
@@ -615,7 +759,7 @@ term Reachability_Problem_Impl
 
   schematic_goal reachability_checker_alt_def:
     "reachability_checker \<equiv> ?impl"
-  unfolding succs_impl_def reachability_checker_def
+  unfolding succs_impl_def reachability_checker_def reachability_checker'_def
    apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
@@ -698,16 +842,10 @@ export_code Reachability_Problem_precompiled in SML module_name Test
 
 concrete_definition succs_impl' uses Reachability_Problem_precompiled.succs_impl_alt_def
 
-thm succs_impl'_def succs_impl'.refine
-
 concrete_definition reachability_checker_impl
   uses Reachability_Problem_precompiled.reachability_checker_alt_def
 
 export_code reachability_checker_impl in SML_imp module_name TA
-
-thm reachability_checker_impl_def reachability_checker_impl.refine
-
-term Reachability_Problem_precompiled.reachability_checker
 
 definition [code]:
   "check_and_verify n m k I T final \<equiv>
@@ -715,7 +853,7 @@ definition [code]:
     then reachability_checker_impl m k I T final \<bind> (\<lambda> x. return (Some x))
     else return None"
 
-lemmas [sep_heap_rules] = Reachability_Problem_precompiled.reachability_checker_hoare
+lemmas [sep_heap_rules] = Reachability_Problem_precompiled.reachability_checker_hoare'
 
 theorem reachability_check:
   "(uncurry0 (check_and_verify n m k I T final),
@@ -723,17 +861,44 @@ theorem reachability_check:
        RETURN (
         if (Reachability_Problem_precompiled n m k I T)
         then Some (
-          \<exists> l' u u'.
-            conv_A (Reachability_Problem_precompiled_defs.A n I T) \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>
-            \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
+          if (\<forall> u. (\<forall> c \<in> {1..m}. u c = 0)
+              \<longrightarrow> u \<turnstile> inv_of (conv_A (Reachability_Problem_precompiled_defs.A n I T)) 0)
+          then
+            if
+              \<exists> l' u u'.
+              (conv_A (Reachability_Problem_precompiled_defs.A n I T)) \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>
+              \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
+            then REACHABLE
+            else UNREACHABLE
+          else INIT_INV_ERR
           )
         else None
-        
        )
     )
-   ) 
+   )
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
-by sepref_to_hoare (sep_auto simp: reachability_checker_impl.refine[symmetric] check_and_verify_def)
+proof -
+  define inv_pre where
+    "inv_pre \<equiv>
+    (\<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow>
+     u \<turnstile> inv_of (conv_A (Reachability_Problem_precompiled_defs.A n I T)) 0)"
+  define reach_check where
+    "reach_check =
+    (\<exists> l' u u'.
+      (conv_A (Reachability_Problem_precompiled_defs.A n I T)) \<turnstile>
+      \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
+  note [sep_heap_rules] =
+    Reachability_Problem_precompiled.reachability_checker_hoare'
+    [of n m k I T final,
+      unfolded inv_pre_def[symmetric],
+      unfolded reach_check_def[symmetric]
+      ]
+  show ?thesis
+    unfolding inv_pre_def[symmetric] reach_check_def[symmetric]
+    apply sepref_to_hoare
+    unfolding check_and_verify_def
+    by (sep_auto simp: reachability_checker_impl.refine[symmetric])
+qed
 
 export_code open check_and_verify checking SML_imp
 

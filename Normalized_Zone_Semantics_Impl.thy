@@ -143,7 +143,7 @@ lemma finite_ta_RegionsD_real:
     "Regions' (clk_set A) v n x" "valid_abstraction A (clk_set A) k" "global_clock_numbering A v n"
 proof -
   from standard_abstraction_real assms have k:
-    "valid_abstraction A (clk_set A) k" 
+    "valid_abstraction A (clk_set A) k"
   unfolding finite_ta_def by blast
   from finite_ta_Regions'_real[OF \<open>finite_ta A\<close>] have *: "Regions' (clk_set A) v n x" unfolding assms .
   then interpret interp: Regions' "clk_set A" k v n x .
@@ -182,7 +182,7 @@ lemma finite_ta_RegionsD_int:
     "Regions' (clk_set A) v n x" "valid_abstraction A (clk_set A) k" "global_clock_numbering A v n"
 proof -
   from standard_abstraction_int assms have k:
-    "valid_abstraction A (clk_set A) k" 
+    "valid_abstraction A (clk_set A) k"
   unfolding finite_ta_def by blast
   from finite_ta_Regions'_int[OF \<open>finite_ta A\<close>] have *: "Regions' (clk_set A) v n x" unfolding assms .
   then interpret interp: Regions' "clk_set A" k v n x .
@@ -251,12 +251,12 @@ using assms by simp
 
 lemma normalized_integral_dbms_finite':
   assumes "length k = Suc n"
-  shows 
+  shows
     "finite {norm_upd M (k :: nat list) n | M. dbm_default (curry M) n}"
   (is "finite ?S")
 proof -
   let ?k = "(\<lambda> i. k ! i)"
-  have "norm_upd M k n = uncurry (norm (curry M) ?k n)" for M 
+  have "norm_upd M k n = uncurry (norm (curry M) ?k n)" for M
    apply (intro ext)
    apply clarify
    apply (subst norm_upd_norm[where k = k and M = M and n = n])
@@ -338,9 +338,18 @@ by (induction cc arbitrary: M) (auto simp: abstra_upd_diag_preservation)
 lemma up_diag_preservation:
   assumes "M i i \<le> \<one>"
   shows "(up M) i i \<le> \<one>"
-using assms unfolding up_def by (auto split: split_min)
+  using assms unfolding up_def by (auto split: split_min)
 
+lemma reset_diag_preservation:
+  assumes "M i i \<le> \<one>" "d \<le> 0"
+  shows "reset M n k d i i \<le> \<one>"
+  using assms min_le_iff_disj unfolding neutral reset_def by auto
 
+lemma reset'_diag_preservation:
+  assumes "\<forall> i \<le> n. M i i \<le> \<one>" "d \<le> 0"
+  shows "\<forall> i \<le> n. reset' M n cs v d i i \<le> \<one>"
+  using assms
+  by (induction cs) (auto intro: reset_diag_preservation)
 
 section \<open>Implementation Semantics\<close>
 
@@ -356,16 +365,16 @@ unfolding FW'_def using FW_out_of_bounds2[OF assms, where M = "curry M"] by auto
 
 inductive step_impl ::
   "('a, nat, 't :: linordered_ab_group_add, 's) ta \<Rightarrow> 's \<Rightarrow> 't DBM'
-    \<Rightarrow> ('t list) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> 't DBM' \<Rightarrow> bool"
+    \<Rightarrow> nat \<Rightarrow> 'a action \<Rightarrow> 's \<Rightarrow> 't DBM' \<Rightarrow> bool"
 ("_ \<turnstile>\<^sub>I \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
 where
   step_t_impl:
-    "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l,FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n)) n) k n) n\<rangle>" |
+    "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l, FW' (abstr_upd (inv_of A l) (up_canonical_upd D n)) n\<rangle>" |
   step_a_impl:
     "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'
-    \<Longrightarrow> A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',FW' (norm_upd (FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n) k n) n\<rangle>"
+    \<Longrightarrow> A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l', FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n\<rangle>"
 
-inductive_cases step_impl_cases: "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l', D'\<rangle>"
+inductive_cases step_impl_cases: "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>"
 
 declare step_impl.intros[intro]
 
@@ -400,6 +409,7 @@ lemma FW'_int_preservation:
 using FW_int_preservation[OF assms] unfolding FW'_def curry_def by auto
 
 (* XXX Unused *)
+  (*
 lemma step_impl_dbm_default:
   assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "\<forall> c \<in> clk_set A. c \<le> n"
   shows "dbm_default (curry D') n"
@@ -427,7 +437,7 @@ apply safe
   apply (fastforce simp: collect_clkvt_def)
   apply assumption
   apply (simp add: FW'_out_of_bounds1)
-  apply (subst abstr_upd_out_of_bounds1[where n = n]) 
+  apply (subst abstr_upd_out_of_bounds1[where n = n])
   apply (auto simp: constraint_clk_constraint_pair clkp_set_def collect_clkt_def collect_clks_def
     collect_clock_pairs_def; blast; fail)
   apply assumption
@@ -454,12 +464,13 @@ apply safe
   apply (fastforce simp: collect_clkvt_def)
   apply assumption
   apply (simp add: FW'_out_of_bounds2)
-  apply (subst abstr_upd_out_of_bounds2[where n = n]) 
+  apply (subst abstr_upd_out_of_bounds2[where n = n])
   apply (auto simp: constraint_clk_constraint_pair clkp_set_def collect_clkt_def collect_clks_def
     collect_clock_pairs_def; blast; fail)
   apply assumption
   apply (simp; fail)
 done
+*)
 
 (* XXX Unused *)
 lemma step_impl_norm_dbm_default:
@@ -474,7 +485,7 @@ using assms
   apply standard
   apply (simp; fail)
   apply safe
-  
+
     apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
     apply (subst abstr_upd_out_of_bounds1[where n = n])
     using collect_clks_inv_clk_set[of A] apply fastforce
@@ -534,8 +545,92 @@ using assms
  done
 oops
 
+ lemma step_impl_norm_dbm_default_dbm_int:
+  assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "dbm_int (curry D) n"
+          "\<forall> c \<in> clk_set A. c \<le> n \<and> c \<noteq> 0" "\<forall> (_, d)  \<in> clkp_set A. d \<in> \<int>"
+  shows "dbm_default (curry D') n \<and> dbm_int (curry D') n"
+using assms
+ apply (cases rule: step_impl.cases)
+
+  subgoal -- "Step is a time delay step"
+  apply standard
+  apply standard
+  apply standard
+  apply safe[]
+
+    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
+    apply (subst abstr_upd_out_of_bounds1[where n = n])
+    using collect_clks_inv_clk_set[of A] apply fastforce
+    apply assumption
+    apply (simp add: up_canonical_out_of_bounds1 FW'_out_of_bounds1; fail)
+
+    apply standard
+    apply safe[]
+    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
+    apply (subst abstr_upd_out_of_bounds2[where n = n])
+    using collect_clks_inv_clk_set[of A] apply fastforce
+    apply assumption
+    apply (simp add: up_canonical_out_of_bounds2 FW'_out_of_bounds2; fail)
+
+    apply (simp only:)
+    apply (rule FW'_int_preservation)
+    apply (rule abstr_upd_int_preservation)
+    defer
+    apply (rule up_canonical_upd_int_preservation)
+    apply (simp add: clkp_set_def collect_clki_def; fast)+
+  done
+
+  subgoal for g a r -- "Step is an action step"
+  apply standard
+  apply standard
+  apply standard
+  apply safe[]
+
+    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
+    apply (subst abstr_upd_out_of_bounds1[where n = n])
+    using collect_clks_inv_clk_set[of A] apply fastforce
+    apply assumption
+    apply (subst reset'_upd_out_of_bounds1[where n = n])
+    apply (fastforce simp: collect_clkvt_def)
+    apply assumption
+    apply (simp add: FW'_out_of_bounds1)
+    apply (subst abstr_upd_out_of_bounds1[where n = n])
+    using collect_clocks_clk_set apply fast
+    apply assumption
+    apply (simp; fail)
+
+    apply safe[]
+    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
+    apply (subst abstr_upd_out_of_bounds2[where n = n])
+    using collect_clks_inv_clk_set[of A] apply fastforce
+    apply assumption
+    apply (subst reset'_upd_out_of_bounds2[where n = n])
+    apply (fastforce simp: collect_clkvt_def)
+    apply assumption
+    apply (simp add: FW'_out_of_bounds2)
+    apply (subst abstr_upd_out_of_bounds2[where n = n])
+    using collect_clocks_clk_set apply fast
+    apply assumption
+    apply (simp; fail)
+
+    apply (simp only:)
+    apply (rule FW'_int_preservation)
+    apply (rule abstr_upd_int_preservation)
+    defer
+    apply (rule reset'_upd_int_preservation)
+    apply (rule FW'_int_preservation)
+    apply (rule abstr_upd_int_preservation)
+    apply (simp add: clkp_set_def collect_clkt_def; fast)
+    apply assumption
+    apply simp
+    apply (auto dest!: reset_clk_set; fail)
+    apply (simp add: clkp_set_def collect_clki_def; fast)
+ done
+done
+
+(*
 lemma step_impl_norm_dbm_default_dbm_int:
-  assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "dbm_int (curry D) n"
+  assumes "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k,n,a\<^esub> \<langle>l', D'\<rangle>" "dbm_default (curry D) n" "dbm_int (curry D) n"
           "\<forall> c \<in> clk_set A. c \<le> n \<and> c \<noteq> 0" "\<forall> (_, d)  \<in> clkp_set A. d \<in> \<int>"
   shows "\<exists> M. D' = FW' (norm_upd M k n) n \<and> dbm_default (curry M) n \<and> dbm_int (curry M) n"
 using assms
@@ -550,14 +645,14 @@ using assms
   apply standard
   apply standard
   apply safe[]
-  
+
     apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
     apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
+    using collect_clks_inv_clk_set[of A] apply fastforc
     apply assumption
     apply (simp add: up_canonical_out_of_bounds1 FW'_out_of_bounds1)
     apply (subst abstr_upd_out_of_bounds1[where n = n])
-    using collect_clks_inv_clk_set[of A] apply fastforce
+    using collect_clks_inv_clk_set[of A] apply fastforc
     apply assumption
     apply (simp; fail)
 
@@ -617,7 +712,7 @@ using assms
     using collect_clocks_clk_set apply fast
     apply assumption
     apply (simp; fail)
-    
+
     apply (rule FW'_int_preservation)
     apply (rule abstr_upd_int_preservation)
     defer
@@ -631,6 +726,7 @@ using assms
     apply (simp add: clkp_set_def collect_clki_def; fast)
  done
 done
+*)
 
 inductive steps_impl ::
   "('a, nat, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('t :: linordered_ab_group_add) DBM'
@@ -638,8 +734,9 @@ inductive steps_impl ::
 ("_ \<turnstile>\<^sub>I \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_\<^esub>* \<langle>_, _\<rangle>" [61,61,61,61] 61)
 where
   refl: "A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l, Z\<rangle>" |
-  step: "A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile>\<^sub>I \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l'', Z''\<rangle>
-        \<Longrightarrow> A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l'', Z''\<rangle>"
+  step: "A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile>\<^sub>I \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l'', Z''\<rangle>
+        \<Longrightarrow> A \<turnstile>\<^sub>I \<langle>l'', Z''\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l''', Z'''\<rangle>
+        \<Longrightarrow> A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l''', FW' (norm_upd Z''' k n) n\<rangle>"
 
 lemma steps_impl_induct[consumes 1, case_names refl step]:
   fixes
@@ -648,17 +745,18 @@ lemma steps_impl_induct[consumes 1, case_names refl step]:
         (nat, 'b :: linordered_ab_group_add) acconstraint list \<times>
         'c \<times> nat list \<times> 'a) set \<times>
        ('a \<Rightarrow> (nat, 'b) acconstraint list)"
-      
+
   assumes "A \<turnstile>\<^sub>I \<langle>x2, x3\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>x6, x7\<rangle>"
     and "\<And>l Z. P A l Z k n l Z"
     and
-    "\<And>l Z l' Z' l'' Z''.
+    "\<And>l Z l' Z' l'' Z'' a l''' Z'''.
         A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,n\<^esub>* \<langle>l', Z'\<rangle> \<Longrightarrow>
         P A l Z k n l' Z' \<Longrightarrow>
-        A \<turnstile>\<^sub>I \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l'', Z''\<rangle> \<Longrightarrow>
-        P A l Z k n l'' Z''"
+        A \<turnstile>\<^sub>I \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l'', Z''\<rangle> \<Longrightarrow>
+        A \<turnstile>\<^sub>I \<langle>l'', Z''\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l''', Z'''\<rangle> \<Longrightarrow>
+        P A l Z k n l''' (FW' (norm_upd Z''' k n) n)"
   shows "P A x2 x3 k n x6 x7"
-using assms by (induction A\<equiv>A x2 x3 k \<equiv> k n \<equiv> n x6 x7; blast)
+  using assms by (induction A\<equiv>A x2 x3 k \<equiv> k n \<equiv> n x6 x7; blast)
 
 (* XXX Unused *)
 lemma steps_impl_dbm_default:
@@ -683,7 +781,7 @@ lemma steps_impl_norm_dbm_default_dbm_int:
 using assms proof (induction)
   case refl then show ?case by auto
 next
-  case (step A l Z k n l' Z' l'' Z'')
+  case (step A l Z k n l' Z' l'' Z'' a l''' Z''')
   then have "
     Z' = Z \<or>
     (\<exists>M. Z' = FW' (norm_upd M k n) n \<and>
@@ -693,7 +791,10 @@ next
   proof (standard, goal_cases)
     case 1
     with step.prems step.hyps show ?thesis
-    by simp (drule step_impl_norm_dbm_default_dbm_int; simp)
+      apply simp
+      apply (drule step_impl_norm_dbm_default_dbm_int; simp)
+      apply (drule step_impl_norm_dbm_default_dbm_int; simp)
+      by metis
   next
     case 2
     then obtain M where M:
@@ -703,7 +804,9 @@ next
      apply -
      apply (drule step_impl_norm_dbm_default_dbm_int; simp)
       using FW'_default[OF norm_upd_default, where M2 = M] apply force
-    using FW'_int_preservation[OF norm_upd_int_preservation, where M2 = M] by force
+      using FW'_int_preservation[OF norm_upd_int_preservation, where M2 = M] apply force
+      apply (drule step_impl_norm_dbm_default_dbm_int; simp)
+      by metis
   qed
 qed
 
@@ -776,7 +879,7 @@ lemma FW'_FW:
 unfolding FW'_def by auto
 
 lemma And_eqI:
-  assumes "[A]\<^bsub>v,n\<^esub> = [A1]\<^bsub>v,n\<^esub>" "[B]\<^bsub>v,n\<^esub> = [B1]\<^bsub>v,n\<^esub>" 
+  assumes "[A]\<^bsub>v,n\<^esub> = [A1]\<^bsub>v,n\<^esub>" "[B]\<^bsub>v,n\<^esub> = [B1]\<^bsub>v,n\<^esub>"
   shows "[And A B]\<^bsub>v,n\<^esub> = [And A1 B1]\<^bsub>v,n\<^esub>"
 using assms by (simp only: And_correct[symmetric])
 
@@ -1174,7 +1277,7 @@ apply (induction _ "(k, i, j)" arbitrary: k i j
 
  subgoal premises prems for n'
  proof -
-  from prems have 
+  from prems have
     "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
         (fw M n 0 0 n') (fw M' n 0 0 n')"
   by auto
@@ -1190,7 +1293,7 @@ apply (induction _ "(k, i, j)" arbitrary: k i j
    apply assumption
   done
  qed
- 
+
  subgoal premises prems for n'
  proof -
   from prems have
@@ -1370,24 +1473,22 @@ unfolding reset'_upd_def[abs_def] by transfer_prover
 definition "ri_len n = (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n)"
 
 lemma RI_complete:
-  assumes lifts: "RI n D M" "RI_A n A' A" "list_all2 ri k' k"
-      and step: "A' \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
-      and len: "length k' = Suc n"
-  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',M'\<rangle> \<and> RI n D' M'"
+  assumes lifts: "RI n D M" "RI_A n A' A"
+      and step: "A' \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
+  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',M'\<rangle> \<and> RI n D' M'"
 using step proof cases
   case prems: step_t_impl
   let ?M' =
-    "FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) M) n) n)) n) k n) n"
-  
-  note [transfer_rule] = lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
+    "FW' (abstr_upd (inv_of A l) (up_canonical_upd M n)) n"
+
+  note [transfer_rule] = lifts inv_of_transfer[unfolded RI_I_def]
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
-  have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
   have "RI n D' ?M'" unfolding prems by transfer_prover
-  with \<open>l' = l\<close> show ?thesis by auto
+  with \<open>a = \<tau>\<close> \<open>l' = l\<close> show ?thesis by auto
 next
   case prems: (step_a_impl g' a r')
   obtain T I T' I' where "A = (T, I)" and "A' = (T', I')" by force
-  with lifts(2) prems(2) obtain g r where
+  with lifts(2) prems(3) obtain g r where
     "(rel_prod op = (rel_prod (list_all2 (acri' n)) (rel_prod op = (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) op =))))
      (l, g', a, r', l') (l, g, a, r, l')"
     "(l, g, a, r, l') \<in> T"
@@ -1397,34 +1498,30 @@ next
   unfolding trans_of_def by (auto dest: rel_prod.cases)
   from this(3) have "r' = r" unfolding eq_onp_def by (simp add: list_all2_eq list_all2_mono)
 
-  let ?M' = "FW' (norm_upd (FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g M) n) n r 0)) n) k n) n"
+  let ?M' = "FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g M) n) n r 0)) n"
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
-  note [transfer_rule] = g'[unfolded \<open>r' = r\<close>]
-    lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
-  have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
+  note [transfer_rule] = g'[unfolded \<open>r' = r\<close>] lifts inv_of_transfer[unfolded RI_I_def]
   have "RI n D' ?M'" unfolding prems \<open>r' = r\<close> by transfer_prover
-  with g' show ?thesis unfolding \<open>r' = r\<close> by auto
+  with g' prems(1) show ?thesis unfolding \<open>r' = r\<close> by auto
 qed
 
 lemma IR_complete:
-  assumes lifts: "RI n D M" "RI_A n A' A" "list_all2 ri k' k"
-      and step: "A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',M'\<rangle>"
-      and len: "length k' = Suc n"
-  shows "\<exists> D'. A' \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle> \<and> RI n D' M'"
+  assumes lifts: "RI n D M" "RI_A n A' A"
+      and step: "A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',M'\<rangle>"
+  shows "\<exists> D'. A' \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle> \<and> RI n D' M'"
 using step proof cases
   case prems: step_t_impl
   let ?D' =
-    "FW' (norm_upd (FW' (abstr_upd (inv_of A' l) (up_canonical_upd (FW' (abstr_upd (inv_of A' l) D) n) n)) n) k' n) n"
-  
-  note [transfer_rule] = lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
+    "FW' (abstr_upd (inv_of A' l) (up_canonical_upd D n)) n"
+
+  note [transfer_rule] = lifts inv_of_transfer[unfolded RI_I_def]
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
-  have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
   have "RI n ?D' M'" unfolding prems by transfer_prover
-  with \<open>l' = l\<close> show ?thesis by auto
+  with \<open>l' = l\<close> \<open>a = \<tau>\<close> show ?thesis by auto
 next
   case prems: (step_a_impl g a r)
   obtain T I T' I' where "A = (T, I)" and "A' = (T', I')" by force
-  with lifts(2) prems(2) obtain g' r' where
+  with lifts(2) prems(3) obtain g' r' where
     "(rel_prod op = (rel_prod (list_all2 (acri' n)) (rel_prod op = (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) op =))))
      (l, g', a, r', l') (l, g, a, r, l')"
     "(l, g', a, r', l') \<in> T'"
@@ -1434,13 +1531,23 @@ next
   unfolding trans_of_def by (auto dest: rel_prod.cases)
   from this(3) have "r' = r" unfolding eq_onp_def by (simp add: list_all2_eq list_all2_mono)
 
-  let ?D' = "FW' (norm_upd (FW' (abstr_upd (inv_of A' l') (reset'_upd (FW' (abstr_upd g' D) n) n r 0)) n) k' n) n"
+  let ?D' = "FW' (abstr_upd (inv_of A' l') (reset'_upd (FW' (abstr_upd g' D) n) n r 0)) n"
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
-  note [transfer_rule] = g'[unfolded \<open>r' = r\<close>]
-    lifts inv_of_transfer[unfolded RI_I_def] norm_upd_transfer[folded ri_len_def]
-  have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
+  note [transfer_rule] = g'[unfolded \<open>r' = r\<close>] lifts inv_of_transfer[unfolded RI_I_def]
   have "RI n ?D' M'" unfolding prems by transfer_prover
-  with g' show ?thesis unfolding \<open>r' = r\<close> by auto
+  with g' prems(1) show ?thesis unfolding \<open>r' = r\<close> by auto
+qed
+
+lemma RI_norm_step:
+  assumes lifts: "RI n D M" "list_all2 ri k' k"
+      and len: "length k' = Suc n"
+  shows "RI n (FW' (norm_upd (FW' D n) k' n) n) (FW' (norm_upd (FW' M n) k n) n)"
+proof -
+  note [transfer_rule] = lifts norm_upd_transfer[folded ri_len_def]
+  have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
+  have [transfer_rule]: "(ri_len n) k' k" using len lifts by (simp add: ri_len_def eq_onp_def)
+
+  show ?thesis by transfer_prover
 qed
 
 end (* End of lifting syntax *)
@@ -1455,41 +1562,19 @@ lemma delay_step_impl_correct:
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
   assumes D_inv: "D_inv = abstr (inv_of A l) (\<lambda>i j. \<infinity>) v"
   shows
-  "[curry (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n))]\<^bsub>v,n\<^esub> =
-  [And (up (And (curry D) D_inv)) D_inv]\<^bsub>v,n\<^esub>"
- apply (subst abstr_upd_abstr')
-  defer
-  apply (subst abstr_abstr'[symmetric])
+  "[curry (abstr_upd (inv_of A l) (up_canonical_upd D n))]\<^bsub>v,n\<^esub> =
+  [And (up (curry D)) D_inv]\<^bsub>v,n\<^esub>"
+  apply (subst abstr_upd_abstr')
    defer
-   unfolding D_inv
-   apply (subst And_abstr[symmetric])
-     defer
-     defer
-     apply (rule And_eqI)
-      apply (subst DBM_up_to_equiv[folded n_eq_def, OF up_canonical_upd_up_canonical'])
-      apply (subst FW'_FW)
-      apply (subst FW_dbm_zone_repr_eqI[where g = up])
-          using up_canonical_neg_diag apply (auto; fail)
-         using up_neg_diag apply (auto; fail)
-        apply (rule up_canonical_equiv_up; assumption; fail)
-       defer
-       apply (rule DBM_zone_repr_up_eqI)
-        defer
-        apply (subst FW_zone_equiv[symmetric])
-       defer
-       apply (subst abstr_upd_abstr')
-       defer
-       apply (subst abstr_abstr'[symmetric])
-        defer
-        apply (subst And_abstr[symmetric])
-       using assms(2) apply fastforce
-      using assms(3) apply fastforce
-     apply (rule HOL.refl; fail)
-    apply (rule HOL.refl; fail)
-   using assms(3) apply fastforce
-  apply (rule surj; fail)
- using assms(3) apply fastforce
-done
+   apply (subst abstr_abstr'[symmetric])
+    defer
+  unfolding D_inv
+    apply (subst And_abstr[symmetric])
+      defer
+      defer
+      apply (rule And_eqI)
+       apply (subst DBM_up_to_equiv[folded n_eq_def, OF up_canonical_upd_up_canonical'])
+  using assms by (fastforce intro!: up_canonical_equiv_up)+
 
 lemma action_step_impl_correct:
   assumes "canonical (curry D) n" (* XXX atm unused, would need for optimized variant without full FW *)
@@ -1609,7 +1694,7 @@ lemma norm_action_step_impl_correct:
                                (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)) n) (\<lambda> i. k ! i) n]\<^bsub>v,n\<^esub>"
  apply (rule norm_impl_correct)
  apply (rule assms)
- 
+
  subgoal
   apply (rule abstr_upd_diag_preservation')
   apply safe[]
@@ -1650,8 +1735,8 @@ lemma norm_delay_step_impl_correct:
       and k: "Suc n \<le> length k"
   assumes D_inv: "D_inv = abstr (inv_of A l) (\<lambda>i j. \<infinity>) v"
   shows
-  "[curry (FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n)) n) k n) n)]\<^bsub>v,n\<^esub> =
-  [norm (FW(And (up (And (curry D) D_inv)) D_inv) n) (\<lambda> i. k ! i) n]\<^bsub>v,n\<^esub>"
+  "[curry (FW' (norm_upd (FW' (abstr_upd (inv_of A l) (up_canonical_upd D n)) n) k n) n)]\<^bsub>v,n\<^esub> =
+  [norm (FW(And (up (curry D)) D_inv) n) (\<lambda> i. k ! i) n]\<^bsub>v,n\<^esub>"
  apply (rule norm_impl_correct)
  apply (rule assms)
 
@@ -1659,22 +1744,12 @@ lemma norm_delay_step_impl_correct:
   apply (rule abstr_upd_diag_preservation')
   apply safe[]
   apply (subst up_canonical_upd_diag_preservation)
-  apply (simp add: FW'_def)
-  apply (rule FW_diag_preservation[rule_format])
-  apply (simp add: curry_def)
-  apply (rule abstr_upd_diag_preservation'[rule_format, where n = n])
-  using assms(4) apply fastforce
-  using assms(3) apply fastforce
-  apply assumption
-  apply assumption
-  using assms(3) apply fastforce
- done
+  using assms(3,4) by fastforce+
 
  subgoal
   apply safe[]
   apply (rule And_diag1)
   apply (rule up_diag_preservation)
-  apply (rule And_diag1)
   using assms(4) apply fastforce
  done
 
@@ -1685,14 +1760,11 @@ lemma norm_delay_step_impl_correct:
 done
 
 lemma step_impl_sound:
-  fixes k :: "nat list"
-  assumes step: "A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',M'\<rangle>"
+  assumes step: "A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',M'\<rangle>"
   assumes canonical: "canonical (curry M) n"
   assumes numbering: "global_clock_numbering A v n" "\<forall> c \<in> clk_set A. v c = c"
-  assumes k: "length k > n"
   assumes diag: "\<forall>i\<le>n. M (i, i) \<le> \<one>"
-  defines "k' \<equiv> \<lambda> i. if i \<le> n then k ! i else 0"
-  shows "\<exists> D. A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>k',v,n\<^esub> \<langle>l',D\<rangle> \<and> [curry M']\<^bsub>v,n\<^esub> = [D]\<^bsub>v,n\<^esub>"
+  shows "\<exists> D. A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',D\<rangle> \<and> [curry M']\<^bsub>v,n\<^esub> = [D]\<^bsub>v,n\<^esub>"
 proof -
   have *:
     "\<forall>c. 0 < v c \<and> (\<forall>x y. v x \<le> n \<and> v y \<le> n \<and> v x = v y \<longrightarrow> x = y)"
@@ -1708,25 +1780,17 @@ proof -
       "\<forall>c\<in>collect_clks (inv_of A l). v c = c \<and> 0 < c \<and> v c \<le> n"
     by fastforce
     let ?D_inv = "abstr (inv_of A l) (\<lambda>i j. \<infinity>) v"
-    from prems norm_delay_step_impl_correct[OF canonical *(1) ** diag *(2)] k have
-      "[curry M']\<^bsub>v,n\<^esub> = [norm (FW (And (up (And (curry M) ?D_inv)) ?D_inv) n) (nth k) n]\<^bsub>v,n\<^esub>"
-    by auto
-    also have
-      "\<dots> = [norm (FW (And (up (And (curry M) ?D_inv)) ?D_inv) n) k' n]\<^bsub>v,n\<^esub>"
-    by (subst norm_k_cong) (auto simp: k'_def)
-    finally moreover have
-      "A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>k',v,n\<^esub> \<langle>l',norm (FW (And (up (And (curry M) ?D_inv)) ?D_inv) n) k' n\<rangle>"
-     apply -
-     apply (rule step_z_norm)
-     apply (simp only: \<open>l' = l\<close>)
-    by (rule step_t_z_dbm[of ?D_inv, OF HOL.refl])
-    ultimately show ?thesis by auto
+    from prems delay_step_impl_correct[OF canonical *(1) ** *(2)] have
+      "[curry M']\<^bsub>v,n\<^esub> = [And (up (curry M)) ?D_inv]\<^bsub>v,n\<^esub>"
+      by (simp add: FW'_FW FW_zone_equiv[OF *(2), symmetric])
+    moreover have
+      "A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',And (up (curry M)) ?D_inv\<rangle>"
+      unfolding \<open>a = _\<close> \<open>l' = l\<close> by blast
+    ultimately show ?thesis by blast
   next
-    case prems: (step_a_impl g a r)
+    case prems: (step_a_impl g a' r)
     let ?M =
-      "norm (FW
-         (And (reset' (And (curry M) (abstr g (\<lambda>i j. \<infinity>) v)) n r v 0) (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)) n)
-       k' n"
+      "And (reset' (And (curry M) (abstr g (\<lambda>i j. \<infinity>) v)) n r v 0) (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)"
     from prems *(1,3) numbering(2) collect_clks_inv_clk_set collect_clocks_clk_set reset_clk_set have
       "\<forall>c\<in>collect_clks (inv_of A l'). v c = c \<and> 0 < v c \<and> v c \<le> n"
       "\<forall>c\<in>collect_clks g. v c = c \<and> 0 < v c \<and> v c \<le> n"
@@ -1736,29 +1800,23 @@ proof -
       "\<forall>c\<in>collect_clks (inv_of A l'). v c = c \<and> 0 < c \<and> v c \<le> n"
       "\<forall>c\<in>collect_clks g. v c = c \<and> 0 < c \<and> v c \<le> n"
       "\<forall>c\<in>set r. v c = c \<and> 0 < c \<and> v c \<le> n"
-    by fastforce+
-    from prems norm_action_step_impl_correct[OF canonical *(1) ** diag *(2)] k have
+      by fastforce+
+    from prems action_step_impl_correct[OF canonical *(1) ** diag *(2)] have
       "[curry M']\<^bsub>v,n\<^esub> =
-       [norm (FW
-         (And (reset' (And (curry M) (abstr g (\<lambda>i j. \<infinity>) v)) n r v 0) (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)) n)
-        (nth k) n]\<^bsub>v,n\<^esub>"
-    by auto
-    also have "\<dots> = [?M]\<^bsub>v,n\<^esub>" by (subst norm_k_cong) (auto simp: k'_def)
-    finally moreover have
-      "A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>k',v,n\<^esub> \<langle>l',?M\<rangle>" by - (rule step_z_norm step_a_z_dbm prems)+
+       [And (reset' (And (curry M) (abstr g (\<lambda>i j. \<infinity>) v)) n r v 0) (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)]\<^bsub>v,n\<^esub>"
+      by (simp add: FW'_FW FW_zone_equiv[OF *(2), symmetric])
+    moreover have
+      "A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',?M\<rangle>" unfolding \<open>a = _\<close> by - (intro step_z_norm step_a_z_dbm prems)
     ultimately show ?thesis by auto
   qed
 qed
 
 lemma step_impl_complete:
-  fixes k :: "nat list" and n :: nat
-  defines "k' \<equiv> \<lambda> i. if i \<le> n then k ! i else 0"
-  assumes step: "A \<turnstile> \<langle>l,curry D\<rangle> \<leadsto>\<^bsub>k',v,n\<^esub> \<langle>l',curry D'\<rangle>"
+  assumes step: "A \<turnstile> \<langle>l,curry D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',curry D'\<rangle>"
   assumes canonical: "canonical (curry D) n"
   assumes numbering: "global_clock_numbering A v n" "\<forall> c \<in> clk_set A. v c = c"
-  assumes k: "length k > n"
   assumes diag: "\<forall>i\<le>n. D (i, i) \<le> \<one>"
-  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',M'\<rangle> \<and> [curry M']\<^bsub>v,n\<^esub> = [curry D']\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',M'\<rangle> \<and> [curry M']\<^bsub>v,n\<^esub> = [curry D']\<^bsub>v,n\<^esub>"
 proof -
   have *:
     "\<forall>c. 0 < v c \<and> (\<forall>x y. v x \<le> n \<and> v y \<le> n \<and> v x = v y \<longrightarrow> x = y)"
@@ -1766,10 +1824,8 @@ proof -
   using numbering by metis+
   from step show ?thesis
    apply cases
-   apply (cases rule: step_z_dbm.cases)
-   apply assumption
   proof goal_cases
-    case prems: (1 D'' D_inv)
+    case prems: (1 D_inv)
     from *(1,3) numbering(2) collect_clks_inv_clk_set have
       "\<forall>c\<in>collect_clks (inv_of A l). v c = c \<and> 0 < v c \<and> v c \<le> n"
     by fast
@@ -1777,28 +1833,19 @@ proof -
       "\<forall>c\<in>collect_clks (inv_of A l). v c = c \<and> 0 < c \<and> v c \<le> n"
     by fastforce
     let ?D_inv = "abstr (inv_of A l) (\<lambda>i j. \<infinity>) v"
-    let ?M' = "FW' (norm_upd
-                    (FW' (abstr_upd (inv_of A l)
-                           (up_canonical_upd (FW' (abstr_upd (inv_of A l) D) n) n))
-                      n)
-                    (map real k) n)
-               n"
+    let ?M' = "FW' (abstr_upd (inv_of A l) (up_canonical_upd D n)) n"
     have
-      "[curry D']\<^bsub>v,n\<^esub> = [norm (FW (And (up (And (curry D) ?D_inv)) ?D_inv) n) (\<lambda>x. real (k ! x)) n]\<^bsub>v,n\<^esub>"
-     apply (simp only: prems)
-     apply (subst norm_k_cong)
-    by (auto simp: k'_def)
-    also from prems norm_delay_step_impl_correct[OF canonical *(1) ** diag *(2)] k have
+      "[curry D']\<^bsub>v,n\<^esub> = [And (up (curry D)) ?D_inv]\<^bsub>v,n\<^esub>"
+      by (simp only: prems)
+    also from prems delay_step_impl_correct[OF canonical *(1) ** *(2)] have
       "\<dots> = [curry ?M']\<^bsub>v,n\<^esub>"
-    by auto
-    finally moreover have "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',?M'\<rangle>" by (auto simp only: \<open>l' = l\<close>)
+      by (simp only: FW'_FW FW_zone_equiv[OF *(2), symmetric])
+    finally moreover have "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',?M'\<rangle>" by (auto simp only: \<open>l' = l\<close> \<open>a = _\<close>)
     ultimately show ?thesis by auto
   next
-    case prems: (2 D'' g a r)
+    case prems: (2 g a' r)
     let ?M =
-      "FW' (norm_upd
-        (FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n) (map real k) n)
-       n"
+      "FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0)) n"
     from prems *(1,3) numbering(2) collect_clks_inv_clk_set collect_clocks_clk_set reset_clk_set have
       "\<forall>c\<in>collect_clks (inv_of A l'). v c = c \<and> 0 < v c \<and> v c \<le> n"
       "\<forall>c\<in>collect_clks g. v c = c \<and> 0 < v c \<and> v c \<le> n"
@@ -1809,15 +1856,10 @@ proof -
       "\<forall>c\<in>collect_clks g. v c = c \<and> 0 < c \<and> v c \<le> n"
       "\<forall>c\<in>set r. v c = c \<and> 0 < c \<and> v c \<le> n"
     by fastforce+
-    have
-      "[curry D']\<^bsub>v,n\<^esub> = [norm (FW D'' n) (nth k) n]\<^bsub>v,n\<^esub>"
-     apply (simp only: prems)
-     apply (subst norm_k_cong)
-    by (auto simp: k'_def)
-    also from prems norm_action_step_impl_correct[OF canonical *(1) ** diag *(2)] k have
-      "\<dots> = [curry ?M]\<^bsub>v,n\<^esub>"
-    by auto
-    finally moreover have "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k,n\<^esub> \<langle>l',?M\<rangle>" using prems by auto
+    from prems action_step_impl_correct[OF canonical *(1) ** diag *(2)] have
+      "[curry D']\<^bsub>v,n\<^esub> = [curry ?M]\<^bsub>v,n\<^esub>"
+    by (simp only: FW'_FW FW_zone_equiv[OF *(2), symmetric])
+    moreover have "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',?M\<rangle>" using prems by auto
     ultimately show ?thesis by auto
   qed
 qed
@@ -2140,7 +2182,7 @@ using assms unfolding rel_fun_def eq_onp_def
  by (rule canonical_RI_aux2[of _ "M (i, k)" _ "M (i, j)" _ "M (j, k)"]; auto)
 done
 
-lemma RI_conv_M:
+lemma RI_conv_M[transfer_rule]:
   "(RI n) (conv_M M) M"
 by (auto simp: rel_fun_def DBMEntry.rel_map(1) ri_def eq_onp_def DBMEntry.rel_refl)
 
@@ -2255,7 +2297,6 @@ using assms
  apply (auto; fail)
 by blast+
 
-(* XXX Unused *)
 lemma dbm_subset_correct':
   fixes D M :: "real DBM'"
   assumes "canonical (curry D) n \<or> check_diag n D"
@@ -2269,6 +2310,74 @@ using assms
  apply (auto; fail)
  apply (auto; fail)
 by blast+
+
+lemma
+  "x = y" if "[x]@xs@[x]=[y]@xs@[x]"
+  using that
+    using [[simp_trace]]
+  by simp
+
+lemma step_z_dbm_diag_preservation:
+  assumes "step_z_dbm A l D v n a l' D'" "\<forall> i \<le> n. D i i \<le> \<one>"
+  shows "\<forall> i \<le> n. D' i i \<le> \<one>"
+  using assms
+  apply cases
+  using And_diag1 up_diag_preservation apply blast
+  by (metis And_diag1 order_mono_setup.refl reset'_diag_preservation)
+
+(* XXX Move? *)
+context AlphaClosure
+begin
+
+lemma step_z_dbm_mono:
+  "\<exists> D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<subseteq> [D']\<^bsub>v,n\<^esub>" if
+  gcn: "global_clock_numbering A v n" and that: "A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle>" "[M]\<^bsub>v,n\<^esub> \<subseteq> [D]\<^bsub>v,n\<^esub>"
+  using step_z_mono[of A] step_z_dbm_sound[OF _ gcn] step_z_dbm_DBM[OF _ gcn] that by metis
+
+end
+
+(* XXX Move *)
+lemma FW_canonical:
+  "canonical (FW M n) n \<or> (\<exists> i \<le> n. (FW M n) i i < \<one>)"
+  using FW_neg_cycle_detect fw_shortest by blast
+
+lemma FW'_canonical:
+  "canonical (curry (FW' M n)) n \<or> (\<exists> i \<le> n. (FW' M n) (i, i) < \<one>)"
+  by (metis FW'_FW FW_canonical curry_def)
+
+(* XXX Clean *)
+context Regions
+  begin
+
+lemma fw_upd_conv_M:
+  "uncurry (fw_upd (curry (conv_M (uncurry M))) h i j) = (map_DBMEntry real_of_int \<circ>\<circ> uncurry) (fw_upd M h i j)"
+  unfolding fw_upd_def upd_def
+  apply (rule ext)
+  apply (simp split: prod.split)
+  unfolding uncurry_def curry_def
+  apply (simp split: prod.split)
+  apply (cases "M i j"; cases "M i h"; cases "M h j")
+  by (force simp: mult min_def | force simp: min_inf_r | force simp: min_inf_l)+
+
+lemma fw_conv_M:
+  "conv_M (uncurry (fw (curry M) n h i j)) = uncurry (fw (curry (conv_M M)) n h i j)"
+  apply (induction _ "(h, i, j)" arbitrary: h i j
+    rule: wf_induct[of "less_than <*lex*> less_than <*lex*> less_than"]
+  )
+  apply (auto; fail)
+  subgoal for k i j
+    by (cases k; cases i; cases j; auto simp add: fw_upd_conv_M[symmetric])
+  done
+
+lemma FW_conv_M:
+  "uncurry (FW (curry (conv_M M)) n) = conv_M (uncurry (FW (curry M) n))"
+  using fw_conv_M by metis
+
+lemma FW'_conv_M:
+  "FW' (conv_M M) n = conv_M (FW' M n)"
+  using FW_conv_M unfolding FW'_def by simp
+
+end (* End of regions context *)
 
 definition "subsumes n = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset n M M')"
 
@@ -2287,17 +2396,17 @@ begin
   lemma clock_range:
       "\<forall>c\<in>clk_set A. c \<le> n \<and> c \<noteq> 0"
     using clocks_n by force
-  
+
   definition "X \<equiv> {1..n}"
-  
+
   lemma clk_set_X:
     "clk_set A \<subseteq> X"
     unfolding X_def using clocks_n .
-  
+
   lemma finite_X:
     "finite X"
   unfolding X_def by (metis finite_atLeastAtMost)
-  
+
   lemma finite_clkp_set_A[intro, simp]:
     "finite (clkp_set A)"
   unfolding clkp_set_def collect_clki_alt_def collect_clkt_alt_def by fast
@@ -2316,7 +2425,7 @@ begin
 definition "k' \<equiv> map (int o k) [0..<Suc n]"
 
 definition "F_rel \<equiv> \<lambda> (l, M). F l \<and> \<not> check_diag n M"
-  
+
 definition "a\<^sub>0 = (l\<^sub>0, init_dbm)"
 
 end
@@ -2351,7 +2460,22 @@ begin
     "finite locations"
   unfolding locations_def using finite_trans by auto
 
-  definition "E = (\<lambda> (l, M) (l', M'). step_impl A l M k' n l' M')"
+  definition "E = (\<lambda> (l, M) (l'', M''').
+    \<exists> M' l' M'' a.
+    A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', M'\<rangle>
+    \<and> A \<turnstile>\<^sub>I \<langle>l', M'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', M''\<rangle>
+    \<and> M''' = FW' (norm_upd M'' k' n) n)
+    "
+
+  lemma E_alt_def: "E = (\<lambda> (l, M) (l', M''').
+    \<exists> g a r M' M''.
+    A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and>
+    M' = FW' (abstr_upd (inv_of A l) (up_canonical_upd M n)) n \<and>
+    M'' = FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g M') n) n r 0)) n \<and>
+    M''' = FW' (norm_upd M'' k' n) n
+    )
+    "
+  unfolding E_def by (force elim!: step_impl.cases)
 
   lemma E_closure:
     "E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<longleftrightarrow> A \<turnstile>\<^sub>I \<langle>l\<^sub>0, init_dbm\<rangle> \<leadsto>\<^bsub>k',n\<^esub>* \<langle>l', M'\<rangle>"
@@ -2360,7 +2484,8 @@ begin
   apply (drule rtranclp_induct[where P = "\<lambda> (l', M'). A \<turnstile>\<^sub>I \<langle>l\<^sub>0, init_dbm\<rangle> \<leadsto>\<^bsub>k',n\<^esub>* \<langle>l', M'\<rangle>"];
          auto dest: step intro: refl; fail
         )
-  by (induction rule: steps_impl.induct; simp add: rtranclp.intros(2))
+  apply (induction rule: steps_impl.induct; simp add: rtranclp.intros(2))
+  by (rule rtranclp.intros(2)) auto
 
   lemma FW'_normalized_integral_dbms_finite':
     "finite {FW' (norm_upd M k' n) n | M. dbm_default (curry M) n}" (is "finite ?M")
@@ -2393,9 +2518,9 @@ begin
     using clock_range consts_ints by (auto simp: X_def)
     moreover have **: "l \<in> locations" if "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)" for l M
     using that unfolding E_closure locations_def
-     apply (induction rule: steps_impl.induct)
-     apply (simp; fail)
-    by (cases rule: step_impl.cases, assumption; force)
+      apply (induction rule: steps_impl.induct)
+      apply (simp; fail)
+      by (force elim!: step_impl.cases)
     have
       "{x. E\<^sup>*\<^sup>* a\<^sub>0 x} \<subseteq> {a\<^sub>0} \<union> (locations \<times> {FW' (norm_upd M k' n) n | M. dbm_default (curry M) n})"
     (is "_ \<subseteq> _ \<union> ?S")
@@ -2478,7 +2603,7 @@ begin
     using clocks_n unfolding v_def by auto
 
   thm finite_ta_RegionsD_int(2)
-  
+
   lemma valid_abstraction:
     "valid_abstraction A X k"
     using k_ceiling consts_nats clk_set_X unfolding X_def by (auto intro!: valid_abstraction.intros)
@@ -2513,12 +2638,13 @@ begin
   lemma RI_T_conv_t:
     "rel_set (RI_T n) (conv_t ` fst A) (fst A)"
   using ri_conv_t unfolding rel_set_def by (fastforce split: prod.split)
-  
+
   lemma RI_A_conv_A:
     "RI_A n (conv_A A) A"
   using RI_T_conv_t RI_I_conv_cc unfolding RI_A_def by (auto split: prod.split)
 
   (* XXX Unused *)
+    (*
   lemma step_impl_mono:
     assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
     and canonical: "canonical (curry (conv_M D)) n" "canonical (curry (conv_M M)) n"
@@ -2570,6 +2696,7 @@ begin
     by (auto dest!: RI_zone_equiv[where v = v])
     ultimately show ?thesis by auto
   qed
+*)
 
   lemma norm_upd_diag_preservation:
     assumes "i \<le> n" "M (i, i) \<le> \<one>"
@@ -2588,7 +2715,7 @@ begin
   using norm_empty_diag_preservation_int assms unfolding neutral by auto
 
   lemma step_impl_diag_preservation:
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
         and diag: "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
     shows
       "\<forall> i \<le> n. (curry M') i i \<le> \<one>"
@@ -2605,21 +2732,13 @@ begin
       subgoal -- "delay step"
        apply simp
        apply (rule FW'_diag_preservation)
-       apply (standard, standard)
-       apply (rule norm_upd_diag_preservation, assumption)
-       apply (erule FW')
        apply (rule abstr_upd_diag_preservation')
-        apply (subst up_canonical_upd_diag_preservation)
-        apply (rule FW'_diag_preservation)
-         apply (rule abstr_upd_diag_preservation')
+         apply (subst up_canonical_upd_diag_preservation)
       by auto
 
       subgoal -- "action step"
        apply simp
        apply (rule FW'_diag_preservation)
-       apply (standard, standard)
-       apply (rule norm_upd_diag_preservation, assumption)
-       apply (erule FW')
        apply (rule abstr_upd_diag_preservation')
         apply (standard, standard)
         apply (subst reset'_upd_diag_preservation)
@@ -2635,7 +2754,7 @@ begin
   qed
 
   lemma step_impl_neg_diag_preservation:
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
         and le: "i \<le> n"
         and diag: "(curry M) i i < \<one>"
     shows "(curry M') i i < \<one>"
@@ -2645,25 +2764,15 @@ begin
     subgoal -- "delay step"
      apply simp
      apply (rule FW'_neg_diag_preservation)
-      apply (rule norm_upd_neg_diag_preservation)
-       apply assumption
-      apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
         apply assumption
        apply (metis (no_types) clock_range collect_clks_inv_clk_set subsetCE)
       apply (subst up_canonical_upd_diag_preservation)
-      apply (rule FW'_neg_diag_preservation)
-       apply (subst abstr_upd_diag_preservation)
-        apply assumption
-       apply (metis (no_types) clock_range collect_clks_inv_clk_set subsetCE)
     by auto
 
     subgoal -- "action step"
      apply simp
      apply (rule FW'_neg_diag_preservation)
-      apply (rule norm_upd_neg_diag_preservation)
-       apply assumption
-      apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
         apply assumption
        apply (metis (no_types) clock_range collect_clks_inv_clk_set subsetCE)
@@ -2680,7 +2789,7 @@ begin
   done
 
   lemma step_impl_canonical:
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
         and diag: "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
     shows
       "canonical (curry (conv_M M')) n \<or> (\<exists> i \<le> n. M' (i, i) < \<one>)"
@@ -2703,12 +2812,12 @@ begin
   qed
 
   lemma step_impl_int_preservation:
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
         and  int: "dbm_int (curry D) n"
     shows "dbm_int (curry D') n"
   using assms
    apply cases
-  
+
    subgoal premises prems
     unfolding prems
     apply (intro
@@ -2723,15 +2832,15 @@ begin
         FW'_int_preservation norm_upd_int_preservation abstr_upd_int_preservation[rotated]
         reset'_upd_int_preservation
     )
-    using assms prems(3) consts_ints collect_clock_pairs_inv_clkp_set[of A l']
+    using assms prems(4) consts_ints collect_clock_pairs_inv_clkp_set[of A l']
     apply (auto dest!: collect_clock_pairs_trans_clkp_set simp: k'_def)
-   using prems(3) clock_range by (auto dest!: reset_clk_set)
+   using prems(4) clock_range by (auto dest!: reset_clk_set)
   done
 
   lemmas valid_abstraction' = valid_abstraction_conv[OF valid_abstraction, unfolded X_alt_def]
 
   lemma step_impl_V_preservation_canonical:
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
     and canonical: "canonical (curry (conv_M D)) n"
     and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
     and valid: "valid_dbm (curry (conv_M D))"
@@ -2744,18 +2853,17 @@ begin
     let ?A = "conv_A A"
     have A: "RI_A n ?A A" by (rule RI_A_conv_A)
     have "RI n (conv_M D) D" unfolding eq_onp_def by auto
-    from IR_complete[OF this A k step \<open>length ?k = _\<close>] obtain M' where M':
-      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI n M' D'"
+    from IR_complete[OF this A step] obtain M' where M':
+      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>" "RI n M' D'"
     by auto
     from
-      step_impl_sound[of ?A l "conv_M D" "map k [0..<Suc n]",
-        folded k_alt_def, OF this(1) canonical global_clock_numbering' triv_numbering'' _ diag(1)
+      step_impl_sound[of ?A l "conv_M D",
+        OF this(1) canonical global_clock_numbering' triv_numbering'' diag(1)
       ]
     obtain M'' where M'':
-      "?A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l', M''\<rangle>" "[curry M']\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
+      "?A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M''\<rangle>" "[curry M']\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
     by (auto simp add: k_simp_1)
-    with k_simp_2 have "step_z_norm' ?A l (curry (conv_M D)) l' M''" by auto
-    from step_z_norm_valid_dbm[OF this global_clock_numbering' valid_abstraction'] valid have
+    from step_z_valid_dbm[OF M''(1) global_clock_numbering' valid_abstraction'] valid have
       "valid_dbm M''"
     by auto
     then have "[M'']\<^bsub>v,n\<^esub> \<subseteq> V" by cases
@@ -2769,7 +2877,7 @@ begin
   using assms global_clock_numbering by fast+
 
   lemma step_impl_V_preservation:
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
     and canonical: "canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < \<one>)"
     and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
     and valid: "valid_dbm (curry (conv_M D))"
@@ -2791,14 +2899,29 @@ begin
     qed
   qed
 
+  lemma norm_step_diag_preservation:
+    "\<forall>i\<le>n. curry (FW' (norm_upd D k' n) n) i i \<le> \<one>" if "\<forall>i\<le>n. (curry D) i i \<le> \<one>"
+    by (metis FW'_diag_preservation curry_conv norm_upd_diag_preservation that)
+
+  lemma norm_step_check_diag_preservation:
+    "check_diag n (FW' (norm_upd D k' n) n)" if "check_diag n D"
+    by (metis FW'_neg_diag_preservation check_diag_def neutral norm_upd_neg_diag_preservation that)
+
   lemma diag_reachable:
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
     shows "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
    using assms unfolding E_closure
    apply (induction Z \<equiv> "init_dbm :: int DBM'" _ _ _ _ rule: steps_impl_induct)
    apply (auto simp: init_dbm_def neutral; fail)
-   apply (rule step_impl_diag_preservation; assumption)
+   apply (assumption | rule norm_step_diag_preservation step_impl_diag_preservation)+
   done
+
+  (* XXX Move all 'norm_step' lemmas somewhere else *)
+  lemma canonical_norm_step:
+    "canonical (curry (conv_M (FW' (norm_upd M k' n) n))) n
+     \<or> (\<exists> i \<le> n. (FW' (norm_upd M k' n) n) (i, i) < \<one>)"
+    by (metis FW'_canonical canonical_conv)
+
 
   lemma canonical_reachable:
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
@@ -2809,12 +2932,9 @@ begin
     show ?case unfolding init_dbm_def by simp (simp add: neutral[symmetric])
   next
     case step
-    from step(3) show ?case
-     apply (rule step_impl_canonical)
-     apply (rule diag_reachable)
-    using step(1) unfolding E_closure .
+    show ?case by (rule canonical_norm_step)
   qed
-  
+
   lemma diag_reachable':
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
     shows "\<forall> i \<le> n. (curry (conv_M M)) i i \<le> \<one>"
@@ -2830,13 +2950,91 @@ begin
   qed
 
   lemma dbm_int_conv:
-    assumes "dbm_int (curry Z) n"
-    shows "dbm_int (curry (conv_M Z)) n"
-  using assms apply safe
+    "dbm_int (curry (conv_M Z)) n"
+  apply safe
     subgoal for i j
     by (cases "Z (i, j)") auto
   done
 
+  lemma k_simp_2': "(\<lambda>x. real ((k \<circ>\<circ>\<circ> Beta_Regions'.v' {1..<Suc n} v) n (Suc n) x)) = k"
+    using k_simp_2 by auto
+
+  lemma norm_upd_V_preservation:
+    "[curry (conv_M (norm_upd M k' n))]\<^bsub>v,n\<^esub> \<subseteq> V"
+    if "[curry (conv_M M)]\<^bsub>v,n\<^esub> \<subseteq> V" "canonical (curry (conv_M M)) n"
+  proof -
+    from beta_interp.norm_V_preservation[OF that] have
+      "[norm (curry (conv_M M)) (\<lambda> x. real (k x)) n]\<^bsub>v,n\<^esub> \<subseteq> V"
+      by (simp only: k_simp_2')
+    then have *: "[norm (curry (conv_M M)) (op ! (map real_of_int k')) n]\<^bsub>v,n\<^esub> \<subseteq> V"
+      apply (subst norm_k_cong[of _ _ "(\<lambda> x. real (k x))"])
+       apply safe
+      (* s/h *)
+      proof -
+        fix i :: nat
+        assume "i \<le> n"
+        then have "map real_of_int k' ! i = (real_of_int \<circ>\<circ>\<circ> op \<circ>) int k i"
+          by (metis (no_types) Normalized_Zone_Semantics_Impl.map_nth k'_def map_map)
+        then show "map real_of_int k' ! i = real (k i)"
+          by simp
+      qed
+
+    note [transfer_rule] = norm_upd_transfer[folded ri_len_def]
+    have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
+    have [transfer_rule]: "(ri_len n) (map real_of_int k') k'"
+      by (simp add: ri_len_def eq_onp_def length_k' list_all2_conv_all_nth ri_def)
+    have "RI n (norm_upd (conv_M M) (map real_of_int k') n) (norm_upd M k' n)"
+      by transfer_prover
+    from RI_zone_equiv[OF this] * have
+      "[curry (conv_M (norm_upd M k' n))]\<^bsub>v,n\<^esub> \<subseteq> V"
+      by (auto simp add: norm_upd_norm'[symmetric])
+    then show ?thesis .
+  qed
+
+  lemma FW'_valid_preservation:
+    assumes "valid_dbm (curry (conv_M M))"
+    shows "valid_dbm (curry (conv_M (FW' M n)))"
+  proof -
+    from FW_valid_preservation[OF assms]
+    show ?thesis by (simp add: FW'_FW[symmetric] FW'_conv_M)
+  qed
+
+  lemma norm_step_valid_dbm:
+    "valid_dbm (curry (conv_M (FW' (norm_upd M k' n) n)))" if
+    "[curry (conv_M M)]\<^bsub>v,n\<^esub> \<subseteq> V" "canonical (curry (conv_M M)) n \<or> (\<exists> i \<le> n. M (i, i) < \<one>)"
+  proof -
+    let ?M1 = "curry (conv_M (norm_upd M k' n))"
+    have "dbm_int ?M1 n" by (rule dbm_int_conv)
+    from that(2) have "[?M1]\<^bsub>v,n\<^esub> \<subseteq> V"
+    proof
+      assume "canonical (curry (conv_M M)) n"
+      from that(1) norm_upd_V_preservation[OF _ this] show "[?M1]\<^bsub>v,n\<^esub> \<subseteq> V" by auto
+    next
+      assume "\<exists>i\<le>n. M (i, i) < \<one>"
+      have "[?M1]\<^bsub>v,n\<^esub> = {}"
+        by (metis (mono_tags, lifting) DBMEntry.map(1) Reachability_Problem.check_diag_empty_spec Reachability_Problem_axioms \<open>\<exists>i\<le>n. M (i, i) < \<one>\<close> check_diag_def comp_def conv_dbm_entry_mono_strict neutral norm_upd_neg_diag_preservation of_int_simps(1))
+      then show ?thesis by simp
+    qed
+    with \<open>dbm_int ?M1 n\<close> have "valid_dbm ?M1" by - rule
+    from FW'_valid_preservation[OF this] show ?thesis .
+  qed
+
+  lemma valid_dbm_V:
+    "[M]\<^bsub>v,n\<^esub> \<subseteq> V" if "valid_dbm M"
+    using that by cases
+
+  lemma step_impl_valid_dbm:
+    "valid_dbm (curry (conv_M M'))" if
+    "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>" "valid_dbm (curry (conv_M M))"
+    "canonical (curry (conv_M M)) n \<or> (\<exists>i\<le>n. M (i, i) < \<one>)" "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+      apply (rule valid_dbm.intros)
+    subgoal
+      using that by - (erule step_impl_V_preservation; assumption)
+    subgoal
+      by (rule dbm_int_conv)
+    done
+
+  (* XXX Refactor to Isar *)
   lemma valid_dbm_reachable:
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
     shows "valid_dbm (curry (conv_M M))"
@@ -2846,20 +3044,33 @@ begin
      apply (rule valid_dbm.intros)
      using init_dbm_semantics unfolding V_def apply force
    by (auto simp: init_dbm_def ; fail)
-   
-   subgoal
-     apply (rule valid_dbm.intros)
-     defer
-     subgoal
-       apply (erule dbm_int_conv[OF step_impl_int_preservation])
-       apply (cases rule: valid_dbm.cases, assumption)
-     by (rule dbm_int_conv_rev)
-     subgoal
-      apply (erule step_impl_V_preservation)
-      apply (rule canonical_reachable; simp only: E_closure; assumption; fail)
-      using diag_conv[OF diag_reachable, unfolded E_closure] apply (auto; fail)
-     by assumption
-   done
+
+  subgoal
+    apply (rule norm_step_valid_dbm)
+    apply (rule valid_dbm_V)
+
+    apply (rule step_impl_valid_dbm, assumption)
+      apply (rule step_impl_valid_dbm, assumption)
+          apply assumption
+         apply (rule canonical_reachable[unfolded E_closure], assumption)
+      apply (drule diag_conv[OF diag_reachable, unfolded E_closure]; simp; fail)
+     apply (rule step_impl_canonical step_impl_diag_preservation, assumption)
+     apply (drule diag_conv[OF diag_reachable, unfolded E_closure],
+            simp add: conv_dbm_entry_mono_rev neutral; fail)
+
+      subgoal
+      apply (drule step_impl_diag_preservation)
+             apply (drule diag_conv[OF diag_reachable, unfolded E_closure])
+            apply (auto simp: conv_dbm_entry_mono_rev neutral)[]
+           apply (auto simp: conv_dbm_entry_mono_rev neutral)[]
+        using conv_dbm_entry_mono by fastforce
+
+      apply (rule step_impl_canonical)
+       apply assumption
+      apply (rule step_impl_diag_preservation)
+       apply assumption
+      apply (rule diag_reachable)
+        unfolding E_closure .
   done
 
   lemma dbm_subset_correct'':
@@ -2891,70 +3102,155 @@ begin
   using assms unfolding check_diag_def by (auto dest!: conv_dbm_entry_mono_strict)
 
   lemma step_impl_sound':
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>"
     and canonical: "canonical (curry (conv_M D)) n \<or> check_diag n D"
     and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
     and valid: "valid_dbm (curry (conv_M D))"
-    shows "\<exists> M'. step_z_norm' (conv_A A) l (curry (conv_M D)) l' M' \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+    shows
+      "\<exists> M'. step_z_dbm (conv_A A) l (curry (conv_M D)) v n a l' M'
+          \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
   proof -
-    let ?k = "map real_of_int k'"
-    have k_alt_def: "?k = map k [0..<Suc n]" unfolding k'_def by auto
-    have k: "list_all2 ri ?k k'" by (simp add: list_all2_conv_all_nth ri_def)
-    have "length ?k = Suc n" using length_k' by auto
     let ?A = "conv_A A"
     have A: "RI_A n ?A A" by (rule RI_A_conv_A)
     have "RI n (conv_M D) D" unfolding eq_onp_def by auto
-    from IR_complete[OF this A k step \<open>length ?k = _\<close>] obtain M' where M':
-      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M'\<rangle>" "RI n M' D'"
+    from IR_complete[OF this A step] obtain M' where M':
+      "?A \<turnstile>\<^sub>I \<langle>l, conv_M D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>" "RI n M' D'"
     by auto
     show ?thesis
     proof (cases "check_diag n D")
       case False
       with
-        step_impl_sound[of ?A l "conv_M D" "map k [0..<Suc n]",
-          folded k_alt_def, OF M'(1) _ global_clock_numbering' triv_numbering'' _ diag(1)
+        step_impl_sound[of ?A l "conv_M D",
+          OF M'(1) _ global_clock_numbering' triv_numbering'' diag
         ] canonical(1)
       obtain M'' where M'':
-        "?A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l', M''\<rangle>" "[curry M']\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
-      by (auto simp add: k_simp_1)
-      with k_simp_2 have "step_z_norm' ?A l (curry (conv_M D)) l' M''" by auto
+        "?A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M''\<rangle>" "[curry M']\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
+        by auto
       with M'(2) M''(2) show ?thesis by (auto dest!: RI_zone_equiv[where v = v])
     next
       case True (* XXX This part is duplicated very often *)
       with step_impl_neg_diag_preservation[OF step] have
         "check_diag n D'"
       unfolding check_diag_def neutral by auto
-      moreover from step obtain M' where M': "conv_A A \<turnstile> \<langle>l,curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',M'\<rangle>"
+      moreover from step obtain M' where M': "conv_A A \<turnstile> \<langle>l,curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',M'\<rangle>"
       proof cases
         case prems: step_t_impl
         then show thesis by - (rule that; simp; rule step_t_z_dbm; rule HOL.refl)
       next
-        case prems: (step_a_impl g a r)
+        case prems: (step_a_impl g a' r)
         then show thesis
          apply -
-         apply (rule that)
-         apply (rule step_a_z_dbm[where A = "conv_A A", of l "map conv_ac g" a r l'])
+          apply (rule that)
+          unfolding \<open>a = _\<close>
+          apply (rule step_a_z_dbm[where A = "conv_A A", of l "map conv_ac g" a' r l'])
         by (fastforce split: prod.split simp: trans_of_def)
       qed
       moreover from step_z_dbm_empty[OF global_clock_numbering' this check_diag_empty_spec] True have
         "[M']\<^bsub>v,n\<^esub> = {}"
       by auto
-      ultimately show ?thesis using
-        norm_FW_empty check_diag_empty_spec[OF check_diag_conv_M]
-        step_z_valid_dbm[OF M' global_clock_numbering' valid_abstraction' valid]
-      apply -
-       apply (rule exI[where x = "norm (FW M' n) k n"])
-       apply (simp only: k_simp_2)
-      by auto
+      ultimately show ?thesis using check_diag_empty_spec[OF check_diag_conv_M] by auto
     qed
   qed
 
+  lemma norm_step_correct:
+    assumes diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>" "\<forall>i\<le>n. M i i \<le> \<one>"
+        and canonical: "canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < \<one>)"
+        and equiv: "[curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+        and valid: "valid_dbm M"
+    shows
+    "[curry (conv_M (FW' (norm_upd D k' n) n))]\<^bsub>v,n\<^esub> = [norm (FW_Code.FW M n) (\<lambda>x. real (k x)) n]\<^bsub>v,n\<^esub>"
+  proof (cases "check_diag n D")
+    case False
+    let ?k = "map real_of_int k'"
+    have k_alt_def: "?k = map k [0..<Suc n]" unfolding k'_def by auto
+    have k: "list_all2 ri ?k k'" by (simp add: list_all2_conv_all_nth ri_def)
+    from canonical False have "canonical (curry (conv_M D)) n"
+      unfolding check_diag_def neutral by simp
+    from canonical_conv_rev[OF this] have "canonical (curry D) n"
+      by simp
+    from FW_canonical_id[OF this] have "FW (curry D) n = curry D" .
+    then have "FW' D n = D"
+      apply (subst (asm) FW'_FW[symmetric])
+      unfolding curry_def by (rule ext, safe, meson)
+    have "RI n (FW' (norm_upd (FW' (conv_M D) n) (map real_of_int k') n) n)
+       (FW' (norm_upd (FW' D n) k' n) n)"
+      by (intro RI_norm_step RI_conv_M k; simp add: length_k')
+    moreover have "[curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>" by (rule equiv)
+    moreover have "\<forall> i \<le> n. (\<lambda>x. real (map k [0..<Suc n] ! x)) i = (\<lambda>x. real (k x)) i"
+      using map_nth by auto
+    ultimately show ?thesis
+      using diag
+      apply -
+      apply (subst \<open>_ = D\<close>[symmetric])
+      apply (subst RI_zone_equiv[symmetric, where M = "FW' (norm_upd (FW' (conv_M D) n) ?k n) n"])
+       apply assumption
+      unfolding k_alt_def
+      using norm_impl_correct[where D = "conv_M D", where M = M]
+      apply (subst norm_impl_correct[where M = M])
+            prefer 4
+      using global_clock_numbering apply satx
+      using global_clock_numbering apply satx
+          apply (simp; fail)+
+      apply (subst norm_k_cong[of _ "(\<lambda>x. real (k x))"])
+      by auto
+  next
+    case True
+    then have "check_diag n (conv_M D)" by auto
+    from check_diag_empty_spec[OF this] equiv have *:
+      "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {}" "[M]\<^bsub>v,n\<^esub> = {}"
+      by auto
+    from norm_FW_empty[OF valid *(2)] k_simp_2' have **:
+      "[norm (FW M n) (\<lambda>x. real (k x)) n]\<^bsub>v,n\<^esub> = {}"
+      by auto
+    from norm_step_check_diag_preservation[OF True] have "check_diag n (FW' (norm_upd D k' n) n)" .
+    then have "check_diag n (conv_M (FW' (norm_upd D k' n) n))" by auto
+    from check_diag_empty_spec[OF this] have "[curry (conv_M (FW' (norm_upd D k' n) n))]\<^bsub>v,n\<^esub> = {}" .
+    with ** step' show ?thesis by auto
+  qed
+
+  lemma step_impl_norm_sound:
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>"
+      and canonical: "canonical (curry (conv_M D)) n \<or> check_diag n D"
+      and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+      and valid: "valid_dbm (curry (conv_M D))"
+    shows
+      "\<exists> M'. step_z_norm' (conv_A A) l (curry (conv_M D)) a l' M'
+           \<and> [curry (conv_M (FW' (norm_upd D' k' n) n))]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+  proof -
+    from step_impl_sound'[OF step canonical diag valid] obtain M' where M':
+      "step_z_dbm (conv_A A) l (curry (conv_M D)) v n a l' M'" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+      by auto
+    from step_z_norm[OF this(1), of k] have
+      "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>k,v,n,a\<^esub> \<langle>l', norm (FW_Code.FW M' n) k n\<rangle>" .
+    then have step':
+      "step_z_norm' (conv_A A) l (curry (conv_M D)) a l' (norm (FW_Code.FW M' n) k n)"
+      using k_simp_2 by auto
+    from diag have "\<forall>i\<le>n. curry D i i \<le> \<one>"
+      by (simp add: conv_dbm_entry_mono_rev neutral)
+    from step_impl_canonical[OF step this] have
+      "canonical (curry (conv_M D')) n \<or> (\<exists>i\<le>n. D' (i, i) < \<one>)" .
+    moreover have "\<forall>i\<le>n. conv_M D' (i, i) \<le> \<one>"
+      using step_impl_diag_preservation[OF assms(1) \<open>\<forall>i\<le>n. curry D i i \<le> \<one>\<close>]
+      by (auto dest!: conv_dbm_entry_mono simp: neutral)
+    moreover have "\<forall> i \<le> n. M' i i \<le> \<one>"
+      using step_z_dbm_diag_preservation[OF M'(1)] diag by auto
+    moreover from step_z_valid_dbm[OF M'(1) global_clock_numbering' valid_abstraction' valid] have
+        "valid_dbm M'" .
+    ultimately have "[curry (conv_M (FW' (norm_upd D' k' n) n))]\<^bsub>v,n\<^esub>
+         = [norm (FW_Code.FW M' n) (\<lambda>x. real (k x)) n]\<^bsub>v,n\<^esub>"
+      using M'(2) by - (rule norm_step_correct; auto)
+    with step' show ?thesis
+      by auto
+  qed
+
   lemma step_impl_sound'':
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
+    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
     and     reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, D)"
-    shows "\<exists> M'. step_z_norm' (conv_A A) l (curry (conv_M D)) l' M' \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
-   apply -
-   apply (rule step_impl_sound'[OF step])
+  shows
+    "\<exists> M'. step_z_norm' (conv_A A) l (curry (conv_M D)) a l' M'
+    \<and> [curry (conv_M (FW' (norm_upd D' k' n) n))]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+    apply -
+    apply (rule step_impl_norm_sound[OF step])
    using canonical_reachable reachable apply (simp only: check_diag_def neutral; blast)
   using valid_dbm_reachable reachable diag_reachable' by auto
 
@@ -2965,22 +3261,15 @@ begin
   lemma steps_z_norm'_valid_dbm_preservation:
     assumes "steps_z_norm' (conv_A A) l M l' M'" "valid_dbm M"
     shows "valid_dbm M'"
-  using assms(2)
+    using assms(1,2)
     apply (induction "conv_A A" l M l' M' rule: steps_z_norm_induct)
-    apply (rule assms)
-  by (blast intro: step_z_norm_valid_dbm_preservation[OF _ global_clock_numbering' valid_abstraction'])+
-
-  lemma steps_z_norm'_int_all_preservation:
-    assumes "steps_z_norm' (conv_A A) l M l' M'" "dbm_int_all M"
-    shows "dbm_int_all M'"
-  using assms(2)
-    apply (induction "conv_A A" l M l' M' rule: steps_z_norm_induct)
-    apply (rule assms)
-    apply assumption
-  by (rule step_z_norm_int_all_preservation[OF _ global_clock_numbering' valid_abstraction']; auto)
+    by (blast intro:
+        step_z_norm_valid_dbm_preservation[OF _ global_clock_numbering' valid_abstraction']
+        step_z_valid_dbm[OF _ global_clock_numbering' valid_abstraction']
+        )+
 
   lemma step_z_norm'_empty_preservation:
-    assumes "step_z_norm' (conv_A A) l D l' D'" "valid_dbm D" "[D]\<^bsub>v,n\<^esub> = {}"
+    assumes "step_z_norm' (conv_A A) l D a l' D'" "valid_dbm D" "[D]\<^bsub>v,n\<^esub> = {}"
     shows "[D']\<^bsub>v,n\<^esub> = {}"
   using assms(1)
    apply cases
@@ -3005,6 +3294,15 @@ begin
   done
   unfolding init_dbm_def by auto
 
+  lemmas
+    step_z_norm_equiv' = step_z_norm_equiv[OF _ global_clock_numbering' valid_abstraction']
+
+  lemmas
+    step_z_dbm_equiv' = step_z_dbm_equiv[OF global_clock_numbering']
+
+  lemmas
+    step_z_valid_dbm' = step_z_valid_dbm[OF _ global_clock_numbering' valid_abstraction']
+
   lemma reachable_sound:
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')"
     shows
@@ -3018,27 +3316,79 @@ begin
       apply blast
     using RI_zone_equiv[symmetric] RI_init_dbm by fastforce
   next
-    case (step l M l' M')
-    from step have reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)" unfolding E_closure by auto
+    case (step l' M' l'' M'' a l''' M''')
+    from step have reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l', M')" unfolding E_closure by auto
     note valid = valid_dbm_reachable[OF reachable]
-    from step.hyps(2) obtain D where D:
-      "steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l D" "[curry (conv_M M)]\<^bsub>v,n\<^esub> = [D]\<^bsub>v,n\<^esub>"
+    from step.hyps(2) obtain D' where D':
+      "steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' D'" "[curry (conv_M M')]\<^bsub>v,n\<^esub> = [D']\<^bsub>v,n\<^esub>"
+      by auto
+    from step_impl_sound'[OF step(3)] canonical_reachable diag_reachable' valid reachable
+      obtain D'' where D'':
+      "(conv_A A) \<turnstile> \<langle>l', curry (conv_M M')\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l'', D''\<rangle>" "[curry (conv_M M'')]\<^bsub>v,n\<^esub> = [D'']\<^bsub>v,n\<^esub>"
+      unfolding check_diag_def neutral by auto
+    from valid diag_reachable' canonical_reachable reachable have valid_M'':
+      "valid_dbm (curry (conv_M M''))"
+      apply -
+      apply (rule step_impl_valid_dbm)
+       apply (rule step(3))
+      apply assumption+
     by auto
-    from step_impl_sound''[OF step(3)] canonical_reachable diag_reachable' valid reachable
-    obtain D' where
-      "step_z_norm' (conv_A A) l (curry (conv_M M)) l' D'" "[curry (conv_M M')]\<^bsub>v,n\<^esub> = [D']\<^bsub>v,n\<^esub>"
-    unfolding check_diag_def neutral by auto
-    with
-      step_z_norm_equiv[OF this(1) global_clock_numbering' valid_abstraction' valid _ D(2)]
-      steps_z_norm'_valid_dbm_preservation[OF _ valid_init_dbm] D(1)
-    show ?case by auto
+    with canonical_reachable diag_reachable' valid reachable
+    obtain D''' where D''':
+      "step_z_norm' (conv_A A) l'' (curry (conv_M M'')) (\<upharpoonleft>a) l''' D'''"
+      "[curry (conv_M (FW' (norm_upd M''' k' n) n))]\<^bsub>v,n\<^esub> = [D''']\<^bsub>v,n\<^esub>"
+      apply atomize_elim
+      apply -
+      apply (rule step_impl_norm_sound[OF step(4)])
+        apply (metis Reachability_Problem.diag_reachable Reachability_Problem.step_impl_canonical Reachability_Problem_axioms check_diag_def neutral step.hyps(3))
+       apply (metis (no_types, lifting) DBMEntry.map(1) Reachability_Problem.step_impl_diag_preservation Reachability_Problem_axioms comp_def conv_dbm_entry_mono curry_def diag_reachable neutral of_int_simps(1) step.hyps(3))
+      by assumption
+    from step_z_dbm_equiv'[OF D''(1) D'(2)] obtain M2 where M2:
+      "conv_A A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l'', M2\<rangle>" "[D'']\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+      by blast
+    have "valid_dbm D'" using D'(1) steps_z_norm'_valid_dbm_preservation by blast
+    then have valid_M2: "valid_dbm M2" by (rule step_z_valid_dbm'[OF M2(1)])
+    from M2 D''(2) have "[curry (conv_M M'')]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>" by simp
+    from step_z_norm_equiv'[OF D'''(1) valid_M'' valid_M2 this] obtain M3 where
+      "step_z_norm' (conv_A A) l'' M2 (\<upharpoonleft>a) l''' M3" "[D''']\<^bsub>v,n\<^esub> = [M3]\<^bsub>v,n\<^esub>"
+      by blast
+    with M2(1) D'(1) D'''(2) show ?case by auto
   qed
 
   lemma step_impl_complete':
-    assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) l' M'"
+    assumes step: "step_z_dbm (conv_A A) l (curry (conv_M M)) v n a l' M'"
     and canonical: "canonical (curry (conv_M M)) n"
     and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
-    shows "\<exists> D'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', D'\<rangle> \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+    shows "\<exists> D'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle> \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+  proof -
+    let ?A = "conv_A A"
+    have A: "RI_A n ?A A" by (rule RI_A_conv_A)
+    have M_conv: "RI n (conv_M M) M" unfolding eq_onp_def by auto
+    let ?M' = "uncurry M'"
+    from
+      step_impl_complete[of ?A l "conv_M M" _ _ a _ ?M',
+        OF _ canonical global_clock_numbering' triv_numbering'' diag
+      ] step
+    obtain M'' where M'':
+      "?A \<turnstile>\<^sub>I \<langle>l, conv_M M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M''\<rangle>" "[curry M'']\<^bsub>v,n\<^esub> = [curry ?M']\<^bsub>v,n\<^esub>"
+    by auto
+    from RI_complete[OF M_conv A this(1)] obtain MM where MM:
+      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', MM\<rangle>" "RI n M'' MM"
+    by auto
+    moreover from MM(2) M''(2) M''(2) have
+      "[M']\<^bsub>v,n\<^esub> = [curry (conv_M MM)]\<^bsub>v,n\<^esub>"
+    by (auto dest!: RI_zone_equiv[where v = v])
+    ultimately show ?thesis by auto
+  qed
+
+  lemma step_impl_norm_complete:
+    assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) a l' M'"
+    and canonical: "canonical (curry (conv_M M)) n"
+    and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+    and valid: "valid_dbm (curry (conv_M M))"
+  shows
+    "\<exists> D'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>
+    \<and> [curry (conv_M (FW' (norm_upd D' k' n) n))]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
   proof -
     let ?k = "map real_of_int k'"
     have k_alt_def: "?k = map k [0..<Suc n]" unfolding k'_def by auto
@@ -3047,35 +3397,108 @@ begin
     let ?A = "conv_A A"
     have A: "RI_A n ?A A" by (rule RI_A_conv_A)
     have M_conv: "RI n (conv_M M) M" unfolding eq_onp_def by auto
-    from step k_simp_2 have step': "?A \<turnstile> \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l', M'\<rangle>" by auto
     let ?M' = "uncurry M'"
-    from
-      step_impl_complete[of ?A l "conv_M M" n "map k [0..<Suc n]" v l' ?M', folded k_alt_def,
-        OF _ canonical global_clock_numbering' triv_numbering'' _ diag
-      ] step'
-    obtain M'' where M'':
-      "?A \<turnstile>\<^sub>I \<langle>l, conv_M M\<rangle> \<leadsto>\<^bsub>?k,n\<^esub> \<langle>l', M''\<rangle>" "[curry M'']\<^bsub>v,n\<^esub> = [curry ?M']\<^bsub>v,n\<^esub>"
-    by (auto simp: k_simp_1)
-    from RI_complete[OF M_conv A k this(1) \<open>length ?k = _\<close>] obtain MM where MM:
-      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', MM\<rangle>" "RI n M'' MM"
-    by auto
-    moreover from MM(2) M''(2) M''(2) have
-      "[M']\<^bsub>v,n\<^esub> = [curry (conv_M MM)]\<^bsub>v,n\<^esub>"
-    by (auto dest!: RI_zone_equiv[where v = v])
-    ultimately show ?thesis by auto
+    from step obtain D' where D':
+      "M' = norm (FW D' n) k n"
+      "conv_A A \<turnstile> \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D'\<rangle>"
+      by cases (subst (asm) k_simp_2', auto simp: k_simp_2')
+    from step_impl_complete'[OF D'(2) canonical diag] obtain D'' where D'':
+      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D''\<rangle>" "[curry (conv_M D'')]\<^bsub>v,n\<^esub> = [D']\<^bsub>v,n\<^esub>"
+      by auto
+    from diag have "\<forall>i\<le>n. curry M i i \<le> \<one>"
+      by (simp add: conv_dbm_entry_mono_rev neutral)
+    have "\<forall>i\<le>n. conv_M D'' (i, i) \<le> \<one>"
+      using step_impl_diag_preservation[OF D''(1) \<open>\<forall>i\<le>n. curry M i i \<le> \<one>\<close>]
+      by (auto dest!: conv_dbm_entry_mono simp: neutral)
+    moreover have "\<forall>i\<le>n. D' i i \<le> \<one>"
+      using step_z_dbm_diag_preservation[OF D'(2)] diag by auto
+    moreover have "canonical (curry (conv_M D'')) n \<or> (\<exists>i\<le>n. D'' (i, i) < \<one>)"
+      using step_impl_canonical[OF D''(1) \<open>\<forall>i\<le>n. curry M i i \<le> \<one>\<close>] .
+    moreover have "[curry (conv_M D'')]\<^bsub>v,n\<^esub> = [D']\<^bsub>v,n\<^esub>" by fact
+    moreover have "valid_dbm D'"
+      using step_z_valid_dbm[OF D'(2) global_clock_numbering' valid_abstraction' valid] .
+    ultimately have
+      "[curry ((map_DBMEntry real_of_int \<circ>\<circ>\<circ> FW') (norm_upd D'' k' n) n)]\<^bsub>v,n\<^esub>
+     = [norm (FW D' n) (\<lambda>x. real (k x)) n]\<^bsub>v,n\<^esub>"
+      by (rule norm_step_correct)
+    with D''(1) show ?thesis by (auto simp add: D'(1))
   qed
 
   lemma step_impl_complete'':
-    assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) l' D"
-    and reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
-    shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle> \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
+    assumes step: "conv_A A \<turnstile> \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D\<rangle>"
+        and valid: "valid_dbm (curry (conv_M M))"
+        and canonical: "canonical (curry (conv_M M)) n \<or> check_diag n M"
+        and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+    shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle> \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
   proof (cases "check_diag n M")
     case True
     then have "[curry (conv_M M)]\<^bsub>v,n\<^esub> = {}" by (intro check_diag_empty_spec check_diag_conv_M)
-    with step valid_dbm_reachable[OF reachable] have
+    with step valid have
+      "[D]\<^bsub>v,n\<^esub> = {}"
+      by - (rule step_z_dbm_empty[OF global_clock_numbering']; assumption)
+    moreover from step obtain M' where M': "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
+    apply cases
+    proof goal_cases
+      case 1
+      then show ?thesis by - (rule that; simp; rule step_t_impl)
+    next
+      case prems: (2 g a' r)
+      obtain g' where "A \<turnstile> l \<longrightarrow>\<^bsup>g',a',r\<^esup> l'"
+      proof -
+        obtain T I where "A = (T, I)" by force
+        from prems(4) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def intro: that)
+      qed
+      then show ?thesis
+        apply -
+        apply (rule that)
+        unfolding \<open>a = _\<close> by (rule step_a_impl)
+    qed
+    ultimately show ?thesis by auto
+  next
+    case False
+    with canonical have
+      "canonical (curry (conv_M M)) n"
+    unfolding check_diag_def neutral by auto
+    moreover from diag have
+      "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>" .
+    ultimately show ?thesis using step_impl_complete'[OF step] by auto
+  qed
+
+  lemma step_impl_complete2:
+    assumes step: "conv_A A \<turnstile> \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D\<rangle>"
+      and reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
+    shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle> \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
+    using assms
+    apply -
+    apply (rule step_impl_complete'')
+       apply assumption
+      apply (rule valid_dbm_reachable[OF reachable])
+    using canonical_reachable[OF reachable] diag_reachable[OF reachable]
+    unfolding check_diag_def neutral by (auto simp: neutral dest!: conv_dbm_entry_mono)
+
+  lemma step_impl_norm_complete'':
+    assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) a l' D"
+    and reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
+  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle> \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
+  proof -
+    show ?thesis
+      oops
+
+  lemma step_impl_norm_complete'':
+    assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) a l' D"
+        and valid: "valid_dbm (curry (conv_M M))"
+        and canonical: "canonical (curry (conv_M M)) n \<or> check_diag n M"
+        and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+      shows
+        "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>
+         \<and> [curry (conv_M (FW' (norm_upd M' k' n) n))]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
+  proof (cases "check_diag n M")
+    case True
+    then have "[curry (conv_M M)]\<^bsub>v,n\<^esub> = {}" by (intro check_diag_empty_spec check_diag_conv_M)
+    with step valid have
       "[D]\<^bsub>v,n\<^esub> = {}"
     by (rule step_z_norm'_empty_preservation)
-    moreover from step obtain M' where M': "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle>"
+    moreover from step obtain M' where M': "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
     apply cases
     apply (cases rule: step_z_dbm.cases)
     apply assumption
@@ -3083,89 +3506,206 @@ begin
       case 1
       then show ?thesis by - (rule that; simp; rule step_t_impl)
     next
-      case prems: (2 _ g a r)
-      obtain g' where "A \<turnstile> l \<longrightarrow>\<^bsup>g',a,r\<^esup> l'"
+      case prems: (2 _ g a' r)
+      obtain g' where "A \<turnstile> l \<longrightarrow>\<^bsup>g',a',r\<^esup> l'"
       proof -
         obtain T I where "A = (T, I)" by force
-        from prems(5) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def intro: that)
+        from prems(6) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def intro: that)
       qed
-      then show ?thesis by - (rule that; rule step_a_impl)
+      then show ?thesis
+        apply -
+        apply (rule that)
+        unfolding \<open>a = _\<close> by (rule step_a_impl)
     qed
     ultimately show ?thesis by auto
   next
     case False
-    with canonical_reachable[OF reachable] have
+    with canonical have
       "canonical (curry (conv_M M)) n"
     unfolding check_diag_def neutral by auto
-    moreover from diag_reachable[OF reachable] have
-      "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
-    by (auto simp: neutral dest!: conv_dbm_entry_mono)
-    ultimately show ?thesis using step_impl_complete'[OF step] by auto
+    then show ?thesis using diag valid step_impl_norm_complete[OF step] by auto
   qed
 
+  lemmas
+    step_z_dbm_sound = step_z_dbm_sound[OF _ global_clock_numbering']
+
+  lemmas
+    step_z_dbm_DBM = step_z_dbm_DBM[OF _ global_clock_numbering']
+
+  lemmas
+    step_z_dbm_mono = alpha_interp.step_z_dbm_mono[OF global_clock_numbering']
+
+  lemmas
+    step_z_norm_mono' = step_z_norm_mono[OF _ global_clock_numbering' valid_abstraction']
+
   lemma step_impl_mono_reachable:
-    assumes "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
+    assumes "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
     and     "E\<^sup>*\<^sup>* a\<^sub>0 (l, D)" "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
     and "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
-    shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle> \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M')]\<^bsub>v,n\<^esub>"
-  using
-    step_impl_sound''[OF assms(1,2)] step_impl_complete''[OF _ assms(3)]
-    step_z_norm_mono[OF _ global_clock_numbering' valid_abstraction' valid_dbm_reachable[OF assms(2)]
-    valid_dbm_reachable[OF assms(3)] assms(4)]
-  by force
+  shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle> \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M')]\<^bsub>v,n\<^esub>"
+  proof -
+    from
+      step_impl_sound'[OF assms(1) _ _ valid_dbm_reachable[OF assms(2)]]
+      canonical_reachable[OF assms(2)] diag_reachable[OF assms(2)] diag_conv obtain M' where
+      "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle>"
+      "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+      unfolding check_diag_def neutral by auto
+    with step_impl_complete2[OF _ assms(3)] step_z_dbm_mono[OF _ assms(4)] show ?thesis by force
+  qed
 
-  lemma closure_step[intro]:
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
-    and     reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, D)"
-    shows "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')"
-  using assms unfolding E_closure by (rule steps_impl.step[rotated])
+  lemma step_impl_norm_mono_reachable:
+    assumes "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
+        and prems_D:
+            "canonical (curry (conv_M D)) n \<or> check_diag n D"
+            "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+            "valid_dbm (curry (conv_M D))"
+        and prems_M:
+            "canonical (curry (conv_M M)) n \<or> check_diag n M"
+            "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+            "valid_dbm (curry (conv_M M))"
+    and subs: "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
+    shows
+      "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>
+      \<and> [curry (conv_M (FW' (norm_upd D' k' n) n))]\<^bsub>v,n\<^esub>
+      \<subseteq> [curry ((map_DBMEntry real_of_int \<circ>\<circ>\<circ> FW') (norm_upd M' k' n) n)]\<^bsub>v,n\<^esub>"
+  proof -
+    from step_impl_norm_sound[OF assms(1) prems_D] obtain M' where M':
+      "step_z_norm'
+        (conv_A A)
+        l (curry (conv_M D)) a l' M'"
+       "[curry ((map_DBMEntry real_of_int \<circ>\<circ>\<circ> FW') (norm_upd D' k' n) n)]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+      by auto
+    from
+      step_z_norm_mono'[OF this(1) prems_D(3) prems_M(3) subs]
+      step_impl_norm_complete''[OF _ prems_M(3,1,2)] M'(2)
+    show ?thesis by fast
+  qed
+
+  lemmas
+    dbm_subset_correct' = dbm_subset_correct'[OF _ _ _ global_clock_numbering]
 
   lemma step_impl_mono_reachable':
-    assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l',D'\<rangle>"
-    and     reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, D)" "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
+    assumes step:
+      "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', D'\<rangle>"
+      "A \<turnstile>\<^sub>I \<langle>l', D'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', D''\<rangle>"
+      "D''' = FW' (norm_upd D'' k' n) n"
+    and reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l, D)" "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
     and subset: "dbm_subset n D M"
-    shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle> \<and> dbm_subset n D' M'"
-  (* Alternative big bang proof
-  using dbm_subset_correct''[OF reachable] subset[THEN dbm_subset_conv]
-    step_impl_mono_reachable[OF step reachable] dbm_subset_correct'' dbm_subset_conv_rev
-      reachable step
-  by blast
-  *)
+    shows
+      "\<exists> M' M'' M'''. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', M'\<rangle> \<and> A \<turnstile>\<^sub>I \<langle>l', M'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', M''\<rangle>
+       \<and> M''' = FW' (norm_upd M'' k' n) n \<and> dbm_subset n D''' M'''"
   proof -
     from dbm_subset_correct''[OF reachable] subset[THEN dbm_subset_conv] have
       "([curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M)]\<^bsub>v,n\<^esub>)"
     by simp
-    from step_impl_mono_reachable[OF step reachable this] obtain M' where M':
-      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', M'\<rangle>" "[curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M')]\<^bsub>v,n\<^esub>"
-    by auto
-    with reachable step have "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')" "E\<^sup>*\<^sup>* a\<^sub>0 (l', M')" by blast+
-    from dbm_subset_correct''[OF this] M' dbm_subset_conv_rev show ?thesis by auto
+    from step_impl_mono_reachable[OF step(1) reachable this] obtain M' where M':
+      "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', M'\<rangle>" "[curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M')]\<^bsub>v,n\<^esub>"
+      by auto
+    have diag1:
+      "\<forall>i\<le>n. curry D i i \<le> \<one>"
+      using diag_reachable[OF reachable(1)] .
+    have diag2:
+      "\<forall>i\<le>n. curry M i i \<le> \<one>"
+      using diag_reachable[OF reachable(2)] .
+    have facts:
+      "canonical (curry (conv_M D')) n \<or> check_diag n D'"
+      "\<forall>i\<le>n. curry D' i i \<le> \<one>"
+      "valid_dbm (curry (conv_M D'))"
+      "canonical (curry (conv_M M')) n \<or> check_diag n M'"
+      "\<forall>i\<le>n. curry M' i i \<le> \<one>"
+      "valid_dbm (curry (conv_M M'))"
+      subgoal
+        using step_impl_canonical[OF step(1) diag1]
+        unfolding check_diag_def neutral .
+      subgoal
+        using step_impl_diag_preservation[OF step(1) diag1] .
+      subgoal
+        using
+          step_impl_valid_dbm[OF step(1)]
+          diag_conv[OF diag1]
+          valid_dbm_reachable canonical_reachable reachable
+        by auto
+      subgoal
+        using step_impl_canonical[OF M'(1) diag2]
+        unfolding check_diag_def neutral .
+      subgoal
+        using step_impl_diag_preservation[OF M'(1) diag2] .
+      subgoal
+        using
+          step_impl_valid_dbm[OF M'(1)]
+          diag_conv[OF diag2]
+          valid_dbm_reachable canonical_reachable reachable
+        by auto
+      done
+    from step_impl_norm_mono_reachable[OF step(2), of M'] facts M'(2) obtain M'' where M'':
+      "A \<turnstile>\<^sub>I \<langle>l', M'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', M''\<rangle>"
+      "[curry (conv_M (FW' (norm_upd D'' k' n) n))]\<^bsub>v,n\<^esub>
+      \<subseteq> [curry (conv_M (FW' (norm_upd M'' k' n) n))]\<^bsub>v,n\<^esub>"
+      using diag_conv by force
+    have "\<forall>i\<le>n. curry D'' i i \<le> \<one>"
+      by (rule step_impl_diag_preservation[OF step(2) facts(2)])
+    then have diag1: "\<forall> i \<le> n. curry (conv_M (FW' (norm_upd D'' k' n) n)) i i \<le> \<one>"
+      by (rule diag_conv[OF norm_step_diag_preservation])
+    have "\<forall>i\<le>n. curry M'' i i \<le> \<one>"
+      by (rule step_impl_diag_preservation[OF M''(1) facts(5)])
+    then have diag2: "\<forall> i \<le> n. curry (conv_M (FW' (norm_upd M'' k' n) n)) i i \<le> \<one>"
+      by (rule diag_conv[OF norm_step_diag_preservation])
+    from step_impl_canonical[OF step(2) facts(2)] have
+      "canonical (curry (conv_M D'')) n \<or> check_diag n D''"
+      unfolding check_diag_def neutral by simp
+    then have
+      "canonical (curry (conv_M (FW' (norm_upd D'' k' n) n))) n
+     \<or> check_diag n ((conv_M (FW' (norm_upd D'' k' n) n)))"
+      using canonical_norm_step[of D'']
+      unfolding check_diag_def neutral
+      apply simp
+      by (metis DBMEntry.simps(15) conv_dbm_entry_mono_strict of_int_0)
+    from M'(1) dbm_subset_correct'[OF this diag1 diag2] M''(2) dbm_subset_conv_rev have
+      "dbm_subset n (FW' (norm_upd D'' k' n) n) (FW' (norm_upd M'' k' n) n)"
+      by auto
+    with M'(1) M''(1) show ?thesis unfolding \<open>D''' = _\<close> by auto
   qed
 
   lemma reachable_complete:
     assumes "steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M'"
     shows
       "\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [M']\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M D')]\<^bsub>v,n\<^esub>"
-  using assms unfolding E_closure
-  proof (induction "conv_A A" x2 \<equiv> l\<^sub>0 "curry init_dbm :: real DBM" l' M' rule: steps_z_norm_induct, assumption)
+    using assms unfolding E_closure
+  proof (induction "conv_A A" x2 \<equiv> l\<^sub>0 "curry init_dbm :: real DBM" l' M' rule: steps_z_norm_induct)
     case refl
     show ?case by (auto intro: steps_impl.refl)
   next
-    case (step l M l' M')
-    then obtain D where D:
-      "A \<turnstile>\<^sub>I \<langle>l\<^sub>0, init_dbm\<rangle> \<leadsto>\<^bsub>k',n\<^esub>* \<langle>l, D\<rangle>" "[M]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M D)]\<^bsub>v,n\<^esub>"
-    by auto
-    have
-      "valid_dbm M" "valid_dbm (curry (conv_M D))"
-    by (blast intro: steps_z_norm'_valid_dbm_preservation step valid_dbm_reachable D[folded E_closure])+
-    with step_z_norm_mono[OF step(3) global_clock_numbering' valid_abstraction'[unfolded X_alt_def] _ _ D(2)]
-    obtain M'' where M'':
-      "step_z_norm' (conv_A A) l (curry (conv_M D)) l' M''" "[M']\<^bsub>v,n\<^esub> \<subseteq> [M'']\<^bsub>v,n\<^esub>"
-    by auto
-    from step_impl_complete''[OF this(1)] D(1)
-    obtain D' where "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>k',n\<^esub> \<langle>l', D'\<rangle>" "[curry (conv_M D')]\<^bsub>v,n\<^esub> \<supseteq> [M'']\<^bsub>v,n\<^esub>"
-    unfolding E_closure by auto
-    with D(1) M''(2) show ?case by (auto intro: steps_impl.step)
+    case (step a l' M' l'' M'' l''' M''')
+    then obtain D' where D':
+      "A \<turnstile>\<^sub>I \<langle>l\<^sub>0, init_dbm\<rangle> \<leadsto>\<^bsub>k',n\<^esub>* \<langle>l', D'\<rangle>" "[M']\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M D')]\<^bsub>v,n\<^esub>"
+      by auto
+    from step_z_dbm_mono[OF step(3) D'(2)] obtain D'' where D'':
+      "conv_A A \<turnstile> \<langle>l', curry (conv_M D')\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l'', D''\<rangle>"
+      "[M'']\<^bsub>v,n\<^esub> \<subseteq> [D'']\<^bsub>v,n\<^esub>"
+      by auto
+    from step have reachable: "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')" using D'(1) E_closure by blast (* s/h *)
+    from step_impl_complete2[OF D''(1) this] step obtain D2 where D2:
+      "A \<turnstile>\<^sub>I \<langle>l', D'\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l'', D2\<rangle>" "[D'']\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M D2)]\<^bsub>v,n\<^esub>"
+      by auto
+    have "valid_dbm M''" (* s/h *)
+      using step(1,3) step_z_valid_dbm' steps_z_norm'_valid_dbm_preservation valid_init_dbm by blast
+    have valid3:"valid_dbm (curry (conv_M D2))"
+      apply (rule step_impl_valid_dbm[OF D2(1)])
+      using valid_dbm_reachable canonical_reachable reachable
+      using diag_reachable[OF reachable] diag_conv by (auto intro!: canonical_reachable)
+    from step_z_norm_mono'[OF step(4) \<open>valid_dbm M''\<close> valid3] D''(2) D2(2) obtain M3 where M3:
+      "step_z_norm' (conv_A A) l'' (curry (conv_M D2)) \<upharpoonleft>a l''' M3" "[M''']\<^bsub>v,n\<^esub> \<subseteq> [M3]\<^bsub>v,n\<^esub>"
+      by auto
+    have canonical: "canonical (curry (conv_M D2)) n \<or> check_diag n D2"
+      using step_impl_canonical[OF D2(1) diag_reachable[OF reachable]]
+      unfolding check_diag_def neutral by auto
+    have diag: "\<forall>i\<le>n. conv_M D2 (i, i) \<le> \<one>"
+      using step_impl_diag_preservation[OF D2(1) diag_reachable[OF reachable]] diag_conv by auto
+    from step_impl_norm_complete''[OF M3(1) valid3 canonical diag] obtain D3 where
+      "A \<turnstile>\<^sub>I \<langle>l'', D2\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l''', D3\<rangle> "
+      "[M3]\<^bsub>v,n\<^esub> \<subseteq> [curry ((map_DBMEntry real_of_int \<circ>\<circ>\<circ> FW') (norm_upd D3 k' n) n)]\<^bsub>v,n\<^esub>"
+      by auto
+    with D'(1) D2 M3(2) show ?case by (auto intro: steps_impl.step)
   qed
 
   lemma reachable_steps_z_norm':
@@ -3175,11 +3715,13 @@ begin
 
   theorem reachable_decides_emptiness:
     "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
-    \<longleftrightarrow> (\<exists> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
-  using
-    steps_z_norm_decides_emptiness[OF global_clock_numbering' valid_abstraction'[unfolded X_alt_def] valid_init_dbm]
-    reachable_steps_z_norm'
-  by simp
+    \<longleftrightarrow> (\<exists> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
+    apply (subst reachable_steps_z_norm')
+    apply (subst
+      steps_z_norm_decides_emptiness
+      [OF global_clock_numbering' valid_abstraction'[unfolded X_alt_def] valid_init_dbm]
+      )
+    by (rule HOL.refl)
 
   lemma init_dbm_semantics':
     assumes "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
@@ -3190,17 +3732,17 @@ begin
     assumes "\<forall> c \<in> {1..n}. u c = 0"
     shows "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
   unfolding DBM_zone_repr_def DBM_val_bounded_def init_dbm_def using assms by (auto simp: v_def)
-  
+
   lemma reachable_decides_emptiness':
     "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
-    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))"
+    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))"
   using reachable_decides_emptiness init_dbm_semantics' init_dbm_semantics'' by blast
 
-  lemma reachable_empty_check_diag:
-    assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
+  lemma canonical_empty_check_diag:
+    assumes "canonical (curry (conv_M D')) n \<or> (\<exists>i\<le>n. D' (i, i) < \<one>)" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
     shows "check_diag n D'"
   proof -
-    from canonical_reachable[OF assms(1)]
+    from assms(1)
     show ?thesis
     proof
       assume "canonical (curry (conv_M D')) n"
@@ -3214,9 +3756,14 @@ begin
     qed
   qed
 
+  lemma reachable_empty_check_diag:
+    assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
+    shows "check_diag n D'"
+    using canonical_reachable[OF assms(1)] canonical_empty_check_diag assms(2) by simp
+
   theorem reachability_check:
     "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))
-    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')"
+    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')"
   using reachable_decides_emptiness'[of l'] check_diag_empty_spec reachable_empty_check_diag
   unfolding F_rel_def by auto
 
@@ -3225,11 +3772,284 @@ begin
    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply assumption
    using dbm_subset_refl apply (auto simp: subsumes_def; fail)
    using dbm_subset_trans apply (auto simp: subsumes_def; fail)
-   apply (auto simp: subsumes_def step_impl_mono_reachable' E_def; fail)
+   apply (force simp: E_def subsumes_def dest: step_impl_mono_reachable')
    apply (auto simp: F_rel_def subsumes_def dest: check_diag_subset; fail)
   done
 
+  (* This used (by used theorems) *)
+  lemma v_id:
+  "v c = c" if "v c \<le> n"
+  using atLeastLessThanSuc_atLeastAtMost in_X that triv_numbering by blast
+
+  paragraph \<open>Nice to have (to be moved)\<close>
+  (* XXX Unused, move *)
+  lemma V_I:
+    assumes "\<forall> i \<in> {1..<Suc n}. M 0 i \<le> \<one>"
+    shows "[M]\<^bsub>v,n\<^esub> \<subseteq> V"
+    unfolding V_def DBM_zone_repr_def
+  proof (safe, goal_cases)
+    case prems: (1 u i)
+    then have "v i = i"
+      using X_alt_def X_def triv_numbering by blast
+    with prems have "v i > 0" "v i \<le> n" by auto
+    with prems have "dbm_entry_val u None (Some i) (M 0 (v i))"
+      unfolding DBM_val_bounded_def by auto
+    moreover from assms \<open>v i > 0\<close> \<open>v i \<le> n\<close> have "M 0 (v i) \<le> \<one>" by auto
+    ultimately
+    show ?case
+      apply (cases "M 0 (v i)")
+      unfolding neutral less_eq dbm_le_def
+        apply (auto elim!: dbm_lt.cases simp: \<open>v i = i\<close>)
+      using le_less_trans less_imp_le neg_less_0_iff_less apply blast
+      by (meson less_imp_le less_le_trans neg_less_0_iff_less)
+  qed
+
+  lemma V_canonicalD:
+    assumes V: "[M]\<^bsub>v,n\<^esub> \<subseteq> V" and canonical: "canonical M n"
+    shows "(\<exists> i \<le> n. M i i < \<one>) \<or> (\<forall> i \<in> {1..<Suc n}. M 0 i \<le> \<one>)"
+  proof clarify
+    fix i assume A: "\<not> (\<exists>i\<le>n. M i i < \<one>)" "i \<in> {1..<Suc n}"
+    with assms have "cyc_free M n" sorry
+    from \<open>i \<in> _\<close> have "v i = i" sorry
+    show "M 0 i \<le> \<one>"
+    proof (rule ccontr)
+      assume F: "\<not> M 0 i \<le> \<one>"
+      from F have "M 0 i > Le 0" unfolding neutral by auto
+      then obtain d u where "d > 0" "u \<in> [M]\<^bsub>v,n\<^esub>" "- u i = d" sorry
+      with V \<open>i \<in> _\<close> show False unfolding V_def by force
+    qed
+    oops
+
+  lemma clock_val_cong:
+    "\<forall>c\<in>{Suc 0..n}. u c = d \<Longrightarrow> \<forall>c\<in>{Suc 0..n}. u' c = d \<Longrightarrow> u \<turnstile> inv_of (conv_A A) l\<^sub>0
+    \<Longrightarrow> u' \<turnstile> inv_of (conv_A A) l\<^sub>0"
+    oops
+
+  (* XXX Unused *)
+  (* XXX Generalize (see haves on clock numbering), move? *)
+  lemma DBM_val_bounded_cong:
+    "\<forall>c\<in>{Suc 0..n}. u c = d \<Longrightarrow> \<forall>c\<in>{Suc 0..n}. u' c = d \<Longrightarrow> u \<turnstile>\<^bsub>v,n\<^esub> M \<Longrightarrow> u' \<turnstile>\<^bsub>v,n\<^esub> M"
+    unfolding DBM_val_bounded_def
+    proof (safe, goal_cases)
+      case prems: (1 c)
+      from prems have v: "v c = c" "v c > 0" by (auto simp: cn_weak intro: v_id)
+      show ?case
+      proof (cases "M 0 (v c)")
+        case (Le d)
+        with prems have "- u c \<le> d" by auto
+        with Le v prems show ?thesis by auto
+      next
+        case (Lt d)
+        with prems have "- u c < d" by auto
+        with Lt v prems show ?thesis by auto
+      qed auto
+    next
+      case prems: (2 c)
+      from prems have v: "v c = c" "v c > 0" by (auto simp: cn_weak intro: v_id)
+      show ?case
+      proof (cases "M (v c) 0")
+        case (Le d)
+        with prems have "u c \<le> d" by auto
+        with Le v prems show ?thesis by auto
+      next
+        case (Lt d)
+        with prems have "u c < d" by auto
+        with Lt v prems show ?thesis by auto
+      qed auto
+    next
+      case prems: (3 c1 c2)
+      from prems have v: "v c1 = c1" "v c1 > 0" "v c2 = c2" "v c2 > 0"
+        by (auto simp: cn_weak intro: v_id)
+      show ?case
+      proof (cases "M (v c1) (v c2)")
+        case (Le d)
+        with prems have "u c1 - u c2 \<le> d" by (auto 4 3)
+        with Le v prems show ?thesis by auto
+      next
+        case (Lt d)
+        with prems have "u c1 - u c2 < d" by (auto 4 3)
+        with Lt v prems show ?thesis by auto
+      qed auto
+    qed
+
 end (* End of locale context *)
+
+lemma abstr_upd_correct:
+  assumes gcn: "\<forall>c. 0 < v c \<and> (\<forall>x y. v x \<le> n \<and> v y \<le> n \<and> v x = v y \<longrightarrow> x = y)"
+      and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
+      and clocks: "\<forall>c\<in>collect_clks (inv_of A l). v c = c \<and> 0 < c \<and> v c \<le> n"
+  shows
+  "[curry (abstr_upd (inv_of A l) D)]\<^bsub>v,n\<^esub> = [And (curry D) (abstr (inv_of A l) (\<lambda>i j. \<infinity>) v)]\<^bsub>v,n\<^esub>"
+  apply (subst abstr_upd_abstr')
+   defer
+   apply (subst abstr_abstr'[symmetric])
+    defer
+    apply (subst And_abstr[symmetric])
+  using assms by fastforce+
+
+locale Reachability_Problem_start =
+  Reachability_Problem +
+  assumes start_inv: "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<subseteq> {u. u \<turnstile> conv_cc (inv_of A l\<^sub>0)}"
+begin
+
+lemma start_inv':
+  "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<subseteq> {u. u \<turnstile> inv_of (conv_A A) l\<^sub>0}"
+  using start_inv
+  (* XXX SMT *)
+  (* s/h *)
+  by (smt case_prod_conv comp_apply inv_of_def prod.collapse snd_conv subset_Collect_conv)
+
+lemma start_vals:
+  "u \<turnstile> inv_of (conv_A A) l\<^sub>0" if "\<forall> c \<in> {1..n}. u c = 0"
+  using that start_inv' init_dbm_semantics'' by auto
+
+lemma steps_steps'_equiv':
+  "(\<exists> u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))
+  \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))"
+  using steps_steps'_equiv[of _ \<open>conv_A A\<close> l\<^sub>0] start_vals by fast
+
+corollary reachability_check_start:
+  "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))
+  \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')"
+  using reachability_check steps_steps'_equiv' by fast
+
+end (* End of locale context for ensuring that the invariant of the start state is satisfied *)
+
+context Reachability_Problem
+begin
+
+lemma check_diag_conv_M_rev:
+  assumes "check_diag n (conv_M M)"
+  shows "check_diag n M"
+using assms unfolding check_diag_def by (auto intro!: conv_dbm_entry_mono_strict_rev)
+
+lemma surj_numbering:
+  "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
+  using global_clock_numbering[THEN conjunct2, THEN conjunct2] .
+
+lemma collect_clks_numbering:
+  "\<forall>c\<in>collect_clks (inv_of A l\<^sub>0). v c = c \<and> 0 < c \<and> v c \<le> n"
+  by (metis collect_clks_inv_clk_set global_clock_numbering subsetCE v_id)
+
+lemma collect_clks_numbering':
+  "\<forall>c\<in>collect_clks (inv_of (conv_A A) l\<^sub>0). v c = c \<and> 0 < c \<and> v c \<le> n"
+  by (metis (no_types, lifting) collect_clks_inv_clk_set global_clock_numbering' subsetCE triv_numbering'')
+
+lemmas abstr_upd_correct' =
+  abstr_upd_correct[OF clock_numbering(1) surj_numbering collect_clks_numbering']
+
+definition
+  "unbounded_dbm = (\<lambda> (i, j). (if i = j \<or> i > n \<or> j > n then Le 0 else \<infinity>))"
+
+lemma FW'_zone_equiv:
+  "[curry (conv_M (FW' M n))]\<^bsub>v,n\<^esub> = [curry (conv_M M)]\<^bsub>v,n\<^esub>"
+  by (metis FW'_FW FW'_conv_M FW_zone_equiv_spec)
+
+lemma unbounded_dbm_semantics:
+  "[curry unbounded_dbm]\<^bsub>v,n\<^esub> = UNIV"
+  unfolding unbounded_dbm_def
+  unfolding DBM_zone_repr_def apply auto
+  unfolding DBM_val_bounded_def
+  apply auto
+  (* s/h *)
+  using cn_weak gr_implies_not_zero apply blast
+  using cn_weak gr_implies_not_zero apply blast
+  (* s/h *)
+  by (metis dbm_entry_val.intros(5) diff_self order_mono_setup.refl v_id)
+
+lemma And_unbounded_dbm:
+  "[And (curry unbounded_dbm) M]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  apply (subst And_correct[symmetric])
+  apply (subst unbounded_dbm_semantics)
+  by simp
+
+lemmas dbm_abstr_zone_eq' = dbm_abstr_zone_eq[OF global_clock_numbering[THEN conjunct1]]
+
+definition
+  "start_inv_check \<equiv> dbm_subset n init_dbm (FW' (abstr_upd (inv_of A l\<^sub>0) unbounded_dbm) n)"
+
+lemma conv_inv:
+  "conv_cc (inv_of A l\<^sub>0) = inv_of (conv_A A) l\<^sub>0"
+  unfolding inv_of_def by (simp split!: prod.split)
+
+lemma start_inv_check:
+  "start_inv_check \<longleftrightarrow> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<subseteq> {u. u \<turnstile> conv_cc (inv_of A l\<^sub>0)}"
+proof -
+  let ?M = "FW' (abstr_upd (inv_of A l\<^sub>0) unbounded_dbm) n"
+  have canonical: "canonical (curry init_dbm) n \<or> check_diag n init_dbm"
+    unfolding init_dbm_def by (auto simp: neutral[symmetric])
+  have diag: "\<forall>i\<le>n. curry (conv_M ?M) i i \<le> \<one>"
+    apply (rule diag_conv)
+    unfolding curry_def unbounded_dbm_def
+    apply (rule FW'_diag_preservation)
+    apply (rule abstr_upd_diag_preservation')
+    using collect_clks_numbering unfolding neutral by auto
+  have "\<forall>i\<le>n. curry init_dbm i i \<le> \<one>" unfolding init_dbm_def neutral by auto
+  from dbm_subset_correct'[OF canonical this diag] canonical have
+    "dbm_subset n init_dbm (conv_M ?M)
+    \<longleftrightarrow> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M ?M)]\<^bsub>v,n\<^esub>"
+    by auto
+  moreover have "[curry (conv_M ?M)]\<^bsub>v,n\<^esub> = {u. u \<turnstile> inv_of (conv_A A) l\<^sub>0}"
+    apply (subst FW'_zone_equiv)
+    apply (subst RI_zone_equiv[symmetric,
+           where M = "abstr_upd (inv_of (conv_A A) l\<^sub>0) unbounded_dbm"])
+     defer
+     apply (subst abstr_upd_correct')
+     apply (subst And_unbounded_dbm)
+     apply (subst dbm_abstr_zone_eq')
+    using collect_clks_numbering' apply force
+     apply simp
+    subgoal
+    proof -
+      have [transfer_rule]: "rel_DBMEntry ri \<one> \<one>" "rel_DBMEntry ri \<infinity> \<infinity>"
+        unfolding ri_def neutral by auto
+      have [transfer_rule]: "eq_onp (\<lambda>x. x < Suc n) n n"
+        by (simp add: eq_onp_def)
+      have [transfer_rule]:
+        "rel_fun (eq_onp (\<lambda>x. x < Suc n)) (rel_fun (eq_onp (\<lambda>x. x < Suc n)) (op =)) (op <) (op <)"
+        unfolding rel_fun_def eq_onp_def by simp
+      have [transfer_rule]: "(RI n) unbounded_dbm unbounded_dbm"
+        unfolding unbounded_dbm_def by transfer_prover
+      have [transfer_rule]: "RI_A n (conv_A A) A" by (rule RI_A_conv_A)
+      note [transfer_rule] = inv_of_transfer[unfolded RI_I_def]
+      show ?thesis by transfer_prover
+    qed
+    done
+  ultimately show ?thesis
+    unfolding start_inv_check_def conv_inv using dbm_subset_conv_rev dbm_subset_conv conv_M_init_dbm
+    by metis
+qed
+
+(* XXX Move and clean proof *)
+lemma start_inv_check_correct:
+  "start_inv_check \<longleftrightarrow> (\<forall> u. (\<forall> c \<in> {1..n}. u c = 0) \<longrightarrow> u \<turnstile> inv_of (conv_A A) l\<^sub>0)"
+  unfolding start_inv_check conv_inv using  init_dbm_semantics'' init_dbm_semantics' by fast
+
+    term F
+
+lemma F_reachable_equiv':
+  "(\<exists> l' u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))
+    \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))"
+  if start_inv_check
+proof -
+  interpret start: Reachability_Problem_start A l\<^sub>0 _ n k
+    apply standard
+    using that unfolding start_inv_check .
+  from start.steps_steps'_equiv' show ?thesis by fast
+qed
+
+lemma F_reachable_equiv:
+  "(\<exists> l' u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')
+    \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile> \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')"
+  if start_inv_check
+proof -
+  interpret start: Reachability_Problem_start A l\<^sub>0 _ n k
+    apply standard
+    using that unfolding start_inv_check .
+  from start.steps_steps'_equiv' show ?thesis by fast
+qed
+
+end
 
 context Reachability_Problem_no_ceiling
 begin
@@ -3254,26 +4074,26 @@ begin
   lemma k_0:
    "k 0 = 0"
     using clock_range unfolding default_ceiling_def by auto
-  
+
   lemma valid_abstraction:
      "valid_abstraction A X k"
     by (rule standard_abstraction_int;
         force intro!: consts_nats clk_set_X[unfolded X_def] clk_set_X finite_X)
-  
+
   (* XXX This is a bit clumsy *)
   lemma k_ge:
     "\<forall>(x,m) \<in> clkp_set A. m \<le> k x"
     using valid_abstraction by (auto elim!: valid_abstraction.cases)
 
   end
-  
+
   sublocale default_ceiling: Reachability_Problem A l\<^sub>0 F n "default_ceiling A"
     apply standard
     apply (rule k_ge)
     by (blast intro: k_ge k_bound k_0)+
 
 end
-  
+
 
 (* XXX Rename. Move? *)
 lemma aux:
@@ -3330,7 +4150,7 @@ begin
     "\<Union> (collect_clock_pairs ` set inv) = collect_clki (inv_of A)"
   unfolding A_def inv_of_def collect_clki_def I_def[abs_def] using inv_length
   by (auto simp add: collect_clks_id image_Union dest: nth_mem dest!: aux)
-  
+
   lemma clk_set_simp_2:
     "\<Union> ((\<lambda> (g, r, _). set r) ` set (concat trans)) = collect_clkvt (trans_of A)"
   unfolding A_def trans_of_def collect_clkvt_def T_def[abs_def] label_def using trans_length
@@ -3424,7 +4244,7 @@ begin
 
   lemma finite_ta_A[intro, simp]:
     "finite_ta A"
-  unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat 
+  unfolding finite_ta_def using clock_set m_gt_0 clkp_set_consts_nat
   by auto (force simp: clk_set_simp_2[symmetric])+
 
   sublocale Reachability_Problem_no_ceiling A 0 "PR_CONST F" m

@@ -119,8 +119,7 @@ inductive step_sn ::
 where
   step_sn_t:
     "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L, s, u \<oplus> d\<rangle>"
-    if "\<forall> p \<in> {..<length N}. u \<turnstile> snd (N ! p) (L ! p)"
-       "\<forall> p \<in> {..<length N}. u \<oplus> d \<turnstile> snd (N ! p) (L ! p)"
+    if "\<forall> p \<in> {..<length N}. u \<oplus> d \<turnstile> snd (N ! p) (L ! p)"
        "d \<ge> 0" "length N = length I" |
   step_sn_i:
     "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"

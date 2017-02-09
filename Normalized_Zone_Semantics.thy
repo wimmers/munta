@@ -9,18 +9,29 @@ section \<open>DBM-based Semantics with Normalization\<close>
 subsection \<open>Single Step\<close>
 
 inductive step_z_norm ::
-  "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> bool"
-("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_,_\<^esub> \<langle>_, _\<rangle>" [61,61,61,61,61] 61)
+  "('a, 'c, t, 's) ta
+  \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 'a action \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_,_,_\<^esub> \<langle>_, _\<rangle>" [61,61,61,61,61,61] 61)
 where step_z_norm:
-  "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l', D'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l', norm (FW D' n) k n\<rangle>"
+  "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>k,v,n,a\<^esub> \<langle>l', norm (FW D' n) k n\<rangle>"
 
 inductive steps_z_norm ::
   "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> (nat \<Rightarrow> nat) \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 's \<Rightarrow> t DBM \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_,_\<^esub>* \<langle>_, _\<rangle>" [61,61,61,61,61] 61)
 where
-  refl: "A \<turnstile> \<langle>l, Z\<rangle>  \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l, Z\<rangle>" |
-  step: "A \<turnstile> \<langle>l, Z\<rangle>  \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub> \<langle>l'', Z''\<rangle>
-        \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l'', Z''\<rangle>"
+  refl: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l, Z\<rangle>" |
+  step: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l', Z'\<rangle>
+        (* \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>k,v,n,\<tau>\<^esub> \<langle>l'', Z''\<rangle> *)
+        \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l'', Z''\<rangle>
+        \<Longrightarrow> A \<turnstile> \<langle>l'', Z''\<rangle> \<leadsto>\<^bsub>k,v,n,\<upharpoonleft>(a)\<^esub> \<langle>l''', Z'''\<rangle>
+        \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l''', Z'''\<rangle>"
+
+lemma steps_z_norm_step_altI:
+  "A \<turnstile> \<langle>l'', Z''\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l''', Z'''\<rangle>
+        \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', Z'\<rangle>
+        \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>k,v,n,\<upharpoonleft>(a)\<^esub> \<langle>l'', Z''\<rangle>
+        \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>k,v,n\<^esub>* \<langle>l''', Z'''\<rangle>"
+  by (induction rule: steps_z_norm.induct; blast intro: steps_z_norm.intros)
 
 lemma norm_empty_diag_preservation_real:
   fixes k :: "nat \<Rightarrow> nat"
@@ -34,22 +45,23 @@ begin
 
 abbreviation "v' \<equiv> beta_interp.v'"
 
-abbreviation step_z_norm' ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^sub>\<N> \<langle>_, _\<rangle>" [61,61,61] 61)
+abbreviation step_z_norm' ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<N>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
 where
-  "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l', D'\<rangle> \<equiv> A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub> \<langle>l', D'\<rangle>"
+  "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', D'\<rangle> \<equiv> A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>(k o v'),v,n,a\<^esub> \<langle>l', D'\<rangle>"
 
 abbreviation steps_z_norm' ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^sub>\<N>* \<langle>_, _\<rangle>" [61,61,61] 61)
 where
   "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l', D'\<rangle> \<equiv> A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub>* \<langle>l', D'\<rangle>"
 
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',u'\<rangle>"
+inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',u'\<rangle>"
 
 declare step_z_norm.intros[intro]
 
 lemma apx_empty_iff'':
   assumes "canonical M1 n" "[M1]\<^bsub>v,n\<^esub> \<subseteq> V" "dbm_int M1 n"
   shows "[M1]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> [norm M1 (k o v') n]\<^bsub>v,n\<^esub> = {}"
-using beta_interp.apx_norm_eq[OF assms] apx_empty_iff'[of "[M1]\<^bsub>v,n\<^esub>"] assms unfolding V'_def by blast
+  using beta_interp.apx_norm_eq[OF assms] apx_empty_iff'[of "[M1]\<^bsub>v,n\<^esub>"] assms
+  unfolding V'_def by blast
 
 inductive valid_dbm where
   "[M]\<^bsub>v,n\<^esub> \<subseteq> V \<Longrightarrow> dbm_int M n \<Longrightarrow> valid_dbm M"
@@ -59,14 +71,14 @@ inductive_cases valid_dbm_cases[elim]: "valid_dbm M"
 declare valid_dbm.intros[intro]
 
 lemma step_z_valid_dbm:
-  assumes "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l', D'\<rangle>"
+  assumes "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D'\<rangle>"
     and "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
   shows "valid_dbm D'"
 proof -
   from alpha_interp.step_z_V step_z_dbm_sound[OF assms(1,2)] step_z_dbm_preserves_int[OF assms(1,2)]
        assms(3,4)
   have
-    "dbm_int D' n" "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle>"
+    "dbm_int D' n" "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle>"
   by fastforce+
   with alpha_interp.step_z_V[OF this(2)] assms(4) show ?thesis by auto
 qed
@@ -107,7 +119,7 @@ proof -
   with norm_empty_diag_preservation_real[folded neutral] have
     "?M i i < \<one>"
   unfolding comp_def by auto
-  with \<open>i \<le> n\<close> show ?thesis using beta_interp.neg_diag_empty_spec by auto 
+  with \<open>i \<le> n\<close> show ?thesis using beta_interp.neg_diag_empty_spec by auto
 qed
 
 lemma apx_norm_eq_spec:
@@ -120,15 +132,15 @@ proof -
   with beta_interp.apx_norm_eq[OF fw_canonical[OF cyc_free] _ FW_int_preservation]
       dbm_non_empty_diag[OF assms(2)] assms(1)
  show "Approx\<^sub>\<beta> ([M]\<^bsub>v,n\<^esub>) = [norm (FW M n) (k o v') n]\<^bsub>v,n\<^esub>" by auto
- 
+
 qed
 
 (* Crudely copied from step_z_norm.inducts *)
 lemma step_z_norm_induct[case_names _ step_z_norm step_z_refl]:
-  assumes "x1 \<turnstile> \<langle>x2, x3\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub> \<langle>x7,x8\<rangle>"
+  assumes "x1 \<turnstile> \<langle>x2, x3\<rangle> \<leadsto>\<^bsub>(k o v'),v,n,a\<^esub> \<langle>x7,x8\<rangle>"
     and step_z_norm:
     "\<And>A l D l' D'.
-        A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',D'\<rangle> \<Longrightarrow>
+        A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',D'\<rangle> \<Longrightarrow>
         P A l D l' (norm (FW D' n) (k o v') n)"
   shows "P x1 x2 x3 x7 x8"
 using assms by (induction rule: step_z_norm.inducts) auto
@@ -164,7 +176,7 @@ using assms unfolding norm_def by (auto simp: Let_def)
 
 lemma step_z_norm_int_all_preservation:
   assumes
-    "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "dbm_int_all D"
+    "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "dbm_int_all D"
   shows "dbm_int_all D'"
 using assms
  apply cases
@@ -194,20 +206,21 @@ using assms norm_FW_valid_preservation_empty norm_FW_valid_preservation_non_empt
 
 lemma step_z_norm_valid_dbm_preservation:
   assumes
-    "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
+    "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
   shows "valid_dbm D'"
 using assms by cases (simp; rule norm_FW_valid_preservation[simplified]; erule step_z_valid_dbm; fast)
 
 
 
 lemma norm_beta_sound:
-  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
   and     "valid_dbm D"
-  shows   "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l',[D']\<^bsub>v,n\<^esub>\<rangle>" using assms(2-)
-proof (induction A l D l' D' rule: step_z_norm_induct, intro assms(1))
-  case (step_z_norm A l D l' D')
-  from step_z_dbm_sound[OF step_z_norm(1,2)] have "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto> \<langle>l',[D']\<^bsub>v,n\<^esub>\<rangle>" by blast
-  then have *: "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l',Approx\<^sub>\<beta> ([D']\<^bsub>v,n\<^esub>)\<rangle>" by force
+shows   "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l',[D']\<^bsub>v,n\<^esub>\<rangle>" using assms(2-) thm step_z_norm_induct
+  apply (induction A l D l' D' rule: step_z_norm_induct, (subst assms(1); blast))
+proof goal_cases
+  case step_z_norm: (1 A l D l' D')
+  from step_z_dbm_sound[OF step_z_norm(1,2)] have "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',[D']\<^bsub>v,n\<^esub>\<rangle>" by blast
+  then have *: "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l',Approx\<^sub>\<beta> ([D']\<^bsub>v,n\<^esub>)\<rangle>" by force
   show ?case
   proof (cases "[D']\<^bsub>v,n\<^esub> = {}")
     case False
@@ -221,22 +234,25 @@ proof (induction A l D l' D' rule: step_z_norm_induct, intro assms(1))
 qed
 
 lemma step_z_norm_valid_dbm:
-  assumes "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
+  assumes
+    "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n"
+    "valid_abstraction A X k" "valid_dbm D"
   shows "valid_dbm D'" using assms(2-)
-proof (induction A l D l' D' rule: step_z_norm_induct, intro assms(1))
-  case (step_z_norm A l D l' D')
+apply (induction A l D l' D' rule: step_z_norm_induct, (subst assms(1); blast))
+proof goal_cases
+  case step_z_norm: (1 A l D l' D')
   with norm_FW_valid_preservation[OF step_z_valid_dbm[OF step_z_norm]] show ?case by fast
 qed
 
 lemma norm_beta_complete:
-  assumes "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l',Z\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+  assumes "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l',Z\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
   and     "valid_dbm D"
-  obtains D' where "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "[D']\<^bsub>v,n\<^esub> = Z" "valid_dbm D'"
+  obtains D' where "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "[D']\<^bsub>v,n\<^esub> = Z" "valid_dbm D'"
 proof -
-  from assms(1) obtain Z' where Z': "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto> \<langle>l',Z'\<rangle>" "Z = Approx\<^sub>\<beta> Z'" by auto
+  from assms(1) obtain Z' where Z': "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle>" "Z = Approx\<^sub>\<beta> Z'" by auto
   from assms(4) have "dbm_int D n" by auto
   with step_z_dbm_DBM[OF Z'(1) assms(2)] step_z_dbm_preserves_int[OF _ assms(2,3)] obtain D' where
-    D': "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n\<^esub> \<langle>l',D'\<rangle>" "Z' = [D']\<^bsub>v,n\<^esub>" "dbm_int D' n"
+    D': "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',D'\<rangle>" "Z' = [D']\<^bsub>v,n\<^esub>" "dbm_int D' n"
   by auto
   note valid_D' = step_z_valid_dbm[OF D'(1) assms(2,3)]
   obtain D'' where D'': "D'' = norm (FW D' n) (k \<circ> v') n" by auto
@@ -260,116 +276,219 @@ proof -
 qed
 
 lemma norm_beta_empty:
-  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
   and     "valid_dbm D" "[D]\<^bsub>v,n\<^esub> = {}"
   shows   "[D']\<^bsub>v,n\<^esub> = {}" using assms
 oops
 
-
-
-subsection \<open>Multi step\<close>
+subsection \<open>Multi Step\<close>
 
 declare steps_z_norm.intros[intro]
 
-lemma steps_z_norm_induct[case_names _ refl step]:
+lemma steps_z_norm_induct[case_names refl step, consumes 1]:
   assumes "x1 \<turnstile> \<langle>x2, x3\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub>* \<langle>x7,x8\<rangle>"
     and "\<And>A l Z. P A l Z l Z"
     and
-    "\<And>A l Z l' Z' l'' Z''.
+    "\<And>A l Z a l' Z' l'' Z'' l''' Z'''.
         A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub>* \<langle>l',Z'\<rangle> \<Longrightarrow>
         P A l Z l' Z' \<Longrightarrow>
-        A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>(k o v'),v,n\<^esub> \<langle>l'',Z''\<rangle> \<Longrightarrow> P A l Z l'' Z''"
+        A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l'',Z''\<rangle> \<Longrightarrow>
+        A \<turnstile> \<langle>l'', Z''\<rangle> \<leadsto>\<^bsub>(k o v'),v,n,\<upharpoonleft>a\<^esub> \<langle>l''',Z'''\<rangle> \<Longrightarrow>
+        P A l Z l''' Z'''"
   shows "P x1 x2 x3 x7 x8"
 using assms by (induction rule: steps_z_norm.induct) auto
-
-lemma norm_beta_sound_multi:
-  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
-  shows "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',[D']\<^bsub>v,n\<^esub>\<rangle> \<and> valid_dbm D'" using assms(2-)
-proof (induction A l D l' D' rule: steps_z_norm_induct, intro assms(1))
-  case refl then show ?case by fast
-next
-  case (step A l Z l' Z' l'' Z'')
-  then have "A \<turnstile> \<langle>l, [Z]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',[Z']\<^bsub>v,n\<^esub>\<rangle>" "valid_dbm Z'" by fast+
-  with norm_beta_sound[OF step(2,4,5)] step_z_norm_valid_dbm[OF step(2,4,5)] show ?case by force
-qed
-
-lemma norm_beta_complete_multi:
-  assumes "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
-  and     "valid_dbm D"
-  obtains D' where "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle>" "[D']\<^bsub>v,n\<^esub> = Z" "valid_dbm D'"
-using assms
-proof (induction A l "[D]\<^bsub>v,n\<^esub>" l' Z arbitrary: thesis rule: steps_z_beta.induct)
-  case refl
-  from this(1)[OF steps_z_norm.refl] this(4) show thesis by fast
-next
-  case (step A l l' Z' l'' Z'')
-  from step(2)[OF _ step(5,6,7)] obtain D' where D':
-    "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle>" "[D']\<^bsub>v,n\<^esub> = Z'" "valid_dbm D'"
-  .
-  with norm_beta_complete[OF _ step(5,6), of l' D' l'' Z''] step(3) obtain D'' where D'':
-    "A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^sub>\<N> \<langle>l'',D''\<rangle>" "[D'']\<^bsub>v,n\<^esub> = Z''" "valid_dbm D''"
-  by auto
-  with D'(1) step(4)[of D''] show thesis by blast
-qed
-
-lemma norm_beta_equiv_multi:
-  assumes "global_clock_numbering A v n" "valid_abstraction A X k"
-  and     "valid_dbm D"
-  shows "(\<exists> D'. A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle> \<and> Z = [D']\<^bsub>v,n\<^esub>) \<longleftrightarrow> A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z\<rangle>"
-using norm_beta_complete_multi[OF _ assms] norm_beta_sound_multi[OF _ assms] by metis
-
-
-subsection \<open>Connecting with Correctness Results for Approximating Semantics\<close>
-
-lemma steps_z_norm_complete':
-  assumes "A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>* \<langle>l',Z\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
-  and "valid_dbm D"
-  shows "\<exists> D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle> \<and>  Z \<subseteq> [D']\<^bsub>v,n\<^esub>"
-proof -
-  from steps_z_beta_complete[OF assms(1,3)] assms(4) obtain Z'' where Z'':
-    "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z''\<rangle>" "Z \<subseteq> Z''"
-  by auto
-  from this(2) norm_beta_complete_multi[OF this(1) assms(2,3,4)] show ?thesis by metis
-qed
 
 lemma valid_dbm_V':
   assumes "valid_dbm M"
   shows "[M]\<^bsub>v,n\<^esub> \<in> V'"
 using assms unfolding V'_def by force
 
+lemma step_z_empty:
+  assumes "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle>" "Z = {}"
+  shows "Z' = {}"
+  using assms
+  apply cases
+  unfolding zone_delay_def zone_set_def
+  by auto
+
+subsection \<open>Connecting with Correctness Results for Approximating Semantics\<close>
+
+context
+  fixes A :: "('a, 'c, real, 's) ta"
+    assumes gcn: "global_clock_numbering A v n"
+    and va: "valid_abstraction A X k"
+begin
+
+lemmas
+  step_z_norm_valid_dbm' = step_z_norm_valid_dbm[OF _ gcn va]
+
+lemmas
+  step_z_valid_dbm' = step_z_valid_dbm[OF _ gcn va]
+
+lemmas norm_beta_sound' = norm_beta_sound[OF _ gcn va]
+
+lemma v_bound:
+  "\<forall> c \<in> clk_set A. v c \<le> n"
+  using gcn by blast
+
+lemmas alpha_beta_step'' = alpha_beta_step'[OF _ va v_bound]
+
+lemmas step_z_dbm_sound' = step_z_dbm_sound[OF _ gcn]
+
+lemmas step_z_V'' = step_z_V'[OF _ va v_bound]
+
+lemmas alpha_beta_steps' = alpha_beta_steps[OF _ va v_bound]
+
+lemmas steps_z_alpha_sound' = alpha_interp.steps_z_alpha_sound[OF _ va]
+
+lemma steps_z_norm_valid_dbm:
+  assumes
+    "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle>" "valid_dbm D"
+  shows "valid_dbm D'" using assms
+  by (induction A \<equiv> A _ _ _ _ rule: steps_z_norm_induct)
+     (auto intro: step_z_valid_dbm' step_z_norm_valid_dbm')
+
 lemma steps_z_norm_sound':
+  assumes "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l', D'\<rangle>"
+    and "valid_dbm D"
+  shows "\<exists>Z. A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<subseteq> Z"
+    using assms
+proof (induction A \<equiv> A _ _ _ _ rule: steps_z_norm_induct)
+  case (refl l Z)
+  then show ?case by blast
+next
+  case (step l D a l' D' l'' D'' l''' D''')
+  from step(2,5) obtain Z where Z:
+    "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z\<rangle>" "[D']\<^bsub>v,n\<^esub> \<subseteq> Z"
+    by auto
+  from step_z_dbm_sound'[OF step(3)] have "A \<turnstile> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l'', [D'']\<^bsub>v,n\<^esub>\<rangle>" by auto
+  from alpha_interp.step_z_mono[OF this \<open>[D']\<^bsub>v,n\<^esub> \<subseteq> Z\<close>] obtain W' where W':
+    "A \<turnstile> \<langle>l', Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l'', W'\<rangle>" "[D'']\<^bsub>v,n\<^esub> \<subseteq> W'"
+    by auto
+  from Z(1) \<open>valid_dbm D\<close>  have "Z \<subseteq> V" by (metis valid_dbm_V' steps_z_beta_V V'_V)
+  with W'(1) have "W' \<subseteq> V" by (metis alpha_interp.step_z_V)
+  from steps_z_norm_valid_dbm[OF step(1,5)] have "valid_dbm D'" .
+  with step_z_norm_valid_dbm'[OF step(4)] step_z_valid_dbm'[OF step(3)] have
+    "valid_dbm D''" "valid_dbm D'''"
+    by auto
+  from norm_beta_sound'[OF step(4) this(1)] have "A \<turnstile> \<langle>l'', [D'']\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>\<upharpoonleft>a\<^esub> \<langle>l''', [D''']\<^bsub>v,n\<^esub>\<rangle>" .
+  from step_z_beta_mono[OF this \<open>[D'']\<^bsub>v,n\<^esub> \<subseteq> W'\<close> \<open>W' \<subseteq> V\<close>] obtain W'' where
+    "A \<turnstile> \<langle>l'', W'\<rangle> \<leadsto>\<^bsub>\<beta>\<upharpoonleft>a\<^esub> \<langle>l''', W''\<rangle>" "[D''']\<^bsub>v,n\<^esub> \<subseteq> W''"
+    by auto
+  with Z(1) W' show ?case by blast
+qed
+
+lemma steps_z_norm_alpha:
   assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle>"
-    and "global_clock_numbering A v n"
-    and "valid_abstraction A X k"
+    and "valid_dbm D"
+  shows "\<exists>Z. A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<subseteq> Z"
+  by (meson alpha_beta_steps' assms(1) assms(2) order.trans steps_z_norm_sound' valid_dbm_V')
+
+lemma steps_z_norm_sound'':
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle>"
     and "valid_dbm D"
     and "[D']\<^bsub>v,n\<^esub> \<noteq> {}"
   shows "\<exists>Z. A \<turnstile> \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>* \<langle>l',Z\<rangle> \<and> Z \<noteq> {}"
 proof -
-  from norm_beta_sound_multi[OF assms(1-4)] have "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',[D']\<^bsub>v,n\<^esub>\<rangle>" by fast
-  from steps_z_beta_sound[OF this _ assms(3) valid_dbm_V'] assms(2,4,5) show ?thesis by blast
+  from steps_z_norm_alpha[OF assms(1,2)] obtain Z where Z:
+    "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', Z\<rangle>" "[D']\<^bsub>v,n\<^esub> \<subseteq> Z"
+    by fast
+  from assms have "[D]\<^bsub>v,n\<^esub> \<subseteq> V" by (metis valid_dbm_V' V'_V)
+  from steps_z_alpha_sound'[OF Z(1) this] Z(2) assms(3) show ?thesis by auto
 qed
 
+print_statement steps_z.induct
+
+lemmas norm_beta_complete' = norm_beta_complete[OF _ gcn va]
+lemmas step_z_dbm_DBM' = step_z_dbm_DBM[OF _ gcn]
+lemmas steps_z_beta_complete' = steps_z_beta_complete[OF _ va]
+
+text \<open>Old proof, using the stack of semantics\<close>
+lemma steps_z_norm_beta_complete:
+  assumes "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z\<rangle>"
+  and "valid_dbm D"
+shows "\<exists> D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l', D'\<rangle> \<and> Z = [D']\<^bsub>v,n\<^esub> \<and> valid_dbm D'"
+  using assms
+proof (induction A \<equiv> A l "[D]\<^bsub>v,n\<^esub>" _ _)
+  case (refl l)
+  then show ?case by blast
+next
+  case (step l l' Z' Z'' a l'' Z''')
+  then obtain D' where D':
+    "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l', D'\<rangle>" "Z' = [D']\<^bsub>v,n\<^esub>" "valid_dbm D'"
+    by blast
+  from step_z_dbm_DBM'[OF step(3)[unfolded \<open>Z' = _\<close>]] obtain D'' where D'':
+    "A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D''\<rangle>" "Z'' = [D'']\<^bsub>v,n\<^esub>"
+    by auto
+  with norm_beta_complete'[OF step(4)[unfolded \<open>Z'' = _\<close>] step_z_valid_dbm'] \<open>valid_dbm D'\<close>
+  obtain D' where
+    "A \<turnstile> \<langle>l', D''\<rangle> \<leadsto>\<^bsub>\<N>\<upharpoonleft>a\<^esub> \<langle>l'', D'\<rangle>" "[D']\<^bsub>v,n\<^esub> = Z'''" "valid_dbm D'"
+    by blast
+  with D' D'' show ?case by auto
+qed
+
+lemma
+  assumes "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>* \<langle>l', Z\<rangle>"
+  and "valid_dbm D"
+shows "\<exists> D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle> \<and> Z \<subseteq> [D']\<^bsub>v,n\<^esub>"
+  using assms steps_z_beta_complete' V'_V[OF valid_dbm_V'] steps_z_norm_beta_complete by metis
+
+text \<open>Direct proof\<close>
+lemma steps_z_norm_complete':
+  assumes "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle>"
+  and "valid_dbm D" "Z \<subseteq> [D]\<^bsub>v,n\<^esub>"
+shows "\<exists> D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle> \<and> Z' \<subseteq> [D']\<^bsub>v,n\<^esub>"
+  using assms
+proof (induction A \<equiv> A l Z _ _ arbitrary: D)
+  case (refl l)
+  then show ?case by blast
+next
+  case (step l Z l' Z' a l'' Z'' l''' Z''')
+  from alpha_interp.step_z_mono[OF step(1,6)] obtain W' where W':
+    "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', W'\<rangle>" "Z' \<subseteq> W'"
+    by blast
+  from step_z_dbm_DBM'[OF this(1)] obtain D' where D':
+    "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D'\<rangle>" "W' = [D']\<^bsub>v,n\<^esub>"
+    by blast
+  have "valid_dbm D'"
+    using D'(1) step.prems(1) step_z_valid_dbm' by auto
+  from alpha_interp.step_z_mono[OF step(2) \<open>Z' \<subseteq> W'\<close>] obtain W'' where
+    "A \<turnstile> \<langle>l', W'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', W''\<rangle>" "Z'' \<subseteq> W''"
+    by blast
+  then have "A \<turnstile> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(\<upharpoonleft>a)\<^esub> \<langle>l'', Approx\<^sub>\<beta> W''\<rangle>" unfolding \<open>W' = _\<close> by auto
+  from norm_beta_complete'[OF this \<open>valid_dbm D'\<close>] obtain D'' where D'':
+    "A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^bsub>\<N>\<upharpoonleft>a\<^esub> \<langle>l'', D''\<rangle>" "[D'']\<^bsub>v,n\<^esub> = Approx\<^sub>\<beta> W''" "valid_dbm D''"
+    by auto
+  from beta_interp.apx_subset this(2) \<open>Z'' \<subseteq> _\<close> have "Z'' \<subseteq> [D'']\<^bsub>v,n\<^esub>" by auto
+  from step(4)[OF D''(3) this] obtain D''' where
+    "A \<turnstile> \<langle>l'', D''\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l''', D'''\<rangle>" "Z''' \<subseteq> [D''']\<^bsub>v,n\<^esub>"
+    by blast
+  with D''(1) D'(1) show ?case by (blast intro: steps_z_norm_step_altI)
+qed
 
 section \<open>The Final Result About Language Emptiness\<close>
 
 lemma steps_z_norm_complete:
-  assumes "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" "u \<in> [D]\<^bsub>v,n\<^esub>"
-    and   "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
+  assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" "u \<in> [D]\<^bsub>v,n\<^esub>"
+    and   "valid_dbm D"
   shows "\<exists> D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle> \<and> u' \<in> [D']\<^bsub>v,n\<^esub>"
-using steps_z_norm_complete'[OF _ assms(3-)] steps_z_complete[OF assms(1,2)] by fast
+    using steps_z_norm_complete'[OF _ assms(3)] steps_z_complete[OF assms(1,2)] by fast
+
+end
 
 lemma steps_z_norm_sound:
   assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle>"
     and   "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
     and   "[D']\<^bsub>v,n\<^esub> \<noteq> {}"
-  shows "\<exists> u \<in> [D]\<^bsub>v,n\<^esub>. \<exists> u'. A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
-using steps_z_norm_sound'[OF assms] steps_z_sound by fast
+  shows "\<exists> u \<in> [D]\<^bsub>v,n\<^esub>. \<exists> u'. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
+  using steps_z_norm_sound''[OF assms(2,3,1,4,5)] steps_z_sound by fast
 
 theorem steps_z_norm_decides_emptiness:
   assumes "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
   shows "(\<exists> D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l',D'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {})
-     \<longleftrightarrow> (\<exists> u \<in> [D]\<^bsub>v,n\<^esub>. \<exists> u'. A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
-using steps_z_norm_sound[OF _ assms] steps_z_norm_complete[OF _ _ assms] by fast
+     \<longleftrightarrow> (\<exists> u \<in> [D]\<^bsub>v,n\<^esub>. \<exists> u'. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
+  using steps_z_norm_sound[OF _ assms] steps_z_norm_complete[OF assms(1,2) _ _ assms(3)]
+    by fast
 
 end
 
@@ -446,7 +565,7 @@ proof -
             unfolding norm_def
               apply (simp del: norm_upper.simps norm_lower.simps)
               apply (auto simp: less[symmetric])[]
-              
+
              using \<open>i > 0\<close> \<open>j = 0\<close> A(1) B not_inf unfolding norm_def
             by (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
             with not_inf have "0 \<le> get_const (?M i j)" "get_const (?M i j) \<le> k i"
@@ -535,24 +654,24 @@ qed
 
 (* XXX Maybe move *)
 lemma step_z_norm_mono:
-  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
   and     "valid_dbm D" "valid_dbm M"
   and "[D]\<^bsub>v,n\<^esub> \<subseteq> [M]\<^bsub>v,n\<^esub>"
-  shows "\<exists> M'. A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^sub>\<N> \<langle>l', M'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', M'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub>"
 proof -
-  from norm_beta_sound[OF assms(1,2,3,4)] have "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle>" .
+  from norm_beta_sound[OF assms(1,2,3,4)] have "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle>" .
   from step_z_beta_mono[OF this assms(6)] assms(5) obtain Z where
-    "A \<turnstile> \<langle>l, [M]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z\<rangle>" "[D']\<^bsub>v,n\<^esub> \<subseteq> Z"
+    "A \<turnstile> \<langle>l, [M]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z\<rangle>" "[D']\<^bsub>v,n\<^esub> \<subseteq> Z"
   by auto
   with norm_beta_complete[OF this(1) assms(2,3,5)] show ?thesis by metis
 qed
 
 lemma step_z_norm_equiv:
-  assumes step: "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^sub>\<N> \<langle>l',D'\<rangle>"
+  assumes step: "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>"
       and prems: "global_clock_numbering A v n" "valid_abstraction A X k"
       and valid: "valid_dbm D" "valid_dbm M"
       and equiv: "[D]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
-  shows "\<exists> M'. A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^sub>\<N> \<langle>l', M'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', M'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
 using step
  apply cases
  apply (frule step_z_dbm_equiv[OF prems(1)])
@@ -663,7 +782,7 @@ lemma finite_ta_RegionsD:
     "Regions' (clk_set A) v n x" "valid_abstraction A (clk_set A) k" "global_clock_numbering A v n"
 proof -
   from standard_abstraction assms obtain k :: "'c \<Rightarrow> nat" where k:
-    "valid_abstraction A (clk_set A) k" 
+    "valid_abstraction A (clk_set A) k"
   unfolding finite_ta_def by blast
   from finite_ta_Regions'[OF assms] obtain v n x where *: "Regions' (clk_set A) v n x" .
   then interpret interp: Regions' "clk_set A" k v n x .
@@ -722,7 +841,7 @@ proof -
     from valid_dbm_pos[OF valid] interp.V_alt_def have "[D]\<^bsub>v,n\<^esub> \<subseteq> interp.V" by blast
     with valid have valid: "interp.valid_dbm D" unfolding valid_dbm_def by auto
     from step have "interp.steps_z_norm' A l D l' D'" unfolding v'_def interp.beta_interp.v'_def .
-    note this = interp.steps_z_norm_sound'[OF this *(3,2) valid non_empty]
+    note this = interp.steps_z_norm_sound''[OF *(3,2) this valid non_empty]
   }
   then show thesis by (blast intro: that)
 qed

@@ -205,12 +205,12 @@ section \<open>A New Zone Semantics Abstracting with \<open>Closure\<^sub>\<alph
 subsection \<open>Single step\<close>
 
 inductive step_z_alpha ::
-  "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
-("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>_, _\<rangle>" [61,61,61] 61)
+  "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 'a action \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<alpha>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
 where
-  step_alpha: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l', Closure\<^sub>\<alpha> Z'\<rangle>"
+  step_alpha: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l', Closure\<^sub>\<alpha> Z'\<rangle>"
 
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l',u'\<rangle>"
+inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l',u'\<rangle>"
 
 declare step_z_alpha.intros[intro]
 
@@ -220,7 +220,7 @@ unfolding V_def zone_delay_def cval_add_def by auto
 lemma reset_V: "Z \<subseteq> V \<Longrightarrow> (zone_set Z r) \<subseteq> V"
 unfolding V_def unfolding zone_set_def by (induction r, auto)
 
-lemma step_z_V: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<subseteq> V"
+lemma step_z_V: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<subseteq> V"
  apply (induction rule: step_z.induct)
   apply (rule le_infI1)
   apply (rule up_V)
@@ -233,7 +233,8 @@ by blast
 text \<open>Single-step soundness and completeness follows trivially from \<open>cla_empty_iff\<close>.\<close>
 
 lemma step_z_alpha_sound:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {} \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {}
+  \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
  apply (induction rule: step_z_alpha.induct)
   apply (frule step_z_V)
   apply assumption
@@ -242,12 +243,13 @@ lemma step_z_alpha_sound:
 by auto
 
 lemma step_z_alpha_complete:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {} \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
- apply (frule step_z_V)
-  apply assumption
- apply (rotate_tac 3)
- apply (drule cla_empty_iff)
-by auto
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {}
+  \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
+  apply (frule step_z_V)
+   apply assumption
+  apply (rotate_tac 3)
+  apply (drule cla_empty_iff)
+  by auto
 
 lemma zone_set_mono:
   "A \<subseteq> B \<Longrightarrow> zone_set A r \<subseteq> zone_set B r"
@@ -265,7 +267,8 @@ inductive
 ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>_, _\<rangle>" [61,61,61] 61)
 where
   refl: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l, Z\<rangle>" |
-  step: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l'', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l'', Z''\<rangle>"
+  step: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<alpha>(\<upharpoonleft>a)\<^esub> \<langle>l'', Z'''\<rangle>
+  \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l'', Z'''\<rangle>"
 
 declare steps_z_alpha.intros[intro]
 
@@ -275,8 +278,8 @@ text \<open>P. Bouyer's calculation for @{term "Post(Closure\<^sub>\<alpha> Z, e
 text \<open>This is now obsolete as we argue solely with monotonicty of \<open>steps_z\<close> w.r.t \<open>Closure\<^sub>\<alpha>\<close>\<close>
 
 lemma calc:
-  "valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> A \<turnstile> \<langle>l, Closure\<^sub>\<alpha> Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>
-  \<Longrightarrow> \<exists>Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l', Z''\<rangle> \<and> Z' \<subseteq> Z''"
+  "valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> A \<turnstile> \<langle>l, Closure\<^sub>\<alpha> Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle>
+  \<Longrightarrow> \<exists>Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l', Z''\<rangle> \<and> Z' \<subseteq> Z''"
 proof (cases rule: step_z.cases, assumption, goal_cases)
   case 1
   note A = this
@@ -285,26 +288,9 @@ proof (cases rule: step_z.cases, assumption, goal_cases)
   then have "\<forall>(x, m)\<in>collect_clock_pairs (inv_of A l). m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
   unfolding clkp_set_def collect_clki_def inv_of_def by auto
   from closure_constraint_id[OF this] have *: "Closure\<^sub>\<alpha> \<lbrace>inv_of A l\<rbrace> = \<lbrace>inv_of A l\<rbrace> \<inter> V" .
-  from closure_constraint_mono'[OF *, of Z] have
-    "(Closure\<^sub>\<alpha> Z) \<inter> {u. u \<turnstile> inv_of A l} \<subseteq> Closure\<^sub>\<alpha> (Z \<inter> {u. u \<turnstile> inv_of A l})"
-  unfolding ccval_def by (subst Int_commute) (subst (asm) (2) Int_commute, assumption)
-  moreover have "\<dots>\<^sup>\<up> \<subseteq> Closure\<^sub>\<alpha> ((Z \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up>)" using A(2) by (blast intro!: closure_delay_mono)
-  ultimately have "Z' \<subseteq> Closure\<^sub>\<alpha> ((Z \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l})"
-  using closure_constraint_mono'[OF *, of "(Z \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up>"] unfolding ccval_def
-   apply (subst A(5))
-   apply (subst (asm) (5 7) Int_commute)
-   apply (rule subset_trans)
-    defer
-    apply assumption
-   apply (subst subset_int_mono)
-    defer
-    apply rule
-   apply (rule subset_trans)
-    defer
-    apply assumption
-   apply (rule zone_delay_mono)
-   apply assumption
-  done
+  have "(Closure\<^sub>\<alpha> Z)\<^sup>\<up> \<subseteq> Closure\<^sub>\<alpha> (Z\<^sup>\<up>)" using A(2) by (blast intro!: closure_delay_mono)
+  then have "Z' \<subseteq> Closure\<^sub>\<alpha> (Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l})"
+  using closure_constraint_mono'[OF *, of "Z\<^sup>\<up>"] unfolding ccval_def by (auto simp: Int_commute A(6))
   with A(4,3) show ?thesis by auto
 next
   case (2 g a r)
@@ -317,10 +303,10 @@ next
   from *(1) A(5) have "\<forall>(x, m)\<in>collect_clock_pairs (inv_of A l'). m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
   unfolding clkp_set_def collect_clki_def inv_of_def by fastforce
   from closure_constraint_id[OF this] have **: "Closure\<^sub>\<alpha> \<lbrace>inv_of A l'\<rbrace> = \<lbrace>inv_of A l'\<rbrace> \<inter> V" .
-  from *(1) A(5) have "\<forall>(x, m)\<in>collect_clock_pairs g. m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
+  from *(1) A(6) have "\<forall>(x, m)\<in>collect_clock_pairs g. m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
   unfolding clkp_set_def collect_clkt_def by fastforce
   from closure_constraint_id[OF this] have ***: "Closure\<^sub>\<alpha> \<lbrace>g\<rbrace> = \<lbrace>g\<rbrace> \<inter> V" .
-  from *(2) A(5) have ****: "set r \<subseteq> X" unfolding collect_clkvt_def by fastforce
+  from *(2) A(6) have ****: "set r \<subseteq> X" unfolding collect_clkvt_def by fastforce
   from closure_constraint_mono'[OF ***, of Z] have
     "(Closure\<^sub>\<alpha> Z) \<inter> {u. u \<turnstile> g} \<subseteq> Closure\<^sub>\<alpha> (Z \<inter> {u. u \<turnstile> g})" unfolding ccval_def
   by (subst Int_commute) (subst (asm) (2) Int_commute, assumption)
@@ -328,7 +314,7 @@ next
   by (intro closure_update_mono, auto)
   ultimately have "Z' \<subseteq> Closure\<^sub>\<alpha> (zone_set (Z \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'})"
   using closure_constraint_mono'[OF **, of "zone_set (Z \<inter> {u. u \<turnstile> g}) r"] unfolding ccval_def
-    apply (subst A(4))
+    apply (subst A(5))
     apply (subst (asm) (5 7) Int_commute)
     apply (rule subset_trans)
      defer
@@ -342,7 +328,7 @@ next
     apply (rule zone_set_mono)
     apply assumption
   done
-  with A(5) show ?thesis by auto
+  with A(6) show ?thesis by (auto simp: A(4))
 qed
 
 
@@ -353,29 +339,29 @@ text \<open>
 \<close>
 
 lemma steps_z_alpha_closure_involutive'_aux:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> Closure\<^sub>\<alpha> Z \<subseteq> Closure\<^sub>\<alpha> W \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
-  \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',W'\<rangle> \<and> Closure\<^sub>\<alpha> Z' \<subseteq> Closure\<^sub>\<alpha> W'"
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Closure\<^sub>\<alpha> Z \<subseteq> Closure\<^sub>\<alpha> W \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
+  \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle> \<and> Closure\<^sub>\<alpha> Z' \<subseteq> Closure\<^sub>\<alpha> W'"
 proof (induction rule: step_z.induct)
   case A: (step_t_z A l Z)
-  let ?Z' = "(Z \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
-  let ?W' = "(W \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
+  let ?Z' = "Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
+  let ?W' = "W\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
   from \<R>_def have \<R>_def': "\<R> = {region X I r |I r. valid_region X k I r}" by simp
-  have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l,?W'\<rangle>" by auto
+  have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l,?W'\<rangle>" by auto
   moreover have "Closure\<^sub>\<alpha> ?Z' \<subseteq> Closure\<^sub>\<alpha> ?W'"
   proof
     fix v assume v: "v \<in> Closure\<^sub>\<alpha> ?Z'"
     then obtain R' v' where 1: "R' \<in> \<R>" "v \<in> R'" "v' \<in> R'" "v' \<in> ?Z'" unfolding cla_def by auto
     then obtain u d where
-      "u \<in> Z" and v': "v' = u \<oplus> d" "u \<turnstile> inv_of A l" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d"
+      "u \<in> Z" and v': "v' = u \<oplus> d" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d"
     unfolding zone_delay_def by blast
     with closure_subs[OF A(3)] A(1) obtain u' R where u': "u' \<in> W" "u \<in> R" "u' \<in> R" "R \<in> \<R>"
     unfolding cla_def by blast
     then have "\<forall>x\<in>X. 0 \<le> u x" unfolding \<R>_def by fastforce
     from region_cover'[OF \<R>_def' this] have R: "[u]\<^sub>\<R> \<in> \<R>" "u \<in> [u]\<^sub>\<R>" by auto
-    from SuccI2[OF \<R>_def' this(2,1) v'(4), of "[v']\<^sub>\<R>"] v'(1) have v'1:
+    from SuccI2[OF \<R>_def' this(2,1) \<open>0 \<le> d\<close>, of "[v']\<^sub>\<R>"] v'(1) have v'1:
       "[v']\<^sub>\<R> \<in> Succ \<R> ([u]\<^sub>\<R>)" "[v']\<^sub>\<R> \<in> \<R>"
     by auto
-    from regions_closed'_spec[OF R(1,2) v'(4)] v'(1) have v'2: "v' \<in> [v']\<^sub>\<R>" by simp
+    from regions_closed'_spec[OF R(1,2) \<open>0 \<le> d\<close>] v'(1) have v'2: "v' \<in> [v']\<^sub>\<R>" by simp
     from A(2) have *:
       "\<forall>(x, m)\<in>clkp_set A. m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
       "collect_clkvt (trans_of A) \<subseteq> X"
@@ -383,8 +369,8 @@ proof (induction rule: step_z.induct)
     by (auto elim: valid_abstraction.cases)
     from *(1) u'(2) have "\<forall>(x, m)\<in>collect_clock_pairs (inv_of A l). m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
     unfolding clkp_set_def collect_clki_def inv_of_def by fastforce
-    from ccompatible[OF this, folded \<R>_def'] v'1(2) v'2 v'(1,2,3) R have 3:
-      "[v']\<^sub>\<R> \<subseteq> \<lbrace>inv_of A l\<rbrace>" "([u]\<^sub>\<R>) \<subseteq> \<lbrace>inv_of A l\<rbrace>"
+    from ccompatible[OF this, folded \<R>_def'] v'1(2) v'2 v'(1,2) have 3:
+      "[v']\<^sub>\<R> \<subseteq> \<lbrace>inv_of A l\<rbrace>"
     unfolding ccompatible_def ccval_def by auto
     with A v'1 R(1) \<R>_def' have "A,\<R> \<turnstile> \<langle>l, ([u]\<^sub>\<R>)\<rangle> \<leadsto> \<langle>l,([v']\<^sub>\<R>)\<rangle>" by auto
     with valid_regions_distinct_spec[OF v'1(2) 1(1) v'2 1(3)] region_unique_spec[OF u'(2,4)]
@@ -402,7 +388,7 @@ next
   let ?Z' = "zone_set (Z \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
   let ?W' = "zone_set (W \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
   from \<R>_def have \<R>_def': "\<R> = {region X I r |I r. valid_region X k I r}" by simp
-  from A(1) have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',?W'\<rangle>" by auto
+  from A(1) have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',?W'\<rangle>" by auto
   moreover have "Closure\<^sub>\<alpha> ?Z' \<subseteq> Closure\<^sub>\<alpha> ?W'"
   proof
     fix v assume v: "v \<in> Closure\<^sub>\<alpha> ?Z'"
@@ -436,29 +422,29 @@ next
 qed
 
 lemma steps_z_alpha_closure_involutive'_aux':
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> Closure\<^sub>\<alpha> Z \<subseteq> Closure\<^sub>\<alpha> W \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> W \<subseteq> Z
-  \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',W'\<rangle> \<and> Closure\<^sub>\<alpha> Z' \<subseteq> Closure\<^sub>\<alpha> W' \<and> W' \<subseteq> Z'"
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Closure\<^sub>\<alpha> Z \<subseteq> Closure\<^sub>\<alpha> W \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> W \<subseteq> Z
+  \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle> \<and> Closure\<^sub>\<alpha> Z' \<subseteq> Closure\<^sub>\<alpha> W' \<and> W' \<subseteq> Z'"
 proof (induction rule: step_z.induct)
   case A: (step_t_z A l Z)
-  let ?Z' = "(Z \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
-  let ?W' = "(W \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
+  let ?Z' = "Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
+  let ?W' = "W\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
   from \<R>_def have \<R>_def': "\<R> = {region X I r |I r. valid_region X k I r}" by simp
-  have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l,?W'\<rangle>" by auto
+  have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l,?W'\<rangle>" by auto
   moreover have "Closure\<^sub>\<alpha> ?Z' \<subseteq> Closure\<^sub>\<alpha> ?W'"
   proof
     fix v assume v: "v \<in> Closure\<^sub>\<alpha> ?Z'"
     then obtain R' v' where 1: "R' \<in> \<R>" "v \<in> R'" "v' \<in> R'" "v' \<in> ?Z'" unfolding cla_def by auto
     then obtain u d where
-      "u \<in> Z" and v': "v' = u \<oplus> d" "u \<turnstile> inv_of A l" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d"
+      "u \<in> Z" and v': "v' = u \<oplus> d" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d"
     unfolding zone_delay_def by blast
     with closure_subs[OF A(3)] A(1) obtain u' R where u': "u' \<in> W" "u \<in> R" "u' \<in> R" "R \<in> \<R>"
     unfolding cla_def by blast
     then have "\<forall>x\<in>X. 0 \<le> u x" unfolding \<R>_def by fastforce
     from region_cover'[OF \<R>_def' this] have R: "[u]\<^sub>\<R> \<in> \<R>" "u \<in> [u]\<^sub>\<R>" by auto
-    from SuccI2[OF \<R>_def' this(2,1) v'(4), of "[v']\<^sub>\<R>"] v'(1) have v'1:
+    from SuccI2[OF \<R>_def' this(2,1) \<open>0 \<le> d\<close>, of "[v']\<^sub>\<R>"] v'(1) have v'1:
       "[v']\<^sub>\<R> \<in> Succ \<R> ([u]\<^sub>\<R>)" "[v']\<^sub>\<R> \<in> \<R>"
     by auto
-    from regions_closed'_spec[OF R(1,2) v'(4)] v'(1) have v'2: "v' \<in> [v']\<^sub>\<R>" by simp
+    from regions_closed'_spec[OF R(1,2) \<open>0 \<le> d\<close>] v'(1) have v'2: "v' \<in> [v']\<^sub>\<R>" by simp
     from A(2) have *:
       "\<forall>(x, m)\<in>clkp_set A. m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
       "collect_clkvt (trans_of A) \<subseteq> X"
@@ -466,8 +452,8 @@ proof (induction rule: step_z.induct)
     by (auto elim: valid_abstraction.cases)
     from *(1) u'(2) have "\<forall>(x, m)\<in>collect_clock_pairs (inv_of A l). m \<le> real (k x) \<and> x \<in> X \<and> m \<in> \<nat>"
     unfolding clkp_set_def collect_clki_def inv_of_def by fastforce
-    from ccompatible[OF this, folded \<R>_def'] v'1(2) v'2 v'(1,2,3) R have 3:
-      "[v']\<^sub>\<R> \<subseteq> \<lbrace>inv_of A l\<rbrace>" "([u]\<^sub>\<R>) \<subseteq> \<lbrace>inv_of A l\<rbrace>"
+    from ccompatible[OF this, folded \<R>_def'] v'1(2) v'2 v'(1,2) have 3:
+      "[v']\<^sub>\<R> \<subseteq> \<lbrace>inv_of A l\<rbrace>"
     unfolding ccompatible_def ccval_def by auto
     with A v'1 R(1) \<R>_def' have "A,\<R> \<turnstile> \<langle>l, ([u]\<^sub>\<R>)\<rangle> \<leadsto> \<langle>l,([v']\<^sub>\<R>)\<rangle>" by auto
     with valid_regions_distinct_spec[OF v'1(2) 1(1) v'2 1(3)] region_unique_spec[OF u'(2,4)]
@@ -486,7 +472,7 @@ next
   let ?Z' = "zone_set (Z \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
   let ?W' = "zone_set (W \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
   from \<R>_def have \<R>_def': "\<R> = {region X I r |I r. valid_region X k I r}" by simp
-  from A(1) have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',?W'\<rangle>" by auto
+  from A(1) have step_z: "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',?W'\<rangle>" by auto
   moreover have "Closure\<^sub>\<alpha> ?Z' \<subseteq> Closure\<^sub>\<alpha> ?W'"
   proof
     fix v assume v: "v \<in> Closure\<^sub>\<alpha> ?Z'"
@@ -520,35 +506,45 @@ next
   ultimately show ?case by meson
 qed
 
+
 lemma steps_z_alt:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto> \<langle>l'',Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'',Z''\<rangle>"
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l'',Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l'', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l''',Z'''\<rangle>
+  \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l''',Z'''\<rangle>"
 by (induction rule: steps_z.induct) auto
 
 lemma steps_z_alpha_V: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<subseteq> V"
 apply (induction rule: steps_z_alpha.induct) using closure_V by auto
 
 lemma steps_z_alpha_closure_involutive':
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto> \<langle>l'',Z''\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
-  \<Longrightarrow> \<exists> Z'''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'',Z'''\<rangle> \<and> Closure\<^sub>\<alpha> Z'' \<subseteq> Closure\<^sub>\<alpha> Z''' \<and> Z''' \<subseteq> Z''"
-proof (induction A l Z l' Z' arbitrary: Z'' l'' rule: steps_z_alpha.induct, goal_cases)
-  case refl from this(1) show ?case by blast
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'',Z'''\<rangle>
+  \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
+  \<Longrightarrow> \<exists> W'''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'',W'''\<rangle> \<and> Closure\<^sub>\<alpha> Z''' \<subseteq> Closure\<^sub>\<alpha> W''' \<and> W''' \<subseteq> Z'''"
+proof (induction A l Z l' Z' arbitrary: a Z'' Z''' l'' rule: steps_z_alpha.induct, goal_cases)
+  case refl then show ?case by blast
 next
-  case A: (2 A l Z l' Z' l'' Z'' Z''a l''a)
-  from A(3) obtain \<Z> where Z'': "Z'' = Closure\<^sub>\<alpha> \<Z>" "A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto> \<langle>l'',\<Z>\<rangle>" by auto
-  from A(2)[OF Z''(2) A(5,6)] obtain Z''' where Z''':
-    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'',Z'''\<rangle>" "Closure\<^sub>\<alpha> \<Z> \<subseteq> Closure\<^sub>\<alpha> Z'''" "Z''' \<subseteq> \<Z>"
-  by auto
-  from closure_subs have *:
-    "Z''' \<subseteq> Closure\<^sub>\<alpha> \<Z>"
-  by (metis A(1,6) Z'''(3) Z''(2) step_z_V steps_z_alpha_V subset_trans) 
-  from A(4) Z'' have "A \<turnstile> \<langle>l'', Closure\<^sub>\<alpha> \<Z>\<rangle> \<leadsto> \<langle>l''a,Z''a\<rangle>" by auto
-  from steps_z_alpha_closure_involutive'_aux'[OF this(1) _ A(5) closure_V *] Z'''(2,3) obtain W'
-    where ***: "A \<turnstile> \<langle>l'', Z'''\<rangle> \<leadsto> \<langle>l''a,W'\<rangle>" "Closure\<^sub>\<alpha> Z''a \<subseteq> Closure\<^sub>\<alpha> W'" "W' \<subseteq> Z''a"
-  by (auto simp: closure_involutive)
-  with Z'''(1) have "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l''a,W'\<rangle>" by (blast intro: steps_z_alt)
-  with ***(2,3) show ?case by blast
+  case A: (2 A l Z l' Z' Z'' a l'' Z''' aa Z''a Z'''a l''a)
+  from A(4) obtain \<Z> where Z''': "Z''' = Closure\<^sub>\<alpha> \<Z>" "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', \<Z>\<rangle>" by auto
+  from A(2)[OF A(3) this(2) A(7,8)] A(4) obtain W''' where W''':
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'',W'''\<rangle>" "Closure\<^sub>\<alpha> \<Z> \<subseteq> Closure\<^sub>\<alpha> W'''" "W''' \<subseteq> \<Z>"
+    by auto
+  have "Z''a \<subseteq> V"
+    by (metis A(5) Z'''(1) closure_V step_z_V)
+  have "\<Z> \<subseteq> V"
+    by (meson A(1) A(3) A(8) Z'''(2) step_z_V steps_z_alpha_V)
+  from closure_subs[OF this] \<open>W''' \<subseteq> \<Z>\<close> have *: "W''' \<subseteq> Closure\<^sub>\<alpha> \<Z>" by auto
+  from A(5) \<open>Z''' = _\<close> have "A \<turnstile> \<langle>l'', Closure\<^sub>\<alpha> \<Z>\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l'', Z''a\<rangle>" by simp
+  from steps_z_alpha_closure_involutive'_aux'[OF this _ A(7) closure_V *] W'''(2) obtain W'
+    where ***: "A \<turnstile> \<langle>l'', W'''\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l'', W'\<rangle>" "Closure\<^sub>\<alpha> Z''a \<subseteq> Closure\<^sub>\<alpha> W'" "W' \<subseteq> Z''a"
+    by atomize_elim (auto simp: closure_involutive)
+  text \<open>This shows how we could easily add more steps before doing the final closure operation!\<close>
+  from steps_z_alpha_closure_involutive'_aux'[OF A(6) this(2) A(7) \<open>Z''a \<subseteq> V\<close> this(3)] obtain W''
+    where
+      "A \<turnstile> \<langle>l'', W'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>aa\<^esub> \<langle>l''a, W''\<rangle>" "Closure\<^sub>\<alpha> Z'''a \<subseteq> Closure\<^sub>\<alpha> W''" "W'' \<subseteq> Z'''a"
+    by auto
+  with *** W''' show ?case by (blast intro: steps_z_alt)
 qed
 
+(*
 text \<open>Old proof using Bouyer's calculation\<close>
 lemma steps_z_alpha_closure_involutive'':
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto> \<langle>l'',Z''\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
@@ -572,6 +568,7 @@ next
   with Z'''(1) have "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l''a,W'\<rangle>" by (blast intro: steps_z_alt)
   with closure_involutive'[OF **(2)] ***(2) show ?case by blast
 qed
+*)
 
 lemma steps_z_alpha_closure_involutive:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
@@ -579,12 +576,13 @@ lemma steps_z_alpha_closure_involutive:
 proof (induction A l Z l' Z' rule: steps_z_alpha.induct)
   case refl show ?case by blast
 next
-  case 2: (step A l Z l' Z' l'' Z'')
-  then obtain Z''a where *: "A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto> \<langle>l'',Z''a\<rangle>" "Z'' = Closure\<^sub>\<alpha> Z''a" by auto
-  from steps_z_alpha_closure_involutive'[OF 2(1) this(1) 2(4,5)] obtain Z''' where Z''':
-    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'',Z'''\<rangle>" "Closure\<^sub>\<alpha> Z''a \<subseteq> Closure\<^sub>\<alpha> Z'''" "Z''' \<subseteq> Z''a" by blast
-  have "Z''' \<subseteq> Z''" by (metis *(1,2) 2(1,5) Z'''(3) closure_subs step_z_V steps_z_alpha_V subset_trans) 
-  with * closure_involutive Z''' show ?case by auto
+  case 2: (step A l Z l' Z' Z'' a l'' Z''')
+  then obtain Z''a where *: "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'',Z''a\<rangle>" "Z''' = Closure\<^sub>\<alpha> Z''a" by auto
+  from steps_z_alpha_closure_involutive'[OF 2(1,2) this(1) 2(5,6)] obtain W''' where W''':
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'',W'''\<rangle>" "Closure\<^sub>\<alpha> Z''a \<subseteq> Closure\<^sub>\<alpha> W'''" "W''' \<subseteq> Z''a" by blast
+  have "W''' \<subseteq> Z'''"
+    by (metis "*"(1,2) 2(1,2,6) W'''(3) closure_subs order_trans step_z_V steps_z_alpha_V)
+  with * closure_involutive W''' show ?case by auto
 qed
 
 lemma steps_z_V:
@@ -607,43 +605,41 @@ proof goal_cases
 qed
 
 lemma step_z_mono:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',W'\<rangle> \<and> Z' \<subseteq> W'"
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle> \<and> Z' \<subseteq> W'"
 proof (cases rule: step_z.cases, assumption, goal_cases)
   case A: 1
-  let ?W' = "(W \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
-  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',?W'\<rangle>" by auto
+  let ?W' = "W\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
+  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',?W'\<rangle>" by auto
   moreover have "Z' \<subseteq> ?W'"
-    apply (subst A(4))
+    apply (subst A(5))
     apply (rule subset_int_mono)
-    apply (rule zone_delay_mono)
-    apply (rule subset_int_mono)
-    apply (rule A(2))
-  done
+    by (auto intro!: zone_delay_mono A(2))
   ultimately show ?thesis by meson
 next
   case A: (2 g a r)
   let ?W' = "zone_set (W \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
-  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',?W'\<rangle>" by auto
+  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',?W'\<rangle>" by auto
   moreover have "Z' \<subseteq> ?W'"
-    apply (subst A(3))
+    apply (subst A(4))
     apply (rule subset_int_mono)
     apply (rule zone_set_mono)
     apply (rule subset_int_mono)
     apply (rule A(2))
   done
-  ultimately show ?thesis by meson
+  ultimately show ?thesis by (auto simp: A(3))
 qed
 
 lemma step_z_alpha_mono:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> W \<subseteq> V \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l',W'\<rangle> \<and> Z' \<subseteq> W'"
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> W \<subseteq> V \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l',W'\<rangle> \<and> Z' \<subseteq> W'"
 proof goal_cases
   case 1
-  then obtain Z'' where *: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z''\<rangle>" "Z' = Closure\<^sub>\<alpha> Z''" by auto
-  from step_z_mono[OF this(1) 1(2)] obtain W' where "A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l',W'\<rangle>" "Z'' \<subseteq> W'" by auto
+  then obtain Z'' where *: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z''\<rangle>" "Z' = Closure\<^sub>\<alpha> Z''" by auto
+  from step_z_mono[OF this(1) 1(2)] obtain W' where "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle>" "Z'' \<subseteq> W'" by auto
   moreover with *(2) have "Z' \<subseteq> Closure\<^sub>\<alpha> W'" unfolding cla_def by auto
   ultimately show ?case by blast
 qed
 
+(*
 lemma steps_z_alpha_mono:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> W \<subseteq> V \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',W'\<rangle> \<and> Z' \<subseteq> W'"
 proof (induction rule: steps_z_alpha.induct, goal_cases)
@@ -677,6 +673,8 @@ lemma steps_z_alpha_complete':
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {}
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
 using steps_z_alpha_complete by fast
+
+*)
 
 end
 

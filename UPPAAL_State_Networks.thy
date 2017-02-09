@@ -66,7 +66,6 @@ where
     "\<lbrakk>
       \<forall> p < length N. \<exists> pc st s' rs.
         stepst P n (u \<oplus> d) ((I ! p) (L ! p), [], s, True, []) (pc, st, s', True, rs);
-      \<forall> p < length N. u \<turnstile> snd (N ! p) (L ! p);
       \<forall> p < length N. u \<oplus> d \<turnstile> snd (N ! p) (L ! p);
       d \<ge> 0;
       bounded B s

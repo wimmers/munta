@@ -117,11 +117,11 @@ begin
 
   definition
     "product_trans \<equiv> product_trans_i \<union> product_trans_s"
-  
+
 lemma *:
   "length T = length N"
   by simp
-  
+
 lemma product_state_set_subs:
   assumes "q < length N" "l \<in> state_set product_trans"
   shows "l ! q \<in> state_set (T ! q)"
@@ -506,7 +506,7 @@ lemma
     \<longleftrightarrow> (\<forall> a b c d e. P a b c d e \<longrightarrow> finite {x. Q x a b c d e})"
   using assms finite_Collect_bounded_ex[OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e). Q x a b c d e"]
   by clarsimp (* force, simp *)
-  
+
   lemma finite_product_trans_s:
     "finite product_trans_s"
   proof -
@@ -535,7 +535,7 @@ lemma
                (\<exists>g2 r2 l2'.
                    (g2, a, b2, r2, l2') \<in> F2 \<and>
                    t = (L, p, q, g1, g2, (a, Syn b1 b2), r1, r2, l1', l2'))}"
-      
+
     have R_alt_def: "R = {t. \<exists> L p q g1 a b1 r1 l1' g2 b2 r2 l2'.
       L \<in> states \<and> p < length L \<and> q < length L
       \<and> (g1, a, b1, r1, l1') \<in> F1 \<and> (g2, a, b2, r2, l2') \<in> F2
@@ -683,7 +683,6 @@ begin
   using step proof cases
     case prems: (step_n_t d)
     from prems have *:
-      "\<forall>p\<in>{..<length N}. u \<turnstile> inv_of (N ! p) (L ! p)"
       "\<forall>p\<in>{..<length N}. u \<oplus> d \<turnstile> inv_of (N ! p) (L ! p)"
     by auto
     from prems * show ?thesis
@@ -707,7 +706,7 @@ begin
           intro: guard_concat
           )+
   qed
-  
+
   lemma product_sync_complete:
     assumes step: "N \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Syn b1 b2\<^esub> \<langle>L', u'\<rangle>"
     obtains a where "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Syn b1 b2)\<^esub> \<langle>L', u'\<rangle>"

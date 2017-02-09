@@ -44,6 +44,7 @@ export_code
   UPPAAL_Reachability_Problem_precompiled_start_state_axioms
   UPPAAL_Reachability_Problem_precompiled_defs.check_ceiling
   nat
+  REACHABLE UNREACHABLE INIT_INV_ERR
   in SML_imp module_name Reachability_Checker
   file "UPPAAL_Reachability_Checker.ml"
 
@@ -52,6 +53,8 @@ ML_file "UPPAAL_Reachability_Checker.ml"
 ML \<open>
   open Reachability_Checker;;
 \<close>
+
+ML \<open>REACHABLE\<close>
 
 ML \<open>integer_of_nat\<close>
 ML \<open>IntInf.toInt\<close>

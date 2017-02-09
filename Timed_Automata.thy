@@ -171,9 +171,9 @@ where
 
 inductive step_t ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> ('t::time) \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
-("_ \<turnstile> \<langle>_, _\<rangle> \<rightarrow>\<^bsup>_\<^esup> \<langle>_, _\<rangle>" [61,61,61] 61)                      
+("_ \<turnstile> \<langle>_, _\<rangle> \<rightarrow>\<^bsup>_\<^esup> \<langle>_, _\<rangle>" [61,61,61] 61)
 where
-  "\<lbrakk>u \<turnstile> inv_of A l; u \<oplus> d \<turnstile> inv_of A l; d \<ge> 0\<rbrakk> \<Longrightarrow> A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l, u \<oplus> d\<rangle>"
+  "\<lbrakk>u \<oplus> d \<turnstile> inv_of A l; d \<ge> 0\<rbrakk> \<Longrightarrow> A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l, u \<oplus> d\<rangle>"
 
 declare step_t.intros[intro!]
 
@@ -223,6 +223,7 @@ where
 
 declare steps.intros[intro]
 
+(*
 section \<open>Zone Semantics\<close>
 
 type_synonym ('c, 't) zone = "('c, 't) cval set"
@@ -241,7 +242,7 @@ inductive step_z ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto> \<langle>_, _\<rangle>" [61,61,61] 61)
 where
-  step_t_z: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l, (Z \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}\<rangle>" |
+  step_t_z: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l, Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}\<rangle>" |
   step_a_z: "\<lbrakk>A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'\<rbrakk>
               \<Longrightarrow> (A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', zone_set (Z \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}\<rangle> )"
 
@@ -277,9 +278,9 @@ proof (induction rule: step.induct, goal_cases)
   with u'(1,2) show ?case by blast
 next
   case (2 A l u d l' u')
-  hence u': "u' = (u \<oplus> d)" "u \<turnstile> inv_of A l" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d" and "l = l'" by auto
+  hence u': "u' = (u \<oplus> d)" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d" and "l = l'" by auto
   with u' \<open>u \<in> Z\<close> have
-    "u' \<in> {u'' \<oplus> d |u'' d. u'' \<in> Z \<inter> {u. u \<turnstile> inv_of A l} \<and> 0 \<le> d} \<inter> {u. u \<turnstile> inv_of A l}"
+    "u' \<in> {u'' \<oplus> d |u'' d. u'' \<in> Z \<and> 0 \<le> d} \<inter> {u. u \<turnstile> inv_of A l}"
   by fastforce
   thus ?case using \<open>l = l'\<close>  step_t_z[unfolded zone_delay_def, of A l] by blast
 qed
@@ -297,15 +298,10 @@ proof (induction rule: step.induct, goal_cases)
   by (cases rule: step_a.cases) auto
   hence "{[r\<rightarrow>0]u} = zone_set ({u} \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
   unfolding zone_set_def by blast
-  with u'(1,2) show ?case by auto 
+  with u'(1,2) show ?case by auto
 next
   case (2 A l u d l' u')
-  hence u': "u' = (u \<oplus> d)" "u \<turnstile> inv_of A l" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d" and "l = l'" by auto
-  hence "{u} = {u} \<inter> {u''. u'' \<turnstile> inv_of A l}" by fastforce 
-  with u'(1) have "{u'} = {u'' \<oplus> d |u''. u'' \<in> {u} \<inter> {u''. u'' \<turnstile> inv_of A l}}" by fastforce
-  with u' have
-    "u' \<in> {u'' \<oplus> d |u'' d. u'' \<in> {u} \<inter> {u. u \<turnstile> inv_of A l} \<and> 0 \<le> d} \<inter> {u. u \<turnstile> inv_of A l}"
-  by fastforce
+  hence u': "u' = (u \<oplus> d)" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d" and "l = l'" by auto
   thus ?case using \<open>l = l'\<close> step_t_z[unfolded zone_delay_def, of A l "{u}"] by blast
 qed
 
@@ -346,5 +342,223 @@ next
   then obtain Z'' where "A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>* \<langle>l'',Z''\<rangle>" "u'' \<in> Z''" using step by metis
   with Z' show ?case by blast
 qed
+
+*)
+
+section \<open>Contracting Runs\<close>
+
+inductive step' ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) cval \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
+("_ \<turnstile>' \<langle>_, _\<rangle> \<rightarrow> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  step': "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', u'\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l'', u''\<rangle> \<Longrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l'', u''\<rangle>"
+
+lemmas step'[intro]
+inductive_cases[elim!]: "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
+
+lemma step'_altI:
+  assumes
+    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "u \<oplus> d \<turnstile> g" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d"
+    "u' = [r \<rightarrow> 0](u \<oplus> d)" "u' \<turnstile> inv_of A l'"
+  shows "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
+  using assms by (auto intro: step_a.intros)
+
+inductive
+  steps' :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) cval \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
+("_ \<turnstile>' \<langle>_, _\<rangle> \<rightarrow>* \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  refl': "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l, u\<rangle>" |
+  step': "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> A \<turnstile>' \<langle>l', u'\<rangle> \<rightarrow>* \<langle>l'', u''\<rangle> \<Longrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l'', u''\<rangle>"
+
+lemmas steps'.intros[intro]
+
+lemma step_d_refl[intro]:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>0\<^esup> \<langle>l, u\<rangle>" if "u \<turnstile> inv_of A l"
+proof -
+  from that have "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>0\<^esup> \<langle>l, u \<oplus> 0\<rangle>" by - (rule step_t.intros; force simp: cval_add_def)
+  then show ?thesis by (simp add: cval_add_def)
+qed
+
+lemma cval_add_simp:
+  "(u \<oplus> d) \<oplus> d' = u \<oplus> (d + d')" for d d' :: "'t :: time"
+  unfolding cval_add_def by auto
+
+lemma step_t_trans:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d + d'\<^esup> \<langle>l, u''\<rangle>" if "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l, u'\<rangle>" "A \<turnstile> \<langle>l, u'\<rangle> \<rightarrow>\<^bsup>d'\<^esup> \<langle>l, u''\<rangle>"
+  using that by (auto simp add: cval_add_simp)
+
+lemma steps'_complete:
+  "\<exists> u'. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" if "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" "u \<turnstile> inv_of A l"
+  using that
+proof (induction)
+  case (refl A l u)
+  then show ?case by blast
+next
+  case (step A l u l' u' l'' u'')
+  then have "u' \<turnstile> inv_of A l'" by (auto elim: step_a.cases)
+  from step(1) show ?case
+  proof cases
+    case (step_a a)
+    with \<open>u \<turnstile> _\<close> \<open>u' \<turnstile> _\<close> step(3) show ?thesis by (auto 4 5)
+  next
+    case (step_t d)
+    then have [simp]: "l' = l" by auto
+    from step(3) \<open>u' \<turnstile> _\<close> obtain u0 where "A \<turnstile>' \<langle>l, u'\<rangle> \<rightarrow>* \<langle>l'', u0\<rangle>" by auto
+    then show ?thesis
+    proof cases
+      case refl'
+      then show ?thesis by blast
+    next
+      case (step' l1 u1)
+      with step_t show ?thesis by (auto 4 7 intro: step_t_trans)
+    qed
+  qed
+qed
+
+lemma steps'_sound:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" if "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
+  using that by (induction; blast)
+
+lemma steps_steps'_equiv:
+  "(\<exists> u'. A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>) \<longleftrightarrow> (\<exists> u'. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)" if "u \<turnstile> inv_of A l"
+  using that steps'_sound steps'_complete by metis
+
+section \<open>Zone Semantics\<close>
+
+type_synonym ('c, 't) zone = "('c, 't) cval set"
+
+definition zone_delay :: "('c, ('t::time)) zone \<Rightarrow> ('c, 't) zone"
+("_\<^sup>\<up>" [71] 71)
+where
+  "Z\<^sup>\<up> = {u \<oplus> d|u d. u \<in> Z \<and> d \<ge> (0::'t)}"
+
+definition zone_set :: "('c, 't::time) zone \<Rightarrow> 'c list \<Rightarrow> ('c, 't) zone"
+("_\<^bsub>_ \<rightarrow> 0\<^esub>" [71] 71)
+where
+  "zone_set Z r = {[r \<rightarrow> (0::'t)]u | u . u \<in> Z}"
+
+datatype 'a action = Tau ("\<tau>") | Action 'a ("\<upharpoonleft>_")
+
+inductive step_z ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 'a action \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+where
+  step_t_z:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l, Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}\<rangle>" |
+  step_a_z:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', zone_set (Z \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}\<rangle>"
+  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+
+lemmas step_z.intros[intro]
+inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', u'\<rangle>"
+inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', u'\<rangle>"
+
+subsection \<open>Zone Semantics for Compressed Runs\<close>
+
+inductive
+  steps_z :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>* \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  refl: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l, Z\<rangle>" |
+  step:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l'', Z''\<rangle> \<leadsto>* \<langle>l''', Z'''\<rangle>
+  \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l''', Z'''\<rangle>"
+
+declare steps_z.intros[intro]
+
+lemma steps_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> u' \<in> Z' \<Longrightarrow> \<exists> u \<in> Z. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
+proof (induction A l _ l' _ arbitrary: rule: steps_z.induct)
+  case refl thus ?case by fast
+next
+  case (step A l Z l' Z' a l'' Z'' l''' Z''')
+  then obtain u'' where u'': "A \<turnstile>' \<langle>l'', u''\<rangle> \<rightarrow>* \<langle>l''', u'\<rangle>" "u'' \<in> Z''" by auto
+  with step(1,2) obtain u where "u \<in> Z" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l'',u''\<rangle>"
+    by atomize_elim (auto 4 4 intro: step'_altI simp: zone_delay_def zone_set_def)
+  with u'' show ?case by blast
+qed
+
+lemma steps_z_complete:
+  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+proof (induction arbitrary: Z rule: steps'.induct)
+  case refl' thus ?case by auto
+next
+  case (step' A l u l' u' l'' u'' Z)
+  from step'(1,4) obtain a Z' Z'' where Z':
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l, Z'\<rangle>" "A \<turnstile> \<langle>l, Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',Z''\<rangle>" "u' \<in> Z''"
+      by atomize_elim (auto 4 10 simp: zone_delay_def zone_set_def elim: step_a.cases)
+  then obtain Z''' where "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>* \<langle>l'',Z'''\<rangle>" "u'' \<in> Z'''" using step' by metis
+  with Z' show ?case by blast
+qed
+
+inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', u'\<rangle>"
+
+lemma step_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>"
+  by (auto 4 6 simp: zone_delay_def zone_set_def intro: step_a.intros)
+
+lemma step_a_z_complete:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
+
+lemma step_t_z_complete:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
+
+lemma step_z_complete:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z' a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
+
+(*
+inductive step_z ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  step_z:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', zone_set ((Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}) \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}\<rangle>"
+  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+
+lemmas step_z.intros[intro]
+inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto> \<langle>l', u'\<rangle>"
+
+lemma step_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> (\<forall> u' \<in> Z'. \<exists> u \<in> Z.  A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>)"
+  by (auto 4 4 intro: step'_altI simp: zone_delay_def zone_set_def)
+
+lemma step_z_complete:
+  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  by (auto 4 6 simp: zone_delay_def zone_set_def elim: step_a.cases)
+
+inductive
+  steps_z :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>* \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  refl: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l, Z\<rangle>" |
+  step: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>* \<langle>l'', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l'', Z''\<rangle>"
+
+declare steps_z.intros[intro]
+
+lemma steps_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> u' \<in> Z' \<Longrightarrow> \<exists> u \<in> Z. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
+proof (induction A l _ l' _ arbitrary: rule: steps_z.induct, goal_cases)
+  case refl thus ?case by fast
+next
+  case (step A l Z l' Z' l'' Z'')
+  then obtain u'' where u'': "A \<turnstile>' \<langle>l', u''\<rangle> \<rightarrow>* \<langle>l'',u'\<rangle>" "u'' \<in> Z'" by auto
+  then obtain u where "u \<in> Z" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u''\<rangle>" using step_z_sound[OF step(1)] by blast
+  with u'' show ?case by blast
+qed
+
+lemma steps_z_complete:
+  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+proof (induction arbitrary: Z rule: steps'.induct)
+  case refl' thus ?case by auto
+next
+  case (step' A l u l' u' l'' u'' Z)
+  from step_z_complete[OF this(1,4)] obtain Z' where Z': "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle>" "u' \<in> Z'" by auto
+  then obtain Z'' where "A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>* \<langle>l'',Z''\<rangle>" "u'' \<in> Z''" using step' by metis
+  with Z' show ?case by blast
+qed
+*)
 
 end
