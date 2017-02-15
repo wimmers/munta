@@ -4,6 +4,42 @@ begin
 
 section \<open>Correct Approximation of Zones with \<open>\<alpha>\<close>-regions\<close>
 
+(* XXX Move *)
+lemma subset_int_mono: "A \<subseteq> B \<Longrightarrow> A \<inter> C \<subseteq> B \<inter> C" by blast
+
+lemma zone_set_mono:
+  "A \<subseteq> B \<Longrightarrow> zone_set A r \<subseteq> zone_set B r"
+unfolding zone_set_def by auto
+
+lemma zone_delay_mono:
+  "A \<subseteq> B \<Longrightarrow> A\<^sup>\<up> \<subseteq> B\<^sup>\<up>"
+unfolding zone_delay_def by auto
+
+lemma step_z_mono:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle> \<and> Z' \<subseteq> W'"
+proof (cases rule: step_z.cases, assumption, goal_cases)
+  case A: 1
+  let ?W' = "W\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
+  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',?W'\<rangle>" by auto
+  moreover have "Z' \<subseteq> ?W'"
+    apply (subst A(5))
+    apply (rule subset_int_mono)
+    by (auto intro!: zone_delay_mono A(2))
+  ultimately show ?thesis by meson
+next
+  case A: (2 g a r)
+  let ?W' = "zone_set (W \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
+  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',?W'\<rangle>" by auto
+  moreover have "Z' \<subseteq> ?W'"
+    apply (subst A(4))
+    apply (rule subset_int_mono)
+    apply (rule zone_set_mono)
+    apply (rule subset_int_mono)
+    apply (rule A(2))
+  done
+  ultimately show ?thesis by (auto simp: A(3))
+qed
+
 locale AlphaClosure =
   fixes X k \<R> and V :: "('c, t) cval set"
   defines "\<R> \<equiv> {region X I r | I r. valid_region X k I r}"
@@ -251,15 +287,6 @@ lemma step_z_alpha_complete:
   apply (drule cla_empty_iff)
   by auto
 
-lemma zone_set_mono:
-  "A \<subseteq> B \<Longrightarrow> zone_set A r \<subseteq> zone_set B r"
-unfolding zone_set_def by auto
-
-lemma zone_delay_mono:
-  "A \<subseteq> B \<Longrightarrow> A\<^sup>\<up> \<subseteq> B\<^sup>\<up>"
-unfolding zone_delay_def by auto
-
-
 subsection \<open>Multi step\<close>
 
 inductive
@@ -271,8 +298,6 @@ where
   \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l'', Z'''\<rangle>"
 
 declare steps_z_alpha.intros[intro]
-
-lemma subset_int_mono: "A \<subseteq> B \<Longrightarrow> A \<inter> C \<subseteq> B \<inter> C" by blast
 
 text \<open>P. Bouyer's calculation for @{term "Post(Closure\<^sub>\<alpha> Z, e) \<subseteq> Closure\<^sub>\<alpha>(Post (Z, e))"}\<close>
 text \<open>This is now obsolete as we argue solely with monotonicty of \<open>steps_z\<close> w.r.t \<open>Closure\<^sub>\<alpha>\<close>\<close>
@@ -602,31 +627,6 @@ proof goal_cases
   moreover with 1(4) cla_empty_iff[OF steps_z_alpha_V[OF 1(1)], OF 1(3)]
     cla_empty_iff[OF steps_z_V, OF this(1) 1(3)] have "Z'' \<noteq> {}" by auto
   ultimately show ?case by auto
-qed
-
-lemma step_z_mono:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle> \<and> Z' \<subseteq> W'"
-proof (cases rule: step_z.cases, assumption, goal_cases)
-  case A: 1
-  let ?W' = "W\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}"
-  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',?W'\<rangle>" by auto
-  moreover have "Z' \<subseteq> ?W'"
-    apply (subst A(5))
-    apply (rule subset_int_mono)
-    by (auto intro!: zone_delay_mono A(2))
-  ultimately show ?thesis by meson
-next
-  case A: (2 g a r)
-  let ?W' = "zone_set (W \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}"
-  from A have "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',?W'\<rangle>" by auto
-  moreover have "Z' \<subseteq> ?W'"
-    apply (subst A(4))
-    apply (rule subset_int_mono)
-    apply (rule zone_set_mono)
-    apply (rule subset_int_mono)
-    apply (rule A(2))
-  done
-  ultimately show ?thesis by (auto simp: A(3))
 qed
 
 lemma step_z_alpha_mono:
