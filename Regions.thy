@@ -2673,6 +2673,81 @@ next
   ultimately show ?case by presburger
 qed
 
+lemma region_set_subs:
+  fixes X k k' and c :: nat
+  defines "\<R>  \<equiv> {region X I r |I r. valid_region X k I r}"
+  defines "\<R>' \<equiv> {region X I r |I r. valid_region X k' I r}"
+  assumes "R \<in> \<R>" "v \<in> R" "finite X" "0 \<le> c" "set cs \<subseteq> X" "\<forall> y. y \<notin> set cs \<longrightarrow> k y \<ge> k' y"
+  shows "[[cs \<rightarrow> c]v]\<^sub>\<R>' \<supseteq> region_set' R cs c" "[[cs \<rightarrow> c]v]\<^sub>\<R>' \<in> \<R>'" "[cs \<rightarrow> c]v \<in> [[cs \<rightarrow> c]v]\<^sub>\<R>'"
+proof -
+  from assms obtain I r where R: "R = region X I r" "valid_region X k I r" "v \<in> region X I r" by auto
+  --
+  "The set of movers, that is all intervals that now are unbounded due to changing from \<open>k\<close> to \<open>k'\<close>"
+  let ?M = "{x \<in> X. isIntv (I x) \<and> intv_const (I x) \<ge> k' x \<or> intv_const (I x) > k' x}"
+  let ?I = "\<lambda> y.
+    if y \<in> set cs then (if c \<le> k' y then Const c else Greater (k' y))
+    else if (isIntv (I y) \<and> intv_const (I y) \<ge> k' y \<or> intv_const (I y) > k' y) then Greater (k' y)
+    else I y"
+  let ?r = "{(y,z) \<in> r. y \<notin> set cs \<and> z \<notin> set cs \<and> y \<notin> ?M \<and> z \<notin> ?M}"
+  let ?X\<^sub>0 = "{x \<in> X. \<exists> c. I x = Intv c}"
+  let ?X\<^sub>0' = "{x \<in> X. \<exists> c. ?I x = Intv c}"
+
+  from R(2) have refl: "refl_on ?X\<^sub>0 r" and trans: "trans r" and total: "total_on ?X\<^sub>0 r" by auto
+
+  have valid: "valid_region X k' ?I ?r"
+  proof
+    show "?X\<^sub>0' = ?X\<^sub>0'" by auto
+  next
+    from refl show "refl_on ?X\<^sub>0' ?r" unfolding refl_on_def by auto
+  next
+    from trans show "trans ?r" unfolding trans_def by auto
+  next
+    from total show "total_on ?X\<^sub>0' ?r" unfolding total_on_def by auto
+  next
+    from R(2) have "\<forall> x \<in> X. valid_intv (k x) (I x)" by auto
+    then show "\<forall> x \<in> X. valid_intv (k' x) (?I x)"
+      apply safe
+      subgoal for x'
+        using \<open>\<forall> y. y \<notin> set cs \<longrightarrow> k y \<ge> k' y\<close>
+        by (cases "I x'"; force)
+      done
+  qed
+
+  { fix v assume v: "v \<in> region_set' R cs c"
+    with R(1) obtain v' where v': "v' \<in> region X I r" "v = [cs \<rightarrow> c]v'"
+      unfolding region_set'_def by auto
+    have "v \<in> region X ?I ?r"
+    proof (standard, goal_cases)
+      case 1
+      from v' \<open>0 \<le> c\<close> show ?case
+        apply -
+        apply rule
+        subgoal for x
+          by (cases "x \<in> set cs") auto
+        done
+    next
+      case 2
+      from v' show ?case
+        apply -
+        apply rule
+        subgoal for x'
+            by (cases "I x'"; cases "x' \<in> set cs"; force)
+        done
+    next
+      show "?X\<^sub>0' = ?X\<^sub>0'" by auto
+    next
+      from v' show "\<forall> y \<in> ?X\<^sub>0'. \<forall> z \<in> ?X\<^sub>0'. (y,z) \<in> ?r \<longleftrightarrow> frac (v y) \<le> frac (v z)" by auto
+    qed
+  }
+  then have "region_set' R cs c \<subseteq> region X ?I ?r" by blast
+  moreover from valid have *: "region X ?I ?r \<in> \<R>'" unfolding \<R>'_def by blast
+  moreover from assms have **: "[cs \<rightarrow> c]v \<in> region_set' R cs c" unfolding region_set'_def by auto
+  ultimately show
+    "[[cs \<rightarrow> c]v]\<^sub>\<R>' \<supseteq> region_set' R cs c" "[[cs \<rightarrow> c]v]\<^sub>\<R>' \<in> \<R>'" "[cs \<rightarrow> c]v \<in> [[cs \<rightarrow> c]v]\<^sub>\<R>'"
+    using region_unique[of \<R>', OF _ _ *, unfolded \<R>'_def, OF HOL.refl]
+    unfolding \<R>'_def[symmetric] by auto
+qed
+
 section \<open>A Semantics Based on Regions\<close>
 
 subsection \<open>Single step\<close>

@@ -105,7 +105,7 @@ where
 
 abbreviation clk_set where "clk_set A \<equiv> fst ` clkp_set A \<union> collect_clkvt (trans_of A)"
 
-(* We don not need this here but most other theories will make use of this predicate *)
+(* We do not need this here but most other theories will make use of this predicate *)
 inductive valid_abstraction
 where
   "\<lbrakk>\<forall>(x,m) \<in> clkp_set A. m \<le> k x \<and> x \<in> X \<and> m \<in> \<nat>; collect_clkvt (trans_of A) \<subseteq> X; finite X\<rbrakk>
@@ -436,6 +436,14 @@ definition zone_set :: "('c, 't::time) zone \<Rightarrow> 'c list \<Rightarrow> 
 ("_\<^bsub>_ \<rightarrow> 0\<^esub>" [71] 71)
 where
   "zone_set Z r = {[r \<rightarrow> (0::'t)]u | u . u \<in> Z}"
+
+lemma clock_set_set[simp]:
+  "([r\<rightarrow>d]u) c = d" if "c \<in> set r"
+  using that by (induction r) auto
+
+lemma clock_set_id[simp]:
+  "([r\<rightarrow>d]u) c = u c" if "c \<notin> set r"
+  using that by (induction r) auto
 
 datatype 'a action = Tau ("\<tau>") | Action 'a ("\<upharpoonleft>_")
 

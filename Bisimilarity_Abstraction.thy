@@ -266,15 +266,6 @@ proof -
   qed
 qed
 
-(* XXX Take from somewhere else *)
-lemma clock_set_set[simp]:
-  "([r\<rightarrow>0]u) c = 0" if "c \<in> set r"
-  using that by (induction r) auto
-
-lemma clock_set_id[simp]:
-  "([r\<rightarrow>0]u) c = u c" if "c \<notin> set r"
-  using that by (induction r) auto
-
 lemma Cl_loc_reset:
   "Cl_loc (l1', [r\<rightarrow>0]u) (l1', [r\<rightarrow>0]u')" if
   "Cl_loc (l1, u) (l2, u')" "\<forall> c. c \<notin> set r \<longrightarrow> k l1 c \<ge> k l1' c"
