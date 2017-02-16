@@ -2673,6 +2673,9 @@ next
   ultimately show ?case by presburger
 qed
 
+text \<open>
+  This is the only additional lemma necessary to make local \<open>\<alpha>\<close>-closures work.
+\<close>
 lemma region_set_subs:
   fixes X k k' and c :: nat
   defines "\<R>  \<equiv> {region X I r |I r. valid_region X k I r}"
