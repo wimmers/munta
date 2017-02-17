@@ -2674,12 +2674,10 @@ proof -
 qed
 
 lemma dbm_int_all_guard_abstr:
-  assumes "valid_abstraction A X k" "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  assumes "\<forall> (x, m) \<in> clkp_set A. m \<in> \<nat>" "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
   shows "dbm_int_all (abstr g (\<lambda>i j. \<infinity>) v)"
 proof -
-  from assms have "\<forall>(x,m) \<in> clkp_set A. m \<le> k x \<and> x \<in> X \<and> m \<in> \<nat>"
-  by (auto elim: valid_abstraction.cases)
-  then have "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
+  from assms have "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
   unfolding clkp_set_def collect_clkt_def using assms(2) Nats_subset_Ints by fastforce
   from dbm_int_all_abstr'[OF this] show ?thesis .
 qed
