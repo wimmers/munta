@@ -23,8 +23,6 @@ locale Regions_defs =
   fixes v :: "'c \<Rightarrow> nat" and n :: nat
 begin
 
-(* definition V :: "('c, t) cval set" where "V \<equiv> {v . \<forall> x \<in> X. v x \<ge> 0}" *)
-
 abbreviation vabstr :: "('c, t) zone \<Rightarrow> _ \<Rightarrow> _" where
   "vabstr S M \<equiv> S = [M]\<^bsub>v,n\<^esub> \<and> (\<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>)"
 
@@ -2048,32 +2046,15 @@ locale Regions =
 begin
 
 definition \<R>_def: "\<R> l \<equiv> {Regions.region X I r | I r. Regions.valid_region X (k l) I r}"
+
 definition \<R>\<^sub>\<beta>_def:
   "\<R>\<^sub>\<beta> l \<equiv> {Regions_Beta.region X I J r | I J r. Regions_Beta.valid_region X (k l) I J r}"
-(* definition V_def:  "V \<equiv> {v . \<forall> x \<in> X. v x \<ge> 0}" *)
 
 sublocale alpha_interp:
   AlphaClosure X k \<R> by (unfold_locales) (auto simp: finite \<R>_def V_def)
 
-(*
-sublocale alpha_interp:
-  AlphaClosure_global X k \<R> V by (unfold_locales) (auto simp: finite \<R>_def V_def)
-
-sublocale beta_interp: Beta_Regions' X k \<R>\<^sub>\<beta> V v n not_in_X
-  using finite non_empty clock_numbering not_in_X by (unfold_locales) (auto simp: \<R>\<^sub>\<beta>_def V_def)
-*)
-
-term "\<lambda> l. Beta_Regions'.Approx\<^sub>\<beta> X (k l) v n not_in_X V"
-
 abbreviation "Approx\<^sub>\<beta> l Z \<equiv> Beta_Regions'.Approx\<^sub>\<beta> X (k l) v n not_in_X Z"
 
-(*
-abbreviation
-  "vabstr (S :: ('c, t) zone) M \<equiv>
-    S = [M]\<^bsub>v,n\<^esub> \<and> (\<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>)"
-
-definition "V' \<equiv> {Z. Z \<subseteq> V \<and> (\<exists> M. vabstr Z M)}"
-*)
 
 subsection \<open>Single Step\<close>
 
