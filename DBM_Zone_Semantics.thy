@@ -54,30 +54,27 @@ qed
 
 lemma step_z_dbm_preserves_int:
   fixes D D' :: "('t :: {time, ring_1} DBM)"
-  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
+  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "\<forall> (x, m) \<in> clkp_set A. m \<in> \<nat>"
           "dbm_int D n"
   shows "dbm_int D' n"
 using assms
 proof (cases, goal_cases)
   case (1 D'')
-  hence "clock_numbering' v n" "\<forall>c\<in>clk_set A. v c \<le> n" by blast+
-  from 1(2) have "\<forall> (x, m) \<in> clkp_set A. m \<in> \<nat>" by (auto elim: valid_abstraction.cases)
-  from dbm_int_inv_abstr[OF this] 1 have D''_int: "dbm_int D'' n" by simp
+  from dbm_int_inv_abstr[OF 1(2)] 1 have D''_int: "dbm_int D'' n" by simp
   show ?thesis unfolding 1(6)
     by (intro And_int_preservation up_int_preservation dbm_int_inv_abstr D''_int 1)
 next
   case (2 g a r)
-  hence assms: "clock_numbering' v n" "\<forall>c\<in>clk_set A. v c \<le> n" "\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c. v c = k)"
+  hence assms: "clock_numbering' v n" "\<forall>c\<in>clk_set A. v c \<le> n"
     by blast+
-  from 2(2) have *: "\<forall> (x, m) \<in> clkp_set A. m \<in> \<nat>" by (auto elim: valid_abstraction.cases)
-  from dbm_int_inv_abstr[OF this] have D'_int: "dbm_int (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v) n"
+  from dbm_int_inv_abstr[OF 2(2)] have D'_int: "dbm_int (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v) n"
     by simp
   from dbm_int_guard_abstr 2 have D''_int: "dbm_int (abstr g (\<lambda>i j. \<infinity>) v) n" by simp
   have "set r \<subseteq> clk_set A" using 2(6) unfolding trans_of_def collect_clkvt_def by fastforce
-  hence **:"\<forall>c\<in>set r. v c \<le> n" using assms(2) by fastforce
+  hence *:"\<forall>c\<in>set r. v c \<le> n" using assms(2) by fastforce
   show ?thesis unfolding 2(5)
   by (intro And_int_preservation DBM_reset'_int_preservation dbm_int_inv_abstr 2 D''_int)
-     (simp_all add: assms(1) * **)
+     (simp_all add: assms(1) 2(2) *)
 qed
 
 lemma And_correct:

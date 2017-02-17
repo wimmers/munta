@@ -18,8 +18,23 @@ end
 
 text \<open>Merging the locales for the two types of regions\<close>
 
-locale Regions =
-  fixes X and k :: "'c \<Rightarrow> nat" and v :: "'c \<Rightarrow> nat" and n :: nat and not_in_X
+locale Regions_defs =
+  Alpha_defs X for X :: "'c set"+
+  fixes v :: "'c \<Rightarrow> nat" and n :: nat
+begin
+
+(* definition V :: "('c, t) cval set" where "V \<equiv> {v . \<forall> x \<in> X. v x \<ge> 0}" *)
+
+abbreviation vabstr :: "('c, t) zone \<Rightarrow> _ \<Rightarrow> _" where
+  "vabstr S M \<equiv> S = [M]\<^bsub>v,n\<^esub> \<and> (\<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>)"
+
+definition "V' \<equiv> {Z. Z \<subseteq> V \<and> (\<exists> M. vabstr Z M)}"
+
+end
+
+locale Regions_global =
+  Regions_defs X v n for X :: "'c set" and v n +
+  fixes k :: "'c \<Rightarrow> nat" and not_in_X
   assumes finite: "finite X"
   assumes clock_numbering: "clock_numbering' v n" "\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c \<in> X. v c = k)"
                            "\<forall> c \<in> X. v c \<le> n"
@@ -29,12 +44,12 @@ begin
 
 definition \<R>_def:  "\<R> \<equiv> {Regions.region X I r | I r. Regions.valid_region X k I r}"
 definition \<R>\<^sub>\<beta>_def: "\<R>\<^sub>\<beta> \<equiv> {Regions_Beta.region X I J r | I J r. Regions_Beta.valid_region X k I J r}"
-definition V_def:  "V \<equiv> {v . \<forall> x \<in> X. v x \<ge> 0}"
 
-sublocale alpha_interp: AlphaClosure X k \<R> V by (unfold_locales) (auto simp: finite \<R>_def V_def)
+sublocale alpha_interp:
+  AlphaClosure_global X k \<R> by (unfold_locales) (auto simp: finite \<R>_def V_def)
 
 sublocale beta_interp: Beta_Regions' X k \<R>\<^sub>\<beta> V v n not_in_X
-using finite non_empty clock_numbering not_in_X by (unfold_locales) (auto simp: \<R>\<^sub>\<beta>_def V_def)
+  using finite non_empty clock_numbering not_in_X by (unfold_locales) (auto simp: \<R>\<^sub>\<beta>_def V_def)
 
 abbreviation "Approx\<^sub>\<beta> \<equiv> beta_interp.Approx\<^sub>\<beta>"
 
@@ -60,20 +75,23 @@ lemma region_dbm:
 proof -
   from assms obtain I r where R: "R = region X I r" "valid_region X k I r" unfolding \<R>_def by blast
   let ?X\<^sub>0 = "{x \<in> X. \<exists>d. I x = Regions.intv.Intv d}"
-  def f \<equiv> "\<lambda> x. if isIntv (I x) then Lt (real (intv_const (I x) + 1))
-                 else if isConst (I x) then Le (real (intv_const (I x)))
-                 else \<infinity>"
-  def g \<equiv> "\<lambda> x. if isIntv (I x) then Lt (- real (intv_const (I x)))
-                 else if isConst (I x) then Le (- real (intv_const (I x)))
-                 else Lt (- real (k x))"
-  def h \<equiv> "\<lambda> x y. if isIntv (I x) \<and> isIntv (I y) then
-                      if (y, x) \<in> r \<and> (x, y) \<notin> r then Lt (real_of_int (int (intv_const (I x)) - intv_const (I y) + 1))
-                      else if (x, y) \<in> r \<and> (y, x) \<notin> r then Lt (int (intv_const (I x)) - intv_const (I y))
-                      else Le (int (intv_const (I x)) - intv_const (I y))
-                   else if isConst (I x) \<and> isConst (I y) then Le (int (intv_const (I x)) - intv_const (I y))
-                   else if isIntv (I x) \<and> isConst (I y) then Lt (int (intv_const (I x)) + 1 - intv_const (I y))
-                   else if isConst (I x) \<and> isIntv (I y) then Lt (int (intv_const (I x)) - intv_const (I y))
-                   else \<infinity>"
+  define f where "f \<equiv>
+  \<lambda> x. if isIntv (I x) then Lt (real (intv_const (I x) + 1))
+       else if isConst (I x) then Le (real (intv_const (I x)))
+       else \<infinity>"
+  define g where "g \<equiv>
+  \<lambda> x. if isIntv (I x) then Lt (- real (intv_const (I x)))
+       else if isConst (I x) then Le (- real (intv_const (I x)))
+       else Lt (- real (k x))"
+  define h where "h \<equiv>
+  \<lambda> x y. if isIntv (I x) \<and> isIntv (I y) then
+      if (y, x) \<in> r \<and> (x, y) \<notin> r then Lt (real_of_int (int (intv_const (I x)) - intv_const (I y) + 1))
+      else if (x, y) \<in> r \<and> (y, x) \<notin> r then Lt (int (intv_const (I x)) - intv_const (I y))
+      else Le (int (intv_const (I x)) - intv_const (I y))
+   else if isConst (I x) \<and> isConst (I y) then Le (int (intv_const (I x)) - intv_const (I y))
+   else if isIntv (I x) \<and> isConst (I y) then Lt (int (intv_const (I x)) + 1 - intv_const (I y))
+   else if isConst (I x) \<and> isIntv (I y) then Lt (int (intv_const (I x)) - intv_const (I y))
+   else \<infinity>"
   let ?M = "\<lambda> i j. if i = 0 then if j = 0 then Le 0 else g (v' j)
                    else if j = 0 then f (v' i) else if i = j then Le 0 else h (v' i) (v' j)"
   have "[?M]\<^bsub>v,n\<^esub> \<subseteq> R"
@@ -799,7 +817,7 @@ lemma dbm_entry_int:
   "(x :: t DBMEntry) \<noteq> \<infinity> \<Longrightarrow> get_const x \<in> \<int> \<Longrightarrow> \<exists> d :: int. x = Le d \<or> x = Lt d"
 apply (cases x) using Ints_cases by auto
 
-abbreviation "vabstr \<equiv> beta_interp.vabstr"
+(* abbreviation "vabstr \<equiv> beta_interp.vabstr" *)
 
 
 section \<open>Bouyer's Main Theorem\<close>
@@ -808,7 +826,7 @@ theorem region_zone_intersect_empty_approx_correct:
   assumes "R \<in> \<R>" "Z \<subseteq> V" "R \<inter> Z = {}" "vabstr Z M"
   shows "R \<inter> Approx\<^sub>\<beta> Z = {}"
 proof -
-  def v' \<equiv> "\<lambda> i. THE c. c \<in> X \<and> v c = i"
+  define v' where "v' \<equiv> \<lambda> i. THE c. c \<in> X \<and> v c = i"
   from region_dbm[OF assms(1)] obtain M\<^sub>R where M\<^sub>R:
     "[M\<^sub>R]\<^bsub>v,n\<^esub> = R" "\<forall>i\<le>n. \<forall>j\<le>n. M\<^sub>R i 0 = \<infinity> \<and> 0 < j \<and> i \<noteq> j \<longrightarrow> M\<^sub>R i j = \<infinity> \<and> M\<^sub>R j i = \<infinity>"
     "\<forall>i\<le>n. M\<^sub>R i i = Le 0"
@@ -1977,8 +1995,6 @@ proof -
   then show ?thesis unfolding alpha_interp.cla_def by blast
 qed
 
-definition "V' \<equiv> {Z. Z \<subseteq> V \<and> (\<exists> M. vabstr Z M)}"
-
 corollary approx_\<beta>_closure_\<alpha>': "Z \<in> V' \<Longrightarrow> Approx\<^sub>\<beta> Z \<subseteq> Closure\<^sub>\<alpha> Z"
 using approx_\<beta>_closure_\<alpha> unfolding V'_def by auto
 
@@ -2008,7 +2024,77 @@ next
   ultimately show ?thesis using *(1,4) unfolding V'_def by auto
 qed
 
+end (* End of context for global regions *)
+
+lemma valid_abstraction_pairsD:
+  "\<forall>(x, m)\<in>Timed_Automata.clkp_set A. x \<in> X \<and> m \<in> \<nat>" if "valid_abstraction A X k"
+  using that
+  apply cases
+  unfolding clkp_set_def Timed_Automata.clkp_set_def
+  unfolding collect_clki_def Timed_Automata.collect_clki_def
+  unfolding collect_clkt_def Timed_Automata.collect_clkt_def
+  by blast
+
 section \<open>A New Zone Semantics Abstracting with \<open>Approx\<^sub>\<beta>\<close>\<close>
+
+locale Regions =
+  Regions_defs X v n for X and v :: "'c \<Rightarrow> nat" and n :: nat +
+  fixes k :: "'s \<Rightarrow> 'c \<Rightarrow> nat" and not_in_X
+  assumes finite: "finite X"
+  assumes clock_numbering:
+    "clock_numbering' v n" "\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c \<in> X. v c = k)" "\<forall> c \<in> X. v c \<le> n"
+  assumes not_in_X: "not_in_X \<notin> X"
+  assumes non_empty: "X \<noteq> {}"
+begin
+
+definition \<R>_def: "\<R> l \<equiv> {Regions.region X I r | I r. Regions.valid_region X (k l) I r}"
+definition \<R>\<^sub>\<beta>_def:
+  "\<R>\<^sub>\<beta> l \<equiv> {Regions_Beta.region X I J r | I J r. Regions_Beta.valid_region X (k l) I J r}"
+(* definition V_def:  "V \<equiv> {v . \<forall> x \<in> X. v x \<ge> 0}" *)
+
+sublocale alpha_interp:
+  AlphaClosure X k \<R> by (unfold_locales) (auto simp: finite \<R>_def V_def)
+
+(*
+sublocale alpha_interp:
+  AlphaClosure_global X k \<R> V by (unfold_locales) (auto simp: finite \<R>_def V_def)
+
+sublocale beta_interp: Beta_Regions' X k \<R>\<^sub>\<beta> V v n not_in_X
+  using finite non_empty clock_numbering not_in_X by (unfold_locales) (auto simp: \<R>\<^sub>\<beta>_def V_def)
+*)
+
+term "\<lambda> l. Beta_Regions'.Approx\<^sub>\<beta> X (k l) v n not_in_X V"
+
+abbreviation "Approx\<^sub>\<beta> l Z \<equiv> Beta_Regions'.Approx\<^sub>\<beta> X (k l) v n not_in_X Z"
+
+(*
+abbreviation
+  "vabstr (S :: ('c, t) zone) M \<equiv>
+    S = [M]\<^bsub>v,n\<^esub> \<and> (\<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>)"
+
+definition "V' \<equiv> {Z. Z \<subseteq> V \<and> (\<exists> M. vabstr Z M)}"
+*)
+
+subsection \<open>Single Step\<close>
+
+inductive step_z_beta ::
+  "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 'a action \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+where
+  step_beta: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Approx\<^sub>\<beta> l' Z'\<rangle>"
+
+inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l',u'\<rangle>"
+
+declare step_z_beta.intros[intro]
+
+
+(* XXX All of these should be considered for moving into the locales for global sets of regions *)
+context
+  fixes l' :: 's
+begin
+
+interpretation regions: Regions_global _ _ _ "k l'"
+  by standard (rule finite clock_numbering not_in_X non_empty)+
 
 lemma step_z_V':
   assumes "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle>" "valid_abstraction A X k" "\<forall>c\<in>clk_set A. v c \<le> n" "Z \<in> V'"
@@ -2017,37 +2103,23 @@ proof -
   from assms(3) clock_numbering have numbering: "global_clock_numbering A v n" by metis
   from assms(4) obtain M where M:
     "Z \<subseteq> V" "Z = [M]\<^bsub>v,n\<^esub>" "dbm_int M n"
-  unfolding V'_def by auto
-  from alpha_interp.step_z_V[OF assms(1) M(1)] M(2) assms(1) step_z_dbm_DBM[OF _ numbering]
-       step_z_dbm_preserves_int[OF _ numbering assms(2) M(3)]
+    unfolding V'_def by auto
+  from valid_abstraction_pairsD[OF assms(2)] have "\<forall>(x, m)\<in>Timed_Automata.clkp_set A. m \<in> \<nat>"
+    by blast
+  from step_z_V[OF assms(1) M(1)] M(2) assms(1) step_z_dbm_DBM[OF _ numbering]
+       step_z_dbm_preserves_int[OF _ numbering this M(3)]
   obtain M' where M': "Z' \<subseteq> V" "Z' = [M']\<^bsub>v,n\<^esub>" "dbm_int M' n" by metis
   then show ?thesis unfolding V'_def by blast
 qed
 
-lemma steps_z_V':
-  "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V' \<Longrightarrow> Z' \<in> V'"
-  by (induction rule: steps_z.induct; blast intro: step_z_V')
-
-subsection \<open>Single Step\<close>
-
-inductive step_z_beta ::
-  "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 'a action \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
-("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
-where
-  step_beta: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Approx\<^sub>\<beta> Z'\<rangle>"
-
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l',u'\<rangle>"
-
-declare step_z_beta.intros[intro]
-
 lemma step_z_alpha_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V'
   \<Longrightarrow> Z' \<noteq> {} \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
- apply (induction rule: step_z_beta.induct)
+ apply (induction l' \<equiv> l' Z' rule: step_z_beta.induct)
  apply (frule step_z_V')
     apply assumption+
- apply (rotate_tac 4)
- apply (drule apx_empty_iff')
+  apply (rotate_tac 5)
+ apply (drule regions.apx_empty_iff')
 by blast
 
 lemma step_z_alpha_complete:
@@ -2056,8 +2128,54 @@ lemma step_z_alpha_complete:
  apply (frule step_z_V')
     apply assumption+
  apply (rotate_tac 4)
- apply (drule apx_empty_iff')
-by blast
+ apply (drule regions.apx_empty_iff')
+ by blast
+
+lemma alpha_beta_step:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V'
+  \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l', Z''\<rangle> \<and> Z' \<subseteq> Z''"
+  apply (induction l' \<equiv> l' Z' rule: step_z_beta.induct)
+  apply (frule step_z_V')
+    apply assumption+
+  apply (rotate_tac 4)
+  apply (drule regions.approx_\<beta>_closure_\<alpha>')
+  apply auto
+done
+
+lemma alpha_beta_step':
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V' \<Longrightarrow> W \<subseteq> V
+  \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l', W'\<rangle> \<and> Z' \<subseteq> W'"
+proof (induction l' \<equiv> l' Z' rule: step_z_beta.induct)
+  case (step_beta A l Z a Z')
+  from step_z_mono[OF step_beta(1,6)] obtain W' where W':
+    "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle>" "Z' \<subseteq> W'"
+  by blast
+  from regions.approx_\<beta>_closure_\<alpha>'[OF step_z_V'[OF step_beta(1-4)]]
+       regions.alpha_interp.cla_mono[OF this(2)] this(1)
+  show ?case by auto
+qed
+
+lemma apx_mono:
+  "Z' \<subseteq> V \<Longrightarrow> Z \<subseteq> Z' \<Longrightarrow> Approx\<^sub>\<beta> l' Z \<subseteq> Approx\<^sub>\<beta> l' Z'"
+proof (goal_cases)
+  case 1
+  with regions.beta_interp.apx_in have
+    "regions.Approx\<^sub>\<beta> Z' \<in> {S. \<exists>U M. S = \<Union>U \<and> U \<subseteq> regions.\<R>\<^sub>\<beta> \<and> Z' \<subseteq> S \<and> regions.beta_interp.vabstr S M
+                      \<and> regions.beta_interp.normalized M}"
+  by auto
+  with 1 obtain U M where
+    "regions.Approx\<^sub>\<beta> Z' = \<Union>U" "U \<subseteq> regions.\<R>\<^sub>\<beta>" "Z \<subseteq> regions.Approx\<^sub>\<beta> Z'"
+    "regions.beta_interp.vabstr (regions.Approx\<^sub>\<beta> Z') M"
+    "regions.beta_interp.normalized M"
+  by auto
+  with regions.beta_interp.apx_min show ?thesis by auto
+qed
+
+end (* End of context for global regions *)
+
+lemma steps_z_V':
+  "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V' \<Longrightarrow> Z' \<in> V'"
+  by (induction rule: steps_z.induct; blast intro: step_z_V')
 
 subsection \<open>Multi step\<close>
 
@@ -2079,36 +2197,14 @@ proof (induction rule: steps_z_beta.induct)
   case refl then show ?case by fast
 next
   case (step A l Z l' Z' Z'' a l'' Z''')
-  from this(3) obtain W''' where W''':
-    "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', W'''\<rangle>" "Z''' = Approx\<^sub>\<beta> W'''" by auto
-  with step show ?case by (blast intro: step_z_V' apx_V'[OF V'_V])
+  interpret regions: Regions_global _ _ _ "k l''"
+    by standard (rule finite clock_numbering not_in_X non_empty)+
+  from step(3) obtain W''' where W''':
+    "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', W'''\<rangle>" "Z''' = Approx\<^sub>\<beta> l'' W'''" by auto
+  with step show ?case by (blast intro: step_z_V' regions.apx_V'[OF V'_V])
 qed
-
-lemma alpha_beta_step:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V'
-  \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l', Z''\<rangle> \<and> Z' \<subseteq> Z''"
-  apply (induction rule: step_z_beta.induct)
-  apply (frule step_z_V')
-    apply assumption+
-  apply (rotate_tac 4)
-  apply (drule approx_\<beta>_closure_\<alpha>')
-  apply auto
-done
 
 subsubsection \<open>Soundness\<close>
-
-lemma alpha_beta_step':
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V' \<Longrightarrow> W \<subseteq> V
-  \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<alpha>(a)\<^esub> \<langle>l', W'\<rangle> \<and> Z' \<subseteq> W'"
-proof (induction rule: step_z_beta.induct)
-  case (step_beta A l Z a l' Z')
-  from alpha_interp.step_z_mono[OF step_beta(1,6)] obtain W' where W':
-    "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle>" "Z' \<subseteq> W'"
-  by blast
-  from approx_\<beta>_closure_\<alpha>'[OF step_z_V'[OF step_beta(1-4)]]
-       alpha_interp.cla_mono[OF this(2)] this(1)
-  show ?case by auto
-qed
 
 lemma alpha_beta_steps:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V'
@@ -2118,11 +2214,11 @@ proof (induction rule: steps_z_beta.induct)
 next
   case (step A l Z l' Z' Z'' a l'' Z''')
   then obtain W where *: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', W\<rangle>" "Z' \<subseteq> W" by auto
-  from alpha_interp.step_z_mono[OF step.hyps(2) this(2)] obtain W' where W':
+  from step_z_mono[OF step.hyps(2) this(2)] obtain W' where W':
     "A \<turnstile> \<langle>l', W\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', W'\<rangle>" "Z'' \<subseteq> W'"
     by blast
   with  \<open>Z \<in> V'\<close> have "W' \<subseteq> V"
-    by (metis V'_V alpha_interp.steps_z_alpha_V[OF *(1)] alpha_interp.step_z_V)
+    by (metis V'_V alpha_interp.steps_z_alpha_V[OF *(1)] step_z_V)
   from step have "Z'' \<in> V'" by (blast intro: steps_z_beta_V' step_z_V')
   with alpha_beta_step'[OF step.hyps(3) step.prems(1,2) this \<open>W' \<subseteq> V\<close> W'(2)]
   obtain W'' where "A \<turnstile> \<langle>l', W'\<rangle> \<leadsto>\<^bsub>\<alpha>\<upharpoonleft>a\<^esub> \<langle>l'', W''\<rangle>" "Z''' \<subseteq> W''"
@@ -2135,46 +2231,34 @@ corollary steps_z_beta_sound:
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z''\<rangle> \<and> Z'' \<noteq> {}"
 proof (goal_cases)
   case 1
-  then have "Z \<subseteq> V" unfolding V'_def by auto
+  interpret regions: Regions_global _ _ _ "k l'"
+    by standard (rule finite clock_numbering not_in_X non_empty)+
+  from 1 have "Z \<subseteq> V" unfolding V'_def by auto
   from alpha_beta_steps[OF 1(1,3,2,4)] obtain Z''' where *:
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z'''\<rangle>" "Z' \<subseteq> Z'''"
   by blast
   from alpha_interp.steps_z_alpha_closure_involutive[OF *(1) 1(3) \<open>Z \<subseteq> V\<close>] obtain Z'' where
-    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z''\<rangle>" "Closure\<^sub>\<alpha> Z''' \<subseteq> Closure\<^sub>\<alpha> Z''" "Z'' \<subseteq> Z'''"
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z''\<rangle>" "Closure\<^sub>\<alpha>\<^sub>,\<^sub>l' Z''' \<subseteq> Closure\<^sub>\<alpha>\<^sub>,\<^sub>l' Z''" "Z'' \<subseteq> Z'''"
   by blast
-  moreover with alpha_interp.closure_subs[OF alpha_interp.steps_z_alpha_V[OF *(1) \<open>Z \<subseteq> V\<close>]] 1(5)
-                alpha_interp.cla_empty_iff[OF alpha_interp.steps_z_V, OF this(1) \<open>Z \<subseteq> V\<close>] *(2)
+  moreover with
+    regions.alpha_interp.closure_subs[OF alpha_interp.steps_z_alpha_V[OF *(1) \<open>Z \<subseteq> V\<close>]] 1(5)
+    regions.alpha_interp.cla_empty_iff[OF alpha_interp.steps_z_V, OF this(1) \<open>Z \<subseteq> V\<close>] *(2)
   have "Z'' \<noteq> {}" by auto
   ultimately show ?thesis by auto
 qed
 
 subsubsection \<open>Completeness\<close>
 
-lemma apx_mono:
-  "Z' \<subseteq> V \<Longrightarrow> Z \<subseteq> Z' \<Longrightarrow> Approx\<^sub>\<beta> Z \<subseteq> Approx\<^sub>\<beta> Z'"
-proof (goal_cases)
-  case 1
-  with beta_interp.apx_in have
-    "Approx\<^sub>\<beta> Z' \<in> {S. \<exists>U M. S = \<Union>U \<and> U \<subseteq> \<R>\<^sub>\<beta> \<and> Z' \<subseteq> S \<and> beta_interp.vabstr S M
-                      \<and> beta_interp.normalized M}"
-  by auto
-  with 1 obtain U M where
-    "Approx\<^sub>\<beta> Z' = \<Union>U" "U \<subseteq> \<R>\<^sub>\<beta>" "Z \<subseteq> Approx\<^sub>\<beta> Z'" "beta_interp.vabstr (Approx\<^sub>\<beta> Z') M"
-    "beta_interp.normalized M"
-  by auto
-  with beta_interp.apx_min show ?thesis by auto
-qed
-
 lemma step_z_beta_mono:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> W \<subseteq> V \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', W'\<rangle> \<and> Z' \<subseteq> W'"
 proof (goal_cases)
   case 1
-  then obtain Z'' where *: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z''\<rangle>" "Z' = Approx\<^sub>\<beta> Z''" by auto
-  from alpha_interp.step_z_mono[OF this(1) 1(2)] obtain W' where
+  then obtain Z'' where *: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z''\<rangle>" "Z' = Approx\<^sub>\<beta> l' Z''" by auto
+  from step_z_mono[OF this(1) 1(2)] obtain W' where
     "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',W'\<rangle>" "Z'' \<subseteq> W'"
   by auto
-  moreover with *(2) apx_mono[OF alpha_interp.step_z_V] \<open>W \<subseteq> V\<close> have
-    "Z' \<subseteq> Approx\<^sub>\<beta> W'"
+  moreover with *(2) apx_mono[OF step_z_V] \<open>W \<subseteq> V\<close> have
+    "Z' \<subseteq> Approx\<^sub>\<beta> l' W'"
   by metis
   ultimately show ?case by blast
 qed
@@ -2184,9 +2268,11 @@ proof (induction rule: steps_z_beta.induct)
   case refl then show ?case by blast
 next
   case (step A l Z l' Z' Z'' a l'' Z''')
-  from step have "Z'' \<subseteq> V" by (metis alpha_interp.step_z_V)
-  from step obtain W''' where "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', W'''\<rangle>" "Z''' = Approx\<^sub>\<beta> W'''" by auto
-  with \<open>Z'' \<subseteq> V\<close> show ?case by (metis apx_V alpha_interp.step_z_V)
+  interpret regions: Regions_global _ _ _ "k l''"
+    by standard (rule finite clock_numbering not_in_X non_empty)+
+  from step have "Z'' \<subseteq> V" by (metis step_z_V)
+  from step obtain W''' where "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', W'''\<rangle>" "Z''' = Approx\<^sub>\<beta> l'' W'''" by auto
+  with \<open>Z'' \<subseteq> V\<close> show ?case by (metis regions.apx_V step_z_V)
 qed
 
 lemma steps_z_beta_mono:
@@ -2196,10 +2282,10 @@ proof (induction rule: steps_z_beta.induct)
 next
   case (step A l Z l' Z' Z'' a l'' Z''')
   then obtain W' where W': "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', W'\<rangle>" "Z' \<subseteq> W'" by auto
-  with steps_z_beta_V[OF W'(1) step(6)] alpha_interp.step_z_mono[OF step(2) W'(2)] obtain W'' where
+  with steps_z_beta_V[OF W'(1) step(6)] step_z_mono[OF step(2) W'(2)] obtain W'' where
     "A \<turnstile> \<langle>l', W'\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', W''\<rangle>" "Z'' \<subseteq> W''" "W' \<subseteq> V"
     by auto
-  with step_z_beta_mono[OF step(3) this(2)] alpha_interp.step_z_V[OF this(1,3)] W'(1) show ?case
+  with step_z_beta_mono[OF step(3) this(2)] step_z_V[OF this(1,3)] W'(1) show ?case
     by auto
 qed
 
@@ -2211,19 +2297,22 @@ lemma steps_z_beta_complete:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z''\<rangle> \<and> Z' \<subseteq> Z''"
 proof (induction rule: steps_z.induct)
-  case refl with apx_empty_iff show ?case by blast
+  case refl show ?case by blast
 next
   case (step A l Z l' Z' a l'' Z'' l''' Z''')
-  from alpha_interp.step_z_V[OF step(2) alpha_interp.step_z_V[OF this(1,6)]] have "Z'' \<subseteq> V" .
+  interpret regions: Regions_global _ _ _ "k l''"
+    by standard (rule finite clock_numbering not_in_X non_empty)+
+  from step_z_V[OF step(2) step_z_V[OF step(1,6)]] have "Z'' \<subseteq> V" .
   with step obtain W''' where W'':
     "A \<turnstile> \<langle>l'', Z''\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l''', W'''\<rangle>" "Z''' \<subseteq> W'''"
     by blast
-  with steps_z_beta_mono[OF W''(1) beta_interp.apx_subset apx_V[OF \<open>Z'' \<subseteq> V\<close>]] obtain W4 where
-    "A \<turnstile> \<langle>l'', Approx\<^sub>\<beta> Z''\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l''', W4\<rangle>" "W''' \<subseteq> W4"
+  with steps_z_beta_mono[OF W''(1) regions.beta_interp.apx_subset regions.apx_V[OF \<open>Z'' \<subseteq> V\<close>]]
+  obtain W4 where
+    "A \<turnstile> \<langle>l'', Approx\<^sub>\<beta> l'' Z''\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l''', W4\<rangle>" "W''' \<subseteq> W4"
     by auto
   with step(1,2) have "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l''', W4\<rangle>"
     by (blast intro: steps_z_beta_alt)
-  with \<open>Z''' \<subseteq> _\<close> \<open>W''' \<subseteq> _\<close> show ?case by auto
+  with \<open>Z''' \<subseteq> W'''\<close> \<open>W''' \<subseteq> W4\<close> show ?case by auto
 qed
 
 lemma steps_z_beta_complete':
@@ -2231,6 +2320,6 @@ lemma steps_z_beta_complete':
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
 using steps_z_beta_complete by fast
 
-end
+end (* End of locale for local regions *)
 
 end

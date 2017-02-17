@@ -127,7 +127,7 @@ proof (clarsimp, goal_cases)
   proof (induction n)
     case 0
     then have "{c. 0 < v c \<and> v c \<le> 0} = {}" by auto
-    then show ?case by (metis finite.emptyI) 
+    then show ?case by (metis finite.emptyI)
   next
     case (Suc n)
     then have "finite {c. 0 < v c \<and> v c \<le> n}" by auto
@@ -168,7 +168,7 @@ proof (clarsimp, goal_cases)
   then have finI:
     "\<And> f g K. theLe o K = id \<Longrightarrow> finite (g ` {(c,d) | c d. 0 < v c \<and> v c \<le> n \<and> f M (v c) = K d})"
   by auto
-  
+
   have
     "finite ((\<lambda>(c,d). - d - u c) ` {(c,d) | c d. 0 < v c \<and> v c \<le> n \<and> M 0 (v c) = Le d})"
   by (rule finI, auto)
@@ -176,7 +176,7 @@ proof (clarsimp, goal_cases)
     "S_Min_Le = ((\<lambda>(c,d). - d - u c) ` {(c,d) | c d. 0 < v c \<and> v c \<le> n \<and> M 0 (v c) = Le d})"
   using S_Min_Le by auto
   ultimately have fin_min_le: "finite S_Min_Le" by auto
-  
+
   have
     "finite ((\<lambda>(c,d). - d - u c) ` {(c,d) | c d. 0 < v c \<and> v c \<le> n \<and> M 0 (v c) = Lt d})"
   by (rule finI, auto)
@@ -231,7 +231,7 @@ proof (clarsimp, goal_cases)
       using dbm_entry_dbm_min' * by auto
       hence "u c' - u c \<le> d' + d" using G1 by auto
       hence "u c' + (- u c - d) \<le> d'" by (simp add: add_diff_eq diff_le_eq)
-      hence "- u c - d \<le> d' - u c'" by (simp add: add.commute le_diff_eq) 
+      hence "- u c - d \<le> d' - u c'" by (simp add: add.commute le_diff_eq)
       thus ?case by (metis add_uminus_conv_diff uminus_add_conv_diff)
     qed
   } note EE = this
@@ -248,7 +248,7 @@ proof (clarsimp, goal_cases)
       using dbm_entry_dbm_min' * by auto
       hence "u c' - u c \<le> d' + d" using G1 by auto
       hence "u c' + (- u c - d) \<le> d'" by (simp add: add_diff_eq diff_le_eq)
-      hence "- u c - d \<le> d' - u c'" by (simp add: add.commute le_diff_eq) 
+      hence "- u c - d \<le> d' - u c'" by (simp add: add.commute le_diff_eq)
       thus ?case by (metis add_uminus_conv_diff uminus_add_conv_diff)
     qed
   } note EE = this
@@ -265,7 +265,7 @@ proof (clarsimp, goal_cases)
       using dbm_entry_dbm_min' * by auto
       hence "u c' - u c < d' + d" using G1 by auto
       hence "u c' + (- u c - d) < d'" by (simp add: add_diff_eq diff_less_eq)
-      hence "- u c - d < d' - u c'" by (simp add: add.commute less_diff_eq) 
+      hence "- u c - d < d' - u c'" by (simp add: add.commute less_diff_eq)
       thus ?case by (metis add_uminus_conv_diff uminus_add_conv_diff)
     qed
   } note LE = this
@@ -282,7 +282,7 @@ proof (clarsimp, goal_cases)
       using dbm_entry_dbm_min' * by auto
       hence "u c' - u c < d' + d" using G1 by auto
       hence "u c' + (- u c - d) < d'" by (simp add: add_diff_eq diff_less_eq)
-      hence "- u c - d < d' - u c'" by (simp add: add.commute less_diff_eq) 
+      hence "- u c - d < d' - u c'" by (simp add: add.commute less_diff_eq)
       thus ?case by (metis add_uminus_conv_diff uminus_add_conv_diff)
     qed
   } note EL = this
@@ -299,7 +299,7 @@ proof (clarsimp, goal_cases)
       using dbm_entry_dbm_min' * by auto
       hence "u c' - u c < d' + d" using G1 by auto
       hence "u c' + (- u c - d) < d'" by (simp add: add_diff_eq diff_less_eq)
-      hence "- u c - d < d' - u c'" by (simp add: add.commute less_diff_eq) 
+      hence "- u c - d < d' - u c'" by (simp add: add.commute less_diff_eq)
       thus ?case by (metis add_uminus_conv_diff uminus_add_conv_diff)
     qed
   } note LL = this
@@ -309,7 +309,7 @@ proof (clarsimp, goal_cases)
     assume m:"(\<And>m. \<forall>t\<in>S_Min_Le. t \<le> m \<Longrightarrow>
           \<forall>t\<in>S_Min_Lt. t < m \<Longrightarrow> \<forall>t\<in>S_Max_Le. m \<le> t \<Longrightarrow> \<forall>t\<in>S_Max_Lt. m < t \<Longrightarrow> m \<le> 0 \<Longrightarrow> thesis)"
     let ?min_le = "Max S_Min_Le"
-    let ?min_lt = "Max S_Min_Lt" 
+    let ?min_lt = "Max S_Min_Lt"
     let ?max_le = "Min S_Max_Le"
     let ?max_lt = "Min S_Max_Lt"
     show thesis
@@ -336,7 +336,7 @@ proof (clarsimp, goal_cases)
         } note 1 = this
         { fix x assume x: "x \<in> S_Max_Lt"
           have "min 0 (min (Min S_Max_Lt) (Min S_Max_Le) + a) < ?max_lt"
-          by (meson a add_less_same_cancel1 min.cobounded1 min.strict_coboundedI2 order.strict_trans2) 
+          by (meson a add_less_same_cancel1 min.cobounded1 min.strict_coboundedI2 order.strict_trans2)
           also from fin_max_lt x have "\<dots> \<le> x" by auto
           finally have "min 0 (min (Min S_Max_Lt) (Min S_Max_Le) + a) < x" .
         } note 2 = this
@@ -374,16 +374,16 @@ proof (clarsimp, goal_cases)
 
         have 1: "x \<le> max ?min_lt ?min_le" "x \<le> ?min_le" if "x \<in> S_Min_Le" for x
         using that fin_min_le by (simp add: max.coboundedI2)+
-        
+
         {
           fix x y assume x: "x \<in> S_Max_Le" "y \<in> S_Min_Lt"
           then have "S_Min_Lt \<noteq> {}" by auto
           from LE[OF Max_in[OF fin_min_lt], OF this, OF x(1)] have "?min_lt \<le> x" by auto
         } note 3 = this
-        
+
         have 4: "?min_le \<le> x" if "x \<in> S_Max_Le" "y \<in> S_Min_Le" for x y
         using EE[OF Max_in[OF fin_min_le], OF _ that(1)] that by auto
-        
+
         {
           fix x y assume x: "x \<in> S_Max_Lt" "y \<in> S_Min_Lt"
           then have "S_Min_Lt \<noteq> {}" by auto
@@ -483,7 +483,7 @@ proof (clarsimp, goal_cases)
                 with \<open>\<not> ?l < ?r\<close> show False by auto
               qed
             qed
-            finally have "x < max ?min_lt ?min_le" by (simp add: max.strict_coboundedI2) 
+            finally have "x < max ?min_lt ?min_le" by (simp add: max.strict_coboundedI2)
           } note 2 = this
           show thesis using F False 1 2 3 4 5 6 7 8 * ** by ((intro m[of ?l]), auto)
         next
@@ -551,7 +551,7 @@ proof (clarsimp, goal_cases)
     next
       case (2 x2)
       hence "- x2  - u c < m" using m(2) S_Min_Lt A(2) by blast
-      hence "- u c - m < x2" using diff_less_eq neg_less_iff_less by fastforce 
+      hence "- u c - m < x2" using diff_less_eq neg_less_iff_less by fastforce
       thus ?case using u' 2(2) unfolding cval_add_def by auto
     next
       case 3 thus ?case by auto
@@ -561,7 +561,7 @@ proof (clarsimp, goal_cases)
     from A(2) have "v c1 > 0" "v c2 \<noteq> 0" by auto
     then have B: "(up M) (v c1) (v c2) = min (dbm_add (M (v c1) 0) (M 0 (v c2))) (M (v c1) (v c2))"
     unfolding up_def by simp
-    
+
     show ?case
     proof (cases "(dbm_add (M (v c1) 0) (M 0 (v c2))) < (M (v c1) (v c2))")
       case False
@@ -1154,7 +1154,7 @@ next
         proof (cases, goal_cases)
           case (1 d')
           from this(2) G1(3) have "u c' \<le> d + d'" using ordered_ab_semigroup_add_class.add_mono
-          by fastforce 
+          by fastforce
           thus ?case using 1 \<open>c \<noteq> c'\<close> by fastforce
         next
           case (2 d')
@@ -1227,7 +1227,7 @@ next
           next
             case (2 d')
             from add_less_le_mono[OF this(2) G1(3)] have "- u c2 + u c1 < d' + d" by simp
-            hence "u c1 - u c2 < d + d'" by (simp add: add.commute) 
+            hence "u c1 - u c2 < d + d'" by (simp add: add.commute)
             thus ?case using 2 \<open>c \<noteq> c1\<close> \<open>c \<noteq> c2\<close> by fastforce
           next
             case (3) thus ?case by auto
@@ -1424,7 +1424,7 @@ proof (auto, goal_cases)
   proof (induction n)
     case 0
     then have "{c. 0 < v c \<and> v c \<le> 0} = {}" by auto
-    then show ?case by (metis finite.emptyI) 
+    then show ?case by (metis finite.emptyI)
   next
     case (Suc n)
     then have "finite {c. 0 < v c \<and> v c \<le> n}" by auto
@@ -1549,7 +1549,7 @@ proof (auto, goal_cases)
       using A(3,7) 1 unfolding DBM_reset_def by metis
       ultimately have
         "dbm_entry_val u (Some c1) (Some c2) (dbm_add (M (v c1) (v c)) (M (v c) (v c2)))"
-      using dbm_entry_dbm_min' by auto 
+      using dbm_entry_dbm_min' by auto
       with 1 have "u c1 - u c2 \<le> d1 + d2" by auto
       thus ?case
       by (metis (hide_lams, no_types) add_diff_cancel_left diff_0_right diff_add_cancel diff_eq_diff_less_eq)
@@ -1560,7 +1560,7 @@ proof (auto, goal_cases)
         "v c' \<noteq> v c"
       unfolding DBM_reset_def by auto
       hence "(M' (v c') 0 = min (dbm_add (M (v c') (v c)) (M (v c) 0)) (M (v c') 0))"
-      using 2 by blast 
+      using 2 by blast
       moreover from A 2 have "dbm_entry_val u (Some c') None (M' (v c') 0)"
       unfolding DBM_val_bounded_def by presburger
       ultimately have "dbm_entry_val u (Some c') None (dbm_add (M (v c') (v c)) (M (v c) 0))"
@@ -1574,7 +1574,7 @@ proof (auto, goal_cases)
         "v c' \<noteq> v c"
       unfolding DBM_reset_def by auto
       hence "(M' 0 (v c') = min (dbm_add (M 0 (v c)) (M (v c) (v c'))) (M 0 (v c')))"
-      using 3 by blast 
+      using 3 by blast
       moreover from A 3 have "dbm_entry_val u None (Some c') (M' 0 (v c'))"
       unfolding DBM_val_bounded_def by presburger
       ultimately have "dbm_entry_val u None (Some c') (dbm_add (M 0 (v c)) (M (v c) (v c')))"
@@ -1707,7 +1707,7 @@ proof (auto, goal_cases)
       with A have "dbm_entry_val u (Some c1) (Some c2) (M' (v c1) (v c2))"
       unfolding DBM_val_bounded_def by presburger
       moreover have "M' (v c1) (v c2) = min (dbm_add (M (v c1) (v c)) (M (v c) (v c2))) (M (v c1) (v c2))"
-      using A(3,7) 1 unfolding DBM_reset_def by metis 
+      using A(3,7) 1 unfolding DBM_reset_def by metis
       ultimately have "dbm_entry_val u (Some c1) (Some c2) (dbm_add (M (v c1) (v c)) (M (v c) (v c2)))"
       using dbm_entry_dbm_min' by fastforce
       with 1 have "u c1 - u c2 < d1 + d2" by auto
@@ -1759,10 +1759,10 @@ proof (auto, goal_cases)
       "\<And>d'. \<lbrakk>\<forall>t\<in>S_Min_Le. t \<le> d'; \<forall>t\<in>S_Min_Lt. t < d'; \<forall>t\<in>S_Max_Le. d' \<le> t; \<forall>t\<in>S_Max_Lt. d' < t\<rbrakk>
         \<Longrightarrow> thesis"
     let ?min_le = "Max S_Min_Le"
-    let ?min_lt = "Max S_Min_Lt" 
+    let ?min_lt = "Max S_Min_Lt"
     let ?max_le = "Min S_Max_Le"
     let ?max_lt = "Min S_Max_Lt"
-    
+
     show thesis
     proof (cases "S_Min_Le = {} \<and> S_Min_Lt = {}")
       case True
@@ -1787,7 +1787,7 @@ proof (auto, goal_cases)
         } note 1 = this
         { fix x assume x: "x \<in> S_Max_Lt"
           have "min 0 (min (Min S_Max_Lt) (Min S_Max_Le) + a) < ?max_lt"
-          by (meson a add_less_same_cancel1 min.cobounded1 min.strict_coboundedI2 order.strict_trans2) 
+          by (meson a add_less_same_cancel1 min.cobounded1 min.strict_coboundedI2 order.strict_trans2)
           also from fin_max_lt x have "\<dots> \<le> x" by auto
           finally have "min 0 (min (Min S_Max_Lt) (Min S_Max_Le) + a) < x" .
         } note 2 = this
@@ -1859,7 +1859,7 @@ proof (auto, goal_cases)
           then have "S_Min_Le \<noteq> {}" by auto
           from EL[OF Max_in[OF fin_min_le], OF this, OF x(1)] have "?min_le < x" by auto
         } note 6 = this
-        
+
         show thesis
         proof (cases "?l < ?r")
           case False
@@ -1939,7 +1939,7 @@ proof (auto, goal_cases)
                 with \<open>\<not> ?l < ?r\<close> show False by auto
               qed
             qed
-            finally have "x < max ?min_lt ?min_le" by (simp add: max.strict_coboundedI2) 
+            finally have "x < max ?min_lt ?min_le" by (simp add: max.strict_coboundedI2)
           } note 2 = this
           show thesis using F False 1 2 3 4 5 6 * ** by ((intro m[of ?l]), auto)
         next
@@ -2061,8 +2061,8 @@ proof (auto, goal_cases)
           case (1 t)
           hence "u c1 - t \<in> S_Min_Le" unfolding S_Min_Le using A F1 4 by blast
           hence "d' \<ge> u c1 - t" using d' by auto
-          hence "t + d' \<ge> u c1" by (metis le_swap add_le_cancel_right diff_add_cancel) 
-          hence "u c1 - d' \<le> t" by (metis add_le_imp_le_right diff_add_cancel) 
+          hence "t + d' \<ge> u c1" by (metis le_swap add_le_cancel_right diff_add_cancel)
+          hence "u c1 - d' \<le> t" by (metis add_le_imp_le_right diff_add_cancel)
           thus ?case using 1 F1 by auto
         next
           case (2 t)
@@ -2315,7 +2315,7 @@ proof (induction cs)
 next
   case (Cons c cs)
   then have "\<forall>u. \<not> DBM_val_bounded v u (reset' M n cs v d) n" by auto
-  from Cons.prems(2,3) DBM_reset_complete_empty'[OF Cons.prems(1) _ _ DBM_reset_reset this] 
+  from Cons.prems(2,3) DBM_reset_complete_empty'[OF Cons.prems(1) _ _ DBM_reset_reset this]
   show ?case by auto
 qed
 
@@ -2732,12 +2732,10 @@ proof -
 qed
 
 lemma dbm_int_guard_abstr:
-  assumes "valid_abstraction A X k" "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  assumes "\<forall> (x, m) \<in> clkp_set A. m \<in> \<nat>" "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
   shows "dbm_int (abstr g (\<lambda>i j. \<infinity>) v) n"
 proof -
-  from assms have "\<forall>(x,m) \<in> clkp_set A. m \<le> k x \<and> x \<in> X \<and> m \<in> \<nat>"
-  by (auto elim: valid_abstraction.cases)
-  then have "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
+  from assms have "\<forall> (x, m) \<in> collect_clock_pairs g. m \<in> \<int>"
   unfolding clkp_set_def collect_clkt_def using assms(2) Nats_subset_Ints by fastforce
   from dbm_int_abstr'[OF this] show ?thesis .
 qed
