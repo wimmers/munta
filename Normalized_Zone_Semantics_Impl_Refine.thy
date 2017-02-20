@@ -62,12 +62,6 @@ locale Reachability_Problem_Impl =
         (* "(uncurry0 (return ceiling), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn" *)
 begin
 
-  (*
-  lemma [sepref_fr_rules]:
-    "(uncurry0 (return ceiling), uncurry0 (RETURN (PR_CONST k'))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-  using ceiling by auto
-  *)
-
   definition succs where
     "succs \<equiv> \<lambda> (l, D).
       rev (map (\<lambda> (g,a,r,l').
@@ -248,8 +242,7 @@ begin
 
   lemma [sepref_fr_rules]:
     "(return o ceiling, RETURN o PR_CONST k') \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-    using F_fun (* by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def) *)
-      sorry
+    using ceiling by sepref_to_hoare (sep_auto simp: inv_rel_def fun_rel_def br_def)
 
   sepref_register "PR_CONST k'"
 
@@ -501,8 +494,22 @@ begin
 
   lemma iarray_k':
     "(IArray.sub (IArray (map (IArray o map int) k)), IArray o k') \<in> inv_rel Defs.states"
-    sorry
-    (* by sepref_to_hoare sep_auto  *)
+    unfolding inv_rel_def k'_def
+    apply (clarsimp simp del: upt_Suc)
+    subgoal premises prems for j
+    proof -
+      have "j < n" using prems n_gt_0 state_set_n by fastforce
+      with k_length have "length (k ! j) = m + 1" by simp
+      with k_length(2) have
+        "map (\<lambda>i. if i \<le> m then k ! j ! i else 0) [0..<Suc m] = map (\<lambda>i. k ! j ! i) [0..<Suc m]"
+        by simp thm strong_ball_cong
+      also have "\<dots> = k ! j" using \<open>length (k ! j) = _\<close> by (simp del: upt_Suc) (metis List.map_nth)
+      also show ?thesis using \<open>j < n\<close> k_length(1)
+          apply simp
+          apply (subst calculation[symmetric])
+        by simp
+    qed
+    done
 
   (* XXX Room for optimization *)
   sublocale Reachability_Problem_Impl
