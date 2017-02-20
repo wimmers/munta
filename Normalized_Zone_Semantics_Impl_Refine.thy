@@ -499,69 +499,10 @@ begin
     unfolding state_set_def trans_of_def A_def T_def label_def by force
   qed
 
-  (*
-  lemma fst_clkp_set'D:
-    assumes "(c, d) \<in> clkp_set'"
-    shows "c > 0" "c \<le> m" "d \<in> range int"
-  using assms clock_set consts_nats unfolding Nats_def clk_set'_def by force+
-  *)
-
-  (* XXX Move *)
-  lemma mono_nat:
-    "mono nat"
-  by rule auto
-
-  lemma
-    assumes "int n = y"
-    shows "n = nat y"
-  using assms by auto
-
-  (*
-  lemma k_ceiling':
-    "\<forall>c\<in>{1..m}. k ! c = nat (Max ({d. (c, d) \<in> clkp_set'} \<union> {0}))"
-  using k_ceiling by auto (* XXX *)
-
-  lemma k_k'[intro]:
-    "map int k = default_ceiling.k'"
-    apply (rule nth_equalityI)
-     using k_length default_ceiling.length_k' apply (auto; fail)
-    unfolding default_ceiling.k'_def apply (simp add: clkp_set'_eq k_length default_ceiling_def del: upt_Suc)
-    using k_ceiling' k_ceiling(2) apply safe
-     subgoal for i by (cases "i = 0") auto
-    apply (frule fst_clkp_set'D(1))
-    apply clarsimp
-    apply (rule cong[of nat, OF HOL.refl])
-    apply (subst Max_insert)
-    using finite_clkp_set_A [[simproc add: finite_Collect]]
-    apply (auto intro: finite_Image simp: clkp_set'_eq; fail)
-    apply (auto; fail)
-    subgoal for i
-     using Max_in[of "{d. (i, d) \<in> clkp_set'}"] fst_clkp_set'D(3) finite_clkp_set_A
-    by (force intro: finite_Image simp: clkp_set'_eq)
-    done
-  *)
-
-  (*
-  lemma iarray_k'[intro]:
-    "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN default_ceiling.k'))
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-  unfolding br_def by sepref_to_hoare sep_auto
-  *)
-
-  term "IArray.sub (IArray (map (IArray o map int) k))"
-
-lemma iarray_k':
-  "(IArray.sub (IArray (map (IArray o map int) k)), IArray o k') \<in> inv_rel Defs.states"
-  sorry
-  (* by sepref_to_hoare sep_auto  *)
-
-  (*
-  lemma iarray_k'[intro]:
-    "(uncurry0 (return (IArray (map (IArray o map int) k))), uncurry0 (RETURN k'))
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-  unfolding br_def by sepref_to_hoare sep_auto
-  *)
-
+  lemma iarray_k':
+    "(IArray.sub (IArray (map (IArray o map int) k)), IArray o k') \<in> inv_rel Defs.states"
+    sorry
+    (* by sepref_to_hoare sep_auto  *)
 
   (* XXX Room for optimization *)
   sublocale Reachability_Problem_Impl
@@ -828,42 +769,9 @@ begin
     "check_ceiling \<equiv>
       \<forall> l < n. \<forall> (_, r, l') \<in> set (trans ! l). \<forall> c \<le> m. c \<notin> set r \<longrightarrow> k ! l ! c \<ge> k ! l' ! c"
 
-  (*
-  abbreviation
-    "check_k_in c \<equiv> k ! c = 0 \<or> (c, k ! c) \<in> clkp_set'"
-
-  definition
-    "check_ceiling \<equiv>
-      (\<forall> (c, d) \<in> clkp_set'. 0 < c \<and> c \<le> m \<longrightarrow> k ! c \<ge> d) \<and> (\<forall> c \<in> {1..m}. check_k_in c)"
-  *)
-
   lemma finite_clkp_set'[intro, simp]:
     "finite (clkp_set' l)"
   unfolding clkp_set'_def by auto
-
-    (*
-  lemma check_ceiling:
-    "check_ceiling \<longleftrightarrow> (\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set' l} \<union> {0 :: int}))"
-  unfolding check_ceiling_def
-  proof (safe, goal_cases)
-    case prems: (1 c)
-    then show ?case
-     apply -
-     apply (rule HOL.sym)
-     apply (rule Max_eqI)
-    using [[simproc add: finite_Collect]] by (auto intro: finite_Image)
-  next
-    case prems: (2 a b)
-    then show ?case
-      apply simp
-      apply (rule Max_ge)
-    using [[simproc add: finite_Collect]] by (auto intro: finite_Image)
-  next
-    case prems: (3 c)
-    with Max_in[of "{d. (c, d) \<in> clkp_set'} \<union> {0}"] show ?case
-    using [[simproc add: finite_Collect]] by (force intro: finite_Image)
-  qed
-  *)
 
   lemma check_axioms:
     "Reachability_Problem_precompiled n m k inv trans \<longleftrightarrow> check_pre \<and> check_ceiling"
@@ -878,8 +786,6 @@ lemmas Reachability_Problem_precompiled_defs.clkp_set'_def[code]
 lemmas Reachability_Problem_precompiled_defs.clk_set'_def[code]
 
 lemmas Reachability_Problem_precompiled_defs.check_pre_def[code]
-
-(* lemmas Reachability_Problem_precompiled_defs.check_ceiling_def[code] *)
 
 export_code Reachability_Problem_precompiled in SML module_name Test
 
