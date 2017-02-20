@@ -722,7 +722,7 @@ section \<open>New Variant\<close>
 
 subsubsection \<open>New Definitions\<close>
 
-hide_const collect_clkt collect_clki clkp_set collect_clkvt valid_abstraction
+hide_const collect_clkt collect_clki clkp_set valid_abstraction
 
 definition collect_clkt :: "('a, 'c, 't, 's) transition set \<Rightarrow> 's \<Rightarrow> ('c *'t) set"
 where
@@ -735,10 +735,6 @@ where
 definition clkp_set :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c *'t) set"
 where
   "clkp_set A s = collect_clki (inv_of A) s \<union> collect_clkt (trans_of A) s"
-
-definition collect_clkvt :: "('a, 'c, 't, 's) transition set \<Rightarrow> 'c set"
-where
-  "collect_clkvt S = \<Union> {set ((fst o snd o snd o snd) t) | t . t \<in> S}"
 
 inductive valid_abstraction
 where

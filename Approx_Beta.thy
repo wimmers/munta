@@ -16,6 +16,23 @@ instance by standard (auto simp: neutral_real)
 
 end
 
+(* XXX Move *)
+text \<open>Misc lemmas we will need later\<close>
+
+lemma dbm_add_strict_right_mono_neutral: "a < Le (d :: 't :: time) \<Longrightarrow> a + Le (-d) < Le 0"
+unfolding less mult by (cases a) (auto elim!: dbm_lt.cases)
+
+lemma dbm_lt_not_inf_less[intro]: "A \<noteq> \<infinity> \<Longrightarrow> A \<prec> \<infinity>" by (cases A) auto
+
+lemma add_inf[simp]:
+  "a + \<infinity> = \<infinity>" "\<infinity> + a = \<infinity>"
+unfolding mult by (cases a) auto
+
+lemma inf_lt[simp,dest!]:
+  "\<infinity> < x \<Longrightarrow> False"
+by (cases x) (auto simp: less)
+
+
 text \<open>Merging the locales for the two types of regions\<close>
 
 locale Regions_defs =
@@ -504,19 +521,6 @@ apply (induction rule: arcs.induct)
   apply (case_tac "M a' x")
 by auto
 
-lemma dbm_add_strict_right_mono_neutral: "a < Le (d :: 't :: time) \<Longrightarrow> a + Le (-d) < Le 0"
-unfolding less mult by (cases a) (auto elim!: dbm_lt.cases)
-
-lemma dbm_lt_not_inf_less[intro]: "A \<noteq> \<infinity> \<Longrightarrow> A \<prec> \<infinity>" by (cases A) auto
-
-lemma add_inf[simp]:
-  "a + \<infinity> = \<infinity>" "\<infinity> + a = \<infinity>"
-unfolding mult by (cases a) auto
-
-lemma inf_lt[simp,dest!]:
-  "\<infinity> < x \<Longrightarrow> False"
-by (cases x) (auto simp: less)
-
 lemma zone_diag_lt:
   assumes "a \<le> n" "b \<le> n" and C: "v c1 = a" "v c2 = b" and not0: "a > 0" "b > 0"
   shows "[(\<lambda> i j. if i = a \<and> j = b then Lt d else \<infinity>)]\<^bsub>v,n\<^esub> = {u. u c1 - u c2 < d}"
@@ -814,8 +818,6 @@ qed
 lemma dbm_entry_int:
   "(x :: t DBMEntry) \<noteq> \<infinity> \<Longrightarrow> get_const x \<in> \<int> \<Longrightarrow> \<exists> d :: int. x = Le d \<or> x = Lt d"
 apply (cases x) using Ints_cases by auto
-
-(* abbreviation "vabstr \<equiv> beta_interp.vabstr" *)
 
 
 section \<open>Bouyer's Main Theorem\<close>

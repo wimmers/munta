@@ -42,7 +42,7 @@ locale Reachability_Problem_Impl_Defs =
   fixes trans_fun :: "('a, nat, int, 's) transition_fun"
     and inv_fun :: "(nat, int, 's) invassn"
     and F_fun :: "'s \<Rightarrow> bool"
-    and ceiling :: "int iarray"
+    and ceiling :: "'s \<Rightarrow> int iarray"
 begin
 
   (* XXX Should this be something different? *)
@@ -52,20 +52,21 @@ end
 
 locale Reachability_Problem_Impl =
   Reachability_Problem_Impl_Defs A l\<^sub>0 F n +
-  Reachability_Problem A l\<^sub>0 F n k
+  Reachability_Problem l\<^sub>0 F n A k
   for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat and k +
   assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states"
       and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel states"
       and F_fun: "(F_fun, F) \<in> inv_rel states"
       and ceiling:
-        "(uncurry0 (return ceiling), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+      "(ceiling, IArray o k') \<in> inv_rel states"
+        (* "(uncurry0 (return ceiling), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn" *)
 begin
 
+  (*
   lemma [sepref_fr_rules]:
     "(uncurry0 (return ceiling), uncurry0 (RETURN (PR_CONST k'))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   using ceiling by auto
-
-  thm E_alt_def
+  *)
 
   definition succs where
     "succs \<equiv> \<lambda> (l, D).
@@ -73,7 +74,7 @@ begin
       let
         D' = FW' (abstr_upd (inv_of A l) (up_canonical_upd D n)) n;
         D'' = FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D') n) n r 0)) n;
-        D''' = FW' (norm_upd D'' k' n) n
+        D''' = FW' (norm_upd D'' (k' l') n) n
       in
         (l', D''')) (trans_fun l))"
 
@@ -84,7 +85,7 @@ begin
           {
             let delay = FW' (abstr_upd (inv_of A l) (up_canonical_upd (op_mtx_copy D) n)) n;
             let reset = fold (\<lambda>c M. reset_canonical_upd M n c 0) r (FW' (abstr_upd g delay) n);
-            let action = (l', FW' (norm_upd (FW' (abstr_upd (inv_of A l') reset) n) k' n) n);
+            let action = (l', FW' (norm_upd (FW' (abstr_upd (inv_of A l') reset) n) (k' l') n) n);
             RETURN (action # xs)
           }
         ) [];
@@ -245,6 +246,11 @@ begin
 
   lemma [def_pat_rules]: "FW'' $ n \<equiv> UNPROTECT (FW'' n)" by simp
 
+  lemma [sepref_fr_rules]:
+    "(return o ceiling, RETURN o PR_CONST k') \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+    using F_fun (* by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def) *)
+      sorry
+
   sepref_register "PR_CONST k'"
 
   term "Reachability_Problem_Defs.k' n k"
@@ -252,7 +258,7 @@ begin
   lemma [def_pat_rules]: "(Reachability_Problem_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp
 
   lemma [simp]:
-    "length k' > n"
+    "length (k' l) > n"
   by (simp add: k'_def)
 
   lemma trans_fun_trans_of[intro]:
@@ -493,10 +499,12 @@ begin
     unfolding state_set_def trans_of_def A_def T_def label_def by force
   qed
 
+  (*
   lemma fst_clkp_set'D:
     assumes "(c, d) \<in> clkp_set'"
     shows "c > 0" "c \<le> m" "d \<in> range int"
   using assms clock_set consts_nats unfolding Nats_def clk_set'_def by force+
+  *)
 
   (* XXX Move *)
   lemma mono_nat:
@@ -508,6 +516,7 @@ begin
     shows "n = nat y"
   using assms by auto
 
+  (*
   lemma k_ceiling':
     "\<forall>c\<in>{1..m}. k ! c = nat (Max ({d. (c, d) \<in> clkp_set'} \<union> {0}))"
   using k_ceiling by auto (* XXX *)
@@ -530,23 +539,43 @@ begin
      using Max_in[of "{d. (i, d) \<in> clkp_set'}"] fst_clkp_set'D(3) finite_clkp_set_A
     by (force intro: finite_Image simp: clkp_set'_eq)
     done
+  *)
 
+  (*
   lemma iarray_k'[intro]:
     "(uncurry0 (return (IArray (map int k))), uncurry0 (RETURN default_ceiling.k'))
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
   unfolding br_def by sepref_to_hoare sep_auto
+  *)
 
+  term "IArray.sub (IArray (map (IArray o map int) k))"
+
+lemma iarray_k':
+  "(IArray.sub (IArray (map (IArray o map int) k)), IArray o k') \<in> inv_rel Defs.states"
+  sorry
+  (* by sepref_to_hoare sep_auto  *)
+
+  (*
+  lemma iarray_k'[intro]:
+    "(uncurry0 (return (IArray (map (IArray o map int) k))), uncurry0 (RETURN k'))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+  unfolding br_def by sepref_to_hoare sep_auto
+  *)
+
+
+  (* XXX Room for optimization *)
   sublocale Reachability_Problem_Impl
-    trans_fun inv_fun final_fun "IArray k" A 0 "PR_CONST F" m "default_ceiling A"
+    trans_fun inv_fun final_fun "IArray.sub (IArray (map (IArray o map int) k))" A 0 "PR_CONST F" m
+    "\<lambda> l i. if l < n \<and> i \<le> m then k ! l ! i else 0"
     unfolding PR_CONST_def
     apply standard
     using iarray_k' by fastforce+
 
   lemma F_reachable_correct:
-    "default_ceiling.F_reachable
+    "F_reachable
     \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
-    unfolding default_ceiling.F_reachable_def default_ceiling.reachable_def
-    using default_ceiling.reachability_check unfolding F_def by auto
+    unfolding F_reachable_def reachable_def
+    using reachability_check unfolding F_def by auto
 
   definition
     "reachability_checker' \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
@@ -554,7 +583,8 @@ begin
   theorem reachability_check':
     "(uncurry0 reachability_checker',
       uncurry0 (
-        RETURN (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
+        RETURN
+          (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
       )
      )
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -583,7 +613,7 @@ begin
     "(uncurry0 reachability_checker,
        uncurry0 (
         RETURN (
-          if default_ceiling.start_inv_check
+          if start_inv_check
           then
             if
               \<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final
@@ -600,7 +630,7 @@ begin
     define check_B where
       "check_B \<equiv> \<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final"
     note F_reachable_equiv' =
-      default_ceiling.F_reachable_equiv
+      F_reachable_equiv
       [unfolded F_def PR_CONST_def check_A_def[symmetric] check_B_def[symmetric]]
     show ?thesis
       unfolding reachability_checker_def
@@ -626,7 +656,7 @@ begin
         else INIT_INV_ERR
       ))
     >\<^sub>t"
-   unfolding default_ceiling.start_inv_check_correct[symmetric]
+   unfolding start_inv_check_correct[symmetric]
    apply (rule cons_post_rule)
    using reachability_check[to_hnr] apply (simp add: hn_refine_def)
    by (sep_auto simp: pure_def)
@@ -642,7 +672,7 @@ begin
         else r = UNREACHABLE
       )
     >\<^sub>t"
-   unfolding default_ceiling.start_inv_check_correct[symmetric]
+   unfolding start_inv_check_correct[symmetric]
    apply (rule cons_post_rule)
    using reachability_check[to_hnr] apply (simp add: hn_refine_def)
    by (sep_auto simp: pure_def)
@@ -683,7 +713,7 @@ begin
   ML \<open>
     val th = @{thm succs_impl_def}
     val r = get_rhs th;
-    val u1 = @{term "IArray (map int k)"};
+    val u1 = @{term "IArray.sub (IArray (map (IArray o map int) k))"};
     val rewr1 = pull_let u1 r;
     val r2 = get_rhs rewr1;
     val u2 = @{term "inv_fun"};
@@ -719,7 +749,7 @@ begin
   schematic_goal succs_impl_alt_def:
     "succs_impl \<equiv> ?impl"
   unfolding succs_impl_def
-   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
    unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
@@ -743,8 +773,8 @@ begin
     unfolding reachability_checker'_alt_def' succs_impl_def
     unfolding
       start_inv_check_impl_def unbounded_dbm_impl_def unbounded_dbm'_def
-      default_ceiling.unbounded_dbm_def
-   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
+      unbounded_dbm_def
+   apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
    unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
@@ -760,7 +790,7 @@ begin
   schematic_goal reachability_checker_alt_def:
     "reachability_checker \<equiv> ?impl"
   unfolding succs_impl_def reachability_checker_def reachability_checker'_def
-   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
    unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
@@ -775,33 +805,45 @@ context Reachability_Problem_precompiled_defs
 begin
 
   abbreviation
-    "check_nat_subs \<equiv> \<forall> (_, d) \<in> clkp_set'. d \<ge> 0"
+    "check_nat_subs \<equiv> \<forall> l < n. \<forall> (_, d) \<in> clkp_set' l. d \<ge> 0"
 
   lemma check_nat_subs:
-    "check_nat_subs \<longleftrightarrow> snd ` clkp_set' \<subseteq> \<nat>"
+    "check_nat_subs \<longleftrightarrow> (\<forall> l < n. snd ` clkp_set' l \<subseteq> \<nat>)"
   unfolding Nats_def apply safe
-  subgoal for _ _ b using rangeI[of int "nat b"] by auto
-  by auto
+  subgoal for _ _ _ b using rangeI[of int "nat b"] by (auto 4 3)
+  by (auto 4 3)
 
   definition
     "check_pre \<equiv>
-      length inv = n \<and> length trans = n \<and> length k = m + 1 \<and> m > 0 \<and> n > 0 \<and> trans ! 0 \<noteq> []
-      \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}
+      length inv = n \<and> length trans = n
+      \<and> length k = n \<and> (\<forall> l \<in> set k. length l = m + 1)
+      \<and> m > 0 \<and> n > 0 \<and> trans ! 0 \<noteq> []
+      \<and> (\<forall> l < n. \<forall> (c, d) \<in> clkp_set' l. k ! l ! c \<ge> nat d)
+      \<and> (\<forall> l < n. k ! l ! 0 = 0) \<and> (\<forall> l < n. \<forall> c \<in> {1..m}. k ! l ! c \<ge> 0)
+      \<and> check_nat_subs \<and> clk_set' = {1..m}
       \<and> (\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n)"
 
+  (* Can be optimized with better enumeration *)
+  abbreviation
+    "check_ceiling \<equiv>
+      \<forall> l < n. \<forall> (_, r, l') \<in> set (trans ! l). \<forall> c \<le> m. c \<notin> set r \<longrightarrow> k ! l ! c \<ge> k ! l' ! c"
+
+  (*
   abbreviation
     "check_k_in c \<equiv> k ! c = 0 \<or> (c, k ! c) \<in> clkp_set'"
 
   definition
     "check_ceiling \<equiv>
       (\<forall> (c, d) \<in> clkp_set'. 0 < c \<and> c \<le> m \<longrightarrow> k ! c \<ge> d) \<and> (\<forall> c \<in> {1..m}. check_k_in c)"
+  *)
 
   lemma finite_clkp_set'[intro, simp]:
-    "finite clkp_set'"
+    "finite (clkp_set' l)"
   unfolding clkp_set'_def by auto
 
+    (*
   lemma check_ceiling:
-    "check_ceiling \<longleftrightarrow> (\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0 :: int}))"
+    "check_ceiling \<longleftrightarrow> (\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set' l} \<union> {0 :: int}))"
   unfolding check_ceiling_def
   proof (safe, goal_cases)
     case prems: (1 c)
@@ -821,10 +863,11 @@ begin
     with Max_in[of "{d. (c, d) \<in> clkp_set'} \<union> {0}"] show ?case
     using [[simproc add: finite_Collect]] by (force intro: finite_Image)
   qed
+  *)
 
   lemma check_axioms:
     "Reachability_Problem_precompiled n m k inv trans \<longleftrightarrow> check_pre \<and> check_ceiling"
-  unfolding Reachability_Problem_precompiled_def check_ceiling check_pre_def check_nat_subs by auto
+  unfolding Reachability_Problem_precompiled_def check_pre_def check_nat_subs by auto
 
 end
 
@@ -836,7 +879,7 @@ lemmas Reachability_Problem_precompiled_defs.clk_set'_def[code]
 
 lemmas Reachability_Problem_precompiled_defs.check_pre_def[code]
 
-lemmas Reachability_Problem_precompiled_defs.check_ceiling_def[code]
+(* lemmas Reachability_Problem_precompiled_defs.check_ceiling_def[code] *)
 
 export_code Reachability_Problem_precompiled in SML module_name Test
 
