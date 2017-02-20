@@ -151,12 +151,13 @@ lemma product_trans_resets:
   by (auto dest: exec_reset simp: P_Storec_iff)
 
 lemma product_trans_guards:
-  "collect_clkt (\<Union>s. defs.T' s) \<subseteq> {constraint_pair ac | ac. \<exists> pc. Some (CEXP ac) = P pc}"
+  "Timed_Automata.collect_clkt (\<Union>s. defs.T' s)
+  \<subseteq> {constraint_pair ac | ac. \<exists> pc. Some (CEXP ac) = P pc}"
   unfolding trans_of_def
   unfolding Product_TA_Defs.product_ta_def
   apply simp
   unfolding Product_TA_Defs.product_trans_def
-  unfolding collect_clkt_def collect_clock_pairs_def
+  unfolding Timed_Automata.collect_clkt_def collect_clock_pairs_def
   apply safe
   unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
    apply clarsimp_all
@@ -210,7 +211,10 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
 locale UPPAAL_Reachability_Problem_precompiled_defs =
   fixes p :: nat -- "Number of processes"
     and m :: nat -- "Number of clocks"
-    and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
+    (*
+    and k :: "nat list list"
+      -- "Clock ceiling. Maximal constant appearing in automaton for each state"
+    *)
     and max_steps :: nat -- "Maximal number of execution for steps of programs in the automaton"
     and inv :: "(nat, int) cconstraint list list" -- "Clock invariants on locations per process"
     and pred :: "addr list list" -- "State invariants on locations per process"
@@ -236,7 +240,7 @@ begin
     "N \<equiv> (PROG, map (\<lambda> i. (T i, I i)) [0..<p], P, bounds)"
   definition "init \<equiv> repeat (0::nat) p"
   definition "F \<equiv> check_bexp formula"
-  definition "k_fun \<equiv> \<lambda> i. if i \<le> m then k ! i else 0"
+  (* definition "k_fun \<equiv> \<lambda> (l, s). \<lambda> i. if i \<le> m then k ! l ! i else 0" *)
 
   sublocale equiv: Equiv_TA_Defs N max_steps .
 
@@ -283,12 +287,15 @@ locale UPPAAL_Reachability_Problem_precompiled =
     and lengths:
     "\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i)"
     and state_set: "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < length T"
-    and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
+    (*
+    and k_length: "length k = p" "\<forall> l \<in> set k. length l = m + 1"
+      -- \<open>Zero entry is just a dummy for the zero clock\<close>
     (* XXX Make this an abbreviation? *)
   assumes k_ceiling:
     (* "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" *)
     "\<forall> (c, d) \<in> clkp_set'. int (k ! c) \<ge> d"
     "k ! 0 = 0"
+    *)
   assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
   (* XXX This could also be subset for now but is left like this as an input sanity check right now *)
   assumes clock_set: "clk_set' = {1..m}"
@@ -297,7 +304,7 @@ locale UPPAAL_Reachability_Problem_precompiled =
     (* XXX Can get rid of these two? *)
     and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []" -- \<open>Necessary for refinement\<close>
     and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
-  (* XXX Do not need this but a useful cautios check for the user? *)
+  (* XXX Do not need this but a useful cautious check for the user? *)
   assumes resets_zero: "\<forall> x c. Some (INSTR (STOREC c x)) \<in> set prog \<longrightarrow> x = 0"
 
 (*
@@ -321,51 +328,52 @@ begin
     term "set inv" term "set (concat inv)"
     term "equiv.defs.N"
 
-lemma clk_pairs_N_inv:
-  "\<Union> (collect_clock_pairs ` range (snd x)) \<subseteq> \<Union> (collect_clock_pairs ` set (concat inv))"
-  if "x \<in> set equiv.defs.N" for x
-  using that
-  unfolding equiv.state_ta_def equiv.state_inv_def
-  unfolding equiv.p_def
-  unfolding N_def
-  unfolding I_def
-  unfolding collect_clock_pairs_def
-  using process_length(1) by (force dest!: nth_mem)
+  lemma clk_pairs_N_inv:
+    "\<Union> (collect_clock_pairs ` range (snd x)) \<subseteq> \<Union> (collect_clock_pairs ` set (concat inv))"
+    if "x \<in> set equiv.defs.N" for x
+    using that
+    unfolding equiv.state_ta_def equiv.state_inv_def
+    unfolding equiv.p_def
+    unfolding N_def
+    unfolding I_def
+    unfolding collect_clock_pairs_def
+    using process_length(1) by (force dest!: nth_mem)
 
-lemma clkp_set_simp_1:
-  "\<Union> (collect_clock_pairs ` set (concat inv)) \<supseteq> collect_clki (snd A)"
-  unfolding equiv.defs.prod_ta_def inv_of_def
-  apply (rule subset_trans)
-   apply simp
-   apply (rule equiv.defs.collect_clki_prod_invariant')
-  unfolding collect_clki_def
-  by (force dest!: nth_mem clk_pairs_N_inv)
+  lemma clkp_set_simp_1:
+    "\<Union> (collect_clock_pairs ` set (concat inv)) \<supseteq> Timed_Automata.collect_clki (snd A)"
+    unfolding equiv.defs.prod_ta_def inv_of_def
+    apply (rule subset_trans)
+     apply simp
+     apply (rule equiv.defs.collect_clki_prod_invariant')
+    unfolding Timed_Automata.collect_clki_def
+    by (force dest!: nth_mem clk_pairs_N_inv)
 
-lemma clk_set_simp_2:
-  "{c. \<exists> x. Some (INSTR (STOREC c x)) \<in> set prog} \<supseteq> collect_clkvt (trans_of A)"
-  unfolding equiv.defs.prod_ta_def trans_of_def
-  apply (rule subset_trans)
-   apply simp
-   apply (rule equiv.defs.collect_clkvt_prod_trans_subs)
-  apply (rule subset_trans)
-   apply (rule equiv.product_trans_resets)
-  unfolding N_def PROG_def by (auto dest!: nth_mem) metis
+  lemma clk_set_simp_2:
+    "{c. \<exists> x. Some (INSTR (STOREC c x)) \<in> set prog} \<supseteq> collect_clkvt (trans_of A)"
+    unfolding equiv.defs.prod_ta_def trans_of_def
+    apply (rule subset_trans)
+     apply simp
+     apply (rule equiv.defs.collect_clkvt_prod_trans_subs)
+    apply (rule subset_trans)
+     apply (rule equiv.product_trans_resets)
+    unfolding N_def PROG_def by (auto dest!: nth_mem) metis
 
-lemma clkp_set_simp_3:
-  "{constraint_pair ac | ac. Some (CEXP ac) \<in> set prog} \<supseteq> collect_clkt (trans_of A)"
-  unfolding equiv.defs.prod_ta_def trans_of_def
-  apply (rule subset_trans)
-   apply simp
-   apply (rule equiv.defs.collect_clkt_prod_trans_subs)
-  apply (rule subset_trans)
-   apply (rule equiv.product_trans_guards)
-  unfolding N_def PROG_def by (auto dest!: nth_mem)
+  lemma clkp_set_simp_3:
+    "{constraint_pair ac | ac. Some (CEXP ac) \<in> set prog} \<supseteq> Timed_Automata.collect_clkt (trans_of A)"
+    unfolding equiv.defs.prod_ta_def trans_of_def
+    apply (rule subset_trans)
+     apply simp
+     apply (rule equiv.defs.collect_clkt_prod_trans_subs)
+    apply (rule subset_trans)
+     apply (rule equiv.product_trans_guards)
+    unfolding N_def PROG_def by (auto dest!: nth_mem)
 
-lemma clkp_set'_subs:
-    "clkp_set A \<subseteq> clkp_set'"
-  using clkp_set_simp_1 clkp_set_simp_3 by (auto simp add: clkp_set'_def clkp_set_def inv_of_def)
+  lemma clkp_set'_subs:
+    "Timed_Automata.clkp_set A \<subseteq> clkp_set'"
+    using clkp_set_simp_1 clkp_set_simp_3
+    by (auto simp add: clkp_set'_def Timed_Automata.clkp_set_def inv_of_def)
 
-lemma clk_set'_subs:
+  lemma clk_set'_subs:
     "clk_set A \<subseteq> clk_set'"
     using clkp_set'_subs clk_set_simp_2 by (auto simp: clk_set'_def)
 
@@ -374,7 +382,7 @@ lemma clk_set'_subs:
     using clock_set m_gt_0 clk_set'_subs by auto
 
   lemma
-    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
+    "\<forall>(_, d)\<in>Timed_Automata.clkp_set A. d \<in> \<int>"
     unfolding Ints_def by auto
 
   lemma clkp_set'_consts_nat:
@@ -385,7 +393,7 @@ lemma clk_set'_subs:
     by (metis snd_conv)
 
   lemma clkp_set_consts_nat:
-    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
+    "\<forall>(_, d)\<in>Timed_Automata.clkp_set A. d \<in> \<nat>"
     using clkp_set'_subs clkp_set'_consts_nat by auto
 
   lemma finite_clkp_set':
@@ -395,24 +403,12 @@ lemma clk_set'_subs:
     by (auto simp: inj_on_def intro!: finite_vimageI)
 
   lemma finite_clkp_set_A[intro, simp]:
-    "finite (clkp_set A)"
+    "finite (Timed_Automata.clkp_set A)"
     using clkp_set'_subs finite_clkp_set' by (rule finite_subset)
-
-  lemma [intro, simp]:
-    "k_fun 0 = 0"
-    unfolding k_fun_def using k_ceiling by simp
-
-  lemma [intro, simp]:
-    "k_fun i = 0" if "i > m"
-    unfolding k_fun_def using that by simp
 
   lemma clkp_set'_bounds:
     "a \<in> {Suc 0..m}" if "(a, b) \<in> clkp_set'"
     using that clock_set unfolding clk_set'_def by auto
-
-  lemma [intro]:
-    "b \<le> int (k_fun a)" if "(a, b) \<in> clkp_set A"
-    using that k_ceiling clkp_set'_subs k_length clkp_set'_bounds unfolding k_fun_def by force
 
   lemma finite_range_inv_of_A[intro, simp]:
     "finite (range (inv_of A))"
@@ -467,20 +463,23 @@ lemma clk_set'_subs:
     qed
   qed (auto simp: p_gt_0)
 
-sublocale Reachability_Problem A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m k_fun
-  using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
+  sublocale Reachability_Problem_no_ceiling A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m
+    using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
 
-lemma [simp]:
-  "length P = p"
-  unfolding P_def using process_length(3) by simp
+  sublocale Reachability_Problem "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m A k_fun
+    using clkp_set_consts_nat clk_set m_gt_0 oops
 
-lemma [simp]:
-  "length equiv.I = p"
-  unfolding N_def by simp
+  lemma [simp]:
+    "length P = p"
+    unfolding P_def using process_length(3) by simp
 
-lemma [simp]:
-  "length equiv.N = p"
-  unfolding N_def by simp
+  lemma [simp]:
+    "length equiv.I = p"
+    unfolding N_def by simp
+
+  lemma [simp]:
+    "length equiv.N = p"
+    unfolding N_def by simp
 
 (*
 (*

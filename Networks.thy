@@ -149,8 +149,8 @@ lemma product_state_set_subs:
     "product_ta \<equiv> (product_trans, product_invariant)"
 
   lemma collect_clki_product_invariant:
-    "collect_clki product_invariant = \<Union> (collect_clki ` set I)"
-    unfolding collect_clki_def product_invariant_def
+    "Timed_Automata.collect_clki product_invariant = \<Union> (Timed_Automata.collect_clki ` set I)"
+    unfolding Timed_Automata.collect_clki_def product_invariant_def
     apply (simp add: image_Union)
     apply safe
     subgoal
@@ -183,8 +183,9 @@ lemma product_state_set_subs:
       using assms unfolding collect_clock_pairs_def by auto
 
   lemma collect_clkt_product_trans_subs:
-    "collect_clkt product_trans \<subseteq> \<Union> (collect_clkt ` set T)"
-    unfolding collect_clkt_def product_trans_def product_trans_i_def product_trans_s_def
+    "Timed_Automata.collect_clkt product_trans \<subseteq> \<Union> (Timed_Automata.collect_clkt ` set T)"
+    unfolding
+      Timed_Automata.collect_clkt_def product_trans_def product_trans_i_def product_trans_s_def
     by (fastforce dest: collect_clock_pairs_append_cases states_length)
 
   lemma collect_clkvt_product_trans_subs:
@@ -227,18 +228,18 @@ lemma product_state_set_subs:
   begin
 
   lemma collect_clkt_product_trans_sups:
-    "collect_clkt product_trans \<supseteq> \<Union> (collect_clkt ` set T)"
+    "Timed_Automata.collect_clkt product_trans \<supseteq> \<Union> (Timed_Automata.collect_clkt ` set T)"
   proof
-    fix x assume "x \<in> \<Union> (collect_clkt ` set T)"
+    fix x assume "x \<in> \<Union> (Timed_Automata.collect_clkt ` set T)"
     then obtain trans l1 g1 a' b1 r1 l1' where x:
       "trans \<in> set T" "(l1, g1, (a', b1), r1, l1') \<in> trans" "x \<in> collect_clock_pairs g1"
-      unfolding collect_clkt_def by force
+      unfolding Timed_Automata.collect_clkt_def by force
     then obtain p where p:
         "p < length T" "T ! p = trans"
       by (auto dest!: aux)
     from states_not_empty obtain L where L: "L \<in> states" by auto
     have "length T = length L" by (auto simp: states_length[OF \<open>L \<in> states\<close>])
-    show "x \<in> collect_clkt product_trans"
+    show "x \<in> Timed_Automata.collect_clkt product_trans"
     proof (cases a')
       case a': (In a)
       with x p trans_complete obtain q l2 g2 b2 r2 l2' where trans2:
@@ -256,7 +257,7 @@ lemma product_state_set_subs:
         by metis
       moreover have "x \<in> collect_clock_pairs (g1 @ g2)"
         using x(3) by (auto simp: collect_clock_pairs_def)
-      ultimately show ?thesis unfolding collect_clkt_def product_trans_def by force
+      ultimately show ?thesis unfolding Timed_Automata.collect_clkt_def product_trans_def by force
     next
       case a': (Out a)
       with x p trans_complete obtain q l2 g2 b2 r2 l2' where trans2:
@@ -274,7 +275,7 @@ lemma product_state_set_subs:
         by metis
       moreover have "x \<in> collect_clock_pairs (g2 @ g1)"
         using x(3) by (auto simp: collect_clock_pairs_def)
-      ultimately show ?thesis unfolding collect_clkt_def product_trans_def by force
+      ultimately show ?thesis unfolding Timed_Automata.collect_clkt_def product_trans_def by force
     next
       case a': (Sil a)
       have "L[p := l1] \<in> states" (is "?L \<in> _")
@@ -283,7 +284,7 @@ lemma product_state_set_subs:
         using \<open>p < length T\<close> \<open>L \<in> states\<close> by (auto dest: states_length)
       ultimately have "(?L, g1, (a, Act b1), r1, ?L[p := l1']) \<in> product_trans_i"
         using x p unfolding product_trans_i_def a' by (force simp: states_length[OF \<open>L \<in> states\<close>])
-      with x(3) show ?thesis unfolding collect_clkt_def product_trans_def by force
+      with x(3) show ?thesis unfolding Timed_Automata.collect_clkt_def product_trans_def by force
     qed
   qed
 
@@ -347,7 +348,7 @@ lemma product_state_set_subs:
   qed
 
   lemma collect_clkt_product_trans:
-    "collect_clkt product_trans = \<Union> (collect_clkt ` set T)"
+    "Timed_Automata.collect_clkt product_trans = \<Union> (Timed_Automata.collect_clkt ` set T)"
     using collect_clkt_product_trans_sups collect_clkt_product_trans_subs by simp
 
   lemma collect_clkvt_product_trans:
