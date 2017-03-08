@@ -240,7 +240,6 @@ begin
     "N \<equiv> (PROG, map (\<lambda> i. (T i, I i)) [0..<p], P, bounds)"
   definition "init \<equiv> repeat (0::nat) p"
   definition "F \<equiv> check_bexp formula"
-  (* definition "k_fun \<equiv> \<lambda> (l, s). \<lambda> i. if i \<le> m then k ! l ! i else 0" *)
 
   sublocale equiv: Equiv_TA_Defs N max_steps .
 
@@ -254,28 +253,28 @@ begin
     "equiv.p = p"
     unfolding equiv.p_def N_def Equiv_TA_Defs.p_def by simp
 
-lemma [simp]:
-  "length (equiv.defs.N_s s) = p"
-  unfolding equiv.defs.N_s_def by simp
+  lemma [simp]:
+    "length (equiv.defs.N_s s) = p"
+    unfolding equiv.defs.N_s_def by simp
 
-lemma length_N[simp]:
-  "length equiv.defs.N = p"
-  by simp
-
-lemma
-  "equiv.defs.I' s L = concat (map (\<lambda> q. if q < p then I q (L ! q) else []) [0..<length L])"
-  unfolding inv_of_def
-  unfolding Product_TA_Defs.product_ta_def
-  apply simp
-  unfolding Product_TA_Defs.product_invariant_def
-  unfolding equiv.defs.N_s_def inv_of_def
-  apply (rule arg_cong[where f = concat])
-  unfolding Equiv_TA_Defs.state_ta_def
-    apply simp
-  unfolding N_def Equiv_TA_Defs.state_inv_def
+  lemma length_N[simp]:
+    "length equiv.defs.N = p"
     by simp
 
-end
+  lemma
+    "equiv.defs.I' s L = concat (map (\<lambda> q. if q < p then I q (L ! q) else []) [0..<length L])"
+    unfolding inv_of_def
+    unfolding Product_TA_Defs.product_ta_def
+    apply simp
+    unfolding Product_TA_Defs.product_invariant_def
+    unfolding equiv.defs.N_s_def inv_of_def
+    apply (rule arg_cong[where f = concat])
+    unfolding Equiv_TA_Defs.state_ta_def
+      apply simp
+    unfolding N_def Equiv_TA_Defs.state_inv_def
+      by simp
+
+end (* End of definitions locale *)
 
   lemma snd_comp[simp]:
     "snd o (\<lambda> i. (f i, g i)) = g"
@@ -287,15 +286,6 @@ locale UPPAAL_Reachability_Problem_precompiled =
     and lengths:
     "\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i)"
     and state_set: "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < length T"
-    (*
-    and k_length: "length k = p" "\<forall> l \<in> set k. length l = m + 1"
-      -- \<open>Zero entry is just a dummy for the zero clock\<close>
-    (* XXX Make this an abbreviation? *)
-  assumes k_ceiling:
-    (* "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" *)
-    "\<forall> (c, d) \<in> clkp_set'. int (k ! c) \<ge> d"
-    "k ! 0 = 0"
-    *)
   assumes consts_nats: "snd ` clkp_set' \<subseteq> \<nat>"
   (* XXX This could also be subset for now but is left like this as an input sanity check right now *)
   assumes clock_set: "clk_set' = {1..m}"
@@ -466,9 +456,6 @@ begin
   sublocale Reachability_Problem_no_ceiling A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m
     using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
 
-  sublocale Reachability_Problem "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m A k_fun
-    using clkp_set_consts_nat clk_set m_gt_0 oops
-
   lemma [simp]:
     "length P = p"
     unfolding P_def using process_length(3) by simp
@@ -481,172 +468,59 @@ begin
     "length equiv.N = p"
     unfolding N_def by simp
 
+end (* End of locale *)
+
 (*
-(*
-  lemma clkp_set_simp_1:
-    "\<Union> (collect_clock_pairs ` set (concat inv)) = collect_clki (snd A)"
-    apply (simp add:
-        product.prod_ta_def inv_of_def product.collect_clki_prod_invariant
-        product.collect_clki_product_invariant
-        )
-    unfolding inv_of_def collect_clki_alt_def I_def[abs_def] N_def I_def
-    using process_length(1)
-    apply (simp add: image_Union inv_of_def)
-    apply safe
-     apply (fastforce dest!: aux)
-    by (fastforce dest!: nth_mem)
+context UPPAAL_Reachability_Problem_precompiled_defs
+begin
+  (*definition "clkp_set'' \<equiv>
+    \<Union> (collect_clock_pairs ` set (concat inv))
+    \<union> {constraint_pair ac | ac. Some (CEXP ac) \<in> set prog}"
 *)
 
-  (* XXX Unused *)
-  lemma processes_have_trans_alt:
-    "\<forall> i < p. length (trans ! i) > 0"
-    using processes_have_trans by auto
-
-  lemma init_states:
-    "init \<in> Product_TA_Defs.states (fst N)"
-    unfolding Product_TA_Defs.states_def
-    unfolding N_def trans_of_def T_def init_def using processes_have_trans p_gt_0 start_has_trans
-    by force
-
-  lemma states_not_empty:
-    "Product_TA_Defs.states (fst N) \<noteq> {}"
-    using init_states by blast
-
-  lemma length_prod_T [simp]: "length product.T = p"
-    unfolding N_def by auto
-
-  lemma length_N [simp]: "length (fst N) = p"
-    unfolding N_def by auto
-
-  lemma length_P [simp]: "length P = p"
-    unfolding N_def P_def using process_length(3) by auto
-
-(*
-  lemma trans_length_simp:
-    assumes "xs \<in> set trans"
-    shows "n = length xs"
-    using assms trans_length by auto
-*)
-
-  lemma [simp]:
-    "fst A = product.prod_trans"
-    unfolding product.prod_ta_def by simp
-
-  lemma [simp]:
-    "product.T' = product.product_trans"
-    unfolding product.product_ta_def trans_of_def by simp
-
-  lemma clk_set_simp_2:
-    "\<Union> ((\<lambda> (g, _, _, r, _). set r) ` set (concat (concat trans))) \<supseteq> collect_clkvt (trans_of A)"
-    apply (simp add: product.product_ta_def trans_of_def)
-    apply (rule subset_trans)
-     apply (rule product.collect_clkvt_prod_trans_subs)
-    apply simp
-    apply (rule subset_trans)
-     apply (rule product.collect_clkvt_product_trans_subs)
-    unfolding collect_clkvt_alt_def trans_of_def N_def T_def make_trans_def
-    using process_length(2)
-    by (fastforce dest!: nth_mem elim: bexI[rotated]) (* XXX Magic *)
-
-  lemma clkp_set_simp_3:
-    "\<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (concat (concat trans))) \<supseteq> collect_clkt (trans_of A)"
-    apply (simp add: product.product_ta_def trans_of_def)
-    apply (rule subset_trans)
-     apply (rule product.collect_clkt_prod_trans_subs)
-    apply simp
-    apply (rule subset_trans)
-     apply (rule product.collect_clkt_product_trans_subs)
-    unfolding collect_clkt_alt_def trans_of_def N_def T_def make_trans_def
-    using process_length(2)
-    by (fastforce dest!: nth_mem elim: bexI[rotated]) (* XXX Magic *)
-
-  lemma clkp_set'_subs:
-    "clkp_set A \<subseteq> clkp_set'"
-    using clkp_set_simp_1 clkp_set_simp_3 by (fastforce simp add: clkp_set'_def clkp_set_def)
-
-  lemma clk_set'_subs:
-    "clk_set A \<subseteq> clk_set'"
-    using clkp_set'_subs clk_set_simp_2 by (auto simp: clk_set'_def)
-
-      (* XXX Interesting for finiteness *)
-      (* XXX Move *)
-  lemma Collect_fold_pair:
-    "{f a b | a b. P a b} = (\<lambda> (a, b). f a b) ` {(a, b). P a b}" for P
-    by auto
-
-  lemma [simp]:
-    "product.p = p"
-    unfolding product.p_def by simp
-
-      (* XXX Interesting case of proving finiteness *)
-  lemma finite_T[intro, simp]:
-    "finite (trans_of A)"
-    unfolding product.prod_ta_def trans_of_def
-  proof (simp, rule product.finite_prod_trans, goal_cases)
-    case 1
-    have *: "l < length (trans ! q)" if "l \<in> state_set (trans_of (product.N ! q))" "q < p" for l q
-      using that state_set
-      unfolding trans_of_def apply simp
-      apply (erule disjE)
-      unfolding N_def
-       apply simp
-      unfolding T_def
-       apply force
-      unfolding make_trans_def
-      apply clarsimp
-      using process_length(2)
-      apply (fastforce dest!: nth_mem split: prod.split_asm)
-      done
-    with process_length(3) discrete_state_finite show ?case by simp (auto simp: N_def P_def)
-  next
-    case 2
-    show ?case
-    proof
-      fix A assume A: "A \<in> set product.N"
-      have
-        "{(l, j). l < length (trans ! i) \<and> j < length (trans ! i ! l)}
-        = \<Union> ((\<lambda> l. {(l, j) | j. j < length (trans ! i ! l)}) ` {l. l < length (trans ! i)})" for i
-        by auto
-      then show "finite (trans_of A)" using A unfolding N_def T_def trans_of_def
-        by (fastforce simp: Collect_fold_pair)
-    qed
-  next
-    case 3
-    then show ?case unfolding product.p_def unfolding N_def using p_gt_0 by simp
-  qed
-
-    (* XXX *)
-  lemma
-    "clk_set' \<noteq> {}"
-    using clock_set m_gt_0 by auto
-
-  lemma clk_set:
-    "clk_set A \<subseteq> {1..m}"
-    using clock_set m_gt_0 clk_set'_subs by auto
-
-  lemma
-    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<int>"
-    unfolding Ints_def by auto
-
-  lemma clkp_set_consts_nat:
-    "\<forall>(_, d)\<in>clkp_set A. d \<in> \<nat>"
-    using clkp_set'_subs consts_nats' unfolding clkp_set'_def by force
-
-  lemma finite_range_I':
-    "finite (range product.I')"
-    apply (rule product.finite_invariant_of_product)
-    unfolding N_def inv_of_def I_def by (auto intro: finite_subset[where B = "{[]}"])
-
-  lemma finite_range_inv_of_A[intro, simp]:
-    "finite (range (inv_of A))"
-  proof -
-    have "range (inv_of A) \<subseteq> range (product.I')" by (auto simp: product.inv_of_simp)
-    then show ?thesis by (rule finite_subset) (rule finite_range_I')
-  qed
+  definition "clkp_set'' i l \<equiv>
+    collect_clock_pairs (inv ! i ! l) \<union> \<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (trans ! i ! l))"
 
 end
 *)
 
+(*
+locale UPPAAL_Reachability_Problem_precompiled_ceiling =
+  UPPAAL_Reachability_Problem_precompiled +
+  fixes k :: "nat list list list"
+  (*
+    and k_length: "length k = p" "\<forall> l \<in> set k. length l = m + 1"
+      -- \<open>Zero entry is just a dummy for the zero clock\<close>
+    (* XXX Make this an abbreviation? *)
+  assumes k_ceiling:
+    (* "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" *)
+    "\<forall> (c, d) \<in> clkp_set'. int (k ! c) \<ge> d"
+    "k ! 0 = 0"
+  *)
+begin
+
+  definition
+    "k_fun \<equiv> \<lambda> (l, s). \<lambda> c. if 0 < c \<and> c \<le> m then Max {k ! i ! (l ! i) ! c | i. i < p} else 0"
+
+  lemma [intro, simp]:
+    "k_fun st 0 = 0"
+    unfolding k_fun_def by (simp split: prod.split)
+
+  lemma [intro, simp]:
+    "k_fun st i = 0" if "i > m"
+    unfolding k_fun_def using that by (simp split: prod.split)
+
+  lemma [intro]:
+    "b \<le> int (k_fun a)" if "(a, b) \<in> clkp_set A"
+    using that k_ceiling clkp_set'_subs k_length clkp_set'_bounds unfolding k_fun_def by force
+
+  sublocale Reachability_Problem "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m A k_fun
+    using clkp_set_consts_nat clk_set m_gt_0 apply - apply standard
+       prefer 4 apply simp
+      prefer 3 apply simp
+      oops
+
 end (* End of locale *)
+*)
 
 end (* End of theory *)

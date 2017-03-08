@@ -2,6 +2,7 @@ theory UPPAAL_State_Networks_Impl_Refine
   imports
     UPPAAL_State_Networks_Impl Normalized_Zone_Semantics_Impl_Refine TA_Impl_Misc
     "~/Isabelle/Util/ML_Util"
+    "~~/src/HOL/Library/Lattice_Syntax"
 begin
 
 (* XXX Rename this way *)
@@ -319,11 +320,82 @@ lemma bounded_less_simp[simp]:
 
 context
   fixes prog :: "int instrc option list"
+    and strip :: "real instrc \<Rightarrow> instr"
+  assumes instr_id[simp]:
+    "strip (INSTR cmd) = cmd"
+    "strip (CEXP ac) \<notin> {CALL, RETURN, HALT} \<union> (JMPZ ` UNIV)"
+begin
+
+(* XXX This is some idiosyncracy of Isabelle's context management *)
+(* We could move this to a different file but rather would like to introduce a private namespace
+   on the spot
+*)
+private definition [simp]:
+  "P' \<equiv> map_option strip o (conv_prog (\<lambda> i. if i < length prog then prog ! i else None))"
+
+lemma steps_out_of_range':
+  assumes "steps P' n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc \<ge> length prog"
+  shows "pc' = pc"
+  using assms by cases (auto simp: striptp_def)
+
+lemmas steps_out_of_range = steps_out_of_range'[unfolded striptp_def P'_def]
+
+lemma steps_steps_approx':
+  assumes "steps P' n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
+  shows "pc' \<in> steps_approx n prog pc"
+  using assms
+  apply (
+      induction P' n "(pc, st, s, f, rs)" "(pc', st', s', f', rs')"
+      arbitrary: pc st s f rs rule: steps.induct
+      )
+   apply (simp split: option.split)
+  apply clarsimp
+  apply rule
+   apply (simp add: striptp_def split: if_split_asm; fail)
+  apply (clarsimp split: option.split)
+  apply rule
+   apply (auto simp add: striptp_def split: if_split_asm; fail)
+  apply safe
+  apply (case_tac x2)
+   apply (simp split: option.split_asm if_split_asm)
+   apply (case_tac x1)
+                   apply (auto split: if_split_asm; fail)
+                  apply (auto split: if_split_asm elim: UPPAAL_Asm.step.elims; fail)
+                 apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+                apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+               apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+              apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+             apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+            apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+           apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+          apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+         apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+        apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+       apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+       apply (case_tac "q < length prog")
+        apply force
+       apply (drule steps_out_of_range; simp; fail)
+      apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+      apply (case_tac "q + 1 < length prog")
+       apply force
+      apply (drule steps_out_of_range; simp)
+     apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+    apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+   apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
+  using instr_id by (fastforce split: if_split_asm elim!: UPPAAL_Asm.step.elims)
+
+lemmas steps_steps_approx = steps_steps_approx'[unfolded P'_def]
+
+end (* End of context for fixed program *)
+
+
+context
+  fixes prog :: "int instrc option list"
 begin
 
 private abbreviation "P i \<equiv> if i < length prog then prog ! i else None"
 
-lemma steps_out_of_range:
+lemma stepsc_out_of_range:
   assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc \<ge> length prog"
   shows "pc' = pc"
   using assms by cases auto
@@ -332,7 +404,10 @@ lemma stepsc_steps_approx:
   assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
   shows "pc' \<in> steps_approx n prog pc"
   using assms
-  apply (induction "conv_prog P" n u "(pc, st, s, f, rs)" "(pc', st', s', f', rs')" arbitrary: pc st s f rs rule: stepsc.induct)
+  apply (
+    induction "conv_prog P" n u "(pc, st, s, f, rs)" "(pc', st', s', f', rs')"
+    arbitrary: pc st s f rs rule: stepsc.induct
+    )
    apply (simp split: option.split)
   apply clarsimp
   apply rule
@@ -358,11 +433,11 @@ lemma stepsc_steps_approx:
       apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
        apply (case_tac "q < length prog")
         apply force
-       apply (drule steps_out_of_range; simp)
+       apply (drule stepsc_out_of_range; simp)
       apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
       apply (case_tac "q + 1 < length prog")
        apply force
-      apply (drule steps_out_of_range; simp)
+      apply (drule stepsc_out_of_range; simp)
      apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
     apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
    apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
@@ -396,7 +471,688 @@ proof -
   then show ?thesis unfolding time_indep_def by blast
 qed
 
+end (* End of context for fixed program *)
+
+context UPPAAL_Reachability_Problem_precompiled_defs
+begin
+
+  definition
+    "collect_cexp' pc = {ac. Some (CEXP ac) \<in> (op ! prog) ` steps_approx max_steps prog pc}"
+
+  definition "clkp_set'' i l \<equiv>
+    collect_clock_pairs (inv ! i ! l) \<union>
+    \<Union> ((\<lambda> (g, _). constraint_pair ` collect_cexp' g) ` set (trans ! i ! l))"
+
+  definition
+    "collect_cexp = {ac. Some (CEXP ac) \<in> set prog}"
+
+  definition
+    "collect_store' pc =
+    {(c, x). Some (INSTR (STOREC c x)) \<in> (op ! prog) ` steps_approx max_steps prog pc}"
+
 end
+
+(* XXX Unused *)
+(* XXX Move *)
+lemma visited_resets_mono:
+  "set r \<subseteq> set r'" if "visited P n (pc, st, s, f, r) (pc', st', s', f', r') pcs"
+  using that
+  apply (
+    induction P \<equiv> P n "(pc, st, s, f, r :: nat list)" "(pc', st', s', f', r')" pcs
+    arbitrary: pc st s f r  rule: visited.induct
+    )
+   apply blast
+  by (erule step.elims; force split: option.splits if_splits elim!: step.elims)+
+
+(* XXX Unused *)
+(* XXX Move *)
+lemma visitedc_resets_mono:
+  "set r \<subseteq> set r'" if "visitedc P n u (pc, st, s, f, r) (pc', st', s', f', r') pcs"
+  using that
+  apply (
+    induction P \<equiv> P n u "(pc, st, s, f, r :: nat list)" "(pc', st', s', f', r')" pcs
+    arbitrary: pc st s f r  rule: visitedc.induct
+    )
+   apply blast
+  by (erule stepc.elims; force split: option.splits if_splits elim!: step.elims)+
+
+(* XXX Move *)
+lemma visited_reset:
+  "\<exists> x. \<exists> pc \<in> set pcs. Some (STOREC c x) = P pc"
+  if "visited P n (pc, st, s, f, r) (pc', st', s', f', r') pcs" "c \<in> set r' - set r"
+  using that
+  apply (
+      induction P \<equiv> P n "(pc, st, s, f, r :: nat list)" "(pc', st', s', f', r')" pcs
+      arbitrary: pc st s f r rule: visited.induct
+      )
+   apply blast
+  by (erule step.elims; force split: option.split_asm if_split_asm elim!: step.elims)
+
+(* XXX Move *)
+lemma visitedc_reset:
+  "\<exists> x. \<exists> pc \<in> set pcs. Some (INSTR (STOREC c x)) = P pc"
+  if "visitedc P n u (pc, st, s, f, r) (pc', st', s', f', r') pcs" "c \<in> set r' - set r"
+  using that
+  apply (
+      induction P \<equiv> P n u "(pc, st, s, f, r :: nat list)" "(pc', st', s', f', r')" pcs
+      arbitrary: pc st s f r rule: visitedc.induct
+      )
+   apply blast
+  by (erule stepc.elims; force split: option.split_asm if_split_asm elim!: step.elims)
+
+(* TTT Automate *)
+lemma visited_fuel_mono:
+  "visited P n' s s' pcs" if "visited P n s s' pcs" "n' \<ge> n"
+  using that
+  apply (induction arbitrary: n')
+  subgoal for _ _ _ n'
+    by (cases n') (auto intro: visited.intros)
+  subgoal for _ _ _ _ _ _ _ _ _ _ _ n'
+    by (cases n') (auto intro: visited.intros)
+  done
+
+(* TTT Automate *)
+lemma visitedc_fuel_mono:
+  "visitedc P n' u s s' pcs" if "visitedc P n u s s' pcs" "n' \<ge> n"
+  using that
+  apply (induction arbitrary: n')
+  subgoal for _ _ _ _ n'
+    by (cases n') (auto intro: visitedc.intros)
+  subgoal for _ _ _ _ _ _ _ _ _ _ _ _ n'
+    by (cases n') (auto intro: visitedc.intros)
+  done
+
+lemma visted_split:
+  assumes "visited P n (pc, st, s, f, r) s'' (pcs' @ pc' # pcs)"
+  obtains st' s' f' r' where
+    "visited P n (pc, st, s, f, r) (pc', st', s', f', r') pcs"
+    "visited P n (pc', st', s', f', r') s'' (pcs' @ [pc'])"
+  using assms
+    apply atomize_elim
+  proof (induction _ _ _ _ "pcs' @ pc' # pcs" arbitrary: pcs rule: visited.induct)
+    case (1 prog n u start)
+    then show ?case by simp
+  next
+    case prems: (2 cmd pc st m f rs s prog n s' pcs pcs'')
+    show ?case
+    proof (cases "pcs'' = []")
+      case True
+      with prems show ?thesis by (blast intro: visited.intros)
+    next
+      case False
+      with \<open>pcs @ [pc] = _\<close> obtain pcs3 where "pcs'' = pcs3 @ [pc]"
+        by (metis append_butlast_last_id last_ConsR last_append last_snoc list.distinct(1))
+      with prems obtain st' s'a f' r' where
+        "visited prog n s (pc', st', s'a, f', r') pcs3"
+        "visited prog n (pc', st', s'a, f', r') s' (pcs' @ [pc'])"
+        by (auto 9 2)
+      with prems \<open>pcs'' = _\<close> show ?thesis by (auto 4 6 intro: visited.intros visited_fuel_mono)
+    qed
+  qed
+
+lemma visited_steps':
+  assumes "visited P n (pc, st, s, f, r) s'' pcs" "pc' \<in> set pcs"
+  obtains st' s' f' r' where "steps P n (pc, st, s, f, r) (pc', st', s', f', r')"
+  using assms by (force dest!: split_list dest: visited_steps elim: visted_split)
+
+lemma vistedc_split:
+  assumes "visitedc P n u (pc, st, s, f, r) s'' (pcs' @ pc' # pcs)"
+  obtains st' s' f' r' where
+    "visitedc P n u (pc, st, s, f, r) (pc', st', s', f', r') pcs"
+    "visitedc P n u (pc', st', s', f', r') s'' (pcs' @ [pc'])"
+  using assms
+    apply atomize_elim
+  proof (induction _ _ _ _ _ "pcs' @ pc' # pcs" arbitrary: pcs rule: visitedc.induct)
+    case (1 prog n u start)
+    then show ?case by simp
+  next
+    case prems: (2 cmd u pc st m f rs s prog n s' pcs pcs'')
+    show ?case
+    proof (cases "pcs'' = []")
+      case True
+      with prems show ?thesis by (blast intro: visitedc.intros)
+    next
+      case False
+      with \<open>pcs @ [pc] = _\<close> obtain pcs3 where "pcs'' = pcs3 @ [pc]"
+        by (metis append_butlast_last_id last_ConsR last_append last_snoc list.distinct(1))
+      with prems obtain st' s'a f' r' where
+        "visitedc prog n u s (pc', st', s'a, f', r') pcs3"
+        "visitedc prog n u (pc', st', s'a, f', r') s' (pcs' @ [pc'])"
+        by (auto 9 2)
+      with prems \<open>pcs'' = _\<close> show ?thesis by (auto 4 6 intro: visitedc.intros visitedc_fuel_mono)
+    qed
+  qed
+
+lemma visitedc_stepsc':
+  assumes "visitedc P n u (pc, st, s, f, r) s'' pcs" "pc' \<in> set pcs"
+  obtains st' s' f' r' where "stepsc P n u (pc, st, s, f, r) (pc', st', s', f', r')"
+  using assms  by (force dest!: split_list dest: visitedc_stepsc elim: vistedc_split)
+
+(* XXX Automate *)
+lemma steps_fuel_mono:
+  "steps P n' s s'" if "steps P n s s'" "n' \<ge> n"
+  using that
+  apply (induction arbitrary: n')
+  subgoal for _ _ _ n'
+    by (cases n') auto
+  subgoal for _ _ _ _ _ _ _ _ _ _ n'
+    by (cases n') auto
+  done
+
+lemma exec_steps':
+  assumes "exec prog n s pcs = Some (s', pcs')" "pc' \<in> set pcs' - set pcs"
+  obtains st m f rs where "steps prog n s (pc', st, m, f, rs)"
+  using assms
+    apply atomize_elim
+proof (induction P \<equiv> prog n s pcs arbitrary: s' rule: exec.induct)
+  case 1
+  then show ?case by simp
+next
+  case (2 n pc st m f rs pcs)
+  then obtain instr where "prog pc = Some instr" by (cases "prog pc") auto
+  show ?case
+  proof (cases "instr = HALT")
+    case True
+    with "2.prems" \<open>prog pc = _\<close> show ?thesis by (auto; blast)
+  next
+    case F: False
+    show ?thesis
+    proof (cases "pc' = pc")
+      case True
+      with \<open>prog pc = _\<close> show ?thesis by (auto; blast)
+    next
+      case False
+      (* XXX A lot of implicit forward reasoning hides in here *)
+      with \<open>prog pc = _\<close> 2(2,3) F show ?thesis
+        by - (
+          erule exec.elims;
+          auto 5 6
+            dest!: 2(1)[OF \<open>prog pc = _\<close> F, rotated, OF sym]
+            simp: option.split_asm if_split_asm
+          )
+    qed
+  qed
+qed
+
+lemma exec_visited:
+  assumes "exec prog n s pcs = Some ((pc, st, m, f, rs), pcs')"
+  obtains pcs'' where
+    "visited prog n s (pc, st, m, f, rs) pcs'' \<and> pcs' = pc # pcs'' @ pcs \<and> prog pc = Some HALT"
+  apply atomize_elim
+  using assms proof (induction P \<equiv> prog n s pcs arbitrary: pc st m f rs rule: exec.induct)
+  case 1
+  then show ?case by simp
+next
+  case (2 n pc' st' m' f' rs' pcs')
+  then obtain instr where "prog pc' = Some instr" by (cases "prog pc'") auto
+  show ?case
+  proof (cases "instr = HALT")
+    case True
+    with "2.prems" \<open>prog pc' = _\<close> show ?thesis by (auto elim: exec.elims intro: visited.intros)
+  next
+    case False
+    with 2(2) \<open>prog pc' = _\<close> show ?thesis
+      by - (
+          erule exec.elims;
+          auto split: option.split_asm if_split_asm intro: visited.intros
+          dest!: 2(1)[OF \<open>prog pc' = _\<close> False, rotated, OF sym]
+          )
+  qed
+qed
+
+lemma exec_reset':
+  "\<exists> x. \<exists> pc \<in> set pcs'. Some (STOREC c x) = P pc"
+  if "exec P n (pc, st, s, f, r) pcs = Some ((pc', st', s', f', r'), pcs')" "c \<in> set r' - set r"
+proof -
+  from exec_visited[OF that(1)] obtain pcs'' where *:
+    "visited P n (pc, st, s, f, r) (pc', st', s', f', r') pcs''"
+    "pcs' = pc' # pcs'' @ pcs \<and> P pc' = Some HALT"
+    by auto
+  from visited_reset[OF this(1) that(2)] obtain x pc where
+    "pc\<in>set pcs''" "Some (STOREC c x) = P pc"
+    by auto
+  with *(2) show ?thesis by auto
+qed
+
+lemma steps_approx_out_of_range:
+  "steps_approx n prog pc = {}" if "pc \<ge> length prog"
+  using that by (induction n) auto
+
+lemma steps_resets_mono:
+  "set r \<subseteq> set r'" if "steps P n (pc, st, s, f, r) (pc', st', s', f', r')"
+  using that
+  by (induction "(pc, st, s, f, r)" "(pc', st', s', f', r')" arbitrary: pc st s f r;
+      fastforce intro: visited.intros elim!: step.elims split: if_split_asm)
+
+lemma resets_start:
+  assumes
+    "\<forall> pc \<in> {pc..pc'}. \<exists> c x. prog ! pc = Some (INSTR (STOREC c x))"
+    "steps
+      (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None))
+      n (pc, st, s, f, r) (pc_t, st', s', f', r')"
+    "prog ! pc_t = Some (INSTR HALT)"
+  shows "{c. \<exists> x. \<exists> pc \<in> {pc .. pc'}. prog ! pc = Some (INSTR (STOREC c x))} \<subseteq> set r'"
+    using assms(2,3,1)
+  proof (induction
+    "(map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None))" n "(pc, st, s, f, r)"
+    "(pc_t, st', s', f', r')" arbitrary: pc st s f r
+    )
+      case prems: 1
+      show ?case
+      proof (cases "pc' \<ge> pc_t")
+        case True (* XXX Automate forward step *)
+        with prems obtain c x where "prog ! pc_t = Some (INSTR (STOREC c x))"
+          by fastforce
+        with prems show ?thesis by simp
+      next
+        case False
+        with prems show ?thesis by auto
+      qed
+    next
+      case prems: (2 cmd pc st m f rs s n)
+      show ?case
+      proof (cases "pc' \<ge> pc")
+        case True (* XXX Automate forward step *)
+        with prems(6) obtain c d where "prog ! pc = Some (INSTR (STOREC c d))"
+          by fastforce
+        moreover obtain pc1 st' s' f' r1 where "s = (pc1, st', s', f', r1)"
+          using prod.exhaust by metis
+        ultimately have "pc1 = pc + 1"
+          using prems(1,2) by (auto elim!: step.elims split: if_split_asm)
+        with prems(4)[OF \<open>s = _\<close> prems(5)] prems(6) have
+          "{c. \<exists>x. \<exists>pc\<in>{pc1..pc'}. prog ! pc = Some (INSTR (STOREC c x))} \<subseteq> set r'"
+          by auto
+        moreover have "c \<in> set r1"
+          using prems(1,2) \<open>s = _\<close> \<open>prog ! pc = _\<close> by (auto elim!: step.elims split: if_split_asm)
+        moreover then have "c \<in> set r'"
+          using prems(3) \<open>s = _\<close> by (auto dest: steps_resets_mono)
+        ultimately show ?thesis
+          using \<open>pc1 = _\<close> \<open>prog ! pc = _\<close> apply clarsimp
+          subgoal for _ _ pc''
+            by (cases "pc'' = pc"; force)
+          done
+      next
+        case False
+        then show ?thesis by auto
+      qed
+    qed
+
+function find_resets_start where
+  "find_resets_start prog pc =
+    (
+    if pc < length prog
+    then
+      case prog ! pc of
+        Some (INSTR (STOREC c x)) \<Rightarrow> (Some pc \<squnion> find_resets_start prog (pc + 1)) |
+        _ \<Rightarrow> None
+    else None
+    )
+  "
+  by auto
+
+termination
+  by (relation "measure (\<lambda> (prog, pc). length prog - pc)") auto
+
+lemma find_resets_start:
+  "\<forall> pc \<in> {pc..pc'}. \<exists> c x. prog ! pc = Some (INSTR (STOREC c x))" if
+  "find_resets_start prog pc = Some pc'"
+  using that
+  proof (induction arbitrary: pc' rule: find_resets_start.induct)
+    case prems: (1 prog pc)
+    from prems(2) show ?case
+      apply (simp split: if_split_asm option.split_asm instrc.split_asm)
+      apply (
+          auto simp del: find_resets_start.simps simp: le_max_iff_disj sup_nat_def sup_option_def
+          split: option.split_asm instr.split_asm dest!: prems(1)
+          )
+      by (metis atLeastAtMost_iff le_antisym not_less_eq_eq)
+  qed
+
+lemmas resets_start' = resets_start[OF find_resets_start]
+
+context UPPAAL_Reachability_Problem_precompiled_defs
+begin
+
+  definition
+    "collect_store'' pc \<equiv>
+    case find_resets_start prog pc of
+      None \<Rightarrow> {} |
+      Some pc' \<Rightarrow>
+        {(c, x). Some (INSTR (STOREC c x)) \<in> (op ! prog) ` {pc .. pc'}}"
+
+end
+
+
+context UPPAAL_Reachability_Problem_precompiled
+begin
+
+(* XXX Clean *)
+(* XXX Is this already somewhere else? *)
+lemma PF_unfold:
+  "equiv.PF = stripfp (conv_prog PROG)"
+  using [[show_abbrevs=false]]
+  unfolding N_def
+  apply auto
+  unfolding stripfp_def
+  apply (rule ext)
+  apply auto
+  subgoal for x
+    apply (cases "PROG x")
+     apply auto
+    subgoal for a
+      by (cases a) auto
+    done
+  done
+
+(* XXX Clean *)
+(* XXX Is this already somewhere else? *)
+lemma PT_unfold:
+  "equiv.PT = striptp (conv_prog PROG)"
+  using [[show_abbrevs=false]]
+  unfolding N_def
+  apply auto
+  unfolding striptp_def
+  apply (rule ext)
+  apply auto
+  subgoal for x
+    apply (cases "PROG x")
+     apply auto
+    subgoal for a
+      by (cases a) auto
+    done
+  done
+
+lemma A_lengthD:
+  "length l = p" if "A \<turnstile> (l, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (l', s')"
+proof -
+  have "l \<in> equiv.defs.states' s"
+    unfolding Product_TA_Defs.states_def
+    apply auto
+    subgoal
+      using that sorry
+
+    using that
+    unfolding equiv.defs.prod_ta_def trans_of_def Prod_TA_Defs.prod_trans_def
+      equiv.defs.prod_trans_i_def
+      equiv.defs.prod_trans_s_def
+
+    apply simp
+    unfolding Equiv_TA_Defs.state_ta_def
+    apply simp
+    unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
+      Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
+    apply simp
+      unfolding trans_of_def sorry
+  then show ?thesis by auto
+qed
+
+lemma N_s_state_trans:
+  assumes "equiv.defs.N_s s ! q \<turnstile> l ! q \<longrightarrow>\<^bsup>g,(a, c, m'),r\<^esup> l'" "q < p"
+  obtains f' g' where
+    "(l ! q, g', (a, c, m'), f', l') \<in> equiv.state_trans q" "g = g' s" "r = f' s"
+  using assms
+  unfolding equiv.defs.N_s_def trans_of_def equiv.defs.T_s_def
+  unfolding equiv.state_ta_def by auto
+
+lemma make_f_collect_store:
+  assumes "(l, pc_g, a, pc_u, l') \<in> fst (equiv.N ! q)" "c \<in> set (equiv.make_f pc_u s)" "q < p"
+  shows "c \<in> fst ` collect_store' pc_u"
+proof -
+  from assms(1) \<open>q < p\<close> have "(pc_g, a, pc_u, l') \<in> set (trans ! q ! l)"
+    unfolding N_def T_def by (auto dest!: nth_mem)
+  from assms obtain pc x2 x3 x4 pcs r where exec:
+    "exec equiv.PF max_steps (pc_u, [], s, True, []) [] = Some ((pc, x2, x3, x4, r), pcs)"
+    unfolding equiv.make_f_def by (auto split: option.split_asm) metis
+  with assms have "c \<in> set r" unfolding equiv.make_f_def by auto
+  with exec_reset'[OF exec] obtain pc' d where "Some (STOREC c d) = equiv.PF pc'" "pc' \<in> set pcs"
+    by force
+  with exec obtain y2 y3 y4 y5 where steps:
+    "steps equiv.PF max_steps (pc_u, [], s, True, []) (pc', y2, y3, y4, y5)"
+    by (auto intro: exec_steps')
+  from \<open>_ = equiv.PF pc'\<close> have "pc' < length prog"
+    unfolding N_def PROG_def stripfp_def by (simp split: if_split_asm)
+  from steps have "pc' \<in> steps_approx max_steps prog pc_u"
+    unfolding PF_unfold
+    unfolding stripfp_def
+    by (auto simp: PROG_def intro: steps_steps_approx[of stripf, OF _ _ _ \<open>pc' < length prog\<close>])
+  with \<open>_ = equiv.PF pc'\<close> \<open>_ \<in> set (trans ! q ! l)\<close> show ?thesis
+    unfolding collect_store'_def stripfp_def N_def PROG_def apply (auto split: if_split_asm)
+    apply (cases "prog ! pc'")
+     apply (simp; fail)
+    subgoal for x
+      by (cases x; force)
+    done
+qed
+
+lemma resets_approx:
+  "set r \<subseteq>
+  \<Union> {fst ` collect_store' r | i g a r. (g, a, r, (l' ! i)) \<in> set (trans ! i ! (l ! i))}"
+  if "A \<turnstile> (l, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (l', s')"
+proof -
+  from that have [simp]: "length l = p" by (auto dest: A_lengthD)
+  show ?thesis using that
+    apply clarsimp
+    apply (drule equiv.defs.prod_ta_cases)
+    apply safe
+    subgoal for x
+      unfolding equiv.defs.prod_trans_i_alt_def
+      apply simp
+      unfolding Product_TA_Defs.product_trans_def
+      apply safe
+      unfolding Product_TA_Defs.product_trans_i_def
+      apply clarsimp
+      apply (erule N_s_state_trans, assumption)
+      unfolding equiv.state_trans_t_def
+      apply clarsimp
+      subgoal for q l'' pc_g pc_u
+        apply (frule make_f_collect_store, assumption+)
+        unfolding N_def T_def
+        apply (clarsimp dest!: nth_mem)
+        subgoal premises prems for b j
+        proof -
+          from prems(6,8,11-) have
+            "(pc_g, Sil a, pc_u, l[q := l''] ! q) \<in> set (trans ! q ! (l ! q))"
+            by simp
+          with prems(6,8,11-) show ?thesis by blast
+        qed
+        done
+      done
+    subgoal for x
+      unfolding equiv.defs.prod_trans_s_alt_def
+      apply simp
+      unfolding Product_TA_Defs.product_trans_def
+      apply safe
+      unfolding Product_TA_Defs.product_trans_s_def
+      apply clarsimp
+      apply (erule N_s_state_trans, assumption)
+      apply (erule N_s_state_trans, assumption)
+      unfolding equiv.state_trans_t_def
+      apply clarsimp
+      apply (erule disjE)
+      subgoal for s1 p' q l'' l'aa pc_g pc_ga pc_u pc_ua
+        apply (frule make_f_collect_store, assumption+)
+        unfolding N_def T_def
+        apply (clarsimp dest!: nth_mem)
+        subgoal premises prems for b j j'
+        proof -
+          from prems(9-) have
+            "(pc_g, In a, pc_u, l[p' := l'', q := l'aa] ! p') \<in> set (trans ! p' ! (l ! p'))"
+            by simp
+          with prems(9-) show ?thesis by blast
+        qed
+        done
+      subgoal for s1 q p' l'aa l'' pc_ga pc_g pc_ua pc_u
+        apply (frule make_f_collect_store, assumption+)
+        unfolding N_def T_def
+        apply (clarsimp dest!: nth_mem)
+        subgoal premises prems for b j j'
+        proof -
+          from prems(9-) have
+            "(pc_g, Out a, pc_u, l[q := l'aa, p' := l''] ! p') \<in> set (trans ! p' ! (l ! p'))"
+            by simp
+          with prems(9-) show ?thesis by blast
+        qed
+        done
+      done
+    done
+qed
+
+(* XXX Remove
+lemma resets_approx':
+  assumes "A \<turnstile> (l, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (l', s')"
+  obtains pc_u pc_g a' i where
+    "fst ` collect_store' pc_u \<subseteq> set r" "i < length l"
+    "(pc_g, a', pc_u, (l' ! i)) \<in> set (trans ! i ! (l ! i))"
+    apply atomize_elim
+*)
+
+lemma make_g_clkp_set'':
+  assumes
+    "(l, pc_g, a, pc_u, l') \<in> fst (equiv.N ! q)" "x \<in> collect_clock_pairs (equiv.make_g pc_g s)"
+    "q < p"
+  shows "x \<in> clkp_set'' q l"
+proof -
+  from assms(1) \<open>q < p\<close> have "(pc_g, a, pc_u, l') \<in> set (trans ! q ! l)"
+    unfolding N_def T_def by (auto dest!: nth_mem)
+  from assms obtain pc x2 x3 x4 r pcs where exec:
+    "exec equiv.PT max_steps (pc_g, [], s, True, []) [] = Some ((pc, x2, x3, x4, r), pcs)"
+    unfolding equiv.make_g_def by (auto split: option.split_asm)
+  with assms have "x \<in> collect_clock_pairs (List.map_filter (\<lambda> pc.
+        case equiv.P pc of
+          Some (CEXP ac) \<Rightarrow> Some ac
+        | _ \<Rightarrow> None
+          )
+        pcs)"
+    unfolding equiv.make_g_def by auto
+  then obtain pc' ac where
+    "equiv.P pc' = Some (CEXP ac)" "x = constraint_pair ac" "pc' \<in> set pcs"
+    unfolding equiv.make_g_def collect_clock_pairs_def set_map_filter
+    by (auto split: option.split_asm; auto split: instrc.split_asm)
+  with exec obtain y2 y3 y4 y5 where steps:
+    "steps equiv.PT max_steps (pc_g, [], s, True, []) (pc', y2, y3, y4, y5)"
+    by (auto intro: exec_steps')
+  from \<open>equiv.P pc' = _\<close> have "pc' < length prog"
+    unfolding N_def PROG_def by (simp split: if_split_asm)
+  from steps have "pc' \<in> steps_approx max_steps prog pc_g"
+    unfolding PT_unfold
+    unfolding striptp_def
+    by (auto simp: PROG_def intro: steps_steps_approx[of stript, OF _ _ _ \<open>pc' < length prog\<close>])
+  with \<open>equiv.P pc' = _\<close> \<open>_ \<in> set (trans ! q ! l)\<close> \<open>x = _\<close> show ?thesis
+    unfolding clkp_set''_def collect_cexp'_def N_def PROG_def by (force split: if_split_asm)
+qed
+
+lemma guard_approx:
+  "collect_clock_pairs g \<subseteq>
+  \<Union> {clkp_set'' i (l ! i) | i g a r.
+      (g, a, r, (l' ! i)) \<in> set (trans ! i ! (l ! i)) \<and> l \<in> equiv.defs.states' s \<and> i < p
+    }"
+  if "A \<turnstile> (l, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (l', s')"
+proof -
+  from that have [simp]: "length l = p" by (auto dest: A_lengthD)
+  show ?thesis using that
+    apply clarsimp
+    apply (drule equiv.defs.prod_ta_cases)
+    apply safe
+    subgoal for x b
+      unfolding equiv.defs.prod_trans_i_alt_def
+      apply simp
+      unfolding Product_TA_Defs.product_trans_def
+      apply safe
+      unfolding Product_TA_Defs.product_trans_i_def
+      apply clarsimp
+      apply (erule N_s_state_trans, assumption)
+      unfolding equiv.state_trans_t_def
+      apply clarsimp
+      subgoal for q l'' pc_g pc_u
+        apply (frule make_g_clkp_set'', assumption+)
+        unfolding N_def T_def
+        apply (clarsimp dest!: nth_mem)
+        subgoal premises prems for j
+        proof -
+          from prems(6,8,11-) have
+            "(pc_g, Sil a, pc_u, l[q := l''] ! q) \<in> set (trans ! q ! (l ! q))"
+            by simp
+          with prems(6,8,11-) prems show ?thesis by blast
+        qed
+        done
+      done
+    subgoal for x b
+      unfolding equiv.defs.prod_trans_s_alt_def
+      apply simp
+      unfolding Product_TA_Defs.product_trans_def
+      apply safe
+      unfolding Product_TA_Defs.product_trans_s_def
+      apply clarsimp
+      apply (erule N_s_state_trans, assumption)
+      apply (erule N_s_state_trans, assumption)
+      unfolding equiv.state_trans_t_def
+      apply clarsimp
+      apply (drule Product_TA_Defs.collect_clock_pairs_append_cases)
+      apply (erule disjE)
+      subgoal for s1 p' q l'' l'aa pc_g pc_ga pc_u pc_ua
+        unfolding equiv.make_c_def
+          apply (clarsimp split: option.split_asm)
+        apply (frule make_g_clkp_set'', assumption+)
+        unfolding N_def T_def
+        apply (clarsimp dest!: nth_mem)
+        subgoal premises prems for j j'
+        proof -
+          from prems(9-) have
+            "(pc_g, In a, pc_u, l[p' := l'', q := l'aa] ! p') \<in> set (trans ! p' ! (l ! p'))"
+            by simp
+          with prems(9-) show ?thesis by blast
+        qed
+        done
+      subgoal for s1 q p' l'aa l'' pc_ga pc_g pc_ua pc_u
+        apply (frule make_g_clkp_set'', assumption+)
+        unfolding N_def T_def
+        apply (clarsimp dest!: nth_mem)
+        subgoal premises prems for j j'
+        proof -
+          from prems(9-) have
+            "(pc_g, Out a, pc_u, l[q := l'aa, p' := l''] ! p') \<in> set (trans ! p' ! (l ! p'))"
+            by simp
+          with prems(9-) show ?thesis by blast
+        qed
+        done
+      done
+    done
+qed
+
+end (* End of context for pre-compiled reachability problem *)
+
+
+context UPPAAL_Reachability_Problem_precompiled_defs
+begin
+
+  lemma collect_cexp_alt_def:
+    "collect_cexp =
+      set (List.map_filter
+        (\<lambda> x. case x of Some (CEXP ac) \<Rightarrow> Some ac | _ \<Rightarrow> None)
+         prog)"
+    unfolding collect_cexp_def set_map_filter by (auto split: option.split_asm instrc.split_asm)
+
+  lemma clkp_set'_alt_def:
+    "clkp_set' =
+      \<Union> (collect_clock_pairs ` set (concat inv)) \<union> (constraint_pair ` collect_cexp)"
+    unfolding clkp_set'_def collect_cexp_def by auto
+
+  definition
+    "collect_store = {(c, x). Some (INSTR (STOREC c x)) \<in> set prog}"
+
+  lemma collect_store_alt_def:
+    "collect_store =
+      set (List.map_filter
+        (\<lambda> x. case x of Some (INSTR (STOREC c x)) \<Rightarrow> Some (c, x) | _ \<Rightarrow> None)
+         prog)"
+    unfolding collect_store_def set_map_filter
+    by (auto split: option.split_asm instrc.split_asm instr.split_asm)
+
+  lemma clk_set'_alt_def: "clk_set' = (fst ` clkp_set' \<union> fst ` collect_store)"
+    unfolding clk_set'_def collect_store_def by auto
+
+end
+
 
 fun conj_instr :: "'t instrc \<Rightarrow> addr \<Rightarrow> bool" where
   "conj_instr (CEXP _) _ = True" |
@@ -967,12 +1723,324 @@ lemma conjunction_check:
   apply (subst is_conj; simp)
   done
 
-end
+end (* End of context for fixed program *)
+
+
+locale UPPAAL_Reachability_Problem_precompiled_ceiling =
+  UPPAAL_Reachability_Problem_precompiled +
+  fixes k :: "nat list list list"
+  assumes k_ceiling:
+    "\<forall> i < p. \<forall> l < length (trans ! i). \<forall> (x, m) \<in> clkp_set'' i l. m \<le> k ! i ! l ! x"
+    "\<forall> i < p. \<forall> l < length (trans ! i). \<forall> (x, m) \<in> collect_clock_pairs (inv ! i ! l).
+      m \<le> k ! i ! l ! x"
+  and k_resets:
+    "\<forall> i < p. \<forall> l < length (trans ! i). \<forall> (g, a, r, l') \<in> set (trans ! i ! l).
+     \<forall> c \<in> {0..<m+1} - fst ` collect_store'' r. k ! i ! l' ! c \<le> k ! i ! l ! c"
+  and k_length:
+    "length k = p" "\<forall> i < p. length (k ! i) = length (trans ! i)"
+    "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
+  and k_0: "length k = p" "\<forall> i < p. length (k ! i) = length (trans ! i)"
+    "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
+    "\<forall> i < p. \<forall> l < length (trans ! i). \<forall> c < length (k ! i ! l). k ! i ! l ! c = 0"
+begin
+
+definition "k_fun l c \<equiv> if c > 0 \<and> c \<le> m then Max {k ! i ! (fst l ! i) ! c | i . i < p} else 0"
+
+
+lemma p_p':
+  "equiv.p = p"
+  by simp
+
+lemma clkp_set_clk_set_subs:
+  "fst ` clkp_set A (l, s) \<subseteq> clk_set A"
+  unfolding TA_clkp_set_unfold by auto
+
+lemma k_ceiling_1:
+  "\<forall> l. \<forall>(x,m) \<in> clkp_set A l. m \<le> k_fun l x"
+
+  apply safe
+  subgoal premises prems for l s x d (* XXX Do many of these unfolds automatically? *)
+  proof -
+    from \<open>(x, d) \<in> _\<close> have "0 < x" "x \<le> m"
+      using clkp_set_clk_set_subs[of l s] clk_set by force+
+    from prems show ?thesis
+      unfolding clkp_set_def
+      apply safe
+      subgoal
+        unfolding collect_clki_def
+        unfolding inv_of_def
+        unfolding equiv.defs.prod_ta_def
+        unfolding equiv.defs.prod_invariant_def
+        unfolding inv_of_def
+          Product_TA_Defs.product_ta_def
+          Product_TA_Defs.product_invariant_def
+          equiv.defs.N_s_def
+        unfolding length_N
+        unfolding equiv.state_ta_def
+        unfolding p_p'
+        unfolding equiv.state_inv_def
+        unfolding N_def
+        unfolding collect_clock_pairs_def
+        apply (clarsimp cong: if_cong simp: I_def)
+        subgoal premises prems for l' i
+          (* XXX Automate this single forward reasoning step away *)
+        proof -
+          have "nat d \<le> k ! i ! (l ! i) ! x"
+            using prems lengths k_ceiling(2)
+            unfolding collect_clock_pairs_def
+            by (auto 4 4)
+          also from \<open>_ < p\<close> have "\<dots> \<le> Max {k ! i ! (l ! i) ! x |i. i < p}"
+            by (auto intro: Max_ge)
+          finally show ?thesis
+            unfolding k_fun_def using \<open>0 < x\<close> \<open>x \<le> m\<close> by auto
+        qed
+        done
+      subgoal
+        unfolding collect_clkt_def
+        apply clarsimp
+        subgoal premises prems for g a r l' s'
+        proof -
+          from guard_approx[OF prems(2)] prems(1) obtain i g a r where *:
+            "(x, d) \<in> clkp_set'' i (l ! i)" "(g, a, r, l' ! i) \<in> set (trans ! i ! (l ! i))"
+            "l \<in> equiv.defs.states' s" "i < p"
+            by auto
+          from \<open>i < p\<close> \<open>l \<in> _\<close> have "l ! i < length (trans ! i)"
+            sorry
+          with k_ceiling(1) * have "nat d \<le> k ! i ! (l ! i) ! x"
+            by force
+          also from \<open>_ < p\<close> have "\<dots> \<le> Max {k ! i ! (l ! i) ! x |i. i < p}"
+            by (auto intro: Max_ge)
+          finally show ?thesis
+            unfolding k_fun_def using \<open>0 < x\<close> \<open>x \<le> m\<close> by auto
+        qed
+        done
+      done
+  qed
+done
+
+lemma k_ceiling_2:
+    "\<forall> l g a r l' c. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> c \<notin> set r \<longrightarrow> k_fun l' c \<le> k_fun l c"
+
+  unfolding trans_of_def equiv.defs.prod_ta_def equiv.defs.prod_trans_def
+  apply clarsimp
+  apply safe
+  subgoal premises prems for l s g a r l' s' c
+  proof -
+    from prems obtain p' l'' pc_g pc_u where *:
+      "p' < p" "l' = l[p' := l'']"
+      "r = equiv.make_f pc_u s" "Some s' = equiv.make_mf pc_u s"
+      "(l ! p', pc_g, Sil a, pc_u, l'') \<in> fst (equiv.N ! p')"
+      "l \<in> equiv.defs.states' s"
+      apply atomize_elim
+      unfolding equiv.defs.prod_trans_i_def
+      unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def trans_of_def
+      apply clarsimp
+      apply safe
+      unfolding Product_TA_Defs.product_trans_i_def
+      unfolding trans_of_def
+       apply clarsimp
+      unfolding equiv.defs.N_s_def
+      unfolding equiv.defs.T_s_def
+      unfolding Equiv_TA_Defs.state_ta_def
+      unfolding equiv.state_trans_t_def
+      unfolding Product_TA_Defs.product_trans_s_def
+      by auto
+    from \<open>l \<in> _\<close> have [simp]: "length l = p"
+      by simp
+    from \<open>r = _\<close> have "fst ` collect_store'' pc_u \<subseteq> set r"
+      supply find_resets_start.simps[simp del]
+      unfolding collect_store''_def equiv.make_f_def
+      apply (clarsimp split: option.split_asm)
+      subgoal
+        using \<open>Some s' = _\<close> unfolding equiv.make_mf_def
+        by (auto split: option.split_asm)
+      subgoal premises prems for pc' g st f pcs c d pc_t pc''
+      proof -
+        from prems have
+          "steps (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None)) max_steps
+            (pc_u, [], s, True, []) (pc', g, st, f, r)"
+          "prog ! pc' = Some (INSTR HALT)"
+          unfolding PF_unfold stripfp_def N_def PROG_def
+          by (auto dest!: exec_steps split: if_split_asm elim!: stripf.elims)
+        with prems show ?thesis
+          by (force intro: sym dest!: resets_start')
+      qed
+      done
+    with \<open>c \<notin> _\<close> have "c \<notin> fst ` collect_store'' pc_u" by blast
+    show ?thesis
+    proof (cases "c > m")
+      case True
+      then show ?thesis
+        unfolding k_fun_def by auto
+    next
+      case False
+      with \<open>c \<notin> fst ` _ _\<close> have "c \<in> {0..<m+1} - fst ` collect_store'' pc_u"
+        by auto
+      from * have "(l ! p') < length (trans ! p')"
+        unfolding N_def T_def by auto
+      from * have "(pc_g, Sil a, pc_u, l'') \<in> set (trans ! p' ! (l ! p'))"
+        "(l ! p') < length (trans ! p')"
+        unfolding N_def T_def by auto
+      with k_resets \<open>c \<in> _\<close> \<open>p' < _\<close> have "k ! p' ! l'' ! c \<le> k ! p' ! (l ! p') ! c"
+        unfolding k_fun_def by force
+      with \<open>l' = _\<close> show ?thesis
+        unfolding k_fun_def
+        apply clarsimp
+        apply (rule Max.boundedI)
+          apply force
+        using p_gt_0 apply force
+        apply clarsimp
+        subgoal for i
+          apply (cases "i = p'")
+           apply simp
+           apply (rule le_trans)
+          by (auto intro: Max_ge)
+        done
+    qed
+  qed
+  subgoal premises prems for l s g a r l' s' c
+  proof -
+    from prems obtain p1 l1 pc_g1 pc_u1 p2 l2 pc_g2 pc_u2 s'' where *:
+      "p1 < p" "p2 < p" "l' = l[p1 := l1, p2 := l2]"
+      "r = equiv.make_f pc_u1 s @ equiv.make_f pc_u2 s"
+      "Some s' = equiv.make_mf pc_u1 s''" "Some s'' = equiv.make_mf pc_u2 s"
+      "(l ! p1, pc_g1, In a, pc_u1, l1) \<in> fst (equiv.N ! p1)"
+      "(l ! p2, pc_g2, Out a, pc_u2, l2) \<in> fst (equiv.N ! p2)"
+      "l \<in> equiv.defs.states' s"
+      apply atomize_elim
+      unfolding equiv.defs.prod_trans_s_def
+      unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def trans_of_def
+      apply clarsimp
+      apply safe
+      subgoal
+        unfolding Product_TA_Defs.product_trans_i_def
+        by auto
+      unfolding Product_TA_Defs.product_trans_s_def
+      unfolding trans_of_def
+      apply clarsimp
+      unfolding equiv.defs.N_s_def
+      unfolding equiv.defs.T_s_def
+      unfolding Equiv_TA_Defs.state_ta_def
+      unfolding equiv.state_trans_t_def
+      apply clarsimp
+      by blast
+    from \<open>l \<in> _\<close> have [simp]: "length l = p"
+      by simp
+    from \<open>r = _\<close> have "fst ` collect_store'' pc_u1 \<subseteq> set r"
+      supply find_resets_start.simps[simp del]
+      unfolding collect_store''_def
+        equiv.make_f_def
+      apply (clarsimp split: option.split_asm)
+      subgoal
+        using \<open>Some s'' = _\<close> unfolding equiv.make_mf_def
+        by (auto split: option.split_asm)
+      subgoal
+        using \<open>Some s'' = _\<close> unfolding equiv.make_mf_def
+        by (auto split: option.split_asm)
+      subgoal
+        using \<open>Some s' = _\<close> unfolding equiv.make_mf_def
+        sorry (* XXX Need guaranteed execution here *)
+      subgoal premises prems for _ _ _ _ r2 _ pc' g st f r1 pcs c d pc_t pc''
+      proof -
+        from prems have
+          "steps (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None)) max_steps
+            (pc_u1, [], s, True, []) (pc', g, st, f, r1)"
+          "prog ! pc' = Some (INSTR HALT)" "r = r1 @ r2"
+          unfolding PF_unfold stripfp_def N_def PROG_def
+          by (auto dest!: exec_steps split: if_split_asm elim!: stripf.elims)
+        with prems show ?thesis
+          by (force intro: sym dest!: resets_start')
+      qed
+      done
+    moreover from \<open>r = _\<close> have "fst ` collect_store'' pc_u2 \<subseteq> set r"
+      supply find_resets_start.simps[simp del]
+      unfolding collect_store''_def
+        equiv.make_f_def
+      apply (clarsimp split: option.split_asm)
+      subgoal
+        using \<open>Some s'' = _\<close> unfolding equiv.make_mf_def
+        by (auto split: option.split_asm)
+      subgoal
+        using \<open>Some s'' = _\<close> unfolding equiv.make_mf_def
+        by (auto split: option.split_asm)
+      subgoal
+        using \<open>Some s' = _\<close> unfolding equiv.make_mf_def
+        sorry (* XXX Need guaranteed execution here *)
+      subgoal premises prems for pc' g st f r1 pcs _ _ _ _ r2 _ c d pc_t pc''
+      proof -
+        from prems have
+          "steps (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None)) max_steps
+            (pc_u2, [], s, True, []) (pc', g, st, f, r1)"
+          "prog ! pc' = Some (INSTR HALT)" "r = r2 @ r1"
+          unfolding PF_unfold stripfp_def N_def PROG_def
+          by (auto dest!: exec_steps split: if_split_asm elim!: stripf.elims)
+        with prems show ?thesis
+          by (force intro: sym dest!: resets_start')
+      qed
+      done
+    ultimately have c_not_elem: "c \<notin> fst ` collect_store'' pc_u1" "c \<notin> fst ` collect_store'' pc_u2"
+      using \<open>c \<notin> _\<close> by auto
+    show ?thesis
+    proof (cases "c > m")
+      case True
+      then show ?thesis
+        unfolding k_fun_def by auto
+    next
+      case False
+      with c_not_elem have c_elem:
+        "c \<in> {0..<m+1} - fst ` collect_store'' pc_u1"
+        "c \<in> {0..<m+1} - fst ` collect_store'' pc_u2"
+        by auto
+      from * have
+        "(pc_g1, In a, pc_u1, l1) \<in> set (trans ! p1 ! (l ! p1))" "(l ! p1) < length (trans ! p1)"
+        "(pc_g2, Out a, pc_u2, l2) \<in> set (trans ! p2 ! (l ! p2))" "(l ! p2) < length (trans ! p2)"
+        unfolding N_def T_def by auto
+      with k_resets c_elem \<open>p1 < _\<close> \<open>p2 < _\<close> have
+        "k ! p1 ! l1 ! c \<le> k ! p1 ! (l ! p1) ! c" "k ! p2 ! l2 ! c \<le> k ! p2 ! (l ! p2) ! c"
+        unfolding k_fun_def by force+
+      with \<open>l' = _\<close> show ?thesis
+        unfolding k_fun_def
+        apply clarsimp
+        apply (rule Max.boundedI)
+          apply force
+        using p_gt_0 apply force
+        apply clarsimp
+        subgoal for i
+          apply (cases "i = p2")
+          subgoal
+            apply simp
+            apply (rule le_trans)
+            by (auto intro: Max_ge)
+          apply (cases "i = p1")
+           apply simp
+           apply (rule le_trans)
+          by (auto intro: Max_ge)
+        done
+    qed
+  qed
+  done
+
+lemma
+  shows k_ceiling':
+    "\<forall> l. \<forall>(x,m) \<in> clkp_set A l. m \<le> k_fun l x"
+    "\<forall> l g a r l' c. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> c \<notin> set r \<longrightarrow> k_fun l' c \<le> k_fun l c"
+  and k_bound':
+    "\<forall> l. \<forall> i > m. k_fun l i = 0"
+  and k_0':
+    "\<forall> l. k_fun l 0 = 0"
+  using k_ceiling_1 k_ceiling_2 unfolding k_fun_def by auto
+
+sublocale Reachability_Problem "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m A k_fun
+  by (standard; rule k_ceiling' k_bound' k_0')
+
+end (* End of context for precompiled reachability problem with ceiling *)
+
+
 
 abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
 
 locale UPPAAL_Reachability_Problem_precompiled_start_state =
-  UPPAAL_Reachability_Problem_precompiled _ _ _ _ _ pred
+  UPPAAL_Reachability_Problem_precompiled _ _ _ _ pred
   for pred :: "nat list list" +
   fixes s\<^sub>0 :: "int list" (* XXX Why does nat not work? *)
   assumes start_pred:
@@ -1205,6 +2273,7 @@ end (* End of locale *)
 locale UPPAAL_Reachability_Problem_precompiled' =
   UPPAAL_Reachability_Problem_precompiled_start_state +
   UPPAAL_Reachability_Problem_precompiled_defs' +
+  UPPAAL_Reachability_Problem_precompiled_ceiling +
   assumes action_set:
     "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, a, _) \<in> set xs. pred_act (\<lambda> a. a < na) a"
 begin
@@ -2044,25 +3113,10 @@ begin
     using final_fun_final' states_states' by (rule inv_rel_mono)
 
   lemma fst_clkp_setD:
-    assumes "(c, d) \<in> clkp_set A"
+    assumes "(c, d) \<in> clkp_set A l"
     shows "c > 0" "c \<le> m" "d \<in> range int"
-    using assms clock_set consts_nats clkp_set'_subs unfolding Nats_def clk_set'_def by force+
-
-  lemma
-    "\<forall>i<Suc m. k ! i = k_fun i"
-    unfolding k_fun_def by simp
-
-  lemma k_k'[intro]:
-    "map int k = k'"
-    apply (rule nth_equalityI)
-     using k_length length_k' apply (auto; fail)
-     unfolding k'_def apply (simp add: k_length del: upt_Suc)
-     unfolding k_fun_def by simp
-
-  lemma iarray_k'[intro]:
-    "(uncurry0 (return (IArray (map int k))), uncurry0 (Refine_Basic.RETURN k'))
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-    unfolding br_def by sepref_to_hoare sep_auto
+    using assms clock_set consts_nats clkp_set'_subs
+    unfolding Nats_def clk_set'_def TA_clkp_set_unfold by force+
 
   lemma init_has_trans:
     "(init, s\<^sub>0) \<in> fst ` (trans_of A) \<longleftrightarrow> trans_fun (init, s\<^sub>0) \<noteq> []"
@@ -2106,11 +3160,98 @@ ML \<open>
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
+abbreviation "k_i \<equiv> IArray (map (IArray o (map (IArray o map int))) k)"
+
+definition
+  "k_impl \<equiv> \<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i < p}) [0..<m+1])"
+
+lemma k_impl_alt_def:
+  "k_impl =
+  (\<lambda> (l, _). IArray (map (\<lambda> c. Max ((\<lambda> i. k_i !! i !! (l ! i) !! c) ` {0..<p})) [0..<m+1]))"
+proof -
+  have "{i. i < p} = {0..<p}"
+    by auto
+  then show ?thesis unfolding k_impl_def setcompr_eq_image by auto
+qed
+
+lemma k_length_alt:
+  "\<forall> i < p. \<forall> j < length (k ! i). length (k ! i ! j) = m + 1"
+  using k_length(1,3) by (auto dest: nth_mem)
+
+lemma Max_int_commute:
+  "int (Max S) = Max (int ` S)" if "finite S" "S \<noteq> {}"
+  apply (rule mono_Max_commute)
+    apply rule
+  using that by auto
+
+lemma [intro]:
+  "k_impl (l, s) = IArray (k' (l, s))" if
+  "(l, s) \<in> states'"
+proof -
+  have l_len[simp]: "l ! i < length (trans ! i)" if "i < p" for i
+    using \<open>i < p\<close> \<open>(l, s) \<in> _\<close> by auto thm states_len
+  have *: "k_i !! i !! (l ! i) !! c = k ! i ! (l ! i) ! c"
+    if "c \<le> m" "i < p" for c i
+  proof -
+    from k_length_alt that k_length(1,2) have "length (k ! i ! (l ! i)) = m + 1"
+      by auto
+    with that k_length process_length(2) processes_have_trans start_has_trans show ?thesis
+      unfolding init_def by auto
+  qed
+  show ?thesis
+    unfolding k_impl_def k'_def k_fun_def
+
+    apply clarsimp
+    apply safe
+    subgoal
+      apply (subst Max_int_commute)
+      subgoal
+        by auto
+      subgoal
+        using p_gt_0 by auto
+      apply (rule arg_cong[where f = Max])
+      apply safe
+      using * apply (auto; fail)
+      by (auto simp add: *[symmetric]; fail)
+
+    subgoal
+      apply (rule Max_eqI)
+        apply (auto; fail)
+      using k_length_alt processes_have_trans k_0 p_gt_0 unfolding init_def apply (auto; fail)
+
+      using k_length_alt processes_have_trans k_0 p_gt_0 unfolding init_def
+      apply clarsimp
+      apply (rule exI[where x = 0])
+      by simp
+
+    subgoal
+      apply (subst Max_int_commute)
+      subgoal
+        by auto
+      subgoal
+        using p_gt_0 by auto
+      apply (rule arg_cong[where f = Max])
+      apply safe
+      using * apply (auto; fail)
+      by (auto simp add: *[symmetric]; fail)
+    done
+qed
+
+lemma [intro]:
+  "k_impl (l, s) = IArray (k' (l, s))" if
+  "(l, s) \<in> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of A)"
+  using that states_states' by auto
+
+lemma [intro]:
+  "k_impl (init, s\<^sub>0) = IArray (k' (init, s\<^sub>0))"
+  using states_states' by auto
+
   sublocale impl:
     Reachability_Problem_Impl
-      trans_fun inv_fun final_fun "IArray (map int k)" A "(init, s\<^sub>0)"
+      trans_fun inv_fun final_fun k_impl A "(init, s\<^sub>0)"
       "PR_CONST ((\<lambda> (l, s). F l s))" m k_fun
-    unfolding PR_CONST_def by (standard; rule)
+    unfolding PR_CONST_def
+    by (standard; fastforce simp: inv_rel_def b_rel_def)
 
   (* XXX Unused *)
   lemma length_reachable:
@@ -2368,7 +3509,7 @@ begin
     "(uncurry0 reachability_checker,
       uncurry0 (
         Refine_Basic.RETURN (
-          if default_ceiling.start_inv_check
+          if start_inv_check
           then
             if
               (
@@ -2396,7 +3537,7 @@ begin
     "<emp> reachability_checker
     <\<lambda> r. \<up>(r =
         (
-          if default_ceiling.start_inv_check
+          if start_inv_check
           then
             if
               (
@@ -2467,16 +3608,24 @@ begin
 
   schematic_goal succs_impl_alt_def:
     "impl.succs_impl \<equiv> ?impl"
-  unfolding impl.succs_impl_def
-   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def] trans_s_fun_def trans_i_fun_def trans_i_from_def
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
-  by (rule Pure.reflexive)
+    unfolding impl.succs_impl_def
+    unfolding k_impl_alt_def
+    apply (tactic
+        \<open>pull_tac
+        @{term
+          "\<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i \<in> {0..<p}}) [0..<m+1])"
+        }
+        @{context}
+       \<close>
+        )
+    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+    unfolding inv_fun_def[abs_def] trans_fun_def[abs_def] trans_s_fun_def trans_i_fun_def trans_i_from_def
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
+    by (rule Pure.reflexive)
 
   lemma reachability_checker'_alt_def':
     "reachability_checker' \<equiv>
@@ -2488,16 +3637,24 @@ begin
       in worklist_algo2 sub start final succs"
     unfolding reachability_checker'_def by simp
 
+  (* XXX Re-inspect these *)
   schematic_goal reachability_checker_alt_def:
     "reachability_checker \<equiv> ?impl"
     unfolding reachability_checker_def
     unfolding reachability_checker'_alt_def' impl.succs_impl_def
     unfolding
       impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
-      impl.unbounded_dbm'_def default_ceiling.unbounded_dbm_def
-    (*apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>) *)
-   apply (tactic \<open>pull_tac @{term "IArray (map int k)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
+      impl.unbounded_dbm'_def unbounded_dbm_def
+    unfolding k_impl_alt_def
+   apply (tactic
+        \<open>pull_tac
+        @{term
+          k_i
+        }
+        @{context}
+       \<close>
+        )
+   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>) (* XXX This is not pulling anything *)
     apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
     unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def trans_i_from_def
    apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
@@ -2511,6 +3668,9 @@ begin
   by (rule Pure.reflexive)
 
 end (* End of locale *)
+
+lemmas [code] = UPPAAL_Reachability_Problem_precompiled'.k_impl_def
+
 
 (*
 context State_Network_Reachability_Problem_precompiled_int_vars
@@ -2540,6 +3700,7 @@ subsection \<open>Check preconditions\<close>
 context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
+  (*
   definition
     "collect_cexp = {ac. Some (CEXP ac) \<in> set prog}"
 
@@ -2569,14 +3730,16 @@ begin
   lemma clk_set'_alt_def: "clk_set' = (fst ` clkp_set' \<union> fst ` collect_store)"
     unfolding clk_set'_def collect_store_def by auto
 
+  *)
+
   abbreviation
     "check_nat_subs \<equiv> \<forall> (_, d) \<in> clkp_set'. d \<ge> 0"
 
   lemma check_nat_subs:
     "check_nat_subs \<longleftrightarrow> snd ` clkp_set' \<subseteq> \<nat>"
-  unfolding Nats_def apply safe
-  subgoal for _ _ b using rangeI[of int "nat b"] by auto
-  by auto
+    unfolding Nats_def apply safe
+    subgoal for _ _ b using rangeI[of int "nat b"] by auto
+    by auto
 
   definition
     "check_resets \<equiv> \<forall> x c. Some (INSTR (STOREC c x)) \<in> set prog \<longrightarrow> x = 0"
@@ -2591,14 +3754,11 @@ begin
       length inv = p \<and> length trans = p \<and> length pred = p
       \<and> (\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i))
       \<and> (\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < length T)
-      \<and> length k = m + 1 \<and> p > 0 \<and> m > 0
+      \<and> p > 0 \<and> m > 0
       \<and> (\<forall> i < p. trans ! i \<noteq> []) \<and> (\<forall> q < p. trans ! q ! 0 \<noteq> [])
-      \<and> k ! 0 = 0 \<and> check_nat_subs \<and> clk_set' = {1..m}
+      \<and> check_nat_subs \<and> clk_set' = {1..m}
       \<and> check_resets
       "
-
-  definition
-    "check_ceiling \<equiv> \<forall> (c, d) \<in> clkp_set'. k ! c \<ge> d"
 
   lemma finite_clkp_set'[intro, simp]:
     "finite clkp_set'"
@@ -2606,13 +3766,34 @@ begin
     using [[simproc add: finite_Collect]]
     by (auto intro!: finite_vimageI finite_imageI simp: inj_on_def)
 
-  lemma check_axioms:
-    "UPPAAL_Reachability_Problem_precompiled p m k inv pred trans prog
-    \<longleftrightarrow> check_pre \<and> check_ceiling"
+  lemma check_pre:
+    "UPPAAL_Reachability_Problem_precompiled p m inv pred trans prog \<longleftrightarrow> check_pre"
     unfolding
       UPPAAL_Reachability_Problem_precompiled_def
-      check_ceiling_def check_pre_def check_nat_subs check_resets_def
+      check_pre_def check_nat_subs check_resets_def
     by auto
+
+end (* End of definitions context for precompiled reachachability problem*)
+
+
+context UPPAAL_Reachability_Problem_precompiled_defs
+begin
+
+context
+  fixes k :: "nat list list list"
+begin
+
+  definition
+    "check_ceiling \<equiv>
+    UPPAAL_Reachability_Problem_precompiled_ceiling_axioms p m max_steps inv trans prog k"
+
+  lemma check_axioms:
+    "UPPAAL_Reachability_Problem_precompiled_ceiling p m max_steps inv pred trans prog k
+    \<longleftrightarrow> check_pre \<and> check_ceiling"
+    unfolding UPPAAL_Reachability_Problem_precompiled_ceiling_def check_pre check_ceiling_def
+    by auto
+
+end
 
 end
 
@@ -2624,6 +3805,7 @@ lemmas [code] =
 export_code UPPAAL_Reachability_Problem_precompiled_defs.collect_cexp in SML module_name Test
 
 lemmas [code] =
+  UPPAAL_Reachability_Problem_precompiled_defs.check_pre
   UPPAAL_Reachability_Problem_precompiled_defs.check_axioms
   UPPAAL_Reachability_Problem_precompiled_defs.clkp_set'_alt_def
   UPPAAL_Reachability_Problem_precompiled_defs.clk_set'_alt_def
@@ -2655,6 +3837,9 @@ lemmas [code] =
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.P_def
+
+term exec
+  term prog
 
 lemma exec_code[code]:
   "exec prog n (pc, st, m, f, rs) pcs =
@@ -2721,15 +3906,48 @@ lemma start_pred[code]:
 
 export_code UPPAAL_Reachability_Problem_precompiled_start_state_axioms
 
+context UPPAAL_Reachability_Problem_precompiled_defs
+begin
+
+  lemma collect_store''_alt_def:
+    "collect_store'' pc \<equiv>
+    case find_resets_start prog pc of
+      None \<Rightarrow> {} |
+      Some pc' \<Rightarrow>
+        \<Union> (
+          (\<lambda> cmd. case cmd of Some (INSTR (STOREC c x)) \<Rightarrow> {(c, x)} | _ \<Rightarrow> {}) `
+            (op ! prog) ` {pc .. pc'}
+        )"
+    unfolding collect_store''_def
+    apply (rule eq_reflection)
+    apply (auto simp del: find_resets_start.simps split: option.split_asm)
+    by (auto intro: sym intro!: bexI split: option.split instrc.split_asm instr.split_asm
+        simp del: find_resets_start.simps
+        )
+
+  lemma collect_cexp'_alt_def:
+    "collect_cexp' pc \<equiv>
+      \<Union> ((\<lambda> cmd. case cmd of Some (CEXP ac) \<Rightarrow> {ac} | _ \<Rightarrow> {}) `
+          (op ! prog) ` steps_approx max_steps prog pc
+      )"
+    unfolding collect_cexp'_def
+    by (auto 4 3 intro!: eq_reflection bexI intro: sym split: option.splits instrc.split_asm)
+
+end
+
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.PROG_def
   UPPAAL_Reachability_Problem_precompiled_defs.init_def
   UPPAAL_Reachability_Problem_precompiled_start_state_def
+  UPPAAL_Reachability_Problem_precompiled_ceiling_axioms_def
   (*
   UPPAAL_Reachability_Problem_precompiled''_def
   UPPAAL_Reachability_Problem_precompiled''_axioms_def
   *)
   UPPAAL_Reachability_Problem_precompiled_defs.N_def
+  UPPAAL_Reachability_Problem_precompiled_defs.collect_store''_alt_def
+  UPPAAL_Reachability_Problem_precompiled_defs.clkp_set''_def
+  UPPAAL_Reachability_Problem_precompiled_defs.collect_cexp'_alt_def
 
 lemmas [code] =
   Equiv_TA_Defs.state_ta_def Prod_TA_Defs.N_s_def Product_TA_Defs.states_def
@@ -2740,15 +3958,13 @@ export_code UPPAAL_Reachability_Problem_precompiled' in SML module_name Test
 
 export_code reachability_checker_impl in SML_imp module_name TA
 
-thm reachability_checker_impl_def reachability_checker_impl.refine
-
 hide_const check_and_verify
 
 definition [code]:
   "check_and_verify p m k max_steps I T prog final bounds P s\<^sub>0 na \<equiv>
-    if UPPAAL_Reachability_Problem_precompiled' p m k max_steps I T prog bounds P s\<^sub>0 na
+    if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
     then
-      reachability_checker_impl p m k max_steps I T prog bounds P s\<^sub>0 na final
+      reachability_checker_impl p m max_steps I T prog bounds P s\<^sub>0 na k final
       \<bind> (\<lambda> x. return (Some x))
     else return None"
 
@@ -2758,7 +3974,7 @@ theorem reachability_check:
   "(uncurry0 (check_and_verify p m k max_steps I T prog formula bounds P s\<^sub>0 na),
     uncurry0 (
        Refine_Basic.RETURN (
-        if UPPAAL_Reachability_Problem_precompiled' p m k max_steps I T prog bounds P s\<^sub>0 na
+        if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
         then Some (
           if (\<forall>u. (\<forall>c\<in>{1..m}. u c = 0) \<longrightarrow> (\<forall> i < p. u \<turnstile> conv_cc (I ! i ! 0)))
             then
@@ -2790,7 +4006,7 @@ proof -
       \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'"
   note [sep_heap_rules] = UPPAAL_Reachability_Problem_precompiled'.reachability_checker_hoare'
   [unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
-    of p m k max_steps I T prog bounds P s\<^sub>0 na formula,
+    of p m max_steps I T prog bounds P s\<^sub>0 na k formula,
     unfolded A_def[symmetric] start_inv_def[symmetric] reach_def[symmetric]
     ]
   show ?thesis
