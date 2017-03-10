@@ -1,5 +1,5 @@
 theory UPPAAL_Reachability_Benchmarks
-  imports UPPAAL_State_Networks_Impl_Refine
+  imports UPPAAL_State_Networks_Impl_Refine UPPAAL_State_Networks_Impl_Refine_Calc
 begin
 
 code_printing constant Array.new' \<rightharpoonup> (SML) "(fn/ ()/ =>/ Array.array/
@@ -12,6 +12,24 @@ code_printing constant Array.nth' \<rightharpoonup> (SML) "(fn/ ()/ =>/ Array.su
 ((_),/ IntInf.toInt _))"
 code_printing constant Array.upd' \<rightharpoonup> (SML) "(fn/ ()/ =>/ Array.update/
 ((_),/ IntInf.toInt _,/ (_)))"
+
+term Array.nth' ML \<open>Array.sub\<close>
+term array_get' term "\<lambda> a. array_get' a o integer_of_int" term array_grow' term array_length'
+
+term integer_of_nat
+
+code_printing
+  type_constructor array \<rightharpoonup> (SML) "_/ FArray.IsabelleMapping.ArrayType"
+| constant Array \<rightharpoonup> (SML) "FArray.IsabelleMapping.array'_of'_list"
+| constant new_array' \<rightharpoonup> (SML) "(fn a => FArray.IsabelleMapping.new'_array a o IntInf.toInt)"
+| constant array_length' \<rightharpoonup> (SML) "IntInf.fromInt o FArray.IsabelleMapping.array'_length"
+| constant array_get' \<rightharpoonup> (SML) "(fn a => FArray.IsabelleMapping.array'_get a o IntInf.toInt)"
+| constant array_set' \<rightharpoonup> (SML) "(fn a => FArray.IsabelleMapping.array'_set a o IntInf.toInt)"
+| constant array_grow' \<rightharpoonup> (SML) "(fn a => FArray.IsabelleMapping.array'_grow a o IntInf.toInt)"
+| constant array_shrink' \<rightharpoonup> (SML) "(fn a => FArray.IsabelleMapping.array'_shrink a o IntInf.toInt)"
+| constant array_of_list \<rightharpoonup> (SML) "FArray.IsabelleMapping.array'_of'_list"
+| constant array_get_oo' \<rightharpoonup> (SML) "FArray.IsabelleMapping.array'_get'_oo"
+| constant array_set_oo' \<rightharpoonup> (SML) "FArray.IsabelleMapping.array'_set'_oo"
 
 (* XXX Add this fix to IArray theory *)
 code_printing
@@ -45,6 +63,7 @@ export_code
   UPPAAL_Reachability_Problem_precompiled_defs.check_ceiling
   nat
   REACHABLE UNREACHABLE INIT_INV_ERR
+  UPPAAL_Reachability_Problem_precompiled_defs.k
   in SML_imp module_name Reachability_Checker
   file "UPPAAL_Reachability_Checker.ml"
 
@@ -55,10 +74,14 @@ ML \<open>
 \<close>
 
 ML \<open>REACHABLE\<close>
+ML_val \<open>app\<close>
 
 ML \<open>integer_of_nat\<close>
 ML \<open>IntInf.toInt\<close>
-
+ML \<open>nat_of_integer o IntInf.fromInt\<close>
+ML \<open>Int_of_integer\<close>
+ML \<open>nat_of_integer o integer_of_int\<close>
+ML \<open>integer_of_nat\<close>
 ML \<open>Vector.sub\<close>
 
 ML \<open>Array.sub\<close>
