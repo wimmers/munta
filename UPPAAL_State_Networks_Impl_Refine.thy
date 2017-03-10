@@ -1739,9 +1739,8 @@ locale UPPAAL_Reachability_Problem_precompiled_ceiling =
   and k_length:
     "length k = p" "\<forall> i < p. length (k ! i) = length (trans ! i)"
     "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
-  and k_0: "length k = p" "\<forall> i < p. length (k ! i) = length (trans ! i)"
-    "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
-    "\<forall> i < p. \<forall> l < length (trans ! i). \<forall> c < length (k ! i ! l). k ! i ! l ! c = 0"
+  and k_0:
+    "\<forall> i < p. \<forall> l < length (trans ! i). k ! i ! l ! 0 = 0"
 begin
 
 definition "k_fun l c \<equiv> if c > 0 \<and> c \<le> m then Max {k ! i ! (fst l ! i) ! c | i . i < p} else 0"
@@ -3217,9 +3216,10 @@ proof -
     subgoal
       apply (rule Max_eqI)
         apply (auto; fail)
-      using k_length_alt processes_have_trans k_0 p_gt_0 unfolding init_def apply (auto; fail)
+      using k_length_alt k_length processes_have_trans k_0 p_gt_0 unfolding init_def
+       apply (auto; fail)
 
-      using k_length_alt processes_have_trans k_0 p_gt_0 unfolding init_def
+      using k_length_alt k_length processes_have_trans k_0 p_gt_0 unfolding init_def
       apply clarsimp
       apply (rule exI[where x = 0])
       by simp
