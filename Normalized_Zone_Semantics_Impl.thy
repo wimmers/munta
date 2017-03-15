@@ -2177,7 +2177,18 @@ lemma (in Regions) v_v':
   "\<forall> c \<in> X. v' (v c) = c"
 using clock_numbering unfolding v'_def by auto
 
-definition "subsumes n = (\<lambda> (l, M) (l', M'). l = l' \<and> dbm_subset n M M')"
+definition
+  "subsumes n
+  = (\<lambda> (l, M) (l', M'). check_diag n M \<or> l = l' \<and> pointwise_cmp (op \<le>) n (curry M) (curry M'))"
+
+lemma subsumes_simp_1:
+  "subsumes n (l, M) (l', M') = dbm_subset n M M'" if "l = l'"
+  using that unfolding subsumes_def dbm_subset_def by simp
+
+lemma subsumes_simp_2:
+  "subsumes n (l, M) (l', M') = check_diag n M" if "l \<noteq> l'"
+  using that unfolding subsumes_def dbm_subset_def by simp
+
 
 lemma TA_clkp_set_unfold:
   "Timed_Automata.clkp_set A = \<Union> (clkp_set A ` UNIV)"
@@ -3538,14 +3549,41 @@ begin
   using reachable_decides_emptiness'[of l'] check_diag_empty_spec reachable_empty_check_diag
   unfolding F_rel_def by auto
 
-  sublocale Search_Space E a\<^sub>0 F_rel "subsumes n"
+  lemma check_diag_E_preservation:
+    "check_diag n M'" if "check_diag n M" "E (l, M) (l', M')"
+    using that unfolding E_def check_diag_def neutral[symmetric]
+    by (fastforce
+        simp: curry_def dest: step_impl_neg_diag_preservation
+        intro: FW'_neg_diag_preservation norm_upd_neg_diag_preservation
+       )
+
+  sublocale Search_Space E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
    apply standard
-   using E_closure_finite unfolding Search_Space_Defs.reachable_def apply assumption
-   using dbm_subset_refl apply (auto simp: subsumes_def; fail)
-   using dbm_subset_trans apply (auto simp: subsumes_def; fail)
-   apply (force simp: E_def subsumes_def dest: step_impl_mono_reachable')
-   apply (auto simp: F_rel_def subsumes_def dest: check_diag_subset; fail)
-  done
+    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply assumption
+    subgoal for a
+      apply (rule prod.exhaust[of a])
+      by (auto simp add: subsumes_simp_1 dbm_subset_refl)
+    subgoal for a b c
+      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of c])
+      subgoal for l1 M1 l2 M2 l3 M3
+        apply simp
+        apply (cases "check_diag n M1")
+         apply (simp add: subsumes_def; fail)
+        apply (simp add: subsumes_def)
+        by (meson check_diag_subset dbm_subset_def dbm_subset_trans)
+      done
+    subgoal for a b a'
+      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of a'])
+      by (force simp: E_def subsumes_def dbm_subset_def dest: step_impl_mono_reachable')
+    subgoal
+      unfolding F_rel_def subsumes_def by auto
+    subgoal
+      using check_diag_subset unfolding subsumes_def dbm_subset_def by auto
+    subgoal
+      using check_diag_E_preservation by auto
+    unfolding F_rel_def subsumes_def
+    unfolding check_diag_def pointwise_cmp_def
+    by fastforce
 
   (* This used (by used theorems) *)
   lemma v_id:

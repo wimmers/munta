@@ -107,12 +107,20 @@ begin
     apply auto
   done
 
-  lemmas [sepref_fr_rules] = dbm_subset_impl.refine
+  lemmas [sepref_fr_rules] = dbm_subset'_impl.refine
 
-  sepref_register "PR_CONST (dbm_subset n)" :: "'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> bool"
+  sepref_register "PR_CONST (dbm_subset' n)" :: "'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> bool"
 
   lemma [def_pat_rules]:
-    "dbm_subset $ n \<equiv> PR_CONST (dbm_subset n)"
+    "dbm_subset' $ n \<equiv> PR_CONST (dbm_subset' n)"
+    by simp
+
+  lemmas [sepref_fr_rules] = check_diag_impl.refine
+
+  sepref_register "PR_CONST (check_diag n)" :: "'e DBMEntry i_mtx \<Rightarrow> bool"
+
+  lemma [def_pat_rules]:
+    "check_diag $ n \<equiv> PR_CONST (check_diag n)"
   by simp
 
   abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> states)"
@@ -132,7 +140,8 @@ begin
 
   sepref_definition subsumes_impl is
     "uncurry (RETURN oo subsumes n)" :: "state_assn'\<^sup>k *\<^sub>a state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding subsumes_def short_circuit_conv by sepref
+    unfolding subsumes_def short_circuit_conv dbm_subset'_def[symmetric]
+    by sepref
 
   end
 
@@ -176,12 +185,6 @@ begin
 
   (* XXX Better implementation? *)
   lemma [sepref_import_param]: "(List.member, List.member) \<in> Id \<rightarrow> location_rel \<rightarrow> Id" by auto
-
-  lemmas [sepref_fr_rules] = check_diag_impl.refine
-
-  lemma [def_pat_rules]: "check_diag $ n \<equiv> PR_CONST (check_diag n)" by simp
-
-  sepref_register "PR_CONST (check_diag n)" :: "'e DBMEntry i_mtx \<Rightarrow> bool"
 
   (* XXX Make implementation more efficient *)
   (* Check F_fun or empty diag first? *)
@@ -365,12 +368,14 @@ begin
   unfolding reachable_def E_closure
   by (induction l \<equiv> l\<^sub>0 _ _ _ _ _  rule: steps_impl_induct; force elim!: step_impl.cases simp: state_set_def)
 
-  sublocale Worklist1 E a\<^sub>0 F_rel "subsumes n" succs
+  sublocale Worklist1 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M"
     apply standard
     apply (clarsimp split: prod.split dest!: reachable_states)
     unfolding succs_def E_alt_def by force
 
-  sublocale Worklist2 E a\<^sub>0 F_rel "subsumes n" succs state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl
+  sublocale Worklist2
+    E a\<^sub>0 F_rel "subsumes n" succs state_assn'
+    succs_impl a\<^sub>0_impl F_impl subsumes_impl "\<lambda> (l, M). check_diag n M"
     apply standard
     apply (unfold PR_CONST_def)
   by (rule a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine)+
@@ -409,6 +414,14 @@ begin
   lemma unbounded_dbm'_bounded_2:
     "(a, b) \<in> mtx_nonzero unbounded_dbm' \<Longrightarrow> b < Suc n"
     using unbounded_dbm'_bounded by auto
+
+  lemmas [sepref_fr_rules] = dbm_subset_impl.refine
+
+  sepref_register "PR_CONST (dbm_subset n)" :: "'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> bool"
+
+  lemma [def_pat_rules]:
+    "dbm_subset $ n \<equiv> PR_CONST (dbm_subset n)"
+    by simp
 
   context
     notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]

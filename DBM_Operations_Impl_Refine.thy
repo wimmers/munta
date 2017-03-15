@@ -99,7 +99,7 @@ lemma [sepref_opt_simps]:
   "(x = True) = x"
 by simp
 
-sepref_definition dbm_subset'_impl is
+sepref_definition dbm_subset'_impl' is
   "uncurry2 (RETURN ooo dbm_subset')" ::
   "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
 unfolding dbm_subset'_alt_def[abs_def] list_all_foldli by sepref
@@ -110,7 +110,7 @@ sepref_register check_diag ::
 sepref_register dbm_subset' ::
   "nat \<Rightarrow> 'a :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> bool"
 
-lemmas [sepref_fr_rules] = dbm_subset'_impl.refine check_diag_impl'.refine
+lemmas [sepref_fr_rules] = dbm_subset'_impl'.refine check_diag_impl'.refine
 
 sepref_definition dbm_subset_impl' is
   "uncurry2 (RETURN ooo dbm_subset)" ::
@@ -124,13 +124,18 @@ begin
 
 sepref_definition dbm_subset_impl is
   "uncurry (RETURN oo PR_CONST (dbm_subset n))" :: "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv PR_CONST_def
-by sepref
+  unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv PR_CONST_def
+  by sepref
 
 sepref_definition check_diag_impl is
   "RETURN o PR_CONST (check_diag n)" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] PR_CONST_def
-by sepref
+  unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] PR_CONST_def
+  by sepref
+
+sepref_definition dbm_subset'_impl is
+  "uncurry (RETURN oo PR_CONST (dbm_subset' n))" :: "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  unfolding dbm_subset'_alt_def[abs_def] list_all_foldli PR_CONST_def
+  by sepref
 
 end
 
