@@ -165,7 +165,12 @@ begin
     using that
     apply simp
     unfolding add_succ_spec_list_def add_succ1_def
-    apply (refine_vcg nfoldli_rule[where I = "\<lambda>l1 _ (wait',brk). if brk then \<exists>a'. E a a' \<and> F a' else set wait' \<subseteq> set wait \<union> set l1 \<and> set l1 \<inter> Collect F = {} \<and> (\<forall> x \<in> set wait \<union> set l1. \<exists> x' \<in> set wait'. x \<preceq> x')"])
+    apply (refine_vcg nfoldli_rule[where I =
+      "\<lambda>l1 _ (wait',brk).
+        if brk then \<exists>a'. E a a' \<and> F a'
+        else set wait' \<subseteq> set wait \<union> set l1 \<and> set l1 \<inter> Collect F = {}
+          \<and> (\<forall> x \<in> set wait \<union> set l1. \<exists> x' \<in> set wait'. x \<preceq> x')"]
+      )
     apply (auto; fail)
     using succs_correct[of a] apply (auto; fail)
     using succs_correct[of a]
