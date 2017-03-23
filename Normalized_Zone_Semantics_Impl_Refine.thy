@@ -539,7 +539,7 @@ begin
     using reachability_check unfolding F_def by auto
 
   definition
-    "reachability_checker' \<equiv> worklist_algo2 subsumes_impl a\<^sub>0_impl F_impl succs_impl"
+    "reachability_checker' \<equiv> worklist_algo2_impl subsumes_impl a\<^sub>0_impl F_impl succs_impl"
 
   theorem reachability_check':
     "(uncurry0 reachability_checker',
@@ -725,7 +725,7 @@ begin
         start = a\<^sub>0_impl;
         final = F_impl;
         succs = succs_impl
-      in worklist_algo2 sub start final succs"
+      in worklist_algo2_impl sub start final succs"
   unfolding reachability_checker'_def by simp
 
   schematic_goal reachability_checker_alt_def:

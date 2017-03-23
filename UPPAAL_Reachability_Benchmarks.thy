@@ -67,7 +67,7 @@ export_code
   in SML_imp module_name Reachability_Checker
   file "UPPAAL_Reachability_Checker.ml"
 
-ML_file "UPPAAL_Reachability_Checker.ml"
+ML_file_debug "UPPAAL_Reachability_Checker.ml"
 
 ML \<open>
   open Reachability_Checker;;

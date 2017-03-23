@@ -3468,7 +3468,7 @@ lemma [intro]:
 
   definition
     "reachability_checker'
-    \<equiv> worklist_algo2 impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl impl.succs_impl"
+    \<equiv> worklist_algo2_impl impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl impl.succs_impl"
 
   theorem reachability_check':
     "(uncurry0 reachability_checker',
@@ -3634,7 +3634,7 @@ lemma [intro]:
         start = impl.a\<^sub>0_impl;
         final = impl.F_impl;
         succs =  impl.succs_impl
-      in worklist_algo2 sub start final succs"
+      in worklist_algo2_impl sub start final succs"
     unfolding reachability_checker'_def by simp
 
   (* XXX Re-inspect these *)
