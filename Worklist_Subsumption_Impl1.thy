@@ -2,6 +2,8 @@ theory Worklist_Subsumption_Impl1
 imports "../IICF/IICF" Worklist_Subsumption1
 begin
 
+  subsection \<open>Implementation on Lists\<close>
+
   (* XXX Duplication, see DBM_Operations_Impl *)
   lemma list_ex_foldli:
     "list_ex P xs = foldli xs Not (\<lambda> x y. P x \<or> y) False"
