@@ -862,29 +862,17 @@ lemma PT_unfold:
     done
   done
 
+lemma states'I:
+  "l \<in> equiv.defs.states' s" if "A \<turnstile> (l, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (l', s')"
+  using equiv.defs.prod_ta_cases[OF that]
+  unfolding equiv.defs.prod_trans_i_alt_def equiv.defs.prod_trans_s_alt_def
+  unfolding Product_TA_Defs.product_trans_def
+  unfolding Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
+  by fastforce
+
 lemma A_lengthD:
   "length l = p" if "A \<turnstile> (l, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (l', s')"
-proof -
-  have "l \<in> equiv.defs.states' s"
-    unfolding Product_TA_Defs.states_def
-    apply auto
-    subgoal
-      using that sorry
-
-    using that
-    unfolding equiv.defs.prod_ta_def trans_of_def Prod_TA_Defs.prod_trans_def
-      equiv.defs.prod_trans_i_def
-      equiv.defs.prod_trans_s_def
-
-    apply simp
-    unfolding Equiv_TA_Defs.state_ta_def
-    apply simp
-    unfolding Product_TA_Defs.product_ta_def Product_TA_Defs.product_trans_def
-      Product_TA_Defs.product_trans_i_def Product_TA_Defs.product_trans_s_def
-    apply simp
-      unfolding trans_of_def sorry
-  then show ?thesis by auto
-qed
+  using that by (auto dest: states'I)
 
 lemma N_s_state_trans:
   assumes "equiv.defs.N_s s ! q \<turnstile> l ! q \<longrightarrow>\<^bsup>g,(a, c, m'),r\<^esup> l'" "q < p"
@@ -1726,6 +1714,123 @@ lemma conjunction_check:
 end (* End of context for fixed program *)
 
 
+abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
+
+context UPPAAL_Reachability_Problem_precompiled
+begin
+
+  sublocale defs':
+    Equiv_TA_Defs "conv N" max_steps .
+
+  lemma equiv_states'_alt_def:
+    "equiv.defs.states' s =
+      {L. length L = p \<and>
+        (\<forall> q < p. L ! q \<in> fst ` fst (equiv.N ! q)
+                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (equiv.N ! q))}"
+    unfolding Product_TA_Defs.states_def
+    unfolding equiv.defs.N_s_def trans_of_def
+    by (simp add: T_s_unfold_1 T_s_unfold_2)
+
+  lemma init_states:
+    "init \<in> equiv.defs.states' s\<^sub>0"
+    using processes_have_trans start_has_trans
+    unfolding equiv_states'_alt_def
+    unfolding init_def N_def T_def by force
+
+  lemma p_p[simp]:
+    "defs'.p = p"
+    unfolding defs'.p_def by simp
+
+  lemma T_s_unfold_1':
+    "fst ` defs'.defs.T_s q s = fst ` fst (defs'.N ! q)" if "q < p"
+    using \<open>q < p\<close>
+    unfolding defs'.defs.T_s_def
+    unfolding defs'.state_ta_def
+    unfolding defs'.state_trans_t_def p_p
+    by force
+
+  lemma T_s_unfold_2':
+    "(snd o snd o snd o snd) ` defs'.defs.T_s q s = (snd o snd o snd o snd) ` fst (defs'.N ! q)"
+    if "q < p"
+    using \<open>q < p\<close>
+    unfolding defs'.defs.T_s_def
+    unfolding defs'.state_ta_def
+    unfolding defs'.state_trans_t_def p_p
+    by force
+
+  lemma product_states'_alt_def:
+    "defs'.defs.states' s =
+      {L. length L = p \<and>
+        (\<forall> q < p. L ! q \<in> fst ` fst (defs'.N ! q)
+                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (defs'.N ! q))}"
+    unfolding Product_TA_Defs.states_def
+    unfolding defs'.defs.N_s_def trans_of_def
+    using T_s_unfold_1' T_s_unfold_2'
+    by force
+
+  lemma states'_conv[simp]:
+    "defs'.defs.states' s = equiv.defs.states' s"
+    unfolding product_states'_alt_def equiv_states'_alt_def
+    unfolding N_def T_def by simp
+
+  lemma [intro]:
+    "init \<in> defs'.defs.states' s\<^sub>0"
+    using init_states by simp
+
+  lemma
+    "defs'.I = equiv.I"
+    by simp
+
+  lemma PF_PF[simp]:
+    "defs'.PF = equiv.PF"
+    apply simp
+    unfolding stripfp_def
+    apply (rule ext)
+    apply clarsimp
+    subgoal for x
+      apply (cases "equiv.P x")
+       apply simp
+      subgoal for a
+        by (cases a) auto
+      done
+    done
+
+  lemma PF_PROG[simp]:
+    "equiv.PF = stripfp PROG"
+    unfolding N_def by simp
+
+  lemma I_simp[simp]:
+    "(equiv.I ! q) l = pred ! q ! l" if "q < p"
+    unfolding N_def P_def using \<open>q < p\<close> process_length(3) by simp
+
+  lemma
+    "defs'.P = conv_prog PROG"
+    by (simp add: N_def)
+
+  lemma states_len[intro]:
+    assumes
+      "q < p" "L \<in> equiv.defs.states' s"
+    shows
+      "L ! q < length (trans ! q)"
+    using assms unfolding Product_TA_Defs.states_def
+    apply simp
+    unfolding trans_of_def equiv.defs.N_s_def
+    apply (simp add: T_s_unfold_1 T_s_unfold_2)
+    unfolding N_def
+    apply simp
+    unfolding T_def
+      using state_set
+    unfolding process_length(2)[symmetric]
+    apply auto
+    apply (erule allE)
+    apply (erule impE)
+     apply assumption
+    apply auto
+    by (clarsimp dest!: nth_mem; force)
+
+end (* End of context for precompiled reachability problem *)
+
+
 locale UPPAAL_Reachability_Problem_precompiled_ceiling =
   UPPAAL_Reachability_Problem_precompiled +
   fixes k :: "nat list list list"
@@ -1804,7 +1909,7 @@ lemma k_ceiling_1:
             "l \<in> equiv.defs.states' s" "i < p"
             by auto
           from \<open>i < p\<close> \<open>l \<in> _\<close> have "l ! i < length (trans ! i)"
-            sorry
+            by auto
           with k_ceiling(1) * have "nat d \<le> k ! i ! (l ! i) ! x"
             by force
           also from \<open>_ < p\<close> have "\<dots> \<le> Max {k ! i ! (l ! i) ! x |i. i < p}"
@@ -2035,9 +2140,6 @@ sublocale Reachability_Problem "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). 
 end (* End of context for precompiled reachability problem with ceiling *)
 
 
-
-abbreviation "conv B \<equiv> (conv_prog (fst B), (map conv_A' (fst (snd B))), snd (snd B))"
-
 locale UPPAAL_Reachability_Problem_precompiled_start_state =
   UPPAAL_Reachability_Problem_precompiled _ _ _ _ pred
   for pred :: "nat list list" +
@@ -2056,118 +2158,9 @@ locale UPPAAL_Reachability_Problem_precompiled_start_state =
            conjunction_check prog pc_g max_steps"
 begin
 
-sublocale defs':
-  Equiv_TA_Defs "conv N" max_steps .
-
-    lemma equiv_states'_alt_def:
-    "equiv.defs.states' s =
-      {L. length L = p \<and>
-        (\<forall> q < p. L ! q \<in> fst ` fst (equiv.N ! q)
-                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (equiv.N ! q))}"
-    unfolding Product_TA_Defs.states_def
-    unfolding equiv.defs.N_s_def trans_of_def
-    by (simp add: T_s_unfold_1 T_s_unfold_2)
-
-  lemma init_states:
-    "init \<in> equiv.defs.states' s\<^sub>0"
-    using processes_have_trans start_has_trans
-    unfolding equiv_states'_alt_def
-    unfolding init_def N_def T_def by force
-
-  lemma p_p[simp]:
-    "defs'.p = p"
-    unfolding defs'.p_def by simp
-
-  lemma T_s_unfold_1':
-    "fst ` defs'.defs.T_s q s = fst ` fst (defs'.N ! q)" if "q < p"
-    using \<open>q < p\<close>
-    unfolding defs'.defs.T_s_def
-    unfolding defs'.state_ta_def
-    unfolding defs'.state_trans_t_def p_p
-    by force
-
-  lemma T_s_unfold_2':
-    "(snd o snd o snd o snd) ` defs'.defs.T_s q s = (snd o snd o snd o snd) ` fst (defs'.N ! q)"
-    if "q < p"
-    using \<open>q < p\<close>
-    unfolding defs'.defs.T_s_def
-    unfolding defs'.state_ta_def
-    unfolding defs'.state_trans_t_def p_p
-    by force
-
-  lemma product_states'_alt_def:
-    "defs'.defs.states' s =
-      {L. length L = p \<and>
-        (\<forall> q < p. L ! q \<in> fst ` fst (defs'.N ! q)
-                \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (defs'.N ! q))}"
-    unfolding Product_TA_Defs.states_def
-    unfolding defs'.defs.N_s_def trans_of_def
-    using T_s_unfold_1' T_s_unfold_2'
-    by force
-
-  lemma states'_conv[simp]:
-    "defs'.defs.states' s = equiv.defs.states' s"
-    unfolding product_states'_alt_def equiv_states'_alt_def
-    unfolding N_def T_def by simp
-
-  lemma [intro]:
-    "init \<in> defs'.defs.states' s\<^sub>0"
-    using init_states by simp
-
   lemma [intro]:
     "bounded defs'.B s\<^sub>0"
     using bounded unfolding bounded_def N_def by simp
-
-  lemma
-    "defs'.I = equiv.I"
-    by simp
-
-  lemma PF_PF[simp]:
-    "defs'.PF = equiv.PF"
-    apply simp
-    unfolding stripfp_def
-    apply (rule ext)
-    apply clarsimp
-    subgoal for x
-      apply (cases "equiv.P x")
-       apply simp
-      subgoal for a
-        by (cases a) auto
-      done
-    done
-
-  lemma PF_PROG[simp]:
-    "equiv.PF = stripfp PROG"
-    unfolding N_def by simp
-
-  lemma I_simp[simp]:
-    "(equiv.I ! q) l = pred ! q ! l" if "q < p"
-    unfolding N_def P_def using \<open>q < p\<close> process_length(3) by simp
-
-  lemma
-    "defs'.P = conv_prog PROG"
-    by (simp add: N_def)
-
-  lemma states_len[intro]:
-    assumes
-      "q < p" "L \<in> equiv.defs.states' s"
-    shows
-      "L ! q < length (trans ! q)"
-    using assms unfolding Product_TA_Defs.states_def
-    apply simp
-    unfolding trans_of_def equiv.defs.N_s_def
-    apply (simp add: T_s_unfold_1 T_s_unfold_2)
-    unfolding N_def
-    apply simp
-    unfolding T_def
-      using state_set
-    unfolding process_length(2)[symmetric]
-    apply auto
-    apply (erule allE)
-    apply (erule impE)
-     apply assumption
-    apply auto
-    by (clarsimp dest!: nth_mem; force)
 
   lemma equiv_P_simp:
     "equiv.P = PROG"
