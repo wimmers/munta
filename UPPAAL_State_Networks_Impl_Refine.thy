@@ -822,6 +822,204 @@ begin
 
 end
 
+lemma guaranteed_execution:
+  assumes
+    "\<forall> pc \<in> {pc..pc_t}.
+      prog ! pc \<noteq> None
+      \<and> prog ! pc \<notin> Some ` INSTR `
+        {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
+      \<and> (\<forall> c d. prog ! pc = Some (INSTR (STOREC c d)) \<longrightarrow> d = 0)
+      "
+    "\<forall> pc \<in> {pc..pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t"
+    "prog ! pc_t = Some (INSTR HALT)" "pc_t \<ge> pc" "n > pc_t - pc" "pc_t < length prog"
+  shows "\<exists> st' s' f' r'. steps
+      (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None))
+      n (pc, st, s, f, r) (pc_t, st', s', f', r')"
+  using assms
+proof (induction "pc_t - pc" arbitrary: pc st s f r n rule: less_induct)
+  case less
+  let ?prog = "(map_option stripf \<circ> (\<lambda>pc. if pc < length prog then prog ! pc else None))"
+  from \<open>pc_t - pc < n\<close> obtain n' where [simp]: "n = Suc n'" by (cases n) auto
+  from less.prems(3-) have [simp]: "pc < length prog" "pc_t < length prog" by auto
+  show ?case
+  proof (cases "pc_t = pc")
+    case True
+    then show ?thesis by force
+  next
+    case False
+    from less.prems(1,4) have valid_instr:
+      "prog ! pc \<notin> Some ` INSTR `
+            {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}"
+      "prog ! pc \<noteq> None"
+      by auto
+    from \<open>pc \<le> _\<close> have "pc \<in> {pc..pc_t}" by simp
+    with less.prems(2) have jumps:
+      "pc' > pc \<and> pc' \<le> pc_t" if "prog ! pc = Some (INSTR (JMPZ pc'))" for pc'
+      using that by blast
+    from \<open>pc \<in> _\<close> less.prems(1) have stores:
+      "d = 0" if "prog ! pc = Some (INSTR (STOREC c d))" for c d
+      using that by blast
+    show ?thesis
+    proof (cases "prog ! pc")
+      case None
+      from less.prems(1,4) have "prog ! pc \<noteq> None"
+        by simp
+      with None show ?thesis by auto
+    next
+      case (Some a)
+      then show ?thesis
+      proof (cases a)
+        case (INSTR instr)
+        have *:
+          "\<exists>st' s' f' r'. steps ?prog n' (pc', st, s, f, r) (pc_t, st', s', f', r')"
+          if "pc < pc'" "pc' \<le> pc_t" for pc' st s f r
+          apply (rule less.hyps[of pc'])
+          subgoal
+            using that by simp
+          subgoal
+            using that less.prems(1) by force
+          subgoal
+            apply clarsimp
+            subgoal premises prems for pc_s pc'
+            proof -
+              from prems that have "pc_s \<in> {pc..pc_t}" by simp
+              with prems(1) less.prems(2) show ?thesis by blast
+            qed
+            done
+          using \<open>prog ! pc_t = _\<close> \<open>pc_t - pc < n\<close> that by auto
+        from \<open>pc_t \<noteq> pc\<close> \<open>pc \<le> _\<close> have "Suc pc \<le> pc_t" by simp
+        then obtain pc' st' s' f' r' where
+          "step instr (pc, st, s, f, r) = Some (pc', st', s', f', r')" "pc < pc'" "pc' \<le> pc_t"
+          apply atomize_elim
+          apply (cases instr)
+          using valid_instr \<open>a = _\<close> \<open>_ = Some a\<close> by (auto simp: stores jumps)
+        with \<open>a = _\<close> \<open>_ = Some a\<close> show ?thesis by (force dest!: *)
+      next
+        case (CEXP x2)
+        have *:
+          "\<exists>st' s' f' r'. steps ?prog n' (Suc pc, st, s, f, r) (pc_t, st', s', f', r')"
+          if "Suc pc \<le> pc_t" for st s f r
+          apply (rule less.hyps[of "Suc pc"])
+          subgoal
+            using \<open>pc \<le> _\<close> \<open>pc_t \<noteq> pc\<close> by simp
+          subgoal
+            using less.prems(1) by force
+          subgoal
+            apply clarsimp
+            subgoal premises prems for pc_s pc'
+            proof -
+              from prems have "pc_s \<in> {pc..pc_t}" by simp
+              with prems(1) less.prems(2) show ?thesis by blast
+            qed
+            done
+          using \<open>prog ! pc_t = _\<close> \<open>pc_t - pc < n\<close> that by auto
+        from \<open>pc_t \<noteq> pc\<close> \<open>pc \<le> _\<close> have "Suc pc \<le> pc_t" by simp
+        with \<open>a = _\<close> \<open>_ = Some a\<close> show ?thesis by (force dest!: *)
+      qed
+    qed
+  qed
+qed
+
+function find_next_halt where
+  "find_next_halt prog pc =
+    (
+    if pc < length prog
+    then
+      case prog ! pc of
+        Some (INSTR HALT) \<Rightarrow> Some pc |
+        _ \<Rightarrow> find_next_halt prog (pc + 1)
+    else None
+    )
+  "
+  by auto
+
+termination
+  by (relation "measure (\<lambda> (prog, pc). length prog - pc)") auto
+
+lemma find_next_halt_finds_halt:
+  "prog ! pc' = Some (INSTR HALT) \<and> pc \<le> pc' \<and> pc' < length prog"
+  if "find_next_halt prog pc = Some pc'"
+using that proof (induction prog pc rule: find_next_halt.induct)
+  case prems: (1 prog pc)
+  from prems(19) show ?case
+    by (
+        simp,
+        simp
+        split: if_split_asm option.split_asm instrc.split_asm instr.split_asm
+        del: find_next_halt.simps;
+        fastforce dest: prems(1-18) simp del: find_next_halt.simps)
+qed
+
+(* XXX Move to Misc *)
+lemma bexp_atLeastAtMost_iff:
+  "(\<forall> pc \<in> {pc_s..pc_t}. P pc) \<longleftrightarrow> (\<forall> pc. pc_s \<le> pc \<and> pc \<le> pc_t \<longrightarrow> P pc)"
+  by auto
+
+definition
+  "guaranteed_execution_cond prog pc_s n \<equiv>
+    case find_next_halt prog pc_s of
+      None \<Rightarrow> False |
+      Some pc_t \<Rightarrow>
+       (
+       \<forall> pc \<in> {pc_s..pc_t}.
+          prog ! pc \<noteq> None
+          \<and> prog ! pc \<notin> Some ` INSTR `
+            {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
+          \<and> (\<forall> c d. prog ! pc = Some (INSTR (STOREC c d)) \<longrightarrow> d = 0)
+        ) \<and>
+        (\<forall> pc \<in> {pc_s..pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t)
+       \<and> n > pc_t - pc_s
+  "
+
+lemma guaranteed_execution_cond_alt_def[code]:
+  "guaranteed_execution_cond prog pc_s n \<equiv>
+    case find_next_halt prog pc_s of
+      None \<Rightarrow> False |
+      Some pc_t \<Rightarrow>
+       (
+       \<forall> pc \<in> {pc_s..pc_t}.
+          prog ! pc \<noteq> None
+          \<and> prog ! pc \<notin> Some ` INSTR `
+            {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
+          \<and> (case prog ! pc of Some (INSTR (STOREC c d)) \<Rightarrow> d = 0 | _ \<Rightarrow> True)
+        ) \<and>
+        (\<forall> pc \<in> {pc_s..pc_t}.
+          case prog ! pc of Some (INSTR (JMPZ pc')) \<Rightarrow> pc' > pc \<and> pc' \<le> pc_t | _ \<Rightarrow> True)
+       \<and> n > pc_t - pc_s
+  "
+proof (rule eq_reflection, goal_cases)
+  case 1
+  have *:
+    "(\<forall> c d. prog ! pc = Some (INSTR (STOREC c d)) \<longrightarrow> d = 0) \<longleftrightarrow>
+     (case prog ! pc of Some (INSTR (STOREC c d)) \<Rightarrow> d = 0 | _ \<Rightarrow> True)" for pc
+    by (auto split: option.split instrc.split instr.split)
+  have **:
+    "(\<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t) \<longleftrightarrow>
+     (case prog ! pc of Some (INSTR (JMPZ pc')) \<Rightarrow> pc' > pc \<and> pc' \<le> pc_t | _ \<Rightarrow> True)" for pc pc_t
+    by (auto split: option.split instrc.split instr.split)
+  show ?case unfolding guaranteed_execution_cond_def * ** ..
+qed
+
+lemma guaranteed_execution':
+  "\<exists> pc_t st' s' f' r' pcs'. exec
+      (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None))
+      n (pc, st, s, f, r) pcs = Some ((pc_t, st', s', f', r'), pcs')"
+  if "guaranteed_execution_cond prog pc n"
+proof -
+  from that obtain pc_t where "find_next_halt prog pc = Some pc_t"
+    unfolding guaranteed_execution_cond_def bexp_atLeastAtMost_iff
+    by (auto split: option.split_asm)
+  then have "prog ! pc_t = Some (INSTR HALT) \<and> pc \<le> pc_t \<and> pc_t < length prog"
+    by (rule find_next_halt_finds_halt)
+  moreover then have "\<exists> st' s' f' r'. steps
+      (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None))
+      n (pc, st, s, f, r) (pc_t, st', s', f', r')"
+    using \<open>_ = Some pc_t\<close> that
+    unfolding guaranteed_execution_cond_def bexp_atLeastAtMost_iff
+    by - (rule guaranteed_execution, auto)
+  ultimately show ?thesis by (force dest: steps_exec)
+  qed
+
 
 context UPPAAL_Reachability_Problem_precompiled
 begin
@@ -1846,6 +2044,10 @@ locale UPPAAL_Reachability_Problem_precompiled_ceiling =
     "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
   and k_0:
     "\<forall> i < p. \<forall> l < length (trans ! i). k ! i ! l ! 0 = 0"
+  and guaranteed_resets:
+    "\<forall> i < p. \<forall> l < length (trans ! i). \<forall> (g, a, r, l') \<in> set (trans ! i ! l).
+      guaranteed_execution_cond prog r max_steps
+     "
 begin
 
 definition "k_fun l c \<equiv> if c > 0 \<and> c \<le> m then Max {k ! i ! (fst l ! i) ! c | i . i < p} else 0"
@@ -2030,6 +2232,14 @@ lemma k_ceiling_2:
       by blast
     from \<open>l \<in> _\<close> have [simp]: "length l = p"
       by simp
+    from * have **:
+      "(pc_g1, In a, pc_u1, l1) \<in> set (trans ! p1 ! (l ! p1))" "(l ! p1) < length (trans ! p1)"
+      "(pc_g2, Out a, pc_u2, l2) \<in> set (trans ! p2 ! (l ! p2))" "(l ! p2) < length (trans ! p2)"
+      unfolding N_def T_def by auto
+    with \<open>p1 < p\<close> guaranteed_resets have guaranteed_execution:
+      "guaranteed_execution_cond prog pc_u1 max_steps"
+      by blast
+    thm guaranteed_execution'[of prog pc_u2 max_steps]
     from \<open>r = _\<close> have "fst ` collect_store'' pc_u1 \<subseteq> set r"
       supply find_resets_start.simps[simp del]
       unfolding collect_store''_def
@@ -2043,7 +2253,8 @@ lemma k_ceiling_2:
         by (auto split: option.split_asm)
       subgoal
         using \<open>Some s' = _\<close> unfolding equiv.make_mf_def
-        sorry (* XXX Need guaranteed execution here *)
+        using guaranteed_execution'[OF guaranteed_execution, of "[]" s True "[]" "[]"]
+        unfolding stripfp_def PROG_def by auto
       subgoal premises prems for _ _ _ _ r2 _ pc' g st f r1 pcs c d pc_t pc''
       proof -
         from prems have
@@ -2069,7 +2280,8 @@ lemma k_ceiling_2:
         by (auto split: option.split_asm)
       subgoal
         using \<open>Some s' = _\<close> unfolding equiv.make_mf_def
-        sorry (* XXX Need guaranteed execution here *)
+        using guaranteed_execution'[OF guaranteed_execution, of "[]" s True "[]" "[]"]
+        unfolding stripfp_def PROG_def by auto
       subgoal premises prems for pc' g st f r1 pcs _ _ _ _ r2 _ c d pc_t pc''
       proof -
         from prems have
@@ -2091,15 +2303,11 @@ lemma k_ceiling_2:
         unfolding k_fun_def by auto
     next
       case False
-      with c_not_elem have c_elem:
+      with c_not_elem have
         "c \<in> {0..<m+1} - fst ` collect_store'' pc_u1"
         "c \<in> {0..<m+1} - fst ` collect_store'' pc_u2"
         by auto
-      from * have
-        "(pc_g1, In a, pc_u1, l1) \<in> set (trans ! p1 ! (l ! p1))" "(l ! p1) < length (trans ! p1)"
-        "(pc_g2, Out a, pc_u2, l2) \<in> set (trans ! p2 ! (l ! p2))" "(l ! p2) < length (trans ! p2)"
-        unfolding N_def T_def by auto
-      with k_resets c_elem \<open>p1 < _\<close> \<open>p2 < _\<close> have
+      with ** k_resets \<open>p1 < _\<close> \<open>p2 < _\<close> have
         "k ! p1 ! l1 ! c \<le> k ! p1 ! (l ! p1) ! c" "k ! p2 ! l2 ! c \<le> k ! p2 ! (l ! p2) ! c"
         unfolding k_fun_def by force+
       with \<open>l' = _\<close> show ?thesis
