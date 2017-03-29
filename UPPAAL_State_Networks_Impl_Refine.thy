@@ -822,15 +822,27 @@ begin
 
 end
 
+(* XXX Move to Misc *)
+(* XXX Unused *)
+lemma bexp_atLeastAtMost_iff:
+  "(\<forall> pc \<in> {pc_s..pc_t}. P pc) \<longleftrightarrow> (\<forall> pc. pc_s \<le> pc \<and> pc \<le> pc_t \<longrightarrow> P pc)"
+  by auto
+
+(* XXX Move to Misc *)
+(* XXX Unused *)
+lemma bexp_atLeastLessThan_iff:
+  "(\<forall> pc \<in> {pc_s..<pc_t}. P pc) \<longleftrightarrow> (\<forall> pc. pc_s \<le> pc \<and> pc < pc_t \<longrightarrow> P pc)"
+  by auto
+
 lemma guaranteed_execution:
   assumes
-    "\<forall> pc \<in> {pc..pc_t}.
+    "\<forall> pc \<in> {pc..<pc_t}.
       prog ! pc \<noteq> None
       \<and> prog ! pc \<notin> Some ` INSTR `
         {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
       \<and> (\<forall> c d. prog ! pc = Some (INSTR (STOREC c d)) \<longrightarrow> d = 0)
       "
-    "\<forall> pc \<in> {pc..pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t"
+    "\<forall> pc \<in> {pc..<pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t"
     "prog ! pc_t = Some (INSTR HALT)" "pc_t \<ge> pc" "n > pc_t - pc" "pc_t < length prog"
   shows "\<exists> st' s' f' r'. steps
       (map_option stripf o (\<lambda>pc. if pc < size prog then prog ! pc else None))
@@ -847,22 +859,21 @@ proof (induction "pc_t - pc" arbitrary: pc st s f r n rule: less_induct)
     then show ?thesis by force
   next
     case False
-    from less.prems(1,4) have valid_instr:
+    with less.prems(1,4) have valid_instr:
       "prog ! pc \<notin> Some ` INSTR `
             {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}"
       "prog ! pc \<noteq> None"
       by auto
-    from \<open>pc \<le> _\<close> have "pc \<in> {pc..pc_t}" by simp
-    with less.prems(2) have jumps:
+    from \<open>pc \<le> _\<close> \<open>pc_t \<noteq> _\<close> less.prems(2) have jumps:
       "pc' > pc \<and> pc' \<le> pc_t" if "prog ! pc = Some (INSTR (JMPZ pc'))" for pc'
-      using that by blast
-    from \<open>pc \<in> _\<close> less.prems(1) have stores:
+      using that by fastforce
+    from \<open>pc \<le> _\<close> \<open>pc_t \<noteq> _\<close> less.prems(1) have stores:
       "d = 0" if "prog ! pc = Some (INSTR (STOREC c d))" for c d
-      using that by blast
+      using that by fastforce
     show ?thesis
     proof (cases "prog ! pc")
       case None
-      from less.prems(1,4) have "prog ! pc \<noteq> None"
+      from \<open>pc_t \<noteq> _\<close> less.prems(1,4) have "prog ! pc \<noteq> None"
         by simp
       with None show ?thesis by auto
     next
@@ -882,7 +893,7 @@ proof (induction "pc_t - pc" arbitrary: pc st s f r n rule: less_induct)
             apply clarsimp
             subgoal premises prems for pc_s pc'
             proof -
-              from prems that have "pc_s \<in> {pc..pc_t}" by simp
+              from prems that have "pc_s \<in> {pc..<pc_t}" by simp
               with prems(1) less.prems(2) show ?thesis by blast
             qed
             done
@@ -908,7 +919,7 @@ proof (induction "pc_t - pc" arbitrary: pc st s f r n rule: less_induct)
             apply clarsimp
             subgoal premises prems for pc_s pc'
             proof -
-              from prems have "pc_s \<in> {pc..pc_t}" by simp
+              from prems have "pc_s \<in> {pc..<pc_t}" by simp
               with prems(1) less.prems(2) show ?thesis by blast
             qed
             done
@@ -950,24 +961,19 @@ using that proof (induction prog pc rule: find_next_halt.induct)
         fastforce dest: prems(1-18) simp del: find_next_halt.simps)
 qed
 
-(* XXX Move to Misc *)
-lemma bexp_atLeastAtMost_iff:
-  "(\<forall> pc \<in> {pc_s..pc_t}. P pc) \<longleftrightarrow> (\<forall> pc. pc_s \<le> pc \<and> pc \<le> pc_t \<longrightarrow> P pc)"
-  by auto
-
 definition
   "guaranteed_execution_cond prog pc_s n \<equiv>
     case find_next_halt prog pc_s of
       None \<Rightarrow> False |
       Some pc_t \<Rightarrow>
        (
-       \<forall> pc \<in> {pc_s..pc_t}.
+       \<forall> pc \<in> {pc_s..<pc_t}.
           prog ! pc \<noteq> None
           \<and> prog ! pc \<notin> Some ` INSTR `
             {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
           \<and> (\<forall> c d. prog ! pc = Some (INSTR (STOREC c d)) \<longrightarrow> d = 0)
         ) \<and>
-        (\<forall> pc \<in> {pc_s..pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t)
+        (\<forall> pc \<in> {pc_s..<pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t)
        \<and> n > pc_t - pc_s
   "
 
@@ -977,13 +983,13 @@ lemma guaranteed_execution_cond_alt_def[code]:
       None \<Rightarrow> False |
       Some pc_t \<Rightarrow>
        (
-       \<forall> pc \<in> {pc_s..pc_t}.
+       \<forall> pc \<in> {pc_s..<pc_t}.
           prog ! pc \<noteq> None
           \<and> prog ! pc \<notin> Some ` INSTR `
             {HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
           \<and> (case prog ! pc of Some (INSTR (STOREC c d)) \<Rightarrow> d = 0 | _ \<Rightarrow> True)
         ) \<and>
-        (\<forall> pc \<in> {pc_s..pc_t}.
+        (\<forall> pc \<in> {pc_s..<pc_t}.
           case prog ! pc of Some (INSTR (JMPZ pc')) \<Rightarrow> pc' > pc \<and> pc' \<le> pc_t | _ \<Rightarrow> True)
        \<and> n > pc_t - pc_s
   "
