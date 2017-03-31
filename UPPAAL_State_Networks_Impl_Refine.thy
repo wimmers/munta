@@ -3675,7 +3675,8 @@ lemma [intro]:
 
   definition
     "reachability_checker'
-    \<equiv> worklist_algo2_impl impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl impl.succs_impl"
+    \<equiv> worklist_algo2_impl
+      impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl impl.succs_impl impl.emptiness_check_impl"
 
   theorem reachability_check':
     "(uncurry0 reachability_checker',
@@ -3840,8 +3841,9 @@ lemma [intro]:
         sub = impl.subsumes_impl;
         start = impl.a\<^sub>0_impl;
         final = impl.F_impl;
-        succs =  impl.succs_impl
-      in worklist_algo2_impl sub start final succs"
+        succs =  impl.succs_impl;
+        empty = impl.emptiness_check_impl
+      in worklist_algo2_impl sub start final succs empty"
     unfolding reachability_checker'_def by simp
 
   (* XXX Re-inspect these *)
@@ -3872,6 +3874,7 @@ lemma [intro]:
    unfolding impl.F_impl_def
    unfolding final_fun_def[abs_def]
    unfolding impl.subsumes_impl_def
+   unfolding impl.emptiness_check_impl_def
   by (rule Pure.reflexive)
 
 end (* End of locale *)

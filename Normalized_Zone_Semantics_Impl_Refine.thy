@@ -131,16 +131,21 @@ begin
 
   abbreviation "state_assn' \<equiv> prod_assn location_assn (mtx_assn n)"
 
+  definition
+  "subsumes' =
+    (\<lambda> (l, M :: ('c :: {zero,linorder}) DBM') (l', M').
+      l = l' \<and> pointwise_cmp (op \<le>) n (curry M) (curry M'))"
+
   context
   begin
 
   lemma [sepref_import_param]:
     "(op =, op =) \<in> location_rel \<rightarrow> location_rel \<rightarrow> Id"
-  by auto
+    by auto
 
   sepref_definition subsumes_impl is
-    "uncurry (RETURN oo subsumes n)" :: "state_assn'\<^sup>k *\<^sub>a state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-    unfolding subsumes_def short_circuit_conv dbm_subset'_def[symmetric]
+    "uncurry (RETURN oo subsumes')" :: "state_assn'\<^sup>k *\<^sub>a state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    unfolding subsumes'_def short_circuit_conv dbm_subset'_def[symmetric]
     by sepref
 
   end
@@ -186,11 +191,9 @@ begin
   (* XXX Better implementation? *)
   lemma [sepref_import_param]: "(List.member, List.member) \<in> Id \<rightarrow> location_rel \<rightarrow> Id" by auto
 
-  (* XXX Make implementation more efficient *)
-  (* Check F_fun or empty diag first? *)
   sepref_definition F_impl is
-    "RETURN o F_rel" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding F_rel_alt_def short_circuit_conv by sepref
+    "RETURN o (\<lambda> (l, M). F l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  by sepref
 
   definition "inv_of_A = inv_of A"
 
@@ -368,17 +371,36 @@ begin
   unfolding reachable_def E_closure
   by (induction l \<equiv> l\<^sub>0 _ _ _ _ _  rule: steps_impl_induct; force elim!: step_impl.cases simp: state_set_def)
 
-  sublocale Worklist1 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M"
+  definition "emptiness_check \<equiv> \<lambda> (l, M). check_diag n M"
+
+  sepref_definition emptiness_check_impl  is
+    "RETURN o emptiness_check" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    unfolding emptiness_check_def
+    by sepref
+
+  sublocale Worklist1 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
     apply standard
+    subgoal
+      unfolding subsumes_def subsumes'_def by auto
+    subgoal
+      unfolding F_rel_def by auto
     apply (clarsimp split: prod.split dest!: reachable_states)
     unfolding succs_def E_alt_def by force
 
-  sublocale Worklist2
-    E a\<^sub>0 F_rel "subsumes n" succs state_assn'
-    succs_impl a\<^sub>0_impl F_impl subsumes_impl "\<lambda> (l, M). check_diag n M"
+  sublocale Worklist2 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). F l" "\<lambda> (l, M). check_diag n M" subsumes'
+    apply standard
+    unfolding F_rel_def by auto
+
+  sublocale Worklist2_Impl
+    E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). F l" state_assn'
+    succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl "\<lambda> (l, M). check_diag n M"
+    subsumes'
     apply standard
     apply (unfold PR_CONST_def)
-  by (rule a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine)+
+    by (rule
+        a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine
+        emptiness_check_impl.refine[unfolded emptiness_check_def]
+        )+
 
   paragraph \<open>Implementation for the invariant precondition check\<close>
 
@@ -539,7 +561,8 @@ begin
     using reachability_check unfolding F_def by auto
 
   definition
-    "reachability_checker' \<equiv> worklist_algo2_impl subsumes_impl a\<^sub>0_impl F_impl succs_impl"
+    "reachability_checker' \<equiv>
+      worklist_algo2_impl subsumes_impl a\<^sub>0_impl F_impl succs_impl emptiness_check_impl"
 
   theorem reachability_check':
     "(uncurry0 reachability_checker',
@@ -724,8 +747,9 @@ begin
         sub = subsumes_impl;
         start = a\<^sub>0_impl;
         final = F_impl;
-        succs = succs_impl
-      in worklist_algo2_impl sub start final succs"
+        succs = succs_impl;
+        empty = emptiness_check_impl
+      in worklist_algo2_impl sub start final succs empty"
   unfolding reachability_checker'_def by simp
 
   schematic_goal reachability_checker_alt_def:
@@ -746,6 +770,7 @@ begin
    unfolding F_impl_def
    unfolding final_fun_def[abs_def]
    unfolding subsumes_impl_def
+   unfolding emptiness_check_impl_def
   by (rule Pure.reflexive)
 
   schematic_goal reachability_checker_alt_def:
