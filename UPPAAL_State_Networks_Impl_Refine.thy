@@ -3366,92 +3366,92 @@ ML \<open>
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
-abbreviation "k_i \<equiv> IArray (map (IArray o (map (IArray o map int))) k)"
+  abbreviation "k_i \<equiv> IArray (map (IArray o (map (IArray o map int))) k)"
 
-definition
-  "k_impl \<equiv> \<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i < p}) [0..<m+1])"
+  definition
+    "k_impl \<equiv> \<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i < p}) [0..<m+1])"
 
-lemma k_impl_alt_def:
-  "k_impl =
-  (\<lambda> (l, _). IArray (map (\<lambda> c. Max ((\<lambda> i. k_i !! i !! (l ! i) !! c) ` {0..<p})) [0..<m+1]))"
-proof -
-  have "{i. i < p} = {0..<p}"
-    by auto
-  then show ?thesis unfolding k_impl_def setcompr_eq_image by auto
-qed
-
-lemma k_length_alt:
-  "\<forall> i < p. \<forall> j < length (k ! i). length (k ! i ! j) = m + 1"
-  using k_length(1,3) by (auto dest: nth_mem)
-
-lemma Max_int_commute:
-  "int (Max S) = Max (int ` S)" if "finite S" "S \<noteq> {}"
-  apply (rule mono_Max_commute)
-    apply rule
-  using that by auto
-
-lemma [intro]:
-  "k_impl (l, s) = IArray (k' (l, s))" if
-  "(l, s) \<in> states'"
-proof -
-  have l_len[simp]: "l ! i < length (trans ! i)" if "i < p" for i
-    using \<open>i < p\<close> \<open>(l, s) \<in> _\<close> by auto thm states_len
-  have *: "k_i !! i !! (l ! i) !! c = k ! i ! (l ! i) ! c"
-    if "c \<le> m" "i < p" for c i
+  lemma k_impl_alt_def:
+    "k_impl =
+    (\<lambda> (l, _). IArray (map (\<lambda> c. Max ((\<lambda> i. k_i !! i !! (l ! i) !! c) ` {0..<p})) [0..<m+1]))"
   proof -
-    from k_length_alt that k_length(1,2) have "length (k ! i ! (l ! i)) = m + 1"
+    have "{i. i < p} = {0..<p}"
       by auto
-    with that k_length process_length(2) processes_have_trans start_has_trans show ?thesis
-      unfolding init_def by auto
+    then show ?thesis unfolding k_impl_def setcompr_eq_image by auto
   qed
-  show ?thesis
-    unfolding k_impl_def k'_def k_fun_def
 
-    apply clarsimp
-    apply safe
-    subgoal
-      apply (subst Max_int_commute)
-      subgoal
+  lemma k_length_alt:
+    "\<forall> i < p. \<forall> j < length (k ! i). length (k ! i ! j) = m + 1"
+    using k_length(1,3) by (auto dest: nth_mem)
+
+  lemma Max_int_commute:
+    "int (Max S) = Max (int ` S)" if "finite S" "S \<noteq> {}"
+    apply (rule mono_Max_commute)
+      apply rule
+    using that by auto
+
+  lemma [intro]:
+    "k_impl (l, s) = IArray (k' (l, s))" if
+    "(l, s) \<in> states'"
+  proof -
+    have l_len[simp]: "l ! i < length (trans ! i)" if "i < p" for i
+      using \<open>i < p\<close> \<open>(l, s) \<in> _\<close> by auto thm states_len
+    have *: "k_i !! i !! (l ! i) !! c = k ! i ! (l ! i) ! c"
+      if "c \<le> m" "i < p" for c i
+    proof -
+      from k_length_alt that k_length(1,2) have "length (k ! i ! (l ! i)) = m + 1"
         by auto
-      subgoal
-        using p_gt_0 by auto
-      apply (rule arg_cong[where f = Max])
-      apply safe
-      using * apply (auto; fail)
-      by (auto simp add: *[symmetric]; fail)
+      with that k_length process_length(2) processes_have_trans start_has_trans show ?thesis
+        unfolding init_def by auto
+    qed
+    show ?thesis
+      unfolding k_impl_def k'_def k_fun_def
 
-    subgoal
-      apply (rule Max_eqI)
-        apply (auto; fail)
-      using k_length_alt k_length processes_have_trans k_0 p_gt_0 unfolding init_def
-       apply (auto; fail)
-
-      using k_length_alt k_length processes_have_trans k_0 p_gt_0 unfolding init_def
       apply clarsimp
-      apply (rule exI[where x = 0])
-      by simp
-
-    subgoal
-      apply (subst Max_int_commute)
-      subgoal
-        by auto
-      subgoal
-        using p_gt_0 by auto
-      apply (rule arg_cong[where f = Max])
       apply safe
-      using * apply (auto; fail)
-      by (auto simp add: *[symmetric]; fail)
-    done
-qed
+      subgoal
+        apply (subst Max_int_commute)
+        subgoal
+          by auto
+        subgoal
+          using p_gt_0 by auto
+        apply (rule arg_cong[where f = Max])
+        apply safe
+        using * apply (auto; fail)
+        by (auto simp add: *[symmetric]; fail)
 
-lemma [intro]:
-  "k_impl (l, s) = IArray (k' (l, s))" if
-  "(l, s) \<in> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of A)"
-  using that states_states' by auto
+      subgoal
+        apply (rule Max_eqI)
+          apply (auto; fail)
+        using k_length_alt k_length processes_have_trans k_0 p_gt_0 unfolding init_def
+         apply (auto; fail)
 
-lemma [intro]:
-  "k_impl (init, s\<^sub>0) = IArray (k' (init, s\<^sub>0))"
-  using states_states' by auto
+        using k_length_alt k_length processes_have_trans k_0 p_gt_0 unfolding init_def
+        apply clarsimp
+        apply (rule exI[where x = 0])
+        by simp
+
+      subgoal
+        apply (subst Max_int_commute)
+        subgoal
+          by auto
+        subgoal
+          using p_gt_0 by auto
+        apply (rule arg_cong[where f = Max])
+        apply safe
+        using * apply (auto; fail)
+        by (auto simp add: *[symmetric]; fail)
+      done
+  qed
+
+  lemma [intro]:
+    "k_impl (l, s) = IArray (k' (l, s))" if
+    "(l, s) \<in> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of A)"
+    using that states_states' by auto
+
+  lemma [intro]:
+    "k_impl (init, s\<^sub>0) = IArray (k' (init, s\<^sub>0))"
+    using states_states' by auto
 
   sublocale impl:
     Reachability_Problem_Impl
@@ -3881,6 +3881,71 @@ end (* End of locale *)
 
 lemmas [code] = UPPAAL_Reachability_Problem_precompiled'.k_impl_def
 
+paragraph \<open>Some post refinements\<close>
+code_thms "fw_upd'"
+code_thms fw_impl'
+code_thms fw_impl
+
+term dbm_add
+thm fw_upd'_def[of "m :: int DBM'" k i j]
+
+abbreviation plus_int :: "int \<Rightarrow> int \<Rightarrow> int" where
+  "plus_int a b \<equiv> a + b"
+
+fun dbm_add_int :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> int DBMEntry"
+where
+  "dbm_add_int \<infinity>     _      = \<infinity>" |
+  "dbm_add_int _      \<infinity>     = \<infinity>" |
+  "dbm_add_int (Le a) (Le b) = (Le (plus_int a b))" |
+  "dbm_add_int (Le a) (Lt b) = (Lt (plus_int a b))" |
+  "dbm_add_int (Lt a) (Le b) = (Lt (plus_int a b))" |
+  "dbm_add_int (Lt a) (Lt b) = (Lt (plus_int a b))"
+
+lemma dbm_add_int:
+  "dbm_add = dbm_add_int"
+  apply (rule ext)+
+  subgoal for x y
+    by (cases x; cases y) auto
+  done
+
+definition
+  "fw_upd'_int m k i j =
+    Refine_Basic.RETURN
+     (op_mtx_set m (i, j)
+       (min (op_mtx_get m (i, j)) (dbm_add_int (op_mtx_get m (i, k)) (op_mtx_get m (k, j)))))"
+
+definition
+  "fw_upd_impl_int n \<equiv> \<lambda>ai bib bia bi. do {
+                      x \<leftarrow> mtx_get (Suc n) ai (bia, bi);
+                      xa \<leftarrow> mtx_get (Suc n) ai (bia, bib);
+                      xb \<leftarrow> mtx_get (Suc n) ai (bib, bi);
+                      mtx_set (Suc n) ai (bia, bi) (min x (dbm_add_int xa xb))
+                    }"
+
+definition
+  "fw_impl_int n \<equiv>
+    imp_for' 0 (n + 1)
+     (\<lambda>xb. imp_for' 0 (n + 1)
+            (\<lambda>xd. imp_for' 0 (n + 1) (\<lambda>xf \<sigma>'''''. fw_upd_impl_int n \<sigma>''''' xb xd xf)))"
+
+lemma fw_impl'_int:
+  "fw_impl = fw_impl_int"
+  unfolding fw_impl_def fw_impl_int_def
+  unfolding fw_upd_impl_def fw_upd_impl_int_def
+  unfolding dbm_add_int mult ..
+
+thm UPPAAL_Reachability_Problem_precompiled'.reachability_checker_alt_def
+
+context UPPAAL_Reachability_Problem_precompiled'
+begin
+
+  schematic_goal reachability_checker_alt_def_refined:
+    "reachability_checker \<equiv> ?impl"
+    unfolding reachability_checker_alt_def
+    unfolding fw_impl'_int
+    by (rule Pure.reflexive)
+
+end (* End of precompiled' locale context *)
 
 (*
 context State_Network_Reachability_Problem_precompiled_int_vars
@@ -4034,7 +4099,7 @@ lemmas [code] =
 code_pred clock_val_a .
 
 concrete_definition reachability_checker_impl
-  uses UPPAAL_Reachability_Problem_precompiled'.reachability_checker_alt_def
+  uses UPPAAL_Reachability_Problem_precompiled'.reachability_checker_alt_def_refined
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs'.make_cconstr_def

@@ -18,6 +18,44 @@ term array_get' term "\<lambda> a. array_get' a o integer_of_int" term array_gro
 
 term integer_of_nat
 
+code_thms List.gen_length
+
+ML \<open>op oo\<close>
+
+code_thms length
+
+term size
+
+(*
+definition [code del]:
+  "length' = List.gen_length 0"
+
+code_printing
+  constant length' => (SML) "nat_of_integer o length"
+
+ML \<open>nat_of_integer\<close>
+*)
+
+(*
+lemma [code]:
+  "length = length'"
+  unfolding length'_def length_code ..
+*)
+
+(*
+code_printing
+  constant List.gen_length \<rightharpoonup> (SML) "length"
+*)
+
+code_thms length
+
+term size_list
+
+(*
+code_printing
+  constant length' \<rightharpoonup> (SML) "nat_of_intger o length"
+*)
+
 code_printing
   type_constructor array \<rightharpoonup> (SML) "_/ FArray.IsabelleMapping.ArrayType"
 | constant Array \<rightharpoonup> (SML) "FArray.IsabelleMapping.array'_of'_list"
@@ -48,6 +86,11 @@ fun array_blit src si dst di len = (
   fun array_upd_oo f i x a () =
     (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
 \<close>
+
+(*
+code_printing
+  constant List.gen_length \<rightharpoonup> (SML) "(fn n => fn xs => nat_of_integer (length xs + integer_of_nat n))"
+*)
 
 thm UPPAAL_Reachability_Problem_precompiled_def
 
