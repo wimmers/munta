@@ -87,10 +87,15 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
     "all_actions_by_state t L \<equiv>
       fold (\<lambda> i. actions_by_state i (t !! i !! (L ! i))) [0..<p] (repeat [] na)"
 
-  abbreviation "PF \<equiv> stripfp PROG"
-  abbreviation "PT \<equiv> striptp PROG"
+  definition "PROG' pc \<equiv> (if pc < length prog then (IArray prog) !! pc else None)"
+  abbreviation "PF \<equiv> stripfp PROG'"
+  abbreviation "PT \<equiv> striptp PROG'"
   definition "runf pc s \<equiv> exec PF max_steps (pc, [], s, True, []) []"
   definition "runt pc s \<equiv> exec PT max_steps (pc, [], s, True, []) []"
+
+  lemma PROG'_PROG [simp]:
+    "PROG' = PROG"
+    unfolding PROG'_def PROG_def by (rule ext) simp
 
   definition
     "check_pred L s \<equiv>
@@ -3333,13 +3338,13 @@ begin
 end (* End of context *)
 
 ML \<open>
-    fun pull_let u t =
+    fun pull_let ctxt u t =
       let
         val t1 = abstract_over (u, t);
         val r1 = Const (@{const_name "HOL.Let"}, dummyT) $ u $ Abs ("I", dummyT, t1);
-        val ct1 = Syntax.check_term @{context} r1;
+        val ct1 = Syntax.check_term ctxt r1;
         val g1 =
-          Goal.prove @{context} [] [] (Logic.mk_equals (t, ct1))
+          Goal.prove ctxt [] [] (Logic.mk_equals (t, ct1))
           (fn {context, ...} => EqSubst.eqsubst_tac context [0] [@{thm Let_def}] 1
           THEN resolve_tac context [@{thm Pure.reflexive}] 1)
       in g1 end;
@@ -3357,7 +3362,7 @@ ML \<open>
     fun pull_tac' u ctxt thm =
       let
         val l = get_lhs thm;
-        val rewr = pull_let u l;
+        val rewr = pull_let ctxt u l;
       in Local_Defs.unfold_tac ctxt [rewr] thm end;
 
     fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
@@ -3936,6 +3941,87 @@ lemma fw_impl'_int:
 
 thm UPPAAL_Reachability_Problem_precompiled'.reachability_checker_alt_def
 
+context UPPAAL_Reachability_Problem_precompiled_defs'
+begin
+
+  definition "run_impl program pc s \<equiv> exec program max_steps (pc, [], s, True, []) []"
+
+  lemma runf_impl:
+    "runf = run_impl PF"
+    unfolding runf_def run_impl_def ..
+
+  lemma runt_impl:
+    "runt = run_impl PT"
+    unfolding runt_def run_impl_def ..
+
+  definition
+    "check_g_impl program pc s \<equiv>
+    case run_impl program pc s of None \<Rightarrow> None
+    | Some ((x, xa, xb, True, xc), pcs) \<Rightarrow> Some (make_cconstr pcs)
+    | Some ((x, xa, xb, False, xc), pcs) \<Rightarrow> None"
+
+  lemma check_g_impl:
+    "check_g = check_g_impl PT"
+    unfolding check_g_impl_def check_g_def runt_impl ..
+
+  (*
+  definition
+    "trans_i_from \<equiv> \<lambda> (L, s) i.
+      List.map_filter (\<lambda> (g, a, m, l').
+        case check_g g s of
+          Some cc \<Rightarrow>
+          case runf m s of
+            Some ((_, _, s', _, r), _) \<Rightarrow>
+              if check_pred (L[i := l']) s'
+              then Some (cc, a, r, (L[i := l'], s'))
+              else None
+         | _ \<Rightarrow> None
+      | _ \<Rightarrow> None)
+        ((IArray (map IArray trans_i_map)) !! i !! (L ! i))"
+
+  definition
+    "trans_i_fun L \<equiv> concat (map (trans_i_from L) [0..<p])"
+  *)
+
+  definition
+    "make_reset_impl program m1 s \<equiv>
+      case run_impl program m1 s of
+        Some ((_, _, _, _, r1), _) \<Rightarrow> r1
+      | None \<Rightarrow> []
+    "
+
+  lemma make_reset_impl:
+    "make_reset = make_reset_impl PF"
+    unfolding make_reset_def make_reset_impl_def runf_impl ..
+
+  definition
+    "pairs_by_action_impl pf pt \<equiv> \<lambda> (L, s) OUT. concat o
+      map (\<lambda> (i, g1, a, m1, l1). List.map_filter
+      (\<lambda> (j, g2, a, m2, l2).
+        if i = j then None else
+        case (check_g_impl pt g1 s, check_g_impl pt g2 s) of
+          (Some cc1, Some cc2) \<Rightarrow>
+          case run_impl pf m2 s of
+            Some ((_, _, s1, _, r2), _) \<Rightarrow>
+            case run_impl pf m1 s1 of
+              Some (( _, _, s', _, _), _) \<Rightarrow>
+                if check_pred (L[i := l1, j := l2]) s'
+                then Some (cc1 @ cc2, a, make_reset_impl pf m1 s @ r2, (L[i := l1, j := l2], s'))
+                else None
+            | _ \<Rightarrow> None
+          | _ \<Rightarrow> None
+        | _ \<Rightarrow> None
+      )
+      OUT)
+        "
+
+  lemma pairs_by_action_impl:
+    "pairs_by_action = pairs_by_action_impl PF PT"
+    unfolding pairs_by_action_def pairs_by_action_impl_def
+    unfolding check_g_impl make_reset_impl runf_impl ..
+
+end
+
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
@@ -3943,6 +4029,9 @@ begin
     "reachability_checker \<equiv> ?impl"
     unfolding reachability_checker_alt_def
     unfolding fw_impl'_int
+    unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl
+    apply (tactic \<open>pull_tac @{term PF} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term PT} @{context}\<close>)
     by (rule Pure.reflexive)
 
 end (* End of precompiled' locale context *)
@@ -4212,6 +4301,7 @@ end
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.PROG_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.PROG'_def
   UPPAAL_Reachability_Problem_precompiled_defs.init_def
   UPPAAL_Reachability_Problem_precompiled_start_state_def
   UPPAAL_Reachability_Problem_precompiled_ceiling_axioms_def
@@ -4223,6 +4313,10 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.collect_store''_alt_def
   UPPAAL_Reachability_Problem_precompiled_defs.clkp_set''_def
   UPPAAL_Reachability_Problem_precompiled_defs.collect_cexp'_alt_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.pairs_by_action_impl_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.make_reset_impl_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.check_g_impl_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.run_impl_def
 
 lemmas [code] =
   Equiv_TA_Defs.state_ta_def Prod_TA_Defs.N_s_def Product_TA_Defs.states_def
