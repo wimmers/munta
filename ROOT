@@ -18,6 +18,10 @@ session "TA_Impl" = "TA" +
   theories [document = false]
     Normalized_Zone_Semantics_Impl_Refine
 
+session "TA_Impl_Calc_Prereq" = "TA_Impl" +
+  theories [document = false]
+    "$AFP/Gabow_SCC/Gabow_SCC_Code"
+
 session "TA_All" = "TA_Impl" +
   theories [document = false]
     UPPAAL_State_Networks_Impl_Refine
