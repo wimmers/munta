@@ -41,6 +41,21 @@ subsection \<open>Executable successor computation\<close>
 no_notation Ref.update ("_ := _" 62)
 no_notation test_bit (infixl "!!" 100)
 
+lemma exec_state_length:
+  assumes "exec prog n (pc, st, s, f, rs) pcs = Some ((pc', st', s', f', rs'), pcs')"
+  shows "length s = length s'"
+  using assms
+proof (induction prog n "(pc, st, s, f, rs)" pcs arbitrary: pc st s f rs pcs rule: exec.induct)
+  case 1
+  then show ?case by simp
+next
+  case prems: (2 prog n pc st m f rs pcs)
+  from prems(2) show ?case
+    apply (clarsimp split: option.split_asm if_split_asm)
+    apply (drule prems(1), assumption+)
+    by (erule step.elims; simp split: if_split_asm)
+qed
+
 locale UPPAAL_Reachability_Problem_precompiled_defs' =
   UPPAAL_Reachability_Problem_precompiled_defs +
   fixes na :: nat
@@ -97,12 +112,15 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
     "PROG' = PROG"
     unfolding PROG'_def PROG_def by (rule ext) simp
 
+  definition "bounded' s \<equiv>
+    (\<forall>i<length s. fst (IArray bounds !! i) < s ! i \<and> s ! i < snd (IArray bounds !! i))"
+
   definition
     "check_pred L s \<equiv>
       list_all
         (\<lambda> q.
           case runf (pred ! q ! (L ! q)) s of
-            Some ((_, _, _, f, _), _) \<Rightarrow> f \<and> bounded bounds s
+            Some ((_, _, _, f, _), _) \<Rightarrow> f \<and> bounded' s
           | None \<Rightarrow> False
         )
         [0..<p]
@@ -2494,7 +2512,7 @@ begin
     by standard
 
   definition
-    "states' = {(L, s). L \<in> equiv.defs.states' s \<and> check_pred L s}"
+    "states' = {(L, s). L \<in> equiv.defs.states' s \<and> check_pred L s \<and> length s = length bounds}"
 
   lemma in_trans_in_mapI:
     assumes
@@ -2757,16 +2775,33 @@ begin
     "L \<in> equiv.defs.states' s" if "(L, s) \<in> states'"
     using that unfolding states'_def by auto
 
+  lemma bounded'_bounded:
+    "bounded' s \<longleftrightarrow> bounded bounds s" if "length s = length bounds"
+    using that unfolding bounded'_def bounded_def by simp
+
+  lemma bounded_bounded':
+    "bounded bounds s \<Longrightarrow> bounded' s"
+    unfolding bounded'_def bounded_def by simp
+
   lemma P_unfold:
-    "(\<forall>q<p. (equiv.defs.P ! q) (L ! q) s) \<longleftrightarrow> (check_pred L s)"
-    unfolding equiv.state_ta_def equiv.state_pred_def check_pred_def using process_length(3)
+    "(\<forall>q<p. (equiv.defs.P ! q) (L ! q) s) \<longleftrightarrow> (check_pred L s)" if "length s = length bounds"
+    unfolding equiv.state_ta_def equiv.state_pred_def check_pred_def using process_length(3) that
     apply simp
     unfolding list_all_iff
     unfolding N_def
     unfolding runf_def P_def
       apply safe
-     apply (auto split: option.split; auto split: option.split_asm; fail)
-    by (force split: option.splits)
+     apply (auto split: option.split simp: bounded'_bounded; auto split: option.split_asm; fail)
+    by (force split: option.splits simp: bounded'_bounded)
+
+  lemma P_unfold_1:
+    "(\<forall>q<p. (equiv.defs.P ! q) (L ! q) s) \<Longrightarrow> (check_pred L s)"
+    unfolding equiv.state_ta_def equiv.state_pred_def check_pred_def using process_length(3)
+    apply simp
+    unfolding list_all_iff
+    unfolding N_def
+    unfolding runf_def P_def
+    by (auto split: option.split simp: bounded_bounded'; auto split: option.split_asm; fail)
 
   lemma [simp]:
     "equiv.PT = PT"
@@ -2859,7 +2894,7 @@ begin
               unfolding equiv.make_f_def equiv.make_mf_def runf_def trans_of_def
               by (auto split: option.splits)
             moreover have "check_pred (L[p' := l']) s'"
-              using prems(3) unfolding P_unfold .
+              using prems(3) by (auto intro: P_unfold_1)
             ultimately show ?thesis using process_length(2) \<open>p' < _\<close> \<open>L ! p' < _\<close>
               by (force simp: set_map_filter trans_i_map_def)
           qed
@@ -2909,7 +2944,7 @@ begin
              moreover have "r1 = make_reset pc_u1 s"
               using \<open>r1 = _\<close> unfolding make_reset_def equiv.make_f_def runf_def by auto
             moreover have "check_pred (L[q1 := l1', q2 := l2']) s'"
-              using prems(5) unfolding P_unfold .
+              using prems(5) by (auto intro: P_unfold_1)
             moreover have "a < na"
                 using action_set \<open>_ \<in> set (trans ! q1 ! (L ! q1))\<close> \<open>q1 < _\<close> \<open>L ! q1 < _\<close>
                       process_length(2)
@@ -2929,7 +2964,7 @@ begin
               unfolding pairs_by_action_def
                 apply -
                 apply (rule bexI[where x = a])
-                by auto(force simp: set_map_filter)
+                by auto (force simp: set_map_filter)
           qed
           done
         done
@@ -2960,7 +2995,10 @@ begin
             apply (simp only: ex_simps[symmetric])
             unfolding states'_def
             apply (clarsimp)
-            unfolding P_unfold
+            apply (subst P_unfold, assumption)
+            apply (subst P_unfold)
+            subgoal
+              unfolding runf_def by (auto dest!: exec_state_length)
             apply simp thm transD[rotated 2]
             apply (drule transD[rotated 2], solve_triv+, blast)
             apply (drule transD[rotated 2], solve_triv+, blast) thm trans_ND
@@ -3026,7 +3064,14 @@ begin
              apply (subst make_g_simp)
           using \<open>q < p\<close> prems(1) by (auto simp add: make_f_unfold)
         ultimately show ?thesis
-          by (force simp: make_mf_simp dest: make_c_simp)
+          apply (subst P_unfold)
+          subgoal
+            using prems(1) by fast
+          apply (subst P_unfold)
+          subgoal
+            using \<open>runf _ _ = _\<close> prems(1)
+            unfolding runf_def by (auto dest!: exec_state_length)
+          using prems(1) by (force simp: make_mf_simp dest: make_c_simp)
       qed
       done
     done
@@ -3230,12 +3275,39 @@ begin
 
 end
 
-lemma (in UPPAAL_Reachability_Problem_precompiled') state_set_states:
-  "state_set (trans_of A) \<subseteq> states'"
-  using state_set_states' state_set_pred unfolding states'_def P_unfold by auto
 
 context UPPAAL_Reachability_Problem_precompiled'
 begin
+
+  lemma bounded_bounded'':
+    "bounded bounds s \<Longrightarrow> length s = length bounds"
+    unfolding bounded'_def bounded_def by simp
+
+  lemma P_bounded:
+    "(\<forall>q<p. (equiv.defs.P ! q) (L ! q) s) \<Longrightarrow> bounded bounds s"
+    unfolding equiv.state_ta_def equiv.state_pred_def check_pred_def using process_length(3) p_gt_0
+    apply simp
+    unfolding list_all_iff
+    unfolding N_def
+    unfolding runf_def P_def
+    apply (drule spec[of _ 0])
+    by (auto split: option.split dest: bounded_bounded''; auto split: option.split_asm)
+
+  lemma (in UPPAAL_Reachability_Problem_precompiled') P_state_length:
+    "(\<forall>q<p. (equiv.defs.P ! q) (L ! q) s) \<Longrightarrow> length s = length bounds"
+    by (intro P_bounded bounded_bounded'')
+
+  lemma (in UPPAAL_Reachability_Problem_precompiled') state_set_state_length:
+    "length s = length bounds" if "(L, s) \<in> state_set (trans_of A)"
+    using that unfolding state_set_def
+    apply (safe dest!: equiv.defs.prod_ta_cases)
+    unfolding equiv.defs.prod_trans_i_alt_def equiv.defs.prod_trans_s_alt_def
+    by safe (auto dest: P_state_length)
+
+  lemma (in UPPAAL_Reachability_Problem_precompiled') state_set_states:
+    "state_set (trans_of A) \<subseteq> states'"
+    using state_set_states' state_set_pred unfolding states'_def
+    by (auto intro: P_unfold_1 state_set_state_length)
 
   lemma p_p_2[simp]:
   "defs'.defs.p = p"
@@ -3266,11 +3338,11 @@ begin
   lemma start_pred':
     "check_pred init s\<^sub>0"
     using start_pred bounded unfolding check_pred_def runf_def list_all_iff
-    by (fastforce split: option.split)
+    by (fastforce split: option.split intro: bounded_bounded')
 
   lemma start_states':
     "(init, s\<^sub>0) \<in> states'"
-    using start_pred' init_states unfolding states'_def by auto
+    using start_pred' init_states bounded unfolding states'_def bounded_def by auto
 
   lemma trans_fun_trans_of[intro, simp]:
     "(trans_fun, trans_of A) \<in> transition_rel states"
@@ -3870,11 +3942,14 @@ begin
         )
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>) (* XXX This is not pulling anything *)
     apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+      (*
     unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def trans_i_from_def
+      thm inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def trans_i_from_def trans_i_map_def
    apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
+  *)
    unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
    unfolding impl.F_impl_def
    unfolding final_fun_def[abs_def]
@@ -3955,14 +4030,25 @@ begin
     unfolding runt_def run_impl_def ..
 
   definition
-    "check_g_impl program pc s \<equiv>
-    case run_impl program pc s of None \<Rightarrow> None
-    | Some ((x, xa, xb, True, xc), pcs) \<Rightarrow> Some (make_cconstr pcs)
+    "make_cconstr_impl program pcs =
+    List.map_filter
+     (\<lambda>pc. case program pc of None \<Rightarrow> None | Some (INSTR x) \<Rightarrow> Map.empty x
+           | Some (CEXP ac) \<Rightarrow> Some ac)
+     pcs"
+
+  lemma make_cconstr_impl:
+    "make_cconstr = make_cconstr_impl PROG"
+    unfolding make_cconstr_def make_cconstr_impl_def ..
+
+  definition
+    "check_g_impl programf program pc s \<equiv>
+    case run_impl programf pc s of None \<Rightarrow> None
+    | Some ((x, xa, xb, True, xc), pcs) \<Rightarrow> Some (make_cconstr_impl program pcs)
     | Some ((x, xa, xb, False, xc), pcs) \<Rightarrow> None"
 
   lemma check_g_impl:
-    "check_g = check_g_impl PT"
-    unfolding check_g_impl_def check_g_def runt_impl ..
+    "check_g = check_g_impl PT PROG'"
+    unfolding check_g_impl_def check_g_def runt_impl PROG'_PROG make_cconstr_impl ..
 
   (*
   definition
@@ -3995,17 +4081,29 @@ begin
     unfolding make_reset_def make_reset_impl_def runf_impl ..
 
   definition
-    "pairs_by_action_impl pf pt \<equiv> \<lambda> (L, s) OUT. concat o
+    "check_pred_impl program bnds L s \<equiv>
+    list_all
+     (\<lambda>q. case run_impl program (pred ! q ! (L ! q)) s of None \<Rightarrow> False
+          | Some ((x, xa, xb, f, xc), xd) \<Rightarrow>
+              f \<and> (\<forall>i<length s. fst (bnds !! i) < s ! i \<and> s ! i < snd (bnds !! i)))
+     [0..<p]"
+
+  lemma check_pred_impl:
+    "check_pred = check_pred_impl PF (IArray bounds)"
+    unfolding check_pred_def check_pred_impl_def runf_impl bounded'_def ..
+
+  definition
+    "pairs_by_action_impl pf pt porig bnds \<equiv> \<lambda> (L, s) OUT. concat o
       map (\<lambda> (i, g1, a, m1, l1). List.map_filter
       (\<lambda> (j, g2, a, m2, l2).
         if i = j then None else
-        case (check_g_impl pt g1 s, check_g_impl pt g2 s) of
+        case (check_g_impl pt porig g1 s, check_g_impl pt porig g2 s) of
           (Some cc1, Some cc2) \<Rightarrow>
           case run_impl pf m2 s of
             Some ((_, _, s1, _, r2), _) \<Rightarrow>
             case run_impl pf m1 s1 of
               Some (( _, _, s', _, _), _) \<Rightarrow>
-                if check_pred (L[i := l1, j := l2]) s'
+                if check_pred_impl pf bnds (L[i := l1, j := l2]) s'
                 then Some (cc1 @ cc2, a, make_reset_impl pf m1 s @ r2, (L[i := l1, j := l2], s'))
                 else None
             | _ \<Rightarrow> None
@@ -4016,22 +4114,79 @@ begin
         "
 
   lemma pairs_by_action_impl:
-    "pairs_by_action = pairs_by_action_impl PF PT"
+    "pairs_by_action = pairs_by_action_impl PF PT PROG' (IArray bounds)"
     unfolding pairs_by_action_def pairs_by_action_impl_def
-    unfolding check_g_impl make_reset_impl runf_impl ..
+    unfolding check_g_impl make_reset_impl check_pred_impl runf_impl ..
+
+  definition
+    "all_actions_by_state_impl upt_p empty_ran i L \<equiv>
+    fold (\<lambda>ia. actions_by_state ia (i !! ia !! (L ! ia))) upt_p empty_ran"
+
+  lemma all_actions_by_state_impl:
+    "all_actions_by_state = all_actions_by_state_impl [0..<p] (repeat [] na)"
+    unfolding all_actions_by_state_def all_actions_by_state_impl_def ..
+
+  definition
+    "trans_i_from_impl programf programt program bnds trans_i_array \<equiv>
+    \<lambda>(L, s) i.
+       List.map_filter
+        (\<lambda>(g, a, m, l').
+            case check_g_impl programt program g s of None \<Rightarrow> None
+            | Some cc \<Rightarrow>
+                case run_impl programf m s of None \<Rightarrow> None
+                | Some ((xx, xa, s', xb, r), xc) \<Rightarrow>
+                    if check_pred_impl programf (IArray bounds) (L[i := l']) s'
+                    then Some (cc, a, r, L[i := l'], s') else None)
+        (trans_i_array !! i !! (L ! i))"
+
+  lemma trans_i_from_impl:
+    "trans_i_from = trans_i_from_impl PF PT PROG' (IArray bounds) (IArray (map IArray trans_i_map))"
+    unfolding trans_i_from_def trans_i_from_impl_def
+    unfolding check_g_impl runf_impl check_pred_impl ..
 
 end
 
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
+  lemma PF_alt_def:
+    "PF = (\<lambda> pc. if pc < length prog then (IArray (map (map_option stripf) prog)) !! pc else None)"
+    unfolding stripfp_def PROG'_def by auto
+
+  lemma PT_alt_def:
+    "PT = (\<lambda> pc. if pc < length prog then (IArray (map (map_option stript) prog)) !! pc else None)"
+    unfolding striptp_def PROG'_def by auto
+
+  thm inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def trans_i_from_def trans_i_map_def
+
+  thm check_g_impl_def runf_impl check_pred_impl_def check_pred_def
+
   schematic_goal reachability_checker_alt_def_refined:
     "reachability_checker \<equiv> ?impl"
     unfolding reachability_checker_alt_def
     unfolding fw_impl'_int
-    unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl
+    unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
+    unfolding trans_i_from_impl
+    unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl check_pred_impl
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray bounds"} @{context}\<close>)
     apply (tactic \<open>pull_tac @{term PF} @{context}\<close>)
     apply (tactic \<open>pull_tac @{term PT} @{context}\<close>)
+    unfolding PF_alt_def PT_alt_def
+    apply (tactic \<open>pull_tac @{term PROG'} @{context}\<close>)
+    unfolding PROG'_def
+    apply (tactic \<open>pull_tac @{term "length prog"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map (map_option stripf) prog)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray (map (map_option stript) prog)"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "IArray prog"} @{context}\<close>)
+    unfolding all_actions_by_state_impl
+    apply (tactic \<open>pull_tac @{term "[0..<p]"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "[0..<na]"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "{0..<p}"} @{context}\<close>)
+    apply (tactic \<open>pull_tac @{term "[0..<m+1]"} @{context}\<close>)
     by (rule Pure.reflexive)
 
 end (* End of precompiled' locale context *)
@@ -4300,15 +4455,9 @@ begin
 end
 
 lemmas [code] =
-  UPPAAL_Reachability_Problem_precompiled_defs.PROG_def
   UPPAAL_Reachability_Problem_precompiled_defs'.PROG'_def
-  UPPAAL_Reachability_Problem_precompiled_defs.init_def
   UPPAAL_Reachability_Problem_precompiled_start_state_def
   UPPAAL_Reachability_Problem_precompiled_ceiling_axioms_def
-  (*
-  UPPAAL_Reachability_Problem_precompiled''_def
-  UPPAAL_Reachability_Problem_precompiled''_axioms_def
-  *)
   UPPAAL_Reachability_Problem_precompiled_defs.N_def
   UPPAAL_Reachability_Problem_precompiled_defs.collect_store''_alt_def
   UPPAAL_Reachability_Problem_precompiled_defs.clkp_set''_def
@@ -4317,6 +4466,10 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs'.make_reset_impl_def
   UPPAAL_Reachability_Problem_precompiled_defs'.check_g_impl_def
   UPPAAL_Reachability_Problem_precompiled_defs'.run_impl_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.make_cconstr_impl_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.check_pred_impl_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.all_actions_by_state_impl_def
+  UPPAAL_Reachability_Problem_precompiled_defs'.trans_i_from_impl_def
 
 lemmas [code] =
   Equiv_TA_Defs.state_ta_def Prod_TA_Defs.N_s_def Product_TA_Defs.states_def
@@ -4325,7 +4478,7 @@ export_code UPPAAL_Reachability_Problem_precompiled'_axioms in SML module_name T
 
 export_code UPPAAL_Reachability_Problem_precompiled' in SML module_name Test
 
-export_code reachability_checker_impl in SML_imp module_name TA
+(* export_code reachability_checker_impl in SML_imp module_name TA *)
 
 hide_const check_and_verify
 
