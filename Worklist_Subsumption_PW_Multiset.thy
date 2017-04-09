@@ -69,14 +69,14 @@ context Search_Space' begin
 
   lemma add_succs_ref_aux_1:
     "(if (\<exists> a' \<in> passed. a \<preceq> a') then RETURN (passed, wait, brk) else
-                  do
-                    {
-                      (wait,brk) \<leftarrow> add_succ_spec wait a;
-                      let passed = insert a passed;
-                      RETURN (passed, wait, brk)
-                    }
-                ) \<le> \<Down> Id (add_pw_spec passed' wait' a')"
-    if "(\<forall> a \<in> passed \<union> set_mset wait. \<not> F a)" "worklist_inv_frontier passed (wait \<union># {#a#})"
+        do
+          {
+            (wait,brk) \<leftarrow> add_succ_spec wait a;
+            let passed = insert a passed;
+            RETURN (passed, wait, brk)
+          }
+      ) \<le> \<Down> Id (add_pw_spec passed' wait' a')"
+    if "(\<forall> a \<in> passed \<union> set_mset wait. \<not> F a)" "worklist_inv_frontier passed (wait + {#a#})"
     "reachable a" "passed \<union> set_mset wait \<subseteq> Collect reachable" "\<not> brk" "\<not> F a"
     "(wait, wait') \<in> Id" "(passed, passed') \<in> Id" "(a, a') \<in> Id"
     unfolding add_pw_spec_def using that
@@ -89,10 +89,24 @@ context Search_Space' begin
       by (blast intro: F_mono trans dest: empty_mono)
     subgoal
       unfolding add_succ_spec_def by (auto simp: pw_le_iff refine_pw_simps)
-    subgoal
-      by (smt Search_Space.trans Search_Space_Defs_Empty.worklist_inv_frontier_def Search_Space_axioms Un_insert_right empty_E empty_mono insert_Diff insert_iff mono set_mset_add_mset_insert set_mset_sup subset_Collect_conv subset_mset.sup_bot_right sup_commute)
-    unfolding add_succ_spec_def
-      by (auto simp: pw_le_iff refine_pw_simps)
+    subgoal premises prems for a'' b
+    proof -
+      from prems obtain b' where b': "E a'' b'" "b \<preceq> b'"
+        by (metis (mono_tags, lifting) empty_E mono subset_Collect_conv)
+      with prems have "\<not> empty b'" by - (rule empty_mono)
+      with b' prems(2) \<open>a'' \<in> passed'\<close> consider "b' \<preceq> a'" | "\<exists>x\<in>passed' \<union> set_mset wait'. b' \<preceq> x"
+        unfolding worklist_inv_frontier_def by auto
+      then show ?thesis
+      proof cases
+        case 1
+        then show ?thesis
+          by (meson b'(2) local.trans prems(12) prems(13) subsetCE sup.cobounded2)
+      next
+        case 2
+        with b'(2) show ?thesis by (auto intro: trans)
+      qed
+    qed
+    unfolding add_succ_spec_def by (auto simp: pw_le_iff refine_pw_simps)
 
 context
 begin
@@ -139,6 +153,14 @@ begin
       done
   qed
 
+lemma multiset_add_remove:
+  "ms + {#a#} - {#a#} = ms"
+  by simp
+
+lemma multiset_add_remove:
+  "ms \<union># {#a#} - {#a#} = ms"
+  oops
+
   lemma add_succs_ref_aux_2:
     "(if (\<exists> a' \<in> passed. a \<preceq> a') then RETURN (passed, wait, brk) else
         do
@@ -148,7 +170,7 @@ begin
             RETURN (passed, wait, brk)
           }
       ) \<le> SPEC (\<lambda> (passed, wait, brk). (\<not> brk \<longrightarrow> worklist_inv_frontier passed wait))"
-    if "worklist_inv_frontier passed (wait \<union># {#a#})" "reachable a"
+    if "worklist_inv_frontier passed (wait + {#a#})" "reachable a"
        "passed \<union> set_mset wait \<subseteq> Collect reachable"
     using that
     apply clarsimp
@@ -164,8 +186,8 @@ begin
       defer
         apply (simp; fail)
         (* s/h *)
-      apply (smt Un_iff add_mset_remove_trivial diff_single_eq_union diff_single_trivial in_diffD set_mset_sup subset_mset.sup_bot.right_neutral sup_union_right1 sup_union_right2 union_single_eq_member)
-      by auto
+        apply (simp add: worklist_inv_frontier_def)
+      by (simp add: multiset_add_remove; fail)
     done
 
 end -- \<open>Private context\<close>
@@ -182,21 +204,22 @@ lemma add_succs_ref[refine]:
     \<Down> {((passed, wait, brk),(passed', wait',brk')).
         passed = passed' \<and> wait = wait' \<and> brk = brk' \<and>
         (\<not> brk \<longrightarrow> worklist_inv_frontier passed wait)} (add_pw_spec passed' wait' a')"
-  if "(\<forall> a \<in> passed \<union> set_mset wait. \<not> F a)" "worklist_inv_frontier passed (wait \<union># {#a#})"
+  if "(\<forall> a \<in> passed \<union> set_mset wait. \<not> F a)" "worklist_inv_frontier passed (wait + {#a#})"
   "reachable a" "passed \<union> set_mset wait \<subseteq> Collect reachable" "\<not> brk" "\<not> F a"
   "(wait, wait') \<in> Id" "(passed, passed') \<in> Id" "(a, a') \<in> Id"
   using add_succs_ref_aux_1[OF that] add_succs_ref_aux_2[OF that(2-4)]
-    by (simp add: pw_le_iff refine_pw_simps)
+  by (simp add: pw_le_iff refine_pw_simps)
 
 lemma [refine]:
   "take_from_mset wait \<le>
     \<Down> {((x, wait), (y, wait')).
       x = y \<and> wait = wait' \<and> (\<forall> a \<in> set_mset wait. \<not> F a) \<and> set_mset wait \<subseteq> Collect reachable \<and>
-      worklist_inv_frontier passed (wait \<union># {#x#}) \<and> \<not> F x} (take_from_mset wait')"
+      worklist_inv_frontier passed (wait + {#x#}) \<and> \<not> F x} (take_from_mset wait')"
   if "wait = wait'" "wait \<noteq> {#}" "(\<forall> a \<in> set_mset wait. \<not> F a)" "set_mset wait \<subseteq> Collect reachable"
       "worklist_inv_frontier passed wait"
   using that
-  apply (auto 4 5 simp: pw_le_iff refine_pw_simps dest: in_diffD dest!: take_from_mset_correct)
+  by (auto 4 5 simp: pw_le_iff refine_pw_simps dest: in_diffD dest!: take_from_mset_correct)
+    (*
   unfolding worklist_inv_frontier_def
   using take_from_mset_correct[OF \<open>wait \<noteq> _\<close>]
   apply (auto simp: pw_le_iff)
@@ -223,7 +246,7 @@ proof -
     using f7 a6 a5 by (metis (no_types) Un_insert_right insert_iff set_mset_add_mset_insert)
 qed
 *)
-  by (metis Un_insert_right insert_DiffM insert_iff set_mset_add_mset_insert)
+  by (metis Un_insert_right insert_DiffM insert_iff set_mset_add_mset_insert) *)
 
 lemma worklist_algo_ref[refine]:
   "worklist_algo \<le> \<Down> Id pw_algo"
