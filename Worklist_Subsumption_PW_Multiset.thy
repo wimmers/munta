@@ -36,8 +36,7 @@ context Search_Space_Defs_Empty begin
       {
         if F a\<^sub>0 then RETURN True
         else do {
-          let passed = {};
-          let wait = {#a\<^sub>0#};
+          (passed, wait) \<leftarrow> RETURN ({}, {#a\<^sub>0#});
           (passed, wait, brk) \<leftarrow> WHILEIT worklist_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> {#})
             (\<lambda> (passed, wait, brk). do
               {
@@ -59,9 +58,6 @@ context Search_Space_Defs_Empty begin
     "
 
 end
-
-locale Search_Space' = Search_Space +
-  assumes final_non_empty: "F a \<Longrightarrow> \<not> empty a"
 
 subsubsection \<open>Correctness Proof\<close>
 
@@ -248,11 +244,18 @@ qed
 *)
   by (metis Un_insert_right insert_DiffM insert_iff set_mset_add_mset_insert) *)
 
+lemma [refine]:
+  "RETURN ({}, {#a\<^sub>0#}) \<le> \<Down> (Id \<inter> {((p, w), (p', w')). worklist_inv (p, w, False)}) init_pw_spec"
+  unfolding init_pw_spec_def worklist_inv_def pw_inv_def worklist_inv_frontier_def
+  by (auto simp: pw_le_iff refine_pw_simps)
+
 lemma worklist_algo_ref[refine]:
   "worklist_algo \<le> \<Down> Id pw_algo"
   unfolding worklist_algo_def pw_algo_def
-  apply refine_rcg
-  unfolding pw_inv_def worklist_inv_def worklist_inv_frontier_def by auto
+    using [[goals_limit=20]]
+    apply refine_rcg
+   unfolding pw_inv_def worklist_inv_def worklist_inv_frontier_def pw_inv_frontier_def
+      by auto (* slow *)
 
 theorem worklist_algo_correct:
   "worklist_algo \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
@@ -265,8 +268,7 @@ qed
 end -- \<open>Search Space'\<close>
 
 
-locale Search_Space'_Defs = Search_Space_Defs_Empty +
-  fixes subsumes' :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<unlhd>" 50) -- \<open>Subsumption preorder\<close>
+context Search_Space''_Defs
 begin
 
   definition "worklist_inv_frontier' passed wait =
@@ -317,11 +319,7 @@ begin
 
 end -- \<open>Search Space' Defs\<close>
 
-locale Search_Space'_pre = Search_Space'_Defs +
-  assumes empty_subsumes': "\<not> empty a \<Longrightarrow> a \<preceq> b \<longleftrightarrow> a \<unlhd> b"
-
-locale Search_Space'_start = Search_Space'_pre +
-  assumes start_non_empty [simp]: "\<not> empty a\<^sub>0"
+context Search_Space''_start
 begin
 
   lemma worklist_algo_list_inv_ref[refine]:
@@ -354,11 +352,11 @@ begin
     unfolding add_succ_spec'_def add_succ_spec_def
     by (auto simp: pw_le_iff refine_pw_simps)
 
-  lemma worklist_algo'_ref[refine]: "worklist_algo' \<le> \<Down>Id worklist_algo"
+ lemma worklist_algo'_ref[refine]: "worklist_algo' \<le> \<Down>Id worklist_algo"
     using [[goals_limit=15]]
     unfolding worklist_algo'_def worklist_algo_def
     apply (refine_rcg)
-                   prefer 3
+                   prefer 4
                    apply assumption
                   apply refine_dref_type
     by (auto simp: empty_subsumes')
@@ -366,7 +364,7 @@ begin
 end -- \<open>Search Space' Start\<close>
 
 
-context Search_Space'_Defs
+context Search_Space''_Defs
 begin
 
   definition worklist_algo'' where
@@ -377,7 +375,7 @@ begin
 end -- \<open>Search Space' Defs\<close>
 
 
-locale Search_Space'' = Search_Space'_pre + Search_Space'
+context Search_Space''
 begin
 
   lemma worklist_algo''_correct:
@@ -389,7 +387,7 @@ begin
       using empty_E_star final_non_empty by auto
   next
     case False
-    interpret Search_Space'_start
+    interpret Search_Space''_start
       by standard (rule \<open>\<not> empty _\<close>)
     note worklist_algo'_ref
     also note worklist_algo_correct

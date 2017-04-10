@@ -1,5 +1,5 @@
 theory Unified_PW
-  imports "$AFP/Refine_Imperative_HOL/Sepref"
+  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Locales
 begin
 
 subsection \<open>Utilities\<close>
@@ -33,41 +33,7 @@ lemma set_mset_mp: "set_mset m \<subseteq> s \<Longrightarrow> n < count m x \<L
 lemma pred_not_lt_is_zero: "(\<not> n - Suc 0 < n) \<longleftrightarrow> n=0" by auto
 
 
-subsection \<open>Search Spaces\<close>
-text \<open>
-  A search space consists of a step relation, a start state,
-  a final state predicate, and a subsumption preorder.
-\<close>
-locale Search_Space_Defs =
-  fixes E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Step relation\<close>
-    and a\<^sub>0 :: 'a                -- \<open>Start state\<close>
-    and F :: "'a \<Rightarrow> bool"      -- \<open>Final states\<close>
-    and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) -- \<open>Subsumption preorder\<close>
-begin
-  definition reachable where
-    "reachable = E\<^sup>*\<^sup>* a\<^sub>0"
-
-  definition "F_reachable \<equiv> \<exists>a. reachable a \<and> F a"
-
-end
-
-locale Search_Space_Defs_Empty = Search_Space_Defs +
-  fixes empty :: "'a \<Rightarrow> bool"
-
-text \<open>The set of reachable states must be finite,
-  subsumption must be a preorder, and be compatible with steps and final states.\<close>
-locale Search_Space = Search_Space_Defs_Empty +
-  assumes finite_reachable: "finite {a. reachable a}"
-
-  assumes refl[intro!, simp]: "a \<preceq> a"
-      and trans[trans]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
-
-  assumes mono:
-      "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<not> empty a \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
-      and empty_subsumes: "empty a \<Longrightarrow> a \<preceq> a'"
-      and empty_mono: "\<not> empty a \<Longrightarrow> a \<preceq> b \<Longrightarrow> \<not> empty b"
-      and empty_E: "reachable x \<Longrightarrow> empty x \<Longrightarrow> E x x' \<Longrightarrow> empty x'"
-      and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
+context Search_Space
 begin
 
   lemma start_reachable[intro!, simp]:
@@ -85,13 +51,12 @@ begin
     shows "finite (Collect (E a))"
     by (metis assms finite_reachable finite_subset mem_Collect_eq step_reachable subsetI)
 
-
-
-end
+end -- \<open>Search Space\<close>
 
 subsection \<open>Worklist Algorithm\<close>
 
-context Search_Space_Defs_Empty begin
+context Search_Space_Defs_Empty
+begin
   definition "reachable_subsumed S = {x' | x x'. reachable x' \<and> x' \<preceq> x \<and> x \<in> S}"
   (* definition "worklist_var = inv_image (finite_psupset (Collect reachable) <*lex*> measure size) (\<lambda> (a, b,c). (a,b))" *)
   definition
@@ -132,10 +97,12 @@ context Search_Space_Defs_Empty begin
       (\<forall> s \<in> set_mset wait. \<exists> s' \<in> set_mset wait'. s \<preceq> s') \<and>
       (\<forall> s \<in> {a' . E a a' \<and> \<not> empty a'}. \<exists> s' \<in> set_mset wait' \<union> passed. s \<preceq> s') \<and>
       (\<forall> s \<in> passed \<union> {a}. \<exists> s' \<in> passed'. s \<preceq> s') \<and>
-      (passed' \<subseteq> passed \<union> {a} \<union> {a' . E a a' \<and> \<not> empty a'} \<and>
+      (passed' \<subseteq> passed \<union> {a} \<union> {a' . E a a'} \<and>
       ((\<exists> x \<in> passed'. \<not> (\<exists> x' \<in> passed. x \<preceq> x')) \<or> wait' \<subseteq># wait \<and> passed = passed')
       )
   )"
+
+  definition "init_pw_spec \<equiv> SPEC (\<lambda> (passed, wait). wait = {#a\<^sub>0#} \<and> passed \<subseteq> {a\<^sub>0})"
 
   abbreviation subsumed_elem :: "'a \<Rightarrow> 'a set \<Rightarrow> bool"
     where "subsumed_elem a M \<equiv> \<exists> a'. a' \<in> M \<and> a \<preceq> a'"
@@ -168,8 +135,7 @@ context Search_Space_Defs_Empty begin
       {
         if F a\<^sub>0 then RETURN True
         else do {
-          let passed = {};
-          let wait = {#a\<^sub>0#};
+          (passed, wait) \<leftarrow> init_pw_spec;
           (passed, wait, brk) \<leftarrow> WHILEIT pw_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> {#})
             (\<lambda> (passed, wait, brk). do
               {
@@ -266,7 +232,7 @@ context Search_Space begin
       "\<forall> s \<in> set_mset (wait - {#a#}). \<exists> s' \<in> set_mset wait'. s \<preceq> s'"
       "\<forall> s \<in> {a'. E a a' \<and> \<not> empty a'}. \<exists> s' \<in> passed \<union> set_mset wait'. s \<preceq> s'"
       "\<forall> s \<in> passed \<union> {a}. \<exists> s' \<in> passed'. s \<preceq> s'"
-      "passed' \<subseteq> passed \<union> {a} \<union> {a' . E a a' \<and> \<not> empty a'}"
+      "passed' \<subseteq> passed \<union> {a} \<union> {a' . E a a'}"
       "pw_inv_frontier passed wait"
       "passed \<subseteq> Collect reachable"
     shows "pw_inv_frontier passed' wait'"
@@ -279,7 +245,7 @@ context Search_Space begin
       "\<forall> s. s \<in>' set_mset (wait - {#a#}) \<longrightarrow> s \<in>' set_mset wait'"
       "\<forall> s \<in> {a'. E a a' \<and> \<not> empty a'}. s \<in>' passed \<union> set_mset wait'"
       "\<forall> s. s \<in>' passed \<union> {a} \<longrightarrow> s \<in>' passed'"
-      "passed' \<subseteq> passed \<union> {a} \<union> {a' . E a a' \<and> \<not> empty a'}"
+      "passed' \<subseteq> passed \<union> {a} \<union> {a' . E a a'}"
       "pw_inv_frontier' passed wait"
       "passed \<subseteq> Collect reachable"
       by (blast intro: trans pw_inv_frontier_frontier')+
@@ -290,11 +256,15 @@ context Search_Space begin
       subgoal for b b'
       proof (goal_cases)
         case A: 1
-        from A(1) assms(6) consider "b \<in> passed" | "a = b" | "E a b" "\<not> empty b"
+        from A(1) assms(6) consider "b \<in> passed" | "a = b" | "E a b"
           by auto
-        then consider "a = b" | "a \<noteq> b" "b \<in>' passed" "reachable b"
+        note cases = this
+        from cases \<open>\<not> b \<in>' set_mset wait'\<close> assms'(4) \<open>reachable a\<close> \<open>passed \<subseteq> _\<close> have "reachable b"
+          by cases (auto intro: step_reachable)
+        with A(3,4) have "\<not> empty b" by (auto simp: empty_E)
+        from cases this \<open>reachable b\<close> consider "a = b" | "a \<noteq> b" "b \<in>' passed" "reachable b"
           apply cases
-          using \<open>\<not> b \<in>' set_mset wait'\<close> assms'(4) \<open>reachable a\<close> \<open>passed \<subseteq> _\<close>
+          using \<open>\<not> b \<in>' set_mset wait'\<close> assms'(4)
           by (fastforce intro: step_reachable)+
         then consider "b \<preceq> a" "reachable b" | "\<not> b \<preceq> a" "b \<in>' passed" "reachable b"
           apply cases
@@ -443,7 +413,7 @@ context Search_Space begin
     note [simp] = size_Diff_submset pred_not_lt_is_zero
     note [dest] = set_mset_mp
     show ?thesis
-    unfolding pw_algo_def add_pw_spec_def F_reachable_def
+    unfolding pw_algo_def init_pw_spec_def add_pw_spec_def F_reachable_def
       apply (refine_vcg wf_worklist_var)
       (* F a\<^sub>0*)
       apply (auto; fail)
@@ -459,7 +429,7 @@ context Search_Space begin
       apply (clarsimp simp: pw_inv_def split: if_split_asm)
       apply safe
         apply (auto dest: in_diffD; fail)+
-        subgoal
+          subgoal
             by (rule aux3; auto)
           subgoal
             by (auto dest: in_diffD; fail)
@@ -482,7 +452,7 @@ context Search_Space begin
             by (auto dest: in_diffD; fail)
           done
         (*Variant*)
-        subgoal for  _ passed _ wait brk _ a wait'
+        subgoal for  _ _ _ _ passed _ wait brk _ a wait'
           apply (clarsimp simp: pw_inv_def split: if_split_asm)
           apply safe
             apply (auto; fail)
@@ -500,7 +470,7 @@ context Search_Space begin
           qed
           subgoal premises prems for passed' wait'' brk'
             unfolding pw_var_def
-            using \<open>wait'' \<subseteq># _\<close> Diff_eq_empty_iff_mset mset_subset_size prems(9) subset_mset_def
+            using \<open>wait'' \<subseteq># _\<close> Diff_eq_empty_iff_mset mset_subset_size prems(12) subset_mset_def
             by fastforce
           subgoal for passed' wait'' brk'
             unfolding pw_var_def by auto
@@ -515,5 +485,4 @@ context Search_Space begin
 
 end -- \<open>Search Space\<close>
 
-
-end
+end -- \<open>End of Theory\<close>
