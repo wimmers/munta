@@ -53,4 +53,13 @@ locale Search_Space''_start = Search_Space''_pre +
 
 locale Search_Space'' = Search_Space''_pre + Search_Space'
 
+
+locale Search_Space_Key_Defs =
+  Search_Space''_Defs E for E :: "'v \<Rightarrow> 'v \<Rightarrow> bool" +
+  fixes key :: "'v \<Rightarrow> 'k"
+
+locale Search_Space_Key =
+  Search_Space_Key_Defs + Search_Space'' +
+  assumes subsumes_key[intro, simp]: "a \<preceq> b \<Longrightarrow> key a = key b"
+
 end

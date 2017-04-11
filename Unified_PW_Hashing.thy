@@ -219,7 +219,7 @@ begin
 
 definition
   "map_set_rel =
-    {(m, s). (\<Union> x \<in> ran m. set x) = s \<and> (\<forall> k. \<forall> xs. m k = Some xs \<longrightarrow> (\<forall> v \<in> set xs. key v = k))}"
+    {(m, s). \<Union> ran m = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k))}"
 
 definition
   "add_pw'_map passed wait a \<equiv>
@@ -229,14 +229,14 @@ definition
       (* ASSERT (\<forall> wait \<in> ran wait. \<forall> x \<in> set wait. \<not> empty x); *)
       RETURN (
         if F a then (passed, wait, True) else
-        let k = key a; passed' = (case passed k of Some passed' \<Rightarrow> passed' | None \<Rightarrow> [])
+        let k = key a; passed' = (case passed k of Some passed' \<Rightarrow> passed' | None \<Rightarrow> {})
         in
           if empty a then
             (passed, wait, False)
-          else if \<exists> x \<in> set passed'. a \<unlhd> x then
+          else if \<exists> x \<in> passed'. a \<unlhd> x then
             (passed, wait, False)
           else
-            (passed(k \<mapsto> (a # passed')), a # wait, False)
+            (passed(k \<mapsto> (insert a passed')), a # wait, False)
         )
       }
     )
@@ -254,7 +254,7 @@ definition pw_algo_map where
     {
       if F a\<^sub>0 then RETURN True
       else do {
-        (passed, wait) \<leftarrow> RETURN (\<lambda> x. if x = key a\<^sub>0 then Some [a\<^sub>0] else None, [a\<^sub>0]);
+        (passed, wait) \<leftarrow> RETURN ([key a\<^sub>0 \<mapsto> {a\<^sub>0}], [a\<^sub>0]);
         (passed, wait, brk) \<leftarrow> WHILEIT pw_map_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> [])
           (\<lambda> (passed, wait, brk). do
             {
@@ -297,27 +297,27 @@ lemma add_pw'_map_ref[refine]:
   proof -
     from assms have [simp]: "a' = a" "f = f'" by simp+
     from assms have rel_passed: "(passed, passed') \<in> map_set_rel" by simp
-    then have union: "passed' = (\<Union>x\<in>ran passed. set x)"
+    then have union: "passed' = (\<Union> ran passed)"
       unfolding map_set_rel_def by auto
     from assms have rel_wait: "(wait, wait') \<in> list_mset_rel" by simp
-    from rel_passed have keys[simp]: "key v = k" if "passed k = Some xs" "v\<in>set xs" for k xs v
+    from rel_passed have keys[simp]: "key v = k" if "passed k = Some xs" "v \<in> xs" for k xs v
       using that unfolding map_set_rel_def by auto
     define k where "k \<equiv> key a"
-    define xs where "xs \<equiv> case passed k of None \<Rightarrow> [] | Some p \<Rightarrow> p"
-    have xs_ran: "x \<in> (\<Union>x\<in>ran passed. set x)" if "x \<in> set xs" for x
-      using that unfolding xs_def ran_def by force
+    define xs where "xs \<equiv> case passed k of None \<Rightarrow> {} | Some p \<Rightarrow> p"
+    have xs_ran: "x \<in> \<Union> ran passed" if "x \<in> xs" for x
+      using that unfolding xs_def ran_def by (auto split: option.split_asm)
     have *:
-      "(\<exists>x\<in>set xs. a \<unlhd> x) \<longleftrightarrow> (\<exists>x\<in>passed'. a' \<unlhd> x)"
+      "(\<exists>x \<in> xs. a \<unlhd> x) \<longleftrightarrow> (\<exists>x\<in>passed'. a' \<unlhd> x)"
     proof (simp, safe, goal_cases)
       case (1 x)
       with rel_passed show ?case
-        unfolding xs_def union by (auto intro: ranI[OF sym])
+        unfolding xs_def union by (auto intro: ranI split: option.split_asm)
     next
       case (2 x)
       with rel_passed show ?case unfolding xs_def union ran_def k_def map_set_rel_def
         using empty_subsumes'2 by force
     qed
-    have "(passed(k \<mapsto> a # xs), insert a' passed') \<in> map_set_rel"
+    have "(passed(k \<mapsto> insert a xs), insert a' passed') \<in> map_set_rel"
       unfolding map_set_rel_def
       apply safe
       subgoal
@@ -330,7 +330,8 @@ lemma add_pw'_map_ref[refine]:
         subgoal for p k'
           unfolding xs_def by (cases "k' = k") auto
         done
-      by (clarsimp split: if_split_asm, safe, auto intro!: keys simp: xs_def k_def)
+      by (clarsimp split: if_split_asm, safe,
+          auto intro!: keys simp: xs_def k_def split: option.split_asm)
     with rel_wait rel_passed show ?thesis
       unfolding *[symmetric]
       unfolding xs_def k_def Let_def
@@ -340,7 +341,7 @@ lemma add_pw'_map_ref[refine]:
 done
 
 lemma init_map_ref[refine]:
-  "((\<lambda>x. if x = key a\<^sub>0 then Some [a\<^sub>0] else None, [a\<^sub>0]), {a\<^sub>0}, {#a\<^sub>0#}) \<in> map_set_rel \<times>\<^sub>r list_mset_rel"
+  "(([key a\<^sub>0 \<mapsto> {a\<^sub>0}], [a\<^sub>0]), {a\<^sub>0}, {#a\<^sub>0#}) \<in> map_set_rel \<times>\<^sub>r list_mset_rel"
   unfolding map_set_rel_def list_mset_rel_def br_def by auto
 
 lemma take_from_list_ref[refine]:
@@ -355,5 +356,89 @@ lemma pw_algo_map_ref:
   unfolding pw_map_inv_def list_mset_rel_def br_def by auto
 
 end -- \<open>Worklist Map\<close>
+
+locale Worklist_Map2_Defs = Worklist_Map_Defs +
+  fixes F' :: "'a \<Rightarrow> bool"
+
+locale Worklist_Map2 = Worklist_Map2_Defs + Worklist_Map +
+  assumes F_split: "F a \<longleftrightarrow> \<not> empty a \<and> F' a"
+
+context Worklist_Map2_Defs
+begin
+
+definition
+  "add_pw'_map2 passed wait a \<equiv>
+   nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
+    (\<lambda>a (passed, wait, _).
+      do {
+      (* ASSERT (\<forall> wait \<in> ran wait. \<forall> x \<in> set wait. \<not> empty x); *)
+      RETURN (
+        if empty a then
+            (passed, wait, False)
+        else if F' a then (passed, wait, True)
+        else
+          let k = key a; passed' = (case passed k of Some passed' \<Rightarrow> passed' | None \<Rightarrow> {})
+          in
+            if \<exists> x \<in> passed'. a \<unlhd> x then
+              (passed, wait, False)
+            else
+              (passed(k \<mapsto> (insert a passed')), a # wait, False)
+        )
+      }
+    )
+    (passed,wait,False)"
+
+definition pw_algo_map2 where
+  "pw_algo_map2 = do
+    {
+      if F a\<^sub>0 then RETURN True
+      else do {
+        (passed, wait) \<leftarrow> RETURN ([key a\<^sub>0 \<mapsto> {a\<^sub>0}], [a\<^sub>0]);
+        (passed, wait, brk) \<leftarrow> WHILEIT pw_map_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> [])
+          (\<lambda> (passed, wait, brk). do
+            {
+              (a, wait) \<leftarrow> take_from_list wait;
+              ASSERT (reachable a);
+              add_pw'_map2 passed wait a
+            }
+          )
+          (passed, wait, False);
+          RETURN brk
+      }
+    }
+  "
+
+end -- \<open>Worklist Map 2 Defs\<close>
+
+context Worklist_Map2
+begin
+
+lemma add_pw'_map2_ref[refine]:
+  "add_pw'_map2 passed wait a \<le> \<Down> Id (add_pw'_map passed' wait' a')"
+  if "(passed, passed') \<in> Id" "(wait, wait') \<in> Id" "(a, a') \<in> Id"
+  using that
+  unfolding add_pw'_map2_def add_pw'_map_def
+  apply refine_rcg
+     apply refine_dref_type
+  by (auto simp: F_split)
+
+lemma pw_algo_map2_ref[refine]:
+  "pw_algo_map2 \<le> \<Down> Id pw_algo_map"
+  unfolding pw_algo_map2_def pw_algo_map_def
+  apply refine_rcg
+           apply refine_dref_type
+  by auto
+
+lemma pw_algo_map2_correct:
+  "pw_algo_map2 \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
+proof -
+  note pw_algo_map2_ref
+  also note pw_algo_map_ref
+  also note pw_algo_unified_ref
+  also note pw_algo_correct
+  finally show ?thesis .
+qed
+
+end
 
 end -- \<open>End of Theory\<close>
