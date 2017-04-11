@@ -62,4 +62,27 @@ locale Search_Space_Key =
   Search_Space_Key_Defs + Search_Space'' +
   assumes subsumes_key[intro, simp]: "a \<preceq> b \<Longrightarrow> key a = key b"
 
+
+locale Worklist1_Defs = Search_Space_Defs +
+  fixes succs :: "'a \<Rightarrow> 'a list"
+
+locale Worklist1 = Worklist1_Defs + Search_Space +
+  assumes succs_correct: "reachable a \<Longrightarrow> set (succs a) = Collect (E a)"
+
+locale Worklist2_Defs = Worklist1_Defs + Search_Space''_Defs
+
+locale Worklist2 = Worklist2_Defs + Worklist1 + Search_Space''_pre + Search_Space
+
+locale Worklist_Map_Defs = Search_Space_Key_Defs + Worklist2_Defs
+
+locale Worklist_Map =
+  Worklist_Map_Defs + Search_Space_Key + Worklist2
+
+locale Worklist_Map2_Defs = Worklist_Map_Defs +
+  fixes F' :: "'a \<Rightarrow> bool"
+
+locale Worklist_Map2 = Worklist_Map2_Defs + Worklist_Map +
+  assumes F_split: "F a \<longleftrightarrow> \<not> empty a \<and> F' a"
+
+
 end

@@ -3,8 +3,8 @@ theory Unified_PW_Hashing
 begin
 
 subsection \<open>Towards an Implementation\<close>
-locale Worklist1_Defs = Search_Space_Defs +
-  fixes succs :: "'a \<Rightarrow> 'a list"
+
+context Worklist1_Defs
 begin
 
 definition "add_pw_unified_spec passed wait a \<equiv> SPEC (\<lambda>(passed',wait',brk).
@@ -32,8 +32,7 @@ definition "add_pw passed wait a \<equiv>
 
 end -- \<open>Worklist1 Defs\<close>
 
-locale Worklist1 = Worklist1_Defs + Search_Space +
-  assumes succs_correct: "reachable a \<Longrightarrow> set (succs a) = Collect (E a)"
+context Worklist1
 begin
 
 lemma add_pw_unified_spec_ref:
@@ -90,7 +89,7 @@ lemma add_pw_ref:
 
 end -- \<open>Worklist 1\<close>
 
-locale Worklist2_Defs = Worklist1_Defs + Search_Space''_Defs
+context Worklist2_Defs
 begin
 
 definition "add_pw' passed wait a \<equiv>
@@ -129,7 +128,7 @@ definition pw_algo_unified where
 
 end -- \<open>Worklist 2 Defs\<close>
 
-locale Worklist2 = Worklist2_Defs + Worklist1 + Search_Space''_pre + Search_Space
+context Worklist2
 begin
 
 lemma empty_subsumes'2:
@@ -212,8 +211,6 @@ using assms unfolding take_from_list_def by simp
 
 lemmas [refine_vcg] = take_from_list_correct[THEN order.trans]
 
-locale Worklist_Map_Defs = Search_Space_Key_Defs + Worklist2_Defs
-
 context Worklist_Map_Defs
 begin
 
@@ -279,8 +276,7 @@ lemma ran_upd_cases2:
   "(\<exists> k. m k = Some x \<and> k \<noteq> a) \<or> (x = y)" if "x \<in> ran (m(a \<mapsto> y))"
   using that unfolding ran_def by (auto split: if_split_asm)
 
-locale Worklist_Map =
-  Worklist_Map_Defs + Search_Space_Key + Worklist2
+context Worklist_Map
 begin
 
 lemma add_pw'_map_ref[refine]:
@@ -356,12 +352,6 @@ lemma pw_algo_map_ref:
   unfolding pw_map_inv_def list_mset_rel_def br_def by auto
 
 end -- \<open>Worklist Map\<close>
-
-locale Worklist_Map2_Defs = Worklist_Map_Defs +
-  fixes F' :: "'a \<Rightarrow> bool"
-
-locale Worklist_Map2 = Worklist_Map2_Defs + Worklist_Map +
-  assumes F_split: "F a \<longleftrightarrow> \<not> empty a \<and> F' a"
 
 context Worklist_Map2_Defs
 begin
