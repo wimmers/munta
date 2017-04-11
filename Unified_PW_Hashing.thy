@@ -200,4 +200,160 @@ lemma pw_algo_unified_ref:
 
 end -- \<open>Worklist 2\<close>
 
+subsubsection \<open>Utilities\<close>
+
+definition take_from_list where
+  "take_from_list s = ASSERT (s \<noteq> []) \<then> SPEC (\<lambda> (x, s'). s = x # s')"
+
+lemma take_from_list_correct:
+  assumes "s \<noteq> []"
+  shows "take_from_list s \<le> SPEC (\<lambda> (x, s'). s = x # s')"
+using assms unfolding take_from_list_def by simp
+
+lemmas [refine_vcg] = take_from_list_correct[THEN order.trans]
+
+locale Worklist_Map_Defs = Search_Space_Key_Defs + Worklist2_Defs
+
+context Worklist_Map_Defs
+begin
+
+definition
+  "map_set_rel =
+    {(m, s). (\<Union> x \<in> ran m. set x) = s \<and> (\<forall> k. \<forall> xs. m k = Some xs \<longrightarrow> (\<forall> v \<in> set xs. key v = k))}"
+
+definition
+  "add_pw'_map passed wait a \<equiv>
+   nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
+    (\<lambda>a (passed, wait, _).
+      do {
+      (* ASSERT (\<forall> wait \<in> ran wait. \<forall> x \<in> set wait. \<not> empty x); *)
+      RETURN (
+        if F a then (passed, wait, True) else
+        let k = key a; passed' = (case passed k of Some passed' \<Rightarrow> passed' | None \<Rightarrow> [])
+        in
+          if empty a then
+            (passed, wait, False)
+          else if \<exists> x \<in> set passed'. a \<unlhd> x then
+            (passed, wait, False)
+          else
+            (passed(k \<mapsto> (a # passed')), a # wait, False)
+        )
+      }
+    )
+    (passed,wait,False)"
+
+definition
+  "pw_map_inv \<equiv> \<lambda> (passed, wait, brk).
+    \<exists> passed' wait'.
+      (passed, passed') \<in> map_set_rel \<and> (wait, wait') \<in> list_mset_rel \<and>
+      pw_inv (passed', wait', brk)
+  "
+
+definition pw_algo_map where
+  "pw_algo_map = do
+    {
+      if F a\<^sub>0 then RETURN True
+      else do {
+        (passed, wait) \<leftarrow> RETURN (\<lambda> x. if x = key a\<^sub>0 then Some [a\<^sub>0] else None, [a\<^sub>0]);
+        (passed, wait, brk) \<leftarrow> WHILEIT pw_map_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> [])
+          (\<lambda> (passed, wait, brk). do
+            {
+              (a, wait) \<leftarrow> take_from_list wait;
+              ASSERT (reachable a);
+              add_pw'_map passed wait a
+            }
+          )
+          (passed, wait, False);
+          RETURN brk
+      }
+    }
+  "
+
+end -- \<open>Worklist Map Defs\<close>
+
+lemma ran_upd_cases:
+  "(x \<in> ran m) \<or> (x = y)" if "x \<in> ran (m(a \<mapsto> y))"
+  using that unfolding ran_def by (auto split: if_split_asm)
+
+lemma ran_upd_cases2:
+  "(\<exists> k. m k = Some x \<and> k \<noteq> a) \<or> (x = y)" if "x \<in> ran (m(a \<mapsto> y))"
+  using that unfolding ran_def by (auto split: if_split_asm)
+
+locale Worklist_Map =
+  Worklist_Map_Defs + Search_Space_Key + Worklist2
+begin
+
+lemma add_pw'_map_ref[refine]:
+  "add_pw'_map passed wait a \<le> \<Down> (map_set_rel \<times>\<^sub>r list_mset_rel \<times>\<^sub>r bool_rel) (add_pw' passed' wait' a')"
+  if "(passed, passed') \<in> map_set_rel" "(wait, wait') \<in> list_mset_rel" "(a, a') \<in> Id"
+  using that
+  unfolding add_pw'_map_def add_pw'_def
+  apply refine_rcg
+     apply refine_dref_type
+     apply (auto; fail)
+    apply (auto; fail)
+   apply (auto; fail)
+  subgoal premises assms for a a' _ _ passed' _ wait' f' passed _ wait f
+  proof -
+    from assms have [simp]: "a' = a" "f = f'" by simp+
+    from assms have rel_passed: "(passed, passed') \<in> map_set_rel" by simp
+    then have union: "passed' = (\<Union>x\<in>ran passed. set x)"
+      unfolding map_set_rel_def by auto
+    from assms have rel_wait: "(wait, wait') \<in> list_mset_rel" by simp
+    from rel_passed have keys[simp]: "key v = k" if "passed k = Some xs" "v\<in>set xs" for k xs v
+      using that unfolding map_set_rel_def by auto
+    define k where "k \<equiv> key a"
+    define xs where "xs \<equiv> case passed k of None \<Rightarrow> [] | Some p \<Rightarrow> p"
+    have xs_ran: "x \<in> (\<Union>x\<in>ran passed. set x)" if "x \<in> set xs" for x
+      using that unfolding xs_def ran_def by force
+    have *:
+      "(\<exists>x\<in>set xs. a \<unlhd> x) \<longleftrightarrow> (\<exists>x\<in>passed'. a' \<unlhd> x)"
+    proof (simp, safe, goal_cases)
+      case (1 x)
+      with rel_passed show ?case
+        unfolding xs_def union by (auto intro: ranI[OF sym])
+    next
+      case (2 x)
+      with rel_passed show ?case unfolding xs_def union ran_def k_def map_set_rel_def
+        using empty_subsumes'2 by force
+    qed
+    have "(passed(k \<mapsto> a # xs), insert a' passed') \<in> map_set_rel"
+      unfolding map_set_rel_def
+      apply safe
+      subgoal
+        unfolding union by (auto dest!: ran_upd_cases xs_ran)
+      subgoal
+        unfolding ran_def by auto
+      subgoal for a''
+        unfolding union ran_def
+        apply clarsimp
+        subgoal for p k'
+          unfolding xs_def by (cases "k' = k") auto
+        done
+      by (clarsimp split: if_split_asm, safe, auto intro!: keys simp: xs_def k_def)
+    with rel_wait rel_passed show ?thesis
+      unfolding *[symmetric]
+      unfolding xs_def k_def Let_def
+      unfolding list_mset_rel_def br_def
+      by auto
+  qed
+done
+
+lemma init_map_ref[refine]:
+  "((\<lambda>x. if x = key a\<^sub>0 then Some [a\<^sub>0] else None, [a\<^sub>0]), {a\<^sub>0}, {#a\<^sub>0#}) \<in> map_set_rel \<times>\<^sub>r list_mset_rel"
+  unfolding map_set_rel_def list_mset_rel_def br_def by auto
+
+lemma take_from_list_ref[refine]:
+  "take_from_list xs \<le> \<Down> (Id \<times>\<^sub>r list_mset_rel) (take_from_mset ms)" if "(xs, ms) \<in> list_mset_rel"
+  using that unfolding take_from_list_def take_from_mset_def list_mset_rel_def br_def
+  by (clarsimp simp: pw_le_iff refine_pw_simps)
+
+lemma pw_algo_map_ref:
+  "pw_algo_map \<le> \<Down> Id pw_algo_unified"
+  unfolding pw_algo_map_def pw_algo_unified_def
+  apply refine_rcg
+  unfolding pw_map_inv_def list_mset_rel_def br_def by auto
+
+end -- \<open>Worklist Map\<close>
+
 end -- \<open>End of Theory\<close>
