@@ -1,7 +1,7 @@
 (* Authors: Lammich, Wimmer *)
 section \<open>Generic Worklist Algorithm with Subsumption\<close>
 theory Worklist_Subsumption_Multiset
-  imports "$AFP/Refine_Imperative_HOL/Sepref"
+  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Locales
 begin
 
 subsection \<open>Utilities\<close>
@@ -35,41 +35,7 @@ lemma set_mset_mp: "set_mset m \<subseteq> s \<Longrightarrow> n < count m x \<L
 lemma pred_not_lt_is_zero: "(\<not> n - Suc 0 < n) \<longleftrightarrow> n=0" by auto
 
 
-subsection \<open>Search Spaces\<close>
-text \<open>
-  A search space consists of a step relation, a start state,
-  a final state predicate, and a subsumption preorder.
-\<close>
-locale Search_Space_Defs =
-  fixes E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Step relation\<close>
-    and a\<^sub>0 :: 'a                -- \<open>Start state\<close>
-    and F :: "'a \<Rightarrow> bool"      -- \<open>Final states\<close>
-    and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) -- \<open>Subsumption preorder\<close>
-begin
-  definition reachable where
-    "reachable = E\<^sup>*\<^sup>* a\<^sub>0"
-
-  definition "F_reachable \<equiv> \<exists>a. reachable a \<and> F a"
-
-end
-
-locale Search_Space_Defs_Empty = Search_Space_Defs +
-  fixes empty :: "'a \<Rightarrow> bool"
-
-text \<open>The set of reachable states must be finite,
-  subsumption must be a preorder, and be compatible with steps and final states.\<close>
-locale Search_Space = Search_Space_Defs_Empty +
-  assumes finite_reachable: "finite {a. reachable a}"
-
-  assumes refl[intro!, simp]: "a \<preceq> a"
-      and trans[trans]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
-
-  assumes mono:
-      "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<not> empty a \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
-      and empty_subsumes: "empty a \<Longrightarrow> a \<preceq> a'"
-      and empty_mono: "\<not> empty a \<Longrightarrow> a \<preceq> b \<Longrightarrow> \<not> empty b"
-      and empty_E: "reachable x \<Longrightarrow> empty x \<Longrightarrow> E x x' \<Longrightarrow> empty x'"
-      and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
+context Search_Space
 begin
 
   lemma start_reachable[intro!, simp]:
@@ -81,19 +47,14 @@ begin
     shows "reachable a'"
   using assms unfolding reachable_def by simp
 
-
   lemma finitely_branching:
     assumes "reachable a"
     shows "finite (Collect (E a))"
     by (metis assms finite_reachable finite_subset mem_Collect_eq step_reachable subsetI)
 
-
-
-end
+end -- \<open>Search Space\<close>
 
 subsection \<open>Worklist Algorithm\<close>
-
-term card
 
 context Search_Space_Defs_Empty begin
   definition "worklist_var = inv_image (finite_psupset (Collect reachable) <*lex*> measure size) (\<lambda> (a, b,c). (a,b))"
@@ -385,8 +346,7 @@ context Search_Space begin
 end -- \<open>Search Space\<close>
 
 
-locale Search_Space'_Defs = Search_Space_Defs_Empty +
-  fixes subsumes' :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<unlhd>" 50) -- \<open>Subsumption preorder\<close>
+context Search_Space''_Defs
 begin
 
   definition "worklist_inv_frontier' passed wait =
@@ -416,8 +376,6 @@ definition "worklist_inv' \<equiv> \<lambda> (passed, wait, brk).
       (\<forall> s \<in> set_mset wait \<union> {a' . E a a' \<and> \<not> empty a'}. \<exists> s' \<in> set_mset wait'. s \<preceq> s')
   )"
 *)
-
-  term add_succ_spec
 
 definition "add_succ_spec' wait a \<equiv> SPEC (\<lambda>(wait',brk).
   (
@@ -456,13 +414,10 @@ definition "add_succ_spec' wait a \<equiv> SPEC (\<lambda>(wait',brk).
       }
     "
 
-end -- \<open>Search Space' Defs\<close>
+end -- \<open>Search Space'' Defs\<close>
 
-locale Search_Space'_pre = Search_Space'_Defs +
-  assumes empty_subsumes': "\<not> empty a \<Longrightarrow> a \<preceq> b \<longleftrightarrow> a \<unlhd> b"
 
-locale Search_Space'_start = Search_Space'_pre +
-  assumes start_non_empty [simp]: "\<not> empty a\<^sub>0"
+context Search_Space''_start
 begin
 
 lemma worklist_algo_list_inv_ref[refine]:
@@ -498,10 +453,10 @@ lemma worklist_algo'_ref[refine]: "worklist_algo' \<le> \<Down>Id worklist_algo"
                   apply refine_dref_type
       by (auto simp: empty_subsumes')
 
-end -- \<open>Search Space' Start\<close>
+end -- \<open>Search Space'' Start\<close>
 
 
-context Search_Space'_Defs
+context Search_Space''_Defs
 begin
 
 definition worklist_algo'' where
@@ -509,11 +464,10 @@ definition worklist_algo'' where
     if empty a\<^sub>0 then RETURN False else worklist_algo'
   "
 
-end -- \<open>Search Space' Defs\<close>
+end -- \<open>Search Space'' Defs\<close>
 
 
-locale Search_Space' = Search_Space'_pre + Search_Space +
-  assumes final_non_empty: "F a \<Longrightarrow> \<not> empty a"
+context Search_Space''
 begin
 
 lemma worklist_algo''_correct:
@@ -525,7 +479,7 @@ proof (cases "empty a\<^sub>0")
     using empty_E_star final_non_empty by auto
 next
   case False
-  interpret Search_Space'_start
+  interpret Search_Space''_start
     by standard (rule \<open>\<not> empty _\<close>)
   note worklist_algo'_ref
   also note worklist_algo_correct
@@ -533,7 +487,7 @@ next
     using False unfolding worklist_algo''_def by simp
 qed
 
-end -- \<open>Search Space'\<close>
+end -- \<open>Search Space''\<close>
 
 
 end -- \<open>End of Theory\<close>

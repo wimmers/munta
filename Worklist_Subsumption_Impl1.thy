@@ -42,7 +42,7 @@ begin
     by auto
   end
 
-  locale Worklist2_Impl_Defs = Worklist2_Defs +
+  locale Worklist4_Impl_Defs = Worklist3_Defs +
     fixes A :: "'a \<Rightarrow> 'ai \<Rightarrow> assn"
     fixes succsi :: "'ai \<Rightarrow> 'ai list Heap"
     fixes a\<^sub>0i :: "'ai Heap"
@@ -50,7 +50,7 @@ begin
     fixes Lei :: "'ai \<Rightarrow> 'ai \<Rightarrow> bool Heap"
     fixes emptyi :: "'ai \<Rightarrow> bool Heap"
 
-  locale Worklist2_Impl = Worklist2_Impl_Defs + Worklist2 +
+  locale Worklist4_Impl = Worklist4_Impl_Defs + Worklist4 +
     (* TODO: This is the easy variant: Operations cannot depend on additional heap. *)
     assumes [sepref_fr_rules]: "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
     assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -86,9 +86,9 @@ begin
       by sepref
 
     concrete_definition (in -) filter_insert_wait_impl
-      uses Worklist2_Impl.filter_insert_wait_impl.refine_raw is "(uncurry ?f, _) \<in> _"
+      uses Worklist4_Impl.filter_insert_wait_impl.refine_raw is "(uncurry ?f, _) \<in> _"
 
-    lemmas [sepref_fr_rules] = filter_insert_wait_impl.refine[OF Worklist2_Impl_axioms]
+    lemmas [sepref_fr_rules] = filter_insert_wait_impl.refine[OF Worklist4_Impl_axioms]
 
     sepref_register filter_insert_wait
 
@@ -107,19 +107,19 @@ begin
 
     concrete_definition (in -) worklist_algo2_impl
     for Lei a\<^sub>0i Fi succsi emptyi
-    uses Worklist2_Impl.worklist_algo2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
+    uses Worklist4_Impl.worklist_algo2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 
     lemma hnr_F_reachable:
       "(uncurry0 (worklist_algo2_impl Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
       \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-      using worklist_algo2_impl.refine[OF Worklist2_Impl_axioms,
+      using worklist_algo2_impl.refine[OF Worklist4_Impl_axioms,
         FCOMP worklist_algo2_ref[THEN nres_relI],
         FCOMP worklist_algo''_correct[THEN Id_SPEC_refine, THEN nres_relI]]
       by (simp add: RETURN_def)
 
-  end -- \<open>Worklist2 Impl\<close>
+  end -- \<open>Worklist4 Impl\<close>
 
-  context Worklist2 begin
+  context Worklist4 begin
 
     sepref_decl_op F_reachable :: "bool_rel" .
     lemma [def_pat_rules]: "F_reachable \<equiv> op_F_reachable" by simp
@@ -135,7 +135,7 @@ begin
         "(uncurry0 (worklist_algo2_impl Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN (PR_CONST op_F_reachable)))
         \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     proof -
-      from assms interpret Worklist2_Impl E a\<^sub>0 F "op\<preceq>" succs F' A succsi a\<^sub>0i Fi Lei emptyi
+      from assms interpret Worklist4_Impl E a\<^sub>0 F "op\<preceq>" succs empty "op \<unlhd>" F' A succsi a\<^sub>0i Fi Lei emptyi
         by (unfold_locales; simp add: GEN_ALGO_def)
 
       from hnr_F_reachable show ?thesis by simp
@@ -143,6 +143,6 @@ begin
 
     sepref_decl_impl hnr_op_F_reachable .
 
-  end -- \<open>Worklist2\<close>
+  end -- \<open>Worklist4\<close>
 
 end -- \<open>End of Theory\<close>

@@ -18,7 +18,7 @@ using assms unfolding take_from_list_def by simp
 lemmas [refine_vcg] = take_from_list_correct[THEN order.trans]
 
 
-context Search_Space'_Defs
+context Search_Space_Defs_Empty
 begin
 
   definition "worklist_inv_frontier_list passed wait =
@@ -47,6 +47,10 @@ begin
     ) \<and> (\<forall> s \<in> set wait'. \<not> empty s)
   )"
 
+end -- \<open>Search Space Empty Defs\<close>
+
+context Search_Space''_Defs
+begin
   definition worklist_algo_list where
     "worklist_algo_list = do
       {
@@ -74,9 +78,9 @@ begin
       }
     "
 
-end -- \<open>Search Space Defs\<close>
+end -- \<open>Search Space'' Defs\<close>
 
-context Search_Space'
+context Search_Space''_pre
 begin
 
   lemma worklist_algo_list_inv_ref:
@@ -112,15 +116,11 @@ begin
               apply (rule worklist_algo_list_inv_ref; assumption)
     by auto
 
-end -- \<open>Search Space\<close>
+end -- \<open>Search Space''\<close>
 
 
 subsection \<open>Towards an Implementation\<close>
-locale Worklist1_Defs = Search_Space_Defs +
-  fixes succs :: "'a \<Rightarrow> 'a list"
-
-locale Worklist1 = Worklist1_Defs + Search_Space' +
-  assumes succs_correct: "reachable a \<Longrightarrow> set (succs a) = Collect (E a)"
+context Worklist1_Defs
 begin
 
   definition
@@ -137,6 +137,11 @@ begin
       )
       (wait,False)"
 
+end
+
+context Worklist2_Defs
+begin
+
   definition
     "add_succ1' wait a \<equiv>
      nfoldli (succs a) (\<lambda>(_,brk). \<not>brk)
@@ -150,7 +155,12 @@ begin
       )
       (wait,False)"
 
-  lemma add_succ1_ref[refine]:
+end
+
+context Worklist1
+begin
+
+lemma add_succ1_ref[refine]:
     "add_succ1 wait a \<le> \<Down>(Id \<times>\<^sub>r bool_rel) (add_succ_spec_list wait' a')"
     if "(wait,wait')\<in>Id" "(a,a')\<in>b_rel Id reachable" "\<forall> x \<in> set wait'. \<not> empty x"
     using that
@@ -185,6 +195,11 @@ begin
     using succs_correct[of a] apply (auto; fail)
     apply (auto; fail)
     done
+
+end
+
+context Worklist2
+begin
 
   lemma add_succ1'_ref[refine]:
     "add_succ1' wait a \<le> \<Down>(Id \<times>\<^sub>r bool_rel) (add_succ1 wait' a')"
@@ -261,13 +276,9 @@ begin
     finally show "worklist_algo1' \<le> worklist_algo'" by simp
   qed
 
-end -- \<open>Worklist1\<close>
+end -- \<open>Worklist2\<close>
 
-locale Worklist2_Defs = Worklist1_Defs +
-  fixes F' :: "'a \<Rightarrow> bool"
-
-locale Worklist2 = Worklist2_Defs + Worklist1 +
-  assumes F_split: "F a \<longleftrightarrow> \<not> empty a \<and> F' a"
+context Worklist3_Defs
 begin
 
   definition
@@ -288,6 +299,12 @@ begin
      if \<exists> x \<in> set wait. a \<unlhd> x \<and> \<not> x \<unlhd> a
      then [x \<leftarrow> wait. \<not> x \<unlhd> a]
      else a # [x \<leftarrow> wait. \<not> x \<unlhd> a]"
+
+end
+
+
+context Worklist3
+begin
 
   lemma filter_insert_wait_alt_def:
     "filter_insert_wait wait a = (
@@ -371,6 +388,6 @@ begin
     finally show ?thesis .
   qed
 
-end -- \<open>Worklist2\<close>
+end -- \<open>Worklist3\<close>
 
 end -- \<open>Theory\<close>
