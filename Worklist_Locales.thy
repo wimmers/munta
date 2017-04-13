@@ -1,5 +1,5 @@
 theory Worklist_Locales
-  imports "$AFP/Refine_Imperative_HOL/Sepref"
+  imports "$AFP/Refine_Imperative_HOL/Sepref" "$AFP/Collections/Lib/HashCode"
 begin
 
 subsection \<open>Search Spaces\<close>
@@ -92,5 +92,27 @@ locale Worklist_Map =
 locale Worklist_Map2_Defs = Worklist_Map_Defs + Worklist3_Defs
 
 locale Worklist_Map2 = Worklist_Map2_Defs + Worklist_Map + Worklist3
+
+locale Worklist4_Impl_Defs = Worklist3_Defs +
+  fixes A :: "'a \<Rightarrow> 'ai \<Rightarrow> assn"
+  fixes succsi :: "'ai \<Rightarrow> 'ai list Heap"
+  fixes a\<^sub>0i :: "'ai Heap"
+  fixes Fi :: "'ai \<Rightarrow> bool Heap"
+  fixes Lei :: "'ai \<Rightarrow> 'ai \<Rightarrow> bool Heap"
+  fixes emptyi :: "'ai \<Rightarrow> bool Heap"
+
+locale Worklist4_Impl = Worklist4_Impl_Defs + Worklist4 +
+  (* TODO: This is the easy variant: Operations cannot depend on additional heap. *)
+  assumes [sepref_fr_rules]: "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
+  assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  assumes [sepref_fr_rules]: "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  assumes [sepref_fr_rules]: "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
+  assumes [sepref_fr_rules]: "(emptyi,RETURN o PR_CONST empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+
+locale Worklist_Map2_Impl_Defs =
+  Worklist4_Impl_Defs _ _ _ _ _ _ _ _ A + Worklist_Map2_Defs a\<^sub>0 _ _ _ _ _ key
+  for A :: "'a \<Rightarrow> 'ai :: {heap} \<Rightarrow> _" and key :: "'a \<Rightarrow> 'ki :: {hashable, heap}" +
+  fixes keyi :: "'ai \<Rightarrow> 'ki Heap"
+  fixes copyi :: "'ai \<Rightarrow> 'ai Heap"
 
 end

@@ -42,21 +42,7 @@ begin
     by auto
   end
 
-  locale Worklist4_Impl_Defs = Worklist3_Defs +
-    fixes A :: "'a \<Rightarrow> 'ai \<Rightarrow> assn"
-    fixes succsi :: "'ai \<Rightarrow> 'ai list Heap"
-    fixes a\<^sub>0i :: "'ai Heap"
-    fixes Fi :: "'ai \<Rightarrow> bool Heap"
-    fixes Lei :: "'ai \<Rightarrow> 'ai \<Rightarrow> bool Heap"
-    fixes emptyi :: "'ai \<Rightarrow> bool Heap"
-
-  locale Worklist4_Impl = Worklist4_Impl_Defs + Worklist4 +
-    (* TODO: This is the easy variant: Operations cannot depend on additional heap. *)
-    assumes [sepref_fr_rules]: "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
-    assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-    assumes [sepref_fr_rules]: "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-    assumes [sepref_fr_rules]: "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
-    assumes [sepref_fr_rules]: "(emptyi,RETURN o PR_CONST empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  context Worklist4_Impl
   begin
     sepref_register "PR_CONST a\<^sub>0" "PR_CONST F'" "PR_CONST op \<unlhd>" "PR_CONST succs" "PR_CONST empty"
 

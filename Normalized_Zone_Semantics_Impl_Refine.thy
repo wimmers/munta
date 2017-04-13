@@ -438,19 +438,14 @@ sepref_definition state_copy_impl is
 
 
 sublocale Worklist_Map2_Impl
-  a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M" subsumes' E succs
-  "\<lambda> (l, M). F l" fst state_assn'
-  succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl "return o fst" state_copy_impl
-  (* "\<lambda> (l, M). do {M' \<leftarrow> mop_mtx_copy M; RETURN (l, M')}" *)
+  E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
+  "\<lambda> (l, M). F l" state_assn'
+  succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
   apply standard
   unfolding PR_CONST_def
-    apply (rule
-        a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine
-        emptiness_check_impl.refine[unfolded emptiness_check_def]
-        )+
    apply sepref_to_hoare
    apply sep_auto
-    by (rule state_copy_impl.refine)
+  by (rule state_copy_impl.refine)
 
   paragraph \<open>Implementation for the invariant precondition check\<close>
 
