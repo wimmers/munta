@@ -60,7 +60,7 @@ locale Search_Space_Key_Defs =
 
 locale Search_Space_Key =
   Search_Space_Key_Defs + Search_Space'' +
-  assumes subsumes_key[intro, simp]: "a \<preceq> b \<Longrightarrow> key a = key b"
+  assumes subsumes_key[intro, simp]: "a \<unlhd> b \<Longrightarrow> key a = key b"
 
 locale Worklist0_Defs = Search_Space_Defs +
   fixes succs :: "'a \<Rightarrow> 'a list"
@@ -92,6 +92,5 @@ locale Worklist_Map =
 locale Worklist_Map2_Defs = Worklist_Map_Defs + Worklist3_Defs
 
 locale Worklist_Map2 = Worklist_Map2_Defs + Worklist_Map + Worklist3
-
 
 end

@@ -1,7 +1,10 @@
 (* Authors: Lammich, Wimmer *)
 section \<open>Generic Worklist Algorithm with Subsumption\<close>
 theory Worklist_Subsumption_Multiset
-  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Locales
+  imports
+    "$AFP/Refine_Imperative_HOL/Sepref"
+    Worklist_Locales
+    Unified_PW (* Only for shared definitions *)
 begin
 
 subsection \<open>Utilities\<close>
@@ -61,8 +64,6 @@ context Search_Space_Defs_Empty begin
 
   definition "worklist_inv_frontier passed wait =
     (\<forall> a \<in> passed. \<forall> a'. E a a' \<and> \<not> empty a' \<longrightarrow> (\<exists> b' \<in> passed \<union> set_mset wait. a' \<preceq> b'))"
-
-  definition "start_subsumed passed wait = (\<exists> a \<in> passed \<union> set_mset wait. a\<^sub>0 \<preceq> a)"
 
   definition "worklist_inv \<equiv> \<lambda> (passed, wait, brk).
     passed \<subseteq> Collect reachable \<and>

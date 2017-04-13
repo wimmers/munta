@@ -1,5 +1,5 @@
 theory Unified_PW_Hashing
-  imports Worklist_Subsumption_PW_Multiset DRAT_Misc
+  imports Unified_PW DRAT_Misc
 begin
 
 subsection \<open>Towards an Implementation\<close>

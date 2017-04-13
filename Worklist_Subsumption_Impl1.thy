@@ -109,7 +109,7 @@ begin
     for Lei a\<^sub>0i Fi succsi emptyi
     uses Worklist4_Impl.worklist_algo2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 
-    lemma hnr_F_reachable:
+    lemma worklist_algo2_impl_hnr_F_reachable:
       "(uncurry0 (worklist_algo2_impl Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
       \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
       using worklist_algo2_impl.refine[OF Worklist4_Impl_axioms,
@@ -138,7 +138,7 @@ begin
       from assms interpret Worklist4_Impl E a\<^sub>0 F "op\<preceq>" succs empty "op \<unlhd>" F' A succsi a\<^sub>0i Fi Lei emptyi
         by (unfold_locales; simp add: GEN_ALGO_def)
 
-      from hnr_F_reachable show ?thesis by simp
+      from worklist_algo2_impl_hnr_F_reachable show ?thesis by simp
     qed
 
     sepref_decl_impl hnr_op_F_reachable .
