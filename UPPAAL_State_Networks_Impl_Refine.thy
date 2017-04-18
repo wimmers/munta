@@ -3750,10 +3750,17 @@ begin
       using F_reachable_equiv[OF that]
       by (simp add: F_def)
 
+
   definition
-    "reachability_checker'
-    \<equiv> worklist_algo2_impl
-      impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl impl.succs_impl impl.emptiness_check_impl"
+    "reachability_checker_old \<equiv>
+      worklist_algo2_impl
+        impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl impl.succs_impl impl.emptiness_check_impl"
+
+  definition
+    "reachability_checker' \<equiv>
+       pw_impl
+        (return o fst) impl.state_copy_impl impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl
+        impl.succs_impl impl.emptiness_check_impl"
 
   theorem reachability_check':
     "(uncurry0 reachability_checker',
@@ -3765,7 +3772,7 @@ begin
       )
      )
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  using impl.hnr_F_reachable unfolding reachability_checker'_def F_reachable_correct' .
+  using impl.pw_impl_hnr_F_reachable unfolding reachability_checker'_def F_reachable_correct' .
 
   corollary reachability_checker'_hoare:
     "<emp> reachability_checker'
@@ -3810,7 +3817,7 @@ begin
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
     apply (simp only: F_reachable_correct[symmetric] cong: if_cong)
     supply
-      impl.hnr_F_reachable
+      impl.pw_impl_hnr_F_reachable
       [unfolded reachability_checker'_def[symmetric], to_hnr, unfolded hn_refine_def,
        rule_format, sep_heap_rules]
     supply
@@ -3915,12 +3922,14 @@ begin
   lemma reachability_checker'_alt_def':
     "reachability_checker' \<equiv>
       let
+        key = return \<circ> fst;
         sub = impl.subsumes_impl;
+        copy = impl.state_copy_impl;
         start = impl.a\<^sub>0_impl;
         final = impl.F_impl;
         succs =  impl.succs_impl;
         empty = impl.emptiness_check_impl
-      in worklist_algo2_impl sub start final succs empty"
+      in pw_impl key copy sub start final succs empty"
     unfolding reachability_checker'_def by simp
 
   (* XXX Re-inspect these *)
@@ -3955,6 +3964,7 @@ begin
    unfolding final_fun_def[abs_def]
    unfolding impl.subsumes_impl_def
    unfolding impl.emptiness_check_impl_def
+   unfolding impl.state_copy_impl_def
   by (rule Pure.reflexive)
 
 end (* End of locale *)
@@ -4013,8 +4023,6 @@ lemma fw_impl'_int:
   unfolding fw_impl_def fw_impl_int_def
   unfolding fw_upd_impl_def fw_upd_impl_int_def
   unfolding dbm_add_int mult ..
-
-thm UPPAAL_Reachability_Problem_precompiled'.reachability_checker_alt_def
 
 context UPPAAL_Reachability_Problem_precompiled_defs'
 begin
