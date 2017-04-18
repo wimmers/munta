@@ -2,7 +2,7 @@ theory Unified_PW_Hashing
   imports Unified_PW DRAT_Misc
 begin
 
-subsection \<open>Towards an Implementation\<close>
+subsection \<open>Towards an Implementation of the Unified Passed-Wait List\<close>
 
 context Worklist1_Defs
 begin
@@ -172,14 +172,16 @@ lemma refine_weaken:
   by (auto simp: pw_le_iff refine_pw_simps; blast)
 
 lemma add_pw'_ref:
-  (* "add_pw' passed wait a \<le> \<Down> (Id \<inter> {((p, w, _), _). p \<noteq> {} \<and> set_mset w \<subseteq> p}) (add_pw_spec passed' wait' a')" *)
-  "add_pw' passed wait a \<le> \<Down> ({((p, w, b), (p', w', b')). p \<noteq> {} \<and> p = p' \<union> set_mset w \<and> w = w' \<and> b = b'}) (add_pw_spec passed' wait' a')"
+  "add_pw' passed wait a \<le>
+    \<Down> ({((p, w, b), (p', w', b')). p \<noteq> {} \<and> p = p' \<union> set_mset w \<and> w = w' \<and> b = b'})
+      (add_pw_spec passed' wait' a')"
   if "passed \<noteq> {}" "set_mset wait \<subseteq> passed" "reachable a" "a \<in> passed"
      and [simp]: "passed = passed'" "wait = wait'" "a = a'"
   by (rule add_pw'_ref1[OF that, THEN refine_weaken]; auto)
 
 lemma
-  "(({a\<^sub>0}, {#a\<^sub>0#}, False), {}, {#a\<^sub>0#}, False) \<in> {((p, w, b), (p', w', b')). p = p' \<union> set_mset w' \<and> w = w' \<and> b = b'}"
+  "(({a\<^sub>0}, {#a\<^sub>0#}, False), {}, {#a\<^sub>0#}, False)
+  \<in> {((p, w, b), (p', w', b')). p = p' \<union> set_mset w' \<and> w = w' \<and> b = b'}"
   by auto
 
 lemma [refine]:
@@ -187,7 +189,9 @@ lemma [refine]:
   unfolding init_pw_spec_def by (auto simp: pw_le_iff refine_pw_simps)
 
 lemma [refine]:
-  "take_from_mset wait \<le> \<Down> {((x, wait), (y, wait')). x = y \<and> wait = wait' \<and> set_mset wait \<subseteq> passed \<and> x \<in> passed} (take_from_mset wait')"
+  "take_from_mset wait \<le>
+    \<Down> {((x, wait), (y, wait')). x = y \<and> wait = wait' \<and> set_mset wait \<subseteq> passed \<and> x \<in> passed}
+      (take_from_mset wait')"
   if "wait = wait'" "set_mset wait \<subseteq> passed" "wait \<noteq> {#}"
   using that
   by (auto 4 5 simp: pw_le_iff refine_pw_simps dest: in_diffD dest!: take_from_mset_correct)

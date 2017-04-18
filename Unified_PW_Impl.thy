@@ -4,38 +4,6 @@ begin
 
   subsection \<open>Implementation on Lists\<close>
 
-  (* XXX Duplication, see DBM_Operations_Impl *)
-  lemma list_ex_foldli:
-    "list_ex P xs = foldli xs Not (\<lambda> x y. P x \<or> y) False"
-   apply (induction xs)
-   apply (simp; fail)
-   subgoal for x xs
-    apply simp
-    apply (induction xs)
-   by auto
-  done
-
-  lemma list_filter_foldli:
-    "[x \<leftarrow> xs. P x] = rev (foldli xs (\<lambda> x. True) (\<lambda> x xs. if P x then x # xs else xs) [])"
-    (is "_ = rev (foldli xs ?c ?f [])")
-  proof -
-    have *:
-      "rev (foldli xs ?c ?f (ys @ zs)) = rev zs @ rev (foldli xs ?c ?f ys)" for xs ys zs
-    proof (induction xs arbitrary: ys)
-      case Nil
-      then show ?case by simp
-    next
-      case (Cons x xs)
-      from Cons[of "x # ys"] Cons[of ys] show ?case by simp
-    qed
-    show ?thesis
-      apply (induction xs)
-       apply (simp; fail)
-      apply simp
-      apply (subst (2) *[of _ "[]", simplified])
-      by simp
-  qed
-
   (* XXX Move *)
   context notes [split!] = list.split begin
   sepref_decl_op list_hdtl: "\<lambda> (x # xs) \<Rightarrow> (x, xs)" :: "[\<lambda>l. l\<noteq>[]]\<^sub>f \<langle>A\<rangle>list_rel \<rightarrow> A \<times>\<^sub>r \<langle>A\<rangle>list_rel"
@@ -44,9 +12,6 @@ begin
 
   context Worklist_Map2_Defs
   begin
-
-  text \<open>Includes Hotfix for a bug in the sepref framework. Note the added 'id' term.\<close>
-  (* XXX Remember to remove this once it is fixed *)
 
   lemma add_pw'_map2_alt_def:
     "add_pw'_map2 passed wait a =
@@ -97,12 +62,6 @@ begin
       "empty \<equiv> UNPROTECT empty" "keyi \<equiv> UNPROTECT keyi" "F \<equiv> UNPROTECT F" "key \<equiv> UNPROTECT key"
       by simp_all
 
-    (* XXX Now obsolete *)
-    lemma take_from_mset_as_mop_mset_pick: "take_from_mset = mop_mset_pick"
-      apply (intro ext)
-      unfolding take_from_mset_def[abs_def]
-      by (auto simp: pw_eq_iff refine_pw_simps)
-
     lemma take_from_list_alt_def:
       "take_from_list xs = do {_ \<leftarrow> ASSERT (xs \<noteq> []); RETURN (hd_tl xs)}"
       unfolding take_from_list_def by (auto simp: pw_eq_iff refine_pw_simps)
@@ -110,8 +69,6 @@ begin
     lemma [safe_constraint_rules]: "CN_FALSE is_pure A \<Longrightarrow> is_pure A" by simp
 
     lemmas [sepref_fr_rules] = hd_tl_hnr
-
-    lemmas [sepref_fr_rules] = (* hm_upd_op_impl.refine *) hm.update_hnr
 
     sepref_thm pw_algo_map2_impl is "uncurry0 pw_algo_map2" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
       unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def
@@ -122,7 +79,6 @@ begin
       apply (rewrite in "{a\<^sub>0}" lso_fold_custom_empty)
       unfolding hm.hms_fold_custom_empty
       apply (rewrite in "[a\<^sub>0]" HOL_list.fold_custom_empty)
-      (* apply (rewrite in "[]" HOL_list.fold_custom_empty) *)
        apply (rewrite in "{}" lso_fold_custom_empty)
       unfolding F_split (* XXX Why? F only appears in the invariant *)
       by sepref

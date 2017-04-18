@@ -53,12 +53,12 @@ begin
 
 end -- \<open>Search Space\<close>
 
-subsection \<open>Worklist Algorithm\<close>
+subsection \<open>Generalized Worklist Algorithm\<close>
 
 context Search_Space_Defs_Empty
 begin
   definition "reachable_subsumed S = {x' | x x'. reachable x' \<and> x' \<preceq> x \<and> x \<in> S}"
-  (* definition "worklist_var = inv_image (finite_psupset (Collect reachable) <*lex*> measure size) (\<lambda> (a, b,c). (a,b))" *)
+
   definition
     "pw_var =
       inv_image (

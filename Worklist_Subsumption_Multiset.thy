@@ -57,10 +57,12 @@ begin
 
 end -- \<open>Search Space\<close>
 
-subsection \<open>Worklist Algorithm\<close>
+subsection \<open>Standard Worklist Algorithm\<close>
 
 context Search_Space_Defs_Empty begin
-  definition "worklist_var = inv_image (finite_psupset (Collect reachable) <*lex*> measure size) (\<lambda> (a, b,c). (a,b))"
+  definition
+    "worklist_var =
+    inv_image (finite_psupset (Collect reachable) <*lex*> measure size) (\<lambda> (a, b,c). (a,b))"
 
   definition "worklist_inv_frontier passed wait =
     (\<forall> a \<in> passed. \<forall> a'. E a a' \<and> \<not> empty a' \<longrightarrow> (\<exists> b' \<in> passed \<union> set_mset wait. a' \<preceq> b'))"
@@ -355,38 +357,19 @@ begin
 
   definition "start_subsumed' passed wait = (\<exists> a \<in> passed \<union> set_mset wait. a\<^sub>0 \<preceq> a)"
 
-definition "worklist_inv' \<equiv> \<lambda> (passed, wait, brk).
-  worklist_inv (passed, wait, brk) \<and> (\<forall> a \<in> passed. \<not> empty a) \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)
-    "
+  definition "worklist_inv' \<equiv> \<lambda> (passed, wait, brk).
+    worklist_inv (passed, wait, brk) \<and> (\<forall> a \<in> passed. \<not> empty a) \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)
+      "
 
-  (*
   definition "add_succ_spec' wait a \<equiv> SPEC (\<lambda>(wait',brk).
+    (
     if \<exists>a'. E a a' \<and> F a' then
-      brk
-    else
-      \<not>brk \<and> set_mset wait' \<subseteq> set_mset wait \<union> {a' . E a a'} \<and>
-      (\<forall> s \<in> set_mset wait \<union> {a' . E a a'}. \<not> empty s \<longrightarrow> (\<exists> s' \<in> set_mset wait'. s \<preceq> s')) \<and>
-      (\<forall> s \<in> set_mset wait'. \<not> empty s)
-  )"
-
-  definition "add_succ_spec wait a \<equiv> SPEC (\<lambda>(wait',brk).
-    if \<exists>a'. E a a' \<and> F a' then
-      brk
-    else
-      \<not>brk \<and> set_mset wait' \<subseteq> set_mset wait \<union> {a' . E a a'} \<and>
-      (\<forall> s \<in> set_mset wait \<union> {a' . E a a' \<and> \<not> empty a'}. \<exists> s' \<in> set_mset wait'. s \<preceq> s')
-  )"
-*)
-
-definition "add_succ_spec' wait a \<equiv> SPEC (\<lambda>(wait',brk).
-  (
-  if \<exists>a'. E a a' \<and> F a' then
-      brk
-    else
-      \<not>brk \<and> set_mset wait' \<subseteq> set_mset wait \<union> {a' . E a a'} \<and>
-      (\<forall> s \<in> set_mset wait \<union> {a' . E a a' \<and> \<not> empty a'}. \<exists> s' \<in> set_mset wait'. s \<preceq> s')
-  ) \<and> (\<forall> s \<in> set_mset wait'. \<not> empty s)
-  )"
+        brk
+      else
+        \<not>brk \<and> set_mset wait' \<subseteq> set_mset wait \<union> {a' . E a a'} \<and>
+        (\<forall> s \<in> set_mset wait \<union> {a' . E a a' \<and> \<not> empty a'}. \<exists> s' \<in> set_mset wait'. s \<preceq> s')
+    ) \<and> (\<forall> s \<in> set_mset wait'. \<not> empty s)
+    )"
 
   definition worklist_algo' where
     "worklist_algo' = do
@@ -421,38 +404,44 @@ end -- \<open>Search Space'' Defs\<close>
 context Search_Space''_start
 begin
 
-lemma worklist_algo_list_inv_ref[refine]:
+  lemma worklist_algo_list_inv_ref[refine]:
     fixes x x'
     assumes
       "\<not> F a\<^sub>0" "\<not> F a\<^sub>0"
-      "(x, x') \<in> {((passed,wait,brk), (passed',wait',brk')). passed = passed' \<and> wait = wait' \<and> brk = brk' \<and> (\<forall> a \<in> passed. \<not> empty a) \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)}"
+      "(x, x') \<in> {((passed,wait,brk), (passed',wait',brk')).
+        passed = passed' \<and> wait = wait' \<and> brk = brk' \<and> (\<forall> a \<in> passed. \<not> empty a)
+        \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)}"
       "worklist_inv x'"
     shows "worklist_inv' x"
     using assms
     unfolding worklist_inv'_def worklist_inv_def
     by auto
 
-lemma [refine]:
-  "take_from_mset wait \<le> \<Down> {((x, wait), (y, wait')). x = y \<and> wait = wait' \<and> \<not> empty x \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)} (take_from_mset wait')"
-  if "wait = wait'" "\<forall> a \<in> set_mset wait. \<not> empty a" "wait \<noteq> {#}"
-  using that
-  by (auto 4 5 simp: pw_le_iff refine_pw_simps dest: in_diffD dest!: take_from_mset_correct)
+  lemma [refine]:
+    "take_from_mset wait \<le>
+    \<Down> {((x, wait), (y, wait')). x = y \<and> wait = wait' \<and> \<not> empty x \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)}
+      (take_from_mset wait')"
+    if "wait = wait'" "\<forall> a \<in> set_mset wait. \<not> empty a" "wait \<noteq> {#}"
+    using that
+    by (auto 4 5 simp: pw_le_iff refine_pw_simps dest: in_diffD dest!: take_from_mset_correct)
 
-lemma [refine]:
-  "add_succ_spec' wait x \<le> \<Down> ({(wait, wait'). wait = wait' \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)} \<times>\<^sub>r bool_rel) (add_succ_spec wait' x')"
-  if "wait = wait'" "x = x'" "\<forall> a \<in> set_mset wait. \<not> empty a"
-  using that
-  unfolding add_succ_spec'_def add_succ_spec_def
-  by (auto simp: pw_le_iff refine_pw_simps)
+  lemma [refine]:
+    "add_succ_spec' wait x \<le>
+    \<Down> ({(wait, wait'). wait = wait' \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)} \<times>\<^sub>r bool_rel)
+      (add_succ_spec wait' x')"
+    if "wait = wait'" "x = x'" "\<forall> a \<in> set_mset wait. \<not> empty a"
+    using that
+    unfolding add_succ_spec'_def add_succ_spec_def
+    by (auto simp: pw_le_iff refine_pw_simps)
 
-lemma worklist_algo'_ref[refine]: "worklist_algo' \<le> \<Down>Id worklist_algo"
-  using [[goals_limit=15]]
-    unfolding worklist_algo'_def worklist_algo_def
-    apply (refine_rcg)
-               prefer 3
-      apply assumption
-                  apply refine_dref_type
-      by (auto simp: empty_subsumes')
+  lemma worklist_algo'_ref[refine]: "worklist_algo' \<le> \<Down>Id worklist_algo"
+    using [[goals_limit=15]]
+      unfolding worklist_algo'_def worklist_algo_def
+      apply (refine_rcg)
+                 prefer 3
+        apply assumption
+                    apply refine_dref_type
+        by (auto simp: empty_subsumes')
 
 end -- \<open>Search Space'' Start\<close>
 
@@ -460,10 +449,10 @@ end -- \<open>Search Space'' Start\<close>
 context Search_Space''_Defs
 begin
 
-definition worklist_algo'' where
-  "worklist_algo'' \<equiv>
-    if empty a\<^sub>0 then RETURN False else worklist_algo'
-  "
+  definition worklist_algo'' where
+    "worklist_algo'' \<equiv>
+      if empty a\<^sub>0 then RETURN False else worklist_algo'
+    "
 
 end -- \<open>Search Space'' Defs\<close>
 
@@ -471,22 +460,22 @@ end -- \<open>Search Space'' Defs\<close>
 context Search_Space''
 begin
 
-lemma worklist_algo''_correct:
-  "worklist_algo'' \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
-proof (cases "empty a\<^sub>0")
-  case True
-  then show ?thesis
-    unfolding worklist_algo''_def F_reachable_def reachable_def
-    using empty_E_star final_non_empty by auto
-next
-  case False
-  interpret Search_Space''_start
-    by standard (rule \<open>\<not> empty _\<close>)
-  note worklist_algo'_ref
-  also note worklist_algo_correct
-  finally show ?thesis
-    using False unfolding worklist_algo''_def by simp
-qed
+  lemma worklist_algo''_correct:
+    "worklist_algo'' \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
+  proof (cases "empty a\<^sub>0")
+    case True
+    then show ?thesis
+      unfolding worklist_algo''_def F_reachable_def reachable_def
+      using empty_E_star final_non_empty by auto
+  next
+    case False
+    interpret Search_Space''_start
+      by standard (rule \<open>\<not> empty _\<close>)
+    note worklist_algo'_ref
+    also note worklist_algo_correct
+    finally show ?thesis
+      using False unfolding worklist_algo''_def by simp
+  qed
 
 end -- \<open>Search Space''\<close>
 

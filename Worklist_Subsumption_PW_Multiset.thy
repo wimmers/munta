@@ -4,7 +4,7 @@ theory Worklist_Subsumption_PW_Multiset
   imports "$AFP/Refine_Imperative_HOL/Sepref" Unified_PW
 begin
 
-subsection \<open>Worklist Algorithm\<close>
+subsection \<open>Deriving the Standard Worklist Algorithm from the Generalized Version\<close>
 
 (* XXX Move to misc *)
 lemma mset_remove_member:
@@ -149,14 +149,6 @@ begin
       done
   qed
 
-lemma multiset_add_remove:
-  "ms + {#a#} - {#a#} = ms"
-  by simp
-
-lemma multiset_add_remove:
-  "ms \<union># {#a#} - {#a#} = ms"
-  oops
-
   lemma add_succs_ref_aux_2:
     "(if (\<exists> a' \<in> passed. a \<preceq> a') then RETURN (passed, wait, brk) else
         do
@@ -183,7 +175,7 @@ lemma multiset_add_remove:
         apply (simp; fail)
         (* s/h *)
         apply (simp add: worklist_inv_frontier_def)
-      by (simp add: multiset_add_remove; fail)
+      by (simp add: Multiset.diff_union_cancelR; fail)
     done
 
 end -- \<open>Private context\<close>
@@ -215,34 +207,6 @@ lemma [refine]:
       "worklist_inv_frontier passed wait"
   using that
   by (auto 4 5 simp: pw_le_iff refine_pw_simps dest: in_diffD dest!: take_from_mset_correct)
-    (*
-  unfolding worklist_inv_frontier_def
-  using take_from_mset_correct[OF \<open>wait \<noteq> _\<close>]
-  apply (auto simp: pw_le_iff)
-  apply (drule spec)
-  apply (drule spec)
-  apply (erule impE, assumption)
-    (*
-proof -
-  fix a :: 'a and b :: "'a multiset" and aa :: 'a and a' :: 'a
-  assume a1: "E aa a'"
-  assume a2: "\<not> empty a'"
-  assume a3: "\<forall>a\<in>passed. \<forall>a'. E a a' \<and> \<not> empty a' \<longrightarrow> (\<exists>x\<in>passed \<union> set_mset wait'. a' \<preceq> x)"
-  assume a4: "aa \<in> passed"
-  assume a5: "\<forall>x\<in>passed \<union> set_mset b. \<not> a' \<preceq> x"
-  assume a6: "a \<in># wait' \<and> b = wait' - {#a#}"
-  obtain aaa :: "'a \<Rightarrow> 'a" where
-    "\<forall>x0. (x0 \<in>' passed \<union> set_mset wait') = (aaa x0 \<in> passed \<union> set_mset wait' \<and> x0 \<preceq> aaa x0)"
-    by moura
-  then have f7: "aaa a' \<in> passed \<union> set_mset wait' \<and> a' \<preceq> aaa a'"
-    using a4 a3 a2 a1 by (simp add: Bex_def_raw)
-  have "\<forall>a m. (a::'a) \<notin># m \<or> add_mset a (m - {#a#}) = m"
-    by simp
-  then show "a' \<preceq> a"
-    using f7 a6 a5 by (metis (no_types) Un_insert_right insert_iff set_mset_add_mset_insert)
-qed
-*)
-  by (metis Un_insert_right insert_DiffM insert_iff set_mset_add_mset_insert) *)
 
 lemma [refine]:
   "RETURN ({}, {#a\<^sub>0#}) \<le> \<Down> (Id \<inter> {((p, w), (p', w')). worklist_inv (p, w, False)}) init_pw_spec"
