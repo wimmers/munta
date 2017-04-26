@@ -13,13 +13,13 @@ subsection \<open>Discourse on updating DBMs\<close>
 abbreviation DBM_update :: "('t::time) DBM \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('t DBMEntry) \<Rightarrow> ('t::time) DBM"
 where
   "DBM_update M m n v \<equiv> (\<lambda> x y. if m = x \<and> n = y then v else M x y)"
-  
+
 fun DBM_upd :: "('t::time) DBM \<Rightarrow> (nat \<Rightarrow> nat \<Rightarrow> 't DBMEntry) \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't DBM"
 where
   "DBM_upd M f 0 0 _ = DBM_update M 0 0 (f 0 0)" |
   "DBM_upd M f (Suc i) 0 n = DBM_update (DBM_upd M f i n n) (Suc i) 0 (f (Suc i) 0)" |
   "DBM_upd M f i (Suc j) n = DBM_update (DBM_upd M f i j n) i (Suc j) (f i (Suc j))"
-  
+
 lemma upd_1:
 assumes "j \<le> n"
 shows "DBM_upd M1 f (Suc m) n N (Suc m) j = DBM_upd M1 f (Suc m) j N (Suc m) j"
@@ -118,7 +118,7 @@ proof -
   next
     case (3 c)
     hence "dbm_entry_val u (Some c) None (M (v c) 0)" "M (v c) 0 \<preceq> M' (v c) 0" by auto
-    thus ?case using dbm_entry_val_mono_3 by fast 
+    thus ?case using dbm_entry_val_mono_3 by fast
   next
     case (4 c1 c2)
     hence "dbm_entry_val u (Some c1) (Some c2) (M (v c1) (v c2))" "M (v c1) (v c2) \<preceq> M' (v c1) (v c2)"
@@ -190,7 +190,7 @@ proof -
           case False
           with A(1) have *: "- b' > 0" by simp
           from 2 have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less mult)
-          then have "-b' < a'" by (metis less_add_same_cancel1 minus_add_cancel minus_less_iff) 
+          then have "-b' < a'" by (metis less_add_same_cancel1 minus_add_cancel minus_less_iff)
           from dense[OF this] obtain d where d:
             "d > -b'" "-d < b'" "d < a'"
           by (auto simp add: minus_less_iff)
@@ -207,7 +207,7 @@ proof -
       proof (cases b, auto, goal_cases)
         case (1 b')
         from this(2) have "-b' \<ge> 0"
-        by (metis dbm_lt.intros(3) leI less less_asym neg_less_0_iff_less) 
+        by (metis dbm_lt.intros(3) leI less less_asym neg_less_0_iff_less)
         let ?d = "- b'"
         have "Le ?d \<le> \<infinity>" "Le (- ?d) \<le> Le b'" by (auto simp: any_le_inf)
         with \<open>-b' \<ge> 0\<close> show ?case by auto
@@ -258,7 +258,7 @@ fixes i xs assumes
 shows False
 proof -
   from A(1) surj_on at_most obtain c where c: "v c = i" by auto
-  with DBM_val_bounded_len'3[OF bounded at_most(2), of c c] A(1,2) surj_on 
+  with DBM_val_bounded_len'3[OF bounded at_most(2), of c c] A(1,2) surj_on
   have bounded:"dbm_entry_val u (Some c) (Some c) (len M i i xs)" by force
   from A(3) have "len M i i xs \<prec> Le 0" by (simp add: neutral less)
   then show False using bounded by (cases rule: dbm_lt.cases) (auto elim: dbm_entry_val.cases)
@@ -309,7 +309,7 @@ proof -
     with distinct_card[OF ys(1)] have "distinct (a # b # zs)" by (intro card_distinct) auto
     with distinct_cnt[of "b # zs"] have *: "cnt 0 (b # zs) \<le> 1" by fastforce
     show ?thesis
-     apply (rule DBM_val_bounded_neg_cycle1[OF bounded _ _ _ surj_on \<open>a \<noteq> 0\<close> *]) 
+     apply (rule DBM_val_bounded_neg_cycle1[OF bounded _ _ _ surj_on \<open>a \<noteq> 0\<close> *])
        using zs(2) ys(3,4) A(1,2) apply fastforce+
     using zs(1) ys(2) by simp
   qed
@@ -363,7 +363,7 @@ proof (induction "length vs" arbitrary: vs rule: less_induct)
       then have "len M 0 0 xs < \<one>" by simp
       with DBM_val_bounded_neg_cycle[OF assms(1), of 0 xs] vs A(4,5) show False by auto
     qed
-    ultimately have *: "len M 0 (v c) vs \<ge> len M 0 (v c) ys" by (simp add: add_mono_neutl) 
+    ultimately have *: "len M 0 (v c) vs \<ge> len M 0 (v c) ys" by (simp add: add_mono_neutl)
     from vs A have "dbm_entry_val u None (Some c) (len M 0 (v c) ys)" by auto
     from dbm_entry_val_mono_2[OF this] * show ?thesis unfolding less_eq by auto
   qed
@@ -452,7 +452,7 @@ lemma FW_zone_equiv:
 proof safe
   fix u assume A: "u \<in> [FW M n]\<^bsub>v,n\<^esub>"
   { fix i j assume "i \<le> n" "j \<le> n"
-    hence "FW M n i j \<le> M i j" using fw_mono[of n n n i j M n] by simp
+    hence "FW M n i j \<le> M i j" using fw_mono[of i n j M] by simp
     hence "FW M n i j \<preceq> M i j" by (simp add: less_eq)
   }
   with DBM_le_subset[of n "FW M n" M] A show "u \<in> [M]\<^bsub>v,n\<^esub>" by auto
@@ -461,13 +461,12 @@ next
   hence *:"DBM_val_bounded v u M n" by (simp add: DBM_zone_repr_def)
   note ** = DBM_val_bounded_neg_cycle[OF this _ _ _ surj_on]
   have cyc_free: "cyc_free M n" using ** by fastforce
-  with cycle_free_diag_equiv have cycle_free: "cycle_free M n" by auto
-  from cycle_free_diag[OF this] have diag_ge_zero: "\<forall>k\<le>n. M k k \<ge> Le 0" unfolding neutral by auto
-  
+  from cyc_free_diag[OF this] have diag_ge_zero: "\<forall>k\<le>n. M k k \<ge> Le 0" unfolding neutral by auto
+
   have "DBM_val_bounded v u (FW M n) n" unfolding DBM_val_bounded_def
   proof (auto, goal_cases)
     case 1
-    from fw_shortest_path[OF cycle_free, of 0 n 0 n n] have **:
+    from fw_shortest_path[OF cyc_free] have **:
       "D M 0 0 n = FW M n 0 0"
     by (simp add: neutral)
     from D_dest[OF **[symmetric]] obtain xs where xs:
@@ -478,7 +477,7 @@ next
     then show ?case unfolding neutral less_eq by simp
   next
     case (2 c)
-    with fw_shortest_path[OF cycle_free, of 0 n "v c" n n] have **:
+    with fw_shortest_path[OF cyc_free] have **:
       "D M 0 (v c) n = FW M n 0 (v c)"
     by (simp add: neutral)
     from D_dest[OF **[symmetric]] obtain xs where xs:
@@ -489,7 +488,7 @@ next
     by - (rule DBM_val_bounded_len'2[OF * xs(3)]; auto)
   next
     case (3 c)
-    with fw_shortest_path[OF cycle_free, of "v c" n 0 n n] have **:
+    with fw_shortest_path[OF cyc_free] have **:
       "D M (v c) 0 n = FW M n (v c) 0"
     by (simp add: neutral)
     with D_dest[OF **[symmetric]] obtain xs where xs:
@@ -500,7 +499,7 @@ next
     by - (rule DBM_val_bounded_len'1[OF * xs(3)]; auto)
   next
     case (4 c1 c2)
-    with fw_shortest_path[OF cycle_free, of "v c1" n "v c2" n n]
+    with fw_shortest_path[OF cyc_free]
     have "D M (v c1) (v c2) n = FW M n (v c1) (v c2)" by (simp add: neutral)
     from D_dest[OF this[symmetric]] obtain xs where xs:
       "FW M n (v c1) (v c2) = len M (v c1) (v c2) xs" "set xs \<subseteq> {0..n}"
@@ -934,7 +933,8 @@ proof -
       qed
     qed
   } note * = this
-  have "cycle_free ?M' n" using negative_cycle_dest_diag * by fastforce
+  have "cycle_free ?M' n" unfolding cycle_free_diag_equiv[symmetric]
+    using negative_cycle_dest_diag * by fastforce
   then show ?thesis using not_empty \<open>i \<noteq> j\<close> r unfolding M'_def by auto
 qed
 
@@ -977,7 +977,7 @@ lemma fix_indices:
   fixes M :: "(('a :: time) DBMEntry) mat"
   assumes "set xs \<subseteq> {0..n}" "distinct xs"
   assumes "cyc_free M n" "canonical M n"
-  shows 
+  shows
   "\<exists> (M' :: ('a DBMEntry) mat). ((\<exists> u. DBM_val_bounded v u M' n) \<longrightarrow> (\<exists> u. DBM_val_bounded v u M n))
      \<and> (\<forall> i \<in> set xs. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = \<one>) \<and> cyc_free M' n
      \<and> (\<forall> i\<le>n. i \<notin> set xs \<and> M 0 i + M i 0 = \<one> \<longrightarrow> M' 0 i + M' i 0 = \<one>)" using assms
@@ -1009,7 +1009,7 @@ next
       "\<forall>j. i \<noteq> j \<and> M 0 j + M j 0 = \<one> \<longrightarrow> M' 0 j + M' j 0 = \<one>"
     using cycle_free_diag_equiv by blast
     let ?M' = "FW M' n"
-    from fw_canonical[of M' n] cycle_free_diag_equiv \<open>cyc_free M' n\<close> have "canonical ?M' n" by auto
+    from fw_canonical[of n M'] \<open>cyc_free M' n\<close> have "canonical ?M' n" by auto
     from FW_cyc_free_preservation[OF \<open>cyc_free M' n\<close>] have "cyc_free ?M' n"
     by auto
     from FW_fixed_preservation[OF \<open>i \<le> n\<close> M'(2) \<open>canonical ?M' n\<close> \<open>cyc_free ?M' n\<close>]
@@ -1036,7 +1036,7 @@ lemma cyc_free_obtains_valuation:
 proof -
   assume A: "cyc_free M n" "\<forall> c. v c \<le> n \<longrightarrow> v c > 0"
   let ?M = "FW M n"
-  from fw_canonical[of M n] cycle_free_diag_equiv A have "canonical ?M n" by auto
+  from fw_canonical[of n M] A have "canonical ?M n" by auto
   from FW_cyc_free_preservation[OF A(1) ] have "cyc_free ?M n" .
   have "set [0..<n+1] \<subseteq> {0..n}" "distinct [0..<n+1]" by auto
   from fix_indices[OF this \<open>cyc_free ?M n\<close> \<open>canonical ?M n\<close>]
@@ -1047,7 +1047,7 @@ proof -
   let ?M' = "FW M' n"
   have "\<And> i. i \<le> n \<Longrightarrow> i \<in> set [0..<n + 1]" by auto
   with M'(2) have M'_fixed: "\<forall>i\<le>n. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = \<one>" by fastforce
-  from fw_canonical[of M' n] cycle_free_diag_equiv M'(3) have "canonical ?M' n" by blast
+  from fw_canonical[of n M'] M'(3) have "canonical ?M' n" by blast
   from FW_fixed_preservation[OF _ _ this FW_cyc_free_preservation[OF M'(3)]] M'_fixed
   have fixed: "\<forall>i\<le>n. i \<noteq> 0 \<longrightarrow> ?M' 0 i + ?M' i 0 = \<one>" by auto
   have *: "\<And>i. i \<le> n \<Longrightarrow> i \<noteq> 0 \<Longrightarrow> \<exists> d. ?M' 0 i = Le (-d) \<and> ?M' i 0 = Le d"
@@ -1056,7 +1056,7 @@ proof -
     from i fixed have *:"dbm_add (?M' 0 i) (?M' i 0) = Le 0" by (auto simp add: mult neutral)
     moreover
     { fix a b :: 'a assume "a + b = 0"
-      then have "a = -b" by (simp add: eq_neg_iff_add_eq_0) 
+      then have "a = -b" by (simp add: eq_neg_iff_add_eq_0)
     }
     ultimately show "\<exists>d. ?M' 0 i = Le (-d) \<and> ?M' i 0 = Le d"
     by (cases "?M' 0 i"; cases "?M' i 0"; simp)
@@ -1099,12 +1099,12 @@ proof -
     proof (cases "?M' (v c1) (v c2)", auto, goal_cases)
       case (1 d)
       from this(1) have "d1 \<le> d + d2" by (auto simp: mult less_eq le_dbm_le)
-      then have "d1 - d2 \<le> d" by (simp add: diff_le_eq) 
+      then have "d1 - d2 \<le> d" by (simp add: diff_le_eq)
       then show ?case using d1' d2' by auto
     next
       case (2 d)
       from this(1) have "d1 < d + d2" by (auto simp: mult less_eq dbm_le_def elim: dbm_lt.cases)
-      then have "d1 - d2 < d" using diff_less_eq by blast 
+      then have "d1 - d2 < d" using diff_less_eq by blast
       then show ?case using d1' d2' by auto
     qed
   qed
@@ -1136,8 +1136,7 @@ next
     have "cyc_free M n"
     proof (rule ccontr)
       assume "\<not> cyc_free M n"
-      then have A: "\<not> cycle_free M n" using cycle_free_diag_equiv by auto
-      from FW_neg_cycle_detect[OF A] * show False by auto
+      from FW_neg_cycle_detect[OF this] * show False by auto
     qed
     from FW_cyc_free_preservation[OF this] have "cyc_free (FW M n) n" .
     from cyc_free_obtains_valuation[OF \<open>cyc_free (FW M n) n\<close> cn] empty
@@ -1231,7 +1230,7 @@ lemma non_empty_cycle_free:
     and "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
   shows "cycle_free M n"
 apply (rule ccontr)
-apply (drule negative_cycle_dest_diag) 
+apply (drule negative_cycle_dest_diag')
 using DBM_val_bounded_neg_cycle assms unfolding DBM_zone_repr_def by blast
 
 lemma neg_diag_empty:

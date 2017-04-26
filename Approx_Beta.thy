@@ -864,7 +864,8 @@ proof -
       with not_empty_cyc_free[OF cn_weak] False have "cyc_free M n" by auto
       then have "cycle_free M n" using cycle_free_diag_equiv by auto
       from M have "Z = [FW M n]\<^bsub>v,n\<^esub>" unfolding neutral by (auto intro!: FW_zone_equiv[OF cn_weak])
-      moreover from fw_canonical[OF \<open>cycle_free M _\<close>] M have "canonical (FW M n) n" unfolding neutral by auto
+      moreover from fw_canonical[OF \<open>cyc_free M _\<close>] M have "canonical (FW M n) n"
+        unfolding neutral by auto
       moreover from FW_int_preservation M have
         "\<forall>i\<le>n. \<forall>j\<le>n. FW M n i j \<noteq> \<infinity> \<longrightarrow> get_const (FW M n i j) \<in> \<int>"
       by auto

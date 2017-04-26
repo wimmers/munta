@@ -1297,7 +1297,7 @@ lemma FW_diag_preservation:
 proof clarify
   fix k assume A: "\<forall>k\<le>n. M k k \<le> \<one>" "k \<le> n"
   then have "M k k \<le> \<one>" by auto
-  with fw_mono[of n n n k k M n] A show "FW M n k k \<le> \<one>" by auto
+  with fw_mono[of k n k M n] A show "FW M n k k \<le> \<one>" by auto
 qed
 
 lemma DBM_reset_not_cyc_free_preservation:
@@ -1335,7 +1335,7 @@ proof -
   obtain i where i: "i \<le> n" "FW M n i i < Le 0" by blast
   with A(3,4) have "M' i i < Le 0"
   unfolding DBM_reset_def by (cases "i = v c", auto split: split_min)
-  with fw_mono[of n n n i i M' n] i have "FW M' n i i < Le 0" by auto
+  with fw_mono[of i n i M' n] i have "FW M' n i i < Le 0" by auto
   with FW_detects_empty_zone[OF A(1), of M'] A(2) i
   have "[FW M' n]\<^bsub>v,n\<^esub> = {}" by auto
   with FW_zone_equiv[OF A(1)] show ?thesis by (auto simp: DBM_zone_repr_def)
@@ -2331,7 +2331,7 @@ proof -
   with DBM_reset'_neg_diag_preservation' A(2,3) have
     "reset' (FW M n) n cs v d i i < Le 0"
   by (auto simp: neutral)
-  with fw_mono[of n n n i i "reset' (FW M n) n cs v d" n] i
+  with fw_mono[of i n i "reset' (FW M n) n cs v d" n] i
   have "FW (reset' (FW M n) n cs v d) n i i < Le 0" by auto
   with FW_detects_empty_zone[OF A(1), of "reset' (FW M n) n cs v d"] A(2,3) i
   have "[FW (reset' (FW M n) n cs v d) n]\<^bsub>v,n\<^esub> = {}" by auto
@@ -2413,58 +2413,6 @@ proof (goal_cases)
   qed
 qed
 
-lemma fw_int_aux_c:
-  assumes "\<forall> i \<le> n. \<forall> j \<le> n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>" "a \<le> n" "b \<le> n" "c \<le> n"
-          "i \<le> n" "j \<le> n" "((fw M n) 0 0 c) i j \<noteq> \<infinity>"
-  shows "get_const (((fw M n) 0 0 c) i j) \<in> \<int>"
-using assms
- apply (induction c arbitrary: i j)
-  apply (auto simp: fw_upd_def upd_def min_def)[]
-  apply (case_tac "M 0 0 = \<infinity>")
-   apply (simp add: mult)
-  apply simp
- apply (fastforce simp: min_def fw_upd_def upd_def dest: sum_not_inf_dest)
-done
-
-lemma fw_int_aux_Suc_b:
-  assumes "\<forall> i \<le> n. \<forall> j \<le> n. (fw M n) a b n i j \<noteq> \<infinity> \<longrightarrow> get_const ((fw M n) a b n i j) \<in> \<int>"
-          "a \<le> n" "Suc b \<le> n" "c \<le> n" "i \<le> n" "j \<le> n" "((fw M n) a (Suc b) c) i j \<noteq> \<infinity>"
-  shows "get_const (((fw M n) a (Suc b) c) i j) \<in> \<int>"
-using assms by (induction c arbitrary: i j) (auto intro: int_fw_upd[of n])
-
-lemma fw_int_aux_b:
-  assumes "\<forall> i \<le> n. \<forall> j \<le> n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>" "a \<le> n" "b \<le> n" "c \<le> n"
-          "i \<le> n" "j \<le> n" "((fw M n) 0 b c) i j \<noteq> \<infinity>"
-  shows "get_const (((fw M n) 0 b c) i j) \<in> \<int>" using assms
- apply (induction b arbitrary: i j c)
-  apply (blast intro: fw_int_aux_c)
- apply (rule fw_int_aux_Suc_b[of n])
-by auto
-
-lemma fw_int_aux_Suc_a:
-  assumes "\<forall> i \<le> n. \<forall> j \<le> n. (fw M n) a n n i j \<noteq> \<infinity> \<longrightarrow> get_const ((fw M n) a n n i j) \<in> \<int>"
-          "Suc a \<le> n" "b \<le> n" "c \<le> n" "i \<le> n" "j \<le> n" "((fw M n) (Suc a) b c) i j \<noteq> \<infinity>"
-  shows "get_const (((fw M n) (Suc a) b c) i j) \<in> \<int>"
-using assms
-proof (induction b arbitrary: i j c)
-  case 0
-  then show ?case
-  by (induction c arbitrary: i j) (auto intro: int_fw_upd[of n])
-next
-  case (Suc b)
-  then show ?case by (intro fw_int_aux_Suc_b) auto
-qed
-
-lemma fw_int_preservation:
-  assumes "\<forall> i \<le> n. \<forall> j \<le> n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>" "a \<le> n" "b \<le> n" "c \<le> n"
-          "i \<le> n" "j \<le> n" "((fw M n) a b c) i j \<noteq> \<infinity>"
-  shows "get_const (((fw M n) a b c) i j) \<in> \<int>"
-using assms
- apply (induction a arbitrary: i j b c)
-  apply (blast intro: fw_int_aux_b)
- apply (rule fw_int_aux_Suc_a[of n])
-by auto
-
 abbreviation "dbm_int M n \<equiv> \<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
 
 abbreviation "dbm_int_all M \<equiv> \<forall> i. \<forall> j. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
@@ -2473,10 +2421,26 @@ lemma dbm_intI:
   "dbm_int_all M \<Longrightarrow> dbm_int M n"
 by auto
 
+lemma fwi_int_preservation:
+  "dbm_int (fwi M n k i j) n" if "dbm_int M n" "k \<le> n"
+  apply (induction _ "(i, j)" arbitrary: i j rule: wf_induct[of "less_than <*lex*> less_than"])
+   apply (auto; fail)
+  subgoal for i j
+    using that
+    by (cases i; cases j) (auto 4 3 dest: sum_not_inf_dest simp:  min_def fw_upd_def upd_def)
+  done
+
+lemma fw_int_preservation:
+  "dbm_int (fw M n k) n" if "dbm_int M n" "k \<le> n"
+  using \<open>k \<le> n\<close> apply (induction k)
+  using that apply simp
+   apply (rule fwi_int_preservation; auto; fail)
+  using that by (simp) (rule fwi_int_preservation; auto)
+
 lemma FW_int_preservation:
   assumes "dbm_int M n"
   shows "dbm_int (FW M n) n"
-by (blast intro: fw_int_preservation[OF assms(1)])
+  using fw_int_preservation[OF assms(1)] by auto
 
 lemma FW_int_all_preservation:
   assumes "dbm_int_all M"
@@ -2486,7 +2450,7 @@ using assms
  subgoal for i j
  apply (cases "i \<le> n")
  apply (cases "j \<le> n")
- by (auto intro: fw_int_preservation[OF dbm_intI[OF assms(1)]] simp: FW_out_of_bounds1 FW_out_of_bounds2)
+ by (auto simp: FW_int_preservation[OF dbm_intI[OF assms(1)]] FW_out_of_bounds1 FW_out_of_bounds2)
 done
 
 lemma And_int_all_preservation[intro]:

@@ -82,10 +82,10 @@ lemma negative_diag_empty:
   shows "[M]\<^bsub>v,n\<^esub> = {}"
 using dbm_non_empty_diag assms by force
 
-lemma non_empty_cycle_free:
+lemma non_empty_cyc_free:
   assumes "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
-  shows "cycle_free M n"
-by (meson assms clock_numbering(2) neg_cycle_empty negative_cycle_dest_diag)
+  shows "cyc_free M n"
+  using FW_neg_cycle_detect FW_zone_equiv_spec assms negative_diag_empty by blast
 
 lemma FW_valid_preservation:
   assumes "valid_dbm M"
@@ -116,8 +116,8 @@ lemma norm_FW_empty:
   assumes "[M]\<^bsub>v,n\<^esub> = {}"
   shows "[norm (FW M n) (k o v') n]\<^bsub>v,n\<^esub> = {}" (is "[?M]\<^bsub>v,n\<^esub> = {}")
 proof -
-  from assms(2) cyc_free_not_empty clock_numbering(1) cycle_free_diag_equiv have "\<not> cycle_free M n"
-  by metis
+  from assms(2) cyc_free_not_empty clock_numbering(1) have "\<not> cyc_free M n"
+    by metis
   from FW_neg_cycle_detect[OF this] obtain i where i: "i \<le> n" "FW M n i i < \<one>" by auto
   with norm_empty_diag_preservation_real[folded neutral] have
     "?M i i < \<one>"
@@ -130,7 +130,7 @@ lemma apx_norm_eq_spec:
     and "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
   shows "beta_interp.Approx\<^sub>\<beta> ([M]\<^bsub>v,n\<^esub>) = [norm (FW M n) (k o v') n]\<^bsub>v,n\<^esub>"
 proof -
-  note cyc_free = non_empty_cycle_free[OF assms(2)]
+  note cyc_free = non_empty_cyc_free[OF assms(2)]
   from assms(1) FW_zone_equiv_spec[of M] have "[M]\<^bsub>v,n\<^esub> = [FW M n]\<^bsub>v,n\<^esub>" by (auto simp: neutral)
   with beta_interp.apx_norm_eq[OF fw_canonical[OF cyc_free] _ FW_int_preservation]
       dbm_non_empty_diag[OF assms(2)] assms(1)
@@ -146,7 +146,7 @@ proof -
   proof standard
     from valid beta_interp.norm_int_preservation show "dbm_int ?M n" by blast
   next
-    from fw_canonical[OF non_empty_cycle_free] assms have "canonical (FW M n) n" by auto
+    from fw_canonical[OF non_empty_cyc_free] assms have "canonical (FW M n) n" by auto
     from beta_interp.norm_V_preservation[OF _ this ] valid show "[?M]\<^bsub>v,n\<^esub> \<subseteq> V" by fast
   qed
 qed
@@ -181,7 +181,7 @@ lemma norm_FW_equiv:
   shows "[norm (FW D n) (k o v') n]\<^bsub>v,n\<^esub> = [norm (FW M n) (k o v') n]\<^bsub>v,n\<^esub>"
 proof (cases "[D]\<^bsub>v,n\<^esub> = {}")
   case False
-  with equiv fw_shortest local.non_empty_cycle_free FW_zone_equiv_spec have
+  with equiv fw_shortest[OF non_empty_cyc_free] FW_zone_equiv_spec have
     "canonical (FW D n) n" "canonical (FW M n) n" "[FW D n]\<^bsub>v,n\<^esub> = [D]\<^bsub>v,n\<^esub>" "[FW M n]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
   by blast+
   with valid equiv show ?thesis

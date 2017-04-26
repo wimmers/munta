@@ -1405,6 +1405,7 @@ qed
 
 lemmas fw_canonical_subs = fw_correct[THEN conjunct1]
 lemmas fw_cyc_free_subs = fw_correct[THEN conjunct2]
+lemmas cyc_free_diag = cyc_free_subs_diag
 
 
 subsection \<open>Connecting with the notion of shortest paths\<close>
