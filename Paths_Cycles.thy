@@ -106,30 +106,6 @@ next
   thus ?case by simp
 qed
 
-section \<open>Canonical Matrices\<close>
-
-abbreviation
-  "canonical M n \<equiv> \<forall> i j k. i \<le> n \<and> j \<le> n \<and> k \<le> n \<longrightarrow> M i k \<le> M i j + M j k"
-
-lemma fw_canonical:
- "cycle_free m n \<Longrightarrow> canonical (fw m n n n n) n"
-proof (clarify, goal_cases)
-  case 1
-  with fw_shortest[OF \<open>cycle_free m n\<close>] show ?case
-  by auto
-qed
-
-lemma canonical_len:
-  "canonical M n \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> set xs \<subseteq> {0..n} \<Longrightarrow> M i j \<le> len M i j xs"
-proof (induction xs arbitrary: i)
-  case Nil thus ?case by auto
-next
-  case (Cons x xs)
-  then have "M x j \<le> len M x j xs" by auto
-  from Cons.prems \<open>canonical M n\<close> have "M i j \<le> M i x + M x j" by simp
-  also with Cons have "\<dots> \<le> M i x + len M x j xs" by (simp add: add_mono)
-  finally show ?case by simp
-qed
 
 section \<open>Cycle Rotation\<close>
 
@@ -166,7 +142,7 @@ using assms proof -
     qed
   } note ** = this
   { assume "length xs = 1"
-    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv) 
+    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv)
     with A(2) have "a = i \<and> b = j \<or> a = j \<and> b = i" by auto
     then have ?thesis using * ** xs by auto
   } note *** = this
@@ -182,7 +158,7 @@ using assms proof -
       case 2
       hence "length xs > 1" by linarith
       then obtain b c ys where ys:"xs = b # ys @ [c]"
-      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust) 
+      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust)
       thus ?thesis
       proof (cases "(i,j) = (a,b)", goal_cases)
         case True
@@ -242,7 +218,7 @@ proof -
     qed
   } note ** = this
   { assume "length xs = 1"
-    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv) 
+    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv)
     with A(2) have "a = i \<and> b = j \<or> a = j \<and> b = i" by auto
     then have ?thesis using * ** xs by auto
   } note *** = this
@@ -258,7 +234,7 @@ proof -
       case 2
       hence "length xs > 1" by linarith
       then obtain b c ys where ys:"xs = b # ys @ [c]"
-      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust) 
+      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust)
       thus ?thesis
       proof (cases "(i,j) = (a,b)")
         case True
@@ -280,35 +256,8 @@ proof -
   qed
 qed
 
-section \<open>Equivalent Characterizations of Cycle-Freeness\<close>
 
-lemma negative_cycle_dest_diag:
-  "\<not> cycle_free M n \<Longrightarrow> \<exists> i xs. i \<le> n \<and> set xs \<subseteq> {0..n} \<and> len M i i xs < \<one>"
-proof (auto simp: cycle_free_def, goal_cases)
-  case (1 i xs j)
-  from this(4) have "len M i j xs < len M i j (rem_cycles i j xs)" by auto
-  from negative_cycle_dest[OF this] obtain i' ys
-  where *:"len M i' i' ys < \<one>" "set (i' # ys) \<subseteq> set (i # j # xs)" by auto
-  from this(2) 1(1-3) have "set ys \<subseteq> {0..n}" "i' \<le> n" by auto
-  with * show ?case by auto
-next
-  case 2 then show ?case by fastforce
-qed
-
-abbreviation cyc_free :: "('a::linordered_ab_monoid_add) mat \<Rightarrow> nat \<Rightarrow> bool" where
-  "cyc_free m n \<equiv> \<forall> i xs. i \<le> n \<and> set xs \<subseteq> {0..n} \<longrightarrow> len m i i xs \<ge> \<one>"
-
-lemma cycle_free_diag_intro:
-  "cyc_free M n \<Longrightarrow> cycle_free M n"
-using negative_cycle_dest_diag by force
-
-lemma cycle_free_diag_equiv:
-  "cyc_free M n \<longleftrightarrow> cycle_free M n" using negative_cycle_dest_diag
-by (force simp: cycle_free_def)
-
-lemma cycle_free_diag_dest:
-  "cycle_free M n \<Longrightarrow> cyc_free M n"
-using cycle_free_diag_equiv by blast
+section \<open>More on Cycle-Freeness\<close>
 
 lemma cyc_free_diag_dest:
   assumes "cyc_free M n" "i \<le> n" "set xs \<subseteq> {0..n}"
@@ -321,156 +270,6 @@ lemma cycle_free_0_0:
   shows "M 0 0 \<ge> \<one>"
 using cyc_free_diag_dest[OF cycle_free_diag_dest[OF assms], of 0 "[]"] by auto
 
-section \<open>More Theorems Related to Floyd-Warshall\<close>
-
-lemma D_cycle_free_len_dest:
-  "cycle_free m n
-    \<Longrightarrow> \<forall> i \<le> n. \<forall> j \<le> n. D m i j n = m' i j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> set xs \<subseteq> {0..n}
-    \<Longrightarrow> \<exists> ys. set ys \<subseteq> {0..n} \<and> len m' i j xs = len m i j ys"
-proof (induction xs arbitrary: i)
-  case Nil
-  with Nil have "m' i j = D m i j n" by simp
-  from D_dest''[OF this]
-  obtain ys where "set ys \<subseteq> {0..n}" "len m' i j [] = len m i j ys"
-  by auto
-  then show ?case by auto
-next
-  case (Cons y ys)
-  from Cons.IH[OF Cons.prems(1,2) _ \<open>j \<le> n\<close>, of y] Cons.prems(5)
-  obtain zs where zs:"set zs \<subseteq> {0..n}" "len m' y j ys = len m y j zs" by auto
-  with Cons have "m' i y = D m i y n" by simp
-  from D_dest''[OF this] obtain ws where ws:"set ws \<subseteq> {0..n}" "m' i y = len m i y ws" by auto
-  with len_comp[of m i j ws y zs] zs Cons.prems(5)
-  have "len m' i j (y # ys) = len m i j (ws @ y # zs)" "set (ws @ y # zs) \<subseteq> {0..n}" by auto
-  then show ?case by blast
-qed
-
-lemma D_cyc_free_preservation:
-  "cyc_free m n \<Longrightarrow> \<forall> i \<le> n. \<forall> j \<le> n. D m i j n = m' i j \<Longrightarrow> cyc_free m' n"
-proof (auto, goal_cases)
-  case (1 i xs)
-  from D_cycle_free_len_dest[OF _ 1(2,3,3,4)] 1(1) cycle_free_diag_equiv
-  obtain ys where "set ys \<subseteq> {0..n} \<and> len m' i i xs = len m i i ys" by fast
-  with 1(1,3) show ?case by auto
-qed
-
-abbreviation "FW m n \<equiv> fw m n n n n"
-
-lemma FW_out_of_bounds1:
-  assumes "i > n"
-  shows "(FW M n) i j = M i j"
-by (simp add: fw_out_of_bounds1[OF assms])
-
-lemma FW_out_of_bounds2:
-  assumes "j > n"
-  shows "(FW M n) i j = M i j"
-by (simp add: fw_out_of_bounds2[OF assms])
-
-lemma FW_cyc_free_preservation:
-  "cyc_free m n \<Longrightarrow> cyc_free (FW m n) n"
-apply (rule D_cyc_free_preservation)
- apply assumption
-apply safe
-apply (rule fw_shortest_path)
-using cycle_free_diag_equiv by auto
-
-lemma cyc_free_diag_dest':
-  "cyc_free m n \<Longrightarrow> i \<le> n \<Longrightarrow> m i i \<ge> \<one>"
-proof goal_cases
-  case 1
-  then have "i \<le> n \<and> set [] \<subseteq> {0..n}" by auto
-  with 1(1) have "\<one> \<le> len m i i []" by blast
-  then show ?case by auto
-qed
-
-lemma FW_diag_neutral_preservation:
-  "\<forall> i \<le> n. M i i = \<one> \<Longrightarrow> cyc_free M n \<Longrightarrow> \<forall> i\<le>n. (FW M n) i i = \<one>"
-proof (auto, goal_cases)
-  case (1 i)
-  from this(3) have "(FW M n) i i \<le> M i i" by (auto intro: fw_mono)
-  with 1 have "(FW M n) i i \<le> \<one>" by auto
-  with cyc_free_diag_dest'[OF FW_cyc_free_preservation[OF 1(2)] \<open>i \<le> n\<close>] show "FW M n i i = \<one>" by auto
-qed  
-
-lemma FW_fixed_preservation:
-  fixes M :: "('a::linordered_ab_monoid_add) mat"
-  assumes A: "i \<le> n" "M 0 i + M i 0 = \<one>" "canonical (FW M n) n" "cyc_free (FW M n) n"
-  shows "FW M n 0 i + FW M n i 0 = \<one>" using assms
-proof -
-  let ?M' = "FW M n"
-  assume A: "i \<le> n" "M 0 i + M i 0 = \<one>" "canonical ?M' n" "cyc_free ?M' n"
-  from \<open>i \<le> n\<close> have "?M' 0 i + ?M' i 0 \<le> M 0 i + M i 0" by (auto intro: fw_mono add_mono)
-  with A(2) have "?M' 0 i + ?M' i 0 \<le> \<one>" by auto
-  moreover from \<open>canonical ?M' n\<close> \<open>i \<le> n\<close>
-  have "?M' 0 0 \<le> ?M' 0 i + ?M' i 0" by auto
-  moreover from cyc_free_diag_dest'[OF  \<open>cyc_free ?M' n\<close>] have "\<one> \<le> ?M' 0 0" by simp
-  ultimately show "?M' 0 i + ?M' i 0 = \<one>" by (auto simp: add_mono)
-qed
-
-lemma diag_cyc_free_neutral:
-  "cyc_free M n \<Longrightarrow> \<forall>k\<le>n. M k k \<le> \<one> \<Longrightarrow> \<forall>i\<le>n. M i i = \<one>"
-proof (clarify, goal_cases)
-  case (1 i)
-  note A = this
-  then have "i \<le> n \<and> set [] \<subseteq> {0..n}" by auto
-  with A(1) have "\<one> \<le> M i i" by fastforce
-  with A(2) \<open>i \<le> n\<close> show "M i i = \<one>" by auto
-qed
-
-lemma fw_upd_canonical_id:
-  "canonical M n \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fw_upd M k i j = M"
-proof (auto simp: fw_upd_def upd_def less_eq[symmetric] min.coboundedI2, goal_cases)
-  case 1
-  then have "M i j \<le> M i k + M k j" by auto
-  then have "min (M i j) (M i k + M k j) = M i j" by (simp split: split_min)
-  thus ?case by force
-qed
-
-lemma fw_canonical_id:
-  "canonical M n \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fw M n k i j = M"
-proof (induction k arbitrary: i j)
-  case 0
-  then show ?case
-  proof (induction i arbitrary: j)
-    case 0
-    then show ?case
-    proof (induction j)
-      case 0 thus ?case by (auto intro: fw_upd_canonical_id)
-    next
-      case Suc thus ?case by (auto intro: fw_upd_canonical_id)
-    qed
-  next
-    case Suc
-    then show ?case
-    proof (induction j)
-      case 0 thus ?case by (auto intro: fw_upd_canonical_id)
-    next
-      case Suc thus ?case by (auto intro: fw_upd_canonical_id)
-    qed
-  qed
-next
-  case Suc
-  then show ?case
-  proof (induction i arbitrary: j)
-    case 0
-    then show ?case
-    proof (induction j)
-      case 0 thus ?case by (auto intro: fw_upd_canonical_id)
-    next
-      case Suc thus ?case by (auto intro: fw_upd_canonical_id)
-    qed
-  next
-    case Suc
-    then show ?case
-    proof (induction j)
-      case 0 thus ?case by (auto intro: fw_upd_canonical_id)
-    next
-      case Suc thus ?case by (auto intro: fw_upd_canonical_id)
-    qed
-  qed
-qed
-
-lemmas FW_canonical_id = fw_canonical_id[OF _ order.refl order.refl order.refl]
 
 section \<open>Helper Lemmas for Bouyer's Theorem on Approximation\<close>
 
@@ -564,7 +363,7 @@ next
           with * show ?thesis by auto
         next
           case False
-          then obtain z zs where zs: "ys = zs @ [z]" by (metis append_butlast_last_id) 
+          then obtain z zs where zs: "ys = zs @ [z]" by (metis append_butlast_last_id)
           with * show ?thesis by auto
         qed
       next
@@ -612,7 +411,7 @@ next
           with * show ?thesis by auto
         next
           case False
-          then obtain z zs where zs: "ys = zs @ [z]" by (metis append_butlast_last_id) 
+          then obtain z zs where zs: "ys = zs @ [z]" by (metis append_butlast_last_id)
           with * show ?thesis by auto
         qed
       next
@@ -802,8 +601,8 @@ lemma successive_stepI:
 by (cases xs) auto
 
 theorem list_two_induct[case_names Nil Single Cons]:
-  fixes P :: "'a list \<Rightarrow> bool" 
-    and list :: "'a list" 
+  fixes P :: "'a list \<Rightarrow> bool"
+    and list :: "'a list"
   assumes Nil: "P []"
   assumes Single: "\<And> x. P [x]"
     and Cons: "\<And>x1 x2 xs. P xs \<Longrightarrow> P (x2 # xs) \<Longrightarrow> P (x1 # x2 # xs)"
@@ -864,7 +663,7 @@ proof goal_cases
 qed
 
 lemma successive_glue':
-  "successive P (zs @ [y]) \<and> \<not> P z \<or> successive P zs \<and> \<not> P y 
+  "successive P (zs @ [y]) \<and> \<not> P z \<or> successive P zs \<and> \<not> P y
   \<Longrightarrow> successive P (x # xs) \<and> \<not> P w \<or> successive P xs \<and> \<not> P x
   \<Longrightarrow> \<not> P z \<or> \<not> P w \<Longrightarrow> successive P (zs @ y # z # w # x # xs)"
 by (metis append_Cons append_Nil successive.simps(3) successive_ends_1 successive_glue successive_stepI)
@@ -923,7 +722,7 @@ proof -
     with 2 show ?case by auto
   next
     case 3
-    with assms have "\<not> P (c, a)" using arcs_decomp successive_dest_tail by fastforce 
+    with assms have "\<not> P (c, a)" using arcs_decomp successive_dest_tail by fastforce
     with 3 show ?case by auto
   next
     case 4
@@ -931,8 +730,6 @@ proof -
     with 4 show ?case by auto
   qed
 qed
-
-thm arcs_successor'
 
 lemma successive_successor:
   assumes "(a, b) \<in> set (arcs i j xs)" "b \<noteq> j" "successive P (arcs i j xs)" "P (a,b)" "xs \<noteq> []"
@@ -955,7 +752,7 @@ proof -
     with 2 show ?case by auto
   next
     case 3
-    with assms have "\<not> P (b, c)" using arcs_decomp successive_dest_tail by fastforce 
+    with assms have "\<not> P (b, c)" using arcs_decomp successive_dest_tail by fastforce
     with 3 show ?case by auto
   next
     case 4
@@ -1031,7 +828,7 @@ next
         "successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs y j ys)"
       by force+
       from this(3) 2 have
-        "successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs i j (x # y # ys))" 
+        "successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs i j (x # y # ys))"
       by simp
       moreover from add_mono_right[OF ys(1)] have
         "len M i j (x # y # ys) \<le> len M i j (x # y # xs)"
@@ -1093,7 +890,7 @@ next
       from 3(2)[OF 3(3,4)] 3(5-10) obtain ys where ys:
         "len M x j ys \<le> len M x j (y # xs)" "set ys \<subseteq> set (y # xs)"
         "successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs x j ys)"
-        "distinct ys" "i \<notin> set ys" "x \<notin> set ys" "j \<notin> set ys" 
+        "distinct ys" "i \<notin> set ys" "x \<notin> set ys" "j \<notin> set ys"
       by fastforce
       from 1 successive_stepI[OF ys(3), of "(i, x)"] have
         "successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs i j (x # ys))"
@@ -1112,7 +909,7 @@ next
         "distinct ys" "j \<notin> set ys" "y \<notin> set ys" "i \<notin> set ys" "x \<notin> set ys"
       by fastforce
       from this(3) 2 have
-        "successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs i j (x # y # ys))" 
+        "successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs i j (x # y # ys))"
       by simp
       moreover from add_mono_right[OF ys(1)] have
         "len M i j (x # y # ys) \<le> len M i j (x # y # xs)"
@@ -1258,7 +1055,7 @@ proof -
     next
       case (Cons z zs')
       with True arcs2 A(3,4) xs show ?thesis apply simp
-      by (metis arcs.simps(1,2) arcs1 successive.simps(3) successive_split successive_step) 
+      by (metis arcs.simps(1,2) arcs1 successive.simps(3) successive_split successive_step)
     qed
   next
     case False
@@ -1350,7 +1147,7 @@ proof -
          by (metis successive.simps(1) successive_dest_tail successive_ends_1 successive_stepI)
        qed
       done
-    qed  
+    qed
   next
     case False
     then obtain y ys' where ys: "ys = ys' @ [y]" by (metis append_butlast_last_id)
@@ -1382,7 +1179,7 @@ proof -
       moreover from successive_successors[OF _ this] have "\<not> P (w, i) \<or> \<not> P (i, j)" by auto
       ultimately show ?thesis
       by (metis ** append_is_Nil_conv last.simps last_append list.distinct(2) list.sel(1)
-                successive_arcs_extend_last ws) 
+                successive_arcs_extend_last ws)
     qed
   qed
   from len_decomp[OF xs, of M a a] have "len M a a xs = len M a i zs + len M i a (j # ys)" .
@@ -1418,7 +1215,7 @@ proof -
     ultimately show ?case by auto
   qed
   { assume "length xs = 1"
-    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv) 
+    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv)
     with A(2) have "a = i \<and> b = j \<or> a = j \<and> b = i" by auto
     then have ?thesis using * ** xs by auto
   } note *** = this
@@ -1434,7 +1231,7 @@ proof -
       case 2
       hence "length xs > 1" by linarith
       then obtain b c ys where ys:"xs = b # ys @ [c]"
-      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust) 
+      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust)
       thus ?thesis
       proof (cases "(i,j) = (a,b)")
         case True
@@ -1482,7 +1279,7 @@ proof -
     ultimately show ?case by auto
   qed
   { assume "length xs = 1"
-    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv) 
+    then obtain b where xs: "xs = [b]" by (metis One_nat_def length_0_conv length_Suc_conv)
     with A(2) have "a = i \<and> b = j \<or> a = j \<and> b = i" by auto
     then have ?thesis using * ** xs by auto
   } note *** = this
@@ -1498,7 +1295,7 @@ proof -
       case 2
       hence "length xs > 1" by linarith
       then obtain b c ys where ys:"xs = b # ys @ [c]"
-      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust) 
+      by (metis One_nat_def assms(1) 2(2) length_0_conv length_Cons list.exhaust rev_exhaust)
       thus ?thesis
       proof (cases "(i,j) = (a,b)")
         case True

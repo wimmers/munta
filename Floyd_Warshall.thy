@@ -154,7 +154,7 @@ next
   proof (auto, goal_cases)
     case 1
     from 1(1)[of "y # ys"]
-    obtain as bs where 
+    obtain as bs where
       "xs = as @ x # bs" "start_remove xs x (y # ys) = rev (y # ys) @ as @ remove_cycles bs x [x]"
     by blast
     hence "y # xs = (y # as) @ x # bs"
@@ -231,7 +231,7 @@ qed
 lemma cnt_mono:
   "cnt a (b # xs) \<le> cnt a (b # c # xs)"
 by (induction xs) auto
-  
+
 lemma cnt_distinct_intro: "\<forall> x \<in> set xs. cnt x xs \<le> 1 \<Longrightarrow> distinct xs"
 proof (induction xs)
   case Nil thus ?case by auto
@@ -257,7 +257,7 @@ next
     with Cons(1) have "x \<notin> set xs" by auto
     moreover have "x \<noteq> a"
     by (metis (full_types) Cons.prems One_nat_def * empty_iff filter.simps(2) impossible_Cons
-                           le_0_eq le_Suc_eq length_0_conv list.set(1) list.set_intros(1)) 
+                           le_0_eq le_Suc_eq length_0_conv list.set(1) list.set_intros(1))
     ultimately show ?case by auto
   qed
   ultimately show ?case by auto
@@ -354,10 +354,11 @@ by (meson remove_all_rev_removes remove_all_subs set_rev_mp)
 
 lemma rem_cycles_distinct: "distinct (rem_cycles i j xs)"
 by (meson distinct.simps(2) order_refl remove_all_cycles_distinct
-          remove_all_distinct remove_all_rev_distinct) 
+          remove_all_distinct remove_all_rev_distinct)
 
 lemma rem_cycles_subs: "set (rem_cycles i j xs) \<subseteq> set xs"
 by (meson order_trans remove_all_cycles_subs remove_all_subs remove_all_rev_subs)
+
 
 section \<open>Definition of the Algorithm\<close>
 
@@ -384,14 +385,17 @@ definition fw_upd :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> n
   "fw_upd m k i j \<equiv> upd m i j (min (m i j) (m i k + m k j))"
 
 lemma fw_upd_mono:
-  "fw_upd m k i j i' j' \<le> m i' j'" 
+  "fw_upd m k i j i' j' \<le> m i' j'"
 by (cases "i = i'", cases "j = j'") (auto simp: fw_upd_def upd_def)
 
-fun fw :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mat" where
-  "fw m n 0       0       0        = fw_upd m 0 0 0" |
-  "fw m n (Suc k) 0       0        = fw_upd (fw m n k n n) (Suc k) 0 0" |
-  "fw m n k       (Suc i) 0        = fw_upd (fw m n k i n) k (Suc i) 0" |
-  "fw m n k       i       (Suc j)  = fw_upd (fw m n k i j) k i (Suc j)"
+fun fwi :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mat" where
+  "fwi m n k       0       0        = fw_upd m k 0 0" |
+  "fwi m n k       (Suc i) 0        = fw_upd (fwi m n k i n) k (Suc i) 0" |
+  "fwi m n k       i       (Suc j)  = fw_upd (fwi m n k i j) k i (Suc j)"
+
+fun fw :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mat" where
+  "fw m n 0       = fwi m n 0 n n" |
+  "fw m n (Suc k) = fwi (fw m n k) n (Suc k) n n"
 
 lemma fw_upd_out_of_bounds1:
   assumes "i' > i"
@@ -403,28 +407,38 @@ lemma fw_upd_out_of_bounds2:
   shows "(fw_upd M k i j) i' j' = M i' j'"
 using assms unfolding fw_upd_def upd_def by (auto split: split_min)
 
-lemma fw_out_of_bounds1:
+lemma fwi_out_of_bounds1:
   assumes "i' > n" "i \<le> n"
-  shows "(fw M n k i j) i' j' = M i' j'"
+  shows "(fwi M n k i j) i' j' = M i' j'"
+  using assms
+  apply (induction _ "(i, j)" arbitrary: i j rule: wf_induct[of "less_than <*lex*> less_than"])
+   apply (auto; fail)
+  subgoal for i j
+    by (cases i; cases j; auto simp add: fw_upd_out_of_bounds1)
+  done
+
+lemma fw_out_of_bounds1:
+  assumes "i' > n"
+  shows "(fw M n k) i' j' = M i' j'"
+  using assms by (induction k; simp add: fwi_out_of_bounds1)
+
+lemma fwi_out_of_bounds2:
+  assumes "j' > n" "j \<le> n"
+  shows "(fwi M n k i j) i' j' = M i' j'"
 using assms
- apply (induction _ "(k, i, j)" arbitrary: k i j rule: wf_induct[of "less_than <*lex*> less_than <*lex*> less_than"])
+ apply (induction _ "(i, j)" arbitrary: i j rule: wf_induct[of "less_than <*lex*> less_than"])
  apply (auto; fail)
- subgoal for k i j
- by (cases k; cases i; cases j; auto simp add: fw_upd_out_of_bounds1)
-done
+ subgoal for i j
+ by (cases i; cases j; auto simp add: fw_upd_out_of_bounds2)
+  done
 
 lemma fw_out_of_bounds2:
-  assumes "j' > n" "j \<le> n"
-  shows "(fw M n k i j) i' j' = M i' j'"
-using assms
- apply (induction _ "(k, i, j)" arbitrary: k i j rule: wf_induct[of "less_than <*lex*> less_than <*lex*> less_than"])
- apply (auto; fail)
- subgoal for k i j
- by (cases k; cases i; cases j; auto simp add: fw_upd_out_of_bounds2)
-done
+  assumes "j' > n"
+  shows "(fw M n k) i' j' = M i' j'"
+  using assms by (induction k; simp add: fwi_out_of_bounds2)
 
-lemma fw_invariant_aux_1:
-  "j'' \<le> j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fw m n k i j i' j' \<le> fw m n k i j'' i' j'"
+lemma fwi_invariant_aux_1:
+  "j'' \<le> j \<Longrightarrow> fwi m n k i j i' j' \<le> fwi m n k i j'' i' j'"
 proof (induction j)
   case 0 thus ?case by simp
 next
@@ -433,53 +447,33 @@ next
     case True thus ?thesis by simp
   next
     case False
-    have "fw_upd (fw m n k i j) k i (Suc j) i' j' \<le> fw m n k i j i' j'" by (simp add: fw_upd_mono)
+    have "fw_upd (fwi m n k i j) k i (Suc j) i' j' \<le> fwi m n k i j i' j'" by (simp add: fw_upd_mono)
     thus ?thesis using Suc False by simp
   qed
 qed
 
-lemma fw_invariant_aux_2:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> i'' \<le> i \<Longrightarrow> j'' \<le> j
-   \<Longrightarrow> fw m n k i j i' j' \<le> fw m n k i'' j'' i' j'"
+lemma fwi_invariant:
+  "j \<le> n \<Longrightarrow> i'' \<le> i \<Longrightarrow> j'' \<le> j
+   \<Longrightarrow> fwi m n k i j i' j' \<le> fwi m n k i'' j'' i' j'"
 proof (induction i)
-  case 0 thus ?case using fw_invariant_aux_1 by auto
+  case 0 thus ?case using fwi_invariant_aux_1 by auto
 next
   case (Suc i) thus ?case
   proof (cases "i'' = Suc i")
-    case True thus ?thesis using Suc fw_invariant_aux_1 by simp
+    case True thus ?thesis using Suc fwi_invariant_aux_1 by simp
   next
     case False
-    have "fw m n k (Suc i) j i' j' \<le> fw m n k (Suc i) 0 i' j'"
-    using fw_invariant_aux_1[of 0 j "Suc i" n k] Suc(2-) by simp
-    also have "\<dots> \<le> fw m n k i n i' j'" by (simp add: fw_upd_mono)
-    also have "\<dots> \<le> fw m n k i j i' j'" using fw_invariant_aux_1[of j n i n k] False Suc by simp
-    also have "\<dots> \<le> fw m n k i'' j'' i' j'" using Suc False by simp
-    finally show ?thesis by simp
-  qed
-qed
-
-lemma fw_invariant:
-  "k' \<le> k \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> j'' \<le> j \<Longrightarrow> i'' \<le> i
-   \<Longrightarrow> fw m n k i j i' j' \<le> fw m n k' i'' j'' i' j'"
-proof (induction k)
-  case 0 thus ?case using fw_invariant_aux_2 by auto
-next
-  case (Suc k) thus ?case
-  proof (cases "k' = Suc k")
-    case True thus ?thesis using Suc fw_invariant_aux_2 by simp
-  next
-    case False
-    have "fw m n (Suc k) i j i' j' \<le> fw m n (Suc k) 0 0 i' j'"
-    using fw_invariant_aux_2[of i n j "Suc k" 0 0] Suc(2-) by simp
-    also have "\<dots> \<le> fw m n k n n i' j'" by (simp add: fw_upd_mono)
-    also have "\<dots> \<le> fw m n k i j i' j'" using fw_invariant_aux_2[of n n n k] False Suc by simp
-    also have "\<dots> \<le> fw m n k' i'' j'' i' j'" using Suc False by simp
+    have "fwi m n k (Suc i) j i' j' \<le> fwi m n k (Suc i) 0 i' j'"
+      by (rule fwi_invariant_aux_1[of 0]; simp)
+    also have "\<dots> \<le> fwi m n k i n i' j'" by (simp add: fw_upd_mono)
+    also have "\<dots> \<le> fwi m n k i j i' j'" using fwi_invariant_aux_1 False Suc by simp
+    also have "\<dots> \<le> fwi m n k i'' j'' i' j'" using Suc False by simp
     finally show ?thesis by simp
   qed
 qed
 
 lemma single_row_inv:
-  "j' < j \<Longrightarrow> j \<le> n \<Longrightarrow> i' \<le> n \<Longrightarrow> fw m n k i' j i' j' = fw m n k i' j' i' j'"
+  "j' < j \<Longrightarrow> fwi m n k i' j i' j' = fwi m n k i' j' i' j'"
 proof (induction j)
   case 0 thus ?case by simp
 next
@@ -487,7 +481,7 @@ next
 qed
 
 lemma single_iteration_inv':
-  "i' < i \<Longrightarrow> j' \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> i \<le> n \<Longrightarrow> fw m n k i j i' j' = fw m n k i' j' i' j'"
+  "i' < i \<Longrightarrow> j' \<le> n \<Longrightarrow> fwi m n k i j i' j' = fwi m n k i' j' i' j'"
 proof (induction i arbitrary: j)
   case 0 thus ?case by simp
 next
@@ -497,7 +491,7 @@ next
     proof (cases "i = i'", goal_cases)
       case 2 thus ?case by (simp add: fw_upd_def upd_def)
     next
-      case 1 thus ?case using single_row_inv[of j' n n i' m k] 
+      case 1 thus ?case using single_row_inv[of j' n]
       by (cases "j' = n") (fastforce simp add: fw_upd_def upd_def)+
     qed
   next
@@ -506,7 +500,7 @@ next
 qed
 
 lemma single_iteration_inv:
-  "i' \<le> i \<Longrightarrow> j' \<le> j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n\<Longrightarrow> fw m n k i j i' j' = fw m n k i' j' i' j'"
+  "i' \<le> i \<Longrightarrow> j' \<le> j \<Longrightarrow> j \<le> n \<Longrightarrow> fwi m n k i j i' j' = fwi m n k i' j' i' j'"
 proof (induction i arbitrary: j)
   case 0 thus ?case
   proof (induction j)
@@ -530,7 +524,7 @@ next
     next
       case 2 thus ?case
       proof (cases "j' = Suc j", goal_cases)
-        case 1 thus ?case using single_iteration_inv'[of i' "Suc i" j' n "Suc j" m k] by simp
+        case 1 thus ?case by - (rule single_iteration_inv'; simp)
       next
         case 2 thus ?case by (simp add: fw_upd_def upd_def)
       qed
@@ -538,8 +532,8 @@ next
   qed
 qed
 
-lemma fw_innermost_id:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> j' \<le> n \<Longrightarrow> i' < i \<Longrightarrow> fw m n 0 i' j' i j = m i j"
+lemma fwi_innermost_id:
+  "i' < i \<Longrightarrow> fwi m n k i' j' i j = m i j"
 proof (induction i' arbitrary: j')
   case 0 thus ?case
   proof (induction j')
@@ -556,8 +550,8 @@ next
   qed
 qed
 
-lemma fw_middle_id:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> j' < j \<Longrightarrow> i' \<le> i \<Longrightarrow> fw m n 0 i' j' i j = m i j"
+lemma fwi_middle_id:
+  "j' < j \<Longrightarrow> i' \<le> i \<Longrightarrow> fwi m n k i' j' i j = m i j"
 proof (induction i' arbitrary: j')
   case 0 thus ?case
   proof (induction j')
@@ -568,14 +562,14 @@ proof (induction i' arbitrary: j')
 next
   case (Suc i') thus ?case
   proof (induction j')
-    case 0 thus ?case using fw_innermost_id by (auto simp add: fw_upd_def upd_def)
+    case 0 thus ?case using fwi_innermost_id by (auto simp add: fw_upd_def upd_def)
   next
     case (Suc j') thus ?case by (auto simp add: fw_upd_def upd_def)
   qed
 qed
 
-lemma fw_outermost_mono:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fw m n 0 i j i j \<le> m i j"
+lemma fwi_outermost_mono:
+  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fwi m n k i j i j \<le> m i j"
 proof (cases j)
   case 0
   assume "i \<le> n"
@@ -584,158 +578,60 @@ proof (cases j)
     case 0 thus ?thesis using \<open>j = 0\<close> by (simp add: fw_upd_def upd_def)
   next
     case (Suc i')
-    hence "fw m n 0 i' n (Suc i') 0 = m (Suc i') 0" using fw_innermost_id[of "Suc i'" n 0 n i' m]
-    using \<open>i \<le> n\<close> by simp
+    hence "fwi m n k i' n (Suc i') 0 = m (Suc i') 0" using fwi_innermost_id \<open>i \<le> n\<close> by simp
     thus ?thesis using \<open>j = 0\<close> Suc by (simp add: fw_upd_def upd_def)
   qed
 next
   case (Suc j')
   assume "i \<le> n" "j \<le> n"
-  hence "fw m n 0 i j' i (Suc j') = m i (Suc j')"
-  using fw_middle_id[of i n "Suc j'" j' i m] Suc by simp
+  hence "fwi m n k i j' i (Suc j') = m i (Suc j')"
+  using fwi_middle_id Suc by simp
   thus ?thesis using Suc by (simp add: fw_upd_def upd_def)
 qed
 
-lemma Suc_innermost_id1:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> j' \<le> n \<Longrightarrow> i' < i \<Longrightarrow> fw m n (Suc k) i' j' i j = fw m n k i j i j"
-proof (induction i' arbitrary: j')
-  case 0 thus ?case
-  proof (induction j')
-    case 0
-    hence "fw m n k n n i j = fw m n k i j i j" using single_iteration_inv[of i n j n n m k] by simp
-    thus ?case using 0 by (simp add: fw_upd_def upd_def)
-  next
-    case (Suc j') thus ?case by (auto simp: fw_upd_def upd_def)
-  qed
+lemma fwi_mono:
+  "fwi m n k i' j' i j \<le> m i j" if "i \<le> n" "j \<le> n"
+proof (cases "i' < i")
+  case True
+  then have "fwi m n k i' j' i j = m i j"
+    by (simp add: fwi_innermost_id)
+  then show ?thesis by simp
 next
-  case (Suc i') thus ?case
-  proof (induction j')
-    case 0 thus ?case by (auto simp add: fw_upd_def upd_def)
+  case False
+  show ?thesis
+  proof (cases "i' > i")
+    case True
+    then have "fwi m n k i' j' i j = fwi m n k i j i j"
+      by (simp add: single_iteration_inv' that(2))
+    with fwi_outermost_mono[OF that] show ?thesis by simp
   next
-    case (Suc j') thus ?case by (auto simp add: fw_upd_def upd_def)
+    case False
+    with \<open>\<not> i' < i\<close> have [simp]: "i' = i" by simp
+    show ?thesis
+    proof (cases "j' < j")
+      case True
+      then have "fwi m n k i' j' i j = m i j"
+        by (simp add: fwi_middle_id)
+      then show ?thesis by simp
+    next
+      case False
+      then have "fwi m n k i' j' i j = fwi m n k i j i j"
+        by (cases "j' = j"; simp add: single_row_inv)
+      with fwi_outermost_mono[OF that] show ?thesis by simp
+    qed
   qed
-qed
-
-lemma Suc_innermost_id2:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> j' < j \<Longrightarrow> i' \<le> i \<Longrightarrow> fw m n (Suc k) i' j' i j = fw m n k i j i j"
-proof (induction i' arbitrary: j')
-  case 0
-  hence "fw m n k n n i j = fw m n k i j i j" using single_iteration_inv[of i n j n n m k] by simp
-  with 0 show ?case
-  proof (induction j')
-    case 0
-    thus ?case by (auto simp add: fw_upd_def upd_def)
-  next
-    case (Suc j') thus ?case by (auto simp: fw_upd_def upd_def)
-  qed
-next
-  case (Suc i') thus ?case
-  proof (induction j')
-    case 0 thus ?case using Suc_innermost_id1 by (auto simp add: fw_upd_def upd_def)
-  next
-    case (Suc j') thus ?case by (auto simp add: fw_upd_def upd_def)
-  qed
-qed
-
-lemma Suc_innermost_id1':
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> j' \<le> n \<Longrightarrow> i' < i \<Longrightarrow> fw m n (Suc k) i' j' i j = fw m n k n n i j"
-proof goal_cases
-  case 1
-  hence "fw m n (Suc k) i' j' i j = fw m n k i j i j" using Suc_innermost_id1 by simp
-  thus ?thesis using 1 single_iteration_inv[of i n] by simp
-qed
-
-lemma Suc_innermost_id2':
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> j' < j \<Longrightarrow> i' \<le> i \<Longrightarrow> fw m n (Suc k) i' j' i j = fw m n k n n i j"
-proof goal_cases
-  case 1
-  hence "fw m n (Suc k) i' j' i j = fw m n k i j i j" using Suc_innermost_id2 by simp
-  thus ?thesis using 1 single_iteration_inv[of i n] by simp
 qed
 
 lemma Suc_innermost_mono:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fw m n (Suc k) i j i j \<le> fw m n k i j i j"
-proof (cases j)
-  case 0
-  assume "i \<le> n"
-  thus ?thesis
-  proof (cases i)
-    case 0 thus ?thesis using \<open>j = 0\<close> single_iteration_inv[of 0 n 0 n n m k]
-    by (simp add: fw_upd_def upd_def)
-  next
-    case (Suc i')
-    thus ?thesis using Suc_innermost_id1 \<open>i \<le> n\<close> \<open>j = 0\<close>
-    by (auto simp: fw_upd_def upd_def local.min.coboundedI1)
-  qed
-next
-  case (Suc j')
-  assume "i \<le> n" "j \<le> n"
-  thus ?thesis using Suc Suc_innermost_id2 by (auto simp: fw_upd_def upd_def local.min.coboundedI1)
-qed
-
-lemma fw_mono':
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fw m n k i j i j \<le> m i j"
-proof (induction k)
-  case 0 thus ?case using fw_outermost_mono by simp
-next
-  case (Suc k) thus ?case using Suc_innermost_mono[OF Suc.prems, of m k] by simp
-qed
+  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fw m n (Suc k) i j \<le> fw m n k i j"
+  by (simp add: fwi_mono)
 
 lemma fw_mono:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> i' \<le> n \<Longrightarrow> j' \<le> n \<Longrightarrow> fw m n k i j i' j' \<le> m i' j'"
-proof (cases k)
-  case 0
-  assume 0: "i \<le> n" "j \<le> n" "i' \<le> n" "j' \<le> n" "k = 0"
-  thus ?thesis
-  proof (cases "i' \<le> i")
-    case False thus ?thesis using 0 fw_innermost_id by simp
-  next
-    case True thus ?thesis
-    proof (cases "j' \<le> j")
-      case True
-      have "fw m n 0 i j i' j' \<le> fw m n 0 i' j' i' j'" using fw_invariant True \<open>i' \<le> i\<close> 0 by simp
-      also have "fw m n 0 i' j' i' j' \<le> m i' j'" using 0 fw_outermost_mono by blast
-      finally show ?thesis by (simp add: \<open>k = 0\<close>)
-    next
-      case False thus ?thesis
-      proof (cases "i = i'", goal_cases)
-        case 1 then show ?thesis using fw_middle_id[of i' n j' j i' m] 0 by simp
-      next
-        case 2
-        then show ?case
-        using single_iteration_inv'[of i' i j' n j m 0] \<open>i' \<le> i\<close> fw_middle_id[of i' n j' j i' m]
-              fw_outermost_mono[of i' n j' m] 0
-        by simp
-      qed
-    qed
-  qed
+  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fw m n k i j \<le> m i j"
+proof (induction k)
+  case 0 thus ?case using fwi_mono by simp
 next
-  case (Suc k)
-  assume prems: "i \<le> n" "j \<le> n" "i' \<le> n" "j' \<le> n"
-  thus ?thesis
-  proof (cases "i' \<le> i \<and> j' \<le> j")
-    case True
-    hence "fw m n (Suc k) i j i' j' = fw m n (Suc k) i' j' i' j'"
-    using prems single_iteration_inv by blast
-    thus ?thesis using Suc prems fw_mono' by auto
-  next
-    case False thus ?thesis
-    proof auto
-      assume "\<not> i' \<le> i"
-      thus ?thesis using Suc prems fw_mono' Suc_innermost_id1 by auto
-    next
-      assume "\<not> j' \<le> j"
-      hence "j < j'" by simp
-      show ?thesis
-      proof (cases "i \<le> i'")
-        case True
-        thus ?thesis using Suc prems Suc_innermost_id2 \<open>j < j'\<close> fw_mono' by auto
-      next
-        case False
-        thus ?thesis using single_iteration_inv' Suc prems fw_mono' by auto
-      qed
-    qed
-  qed
+  case (Suc k) thus ?case using Suc_innermost_mono[OF Suc.prems, of m k] by simp
 qed
 
 lemma add_mono_neutr:
@@ -748,167 +644,125 @@ lemma add_mono_neutl:
   shows "a \<le> b + a"
 using neutr add_mono assms by force
 
-lemma fw_step_0:
-  "m 0 0 \<ge> \<one> \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fw m n 0 i j i j = min (m i j) (m i 0 + m 0 j)"
-proof (induction i)
-  case 0 thus ?case
-  proof (cases j)
-    case 0 thus ?thesis by (simp add: fw_upd_def upd_def)
-  next
-    case (Suc j)
-    hence "fw m n 0 0 j 0 (Suc j) = m 0 (Suc j)" using 0 fw_middle_id[of 0 n "Suc j" j 0 m] by fast
-    moreover have "fw m n 0 0 j 0 0 = m 0 0" using single_iteration_inv[of 0 0 0 j n m 0] Suc 0
-    by (auto simp add: fw_upd_def upd_def min_def intro: add_mono_neutl)
-    ultimately show ?thesis using Suc by (simp add: fw_upd_def upd_def)
-  qed
-next
-  case (Suc i)
-  note A = this
+lemma fwi_step:
+  "m k k \<ge> \<one> \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fwi m n k i j i j = min (m i j) (m i k + m k j)"
+proof (induction _ "(i, j)" arbitrary: i j rule: wf_induct[of "less_than <*lex*> less_than"],
+      (auto; fail), goal_cases)
+  case (1 i' j')
+  note assms = 1(2-)
+  note IH = 1(1)
+  note [simp] = fwi_innermost_id fwi_middle_id
+  note simps = add_mono_neutl add_mono_neutr ord.min_def fw_upd_def upd_def
   show ?case
-  proof (cases j)
-    case 0
-    have "fw m n 0 i n (Suc i) 0 = m (Suc i) 0" using fw_innermost_id[of "Suc i" n 0 n i m] Suc by simp
-    moreover have "fw m n 0 i n 0 0 = m 0 0" using Suc single_iteration_inv[of 0 i 0 n n m 0]
-    by (auto simp add: fw_upd_def upd_def min_def intro: add_mono_neutl)
-    ultimately show ?thesis using 0 by (simp add: fw_upd_def upd_def)
-  next
-    case (Suc j)
-    have *: "fw m n 0 0 j 0 0 = m 0 0" using single_iteration_inv[ of 0 0 0 j n m 0] A Suc
-    by (auto simp add: fw_upd_def upd_def min_def intro: add_mono_neutl)
-    have **: "fw m n 0 i n 0 0 = m 0 0" using single_iteration_inv[of 0 i 0 n n m 0] A
-    by (auto simp add: fw_upd_def upd_def min_def intro: add_mono_neutl)
-    have "m 0 (Suc j) = fw_upd m 0 0 (Suc j) 0 (Suc j)" using \<open>m 0 0 >= \<one>\<close>
-    by (auto simp add: fw_upd_def upd_def min_def intro: add_mono_neutl)
-    also have "\<dots> = fw m n 0 0 (Suc j) 0 (Suc j)" using fw_middle_id[of 0 n "Suc j" j 0 m] Suc A(4)
-    by (simp add: fw_upd_def upd_def *)
-    finally have ***: "fw m n 0 (Suc i) j 0 (Suc j) = m 0 (Suc j)"
-    using single_iteration_inv'[of 0 "Suc i" "Suc j" n j m 0] A Suc by simp
-    have "m (Suc i) 0 = fw_upd m 0 (Suc i) 0 (Suc i) 0" using \<open>m 0 0 >= \<one>\<close>
-    by (auto simp add: fw_upd_def upd_def min_def intro: add_mono_neutr)
-    also have "\<dots> = fw m n 0 (Suc i) 0 (Suc i) 0"
-    using fw_innermost_id[of "Suc i" n 0 n i m] \<open>Suc i \<le> n\<close> ** by (simp add: fw_upd_def upd_def)
-    finally have "fw m n 0 (Suc i) j (Suc i) 0 = m (Suc i) 0"
-    using single_iteration_inv A Suc by auto
-    moreover have "fw m n 0 (Suc i) j (Suc i) (Suc j) = m (Suc i) (Suc j)"
-    using fw_middle_id A Suc by simp
-    ultimately show ?thesis using Suc *** by (simp add: fw_upd_def upd_def)
-  qed
-qed
-
-lemma fw_step_Suc:
-  "\<forall> k'\<le>n. fw m n k n n k' k' \<ge> \<one> \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> Suc k \<le> n
-    \<Longrightarrow> fw m n (Suc k) i j i j = min (fw m n k n n i j) (fw m n k n n i (Suc k) + fw m n k n n (Suc k) j)"
-proof (induction i)
-  case 0 thus ?case
-  proof (cases j)
-    case 0 thus ?thesis by (simp add: fw_upd_def upd_def)
-  next
-    case (Suc j)
-    then have
-      "fw m n k n n 0 (Suc j) = fw m n (Suc k) 0 j 0 (Suc j)"
-    using 0(2-) Suc_innermost_id2' by simp
-    moreover have "fw m n (Suc k) 0 j 0 (Suc k) = fw m n k n n 0 (Suc k)"
-    proof (cases "j < Suc k")
-      case True thus ?thesis using 0 Suc_innermost_id2' by simp
+  proof (cases i')
+    case [simp]: 0 thus ?thesis
+    proof (cases j')
+      case 0 thus ?thesis by (simp add: fw_upd_def upd_def)
     next
-      case False
-      hence
-        "fw m n (Suc k) 0 k 0 (Suc k) = fw m n k n n 0 (Suc k)"
-      using 0(2-) Suc Suc_innermost_id2' by simp
-      moreover have "fw m n (Suc k) 0 k (Suc k) (Suc k) = fw m n k n n (Suc k) (Suc k)"
-      using 0(2-) Suc Suc_innermost_id2' by simp
-      moreover have "fw m n (Suc k) 0 j 0 (Suc k) = fw m n (Suc k) 0 (Suc k) 0 (Suc k)"
-      using False single_iteration_inv 0(2-) Suc by force
-      ultimately show ?thesis using 0(1)
-      by (auto simp add: fw_upd_def upd_def \<open>Suc k \<le> n\<close> min_def intro: add_mono_neutr)
-    qed
-    moreover have "fw m n k n n (Suc k) (Suc j) = fw m n (Suc k) 0 j (Suc k) (Suc j)"
-    using 0(2-) Suc Suc_innermost_id2' by simp
-    ultimately show ?thesis using Suc by (simp add: fw_upd_def upd_def)
-  qed
-next
-  case (Suc i)
-  note A = this
-  show ?case
-  proof (cases j)
-    case 0
-    hence
-      "fw m n (Suc k) i n (Suc i) 0 = fw m n k n n (Suc i) 0"
-    using Suc_innermost_id1' \<open>Suc i \<le> n\<close> by simp
-    moreover have "fw m n (Suc k) i n (Suc i) (Suc k) = fw m n k n n (Suc i) (Suc k)"
-    using Suc_innermost_id1' A(3,5) by simp
-    moreover have "fw m n (Suc k) i n (Suc k) 0 = fw m n k n n (Suc k) 0"
-    proof (cases "i < Suc k")
-      case True thus ?thesis using Suc_innermost_id1' A(3,5) by simp
-    next
-      case False
-      have "fw m n (Suc k) k n (Suc k) (Suc k) = fw m n k n n (Suc k) (Suc k)"
-      using Suc_innermost_id1' \<open>Suc i \<le> n\<close> False by simp
-      moreover have "fw m n (Suc k) k n (Suc k) 0 = fw m n k n n (Suc k) 0"
-      using Suc_innermost_id1' \<open>Suc i \<le> n\<close> False by simp
-      moreover have "fw m n (Suc k) i n (Suc k) 0 = fw m n (Suc k) (Suc k) 0 (Suc k) 0"
-      using single_iteration_inv \<open>Suc i \<le> n\<close> False by simp
-      ultimately show ?thesis using Suc(2)
-      by (auto simp add: fw_upd_def upd_def \<open>Suc k \<le> n\<close> min_def intro: add_mono_neutl)
-    qed
-    ultimately show ?thesis using 0 by (simp add: fw_upd_def upd_def)
-  next
-    case (Suc j)
-    hence "fw m n (Suc k) (Suc i) j (Suc i) (Suc j) = fw m n k n n (Suc i) (Suc j)"
-    using Suc_innermost_id2' A(3,4) by simp
-    moreover have "fw m n (Suc k) (Suc i) j (Suc i) (Suc k) = fw m n k n n (Suc i) (Suc k)"
-    proof (cases "j < Suc k")
-      case True thus ?thesis using Suc A(3-) Suc_innermost_id2' by simp
-    next
-      case False
-      have *:"fw m n (Suc k) (Suc i) k (Suc i) (Suc k) = fw m n k n n (Suc i) (Suc k)"
-      using Suc_innermost_id2' A(3,5) by simp
-      have **:"fw m n (Suc k) (Suc i) k (Suc k) (Suc k) = fw m n k n n (Suc k) (Suc k)"
-      proof (cases "Suc i \<le> Suc k")
-        case True thus ?thesis using Suc_innermost_id2' A(5) by simp
+      case (Suc j)
+      hence "fwi m n k 0 j 0 (Suc j) = m 0 (Suc j)" by simp
+      moreover have "fwi m n k 0 j k (Suc j) = m k (Suc j)" by simp
+      moreover have "fwi m n k 0 j 0 k = m 0 k"
+      proof (cases "j < k")
+        case True
+        then show ?thesis by simp
       next
         case False
-        hence "fw m n (Suc k) (Suc i) k (Suc k) (Suc k) = fw m n (Suc k) (Suc k) (Suc k) (Suc k) (Suc k)"
-        using single_iteration_inv'[of "Suc k" "Suc i" "Suc k" n k m "Suc k"] A(3) by simp
-        moreover have "fw m n (Suc k) (Suc k) k (Suc k) (Suc k) = fw m n k n n (Suc k) (Suc k)"
-        using Suc_innermost_id2' A(5) by simp
-        ultimately show ?thesis using A(2)
-        by (auto simp add: fw_upd_def upd_def \<open>Suc k \<le> n\<close> min_def intro: add_mono_neutl)
+        then show ?thesis
+          apply (subst single_iteration_inv; simp)
+          subgoal
+            using assms Suc by auto
+          using assms by (cases k; simp add: simps)
       qed
-      have "fw m n (Suc k) (Suc i) j (Suc i) (Suc k) = fw m n (Suc k) (Suc i) (Suc k) (Suc i) (Suc k)"
-      using False single_iteration_inv[of "Suc i" "Suc i" "Suc k" j n m "Suc k"] A(3-) Suc by simp
-      also have "\<dots> = fw m n k n n (Suc i) (Suc k)" using * ** A(2)
-      by (auto simp add: fw_upd_def upd_def \<open>Suc k \<le> n\<close> min_def intro: add_mono_neutr)
-      finally show ?thesis by simp
+      ultimately show ?thesis using Suc assms by (simp add: fw_upd_def upd_def)
     qed
-    moreover have "fw m n (Suc k) (Suc i) j (Suc k) (Suc j) = fw m n k n n (Suc k) (Suc j)"
-    proof (cases "Suc i \<le> Suc k")
-      case True thus ?thesis using Suc_innermost_id2' Suc A(3-5) by simp
-    next
-      case False
-      have "fw m n (Suc k) (Suc k) j (Suc k) (Suc k) = fw m n k n n (Suc k) (Suc k)"
-      proof (cases "j < Suc k")
-        case True thus ?thesis using Suc_innermost_id2' A(5) by simp
+  next
+    case [simp]: (Suc i)
+    show ?thesis
+    proof (cases j')
+      case 0
+      have "fwi m n k i n (Suc i) 0 = m (Suc i) 0" by simp
+      moreover have "fwi m n k i n (Suc i) k = m (Suc i) k" by simp
+      moreover have "fwi m n k i n k 0 = m k 0"
+      proof (cases "i < k")
+        case True
+        then show ?thesis by simp
       next
         case False
-        hence "fw m n (Suc k) (Suc k) j (Suc k) (Suc k) = fw m n (Suc k) (Suc k) (Suc k) (Suc k) (Suc k)"
-        using single_iteration_inv A(3,4) Suc by simp
-        moreover have "fw m n (Suc k) (Suc k) k (Suc k) (Suc k) = fw m n k n n (Suc k) (Suc k)"
-        using Suc_innermost_id2' A(5) by simp
-        ultimately show ?thesis using A(2)
-        by (auto simp add: fw_upd_def upd_def \<open>Suc k \<le> n\<close> min_def intro: add_mono_neutl)
+        then show ?thesis
+          apply (subst single_iteration_inv; simp)
+          using 0 \<open>m k k \<ge> _\<close> by (cases k; simp add: simps)
       qed
-      moreover have "fw m n (Suc k) (Suc k) j (Suc k) (Suc j) = fw m n k n n (Suc k) (Suc j)"
-      using Suc_innermost_id2' Suc A(3-5) by simp
-      ultimately have "fw m n (Suc k) (Suc k) (Suc j) (Suc k) (Suc j) = fw m n k n n (Suc k) (Suc j)"
-      using A(2) by (auto simp add: fw_upd_def upd_def \<open>Suc k \<le> n\<close> min_def intro: add_mono_neutl)
-      moreover have "fw m n (Suc k) (Suc i) j (Suc k) (Suc j) = fw m n (Suc k) (Suc k) (Suc j) (Suc k) (Suc j)"
-      using single_iteration_inv'[of "Suc k" "Suc i" "Suc j" n j m "Suc k"] Suc A(3-) False  by simp
-      moreover have "fw m n (Suc k) (Suc k) k (Suc k) (Suc k) = fw m n k n n (Suc k) (Suc k)"
-      using Suc_innermost_id2' A(5) by simp
-      ultimately show ?thesis using A(2) by (simp add: fw_upd_def upd_def)
+      ultimately show ?thesis using 0 by (simp add: fw_upd_def upd_def)
+    next
+      case Suc_j: (Suc j)
+      from \<open>j' \<le> n\<close> \<open>j' = _\<close> have [simp]: "j \<le> n" "Suc j \<le> n" by simp+
+      have diag: "fwi m n k k k k k = m k k" if "k \<le> i"
+      proof -
+        from that IH assms have "fwi m n k k k k k = min (m k k) (m k k + m k k)" by auto
+        with \<open>m k k \<ge> \<one>\<close> \<open>k \<le> n\<close> show ?thesis by (simp add: simps)
+      qed
+      have **: "fwi m n k i n k k = m k k"
+      proof (cases "i < k")
+        case True
+        then show ?thesis by simp
+      next
+        case False
+        then show ?thesis
+          by (subst single_iteration_inv; simp add: diag \<open>k \<le> n\<close>)
+      qed
+      have diag2: "fwi m n k k j k k = m k k" if "k \<le> i"
+      proof (cases "j < k")
+        case True
+        then show ?thesis by simp
+      next
+        case False
+        with \<open>k \<le> i\<close> show ?thesis
+          by (subst single_iteration_inv; simp add: diag)
+      qed
+      have ***: "fwi m n k (Suc i) j k (Suc j) = m k (Suc j)"
+      proof (cases "Suc i \<le> k")
+        case True
+        then show ?thesis by simp
+      next
+        case False
+        then have "fwi m n k k j k (Suc j) = m k (Suc j)"
+          by simp
+        with False \<open>m k k \<ge> \<one>\<close> show ?thesis
+          by (subst single_iteration_inv'; simp add: simps diag2)
+      qed
+      have "fwi m n k (Suc i) j (Suc i) k = m (Suc i) k"
+      proof (cases "j < k")
+        case True thus ?thesis by simp
+      next
+        case False
+        then show ?thesis
+          apply (subst single_iteration_inv; simp)
+          apply (cases k)
+          subgoal premises prems
+          proof -
+            have "fwi m n 0 i n 0 0 \<ge> \<one>"
+              using ** assms(1) prems(2) by force
+            moreover have "fwi m n 0 i n (Suc i) 0 = m (Suc i) 0"
+              by simp
+            ultimately show ?thesis
+              using prems by (simp add: simps)
+          qed
+          subgoal premises prems for k'
+          proof -
+            have "fwi m n (Suc k') (Suc i) k' (Suc k') (Suc k') \<ge> \<one>"
+              by (metis ** assms(1,4) fwi_innermost_id fwi_middle_id le_SucE lessI
+                    linorder_class.not_le_imp_less prems(2) preorder_class.order_refl
+                    single_iteration_inv single_iteration_inv'
+                 )
+            with prems show ?thesis
+              by (simp add: simps)
+          qed
+          done
+      qed
+      moreover have "fwi m n k (Suc i) j (Suc i) (Suc j) = m (Suc i) (Suc j)" by simp
+      ultimately show ?thesis using \<open>j' = _\<close> by (simp add: simps ***)
     qed
-    ultimately show ?thesis using Suc by (simp add: fw_upd_def upd_def)
   qed
 qed
 
@@ -1012,7 +866,7 @@ next
     hence "len m i j xs < len m i j ?xs" by auto
     from this len_decomp Cons(4) add_mono
     have "len m j j (concat (map (\<lambda>xs. xs @ [j]) (zs # xss)) @ as) < len m j j ?t"
-    using False local.leI by fastforce 
+    using False local.leI by fastforce
     hence "len m j j (zs @ j # ?t) < len m j j ?t" by simp
     with len_decomp[of "zs @ j # ?t" zs j ?t m j j]
     have "len m j j zs + len m j j ?t < len m j j ?t" by auto
@@ -1147,7 +1001,7 @@ definition D :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<
   "D m i j k \<equiv> Min {len m i j xs | xs. set xs \<subseteq> {0..k} \<and> i \<notin> set xs \<and> j \<notin> set xs \<and> distinct xs}"
 
 lemma distinct_length_le:"finite s \<Longrightarrow> set xs \<subseteq> s \<Longrightarrow> distinct xs \<Longrightarrow> length xs \<le> card s"
-by (metis card_mono distinct_card) 
+by (metis card_mono distinct_card)
 
 lemma finite_distinct: "finite s \<Longrightarrow> finite {xs . set xs \<subseteq> s \<and> distinct xs}"
 proof -
@@ -1273,7 +1127,7 @@ proof -
     from assms(3-6) xs have *:"?y \<le> x" by (fastforce simp add: cycle_free_up_to_def)
     have distinct: "i \<notin> set ?ys" "j \<notin> set ?ys" "distinct ?ys"
     using rem_cycles_distinct remove_all_removes rem_cycles_removes_last by fast+
-    with xs(2) have "?y \<in> A_distinct" unfolding A_distinct_def using rem_cycles_subs by fastforce 
+    with xs(2) have "?y \<in> A_distinct" unfolding A_distinct_def using rem_cycles_subs by fastforce
     hence "x \<le> ?y" using assms by meson
     moreover have "?y \<le> x" using assms(3-6) xs by (fastforce simp add: cycle_free_up_to_def)
     ultimately have "x = ?y" by simp
@@ -1285,205 +1139,426 @@ qed
 
 section \<open>Result Under The Absence of Negative Cycles\<close>
 
+definition canonical_subs :: "nat \<Rightarrow> nat set \<Rightarrow> 'a mat \<Rightarrow> bool" where
+  "canonical_subs n I M = (\<forall> i j k. i \<le> n \<and> k \<le> n \<and> j \<in> I \<longrightarrow> M i k \<le> M i j + M j k)"
+
+abbreviation cyc_free_subs :: "nat \<Rightarrow> nat set \<Rightarrow> 'a mat \<Rightarrow> bool" where
+  "cyc_free_subs n I m \<equiv> \<forall> i xs. i \<le> n \<and> set xs \<subseteq> I \<longrightarrow> len m i i xs \<ge> \<one>"
+
+lemma fwi_step':
+  "fwi m n k i' j' i j = min (m i j) (m i k + m k j)" if
+  "m k k \<ge> \<one>" "i' \<le> n" "j' \<le> n" "k \<le> n" "i \<le> i'" "j \<le> j'"
+  using that by (subst single_iteration_inv; auto simp: fwi_step)
+
+lemma fwi_canonical_extend:
+  "canonical_subs n (I \<union> {k}) (fwi m n k n n)" if
+  "canonical_subs n I m" "I \<subseteq> {0..n}" "\<one> \<le> m k k" "k \<le> n"
+  using that
+  unfolding canonical_subs_def
+  apply safe
+    subgoal for i j k'
+   apply (subst fwi_step', (auto; fail)+)+
+    unfolding min_def
+    apply auto
+          apply force
+    (* apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc) *)
+      subgoal
+      proof -
+        assume a1: "m i k' \<le> m i k + m k k'"
+        assume a2: "\<forall>i j k. i \<le> n \<and> k \<le> n \<and> j \<in> I \<longrightarrow> m i k \<le> m i j + m j k"
+        assume a3: "k \<le> n"
+        assume a4: "i \<le> n"
+        assume a5: "j \<in> I"
+      have "\<forall>a aa. \<not> (a::'a) \<le> aa \<or> a = min a aa"
+        by (meson local.min.orderE)
+      then have "m i k' = min (m i k') (m i k + m k k')"
+        using a1 by blast
+      then show "m i k' \<le> m i j + (m j k + m k k')"
+        using a5 a4 a3 a2 by (metis (full_types) local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 semigroup.assoc)
+    qed
+        apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc)
+       apply (metis assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
+      apply (metis assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
+    (* apply (smt add_commute add_mono_neutl local.add.semigroup_axioms local.min.absorb_iff2 local.min.coboundedI1 semigroup.assoc) *)
+      subgoal
+      proof -
+        assume a1: "\<forall>i j k. i \<le> n \<and> k \<le> n \<and> j \<in> I \<longrightarrow> m i k \<le> m i j + m j k"
+        assume a2: "j \<in> I"
+        assume a3: "m i k' \<le> m i k + m k k'"
+        have f4: "\<one> \<le> m k j + m j k"
+          using a2 a1 local.order_trans that(3) that(4) by blast
+        have "\<one> + (m i k + \<one>) = m i k"
+          by simp
+      then have "m i k + m k k' \<le> m k j + m j k + m i k + m k k'"
+        using f4 by (metis (full_types) local.add_right_mono local.neutr)
+      then have "m i k + m k k' \<le> m i k + m k j + (m j k + m k k')"
+        by (simp add: assoc local.add.left_commute)
+      then show "m i k' \<le> m i k + m k j + (m j k + m k k')"
+        using a3 by (metis local.min.absorb_iff2 local.min.coboundedI1)
+      qed
+      by (smt add_commute add_mono_neutl local.add.semigroup_axioms local.min.absorb_iff2 local.min.coboundedI1 semigroup.assoc)
+   subgoal for i j k'
+   apply (subst fwi_step', (auto; fail)+)+
+    unfolding min_def
+    apply auto
+      apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc)
+        apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc)
+       apply (metis assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
+      apply (metis assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
+     apply (smt add_commute add_mono_neutl local.add.semigroup_axioms local.min.absorb_iff2 local.min.coboundedI1 semigroup.assoc)
+    apply (smt add_commute add_mono_neutl local.add.semigroup_axioms local.min.absorb_iff2 local.min.coboundedI1 semigroup.assoc)
+    done
+done
+
+lemma fwi_cyc_free_diag:
+  "fwi m n k n n i i \<ge> \<one>" if
+  "cyc_free_subs n I m" "\<one> \<le> m k k" "k \<le> n" "k \<in> I" "i \<le> n"
+  using that
+  apply (subst fwi_step', (auto; fail)+)+
+  unfolding min_def
+  proof (clarsimp; safe, goal_cases)
+    case 1
+    have "set [] \<subseteq> I"
+      by simp
+    with 1(1) \<open>i \<le> n\<close> show ?case
+      by fastforce
+  next
+    case 2
+    then have "set [k] \<subseteq> I"
+      by simp
+    with 2(1) \<open>i \<le> n\<close> show ?case by fastforce
+  qed
+
+lemma canonical_subs_len:
+  "M i j \<le> len M i j xs" if "canonical_subs n I M" "i \<le> n" "j \<le> n" "set xs \<subseteq> I" "I \<subseteq> {0..n}"
+using that
+proof (induction xs arbitrary: i)
+  case Nil thus ?case by auto
+next
+  case (Cons x xs)
+  then have "M x j \<le> len M x j xs" by auto
+  from Cons.prems \<open>canonical_subs n I M\<close> have "M i j \<le> M i x + M x j"
+    unfolding canonical_subs_def by auto
+  also with Cons have "\<dots> \<le> M i x + len M x j xs" by (auto simp add: add_mono)
+  finally show ?case by simp
+qed
+
+lemma cyc_free_subs_diag:
+  "m i i \<ge> \<one>" if "cyc_free_subs n I m" "i \<le> n"
+proof -
+  have "set [] \<subseteq> I" by auto
+  with that show ?thesis by fastforce
+qed
+
+lemma fwi_cyc_free_subs':
+  "cyc_free_subs n (I \<union> {k}) (fwi m n k n n)" if
+  "cyc_free_subs n I m" "canonical_subs n I m" "I \<subseteq> {0..n}" "k \<le> n"
+  "\<forall> i \<le> n. fwi m n k n n i i \<ge> \<one>"
+proof (safe, goal_cases)
+  case prems: (1 i xs)
+  from that(1) \<open>k \<le> n\<close> have "\<one> \<le> m k k" by (rule cyc_free_subs_diag)
+  from that \<open>\<one> \<le> m k k\<close> have *: "canonical_subs n (I \<union> {k}) (fwi m n k n n)"
+    by - (rule fwi_canonical_extend; auto)
+  from prems that have "\<one> \<le> fwi m n k n n i i" by blast
+  also from * prems that have "fwi m n k n n i i \<le> len (fwi m n k n n) i i xs"
+    by (auto intro: canonical_subs_len)
+  finally show ?case .
+qed
+
+lemma fwi_cyc_free_subs:
+  "cyc_free_subs n (I \<union> {k}) (fwi m n k n n)" if
+  "cyc_free_subs n (I \<union> {k}) m" "canonical_subs n I m" "I \<subseteq> {0..n}" "k \<le> n"
+proof (safe, goal_cases)
+  case prems: (1 i xs)
+  from that(1) \<open>k \<le> n\<close> have "\<one> \<le> m k k" by (rule cyc_free_subs_diag)
+  from that \<open>\<one> \<le> m k k\<close> have *: "canonical_subs n (I \<union> {k}) (fwi m n k n n)"
+    by - (rule fwi_canonical_extend; auto)
+  from prems that \<open>\<one> \<le> m k k\<close> have "\<one> \<le> fwi m n k n n i i" by (auto intro!: fwi_cyc_free_diag)
+  also from * prems that have "fwi m n k n n i i \<le> len (fwi m n k n n) i i xs"
+    by (auto intro: canonical_subs_len)
+  finally show ?case .
+qed
+
+lemma canonical_subs_empty [simp]:
+  "canonical_subs n {} m"
+  unfolding canonical_subs_def by simp
+
+lemma fwi_neg_diag_neg_cycle:
+  "\<exists> i \<le> n. \<exists> xs. set xs \<subseteq> {0..k} \<and> len m i i xs < \<one>" if "fwi m n k n n i i < \<one>" "i \<le> n" "k \<le> n"
+proof (cases "m k k \<ge> \<one>")
+  case True
+  from fwi_step'[of m, OF True] that have "min (m i i) (m i k + m k i) < \<one>"
+    by auto
+  then show ?thesis
+    unfolding min_def
+  proof (clarsimp split: if_split_asm, goal_cases)
+    case 1
+    then have "len m i i [] < \<one>" "set [] \<subseteq> {}" by auto
+    with \<open>i \<le> n\<close> show ?case by fastforce
+  next
+    case 2
+    then have "len m i i [k] < \<one>" "set [k] \<subseteq> {0..k}" by auto
+    with \<open>i \<le> n\<close> show ?case by fastforce
+  qed
+next
+  case False
+  with \<open>k \<le> n\<close> have "len m k k [] < \<one>" "set [] \<subseteq> {}" by auto
+  with \<open>k \<le> n\<close> show ?thesis by fastforce
+qed
+
+lemma fwi_len:
+  "\<exists> ys. set ys \<subseteq> set xs \<union> {k} \<and> len (fwi m n k n n) i j xs = len m i j ys"
+  if "i \<le> n" "j \<le> n" "k \<le> n" "m k k \<ge> \<one>" "set xs \<subseteq> {0..n}"
+  using that
+proof (induction xs arbitrary: i)
+  case Nil
+  then show ?case
+    apply (simp add: fwi_step')
+    unfolding min_def
+    apply (clarsimp; safe)
+     apply (rule exI[where x = "[]"]; simp)
+    by (rule exI[where x = "[k]"]; simp)
+next
+  case (Cons x xs)
+  then obtain ys where "set ys \<subseteq> set xs \<union> {k}" "len (fwi m n k n n) x j xs = len m x j ys"
+    by force
+  with Cons.prems show ?case
+    apply (simp add: fwi_step')
+    unfolding min_def
+    apply (clarsimp; safe)
+     apply (rule exI[where x = "x # ys"]; auto; fail)
+    by (rule exI[where x = "k # x # ys"]; auto simp: assoc)
+qed
+
+lemma fwi_neg_cycle_neg_cycle:
+  "\<exists> i \<le> n. \<exists> ys. set ys \<subseteq> set xs \<union> {k} \<and> len m i i ys < \<one>" if
+  "len (fwi m n k n n) i i xs < \<one>" "i \<le> n" "k \<le> n" "set xs \<subseteq> {0..n}"
+proof (cases "m k k \<ge> \<one>")
+  case True
+  from fwi_len[OF that(2,2,3), of m, OF True that(4)] that(1,2) show ?thesis
+    by safe (rule exI conjI | simp)+
+next
+  case False
+  then have "len m k k [] < \<one>" "set [] \<subseteq> set xs \<union> {k}"
+    by auto
+  with \<open>k \<le> n\<close> show ?thesis by (intro exI conjI)
+qed
+
+lemma fw_neg_diag_neg_cycle:
+  "\<exists> i \<le> n. \<exists> ys. set ys \<subseteq> set xs \<union> {0..k} \<and> len m i i ys < \<one>" if
+  "len (fw m n k) i i xs < \<one>" "i \<le> n" "k \<le> n" "set xs \<subseteq> {0..n}"
+  using that
+  proof (induction k arbitrary: i xs)
+    case 0
+    then show ?case by simp (drule fwi_neg_cycle_neg_cycle; auto)
+  next
+    case (Suc k)
+    from fwi_neg_cycle_neg_cycle[OF Suc.prems(1)[simplified]] Suc.prems obtain i' ys where
+      "i' \<le> n"  "set ys \<subseteq> set xs \<union> {Suc k}" "len (fw m n k) i' i' ys < \<one>"
+      by auto
+    with Suc.prems obtain i'' zs where
+      "i'' \<le> n" "set zs \<subseteq> set ys \<union> {0..k}" "len m i'' i'' zs < \<one>"
+      by atomize_elim (auto intro!: Suc.IH)
+    with \<open>set ys \<subseteq> _\<close> have "set zs \<subseteq> set xs \<union> {0..Suc k} \<and> len m i'' i'' zs < \<one>"
+      by force
+    with \<open>i'' \<le> n\<close> show ?case by blast
+  qed
+
+theorem fw_correct:
+  "canonical_subs n {0..k} (fw m n k) \<and> cyc_free_subs n {0..k} (fw m n k)"
+  if "cyc_free_subs n {0..k} m" "k \<le> n"
+  using that
+proof (induction k)
+  case 0
+  then show ?case
+    using fwi_cyc_free_subs[of n "{}" 0 m] fwi_canonical_extend[of n "{}"]
+    by (auto simp: cyc_free_subs_diag)
+next
+  case (Suc k)
+  then have IH:
+    "canonical_subs n {0..k} (fw m n k) \<and> cyc_free_subs n {0..k} (fw m n k)"
+    by fastforce
+  have *: "{0..Suc k} = {0..k} \<union> {Suc k}" by auto
+  then have **: "canonical_subs n {0..Suc k} (fw m n (Suc k))"
+    apply simp
+    apply (rule fwi_canonical_extend[of n "{0..k}" _ "Suc k", simplified])
+    subgoal
+      using IH ..
+    subgoal
+      using IH Suc.prems by (auto intro: cyc_free_subs_diag[of n "{0..k}" "fw m n k"])
+    by (rule Suc)
+  show ?case
+  proof (cases "\<exists>i\<le>n. fw m n (Suc k) i i < \<one>")
+    case True
+    then obtain i where "i \<le> n" "len (fw m n (Suc k)) i i [] < \<one>"
+      by auto
+    from fw_neg_diag_neg_cycle[OF this(2,1) \<open>Suc k \<le> n\<close>] Suc.prems show ?thesis by fastforce
+  next
+    case False
+    have "cyc_free_subs n {0..Suc k} (fw m n (Suc k))"
+      apply (simp add: *)
+      apply (rule fwi_cyc_free_subs'[of n "{0..k}", simplified])
+      using Suc IH False by force+
+    with ** show ?thesis by blast
+  qed
+qed
+
+lemmas fw_canonical_subs = fw_correct[THEN conjunct1]
+lemmas fw_cyc_free_subs = fw_correct[THEN conjunct2]
+
+
+subsection \<open>Connecting with the notion of shortest paths\<close>
+
+lemma canonical_D:
+  assumes
+    "cycle_free_up_to m k n" "canonical_subs n {0..k} m" "i' \<le> i" "j' \<le> j" "i \<le> n" "j \<le> n" "k \<le> n"
+  shows "D m i' j' k = m i' j'"
+  using assms
+  apply -
+  apply (rule D_eqI2)
+       apply (assumption | simp; fail)+
+  subgoal
+    by (auto intro: canonical_subs_len)
+  apply clarsimp
+  by (rule exI[where x = "[]"]) auto
+
+
 text \<open>
   This proves that the algorithm correctly computes shortest paths under the absence of negative
   cycles by a standard argument.
 \<close>
 
-theorem fw_shortest_path_up_to:
-  "cycle_free_up_to m k n \<Longrightarrow> i' \<le> i \<Longrightarrow> j' \<le> j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n
-        \<Longrightarrow> D m i' j' k = fw m n k i j i' j'"
-proof (induction k arbitrary: i j i' j')
-  case 0
-  from cycle_free_up_to_diag[OF 0(1)] have diag: "\<forall> k \<le> n. m k k \<ge> \<one>" by auto
-  then have m_diag: "m 0 0 \<ge> \<one>" by simp
-  let ?S = "{len m i' j' xs |xs. set xs \<subseteq> {0} \<and> i' \<notin> set xs \<and> j' \<notin> set xs \<and> distinct xs}"
-  show ?case unfolding D_def
-  proof (simp, rule Min_eqI)
-    have "?S \<subseteq> {len m i' j' xs |xs. set xs \<subseteq> {0..0} \<and> distinct xs}" by auto
-    thus "finite ?S" using D_base_finite[of m i' j' 0] by (rule finite_subset)
+lemma fw_subs_len:
+  "(fw m n k) i j \<le> len m i j xs" if
+  "cyc_free_subs n {0..k} m" "k \<le> n" "i \<le> n" "j \<le> n" "set xs \<subseteq> I" "I \<subseteq> {0..k}"
+proof -
+  from fw_correct[OF that(1,2)] have "canonical_subs n {0..k} (fw m n k)" ..
+  from canonical_subs_len[OF this, of i j xs] that have "fw m n k i j \<le> len (fw m n k) i j xs"
+    by auto
+  also from that(2-) have "\<dots> \<le> len m i j xs"
+  proof (induction xs arbitrary: i)
+    case Nil
+    then show ?case by (auto intro: fw_mono)
   next
-    fix l assume "l \<in> ?S"
-    then obtain xs where l: "l = len m i' j' xs" and xs: "xs = [] \<or> xs = [0]"
-    using distinct_list_single_elem_decomp by auto
-    { assume "xs = []"
-      have "fw m n 0 i j i' j' \<le> fw m n 0 0 0 i' j'" using fw_invariant 0 by blast
-      also have "\<dots> \<le> m i' j'" by (cases "i' = 0 \<and> j' = 0") (simp add: fw_upd_def upd_def)+
-      finally have "fw m n 0 i j i' j' \<le> l" using \<open>xs = []\<close> l by simp
-    }
-    moreover
-    { assume "xs = [0]"
-      have "fw m n 0 i j i' j' \<le> fw m n 0 i' j' i' j'" using fw_invariant 0 by blast
-      also have "\<dots> \<le> m i' 0 + m 0 j'"
-      proof (cases j')
-        assume "j' = 0"
-        show ?thesis
-        proof (cases i')
-          assume "i' = 0"
-          thus ?thesis using \<open>j' = 0\<close> by (simp add: fw_upd_def upd_def)
-        next
-          fix i'' assume i'': "i' = Suc i''"
-          have "fw_upd (fw m n 0 i'' n) 0 (Suc i'') 0 (Suc i'') 0 \<le> fw m n 0 i'' n (Suc i'') 0"
-          by (simp add: fw_upd_mono)
-          also have "\<dots> \<le> m (Suc i'') 0" using fw_mono 0 i'' by simp
-          finally show ?thesis using \<open>j' = 0\<close> m_diag i'' neutr add_mono by fastforce
-        qed
-      next
-        fix j'' assume j'': "j' = Suc j''"
-        have "fw_upd (fw m n 0 i' j'') 0 i' (Suc j'') i' (Suc j'')
-              \<le> fw m n 0 i' j'' i' 0 + fw m n 0 i' j'' 0 (Suc j'') "
-        by (simp add: fw_upd_def upd_def)
-        also have "\<dots> \<le> m i' 0 + m 0 (Suc j'')"
-        using fw_mono[of i' n j'' i' 0 m 0] fw_mono[of i' n j'' 0 "Suc j''" m 0 ] j'' 0
-        by (simp add: add_mono)
-        finally show ?thesis using j'' by simp
-      qed
-      finally have "fw m n 0 i j i' j' \<le> l" using \<open>xs = [0]\<close> l by simp
-    }
-    ultimately show "fw m n 0 i j i' j' \<le> l" using xs by auto
-  next
-    have A: "fw m n 0 i j i' j' = fw m n 0 i' j' i' j'" using single_iteration_inv 0 by blast
-    have "fw m n 0 i' j' i' j' = min (m i' j') (m i' 0 + m 0 j')"
-    using 0 by (simp add: fw_step_0[of m, OF m_diag])
-    hence
-      "fw m n 0 i' j' i' j' = m i' j'
-      \<or> (fw m n 0 i' j' i' j' = m i' 0 + m 0 j'\<and> m i' 0 + m 0 j' \<le> m i' j')"
-    by (auto simp add: ord.min_def) 
-    thus "fw m n 0 i j i' j' \<in> ?S"
-    proof (standard, goal_cases)
-      case 1
-      hence "fw m n 0 i j i' j' = len m i' j' []" using A by auto
-      thus ?case by fastforce
-    next
-      case 2
-      hence *:"fw m n 0 i j i' j' = len m i' j' [0]" using A by auto
-      thus ?case
-      proof (cases "i' = 0 \<or> j' = 0")
-        case False thus ?thesis using * by fastforce
-      next
-        case True
-        { assume "i' = 0"
-          from diag have "m 0 0 + m 0 j' \<ge> m 0 j'" by (auto intro: add_mono_neutl)
-          with \<open>i' = 0\<close> have "fw m n 0 i j i' j' = len m 0 j' []" using 0 A 2 by auto
-        } moreover
-        { assume "j' = 0"
-          from diag have "m i' 0 + m 0 0 \<ge> m i' 0" by (auto intro: add_mono_neutr)
-          with \<open>j' = 0\<close> have "fw m n 0 i j i' j' = len m i' 0 []" using 0 A 2 by auto
-        }
-        ultimately have "fw m n 0 i j i' j' = len m i' j' []" using True by auto
-        then show ?thesis by fastforce
-      qed
-    qed
+    case (Cons x xs)
+    then have "len (fw m n k) x j xs \<le> len m x j xs"
+      by auto
+    moreover from Cons.prems have "fw m n k i x \<le> m i x" by - (rule fw_mono; auto)
+    ultimately show ?case by (auto simp: add_mono)
   qed
+  finally show ?thesis by auto
+qed
+
+lemma fwi_len':
+  "\<exists> xs. set xs \<subseteq> {k} \<and> fwi m n k i' j' i j = len m i j xs" if
+  "m k k \<ge> \<one>" "i' \<le> n" "j' \<le> n" "k \<le> n" "i \<le> i'" "j \<le> j'"
+  using that apply (subst fwi_step'; auto)
+  unfolding min_def
+  apply (clarsimp; safe)
+   apply (rule exI[where x = "[]"]; auto; fail)
+  by (rule exI[where x = "[k]"]; auto; fail)
+
+lemma fw_len:
+  "\<exists> xs. set xs \<subseteq> {0..k} \<and> fw m n k i j = len m i j xs" if
+  "cyc_free_subs n {0..k} m" "i \<le> n" "j \<le> n" "k \<le> n"
+  using that
+proof (induction k arbitrary: i j)
+  case 0
+  from cyc_free_subs_diag[OF this(1)] have "m 0 0 \<ge> \<one>" by blast
+  with 0 show ?case by (auto intro: fwi_len')
 next
   case (Suc k)
-  from cycle_free_up_to_diag[OF Suc.prems(1)] have diag: "\<forall> k \<le> n. m k k \<ge> \<one>" by auto
-  from Suc.prems have cycle_free_to_k:
-    "cycle_free_up_to m k n" by (fastforce simp add: cycle_free_up_to_def)
-  { fix k' assume "k' \<le> n"
-    with Suc cycle_free_to_k have "D m k' k' k = fw m n k n n k' k'" by auto
-    from D_dest''[OF this[symmetric]] obtain xs where
-      "set xs \<subseteq> {0..k}" "fw m n k n n k' k'= len m k' k' xs"
+  have IH: "\<exists> xs. set xs \<subseteq> {0..k} \<and> fw m n k i j = len m i j xs" if "i \<le> n" "j \<le> n" for i j
+    apply (rule Suc.IH)
+    using Suc.prems that by force+
+  from fw_cyc_free_subs[OF Suc.prems(1,4)] have "cyc_free_subs n {0..Suc k} (fw m n (Suc k))" .
+  then have "\<one> \<le> fw m n k (Suc k) (Suc k)" using IH Suc.prems(1, 4) by fastforce
+  with Suc.prems fwi_len'[of "fw m n k" "Suc k" n n n i j] obtain xs where
+    "set xs \<subseteq> {Suc k}" "fwi (fw m n k) n (Suc k) n n i j = len (fw m n k) i j xs"
     by auto
-    with Suc(2) \<open>Suc k \<le> n\<close> \<open>k' \<le> n\<close> have "fw m n k n n k' k' \<ge> \<one>"
-    unfolding cycle_free_up_to_def by force
-  }
-  hence K: "\<forall>k'\<le>n. fw m n k n n k' k' \<ge> \<one>" by simp
-  let ?S = "\<lambda> k i j. {len m i j xs |xs. set xs \<subseteq> {0..k} \<and> i \<notin> set xs \<and> j \<notin> set xs \<and> distinct xs}"
-  show ?case
-  proof (rule D_eqI2)
-    show "cycle_free_up_to m (Suc k) n" using Suc.prems(1) .
+  moreover from Suc.prems(2-) this(1) have
+    "\<exists> ys. set ys \<subseteq> {0..Suc k} \<and> len (fw m n k) i j xs = len m i j ys"
+  proof (induction xs arbitrary: i)
+    case Nil
+    then show ?case by (force dest: IH)
   next
-    show "i' \<le> n" using Suc.prems by simp
-  next
-    show "j' \<le> n" using Suc.prems by simp
-  next
-    show "Suc k \<le> n" using Suc.prems by simp
-  next
-    fix l assume "l \<in> {len m i' j' xs | xs. set xs \<subseteq> {0..Suc k} \<and> i' \<notin> set xs \<and> j' \<notin> set xs \<and> distinct xs}"
-    then obtain xs where xs:
-      "l = len m i' j' xs" "set xs \<subseteq> {0..Suc k}" "i' \<notin> set xs" "j' \<notin> set xs" "distinct xs"
-    by auto
-    have IH: "D m i' j' k = fw m n k i j i' j'" using cycle_free_to_k Suc by auto
-    have fin:
-      "finite {len m i' j' xs |xs. set xs \<subseteq> {0..k} \<and> i' \<notin> set xs \<and> j' \<notin> set xs \<and> distinct xs}"
-    using D_base_finite'' by simp
-    show "fw m n (Suc k) i j i' j' \<le> l"
-    proof (cases "Suc k \<in> set xs")
-      case False
-      hence "set xs \<subseteq> {0..k}" using xs(2) using atLeastAtMostSuc_conv by auto
-      hence
-        "l \<in> {len m i' j' xs | xs. set xs \<subseteq> {0..k} \<and> i' \<notin> set xs \<and> j' \<notin> set xs \<and> distinct xs}"
-      using xs by auto
-      with Min_le[OF fin this] have "fw m n k i j i' j' \<le> l" using IH by (simp add: D_def)
-      thus ?thesis using fw_invariant[of k "Suc k" i n j j i m i' j'] Suc.prems by simp
-    next
-      case True
-      then obtain ys zs where ys_zs_id: "xs = ys @ Suc k # zs" by (meson split_list)
-      with xs(5) have ys_zs: "distinct ys" "distinct zs" "Suc k \<notin> set ys" "Suc k \<notin> set zs"
-      "set ys \<inter> set zs = {}" by auto
-      have "i' \<noteq> Suc k" "j' \<noteq> Suc k" using xs(3,4) True by auto
-
-      have "set ys \<subseteq> {0..k}" using ys_zs(3) xs(2) ys_zs_id using atLeastAtMostSuc_conv by auto
-      hence "len m i' (Suc k) ys \<in> ?S k i' (Suc k)" using ys_zs_id ys_zs xs(3) by fastforce
-      with Min_le[OF _ this] have "Min (?S k i' (Suc k)) \<le> len m i' (Suc k) ys"
-      using D_base_finite'[of m i' "Suc k" k] \<open>i' \<noteq> Suc k\<close> by fastforce
-      moreover have "fw m n k n n i' (Suc k)  =  D m i' (Suc k) k"
-      using Suc.IH[OF cycle_free_to_k, of i' n] Suc.prems by auto
-      ultimately have *:"fw m n k n n i' (Suc k) \<le> len m i' (Suc k) ys" using \<open>i' \<noteq> Suc k\<close>
-      by (auto simp: D_def)
-
-      have "set zs \<subseteq> {0..k}" using ys_zs(4) xs(2) ys_zs_id using atLeastAtMostSuc_conv by auto
-      hence "len m (Suc k) j' zs \<in> ?S k (Suc k) j'" using ys_zs_id ys_zs xs(3,4,5) by fastforce
-      with Min_le[OF _ this] have "Min (?S k (Suc k) j') \<le> len m (Suc k) j' zs"
-      using D_base_finite'[of m "Suc k" j' k] \<open>j' \<noteq> Suc k\<close> by fastforce
-      moreover have "fw m n k n n (Suc k) j'  =  D m (Suc k) j' k"
-      using Suc.IH[OF cycle_free_to_k, of "Suc k" n j' n] Suc.prems by auto
-      ultimately have **:"fw m n k n n (Suc k) j' \<le> len m (Suc k) j' zs" using \<open>j' \<noteq> Suc k\<close>
-      by (auto simp: D_def)
-
-      have len_eq: "l = len m i' (Suc k) ys + len m (Suc k) j' zs"
-      by (simp add: xs(1) len_decomp[OF ys_zs_id, symmetric] ys_zs_id)
-      have "fw m n (Suc k) i' j' i' j' \<le> fw m n k n n i' (Suc k) + fw m n k n n (Suc k) j'"
-      using fw_step_Suc[of n m k i' j', OF K] Suc.prems(2-) by simp
-      hence "fw m n (Suc k) i' j' i' j' \<le> l"
-      using fw_step_Suc[of n m k i j] Suc.prems(3-) * ** len_eq add_mono by fastforce
-      thus ?thesis using fw_invariant[of "Suc k" "Suc k" i n j j' i' m i' j'] Suc.prems(2-) by simp
-    qed
-  next
-    have "fw m n (Suc k) i j i' j' = fw m n (Suc k) i' j' i' j'"
-    using single_iteration_inv[OF Suc.prems(2-5)] .
-    also have "\<dots> = min (fw m n k n n i' j') (fw m n k n n i' (Suc k) + fw m n k n n (Suc k) j')"
-    using fw_step_Suc[OF K] Suc.prems(2-) by simp
-    finally show "fw m n (Suc k) i j i' j' \<in> {len m i' j' xs | xs. set xs \<subseteq> {0..Suc k}}"
-    proof (cases "fw m n (Suc k) i j i' j' = fw m n k n n i' j'", goal_cases)
-      case True
-      have "fw m n (Suc k) i j i' j' = D m i' j' k"
-      using Suc.IH[OF cycle_free_to_k, of i' n j' n] Suc.prems(2-) True by simp
-      from D_dest'[OF this] show ?thesis by blast
-    next
-      case 2
-      hence A:"fw m n (Suc k) i j i' j' = fw m n k n n i' (Suc k) + fw m n k n n (Suc k) j'"
-      by (metis ord.min_def)
-      have "fw m n k n n i' j' = D m i' j' k"
-      using Suc.IH[OF cycle_free_to_k, of i' n j' n] Suc.prems by simp
-      from D_dest[OF this] have B:"fw m n k n n i' j' \<in> ?S (Suc k) i' j'"
-      by blast
-      have "fw m n k n n i' (Suc k) = D m i' (Suc k) k"
-      using Suc.IH[OF cycle_free_to_k, of i' n "Suc k" n] Suc.prems by simp
-      from D_dest'[OF this] obtain xs where xs:
-        "fw m n k n n i' (Suc k) = len m i' (Suc k) xs" "set xs \<subseteq> {0..Suc k}" by blast
-      have "fw m n k n n (Suc k) j' = D m (Suc k) j' k"
-      using Suc.IH[OF cycle_free_to_k, of "Suc k" n j' n] Suc.prems by simp
-      from D_dest'[OF this] obtain ys where ys:
-        "fw m n k n n (Suc k) j' = len m (Suc k) j' ys" "set ys \<subseteq> {0..Suc k}" by blast
-      from A xs(1) ys(1) len_comp
-      have "fw m n (Suc k) i j i' j' = len m i' j' (xs @ Suc k # ys)" by simp
-      moreover have "set (xs @ Suc k # ys) \<subseteq> {0..Suc k}" using xs(2) ys(2) by auto
-      ultimately show ?thesis by blast
-    qed
+    case (Cons x xs)
+    then obtain ys where ys:
+      "set ys \<subseteq> {0..Suc k}" "len (fw m n k) x j xs = len m x j ys"
+      by force
+    moreover from IH[of i x] Cons.prems obtain zs where
+      "set zs \<subseteq> {0..k}" "fw m n k i x = len m i x zs"
+      by auto
+    ultimately have
+      "set (zs @ x # ys) \<subseteq> {0..Suc k}" "len (fw m n k) i j (x # xs) = len m i j (zs @ x # ys)"
+      using \<open>Suc k \<le> n\<close> \<open>set (x # xs) \<subseteq> _\<close> by (auto simp: len_comp)
+    then show ?case by (intro exI conjI)
   qed
+  ultimately show ?case by auto
 qed
+
+
+section \<open>Intermezzo: Equivalent Characterizations of Cycle-Freeness\<close>
+
+lemma cycle_free_alt_def:
+  "cycle_free M n \<longleftrightarrow> cycle_free_up_to M n n"
+  unfolding cycle_free_def cycle_free_up_to_def ..
+
+lemma negative_cycle_dest_diag:
+  "\<not> cycle_free_up_to m k n \<Longrightarrow> k \<le> n \<Longrightarrow> \<exists> i xs. i \<le> n \<and> set xs \<subseteq> {0..k} \<and> len m i i xs < \<one>"
+proof (auto simp: cycle_free_up_to_def, goal_cases)
+  case (1 i xs j)
+  from this(5) have "len m i j xs < len m i j (rem_cycles i j xs)" by auto
+  from negative_cycle_dest[OF this] obtain i' ys
+  where *:"len m i' i' ys < \<one>" "set ys \<subseteq> set xs" "i' \<in> set (i # j # xs)" by auto
+  from this(2,3) 1(1-4) have "set ys \<subseteq> {0..k}" "i' \<le> n" by auto
+  with * show ?case by auto
+next
+  case 2 then show ?case by fastforce
+qed
+
+lemma negative_cycle_dest_diag':
+  "\<not> cycle_free m n \<Longrightarrow> \<exists> i xs. i \<le> n \<and> set xs \<subseteq> {0..n} \<and> len m i i xs < \<one>"
+  by (rule negative_cycle_dest_diag) (auto simp: cycle_free_alt_def)
+
+abbreviation cyc_free :: "'a mat \<Rightarrow> nat \<Rightarrow> bool" where
+  "cyc_free m n \<equiv> \<forall> i xs. i \<le> n \<and> set xs \<subseteq> {0..n} \<longrightarrow> len m i i xs \<ge> \<one>"
+
+lemma cycle_free_diag_intro:
+  "cyc_free m n \<Longrightarrow> cycle_free m n"
+  using negative_cycle_dest_diag' by force
+
+lemma cycle_free_diag_equiv:
+  "cyc_free m n \<longleftrightarrow> cycle_free m n" using negative_cycle_dest_diag'
+  by (force simp: cycle_free_def)
+
+lemma cycle_free_diag_dest:
+  "cycle_free m n \<Longrightarrow> cyc_free m n"
+  using cycle_free_diag_equiv by blast
+
+lemma cycle_free_upto_diag_equiv:
+  "cycle_free_up_to m k n \<longleftrightarrow> cyc_free_subs n {0..k} m" if "k \<le> n"
+  using negative_cycle_dest_diag[of m k n] that by (force simp: cycle_free_up_to_def)
+
+theorem fw_shortest_path_up_to:
+  "D m i j k = fw m n k i j" if "cyc_free_subs n {0..k} m" "i \<le> n" "j \<le> n" "k \<le> n"
+proof -
+  from that(1,4) have cycle_free: "cycle_free_up_to m k n" by (subst cycle_free_upto_diag_equiv)
+  from that have "canonical_subs n {0..k} (fw m n k)" "cyc_free_subs n {0..k} (fw m n k)"
+    by (auto dest: fw_correct)
+  show ?thesis
+  proof (rule D_eqI2[where n = n], safe, goal_cases)
+      case (5 y xs)
+    with that(1) that show ?case by (auto intro: fw_subs_len)
+  next
+    case 6
+    from fw_len[OF that(1) that(2-)] show ?case by blast
+  qed (rule that cycle_free)+
+qed
+
+text \<open>We do not need to prove this because the definitions match.\<close>
+lemma
+  "cyc_free m n \<longleftrightarrow> cyc_free_subs n {0..n} m" ..
 
 lemma cycle_free_cycle_free_up_to:
   "cycle_free m n \<Longrightarrow> k \<le> n \<Longrightarrow> cycle_free_up_to m k n"
@@ -1494,37 +1569,13 @@ lemma cycle_free_diag:
 using cycle_free_up_to_diag[OF cycle_free_cycle_free_up_to] by blast
 
 corollary fw_shortest_path:
-  "cycle_free m n \<Longrightarrow> i' \<le> i \<Longrightarrow> j' \<le> j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n
-        \<Longrightarrow> D m i' j' k = fw m n k i j i' j'"
-using fw_shortest_path_up_to[OF cycle_free_cycle_free_up_to] by auto
+  "cyc_free m n \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> D m i j k = fw m n k i j"
+by (rule fw_shortest_path_up_to; force)
 
 corollary fw_shortest:
-  assumes "cycle_free m n" "i \<le> n" "j \<le> n" "k \<le> n"
-  shows "fw m n n n n i j \<le> fw m n n n n i k + fw m n n n n k j"
-proof (rule ccontr, goal_cases)
-  case 1
-  let ?S = "\<lambda> i j. {len m i j xs |xs. set xs \<subseteq> {0..n}}"
-  let ?FW = "fw m n n n n"
-  from assms fw_shortest_path
-  have FW: "?FW i j = D m i j n" "?FW i k = D m i k n" "?FW k j = D m k j n" by auto
-  with D_dest'' FW have "?FW i k \<in> ?S i k" "?FW k j \<in> ?S k j" by auto
-  then obtain xs ys where xs_ys:
-    "?FW i k = len m i k xs" "set xs \<subseteq> {0..n}" "?FW k j = len m k j ys" "set ys \<subseteq> {0..n}" by auto
-  let ?zs = "rem_cycles i j (xs @ k # ys)"
-  have *:"?FW i j = Min {len m i j xs |xs. set xs \<subseteq> {0..n} \<and> i \<notin> set xs \<and> j \<notin> set xs \<and> distinct xs}"
-  using FW(1) unfolding D_def .
-  have "set (xs @ k # ys) \<subseteq> {0..n}" using assms xs_ys by fastforce
-  from cycle_free_dest [OF \<open>cycle_free m n\<close> \<open>i \<le> n\<close> \<open>j \<le> n\<close> this]
-  have **:"len m i j ?zs \<le> len m i j (xs @ k # ys)" by auto
-  moreover have "i \<notin> set ?zs" "j \<notin> set ?zs" "distinct ?zs"
-  using rem_cycles_distinct remove_all_removes rem_cycles_removes_last by fast+
-  moreover have "set ?zs \<subseteq> {0..n}" using rem_cycles_subs[of i j"xs @ k # ys"] xs_ys assms by fastforce
-  ultimately have
-    "len m i j ?zs \<in> {len m i j xs |xs. set xs \<subseteq> {0..n} \<and> i \<notin> set xs \<and> j \<notin> set xs \<and> distinct xs}"
-  by blast
-  with * have "?FW i j \<le> len m i j ?zs" using D_base_finite'' by auto
-  with ** xs_ys len_comp 1 show ?case by auto
-qed
+  assumes "cyc_free m n" "i \<le> n" "j \<le> n" "k \<le> n"
+  shows "fw m n n i j \<le> fw m n n i k + fw m n n k j"
+  using fw_canonical_subs[OF assms(1)] assms(2-) unfolding canonical_subs_def by auto
 
 
 section \<open>Result Under the Presence of Negative Cycles\<close>
@@ -1553,10 +1604,26 @@ lemma nat_upto_subs_top_removal:
   "S \<subseteq> {0..n::nat} \<Longrightarrow> n \<notin> S \<Longrightarrow> S \<subseteq> {0..n - 1}"
 using nat_upto_subs_top_removal' by (cases n; simp)
 
-lemma fw_Suc:
-  "i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> i' \<le> n \<Longrightarrow> j' \<le> n \<Longrightarrow> fw m n (Suc k) i' j' i j \<le> fw m n k n n i j"
-by (metis Suc_innermost_id1' Suc_innermost_id2 Suc_innermost_mono linorder_class.not_le local.eq_iff
-          preorder_class.order_refl single_iteration_inv single_iteration_inv')
+lemma fw_invariant:
+  "k' \<le> k \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fw m n k i j \<le> fw m n k' i j"
+proof (induction k)
+  case 0
+  then show ?case by (auto intro: fwi_invariant)
+next
+  case (Suc k)
+  show ?case
+  proof (cases "k' = Suc k")
+    case True
+    then show ?thesis by simp
+  next
+    case False
+    with Suc have "fw m n k i j \<le> fw m n k' i j"
+      by auto
+    moreover from \<open>i \<le> n\<close> \<open>j \<le> n\<close> have "fw m n (Suc k) i j \<le> fw m n k i j"
+      by (auto intro: fwi_mono)
+    ultimately show ?thesis by auto
+  qed
+qed
 
 lemma negative_len_shortest:
   "length xs = n \<Longrightarrow> len m i i xs < \<one>
@@ -1620,103 +1687,80 @@ proof (induction n arbitrary: xs i rule: less_induct)
   qed
 qed
 
+lemma fw_upd_leI:
+  "fw_upd m' k i j i j \<le> fw_upd m k i j i j" if
+  "m' i k \<le> m i k" "m' k j \<le> m k j" "m' i j \<le> m i j"
+  using that unfolding fw_upd_def upd_def min_def using add_mono by fastforce
+
+lemma fwi_fw_upd_mono:
+  "fwi m n k i j i j \<le> fw_upd m k i j i j" if "k \<le> n" "i \<le> n" "j \<le> n"
+  using that by (cases i; cases j) (auto intro: fw_upd_leI fwi_mono)
+
 theorem FW_neg_cycle_detect:
-  "\<not> cycle_free m n \<Longrightarrow> \<exists> i \<le> n. fw m n n n n i i < \<one>"
+  "\<not> cyc_free m n \<Longrightarrow> \<exists> i \<le> n. fw m n n i i < \<one>"
 proof -
-  assume A: "\<not> cycle_free m n"
-  let ?K = "{k. k \<le> n \<and> \<not> cycle_free_up_to m k n}"
-  let ?k = "Min ?K"
-  have not_empty_K: "?K \<noteq> {}" using not_cylce_free_dest[OF A(1)] by auto
+  assume A: "\<not> cyc_free m n"
+  let ?K = "{k. k \<le> n \<and> \<not> cyc_free_subs n {0..k} m}"
+  define k where "k = Min ?K"
+  have not_empty_K: "?K \<noteq> {}" using A by auto
   have "finite ?K" by auto
   with not_empty_K have *:
-    "\<forall> k' < ?k. cycle_free_up_to m k' n"
-  by (auto, metis le_trans less_or_eq_imp_le preorder_class.less_irrefl)
+    "\<forall> k' < k. cyc_free_subs n {0..k'} m"
+    unfolding k_def
+    by simp (meson order_class.dual_order.trans preorder_class.less_le_not_le)
   from linorder_class.Min_in[OF \<open>finite ?K\<close> \<open>?K \<noteq> {}\<close>] have
-    "\<not> cycle_free_up_to m ?k n" "?k \<le> n"
-  by auto
-  then have "\<exists> xs j. j \<le> n \<and> len m j j xs < \<one> \<and> set xs \<subseteq> {0..?k}" unfolding cycle_free_up_to_def
-  proof (auto, goal_cases)
-    case (2 i xs) then have "len m i i xs < \<one>" by auto
-    with 2 show ?case by auto
-  next
-    case (1 i xs j)
-    then have "len m i j (rem_cycles i j xs) > len m i j xs" by auto
-    from negative_cycle_dest[OF this]
-    obtain i' ys where ys: "i' \<in> set (i # j # xs)" "len m i' i' ys < \<one>" "set ys \<subseteq> set xs" by blast
-    from ys(1) 1(2-4) show ?case
-    proof (auto, goal_cases)
-      case 1
-      with ys(2,3) show ?case by auto
-    next
-      case 2
-      with ys(2,3) show ?case by auto
-    next
-      case 3
-      with \<open>?k \<le> n\<close> have "i' \<le> n" unfolding cycle_free_up_to_def by auto
-      with 3 ys(2,3) show ?case by auto
-    qed
-  qed
-  then obtain a as where a_as: "a \<le> n \<and> len m a a as < \<one> \<and> set as \<subseteq> {0..?k}" by auto
+    "\<not> cyc_free_subs n {0..k} m" "k \<le> n"
+    unfolding k_def by auto
+  then have "\<exists> xs j. j \<le> n \<and> len m j j xs < \<one> \<and> set xs \<subseteq> {0..k}"
+    by force
+  then obtain a as where a_as: "a \<le> n \<and> len m a a as < \<one> \<and> set as \<subseteq> {0..k}" by auto
   with negative_len_shortest[of as "length as" m a] obtain j xs where j_xs:
   "distinct (j # xs) \<and> len m j j xs < \<one> \<and> j \<in> set (a # as) \<and> set xs \<subseteq> set as" by auto
-  with a_as \<open>?k \<le> n\<close> have cyc: "j \<le> n" "set xs \<subseteq> {0..?k}" "len m j j xs < \<one>" "distinct (j # xs)"
-  by auto
-  { assume "?k > 0"
-    then have "?k - 1 < ?k" by simp
-    with * have **:"cycle_free_up_to m (?k - 1) n" by blast
-    have "?k \<in> set xs"
+  with a_as \<open>k \<le> n\<close> have cyc: "j \<le> n" "set xs \<subseteq> {0..k}" "len m j j xs < \<one>" "distinct (j # xs)"
+    by auto
+  { assume "k > 0"
+    then have "k - 1 < k" by simp
+    with * have **:"cyc_free_subs n {0..k - 1} m" by blast
+    have "k \<in> set xs"
     proof (rule ccontr, goal_cases)
       case 1
-      with \<open>set xs \<subseteq> {0..?k}\<close> nat_upto_subs_top_removal have "set xs \<subseteq> {0..?k-1}" by auto
-      from cycle_free_up_to_loop_dest[OF \<open>j \<le> n\<close> this \<open>cycle_free_up_to m (?k - 1) n\<close>] cyc(3)
-      show ?case by auto
+      with \<open>set xs \<subseteq> {0..k}\<close> nat_upto_subs_top_removal have "set xs \<subseteq> {0..k-1}" by auto
+      with \<open>cyc_free_subs n {0..k - 1} m\<close> \<open>j \<le> n\<close> have "\<one> \<le> len m j j xs" by blast
+      with cyc(3) show ?case by simp
     qed
-    with cyc(4) have "j \<noteq> ?k" by auto
-    from \<open>?k \<in> set xs\<close> obtain ys zs where "xs = ys @ ?k # zs" by (meson split_list)
+    with cyc(4) have "j \<noteq> k" by auto
+    from \<open>k \<in> set xs\<close> obtain ys zs where "xs = ys @ k # zs" by (meson split_list)
     with \<open>distinct (j # xs)\<close>
-    have xs: "xs = ys @ ?k # zs" "distinct ys" "distinct zs" "?k \<notin> set ys" "?k \<notin> set zs"
+    have xs: "xs = ys @ k # zs" "distinct ys" "distinct zs" "k \<notin> set ys" "k \<notin> set zs"
              "j \<notin> set ys" "j \<notin> set zs" by auto
-    from xs(1,4) \<open>set xs \<subseteq> {0..?k}\<close> nat_upto_subs_top_removal have ys: "set ys \<subseteq> {0..?k-1}" by auto
-    from xs(1,5) \<open>set xs \<subseteq> {0..?k}\<close> nat_upto_subs_top_removal have zs: "set zs \<subseteq> {0..?k-1}" by auto
-    have "D m j ?k (?k - 1) = fw m n (?k - 1) n n j ?k"
-    using \<open>?k \<le> n\<close> \<open>j \<le> n\<close> fw_shortest_path_up_to[OF **, of j n ?k n] by auto
-    moreover have "D m ?k j (?k - 1) = fw m n (?k - 1) n n ?k j"
-    using \<open>?k \<le> n\<close> \<open>j \<le> n\<close> fw_shortest_path_up_to[OF **, of ?k n j n] by auto
-    ultimately have "fw m n (?k - 1) n n j ?k + fw m n (?k - 1) n n ?k j \<le> len m j ?k ys + len m ?k j zs"
-    using D_not_diag_le'[OF zs(1) xs(5,7,3), of m]
-          D_not_diag_le'[OF ys(1) xs(6,4,2), of m] by (auto simp: add_mono)
-    then have neg: "fw m n (?k - 1) n n j ?k + fw m n (?k - 1) n n ?k j < \<one>"
-    using xs(1) \<open>len m j j xs < \<one>\<close> len_comp by auto
-    have "fw m n ?k j j j j \<le> fw m n (?k - 1) n n j ?k + fw m n (?k - 1) n n ?k j"
-    proof (cases "j = 0")
-      case True
-      with\<open>?k > 0\<close> fw.simps(2)[of m n "?k - 1"]
-      have "fw m n ?k j j = fw_upd (fw m n (?k - 1) n n) ?k j j" by auto
-      then have "fw m n ?k j j j j \<le> fw m n (?k - 1) n n j ?k + fw m n (?k - 1) n n ?k j"
-      by (simp add: fw_upd_def upd_def)
-      then show ?thesis by auto
-    next
-      case False
-      with fw.simps(4)[of m n ?k j "j - 1"]
-      have "fw m n ?k j j = fw_upd (fw m n ?k j (j -1)) ?k j j" by simp
-      then have *: "fw m n ?k j j j j \<le> fw m n ?k j (j -1) j ?k + fw m n ?k j (j -1) ?k j"
-      by (simp add: fw_upd_def upd_def)
-      have "j - 1 < n" using \<open>j \<le> n\<close> False by auto
-      then have "fw m n ?k j (j -1) j ?k \<le> fw m n (?k - 1) n n j ?k"
-      using fw_Suc[of j n ?k j "j - 1" m "?k - 1"] \<open>j \<le> n\<close> \<open>?k \<le> n\<close> \<open>?k > 0\<close> by auto
-      moreover have "fw m n ?k j (j -1) ?k j \<le> fw m n (?k - 1) n n ?k j"
-      using fw_Suc[of ?k n j j "j - 1" m "?k - 1"] \<open>j \<le> n\<close> \<open>?k \<le> n\<close> \<open>?k > 0\<close> by auto
-      ultimately have "fw m n ?k j j j j \<le> fw m n (?k - 1) n n j ?k + fw m n (?k - 1) n n ?k j"
-      using * add_mono by fastforce
-      then show ?thesis by auto
+    from xs(1,4) \<open>set xs \<subseteq> {0..k}\<close> nat_upto_subs_top_removal have ys: "set ys \<subseteq> {0..k-1}" by auto
+    from xs(1,5) \<open>set xs \<subseteq> {0..k}\<close> nat_upto_subs_top_removal have zs: "set zs \<subseteq> {0..k-1}" by auto
+    have "D m j k (k - 1) = fw m n (k - 1) j k"
+      using \<open>k \<le> n\<close> \<open>j \<le> n\<close> fw_shortest_path_up_to[OF **] by auto
+    moreover have "D m k j (k - 1) = fw m n (k - 1) k j"
+      using \<open>k \<le> n\<close> \<open>j \<le> n\<close> fw_shortest_path_up_to[OF **] by auto
+    ultimately have "fw m n (k - 1) j k + fw m n (k - 1) k j \<le> len m j k ys + len m k j zs"
+      using D_not_diag_le'[OF zs(1) xs(5,7,3), of m] D_not_diag_le'[OF ys(1) xs(6,4,2), of m]
+      by (auto simp: add_mono)
+    then have neg: "fw m n (k - 1) j k + fw m n (k - 1) k j < \<one>"
+      using xs(1) \<open>len m j j xs < \<one>\<close> len_comp by auto
+    have "fw m n k j j \<le> fw m n (k - 1) j k + fw m n (k - 1) k j"
+    proof -
+      from \<open>k > 0\<close> have *: "fw m n k = fwi (fw m n (k - 1)) n k n n"
+        by (cases k) auto
+      from fw_cyc_free_subs[OF **, THEN cyc_free_subs_diag] \<open>k \<le> n\<close> have
+        "fw m n (k - 1) k k \<ge> \<one>"
+        by auto
+      from fwi_step'[of "fw m n (k - 1)", OF this] \<open>k \<le> n\<close> \<open>j \<le> n\<close> show ?thesis
+        by (auto intro: min.cobounded2 simp: *)
     qed
-    with neg have "fw m n ?k j j j j < \<one>" by auto
-    moreover have "fw m n n n n j j \<le> fw m n ?k j j j j" using fw_invariant \<open>j\<le>n\<close> \<open>?k \<le> n\<close> by auto
-    ultimately have "fw m n n n n j j < \<one>" using neg by auto
-    with \<open>j\<le>n\<close> have ?thesis by auto
+    with neg have "fw m n k j j < \<one>" by auto
+    moreover from fw_invariant \<open>j \<le> n\<close> \<open>k \<le> n\<close> have "fw m n n j j \<le> fw m n k j j"
+      by blast
+    ultimately have ?thesis using \<open>j \<le> n\<close> by auto
   }
   moreover
-  { assume "?k = 0"
+  { assume "k = 0"
     with cyc(2,4) have "xs = [] \<or> xs = [0]"
       apply safe
       apply (case_tac xs)
@@ -1729,33 +1773,17 @@ proof -
     proof
       assume "xs = []"
       with cyc have "m j j < \<one>" by auto
-      with fw_mono[of n n n j j m n] \<open>j \<le> n\<close> have "fw m n n n n j j < \<one>" by auto
+      with fw_mono[of j n j m n] \<open>j \<le> n\<close> have "fw m n n j j < \<one>" by auto
       with \<open>j \<le> n\<close> show ?thesis by auto
     next
       assume xs: "xs = [0]"
       with cyc have "m j 0 + m 0 j < \<one>" by auto
-      then have "fw m n 0 j j j j < \<one>"
-      proof (cases "j = 0", goal_cases)
-        case 1
-        have "m j j < \<one>"
-        proof (rule ccontr)
-          assume "\<not> m j j < \<one>"
-          with 1 have "m 0 0 \<ge> \<one>" by simp
-          with add_mono have "m 0 0 + m 0 0 \<ge> \<one>" by fastforce
-          with 1 show False by simp
-        qed
-        with fw_mono[of j n j j j m 0] \<open>j \<le> n\<close> show ?thesis by auto
-      next
-        case 2
-        with fw.simps(4)[of m n 0 j "j - 1"]
-        have "fw m n 0 j j = fw_upd (fw m n 0 j (j - 1)) 0 j j" by simp
-        then have "fw m n 0 j j j j \<le> fw m n 0 j (j - 1) j 0 + fw m n 0 j (j - 1) 0 j"
-        by (simp add: fw_upd_def upd_def)
-        also have "\<dots> \<le> m j 0 + m 0 j" using \<open>j \<le> n\<close> add_mono fw_mono by auto
-        finally show ?thesis using 2 by auto
-      qed
-      then have "fw m n 0 n n j j < \<one>" by (metis cyc(1) less_or_eq_imp_le single_iteration_inv) 
-      with fw_invariant[of 0 n n n n n n m j j] \<open>j \<le> n\<close> have "fw m n n n n j j < \<one>" by auto
+      moreover from \<open>j \<le> n\<close> have "fw m n 0 j j \<le> fw_upd m 0 j j j j"
+        by (auto intro: order.trans[OF fwi_invariant fwi_fw_upd_mono])
+      ultimately have "fw m n 0 j j < \<one>"
+        unfolding fw_upd_def upd_def by auto
+      then have "fw m n 0 j j < \<one>" by (metis cyc(1) less_or_eq_imp_le single_iteration_inv)
+      with \<open>j \<le> n\<close> have "fw m n n j j < \<one>" using fw_invariant[of 0 n j n j m] by auto
       with \<open>j \<le> n\<close> show ?thesis by blast
     qed
   }
@@ -1763,4 +1791,153 @@ proof -
 qed
 
 end (* End of local class context *)
+
+section \<open>Canonical Matrices\<close>
+
+abbreviation
+  "canonical M n \<equiv> \<forall> i j k. i \<le> n \<and> j \<le> n \<and> k \<le> n \<longrightarrow> M i k \<le> M i j + M j k"
+
+lemma canonical_alt_def:
+  "canonical M n \<longleftrightarrow> canonical_subs n {0..n} M"
+  unfolding canonical_subs_def by auto
+
+lemma fw_canonical:
+ "canonical (fw m n n) n" if "cyc_free m n"
+ using fw_canonical_subs[OF \<open>cyc_free m n\<close>] unfolding canonical_alt_def by auto
+
+lemma canonical_len:
+  "canonical M n \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> set xs \<subseteq> {0..n} \<Longrightarrow> M i j \<le> len M i j xs"
+proof (induction xs arbitrary: i)
+  case Nil thus ?case by auto
+next
+  case (Cons x xs)
+  then have "M x j \<le> len M x j xs" by auto
+  from Cons.prems \<open>canonical M n\<close> have "M i j \<le> M i x + M x j" by simp
+  also with Cons have "\<dots> \<le> M i x + len M x j xs" by (simp add: add_mono)
+  finally show ?case by simp
+qed
+
+
+section \<open>More Theorems Related to Floyd-Warshall\<close>
+
+lemma D_cycle_free_len_dest:
+  "cycle_free m n
+    \<Longrightarrow> \<forall> i \<le> n. \<forall> j \<le> n. D m i j n = m' i j \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> set xs \<subseteq> {0..n}
+    \<Longrightarrow> \<exists> ys. set ys \<subseteq> {0..n} \<and> len m' i j xs = len m i j ys"
+proof (induction xs arbitrary: i)
+  case Nil
+  with Nil have "m' i j = D m i j n" by simp
+  from D_dest''[OF this]
+  obtain ys where "set ys \<subseteq> {0..n}" "len m' i j [] = len m i j ys"
+  by auto
+  then show ?case by auto
+next
+  case (Cons y ys)
+  from Cons.IH[OF Cons.prems(1,2) _ \<open>j \<le> n\<close>, of y] Cons.prems(5)
+  obtain zs where zs:"set zs \<subseteq> {0..n}" "len m' y j ys = len m y j zs" by auto
+  with Cons have "m' i y = D m i y n" by simp
+  from D_dest''[OF this] obtain ws where ws:"set ws \<subseteq> {0..n}" "m' i y = len m i y ws" by auto
+  with len_comp[of m i j ws y zs] zs Cons.prems(5)
+  have "len m' i j (y # ys) = len m i j (ws @ y # zs)" "set (ws @ y # zs) \<subseteq> {0..n}" by auto
+  then show ?case by blast
+qed
+
+lemma D_cyc_free_preservation:
+  "cyc_free m n \<Longrightarrow> \<forall> i \<le> n. \<forall> j \<le> n. D m i j n = m' i j \<Longrightarrow> cyc_free m' n"
+proof (auto, goal_cases)
+  case (1 i xs)
+  from D_cycle_free_len_dest[OF _ 1(2,3,3,4)] 1(1) cycle_free_diag_equiv
+  obtain ys where "set ys \<subseteq> {0..n} \<and> len m' i i xs = len m i i ys" by fast
+  with 1(1,3) show ?case by auto
+qed
+
+abbreviation "FW m n \<equiv> fw m n n"
+
+lemma FW_out_of_bounds1:
+  assumes "i > n"
+  shows "(FW M n) i j = M i j"
+  using assms by (rule fw_out_of_bounds1)
+
+lemma FW_out_of_bounds2:
+  assumes "j > n"
+  shows "(FW M n) i j = M i j"
+  using assms by (rule fw_out_of_bounds2)
+
+lemma FW_cyc_free_preservation:
+  "cyc_free m n \<Longrightarrow> cyc_free (FW m n) n"
+  apply (rule D_cyc_free_preservation)
+   apply assumption
+  apply safe
+  apply (rule fw_shortest_path)
+  using cycle_free_diag_equiv by auto
+
+lemma cyc_free_diag_dest':
+  "cyc_free m n \<Longrightarrow> i \<le> n \<Longrightarrow> m i i \<ge> \<one>"
+  by (rule cyc_free_subs_diag)
+
+lemma FW_diag_neutral_preservation:
+  "\<forall> i \<le> n. M i i = \<one> \<Longrightarrow> cyc_free M n \<Longrightarrow> \<forall> i\<le>n. (FW M n) i i = \<one>"
+proof (auto, goal_cases)
+  case (1 i)
+  from this(3) have "(FW M n) i i \<le> M i i" by (auto intro: fw_mono)
+  with 1 have "(FW M n) i i \<le> \<one>" by auto
+  with cyc_free_diag_dest'[OF FW_cyc_free_preservation[OF 1(2)] \<open>i \<le> n\<close>] show "FW M n i i = \<one>"
+    by auto
+qed
+
+lemma FW_fixed_preservation:
+  fixes M :: "('a::linordered_ab_monoid_add) mat"
+  assumes A: "i \<le> n" "M 0 i + M i 0 = \<one>" "canonical (FW M n) n" "cyc_free (FW M n) n"
+  shows "FW M n 0 i + FW M n i 0 = \<one>" using assms
+proof -
+  let ?M' = "FW M n"
+  assume A: "i \<le> n" "M 0 i + M i 0 = \<one>" "canonical ?M' n" "cyc_free ?M' n"
+  from \<open>i \<le> n\<close> have "?M' 0 i + ?M' i 0 \<le> M 0 i + M i 0" by (auto intro: fw_mono add_mono)
+  with A(2) have "?M' 0 i + ?M' i 0 \<le> \<one>" by auto
+  moreover from \<open>canonical ?M' n\<close> \<open>i \<le> n\<close>
+  have "?M' 0 0 \<le> ?M' 0 i + ?M' i 0" by auto
+  moreover from cyc_free_diag_dest'[OF  \<open>cyc_free ?M' n\<close>] have "\<one> \<le> ?M' 0 0" by simp
+  ultimately show "?M' 0 i + ?M' i 0 = \<one>" by (auto simp: add_mono)
+qed
+
+lemma diag_cyc_free_neutral:
+  "cyc_free M n \<Longrightarrow> \<forall>k\<le>n. M k k \<le> \<one> \<Longrightarrow> \<forall>i\<le>n. M i i = \<one>"
+proof (clarify, goal_cases)
+  case (1 i)
+  note A = this
+  then have "i \<le> n \<and> set [] \<subseteq> {0..n}" by auto
+  with A(1) have "\<one> \<le> M i i" by fastforce
+  with A(2) \<open>i \<le> n\<close> show "M i i = \<one>" by auto
+qed
+
+lemma fw_upd_canonical_subs_id:
+  "canonical_subs n {k} M \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> fw_upd M k i j = M"
+proof (auto simp: fw_upd_def upd_def less_eq[symmetric] min.coboundedI2, goal_cases)
+  case 1
+  then have "M i j \<le> M i k + M k j" unfolding canonical_subs_def by auto
+  then have "min (M i j) (M i k + M k j) = M i j" by (simp split: split_min)
+  thus ?case by force
+qed
+
+lemma fw_upd_canonical_id:
+  "canonical M n \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fw_upd M k i j = M"
+  using fw_upd_canonical_subs_id[of n k M i j] unfolding canonical_subs_def by auto
+
+lemma fwi_canonical_id:
+  "fwi M n k i j = M" if "canonical_subs n {k} M" "i \<le> n" "j \<le> n" "k \<le> n"
+  using that
+proof (induction i arbitrary: j)
+  case 0
+  then show ?case by (induction j) (auto intro: fw_upd_canonical_subs_id)
+next
+  case Suc
+  then show ?case by (induction j) (auto intro: fw_upd_canonical_subs_id)
+qed
+
+lemma fw_canonical_id:
+  "fw M n k = M" if "canonical_subs n {0..k} M" "k \<le> n"
+  using that by (induction k) (auto simp: canonical_subs_def fwi_canonical_id)
+
+lemmas FW_canonical_id = fw_canonical_id[OF _ order.refl, unfolded canonical_alt_def[symmetric]]
+
 end (* End of theory *)
