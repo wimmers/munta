@@ -389,9 +389,9 @@ lemma fw_upd_mono:
 by (cases "i = i'", cases "j = j'") (auto simp: fw_upd_def upd_def)
 
 fun fwi :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mat" where
-  "fwi m n k       0       0        = fw_upd m k 0 0" |
-  "fwi m n k       (Suc i) 0        = fw_upd (fwi m n k i n) k (Suc i) 0" |
-  "fwi m n k       i       (Suc j)  = fw_upd (fwi m n k i j) k i (Suc j)"
+  "fwi m n k 0       0        = fw_upd m k 0 0" |
+  "fwi m n k (Suc i) 0        = fw_upd (fwi m n k i n) k (Suc i) 0" |
+  "fwi m n k i       (Suc j)  = fw_upd (fwi m n k i j) k i (Suc j)"
 
 fun fw :: "'a mat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mat" where
   "fw m n 0       = fwi m n 0 n n" |
