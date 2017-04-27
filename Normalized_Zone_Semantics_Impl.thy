@@ -318,7 +318,7 @@ using assms FW_diag_preservation[of n "curry M"] unfolding FW'_def by auto
 
 lemma FW_neg_diag_preservation:
   "M i i < \<one> \<Longrightarrow> i \<le> n \<Longrightarrow> (FW M n) i i < \<one>"
-using fw_mono[of n n n i i M n] by auto
+using fw_mono[of i n i M n] by auto
 
 lemma FW'_neg_diag_preservation:
   assumes "M (i, i) < \<one>" "i \<le> n"
@@ -728,7 +728,9 @@ using reset''_diag_preservation[OF assms(1), where M = M and n = n] assms(2-) by
 lemma FW_canonical':
   assumes "\<forall> i \<le> n. (FW M n) i i \<ge> \<one>"
   shows "canonical (FW M n) n"
-using FW_neg_cycle_detect assms by - (rule fw_canonical; fastforce)
+  using FW_neg_cycle_detect assms
+  unfolding cycle_free_diag_equiv
+  by - (rule fw_canonical[unfolded cycle_free_diag_equiv]; fastforce)
 
 lemma FW_neg_diag_equiv:
   assumes diag: "\<exists> i \<le> n. (FW A n) i i < \<one>"
@@ -1040,6 +1042,94 @@ lemma fw_upd_transfer'[transfer_rule]:
  fw_upd fw_upd"
 unfolding fw_upd_def[abs_def] upd_def[abs_def] by transfer_prover
 
+lemma fwi_RI_transfer_aux:
+  assumes
+    "((\<lambda>x y. x < Suc n \<and> x = y) ===> (\<lambda>x y. x < Suc n \<and> x = y) ===> rel_DBMEntry ri) M M'"
+    "k < Suc n" "i < Suc n" "j < Suc n"
+  shows
+  "((\<lambda>x y. x < Suc n \<and> x = y) ===> (\<lambda>x y. x < Suc n \<and> x = y) ===> rel_DBMEntry ri)
+   (fwi M n k i j) (fwi M' n k i j)"
+using assms
+apply (induction _ "(i, j)" arbitrary: i j
+    rule: wf_induct[of "less_than <*lex*> less_than"]
+  )
+  apply (auto; fail)
+ subgoal for i j
+ apply (cases i; cases j; auto simp add: fw_upd_out_of_bounds2)
+ unfolding eq_onp_def[symmetric]
+ apply (drule rel_funD[OF fw_upd_transfer[of n]])
+ apply (auto simp: eq_onp_def dest: rel_funD; fail)
+
+ subgoal premises prems for n'
+ proof -
+  from prems have
+    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
+        (fwi M n k 0 n') (fwi M' n k 0 n')"
+  by auto
+  then show ?thesis
+   apply -
+   apply (drule rel_funD[OF fw_upd_transfer[of n]])
+   apply (drule rel_funD[where x = k and y = k])
+   apply (simp add: eq_onp_def \<open>k < Suc n\<close>; fail)
+   apply (drule rel_funD[where x = 0 and y = 0])
+   apply (simp add: eq_onp_def; fail)
+   apply (drule rel_funD[where x = "Suc n'" and y = "Suc n'"])
+   using prems apply (simp add: eq_onp_def; fail)
+   apply assumption
+  done
+ qed
+
+ subgoal premises prems for n'
+ proof -
+  from prems have
+    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
+        (fwi M n k n' n) (fwi M' n k n' n)"
+  by auto
+  then show ?thesis
+   apply -
+   apply (drule rel_funD[OF fw_upd_transfer[of n]])
+   apply (drule rel_funD[where x = k and y = k])
+   apply (simp add: eq_onp_def \<open>k < Suc n\<close>; fail)
+   apply (drule rel_funD[where x = "Suc n'" and y = "Suc n'"])
+   using prems apply (simp add: eq_onp_def; fail)
+   apply (drule rel_funD[where x = 0 and y = 0])
+   using prems apply (simp add: eq_onp_def; fail)
+   apply assumption
+  done
+ qed
+
+ subgoal premises prems for i j
+ proof -
+  from prems have
+    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
+        (fwi M n k (Suc i) j) (fwi M' n k (Suc i) j)"
+  by auto
+  then show ?thesis
+   apply -
+   apply (drule rel_funD[OF fw_upd_transfer[of n]])
+   apply (drule rel_funD[where x = k and y = k])
+   apply (simp add: eq_onp_def \<open>k < Suc n\<close>; fail)
+   apply (drule rel_funD[where x = "Suc i" and y = "Suc i"])
+   using prems apply (simp add: eq_onp_def; fail)
+   apply (drule rel_funD[where x = "Suc j" and y = "Suc j"])
+   using prems apply (simp add: eq_onp_def; fail)
+   apply assumption
+  done
+ qed
+done
+done
+
+lemma fw_RI_transfer_aux:
+  assumes
+    "((\<lambda>x y. x < Suc n \<and> x = y) ===> (\<lambda>x y. x < Suc n \<and> x = y) ===> rel_DBMEntry ri) M M'"
+    "k < Suc n"
+  shows
+    "((\<lambda>x y. x < Suc n \<and> x = y) ===> (\<lambda>x y. x < Suc n \<and> x = y) ===> rel_DBMEntry ri)
+   (fw M n k) (fw M' n k)"
+  using assms
+  by (induction k) (auto intro: fwi_RI_transfer_aux)
+
+(*
 lemma fw_RI_transfer_aux:
   assumes
     "((\<lambda>x y. x < Suc n \<and> x = y) ===> (\<lambda>x y. x < Suc n \<and> x = y) ===> rel_DBMEntry ri)
@@ -1179,14 +1269,25 @@ apply (induction _ "(k, i, j)" arbitrary: k i j
  qed
 done
 done
+*)
 
-lemma fw_RI_transfer[transfer_rule]:
+lemma fwi_RI_transfer[transfer_rule]:
   "((eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n) ===> rel_DBMEntry ri)
   ===> eq_onp (\<lambda> x. x = n) ===> eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n)
   ===> eq_onp (\<lambda> x. x < Suc n) ===> (eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n)
-  ===> rel_DBMEntry ri)) fw fw"
+  ===> rel_DBMEntry ri)) fwi fwi"
  apply (rule rel_funI)
  apply (rule rel_funI)
+ apply (rule rel_funI)
+ apply (rule rel_funI)
+ apply (rule rel_funI)
+by (auto intro: fwi_RI_transfer_aux simp: eq_onp_def)
+
+lemma fw_RI_transfer[transfer_rule]:
+  "((eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n) ===> rel_DBMEntry ri)
+  ===> eq_onp (\<lambda> x. x = n) ===> eq_onp (\<lambda> x. x < Suc n)
+  ===> (eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n) ===> rel_DBMEntry ri))
+  fw fw"
  apply (rule rel_funI)
  apply (rule rel_funI)
  apply (rule rel_funI)
@@ -2144,31 +2245,60 @@ end
 (* XXX Move *)
 lemma FW_canonical:
   "canonical (FW M n) n \<or> (\<exists> i \<le> n. (FW M n) i i < \<one>)"
-  using FW_neg_cycle_detect fw_shortest by blast
+  using FW_canonical' leI by blast
 
 lemma FW'_canonical:
   "canonical (curry (FW' M n)) n \<or> (\<exists> i \<le> n. (FW' M n) (i, i) < \<one>)"
   by (metis FW'_FW FW_canonical curry_def)
 
-lemma fw_upd_conv_M:
-  "uncurry (fw_upd (curry (conv_M (uncurry M))) h i j) = (map_DBMEntry real_of_int \<circ>\<circ> uncurry) (fw_upd M h i j)"
+lemma fw_upd_conv_M'':
+  "fw_upd (map_DBMEntry real_of_int \<circ>\<circ> M) k i j
+  = map_DBMEntry real_of_int \<circ>\<circ> fw_upd M k i j"
   unfolding fw_upd_def upd_def
   apply (rule ext)
   apply (simp split: prod.split)
   unfolding uncurry_def curry_def
-  apply (simp split: prod.split)
-  apply (cases "M i j"; cases "M i h"; cases "M h j")
+  apply (cases "M i j"; cases "M i k"; cases "M k j")
   by (force simp: mult min_def | force simp: min_inf_r | force simp: min_inf_l)+
 
-lemma fw_conv_M:
-  "conv_M (uncurry (fw (curry M) n h i j)) = uncurry (fw (curry (conv_M M)) n h i j)"
-  apply (induction _ "(h, i, j)" arbitrary: h i j
-    rule: wf_induct[of "less_than <*lex*> less_than <*lex*> less_than"]
+lemma fw_upd_conv_M':
+  "conv_M (uncurry (fw_upd M k i j)) = uncurry (fw_upd (map_DBMEntry real_of_int \<circ>\<circ> M) k i j)"
+  unfolding fw_upd_conv_M'' by auto
+
+lemma fw_upd_conv_M:
+  "uncurry (fw_upd (curry (conv_M (uncurry M))) h i j)
+  = (map_DBMEntry real_of_int \<circ>\<circ> uncurry) (fw_upd M h i j)"
+  unfolding fw_upd_conv_M' by (auto simp: curry_def comp_def)
+
+lemma fwi_conv_M'':
+  "map_DBMEntry real_of_int \<circ>\<circ> fwi M n k i j = fwi (map_DBMEntry real_of_int \<circ>\<circ> M) n k i j"
+  apply (induction _ "(i, j)" arbitrary: i j
+    rule: wf_induct[of "less_than <*lex*> less_than"]
   )
   apply (auto; fail)
-  subgoal for k i j
-    by (cases k; cases i; cases j; auto simp add: fw_upd_conv_M[symmetric])
+  subgoal for i j
+    by (cases i; cases j; auto simp add: fw_upd_conv_M''[symmetric])
   done
+
+lemma fwi_conv_M':
+  "conv_M (uncurry (fwi M n k i j)) = uncurry (fwi (map_DBMEntry real_of_int \<circ>\<circ> M) n k i j)"
+  unfolding fwi_conv_M''[symmetric] by auto
+
+lemma fwi_conv_M:
+  "conv_M (uncurry (fwi (curry M) n k i j)) = uncurry (fwi (curry (conv_M M)) n k i j)"
+  unfolding fwi_conv_M' by (auto simp: curry_def comp_def)
+
+lemma fw_conv_M'':
+  "map_DBMEntry real_of_int \<circ>\<circ> fw M n k = fw (map_DBMEntry real_of_int \<circ>\<circ> M) n k"
+  by (induction k; simp only: fw.simps fwi_conv_M'')
+
+lemma fw_conv_M':
+  "conv_M (uncurry (fw M n k)) = uncurry (fw (map_DBMEntry real_of_int \<circ>\<circ> M) n k)"
+  unfolding fw_conv_M''[symmetric] by auto
+
+lemma fw_conv_M:
+  "conv_M (uncurry (fw (curry M) n k)) = uncurry (fw (curry (conv_M M)) n k)"
+  unfolding fw_conv_M' by (auto simp: curry_def comp_def)
 
 lemma FW_conv_M:
   "uncurry (FW (curry (conv_M M)) n) = conv_M (uncurry (FW (curry M) n))"
@@ -2778,7 +2908,7 @@ begin
         and valid: "valid_dbm M"
     shows
     "[curry (conv_M (FW' (norm_upd D (k' l') n) n))]\<^bsub>v,n\<^esub>
-   = [norm (FW_Code.FW M n) (\<lambda>x. real (k l' x)) n]\<^bsub>v,n\<^esub>"
+   = [norm (FW M n) (\<lambda>x. real (k l' x)) n]\<^bsub>v,n\<^esub>"
   proof (cases "check_diag n D")
     case False
     let ?k = "map real_of_int (k' l')"
@@ -3009,9 +3139,9 @@ begin
       "step_z_dbm (conv_A A) l (curry (conv_M D)) v n a l' M'" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
       by auto
     from step_z_norm[OF this(1), of k] have
-      "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>k,v,n,a\<^esub> \<langle>l', norm (FW_Code.FW M' n) (k l') n\<rangle>" .
+      "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>k,v,n,a\<^esub> \<langle>l', norm (FW M' n) (k l') n\<rangle>" .
     then have step':
-      "step_z_norm' (conv_A A) l (curry (conv_M D)) a l' (norm (FW_Code.FW M' n) (k l') n)"
+      "step_z_norm' (conv_A A) l (curry (conv_M D)) a l' (norm (FW M' n) (k l') n)"
       using k_simp_2 by auto
     from diag have "\<forall>i\<le>n. curry D i i \<le> \<one>"
       by (simp add: conv_dbm_entry_mono_rev neutral)
@@ -3025,7 +3155,7 @@ begin
     moreover from step_z_valid_dbm[OF M'(1) global_clock_numbering' valid_abstraction' valid] have
         "valid_dbm M'" .
     ultimately have "[curry (conv_M (FW' (norm_upd D' (k' l') n) n))]\<^bsub>v,n\<^esub>
-         = [norm (FW_Code.FW M' n) (\<lambda>x. real (k l' x)) n]\<^bsub>v,n\<^esub>"
+         = [norm (FW M' n) (\<lambda>x. real (k l' x)) n]\<^bsub>v,n\<^esub>"
       using M'(2) by - (rule norm_step_correct; auto)
     with step' show ?thesis
       by auto
