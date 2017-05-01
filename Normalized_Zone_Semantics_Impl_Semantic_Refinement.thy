@@ -15,15 +15,17 @@ lemma fold_acc_preserv':
   shows "P (fold f xs acc)"
   using assms by (induction xs arbitrary: acc) auto
 
-lemma
-  "\<one> = 0"
-  oops
-
-lemma
-  fixes x :: "'a :: linordered_ab_monoid_add"
-  assumes "x \<ge> \<one>"
-  shows "y \<le> y + x"
-    oops
+lemma dbm_abstra_zone_eq:
+  assumes "clock_numbering' v n" "v (constraint_clk ac) \<le> n"
+  shows "[abstra ac M v]\<^bsub>v,n\<^esub> = {u. u \<turnstile>\<^sub>a ac} \<inter> [M]\<^bsub>v,n\<^esub>"
+  apply safe
+  subgoal
+    unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_completeness)
+  subgoal
+    using abstra_subset by blast
+  subgoal
+    unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_soundness)
+  done
 
 lemma reset_canonical_canonical:
   "canonical (reset_canonical M k (d :: 'c :: linordered_ab_group_add)) n"
@@ -376,6 +378,22 @@ lemma repair_pair_diag_le:
   apply (rule order.trans[OF FWI_mono], assumption, assumption)
   by simp
 
+lemma abstra_upd_conv_M_zone_equiv:
+  assumes "constraint_clk ac > 0" "constraint_clk ac \<le> n"
+  shows "[curry (conv_M (abstra_upd ac M))]\<^bsub>v,n\<^esub> = {u. u \<turnstile>\<^sub>a conv_ac ac} \<inter> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
+  apply (subst unused.conv_abstra_upd)
+  apply (subst abstra_upd_eq_abstra')
+   defer
+   apply (subst abstra_abstra'[symmetric, where v = v])
+    defer
+    apply (subst dbm_abstra_zone_eq[OF clock_numbering(1)])
+  using assms by (cases ac; auto simp: v_def)+
+
+lemma abstra_upd_conv_M_V:
+  assumes "[curry (conv_M M)]\<^bsub>v,n\<^esub> \<subseteq> V" "constraint_clk ac > 0" "constraint_clk ac \<le> n"
+  shows "[curry (conv_M (abstra_upd ac M))]\<^bsub>v,n\<^esub> \<subseteq> V"
+  using assms(1) by (auto simp: abstra_upd_conv_M_zone_equiv[OF assms(2-)])
+
 lemma wf_dbm_abstra_repair:
   assumes "wf_dbm M" "constraint_clk ac > 0" "constraint_clk ac \<le> n"
   shows "wf_dbm (abstra_repair ac M)"
@@ -386,7 +404,7 @@ proof -
   from assms(2) facts(2) have "\<forall>i\<le>n. ?M (i, i) \<le> \<one>"
     by (auto simp: abstra_upd_diag_preservation)
   then have diag: "\<forall>i\<le>n. ?MM (i, i) \<le> \<one>" unfolding abstra_repair_def by (rule repair_pair_diag_le)
-  from assms(2) facts(3) have "[curry (conv_M ?M)]\<^bsub>v,n\<^esub> \<subseteq> V" sorry
+  from assms(2,3) facts(3) have "[curry (conv_M ?M)]\<^bsub>v,n\<^esub> \<subseteq> V" by - (rule abstra_upd_conv_M_V)
   with repair_pair_equiv[of 0 "constraint_clk ac" ?M] assms(3) have V:
     "[curry (conv_M ?MM)]\<^bsub>v,n\<^esub> \<subseteq> V"
     unfolding dbm_equiv_def abstra_repair_def by simp
@@ -414,7 +432,7 @@ lemma wf_dbm_abstra_repair_equiv:
 lemma abstra_upd_equiv:
   assumes "constraint_clk ac > 0" "constraint_clk ac \<le> n" "M \<simeq> M'"
   shows "abstra_upd ac M \<simeq> abstra_upd ac M'"
-    sorry
+  using assms(3) abstra_upd_conv_M_zone_equiv[OF assms(1,2)] unfolding dbm_equiv_def by auto
 
 lemma wf_dbm_abstra_repair_equiv':
   assumes "constraint_clk ac > 0" "constraint_clk ac \<le> n" "M \<simeq> M'"
@@ -436,6 +454,19 @@ lemma wf_dbm_abstr_repair:
   using assms unfolding abstr_repair_def
   by (induction cc arbitrary: M) (auto intro: wf_dbm_abstra_repair)
 
+lemma abstr_upd_conv_M_V:
+  assumes "[curry (conv_M M)]\<^bsub>v,n\<^esub> \<subseteq> V" "\<forall> c \<in> constraint_clk ` set cc. c > 0 \<and> c \<le> n"
+  shows "[curry (conv_M (abstr_upd cc M))]\<^bsub>v,n\<^esub> \<subseteq> V"
+  using assms
+  unfolding abstr_upd_def
+  apply (induction cc arbitrary: M)
+   apply simp
+  subgoal premises prems
+    apply simp
+    apply (intro prems(1)[simplified] abstra_upd_conv_M_V[simplified])
+    using prems(2-) by auto
+  done
+
 lemma wf_dbm_FW'_abstr_upd:
   "wf_dbm (FW' (abstr_upd cc M) n)" if "wf_dbm M" "\<forall> c \<in> constraint_clk ` set cc. c > 0 \<and> c \<le> n"
   apply (rule wf_dbm_rule[OF that(1)])
@@ -451,8 +482,7 @@ lemma wf_dbm_FW'_abstr_upd:
     apply (drule abstr_upd_diag_preservation'[where cc = cc])
     by (simp add: FW'_diag_preservation collect_clks_def that(2))+
   subgoal
-    apply (subst FW'_zone_equiv)
-    sorry
+    by (subst FW'_zone_equiv) (intro abstr_upd_conv_M_V that)
   done
 
 
@@ -501,7 +531,7 @@ lemma wf_dbm_up_canonical_upd:
 lemma reset_resets_spec:
   "[reset M n i d]\<^bsub>v,n\<^esub> = {u(i := d) |u. u \<in> [M]\<^bsub>v,n\<^esub>}" if "i > 0" "i \<le> n" "0 \<le> d"
 proof -
-  from that have v_i[simp]: "v i = i" sorry
+  from that have v_i[simp]: "v i = i" by (simp add: v_def)
   show ?thesis
     apply (subst reset_resets[OF _ clock_numbering(1), of i, unfolded v_i])
     using clock_numbering(2) that by fastforce+
@@ -761,8 +791,6 @@ qed
 lemma (in -) fwi_canonical_subs_id:
   "canonical_subs n {0..k} M \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fwi M n k i j = M"
   by (rule fwi_canonical_id; auto simp: canonical_subs_def)
-
-thm the_inv_f_f inv_f_f
 
 context
   fixes I :: "nat set" and n :: nat and n' :: nat and M :: "'a mat" and x :: nat
