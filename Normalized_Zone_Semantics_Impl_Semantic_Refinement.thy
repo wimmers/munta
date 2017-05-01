@@ -436,6 +436,26 @@ lemma wf_dbm_abstr_repair:
   using assms unfolding abstr_repair_def
   by (induction cc arbitrary: M) (auto intro: wf_dbm_abstra_repair)
 
+lemma wf_dbm_FW'_abstr_upd:
+  "wf_dbm (FW' (abstr_upd cc M) n)" if "wf_dbm M" "\<forall> c \<in> constraint_clk ` set cc. c > 0 \<and> c \<le> n"
+  apply (rule wf_dbm_rule[OF that(1)])
+  subgoal
+    unfolding check_diag_def neutral[symmetric] by (rule FW'_canonical)
+  subgoal
+    unfolding check_diag_def neutral[symmetric]
+    using that(2)
+    apply safe
+    apply (subst (asm) (2) abstr_upd_diag_preservation[symmetric, where M = M and cc = cc])
+    by (auto dest: FW'_neg_diag_preservation simp: collect_clks_def)
+  subgoal
+    apply (drule abstr_upd_diag_preservation'[where cc = cc])
+    by (simp add: FW'_diag_preservation collect_clks_def that(2))+
+  subgoal
+    apply (subst FW'_zone_equiv)
+    sorry
+  done
+
+
 lemma n_eq_equiv:
   "[M1]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>" if "M1 =\<^sub>n M2"
   using that unfolding DBM_zone_repr_def n_eq_def DBM_val_bounded_def by auto
@@ -541,7 +561,7 @@ lemma wf_dbm_reset_canonical_upd:
     using that unfolding V_def by auto
   done
 
-lemma reset_canonical_upd_equiv:
+lemma reset_canonical_upd_equiv':
   "reset_canonical_upd D n i d \<simeq> reset_canonical_upd M n i d" if
   "D \<simeq> M" "i > 0" "i \<le> n" "0 \<le> d" "canonical' D" "canonical' M"
   using that unfolding dbm_equiv_def
@@ -550,10 +570,62 @@ lemma reset_canonical_upd_equiv:
       apply (subst reset_canonical_upd_correct_conv_M)
   by auto
 
+lemma canonical_check_diag_empty_iff:
+  "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> check_diag n D" if "canonical_diag' D"
+  apply standard
+  subgoal
+    apply (rule canonical_empty_check_diag)
+    using canonical_diagI[OF that] unfolding check_diag_def neutral by auto
+  by (intro check_diag_empty_spec check_diag_conv_M)
+
+lemma reset_canonical_upd_equiv:
+  "reset_canonical_upd D n i d \<simeq> reset_canonical_upd M n i d" if
+  "D \<simeq> M" "i > 0" "i \<le> n" "0 \<le> d" "canonical_diag' D" "canonical_diag' M"
+proof -
+  have *: "check_diag n D \<longleftrightarrow> check_diag n M"
+    using that unfolding dbm_equiv_def
+      apply -
+    apply (subst canonical_check_diag_empty_iff[symmetric], assumption)
+    apply (subst canonical_check_diag_empty_iff[symmetric], assumption)
+      by simp
+  from that(5) consider "canonical' D" "\<not> check_diag n D" | "check_diag n D"
+    by auto
+  then show ?thesis
+  proof cases
+    case 1
+    with * that(6) have "canonical' D" "canonical' M"
+      by auto
+    with that show ?thesis
+      by (auto intro: reset_canonical_upd_equiv')
+  next
+    case 2
+    then have "check_diag n D" "check_diag n M" unfolding * by assumption+
+    then have
+      "check_diag n (reset_canonical_upd D n i d)" "check_diag n (reset_canonical_upd M n i d)"
+      by (metis check_diag_def reset_canonical_upd_diag_preservation that(2))+
+    then show ?thesis by (auto dest!: check_diag_empty_spec check_diag_conv_M simp: dbm_equiv_def)
+  qed
+qed
+
 lemma wf_dbm_reset'_upd:
   "wf_dbm (reset'_upd M n cs d)" if "wf_dbm M" "\<forall> i \<in> set cs. i > 0 \<and> i \<le> n" "0 \<le> d"
   using that unfolding reset'_upd_def
   by (induction cs arbitrary: M) (auto intro: wf_dbm_reset_canonical_upd)
+
+lemma reset'_upd_equiv:
+  "reset'_upd D n cs d \<simeq> reset'_upd M n cs d" if
+  "D \<simeq> M" "\<forall> i \<in> set cs. i > 0 \<and> i \<le> n" "0 \<le> d" "wf_dbm M" "wf_dbm D"
+  using that unfolding reset'_upd_def
+  apply (induction cs arbitrary: D M)
+   apply (simp; fail)
+  subgoal premises prems for c cs D M
+    apply simp
+    apply (rule prems(1))
+        apply (rule reset_canonical_upd_equiv)
+    using prems(2-)
+    by (auto intro: wf_dbm_reset_canonical_upd dest: wf_dbm_altD)
+  done
+
 
 lemma FW'_dbm_equiv':
   "FW' M n \<simeq> M" if "canonical_diag' M"
@@ -597,6 +669,11 @@ lemma E_from_op_wf_state:
   "wf_state a \<Longrightarrow> E_from_op a b \<Longrightarrow> wf_state b"
   unfolding E_E_op E_from_op_def wf_state_def state_equiv_def by (blast intro: op_wf)
 
+lemma E_E_from_op_steps_equiv:
+  "(\<exists>l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
+   (\<exists>l' M'. E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
+  by (rule E_E\<^sub>1_steps_equiv[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
+
 end
 
 definition
@@ -615,59 +692,49 @@ lemma norm_step_dbm_equiv:
   by auto
 
 lemma E_op'_wf: "wf_dbm (E_op' l r g l' M)" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
-  unfolding E_op'_def
-  apply simp
-  apply (intro norm_step_wf_dbm wf_dbm_abstr_repair wf_dbm_reset'_upd wf_dbm_up_canonical_upd)
-       apply (rule that; fail)
-  using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def apply blast
-  using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def apply blast
-  using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def apply blast
-   apply blast
-  using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
+proof -
+  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). 0 < c \<and> c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set (inv_of A l'). 0 < c \<and> c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set g. 0 < c \<and> c \<le> n"
+    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover have "\<forall>i\<in>set r. 0 < i \<and> i \<le> n"
+    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover note side_conds = calculation that(2)
+  note wf_intros = norm_step_wf_dbm wf_dbm_abstr_repair wf_dbm_reset'_upd wf_dbm_up_canonical_upd
+  show ?thesis unfolding E_op'_def by simp (intro wf_intros side_conds order.refl)
+qed
+
+lemma wf_dbm_abstr_repair_equiv_FW:
+  assumes "\<forall> c \<in> constraint_clk ` set cc. c > 0 \<and> c \<le> n" "M \<simeq> M'"
+  shows "abstr_repair cc M \<simeq> FW' (abstr_upd cc M') n"
+  using wf_dbm_abstr_repair_equiv[OF assms] by (simp add: dbm_equiv_def FW'_zone_equiv)
 
 lemma E_op'_bisim:
   "E_op' l r g l' M \<simeq> E_op l r g l' M" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
 proof -
-  show ?thesis
-    unfolding E_op'_def E_op_def
-    apply simp
-    apply (rule norm_step_dbm_equiv)
-      apply (rule dbm_equiv_trans[OF _ dbm_equiv_sym[OF FW'_dbm_equiv]])
-      apply (rule wf_dbm_abstr_repair_equiv[rotated])
-      thm abstra_upd_equiv
-      thm FW'_dbm_equiv dbm_equiv_trans[OF _ dbm_equiv_sym[OF FW'_dbm_equiv]]
+  note intros =
+    norm_step_dbm_equiv wf_dbm_abstr_repair_equiv_FW[rotated] reset'_upd_equiv dbm_equiv_refl
+  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). 0 < c \<and> c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set (inv_of A l'). 0 < c \<and> c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set g. 0 < c \<and> c \<le> n"
+    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover have "\<forall>i\<in>set r. 0 < i \<and> i \<le> n"
+    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover note side_conds = calculation that(2)
+  note wf_intros =
+    norm_step_wf_dbm wf_dbm_abstr_repair wf_dbm_reset'_upd wf_dbm_up_canonical_upd
+    wf_dbm_FW'_abstr_upd
+  show ?thesis unfolding E_op'_def E_op_def by simp (intro intros wf_intros side_conds order.refl)
+qed
 
-
-lemma
-  "wf_dbm (up_canonical_upd M n)" if "wf_dbm M"
-  using wf_dbm_altD[OF that]
-  apply -
-  apply (rule wf_dbm_altI)
-  subgoal
-    apply (drule canonical_diag'_up_canonical_upd)
-    unfolding canonical'_conv_M_iff .
-  subgoal
-    by (simp add: up_canonical_upd_diag_preservation)
-  subgoal
-
-    apply (erule disjE)
-    apply (drule canonical'_up_canonical_upd, unfold )
-
-
-thm E_alt_def
-
-lemma
-  "canonical_diag (repair_pair M a b)" if "canonical_diag M" "a \<le> n" "b \<le> n"
-  using that
-  unfolding canonical'_conv_M_iff
-  unfolding repair_pair_def
-
-  sorry
-
-
-
-lemma "canonical_subs' (I - {a, b}) (M((a, b) := c))" if "canonical_subs' I M" "c \<le> M (a, b)"
-  oops
+lemma E_E_from_op'_steps_equiv:
+  "(\<exists>l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
+   (\<exists>l' M'. (E_from_op E_op')\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
+  by (intro E_E_from_op_steps_equiv E_op'_wf E_op'_bisim)
 
 end (* End of context for reachability problem*)
 
