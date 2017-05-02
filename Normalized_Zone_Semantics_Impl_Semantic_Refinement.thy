@@ -108,7 +108,6 @@ lemma reset_canonical_upd_canonical:
   using reset_canonical_canonical[of n "curry M" k] that
   by (auto simp: reset_canonical_upd_reset_canonical')
 
-
 (* XXX Move? *)
 lemma fwi_characteristic:
   "canonical_subs n (I \<union> {k::nat}) (FWI M n k) \<or> (\<exists> i \<le> n. FWI M n k i i < \<one>)" if
@@ -122,39 +121,38 @@ next
     unfolding FWI_def by fastforce
 qed
 
-definition canonical_set :: "(nat \<times> nat \<times> nat) set \<Rightarrow> _ DBM \<Rightarrow> bool" where
-  "canonical_set I M \<equiv> \<forall> (k, i, j) \<in> I. M i j \<le> M i k + M k j"
+lemma FWI'_characteristic:
+  "canonical_subs n (I \<union> {a::nat}) (curry (FWI' M n a)) \<or> check_diag n (FWI' M n a)" if
+  "canonical_subs n I (curry M)" "I \<subseteq> {0..n}" "a \<le> n"
+  using fwi_characteristic[of n I "curry M", OF that]
+  unfolding check_diag_def neutral FWI'_def by simp
 
-definition canonical_sets :: "nat set \<Rightarrow> nat set \<Rightarrow> nat set \<Rightarrow> _ DBM \<Rightarrow> bool" where
-  "canonical_sets K I J M \<equiv> \<forall> k \<in> K. \<forall> i \<in> I. \<forall> j \<in> J. M i j \<le> M i k + M k j"
+lemma FWI'_check_diag_preservation:
+  "check_diag n (FWI' M n a)" if "check_diag n M"
+  using that fwi_mono[of _ n _ "curry M" a n n] unfolding check_diag_def FWI'_def FWI_def by force
 
-lemma canonical_canonical_subs:
-  "canonical M n \<longleftrightarrow> canonical_subs n {0..<n+1} M"
-  unfolding canonical_subs_def by auto
+lemma diag_conv_M:
+  "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>" if "\<forall>i\<le>n. D (i, i) \<le> \<one>"
+  using that by auto (metis DBMEntry.simps(15) conv_dbm_entry_mono neutral of_int_0)
 
-lemma canonical_subs_upd:
-  "canonical_subs n (I - {x, y}) (upd M x y e)" if "canonical_subs n I M" "e \<le> M x y"
-  using that unfolding canonical_subs_def upd_def by (auto 4 4)
+lemma conv_M_diag:
+  "\<forall>i\<le>n. D (i, i) \<le> \<one>" if "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+  using that by (simp add: conv_dbm_entry_mono_rev neutral)
 
-lemma fw_upd_id:
-  "fw_upd M k i j i' j' = M i' j'" if "j' \<in> J" "i' \<in> I" "k \<in> K" "canonical_sets K I J M"
-  using that
-  unfolding fw_upd_def upd_def
-  unfolding canonical_sets_def
-  by auto
+lemma curry_conv_M_swap:
+  "(map_DBMEntry real_of_int \<circ>\<circ>\<circ> curry) M = curry (conv_M M)"
+  by (intro ext; simp)
 
-lemma fw_upd_id1[simp]:
-  "fw_upd M k i j i' j' = M i' j'" if "i' \<noteq> i"
-  using that unfolding fw_upd_def upd_def by simp
+lemma canonical_subs_subset:
+  "canonical_subs n I' M" if "canonical_subs n I M" "I' \<subseteq> I"
+  using that unfolding canonical_subs_def by auto
 
-lemma fw_upd_id2[simp]:
-  "fw_upd M k i j i' j' = M i' j'" if "j' \<noteq> j"
-  using that unfolding fw_upd_def upd_def by simp
+lemma n_eq_equiv:
+  "[M1]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>" if "M1 =\<^sub>n M2"
+  using that unfolding DBM_zone_repr_def n_eq_def DBM_val_bounded_def by auto
 
-abbreviation "fw_order \<equiv> less_than <*lex*> less_than <*lex*> less_than"
-
-context Reachability_Problem
-  begin
+context Reachability_Problem_Defs
+begin
 
 abbreviation
   "canonical' D \<equiv> canonical (curry D) n"
@@ -164,6 +162,61 @@ abbreviation
 
 abbreviation
   "canonical_diag D \<equiv> canonical' (conv_M D) \<or> check_diag n D"
+
+abbreviation
+  "canonical_subs' I M \<equiv> canonical_subs n I (curry M)"
+
+definition
+  "repair_pair M a b = FWI' (FWI' M n b) n a"
+
+definition
+  "abstra_repair ac M = repair_pair (abstra_upd ac M) 0 (constraint_clk ac)"
+
+definition
+  "filter_diag f M \<equiv> if check_diag n M then M else f M"
+
+definition abstr_repair where
+  "abstr_repair = fold (\<lambda> ac M. abstra_repair ac M)"
+
+definition
+  "E_op l r g l' M \<equiv>
+    let
+      M' = FW' (abstr_upd (inv_of A l) (up_canonical_upd M n)) n;
+      M'' = FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g M') n) n r 0)) n;
+      M''' = FW' (norm_upd M'' (k' l') n) n
+    in M'''"
+
+definition
+  "E_op' l r g l' M \<equiv>
+    let
+      M' = abstr_repair (inv_of A l) (up_canonical_upd M n);
+      M'' = abstr_repair (inv_of A l') (reset'_upd (abstr_repair g M') n r 0);
+      M''' = FW' (norm_upd M'' (k' l') n) n
+    in M'''"
+
+definition
+  "E_op'' l r g l' M \<equiv>
+    let
+      M1 = abstr_repair (inv_of A l) (up_canonical_upd M n);
+      M2 = filter_diag (\<lambda> M. abstr_repair g M) M1;
+      M3 = filter_diag (\<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0)) M2;
+      M4 = filter_diag (\<lambda> M. FW' (norm_upd M (k' l') n) n) M3
+    in M4"
+
+lemma E_op''_alt_def:
+  "E_op'' l r g l' M \<equiv>
+    let
+      M' = abstr_repair (inv_of A l) (up_canonical_upd M n);
+      f1 = \<lambda> M. abstr_repair g M;
+      f2 = \<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0);
+      f3 = \<lambda> M. FW' (norm_upd M (k' l') n) n
+    in filter_diag (filter_diag f3 o filter_diag f2 o f1) M'"
+  unfolding E_op''_def filter_diag_def by (rule HOL.eq_reflection) (auto simp: Let_def)
+
+end (* End of context for reachability problem defs *)
+
+context Reachability_Problem
+  begin
 
 lemma canonical_diagI:
   "canonical_diag D"  if "canonical_diag' D"
@@ -187,69 +240,17 @@ lemma canonical_diag'_up_canonical_upd:
   "canonical_diag' (up_canonical_upd M n)" if "canonical_diag' M"
   using that by (blast dest: canonical'_up_canonical_upd check_diag_up_canonical_upd)
 
-abbreviation "canonical_subs' I M \<equiv> canonical_subs n I (curry M)"
-
 lemma canonical_subs'_upd:
   "canonical_subs' (I - {a, b}) (M((a, b) := c))" if "canonical_subs' I M" "c \<le> M (a, b)"
   using that unfolding canonical_subs_def by (auto 4 4)
-
-lemma FWI'_characteristic:
-  "canonical_subs' (I \<union> {a::nat}) (FWI' M n a) \<or> check_diag n (FWI' M n a)" if
-  "canonical_subs' I M" "I \<subseteq> {0..n}" "a \<le> n"
-  using fwi_characteristic[of n I "curry M", OF that]
-  unfolding check_diag_def neutral FWI'_def by simp
-
-lemma FWI'_check_diag_preservation:
-  "check_diag n (FWI' M n a)" if "check_diag n M"
-  using that fwi_mono[of _ n _ "curry M" a n n] unfolding check_diag_def FWI'_def FWI_def by force
-
-definition "repair_pair M a b = FWI' (FWI' M n b) n a"
-lemmas FWI_zone_equiv_spec = FWI_zone_equiv[OF surj_numbering]
-
-lemma curry_conv_M_swap:
-  "(map_DBMEntry real_of_int \<circ>\<circ>\<circ> curry) M = curry (conv_M M)"
-  by (intro ext; simp)
-
-lemma repair_pair_equiv:
-  "M \<simeq> repair_pair M a b" if "a \<le> n" "b \<le> n"
-  unfolding dbm_equiv_def repair_pair_def FWI'_def
-  apply (subst FWI_zone_equiv_spec[of b], rule that)
-  apply (subst FWI_zone_equiv_spec[of a], rule that)
-  by (simp add: FWI_def fwi_conv_M' fwi_conv_M'' curry_conv_M_swap)
 
 lemma canonical'_conv_M_iff:
   "canonical' (conv_M D) \<longleftrightarrow> canonical' D"
   by (metis canonical_conv canonical_conv_rev)
 
-lemma repair_pair_canonical_diag_1:
-  "canonical_diag (repair_pair M a b)" if "canonical_subs' ({0..n} - {a, b}) M" "a \<le> n" "b \<le> n"
-  using that
-  unfolding canonical'_conv_M_iff
-  unfolding repair_pair_def
-  apply -
-  apply (drule FWI'_characteristic[where a = b], force, assumption)
-  apply (erule disjE)
-   apply (drule FWI'_characteristic[where a = a], force, assumption)
-  unfolding canonical_alt_def
-  subgoal premises prems
-  proof -
-    have *: "{0..n} - {a, b} \<union> {b} \<union> {a} = {0..n}"
-      using that(2,3) by fastforce
-    with prems(3) show ?thesis by (simp only: *)
-  qed
-  by (auto intro: FWI'_check_diag_preservation)
-
-lemma repair_pair_canonical_diag_2:
-  "canonical_diag (repair_pair M a b)" if "check_diag n M"
-  unfolding repair_pair_def using that by (auto intro: FWI'_check_diag_preservation)
-
-lemma diag_conv_M:
-  "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>" if "\<forall>i\<le>n. D (i, i) \<le> \<one>"
-  using that by auto (metis DBMEntry.simps(15) conv_dbm_entry_mono neutral of_int_0)
-
-lemma conv_M_diag:
-  "\<forall>i\<le>n. D (i, i) \<le> \<one>" if "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
-  using that by (simp add: conv_dbm_entry_mono_rev neutral)
+lemma canonical_subs'_subset:
+  "canonical_subs' I' M" if "canonical_subs' I M" "I' \<subseteq> I"
+  using that by (rule canonical_subs_subset)
 
 lemma wf_dbm_altD:
   "canonical' D \<or> check_diag n D"
@@ -311,14 +312,6 @@ proof -
   qed
 qed
 
-definition
-  "abstra_repair ac M = repair_pair (abstra_upd ac M) 0 (constraint_clk ac)"
-
-(* XXX Move *)
-lemma canonical_subs'_subset:
-  "canonical_subs' I' M" if "canonical_subs' I M" "I' \<subseteq> I"
-  using that unfolding canonical_subs_def by auto
-
 lemma canonical_subs'_abstra_upd:
   "canonical_subs' (I - {0, constraint_clk ac}) (abstra_upd ac M)" if
   "canonical_subs' I M" "constraint_clk ac > 0"
@@ -363,6 +356,37 @@ lemma canonical_subs'_abstra_upd:
           force dest: canonical_subs'_upd[of _ _ "Le d" c 0])
     done
   done
+
+lemmas FWI_zone_equiv_spec = FWI_zone_equiv[OF surj_numbering]
+
+lemma repair_pair_equiv:
+  "M \<simeq> repair_pair M a b" if "a \<le> n" "b \<le> n"
+  unfolding dbm_equiv_def repair_pair_def FWI'_def
+  apply (subst FWI_zone_equiv_spec[of b], rule that)
+  apply (subst FWI_zone_equiv_spec[of a], rule that)
+  by (simp add: FWI_def fwi_conv_M' fwi_conv_M'' curry_conv_M_swap)
+
+lemma repair_pair_canonical_diag_1:
+  "canonical_diag (repair_pair M a b)" if "canonical_subs' ({0..n} - {a, b}) M" "a \<le> n" "b \<le> n"
+  using that
+  unfolding canonical'_conv_M_iff
+  unfolding repair_pair_def
+  apply -
+  apply (drule FWI'_characteristic[where a = b], force, assumption)
+  apply (erule disjE)
+   apply (drule FWI'_characteristic[where a = a], force, assumption)
+  unfolding canonical_alt_def
+  subgoal premises prems
+  proof -
+    have *: "{0..n} - {a, b} \<union> {b} \<union> {a} = {0..n}"
+      using that(2,3) by fastforce
+    with prems(3) show ?thesis by (simp only: *)
+  qed
+  by (auto intro: FWI'_check_diag_preservation)
+
+lemma repair_pair_canonical_diag_2:
+  "canonical_diag (repair_pair M a b)" if "check_diag n M"
+  unfolding repair_pair_def using that by (auto intro: FWI'_check_diag_preservation)
 
 lemma repair_pair_diag_le:
   "\<forall>i\<le>n. repair_pair M 0 c (i, i) \<le> \<one>" if "\<forall>i\<le>n. M (i, i) \<le> \<one>"
@@ -443,9 +467,6 @@ lemma wf_dbm_abstra_repair_equiv':
   shows "abstra_repair ac M \<simeq> abstra_upd ac M'"
   using wf_dbm_abstra_repair_equiv[OF assms(2)] abstra_upd_equiv[OF assms] by blast
 
-definition abstr_repair where
-  "abstr_repair = fold (\<lambda> ac M. abstra_repair ac M)"
-
 lemma abstr_repair_check_diag_preservation:
   "check_diag n (abstr_repair cc M)" if "check_diag n M" "\<forall> c \<in> constraint_clk ` set cc. c > 0"
   using that unfolding abstr_repair_def
@@ -499,15 +520,6 @@ lemma wf_dbm_FW'_abstr_upd:
     by (subst FW'_zone_equiv) (intro abstr_upd_conv_M_V that)
   done
 
-
-lemma n_eq_equiv:
-  "[M1]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>" if "M1 =\<^sub>n M2"
-  using that unfolding DBM_zone_repr_def n_eq_def DBM_val_bounded_def by auto
-
-schematic_goal "[curry (conv_M (up_canonical_upd M1 n))]\<^bsub>v,n\<^esub> = [?M]\<^bsub>v,n\<^esub>"
-  thm n_eq_equiv[OF up_canonical_upd_up_canonical']
-    oops
-
 lemma up_canonical_upd_V:
   "[curry (up_canonical_upd M n)]\<^bsub>v,n\<^esub> \<subseteq> V" if "canonical' M" "[curry M]\<^bsub>v,n\<^esub> \<subseteq> V"
   apply (subst n_eq_equiv[OF up_canonical_upd_up_canonical'])
@@ -515,9 +527,6 @@ lemma up_canonical_upd_V:
   apply (subst up_correct)
    apply (rule clock_numbering(1))
     by (rule up_V[OF that(2)])
-  thm n_eq_equiv[OF up_canonical_upd_up_canonical']
-
-abbreviation "conv_M' M \<equiv> curry (conv_M M)"
 
 lemma n_eq_transfer[transfer_rule]: "eq_onp (\<lambda>x. x = n) n n"
   by (simp add: eq_onp_def)
@@ -550,11 +559,6 @@ proof -
     apply (subst reset_resets[OF _ clock_numbering(1), of i, unfolded v_i])
     using clock_numbering(2) that by fastforce+
 qed
-
-lemma reset_V:
-  "[reset M n i d]\<^bsub>v,n\<^esub> \<subseteq> V" if "[M]\<^bsub>v,n\<^esub> \<subseteq> V" "i > 0" "i \<le> n" "0 \<le> d"
-  apply (subst reset_resets_spec)
-  using that unfolding V_def by auto
 
 lemma reset_canonical_n_eq_reset_canonical_upd:
   "reset_canonical (curry M) i d =\<^sub>n curry (reset_canonical_upd M n i d)" if "i > 0"
@@ -679,23 +683,6 @@ lemma reset'_upd_equiv:
     by (auto intro: wf_dbm_reset_canonical_upd dest: wf_dbm_altD)
   done
 
-
-lemma FW'_dbm_equiv':
-  "FW' M n \<simeq> M" if "canonical_diag' M"
-  by (simp add: FW'_zone_equiv dbm_equiv_def)
-
-lemma FW'_dbm_equiv:
-  "FW' M n \<simeq> M" if "wf_dbm M"
-  using wf_dbm_altD[OF that] by (intro FW'_dbm_equiv')
-
-definition
-  "E_op l r g l' M \<equiv>
-    let
-      M' = FW' (abstr_upd (inv_of A l) (up_canonical_upd M n)) n;
-      M'' = FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g M') n) n r 0)) n;
-      M''' = FW' (norm_upd M'' (k' l') n) n
-    in M'''"
-
 lemma E_E_op: "E = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> M''' = E_op l r g l' M)"
   unfolding E_op_def E_alt_def by simp
 
@@ -728,14 +715,6 @@ lemma E_E_from_op_steps_equiv:
   by (rule E_E\<^sub>1_steps_equiv[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
 
 end
-
-definition
-  "E_op' l r g l' M \<equiv>
-    let
-      M' = abstr_repair (inv_of A l) (up_canonical_upd M n);
-      M'' = abstr_repair (inv_of A l') (reset'_upd (abstr_repair g M') n r 0);
-      M''' = FW' (norm_upd M'' (k' l') n) n
-    in M'''"
 
 lemma norm_step_dbm_equiv:
   "FW' (norm_upd D (k' l') n) n \<simeq> FW' (norm_upd M (k' l') n) n" if "D \<simeq> M" "wf_dbm D" "wf_dbm M"
@@ -789,8 +768,6 @@ lemma E_E_from_op'_steps_equiv:
    (\<exists>l' M'. (E_from_op E_op')\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
   by (intro E_E_from_op_steps_equiv E_op'_wf E_op'_bisim)
 
-definition "filter_diag f M \<equiv> if check_diag n M then M else f M"
-
 lemma filter_diag_equiv:
   assumes "\<And> M. check_diag n M \<Longrightarrow> check_diag n (f M)"
   shows "filter_diag f M \<simeq> f M"
@@ -808,25 +785,6 @@ lemma filter_diag_wf_dbm:
   assumes "\<And> M. wf_dbm M \<Longrightarrow> wf_dbm (f M)" "wf_dbm M"
   shows "wf_dbm (filter_diag f M)"
   unfolding filter_diag_def using assms by auto
-
-definition
-  "E_op'' l r g l' M \<equiv>
-    let
-      M1 = abstr_repair (inv_of A l) (up_canonical_upd M n);
-      M2 = filter_diag (\<lambda> M. abstr_repair g M) M1;
-      M3 = filter_diag (\<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0)) M2;
-      M4 = filter_diag (\<lambda> M. FW' (norm_upd M (k' l') n) n) M3
-    in M4"
-
-lemma E_op''_alt_def:
-  "E_op'' l r g l' M \<equiv>
-    let
-      M' = abstr_repair (inv_of A l) (up_canonical_upd M n);
-      f1 = \<lambda> M. abstr_repair g M;
-      f2 = \<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0);
-      f3 = \<lambda> M. FW' (norm_upd M (k' l') n) n
-    in filter_diag (filter_diag f3 o filter_diag f2 o f1) M'"
-  unfolding E_op''_def filter_diag_def by (rule HOL.eq_reflection) (auto simp: Let_def)
 
 lemma E_op''_bisim:
   "E_op'' l r g l' M \<simeq> E_op' l r g l' M" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
