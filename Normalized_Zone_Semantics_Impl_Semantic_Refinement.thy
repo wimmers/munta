@@ -457,6 +457,11 @@ lemma wf_dbm_abstr_repair_equiv:
   using assms unfolding abstr_repair_def abstr_upd_def
   by (induction cc arbitrary: M M') (auto dest!: wf_dbm_abstra_repair_equiv')
 
+lemma wf_dbm_abstr_repair_equiv':
+  assumes "\<forall> c \<in> constraint_clk ` set cc. c > 0 \<and> c \<le> n" "M \<simeq> M'"
+  shows "abstr_repair cc M \<simeq> abstr_repair cc M'"
+  using assms by (meson wf_dbm_abstr_repair_equiv dbm_equiv_sym dbm_equiv_trans dbm_equiv_refl)
+
 lemma wf_dbm_abstr_repair:
   assumes "wf_dbm M" "\<forall> c \<in> constraint_clk ` set cc. c > 0 \<and> c \<le> n"
   shows "wf_dbm (abstr_repair cc M)"
@@ -807,18 +812,20 @@ lemma filter_diag_wf_dbm:
 definition
   "E_op'' l r g l' M \<equiv>
     let
-      M' = abstr_repair (inv_of A l) (up_canonical_upd M n);
-      M'' = filter_diag (\<lambda> M. abstr_repair (inv_of A l') (reset'_upd (abstr_repair g M) n r 0)) M';
-      M''' = filter_diag (\<lambda> M. FW' (norm_upd M (k' l') n) n) M''
-    in M'''"
+      M1 = abstr_repair (inv_of A l) (up_canonical_upd M n);
+      M2 = filter_diag (\<lambda> M. abstr_repair g M) M1;
+      M3 = filter_diag (\<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0)) M2;
+      M4 = filter_diag (\<lambda> M. FW' (norm_upd M (k' l') n) n) M3
+    in M4"
 
 lemma E_op''_alt_def:
   "E_op'' l r g l' M \<equiv>
     let
       M' = abstr_repair (inv_of A l) (up_canonical_upd M n);
-      f = \<lambda> M. abstr_repair (inv_of A l') (reset'_upd (abstr_repair g M) n r 0);
-      g = \<lambda> M. FW' (norm_upd M (k' l') n) n
-    in filter_diag (filter_diag g o f) M'"
+      f1 = \<lambda> M. abstr_repair g M;
+      f2 = \<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0);
+      f3 = \<lambda> M. FW' (norm_upd M (k' l') n) n
+    in filter_diag (filter_diag f3 o filter_diag f2 o f1) M'"
   unfolding E_op''_def filter_diag_def by (rule HOL.eq_reflection) (auto simp: Let_def)
 
 lemma E_op''_bisim:
@@ -826,6 +833,7 @@ lemma E_op''_bisim:
 proof -
   note intros =
     norm_step_dbm_equiv dbm_equiv_refl dbm_equiv_trans[OF filter_diag_equiv, rotated]
+    wf_dbm_abstr_repair_equiv' reset'_upd_equiv
   have "\<forall>c\<in>constraint_clk ` set (inv_of A l). 0 < c \<and> c \<le> n"
     using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
   moreover have
@@ -841,7 +849,7 @@ proof -
     wf_dbm_abstr_repair wf_dbm_reset'_upd wf_dbm_up_canonical_upd filter_diag_wf_dbm
   note check_diag_intros =
     norm_step_check_diag_preservation reset'_upd_check_diag_preservation
-    abstr_repair_check_diag_preservation
+    abstr_repair_check_diag_preservation norm_step_check_diag_preservation
   show ?thesis unfolding E_op''_def E_op'_def
     by simp (intro intros check_diag_intros side_conds wf_intros order.refl)
 qed
