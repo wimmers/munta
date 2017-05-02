@@ -10,11 +10,6 @@ hide_const D
 
 hide_fact upd_def
 
-lemma fold_acc_preserv':
-  assumes "\<And> x acc. x \<in> set xs \<Longrightarrow> P acc \<Longrightarrow> P (f x acc)" "P acc"
-  shows "P (fold f xs acc)"
-  using assms by (induction xs arbitrary: acc) auto
-
 lemma dbm_abstra_zone_eq:
   assumes "clock_numbering' v n" "v (constraint_clk ac) \<le> n"
   shows "[abstra ac M v]\<^bsub>v,n\<^esub> = {u. u \<turnstile>\<^sub>a ac} \<inter> [M]\<^bsub>v,n\<^esub>"
@@ -767,104 +762,5 @@ lemma E_E_from_op'_steps_equiv:
   by (intro E_E_from_op_steps_equiv E_op'_wf E_op'_bisim)
 
 end (* End of context for reachability problem*)
-
-
-text \<open>Graveyard\<close>
-
-context linordered_ab_monoid_add
-begin
-
-definition (in -) reorder_mat :: "_ \<Rightarrow> _ mat \<Rightarrow> _ mat" where
-  "reorder_mat f M i j = M (inv f i) (inv f j)"
-
-(* XXX Duplication *)
-thm FW_canonical_id fw_canonical_id
-lemma fw_upd_canonical_subs_id:
-  "canonical_subs n {0..k} M \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fw_upd M k i j = M"
-proof (auto simp: fw_upd_def upd_def less_eq[symmetric] min.coboundedI2 canonical_subs_def, goal_cases)
-  case 1
-  then have "M i j \<le> M i k + M k j" by auto
-  then have "min (M i j) (M i k + M k j) = M i j" by (simp split: split_min)
-  thus ?case by force
-qed
-
-lemma (in -) fwi_canonical_subs_id:
-  "canonical_subs n {0..k} M \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fwi M n k i j = M"
-  by (rule fwi_canonical_id; auto simp: canonical_subs_def)
-
-context
-  fixes I :: "nat set" and n :: nat and n' :: nat and M :: "'a mat" and x :: nat
-  assumes finite_I: "finite I"
-  and canonical: "canonical_subs n I M"
-  and n'_def: "n' = card I"
-  and n'_le_n: "n' \<le> n"
-  and n'_gt_0: "n' > 0"
-begin
-
-term bij_betw
-
-lemma bij:
-  "\<exists> f. bij_betw f I {0..<n'}"
-  sorry
-
-private abbreviation "the_f \<equiv> (SOME f. bij_betw f I {0..<n'})"
-
-thm someI
-
-lemma the_f_bij:
-  "bij_betw the_f I {0..<n'}"
-  using bij by (auto elim: someI[where P = "\<lambda> f. bij_betw f I {0..<n'}"])
-
-private abbreviation "the_f' \<equiv> \<lambda>i. if i \<in> I then the_f i else i"
-
-term fw_line
-
-lemma f_bound:
-  "inv local.the_f' i \<le> n" if "i \<le> n"
-  using the_f_bij n'_le_n that unfolding bij_betw_def apply auto
-  sorry
-
-lemma f_I:
-  "inv local.the_f' i \<in> I" if "i < n'"
-  sorry
-
-lemma n'_upt_simp:
-  "{0..<n'} = {0..n'-1}"
-  using n'_gt_0 by auto
-
-lemma canonical_reordered:
-  "canonical_subs n {0..<n'} (reorder_mat the_f' M)"
-  unfolding canonical_subs_def
-  unfolding reorder_mat_def
-  by (auto intro: canonical[unfolded canonical_subs_def, rule_format] dest: f_bound f_I)
-
-lemma aux:
-  "fw (reorder_mat local.the_f' M) n (n' - 1) n n = reorder_mat local.the_f' M"
-  using canonical_reordered n'_le_n by (auto simp: n'_upt_simp fw_canonical_subs_id)
-
-lemma
-  "canonical_subs n {0..n'} (fw_inner n (reorder_mat the_f' M) n')"
-  sorry
-
-lemma f_bound':
-  "\<exists> i'. inv local.the_f' i' = i \<and> i' \<le> n" if "i \<le> n"
-  sorry
-
-lemma f_I':
-  "\<exists> i'. inv the_f' i' = i \<and> i' \<in> {0..n'}" if "i \<in> I"
-  sorry
-
-lemma x_n':
-  "the_f' x = n'"
-  sorry
-
-lemma x_n'_inv:
-  "inv the_f' n' = x"
-  sorry
-
-
-end (* End of anonymous context for fixed index set *)
-
-end (* End of class context *)
 
 end (* End of theory *)

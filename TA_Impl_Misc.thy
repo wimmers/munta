@@ -10,6 +10,11 @@ lemma fold_acc_preserv:
   shows "P (fold f xs acc)"
   using assms(2) by (induction xs arbitrary: acc) (auto intro: assms(1))
 
+lemma fold_acc_preserv':
+  assumes "\<And> x acc. x \<in> set xs \<Longrightarrow> P acc \<Longrightarrow> P (f x acc)" "P acc"
+  shows "P (fold f xs acc)"
+  using assms by (induction xs arbitrary: acc) auto
+
 lemma fold_acc_ev_preserv':
   fixes x
   assumes
