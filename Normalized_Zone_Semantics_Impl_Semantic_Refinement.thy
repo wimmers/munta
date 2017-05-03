@@ -10,6 +10,7 @@ hide_const D
 
 hide_fact upd_def
 
+(* Move to DBM operations *)
 lemma dbm_abstra_zone_eq:
   assumes "clock_numbering' v n" "v (constraint_clk ac) \<le> n"
   shows "[abstra ac M v]\<^bsub>v,n\<^esub> = {u. u \<turnstile>\<^sub>a ac} \<inter> [M]\<^bsub>v,n\<^esub>"
@@ -22,93 +23,7 @@ lemma dbm_abstra_zone_eq:
     unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_soundness)
   done
 
-lemma reset_canonical_canonical:
-  "canonical (reset_canonical M k (d :: 'c :: linordered_ab_group_add)) n"
-  if "\<forall> i \<le> n. M i i = \<one>" "canonical M n" "k > 0" for k n :: nat
-proof -
-  have add_mono_neutr': "a \<le> a + b" if "b \<ge> Le (0 :: 'c)" for a b
-    using that unfolding neutral[symmetric] by (rule add_mono_neutr)
-  have add_mono_neutl': "a \<le> b + a" if "b \<ge> Le (0 :: 'c)" for a b
-    using that unfolding neutral[symmetric] by (rule add_mono_neutl)
-  show ?thesis
-    using that
-    unfolding reset_canonical_def neutral
-    apply (clarsimp split: if_splits)
-    apply safe
-                     apply (simp add: add_mono_neutr'; fail)
-                    apply (simp add: comm; fail)
-                   apply (simp add: add_mono_neutl'; fail)
-                  apply (simp add: comm; fail)
-                 apply (simp add: add_mono_neutl'; fail)
-                apply (simp add: add_mono_neutl'; fail)
-               apply (simp add: add_mono_neutl'; fail)
-              apply (simp add: add_mono_neutl' add_mono_neutr'; fail)
-             apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
-            apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr' comm; fail)
-           apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
-    subgoal premises prems for i j k
-    proof -
-      from prems have "M i k \<le> M i 0 + M 0 k"
-        by auto
-      also have "\<dots> \<le> Le (- d) + M i 0 + (Le d + M 0 k)"
-        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
-        by (metis le_less linordered_ab_monoid_add_class.neutr neutral)
-      finally show ?thesis .
-    qed
-    subgoal premises prems for i j k
-    proof -
-      from prems have "Le 0 \<le> M 0 j + M j 0"
-        by force
-      also have "\<dots> \<le> Le d + M 0 j + (Le (- d) + M j 0)"
-        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
-        by (metis le_less linordered_ab_monoid_add_class.neutr neutral comm)
-      finally show ?thesis .
-    qed
-    subgoal premises prems for i j k
-    proof -
-      from prems have "Le 0 \<le> M 0 j + M j 0"
-        by force
-      then show ?thesis
-        by (simp add: add.assoc add_mono_neutr')
-    qed
-    subgoal premises prems for i j k
-    proof -
-      from prems have "M 0 k \<le> M 0 j + M j k"
-        by force
-      then show ?thesis
-        by (simp add: add_left_mono assoc)
-    qed
-    subgoal premises prems for i j
-    proof -
-      from prems have "M i 0 \<le> M i j + M j 0"
-        by force
-      then show ?thesis
-        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_right)
-    qed
-    subgoal premises prems for i j
-    proof -
-      from prems have "Le 0 \<le> M 0 j + M j 0"
-        by force
-      then show ?thesis
-        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_neutr')
-    qed
-    subgoal premises prems for i j
-    proof -
-      from prems have "M i 0 \<le> M i j + M j 0"
-        by force
-      then show ?thesis
-        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_right)
-    qed
-    done
-qed
-
-lemma reset_canonical_upd_canonical:
-  "canonical (curry (reset_canonical_upd M n k (d :: 'c :: {linordered_ab_group_add,uminus}))) n"
-  if "\<forall> i \<le> n. M (i, i) = \<one>" "canonical (curry M) n" "k > 0" for k n :: nat
-  using reset_canonical_canonical[of n "curry M" k] that
-  by (auto simp: reset_canonical_upd_reset_canonical')
-
-(* XXX Move? *)
+(* XXX Move to Floyd Warshall *)
 lemma fwi_characteristic:
   "canonical_subs n (I \<union> {k::nat}) (FWI M n k) \<or> (\<exists> i \<le> n. FWI M n k i i < \<one>)" if
   "canonical_subs n I M" "I \<subseteq> {0..n}" "k \<le> n"

@@ -55,42 +55,166 @@ lemma Le_cancel_2[simp]:
   shows "Le (-d) + Le d = Le 0"
 unfolding mult by simp
 
-lemma canonical_reset_canonical:
-  fixes n :: nat
-  assumes "canonical M n" "(d :: 't :: linordered_ab_group_add) \<ge> 0"
-    "M 0 0 = Le 0" "M x x = Le 0" "x > 0"
-  shows "canonical (reset_canonical M x d) n"
- apply safe
- subgoal for i j k
- unfolding reset_canonical_def
- using assms
- apply clarsimp
- apply safe
- apply (simp_all only: neutral[symmetric])
- apply (simp; fail)
- apply (simp; fail)
- subgoal
-  apply (subst add.assoc[symmetric])
-  apply (subst add.commute[symmetric])
-  apply (subst add.assoc)
- by (force intro: add_mono_neutr simp: add.commute add.assoc)
- apply (subst add.assoc[symmetric]; simp add: neutral[symmetric]; fail)
- apply (simp add: neutral[symmetric]; fail)
- apply (simp add: neutral[symmetric]; fail)
- apply (force intro: add_mono_neutr simp: add.assoc)
- apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
- apply (simp; fail)
- apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
- apply (simp; fail)
- apply (force intro: add_mono_neutr simp: add.assoc[symmetric] add.commute neutral[symmetric])
- apply (subst add.assoc[symmetric]; subst (2) add.commute;
-   force intro: add_mono_right simp: add.assoc neutral[symmetric]
- )
- apply (simp; fail)
- apply (force intro: add_mono_right simp: add.assoc neutral[symmetric])
- apply (fastforce simp: add.assoc[symmetric] add.commute neutral[symmetric])
- done
-done
+lemma reset_canonical_canonical':
+  "canonical (reset_canonical M k (d :: 'c :: linordered_ab_group_add)) n"
+  if "M 0 0 = \<one>" "M k k = \<one>" "canonical M n" "k > 0" for k n :: nat
+proof -
+  have add_mono_neutr': "a \<le> a + b" if "b \<ge> Le (0 :: 'c)" for a b
+    using that unfolding neutral[symmetric] by (rule add_mono_neutr)
+  have add_mono_neutl': "a \<le> b + a" if "b \<ge> Le (0 :: 'c)" for a b
+    using that unfolding neutral[symmetric] by (rule add_mono_neutl)
+  show ?thesis
+    using that
+    unfolding reset_canonical_def neutral
+    apply (clarsimp split: if_splits)
+    apply safe
+                     apply (simp add: add_mono_neutr'; fail)
+                    apply (simp add: comm; fail)
+                   apply (simp add: add_mono_neutl'; fail)
+                  apply (simp add: comm; fail)
+                 apply (simp add: add_mono_neutl'; fail)
+                apply (simp add: add_mono_neutl'; fail)
+               apply (simp add: add_mono_neutl'; fail)
+              apply (simp add: add_mono_neutl' add_mono_neutr'; fail)
+             apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+            apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr' comm; fail)
+           apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+    subgoal premises prems for i j k
+    proof -
+      from prems have "M i k \<le> M i 0 + M 0 k"
+        by auto
+      also have "\<dots> \<le> Le (- d) + M i 0 + (Le d + M 0 k)"
+        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
+        by (metis le_less linordered_ab_monoid_add_class.neutr neutral)
+      finally show ?thesis .
+    qed
+    subgoal premises prems for i j k
+    proof -
+      from prems have "Le 0 \<le> M 0 j + M j 0"
+        by force
+      also have "\<dots> \<le> Le d + M 0 j + (Le (- d) + M j 0)"
+        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
+        by (metis le_less linordered_ab_monoid_add_class.neutr neutral comm)
+      finally show ?thesis .
+    qed
+    subgoal premises prems for i j k
+    proof -
+      from prems have "Le 0 \<le> M 0 j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: add.assoc add_mono_neutr')
+    qed
+    subgoal premises prems for i j k
+    proof -
+      from prems have "M 0 k \<le> M 0 j + M j k"
+        by force
+      then show ?thesis
+        by (simp add: add_left_mono assoc)
+    qed
+    subgoal premises prems for i j
+    proof -
+      from prems have "M i 0 \<le> M i j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_right)
+    qed
+    subgoal premises prems for i j
+    proof -
+      from prems have "Le 0 \<le> M 0 j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_neutr')
+    qed
+    subgoal premises prems for i j
+    proof -
+      from prems have "M i 0 \<le> M i j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_right)
+    qed
+    done
+qed
+
+lemma reset_canonical_canonical:
+  "canonical (reset_canonical M k (d :: 'c :: linordered_ab_group_add)) n"
+  if "\<forall> i \<le> n. M i i = \<one>" "canonical M n" "k > 0" for k n :: nat
+proof -
+  have add_mono_neutr': "a \<le> a + b" if "b \<ge> Le (0 :: 'c)" for a b
+    using that unfolding neutral[symmetric] by (rule add_mono_neutr)
+  have add_mono_neutl': "a \<le> b + a" if "b \<ge> Le (0 :: 'c)" for a b
+    using that unfolding neutral[symmetric] by (rule add_mono_neutl)
+  show ?thesis
+    using that
+    unfolding reset_canonical_def neutral
+    apply (clarsimp split: if_splits)
+    apply safe
+                     apply (simp add: add_mono_neutr'; fail)
+                    apply (simp add: comm; fail)
+                   apply (simp add: add_mono_neutl'; fail)
+                  apply (simp add: comm; fail)
+                 apply (simp add: add_mono_neutl'; fail)
+                apply (simp add: add_mono_neutl'; fail)
+               apply (simp add: add_mono_neutl'; fail)
+              apply (simp add: add_mono_neutl' add_mono_neutr'; fail)
+             apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+            apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr' comm; fail)
+           apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+    subgoal premises prems for i j k
+    proof -
+      from prems have "M i k \<le> M i 0 + M 0 k"
+        by auto
+      also have "\<dots> \<le> Le (- d) + M i 0 + (Le d + M 0 k)"
+        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
+        by (metis le_less linordered_ab_monoid_add_class.neutr neutral)
+      finally show ?thesis .
+    qed
+    subgoal premises prems for i j k
+    proof -
+      from prems have "Le 0 \<le> M 0 j + M j 0"
+        by force
+      also have "\<dots> \<le> Le d + M 0 j + (Le (- d) + M j 0)"
+        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
+        by (metis le_less linordered_ab_monoid_add_class.neutr neutral comm)
+      finally show ?thesis .
+    qed
+    subgoal premises prems for i j k
+    proof -
+      from prems have "Le 0 \<le> M 0 j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: add.assoc add_mono_neutr')
+    qed
+    subgoal premises prems for i j k
+    proof -
+      from prems have "M 0 k \<le> M 0 j + M j k"
+        by force
+      then show ?thesis
+        by (simp add: add_left_mono assoc)
+    qed
+    subgoal premises prems for i j
+    proof -
+      from prems have "M i 0 \<le> M i j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_right)
+    qed
+    subgoal premises prems for i j
+    proof -
+      from prems have "Le 0 \<le> M 0 j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_neutr')
+    qed
+    subgoal premises prems for i j
+    proof -
+      from prems have "M i 0 \<le> M i j + M j 0"
+        by force
+      then show ?thesis
+        by (simp add: ab_semigroup_add_class.add.left_commute add_mono_right)
+    qed
+    done
+qed
+
 
 lemma canonicalD[simp]:
   assumes "canonical M n" "i \<le> n" "j \<le> n" "k \<le> n"
@@ -392,28 +516,28 @@ proof -
      let ?r = "reset_canonical (foldr (\<lambda>c M. reset_canonical M (v c) d) cs M) (v a) d"
      have "foldr (\<lambda>c M. reset_canonical M (v c) d) cs M 0 0 = Le 0"
        apply (induction cs)
-     using prems by (force intro: reset_canonical_diag_presv)+
+       using prems by (force intro: reset_canonical_diag_presv)+
      from prems(6) have "canonical (foldr (\<lambda>c M. reset_canonical M (v c) d) cs M) n"
-      apply (induction cs)
-      using \<open>canonical M n\<close> apply simp
-      apply simp
-      apply (rule canonical_reset_canonical)
-      apply simp
-      using assms apply simp
-      subgoal premises - for a cs
-        apply (induction cs)
-      using assms(4) \<open>clock_numbering v\<close> by (force intro: reset_canonical_diag_presv)+
-      subgoal premises prems for a cs
-        apply (induction cs)
-      using prems \<open>clock_numbering v\<close> by (force intro: reset_canonical_diag_presv)+
-     using \<open>clock_numbering v\<close> by metis
+       apply (induction cs)
+       using \<open>canonical M n\<close> apply simp
+       apply simp
+       apply (rule reset_canonical_canonical'[unfolded neutral])
+       using assms apply simp
+       subgoal premises - for a cs
+         apply (induction cs)
+         using assms(4) \<open>clock_numbering v\<close> by (force intro: reset_canonical_diag_presv)+
+       subgoal premises prems for a cs
+         apply (induction cs)
+         using prems \<open>clock_numbering v\<close> by (force intro: reset_canonical_diag_presv)+
+        apply (simp; fail)
+       using \<open>clock_numbering v\<close> by metis
      have "[FW (reset (foldr (\<lambda>c M. reset M n (v c) d) cs M) n (v a) d) n]\<^bsub>v,n\<^esub>
      = [reset (FW (foldr (\<lambda>c M. reset M n (v c) d) cs M) n) n (v a) d]\<^bsub>v,n\<^esub>"
-     using assms(8-) prems(7-) by - (rule FW_reset_commute; auto)
+       using assms(8-) prems(7-) by - (rule FW_reset_commute; auto)
      also from prems have "\<dots> = [?m]\<^bsub>v,n\<^esub>" by - (rule reset_eq; auto)
      also from \<open>canonical (foldr _ _ _) n\<close> prems have
        "\<dots> = [?r]\<^bsub>v,n\<^esub>"
-     by - (rule reset_reset_canonical; simp)
+       by - (rule reset_reset_canonical; simp)
      finally show ?thesis .
    qed
   done
@@ -454,10 +578,11 @@ unfolding reset''_def reset'''_def by simp+
 type_synonym 'a DBM' = "nat \<times> nat \<Rightarrow> 'a DBMEntry"
 
 definition
-  "reset_canonical_upd (M :: ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBM') (n:: nat) (k:: nat) d =
-    fold (\<lambda> i M. if i = k then M else M((k, i) := Le d + M(0,i), (i, k) := Le (-d) + M(i, 0)))
-      (* [1..<n+1] *) (map nat [1..n])
-      (M((k, 0) := Le d, (0, k) := Le (-d)))
+  "reset_canonical_upd
+    (M :: ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBM') (n:: nat) (k:: nat) d =
+      fold (\<lambda> i M. if i = k then M else M((k, i) := Le d + M(0,i), (i, k) := Le (-d) + M(i, 0)))
+        (* [1..<n+1] *) (map nat [1..n])
+        (M((k, 0) := Le d, (0, k) := Le (-d)))
   "
 
 lemma one_upto_Suc:
@@ -637,6 +762,12 @@ next
     with \<open>i \<noteq> k\<close> show ?thesis by (simp add: reset_canonical_upd_id reset_canonical_def)
   qed
 qed
+
+lemma reset_canonical_upd_canonical:
+  "canonical (curry (reset_canonical_upd M n k (d :: 'c :: {linordered_ab_group_add,uminus}))) n"
+  if "\<forall> i \<le> n. M (i, i) = \<one>" "canonical (curry M) n" "k > 0" for k n :: nat
+  using reset_canonical_canonical[of n "curry M" k] that
+  by (auto simp: reset_canonical_upd_reset_canonical')
 
 definition reset'_upd where
   "reset'_upd M n cs d = fold (\<lambda> c M. reset_canonical_upd M n c d) cs M"
