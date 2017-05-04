@@ -4,29 +4,17 @@ begin
 
 chapter \<open>Correctness of \<open>\<beta>\<close>-approximation from \<open>\<alpha>\<close>-regions\<close>
 
-text \<open>Instantiating real\<close>
-
-instantiation real :: linordered_ab_monoid_add
-begin
-
-definition
-  neutral_real: "\<one> = (0 :: real)"
-
-instance by standard (auto simp: neutral_real)
-
-end
-
 (* XXX Move *)
 text \<open>Misc lemmas we will need later\<close>
 
 lemma dbm_add_strict_right_mono_neutral: "a < Le (d :: 't :: time) \<Longrightarrow> a + Le (-d) < Le 0"
-unfolding less mult by (cases a) (auto elim!: dbm_lt.cases)
+unfolding less add by (cases a) (auto elim!: dbm_lt.cases)
 
 lemma dbm_lt_not_inf_less[intro]: "A \<noteq> \<infinity> \<Longrightarrow> A \<prec> \<infinity>" by (cases A) auto
 
 lemma add_inf[simp]:
   "a + \<infinity> = \<infinity>" "\<infinity> + a = \<infinity>"
-unfolding mult by (cases a) auto
+unfolding add by (cases a) auto
 
 lemma inf_lt[simp,dest!]:
   "\<infinity> < x \<Longrightarrow> False"
@@ -516,7 +504,7 @@ qed
 lemma len_inf_elem:
   "(a, b) \<in> set (arcs i j xs) \<Longrightarrow> M a b = \<infinity> \<Longrightarrow> len M i j xs = \<infinity>"
 apply (induction rule: arcs.induct)
-  apply (auto simp: mult)
+  apply (auto simp: add)
   apply (rename_tac a' b' x xs)
   apply (case_tac "M a' x")
 by auto
@@ -678,12 +666,12 @@ by (induction xs arbitrary: i) auto
 
 lemma get_const_distr:
   "a \<noteq> \<infinity> \<Longrightarrow> b \<noteq> \<infinity> \<Longrightarrow> get_const (a + b) = get_const a + get_const b"
-by (cases a) (cases b, auto simp: mult)+
+by (cases a) (cases b, auto simp: add)+
 
 lemma len_int_dbm_closed:
   "\<forall> (i, j) \<in> set (arcs i j xs). (get_const (M i j) :: real) \<in> \<int> \<and> M i j \<noteq> \<infinity>
   \<Longrightarrow> get_const (len M i j xs) \<in> \<int> \<and> len M i j xs \<noteq> \<infinity>"
-by (induction xs arbitrary: i) (auto simp: get_const_distr, simp add: dbm_add_not_inf mult)
+by (induction xs arbitrary: i) (auto simp: get_const_distr, simp add: dbm_add_not_inf add)
 
 lemma zone_diag_le_3:
   assumes "a \<le> n" and C: "v c = a" and not0: "a > 0"
@@ -805,13 +793,13 @@ lemma non_empty_dbm_diag_set':
   assumes "clock_numbering' v n" "\<forall>i\<le>n. \<forall>j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
           "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
   obtains M' where "[M]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub> \<and> (\<forall>i\<le>n. \<forall>j\<le>n. M' i j \<noteq> \<infinity> \<longrightarrow> get_const (M' i j) \<in> \<int>)
-    \<and> (\<forall> i \<le> n. M' i i = \<one>)"
+    \<and> (\<forall> i \<le> n. M' i i = 0)"
 proof -
-  let ?M = "\<lambda>i j. if i = j then \<one> else M i j"
+  let ?M = "\<lambda>i j. if i = j then 0 else M i j"
   from non_empty_dbm_diag_set[OF assms(1,3)] have "[M]\<^bsub>v,n\<^esub> = [?M]\<^bsub>v,n\<^esub>" by auto
   moreover from assms(2) have "\<forall>i\<le>n. \<forall>j\<le>n. ?M i j \<noteq> \<infinity> \<longrightarrow> get_const (?M i j) \<in> \<int>"
   unfolding neutral by auto
-  moreover have "\<forall> i \<le> n. ?M i i = \<one>" by auto
+  moreover have "\<forall> i \<le> n. ?M i i = 0" by auto
   ultimately show ?thesis by (auto intro: that)
 qed
 
@@ -859,7 +847,7 @@ proof -
         "Z = [M]\<^bsub>v,n\<^esub>" "\<forall> i\<le>n. \<forall> j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>"
       by auto
       from this(1) non_empty_dbm_diag_set'[OF clock_numbering(1) this(2)] \<open>Z \<noteq> {}\<close> obtain M where M:
-        "Z = [M]\<^bsub>v,n\<^esub> \<and> (\<forall>i\<le>n. \<forall>j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>) \<and> (\<forall>i\<le>n. M i i = \<one>)"
+        "Z = [M]\<^bsub>v,n\<^esub> \<and> (\<forall>i\<le>n. \<forall>j\<le>n. M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>) \<and> (\<forall>i\<le>n. M i i = 0)"
       by auto
       with not_empty_cyc_free[OF cn_weak] False have "cyc_free M n" by auto
       then have "cycle_free M n" using cycle_free_diag_equiv by auto
@@ -878,9 +866,9 @@ proof -
       moreover from DBM_le_subset[folded less_eq, of n ?M M\<^sub>R] have "[?M]\<^bsub>v,n\<^esub> \<subseteq> [M\<^sub>R]\<^bsub>v,n\<^esub>" by auto
       ultimately have "[?M]\<^bsub>v,n\<^esub> = {}" by blast
       then have "\<not> cyc_free ?M n" using cyc_free_not_empty[of n ?M v] clock_numbering(1) by auto
-      then obtain i xs where xs: "i \<le> n" "set xs \<subseteq> {0..n}" "len ?M i i xs < \<one>" by auto
+      then obtain i xs where xs: "i \<le> n" "set xs \<subseteq> {0..n}" "len ?M i i xs < 0" by auto
       from this(1,2) canonical_shorten_rotate_neg_cycle[OF M(2) this(2,1,3)] obtain i ys where ys:
-        "len ?M i i ys < \<one>"
+        "len ?M i i ys < 0"
         "set ys \<subseteq> {0..n}" "successive (\<lambda>(a, b). ?M a b = M a b) (arcs i i ys)" "i \<le> n"
         and distinct: "distinct ys" "i \<notin> set ys"
         and cycle_closes: "ys \<noteq> [] \<longrightarrow> ?M i (hd ys) \<noteq> M i (hd ys) \<or> ?M (last ys) i \<noteq> M (last ys) i"
@@ -894,7 +882,7 @@ proof -
         case 1
         then have "\<forall>(a, b)\<in>set (arcs i i ys). M\<^sub>R a b \<le> M a b" by auto
         from one_M_aux[OF this] have "len ?M i i ys = len M\<^sub>R i i ys" .
-        with Nil ys(1) xs(3) have "len M\<^sub>R i i ys < \<one>" by simp
+        with Nil ys(1) xs(3) have "len M\<^sub>R i i ys < 0" by simp
         from DBM_val_bounded_neg_cycle[OF _ \<open>i \<le> n\<close> \<open>set ys \<subseteq> _\<close> this cn_weak]
         have "[M\<^sub>R]\<^bsub>v,n\<^esub> = {}" unfolding DBM_zone_repr_def by auto
         with \<open>R \<noteq> {}\<close> M\<^sub>R(1) show False by auto
@@ -907,7 +895,7 @@ proof -
         case 1
         then have "\<forall>(a, b)\<in>set (arcs i i ys). M\<^sub>R a b \<ge> M a b" by auto
         from one_M_R_aux[OF this] have "len ?M i i ys = len M i i ys" .
-        with Nil ys(1) xs(3) have "len M i i ys < \<one>" by simp
+        with Nil ys(1) xs(3) have "len M i i ys < 0" by simp
         from DBM_val_bounded_neg_cycle[OF _ \<open>i \<le> n\<close> \<open>set ys \<subseteq> _\<close> this cn_weak]
         have "[M]\<^bsub>v,n\<^esub> = {}" unfolding DBM_zone_repr_def by auto
         with \<open>Z \<noteq> {}\<close> M(1) show False by auto
@@ -917,8 +905,8 @@ proof -
       proof (cases "ys = []")
         case False with distinct show ?thesis using arcs_distinct1 by blast
       next
-        case True with ys(1) have "?M i i < \<one>" by auto
-        then have "M i i < \<one> \<or> M\<^sub>R i i < \<one>" by (simp add: min_less_iff_disj)
+        case True with ys(1) have "?M i i < 0" by auto
+        then have "M i i < 0 \<or> M\<^sub>R i i < 0" by (simp add: min_less_iff_disj)
         from one_M one_M_R True show ?thesis by auto
       qed
 
@@ -1072,7 +1060,7 @@ proof -
       { fix a b c c1 c2 assume A: "(a,b) \<in> set (arcs i i ys)"
         assume not0: "a > 0" "b > 0"
         assume lt: "M a b = Lt c"
-        assume neg: "M a b + M\<^sub>R b a < \<one>"
+        assume neg: "M a b + M\<^sub>R b a < 0"
         assume C: "v c1 = a" "v c2 = b" "c1 \<in> X" "c2 \<in> X" and C2: "a \<le> n" "b \<le> n"
         assume valid: "-k c2 \<le> -get_const (M\<^sub>R b a)" "-get_const (M\<^sub>R b a) \<le> k c1"
         from neg have "M\<^sub>R b a \<noteq> \<infinity>" by auto
@@ -1080,7 +1068,7 @@ proof -
         with M\<^sub>R(7) \<open>_ _ _ \<noteq> \<infinity>\<close> have "d \<in> \<int>" by fastforce
         with * obtain d :: int where *: "M\<^sub>R b a = Le d \<or> M\<^sub>R b a = Lt d" using Ints_cases by auto
         with valid have valid: "- k c2 \<le> -d" "-d \<le> k c1" by auto
-        from * neg lt have "M a b \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+        from * neg lt have "M a b \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
         by (auto elim!: dbm_lt.cases)
         from dbm_lt'[OF assms(2)[folded M(1)] this C2 C(1,2) not0] have
           "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c1 - u c2 < - d}"
@@ -1100,7 +1088,7 @@ proof -
 
       { fix a b assume A: "(a,b) \<in> set (arcs i i ys)"
         assume not0: "a > 0" "b > 0"
-        assume neg: "M a b + M\<^sub>R b a < \<one>"
+        assume neg: "M a b + M\<^sub>R b a < 0"
         from clock_dest[OF A not0] obtain c1 c2 where
           C: "v c1 = a" "v c2 = b" "c1 \<in> X" "c2 \<in> X" and C2: "a \<le> n" "b \<le> n"
         by blast
@@ -1129,7 +1117,7 @@ proof -
         from c have ?thesis
         proof (standard, goal_cases)
           case 2
-          with neg d have "M a b \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+          with neg d have "M a b \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
           by (auto elim!: dbm_lt.cases)
           with aux show ?thesis .
         next
@@ -1138,12 +1126,12 @@ proof -
           from d(1) show ?thesis
           proof (standard, goal_cases)
             case 1
-            with A neg d have "M a b \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M a b \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             with aux show ?thesis .
           next
             case 2
-            with A neg d have "M a b \<le> Le (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M a b \<le> Le (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             from dbm_le'[OF assms(2)[folded M(1)] this C2 C(1,2) not0] have
               "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c1 - u c2 \<le> - d}"
@@ -1165,7 +1153,7 @@ proof -
 
       { fix a b assume A: "(a,0) \<in> set (arcs i i ys)"
         assume not0: "a > 0"
-        assume neg: "M a 0 + M\<^sub>R 0 a < \<one>"
+        assume neg: "M a 0 + M\<^sub>R 0 a < 0"
         from clock_dest_1[OF A not0] obtain c1 where C: "v c1 = a" "c1 \<in> X" and C2: "a \<le> n" by blast
         with clock_numbering(1) have C3: "v' a = c1" unfolding v'_def by auto
         from neg have inf: "M a 0 \<noteq> \<infinity>" "M\<^sub>R 0 a \<noteq> \<infinity>" by auto
@@ -1192,7 +1180,7 @@ proof -
         from c have ?thesis
         proof (standard, goal_cases)
           case 2
-          with neg d have "M a 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+          with neg d have "M a 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
           by (auto elim!: dbm_lt.cases)
           with aux show ?thesis .
         next
@@ -1201,12 +1189,12 @@ proof -
           from d(1) show ?thesis
           proof (standard, goal_cases)
             case 1
-            with A neg d have "M a 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M a 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             with aux show ?thesis .
           next
             case 2
-            with A neg d have "M a 0 \<le> Le (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M a 0 \<le> Le (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             from dbm_le'2[OF assms(2)[folded M(1)] this C2 C(1) not0] have
               "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c1 \<le> - d}"
@@ -1228,7 +1216,7 @@ proof -
 
       { fix a b assume A: "(0,b) \<in> set (arcs i i ys)"
         assume not0: "b > 0"
-        assume neg: "M 0 b + M\<^sub>R b 0 < \<one>"
+        assume neg: "M 0 b + M\<^sub>R b 0 < 0"
         from clock_dest_2[OF A not0] obtain c2 where
           C:  "v c2 = b" "c2 \<in> X" and C2: "b \<le> n"
         by blast
@@ -1257,7 +1245,7 @@ proof -
         from c have ?thesis
         proof (standard, goal_cases)
           case 2
-          with neg d have "M 0 b \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+          with neg d have "M 0 b \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
           by (auto elim!: dbm_lt.cases)
           with aux show ?thesis .
         next
@@ -1265,12 +1253,12 @@ proof -
           from d(1) show ?thesis
           proof (standard, goal_cases)
             case 1
-            with A neg have "M 0 b \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg have "M 0 b \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             with aux show ?thesis .
           next
             case 2
-            with A neg c have "M 0 b \<le> Le (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg c have "M 0 b \<le> Le (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             from dbm_le'3[OF assms(2)[folded M(1)] this C2 C(1) not0] have
               "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c2 \<ge> d}"
@@ -1292,7 +1280,7 @@ proof -
 
       { fix a b assume A: "(a,b) \<in> set (arcs i i ys)"
         assume not0: "b > 0" "a > 0"
-        assume neg: "M\<^sub>R a b + M b a < \<one>"
+        assume neg: "M\<^sub>R a b + M b a < 0"
         from clock_dest[OF A not0(2,1)] obtain c1 c2 where
           C: "v c1 = a" "v c2 = b" "c1 \<in> X" "c2 \<in> X" and C2: "a \<le> n" "b \<le> n"
         by blast
@@ -1320,7 +1308,7 @@ proof -
         from c have ?thesis
         proof (standard, goal_cases)
           case 2
-          with neg d have "M b a \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+          with neg d have "M b a \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
           by (auto elim!: dbm_lt.cases)
           with aux show ?thesis .
         next
@@ -1328,12 +1316,12 @@ proof -
           from d(1) show ?thesis
           proof (standard, goal_cases)
             case 1
-            with A neg d have "M b a \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M b a \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             with aux show ?thesis .
           next
             case 2
-            with A neg d have "M b a \<le> Le (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M b a \<le> Le (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             from dbm_le'[OF assms(2)[folded M(1)] this C2(2,1) C(2,1) not0] have
               "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c2 - u c1 \<le> - d}"
@@ -1354,7 +1342,7 @@ proof -
 
       { fix a b assume A: "(a,0) \<in> set (arcs i i ys)"
         assume not0: "a > 0"
-        assume neg: "M\<^sub>R a 0 + M 0 a < \<one>"
+        assume neg: "M\<^sub>R a 0 + M 0 a < 0"
         from clock_dest_1[OF A not0] obtain c1 where C: "v c1 = a" "c1 \<in> X" and C2: "a \<le> n" by blast
         with clock_numbering(1) have C3: "v' a = c1" unfolding v'_def by auto
         from neg have inf: "M 0 a \<noteq> \<infinity>" "M\<^sub>R a 0 \<noteq> \<infinity>" by auto
@@ -1381,7 +1369,7 @@ proof -
         from c have ?thesis
         proof (standard, goal_cases)
           case 2
-          with neg d have "M 0 a \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+          with neg d have "M 0 a \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
           by (auto elim!: dbm_lt.cases)
           with aux show ?thesis .
         next
@@ -1389,12 +1377,12 @@ proof -
           from d(1) show ?thesis
           proof (standard, goal_cases)
             case 1
-            with A neg d have "M 0 a \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M 0 a \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             with aux show ?thesis .
           next
             case 2
-            with A neg d have "M 0 a \<le> Le (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg d have "M 0 a \<le> Le (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             from dbm_le'3[OF assms(2)[folded M(1)] this C2 C(1) not0] have
               "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c1 \<ge> d}"
@@ -1416,7 +1404,7 @@ proof -
 
       { fix a b assume A: "(0,b) \<in> set (arcs i i ys)"
         assume not0: "b > 0"
-        assume neg: "M\<^sub>R 0 b + M b 0 < \<one>"
+        assume neg: "M\<^sub>R 0 b + M b 0 < 0"
         from clock_dest_2[OF A not0] obtain c2 where
           C:  "v c2 = b" "c2 \<in> X" and C2: "b \<le> n"
         by blast
@@ -1445,7 +1433,7 @@ proof -
         from c have ?thesis
         proof (standard, goal_cases)
           case 2
-          with neg d have "M b 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+          with neg d have "M b 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
           by (auto elim!: dbm_lt.cases)
           with aux show ?thesis .
         next
@@ -1454,12 +1442,12 @@ proof -
           from d(1) show ?thesis
           proof (standard, goal_cases)
             case 1
-            with A neg have "M b 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg have "M b 0 \<le> Lt (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             with aux show ?thesis .
           next
             case 2
-            with A neg c have "M b 0 \<le> Le (-d)" unfolding less_eq dbm_le_def mult neutral less
+            with A neg c have "M b 0 \<le> Le (-d)" unfolding less_eq dbm_le_def add neutral less
             by (auto elim!: dbm_lt.cases)
             from dbm_le'2[OF assms(2)[folded M(1)] this C2 C(1) not0] have
               "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c2 \<le> - d}"
@@ -1548,13 +1536,13 @@ proof -
           proof (cases "M i i < M\<^sub>R i i")
             case True
             then have "?M i i = M i i" by (simp add: min.strict_order_iff)
-            with Nil ys(1) xs(3) have *: "M i i < \<one>" by simp
+            with Nil ys(1) xs(3) have *: "M i i < 0" by simp
             with neg_cycle_empty[OF cn_weak _ \<open>i \<le> n\<close>, of "[]" M] have "[M]\<^bsub>v,n\<^esub> = {}" by auto
             with \<open>Z \<noteq> {}\<close> M(1) show ?thesis by auto
           next
             case False
             then have "?M i i = M\<^sub>R i i" by (simp add: min_absorb2)
-            with Nil ys(1) xs(3) have "M\<^sub>R i i < \<one>" by simp
+            with Nil ys(1) xs(3) have "M\<^sub>R i i < 0" by simp
             with neg_cycle_empty[OF cn_weak _ \<open>i \<le> n\<close>, of "[]" M\<^sub>R] have "[M\<^sub>R]\<^bsub>v,n\<^esub> = {}" by auto
             with \<open>R \<noteq> {}\<close> M\<^sub>R(1) show ?thesis by auto
           qed
@@ -1565,13 +1553,13 @@ proof -
           proof (cases ws)
             case Nil
             with ws ys xs(3) have *:
-              "?M i w + ?M w i < \<one>" "?M w i = M w i \<longrightarrow> ?M i w \<noteq> M i w" "(i, w) \<in> set (arcs i i ys)"
+              "?M i w + ?M w i < 0" "?M w i = M w i \<longrightarrow> ?M i w \<noteq> M i w" "(i, w) \<in> set (arcs i i ys)"
             by auto
             have "R \<inter> Approx\<^sub>\<beta> Z = {}"
             proof (cases "?M w i = M w i")
               case True
               with *(2) have "?M i w = M\<^sub>R i w" unfolding min_def by auto
-              with *(1) True have neg: "M\<^sub>R i w + M w i < \<one>" by auto
+              with *(1) True have neg: "M\<^sub>R i w + M w i < 0" by auto
               show ?thesis
               proof (cases "i = 0")
                 case True
@@ -1601,7 +1589,7 @@ proof -
               with one_M ws Nil have "M i w < M\<^sub>R i w" by auto
               then have "?M i w = M i w" unfolding min_def by auto
               moreover from False *(2) have "?M w i = M\<^sub>R w i" unfolding min_def by auto
-              ultimately have neg: "M i w + M\<^sub>R w i < \<one>" using *(1) by auto
+              ultimately have neg: "M i w + M\<^sub>R w i < 0" using *(1) by auto
               show ?thesis
               proof (cases "i = 0")
                 case True
@@ -1647,7 +1635,7 @@ proof -
               "len ?M a a (b # ws') = len ?M z z (a # b # zs)"
               "set (arcs a a (b # ws')) = set (arcs z z (a # b # zs))"
             by (auto simp add: comm)
-            from ys(1) xs(3) ws'(1) have "len ?M a a (b # ws') < \<one>" by auto
+            from ys(1) xs(3) ws'(1) have "len ?M a a (b # ws') < 0" by auto
             from ws'(2) ys(2) \<open>i \<le> n\<close> z have n_bounds: "a \<le> n" "b \<le> n" "set ws' \<subseteq> {0..n}" "z \<le> n" by auto
             from * have a_b: "?M a b = M a b" by (simp add: min.strict_order_iff)
             from successive successive_split[of _ "arcs a z (b # zs)" "[(z,a), (a,b)]"]
@@ -1679,7 +1667,7 @@ proof -
               qed
               with \<open>?M b z = M\<^sub>R b z\<close> have "len ?M b a ws' = \<infinity>" by (auto intro: len_inf_elem[OF z(1)])
               then have "\<infinity> = len ?M a a (b # ws')" by simp
-              with \<open>len ?M a a _ < \<one>\<close> show ?thesis by auto
+              with \<open>len ?M a a _ < 0\<close> show ?thesis by auto
             next
               assume inf: "M\<^sub>R a 0 = \<infinity>"
               show "z = 0"
@@ -1689,7 +1677,7 @@ proof -
                 from distinct z have "a \<noteq> z" by auto
                 with \<open>z \<noteq> 0\<close> \<open>a \<le> n\<close> \<open>z \<le> n\<close> M\<^sub>R(2) inf have "M\<^sub>R z a = \<infinity>" by blast
                 with \<open>?M z a = M\<^sub>R z a\<close> have "len ?M z z (a # b # zs) = \<infinity>" by (auto intro: len_inf_elem)
-                with \<open>len ?M a a _ < \<one>\<close> rotated show False by auto
+                with \<open>len ?M a a _ < 0\<close> rotated show False by auto
               qed
             qed
             { fix c d assume A: "(c, d) \<in> set (arcs 0 0 (a # b # zs))" "M c d < M\<^sub>R c d"
@@ -1711,7 +1699,7 @@ proof -
                     "len ?M a 0 (b # zs) = \<infinity>"
                   by (fastforce intro: len_inf_elem[OF x(1)])
                   with \<open>z = 0\<close> have "len ?M z z (a # b # zs) = \<infinity>" by auto
-                  with \<open>len ?M a a _ < \<one>\<close> rotated show False by auto
+                  with \<open>len ?M a a _ < 0\<close> rotated show False by auto
                 qed
                 with arcs_distinct_dest1[OF _ x(1), of z] z distinct x \<open>z = 0\<close> have False by auto
               } note c_0_inf = this
@@ -1800,7 +1788,7 @@ proof -
                       qed
                       with \<open>?M d e = M\<^sub>R d e\<close> have "len ?M b 0 zs = \<infinity>" by (auto intro: len_inf_elem[OF e(1)])
                       with \<open>z = 0\<close> rotated have "\<infinity> = len ?M a a (b # ws')" by simp
-                      with \<open>len ?M a a _ < \<one>\<close> show ?thesis by auto
+                      with \<open>len ?M a a _ < 0\<close> show ?thesis by auto
                     next
                       assume "M\<^sub>R c 0 = \<infinity>" from c_0_inf[OF this x] show False .
                     qed
@@ -1918,9 +1906,9 @@ proof -
           have ?thesis
           proof (cases "M\<^sub>R 0 y + M\<^sub>R z 0 = Lt (c + d)")
             case True
-            from ** have "(M\<^sub>R 0 y + M\<^sub>R z 0) + M y z < Le 0" using comm assoc by metis
+            from ** have "(M\<^sub>R 0 y + M\<^sub>R z 0) + M y z < Le 0" using comm add.assoc by metis
             with True have **: "Lt (c + d) + M y z < Le 0" by simp
-            then have "M y z \<le> Le (- (c + d))" unfolding less less_eq dbm_le_def mult
+            then have "M y z \<le> Le (- (c + d))" unfolding less less_eq dbm_le_def add
             by (cases "M y z") (fastforce elim!: dbm_lt.cases)+
             from dbm_le'[OF assms(2)[folded M(1)] this \<open>y \<le> n\<close> \<open>z \<le> n\<close> C(3,4)] \<open>y \<noteq> 0\<close> \<open>z \<noteq> 0\<close> M
             have subs: "Z \<subseteq> {u \<in> V. u c1 - u c2 \<le> - (c + d)}" by blast
@@ -1933,15 +1921,15 @@ proof -
               with C \<open>y \<le> n\<close> \<open>z \<le> n\<close> M\<^sub>R(1) have
                 "dbm_entry_val u (Some c2) None (M\<^sub>R z 0)" "dbm_entry_val u None (Some c1) (M\<^sub>R 0 y)"
               unfolding DBM_zone_repr_def DBM_val_bounded_def by auto
-              with True c d(1) have "u \<notin> {u \<in> V. u c1 - u c2 \<le> - (c + d)}" unfolding mult by auto
+              with True c d(1) have "u \<notin> {u \<in> V. u c1 - u c2 \<le> - (c + d)}" unfolding add by auto
             }
             ultimately show ?thesis by blast
           next
             case False
-            with c d have "M\<^sub>R 0 y + M\<^sub>R z 0 = Le (c + d)" unfolding mult by fastforce
-            moreover from ** have "(M\<^sub>R 0 y + M\<^sub>R z 0) + M y z < Le 0" using comm assoc by metis
+            with c d have "M\<^sub>R 0 y + M\<^sub>R z 0 = Le (c + d)" unfolding add by fastforce
+            moreover from ** have "(M\<^sub>R 0 y + M\<^sub>R z 0) + M y z < Le 0" using comm add.assoc by metis
             ultimately have **: "Le (c + d) + M y z < Le 0" by simp
-            then have "M y z \<le> Lt (- (c + d))" unfolding less less_eq dbm_le_def mult
+            then have "M y z \<le> Lt (- (c + d))" unfolding less less_eq dbm_le_def add
             by (cases "M y z") (fastforce elim!: dbm_lt.cases)+
             from dbm_lt'[OF assms(2)[folded M(1)] this \<open>y \<le> n\<close> \<open>z \<le> n\<close> C(3,4)] \<open>y \<noteq> 0\<close> \<open>z \<noteq> 0\<close> M
             have subs: "Z \<subseteq> {u \<in> V. u c1 - u c2 < - (c + d)}" by auto

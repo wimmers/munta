@@ -312,17 +312,17 @@ lemma And_commute:
 by (auto intro: min.commute)
 
 lemma FW'_diag_preservation:
-  assumes "\<forall> i \<le> n. M (i, i) \<le> \<one>"
-  shows "\<forall> i \<le> n. (FW' M n) (i, i) \<le> \<one>"
+  assumes "\<forall> i \<le> n. M (i, i) \<le> 0"
+  shows "\<forall> i \<le> n. (FW' M n) (i, i) \<le> 0"
 using assms FW_diag_preservation[of n "curry M"] unfolding FW'_def by auto
 
 lemma FW_neg_diag_preservation:
-  "M i i < \<one> \<Longrightarrow> i \<le> n \<Longrightarrow> (FW M n) i i < \<one>"
+  "M i i < 0 \<Longrightarrow> i \<le> n \<Longrightarrow> (FW M n) i i < 0"
 using fw_mono[of i n i M n] by auto
 
 lemma FW'_neg_diag_preservation:
-  assumes "M (i, i) < \<one>" "i \<le> n"
-  shows "(FW' M n) (i, i) < \<one>"
+  assumes "M (i, i) < 0" "i \<le> n"
+  shows "(FW' M n) (i, i) < 0"
 using assms FW_neg_diag_preservation[of "curry M"] unfolding FW'_def by auto
 
 lemma norm_empty_diag_preservation_int:
@@ -340,13 +340,13 @@ lemma norm_diag_preservation_int:
 using assms unfolding norm_def by (force simp: Let_def less_eq dbm_le_def dest: dbm_lt_trans)
 
 lemma And_diag1:
-  assumes "A i i \<le> \<one>"
-  shows "(And A B) i i \<le> \<one>"
+  assumes "A i i \<le> 0"
+  shows "(And A B) i i \<le> 0"
 using assms by (auto split: split_min)
 
 lemma And_diag2:
-  assumes "B i i \<le> \<one>"
-  shows "(And A B) i i \<le> \<one>"
+  assumes "B i i \<le> 0"
+  shows "(And A B) i i \<le> 0"
 using assms by (auto split: split_min)
 
 lemma abstra_upd_diag_preservation:
@@ -361,24 +361,24 @@ using assms unfolding abstr_upd_def
 by (induction cc arbitrary: M) (auto simp: abstra_upd_diag_preservation)
 
 lemma abstr_upd_diag_preservation':
-  assumes "\<forall> i \<le> n. M (i, i) \<le> \<one>" "\<forall> c \<in> collect_clks cc. c \<noteq> 0"
-  shows "\<forall> i \<le> n. (abstr_upd cc M) (i, i) \<le> \<one>"
+  assumes "\<forall> i \<le> n. M (i, i) \<le> 0" "\<forall> c \<in> collect_clks cc. c \<noteq> 0"
+  shows "\<forall> i \<le> n. (abstr_upd cc M) (i, i) \<le> 0"
 using assms unfolding abstr_upd_def
 by (induction cc arbitrary: M) (auto simp: abstra_upd_diag_preservation)
 
 lemma up_diag_preservation:
-  assumes "M i i \<le> \<one>"
-  shows "(up M) i i \<le> \<one>"
+  assumes "M i i \<le> 0"
+  shows "(up M) i i \<le> 0"
   using assms unfolding up_def by (auto split: split_min)
 
 lemma reset_diag_preservation:
-  assumes "M i i \<le> \<one>" "d \<le> 0"
-  shows "reset M n k d i i \<le> \<one>"
+  assumes "M i i \<le> 0" "d \<le> 0"
+  shows "reset M n k d i i \<le> 0"
   using assms min_le_iff_disj unfolding neutral reset_def by auto
 
 lemma reset'_diag_preservation:
-  assumes "\<forall> i \<le> n. M i i \<le> \<one>" "d \<le> 0"
-  shows "\<forall> i \<le> n. reset' M n cs v d i i \<le> \<one>"
+  assumes "\<forall> i \<le> n. M i i \<le> 0" "d \<le> 0"
+  shows "\<forall> i \<le> n. reset' M n cs v d i i \<le> 0"
   using assms
   by (induction cs) (auto intro: reset_diag_preservation)
 
@@ -561,7 +561,7 @@ lemma steps_impl_norm_dbm_default_dbm_int:
     and "\<forall> l. \<forall>c\<in>set (k l). c \<in> \<int>"
     and "\<forall> l. length (k l) = Suc n"
   shows "l' = l \<and> D' = D \<or> (\<exists>M. D' = FW' (norm_upd M (k l') n) n \<and>
-             ((\<forall>i>n. \<forall>j. curry M i j = \<one>) \<and> (\<forall>j>n. \<forall>i. curry M i j = \<one>)) \<and> dbm_int (curry M) n)"
+             ((\<forall>i>n. \<forall>j. curry M i j = 0) \<and> (\<forall>j>n. \<forall>i. curry M i j = 0)) \<and> dbm_int (curry M) n)"
 using assms proof (induction)
   case refl then show ?case by auto
 next
@@ -569,7 +569,7 @@ next
   then have "
     Z' = Z \<or>
     (\<exists>M. Z' = FW' (norm_upd M (k l') n) n \<and>
-         ((\<forall>i>n. \<forall>j. curry M i j = \<one>) \<and> (\<forall>j>n. \<forall>i. curry M i j = \<one>)) \<and> dbm_int (curry M) n)"
+         ((\<forall>i>n. \<forall>j. curry M i j = 0) \<and> (\<forall>j>n. \<forall>i. curry M i j = 0)) \<and> dbm_int (curry M) n)"
   by auto
   then show ?case
   proof (standard, goal_cases)
@@ -595,7 +595,7 @@ next
 qed
 
 (* XXX Naming conflict *)
-definition valid_dbm where "valid_dbm M n \<equiv> dbm_int M n \<and> (\<forall> i \<le> n. M 0 i \<le> \<one>)"
+definition valid_dbm where "valid_dbm M n \<equiv> dbm_int M n \<and> (\<forall> i \<le> n. M 0 i \<le> 0)"
 
 lemma valid_dbm_pos:
   assumes "valid_dbm M n"
@@ -614,7 +614,7 @@ lemma canonical_eq_upto:
     "clock_numbering' v n" "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
     "canonical A n" "canonical B n"
     "[A]\<^bsub>v,n\<^esub> \<noteq> {}" "[A]\<^bsub>v,n\<^esub> = [B]\<^bsub>v,n\<^esub>"
-    "\<forall> i \<le> n. A i i = \<one>" "\<forall> i \<le> n. B i i = \<one>"
+    "\<forall> i \<le> n. A i i = 0" "\<forall> i \<le> n. B i i = 0"
   shows "A =\<^sub>n B"
 unfolding n_eq_def
 using assms
@@ -710,104 +710,104 @@ lemma DBM_zone_repr_reset'_eqI:
 using assms(4) reset'_correct[OF assms(1-3)] by blast
 
 lemma up_canonical_neg_diag:
-  assumes "M i i < \<one>"
-  shows "(up_canonical M) i i < \<one>"
+  assumes "M i i < 0"
+  shows "(up_canonical M) i i < 0"
 using assms unfolding up_canonical_def by auto
 
 lemma up_neg_diag:
-  assumes "M i i < \<one>"
-  shows "(up M) i i < \<one>"
+  assumes "M i i < 0"
+  shows "(up M) i i < 0"
 using assms unfolding up_def by (auto split: split_min)
 
 lemma reset''_neg_diag:
   fixes v :: "'c \<Rightarrow> nat"
-  assumes "\<forall> c. v c > 0" "M i i < \<one>" "i \<le> n"
-  shows "(reset'' M n cs v d) i i < \<one>"
+  assumes "\<forall> c. v c > 0" "M i i < 0" "i \<le> n"
+  shows "(reset'' M n cs v d) i i < 0"
 using reset''_diag_preservation[OF assms(1), where M = M and n = n] assms(2-) by auto
 
 lemma FW_canonical':
-  assumes "\<forall> i \<le> n. (FW M n) i i \<ge> \<one>"
+  assumes "\<forall> i \<le> n. (FW M n) i i \<ge> 0"
   shows "canonical (FW M n) n"
   using FW_neg_cycle_detect assms
   unfolding cycle_free_diag_equiv
   by - (rule fw_canonical[unfolded cycle_free_diag_equiv]; fastforce)
 
 lemma FW_neg_diag_equiv:
-  assumes diag: "\<exists> i \<le> n. (FW A n) i i < \<one>"
+  assumes diag: "\<exists> i \<le> n. (FW A n) i i < 0"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
       and cn: "\<forall> c. v c > 0"
       and equiv: "[A]\<^bsub>v,n\<^esub> = [B]\<^bsub>v,n\<^esub>"
-  shows "\<exists> i \<le> n. (FW B n) i i < \<one>"
+  shows "\<exists> i \<le> n. (FW B n) i i < 0"
 proof -
-  from assms obtain i where "(FW A n) i i < \<one>" "i \<le> n" by force
+  from assms obtain i where "(FW A n) i i < 0" "i \<le> n" by force
   with neg_diag_empty[OF surj] FW_zone_equiv[OF surj] equiv have "[B]\<^bsub>v,n\<^esub> = {}" by fastforce
   with FW_zone_equiv[OF surj] have "[FW B n]\<^bsub>v,n\<^esub> = {}" by auto
   then obtain i where
-    "(FW B n) i i < \<one>" "i \<le> n"
+    "(FW B n) i i < 0" "i \<le> n"
   using FW_detects_empty_zone[OF surj, where M = B, folded neutral] cn
   by auto
   then show ?thesis by auto
 qed
 
 lemma FW_dbm_zone_repr_eqI2:
-  assumes f_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < \<one> \<Longrightarrow> (f M) i i < \<one>"
-      and g_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < \<one> \<Longrightarrow> (g M) i i < \<one>"
+  assumes f_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < 0 \<Longrightarrow> (f M) i i < 0"
+      and g_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < 0 \<Longrightarrow> (g M) i i < 0"
       and canonical:
-      "\<And> A B. canonical A n \<Longrightarrow> canonical B n \<Longrightarrow> \<forall> i \<le> n. A i i = \<one> \<Longrightarrow> \<forall> i \<le> n. B i i = \<one>
+      "\<And> A B. canonical A n \<Longrightarrow> canonical B n \<Longrightarrow> \<forall> i \<le> n. A i i = 0 \<Longrightarrow> \<forall> i \<le> n. B i i = 0
       \<Longrightarrow> [A]\<^bsub>v,n\<^esub> = [B]\<^bsub>v,n\<^esub>
       \<Longrightarrow> [f A]\<^bsub>v,n\<^esub> = [g B]\<^bsub>v,n\<^esub>"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
       and cn: "\<forall> c. v c > 0"
       and equiv: "[A]\<^bsub>v,n\<^esub> = [B]\<^bsub>v,n\<^esub>"
-      and diag: "\<forall> i \<le> n. A i i \<le> \<one>" "\<forall> i \<le> n. B i i \<le> \<one>"
+      and diag: "\<forall> i \<le> n. A i i \<le> 0" "\<forall> i \<le> n. B i i \<le> 0"
   shows "[f (FW A n)]\<^bsub>v,n\<^esub> = [g (FW B n)]\<^bsub>v,n\<^esub>"
-proof (cases "\<forall> i \<le> n. (FW A n) i i \<ge> \<one>")
+proof (cases "\<forall> i \<le> n. (FW A n) i i \<ge> 0")
   case True
-  with FW_neg_diag_equiv[OF _ surj cn equiv[symmetric]] have *: "\<forall>i\<le>n. \<one> \<le> (FW B n) i i" by fastforce
+  with FW_neg_diag_equiv[OF _ surj cn equiv[symmetric]] have *: "\<forall>i\<le>n. 0 \<le> (FW B n) i i" by fastforce
   with True FW_diag_preservation[where M = A, OF diag(1)] FW_diag_preservation[where M = B, OF diag(2)]
         FW_zone_equiv[OF surj, of A] FW_zone_equiv[OF surj, of B] equiv
   show ?thesis by - (rule canonical[OF FW_canonical'[OF True] FW_canonical'[OF *]]; fastforce)
 next
   case False
-  then obtain i where "(FW A n) i i < \<one>" "i \<le> n" by force
+  then obtain i where "(FW A n) i i < 0" "i \<le> n" by force
   moreover with FW_neg_diag_equiv[OF _ surj cn equiv] obtain j where
-    "(FW B n) j j < \<one>" "j \<le> n"
+    "(FW B n) j j < 0" "j \<le> n"
   using FW_detects_empty_zone[OF surj, where M = B, folded neutral] cn by auto
-  ultimately have "f (FW A n) i i < \<one>" "g (FW B n) j j < \<one>" using f_diag g_diag by auto
+  ultimately have "f (FW A n) i i < 0" "g (FW B n) j j < 0" using f_diag g_diag by auto
   with \<open>i \<le> n\<close> \<open>j \<le> n\<close> neg_diag_empty[OF surj] show ?thesis by auto
 qed
 
 lemma FW_dbm_zone_repr_eqI:
-  assumes f_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < \<one> \<Longrightarrow> (f M) i i < \<one>"
-      and g_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < \<one> \<Longrightarrow> (g M) i i < \<one>"
+  assumes f_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < 0 \<Longrightarrow> (f M) i i < 0"
+      and g_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < 0 \<Longrightarrow> (g M) i i < 0"
       and canonical: "\<And> M. canonical M n \<Longrightarrow> [f M]\<^bsub>v,n\<^esub> = [g M]\<^bsub>v,n\<^esub>"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
   shows "[f (FW M n)]\<^bsub>v,n\<^esub> = [g (FW M n)]\<^bsub>v,n\<^esub>"
-proof (cases "\<forall> i \<le> n. (FW M n) i i \<ge> \<one>")
+proof (cases "\<forall> i \<le> n. (FW M n) i i \<ge> 0")
   case True
   from canonical[OF FW_canonical'[OF True]] show ?thesis .
 next
   case False
-  then obtain i where "(FW M n) i i < \<one>" "i \<le> n" by force
-  with f_diag g_diag have "f (FW M n) i i < \<one>" "g (FW M n) i i < \<one>" by auto
+  then obtain i where "(FW M n) i i < 0" "i \<le> n" by force
+  with f_diag g_diag have "f (FW M n) i i < 0" "g (FW M n) i i < 0" by auto
   with \<open>i \<le> n\<close> neg_diag_empty[OF surj] show ?thesis by auto
 qed
 
 lemma FW_dbm_zone_repr_eqI':
-  assumes f_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < \<one> \<Longrightarrow> (f M) i i < \<one>"
-      and g_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < \<one> \<Longrightarrow> (g M) i i < \<one>"
-      and canonical: "\<And> M. canonical M n \<Longrightarrow> \<forall> i \<le> n. M i i = \<one> \<Longrightarrow> [f M]\<^bsub>v,n\<^esub> = [g M]\<^bsub>v,n\<^esub>"
+  assumes f_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < 0 \<Longrightarrow> (f M) i i < 0"
+      and g_diag: "\<And> M i. i \<le> n \<Longrightarrow> M i i < 0 \<Longrightarrow> (g M) i i < 0"
+      and canonical: "\<And> M. canonical M n \<Longrightarrow> \<forall> i \<le> n. M i i = 0 \<Longrightarrow> [f M]\<^bsub>v,n\<^esub> = [g M]\<^bsub>v,n\<^esub>"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
-      and diag: "\<forall> i \<le> n. M i i \<le> \<one>"
+      and diag: "\<forall> i \<le> n. M i i \<le> 0"
   shows "[f (FW M n)]\<^bsub>v,n\<^esub> = [g (FW M n)]\<^bsub>v,n\<^esub>"
-proof (cases "\<forall> i \<le> n. (FW M n) i i \<ge> \<one>")
+proof (cases "\<forall> i \<le> n. (FW M n) i i \<ge> 0")
   case True
   with FW_diag_preservation[where M = M, OF diag] canonical[OF FW_canonical'[OF True]] show ?thesis
   by fastforce
 next
   case False
-  then obtain i where "(FW M n) i i < \<one>" "i \<le> n" by force
-  with f_diag g_diag have "f (FW M n) i i < \<one>" "g (FW M n) i i < \<one>" by auto
+  then obtain i where "(FW M n) i i < 0" "i \<le> n" by force
+  with f_diag g_diag have "f (FW M n) i i < 0" "g (FW M n) i i < 0" by auto
   with \<open>i \<le> n\<close> neg_diag_empty[OF surj] show ?thesis by auto
 qed
 
@@ -894,7 +894,7 @@ lemma add_rel_DBMEntry_transfer[transfer_rule]:
   shows "(rel_DBMEntry A ===> rel_DBMEntry B ===> rel_DBMEntry C) (op +) (op +)"
 using R unfolding rel_fun_def[abs_def] apply safe
 subgoal for x1 y1 x2 y2
-by (cases x1; cases x2; cases y1; cases y2; simp add: mult)
+by (cases x1; cases x2; cases y1; cases y2; simp add: add)
 done
 
 lemma add_DBMEntry_RI[transfer_rule]:
@@ -1466,7 +1466,7 @@ lemma action_step_impl_correct:
           "clock_numbering' v n" "\<forall>c\<in>collect_clks (inv_of A l'). v c = c \<and> c > 0 \<and> v c \<le> n"
           "\<forall>c\<in>collect_clks g. v c = c \<and> c > 0 \<and> v c \<le> n"
           "\<forall>c\<in> set r. v c = c \<and> c > 0 \<and> v c \<le> n"
-          "\<forall> i \<le> n. D (i, i) \<le> \<one>"
+          "\<forall> i \<le> n. D (i, i) \<le> 0"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
   shows
   "[curry (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0))]\<^bsub>v,n\<^esub> =
@@ -1534,8 +1534,8 @@ lemma norm_impl_correct:
   fixes k :: "nat list"
   assumes (* XXX atm unused, would need for optimized variant without full FW *)
           "clock_numbering' v n"
-          "\<forall> i \<le> n. D (i, i) \<le> \<one>"
-          "\<forall> i \<le> n. M i i \<le> \<one>"
+          "\<forall> i \<le> n. D (i, i) \<le> 0"
+          "\<forall> i \<le> n. M i i \<le> 0"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
       and k: "Suc n \<le> length k"
       and equiv: "[curry D]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
@@ -1570,7 +1570,7 @@ lemma norm_action_step_impl_correct:
           "clock_numbering' v n" "\<forall>c\<in>collect_clks (inv_of A l'). v c = c \<and> c > 0 \<and> v c \<le> n"
           "\<forall>c\<in>collect_clks g. v c = c \<and> c > 0 \<and> v c \<le> n"
           "\<forall>c\<in> set r. v c = c \<and> c > 0 \<and> v c \<le> n"
-          "\<forall> i \<le> n. D (i, i) \<le> \<one>"
+          "\<forall> i \<le> n. D (i, i) \<le> 0"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
       and k: "Suc n \<le> length k"
   shows
@@ -1615,7 +1615,7 @@ lemma norm_delay_step_impl_correct:
   fixes k :: "nat list"
   assumes "canonical (curry D) n" (* XXX atm unused, would need for optimized variant without full FW *)
           "clock_numbering' v n" "\<forall>c\<in>collect_clks (inv_of A l). v c = c \<and> c > 0 \<and> v c \<le> n"
-          "\<forall> i \<le> n. D (i, i) \<le> \<one>"
+          "\<forall> i \<le> n. D (i, i) \<le> 0"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
       and k: "Suc n \<le> length k"
   assumes D_inv: "D_inv = abstr (inv_of A l) (\<lambda>i j. \<infinity>) v"
@@ -1648,7 +1648,7 @@ lemma step_impl_sound:
   assumes step: "A \<turnstile>\<^sub>I \<langle>l,M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',M'\<rangle>"
   assumes canonical: "canonical (curry M) n"
   assumes numbering: "global_clock_numbering A v n" "\<forall> c \<in> clk_set A. v c = c"
-  assumes diag: "\<forall>i\<le>n. M (i, i) \<le> \<one>"
+  assumes diag: "\<forall>i\<le>n. M (i, i) \<le> 0"
   shows "\<exists> D. A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',D\<rangle> \<and> [curry M']\<^bsub>v,n\<^esub> = [D]\<^bsub>v,n\<^esub>"
 proof -
   have *:
@@ -1700,7 +1700,7 @@ lemma step_impl_complete:
   assumes step: "A \<turnstile> \<langle>l,curry D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',curry D'\<rangle>"
   assumes canonical: "canonical (curry D) n"
   assumes numbering: "global_clock_numbering A v n" "\<forall> c \<in> clk_set A. v c = c"
-  assumes diag: "\<forall>i\<le>n. D (i, i) \<le> \<one>"
+  assumes diag: "\<forall>i\<le>n. D (i, i) \<le> 0"
   shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',M'\<rangle> \<and> [curry M']\<^bsub>v,n\<^esub> = [curry D']\<^bsub>v,n\<^esub>"
 proof -
   have *:
@@ -2040,13 +2040,13 @@ by simp
 lemma canonical_conv_aux:
   assumes "a \<le> b + c"
   shows "map_DBMEntry real_of_int a \<le> map_DBMEntry real_of_int b + map_DBMEntry real_of_int c"
-using assms unfolding less_eq mult dbm_le_def
+using assms unfolding less_eq add dbm_le_def
 by (cases a; cases b; cases c) (auto elim!: dbm_lt.cases)
 
 lemma canonical_conv_aux_rev:
   assumes "map_DBMEntry real_of_int a \<le> map_DBMEntry real_of_int b + map_DBMEntry real_of_int c"
   shows "a \<le> b + c"
-using assms unfolding less_eq mult dbm_le_def
+using assms unfolding less_eq add dbm_le_def
 by (cases a; cases b; cases c) (auto elim!: dbm_lt.cases)
 
 (* XXX Unused *)
@@ -2063,13 +2063,13 @@ using assms by (auto intro: canonical_conv_aux_rev)
 lemma canonical_RI_aux1:
   assumes "(rel_DBMEntry ri) a1 b1" "(rel_DBMEntry ri) a2 b2" "(rel_DBMEntry ri) a3 b3" "a1 \<le> a2 + a3"
   shows "b1 \<le> b2 + b3"
-using assms unfolding ri_def less_eq mult dbm_le_def
+using assms unfolding ri_def less_eq add dbm_le_def
 by (cases a1; cases a2; cases a3; cases b1; cases b2; cases b3) (auto elim!: dbm_lt.cases)
 
 lemma canonical_RI_aux2:
   assumes "(rel_DBMEntry ri) a1 b1" "(rel_DBMEntry ri) a2 b2" "(rel_DBMEntry ri) a3 b3" "b1 \<le> b2 + b3"
   shows "a1 \<le> a2 + a3"
-using assms unfolding ri_def less_eq mult dbm_le_def
+using assms unfolding ri_def less_eq add dbm_le_def
 by (cases a1; cases a2; cases a3; cases b1; cases b2; cases b3) (auto elim!: dbm_lt.cases)
 
 lemma canonical_RI:
@@ -2098,8 +2098,8 @@ proof -
 qed
 
 lemma diag_conv:
-  assumes "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
-  shows "\<forall> i \<le> n. (curry (conv_M M)) i i \<le> \<one>"
+  assumes "\<forall> i \<le> n. (curry M) i i \<le> 0"
+  shows "\<forall> i \<le> n. (curry (conv_M M)) i i \<le> 0"
   using assms by (auto simp: neutral dest!: conv_dbm_entry_mono)
 
 lemma map_DBMEntry_int_const:
@@ -2119,17 +2119,17 @@ using assms by (auto intro: map_DBMEntry_int_const dest: map_DBMEntry_not_inf)
 
 lemma neutral_RI:
   assumes "rel_DBMEntry ri a b"
-  shows "a \<ge> \<one> \<longleftrightarrow> b \<ge> \<one>"
+  shows "a \<ge> 0 \<longleftrightarrow> b \<ge> 0"
 using assms by (cases a; cases b; auto simp: neutral ri_def less_eq dbm_le_def elim!: dbm_lt.cases)
 
 lemma diag_RI:
   assumes "RI n D M" "i \<le> n"
-  shows "D (i, i) \<ge> \<one> \<longleftrightarrow> M (i, i) \<ge> \<one>"
+  shows "D (i, i) \<ge> 0 \<longleftrightarrow> M (i, i) \<ge> 0"
 using neutral_RI assms unfolding rel_fun_def eq_onp_def by auto
 
 lemma diag_conv_M:
   assumes "i \<le> n"
-  shows "curry (conv_M (FW' M n)) i i \<ge> \<one> \<longleftrightarrow> curry (FW' (conv_M M) n) i i \<ge> \<one>"
+  shows "curry (conv_M (FW' M n)) i i \<ge> 0 \<longleftrightarrow> curry (FW' (conv_M M) n) i i \<ge> 0"
 proof -
   have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n" by (simp add: eq_onp_def)
   note [transfer_rule] = RI_conv_M
@@ -2171,8 +2171,8 @@ using assms
 done
 
 lemma diag_conv_rev:
-  assumes "\<forall> i \<le> n. (curry (conv_M M)) i i \<le> \<one>"
-  shows "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
+  assumes "\<forall> i \<le> n. (curry (conv_M M)) i i \<le> 0"
+  shows "\<forall> i \<le> n. (curry M) i i \<le> 0"
 using assms by (simp add: conv_dbm_entry_mono_rev neutral)
 
 lemma dbm_subset_conv:
@@ -2192,8 +2192,8 @@ lemma dbm_subset_correct:
   fixes D :: "real DBM'"
   assumes "dbm_subset n D M"
       and "canonical (curry D) n"
-      and "\<forall>i\<le>n. (curry D) i i \<le> \<one>"
-      and "\<forall>i\<le>n. (curry M) i i \<le> \<one>"
+      and "\<forall>i\<le>n. (curry D) i i \<le> 0"
+      and "\<forall>i\<le>n. (curry M) i i \<le> 0"
       and "global_clock_numbering A v n"
   shows "[curry D]\<^bsub>v,n\<^esub> \<subseteq> [curry M]\<^bsub>v,n\<^esub>"
 using assms
@@ -2206,8 +2206,8 @@ by blast+
 lemma dbm_subset_correct':
   fixes D M :: "real DBM'"
   assumes "canonical (curry D) n \<or> check_diag n D"
-      and "\<forall>i\<le>n. (curry D) i i \<le> \<one>"
-      and "\<forall>i\<le>n. (curry M) i i \<le> \<one>"
+      and "\<forall>i\<le>n. (curry D) i i \<le> 0"
+      and "\<forall>i\<le>n. (curry M) i i \<le> 0"
       and "global_clock_numbering A v n"
   shows "[curry D]\<^bsub>v,n\<^esub> \<subseteq> [curry M]\<^bsub>v,n\<^esub> \<longleftrightarrow> dbm_subset n D M"
 using assms
@@ -2224,8 +2224,8 @@ lemma
   by simp
 
 lemma step_z_dbm_diag_preservation:
-  assumes "step_z_dbm A l D v n a l' D'" "\<forall> i \<le> n. D i i \<le> \<one>"
-  shows "\<forall> i \<le> n. D' i i \<le> \<one>"
+  assumes "step_z_dbm A l D v n a l' D'" "\<forall> i \<le> n. D i i \<le> 0"
+  shows "\<forall> i \<le> n. D' i i \<le> 0"
   using assms
   apply cases
   using And_diag1 up_diag_preservation apply blast
@@ -2244,11 +2244,11 @@ end
 
 (* XXX Move *)
 lemma FW_canonical:
-  "canonical (FW M n) n \<or> (\<exists> i \<le> n. (FW M n) i i < \<one>)"
+  "canonical (FW M n) n \<or> (\<exists> i \<le> n. (FW M n) i i < 0)"
   using FW_canonical' leI by blast
 
 lemma FW'_canonical:
-  "canonical (curry (FW' M n)) n \<or> (\<exists> i \<le> n. (FW' M n) (i, i) < \<one>)"
+  "canonical (curry (FW' M n)) n \<or> (\<exists> i \<le> n. (FW' M n) (i, i) < 0)"
   by (metis FW'_FW FW_canonical curry_def)
 
 lemma fw_upd_conv_M'':
@@ -2259,7 +2259,7 @@ lemma fw_upd_conv_M'':
   apply (simp split: prod.split)
   unfolding uncurry_def curry_def
   apply (cases "M i j"; cases "M i k"; cases "M k j")
-  by (force simp: mult min_def | force simp: min_inf_r | force simp: min_inf_l)+
+  by (force simp: add min_def | force simp: min_inf_r | force simp: min_inf_l)+
 
 lemma fw_upd_conv_M':
   "conv_M (uncurry (fw_upd M k i j)) = uncurry (fw_upd (map_DBMEntry real_of_int \<circ>\<circ> M) k i j)"
@@ -2596,16 +2596,16 @@ begin
   using RI_T_conv_t RI_I_conv_cc unfolding RI_A_def by (auto split: prod.split)
 
   lemma norm_upd_diag_preservation:
-    assumes "i \<le> n" "M (i, i) \<le> \<one>"
-    shows "(norm_upd M (k' l) n) (i, i) \<le> \<one>"
+    assumes "i \<le> n" "M (i, i) \<le> 0"
+    shows "(norm_upd M (k' l) n) (i, i) \<le> 0"
    apply (subst norm_upd_norm)
    apply (subst norm_k_cong[where k' = "k l"])
    apply (safe; simp only: k'_def map_nth; simp; fail)
   using norm_diag_preservation_int assms unfolding neutral by auto
 
   lemma norm_upd_neg_diag_preservation:
-    assumes "i \<le> n" "M (i, i) < \<one>"
-    shows "(norm_upd M (k' l) n) (i, i) < \<one>"
+    assumes "i \<le> n" "M (i, i) < 0"
+    shows "(norm_upd M (k' l) n) (i, i) < 0"
    apply (subst norm_upd_norm)
    apply (subst norm_k_cong[where k' = "k l"])
    apply (safe; simp only: k'_def map_nth; simp; fail)
@@ -2613,12 +2613,12 @@ begin
 
   lemma step_impl_diag_preservation:
     assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
-        and diag: "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
+        and diag: "\<forall> i \<le> n. (curry M) i i \<le> 0"
     shows
-      "\<forall> i \<le> n. (curry M') i i \<le> \<one>"
+      "\<forall> i \<le> n. (curry M') i i \<le> 0"
   proof -
     have FW':
-      "(FW' M n) (i, i) \<le> \<one>" if "i \<le> n" "\<forall> i \<le> n. M (i, i) \<le> \<one>" for i and M :: "int DBM'"
+      "(FW' M n) (i, i) \<le> 0" if "i \<le> n" "\<forall> i \<le> n. M (i, i) \<le> 0" for i and M :: "int DBM'"
     using that FW'_diag_preservation[OF that(2)] diag by auto
     have *:
       "\<forall> c \<in> collect_clks (inv_of A l). c \<noteq> 0"
@@ -2653,8 +2653,8 @@ begin
   lemma step_impl_neg_diag_preservation:
     assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
         and le: "i \<le> n"
-        and diag: "(curry M) i i < \<one>"
-    shows "(curry M') i i < \<one>"
+        and diag: "(curry M) i i < 0"
+    shows "(curry M') i i < 0"
   using assms
     apply cases
 
@@ -2687,21 +2687,21 @@ begin
 
   lemma step_impl_canonical:
     assumes step: "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
-        and diag: "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
+        and diag: "\<forall> i \<le> n. (curry M) i i \<le> 0"
     shows
-      "canonical (curry (conv_M M')) n \<or> (\<exists> i \<le> n. M' (i, i) < \<one>)"
+      "canonical (curry (conv_M M')) n \<or> (\<exists> i \<le> n. M' (i, i) < 0)"
   proof -
-    from step_impl_diag_preservation[OF assms] have diag: "\<forall>i\<le>n. curry M' i i \<le> \<one>" .
+    from step_impl_diag_preservation[OF assms] have diag: "\<forall>i\<le>n. curry M' i i \<le> 0" .
     from step obtain M'' where "M' = FW' M'' n" by cases auto
     show ?thesis
-    proof (cases "\<exists> i \<le> n. M' (i, i) < \<one>")
+    proof (cases "\<exists> i \<le> n. M' (i, i) < 0")
       case True
       then show ?thesis by auto
     next
       case False
-      with diag have "\<forall>i\<le>n. curry M' i i \<ge> \<one>" by auto
+      with diag have "\<forall>i\<le>n. curry M' i i \<ge> 0" by auto
       then have
-        "\<forall>i\<le>n. curry (conv_M M') i i \<ge> \<one>"
+        "\<forall>i\<le>n. curry (conv_M M') i i \<ge> 0"
       unfolding neutral by (auto dest!: conv_dbm_entry_mono)
       with FW_canonical'[of n "curry (conv_M M'')"] canonical_conv_M_FW' diag_conv_M show ?thesis
       unfolding \<open>M' = _\<close> FW'_FW[symmetric] canonical_conv_M_FW' by auto
@@ -2740,7 +2740,7 @@ begin
   lemma step_impl_V_preservation_canonical:
     assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
     and canonical: "canonical (curry (conv_M D)) n"
-    and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+    and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
     and valid: "valid_dbm (curry (conv_M D))"
     shows "[curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> V"
   proof -
@@ -2772,8 +2772,8 @@ begin
 
   lemma step_impl_V_preservation:
     assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
-    and canonical: "canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < \<one>)"
-    and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+    and canonical: "canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < 0)"
+    and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
     and valid: "valid_dbm (curry (conv_M D))"
     shows "[curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> V"
   proof -
@@ -2783,7 +2783,7 @@ begin
       from step_impl_V_preservation_canonical[OF step this diag valid] show ?thesis .
     next
       case 2
-      with step_impl_neg_diag_preservation[OF step] have "\<exists>i\<le>n. D' (i, i) < \<one>" by auto
+      with step_impl_neg_diag_preservation[OF step] have "\<exists>i\<le>n. D' (i, i) < 0" by auto
       then have
         "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
       by - (rule check_diag_empty_spec;
@@ -2794,7 +2794,7 @@ begin
   qed
 
   lemma norm_step_diag_preservation:
-    "\<forall>i\<le>n. curry (FW' (norm_upd D (k' l) n) n) i i \<le> \<one>" if "\<forall>i\<le>n. (curry D) i i \<le> \<one>"
+    "\<forall>i\<le>n. curry (FW' (norm_upd D (k' l) n) n) i i \<le> 0" if "\<forall>i\<le>n. (curry D) i i \<le> 0"
     by (metis FW'_diag_preservation curry_conv norm_upd_diag_preservation that)
 
   lemma norm_step_check_diag_preservation:
@@ -2803,7 +2803,7 @@ begin
 
   lemma diag_reachable:
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
-    shows "\<forall> i \<le> n. (curry M) i i \<le> \<one>"
+    shows "\<forall> i \<le> n. (curry M) i i \<le> 0"
    using assms unfolding E_closure
    apply (induction Z \<equiv> "init_dbm :: int DBM'" _ _ _ _ rule: steps_impl_induct)
    apply (auto simp: init_dbm_def neutral; fail)
@@ -2813,13 +2813,13 @@ begin
   (* XXX Move all 'norm_step' lemmas somewhere else *)
   lemma canonical_norm_step:
     "canonical (curry (conv_M (FW' (norm_upd M (k' l) n) n))) n
-     \<or> (\<exists> i \<le> n. (FW' (norm_upd M (k' l) n) n) (i, i) < \<one>)"
+     \<or> (\<exists> i \<le> n. (FW' (norm_upd M (k' l) n) n) (i, i) < 0)"
     by (metis FW'_canonical canonical_conv)
 
 
   lemma canonical_reachable:
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
-    shows "canonical (curry (conv_M M)) n \<or> (\<exists> i \<le> n. M (i, i) < \<one>)"
+    shows "canonical (curry (conv_M M)) n \<or> (\<exists> i \<le> n. M (i, i) < 0)"
   using assms unfolding E_closure
   proof (induction l \<equiv> l\<^sub>0 Z \<equiv> "init_dbm :: int DBM'" _ _ _ _ rule: steps_impl_induct)
     case refl
@@ -2831,7 +2831,7 @@ begin
 
   lemma diag_reachable':
     assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
-    shows "\<forall> i \<le> n. (curry (conv_M M)) i i \<le> \<one>"
+    shows "\<forall> i \<le> n. (curry (conv_M M)) i i \<le> 0"
   using diag_reachable[OF assms] by (auto simp: neutral dest!: conv_dbm_entry_mono)
 
   lemma init_dbm_semantics:
@@ -2902,8 +2902,8 @@ begin
   qed
 
   lemma norm_step_correct:
-    assumes diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>" "\<forall>i\<le>n. M i i \<le> \<one>"
-        and canonical: "canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < \<one>)"
+    assumes diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> 0" "\<forall>i\<le>n. M i i \<le> 0"
+        and canonical: "canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < 0)"
         and equiv: "[curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
         and valid: "valid_dbm M"
     shows
@@ -2973,7 +2973,7 @@ begin
     using assms(3) by auto
 
   lemma canonical_empty_check_diag:
-    assumes "canonical (curry (conv_M D')) n \<or> (\<exists>i\<le>n. D' (i, i) < \<one>)" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
+    assumes "canonical (curry (conv_M D')) n \<or> (\<exists>i\<le>n. D' (i, i) < 0)" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
     shows "check_diag n D'"
   proof -
     from assms(1)
@@ -2981,11 +2981,11 @@ begin
     proof
       assume "canonical (curry (conv_M D')) n"
       from regions.beta_interp.canonical_empty_zone_spec[OF this] assms(2) have
-        "\<exists>i\<le>n. curry (conv_M D') i i < \<one>"
+        "\<exists>i\<le>n. curry (conv_M D') i i < 0"
       by fast
       with conv_dbm_entry_mono_strict_rev show ?thesis unfolding check_diag_def neutral by force
     next
-      assume "\<exists>i\<le>n. D' (i, i) < \<one>"
+      assume "\<exists>i\<le>n. D' (i, i) < 0"
       then show ?thesis unfolding check_diag_def neutral by auto
     qed
   qed
@@ -3002,7 +3002,7 @@ begin
 
   lemma norm_step_valid_dbm:
     "valid_dbm (curry (conv_M (FW' (norm_upd M (k' l') n) n)))" if
-    "[curry (conv_M M)]\<^bsub>v,n\<^esub> \<subseteq> V" "canonical (curry (conv_M M)) n \<or> (\<exists> i \<le> n. M (i, i) < \<one>)"
+    "[curry (conv_M M)]\<^bsub>v,n\<^esub> \<subseteq> V" "canonical (curry (conv_M M)) n \<or> (\<exists> i \<le> n. M (i, i) < 0)"
   proof -
     let ?M1 = "curry (conv_M (norm_upd M (k' l') n))"
     have "dbm_int ?M1 n" by (rule dbm_int_conv)
@@ -3011,10 +3011,10 @@ begin
       assume "canonical (curry (conv_M M)) n"
       from that(1) norm_upd_V_preservation[OF _ this] show "[?M1]\<^bsub>v,n\<^esub> \<subseteq> V" by auto
     next
-      assume "\<exists>i\<le>n. M (i, i) < \<one>"
+      assume "\<exists>i\<le>n. M (i, i) < 0"
       have "[?M1]\<^bsub>v,n\<^esub> = {}"
         (* XXX *)
-        by (metis (mono_tags, lifting) DBMEntry.map(1) Reachability_Problem.check_diag_empty_spec Reachability_Problem_axioms \<open>\<exists>i\<le>n. M (i, i) < \<one>\<close> check_diag_def comp_def conv_dbm_entry_mono_strict neutral norm_upd_neg_diag_preservation of_int_simps(1))
+        by (metis (mono_tags, lifting) DBMEntry.map(1) Reachability_Problem.check_diag_empty_spec Reachability_Problem_axioms \<open>\<exists>i\<le>n. M (i, i) < 0\<close> check_diag_def comp_def conv_dbm_entry_mono_strict neutral norm_upd_neg_diag_preservation of_int_simps(1))
       then show ?thesis by simp
     qed
     with \<open>dbm_int ?M1 n\<close> have "valid_dbm ?M1" by - rule
@@ -3028,7 +3028,7 @@ begin
   lemma step_impl_valid_dbm:
     "valid_dbm (curry (conv_M M'))" if
     "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>" "valid_dbm (curry (conv_M M))"
-    "canonical (curry (conv_M M)) n \<or> (\<exists>i\<le>n. M (i, i) < \<one>)" "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+    "canonical (curry (conv_M M)) n \<or> (\<exists>i\<le>n. M (i, i) < 0)" "\<forall>i\<le>n. conv_M M (i, i) \<le> 0"
       apply (rule valid_dbm.intros)
     subgoal
       using that by - (erule step_impl_V_preservation; assumption)
@@ -3078,7 +3078,7 @@ begin
   lemma step_impl_sound':
     assumes step: "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>"
     and canonical: "canonical (curry (conv_M D)) n \<or> check_diag n D"
-    and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+    and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
     and valid: "valid_dbm (curry (conv_M D))"
     shows
       "\<exists> M'. step_z_dbm (conv_A A) l (curry (conv_M D)) v n a l' M'
@@ -3129,7 +3129,7 @@ begin
   lemma step_impl_norm_sound:
     assumes step: "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>"
       and canonical: "canonical (curry (conv_M D)) n \<or> check_diag n D"
-      and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+      and diag: "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
       and valid: "valid_dbm (curry (conv_M D))"
     shows
       "\<exists> M'. step_z_norm' (conv_A A) l (curry (conv_M D)) a l' M'
@@ -3143,14 +3143,14 @@ begin
     then have step':
       "step_z_norm' (conv_A A) l (curry (conv_M D)) a l' (norm (FW M' n) (k l') n)"
       using k_simp_2 by auto
-    from diag have "\<forall>i\<le>n. curry D i i \<le> \<one>"
+    from diag have "\<forall>i\<le>n. curry D i i \<le> 0"
       by (simp add: conv_dbm_entry_mono_rev neutral)
     from step_impl_canonical[OF step this] have
-      "canonical (curry (conv_M D')) n \<or> (\<exists>i\<le>n. D' (i, i) < \<one>)" .
-    moreover have "\<forall>i\<le>n. conv_M D' (i, i) \<le> \<one>"
-      using step_impl_diag_preservation[OF assms(1) \<open>\<forall>i\<le>n. curry D i i \<le> \<one>\<close>]
+      "canonical (curry (conv_M D')) n \<or> (\<exists>i\<le>n. D' (i, i) < 0)" .
+    moreover have "\<forall>i\<le>n. conv_M D' (i, i) \<le> 0"
+      using step_impl_diag_preservation[OF assms(1) \<open>\<forall>i\<le>n. curry D i i \<le> 0\<close>]
       by (auto dest!: conv_dbm_entry_mono simp: neutral)
-    moreover have "\<forall> i \<le> n. M' i i \<le> \<one>"
+    moreover have "\<forall> i \<le> n. M' i i \<le> 0"
       using step_z_dbm_diag_preservation[OF M'(1)] diag by auto
     moreover from step_z_valid_dbm[OF M'(1) global_clock_numbering' valid_abstraction' valid] have
         "valid_dbm M'" .
@@ -3267,7 +3267,7 @@ begin
   lemma step_impl_complete':
     assumes step: "step_z_dbm (conv_A A) l (curry (conv_M M)) v n a l' M'"
     and canonical: "canonical (curry (conv_M M)) n"
-    and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+    and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> 0"
     shows "\<exists> D'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle> \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
   proof -
     let ?A = "conv_A A"
@@ -3293,7 +3293,7 @@ begin
   lemma step_impl_norm_complete:
     assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) a l' M'"
     and canonical: "canonical (curry (conv_M M)) n"
-    and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+    and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> 0"
     and valid: "valid_dbm (curry (conv_M M))"
   shows
     "\<exists> D'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D'\<rangle>
@@ -3317,15 +3317,15 @@ begin
     from step_impl_complete'[OF D'(2) canonical diag] obtain D'' where D'':
       "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', D''\<rangle>" "[curry (conv_M D'')]\<^bsub>v,n\<^esub> = [D']\<^bsub>v,n\<^esub>"
       by auto
-    from diag have "\<forall>i\<le>n. curry M i i \<le> \<one>"
+    from diag have "\<forall>i\<le>n. curry M i i \<le> 0"
       by (simp add: conv_dbm_entry_mono_rev neutral)
-    have "\<forall>i\<le>n. conv_M D'' (i, i) \<le> \<one>"
-      using step_impl_diag_preservation[OF D''(1) \<open>\<forall>i\<le>n. curry M i i \<le> \<one>\<close>]
+    have "\<forall>i\<le>n. conv_M D'' (i, i) \<le> 0"
+      using step_impl_diag_preservation[OF D''(1) \<open>\<forall>i\<le>n. curry M i i \<le> 0\<close>]
       by (auto dest!: conv_dbm_entry_mono simp: neutral)
-    moreover have "\<forall>i\<le>n. D' i i \<le> \<one>"
+    moreover have "\<forall>i\<le>n. D' i i \<le> 0"
       using step_z_dbm_diag_preservation[OF D'(2)] diag by auto
-    moreover have "canonical (curry (conv_M D'')) n \<or> (\<exists>i\<le>n. D'' (i, i) < \<one>)"
-      using step_impl_canonical[OF D''(1) \<open>\<forall>i\<le>n. curry M i i \<le> \<one>\<close>] .
+    moreover have "canonical (curry (conv_M D'')) n \<or> (\<exists>i\<le>n. D'' (i, i) < 0)"
+      using step_impl_canonical[OF D''(1) \<open>\<forall>i\<le>n. curry M i i \<le> 0\<close>] .
     moreover have "[curry (conv_M D'')]\<^bsub>v,n\<^esub> = [D']\<^bsub>v,n\<^esub>" by fact
     moreover have "valid_dbm D'"
       using step_z_valid_dbm[OF D'(2) global_clock_numbering' valid_abstraction' valid] .
@@ -3340,7 +3340,7 @@ begin
     assumes step: "conv_A A \<turnstile> \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D\<rangle>"
         and valid: "valid_dbm (curry (conv_M M))"
         and canonical: "canonical (curry (conv_M M)) n \<or> check_diag n M"
-        and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+        and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> 0"
     shows "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle> \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
   proof (cases "check_diag n M")
     case True
@@ -3372,19 +3372,19 @@ begin
       "canonical (curry (conv_M M)) n"
     unfolding check_diag_def neutral by auto
     moreover from diag have
-      "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>" .
+      "\<forall>i\<le>n. conv_M M (i, i) \<le> 0" .
     ultimately show ?thesis using step_impl_complete'[OF step] by auto
   qed
 
   definition wf_dbm where
     "wf_dbm D \<equiv>
       (canonical (curry (conv_M D)) n \<or> check_diag n D)
-      \<and> (\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>)
+      \<and> (\<forall>i\<le>n. conv_M D (i, i) \<le> 0)
       \<and> valid_dbm (curry (conv_M D))"
 
   lemma wf_dbm_D:
     "canonical (curry (conv_M D)) n \<or> check_diag n D"
-    "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+    "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
     "valid_dbm (curry (conv_M D))"
     if "wf_dbm D"
     using that unfolding wf_dbm_def by auto
@@ -3392,7 +3392,7 @@ begin
   lemma wf_dbm_I:
     "wf_dbm D" if
     "canonical (curry (conv_M D)) n \<or> check_diag n D"
-    "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+    "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
     "valid_dbm (curry (conv_M D))"
     using that unfolding wf_dbm_def by auto
 
@@ -3420,7 +3420,7 @@ begin
     assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) a l' D"
         and valid: "valid_dbm (curry (conv_M M))"
         and canonical: "canonical (curry (conv_M M)) n \<or> check_diag n M"
-        and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>"
+        and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> 0"
       shows
         "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>
          \<and> [curry (conv_M (FW' (norm_upd M' (k' l') n) n))]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
@@ -3520,7 +3520,7 @@ begin
   (* XXX Clean this *)
   lemma canonical_variant:
     "canonical (curry (conv_M D)) n \<or> check_diag n D
-    \<longleftrightarrow> canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < \<one>)"
+    \<longleftrightarrow> canonical (curry (conv_M D)) n \<or> (\<exists>i\<le>n. D (i, i) < 0)"
     unfolding check_diag_def neutral ..
 
   lemma step_impl_wf_dbm:
@@ -3618,7 +3618,7 @@ begin
     have canonical: "canonical (curry (conv_M D2)) n \<or> check_diag n D2"
       using step_impl_canonical[OF D2(1) diag_reachable[OF reachable]]
       unfolding check_diag_def neutral by auto
-    have diag: "\<forall>i\<le>n. conv_M D2 (i, i) \<le> \<one>"
+    have diag: "\<forall>i\<le>n. conv_M D2 (i, i) \<le> 0"
       using step_impl_diag_preservation[OF D2(1) diag_reachable[OF reachable]] diag_conv by auto
     from step_impl_norm_complete''[OF M3(1) valid3 canonical diag] obtain D3 where
       "A \<turnstile>\<^sub>I \<langle>l'', D2\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l''', D3\<rangle> "
@@ -3848,7 +3848,7 @@ proof -
       "canonical (curry (conv_M M)) n"
     unfolding check_diag_def neutral by fast
     moreover from prems have
-      "\<forall>i\<le>n. conv_M M (i, i) \<le> \<one>" by fast
+      "\<forall>i\<le>n. conv_M M (i, i) \<le> 0" by fast
     ultimately show ?thesis using step_impl_complete'[OF step] by fast
   qed
 qed
@@ -4008,7 +4008,7 @@ end (* End of anonymous context *)
   paragraph \<open>Nice to have (to be moved)\<close>
   (* XXX Unused, move *)
   lemma V_I:
-    assumes "\<forall> i \<in> {1..<Suc n}. M 0 i \<le> \<one>"
+    assumes "\<forall> i \<in> {1..<Suc n}. M 0 i \<le> 0"
     shows "[M]\<^bsub>v,n\<^esub> \<subseteq> V"
     unfolding V_def DBM_zone_repr_def
   proof (safe, goal_cases)
@@ -4018,7 +4018,7 @@ end (* End of anonymous context *)
     with prems have "v i > 0" "v i \<le> n" by auto
     with prems have "dbm_entry_val u None (Some i) (M 0 (v i))"
       unfolding DBM_val_bounded_def by auto
-    moreover from assms \<open>v i > 0\<close> \<open>v i \<le> n\<close> have "M 0 (v i) \<le> \<one>" by auto
+    moreover from assms \<open>v i > 0\<close> \<open>v i \<le> n\<close> have "M 0 (v i) \<le> 0" by auto
     ultimately
     show ?case
       apply (cases "M 0 (v i)")
@@ -4028,15 +4028,15 @@ end (* End of anonymous context *)
 
   lemma V_canonicalD:
     assumes V: "[M]\<^bsub>v,n\<^esub> \<subseteq> V" and canonical: "canonical M n"
-    shows "(\<exists> i \<le> n. M i i < \<one>) \<or> (\<forall> i \<in> {1..<Suc n}. M 0 i \<le> \<one>)"
+    shows "(\<exists> i \<le> n. M i i < 0) \<or> (\<forall> i \<in> {1..<Suc n}. M 0 i \<le> 0)"
   proof clarify
     (*
-    fix i assume A: "\<not> (\<exists>i\<le>n. M i i < \<one>)" "i \<in> {1..<Suc n}"
+    fix i assume A: "\<not> (\<exists>i\<le>n. M i i < 0)" "i \<in> {1..<Suc n}"
     with assms have "cyc_free M n"
     from \<open>i \<in> _\<close> have "v i = i"
-    show "M 0 i \<le> \<one>"
+    show "M 0 i \<le> 0"
     proof (rule ccontr)
-      assume F: "\<not> M 0 i \<le> \<one>"
+      assume F: "\<not> M 0 i \<le> 0"
       from F have "M 0 i > Le 0" unfolding neutral by auto
       then obtain d u where "d > 0" "u \<in> [M]\<^bsub>v,n\<^esub>" "- u i = d"
       with V \<open>i \<in> _\<close> show False unfolding V_def by force
@@ -4206,13 +4206,13 @@ proof -
   let ?M = "FW' (abstr_upd (inv_of A l\<^sub>0) unbounded_dbm) n"
   have canonical: "canonical (curry init_dbm) n \<or> check_diag n init_dbm"
     unfolding init_dbm_def by (auto simp: neutral[symmetric])
-  have diag: "\<forall>i\<le>n. curry (conv_M ?M) i i \<le> \<one>"
+  have diag: "\<forall>i\<le>n. curry (conv_M ?M) i i \<le> 0"
     apply (rule diag_conv)
     unfolding curry_def unbounded_dbm_def
     apply (rule FW'_diag_preservation)
     apply (rule abstr_upd_diag_preservation')
     using collect_clks_numbering unfolding neutral by auto
-  have "\<forall>i\<le>n. curry init_dbm i i \<le> \<one>" unfolding init_dbm_def neutral by auto
+  have "\<forall>i\<le>n. curry init_dbm i i \<le> 0" unfolding init_dbm_def neutral by auto
   from dbm_subset_correct'[OF canonical this diag] canonical have
     "dbm_subset n init_dbm (conv_M ?M)
     \<longleftrightarrow> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M ?M)]\<^bsub>v,n\<^esub>"
@@ -4229,7 +4229,7 @@ proof -
      apply simp
     subgoal
     proof -
-      have [transfer_rule]: "rel_DBMEntry ri \<one> \<one>" "rel_DBMEntry ri \<infinity> \<infinity>"
+      have [transfer_rule]: "rel_DBMEntry ri 0 0" "rel_DBMEntry ri \<infinity> \<infinity>"
         unfolding ri_def neutral by auto
       have [transfer_rule]: "eq_onp (\<lambda>x. x < Suc n) n n"
         by (simp add: eq_onp_def)

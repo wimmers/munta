@@ -1,4 +1,4 @@
-theory Refine_More
+theory Recursion_Combinators
   imports "IICF/IICF"
 begin
 

@@ -6,16 +6,16 @@ chapter \<open>Floyd-Warshall Algorithm for the All-Pairs Shortest Paths Problem
 
 section \<open>Introduction\<close>
 text \<open>
-  The \fw is a classic dynamic programming algorithm to compute the length of all shortest paths
-  between any two vertices in graph
-  (i.e. to solve the all-pairs shortest path problem, \<open>APSP\<close> for short).
+  The \fw @{cite floyd and roy and warshall} is a classic dynamic programming algorithm to compute
+  the length of all shortest paths between any two vertices in a graph
+  (i.e. to solve the all-pairs shortest path problem, or \<open>APSP\<close> for short).
   Given a representation of the graph as a matrix of weights \<open>M\<close>, it computes another matrix \<open>M'\<close>
   representing a graph with the same path lengths, and containing the length of the shortest path
   between any two vertices \<open>i\<close> and \<open>j\<close>.
   This is only possible if the graph does not contain any negative cycles (then the length
   of the shortest path is \<open>-\<infinity>\<close>). However, in this case the \fw will detect the situation by
   calculating a negative diagonal entry corresponding to the negative cycle.
-  In the following, we present a formalization of the algorithm and the aforementioned
+  In the following, we present a formalization of the algorithm and of the aforementioned
   key properties.
 
   Abstractly, the algorithm corresponds to the following imperative pseudo-code:
@@ -37,6 +37,7 @@ text \<open>
   factor our the inner two loops as a separate algorithm and show that it has similar properties
   as the full algorithm for a single intermediate vertex \<open>k\<close>.
 \<close>
+
 
 section \<open>Preliminaries\<close>
 
@@ -388,14 +389,21 @@ section \<open>Definition of the Algorithm\<close>
 subsection \<open>Definitions\<close>
 
 text \<open>
-  We formalize the Floyd-Warshall algorithm where edge weights are from
-  a linearly ordered abelian monoid.
+  In our formalization of the \fw, edge weights are from a linearly ordered abelian monoid.
 \<close>
 
 class linordered_ab_monoid_add = linorder + ordered_comm_monoid_add
 begin
 
 subclass linordered_ab_semigroup_add ..
+
+end
+
+subclass (in linordered_ab_group_add) linordered_ab_monoid_add ..
+
+
+context linordered_ab_monoid_add
+begin
 
 type_synonym 'c mat = "nat \<Rightarrow> nat \<Rightarrow> 'c"
 
@@ -663,7 +671,7 @@ next
 qed
 
 text \<open>
-  Justifies the use of destructive updates, in the case that there is no negative cycle for \<open>k\<close>.
+  Justifies the use of destructive updates in the case that there is no negative cycle for \<open>k\<close>.
 \<close>
 lemma fwi_step:
   "m k k \<ge> 0 \<Longrightarrow> i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> k \<le> n \<Longrightarrow> fwi m n k i j i j = min (m i j) (m i k + m k j)"
@@ -814,7 +822,8 @@ subsection \<open>Canonicality\<close>
 
 text \<open>
   The unique shortest path matrices are in a so-called \<open>canonical form\<close>.
-  We will say that a matrix \<open>m\<close> is canonical form for a set of indices \<open>I\<close> if the following holds:
+  We will say that a matrix \<open>m\<close> is in canonical form for a set of indices \<open>I\<close>
+  if the following holds:
 \<close>
 
 definition canonical_subs :: "nat \<Rightarrow> nat set \<Rightarrow> 'a mat \<Rightarrow> bool" where
@@ -865,65 +874,57 @@ lemma fwi_canonical_extend:
   using that
   unfolding canonical_subs_def
   apply safe
-    subgoal for i j k'
-   apply (subst fwi_step', (auto; fail)+)+
+  subgoal for i j k'
+    apply (subst fwi_step', (auto; fail)+)+
     unfolding min_def
-    apply auto
-          apply force
-    (* apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc) *)
-      subgoal
-      proof -
-        assume a1: "m i k' \<le> m i k + m k k'"
-        assume a2: "\<forall>i j k. i \<le> n \<and> k \<le> n \<and> j \<in> I \<longrightarrow> m i k \<le> m i j + m j k"
-        assume a3: "k \<le> n"
-        assume a4: "i \<le> n"
-        assume a5: "j \<in> I"
-      have "\<forall>a aa. \<not> (a::'a) \<le> aa \<or> a = min a aa"
-        by (meson local.min.orderE)
-      then have "m i k' = min (m i k') (m i k + m k k')"
-        using a1 by blast
-      then show "m i k' \<le> m i j + (m j k + m k k')"
-        using a5 a4 a3 a2 by (metis (full_types) local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 semigroup.assoc)
-    qed
-        apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc)
-       apply (metis add.assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
-      apply (metis add.assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
-    (* apply (smt add_assoc local.add.left_commute local.add_increasing local.order_trans) *)
-      subgoal
-  proof -
-    assume a1: "m i k' \<le> m i k + m k k'"
-    assume a2: "\<forall>i j k. i \<le> n \<and> k \<le> n \<and> j \<in> I \<longrightarrow> m i k \<le> m i j + m j k"
-    assume a3: "k \<le> n"
-    assume a4: "j \<in> I"
-    have f5: "min (m i k + m k k') (m i k') = m i k'"
-      using a1 local.min.absorb_iff2 by blast
-    have "m i k \<le> m i k + (m k j + m j k)"
-      using a4 a3 a2 by (metis local.add_0_right local.add_mono local.min.absorb_iff2 local.min.coboundedI1 local.order_refl that(3))
-    then show "m i k' \<le> m i k + m k j + (m j k + m k k')"
-      using f5 by (metis add_assoc local.add_mono local.min.coboundedI1 local.order_refl)
+  proof (clarsimp, safe, goal_cases)
+    case 1
+    then show ?case by force
+  next
+    case prems: 2
+    from prems have "m i k \<le> m i j + m j k"
+      by auto
+    with prems(10) show ?case
+      by (auto simp: add.assoc[symmetric] add_mono intro: order.trans)
+  next
+    case prems: 3
+    from prems have "m i k \<le> m i j + m j k"
+      by auto
+    with prems(10) show ?case
+      by (auto simp: add.assoc[symmetric] add_mono intro: order.trans)
+  next
+    case prems: 4
+    from prems have "m k k' \<le> m k j + m j k'"
+      by auto
+    with prems(10) show ?case
+      by (auto simp: add_mono add.assoc intro: order.trans)
+  next
+    case prems: 5
+    from prems have "m k k' \<le> m k j + m j k'"
+      by auto
+    with prems(10) show ?case
+      by (auto simp: add_mono add.assoc intro: order.trans)
+  next
+    case prems: 6
+    from prems have "0 \<le> m k j + m j k"
+      by (auto intro: order.trans)
+    with prems(10) show ?case
+      apply -
+      apply (rule order.trans, assumption)
+      apply (simp add: add.assoc[symmetric])
+      by (rule add_mono, auto simp: add_increasing2 add.assoc intro: order.trans)
+  next
+    case prems: 7
+    from prems have "0 \<le> m k j + m j k"
+      by (auto intro: order.trans)
+    with prems(10) show ?case
+      by (simp add: add.assoc[symmetric])
+        (rule add_mono, auto simp: add_increasing2 add.assoc intro: order.trans)
   qed
-    (* by (smt add_assoc add_mono_neutr local.add_right_mono local.order_trans) *)
-  proof -
-    assume a1: "0 \<le> m k k"
-    assume a2: "\<forall>i j k. i \<le> n \<and> k \<le> n \<and> j \<in> I \<longrightarrow> m i k \<le> m i j + m j k"
-    assume a3: "k \<le> n"
-    assume "j \<in> I"
-    then have "0 \<le> m k j + m j k"
-      using a3 a2 a1 by (meson local.order_trans)
-    then show "m i k + m k k' \<le> m i k + m k j + (m j k + m k k')"
-      by (metis add_assoc add_commute local.add_0_right local.add_left_mono)
-  qed
-   subgoal for i j k'
-   apply (subst fwi_step', (auto; fail)+)+
-    unfolding min_def
-    apply auto
-      apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc)
-        apply (smt local.add.semigroup_axioms local.add_right_mono local.min.coboundedI2 local.min.orderE semigroup.assoc)
-       apply (metis add.assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
-      apply (metis add.assoc local.add_left_mono local.min.coboundedI2 local.min.orderE)
-     apply (smt add_commute add_increasing local.add.semigroup_axioms local.min.absorb_iff2 local.min.coboundedI1 semigroup.assoc)
-    using add_increasing2 by auto
-done
+  subgoal for i j k'
+    apply (subst fwi_step', (auto; fail)+)+
+    unfolding min_def by (auto intro: add_increasing add_increasing2)
+  done
 
 text \<open>
   An invocation of \<open>fwi\<close> will not produce a negative diagonal entry if there is no negative cycle.

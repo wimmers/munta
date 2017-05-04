@@ -292,33 +292,45 @@ class linordered_cancel_ab_monoid_add =
   linordered_cancel_ab_semigroup_add + zero +
     assumes neutl[simp]: "0 + x = x"
     assumes neutr[simp]: "x + 0 = x"
+begin
+
+  subclass linordered_ab_monoid_add
+    by standard (rule neutl)
+
+end
+
+instantiation DBMEntry :: (zero) zero
+begin
+  definition neutral: "0 = Le 0"
+  instance ..
+end
 
 instantiation DBMEntry :: (linordered_cancel_ab_monoid_add) linordered_ab_monoid_add
 begin
-  definition mult: "op + = dbm_add"
-  definition neutral: "neutral = Le 0"
-  instance proof ((standard; unfold mult neutral less less_eq), goal_cases)
+
+  definition add: "op + = dbm_add"
+
+  instance proof ((standard; unfold add neutral less less_eq), goal_cases)
     case (1 a b c) thus ?case by (cases a; cases b; cases c; auto simp: add.assoc)
   next
     case (2 a b) thus ?case by (cases a; cases b; auto simp: add.commute)
   next
-    case (3 a b c)
+    case (3 a) thus ?case by (cases a) auto
+  next
+    case (4 a b c)
     thus ?case unfolding dbm_le_def
     apply safe
      apply (rule dbm_lt.cases)
           apply assumption
-    by (cases c; fastforce)+
-  next
-    case (4 x) thus ?case by (cases x) auto
-  next
-    case (5 x) thus ?case by (cases x) auto
+      by (cases c; fastforce)+
   qed
+
 end
 
 interpretation linordered_monoid:
-  linordered_ab_monoid_add dbm_add dbm_le dbm_lt "Le (0::'t::linordered_cancel_ab_monoid_add)"
- apply (standard, fold neutral mult less_eq less)
-using add.commute by (auto intro: add_left_mono simp: add.assoc)
+  linordered_ab_monoid_add dbm_add "Le (0::'t::linordered_cancel_ab_monoid_add)" dbm_le dbm_lt
+  apply (standard, fold neutral add less_eq less)
+  using add.commute by (auto intro: add_left_mono simp: add.assoc)
 
 lemma Le_Le_dbm_lt_D[dest]: "Le a \<prec> Lt b \<Longrightarrow> a < b" by (cases rule: dbm_lt.cases) auto
 lemma Le_Lt_dbm_lt_D[dest]: "Le a \<prec> Le b \<Longrightarrow> a < b" by (cases rule: dbm_lt.cases) auto
@@ -342,6 +354,15 @@ lemma inf_not_lt[simp]: "\<infinity> \<prec> x = False" by auto
 
 lemma any_le_inf: "x \<le> \<infinity>" by (metis less_eq dmb_le_dbm_entry_bound_inf le_cases)
 
+lemma [code]:
+  "dbm_lt (Lt a) \<infinity> = True"
+  "dbm_lt (Le a) \<infinity> = True"
+  "dbm_lt (Le a) (Le b) = (a < b)"
+  "dbm_lt (Le a) (Lt b) = (a < b)"
+  "dbm_lt (Lt a) (Le b) = (a \<le> b)"
+  "dbm_lt (Lt a) (Lt b) = (a < b)"
+  "dbm_lt \<infinity> x = False"
+by auto
 
 section \<open>Basic Properties of DBMs\<close>
 
@@ -435,7 +456,7 @@ next
   moreover have "dbm_entry_val u (Some c) (Some c') (m (v c) (v c'))" using Cons.prems c'
   by (auto simp add: DBM_val_bounded_def)
   ultimately have "dbm_entry_val u (Some c) None (m (v c) (v c') + len m (v c') 0 vs)"
-  using dbm_entry_val_add_1 unfolding mult by fastforce
+  using dbm_entry_val_add_1 unfolding add by fastforce
   with c' show ?case unfolding DBM_val_bounded_def by simp
 qed
 
@@ -451,7 +472,7 @@ next
   moreover have "dbm_entry_val u (Some c) (Some c') (m (v c) (v c'))" using Cons.prems c'
   by (auto simp add: DBM_val_bounded_def)
   ultimately have "dbm_entry_val u (Some c) (Some d) (m (v c) (v c') + len m (v c') (v d) vs)"
-  using dbm_entry_val_add_3 unfolding mult by fastforce
+  using dbm_entry_val_add_3 unfolding add by fastforce
   with c' show ?case unfolding DBM_val_bounded_def by simp
 qed
 
@@ -468,7 +489,7 @@ next
   moreover have "dbm_entry_val u None (Some c') (m 0 (v c'))"
   using 2 c' by (auto simp add: DBM_val_bounded_def)
   ultimately have "dbm_entry_val u None (Some c) (m 0 (v c') + len m (v c') (v c) vs)"
-  using dbm_entry_val_add_2 unfolding mult by fastforce
+  using dbm_entry_val_add_2 unfolding add by fastforce
   with 2(4) c' show ?case unfolding DBM_val_bounded_def by simp
 qed
 
@@ -523,7 +544,7 @@ proof -
   next
     case False
     then have "\<exists> k \<in> set vs. k = 0" by auto
-    then obtain us ws where vs: "vs = us @ 0 # ws" by (meson split_list_last) 
+    then obtain us ws where vs: "vs = us @ 0 # ws" by (meson split_list_last)
     with cnt_at_most_1_D[of 0 "us"] assms(2) have
       "0 \<notin> set us" "0 \<notin> set ws"
     by auto
@@ -531,10 +552,15 @@ proof -
     with assms(5) have v:
       "\<forall>k\<in>set us. 0 < k \<and> k \<le> n \<and> (\<exists>c. v c = k)" "\<forall>k\<in>set ws. 0 < k \<and> k \<le> n \<and> (\<exists>c. v c = k)"
     by auto
-    with dbm_entry_val_add_4 [OF DBM_val_bounded_len_1'_aux[OF assms(1,3) v(1)] DBM_val_bounded_len_2'_aux[OF assms(1,4) v(2)]]
-    have "dbm_entry_val u (Some c1) (Some c2) (dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws))" by auto
+    with
+      dbm_entry_val_add_4[OF
+        DBM_val_bounded_len_1'_aux[OF assms(1,3) v(1)]
+        DBM_val_bounded_len_2'_aux[OF assms(1,4) v(2)]
+      ]
+    have "dbm_entry_val u (Some c1) (Some c2) (dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws))"
+      by auto
     moreover from vs have "len m (v c1) (v c2) vs = dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws)"
-    by (simp add: len_comp mult)
+      by (simp add: len_comp add)
     ultimately show ?thesis by auto
   qed
 qed
@@ -584,7 +610,7 @@ proof -
   next
     case False
     then have "\<exists> k \<in> set vs. k = 0" by auto
-    then obtain us ws where vs: "vs = us @ 0 # ws" by (meson split_list_last) 
+    then obtain us ws where vs: "vs = us @ 0 # ws" by (meson split_list_last)
     with cnt_at_most_1_D[of 0 "i # j # us"] assms(3) have
       "0 \<notin> set us" "0 \<notin> set ws" "i \<noteq> 0" "j \<noteq> 0"
     by auto
@@ -598,7 +624,7 @@ proof -
     with dbm_entry_val_add_4 [OF DBM_val_bounded_len_1'_aux[OF assms(2) _ v(1)] DBM_val_bounded_len_2'_aux[OF assms(2) _ v(2)]]
     have "dbm_entry_val u (Some c1) (Some c2) (dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws))" by auto
     moreover from vs have "len m (v c1) (v c2) vs = dbm_add (len m (v c1) 0 us) (len m 0 (v c2) ws)"
-    by (simp add: len_comp mult)
+      by (simp add: len_comp add)
     ultimately show ?thesis using c1 c2 by auto
   qed
 qed
@@ -611,9 +637,9 @@ next
   case (Cons c' cs)
   hence "dbm_entry_val u (Some c') None (len m (v c') 0 (map v cs))" by auto
   moreover have "dbm_entry_val u (Some c) (Some c') (m (v c) (v c'))" using Cons.prems
-  by (simp add: DBM_val_bounded_def)
+    by (simp add: DBM_val_bounded_def)
   ultimately have "dbm_entry_val u (Some c) None (m (v c) (v c') + len m (v c') 0 (map v cs))"
-  using dbm_entry_val_add_1 unfolding mult by fastforce
+    using dbm_entry_val_add_1 unfolding add by fastforce
   thus ?case unfolding DBM_val_bounded_def by simp
 qed
 
@@ -625,9 +651,9 @@ next
   case (Cons c' cs)
   hence "dbm_entry_val u (Some c') (Some d) (len m (v c') (v d) (map v cs))" by auto
   moreover have "dbm_entry_val u (Some c) (Some c') (m (v c) (v c'))" using Cons.prems
-  by (simp add: DBM_val_bounded_def)
+    by (simp add: DBM_val_bounded_def)
   ultimately have "dbm_entry_val u (Some c) (Some d) (m (v c) (v c') + len m (v c') (v d) (map v cs))"
-  using dbm_entry_val_add_3 unfolding mult by fastforce
+    using dbm_entry_val_add_3 unfolding add by fastforce
   thus ?case unfolding DBM_val_bounded_def by simp
 qed
 
@@ -638,12 +664,12 @@ proof (cases cs, goal_cases)
 next
   case (2 c' cs)
   hence "dbm_entry_val u (Some c') (Some c) (len m (v c') (v c) (map v cs))"
-  using DBM_val_bounded_len_3 by auto
+    using DBM_val_bounded_len_3 by auto
   moreover have "dbm_entry_val u None (Some c') (m 0 (v c'))"
-  using 2 by (simp add: DBM_val_bounded_def)
+    using 2 by (simp add: DBM_val_bounded_def)
   ultimately have "dbm_entry_val u None (Some c) (m 0 (v c') + len m (v c') (v c) (map v cs))"
-  using dbm_entry_val_add_2 unfolding mult by fastforce
-  thus ?case using 2(4) unfolding DBM_val_bounded_def by simp 
+    using dbm_entry_val_add_2 unfolding add by fastforce
+  thus ?case using 2(4) unfolding DBM_val_bounded_def by simp
 qed
 
 end

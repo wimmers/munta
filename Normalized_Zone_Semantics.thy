@@ -68,17 +68,17 @@ apply (rule FW_zone_equiv) using clock_numbering(2) by auto
 
 lemma dbm_non_empty_diag:
   assumes "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
-  shows "\<forall> k \<le> n. M k k \<ge> \<one>"
+  shows "\<forall> k \<le> n. M k k \<ge> 0"
 proof safe
   fix k assume k: "k \<le> n"
   have "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" using clock_numbering(2) by blast
-  from k not_empty_cyc_free[OF this assms(1)] show "\<one> \<le> M k k" by (simp add: cyc_free_diag_dest')
+  from k not_empty_cyc_free[OF this assms(1)] show "0 \<le> M k k" by (simp add: cyc_free_diag_dest')
 qed
 
 lemma cn_weak: "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" using clock_numbering(2) by blast
 
 lemma negative_diag_empty:
-  assumes "\<exists> k \<le> n. M k k < \<one>"
+  assumes "\<exists> k \<le> n. M k k < 0"
   shows "[M]\<^bsub>v,n\<^esub> = {}"
 using dbm_non_empty_diag assms by force
 
@@ -118,9 +118,9 @@ lemma norm_FW_empty:
 proof -
   from assms(2) cyc_free_not_empty clock_numbering(1) have "\<not> cyc_free M n"
     by metis
-  from FW_neg_cycle_detect[OF this] obtain i where i: "i \<le> n" "FW M n i i < \<one>" by auto
+  from FW_neg_cycle_detect[OF this] obtain i where i: "i \<le> n" "FW M n i i < 0" by auto
   with norm_empty_diag_preservation_real[folded neutral] have
-    "?M i i < \<one>"
+    "?M i i < 0"
   unfolding comp_def by auto
   with \<open>i \<le> n\<close> show ?thesis using beta_interp.neg_diag_empty_spec by auto
 qed
@@ -596,7 +596,7 @@ end
 
 section \<open>Finiteness of the Search Space\<close>
 
-abbreviation "dbm_default M n \<equiv> (\<forall> i > n. \<forall> j. M i j = \<one>) \<and> (\<forall> j > n. \<forall> i. M i j = \<one>)"
+abbreviation "dbm_default M n \<equiv> (\<forall> i > n. \<forall> j. M i j = 0) \<and> (\<forall> j > n. \<forall> i. M i j = 0)"
 
 lemma norm_default_preservation:
   "dbm_default M n \<Longrightarrow> dbm_default (norm M k n) n"
@@ -616,7 +616,7 @@ proof -
   let ?S = "(Le ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
   from finite_set_of_finite_funs2[of "{0..n}" "{0..n}" ?S] have fin:
     "finite {f. \<forall>x y. (x \<in> {0..n} \<and> y \<in> {0..n} \<longrightarrow> f x y \<in> ?S)
-                \<and> (x \<notin> {0..n} \<longrightarrow> f x y = \<one>) \<and> (y \<notin> {0..n} \<longrightarrow> f x y = \<one>)}" (is "finite ?R")
+                \<and> (x \<notin> {0..n} \<longrightarrow> f x y = 0) \<and> (y \<notin> {0..n} \<longrightarrow> f x y = 0)}" (is "finite ?R")
   by auto
   { fix M :: "int DBM" assume A: "dbm_default M n"
     let ?M = "norm M k n"
@@ -693,10 +693,10 @@ proof -
       qed
     } moreover
     { fix i j assume "i \<notin> {0..n}"
-      with A have "?M i j = \<one>" by auto
+      with A have "?M i j = 0" by auto
     } moreover
     { fix i j assume "j \<notin> {0..n}"
-      with A have "?M i j = \<one>" by auto
+      with A have "?M i j = 0" by auto
     } moreover note the = calculation
   } then have "{norm M k n | M. dbm_default M n} \<subseteq> ?R" by blast
   with fin show ?thesis by (blast intro: finite_subset)
@@ -706,11 +706,11 @@ subsection \<open>Additional Useful Properties of the Normalized Semantics\<clos
 
 text \<open>Obsolete\<close>
 lemma norm_diag_preservation:
-  assumes "\<forall>l\<le>n. M1 l l \<le> \<one>"
-  shows "\<forall>l\<le>n. (norm M1 (k :: nat \<Rightarrow> nat) n) l l \<le> \<one>" (is "\<forall> l \<le> n. ?M l l \<le> \<one>")
+  assumes "\<forall>l\<le>n. M1 l l \<le> 0"
+  shows "\<forall>l\<le>n. (norm M1 (k :: nat \<Rightarrow> nat) n) l l \<le> 0" (is "\<forall> l \<le> n. ?M l l \<le> 0")
 proof safe
   fix j assume j: "j \<le> n"
-  show "?M j j \<le> \<one>"
+  show "?M j j \<le> 0"
   proof (cases "j = 0")
     case True
     with j assms show ?thesis unfolding norm_def neutral less_eq dbm_le_def by auto
@@ -837,10 +837,10 @@ proof -
   with * k show ?thesis ..
 qed
 
-definition valid_dbm where "valid_dbm M n \<equiv> dbm_int M n \<and> (\<forall> i \<le> n. M 0 i \<le> \<one>)"
+definition valid_dbm where "valid_dbm M n \<equiv> dbm_int M n \<and> (\<forall> i \<le> n. M 0 i \<le> 0)"
 
 lemma dbm_positive:
-  assumes "M 0 (v c) \<le> \<one>" "v c \<le> n" "DBM_val_bounded v u M n"
+  assumes "M 0 (v c) \<le> 0" "v c \<le> n" "DBM_val_bounded v u M n"
   shows "u c \<ge> 0"
 proof -
   from assms have "dbm_entry_val u None (Some c) (M 0 (v c))" unfolding DBM_val_bounded_def by auto

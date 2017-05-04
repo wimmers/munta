@@ -134,35 +134,35 @@ subsection \<open>DBMs Without Negative Cycles are Non-Empty\<close>
 text \<open>
   We need all of these assumptions for the proof that matrices without negative cycles
   represent non-negative zones:
-    * Abelian (linearly ordered) monoid
-    * Time is non-trivial
-    * Time is dense
+    \<^item> Abelian (linearly ordered) monoid
+    \<^item> Time is non-trivial
+    \<^item> Time is dense
 \<close>
 lemmas (in linordered_ab_monoid_add) comm = add.commute
 
 instance time \<subseteq> linordered_cancel_ab_monoid_add by (standard; simp)
 
 lemma sum_gt_neutral_dest':
-  "(a :: (('a :: time) DBMEntry)) \<ge> \<one> \<Longrightarrow> a + b > \<one> \<Longrightarrow> \<exists> d. Le d \<le> a \<and> Le (-d) \<le> b \<and> d \<ge> 0"
+  "(a :: (('a :: time) DBMEntry)) \<ge> 0 \<Longrightarrow> a + b > 0 \<Longrightarrow> \<exists> d. Le d \<le> a \<and> Le (-d) \<le> b \<and> d \<ge> 0"
 proof -
-  assume "a + b > \<one>" "a \<ge> \<one>"
+  assume "a + b > 0" "a \<ge> 0"
   show ?thesis
-  proof (cases "b \<ge> \<one>")
+  proof (cases "b \<ge> 0")
     case True
-    with \<open>a \<ge> \<one>\<close> show ?thesis by (auto simp: neutral)
+    with \<open>a \<ge> 0\<close> show ?thesis by (auto simp: neutral)
   next
     case False
     hence "b < Le 0" by (auto simp: neutral)
-    with \<open>a \<ge> \<one>\<close> \<open>a + b > \<one>\<close> show ?thesis
+    with \<open>a \<ge> 0\<close> \<open>a + b > 0\<close> show ?thesis
     proof (cases a, cases b, auto simp: neutral, goal_cases)
       case (1 a' b')
-      from 1(2) have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less mult)
+      from 1(2) have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less add)
       hence "b' > -a'" by (metis add.commute diff_0 diff_less_eq)
       with \<open>Le 0 \<le> Le a'\<close> show ?case
       by (auto simp: dbm_le_def less_eq le_dbm_le)
     next
       case (2 a' b')
-      from this(2) have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less mult)
+      from this(2) have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less add)
       hence "b' > -a'" by (metis add.commute diff_0 diff_less_eq)
       with \<open>Le 0 \<le> Le a'\<close> show ?case
       by (auto simp: dbm_le_def less_eq le_dbm_le)
@@ -174,7 +174,7 @@ proof -
       proof (cases b, auto, goal_cases)
         case (1 b')
         have "b' < 0" using 1(2) by (metis dbm_lt.intros(3) less less_asym neqE)
-        from 1 have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less mult)
+        from 1 have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less add)
         then have "-b' < a'" by (metis diff_0 diff_less_eq)
         with \<open>b' < 0\<close> show ?case by (auto simp: dbm_le_def less_eq)
       next
@@ -189,7 +189,7 @@ proof -
         next
           case False
           with A(1) have *: "- b' > 0" by simp
-          from 2 have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less mult)
+          from 2 have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less add)
           then have "-b' < a'" by (metis less_add_same_cancel1 minus_add_cancel minus_less_iff)
           from dense[OF this] obtain d where d:
             "d > -b'" "-d < b'" "d < a'"
@@ -227,22 +227,22 @@ proof -
 qed
 
 lemma sum_gt_neutral_dest:
-  "(a :: (('a :: time) DBMEntry)) + b > \<one> \<Longrightarrow> \<exists> d. Le d \<le> a \<and> Le (-d) \<le> b"
+  "(a :: (('a :: time) DBMEntry)) + b > 0 \<Longrightarrow> \<exists> d. Le d \<le> a \<and> Le (-d) \<le> b"
 proof -
-  assume A: "a + b > \<one>"
-  then have A': "b + a > \<one>" by (simp add: comm)
+  assume A: "a + b > 0"
+  then have A': "b + a > 0" by (simp add: comm)
   show ?thesis
-  proof (cases "a \<ge> \<one>")
+  proof (cases "a \<ge> 0")
     case True
     with A sum_gt_neutral_dest' show ?thesis by auto
   next
     case False
-    { assume "b \<le> \<one>"
-      with False have "a \<le> \<one>" "b \<le> \<one>" by auto
-      from add_mono[OF this] have "a + b \<le> \<one>" by auto
+    { assume "b \<le> 0"
+      with False have "a \<le> 0" "b \<le> 0" by auto
+      from add_mono[OF this] have "a + b \<le> 0" by auto
       with A have False by auto
     }
-    then have "b \<ge> \<one>" by fastforce
+    then have "b \<ge> 0" by fastforce
     with sum_gt_neutral_dest'[OF this A'] show ?thesis by auto
   qed
 qed
@@ -253,7 +253,7 @@ subsection \<open>
 
 lemma DBM_val_bounded_neg_cycle1:
 fixes i xs assumes
-  bounded: "DBM_val_bounded v u M n" and A:"i \<le> n" "set xs \<subseteq> {0..n}" "len M i i xs < \<one>" and
+  bounded: "DBM_val_bounded v u M n" and A:"i \<le> n" "set xs \<subseteq> {0..n}" "len M i i xs < 0" and
   surj_on: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)" and at_most: "i \<noteq> 0" "cnt 0 xs \<le> 1"
 shows False
 proof -
@@ -277,12 +277,12 @@ using cnt_0_I by fastforce+
 
 lemma DBM_val_bounded_neg_cycle:
 fixes i xs assumes
-  bounded: "DBM_val_bounded v u M n" and A:"i \<le> n" "set xs \<subseteq> {0..n}" "len M i i xs < \<one>" and
+  bounded: "DBM_val_bounded v u M n" and A:"i \<le> n" "set xs \<subseteq> {0..n}" "len M i i xs < 0" and
   surj_on: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
 shows False
 proof -
   from negative_len_shortest[OF _ A(3)] obtain j ys where ys:
-    "distinct (j # ys)" "len M j j ys < \<one>" "j \<in> set (i # xs)" "set ys \<subseteq> set xs"
+    "distinct (j # ys)" "len M j j ys < 0" "j \<in> set (i # xs)" "set ys \<subseteq> set xs"
   by blast
   show False
   proof (cases "ys = []")
@@ -331,13 +331,13 @@ proof (induction "length vs" arbitrary: vs rule: less_induct)
     case True
     then obtain xs ys where vs: "vs = xs @ 0 # ys" by (meson split_list)
     from len_decomp[OF this] have "len M (v c) 0 vs = len M (v c) 0 xs + len M 0 0 ys" .
-    moreover have "len M 0 0 ys \<ge> \<one>"
+    moreover have "len M 0 0 ys \<ge> 0"
     proof (rule ccontr, goal_cases)
       case 1
-      then have "len M 0 0 ys < \<one>" by simp
+      then have "len M 0 0 ys < 0" by simp
       with DBM_val_bounded_neg_cycle[OF assms(1), of 0 ys] vs A(4,5) show False by auto
     qed
-    ultimately have *: "len M (v c) 0 vs \<ge> len M (v c) 0 xs" using add_mono_neutr by simp
+    ultimately have *: "len M (v c) 0 vs \<ge> len M (v c) 0 xs" by (simp add: add_increasing2)
     from vs A have "dbm_entry_val u (Some c) None (len M (v c) 0 xs)" by auto
     from dbm_entry_val_mono_3[OF this, of "len M (v c) 0 vs"] * show ?thesis unfolding less_eq by auto
   qed
@@ -357,13 +357,13 @@ proof (induction "length vs" arbitrary: vs rule: less_induct)
     case True
     then obtain xs ys where vs: "vs = xs @ 0 # ys" by (meson split_list)
     from len_decomp[OF this] have "len M 0 (v c) vs = len M 0 0 xs + len M 0 (v c) ys" .
-    moreover have "len M 0 0 xs \<ge> \<one>"
+    moreover have "len M 0 0 xs \<ge> 0"
     proof (rule ccontr, goal_cases)
       case 1
-      then have "len M 0 0 xs < \<one>" by simp
+      then have "len M 0 0 xs < 0" by simp
       with DBM_val_bounded_neg_cycle[OF assms(1), of 0 xs] vs A(4,5) show False by auto
     qed
-    ultimately have *: "len M 0 (v c) vs \<ge> len M 0 (v c) ys" by (simp add: add_mono_neutl)
+    ultimately have *: "len M 0 (v c) vs \<ge> len M 0 (v c) ys" by (simp add: add_increasing)
     from vs A have "dbm_entry_val u None (Some c) (len M 0 (v c) ys)" by auto
     from dbm_entry_val_mono_2[OF this] * show ?thesis unfolding less_eq by auto
   qed
@@ -385,7 +385,7 @@ next
     "dbm_entry_val u (Some c1) None (len M (v c1) 0 xs)"
     "dbm_entry_val u None (Some c2) (len M 0 (v c2) ys)"
   by auto
-  from dbm_entry_val_add_4[OF this] len_decomp[OF vs, of M] show ?thesis unfolding mult by auto
+  from dbm_entry_val_add_4[OF this] len_decomp[OF vs, of M] show ?thesis unfolding add by auto
 qed
 
 text \<open>An equivalent way of handling \<zero>\<close>
@@ -473,7 +473,7 @@ next
         "FW M n 0 0 = len M 0 0 xs" "set xs \<subseteq> {0..n}"
         "0 \<notin> set xs" "distinct xs"
     by auto
-    with cyc_free have "FW M n 0 0 \<ge> \<one>" by auto
+    with cyc_free have "FW M n 0 0 \<ge> 0" by auto
     then show ?case unfolding neutral less_eq by simp
   next
     case (2 c)
@@ -522,10 +522,10 @@ lemma new_negative_cycle_aux':
                        else if (i' = j \<and> j' = i) then Le (-d)
                        else M i' j'"
   assumes "i \<le> n" "j \<le> n" "set xs \<subseteq> {0..n}" "cycle_free M n" "length xs = m"
-  assumes "len M' i i (j # xs) < \<one> \<or> len M' j j (i # xs) < \<one>"
+  assumes "len M' i i (j # xs) < 0 \<or> len M' j j (i # xs) < 0"
   assumes "i \<noteq> j"
   shows "\<exists>xs. set xs \<subseteq> {0..n} \<and> j \<notin> set xs \<and> i \<notin> set xs
-              \<and> (len M' i i (j # xs) < \<one> \<or> len M' j j (i # xs) < \<one>)" using assms
+              \<and> (len M' i i (j # xs) < 0 \<or> len M' j j (i # xs) < 0)" using assms
 proof (induction _ m arbitrary: xs rule: less_induct)
   case (less x)
   { fix b a xs assume A: "(i, j) \<notin> set (arcs b a xs)" "(j, i) \<notin> set (arcs b a xs)"
@@ -533,13 +533,13 @@ proof (induction _ m arbitrary: xs rule: less_induct)
     unfolding M'_def by (induction xs arbitrary: b) auto
   } note * = this
   { fix a xs assume A:"(i, j) \<notin> set (arcs a a xs)" "(j, i) \<notin> set (arcs a a xs)"
-    assume a: "a \<le> n" and xs: "set xs \<subseteq> {0..n}" and cycle: "\<not> len M' a a xs \<ge> \<one>"
+    assume a: "a \<le> n" and xs: "set xs \<subseteq> {0..n}" and cycle: "\<not> len M' a a xs \<ge> 0"
     from *[OF A] have "len M' a a xs = len M a a xs" .
     with \<open>cycle_free M n\<close> \<open>i \<le> n\<close> cycle xs a have False unfolding cycle_free_def by auto
   } note ** = this
   { fix a :: nat fix ys :: "nat list"
     assume A: "ys \<noteq> []" "length ys \<le> length xs" "set ys \<subseteq> set xs" "a \<le> n"
-    assume cycle: "len M' a a ys < \<one>"
+    assume cycle: "len M' a a ys < 0"
     assume arcs: "(i, j) \<in> set (arcs a a ys) \<or> (j, i) \<in> set (arcs a a ys)"
     from arcs have ?thesis
     proof
@@ -560,7 +560,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
   } note *** = this
   { fix a :: nat fix ys :: "nat list"
     assume A: "ys \<noteq> []" "length ys \<le> length xs" "set ys \<subseteq> set xs" "a \<le> n"
-    assume cycle: "\<not> len M' a a ys \<ge> \<one>"
+    assume cycle: "\<not> len M' a a ys \<ge> 0"
     with A **[of a ys] less.prems
     have "(i, j) \<in> set (arcs a a ys) \<or> (j, i) \<in> set (arcs a a ys)" by auto
     with ***[OF A] cycle have ?thesis by auto
@@ -569,7 +569,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
   then have M'_diag: "\<forall>i. i \<le> n \<longrightarrow> Le 0 \<le> M' i i" unfolding M'_def using \<open>i \<noteq> j\<close> by auto
   from less(8) show ?thesis
   proof standard
-    assume cycle:"len M' i i (j # xs) < \<one>"
+    assume cycle:"len M' i i (j # xs) < 0"
     show ?thesis
     proof (cases "i \<in> set xs")
       case False
@@ -583,12 +583,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
         with len_decomp[of "j # xs" "j # ys" j zs M' i i]
         have len: "len M' i i (j # xs) = M' i j + len M' j j ys + len M' j i zs" by auto
         show ?thesis
-        proof (cases "len M' j j ys \<ge> \<one>")
+        proof (cases "len M' j j ys \<ge> 0")
           case True
           have "len M' i i (j # zs) = M' i j + len M' j i zs" by simp
           also from len True have "M' i j + len M' j i zs \<le> len M' i i (j # xs)"
           by (metis add_le_impl add_lt_neutral comm not_le)
-          finally have cycle': "len M' i i (j # zs) < \<one>" using cycle by auto
+          finally have cycle': "len M' i i (j # zs) < 0" using cycle by auto
           from ys_zs less.prems(5) have "x > length zs" by auto
           from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of zs]
           show ?thesis by auto
@@ -604,12 +604,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
       with len_decomp[of "j # xs" "j # ys" i zs M' i i]
       have len: "len M' i i (j # xs) = M' i j + len M' j i ys + len M' i i zs" by auto
       show ?thesis
-      proof (cases "len M' i i zs \<ge> \<one>")
+      proof (cases "len M' i i zs \<ge> 0")
         case True
         have "len M' i i (j # ys) = M' i j + len M' j i ys" by simp
         also from len True have "M' i j + len M' j i ys \<le> len M' i i (j # xs)"
         by (metis add_lt_neutral comm not_le)
-        finally have cycle': "len M' i i (j # ys) < \<one>" using cycle by auto
+        finally have cycle': "len M' i i (j # ys) < 0" using cycle by auto
         from ys_zs less.prems(5) have "x > length ys" by auto
         from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of ys]
         show ?thesis by auto
@@ -620,7 +620,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
       qed
     qed
   next
-    assume cycle:"len M' j j (i # xs) < \<one>"
+    assume cycle:"len M' j j (i # xs) < 0"
     show ?thesis
     proof (cases "j \<in> set xs")
       case False
@@ -634,12 +634,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
         with len_decomp[of "i # xs" "i # ys" i zs M' j j]
         have len: "len M' j j (i # xs) = M' j i + len M' i i ys + len M' i j zs" by auto
         show ?thesis
-        proof (cases "len M' i i ys \<ge> \<one>")
+        proof (cases "len M' i i ys \<ge> 0")
           case True
           have "len M' j j (i # zs) = M' j i + len M' i j zs" by simp
           also from len True have "M' j i + len M' i j zs \<le> len M' j j (i # xs)"
           by (metis add_le_impl add_lt_neutral comm not_le)
-          finally have cycle': "len M' j j (i # zs) < \<one>" using cycle by auto
+          finally have cycle': "len M' j j (i # zs) < 0" using cycle by auto
           from ys_zs less.prems(5) have "x > length zs" by auto
           from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of zs]
           show ?thesis by auto
@@ -655,12 +655,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
       with len_decomp[of "i # xs" "i # ys" j zs M' j j]
       have len: "len M' j j (i # xs) = M' j i + len M' i j ys + len M' j j zs" by auto
       show ?thesis
-      proof (cases "len M' j j zs \<ge> \<one>")
+      proof (cases "len M' j j zs \<ge> 0")
         case True
         have "len M' j j (i # ys) = M' j i + len M' i j ys" by simp
         also from len True have "M' j i + len M' i j ys \<le> len M' j j (i # xs)"
         by (metis add_lt_neutral comm not_le)
-        finally have cycle': "len M' j j (i # ys) < \<one>" using cycle by auto
+        finally have cycle': "len M' j j (i # ys) < 0" using cycle by auto
         from ys_zs less.prems(5) have "x > length ys" by auto
         from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of ys]
         show ?thesis by auto
@@ -680,10 +680,10 @@ lemma new_negative_cycle_aux:
                        else if (i' = 0 \<and> j' = i) then Le (-d)
                        else M i' j'"
   assumes "i \<le> n" "set xs \<subseteq> {0..n}" "cycle_free M n" "length xs = m"
-  assumes "len M' 0 0 (i # xs) < \<one> \<or> len M' i i (0 # xs) < \<one>"
+  assumes "len M' 0 0 (i # xs) < 0 \<or> len M' i i (0 # xs) < 0"
   assumes "i \<noteq> 0"
   shows "\<exists>xs. set xs \<subseteq> {0..n} \<and> 0 \<notin> set xs \<and> i \<notin> set xs
-              \<and> (len M' 0 0 (i # xs) < \<one> \<or> len M' i i (0 # xs) < \<one>)" using assms
+              \<and> (len M' 0 0 (i # xs) < 0 \<or> len M' i i (0 # xs) < 0)" using assms
 proof (induction _ m arbitrary: xs rule: less_induct)
   case (less x)
   { fix b a xs assume A: "(0, i) \<notin> set (arcs b a xs)" "(i, 0) \<notin> set (arcs b a xs)"
@@ -691,13 +691,13 @@ proof (induction _ m arbitrary: xs rule: less_induct)
     unfolding M'_def by (induction xs arbitrary: b) auto
   } note * = this
   { fix a xs assume A:"(0, i) \<notin> set (arcs a a xs)" "(i, 0) \<notin> set (arcs a a xs)"
-    assume a: "a \<le> n" and xs: "set xs \<subseteq> {0..n}" and cycle: "\<not> len M' a a xs \<ge> \<one>"
+    assume a: "a \<le> n" and xs: "set xs \<subseteq> {0..n}" and cycle: "\<not> len M' a a xs \<ge> 0"
     from *[OF A] have "len M' a a xs = len M a a xs" .
     with \<open>cycle_free M n\<close> \<open>i \<le> n\<close> cycle xs a have False unfolding cycle_free_def by auto
   } note ** = this
   { fix a :: nat fix ys :: "nat list"
     assume A: "ys \<noteq> []" "length ys \<le> length xs" "set ys \<subseteq> set xs" "a \<le> n"
-    assume cycle: "len M' a a ys < \<one>"
+    assume cycle: "len M' a a ys < 0"
     assume arcs: "(0, i) \<in> set (arcs a a ys) \<or> (i, 0) \<in> set (arcs a a ys)"
     from arcs have ?thesis
     proof
@@ -718,7 +718,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
   } note *** = this
   { fix a :: nat fix ys :: "nat list"
     assume A: "ys \<noteq> []" "length ys \<le> length xs" "set ys \<subseteq> set xs" "a \<le> n"
-    assume cycle: "\<not> len M' a a ys \<ge> \<one>"
+    assume cycle: "\<not> len M' a a ys \<ge> 0"
     with A **[of a ys]  less.prems(2)
     have "(0, i) \<in> set (arcs a a ys) \<or> (i, 0) \<in> set (arcs a a ys)" by auto
     with ***[OF A] cycle have ?thesis by auto
@@ -727,7 +727,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
   then have M'_diag: "\<forall>i. i \<le> n \<longrightarrow> Le 0 \<le> M' i i" unfolding M'_def using \<open>i \<noteq> 0\<close> by auto
   from less(7) show ?thesis
   proof standard
-    assume cycle:"len M' 0 0 (i # xs) < \<one>"
+    assume cycle:"len M' 0 0 (i # xs) < 0"
     show ?thesis
     proof (cases "0 \<in> set xs")
       case False
@@ -741,12 +741,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
         with len_decomp[of "i # xs" "i # ys" i zs M' 0 0]
         have len: "len M' 0 0 (i # xs) = M' 0 i + len M' i i ys + len M' i 0 zs" by auto
         show ?thesis
-        proof (cases "len M' i i ys \<ge> \<one>")
+        proof (cases "len M' i i ys \<ge> 0")
           case True
           have "len M' 0 0 (i # zs) = M' 0 i + len M' i 0 zs" by simp
           also from len True have "M' 0 i + len M' i 0 zs \<le> len M' 0 0 (i # xs)"
           by (metis add_le_impl add_lt_neutral comm not_le)
-          finally have cycle': "len M' 0 0 (i # zs) < \<one>" using cycle by auto
+          finally have cycle': "len M' 0 0 (i # zs) < 0" using cycle by auto
           from ys_zs less.prems(4) have "x > length zs" by auto
           from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of zs]
           show ?thesis by auto
@@ -762,12 +762,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
       with len_decomp[of "i # xs" "i # ys" 0 zs M' 0 0]
       have len: "len M' 0 0 (i # xs) = M' 0 i + len M' i 0 ys + len M' 0 0 zs" by auto
       show ?thesis
-      proof (cases "len M' 0 0 zs \<ge> \<one>")
+      proof (cases "len M' 0 0 zs \<ge> 0")
         case True
         have "len M' 0 0 (i # ys) = M' 0 i + len M' i 0 ys" by simp
         also from len True have "M' 0 i + len M' i 0 ys \<le> len M' 0 0 (i # xs)"
         by (metis add_lt_neutral comm not_le)
-        finally have cycle': "len M' 0 0 (i # ys) < \<one>" using cycle by auto
+        finally have cycle': "len M' 0 0 (i # ys) < 0" using cycle by auto
         from ys_zs less.prems(4) have "x > length ys" by auto
         from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of ys]
         show ?thesis by auto
@@ -778,7 +778,7 @@ proof (induction _ m arbitrary: xs rule: less_induct)
       qed
     qed
   next
-    assume cycle: "len M' i i (0 # xs) < \<one>"
+    assume cycle: "len M' i i (0 # xs) < 0"
     show ?thesis
     proof (cases "i \<in> set xs")
       case False
@@ -792,12 +792,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
         with len_decomp[of "0 # xs" "0 # ys" 0 zs M' i i]
         have len: "len M' i i (0 # xs) = M' i 0 + len M' 0 0 ys + len M' 0 i zs" by auto
         show ?thesis
-        proof (cases "len M' 0 0 ys \<ge> \<one>")
+        proof (cases "len M' 0 0 ys \<ge> 0")
           case True
           have "len M' i i (0 # zs) = M' i 0 + len M' 0 i zs" by simp
           also from len True have "M' i 0 + len M' 0 i zs \<le> len M' i i (0 # xs)"
           by (metis add_le_impl add_lt_neutral comm not_le)
-          finally have cycle': "len M' i i (0 # zs) < \<one>" using cycle by auto
+          finally have cycle': "len M' i i (0 # zs) < 0" using cycle by auto
           from ys_zs less.prems(4) have "x > length zs" by auto
           from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of zs]
           show ?thesis by auto
@@ -813,12 +813,12 @@ proof (induction _ m arbitrary: xs rule: less_induct)
       with len_decomp[of "0 # xs" "0 # ys" i zs M' i i]
       have len: "len M' i i (0 # xs) = M' i 0 + len M' 0 i ys + len M' i i zs" by auto
       show ?thesis
-      proof (cases "len M' i i zs \<ge> \<one>")
+      proof (cases "len M' i i zs \<ge> 0")
         case True
         have "len M' i i (0 # ys) = M' i 0 + len M' 0 i ys" by simp
         also from len True have "M' i 0 + len M' 0 i ys \<le> len M' i i (0 # xs)"
         by (metis add_lt_neutral comm not_le)
-        finally have cycle': "len M' i i (0 # ys) < \<one>" using cycle by auto
+        finally have cycle': "len M' i i (0 # ys) < 0" using cycle by auto
         from ys_zs less.prems(4) have "x > length ys" by auto
         from cycle' less.prems ys_zs less.hyps(1)[OF this less.hyps(2) , of ys]
         show ?thesis by auto
@@ -853,7 +853,7 @@ proof -
   with DBM_le_subset[folded less_eq, of n ?M' M] have "DBM_val_bounded v u M n"
   if "DBM_val_bounded v u ?M' n" for u unfolding DBM_zone_repr_def using that by auto
   then have not_empty:"\<forall> u. DBM_val_bounded v u ?M' n \<longrightarrow> DBM_val_bounded v u M n" by auto
-  { fix a xs assume prems: "a \<le> n" "set xs \<subseteq> {0..n}" and cycle: "\<not> len ?M' a a xs \<ge> \<one>"
+  { fix a xs assume prems: "a \<le> n" "set xs \<subseteq> {0..n}" and cycle: "\<not> len ?M' a a xs \<ge> 0"
     { fix b assume A: "(i, j) \<notin> set (arcs b a xs)" "(j, i) \<notin> set (arcs b a xs)"
       with \<open>i \<noteq> j\<close> have "len ?M' b a xs = len M b a xs" by (induction xs arbitrary: b) auto
     } note * = this
@@ -867,7 +867,7 @@ proof -
     then have arcs:"(i, j) \<in> set (arcs a a xs) \<or> (j, i) \<in> set (arcs a a xs)" by auto
     with \<open>i \<noteq> j\<close> have "xs \<noteq> []" by auto
     from arcs obtain xs where xs: "set xs \<subseteq> {0..n}"
-      "len ?M' i i (j # xs) < \<one> \<or> len ?M' j j (i # xs) < \<one>"
+      "len ?M' i i (j # xs) < 0 \<or> len ?M' j j (i # xs) < 0"
     proof (standard, goal_cases)
       case 1
       from cycle_rotate_2'[OF \<open>xs \<noteq> []\<close> this(2), of ?M'] prems obtain ys where
@@ -884,50 +884,54 @@ proof -
     from new_negative_cycle_aux'[OF \<open>i \<le> n\<close> \<open>j \<le> n\<close> this(1) \<open>cycle_free M n\<close> _ this(2) \<open>i \<noteq> j\<close>]
     obtain xs where xs:
       "set xs \<subseteq> {0..n}" "i \<notin> set xs" "j \<notin> set xs"
-      "len ?M' i i (j # xs) < \<one> \<or> len ?M' j j (i # xs) < \<one>"
+      "len ?M' i i (j # xs) < 0 \<or> len ?M' j j (i # xs) < 0"
     by auto
     from this(4) have False
     proof
-      assume A: "len ?M' j j (i # xs) < \<one>"
+      assume A: "len ?M' j j (i # xs) < 0"
       show False
       proof (cases xs)
         case Nil
         with \<open>i \<noteq> j\<close> have *:"?M' j i = Le (-r)" "?M' i j = Le r" by simp+
         from Nil have "len ?M' j j (i # xs) = ?M' j i + ?M' i j" by simp
-        with * have "len ?M' j j (i # xs) = Le 0" by (simp add: mult)
+        with * have "len ?M' j j (i # xs) = Le 0" by (simp add: add)
         then show False using A by (simp add: neutral)
       next
         case (Cons y ys)
         have *:"M i y + M y j \<ge> M i j"
-        using \<open>canonical M n\<close> Cons xs \<open>i \<le> n\<close> \<open>j \<le> n\<close> by (simp add: mult less_eq)
-        have "Le 0 = Le (-r) + Le r" by (simp add: mult)
+        using \<open>canonical M n\<close> Cons xs \<open>i \<le> n\<close> \<open>j \<le> n\<close> by (simp add: add less_eq)
+        have "Le 0 = Le (-r) + Le r" by (simp add: add)
         also have "\<dots> \<le> Le (-r) + M i j" using r by (simp add: add_mono)
-        also have "\<dots> \<le> Le (-r) + M i y + M y j" using * by (simp add: add_mono assoc)
+        also have "\<dots> \<le> Le (-r) + M i y + M y j" using * by (simp add: add_mono add.assoc)
         also have "\<dots> \<le> Le (-r) + ?M' i y + len M y j ys"
-        using canonical_len[OF \<open>canonical M n\<close>] xs(1-3) \<open>i \<le> n\<close> \<open>j \<le> n\<close> Cons by (simp add: add_mono)
-        also have "\<dots> = len ?M' j j (i # xs)" using Cons \<open>i \<noteq> j\<close> ** xs(1-3) by (simp add: assoc)
+          using canonical_len[OF \<open>canonical M n\<close>] xs(1-3) \<open>i \<le> n\<close> \<open>j \<le> n\<close> Cons
+          by (simp add: add_mono)
+        also have "\<dots> = len ?M' j j (i # xs)" using Cons \<open>i \<noteq> j\<close> ** xs(1-3)
+          by (simp add: add.assoc)
         also have "\<dots> < Le 0" using A by (simp add: neutral)
         finally show False by simp
       qed
     next
-      assume A: "len ?M' i i (j # xs) < \<one>"
+      assume A: "len ?M' i i (j # xs) < 0"
       show False
       proof (cases xs)
         case Nil
         with \<open>i \<noteq> j\<close> have *:"?M' j i = Le (-r)" "?M' i j = Le r" by simp+
         from Nil have "len ?M' i i (j # xs) = ?M' i j + ?M' j i" by simp
-        with * have "len ?M' i i (j # xs) = Le 0" by (simp add: mult)
+        with * have "len ?M' i i (j # xs) = Le 0" by (simp add: add)
         then show False using A by (simp add: neutral)
       next
         case (Cons y ys)
         have *:"M j y + M y i \<ge> M j i"
-        using \<open>canonical M n\<close> Cons xs \<open>i \<le> n\<close> \<open>j \<le> n\<close> by (simp add: mult less_eq)
-        have "Le 0 = Le r + Le (-r)" by (simp add: mult)
+        using \<open>canonical M n\<close> Cons xs \<open>i \<le> n\<close> \<open>j \<le> n\<close> by (simp add: add less_eq)
+        have "Le 0 = Le r + Le (-r)" by (simp add: add)
         also have "\<dots> \<le> Le r + M j i" using r by (simp add: add_mono)
-        also have "\<dots> \<le> Le r + M j y + M y i" using * by (simp add: add_mono assoc)
+        also have "\<dots> \<le> Le r + M j y + M y i" using * by (simp add: add_mono add.assoc)
         also have "\<dots> \<le> Le r + ?M' j y + len M y i ys"
-        using canonical_len[OF \<open>canonical M n\<close>] xs(1-3) \<open>i \<le> n\<close> \<open>j \<le> n\<close> Cons by (simp add: add_mono)
-        also have "\<dots> = len ?M' i i (j # xs)" using Cons \<open>i \<noteq> j\<close> ** xs(1-3) by (simp add: assoc)
+          using canonical_len[OF \<open>canonical M n\<close>] xs(1-3) \<open>i \<le> n\<close> \<open>j \<le> n\<close> Cons
+          by (simp add: add_mono)
+        also have "\<dots> = len ?M' i i (j # xs)" using Cons \<open>i \<noteq> j\<close> ** xs(1-3)
+          by (simp add: add.assoc)
         also have "\<dots> < Le 0" using A by (simp add: neutral)
         finally show False by simp
       qed
@@ -940,12 +944,12 @@ qed
 
 lemma fix_index:
   fixes M :: "(('a :: time) DBMEntry) mat"
-  assumes "M 0 i + M i 0 > \<one>" "cycle_free M n" "canonical M n" "i \<le> n" "i \<noteq> 0"
+  assumes "M 0 i + M i 0 > 0" "cycle_free M n" "canonical M n" "i \<le> n" "i \<noteq> 0"
   shows
   "\<exists> (M' :: ('a DBMEntry) mat). ((\<exists> u. DBM_val_bounded v u M' n) \<longrightarrow> (\<exists> u. DBM_val_bounded v u M n))
-     \<and> M' 0 i + M' i 0 = \<one> \<and> cycle_free M' n
-     \<and> (\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 = \<one> \<longrightarrow> M' 0 j + M' j 0 = \<one>)
-     \<and> (\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 > \<one> \<longrightarrow> M' 0 j + M' j 0 > \<one>)"
+     \<and> M' 0 i + M' i 0 = 0 \<and> cycle_free M' n
+     \<and> (\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 = 0 \<longrightarrow> M' 0 j + M' j 0 = 0)
+     \<and> (\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 > 0 \<longrightarrow> M' 0 j + M' j 0 > 0)"
 proof -
   note A = assms
   from sum_gt_neutral_dest[OF assms(1)] obtain d where d: "Le d \<le> M i 0" "Le (-d) \<le> M 0 i" by auto
@@ -954,9 +958,9 @@ proof -
   from fix_index'[OF d(1,2) A(2,3,4) _ \<open>i \<noteq> 0\<close>] have M':
     "\<forall>u. DBM_val_bounded v u ?M' n \<longrightarrow> DBM_val_bounded v u M n" "cycle_free ?M' n"
   by auto
-  moreover from \<open>i \<noteq> 0\<close> have "\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 = \<one> \<longrightarrow> ?M' 0 j + ?M' j 0 = \<one>" by auto
-  moreover from \<open>i \<noteq> 0\<close> have "\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 > \<one> \<longrightarrow> ?M' 0 j + ?M' j 0 > \<one>" by auto
-  moreover from \<open>i \<noteq> 0\<close> have "?M' 0 i + ?M' i 0 = \<one>" unfolding neutral mult by auto
+  moreover from \<open>i \<noteq> 0\<close> have "\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 = 0 \<longrightarrow> ?M' 0 j + ?M' j 0 = 0" by auto
+  moreover from \<open>i \<noteq> 0\<close> have "\<forall> j. i \<noteq> j \<and> M 0 j + M j 0 > 0 \<longrightarrow> ?M' 0 j + ?M' j 0 > 0" by auto
+  moreover from \<open>i \<noteq> 0\<close> have "?M' 0 i + ?M' i 0 = 0" unfolding neutral add by auto
   ultimately show ?thesis by blast
 qed
 
@@ -979,21 +983,21 @@ lemma fix_indices:
   assumes "cyc_free M n" "canonical M n"
   shows
   "\<exists> (M' :: ('a DBMEntry) mat). ((\<exists> u. DBM_val_bounded v u M' n) \<longrightarrow> (\<exists> u. DBM_val_bounded v u M n))
-     \<and> (\<forall> i \<in> set xs. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = \<one>) \<and> cyc_free M' n
-     \<and> (\<forall> i\<le>n. i \<notin> set xs \<and> M 0 i + M i 0 = \<one> \<longrightarrow> M' 0 i + M' i 0 = \<one>)" using assms
+     \<and> (\<forall> i \<in> set xs. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = 0) \<and> cyc_free M' n
+     \<and> (\<forall> i\<le>n. i \<notin> set xs \<and> M 0 i + M i 0 = 0 \<longrightarrow> M' 0 i + M' i 0 = 0)" using assms
 proof (induction xs arbitrary: M)
   case Nil then show ?case by auto
 next
   case (Cons i xs)
   show ?case
-  proof (cases "M 0 i + M i 0 \<le> \<one> \<or> i = 0")
+  proof (cases "M 0 i + M i 0 \<le> 0 \<or> i = 0")
     case True
     note T = this
     show ?thesis
     proof (cases "i = 0")
       case False
       from Cons.prems have "0 \<le> n" "set [i] \<subseteq> {0..n}" by auto
-      with Cons.prems(3) False T have "M 0 i + M i 0 = \<one>" by fastforce
+      with Cons.prems(3) False T have "M 0 i + M i 0 = 0" by fastforce
       with Cons.IH[OF _ _ Cons.prems(3,4)] Cons.prems(1,2) show ?thesis by auto
     next
       case True
@@ -1001,30 +1005,30 @@ next
     qed
   next
     case False
-    with Cons.prems have "\<one> < M 0 i + M i 0" "i \<le> n" "i \<noteq> 0" by auto
+    with Cons.prems have "0 < M 0 i + M i 0" "i \<le> n" "i \<noteq> 0" by auto
     with fix_index[OF this(1) cycle_free_diag_intro[OF Cons.prems(3)] Cons.prems(4) this(2,3), of v]
     obtain M' :: "('a DBMEntry) mat" where M':
-      "((\<exists>u. DBM_val_bounded v u M' n) \<longrightarrow> (\<exists>u. DBM_val_bounded v u M n))" "(M' 0 i + M' i 0 = \<one>)"
-      "cyc_free M' n" "\<forall>j\<le>n. i \<noteq> j \<and> M 0 j + M j 0 > \<one> \<longrightarrow> M' 0 j + M' j 0 > \<one>"
-      "\<forall>j. i \<noteq> j \<and> M 0 j + M j 0 = \<one> \<longrightarrow> M' 0 j + M' j 0 = \<one>"
+      "((\<exists>u. DBM_val_bounded v u M' n) \<longrightarrow> (\<exists>u. DBM_val_bounded v u M n))" "(M' 0 i + M' i 0 = 0)"
+      "cyc_free M' n" "\<forall>j\<le>n. i \<noteq> j \<and> M 0 j + M j 0 > 0 \<longrightarrow> M' 0 j + M' j 0 > 0"
+      "\<forall>j. i \<noteq> j \<and> M 0 j + M j 0 = 0 \<longrightarrow> M' 0 j + M' j 0 = 0"
     using cycle_free_diag_equiv by blast
     let ?M' = "FW M' n"
     from fw_canonical[of n M'] \<open>cyc_free M' n\<close> have "canonical ?M' n" by auto
     from FW_cyc_free_preservation[OF \<open>cyc_free M' n\<close>] have "cyc_free ?M' n"
     by auto
     from FW_fixed_preservation[OF \<open>i \<le> n\<close> M'(2) \<open>canonical ?M' n\<close> \<open>cyc_free ?M' n\<close>]
-    have fixed:"?M' 0 i + ?M' i 0 = \<one>" by (auto simp: add_mono)
+    have fixed:"?M' 0 i + ?M' i 0 = 0" by (auto simp: add_mono)
     from Cons.IH[OF _ _ \<open>cyc_free ?M' n\<close> \<open>canonical ?M' n\<close>] Cons.prems(1,2,3)
     obtain M'' :: "('a DBMEntry) mat"
     where M'': "((\<exists>u. DBM_val_bounded v u M'' n) \<longrightarrow> (\<exists>u. DBM_val_bounded v u ?M' n))"
-      "(\<forall>i\<in>set xs. i \<noteq> 0 \<longrightarrow> M'' 0 i + M'' i 0 = \<one>)" "cyc_free M'' n"
-      "(\<forall>i\<le>n. i \<notin> set xs \<and> ?M' 0 i + ?M' i 0 = \<one> \<longrightarrow> M'' 0 i + M'' i 0 = \<one>)"
+      "(\<forall>i\<in>set xs. i \<noteq> 0 \<longrightarrow> M'' 0 i + M'' i 0 = 0)" "cyc_free M'' n"
+      "(\<forall>i\<le>n. i \<notin> set xs \<and> ?M' 0 i + ?M' i 0 = 0 \<longrightarrow> M'' 0 i + M'' i 0 = 0)"
     by auto
     from FW_fixed_preservation[OF _ _ \<open>canonical ?M' n\<close> \<open>cyc_free ?M' n\<close>] M'(5)
-    have "\<forall>j\<le>n. i \<noteq> j \<and> M 0 j + M j 0 = \<one> \<longrightarrow> ?M' 0 j + ?M' j 0 = \<one>" by auto
-    with M''(4) have "\<forall>j\<le>n. j \<notin> set (i # xs) \<and> M 0 j + M j 0 = \<one> \<longrightarrow> M'' 0 j + M'' j 0 = \<one>" by auto
+    have "\<forall>j\<le>n. i \<noteq> j \<and> M 0 j + M j 0 = 0 \<longrightarrow> ?M' 0 j + ?M' j 0 = 0" by auto
+    with M''(4) have "\<forall>j\<le>n. j \<notin> set (i # xs) \<and> M 0 j + M j 0 = 0 \<longrightarrow> M'' 0 j + M'' j 0 = 0" by auto
     moreover from M''(2) M''(4) fixed Cons.prems(2) \<open>i \<le> n\<close>
-    have "(\<forall>i\<in>set (i#xs). i \<noteq> 0 \<longrightarrow> M'' 0 i + M'' i 0 = \<one>)" by auto
+    have "(\<forall>i\<in>set (i#xs). i \<noteq> 0 \<longrightarrow> M'' 0 i + M'' i 0 = 0)" by auto
     moreover from M''(1) M'(1) FW_not_empty[of v _ M' n]
     have "(\<exists>u. DBM_val_bounded v u M'' n) \<longrightarrow> (\<exists>u. DBM_val_bounded v u M n)" by auto
     ultimately show ?thesis using \<open>cyc_free M'' n\<close> M''(4) by auto
@@ -1042,18 +1046,18 @@ proof -
   from fix_indices[OF this \<open>cyc_free ?M n\<close> \<open>canonical ?M n\<close>]
   obtain M' :: "('a DBMEntry) mat" where M':
     "(\<exists>u. DBM_val_bounded v u M' n) \<longrightarrow> (\<exists>u. DBM_val_bounded v u (FW M n) n)"
-    "\<forall>i\<in>set [0..<n + 1]. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = \<one>" "cyc_free M' n"
-  by blast
+    "\<forall>i\<in>set [0..<n + 1]. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = 0" "cyc_free M' n"
+    by blast
   let ?M' = "FW M' n"
   have "\<And> i. i \<le> n \<Longrightarrow> i \<in> set [0..<n + 1]" by auto
-  with M'(2) have M'_fixed: "\<forall>i\<le>n. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = \<one>" by fastforce
+  with M'(2) have M'_fixed: "\<forall>i\<le>n. i \<noteq> 0 \<longrightarrow> M' 0 i + M' i 0 = 0" by fastforce
   from fw_canonical[of n M'] M'(3) have "canonical ?M' n" by blast
   from FW_fixed_preservation[OF _ _ this FW_cyc_free_preservation[OF M'(3)]] M'_fixed
-  have fixed: "\<forall>i\<le>n. i \<noteq> 0 \<longrightarrow> ?M' 0 i + ?M' i 0 = \<one>" by auto
+  have fixed: "\<forall>i\<le>n. i \<noteq> 0 \<longrightarrow> ?M' 0 i + ?M' i 0 = 0" by auto
   have *: "\<And>i. i \<le> n \<Longrightarrow> i \<noteq> 0 \<Longrightarrow> \<exists> d. ?M' 0 i = Le (-d) \<and> ?M' i 0 = Le d"
   proof -
     fix i assume i: "i \<le> n" "i \<noteq> 0"
-    from i fixed have *:"dbm_add (?M' 0 i) (?M' i 0) = Le 0" by (auto simp add: mult neutral)
+    from i fixed have *:"dbm_add (?M' 0 i) (?M' i 0) = Le 0" by (auto simp add: add neutral)
     moreover
     { fix a b :: 'a assume "a + b = 0"
       then have "a = -b" by (simp add: eq_neg_iff_add_eq_0)
@@ -1094,16 +1098,16 @@ proof -
     with f 4 ** have "Le (f (v c2)) = Le d2" by simp
     then have d2': "f (v c2) = d2" by auto
     have "Le d1 \<le> ?M' (v c1) (v c2) + Le d2" using \<open>canonical ?M' n\<close> 4 d1 d2
-    by (auto simp add: less_eq mult)
+      by (auto simp add: less_eq add)
     then show ?case
     proof (cases "?M' (v c1) (v c2)", auto, goal_cases)
       case (1 d)
-      from this(1) have "d1 \<le> d + d2" by (auto simp: mult less_eq le_dbm_le)
+      from this(1) have "d1 \<le> d + d2" by (auto simp: add less_eq le_dbm_le)
       then have "d1 - d2 \<le> d" by (simp add: diff_le_eq)
       then show ?case using d1' d2' by auto
     next
       case (2 d)
-      from this(1) have "d1 < d + d2" by (auto simp: mult less_eq dbm_le_def elim: dbm_lt.cases)
+      from this(1) have "d1 < d + d2" by (auto simp: add less_eq dbm_le_def elim: dbm_lt.cases)
       then have "d1 - d2 < d" using diff_less_eq by blast
       then show ?case using d1' d2' by auto
     qed
@@ -1119,7 +1123,7 @@ theorem FW_detects_empty_zone:
   \<Longrightarrow> [FW M n]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> (\<exists> i\<le>n. (FW M n) i i < Le 0)"
 proof
   assume surj_on:"\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" and "\<exists>i\<le>n. (FW M n) i i < Le 0"
-  then obtain i where *: "len (FW M n) i i [] < \<one>" "i \<le>n" by (auto simp add: neutral)
+  then obtain i where *: "len (FW M n) i i [] < 0" "i \<le>n" by (auto simp add: neutral)
   show "[FW M n]\<^bsub>v,n\<^esub> = {}"
   proof (rule ccontr, goal_cases)
     case 1
@@ -1132,7 +1136,7 @@ next
   show "\<exists> i\<le>n. (FW M n) i i < Le 0"
   proof (rule ccontr, goal_cases)
     case 1
-    then have *:"\<forall>i\<le>n. FW M n i i \<ge> \<one>" by (auto simp add: neutral)
+    then have *:"\<forall>i\<le>n. FW M n i i \<ge> 0" by (auto simp add: neutral)
     have "cyc_free M n"
     proof (rule ccontr)
       assume "\<not> cyc_free M n"
@@ -1167,7 +1171,7 @@ lemma not_empty_cyc_free:
 unfolding DBM_zone_repr_def by fastforce
 
 lemma neg_cycle_empty:
-  assumes "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists> c. v c = k)" "set xs \<subseteq> {0..n}" "i \<le> n" "len M i i xs < \<one>"
+  assumes "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists> c. v c = k)" "set xs \<subseteq> {0..n}" "i \<le> n" "len M i i xs < 0"
   shows "[(M :: ('a :: time) DBM)]\<^bsub>v,n\<^esub> = {}" using assms
 by (metis leD not_empty_cyc_free)
 
@@ -1176,7 +1180,7 @@ where
   "clock_numbering' v n \<equiv> \<forall> c. v c > 0 \<and> (\<forall>x. \<forall>y. v x \<le> n \<and> v y \<le> n \<and> v x = v y \<longrightarrow> x = y)"
 
 lemma non_empty_dbm_diag_set:
-  "clock_numbering' v n \<Longrightarrow> [M]\<^bsub>v,n\<^esub> \<noteq> {} \<Longrightarrow> [M]\<^bsub>v,n\<^esub> = [(\<lambda> i j. if i = j then \<one> else M i j)]\<^bsub>v,n\<^esub>"
+  "clock_numbering' v n \<Longrightarrow> [M]\<^bsub>v,n\<^esub> \<noteq> {} \<Longrightarrow> [M]\<^bsub>v,n\<^esub> = [(\<lambda> i j. if i = j then 0 else M i j)]\<^bsub>v,n\<^esub>"
 proof (auto simp: DBM_zone_repr_def, goal_cases)
   case 1
   { fix c assume A: "v c = 0"
@@ -1198,7 +1202,7 @@ next
     from 2 have "v c > 0" by auto
     with A have False by auto
   } note * = this
-  { fix c assume A: "v c \<le> n" "M (v c) (v c) < \<one>"
+  { fix c assume A: "v c \<le> n" "M (v c) (v c) < 0"
     with 2(1) have False
       apply (auto simp: neutral DBM_val_bounded_def less)
       apply (cases rule: dbm_lt.cases)
@@ -1215,7 +1219,7 @@ next
     proof (cases "v c1 = v c2")
       case True
       with 3 have "c1 = c2" by auto
-      moreover with **[OF 3(8)] not_less have "M (v c2) (v c2) \<ge> \<one>" by auto
+      moreover with **[OF 3(8)] not_less have "M (v c2) (v c2) \<ge> 0" by auto
       ultimately show "dbm_entry_val xa (Some c1) (Some c2) (M (v c1) (v c2))" unfolding neutral
       by (cases "M (v c1) (v c2)") (auto simp add: less_eq dbm_le_def, fastforce+)
     next
@@ -1234,14 +1238,14 @@ apply (drule negative_cycle_dest_diag')
 using DBM_val_bounded_neg_cycle assms unfolding DBM_zone_repr_def by blast
 
 lemma neg_diag_empty:
-  assumes "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" "i \<le> n" "M i i < \<one>"
+  assumes "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" "i \<le> n" "M i i < 0"
   shows "[M]\<^bsub>v,n\<^esub> = {}"
 unfolding DBM_zone_repr_def using DBM_val_bounded_neg_cycle[of v _ M n i "[]"] assms by auto
 
 lemma canonical_empty_zone:
   assumes "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)" "\<forall>c. v c \<le> n \<longrightarrow> 0 < v c"
     and "canonical M n"
-  shows "[M]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> (\<exists>i\<le>n. M i i < \<one>)"
+  shows "[M]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> (\<exists>i\<le>n. M i i < 0)"
 using FW_detects_empty_zone[OF assms(1,2), of M] FW_canonical_id[OF assms(3)] unfolding neutral
 by simp
 

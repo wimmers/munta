@@ -10,18 +10,6 @@ hide_const D
 
 hide_fact upd_def
 
-(* Move to DBM operations *)
-lemma dbm_abstra_zone_eq:
-  assumes "clock_numbering' v n" "v (constraint_clk ac) \<le> n"
-  shows "[abstra ac M v]\<^bsub>v,n\<^esub> = {u. u \<turnstile>\<^sub>a ac} \<inter> [M]\<^bsub>v,n\<^esub>"
-  apply safe
-  subgoal
-    unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_completeness)
-  subgoal
-    using abstra_subset by blast
-  subgoal
-    unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_soundness)
-  done
 
 lemma FWI'_characteristic:
   "canonical_subs n (I \<union> {a::nat}) (curry (FWI' M n a)) \<or> check_diag n (FWI' M n a)" if
@@ -34,11 +22,11 @@ lemma FWI'_check_diag_preservation:
   using that fwi_mono[of _ n _ "curry M" a n n] unfolding check_diag_def FWI'_def FWI_def by force
 
 lemma diag_conv_M:
-  "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>" if "\<forall>i\<le>n. D (i, i) \<le> \<one>"
+  "\<forall>i\<le>n. conv_M D (i, i) \<le> 0" if "\<forall>i\<le>n. D (i, i) \<le> 0"
   using that by auto (metis DBMEntry.simps(15) conv_dbm_entry_mono neutral of_int_0)
 
 lemma conv_M_diag:
-  "\<forall>i\<le>n. D (i, i) \<le> \<one>" if "\<forall>i\<le>n. conv_M D (i, i) \<le> \<one>"
+  "\<forall>i\<le>n. D (i, i) \<le> 0" if "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
   using that by (simp add: conv_dbm_entry_mono_rev neutral)
 
 lemma curry_conv_M_swap:
@@ -156,7 +144,7 @@ lemma canonical_subs'_subset:
 
 lemma wf_dbm_altD:
   "canonical' D \<or> check_diag n D"
-  "\<forall>i\<le>n. D (i, i) \<le> \<one>"
+  "\<forall>i\<le>n. D (i, i) \<le> 0"
   "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V"
   if "wf_dbm D"
   using that
@@ -175,32 +163,32 @@ thm valid_dbm_def
 lemma wf_dbm_rule:
   assumes "wf_dbm D"
   assumes canonical:
-    "canonical' D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> \<one> \<Longrightarrow> \<forall>i\<le>n. D (i, i) = \<one> \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
+    "canonical' D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> 0 \<Longrightarrow> \<forall>i\<le>n. D (i, i) = 0 \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
     \<Longrightarrow> canonical' (f D) \<or> check_diag n (f D)
     "
   assumes diag:
-    "check_diag n D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> \<one> \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
+    "check_diag n D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> 0 \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
     \<Longrightarrow> check_diag n (f D)
     "
   assumes diag_le:
-    "canonical' D \<or> check_diag n D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> \<one> \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
-    \<Longrightarrow> \<forall>i\<le>n. f D (i, i) \<le> \<one>
+    "canonical' D \<or> check_diag n D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> 0 \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
+    \<Longrightarrow> \<forall>i\<le>n. f D (i, i) \<le> 0
     "
   assumes V:
-    "canonical' D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> \<one> \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
+    "canonical' D \<Longrightarrow> \<forall>i\<le>n. D (i, i) \<le> 0 \<Longrightarrow> [curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V
     \<Longrightarrow> [curry (conv_M (f D))]\<^bsub>v,n\<^esub> \<subseteq> V
     "
   shows "wf_dbm (f D)"
 proof -
   from wf_dbm_altD[OF assms(1)] have facts:
-    "canonical' D \<or> check_diag n D" "\<forall>i\<le>n. D (i, i) \<le> \<one>" "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V"
+    "canonical' D \<or> check_diag n D" "\<forall>i\<le>n. D (i, i) \<le> 0" "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> V"
     .
   from this(1) consider "canonical' D \<and> \<not> check_diag n D" | "check_diag n D"
     by auto
   then show ?thesis
   proof cases
     assume A: "canonical' D \<and> \<not> check_diag n D"
-    with facts(2) have "\<forall>i\<le>n. D (i, i) = \<one>"
+    with facts(2) have "\<forall>i\<le>n. D (i, i) = 0"
       unfolding check_diag_def neutral[symmetric] by fastforce
     with A[THEN conjunct1] show ?thesis
       by (intro wf_dbm_altI[unfolded canonical'_conv_M_iff] canonical diag_le V facts)
@@ -291,7 +279,7 @@ lemma repair_pair_canonical_diag_2:
   unfolding repair_pair_def using that by (auto intro: FWI'_check_diag_preservation)
 
 lemma repair_pair_diag_le:
-  "\<forall>i\<le>n. repair_pair M 0 c (i, i) \<le> \<one>" if "\<forall>i\<le>n. M (i, i) \<le> \<one>"
+  "\<forall>i\<le>n. repair_pair M 0 c (i, i) \<le> 0" if "\<forall>i\<le>n. M (i, i) \<le> 0"
   using that
   unfolding repair_pair_def FWI'_def
   apply clarsimp
@@ -331,9 +319,9 @@ proof -
   note facts = wf_dbm_altD[OF assms(1)]
   let ?M = "abstra_upd ac M"
   let ?MM = "abstra_repair ac M"
-  from assms(2) facts(2) have "\<forall>i\<le>n. ?M (i, i) \<le> \<one>"
+  from assms(2) facts(2) have "\<forall>i\<le>n. ?M (i, i) \<le> 0"
     by (auto simp: abstra_upd_diag_preservation)
-  then have diag: "\<forall>i\<le>n. ?MM (i, i) \<le> \<one>" unfolding abstra_repair_def by (rule repair_pair_diag_le)
+  then have diag: "\<forall>i\<le>n. ?MM (i, i) \<le> 0" unfolding abstra_repair_def by (rule repair_pair_diag_le)
   from assms(2,3) facts(3) have "[curry (conv_M ?M)]\<^bsub>v,n\<^esub> \<subseteq> V" by - (rule abstra_upd_conv_M_V)
   with repair_pair_equiv[of 0 "constraint_clk ac" ?M] assms(3) have V:
     "[curry (conv_M ?MM)]\<^bsub>v,n\<^esub> \<subseteq> V"

@@ -25,8 +25,8 @@ instantiation real :: time
 begin
   instance proof
     fix x y :: real
-    assume "x < y" 
-    then show "\<exists>z>x. z < y" using dense_order_class.dense by blast 
+    assume "x < y"
+    then show "\<exists>z>x. z < y" using dense_order_class.dense by blast
   next
     have "(1 :: real) \<noteq> 0" by auto
     then show "\<exists>x. (x::real) \<noteq> 0" ..
@@ -347,7 +347,7 @@ proof goal_cases
   case 1
   note A = this
   with region_cover[OF ] obtain R where R: "R \<in> \<R> \<and> v \<in> R" by fastforce
-  moreover 
+  moreover
   { fix R' assume "R' \<in> \<R> \<and> v \<in> R'"
    with R valid_regions_distinct[OF _ _ _ _] have "R' = R" unfolding \<R>_def by blast
   }
@@ -611,11 +611,11 @@ proof -
   next
     case (2 u c)
     from clock_numbering(1) have "0 \<noteq> v c" by auto
-    with 2 show ?case by auto 
+    with 2 show ?case by auto
   next
     case (3 u c)
     from clock_numbering(1) have "0 \<noteq> v c" by auto
-    with 3 show ?case by auto 
+    with 3 show ?case by auto
   next
     case (4 u c)
     with clock_numbering have "c \<in> X" by blast
@@ -861,7 +861,7 @@ proof -
   with assms(1,4,5) have non_neg:
     "M i j + M j i \<ge> Le 0"
   by (metis cycle_free_diag order.trans neutral)
-  
+
   from clock_numbering have cn: "\<forall>c. v c \<le> n \<longrightarrow> 0 < v c" by auto
   show ?thesis
   proof (cases "i = 0")
@@ -930,13 +930,13 @@ proof -
           obtain r where r: "Le r \<le> M 0 j" "Le (-r) \<le> M j 0" "a < r"
           proof (cases "M j 0")
             case (Le d')
-            with 3 non_neg \<open>i = 0\<close> have "b + d' \<ge> 0" unfolding mult by auto
+            with 3 non_neg \<open>i = 0\<close> have "b + d' \<ge> 0" unfolding add by auto
             then have "b \<ge> - d'" by auto
             with 3 obtain r where "r \<ge> - d'" "r > a" "r \<le> b" by blast
             with Le 3 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d')
-            with 3 non_neg \<open>i = 0\<close> have "b + d' > 0" unfolding mult by auto
+            with 3 non_neg \<open>i = 0\<close> have "b + d' > 0" unfolding add by auto
             from gt_case[OF 3(3) this] obtain r where "r > - d'" "r > a" "r \<le> b" by auto
             with Lt 3 show ?thesis by (intro that[of r]) auto
           next
@@ -949,12 +949,12 @@ proof -
           obtain r where r: "Le r \<le> M 0 j" "Le (-r) \<le> M j 0" "a < r"
           proof (cases "M j 0")
             case (Le d)
-            with 4 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 4 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 4(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Le 4 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d)
-            with 4 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 4 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 4(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Lt 4 show ?thesis by (intro that[of r]) auto
           next
@@ -968,13 +968,13 @@ proof -
           obtain r where r: "Le r \<le> M 0 j" "Le (-r) \<le> M j 0" "a \<le> r"
           proof (cases "M j 0")
             case (Le d')
-            with 5 non_neg \<open>i = 0\<close> have "b + d' \<ge> 0" unfolding mult by auto
+            with 5 non_neg \<open>i = 0\<close> have "b + d' \<ge> 0" unfolding add by auto
             then have "b \<ge> - d'" by auto
             with 5 obtain r where "r \<ge> - d'" "r \<ge> a" "r \<le> b" by blast
             with Le 5 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d')
-            with 5 non_neg \<open>i = 0\<close> have "b + d' > 0" unfolding mult by auto
+            with 5 non_neg \<open>i = 0\<close> have "b + d' > 0" unfolding add by auto
             then have "b > - d'" by auto
             with 5 obtain r where "r > - d'" "r \<ge> a" "r \<le> b" by blast
             with Lt 5 show ?thesis by (intro that[of r]) auto
@@ -991,12 +991,12 @@ proof -
           obtain r where r: "Le r \<le> M 0 j" "Le (-r) \<le> M j 0" "a < r"
           proof (cases "M j 0")
             case (Le d)
-            with 6 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 6 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 6(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Le 6 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d)
-            with 6 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 6 non_neg \<open>i = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 6(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Lt 6 show ?thesis by (intro that[of r]) auto
           next
@@ -1071,13 +1071,13 @@ proof -
           obtain r where r: "Le r \<le> M i 0" "Le (-r) \<le> M 0 i" "a < r"
           proof (cases "M 0 i")
             case (Le d')
-            with 3 non_neg \<open>j = 0\<close> have "b + d' \<ge> 0" unfolding mult by auto
+            with 3 non_neg \<open>j = 0\<close> have "b + d' \<ge> 0" unfolding add by auto
             then have "b \<ge> - d'" by auto
             with 3 obtain r where "r \<ge> - d'" "r > a" "r \<le> b" by blast
             with Le 3 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d')
-            with 3 non_neg \<open>j = 0\<close> have "b + d' > 0" unfolding mult by auto
+            with 3 non_neg \<open>j = 0\<close> have "b + d' > 0" unfolding add by auto
             from gt_case[OF 3(3) this] obtain r where "r > - d'" "r > a" "r \<le> b" by auto
             with Lt 3 show ?thesis by (intro that[of r]) auto
           next
@@ -1090,12 +1090,12 @@ proof -
           obtain r where r: "Le r \<le> M i 0" "Le (-r) \<le> M 0 i" "a < r"
           proof (cases "M 0 i")
             case (Le d)
-            with 4 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 4 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 4(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Le 4 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d)
-            with 4 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 4 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 4(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Lt 4 show ?thesis by (intro that[of r]) auto
           next
@@ -1109,13 +1109,13 @@ proof -
           obtain r where r: "Le r \<le> M i 0" "Le (-r) \<le> M 0 i" "a \<le> r"
           proof (cases "M 0 i")
             case (Le d')
-            with 5 non_neg \<open>j = 0\<close> have "b + d' \<ge> 0" unfolding mult by auto
+            with 5 non_neg \<open>j = 0\<close> have "b + d' \<ge> 0" unfolding add by auto
             then have "b \<ge> - d'" by auto
             with 5 obtain r where "r \<ge> - d'" "r \<ge> a" "r \<le> b" by blast
             with Le 5 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d')
-            with 5 non_neg \<open>j = 0\<close> have "b + d' > 0" unfolding mult by auto
+            with 5 non_neg \<open>j = 0\<close> have "b + d' > 0" unfolding add by auto
             then have "b > - d'" by auto
             with 5 obtain r where "r > - d'" "r \<ge> a" "r \<le> b" by blast
             with Lt 5 show ?thesis by (intro that[of r]) auto
@@ -1132,12 +1132,12 @@ proof -
           obtain r where r: "Le r \<le> M i 0" "Le (-r) \<le> M 0 i" "a < r"
           proof (cases "M 0 i")
             case (Le d)
-            with 6 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 6 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 6(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Le 6 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d)
-            with 6 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding mult by auto
+            with 6 non_neg \<open>j = 0\<close> have "b + d > 0" unfolding add by auto
             from gt_case[OF 6(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Lt 6 show ?thesis by (intro that[of r]) auto
           next
@@ -1208,13 +1208,13 @@ proof -
           obtain r where r: "Le r \<le> M i j" "Le (-r) \<le> M j i" "a < r"
           proof (cases "M j i")
             case (Le d')
-            with 3 non_neg have "b + d' \<ge> 0" unfolding mult by auto
+            with 3 non_neg have "b + d' \<ge> 0" unfolding add by auto
             then have "b \<ge> - d'" by auto
             with 3 obtain r where "r \<ge> - d'" "r > a" "r \<le> b" by blast
             with Le 3 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d')
-            with 3 non_neg have "b + d' > 0" unfolding mult by auto
+            with 3 non_neg have "b + d' > 0" unfolding add by auto
             from gt_case[OF 3(3) this] obtain r where "r > - d'" "r > a" "r \<le> b" by auto
             with Lt 3 show ?thesis by (intro that[of r]) auto
           next
@@ -1227,12 +1227,12 @@ proof -
           obtain r where r: "Le r \<le> M i j" "Le (-r) \<le> M j i" "a < r"
           proof (cases "M j i")
             case (Le d)
-            with 4 non_neg have "b + d > 0" unfolding mult by auto
+            with 4 non_neg have "b + d > 0" unfolding add by auto
             from gt_case[OF 4(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Le 4 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d)
-            with 4 non_neg have "b + d > 0" unfolding mult by auto
+            with 4 non_neg have "b + d > 0" unfolding add by auto
             from gt_case[OF 4(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Lt 4 show ?thesis by (intro that[of r]) auto
           next
@@ -1246,13 +1246,13 @@ proof -
           obtain r where r: "Le r \<le> M i j" "Le (-r) \<le> M j i" "a \<le> r"
           proof (cases "M j i")
             case (Le d')
-            with 5 non_neg have "b + d' \<ge> 0" unfolding mult by auto
+            with 5 non_neg have "b + d' \<ge> 0" unfolding add by auto
             then have "b \<ge> - d'" by auto
             with 5 obtain r where "r \<ge> - d'" "r \<ge> a" "r \<le> b" by blast
             with Le 5 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d')
-            with 5 non_neg have "b + d' > 0" unfolding mult by auto
+            with 5 non_neg have "b + d' > 0" unfolding add by auto
             then have "b > - d'" by auto
             with 5 obtain r where "r > - d'" "r \<ge> a" "r \<le> b" by blast
             with Lt 5 show ?thesis by (intro that[of r]) auto
@@ -1269,12 +1269,12 @@ proof -
           obtain r where r: "Le r \<le> M i j" "Le (-r) \<le> M j i" "a < r"
           proof (cases "M j i")
             case (Le d)
-            with 6 non_neg have "b + d > 0" unfolding mult by auto
+            with 6 non_neg have "b + d > 0" unfolding add by auto
             from gt_case[OF 6(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Le 6 show ?thesis by (intro that[of r]) auto
           next
             case (Lt d)
-            with 6 non_neg have "b + d > 0" unfolding mult by auto
+            with 6 non_neg have "b + d > 0" unfolding add by auto
             from gt_case[OF 6(3) this] obtain r where "r > - d" "r > a" "r < b" by auto
             with Lt 6 show ?thesis by (intro that[of r]) auto
           next
@@ -1302,7 +1302,7 @@ proof goal_cases
     "{R \<in> \<R>. \<exists> I J r. R = region X I J r \<and> valid_region X k I J r \<and>
       (\<forall> c \<in> X.
         (\<forall> d. I c = Const d \<longrightarrow> M (v c) 0 \<ge> Le d \<and> M 0 (v c) \<ge> Le (-d)) \<and>
-        (\<forall> d. I c = Intv d \<longrightarrow>  M (v c) 0 \<ge> Lt (d + 1) \<and> M 0 (v c) \<ge> Lt (-d)) \<and> 
+        (\<forall> d. I c = Intv d \<longrightarrow>  M (v c) 0 \<ge> Lt (d + 1) \<and> M 0 (v c) \<ge> Lt (-d)) \<and>
         (I c = Greater (k c) \<longrightarrow>  M (v c) 0 = \<infinity>)
       ) \<and>
       (\<forall> x \<in> X. \<forall> y \<in> X.
@@ -1550,7 +1550,7 @@ proof goal_cases
         ultimately show "Lt (- real d) \<le> M 0 (v c)" unfolding less_eq dbm_le_def
           proof (cases "M 0 (v c)", -, auto, goal_cases)
             case prems: (1 x1)
-            then have "u c = d + frac (u c)" by (metis nat_intv_frac_decomp \<open>u c < d + 1\<close>) 
+            then have "u c = d + frac (u c)" by (metis nat_intv_frac_decomp \<open>u c < d + 1\<close>)
             with prems(5) have "- x1 \<le> d + frac (u c)" by auto
             with prems(1) frac_ge_0 frac_lt_1 have "- x1 \<le> d"
             by - (rule ints_le_add_frac2[of "frac (u c)" d "-x1"]; fastforce)
@@ -1558,7 +1558,7 @@ proof goal_cases
             then show ?case by auto
           next
             case prems: (2 x1)
-            then have "u c = d + frac (u c)" by (metis nat_intv_frac_decomp \<open>u c < d + 1\<close>) 
+            then have "u c = d + frac (u c)" by (metis nat_intv_frac_decomp \<open>u c < d + 1\<close>)
             with prems(5) have "- x1 \<le> d + frac (u c)" by auto
             with prems(1) frac_ge_0 frac_lt_1 have "- x1 \<le> d"
             by - (rule ints_le_add_frac2[of "frac (u c)" d "-x1"]; fastforce)
@@ -1666,7 +1666,7 @@ proof goal_cases
           case (8 c d) with R(1) \<open>u \<in> R\<close> X show ?case by auto
         next
           case (9 c d)
-          with * nat_intv_frac_decomp[of c "u x"] nat_intv_frac_decomp[of d "u y"] have 
+          with * nat_intv_frac_decomp[of c "u x"] nat_intv_frac_decomp[of d "u y"] have
             "u x - u y = real c - d" by auto
           with *** show ?case unfolding less_eq dbm_le_def by (cases "M (v x) (v y)") auto
         next
@@ -1790,19 +1790,19 @@ proof -
 qed
 
 lemma neg_diag_empty_spec:
-  assumes "i \<le> n" "M i i < \<one>"
+  assumes "i \<le> n" "M i i < 0"
   shows "[M]\<^bsub>v,n\<^esub> = {}"
 using assms neg_diag_empty[where v= v and M = M, OF _ assms] clock_numbering(2) by auto
 
 lemma canonical_empty_zone_spec:
   assumes "canonical M n"
-  shows "[M]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> (\<exists>i\<le>n. M i i < \<one>)"
+  shows "[M]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> (\<exists>i\<le>n. M i i < 0)"
 using canonical_empty_zone[of n v M, OF _ _ assms] clock_numbering by auto
 
 lemma norm_set_diag:
   assumes "canonical M n" "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
   obtains M' where "[M]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>" "[norm M (k o v') n]\<^bsub>v,n\<^esub> = [norm M' (k o v') n]\<^bsub>v,n\<^esub>"
-                   "\<forall> i \<le> n. M' i i = \<one>" "canonical M' n"
+                   "\<forall> i \<le> n. M' i i = 0" "canonical M' n"
 proof -
   from assms(2) neg_diag_empty_spec have *: "\<forall> i\<le>n. M i i \<ge> Le 0" unfolding neutral by force
   let ?M = "\<lambda>i j. if i = j then Le 0 else M i j"
@@ -1814,9 +1814,9 @@ proof -
     "[M]\<^bsub>v,n\<^esub> = [?M]\<^bsub>v,n\<^esub>" "[?NM]\<^bsub>v,n\<^esub> = [?M2]\<^bsub>v,n\<^esub>"
   by auto
   moreover have "norm ?M (k o v') n = ?M2" unfolding norm_def by fastforce
-  moreover have "\<forall> i \<le> n. ?M i i = \<one>" unfolding neutral by auto
+  moreover have "\<forall> i \<le> n. ?M i i = 0" unfolding neutral by auto
   moreover have "canonical ?M n" using assms(1) *
-  unfolding neutral[symmetric] less_eq[symmetric] mult[symmetric] by fastforce
+  unfolding neutral[symmetric] less_eq[symmetric] add[symmetric] by fastforce
   ultimately show ?thesis by (auto intro: that)
 qed
 
@@ -1880,7 +1880,7 @@ proof -
     with clock_numbering have c: "c \<in> X" "v c > 0" "v c \<le> n" by auto
     with assms(2) have
       "M 0 (v c) + M (v c) 0 \<ge> M 0 0"
-    unfolding mult less_eq by blast
+    unfolding add less_eq by blast
     moreover from cycle_free_diag[OF *] have "M 0 0 \<ge> Le 0" unfolding neutral by auto
     ultimately have ge_0: "M 0 (v c) + M (v c) 0 \<ge> Le 0" by auto
     have "M 0 (v c) \<le> Le 0"
@@ -1888,7 +1888,7 @@ proof -
       case (Le d)
       with ge_0 have "M (v c) 0 \<ge> Le (-d)"
        apply (cases "M (v c) 0")
-         unfolding mult apply auto
+         unfolding add apply auto
          apply (rename_tac x1)
          apply (subgoal_tac "-d \<le> x1")
          apply auto
@@ -1912,7 +1912,7 @@ proof -
         show ?thesis
         proof (cases "M (v c) 0")
           case (Le d')
-          with Lt ge_0 have *: "d > -d'" unfolding mult by auto
+          with Lt ge_0 have *: "d > -d'" unfolding add by auto
           show ?thesis
           proof (cases "d' < 0")
             case True
@@ -1929,7 +1929,7 @@ proof -
           qed
         next
           case (Lt d')
-          with Lt' ge_0 have *: "d > -d'" unfolding mult by auto
+          with Lt' ge_0 have *: "d > -d'" unfolding add by auto
           then have **: "-d < d'" by auto
           show ?thesis
           proof (cases "d' \<le> 0")
@@ -1998,9 +1998,9 @@ lemma norm_V_preservation:
   shows "[norm M (k o v') n]\<^bsub>v,n\<^esub> \<subseteq> V" (is "[?M]\<^bsub>v,n\<^esub> \<subseteq> V")
 proof (cases "[M]\<^bsub>v,n\<^esub> = {}")
   case True
-  obtain i where i: "i \<le> n" "M i i < \<one>" by (metis True assms(2) canonical_empty_zone_spec)
+  obtain i where i: "i \<le> n" "M i i < 0" by (metis True assms(2) canonical_empty_zone_spec)
   have "\<not> Le (real (k (v' i))) < Le 0" unfolding less by (cases "k (v' i) = 0", auto)
-  with i have "?M i i < \<one>" unfolding norm_def by (auto simp: neutral less Let_def)
+  with i have "?M i i < 0" unfolding norm_def by (auto simp: neutral less Let_def)
   with neg_diag_empty_spec[OF \<open>i \<le> n\<close>] have "[?M]\<^bsub>v,n\<^esub> = {}" .
   then show ?thesis by auto
 next
@@ -2136,14 +2136,14 @@ proof -
     "vabstr ([?M]\<^bsub>v,n\<^esub>) ?M" "normalized ?M" "[?M]\<^bsub>v,n\<^esub> \<subseteq> V"
   by auto
   from dbm_regions'[OF this] obtain U where U: "U \<subseteq> \<R>" "[?M]\<^bsub>v,n\<^esub> = \<Union>U" by auto
-  from assms(3) have **: "[M]\<^bsub>v,n\<^esub> \<subseteq> [?M]\<^bsub>v,n\<^esub>" by (simp add: norm_mono clock_numbering(1) subsetI) 
+  from assms(3) have **: "[M]\<^bsub>v,n\<^esub> \<subseteq> [?M]\<^bsub>v,n\<^esub>" by (simp add: norm_mono clock_numbering(1) subsetI)
   show ?thesis
   proof (cases "[M]\<^bsub>v,n\<^esub> = {}")
     case True
     from canonical_empty_zone_spec[OF \<open>canonical M n\<close>] True obtain i where i:
-      "i \<le> n" "M i i < \<one>"
+      "i \<le> n" "M i i < 0"
     by auto
-    with assms(3) have "?M i i < \<one>" unfolding neutral norm_def
+    with assms(3) have "?M i i < 0" unfolding neutral norm_def
     proof (cases "i = 0", auto intro: Lt_lt_LeI, goal_cases)
       case 1
       then show ?case unfolding less by auto
@@ -2167,7 +2167,7 @@ proof -
   qed
 qed
 
-end        
+end
 
 
 section \<open>Auxiliary \<open>\<beta>\<close>-boundedness Theorems\<close>
@@ -2349,7 +2349,7 @@ proof -
         case (Const d)
         with C(1,2) Intv A(2,3) 23(2) have "real c - d < m" by auto
         then have "real c < m + d" by linarith
-        then have "c < m + d" by linarith 
+        then have "c < m + d" by linarith
         then have "real c + 1 - d \<le> m" by simp
         with Const Intv R R' show ?thesis by blast
       next

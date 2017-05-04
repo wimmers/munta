@@ -26,21 +26,21 @@ lemma canonical_is_cyc_free:
   fixes M :: "nat \<Rightarrow> nat \<Rightarrow> ('b :: {linordered_cancel_ab_semigroup_add, linordered_ab_monoid_add})"
   assumes "canonical M n"
   shows "cyc_free M n"
-proof (cases "\<forall> i \<le> n. \<one> \<le> M i i")
+proof (cases "\<forall> i \<le> n. 0 \<le> M i i")
   case True
   with assms show ?thesis by (rule canonical_cyc_free)
 next
   case False
-  then obtain i where "i \<le> n" "M i i < \<one>" by auto
+  then obtain i where "i \<le> n" "M i i < 0" by auto
   then have "M i i + M i i < M i i" using add_strict_left_mono by fastforce
   with \<open>i \<le> n\<close> assms show ?thesis by fastforce
 qed
 
 lemma dbm_neg_add:
   fixes a :: "('t :: time) DBMEntry"
-  assumes "a < \<one>"
-  shows "a + a < \<one>"
-using assms unfolding neutral mult less
+  assumes "a < 0"
+  shows "a + a < 0"
+using assms unfolding neutral add less
 by (cases a) auto
 
 instance linordered_ab_group_add \<subseteq> linordered_cancel_ab_monoid_add by standard auto
@@ -48,21 +48,21 @@ instance linordered_ab_group_add \<subseteq> linordered_cancel_ab_monoid_add by 
 lemma Le_cancel_1[simp]:
   fixes d :: "'c :: linordered_ab_group_add"
   shows "Le d + Le (-d) = Le 0"
-unfolding mult by simp
+unfolding add by simp
 
 lemma Le_cancel_2[simp]:
   fixes d :: "'c :: linordered_ab_group_add"
   shows "Le (-d) + Le d = Le 0"
-unfolding mult by simp
+unfolding add by simp
 
 lemma reset_canonical_canonical':
   "canonical (reset_canonical M k (d :: 'c :: linordered_ab_group_add)) n"
-  if "M 0 0 = \<one>" "M k k = \<one>" "canonical M n" "k > 0" for k n :: nat
+  if "M 0 0 = 0" "M k k = 0" "canonical M n" "k > 0" for k n :: nat
 proof -
   have add_mono_neutr': "a \<le> a + b" if "b \<ge> Le (0 :: 'c)" for a b
-    using that unfolding neutral[symmetric] by (rule add_mono_neutr)
+    using that unfolding neutral[symmetric] by (simp add: add_increasing2)
   have add_mono_neutl': "a \<le> b + a" if "b \<ge> Le (0 :: 'c)" for a b
-    using that unfolding neutral[symmetric] by (rule add_mono_neutl)
+    using that unfolding neutral[symmetric] by (simp add: add_increasing)
   show ?thesis
     using that
     unfolding reset_canonical_def neutral
@@ -76,16 +76,16 @@ proof -
                 apply (simp add: add_mono_neutl'; fail)
                apply (simp add: add_mono_neutl'; fail)
               apply (simp add: add_mono_neutl' add_mono_neutr'; fail)
-             apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
-            apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr' comm; fail)
-           apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+             apply (simp add: add.assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+            apply (simp add: add.assoc[symmetric] add_mono_neutl' add_mono_neutr' comm; fail)
+           apply (simp add: add.assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
     subgoal premises prems for i j k
     proof -
       from prems have "M i k \<le> M i 0 + M 0 k"
         by auto
       also have "\<dots> \<le> Le (- d) + M i 0 + (Le d + M 0 k)"
-        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
-        by (metis le_less linordered_ab_monoid_add_class.neutr neutral)
+        apply (simp add: add.assoc[symmetric], simp add: comm, simp add: add.assoc[symmetric])
+        using prems(1) that(1) by auto
       finally show ?thesis .
     qed
     subgoal premises prems for i j k
@@ -93,8 +93,8 @@ proof -
       from prems have "Le 0 \<le> M 0 j + M j 0"
         by force
       also have "\<dots> \<le> Le d + M 0 j + (Le (- d) + M j 0)"
-        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
-        by (metis le_less linordered_ab_monoid_add_class.neutr neutral comm)
+        apply (simp add: add.assoc[symmetric], simp add: comm, simp add: add.assoc[symmetric])
+        using prems(1) that(1) by (auto simp: add.commute)
       finally show ?thesis .
     qed
     subgoal premises prems for i j k
@@ -109,7 +109,7 @@ proof -
       from prems have "M 0 k \<le> M 0 j + M j k"
         by force
       then show ?thesis
-        by (simp add: add_left_mono assoc)
+        by (simp add: add_left_mono add.assoc)
     qed
     subgoal premises prems for i j
     proof -
@@ -137,12 +137,12 @@ qed
 
 lemma reset_canonical_canonical:
   "canonical (reset_canonical M k (d :: 'c :: linordered_ab_group_add)) n"
-  if "\<forall> i \<le> n. M i i = \<one>" "canonical M n" "k > 0" for k n :: nat
+  if "\<forall> i \<le> n. M i i = 0" "canonical M n" "k > 0" for k n :: nat
 proof -
   have add_mono_neutr': "a \<le> a + b" if "b \<ge> Le (0 :: 'c)" for a b
-    using that unfolding neutral[symmetric] by (rule add_mono_neutr)
+    using that unfolding neutral[symmetric] by (simp add: add_increasing2)
   have add_mono_neutl': "a \<le> b + a" if "b \<ge> Le (0 :: 'c)" for a b
-    using that unfolding neutral[symmetric] by (rule add_mono_neutl)
+    using that unfolding neutral[symmetric] by (simp add: add_increasing)
   show ?thesis
     using that
     unfolding reset_canonical_def neutral
@@ -156,16 +156,16 @@ proof -
                 apply (simp add: add_mono_neutl'; fail)
                apply (simp add: add_mono_neutl'; fail)
               apply (simp add: add_mono_neutl' add_mono_neutr'; fail)
-             apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
-            apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr' comm; fail)
-           apply (simp add: assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+             apply (simp add: add.assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
+            apply (simp add: add.assoc[symmetric] add_mono_neutl' add_mono_neutr' comm; fail)
+           apply (simp add: add.assoc[symmetric] add_mono_neutl' add_mono_neutr'; fail)
     subgoal premises prems for i j k
     proof -
       from prems have "M i k \<le> M i 0 + M 0 k"
         by auto
       also have "\<dots> \<le> Le (- d) + M i 0 + (Le d + M 0 k)"
-        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
-        by (metis le_less linordered_ab_monoid_add_class.neutr neutral)
+        apply (simp add: add.assoc[symmetric], simp add: comm, simp add: add.assoc[symmetric])
+        using prems(1) that(1) by (auto simp: add.commute)
       finally show ?thesis .
     qed
     subgoal premises prems for i j k
@@ -173,8 +173,8 @@ proof -
       from prems have "Le 0 \<le> M 0 j + M j 0"
         by force
       also have "\<dots> \<le> Le d + M 0 j + (Le (- d) + M j 0)"
-        apply (simp add: assoc[symmetric], simp add: comm, simp add: assoc[symmetric])
-        by (metis le_less linordered_ab_monoid_add_class.neutr neutral comm)
+        apply (simp add: add.assoc[symmetric], simp add: comm, simp add: add.assoc[symmetric])
+        using prems(1) that(1) by (auto simp: add.commute)
       finally show ?thesis .
     qed
     subgoal premises prems for i j k
@@ -189,7 +189,7 @@ proof -
       from prems have "M 0 k \<le> M 0 j + M j k"
         by force
       then show ?thesis
-        by (simp add: add_left_mono assoc)
+        by (simp add: add_left_mono add.assoc)
     qed
     subgoal premises prems for i j
     proof -
@@ -219,7 +219,7 @@ qed
 lemma canonicalD[simp]:
   assumes "canonical M n" "i \<le> n" "j \<le> n" "k \<le> n"
   shows "min (dbm_add (M i k) (M k j)) (M i j) = M i j"
-using assms unfolding mult[symmetric] min_def by fastforce
+using assms unfolding add[symmetric] min_def by fastforce
 
 lemma reset_reset_canonical:
   assumes "canonical M n" "k > 0" "k \<le> n" "clock_numbering v"
@@ -310,7 +310,7 @@ proof safe
           "dbm_entry_val u None (Some c2) (M 0 (v c2))"
         unfolding DBM_zone_repr_def DBM_val_bounded_def reset_def by auto
         ultimately show ?thesis using False \<open>k > 0\<close> \<open>v c1 = k\<close> \<open>v c2 > 0\<close>
-        unfolding reset_canonical_def mult by (auto intro: dbm_entry_val_add_4)
+        unfolding reset_canonical_def add by (auto intro: dbm_entry_val_add_4)
       qed
     next
       case False
@@ -327,7 +327,7 @@ proof safe
         unfolding reset_canonical_def
           apply simp
           apply (subst add.commute)
-        by (auto intro: dbm_entry_val_add_4[folded mult])
+        by (auto intro: dbm_entry_val_add_4[folded add])
       next
         case False
         from \<open>u \<in> _\<close> \<open>v c1 \<le> n\<close> \<open>v c2 \<le> n\<close> have
@@ -489,13 +489,13 @@ proof -
 qed
 
 lemma reset'_reset''_equiv:
-  assumes "canonical M n" "d \<ge> 0" "\<forall>i \<le> n. M i i = \<one>"
+  assumes "canonical M n" "d \<ge> 0" "\<forall>i \<le> n. M i i = 0"
           "clock_numbering' v n" "\<forall> c \<in> set cs. v c \<le> n"
       and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
   shows "[reset' M n cs v d]\<^bsub>v,n\<^esub> = [reset'' M n cs v d]\<^bsub>v,n\<^esub>"
 proof -
   from assms(3,4,5) surj have
-    "\<forall>i \<le> n. M i i \<ge> \<one>" "M 0 0 = Le 0" "\<forall> c \<in> set cs. M (v c) (v c) = Le 0"
+    "\<forall>i \<le> n. M i i \<ge> 0" "M 0 0 = Le 0" "\<forall> c \<in> set cs. M (v c) (v c) = Le 0"
   unfolding neutral by auto
   note assms = assms(1,2) this assms(4-)
   from \<open>clock_numbering' v n\<close> have "clock_numbering v" by auto
@@ -765,7 +765,7 @@ qed
 
 lemma reset_canonical_upd_canonical:
   "canonical (curry (reset_canonical_upd M n k (d :: 'c :: {linordered_ab_group_add,uminus}))) n"
-  if "\<forall> i \<le> n. M (i, i) = \<one>" "canonical (curry M) n" "k > 0" for k n :: nat
+  if "\<forall> i \<le> n. M (i, i) = 0" "canonical (curry M) n" "k > 0" for k n :: nat
   using reset_canonical_canonical[of n "curry M" k] that
   by (auto simp: reset_canonical_upd_reset_canonical')
 
@@ -871,11 +871,11 @@ named_theorems dbm_entry_simps
 
 lemma [dbm_entry_simps]:
   "a + \<infinity> = \<infinity>"
-unfolding mult by (cases a) auto
+unfolding add by (cases a) auto
 
 lemma [dbm_entry_simps]:
   "\<infinity> + b = \<infinity>"
-unfolding mult by (cases b) auto
+unfolding add by (cases b) auto
 
 lemmas any_le_inf[dbm_entry_simps]
 
@@ -897,7 +897,7 @@ lemma DBM_up_to_equiv:
   shows "[M]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
  apply safe
  apply (rule DBM_le_subset)
-using assms by (auto simp: mult[symmetric] intro: DBM_le_subset)
+using assms by (auto simp: add[symmetric] intro: DBM_le_subset)
 
 lemma up_canonical_equiv_up:
   assumes "canonical M n"
@@ -906,8 +906,8 @@ lemma up_canonical_equiv_up:
 unfolding up_canonical_def up_def using assms by simp
 
 lemma up_canonical_diag_preservation:
-  assumes "\<forall> i \<le> n. M i i = \<one>"
-  shows "\<forall> i \<le> n. (up_canonical M) i i = \<one>"
+  assumes "\<forall> i \<le> n. M i i = 0"
+  shows "\<forall> i \<le> n. (up_canonical M) i i = 0"
 unfolding up_canonical_def using assms by auto
 
 (* XXX Move *)
@@ -985,7 +985,7 @@ definition pointwise_cmp where
 
 lemma subset_eq_pointwise_le:
   fixes M :: "real DBM"
-  assumes "canonical M n" "\<forall> i \<le> n. M i i = \<one>" "\<forall> i \<le> n. M' i i = \<one>"
+  assumes "canonical M n" "\<forall> i \<le> n. M i i = 0" "\<forall> i \<le> n. M' i i = 0"
       and prems: "clock_numbering' v n" "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
   shows "[M]\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub> \<longleftrightarrow> pointwise_cmp (op \<le>) n M M'"
 unfolding pointwise_cmp_def
@@ -1024,7 +1024,7 @@ lemma dbm_subset_trans:
 using assms unfolding dbm_subset_def pointwise_cmp_def check_diag_def by fastforce
 
 lemma canonical_nonneg_diag_non_empty:
-  assumes "canonical M n" "\<forall>i\<le>n. \<one> \<le> M i i" "\<forall>c. v c \<le> n \<longrightarrow> 0 < v c"
+  assumes "canonical M n" "\<forall>i\<le>n. 0 \<le> M i i" "\<forall>c. v c \<le> n \<longrightarrow> 0 < v c"
   shows "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
  apply (rule cyc_free_not_empty)
  apply (rule canonical_cyc_free)
@@ -1037,7 +1037,7 @@ text \<open>
 \<close>
 lemma subset_eq_dbm_subset:
   fixes M :: "real DBM'"
-  assumes "canonical (curry M) n \<or> check_diag n M" "\<forall> i \<le> n. M (i, i) \<le> \<one>" "\<forall> i \<le> n. M' (i, i) \<le> \<one>"
+  assumes "canonical (curry M) n \<or> check_diag n M" "\<forall> i \<le> n. M (i, i) \<le> 0" "\<forall> i \<le> n. M' (i, i) \<le> 0"
       and cn: "clock_numbering' v n" and surj: "\<forall> k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
   shows "[curry M]\<^bsub>v,n\<^esub> \<subseteq> [curry M']\<^bsub>v,n\<^esub> \<longleftrightarrow> dbm_subset n M M'"
 proof (cases "check_diag n M")
@@ -1061,7 +1061,7 @@ next
   next
     case False
     with F assms(2,3) have
-      "\<forall> i \<le> n. M (i, i) = \<one>" "\<forall> i \<le> n. M' (i, i) = \<one>"
+      "\<forall> i \<le> n. M (i, i) = 0" "\<forall> i \<le> n. M' (i, i) = 0"
     unfolding check_diag_def neutral[symmetric] by fastforce+
     with F False show ?thesis unfolding dbm_subset_def
     by (subst subset_eq_pointwise_le[OF canonical _ _ cn surj]; auto)

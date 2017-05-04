@@ -7,31 +7,16 @@ begin
 
 section \<open>Refinement\<close>
 
-instantiation DBMEntry :: (linordered_cancel_ab_monoid_add) zero
-begin
-  definition "0 = Le 0"
-  instance ..
-end
-
 instance DBMEntry :: ("{countable}") countable
-apply (rule countable_classI[of "(\<lambda>Le (a::'a) \<Rightarrow> to_nat (0::nat,a) | DBM.Lt a \<Rightarrow> to_nat (1::nat,a) | DBM.INF \<Rightarrow> to_nat (2::nat,undefined::'a) )"])
+  apply (rule
+    countable_classI[of
+      "(\<lambda>Le (a::'a) \<Rightarrow> to_nat (0::nat,a) |
+           DBM.Lt a \<Rightarrow> to_nat (1::nat,a) |
+            DBM.INF \<Rightarrow> to_nat (2::nat,undefined::'a) )"])
 apply (simp split: DBMEntry.splits)
 done
 
 instance DBMEntry :: ("{heap}") heap ..
-
-instance int :: linordered_cancel_ab_monoid_add by (standard; simp)
-
-(* XXX Move *)
-lemma [code]:
-  "dbm_lt (Lt a) \<infinity> = True"
-  "dbm_lt (Le a) \<infinity> = True"
-  "dbm_lt (Le a) (Le b) = (a < b)"
-  "dbm_lt (Le a) (Lt b) = (a < b)"
-  "dbm_lt (Lt a) (Le b) = (a \<le> b)"
-  "dbm_lt (Lt a) (Lt b) = (a < b)"
-  "dbm_lt \<infinity> x = False"
-by auto
 
 definition dbm_subset' :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> 't DBM' \<Rightarrow> bool" where
   "dbm_subset' n M M' \<equiv> pointwise_cmp (op \<le>) n (curry M) (curry M')"
@@ -43,15 +28,19 @@ by (simp add: dbm_subset'_def pointwise_cmp_alt_def neutral)
 
 lemma dbm_subset_alt_def'[code]:
   "dbm_subset n M M' =
-    (list_ex (\<lambda> i. op_mtx_get M (i, i) < \<one>) [0..<Suc n] \<or>
+    (list_ex (\<lambda> i. op_mtx_get M (i, i) < 0) [0..<Suc n] \<or>
     list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n])"
 by (simp add: dbm_subset_def check_diag_alt_def pointwise_cmp_alt_def neutral)
+
 
 context
   fixes n :: nat
 begin
 
-abbreviation "mtx_assn \<equiv> asmtx_assn (Suc n) id_assn"
+abbreviation
+  mtx_assn :: "(nat \<times> nat \<Rightarrow> ('a :: {linordered_ab_monoid_add, heap})) \<Rightarrow> 'a array \<Rightarrow> assn"
+where
+  "mtx_assn \<equiv> asmtx_assn (Suc n) id_assn"
 
 (* declare param_upt[sepref_import_param] *)
 
@@ -84,16 +73,17 @@ sepref_definition up_canonical_upd_impl is
   "uncurry (RETURN oo up_canonical_upd)" :: "[\<lambda>(_,i). i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
 unfolding up_canonical_upd_def[abs_def] op_mtx_set_def[symmetric] by sepref
 
-(* XXX Which version is better for this constant? *)
-(* lemmas [sepref_import_param] = Relation.IdI[of \<one>] *)
 lemma [sepref_import_param]:
-  "(Le 0, \<one>) \<in> Id"
-unfolding neutral by simp
+  "(Le 0, 0) \<in> Id"
+  unfolding neutral by simp
+
+(* XXX Not sure if this is dangerous *)
+sepref_register 0
 
 sepref_definition check_diag_impl' is
   "uncurry (RETURN oo check_diag)" ::
   "[\<lambda>(i, _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] by sepref
+  unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] by sepref
 
 lemma [sepref_opt_simps]:
   "(x = True) = x"

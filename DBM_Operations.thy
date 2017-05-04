@@ -25,7 +25,7 @@ where
 section \<open>Time Lapse\<close>
 
 definition
-  up :: "('t::linordered_cancel_ab_semigroup_add) DBM \<Rightarrow> ('t::linordered_cancel_ab_semigroup_add) DBM"
+  up :: "('t::linordered_cancel_ab_semigroup_add) DBM \<Rightarrow> 't DBM"
 where
   "up M \<equiv>
     \<lambda> i j. if i > 0 then if j = 0 then \<infinity> else min (dbm_add (M i 0) (M 0 j)) (M i j) else M i j"
@@ -795,6 +795,19 @@ apply (induction cc arbitrary: M)
  apply (simp; fail)
 using abstra_subset by fastforce
 
+(* Move to DBM operations *)
+lemma dbm_abstra_zone_eq:
+  assumes "clock_numbering' v n" "v (constraint_clk ac) \<le> n"
+  shows "[abstra ac M v]\<^bsub>v,n\<^esub> = {u. u \<turnstile>\<^sub>a ac} \<inter> [M]\<^bsub>v,n\<^esub>"
+  apply safe
+  subgoal
+    unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_completeness)
+  subgoal
+    using abstra_subset by blast
+  subgoal
+    unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_soundness)
+  done
+
 (* XXX Move *)
 lemma [simp]:
   "u \<turnstile> []"
@@ -986,7 +999,7 @@ next
       proof (cases zs)
         case Nil
         with rotated have "M l k + M k l < Le 0" "l \<noteq> k"  by auto
-        with assms(1) \<open>l \<le> n\<close> have "M' l l < Le 0" unfolding DBM_reset_def mult min_def by auto
+        with assms(1) \<open>l \<le> n\<close> have "M' l l < Le 0" unfolding DBM_reset_def add min_def by auto
         with \<open>l \<le> n\<close> have "len M' l l [] < Le 0" "set [l] \<subseteq> {0..n}" by auto
         then show ?thesis by blast
       next
@@ -995,13 +1008,13 @@ next
         from Cons n_bound rotated(3) have "w \<le> n" "w \<noteq> k" "l \<noteq> k" by auto
         with assms(1) \<open>l \<le> n\<close> have
           "M' l w \<le> M l k + M k w"
-        unfolding DBM_reset_def mult min_def by auto
+          unfolding DBM_reset_def add min_def by auto
         moreover from Cons rotated assms * have
           "len M' w l ws \<le> len M w l ws"
-        by - (rule DBM_reset_len_mono, auto)
+          by - (rule DBM_reset_len_mono, auto)
         ultimately have
           "len M' l l zs \<le> len M l l (k # zs)"
-        using Cons by (auto intro: add_mono simp add: assoc[symmetric])
+          using Cons by (auto intro: add_mono simp add: add.assoc[symmetric])
         with n_bound rotated(1) show ?thesis by fastforce
       qed
     next
@@ -1031,7 +1044,8 @@ where
 
 fun
   reset' ::
-  "('t::{linordered_cancel_ab_semigroup_add,uminus}) DBM \<Rightarrow> nat \<Rightarrow> 'c list \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't \<Rightarrow> 't DBM"
+  "('t::{linordered_cancel_ab_semigroup_add,uminus}) DBM
+  \<Rightarrow> nat \<Rightarrow> 'c list \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> 't \<Rightarrow> 't DBM"
 where
   "reset' M n [] v d = M" |
   "reset' M n (c # cs) v d = reset (reset' M n cs v d) n (v c) d"
@@ -1047,7 +1061,8 @@ unfolding DBM_val_bounded_def using assms
 proof (auto, goal_cases)
   case 1
   then have *: "M 0 0 \<ge> Le 0" unfolding DBM_val_bounded_def less_eq by auto
-  from 1 have **: "M' 0 0 = min (M 0 (v c) + M (v c) 0) (M 0 0)" unfolding DBM_reset_def mult by auto
+  from 1 have **: "M' 0 0 = min (M 0 (v c) + M (v c) 0) (M 0 0)"
+    unfolding DBM_reset_def add by auto
   show ?case
   proof (cases "M 0 (v c) + M (v c) 0 \<le> M 0 0")
     case False
@@ -1055,9 +1070,9 @@ proof (auto, goal_cases)
   next
     case True
     have "dbm_entry_val u (Some c) (Some c) (M (v c) 0 + M 0 (v c))"
-    by (metis DBM_val_bounded_def assms(2,4) dbm_entry_val_add_4 mult)
+      by (metis DBM_val_bounded_def assms(2,4) dbm_entry_val_add_4 add)
     then have "M (v c) 0 + M 0 (v c) \<ge> Le 0"
-    unfolding less_eq dbm_le_def by (cases "M (v c) 0 + M 0 (v c)") auto
+      unfolding less_eq dbm_le_def by (cases "M (v c) 0 + M 0 (v c)") auto
     with True ** have "M' 0 0 \<ge> Le 0" by (simp add: comm)
     then show ?thesis unfolding less_eq .
   qed
@@ -1246,8 +1261,9 @@ next
             case (2 d')
             from add_strict_mono[OF this(2) G2(3)] have "- u c2 + u c1 < d' + d" by simp
             hence "- u c2 + u c1 < d + d'"
-            by (metis (full_types) diff_0 diff_minus_eq_add minus_add_distrib minus_diff_eq)
-            hence "u c1 - u c2 < d + d'" by (metis add_diff_cancel_left diff_0 diff_0_right diff_add_cancel)
+              by (metis (full_types) diff_0 diff_minus_eq_add minus_add_distrib minus_diff_eq)
+            hence "u c1 - u c2 < d + d'"
+              by (metis add_diff_cancel_left diff_0 diff_0_right diff_add_cancel)
             thus ?case using 2 \<open>c \<noteq> c1\<close> \<open>c \<noteq> c2\<close> by fastforce
           next
             case (3) thus ?case by auto
@@ -1285,7 +1301,7 @@ lemma DBM_reset_sound_empty:
 using assms DBM_reset_complete by metis
 
 lemma DBM_reset_diag_preservation:
-  "\<forall>k\<le>n. M k k \<le> \<one> \<Longrightarrow> DBM_reset M n i d M' \<Longrightarrow> \<forall>k\<le>n. M' k k \<le> \<one>"
+  "\<forall>k\<le>n. M k k \<le> 0 \<Longrightarrow> DBM_reset M n i d M' \<Longrightarrow> \<forall>k\<le>n. M' k k \<le> 0"
   apply auto
   apply (case_tac "k = i")
    apply (simp add: DBM_reset_def less[symmetric])
@@ -1293,11 +1309,11 @@ lemma DBM_reset_diag_preservation:
 by (auto simp add: DBM_reset_def less[symmetric] neutral split: split_min)
 
 lemma FW_diag_preservation:
-  "\<forall>k\<le>n. M k k \<le> \<one> \<Longrightarrow> \<forall>k\<le>n. (FW M n) k k \<le> \<one>"
+  "\<forall>k\<le>n. M k k \<le> 0 \<Longrightarrow> \<forall>k\<le>n. (FW M n) k k \<le> 0"
 proof clarify
-  fix k assume A: "\<forall>k\<le>n. M k k \<le> \<one>" "k \<le> n"
-  then have "M k k \<le> \<one>" by auto
-  with fw_mono[of k n k M n] A show "FW M n k k \<le> \<one>" by auto
+  fix k assume A: "\<forall>k\<le>n. M k k \<le> 0" "k \<le> n"
+  then have "M k k \<le> 0" by auto
+  with fw_mono[of k n k M n] A show "FW M n k k \<le> 0" by auto
 qed
 
 lemma DBM_reset_not_cyc_free_preservation:
@@ -1320,7 +1336,7 @@ proof -
   from assms(5) have "[M]\<^bsub>v,n\<^esub> = {}" unfolding DBM_zone_repr_def by auto
   from empty_not_cyc_free[OF _ this] have "\<not> cyc_free M n" using assms(2) by auto
   from DBM_reset_not_cyc_free_preservation[OF this assms(4,3)] have "\<not> cyc_free M' n" by auto
-  then obtain i xs where "i \<le> n" "set xs \<subseteq> {0..n}" "len M' i i xs < \<one>" by auto
+  then obtain i xs where "i \<le> n" "set xs \<subseteq> {0..n}" "len M' i i xs < 0" by auto
   from DBM_val_bounded_neg_cycle[OF _ this assms(1)] show ?thesis by fast
 qed
 
@@ -2292,13 +2308,13 @@ qed
 
 lemma DBM_reset'_neg_diag_preservation':
   fixes M :: "('t :: time) DBM"
-  assumes "k\<le>n" "M k k < \<one>" "clock_numbering v" "\<forall> c \<in> set cs. v c \<le> n"
-  shows "reset' M n cs v d k k < \<one>" using assms
+  assumes "k\<le>n" "M k k < 0" "clock_numbering v" "\<forall> c \<in> set cs. v c \<le> n"
+  shows "reset' M n cs v d k k < 0" using assms
 proof (induction cs)
   case Nil thus ?case by auto
 next
   case (Cons c cs)
-  then have IH: "reset' M n cs v d k k < \<one>" by auto
+  then have IH: "reset' M n cs v d k k < 0" by auto
   from Cons.prems have "v c > 0" "v c \<le> n" by auto
   from DBM_reset_reset[OF this, of "reset' M n cs v d" d] \<open>k \<le> n\<close>
   have "reset (reset' M n cs v d) n (v c) d k k \<le> reset' M n cs v d k k" unfolding DBM_reset_def
@@ -2385,12 +2401,12 @@ section \<open>Misc Preservation Lemmas\<close>
 
 lemma get_const_sum[simp]:
   "a \<noteq> \<infinity> \<Longrightarrow> b \<noteq> \<infinity> \<Longrightarrow> get_const a \<in> \<int> \<Longrightarrow> get_const b \<in> \<int> \<Longrightarrow> get_const (a + b) \<in> \<int>"
-by (cases a) (cases b, auto simp: mult)+
+by (cases a) (cases b, auto simp: add)+
 
 lemma sum_not_inf_dest:
   assumes "a + b \<noteq> \<infinity>"
   shows "a \<noteq> \<infinity> \<and> b \<noteq> \<infinity>"
-using assms by (cases a; cases b; simp add: mult)
+using assms by (cases a; cases b; simp add: add)
 
 lemma sum_not_inf_int:
   assumes "a + b \<noteq> \<infinity>" "get_const a \<in> \<int>" "get_const b \<in> \<int>"
@@ -2472,7 +2488,7 @@ unfolding up_def min_def
  apply (case_tac "j = 0")
   apply fastforce
  apply auto
-unfolding mult[symmetric] by (auto dest: sum_not_inf_dest)
+unfolding add[symmetric] by (auto dest: sum_not_inf_dest)
 
 lemma up_int_preservation:
   "dbm_int (M :: (('t :: {time, ring_1}) DBM)) n \<Longrightarrow> dbm_int (up M) n"
@@ -2483,7 +2499,7 @@ unfolding up_def min_def
  apply (case_tac "j = 0")
   apply fastforce
  apply auto
-unfolding mult[symmetric] by (auto dest: sum_not_inf_dest)
+unfolding add[symmetric] by (auto dest: sum_not_inf_dest)
 
 (* Definitely a candidate for cleaning *)
 lemma DBM_reset_int_preservation':
@@ -2508,15 +2524,15 @@ proof clarify
     subgoal
     proof goal_cases
       case 1
-      then have *: "M i k + M k j \<noteq> \<infinity>" unfolding mult min_def by meson
+      then have *: "M i k + M k j \<noteq> \<infinity>" unfolding add min_def by meson
       with sum_not_inf_dest have "M i k \<noteq> \<infinity>" "M k j \<noteq> \<infinity>" by auto
       with 1(3,4) assms(1,4) have "get_const (M i k) \<in> \<int>" "get_const (M k j) \<in> \<int>" by auto
-      with sum_not_inf_int[folded mult, OF *] show ?case unfolding mult by auto
+      with sum_not_inf_int[folded add, OF *] show ?case unfolding add by auto
     qed
     subgoal
     proof goal_cases
       case 1
-      then have *: "M i j \<noteq> \<infinity>" unfolding mult min_def by meson
+      then have *: "M i j \<noteq> \<infinity>" unfolding add min_def by meson
       with 1(3,4) assms(1,4) show ?case by auto
     qed
   done
@@ -2535,7 +2551,9 @@ lemma DBM_reset_int_all_preservation:
 using assms
  apply clarify
  subgoal for i j
- by (cases "i = k"; cases "j = k"; auto simp: reset_def min_def mult[symmetric] dest!: sum_not_inf_dest)
+   by (cases "i = k"; cases "j = k";
+       auto simp: reset_def min_def add[symmetric] dest!: sum_not_inf_dest
+       )
 done
 
 lemma DBM_reset'_int_all_preservation:
@@ -2552,8 +2570,10 @@ proof (induction cs)
   case Nil then show ?case by simp
 next
   case (Cons c cs)
-  from Cons.IH[OF Cons.prems(1,2,3)] Cons.prems(4) have "dbm_int (reset' M n cs v d) n" by fastforce
-  from DBM_reset_int_preservation[OF this Cons.prems(2), of "v c"] Cons.prems(3,4) show ?case by auto
+  from Cons.IH[OF Cons.prems(1,2,3)] Cons.prems(4) have "dbm_int (reset' M n cs v d) n"
+    by fastforce
+  from DBM_reset_int_preservation[OF this Cons.prems(2), of "v c"] Cons.prems(3,4) show ?case
+    by auto
 qed
 
 lemma reset_set1:
@@ -2711,27 +2731,27 @@ qed
 subsection \<open>Unused theorems\<close>
 
 lemma canonical_cyc_free:
-  "canonical M n \<Longrightarrow> \<forall>i \<le> n. M i i \<ge> \<one> \<Longrightarrow> cyc_free M n"
+  "canonical M n \<Longrightarrow> \<forall>i \<le> n. M i i \<ge> 0 \<Longrightarrow> cyc_free M n"
 proof (rule ccontr, auto, goal_cases)
   case 1
   with canonical_len[OF this(1,3,3,4)] show False by auto
 qed
 
 lemma canonical_cyc_free2:
-  "canonical M n \<Longrightarrow> cyc_free M n \<longleftrightarrow> (\<forall>i \<le> n. M i i \<ge> \<one>)"
+  "canonical M n \<Longrightarrow> cyc_free M n \<longleftrightarrow> (\<forall>i \<le> n. M i i \<ge> 0)"
  apply safe
   apply (simp add: cyc_free_diag_dest')
 using canonical_cyc_free by blast
 
 lemma DBM_reset'_diag_preservation:
   fixes M :: "('t :: time) DBM"
-  assumes "\<forall>k\<le>n. M k k \<le> \<one>" "clock_numbering v" "\<forall> c \<in> set cs. v c \<le> n"
-  shows "\<forall>k\<le>n. reset' M n cs v d k k \<le> \<one>" using assms
+  assumes "\<forall>k\<le>n. M k k \<le> 0" "clock_numbering v" "\<forall> c \<in> set cs. v c \<le> n"
+  shows "\<forall>k\<le>n. reset' M n cs v d k k \<le> 0" using assms
 proof (induction cs)
   case Nil thus ?case by auto
 next
   case (Cons c cs)
-  then have IH: "\<forall>k\<le>n. reset' M n cs v d k k \<le> \<one>" by auto
+  then have IH: "\<forall>k\<le>n. reset' M n cs v d k k \<le> 0" by auto
   from Cons.prems have "v c > 0" "v c \<le> n" by auto
   from DBM_reset_diag_preservation[of n "reset' M n cs v d", OF IH DBM_reset_reset, of "v c", OF this]
   show ?case by simp

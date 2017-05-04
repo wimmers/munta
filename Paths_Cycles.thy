@@ -97,9 +97,9 @@ proof (induction xs arbitrary: i j)
 next
   case (Cons x xs)
   have "M i x + len M x j xs + (M i x + len M x j xs) = M i x + (len M x j xs + M i x) + len M x j xs"
-  by (simp add: assoc)
+    by (simp add: add.assoc)
   also have "\<dots> = M i x + (M i x + len M x j xs) + len M x j xs" by (simp add: comm)
-  also have "\<dots> = (M i x + M i x) + (len M x j xs + len M x j xs)" by (simp add: assoc)
+  also have "\<dots> = (M i x + M i x) + (len M x j xs + len M x j xs)" by (simp add: add.assoc)
   finally have "M i x + len M x j xs + (M i x + len M x j xs)
                 = (M i x + M i x) + len (\<lambda>i j. M i j + M i j) x j xs"
   using Cons by simp
@@ -261,13 +261,13 @@ section \<open>More on Cycle-Freeness\<close>
 
 lemma cyc_free_diag_dest:
   assumes "cyc_free M n" "i \<le> n" "set xs \<subseteq> {0..n}"
-  shows "len M i i xs \<ge> \<one>"
+  shows "len M i i xs \<ge> 0"
 using assms by auto
 
 lemma cycle_free_0_0:
   fixes M :: "('a::linordered_ab_monoid_add) mat"
   assumes "cycle_free M n"
-  shows "M 0 0 \<ge> \<one>"
+  shows "M 0 0 \<ge> 0"
 using cyc_free_diag_dest[OF cycle_free_diag_dest[OF assms], of 0 "[]"] by auto
 
 
@@ -799,7 +799,7 @@ next
        \<and> successive (\<lambda>a. case a of (a, b) \<Rightarrow> M a b = A a b) (arcs i j ys)"
     by fastforce
     moreover from 1 have "len M i j (y # xs) \<le> len M i j (x # y # xs)"
-    using add_mono by (auto simp: assoc[symmetric])
+    using add_mono by (auto simp: add.assoc[symmetric])
     ultimately show ?case by force
   next
     case False
@@ -832,7 +832,7 @@ next
       by simp
       moreover from add_mono_right[OF ys(1)] have
         "len M i j (x # y # ys) \<le> len M i j (x # y # xs)"
-      by (auto simp: assoc[symmetric])
+      by (auto simp: add.assoc[symmetric])
       ultimately show ?thesis using ys(2) 3(5) by fastforce
     qed
   qed
@@ -874,7 +874,7 @@ next
        "distinct ys \<and> i \<notin> set ys \<and> j \<notin> set ys"
     by fastforce
     moreover from 1 have "len M i j (y # xs) \<le> len M i j (x # y # xs)"
-    using add_mono by (auto simp: assoc[symmetric])
+    using add_mono by (auto simp: add.assoc[symmetric])
     ultimately have "len M i j ys \<le> len M i j (x # y # xs)" by auto
     then show ?thesis using ys(2-) by blast
   next
@@ -913,7 +913,7 @@ next
       by simp
       moreover from add_mono_right[OF ys(1)] have
         "len M i j (x # y # ys) \<le> len M i j (x # y # xs)"
-      by (auto simp: assoc[symmetric])
+      by (auto simp: add.assoc[symmetric])
       moreover have "distinct (x # y # ys)" "i \<notin> set (x # y # ys)" "j \<notin> set (x # y # ys)"
       using ys(4-) 3(8-) by auto
       ultimately show ?thesis using ys(2) by fastforce
@@ -930,8 +930,8 @@ lemma canonical_shorten_rotate_neg_cycle:
   assumes "canonical A n"
   assumes "set xs \<subseteq> {0..n}"
   assumes "i \<le> n"
-  assumes "len M i i xs < \<one>"
-  shows "\<exists> j ys. len M j j ys < \<one> \<and> set (j # ys) \<subseteq> set (i # xs)
+  assumes "len M i i xs < 0"
+  shows "\<exists> j ys. len M j j ys < 0 \<and> set (j # ys) \<subseteq> set (i # xs)
                \<and> successive (\<lambda> (a, b). M a b = A a b) (arcs j j ys)
                \<and> distinct ys \<and> j \<notin> set ys \<and>
                (ys \<noteq> [] \<longrightarrow> M j (hd ys) \<noteq> A j (hd ys) \<or> M (last ys) j \<noteq> A (last ys) j)"
@@ -939,7 +939,7 @@ using assms
 proof -
   note A = assms
   from negative_len_shortest[OF _ A(5)] obtain j ys where ys:
-    "distinct (j # ys)" "len M j j ys < \<one>" "j \<in> set (i # xs)" "set ys \<subseteq> set xs"
+    "distinct (j # ys)" "len M j j ys < 0" "j \<in> set (i # xs)" "set ys \<subseteq> set xs"
   by blast
   from this(1,3) canonical_successive_distinct[OF A(2) subset_trans[OF this(4) A(3)], of j j B] A(3,4)
   obtain zs where zs:
@@ -962,7 +962,7 @@ proof -
         with A(2) True have "M u w \<le> M u j + M j w" unfolding M_def min_def by fastforce
         then have
           "len M u u (w # us) \<le> len M j j zs"
-        using ws us by (simp add: len_comp comm) (auto intro: add_mono simp: assoc[symmetric])
+        using ws us by (simp add: len_comp comm) (auto intro: add_mono simp: add.assoc[symmetric])
         moreover have "set (u # w # us) \<subseteq> set (i # xs)" using ws us zs(2) ys(3,4) by auto
         moreover have "distinct (w # us)" "u \<notin> set (w # us)" using ws us zs(4) by auto
         moreover have "successive (\<lambda>(a, b). M a b = A a b) (arcs u u (w # us))"

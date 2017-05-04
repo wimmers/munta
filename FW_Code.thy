@@ -1,11 +1,16 @@
 theory FW_Code
   imports
     "IICF/IICF"
-    Refine_More
+    Recursion_Combinators
     Floyd_Warshall
 begin
 
 section \<open>Refinement to Efficient Imperative Code\<close>
+
+text \<open>
+  We will now refine the recursive version of the \fw to an efficient imperative version.
+  To this end, we use the Sepref framework, yielding an implementation in Imperative HOL.
+\<close>
 
 definition fw_upd' :: "('a::linordered_ab_monoid_add) mtx \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mtx nres" where
   "fw_upd' m k i j =
@@ -97,8 +102,12 @@ end (* End of sepref setup *)
 
 end (* End of n *)
 
+
 export_code fw_impl in SML_imp
 
+text \<open>
+  A compact specification for the characteristic property of the \fw.
+\<close>
 definition fw_spec where
   "fw_spec n M \<equiv> SPEC (\<lambda> M'.
     if (\<exists> i \<le> n. M' i i < 0)
@@ -137,10 +146,14 @@ lemma fw_impl'_correct:
 unfolding fw_impl'_def[abs_def] using fw'_spec fw_fw_spec
 by (fastforce simp: in_br_conv pw_le_iff refine_pw_simps intro!: nres_relI)
 
+subsection \<open>Main Result\<close>
+
+text \<open>This is one way to state that the \<open>fw_impl\<close> fulfills the specification \<open>fw_spec\<close>.\<close>
 theorem fw_impl_correct:
   "(fw_impl n, fw_spec n) \<in> (mtx_curry_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_curry_assn n"
 using fw_impl.refine[FCOMP fw_impl'_correct[THEN fun_relD, OF IdI]] .
 
+text \<open>An alternative version: a Hoare triple for total correctness.\<close>
 corollary
   "<mtx_curry_assn n M Mi> fw_impl n Mi <\<lambda> Mi'. \<exists>\<^sub>A M'. mtx_curry_assn n M' Mi' * \<up>
     (if (\<exists> i \<le> n. M' i i < 0)
@@ -149,6 +162,9 @@ corollary
 unfolding cycle_free_diag_equiv
 by (rule cons_rule[OF _ _ fw_impl_correct[THEN hfrefD, THEN hn_refineD]])
    (sep_auto simp: fw_spec_def[unfolded cycle_free_diag_equiv])+
+
+
+subsection \<open>Alternative versions for Uncurried Matrices.\<close>
 
 definition "FWI' = uncurry ooo FWI o curry"
 
