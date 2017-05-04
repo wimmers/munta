@@ -1,8 +1,11 @@
 theory FW_Code
-  imports "IICF/IICF"
-          Floyd_Warshall
-          Refine_More
+  imports
+    "IICF/IICF"
+    Refine_More
+    Floyd_Warshall
 begin
+
+section \<open>Refinement to Efficient Imperative Code\<close>
 
 definition fw_upd' :: "('a::linordered_ab_monoid_add) mtx \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mtx nres" where
   "fw_upd' m k i j =
@@ -63,7 +66,8 @@ abbreviation "mtx_assn \<equiv> asmtx_assn (Suc n) id_assn::('a mtx \<Rightarrow
 
 sepref_definition fw_upd_impl is
   "uncurry2 (uncurry fw_upd')" ::
-  "[\<lambda> (((_,k),i),j). k \<le> n \<and> i \<le> n \<and> j \<le> n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k \<rightarrow> mtx_assn"
+  "[\<lambda> (((_,k),i),j). k \<le> n \<and> i \<le> n \<and> j \<le> n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k
+  \<rightarrow> mtx_assn"
 unfolding fw_upd'_def[abs_def] by sepref
 
 declare fw_upd_impl.refine[sepref_fr_rules]
@@ -97,13 +101,13 @@ export_code fw_impl in SML_imp
 
 definition fw_spec where
   "fw_spec n M \<equiv> SPEC (\<lambda> M'.
-    if (\<exists> i \<le> n. M' i i < \<one>)
+    if (\<exists> i \<le> n. M' i i < 0)
     then \<not> cyc_free M n
     else \<forall>i \<le> n. \<forall>j \<le> n. M' i j = D M i j n \<and> cyc_free M n)"
 
 lemma D_diag_nonnegI:
   assumes "cycle_free M n" "i \<le> n"
-  shows "D M i i n \<ge> \<one>"
+  shows "D M i i n \<ge> 0"
 using assms D_dest''[OF refl, of M i i n] unfolding cycle_free_def by auto
 
 lemma fw_fw_spec:
@@ -139,14 +143,12 @@ using fw_impl.refine[FCOMP fw_impl'_correct[THEN fun_relD, OF IdI]] .
 
 corollary
   "<mtx_curry_assn n M Mi> fw_impl n Mi <\<lambda> Mi'. \<exists>\<^sub>A M'. mtx_curry_assn n M' Mi' * \<up>
-    (if (\<exists> i \<le> n. M' i i < \<one>)
+    (if (\<exists> i \<le> n. M' i i < 0)
     then \<not> cyc_free M n
     else \<forall>i \<le> n. \<forall>j \<le> n. M' i j = D M i j n \<and> cyc_free M n)>\<^sub>t"
 unfolding cycle_free_diag_equiv
 by (rule cons_rule[OF _ _ fw_impl_correct[THEN hfrefD, THEN hn_refineD]])
    (sep_auto simp: fw_spec_def[unfolded cycle_free_diag_equiv])+
-
-definition "FWI M n k \<equiv> fwi M n k n n"
 
 definition "FWI' = uncurry ooo FWI o curry"
 

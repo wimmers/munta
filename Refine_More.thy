@@ -1,8 +1,6 @@
 theory Refine_More
-imports "IICF/IICF"
-          Floyd_Warshall (* XXX Why need this here? *)
+  imports "IICF/IICF"
 begin
-
 
 context
 begin
@@ -20,7 +18,7 @@ proof (induction f a n rule: for_rec.induct)
   case 1 then show ?case by (auto simp: pw_eq_iff refine_pw_simps)
 next
   case IH: (2 a n)
-  then show ?case by (fastforce simp: nfoldli_append pw_eq_iff refine_pw_simps) 
+  then show ?case by (fastforce simp: nfoldli_append pw_eq_iff refine_pw_simps)
 qed
 
 private definition for_rec2' where
@@ -43,7 +41,8 @@ unfolding for_rec2'_def
  by auto
 done
 
-fun for_rec3 :: "('a \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a nres) \<Rightarrow> 'a \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a nres" where
+fun for_rec3 :: "('a \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a nres) \<Rightarrow> 'a \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a nres"
+where
   "for_rec3 f m n 0       0       0        = f m 0 0 0" |
   "for_rec3 f m n (Suc k) 0       0        = for_rec3 f m n k n n \<bind> (\<lambda> a. f a (Suc k) 0 0)" |
   "for_rec3 f m n k       (Suc i) 0        = for_rec3 f m n k i n \<bind> (\<lambda> a. f a k (Suc i) 0)" |
@@ -82,7 +81,10 @@ theorem for_rec2_eq:
   "for_rec2 f a n n n =
      nfoldli [0..<n + 1] (\<lambda>x. True)
            (\<lambda>i. nfoldli [0..<n + 1] (\<lambda>x. True) (\<lambda>j a. f a i j)) a"
-using for_rec2'_for_rec[unfolded for_rec2_for_rec2'[symmetric], unfolded for_comb_for_rec[symmetric] for_comb_def] .
+using
+  for_rec2'_for_rec[
+    unfolded for_rec2_for_rec2'[symmetric], unfolded for_comb_for_rec[symmetric] for_comb_def
+  ] .
 
 theorem for_rec3_eq:
   "for_rec3 f a n n n n =
@@ -90,10 +92,12 @@ theorem for_rec3_eq:
      (\<lambda>k. nfoldli [0..<n + 1] (\<lambda>x. True)
            (\<lambda>i. nfoldli [0..<n + 1] (\<lambda>x. True) (\<lambda>j a. f a k i j)))
      a"
-using for_rec3'_for_rec[unfolded for_rec3_for_rec3'[symmetric], unfolded for_comb_for_rec[symmetric] for_comb_def] .
+using
+  for_rec3'_for_rec[
+    unfolded for_rec3_for_rec3'[symmetric], unfolded for_comb_for_rec[symmetric] for_comb_def
+  ] .
 
 end
-
 
 lemmas [intf_of_assn] = intf_of_assnI[where R= "is_mtx n" and 'a= "'b i_mtx" for n]
 

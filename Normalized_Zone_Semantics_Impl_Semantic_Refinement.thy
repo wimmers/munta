@@ -23,19 +23,6 @@ lemma dbm_abstra_zone_eq:
     unfolding DBM_zone_repr_def using assms by (auto intro: dbm_abstra_soundness)
   done
 
-(* XXX Move to Floyd Warshall *)
-lemma fwi_characteristic:
-  "canonical_subs n (I \<union> {k::nat}) (FWI M n k) \<or> (\<exists> i \<le> n. FWI M n k i i < \<one>)" if
-  "canonical_subs n I M" "I \<subseteq> {0..n}" "k \<le> n"
-proof (cases "\<one> \<le> M k k")
-  case True
-  from fwi_canonical_extend[OF that(1,2) this \<open>k \<le> n\<close>] show ?thesis unfolding FWI_def ..
-next
-  case False
-  with \<open>k \<le> n\<close> fwi_mono[OF \<open>k \<le> n\<close> \<open>k \<le> n\<close>, of M k n n] show ?thesis
-    unfolding FWI_def by fastforce
-qed
-
 lemma FWI'_characteristic:
   "canonical_subs n (I \<union> {a::nat}) (curry (FWI' M n a)) \<or> check_diag n (FWI' M n a)" if
   "canonical_subs n I (curry M)" "I \<subseteq> {0..n}" "a \<le> n"
