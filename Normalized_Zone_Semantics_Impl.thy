@@ -3627,85 +3627,13 @@ begin
     with D'(1) D2 M3(2) show ?case by (auto intro: steps_impl.step)
   qed
 
-  lemma reachable_steps_z_norm':
-    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
-    \<longleftrightarrow> (\<exists> M'. steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {})"
-  using reachable_sound reachable_complete by fast
 
-  theorem reachable_decides_emptiness:
-    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
-    \<longleftrightarrow> (\<exists> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
-    apply (subst reachable_steps_z_norm')
-    apply (subst
-      steps_z_norm_decides_emptiness
-      [OF global_clock_numbering' valid_abstraction'[unfolded X_alt_def] valid_init_dbm]
-      )
-    by (rule HOL.refl)
 
-  lemma init_dbm_semantics':
-    assumes "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
-    shows "\<forall> c \<in> {1..n}. u c = 0"
-  using assms init_dbm_semantics by auto
 
-  lemma init_dbm_semantics'':
-    assumes "\<forall> c \<in> {1..n}. u c = 0"
-    shows "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
-  unfolding DBM_zone_repr_def DBM_val_bounded_def init_dbm_def using assms by (auto simp: v_def)
 
-  lemma reachable_decides_emptiness':
-    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
-    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))"
-  using reachable_decides_emptiness init_dbm_semantics' init_dbm_semantics'' by blast
 
-  lemma reachable_empty_check_diag:
-    assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
-    shows "check_diag n D'"
-    using canonical_reachable[OF assms(1)] canonical_empty_check_diag assms(2) by simp
 
-  theorem reachability_check:
-    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))
-    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')"
-  using reachable_decides_emptiness'[of l'] check_diag_empty_spec reachable_empty_check_diag
-  unfolding F_rel_def by auto
 
-  lemma check_diag_E_preservation:
-    "check_diag n M'" if "check_diag n M" "E (l, M) (l', M')"
-    using that unfolding E_def check_diag_def neutral[symmetric]
-    by (fastforce
-        simp: curry_def dest: step_impl_neg_diag_preservation
-        intro: FW'_neg_diag_preservation norm_upd_neg_diag_preservation
-       )
-
-  sublocale Search_Space E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
-   apply standard
-    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply assumption
-    subgoal for a
-      apply (rule prod.exhaust[of a])
-      by (auto simp add: subsumes_simp_1 dbm_subset_refl)
-    subgoal for a b c
-      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of c])
-      subgoal for l1 M1 l2 M2 l3 M3
-        apply simp
-        apply (cases "check_diag n M1")
-         apply (simp add: subsumes_def; fail)
-        apply (simp add: subsumes_def)
-        by (meson check_diag_subset dbm_subset_def dbm_subset_trans)
-      done
-    subgoal for a b a'
-      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of a'])
-      by (force
-            simp: E_def subsumes_def dbm_subset_def
-            dest: step_impl_mono_reachable' intro!: reachable_wf_dbm
-         )
-    subgoal
-      unfolding F_rel_def subsumes_def by auto
-    subgoal
-      using check_diag_subset unfolding subsumes_def dbm_subset_def by auto
-    subgoal
-      using check_diag_E_preservation by auto
-    unfolding F_rel_def subsumes_def
-    unfolding check_diag_def pointwise_cmp_def
-    by fastforce
 
 definition dbm_equiv (infixr "\<simeq>" 60) where
   "dbm_equiv M M' \<equiv> [curry (conv_M M)]\<^bsub>v,n\<^esub> = [curry (conv_M M')]\<^bsub>v,n\<^esub>"
@@ -4008,8 +3936,8 @@ next
 qed
 
 lemma E_E\<^sub>1_steps_equiv:
-  "(\<exists> l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
-   (\<exists> l' M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
+  "(\<exists> M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<noteq> {}) \<longleftrightarrow>
+   (\<exists> M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<noteq> {})"
   by (auto 4 4 simp: state_equiv_def dbm_equiv_def dest: E_E\<^sub>1_steps E\<^sub>1_E_steps)
 
 end (* End of anonymous context for intro declaration *)
@@ -4139,8 +4067,8 @@ private lemma E\<^sub>1_P:
   using valid_dbm_convI by (fastforce dest: valid_dbm_V)
 
 lemma E_steps_equiv:
-  "(\<exists> l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
-   (\<exists> l' M'. E_step\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
+  "(\<exists> M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<noteq> {}) \<longleftrightarrow>
+   (\<exists> M'. E_step\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> \<noteq> {})"
 proof -
   define P :: "'s \<times> _ \<Rightarrow> bool" where "P \<equiv> valid_dbm o curry o conv_M o snd"
   show ?thesis
@@ -4153,6 +4081,201 @@ proof -
 qed
 
 end (* End of anonymous context *)
+
+lemma E_step_valid_dbm[intro]:
+  assumes "valid_dbm (curry (conv_M D))" "E_step (l, D) (l', D')"
+  shows "valid_dbm (curry (conv_M D'))"
+  using assms
+  unfolding E_step_def
+  apply safe
+    sorry
+
+lemma E_steps_valid_dbm[intro]:
+  assumes "E_step\<^sup>*\<^sup>* a\<^sub>0 (l, D)"
+  shows "valid_dbm (curry (conv_M D))"
+  using assms
+  apply (induction "(l, D)" arbitrary: l D rule: rtranclp_induct)
+  subgoal
+    unfolding a\<^sub>0_def
+    apply safe
+    sorry
+  subgoal for x l D
+    by (cases x) blast
+  done
+
+lemma E_steps_steps_z_norm':
+  "\<exists> M'. steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M' \<and> [M']\<^bsub>v,n\<^esub> = [curry (conv_M D')]\<^bsub>v,n\<^esub>"
+  if "E_step\<^sup>*\<^sup>* a\<^sub>0 (l', D')"
+using that proof (induction "(l', D')" arbitrary: l' D' rule: rtranclp_induct)
+  case base
+  then show ?case by (auto simp: a\<^sub>0_def; fail)
+next
+  case (step y)
+  obtain l D where [simp]: "y = (l, D)"
+    by force
+  from step(3-)[OF this] obtain M' where M':
+    "steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l M'" "[M']\<^bsub>v,n\<^esub> = [curry (conv_M D)]\<^bsub>v,n\<^esub>"
+    by atomize_elim
+  from step(2) obtain Mi li a M'' where step':
+    "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>li, Mi\<rangle>"
+    "step_z_norm' (conv_A A) li Mi (\<upharpoonleft>a) l' M''"
+    "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
+    unfolding E_step_def by auto
+  from step_z_dbm_equiv'[OF this(1) M'(2)[symmetric]] obtain Mi' where Mi':
+    "conv_A A \<turnstile> \<langle>l, M'\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>li, Mi'\<rangle>" "[Mi]\<^bsub>v,n\<^esub> = [Mi']\<^bsub>v,n\<^esub>"
+    by atomize_elim
+  with step'(1) M'(1) step(1) have "valid_dbm Mi" "valid_dbm Mi'"
+    unfolding \<open>y = _\<close> by (blast intro: steps_z_norm'_valid_dbm_preservation step_z_valid_dbm')+
+  from step_z_norm_equiv'[OF step'(2) this Mi'(2)] obtain M''' where
+    "step_z_norm' (conv_A A) li Mi' (\<upharpoonleft>a) l' M'''" "[M'']\<^bsub>v,n\<^esub> = [M''']\<^bsub>v,n\<^esub>"
+    by atomize_elim
+  with Mi'(1) M'(1) step'(3) show ?case
+    by auto
+qed
+
+lemma dbm_int_conv_M_equiv:
+  "\<exists> D. [M]\<^bsub>v,n\<^esub> = [curry (conv_M D)]\<^bsub>v,n\<^esub>" if "dbm_int M n"
+proof -
+  define D where "D \<equiv> \<lambda> (i, j). map_DBMEntry floor (M i j)"
+  have "rel_DBMEntry ri (M i j) (D (i, j))" if "i \<le> n" "j \<le> n" for i j
+  proof -
+    from that \<open>dbm_int M n\<close> have "M i j \<noteq> \<infinity> \<longrightarrow> get_const (M i j) \<in> \<int>" by blast
+    then show ?thesis
+      unfolding D_def ri_def by (cases "M i j") (auto elim: Ints_cases)
+  qed
+  then have "RI n (uncurry M) D"
+    unfolding eq_onp_def by auto
+  from RI_zone_equiv[OF this] show ?thesis
+    by auto
+qed
+
+lemma steps_z_norm'_E_steps:
+  "\<exists> D'. E_step\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [M']\<^bsub>v,n\<^esub> = [curry (conv_M D')]\<^bsub>v,n\<^esub>" if
+  "steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M'"
+  using that
+proof (induction "conv_A A" x2 \<equiv> l\<^sub>0 "curry init_dbm :: real DBM" l' M' rule: steps_z_norm_induct)
+  case (refl)
+  then show ?case by (auto simp: a\<^sub>0_def; fail)
+next
+  case (step a l' Z' l'' Z'' l''' Z''')
+  from step(2) obtain D' where D':
+    "E_step\<^sup>*\<^sup>* a\<^sub>0 (l', D')" "[Z']\<^bsub>v,n\<^esub> = [curry (conv_M D')]\<^bsub>v,n\<^esub>"
+    by auto
+  from step_z_dbm_equiv'[OF step(3) this(2)] obtain M' where M':
+    "conv_A A \<turnstile> \<langle>l', curry (conv_M D')\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l'', M'\<rangle>" "[Z'']\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+    by atomize_elim
+  with D'(1) step have "valid_dbm Z''" "valid_dbm M'"
+    by (blast intro: steps_z_norm'_valid_dbm_preservation step_z_valid_dbm')+
+  from step_z_norm_equiv'[OF step(4) this M'(2)] obtain M'' where M'':
+    "step_z_norm' (conv_A A) l'' M' (\<upharpoonleft>a) l''' M''" "[Z''']\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
+    by atomize_elim
+  with \<open>valid_dbm M'\<close> have "valid_dbm M''"
+    by - (rule step_z_norm_valid_dbm'[OF global_clock_numbering' valid_abstraction'])
+  then have "dbm_int M'' n"
+    by blast
+  from dbm_int_conv_M_equiv[OF this] M'' M'(1) obtain D'' where
+    "E_step (l', D') (l''', D'')" "[Z''']\<^bsub>v,n\<^esub> = [curry (conv_M D'')]\<^bsub>v,n\<^esub>"
+    unfolding E_step_def by blast
+  with D'(1) show ?case by (auto intro: rtranclp.intros(2))
+qed
+
+lemma E_steps_steps_z_norm'_iff:
+  "(\<exists> D'. E_step\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
+  \<longleftrightarrow> (\<exists> M'. steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {})"
+  using steps_z_norm'_E_steps E_steps_steps_z_norm' by fast
+
+
+
+
+
+
+
+
+
+
+  lemma reachable_steps_z_norm':
+    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
+    \<longleftrightarrow> (\<exists> M'. steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {})"
+    unfolding E_steps_steps_z_norm'_iff E_steps_equiv ..
+
+  theorem reachable_decides_emptiness:
+    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
+    \<longleftrightarrow> (\<exists> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
+    apply (subst reachable_steps_z_norm')
+    apply (subst
+      steps_z_norm_decides_emptiness
+      [OF global_clock_numbering' valid_abstraction'[unfolded X_alt_def] valid_init_dbm]
+      )
+    by (rule HOL.refl)
+
+  lemma init_dbm_semantics':
+    assumes "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
+    shows "\<forall> c \<in> {1..n}. u c = 0"
+  using assms init_dbm_semantics by auto
+
+  lemma init_dbm_semantics'':
+    assumes "\<forall> c \<in> {1..n}. u c = 0"
+    shows "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
+  unfolding DBM_zone_repr_def DBM_val_bounded_def init_dbm_def using assms by (auto simp: v_def)
+
+  lemma reachable_decides_emptiness':
+    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
+    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0))"
+  using reachable_decides_emptiness init_dbm_semantics' init_dbm_semantics'' by blast
+
+  lemma reachable_empty_check_diag:
+    assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l', D')" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = {}"
+    shows "check_diag n D'"
+    using canonical_reachable[OF assms(1)] canonical_empty_check_diag assms(2) by simp
+
+  theorem reachability_check:
+    "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))
+    \<longleftrightarrow> (\<exists> u u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..n}. u c = 0) \<and> F l')"
+  using reachable_decides_emptiness'[of l'] check_diag_empty_spec reachable_empty_check_diag
+  unfolding F_rel_def by auto
+
+  lemma check_diag_E_preservation:
+    "check_diag n M'" if "check_diag n M" "E (l, M) (l', M')"
+    using that unfolding E_def check_diag_def neutral[symmetric]
+    by (fastforce
+        simp: curry_def dest: step_impl_neg_diag_preservation
+        intro: FW'_neg_diag_preservation norm_upd_neg_diag_preservation
+       )
+
+  sublocale Search_Space E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
+   apply standard
+    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply assumption
+    subgoal for a
+      apply (rule prod.exhaust[of a])
+      by (auto simp add: subsumes_simp_1 dbm_subset_refl)
+    subgoal for a b c
+      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of c])
+      subgoal for l1 M1 l2 M2 l3 M3
+        apply simp
+        apply (cases "check_diag n M1")
+         apply (simp add: subsumes_def; fail)
+        apply (simp add: subsumes_def)
+        by (meson check_diag_subset dbm_subset_def dbm_subset_trans)
+      done
+    subgoal for a b a'
+      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of a'])
+      by (force
+            simp: E_def subsumes_def dbm_subset_def
+            dest: step_impl_mono_reachable' intro!: reachable_wf_dbm
+         )
+    subgoal
+      unfolding F_rel_def subsumes_def by auto
+    subgoal
+      using check_diag_subset unfolding subsumes_def dbm_subset_def by auto
+    subgoal
+      using check_diag_E_preservation by auto
+    unfolding F_rel_def subsumes_def
+    unfolding check_diag_def pointwise_cmp_def
+    by fastforce
+
+
+
+
 
 
   (* This used (by used theorems) *)
