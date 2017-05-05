@@ -217,7 +217,7 @@ abbreviation steps_z_norm' ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^
 where
   "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^sub>\<N>* \<langle>l', D'\<rangle> \<equiv> A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>(\<lambda> l. k l o v'),v,n\<^esub>* \<langle>l', D'\<rangle>"
 
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',u'\<rangle>"
+inductive_cases step_z_norm'_elims[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',u'\<rangle>"
 
 declare step_z_norm.intros[intro]
 

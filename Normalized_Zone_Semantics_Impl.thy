@@ -3944,21 +3944,27 @@ lemma wf_state_init[intro, simp]:
   unfolding wf_state_def a\<^sub>0_def by simp
 
 context
-  fixes E\<^sub>1 :: "'s \<times> _ \<Rightarrow> 's \<times> _ \<Rightarrow> bool"
+  fixes E\<^sub>1 :: "'s \<times> _ \<Rightarrow> 's \<times> _ \<Rightarrow> bool" and P
   assumes E_E\<^sub>1_step: "E a b \<Longrightarrow> wf_state a \<Longrightarrow> (\<exists> c. E\<^sub>1 a c \<and> b \<sim> c)"
   assumes E\<^sub>1_E_step: "E\<^sub>1 a b \<Longrightarrow> wf_state a \<Longrightarrow> (\<exists> c. E a c \<and> b \<sim> c)"
-  assumes E\<^sub>1_wf_state[intro]: "wf_state a \<Longrightarrow> E\<^sub>1 a b \<Longrightarrow> wf_state b"
+  assumes E\<^sub>1_equiv: "E\<^sub>1 a b \<Longrightarrow> a \<sim> a' \<Longrightarrow> P a \<Longrightarrow> P a' \<Longrightarrow> \<exists> b'. E\<^sub>1 a' b' \<and> b \<sim> b'"
+  assumes E\<^sub>1_P[intro]: "P a \<Longrightarrow> E\<^sub>1 a b \<Longrightarrow> P b"
+  assumes wf_state_P[intro]: "wf_state a \<Longrightarrow> P a"
 begin
 
-lemma E\<^sub>1_steps_wf_state[intro]:
-  "wf_state b" if "E\<^sub>1\<^sup>*\<^sup>* a b" "wf_state a"
+private lemma E\<^sub>1_steps_P:
+  "P b" if "E\<^sub>1\<^sup>*\<^sup>* a b" "P a"
   using that by (induction rule: rtranclp_induct) auto
 
-lemma E_E\<^sub>1_step':
+context
+  notes [intro] = E\<^sub>1_steps_P
+begin
+
+private lemma E_E\<^sub>1_step':
   "(\<exists> b'. E\<^sub>1 b b' \<and> a' \<sim> b')" if "E a a'" "wf_state a" "wf_state b" "a \<sim> b"
   using that E_equiv[OF that] by (blast dest: E_E\<^sub>1_step)
 
-lemma E\<^sub>1_E_step':
+private lemma E\<^sub>1_E_step':
   "(\<exists> b'. E b b' \<and> a' \<sim> b')" if "E\<^sub>1 a a'" "wf_state a" "wf_state b" "a \<sim> b"
   using that
   apply -
@@ -3966,36 +3972,185 @@ lemma E\<^sub>1_E_step':
   apply safe
   by (drule E_equiv; blast)
 
-lemma E_E\<^sub>1_steps:
-  "\<exists> b'. E\<^sub>1\<^sup>*\<^sup>* b b' \<and> a' \<sim> b'" if "E\<^sup>*\<^sup>* a a'" "wf_state a" "wf_state b" "a \<sim> b"
+private lemma E_E\<^sub>1_steps:
+  "\<exists> b'. E\<^sub>1\<^sup>*\<^sup>* a b' \<and> a' \<sim> b'" if "E\<^sup>*\<^sup>* a a'" "wf_state a"
   using that
-  apply (induction rule: rtranclp_induct)
-   apply blast
-  apply clarsimp
-  apply (drule E_E\<^sub>1_step')
-     apply blast
-    prefer 2
-    apply blast
-   apply blast
-  by (auto intro: rtranclp.intros(2))
+proof (induction rule: rtranclp_induct)
+  case base
+  then show ?case by blast
+next
+  case (step y z)
+  then obtain b where b: "E\<^sub>1\<^sup>*\<^sup>* a b" "y \<sim> b" by auto
+  from step obtain z' where "E\<^sub>1 y z'" "z \<sim> z'"
+    by atomize_elim (blast intro: E_E\<^sub>1_step)
+  from step b \<open>E\<^sub>1 y z'\<close> obtain b' where "E\<^sub>1 b b'" "z' \<sim> b'"
+    by atomize_elim (blast intro: E\<^sub>1_equiv)
+  with b \<open>z \<sim> z'\<close> show ?case
+    by (blast intro: rtranclp.intros(2))
+qed
 
-lemma E\<^sub>1_E_steps:
-  "\<exists> b'. E\<^sup>*\<^sup>* b b' \<and> a' \<sim> b'" if "E\<^sub>1\<^sup>*\<^sup>* a a'" "wf_state a" "wf_state b" "a \<sim> b"
+private lemma E\<^sub>1_E_steps:
+  "\<exists> b'. E\<^sup>*\<^sup>* a b' \<and> a' \<sim> b'" if "E\<^sub>1\<^sup>*\<^sup>* a a'" "wf_state a"
   using that
-  apply (induction rule: rtranclp_induct)
-   apply blast
-  apply clarsimp
-  apply (drule E\<^sub>1_E_step')
-     apply blast
-    prefer 2
-    apply blast
-   apply blast
-  by (auto intro: rtranclp.intros(2))
+proof (induction rule: rtranclp_induct)
+  case base
+  then show ?case by blast
+next
+  case (step y z)
+  then obtain y' where y': "E\<^sup>*\<^sup>* a y'" "y \<sim> y'"
+    by auto
+  with step obtain z' where "E\<^sub>1 y' z'" "z \<sim> z'"
+    by atomize_elim (blast intro: E\<^sub>1_equiv)
+  with y' \<open>wf_state _\<close> obtain z'' where "E y' z''" "z' \<sim> z''"
+    by atomize_elim (blast intro: E\<^sub>1_E_step)
+  with y' \<open>z \<sim> z'\<close> show ?case
+    by (blast intro: rtranclp.intros(2))
+qed
 
 lemma E_E\<^sub>1_steps_equiv:
   "(\<exists> l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
    (\<exists> l' M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
   by (auto 4 4 simp: state_equiv_def dbm_equiv_def dest: E_E\<^sub>1_steps E\<^sub>1_E_steps)
+
+end (* End of anonymous context for intro declaration *)
+
+end (* End of anonymous context *)
+
+definition "E_step \<equiv>
+  \<lambda> (l, D) (l'', D'').
+    \<exists> l' M' a M''. conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', M'\<rangle>
+           \<and> step_z_norm' (conv_A A) l' M' (\<upharpoonleft>a) l'' M''
+           \<and> [curry (conv_M D'')]\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
+
+lemma step_impl_sound_wf:
+  assumes step: "A \<turnstile>\<^sub>I \<langle>l,D\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l',D'\<rangle>"
+    and     wf: "wf_dbm D"
+  shows
+    "\<exists> M'. step_z_norm' (conv_A A) l (curry (conv_M D)) a l' M'
+    \<and> [curry (conv_M (FW' (norm_upd D' (k' l') n) n))]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+  using step_impl_norm_sound[OF step wf_dbm_D[OF wf]] .
+
+lemmas valid_dbm_convI = valid_dbm.intros[OF _ dbm_int_conv]
+lemmas step_z_norm_valid_dbm'_spec =
+  step_z_norm_valid_dbm'[OF global_clock_numbering' valid_abstraction']
+
+context
+begin
+
+private lemma E_E\<^sub>1_step_aux:
+  "\<exists> l' M' a M''.
+    conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', M'\<rangle> \<and>
+    step_z_norm' (conv_A A) l' M' (\<upharpoonleft>a) l'' M'' \<and> [curry (conv_M D'')]\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
+  if "E (l, D) (l'', D'')" "wf_dbm D"
+  using that unfolding E_def
+proof (safe, goal_cases)
+  case prems: (1 D1 l' D2 a)
+  from step_impl_sound'[OF prems(2)] prems(1) obtain M' where M':
+    "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', M'\<rangle>" "[curry (conv_M D1)]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+    by (blast dest: wf_dbm_D)
+  from prems have "wf_dbm D1"
+    by (blast intro: step_impl_wf_dbm)
+  from step_impl_sound_wf[OF prems(3) this] obtain M'' where M'':
+    "step_z_norm'(conv_A A) l' (curry (conv_M D1)) \<upharpoonleft>a l'' M''"
+    "[curry (conv_M (FW' (norm_upd D2 (k' l'') n) n))]\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
+    by blast
+  from \<open>wf_dbm D1\<close> \<open>wf_dbm D\<close> M'(1) have "valid_dbm (curry (conv_M D1))" "valid_dbm M'"
+    by (blast intro: wf_dbm_D step_z_valid_dbm')+
+  with step_z_norm_equiv'[OF M''(1) _ _ M'(2)] obtain M''' where
+    "step_z_norm'(conv_A A) l' M' \<upharpoonleft>a l'' M'''" "[M'']\<^bsub>v,n\<^esub> = [M''']\<^bsub>v,n\<^esub>"
+    by blast
+  with M'(1) M''(2) show ?case by auto
+qed
+
+private lemma E_E\<^sub>1_step: "\<exists> c. E_step a c \<and> b \<sim> c" if "E a b" "wf_state a"
+  apply (cases a)
+  apply (cases b)
+  using that
+  apply simp
+  unfolding wf_state_def
+  apply (drule E_E\<^sub>1_step_aux)
+  unfolding E_step_def
+  unfolding state_equiv_def dbm_equiv_def
+  by blast+
+
+private lemma E\<^sub>1_E_step: "\<exists> c. E a c \<and> b \<sim> c" if "E_step a b" "wf_state a"
+  using that
+  unfolding wf_state_def
+  unfolding E_step_def
+proof (safe del: step_z_norm'_elims, goal_cases)
+  case prems: (1 l D l'' D'' l' M' a M'')
+  from step_impl_complete''_improved[OF prems(4,1)] obtain M1 where M1:
+    "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', M1\<rangle>" "[curry (conv_M M1)]\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
+    by blast
+  with prems have "valid_dbm M'" "wf_dbm M1" "valid_dbm (curry (conv_M M1))"
+    by (blast intro: wf_dbm_D step_z_valid_dbm' step_impl_wf_dbm)+
+  with step_z_norm_equiv'[OF prems(5) _ _ M1(2)[symmetric]] obtain M2 where M2:
+    "step_z_norm' (conv_A A) l' (curry (conv_M M1)) (\<upharpoonleft>a) l'' M2" "[M'']\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+    by blast
+  from wf_dbm_D(1)[OF \<open>wf_dbm M1\<close>] have "canonical (curry (conv_M M1)) n \<or> check_diag n M1" .
+  then show ?case
+  proof standard
+    assume "canonical (curry (conv_M M1)) n"
+    with \<open>wf_dbm M1\<close> step_impl_norm_complete[OF M2(1)] obtain D3 where
+      "A \<turnstile>\<^sub>I \<langle>l', M1\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', D3\<rangle>"
+      "[curry (conv_M (FW' (norm_upd D3 (k' l'') n) n))]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+      by (blast dest: wf_dbm_D)
+    with M1(1) M2(2) prems(6) show ?case
+      unfolding E_def state_equiv_def dbm_equiv_def by blast
+  next
+    assume "check_diag n M1"
+    with M1(2) have "[M']\<^bsub>v,n\<^esub> = {}" by (auto dest: check_diag_conv_M simp: check_diag_empty_spec)
+    with prems(5) \<open>valid_dbm M'\<close> have "[M'']\<^bsub>v,n\<^esub> = {}"
+      by - (drule step_z_norm'_empty_preservation; assumption)
+    (* XXX Can probably eliminate some step_impl_norm_complete variants and directly argue here *)
+    from step_impl_norm_complete''[OF M2(1)] \<open>wf_dbm M1\<close> obtain D3 where D3:
+      "A \<turnstile>\<^sub>I \<langle>l', M1\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', D3\<rangle>"
+      "[M2]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M (FW' (norm_upd D3 (k' l'') n) n))]\<^bsub>v,n\<^esub>"
+      by (blast dest: wf_dbm_D)
+    from step_impl_check_diag[OF \<open>check_diag n M1\<close> D3(1)] have "check_diag n D3" .
+    then have "[curry (conv_M (FW' (norm_upd D3 (k' l'') n) n))]\<^bsub>v,n\<^esub> = {}"
+      using check_diag_empty_spec norm_step_check_diag_preservation by blast
+    with D3 \<open>[M'']\<^bsub>v,n\<^esub> = {}\<close> M1(1) prems(6) show ?case
+      unfolding E_def state_equiv_def dbm_equiv_def by blast
+  qed
+qed
+
+private lemma E\<^sub>1_equiv:
+  defines "P \<equiv> valid_dbm o curry o conv_M o snd"
+  assumes that: "E_step a b" "a \<sim> a'" "P a" "P a'"
+  shows "\<exists> b'. E_step a' b' \<and> b \<sim> b'"
+  using that
+  unfolding E_step_def state_equiv_def dbm_equiv_def
+  apply (safe del: step_z_norm'_elims)
+  apply (frule step_z_dbm_equiv', assumption)
+  apply (erule exE conjE)+
+  unfolding P_def
+  by (drule step_z_norm_equiv'; fastforce dest: step_z_valid_dbm')
+
+private lemma E\<^sub>1_P:
+  defines "P \<equiv> valid_dbm o curry o conv_M o snd"
+  assumes that: "E_step a b" "P a"
+  shows "P b"
+  using that
+  unfolding E_step_def P_def
+  apply (safe del: step_z_norm'_elims)
+  apply (drule step_z_valid_dbm', (simp; fail))
+  apply (drule step_z_norm_valid_dbm'_spec, (simp; fail))
+  using valid_dbm_convI by (fastforce dest: valid_dbm_V)
+
+lemma E_steps_equiv:
+  "(\<exists> l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
+   (\<exists> l' M'. E_step\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
+proof -
+  define P :: "'s \<times> _ \<Rightarrow> bool" where "P \<equiv> valid_dbm o curry o conv_M o snd"
+  show ?thesis
+    apply (rule E_E\<^sub>1_steps_equiv[where P = P])
+        apply (rule E_E\<^sub>1_step; assumption)
+       apply (rule E\<^sub>1_E_step; assumption)
+      apply (rule E\<^sub>1_equiv; simp add: P_def)
+     apply (drule E\<^sub>1_P; simp add: P_def)
+    unfolding P_def wf_state_def by (auto dest: wf_dbm_D)
+qed
 
 end (* End of anonymous context *)
 

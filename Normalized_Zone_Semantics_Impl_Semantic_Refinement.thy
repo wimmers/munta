@@ -108,6 +108,63 @@ end (* End of context for reachability problem defs *)
 context Reachability_Problem
   begin
 
+context
+  fixes E\<^sub>1 :: "'s \<times> _ \<Rightarrow> 's \<times> _ \<Rightarrow> bool"
+  assumes E_E\<^sub>1_step: "E a b \<Longrightarrow> wf_state a \<Longrightarrow> (\<exists> c. E\<^sub>1 a c \<and> b \<sim> c)"
+  assumes E\<^sub>1_E_step: "E\<^sub>1 a b \<Longrightarrow> wf_state a \<Longrightarrow> (\<exists> c. E a c \<and> b \<sim> c)"
+  assumes E\<^sub>1_wf_state[intro]: "wf_state a \<Longrightarrow> E\<^sub>1 a b \<Longrightarrow> wf_state b"
+begin
+
+lemma E\<^sub>1_steps_wf_state[intro]:
+  "wf_state b" if "E\<^sub>1\<^sup>*\<^sup>* a b" "wf_state a"
+  using that by (induction rule: rtranclp_induct) auto
+
+lemma E_E\<^sub>1_step':
+  "(\<exists> b'. E\<^sub>1 b b' \<and> a' \<sim> b')" if "E a a'" "wf_state a" "wf_state b" "a \<sim> b"
+  using that E_equiv[OF that] by (blast dest: E_E\<^sub>1_step)
+
+lemma E\<^sub>1_E_step':
+  "(\<exists> b'. E b b' \<and> a' \<sim> b')" if "E\<^sub>1 a a'" "wf_state a" "wf_state b" "a \<sim> b"
+  using that
+  apply -
+  apply (drule E\<^sub>1_E_step, assumption)
+  apply safe
+  by (drule E_equiv; blast)
+
+lemma E_E\<^sub>1_steps:
+  "\<exists> b'. E\<^sub>1\<^sup>*\<^sup>* b b' \<and> a' \<sim> b'" if "E\<^sup>*\<^sup>* a a'" "wf_state a" "wf_state b" "a \<sim> b"
+  using that
+  apply (induction rule: rtranclp_induct)
+   apply blast
+  apply clarsimp
+  apply (drule E_E\<^sub>1_step')
+     apply blast
+    prefer 2
+    apply blast
+   apply blast
+  by (auto intro: rtranclp.intros(2))
+
+lemma E\<^sub>1_E_steps:
+  "\<exists> b'. E\<^sup>*\<^sup>* b b' \<and> a' \<sim> b'" if "E\<^sub>1\<^sup>*\<^sup>* a a'" "wf_state a" "wf_state b" "a \<sim> b"
+  using that
+  apply (induction rule: rtranclp_induct)
+   apply blast
+  apply clarsimp
+  apply (drule E\<^sub>1_E_step')
+     apply blast
+    prefer 2
+    apply blast
+   apply blast
+  by (auto intro: rtranclp.intros(2))
+
+lemma E_E\<^sub>1_steps_equiv:
+  "(\<exists> l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
+   (\<exists> l' M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
+  by (auto 4 4 simp: state_equiv_def dbm_equiv_def dest: E_E\<^sub>1_steps E\<^sub>1_E_steps)
+
+end (* End of anonymous context *)
+
+
 lemma canonical_diagI:
   "canonical_diag D"  if "canonical_diag' D"
   using that canonical_conv by auto
