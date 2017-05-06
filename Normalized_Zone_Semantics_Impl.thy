@@ -3442,7 +3442,7 @@ begin
 
 
 
-
+subsection \<open>Bisimilarity\<close>
 
 definition dbm_equiv (infixr "\<simeq>" 60) where
   "dbm_equiv M M' \<equiv> [curry (conv_M M)]\<^bsub>v,n\<^esub> = [curry (conv_M M')]\<^bsub>v,n\<^esub>"
@@ -3829,6 +3829,7 @@ proof -
 qed
 
 
+subsection \<open>First Layer of Simulation\<close>
 
 lemma E_step_valid_dbm[intro]:
   assumes "valid_dbm (curry (conv_M D))" "E_step (l, D) (l', D')"
@@ -3934,6 +3935,9 @@ lemma E_steps_steps_z_norm'_iff:
   \<longleftrightarrow> (\<exists> M'. steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {})"
   using steps_z_norm'_E_steps E_steps_steps_z_norm' by fast
 
+
+subsection \<open>Monotonicity\<close>
+
 lemma E_step_mono_reachable:
   assumes "E_step (l,D) (l',D')"
     and   "wf_dbm D" "wf_dbm M"
@@ -3991,10 +3995,7 @@ lemma E_mono':
   done
 
 
-
-
-
-
+subsection \<open>Instantiating the Reachability Problem\<close>
 
   lemma reachable_steps_z_norm':
     "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
