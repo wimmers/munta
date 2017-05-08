@@ -110,6 +110,7 @@ definition pw_algo_unified where
     "pw_algo_unified = do
       {
         if F a\<^sub>0 then RETURN True
+        else if empty a\<^sub>0 then RETURN False
         else do {
           (passed, wait) \<leftarrow> RETURN ({a\<^sub>0}, {#a\<^sub>0#});
           (passed, wait, brk) \<leftarrow> WHILEIT pw_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> {#})
@@ -117,7 +118,7 @@ definition pw_algo_unified where
               {
                 (a, wait) \<leftarrow> take_from_mset wait;
                 ASSERT (reachable a);
-                add_pw' passed wait a
+                if empty a then RETURN (passed, wait, brk) else add_pw' passed wait a
               }
             )
             (passed, wait, False);
@@ -186,7 +187,8 @@ lemma
 
 lemma [refine]:
   "RETURN ({a\<^sub>0}, {#a\<^sub>0#}) \<le> \<Down> (Id \<inter> {((p, w), (p', w')). p \<noteq> {} \<and> set_mset w \<subseteq> p}) init_pw_spec"
-  unfolding init_pw_spec_def by (auto simp: pw_le_iff refine_pw_simps)
+  if "\<not> empty a\<^sub>0"
+  using that unfolding init_pw_spec_def by (auto simp: pw_le_iff refine_pw_simps)
 
 lemma [refine]:
   "take_from_mset wait \<le>
@@ -254,6 +256,7 @@ definition pw_algo_map where
   "pw_algo_map = do
     {
       if F a\<^sub>0 then RETURN True
+      else if empty a\<^sub>0 then RETURN False
       else do {
         (passed, wait) \<leftarrow> RETURN ([key a\<^sub>0 \<mapsto> {a\<^sub>0}], [a\<^sub>0]);
         (passed, wait, brk) \<leftarrow> WHILEIT pw_map_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> [])
@@ -261,7 +264,7 @@ definition pw_algo_map where
             {
               (a, wait) \<leftarrow> take_from_list wait;
               ASSERT (reachable a);
-              add_pw'_map passed wait a
+              if empty a then RETURN (passed, wait, brk) else add_pw'_map passed wait a
             }
           )
           (passed, wait, False);
@@ -386,6 +389,7 @@ definition pw_algo_map2 where
   "pw_algo_map2 = do
     {
       if F a\<^sub>0 then RETURN True
+      else if empty a\<^sub>0 then RETURN False
       else do {
         (passed, wait) \<leftarrow> RETURN ([key a\<^sub>0 \<mapsto> {a\<^sub>0}], [a\<^sub>0]);
         (passed, wait, brk) \<leftarrow> WHILEIT pw_map_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> [])
@@ -393,7 +397,7 @@ definition pw_algo_map2 where
             {
               (a, wait) \<leftarrow> take_from_list wait;
               ASSERT (reachable a);
-              add_pw'_map2 passed wait a
+              if empty a then RETURN (passed, wait, brk) else add_pw'_map2 passed wait a
             }
           )
           (passed, wait, False);

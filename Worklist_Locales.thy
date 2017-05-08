@@ -27,7 +27,7 @@ locale Search_Space_Defs_Empty = Search_Space_Defs +
 text \<open>The set of reachable states must be finite,
   subsumption must be a preorder, and be compatible with steps and final states.\<close>
 locale Search_Space = Search_Space_Defs_Empty +
-  assumes finite_reachable: "finite {a. reachable a}"
+  assumes finite_reachable: "finite {a. reachable a \<and> \<not> empty a}"
 
   assumes refl[intro!, simp]: "a \<preceq> a"
       and trans[trans]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
