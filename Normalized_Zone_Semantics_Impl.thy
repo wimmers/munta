@@ -4044,9 +4044,8 @@ subsection \<open>Instantiating the Reachability Problem\<close>
         intro: FW'_neg_diag_preservation norm_upd_neg_diag_preservation
        )
 
-  sublocale Search_Space E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
+  sublocale Standard_Search_Space: Search_Space E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
    apply standard
-    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply (auto; fail)
     subgoal for a
       apply (rule prod.exhaust[of a])
       by (auto simp add: subsumes_simp_1 dbm_subset_refl)
@@ -4061,8 +4060,10 @@ subsection \<open>Instantiating the Reachability Problem\<close>
       done
     subgoal for a b a'
       apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of a'])
-        apply safe
-      by (drule E_mono'; fastforce simp: E_def subsumes_def dbm_subset_def intro!: reachable_wf_dbm)
+      apply safe
+      by (drule E_mono';
+          fastforce simp: E_def subsumes_def dbm_subset_def Search_Space_Defs.reachable_def
+          intro!: reachable_wf_dbm)
     subgoal
       unfolding F_rel_def subsumes_def by auto
     subgoal
@@ -4073,7 +4074,10 @@ subsection \<open>Instantiating the Reachability Problem\<close>
     unfolding check_diag_def pointwise_cmp_def
     by fastforce
 
-
+  sublocale Standard_Search_Space_finite_strict:
+    Search_Space_finite_strict E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
+    apply standard
+    using E_closure_finite unfolding Search_Space_Defs.reachable_def by (auto; fail)
 
 
 

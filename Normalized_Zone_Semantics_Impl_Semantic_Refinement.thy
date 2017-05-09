@@ -667,7 +667,9 @@ lemma reset'_upd_equiv:
 lemma E_E_op: "E = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> M''' = E_op l r g l' M)"
   unfolding E_op_def E_alt_def by simp
 
-context
+end (* End of locale for Reachability Problem *)
+
+locale E_From_Op_Defs = Reachability_Problem_Defs l\<^sub>0 for l\<^sub>0 :: "'s" +
   fixes f :: "'s
    \<Rightarrow> nat list
       \<Rightarrow> (nat, int) acconstraint list
@@ -678,7 +680,11 @@ begin
 
 definition "E_from_op = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> M''' = f l r g l' M)"
 
-context
+end
+
+locale E_From_Op = Reachability_Problem + E_From_Op_Defs
+
+locale E_From_Op_Bisim = E_From_Op +
   assumes op_bisim:
     "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> wf_dbm M \<Longrightarrow> f l r g l' M \<simeq> E_op l r g l' M"
     and op_wf:
@@ -717,9 +723,9 @@ lemma E_from_op_mono':
   shows "\<exists> M'. E_from_op (l,M) (l',M') \<and> dbm_subset n D' M'"
   using assms by - (rule E\<^sub>1_mono'[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state]; blast)
 
-end (* End of anonymous context for bisimilarity *)
+end (* End of context for bisimilarity *)
 
-context
+locale E_From_Op_Finite = E_From_Op +
   assumes step_FW_norm:
     "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> dbm_default (curry M) n \<Longrightarrow> dbm_int (curry M) n
     \<Longrightarrow> \<not> check_diag n (f l r g l' M)
@@ -831,9 +837,65 @@ proof -
   ultimately show ?thesis by (auto intro: finite_subset)
 qed
 
-end (* End of anonymous context for finiteness *)
+end (* End of context for finiteness *)
 
-end (* End of context for E_from_op *)
+locale E_From_Op_Bisim_Finite = E_From_Op_Bisim + E_From_Op_Finite
+begin
+
+  lemma E_from_op_check_diag:
+    "check_diag n M'" if "check_diag n M" "E_from_op (l, M) (l', M')"
+    using that unfolding E_from_op_def by (blast intro: check_diag)
+
+  lemma reachable_wf_dbm:
+    "wf_dbm M" if "E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
+  using that proof (induction "(l, M)" arbitrary: l M)
+    case base
+    then show ?case unfolding a\<^sub>0_def by simp
+  next
+    case (step y l' M')
+    obtain l M where [simp]: "y = (l, M)" by force
+    from E_from_op_wf_state[OF _ step(2)] step(1,3) show ?case
+      unfolding wf_state_def by auto
+  qed
+
+  sublocale Search_Space E_from_op a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
+    apply standard
+    subgoal for a
+      apply (rule prod.exhaust[of a])
+      by (auto simp add: subsumes_simp_1 dbm_subset_refl)
+    subgoal for a b c
+      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of c])
+      subgoal for l1 M1 l2 M2 l3 M3
+        apply simp
+        apply (cases "check_diag n M1")
+         apply (simp add: subsumes_def; fail)
+        apply (simp add: subsumes_def)
+        by (meson check_diag_subset dbm_subset_def dbm_subset_trans)
+      done
+    subgoal for a b a'
+      apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of a'])
+      apply safe
+      by (drule E_from_op_mono';
+          fastforce simp: E_def subsumes_def dbm_subset_def Search_Space_Defs.reachable_def
+          intro!: reachable_wf_dbm)
+    subgoal
+      unfolding F_rel_def subsumes_def by auto
+    subgoal
+      using check_diag_subset unfolding subsumes_def dbm_subset_def by auto
+    subgoal
+      using E_from_op_check_diag by auto
+    unfolding F_rel_def subsumes_def
+    unfolding check_diag_def pointwise_cmp_def
+    by fastforce
+
+  sublocale Search_Space_finite E_from_op a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
+    by standard
+       (auto intro: finite_subset[OF _ E_closure_finite] simp: Search_Space_Defs.reachable_def)
+
+end (* End of context for finiteness and bisimilarity *)
+
+context Reachability_Problem
+begin
 
 lemma norm_step_dbm_equiv:
   "FW' (norm_upd D (k' l') n) n \<simeq> FW' (norm_upd M (k' l') n) n" if "D \<simeq> M" "wf_dbm D" "wf_dbm M"
@@ -881,11 +943,6 @@ proof -
     wf_dbm_FW'_abstr_upd
   show ?thesis unfolding E_op'_def E_op_def by simp (intro intros wf_intros side_conds order.refl)
 qed
-term E_from_op term E_op'
-lemma E_E_from_op'_steps_equiv:
-  "(\<exists>l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
-   (\<exists>l' M'. (E_from_op E_op')\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
-  by (intro E_E_from_op_steps_equiv E_op'_wf E_op'_bisim)
 
 lemma filter_diag_equiv:
   assumes "\<And> M. check_diag n M \<Longrightarrow> check_diag n (f M)"
@@ -951,11 +1008,6 @@ proof -
     filter_diag_wf_dbm
   show ?thesis unfolding E_op''_def by simp (intro wf_intros side_conds order.refl)
 qed
-
-lemma E_E_from_op''_steps_equiv:
-  "(\<exists>l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
-   (\<exists>l' M'. (E_from_op E_op'')\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
-  by (intro E_E_from_op_steps_equiv E_op''_wf E_op''_bisim')
 
 lemma abstra_upd_default:
   assumes "dbm_default (curry M) n" "constraint_clk ac \<le> n"
@@ -1071,17 +1123,15 @@ lemma E_op''_check_diag:
   "check_diag n (E_op'' l r g l' M)" if "check_diag n M"
   using that E_op''_check_diag_aux unfolding E_op''_def filter_diag_def by (auto simp: Let_def)
 
-lemma E_op''_finite:
-  "finite {x. (E_from_op E_op'')\<^sup>*\<^sup>* a\<^sub>0 x \<and> \<not> check_diag n (snd x)}"
-  by (intro E_closure_finite E_op''_FW_norm E_op''_check_diag)
-
 lemma E_op'_check_diag:
   "check_diag n (E_op' l r g l' M)" if "check_diag n M"
   sorry
 
-lemma E_op'_finite:
-  "finite {x. (E_from_op E_op')\<^sup>*\<^sup>* a\<^sub>0 x \<and> \<not> check_diag n (snd x)}"
-  by (intro E_closure_finite E_op'_FW_norm E_op'_check_diag)
+sublocale E_From_Op_Bisim_Finite _ _ _ _ _ E_op'
+  by standard (rule E_op'_bisim E_op'_wf E_op'_FW_norm E_op'_check_diag; assumption)+
+
+sublocale E_op'': E_From_Op_Bisim_Finite _ _ _ _ _ E_op''
+  by standard (rule E_op''_bisim' E_op''_wf E_op''_FW_norm E_op''_check_diag; assumption)+
 
 end (* End of context for reachability problem*)
 
