@@ -162,6 +162,40 @@ lemma E_E\<^sub>1_steps_equiv:
    (\<exists> l' M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
   by (auto 4 4 simp: state_equiv_def dbm_equiv_def dest: E_E\<^sub>1_steps E\<^sub>1_E_steps)
 
+lemma E\<^sub>1_mono:
+  assumes "E\<^sub>1 (l,D) (l',D')"
+    and   "wf_dbm D" "wf_dbm M"
+    and "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. E\<^sub>1 (l,M) (l',M') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M')]\<^bsub>v,n\<^esub>"
+  using assms
+  apply -
+  apply (drule E\<^sub>1_E_step)
+   apply (simp add: wf_state_def; fail)
+  apply safe
+  apply (drule E_mono[where M = M], assumption+)
+  apply safe
+  by (drule E_E\<^sub>1_step; force simp: wf_state_def state_equiv_def dbm_equiv_def)
+
+lemma E\<^sub>1_wf_dbm[intro]:
+  "wf_dbm M \<Longrightarrow> E\<^sub>1 (l, M) (l', M') \<Longrightarrow> wf_dbm M'"
+  using E\<^sub>1_wf_state unfolding wf_state_def by auto
+
+(* XXX Duplication (E_mono') *)
+lemma E\<^sub>1_mono':
+  assumes "E\<^sub>1 (l,D) (l',D')"
+    and   "wf_dbm D" "wf_dbm M"
+    and "dbm_subset n D M"
+  shows "\<exists> M'. E\<^sub>1 (l,M) (l',M') \<and> dbm_subset n D' M'"
+  using assms
+  apply -
+  apply (frule E\<^sub>1_mono[where M = M], assumption+)
+   apply (subst dbm_subset_correct'', assumption+)
+   apply (rule dbm_subset_conv, assumption)
+  apply safe
+  apply (subst (asm) dbm_subset_correct'')
+    apply (blast intro: dbm_subset_conv_rev)+
+  done
+
 end (* End of anonymous context *)
 
 
@@ -634,14 +668,22 @@ lemma E_E_op: "E = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turnstile>
   unfolding E_op_def E_alt_def by simp
 
 context
-  fixes f
+  fixes f :: "'s
+   \<Rightarrow> nat list
+      \<Rightarrow> (nat, int) acconstraint list
+         \<Rightarrow> 's
+            \<Rightarrow> (nat \<times> nat \<Rightarrow> int DBMEntry)
+               \<Rightarrow> nat \<times> nat \<Rightarrow> int DBMEntry"
+begin
+
+definition "E_from_op = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> M''' = f l r g l' M)"
+
+context
   assumes op_bisim:
     "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> wf_dbm M \<Longrightarrow> f l r g l' M \<simeq> E_op l r g l' M"
     and op_wf:
     "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> wf_dbm M \<Longrightarrow> wf_dbm (f l r g l' M)"
 begin
-
-definition "E_from_op = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> M''' = f l r g l' M)"
 
 lemma E_E_from_op_step:
   "E a b \<Longrightarrow> wf_state a \<Longrightarrow> (\<exists> c. E_from_op a c \<and> b \<sim> c)"
@@ -661,7 +703,137 @@ lemma E_E_from_op_steps_equiv:
    (\<exists>l' M'. E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
   by (rule E_E\<^sub>1_steps_equiv[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
 
-end
+lemma E_from_op_mono:
+  assumes "E_from_op (l,D) (l',D')"
+    and   "wf_dbm D" "wf_dbm M"
+    and "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
+  shows "\<exists> M'. E_from_op (l,M) (l',M') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M')]\<^bsub>v,n\<^esub>"
+  using assms by - (rule E\<^sub>1_mono[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state]; blast)
+
+lemma E_from_op_mono':
+  assumes "E_from_op (l,D) (l',D')"
+    and   "wf_dbm D" "wf_dbm M"
+    and "dbm_subset n D M"
+  shows "\<exists> M'. E_from_op (l,M) (l',M') \<and> dbm_subset n D' M'"
+  using assms by - (rule E\<^sub>1_mono'[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state]; blast)
+
+end (* End of anonymous context for bisimilarity *)
+
+context
+  assumes step_FW_norm:
+    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> dbm_default (curry M) n \<Longrightarrow> dbm_int (curry M) n
+    \<Longrightarrow> \<not> check_diag n (f l r g l' M)
+    \<Longrightarrow> \<exists> M'.
+      f l r g l' M = FW' (norm_upd M' (k' l') n) n
+      \<and> dbm_default (curry M') n \<and> dbm_int (curry M') n"
+  and check_diag:
+    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> check_diag n M \<Longrightarrow> check_diag n (f l r g l' M)"
+begin
+
+(* XXX Duplication *)
+lemma steps_FW_norm:
+  assumes "E_from_op\<^sup>*\<^sup>* (l, D) (l', D')"
+    and "dbm_default (curry D) n"
+    and "dbm_int (curry D) n"
+  shows "l' = l \<and> D' = D \<or> check_diag n D' \<or> (\<exists>M. D' = FW' (norm_upd M (k' l') n) n \<and>
+             ((\<forall>i>n. \<forall>j. curry M i j = 0) \<and> (\<forall>j>n. \<forall>i. curry M i j = 0)) \<and> dbm_int (curry M) n)"
+using assms proof (induction "(l', D')" arbitrary: l' D')
+  case base then show ?case by auto
+next
+  case (step y)
+  obtain l'' D'' where [simp]: "y = (l'', D'')"
+    by force
+  from step.hyps(3)[OF this] step.prems have "
+    l'' = l \<and> D'' = D \<or>
+    check_diag n D'' \<or>
+    (\<exists>M. D'' = FW' (norm_upd M (k' l'') n) n \<and>
+         ((\<forall>i>n. \<forall>j. curry M i j = 0) \<and> (\<forall>j>n. \<forall>i. curry M i j = 0)) \<and> dbm_int (curry M) n)"
+    by auto
+  then show ?case
+  proof (standard, goal_cases)
+    case 1
+    with step_FW_norm[OF _ step.prems(1,2)] step.hyps(2) show ?thesis
+      unfolding E_from_op_def by auto
+  next
+    case 2
+    then show ?case
+    proof (standard, goal_cases)
+      case 1
+      with step.hyps(2) show ?case
+        unfolding E_from_op_def by (auto simp: check_diag)
+    next
+      case 2
+      then obtain M where M:
+        "D'' = FW' (norm_upd M (k' l'') n) n" "dbm_default (curry M) n" "dbm_int (curry M) n"
+        by auto
+      from step.hyps(2) show ?case
+        unfolding E_from_op_def
+        apply simp
+        apply (elim exE conjE)
+        subgoal premises prems for g a r
+        proof (cases "check_diag n (f l'' r g l' (FW' (norm_upd M (k' l'') n) n))")
+          case False
+          with prems show ?thesis
+          using M
+          apply -
+          apply (drule
+            step_FW_norm[
+              of l'' g a r l',
+              rotated,
+              OF FW'_default[OF norm_upd_default]
+                 FW'_int_preservation[OF norm_upd_int_preservation[where k =  "k' l''"]]
+            ]
+            , assumption)
+          defer
+            apply (rule length_k'; fail)
+          apply (simp; fail)
+          unfolding k'_def by auto
+        next
+          case True
+          with \<open>D' = _\<close> \<open>D'' = _\<close> show ?thesis by auto
+        qed
+        done
+    qed
+  qed
+qed
+
+(* XXX Duplication *)
+lemma E_closure_finite:
+  "finite {x. E_from_op\<^sup>*\<^sup>* a\<^sub>0 x \<and> \<not> check_diag n (snd x)}"
+proof -
+  have k': "map int (map (k l) [0..<Suc n]) = k' l" for l unfolding k'_def by auto
+  have *:
+    "(l, M) = a\<^sub>0 \<or> check_diag n M
+     \<or> (\<exists>M'. M = FW' (norm_upd M' (k' l) n) n \<and> dbm_default (curry M') n)"
+    if "E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l, M)" for l M
+    using that unfolding E_closure a\<^sub>0_def
+    apply -
+    apply (drule steps_FW_norm)
+    unfolding init_dbm_def by (auto simp: neutral)
+  moreover have **: "l \<in> locations" if "E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l, M)" for l M
+    using that unfolding E_closure locations_def
+    apply (induction "(l, M)")
+     apply (simp add: a\<^sub>0_def; fail)
+    by (force simp: E_from_op_def)
+  have
+    "{x. E_from_op\<^sup>*\<^sup>* a\<^sub>0 x \<and> \<not> check_diag n (snd x)} \<subseteq>
+     {a\<^sub>0} \<union>
+     (locations \<times> {FW' (norm_upd M (k' l) n) n | l M. l \<in> locations \<and> dbm_default (curry M) n})"
+    (is "_ \<subseteq> _ \<union> ?S")
+    apply safe
+     apply (rule **, assumption)
+    apply (frule *)
+    by (auto intro: **)
+  moreover have "finite ?S"
+    using FW'_normalized_integral_dbms_finite' finite_locations
+    using [[simproc add: finite_Collect]]
+    by (auto simp: k'_def finite_project_snd)
+  ultimately show ?thesis by (auto intro: finite_subset)
+qed
+
+end (* End of anonymous context for finiteness *)
+
+end (* End of context for E_from_op *)
 
 lemma norm_step_dbm_equiv:
   "FW' (norm_upd D (k' l') n) n \<simeq> FW' (norm_upd M (k' l') n) n" if "D \<simeq> M" "wf_dbm D" "wf_dbm M"
@@ -709,7 +881,7 @@ proof -
     wf_dbm_FW'_abstr_upd
   show ?thesis unfolding E_op'_def E_op_def by simp (intro intros wf_intros side_conds order.refl)
 qed
-
+term E_from_op term E_op'
 lemma E_E_from_op'_steps_equiv:
   "(\<exists>l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
    (\<exists>l' M'. (E_from_op E_op')\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
@@ -784,6 +956,132 @@ lemma E_E_from_op''_steps_equiv:
   "(\<exists>l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
    (\<exists>l' M'. (E_from_op E_op'')\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
   by (intro E_E_from_op_steps_equiv E_op''_wf E_op''_bisim')
+
+lemma abstra_upd_default:
+  assumes "dbm_default (curry M) n" "constraint_clk ac \<le> n"
+  shows "dbm_default (curry (abstra_upd ac M)) n"
+  using assms by (auto simp: abstra_upd_out_of_bounds1 abstra_upd_out_of_bounds2)
+
+lemma FWI_default:
+  assumes "dbm_default (curry M) n"
+  shows "dbm_default (curry (FWI' M n i)) n"
+  using assms unfolding FWI'_def FWI_def by (simp add: fwi_out_of_bounds1 fwi_out_of_bounds2)
+
+lemma abstra_repair_default:
+  assumes "dbm_default (curry M) n" "constraint_clk ac \<le> n"
+  shows "dbm_default (curry (abstra_repair ac M)) n"
+  using assms unfolding abstra_repair_def repair_pair_def by (intro abstra_upd_default FWI_default)
+
+lemma abstr_repair_default:
+  assumes "dbm_default (curry M) n" "\<forall>c\<in>collect_clks cc. c \<le> n"
+  shows "dbm_default (curry (abstr_repair cc M)) n"
+  using assms
+  unfolding abstr_repair_def
+  apply (induction cc arbitrary: M)
+   apply (simp; fail)
+  by (drule abstra_repair_default; auto)
+
+lemma abstra_repair_int:
+  assumes "dbm_int (curry M) n" "constraint_clk ac \<le> n" "snd (constraint_pair ac) \<in> \<int>"
+  shows "dbm_int (curry (abstra_repair ac M)) n"
+  using assms unfolding abstra_repair_def repair_pair_def FWI'_def FWI_def
+  by simp (intro abstra_upd_int_preservation fwi_int_preservation; (assumption | simp))
+
+(* XXX Unused *)
+lemma abstr_repair_int:
+  assumes
+    "dbm_int (curry M) n" "\<forall>c\<in>collect_clks cc. c \<le> n" "\<forall> (_,d) \<in> collect_clock_pairs cc. d \<in> \<int>"
+  shows "dbm_int (curry (abstr_repair cc M)) n"
+  using assms
+  unfolding abstr_repair_def
+  apply (induction cc arbitrary: M)
+   apply (simp; fail)
+  by (drule abstra_repair_int; auto simp: collect_clock_pairs_def)
+
+lemma E_op'_FW_norm:
+  "\<exists> M'.
+    E_op' l r g l' M = FW' (norm_upd M' (k' l') n) n
+    \<and> dbm_default (curry M') n \<and> dbm_int (curry M') n"
+  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "dbm_default (curry M) n"
+proof -
+  note default_intros = up_canonical_upd_default reset'_upd_default abstr_repair_default
+  (* XXX Duplication *)
+  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
+  moreover have
+    "\<forall>c\<in>constraint_clk ` set (inv_of A l'). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set g. c \<le> n"
+    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover have "\<forall>i\<in>set r. i \<le> n"
+    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover note side_conds = calculation that(2)
+  let ?M = "
+    curry (
+       abstr_repair (inv_of A l')
+         (reset'_upd (abstr_repair g (abstr_repair (inv_of A l) (up_canonical_upd M n))) n r 0))"
+  have "dbm_default ?M n"
+    by (intro default_intros[unfolded collect_clks_def] side_conds)
+  moreover have "dbm_int ?M n"
+    by (auto simp: Ints_def)
+  ultimately show ?thesis unfolding E_op'_def by auto
+qed
+
+lemma filter_diag_default:
+  assumes "\<And> M. dbm_default (curry M) n \<Longrightarrow> dbm_default (curry (f M)) n" "dbm_default (curry M) n"
+  shows "dbm_default (curry (filter_diag f M)) n"
+  unfolding filter_diag_def using assms by auto
+
+lemma E_op''_FW_norm:
+  "\<exists> M'.
+    E_op'' l r g l' M = FW' (norm_upd M' (k' l') n) n
+    \<and> dbm_default (curry M') n \<and> dbm_int (curry M') n"
+  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "dbm_default (curry M) n" "\<not> check_diag n (E_op'' l r g l' M)"
+proof -
+  note default_intros =
+    filter_diag_default up_canonical_upd_default reset'_upd_default abstr_repair_default
+  (* XXX Duplication *)
+  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
+  moreover have
+    "\<forall>c\<in>constraint_clk ` set (inv_of A l'). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set g. c \<le> n"
+    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover have "\<forall>i\<in>set r. i \<le> n"
+    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover note side_conds = calculation that(2)
+  let ?M = "
+    filter_diag (\<lambda>M. abstr_repair (inv_of A l') (reset'_upd M n r 0))
+      (filter_diag (abstr_repair g) (abstr_repair (inv_of A l) (up_canonical_upd M n)))"
+  have "dbm_default (curry ?M) n"
+    by (intro default_intros[unfolded collect_clks_def] side_conds)
+  moreover have "dbm_int (curry ?M) n"
+    by (auto simp: Ints_def)
+  ultimately show ?thesis
+    using that(3) unfolding E_op''_def by (auto simp: Let_def filter_diag_def)
+qed
+
+lemma E_op''_check_diag_aux:
+  "check_diag n (abstr_repair (inv_of A l) (up_canonical_upd M n))" if "check_diag n M"
+  apply (intro abstr_repair_check_diag_preservation check_diag_up_canonical_upd)
+  using that collect_clks_inv_clk_set[of A l] clock_range unfolding collect_clks_def by blast+
+
+lemma E_op''_check_diag:
+  "check_diag n (E_op'' l r g l' M)" if "check_diag n M"
+  using that E_op''_check_diag_aux unfolding E_op''_def filter_diag_def by (auto simp: Let_def)
+
+lemma E_op''_finite:
+  "finite {x. (E_from_op E_op'')\<^sup>*\<^sup>* a\<^sub>0 x \<and> \<not> check_diag n (snd x)}"
+  by (intro E_closure_finite E_op''_FW_norm E_op''_check_diag)
+
+lemma E_op'_check_diag:
+  "check_diag n (E_op' l r g l' M)" if "check_diag n M"
+  sorry
+
+lemma E_op'_finite:
+  "finite {x. (E_from_op E_op')\<^sup>*\<^sup>* a\<^sub>0 x \<and> \<not> check_diag n (snd x)}"
+  by (intro E_closure_finite E_op'_FW_norm E_op'_check_diag)
 
 end (* End of context for reachability problem*)
 

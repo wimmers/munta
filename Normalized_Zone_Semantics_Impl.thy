@@ -2454,32 +2454,30 @@ begin
     "finite {x. E\<^sup>*\<^sup>* a\<^sub>0 x}"
   proof -
     have k': "map int (map (k l) [0..<Suc n]) = k' l" for l unfolding k'_def by auto
-    have *: "(l, M) = a\<^sub>0 \<or>
-    (\<exists>M'. M = FW' (norm_upd M' (k' l) n) n \<and>
-          dbm_default (curry M') n)"
+    have *: "(l, M) = a\<^sub>0 \<or> (\<exists>M'. M = FW' (norm_upd M' (k' l) n) n \<and> dbm_default (curry M') n)"
       if "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)" for l M
-    using that unfolding E_closure
-    apply -
-    apply (drule steps_impl_norm_dbm_default_dbm_int)
-    apply (auto simp: init_dbm_def neutral)[]
-    apply (auto simp: init_dbm_def)[]
-    defer
-    defer
-    apply (simp add: k'_def; fail)
-    apply (simp add: k'_def; fail)
-    apply (simp add: a\<^sub>0_def)
-    using clock_range consts_ints by (auto simp: X_def)
+      using that unfolding E_closure
+      apply -
+      apply (drule steps_impl_norm_dbm_default_dbm_int)
+            apply (auto simp: init_dbm_def neutral)[]
+           apply (auto simp: init_dbm_def)[]
+          defer
+          defer
+          apply (simp add: k'_def; fail)
+         apply (simp add: k'_def; fail)
+        apply (simp add: a\<^sub>0_def)
+      using clock_range consts_ints by (auto simp: X_def)
     moreover have **: "l \<in> locations" if "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)" for l M
-    using that unfolding E_closure locations_def
+      using that unfolding E_closure locations_def
       apply (induction rule: steps_impl.induct)
-      apply (simp; fail)
+       apply (simp; fail)
       by (force elim!: step_impl.cases)
     have
       "{x. E\<^sup>*\<^sup>* a\<^sub>0 x} \<subseteq>
-      {a\<^sub>0} \<union> (locations \<times> {FW' (norm_upd M (k' l) n) n | l M. l \<in> locations \<and> dbm_default (curry M) n})"
-    (is "_ \<subseteq> _ \<union> ?S")
-     apply safe
-      apply (rule **, assumption)
+        {a\<^sub>0} \<union> (locations \<times> {FW' (norm_upd M (k' l) n) n | l M. l \<in> locations \<and> dbm_default (curry M) n})"
+      (is "_ \<subseteq> _ \<union> ?S")
+      apply safe
+       apply (rule **, assumption)
       apply (frule *)
       by (auto intro: **)
     moreover have "finite ?S"
@@ -4048,7 +4046,7 @@ subsection \<open>Instantiating the Reachability Problem\<close>
 
   sublocale Search_Space E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
    apply standard
-    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply assumption
+    using E_closure_finite unfolding Search_Space_Defs.reachable_def apply (auto; fail)
     subgoal for a
       apply (rule prod.exhaust[of a])
       by (auto simp add: subsumes_simp_1 dbm_subset_refl)
