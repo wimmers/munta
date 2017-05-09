@@ -86,20 +86,24 @@ begin
     concrete_definition (in -) pw_impl
     for Lei a\<^sub>0i Fi succsi emptyi
     uses Worklist_Map2_Impl.pw_algo_map2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
-    print_theorems
 
-    lemma pw_impl_hnr_F_reachable:
+  end -- \<open>Worklist_Map2 Impl\<close>
+
+  locale Worklist_Map2_Impl_finite = Worklist_Map2_Impl + Worklist_Map2_finite
+  begin
+
+  lemma pw_impl_hnr_F_reachable:
       "(uncurry0 (pw_impl keyi copyi Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
       \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
       using pw_impl.refine[OF Worklist_Map2_Impl_axioms,
         FCOMP pw_algo_map2_correct[THEN Id_SPEC_refine, THEN nres_relI]]
       by (simp add: RETURN_def)
 
-  end -- \<open>Worklist_Map2 Impl\<close>
-
+  end
 
   locale Worklist_Map2_Hashable =
-    Worklist_Map2  _ _ _ _ _ _ key for key :: "'a \<Rightarrow> 'ki :: {hashable, heap}"
+    Worklist_Map2_Impl_finite  _ _ _ _ _ _ _ _ _ _ _ _ _ _ key
+    for key :: "'a \<Rightarrow> 'ki :: {hashable, heap}"
   begin
 
     sepref_decl_op F_reachable :: "bool_rel" .
@@ -107,7 +111,6 @@ begin
 
 
     lemma hnr_op_F_reachable:
-      fixes A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn"
       assumes "GEN_ALGO a\<^sub>0i (\<lambda>a\<^sub>0i. (uncurry0 a\<^sub>0i, uncurry0 (RETURN a\<^sub>0)) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A)"
       assumes "GEN_ALGO Fi (\<lambda>Fi. (Fi,RETURN o F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
       assumes "GEN_ALGO Lei (\<lambda>Lei. (uncurry Lei,uncurry (RETURN oo op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"

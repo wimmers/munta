@@ -93,7 +93,7 @@ begin
     using assms
     unfolding worklist_inv'_def worklist_inv_def worklist_inv_list_def
     unfolding worklist_inv_frontier_def worklist_inv_frontier_list_def
-    unfolding start_subsumed_def start_subsumed_list_def
+    unfolding worklist_start_subsumed_def start_subsumed_list_def
     by auto
 
   lemma take_from_list_take_from_mset_ref[refine]:

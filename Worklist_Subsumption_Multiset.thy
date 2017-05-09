@@ -38,28 +38,17 @@ lemma set_mset_mp: "set_mset m \<subseteq> s \<Longrightarrow> n < count m x \<L
 lemma pred_not_lt_is_zero: "(\<not> n - Suc 0 < n) \<longleftrightarrow> n=0" by auto
 
 
-context Search_Space
-begin
-
-  lemma start_reachable[intro!, simp]:
-    "reachable a\<^sub>0"
-  unfolding reachable_def by simp
-
-  lemma step_reachable:
-    assumes "reachable a" "E a a'"
-    shows "reachable a'"
-  using assms unfolding reachable_def by simp
-
-  lemma finitely_branching:
-    assumes "reachable a"
-    shows "finite (Collect (E a))"
-    by (metis assms finite_reachable finite_subset mem_Collect_eq step_reachable subsetI)
-
-end -- \<open>Search Space\<close>
+lemma (in Search_Space_finite_strict) finitely_branching:
+  assumes "reachable a"
+  shows "finite (Collect (E a))"
+  by (metis assms finite_reachable finite_subset mem_Collect_eq step_reachable subsetI)
 
 subsection \<open>Standard Worklist Algorithm\<close>
 
 context Search_Space_Defs_Empty begin
+
+  definition "worklist_start_subsumed passed wait = (\<exists> a \<in> passed \<union> set_mset wait. a\<^sub>0 \<preceq> a)"
+
   definition
     "worklist_var =
     inv_image (finite_psupset (Collect reachable) <*lex*> measure size) (\<lambda> (a, b,c). (a,b))"
@@ -73,7 +62,7 @@ context Search_Space_Defs_Empty begin
     (\<not> brk \<longrightarrow>
       worklist_inv_frontier passed wait
     \<and> (\<forall> a \<in> passed \<union> set_mset wait. \<not> F a)
-    \<and> start_subsumed passed wait
+    \<and> worklist_start_subsumed passed wait
     \<and> set_mset wait \<subseteq> Collect reachable)
     "
 
@@ -116,7 +105,13 @@ end
 
 subsubsection \<open>Correctness Proof\<close>
 
-context Search_Space begin
+lemma (in Search_Space) empty_E_star:
+  "empty x'" if "E\<^sup>*\<^sup>* x x'" "reachable x" "empty x"
+  using that unfolding reachable_def
+  by (induction rule: converse_rtranclp_induct)
+     (blast intro: empty_E[unfolded reachable_def] rtranclp.rtrancl_into_rtrancl)+
+
+context Search_Space_finite_strict begin
 
   lemma wf_worklist_var:
     "wf worklist_var"
@@ -156,9 +151,9 @@ context Search_Space begin
       "a' \<in> passed"
       "a \<preceq> a'"
       "a \<in># wait"
-      "start_subsumed passed wait"
-    shows "start_subsumed passed (wait - {#a#})"
-    using assms unfolding start_subsumed_def apply clarsimp
+      "worklist_start_subsumed passed wait"
+    shows "worklist_start_subsumed passed (wait - {#a#})"
+    using assms unfolding worklist_start_subsumed_def apply clarsimp
     by (metis Un_iff insert_DiffM2 local.trans mset_right_cancel_elem)
 
   (* XXX Move to misc *)
@@ -212,10 +207,10 @@ context Search_Space begin
   private lemma aux6:
     assumes
       "a \<in># wait"
-      "start_subsumed passed wait"
+      "worklist_start_subsumed passed wait"
       "\<forall> s \<in> set_mset (wait - {#a#}) \<union> {a'. E a a' \<and> \<not> empty a'}. \<exists> s' \<in> set_mset wait'. s \<preceq> s'"
-    shows "start_subsumed (insert a passed) wait'"
-    using assms unfolding start_subsumed_def
+    shows "worklist_start_subsumed (insert a passed) wait'"
+    using assms unfolding worklist_start_subsumed_def
     apply clarsimp
     apply (erule disjE)
      apply blast
@@ -232,19 +227,13 @@ context Search_Space begin
     qed
   done
 
-  lemma empty_E_star:
-    "empty x'" if "E\<^sup>*\<^sup>* x x'" "reachable x" "empty x"
-    using that unfolding reachable_def
-    by (induction rule: converse_rtranclp_induct)
-       (blast intro: empty_E[unfolded reachable_def] rtranclp.rtrancl_into_rtrancl)+
-
   lemma aux4:
-    assumes "worklist_inv_frontier passed {#}" "reachable x" "start_subsumed passed {#}"
+    assumes "worklist_inv_frontier passed {#}" "reachable x" "worklist_start_subsumed passed {#}"
             "passed \<subseteq> Collect reachable"
     shows "\<exists> x' \<in> passed. x \<preceq> x'"
   proof -
     from \<open>reachable x\<close> have "E\<^sup>*\<^sup>* a\<^sub>0 x" by (simp add: reachable_def)
-    from assms(3) obtain b where "a\<^sub>0 \<preceq> b" "b \<in> passed" unfolding start_subsumed_def by auto
+    from assms(3) obtain b where "a\<^sub>0 \<preceq> b" "b \<in> passed" unfolding worklist_start_subsumed_def by auto
     have "\<exists>x'. \<exists> x''. E\<^sup>*\<^sup>* b x' \<and> x \<preceq> x' \<and> x' \<preceq> x'' \<and> x'' \<in> passed" if
                      "E\<^sup>*\<^sup>* a x"  "a \<preceq> b"   "b \<preceq> b'"   "b' \<in> passed"
                      "reachable a" "reachable b" for a b b'
@@ -302,7 +291,7 @@ context Search_Space begin
       (* F a\<^sub>0*)
       apply (auto; fail)
       (* Invar start*)
-      apply (auto simp: worklist_inv_def worklist_inv_frontier_def start_subsumed_def; fail)
+      apply (auto simp: worklist_inv_def worklist_inv_frontier_def worklist_start_subsumed_def; fail)
       (* Precondition for take-from-set *)
       apply (simp; fail)
       (* State is subsumed by passed*)
@@ -355,7 +344,7 @@ begin
   definition "worklist_inv_frontier' passed wait =
     (\<forall> a \<in> passed. \<forall> a'. E a a' \<and> \<not> empty a' \<longrightarrow> (\<exists> b' \<in> passed \<union> set_mset wait. a' \<preceq> b'))"
 
-  definition "start_subsumed' passed wait = (\<exists> a \<in> passed \<union> set_mset wait. a\<^sub>0 \<preceq> a)"
+  definition "worklist_start_subsumed' passed wait = (\<exists> a \<in> passed \<union> set_mset wait. a\<^sub>0 \<preceq> a)"
 
   definition "worklist_inv' \<equiv> \<lambda> (passed, wait, brk).
     worklist_inv (passed, wait, brk) \<and> (\<forall> a \<in> passed. \<not> empty a) \<and> (\<forall> a \<in> set_mset wait. \<not> empty a)
@@ -457,7 +446,7 @@ begin
 end -- \<open>Search Space'' Defs\<close>
 
 
-context Search_Space''
+context Search_Space''_finite_strict
 begin
 
   lemma worklist_algo''_correct:
@@ -477,7 +466,7 @@ begin
       using False unfolding worklist_algo''_def by simp
   qed
 
-end -- \<open>Search Space''\<close>
+end -- \<open>Search Space'' (strictly finite)\<close>
 
 
 end -- \<open>End of Theory\<close>

@@ -45,17 +45,17 @@ begin
     shows "reachable a'"
   using assms unfolding reachable_def by simp
 
-  lemma finitely_branching:
-    assumes "reachable a"
-    shows "finite ({a'. E a a' \<and> \<not> empty a'})"
-  proof -
-    have "{a'. E a a' \<and> \<not> empty a'} \<subseteq> {a'. reachable a' \<and> \<not> empty a'}"
-      using assms(1) by (auto intro: step_reachable)
-    then show ?thesis using finite_reachable
-      by (rule finite_subset)
-  qed
-
 end -- \<open>Search Space\<close>
+
+lemma (in Search_Space_finite) finitely_branching:
+  assumes "reachable a"
+  shows "finite ({a'. E a a' \<and> \<not> empty a'})"
+proof -
+  have "{a'. E a a' \<and> \<not> empty a'} \<subseteq> {a'. reachable a' \<and> \<not> empty a'}"
+    using assms(1) by (auto intro: step_reachable)
+  then show ?thesis using finite_reachable
+    by (rule finite_subset)
+qed
 
 subsection \<open>Generalized Worklist Algorithm\<close>
 
@@ -162,7 +162,7 @@ end
 
 subsubsection \<open>Correctness Proof\<close>
 
-context Search_Space' begin
+context Search_Space_finite begin
 
   lemma wf_worklist_var_aux:
     "wf {(passed', passed).
@@ -477,47 +477,47 @@ context Search_Space' begin
     rule aux3 aux5 aux7 aux10 aux11 pw_inv_frontier_empty_elem; assumption; fail |
     rule aux3; auto; fail | auto intro: aux9; fail | auto dest: in_diffD; fail
 
-  theorem pw_algo_correct:
-    "pw_algo \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
-  proof -
-    note [simp] = size_Diff_submset pred_not_lt_is_zero
-    note [dest] = set_mset_mp
-    show ?thesis
-      unfolding pw_algo_def init_pw_spec_def add_pw_spec_def F_reachable_def
-      apply (refine_vcg wf_worklist_var)
-        (* F a\<^sub>0*)
-               apply (auto; fail)
-        (* empty a\<^sub>0 *)
-              subgoal
-                using empty_E_star final_non_empty reachable_def by auto
-        (* Invar start*)
-             apply (fastforce simp: pw_inv_def pw_inv_frontier_def start_subsumed_def
-                              split: if_split_asm dest: mset_subset_eqD)
-        (* Precondition for take-from-set *)
-            apply (simp; fail)
-        (* State is subsumed by passed*)
-        (* Assertion *)
-           apply (auto simp: pw_inv_def; fail)
-        (* Invariant for picking an empty wait list element *)
-          subgoal for _ passed wait _ passed' _ _ brk _ a wait'
-            by (clarsimp simp: pw_inv_def split: if_split_asm; safe; solve_vc)
-        (* Termination for picking an empty wait list element *)
-         apply (clarsimp simp: pw_var_def nonempty_has_size; fail)
-        (* Invariant for picking a non-empty wait list element *)
-        subgoal for _ passed wait _ passed' _ _ brk _ a wait'
-          by (clarsimp simp: pw_inv_def split: if_split_asm; safe; solve_vc) (* slow *)
-        (* Termination for picking a non-empty wait list element *)
-        subgoal for  _ _ _ _ passed _ wait brk _ a wait'
-          by (clarsimp simp: pw_inv_def split: if_split_asm; safe)
-             (simp_all add: aux12 aux13 pw_var_def)
-        (* I \<and> \<not> b \<longrightarrow> post *)
-        using F_mono by (fastforce simp: pw_inv_def dest!: aux4 dest: final_non_empty)
-  qed
-
-  lemmas [refine_vcg] = pw_algo_correct[THEN order_trans]
-
   end -- \<open>Context\<close>
 
 end -- \<open>Search Space\<close>
+
+theorem (in Search_Space'_finite) pw_algo_correct:
+  "pw_algo \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
+proof -
+  note [simp] = size_Diff_submset pred_not_lt_is_zero
+  note [dest] = set_mset_mp
+  show ?thesis
+    unfolding pw_algo_def init_pw_spec_def add_pw_spec_def F_reachable_def
+    apply (refine_vcg wf_worklist_var)
+      (* F a\<^sub>0*)
+             apply (auto; fail)
+      (* empty a\<^sub>0 *)
+            subgoal
+              using empty_E_star final_non_empty reachable_def by auto
+      (* Invar start*)
+           apply (fastforce simp: pw_inv_def pw_inv_frontier_def start_subsumed_def
+                            split: if_split_asm dest: mset_subset_eqD)
+      (* Precondition for take-from-set *)
+          apply (simp; fail)
+      (* State is subsumed by passed*)
+      (* Assertion *)
+         apply (auto simp: pw_inv_def; fail)
+      (* Invariant for picking an empty wait list element *)
+        subgoal for _ passed wait _ passed' _ _ brk _ a wait'
+          by (clarsimp simp: pw_inv_def split: if_split_asm; safe; solve_vc)
+      (* Termination for picking an empty wait list element *)
+       apply (clarsimp simp: pw_var_def nonempty_has_size; fail)
+      (* Invariant for picking a non-empty wait list element *)
+      subgoal for _ passed wait _ passed' _ _ brk _ a wait'
+        by (clarsimp simp: pw_inv_def split: if_split_asm; safe; solve_vc) (* slow *)
+      (* Termination for picking a non-empty wait list element *)
+      subgoal for  _ _ _ _ passed _ wait brk _ a wait'
+        by (clarsimp simp: pw_inv_def split: if_split_asm; safe)
+           (simp_all add: aux12 aux13 pw_var_def)
+      (* I \<and> \<not> b \<longrightarrow> post *)
+      using F_mono by (fastforce simp: pw_inv_def dest!: aux4 dest: final_non_empty)
+qed
+
+lemmas (in Search_Space'_finite) [refine_vcg] = pw_algo_correct[THEN order_trans]
 
 end -- \<open>End of Theory\<close>

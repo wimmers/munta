@@ -427,7 +427,9 @@ lemma pw_algo_map2_ref[refine]:
            apply refine_dref_type
   by auto
 
-lemma pw_algo_map2_correct:
+end -- \<open>Worklist Map 2\<close>
+
+lemma (in Worklist_Map2_finite) pw_algo_map2_correct:
   "pw_algo_map2 \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
 proof -
   note pw_algo_map2_ref
@@ -436,7 +438,5 @@ proof -
   also note pw_algo_correct
   finally show ?thesis .
 qed
-
-end
 
 end -- \<open>End of Theory\<close>

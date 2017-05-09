@@ -27,8 +27,6 @@ locale Search_Space_Defs_Empty = Search_Space_Defs +
 text \<open>The set of reachable states must be finite,
   subsumption must be a preorder, and be compatible with steps and final states.\<close>
 locale Search_Space = Search_Space_Defs_Empty +
-  assumes finite_reachable: "finite {a. reachable a \<and> \<not> empty a}"
-
   assumes refl[intro!, simp]: "a \<preceq> a"
       and trans[trans]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
 
@@ -39,8 +37,16 @@ locale Search_Space = Search_Space_Defs_Empty +
       and empty_E: "reachable x \<Longrightarrow> empty x \<Longrightarrow> E x x' \<Longrightarrow> empty x'"
       and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
 
+locale Search_Space_finite = Search_Space +
+  assumes finite_reachable: "finite {a. reachable a \<and> \<not> empty a}"
+
+locale Search_Space_finite_strict = Search_Space +
+  assumes finite_reachable: "finite {a. reachable a}"
+
 locale Search_Space' = Search_Space +
   assumes final_non_empty: "F a \<Longrightarrow> \<not> empty a"
+
+locale Search_Space'_finite = Search_Space' + Search_Space_finite
 
 locale Search_Space''_Defs = Search_Space_Defs_Empty +
   fixes subsumes' :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<unlhd>" 50) -- \<open>Subsumption preorder\<close>
@@ -53,6 +59,11 @@ locale Search_Space''_start = Search_Space''_pre +
 
 locale Search_Space'' = Search_Space''_pre + Search_Space'
 
+locale Search_Space''_finite = Search_Space'' + Search_Space_finite
+
+sublocale Search_Space''_finite \<subseteq> Search_Space'_finite ..
+
+locale Search_Space''_finite_strict = Search_Space'' + Search_Space_finite_strict
 
 locale Search_Space_Key_Defs =
   Search_Space''_Defs E for E :: "'v \<Rightarrow> 'v \<Rightarrow> bool" +
@@ -93,6 +104,10 @@ locale Worklist_Map2_Defs = Worklist_Map_Defs + Worklist3_Defs
 
 locale Worklist_Map2 = Worklist_Map2_Defs + Worklist_Map + Worklist3
 
+locale Worklist_Map2_finite = Worklist_Map2 + Search_Space_finite
+
+sublocale Worklist_Map2_finite \<subseteq> Search_Space''_finite ..
+
 locale Worklist4_Impl_Defs = Worklist3_Defs +
   fixes A :: "'a \<Rightarrow> 'ai \<Rightarrow> assn"
   fixes succsi :: "'ai \<Rightarrow> 'ai list Heap"
@@ -108,6 +123,10 @@ locale Worklist4_Impl = Worklist4_Impl_Defs + Worklist4 +
   assumes [sepref_fr_rules]: "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]: "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
   assumes [sepref_fr_rules]: "(emptyi,RETURN o PR_CONST empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+
+locale Worklist4_Impl_finite_strict = Worklist4_Impl + Search_Space_finite_strict
+
+sublocale Worklist4_Impl_finite_strict \<subseteq> Search_Space''_finite_strict ..
 
 locale Worklist_Map2_Impl_Defs =
   Worklist4_Impl_Defs _ _ _ _ _ _ _ _ A + Worklist_Map2_Defs a\<^sub>0 _ _ _ _ _ key

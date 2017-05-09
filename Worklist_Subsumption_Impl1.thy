@@ -95,6 +95,11 @@ begin
     for Lei a\<^sub>0i Fi succsi emptyi
     uses Worklist4_Impl.worklist_algo2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 
+    end -- \<open>Worklist4 Impl\<close>
+
+  context Worklist4_Impl_finite_strict
+    begin
+
     lemma worklist_algo2_impl_hnr_F_reachable:
       "(uncurry0 (worklist_algo2_impl Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
       \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -102,10 +107,6 @@ begin
         FCOMP worklist_algo2_ref[THEN nres_relI],
         FCOMP worklist_algo''_correct[THEN Id_SPEC_refine, THEN nres_relI]]
       by (simp add: RETURN_def)
-
-  end -- \<open>Worklist4 Impl\<close>
-
-  context Worklist4 begin
 
     sepref_decl_op F_reachable :: "bool_rel" .
     lemma [def_pat_rules]: "F_reachable \<equiv> op_F_reachable" by simp
@@ -129,6 +130,6 @@ begin
 
     sepref_decl_impl hnr_op_F_reachable .
 
-  end -- \<open>Worklist4\<close>
+  end -- \<open>Worklist4 (strictly finite)\<close>
 
 end -- \<open>End of Theory\<close>
