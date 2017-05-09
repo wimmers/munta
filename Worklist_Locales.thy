@@ -43,6 +43,9 @@ locale Search_Space_finite = Search_Space +
 locale Search_Space_finite_strict = Search_Space +
   assumes finite_reachable: "finite {a. reachable a}"
 
+sublocale Search_Space_finite_strict \<subseteq> Search_Space_finite
+  by standard (auto simp: finite_reachable)
+
 locale Search_Space' = Search_Space +
   assumes final_non_empty: "F a \<Longrightarrow> \<not> empty a"
 
