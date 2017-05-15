@@ -4,6 +4,7 @@ theory Normalized_Zone_Semantics_Impl_Refine
     "~~/src/HOL/Library/IArray"
     Code_Numeral
     Worklist_Subsumption_Impl1 Unified_PW_Impl
+    Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 
   lemma rev_map_fold_append_aux:
@@ -51,6 +52,42 @@ begin
 
 end
 
+definition "FWI'' n M = FWI' M n"
+
+lemma fwi_impl'_refine_FWI'':
+  "(fwi_impl' n, RETURN oo PR_CONST (\<lambda> M. FWI'' n M)) \<in> Id \<rightarrow> Id \<rightarrow> \<langle>Id\<rangle> nres_rel"
+  unfolding FWI''_def by (rule fwi_impl'_refine_FWI')
+
+lemmas fwi_impl_refine_FWI'' = fwi_impl.refine[FCOMP fwi_impl'_refine_FWI'']
+
+context
+  fixes n :: nat
+begin
+
+  context
+    notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
+  begin
+
+  sepref_register "PR_CONST (FWI'' n)"
+
+  end
+
+  lemmas [sepref_fr_rules] = fwi_impl_refine_FWI''
+
+  lemma [def_pat_rules]: "FWI'' $ n \<equiv> UNPROTECT (FWI'' n)" by simp
+
+  sepref_definition repair_pair_impl is
+    "uncurry2 (RETURN ooo PR_CONST (repair_pair n))" ::
+    "[\<lambda> ((_,a),b). a \<le> n \<and> b \<le> n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
+    unfolding repair_pair_def FWI''_def[symmetric] PR_CONST_def
+    by sepref
+
+  sepref_register repair_pair
+
+  lemmas [sepref_fr_rules] = repair_pair_impl.refine
+
+end
+
 
 locale Reachability_Problem_Impl =
   Reachability_Problem_Impl_Defs A l\<^sub>0 F n +
@@ -63,30 +100,175 @@ locale Reachability_Problem_Impl =
   assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states"
       and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel states"
       and F_fun: "(F_fun, F) \<in> inv_rel states"
-      and ceiling:
-      "(ceiling, IArray o k') \<in> inv_rel states"
-        (* "(uncurry0 (return ceiling), uncurry0 (RETURN k')) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn" *)
+      and ceiling: "(ceiling, IArray o k') \<in> inv_rel states"
+begin
+
+  abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> states)"
+
+  abbreviation "location_assn \<equiv> pure location_rel"
+
+  abbreviation "state_assn \<equiv> prod_assn id_assn (mtx_assn n)"
+
+  abbreviation "state_assn' \<equiv> prod_assn location_assn (mtx_assn n)"
+
+  abbreviation
+    "op_impl_assn \<equiv>
+    location_assn\<^sup>k *\<^sub>a (list_assn (clock_assn n))\<^sup>k *\<^sub>a
+    (list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a location_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d
+    \<rightarrow>\<^sub>a mtx_assn n"
+
+end
+
+locale Reachability_Problem_Impl_Op =
+  Reachability_Problem_Impl _ _ _ _ _ l\<^sub>0
+  + op: E_From_Op_Bisim_Finite l\<^sub>0 for l\<^sub>0 :: "'s :: {hashable, heap}" +
+  fixes op_impl
+  assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
+begin
+
+end
+
+text \<open>Shared Setup\<close>
+context Reachability_Problem_Impl
+begin
+
+  definition "inv_of_A = inv_of A"
+
+  context
+    notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
+  begin
+
+  sepref_register trans_fun
+
+  sepref_register abstr_upd up_canonical_upd norm_upd reset'_upd reset_canonical_upd
+
+  sepref_register "PR_CONST (FW'' n)"
+
+  sepref_register "PR_CONST (Reachability_Problem_Impl.inv_of_A A)"
+
+  end
+
+  lemmas [sepref_fr_rules] = fw_impl.refine[FCOMP fw_impl'_refine_FW'']
+
+  lemma [def_pat_rules]: "FW'' $ n \<equiv> UNPROTECT (FW'' n)" by simp
+
+  lemma trans_fun_clock_bounds3:
+    "\<forall> c \<in> collect_clks (inv_of A l). c \<le> n"
+  using collect_clks_inv_clk_set[of A l] clocks_n by force
+
+  lemma inv_fun_rel:
+    assumes "l \<in> states"
+    shows "(inv_fun l, inv_of A l) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
+  proof -
+    have "(xs, xs) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
+      if "\<forall> c \<in> collect_clks xs. c \<le> n" for xs
+    using that
+      apply (induction xs)
+      apply simp
+      apply simp
+      subgoal for a
+        apply (cases a)
+      by (auto simp: acconstraint_rel_def p2rel_def rel2p_def)
+    done
+    moreover have
+      "inv_fun l = inv_of A l"
+    using inv_fun assms unfolding inv_rel_def b_rel_def fun_rel_def by auto
+    ultimately show ?thesis using trans_fun_clock_bounds3 by auto
+  qed
+
+  lemma [sepref_fr_rules]:
+    "(return o inv_fun, RETURN o PR_CONST inv_of_A)
+    \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (acconstraint_assn (clock_assn n) int_assn)"
+    using inv_fun_rel
+   apply (simp add: b_assn_pure_conv aconstraint_assn_pure_conv list_assn_pure_conv inv_of_A_def)
+  by sepref_to_hoare (sep_auto simp: pure_def)
+
+  lemma [sepref_fr_rules]:
+    "(return o ceiling, RETURN o PR_CONST k') \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+    using ceiling by sepref_to_hoare (sep_auto simp: inv_rel_def fun_rel_def br_def)
+
+  sepref_register "PR_CONST k'"
+
+  lemma [def_pat_rules]: "(Reachability_Problem_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp
+
+  lemma [simp]:
+    "length (k' l) > n"
+  by (simp add: k'_def)
+
+  lemma [def_pat_rules]: "(Reachability_Problem_Impl.inv_of_A $ A) \<equiv> PR_CONST inv_of_A" by simp
+
+  lemma reset_canonical_upd_impl_refine:
+    "(uncurry3 (reset_canonical_upd_impl n), uncurry3 (\<lambda>x. RETURN \<circ>\<circ>\<circ> reset_canonical_upd x))
+      \<in> [\<lambda>(((_, i), j), _).
+             i \<le> n \<and>
+             j \<le> n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k *\<^sub>a (nbn_assn (Suc n))\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn n"
+    apply sepref_to_hnr
+    apply (rule hn_refine_preI)
+    apply (rule hn_refine_cons[OF _ reset_canonical_upd_impl.refine[to_hnr], simplified])
+    by (sep_auto simp: hn_ctxt_def b_assn_def entailst_def)+
+
+  lemmas [sepref_fr_rules] =
+    abstr_upd_impl.refine up_canonical_upd_impl.refine norm_upd_impl.refine
+    reset_canonical_upd_impl_refine
+
+  lemma constraint_clk_acconstraint_rel_simps:
+    assumes "(ai, a) \<in> \<langle>nbn_rel (Suc n), id_rel\<rangle>acconstraint_rel"
+    shows "constraint_clk a < Suc n" "constraint_clk ai = constraint_clk a"
+    using assms by (cases ai; cases a; auto simp: acconstraint_rel_def p2rel_def rel2p_def)+
+
+  lemma [sepref_fr_rules]:
+    "(return o constraint_clk, RETURN o constraint_clk)
+    \<in> (acconstraint_assn (clock_assn n) id_assn)\<^sup>k \<rightarrow>\<^sub>a clock_assn n"
+    apply (simp add: b_assn_pure_conv aconstraint_assn_pure_conv)
+    by sepref_to_hoare (sep_auto simp: pure_def constraint_clk_acconstraint_rel_simps)
+
+  sepref_register constraint_clk
+
+  sepref_register
+    "repair_pair n :: ((nat \<times> nat \<Rightarrow> ('b :: {linordered_cancel_ab_monoid_add}) DBMEntry)) \<Rightarrow> _" ::
+    "(('ee DBMEntry) i_mtx) \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ((nat \<times> nat \<Rightarrow> 'ee DBMEntry))"
+
+  sepref_register abstra_upd :: "(nat, 'e) acconstraint \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx"
+
+  sepref_register n
+
+  lemmas [sepref_import_param] = IdI[of n]
+
+  sepref_definition abstra_repair_impl is
+    "uncurry (RETURN oo PR_CONST abstra_repair)" ::
+    "(acconstraint_assn (clock_assn n) id_assn)\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
+    unfolding abstra_repair_def PR_CONST_def
+    by sepref
+
+  sepref_register abstra_repair :: "(nat, 'e) acconstraint \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx"
+
+  lemmas [sepref_fr_rules] = abstra_repair_impl.refine
+
+  sepref_definition abstr_repair_impl is
+    "uncurry (RETURN oo PR_CONST abstr_repair)" ::
+    "(list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
+    unfolding abstr_repair_def PR_CONST_def
+    by sepref
+
+  sepref_register abstr_repair ::
+    "(nat, 'e) acconstraint list \<Rightarrow> 'e DBMEntry i_mtx \<Rightarrow> 'e DBMEntry i_mtx"
+
+  lemmas [sepref_fr_rules] = abstr_repair_impl.refine
+
+end (* End of Reachability Problem Impl *)
+
+context Reachability_Problem_Impl_Op
 begin
 
   definition succs where
-    "succs \<equiv> \<lambda> (l, D).
-      rev (map (\<lambda> (g,a,r,l').
-      let
-        D' = FW' (abstr_upd (inv_of A l) (up_canonical_upd D n)) n;
-        D'' = FW' (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D') n) n r 0)) n;
-        D''' = FW' (norm_upd D'' (k' l') n) n
-      in
-        (l', D''')) (trans_fun l))"
+    "succs \<equiv> \<lambda> (l, D). rev (map (\<lambda> (g,a,r,l'). (l', f l r g l' D)) (trans_fun l))"
 
   definition succs' where
     "succs' \<equiv> \<lambda> (l, D). do
       {
         xs \<leftarrow> nfoldli (trans_fun l) (\<lambda> _. True) (\<lambda> (g,a,r,l') xs. do
           {
-            let delay = FW' (abstr_upd (inv_of A l) (up_canonical_upd (op_mtx_copy D) n)) n;
-            let reset = fold (\<lambda>c M. reset_canonical_upd M n c 0) r (FW' (abstr_upd g delay) n);
-            let action = (l', FW' (norm_upd (FW' (abstr_upd (inv_of A l') reset) n) (k' l') n) n);
-            RETURN (action # xs)
+            RETURN ((l', f l r g l' (op_mtx_copy D)) # xs)
           }
         ) [];
         RETURN xs
@@ -108,7 +290,6 @@ begin
     apply (cases lD)
     apply simp
     apply (rewrite fold_eq_nfoldli)
-    apply (simp add: reset'_upd_def)
     apply (fo_rule arg_cong fun_cong)+
     apply auto
   done
@@ -128,14 +309,6 @@ begin
   lemma [def_pat_rules]:
     "check_diag $ n \<equiv> PR_CONST (check_diag n)"
   by simp
-
-  abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> states)"
-
-  abbreviation "location_assn \<equiv> pure location_rel"
-
-  abbreviation "state_assn \<equiv> prod_assn id_assn (mtx_assn n)"
-
-  abbreviation "state_assn' \<equiv> prod_assn location_assn (mtx_assn n)"
 
   definition
   "subsumes' =
@@ -159,7 +332,7 @@ begin
   (* XXX Somewhat peculiar use of the zero instance for DBM entries *)
   lemma init_dbm_alt_def:
     "init_dbm = op_amtx_dfltNxM (Suc n) (Suc n) (Le 0)"
-  unfolding init_dbm_def op_amtx_dfltNxM_def zero_DBMEntry_def by auto
+  unfolding init_dbm_def op_amtx_dfltNxM_def neutral by auto
 
   lemma [sepref_import_param]: "(Le 0, PR_CONST (Le 0)) \<in> Id" by simp
 
@@ -200,71 +373,6 @@ begin
   sepref_definition F_impl is
     "RETURN o (\<lambda> (l, M). F l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   by sepref
-
-  definition "inv_of_A = inv_of A"
-
-  context
-    notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
-  begin
-
-  sepref_register trans_fun
-
-  sepref_register abstr_upd up_canonical_upd norm_upd reset'_upd reset_canonical_upd
-
-  sepref_register "PR_CONST (FW'' n)"
-
-  sepref_register "PR_CONST (Reachability_Problem_Impl.inv_of_A A)"
-
-  end
-
-  lemma trans_fun_clock_bounds3:
-    "\<forall> c \<in> collect_clks (inv_of A l). c \<le> n"
-  using collect_clks_inv_clk_set[of A l] clocks_n by force
-
-  lemma inv_fun_rel:
-    assumes "l \<in> states"
-    shows "(inv_fun l, inv_of A l) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
-  proof -
-    have "(xs, xs) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
-      if "\<forall> c \<in> collect_clks xs. c \<le> n" for xs
-    using that
-      apply (induction xs)
-      apply simp
-      apply simp
-      subgoal for a
-        apply (cases a)
-      by (auto simp: acconstraint_rel_def p2rel_def rel2p_def)
-    done
-    moreover have
-      "inv_fun l = inv_of A l"
-    using inv_fun assms unfolding inv_rel_def b_rel_def fun_rel_def by auto
-    ultimately show ?thesis using trans_fun_clock_bounds3 by auto
-  qed
-
-  lemma [sepref_fr_rules]:
-    "(return o inv_fun, RETURN o PR_CONST inv_of_A)
-    \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (acconstraint_assn (clock_assn n) int_assn)"
-    using inv_fun_rel
-   apply (simp add: b_assn_pure_conv aconstraint_assn_pure_conv list_assn_pure_conv inv_of_A_def)
-  by sepref_to_hoare (sep_auto simp: pure_def)
-
-  lemmas [sepref_fr_rules] = fw_impl.refine[FCOMP fw_impl'_refine_FW'']
-
-  lemma [def_pat_rules]: "FW'' $ n \<equiv> UNPROTECT (FW'' n)" by simp
-
-  lemma [sepref_fr_rules]:
-    "(return o ceiling, RETURN o PR_CONST k') \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
-    using ceiling by sepref_to_hoare (sep_auto simp: inv_rel_def fun_rel_def br_def)
-
-  sepref_register "PR_CONST k'"
-
-  term "Reachability_Problem_Defs.k' n k"
-
-  lemma [def_pat_rules]: "(Reachability_Problem_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp
-
-  lemma [simp]:
-    "length (k' l) > n"
-  by (simp add: k'_def)
 
   lemma trans_fun_trans_of[intro]:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
@@ -336,10 +444,6 @@ begin
   qed
   done
 
-  lemmas [sepref_fr_rules] =
-    abstr_upd_impl.refine up_canonical_upd_impl.refine norm_upd_impl.refine
-    reset_canonical_upd_impl.refine
-
   sepref_register op_HOL_list_empty
 
   lemma b_rel_subtype[sepref_frame_match_rules]:
@@ -351,11 +455,12 @@ begin
     "hn_val R a b \<or>\<^sub>A hn_val (b_rel R p) a b \<Longrightarrow>\<^sub>t hn_val R a b"
   by (simp add: b_rel_subtype entt_disjE)+
 
-  lemma [def_pat_rules]: "(Reachability_Problem_Impl.inv_of_A $ A) \<equiv> PR_CONST inv_of_A" by simp
-
   lemmas [safe_constraint_rules] = CN_FALSEI[of is_pure "asmtx_assn n a" for a]
 
-  sepref_register n
+  sepref_register f ::
+    "'s \<Rightarrow> nat list \<Rightarrow> (nat, int) acconstraint list \<Rightarrow> 's \<Rightarrow> int DBMEntry i_mtx \<Rightarrow> int DBMEntry i_mtx"
+
+  lemmas [sepref_fr_rules] = op_impl
 
   context
     notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
@@ -366,16 +471,17 @@ begin
     "RETURN o succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
   unfolding
     comp_def succs'_succs[symmetric] succs'_def
-    FW''_def[symmetric] rev_map_fold reset'_upd_def inv_of_A_def[symmetric]
+    FW''_def[symmetric] rev_map_fold inv_of_A_def[symmetric]
   apply (rewrite "HOL_list.fold_custom_empty")
   by sepref
 
   end (* End sepref setup *)
 
+  (* XXX Move to different context *)
   lemma reachable_states:
-    "reachable (l', M) \<Longrightarrow> l' \<in> states"
-  unfolding reachable_def E_closure
-  by (induction l \<equiv> l\<^sub>0 _ _ _ _ _  rule: steps_impl_induct; force elim!: step_impl.cases simp: state_set_def)
+    "l \<in> states" if "op.reachable (l, M)"
+    using that unfolding op.reachable_def
+    by (induction "(l, M)" arbitrary: l M; force simp: a\<^sub>0_def state_set_def op.E_from_op_def)
 
   definition "emptiness_check \<equiv> \<lambda> (l, M). check_diag n M"
 
@@ -386,40 +492,43 @@ begin
 
 
 
-  sublocale Worklist0 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M"
+  sublocale Worklist0 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M"
     apply standard
     apply (clarsimp split: prod.split dest!: reachable_states)
-    unfolding succs_def E_alt_def by force
+    unfolding succs_def op.E_from_op_def by force thm E_alt_def
 
-  sublocale Worklist1 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" ..
+  sublocale Worklist1 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" ..
 
-  sublocale Worklist2 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
+  sublocale Worklist2 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
     apply standard
     unfolding subsumes_def subsumes'_def by auto
 
   sublocale
-    Worklist3 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
+    Worklist3
+      op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
     apply standard
     unfolding F_rel_def by auto
 
   sublocale
-    Worklist4 E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
+    Worklist4
+      op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
     apply standard
     unfolding F_rel_def by auto
 
   sublocale
-    Worklist_Map a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M" subsumes' E fst succs
+    Worklist_Map a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M" subsumes' op.E_from_op fst succs
     apply standard
     unfolding subsumes'_def by auto
 
   sublocale
     Worklist_Map2
-      a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M" subsumes' E fst succs "\<lambda> (l, M). F l"
+      a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M" subsumes' op.E_from_op
+      fst succs "\<lambda> (l, M). F l"
     ..
 
   sublocale Worklist4_Impl
-    E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l" state_assn'
-    succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl
+    op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
+    state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl
     apply standard
     apply (unfold PR_CONST_def)
     by (rule
@@ -427,25 +536,30 @@ begin
         emptiness_check_impl.refine[unfolded emptiness_check_def]
         )+
 
-lemma state_copy:
-  "RETURN \<circ> COPY = (\<lambda> (l, M). do {M' \<leftarrow> mop_mtx_copy M; RETURN (l, M')})"
-  by auto
+  lemma state_copy:
+    "RETURN \<circ> COPY = (\<lambda> (l, M). do {M' \<leftarrow> mop_mtx_copy M; RETURN (l, M')})"
+    by auto
 
-sepref_definition state_copy_impl is
-  "RETURN \<circ> COPY" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a state_assn'"
-  unfolding state_copy
-  by sepref
+  sepref_definition state_copy_impl is
+    "RETURN \<circ> COPY" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a state_assn'"
+    unfolding state_copy
+    by sepref
 
 
-sublocale Worklist_Map2_Impl
-  E a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
-  "\<lambda> (l, M). F l" state_assn'
-  succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
-  apply standard
-  unfolding PR_CONST_def
-   apply sepref_to_hoare
-   apply sep_auto
-  by (rule state_copy_impl.refine)
+  sublocale Worklist_Map2_Impl
+    op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
+    "\<lambda> (l, M). F l" state_assn'
+    succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
+    apply standard
+    unfolding PR_CONST_def
+     apply sepref_to_hoare
+     apply sep_auto
+    by (rule state_copy_impl.refine)
+
+  sublocale Worklist_Map2_Hashable
+    op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
+    state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl
+    "return o fst" state_copy_impl fst by standard
 
   paragraph \<open>Implementation for the invariant precondition check\<close>
 
@@ -457,7 +571,7 @@ sublocale Worklist_Map2_Impl
     unfolding unbounded_dbm'_def
     by simp
 
-  text \<open>We need the custom rule here because unbounded_dbm is higher-order constant\<close>
+  text \<open>We need the custom rule here because unbounded_dbm is a higher-order constant\<close>
   lemma [sepref_fr_rules]:
     "(uncurry0 (return unbounded_dbm'), uncurry0 (RETURN (PR_CONST (unbounded_dbm'))))
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a pure (nat_rel \<times>\<^sub>r nat_rel \<rightarrow> Id)"
@@ -471,7 +585,7 @@ sublocale Worklist_Map2_Impl
   text \<open>Necessary to solve side conditions of @{term op_amtx_new}\<close>
   lemma unbounded_dbm'_bounded:
     "mtx_nonzero unbounded_dbm' \<subseteq> {0..<Suc n} \<times> {0..<Suc n}"
-    unfolding mtx_nonzero_def unbounded_dbm'_def unbounded_dbm_def zero_DBMEntry_def by auto
+    unfolding mtx_nonzero_def unbounded_dbm'_def unbounded_dbm_def neutral by auto
 
   text \<open>We need to pre-process the lemmas due to a failure of \<open>TRADE\<close>\<close>
   lemma unbounded_dbm'_bounded_1:
@@ -509,9 +623,34 @@ sublocale Worklist_Map2_Impl
     supply [sepref_fr_rules] = unbounded_dbm_impl.refine
     by sepref
 
-  end
+  end (* End sepref setup *)
 
 end (* End of locale *)
+
+context Reachability_Problem_Impl
+begin
+
+context
+  notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
+    and [sepref_import_param] = IdI[of n]
+begin
+
+  sepref_definition E_op'_impl is
+    "uncurry4 (\<lambda> l r. RETURN ooo E_op' l r)" :: "op_impl_assn"
+    unfolding E_op'_def FW''_def[symmetric] reset'_upd_def inv_of_A_def[symmetric] PR_CONST_def
+    by sepref
+
+  sepref_definition E_op''_impl is
+    "uncurry4 (\<lambda> l r. RETURN ooo E_op'' l r)" :: "op_impl_assn"
+    unfolding E_op''_def FW''_def[symmetric] reset'_upd_def inv_of_A_def[symmetric] filter_diag_def
+    by sepref
+
+end (* End sepref setup *)
+
+sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op'" _ E_op'_impl
+  unfolding PR_CONST_def by standard (rule E_op'_impl.refine)
+
+end (* End of Reachability Problem Impl *)
 
 datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
 
@@ -599,26 +738,20 @@ begin
     apply standard
     using iarray_k' by fastforce+
 
+  lemma E_op_F_reachable:
+    "op.F_reachable = E_op.F_reachable"
+    unfolding PR_CONST_def ..
+
   lemma F_reachable_correct:
-    "F_reachable
+    "op.F_reachable
     \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
-    unfolding F_reachable_def reachable_def
-    using reachability_check unfolding F_def by auto
+    using E_op.E_from_op_reachability_check reachability_check
+    unfolding E_op_F_reachable E_op.F_reachable_def E_op.reachable_def
+    unfolding F_def by auto
 
   definition
     "reachability_checker_wl \<equiv>
       worklist_algo2_impl subsumes_impl a\<^sub>0_impl F_impl succs_impl emptiness_check_impl"
-
-  theorem reachability_check_wl:
-    "(uncurry0 reachability_checker_wl,
-      uncurry0 (
-        RETURN
-          (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)
-      )
-     )
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-    using worklist_algo2_impl_hnr_F_reachable
-    unfolding reachability_checker_wl_def F_reachable_correct .
 
   definition
     "reachability_checker' \<equiv>
@@ -820,6 +953,7 @@ begin
     "reachability_checker \<equiv> ?impl"
     unfolding reachability_checker_def
     unfolding reachability_checker'_alt_def' succs_impl_def
+    unfolding E_op'_impl_def abstr_repair_impl_def abstra_repair_impl_def
     unfolding
       start_inv_check_impl_def unbounded_dbm_impl_def unbounded_dbm'_def
       unbounded_dbm_def

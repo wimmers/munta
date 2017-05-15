@@ -41,6 +41,9 @@ lemma n_eq_equiv:
   "[M1]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>" if "M1 =\<^sub>n M2"
   using that unfolding DBM_zone_repr_def n_eq_def DBM_val_bounded_def by auto
 
+definition
+  "repair_pair n M a b = FWI' (FWI' M n b) n a"
+
 context Reachability_Problem_Defs
 begin
 
@@ -57,10 +60,7 @@ abbreviation
   "canonical_subs' I M \<equiv> canonical_subs n I (curry M)"
 
 definition
-  "repair_pair M a b = FWI' (FWI' M n b) n a"
-
-definition
-  "abstra_repair ac M = repair_pair (abstra_upd ac M) 0 (constraint_clk ac)"
+  "abstra_repair ac M = repair_pair n (abstra_upd ac M) 0 (constraint_clk ac)"
 
 definition
   "filter_diag f M \<equiv> if check_diag n M then M else f M"
@@ -157,10 +157,27 @@ lemma E\<^sub>1_E_steps:
    apply blast
   by (auto intro: rtranclp.intros(2))
 
-lemma E_E\<^sub>1_steps_equiv:
+lemma E_E\<^sub>1_steps_empty:
   "(\<exists> l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
    (\<exists> l' M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
   by (auto 4 4 simp: state_equiv_def dbm_equiv_def dest: E_E\<^sub>1_steps E\<^sub>1_E_steps)
+
+context
+  fixes P :: "'s \<times> _ \<Rightarrow> bool"
+    assumes P: "P a \<Longrightarrow> a \<sim> b \<Longrightarrow> wf_state a \<Longrightarrow> wf_state b \<Longrightarrow> P b"
+  begin
+
+lemma E_E\<^sub>1_steps_equiv:
+  "(\<exists> l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> P (l', M')) \<longleftrightarrow>
+   (\<exists> l' M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> P (l', M'))"
+  apply safe
+  subgoal
+    by (frule E_E\<^sub>1_steps, safe; blast intro: P)
+  subgoal
+    by (frule E\<^sub>1_E_steps, safe; blast intro: P)
+  done
+
+end
 
 lemma E\<^sub>1_mono:
   assumes "E\<^sub>1 (l,D) (l',D')"
@@ -341,14 +358,14 @@ lemma canonical_subs'_abstra_upd:
 lemmas FWI_zone_equiv_spec = FWI_zone_equiv[OF surj_numbering]
 
 lemma repair_pair_equiv:
-  "M \<simeq> repair_pair M a b" if "a \<le> n" "b \<le> n"
+  "M \<simeq> repair_pair n M a b" if "a \<le> n" "b \<le> n"
   unfolding dbm_equiv_def repair_pair_def FWI'_def
   apply (subst FWI_zone_equiv_spec[of b], rule that)
   apply (subst FWI_zone_equiv_spec[of a], rule that)
   by (simp add: FWI_def fwi_conv_M' fwi_conv_M'' curry_conv_M_swap)
 
 lemma repair_pair_canonical_diag_1:
-  "canonical_diag (repair_pair M a b)" if "canonical_subs' ({0..n} - {a, b}) M" "a \<le> n" "b \<le> n"
+  "canonical_diag (repair_pair n M a b)" if "canonical_subs' ({0..n} - {a, b}) M" "a \<le> n" "b \<le> n"
   using that
   unfolding canonical'_conv_M_iff
   unfolding repair_pair_def
@@ -366,11 +383,11 @@ lemma repair_pair_canonical_diag_1:
   by (auto intro: FWI'_check_diag_preservation)
 
 lemma repair_pair_canonical_diag_2:
-  "canonical_diag (repair_pair M a b)" if "check_diag n M"
+  "canonical_diag (repair_pair n M a b)" if "check_diag n M"
   unfolding repair_pair_def using that by (auto intro: FWI'_check_diag_preservation)
 
 lemma repair_pair_diag_le:
-  "\<forall>i\<le>n. repair_pair M 0 c (i, i) \<le> 0" if "\<forall>i\<le>n. M (i, i) \<le> 0"
+  "\<forall>i\<le>n. repair_pair n M 0 c (i, i) \<le> 0" if "\<forall>i\<le>n. M (i, i) \<le> 0"
   using that
   unfolding repair_pair_def FWI'_def
   apply clarsimp
@@ -704,10 +721,22 @@ lemma E_from_op_wf_state:
   "wf_state a \<Longrightarrow> E_from_op a b \<Longrightarrow> wf_state b"
   unfolding E_E_op E_from_op_def wf_state_def state_equiv_def by (blast intro: op_wf)
 
-lemma E_E_from_op_steps_equiv:
+lemma E_E_from_op_steps_empty:
   "(\<exists>l' M'. E\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {}) \<longleftrightarrow>
    (\<exists>l' M'. E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
-  by (rule E_E\<^sub>1_steps_equiv[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
+  by (rule E_E\<^sub>1_steps_empty[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
+
+theorem E_from_op_reachability_check:
+  "(\<exists> l' D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))
+  \<longleftrightarrow> (\<exists> l' D'. E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))"
+  apply (rule E_E\<^sub>1_steps_equiv[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
+  by
+    (auto
+      simp: F_rel_def state_equiv_def wf_state_def dbm_equiv_def
+      dest!:
+        check_diag_empty_spec[OF check_diag_conv_M]
+        canonical_check_diag_empty_iff[OF wf_dbm_altD(1)]
+    )
 
 lemma E_from_op_mono:
   assumes "E_from_op (l,D) (l',D')"
@@ -1127,7 +1156,7 @@ lemma E_op'_check_diag:
   "check_diag n (E_op' l r g l' M)" if "check_diag n M"
   sorry
 
-sublocale E_From_Op_Bisim_Finite _ _ _ _ _ E_op'
+sublocale E_op: E_From_Op_Bisim_Finite _ _ _ _ _ E_op'
   by standard (rule E_op'_bisim E_op'_wf E_op'_FW_norm E_op'_check_diag; assumption)+
 
 sublocale E_op'': E_From_Op_Bisim_Finite _ _ _ _ _ E_op''
