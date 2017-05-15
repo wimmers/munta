@@ -650,6 +650,9 @@ end (* End sepref setup *)
 sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op'" _ E_op'_impl
   unfolding PR_CONST_def by standard (rule E_op'_impl.refine)
 
+lemma E_op_F_reachable:
+  "op.F_reachable = E_op.F_reachable" unfolding PR_CONST_def ..
+
 end (* End of Reachability Problem Impl *)
 
 datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
@@ -737,10 +740,6 @@ begin
     unfolding PR_CONST_def
     apply standard
     using iarray_k' by fastforce+
-
-  lemma E_op_F_reachable:
-    "op.F_reachable = E_op.F_reachable"
-    unfolding PR_CONST_def ..
 
   lemma F_reachable_correct:
     "op.F_reachable

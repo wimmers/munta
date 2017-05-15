@@ -3537,23 +3537,29 @@ begin
     unfolding PR_CONST_def
     by (standard; fastforce simp: inv_rel_def b_rel_def)
 
+  (*
   (* XXX Unused *)
   lemma length_reachable:
   "length L' = p" if "E\<^sup>*\<^sup>* a\<^sub>0 ((L', s), u)"
-    using states_states' impl.reachable_states[unfolded reachable_def, OF that]
-    unfolding reachable_def by (force simp: init_def)
+  thm impl.reachable_states impl.op.reachable_def term op.reachable
+    using states_states' impl.reachable_states[unfolded impl.op.reachable_def, OF that]
+    unfolding reachable_def (* by (force simp: init_def) *)
+      oops
 
   lemma length_steps:
   "length L' = p" if "conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>" "\<forall>c\<in>{1..m}. u c = 0"
     using that reachable_decides_emptiness'[of "(L', s')"] by (auto intro: length_reachable)
+  *)
 
   lemma F_reachable_correct':
-    "F_reachable
+    "impl.op.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
       )"
-    unfolding F_reachable_def reachable_def using reachability_check unfolding F_def by auto
+    using E_op.E_from_op_reachability_check reachability_check
+    unfolding impl.E_op_F_reachable E_op.F_reachable_def E_op.reachable_def
+    unfolding F_def by auto
 
   lemma PT_PT:
     "defs'.PT = equiv.PT"
@@ -3738,7 +3744,7 @@ begin
     by (simp add: prod_invariant_conv[symmetric] prod_trans_conv[symmetric])
 
   lemma F_reachable_correct:
-    "F_reachable
+    "impl.op.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
@@ -3937,6 +3943,7 @@ begin
     "reachability_checker \<equiv> ?impl"
     unfolding reachability_checker_def
     unfolding reachability_checker'_alt_def' impl.succs_impl_def
+    unfolding impl.E_op'_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
     unfolding
       impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
       impl.unbounded_dbm'_def unbounded_dbm_def
@@ -4022,7 +4029,7 @@ lemma fw_impl'_int:
   "fw_impl = fw_impl_int"
   unfolding fw_impl_def fw_impl_int_def
   unfolding fw_upd_impl_def fw_upd_impl_int_def
-  unfolding dbm_add_int mult ..
+  unfolding dbm_add_int add ..
 
 context UPPAAL_Reachability_Problem_precompiled_defs'
 begin
