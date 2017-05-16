@@ -3557,8 +3557,8 @@ begin
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
       )"
-    using E_op.E_from_op_reachability_check reachability_check
-    unfolding impl.E_op_F_reachable E_op.F_reachable_def E_op.reachable_def
+    using E_op''.E_from_op_reachability_check reachability_check
+    unfolding impl.E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
     unfolding F_def by auto
 
   lemma PT_PT:
@@ -3695,25 +3695,25 @@ begin
     done
 
   lemma prod_trans_i_conv:
-      "defs'.defs.prod_trans_i = conv_t ` equiv.defs.prod_trans_i"
-      unfolding defs'.defs.prod_trans_i_alt_def
-      unfolding equiv.defs.prod_trans_i_alt_def
-      unfolding product_trans_t_conv'
-      unfolding p_p_2 P_P
-      apply simp
-      apply safe
-      unfolding p_p P_P
-       apply (simp add: image_Collect)
-       apply solve_ex_triv
-      subgoal
-        apply defer_ex
-        apply defer_ex
-        by solve_ex_triv+
-      subgoal
-        apply defer_ex
-        apply defer_ex
-        by solve_ex_triv+
-      done
+    "defs'.defs.prod_trans_i = conv_t ` equiv.defs.prod_trans_i"
+    unfolding defs'.defs.prod_trans_i_alt_def
+    unfolding equiv.defs.prod_trans_i_alt_def
+    unfolding product_trans_t_conv'
+    unfolding p_p_2 P_P
+    apply simp
+    apply safe
+    unfolding p_p P_P
+     apply (simp add: image_Collect)
+     apply solve_ex_triv
+    subgoal
+      apply defer_ex
+      apply defer_ex
+      by solve_ex_triv+
+    subgoal
+      apply defer_ex
+      apply defer_ex
+      by solve_ex_triv+
+    done
 
   lemma prod_trans_conv:
     "defs'.defs.prod_trans = conv_t ` equiv.defs.prod_trans"
@@ -3943,7 +3943,7 @@ begin
     "reachability_checker \<equiv> ?impl"
     unfolding reachability_checker_def
     unfolding reachability_checker'_alt_def' impl.succs_impl_def
-    unfolding impl.E_op'_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+    unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
     unfolding
       impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
       impl.unbounded_dbm'_def unbounded_dbm_def

@@ -1152,13 +1152,6 @@ lemma E_op''_check_diag:
   "check_diag n (E_op'' l r g l' M)" if "check_diag n M"
   using that E_op''_check_diag_aux unfolding E_op''_def filter_diag_def by (auto simp: Let_def)
 
-lemma E_op'_check_diag:
-  "check_diag n (E_op' l r g l' M)" if "check_diag n M"
-  sorry
-
-sublocale E_op: E_From_Op_Bisim_Finite _ _ _ _ _ E_op'
-  by standard (rule E_op'_bisim E_op'_wf E_op'_FW_norm E_op'_check_diag; assumption)+
-
 sublocale E_op'': E_From_Op_Bisim_Finite _ _ _ _ _ E_op''
   by standard (rule E_op''_bisim' E_op''_wf E_op''_FW_norm E_op''_check_diag; assumption)+
 

@@ -647,11 +647,11 @@ begin
 
 end (* End sepref setup *)
 
-sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op'" _ E_op'_impl
-  unfolding PR_CONST_def by standard (rule E_op'_impl.refine)
+sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op''" _ E_op''_impl
+  unfolding PR_CONST_def by standard (rule E_op''_impl.refine)
 
 lemma E_op_F_reachable:
-  "op.F_reachable = E_op.F_reachable" unfolding PR_CONST_def ..
+  "op.F_reachable = E_op''.F_reachable" unfolding PR_CONST_def ..
 
 end (* End of Reachability Problem Impl *)
 
@@ -744,8 +744,8 @@ begin
   lemma F_reachable_correct:
     "op.F_reachable
     \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
-    using E_op.E_from_op_reachability_check reachability_check
-    unfolding E_op_F_reachable E_op.F_reachable_def E_op.reachable_def
+    using E_op''.E_from_op_reachability_check reachability_check
+    unfolding E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
     unfolding F_def by auto
 
   definition
@@ -952,7 +952,7 @@ begin
     "reachability_checker \<equiv> ?impl"
     unfolding reachability_checker_def
     unfolding reachability_checker'_alt_def' succs_impl_def
-    unfolding E_op'_impl_def abstr_repair_impl_def abstra_repair_impl_def
+    unfolding E_op''_impl_def abstr_repair_impl_def abstra_repair_impl_def
     unfolding
       start_inv_check_impl_def unbounded_dbm_impl_def unbounded_dbm'_def
       unbounded_dbm_def
