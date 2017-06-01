@@ -441,7 +441,7 @@ lemmas step_z_V'' = step_z_V'[OF _ va v_bound]
 
 lemmas alpha_beta_steps' = alpha_beta_steps[OF _ va v_bound]
 
-lemmas steps_z_alpha_sound' = alpha_interp.steps_z_alpha_sound[OF _ va]
+lemmas steps_z_alpha_sound' = steps_z_alpha_sound[OF _ va]
 
 lemma steps_z_norm_valid_dbm:
   assumes

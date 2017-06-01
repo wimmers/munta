@@ -2041,7 +2041,7 @@ definition \<R>_def: "\<R> l \<equiv> {Regions.region X I r | I r. Regions.valid
 definition \<R>\<^sub>\<beta>_def:
   "\<R>\<^sub>\<beta> l \<equiv> {Regions_Beta.region X I J r | I J r. Regions_Beta.valid_region X (k l) I J r}"
 
-sublocale alpha_interp:
+sublocale
   AlphaClosure X k \<R> by (unfold_locales) (auto simp: finite \<R>_def V_def)
 
 abbreviation "Approx\<^sub>\<beta> l Z \<equiv> Beta_Regions'.Approx\<^sub>\<beta> X (k l) v n not_in_X Z"
@@ -2190,7 +2190,7 @@ next
     "A \<turnstile> \<langle>l', W\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', W'\<rangle>" "Z'' \<subseteq> W'"
     by blast
   with  \<open>Z \<in> V'\<close> have "W' \<subseteq> V"
-    by (metis V'_V alpha_interp.steps_z_alpha_V[OF *(1)] step_z_V)
+    by (metis V'_V steps_z_alpha_V[OF *(1)] step_z_V)
   from step have "Z'' \<in> V'" by (blast intro: steps_z_beta_V' step_z_V')
   with alpha_beta_step'[OF step.hyps(3) step.prems(1,2) this \<open>W' \<subseteq> V\<close> W'(2)]
   obtain W'' where "A \<turnstile> \<langle>l', W'\<rangle> \<leadsto>\<^bsub>\<alpha>\<upharpoonleft>a\<^esub> \<langle>l'', W''\<rangle>" "Z''' \<subseteq> W''"
@@ -2209,12 +2209,12 @@ proof (goal_cases)
   from alpha_beta_steps[OF 1(1,3,2,4)] obtain Z''' where *:
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l',Z'''\<rangle>" "Z' \<subseteq> Z'''"
   by blast
-  from alpha_interp.steps_z_alpha_closure_involutive[OF *(1) 1(3) \<open>Z \<subseteq> V\<close>] obtain Z'' where
+  from steps_z_alpha_closure_involutive[OF *(1) 1(3) \<open>Z \<subseteq> V\<close>] obtain Z'' where
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z''\<rangle>" "Closure\<^sub>\<alpha>\<^sub>,\<^sub>l' Z''' \<subseteq> Closure\<^sub>\<alpha>\<^sub>,\<^sub>l' Z''" "Z'' \<subseteq> Z'''"
   by blast
   moreover with
-    regions.alpha_interp.closure_subs[OF alpha_interp.steps_z_alpha_V[OF *(1) \<open>Z \<subseteq> V\<close>]] 1(5)
-    regions.alpha_interp.cla_empty_iff[OF alpha_interp.steps_z_V, OF this(1) \<open>Z \<subseteq> V\<close>] *(2)
+    regions.alpha_interp.closure_subs[OF steps_z_alpha_V[OF *(1) \<open>Z \<subseteq> V\<close>]] 1(5)
+    regions.alpha_interp.cla_empty_iff[OF steps_z_V, OF this(1) \<open>Z \<subseteq> V\<close>] *(2)
   have "Z'' \<noteq> {}" by auto
   ultimately show ?thesis by auto
 qed
