@@ -10,6 +10,31 @@ begin
 
 paragraph \<open>Misc\<close>
 
+text \<open>XXX Resolve Problems with Cava/Sequence import\<close>
+lemma stream_all2_sset1:
+  "\<forall> x \<in> sset xs. \<exists> a \<in> sset as. P x a" if "stream_all2 P xs as"
+  using that proof -
+  have "pred_stream (\<lambda> x. \<exists> a \<in> S. P x a) xs" if "sset as \<subseteq> S" for S
+    using that \<open>stream_all2 P xs as\<close>
+  proof (coinduction arbitrary: xs as)
+    case (stream_pred x ys xs as)
+    then show ?case by (cases as) auto
+  qed
+  then show ?thesis unfolding stream.pred_set by auto
+qed
+
+lemma stream_all2_sset2:
+  "\<forall> a \<in> sset as. \<exists> x \<in> sset xs. P x a" if "stream_all2 P xs as"
+  using that proof -
+  have "pred_stream (\<lambda> a. \<exists> x \<in> S. P x a) as" if "sset xs \<subseteq> S" for S
+    using that \<open>stream_all2 P xs as\<close>
+  proof (coinduction arbitrary: xs as)
+    case (stream_pred x ys xs as)
+    then show ?case by (cases xs) auto
+  qed
+  then show ?thesis unfolding stream.pred_set by auto
+qed
+
 lemma list_all2_op_map_iff:
   "list_all2 (\<lambda> a b. b = f a) xs ys \<longleftrightarrow> map f xs = ys"
   unfolding list_all2_iff
@@ -226,6 +251,28 @@ using assms(2,1,3) proof (induction xs rule: list_nonempty_induct)
 next
   case (cons x xs)
   then show ?case by (cases xs; auto 4 4 elim: steps.cases)
+qed
+
+
+definition
+  "alw_ev \<phi> x \<equiv> \<forall> xs. run (x ## xs) \<longrightarrow> ev (holds \<phi>) (x ## xs)"
+
+lemma alw_ev:
+  "alw_ev \<phi> x \<longleftrightarrow> \<not> (\<exists> xs. run (x ## xs) \<and> alw (holds (Not o \<phi>)) (x ## xs))"
+  unfolding alw_ev_def
+proof (safe, goal_cases)
+  case prems: (1 xs)
+  then have "ev (holds \<phi>) (x ## xs)" by auto
+  then show ?case
+    using prems(2,3) by induction (auto intro: run_stl)
+next
+  case prems: (2 xs)
+  then have "\<not> alw (holds (Not \<circ> \<phi>)) (x ## xs)"
+    by auto
+  moreover have "(\<lambda> x. \<not> holds (Not \<circ> \<phi>) x) = holds \<phi>"
+    by (rule ext) simp
+  ultimately show ?case
+    unfolding not_alw_iff by simp
 qed
 
 end (* Graph Defs *)
@@ -512,6 +559,14 @@ definition "closure a = {x. P1 x \<and> a \<inter> x \<noteq> {}}"
 definition "A2' a b \<equiv> \<exists> x y. a = closure x \<and> b = closure y \<and> A2 x y"
 
 sublocale post_defs: Simulation_Graph_Defs A1 A2' .
+
+lemma closure_mono:
+  "closure a \<subseteq> closure b" if "a \<subseteq> b"
+  using that unfolding closure_def by auto
+
+lemma closure_intD:
+  "x \<in> closure a \<and> x \<in> closure b" if "x \<in> closure (a \<inter> b)"
+  using that closure_mono by blast
 
 end (* Double Simulation Graph Defs *)
 
@@ -1250,52 +1305,50 @@ lemma abstract_run_ctr:
 
 end
 
+locale Simulation_Graph_Complete_Abstraction_Defs =
+  Simulation_Graph_Defs C A for C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" +
+  fixes P :: "'a set \<Rightarrow> bool" -- "well-formed abstractions"
 
-locale Simulation_Graph_Complete_Abstraction = Simulation_Graph_Defs +
-  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A S T \<and> y \<in> T"
+locale Simulation_Graph_Complete_Abstraction = Simulation_Graph_Complete_Abstraction_Defs +
+  assumes complete: "C x y \<Longrightarrow> P S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A S T \<and> y \<in> T"
+      and P_invariant: "P S \<Longrightarrow> A S T \<Longrightarrow> P T"
 begin
 
 lemma steps_complete:
-  "\<exists> as. Steps (a # as) \<and> list_all2 (op \<in>) xs as" if "steps (x # xs)" "x \<in> a"
-  using that by (induction xs arbitrary: x a) (erule steps.cases; fastforce dest!: complete)+
-
-lemma steps_complete':
-  "\<exists> as. Steps as \<and> list_all2 (op \<in>) xs as" if "steps xs"
-proof -
-  from that have "xs \<noteq> []" by cases auto
-  have "hd xs \<in> {hd xs}" by auto
-  from steps_complete[of "hd xs" "tl xs" "{hd xs}"] \<open>xs \<noteq> []\<close> that show ?thesis
-    by (cases xs) auto
-qed
+  "\<exists> as. Steps (a # as) \<and> list_all2 (op \<in>) xs as" if "steps (x # xs)" "x \<in> a" "P a"
+  using that
+  by (induction xs arbitrary: x a) (erule steps.cases; fastforce dest!: complete intro: P_invariant)+
 
 lemma abstract_run_Run:
-  "Run (abstract_run a xs)" if "run (x ## xs)" "x \<in> a"
+  "Run (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
   using that
 proof (coinduction arbitrary: a x xs)
   case (run a x xs)
   obtain y ys where "xs = y ## ys" by (metis stream.collapse)
   with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
-  from complete[OF \<open>C x y\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
+  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
   then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
-  with \<open>run (y ## ys)\<close> show ?case unfolding \<open>xs = _\<close>
+  moreover with \<open>P a\<close> have "P (SOME b. A a b \<and> y \<in> b)" by (blast intro: P_invariant)
+  ultimately show ?case using \<open>run (y ## ys)\<close> unfolding \<open>xs = _\<close>
     apply (subst abstract_run_ctr, simp)
     apply (subst abstract_run_ctr, simp)
     by (auto simp: abstract_run_ctr[symmetric])
 qed
 
 lemma abstract_run_abstract:
-  "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)" if "run (x ## xs)" "x \<in> a"
+  "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
 using that proof (coinduction arbitrary: a x xs)
   case run: (stream_rel x' u b' v a x xs)
   obtain y ys where "xs = y ## ys" by (metis stream.collapse)
   with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
-  from complete[OF \<open>C x y\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
+  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
   then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
-  with \<open>run (y ## ys)\<close> \<open>x \<in> a\<close> run(1,2) \<open>xs = _\<close> show ?case by (subst (asm) abstract_run_ctr) auto
+  with \<open>run (y ## ys)\<close> \<open>x \<in> a\<close> \<open>P a\<close> run(1,2) \<open>xs = _\<close> show ?case
+    by (subst (asm) abstract_run_ctr) (auto intro: P_invariant)
 qed
 
 lemma run_complete:
-  "\<exists> as. Run (a ## as) \<and> stream_all2 (op \<in>) xs as" if "run (x ## xs)" "x \<in> a"
+  "\<exists> as. Run (a ## as) \<and> stream_all2 (op \<in>) xs as" if "run (x ## xs)" "x \<in> a" "P a"
   using abstract_run_Run[OF that] abstract_run_abstract[OF that]
   apply (subst (asm) abstract_run_ctr)
   apply (subst (asm) (2) abstract_run_ctr)
@@ -1311,16 +1364,8 @@ begin
 sublocale Steps_finite: Finite_Graph A a\<^sub>0
   by standard (rule finite_abstract_reachable)
 
-lemma stream_all2_sset1:
-  "\<forall> x \<in> sset xs. \<exists> a \<in> sset as. x \<in> a" if "stream_all2 op \<in> xs as"
-  using that sorry
-
-lemma stream_all2_sset2:
-  "\<forall> a \<in> sset as. \<exists> x \<in> sset xs. x \<in> a" if "stream_all2 op \<in> xs as"
-  using that sorry
-
 lemma run_finite_state_set_cycle_steps:
-  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0"
+  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0"
   shows "\<exists> x ys zs.
     Steps (a\<^sub>0 # ys @ x # zs @ [x]) \<and> (\<forall> a \<in> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)"
   using run_complete[OF assms]
@@ -1338,13 +1383,133 @@ locale Double_Simulation_Finite_Complete_Abstraction = Double_Simulation +
   fixes a\<^sub>0
   assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
   assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+      and P2_a\<^sub>0: "P2 a\<^sub>0"
 begin
 
-sublocale Simulation_Graph_Finite_Complete_Abstraction C A2 a\<^sub>0
-  by standard (blast intro: complete finite_abstract_reachable)+
+sublocale Simulation_Graph_Finite_Complete_Abstraction C A2 P2 a\<^sub>0
+  by standard (blast intro: complete finite_abstract_reachable P2_invariant)+
 
-thm run_finite_state_set_cycle_steps Steps_run_cycle
+lemma P2_invariant_Steps:
+  "list_all P2 as" if "Steps (a\<^sub>0 # as)"
+  using that P2_a\<^sub>0 by (induction "a\<^sub>0 # as" arbitrary: as a\<^sub>0) (auto intro: P2_invariant)
+
+theorem infinite_run_cycle_iff:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
+proof (safe, goal_cases)
+  case (1 x\<^sub>0 xs)
+  from run_finite_state_set_cycle_steps[OF this(2,1)] that(2) show ?case by auto
+next
+  case prems: (2 as a bs)
+  with Steps.steps_decomp[of "a\<^sub>0 # as @ [a]" "bs @ [a]"] have "Steps (a\<^sub>0 # as @ [a])" by auto
+  from P2_invariant_Steps[OF this] have "P2 a" by auto
+  from Steps_run_cycle''[OF prems this] that show ?case by auto
+qed
 
 end (* Double Simulation Finite Complete Abstraction *)
+
+
+lemma alw_holds_pred_stream:
+  "alw (holds \<phi>) xs \<longleftrightarrow> pred_stream \<phi> xs"
+  by (simp add: alw_iff_sdrop stream_pred_snth)
+
+locale Double_Simulation_Finite_Complete_Abstraction_Prop =
+  Double_Simulation +
+  fixes a\<^sub>0
+  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
+  assumes finite_P2: "finite {a. P2 a}"
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+      and P2_a\<^sub>0: "P2 a\<^sub>0"
+  assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
+      and \<phi>_P2_compatible: "P2 a \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
+begin
+
+definition "C_\<phi> x y \<equiv> C x y \<and> \<phi> y"
+definition "A1_\<phi> a b \<equiv> A1 a b \<and> b \<subseteq> {x. \<phi> x}"
+definition "A2_\<phi> S S' \<equiv> \<exists> S''. A2 S S'' \<and> S'' \<inter> {x. \<phi> x} = S'"
+
+lemma A2_\<phi>_P2_invariant:
+  "P2 a" if "A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a"
+  using that by induction (auto intro: \<phi>_P2_compatible P2_invariant P2_a\<^sub>0 simp: A2_\<phi>_def)
+
+sublocale phi: Double_Simulation_Finite_Complete_Abstraction C_\<phi> A1_\<phi> P1 A2_\<phi> P2 a\<^sub>0
+proof (standard, goal_cases)
+  case (1 S T)
+  then show ?case unfolding A1_\<phi>_def C_\<phi>_def by (auto 4 4 dest: \<phi>_A1_compatible prestable)
+next
+  case (2 y b a)
+  then obtain c where "A2 a c" "c \<inter> {x. \<phi> x} = b" unfolding A2_\<phi>_def by auto
+  with \<open>y \<in> _\<close> have "y \<in> closure c" by (auto dest: closure_intD)
+  moreover have "y \<subseteq> {x. \<phi> x}"
+    by (smt "2"(1) \<phi>_A1_compatible \<open>A2 a c\<close> \<open>c \<inter> {x. \<phi> x} = b\<close> \<open>y \<in> closure c\<close> closure_def
+        closure_poststable inf_assoc inf_bot_right inf_commute mem_Collect_eq)
+  ultimately show ?case using \<open>A2 a c\<close> unfolding A1_\<phi>_def A2_\<phi>_def
+    by (auto dest: closure_poststable)
+next
+  case (3 x y)
+  then show ?case by (rule P1_distinct)
+next
+  case 4
+  then show ?case by (rule P1_finite)
+next
+  case (5 a)
+  then show ?case by (rule P2_cover)
+next
+  case (6 x y S)
+  then show ?case unfolding C_\<phi>_def A2_\<phi>_def by (auto dest!: complete)
+next
+  case 7
+  have "{a. A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a} \<subseteq> {a. P2 a}"
+    by (blast intro: A2_\<phi>_P2_invariant)
+  then show ?case (is "finite ?S") using finite_P2 by (rule finite_subset)
+next
+  case (8 a a')
+  then show ?case unfolding A2_\<phi>_def by (auto intro: P2_invariant \<phi>_P2_compatible)
+next
+  case 9
+  then show ?case by (rule P2_a\<^sub>0)
+qed
+
+thm phi.infinite_run_cycle_iff
+
+lemma phi_run_iff:
+  "phi.run (x ## xs) \<and> \<phi> x \<longleftrightarrow> run (x ## xs) \<and> pred_stream \<phi> (x ## xs)"
+proof -
+  have "phi.run xs" if "run xs" "pred_stream \<phi> xs" for xs
+    using that by (coinduction arbitrary: xs) (auto elim: run.cases simp: C_\<phi>_def)
+  moreover have "run xs" if "phi.run xs" for xs
+    using that by (coinduction arbitrary: xs) (auto elim: phi.run.cases simp: C_\<phi>_def)
+  moreover have "pred_stream \<phi> xs" if "phi.run (x ## xs)" "\<phi> x"
+    using that by (coinduction arbitrary: xs x) (auto 4 3 elim: phi.run.cases simp: C_\<phi>_def)
+  ultimately show ?thesis by auto
+qed
+
+corollary infinite_run_cycle_iff:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> pred_stream \<phi> (x\<^sub>0 ## xs)) \<longleftrightarrow>
+   (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding phi.infinite_run_cycle_iff[OF that(1,2), symmetric] phi_run_iff[symmetric]
+  using that(3) by auto
+
+theorem alw_ev_mc:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding alw_ev alw_holds_pred_stream infinite_run_cycle_iff[OF that, symmetric]
+  by (auto simp: comp_def)
+
+end
+
+section \<open>Comments\<close>
+
+text \<open>
+\<^item> Pre-stability can easily be extended to infinite runs (see construction with \<open>sgenerate\<close> above)
+\<^item> Post-stability can not
+\<^item> Pre-stability + Completeness means that for every two concrete states in the same abstract class,
+  there are equivalent runs
+\<^item> Can offer representation view via suitable locale instantiations?
+\<^item> Abstractions view?
+\<close>
 
 end (* Theory *)
