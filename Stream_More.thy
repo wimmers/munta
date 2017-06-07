@@ -49,6 +49,23 @@ lemma append_single_shift:
   "(xs @ [x]) @- ys = xs @- x ## ys"
   by simp
 
+lemma stream_all2_Cons1:
+  "stream_all2 P (y ## ys) xs \<longleftrightarrow> (\<exists> x xs'. xs = x ## xs' \<and> P y x \<and> stream_all2 P ys xs')"
+  by (cases xs) auto
+
+lemma stream_all2_Cons2:
+  "stream_all2 P xs (y ## ys) \<longleftrightarrow> (\<exists> x xs'. xs = x ## xs' \<and> P x y \<and> stream_all2 P xs' ys)"
+  by (cases xs) auto
+
+lemma stream_all2_tail:
+  "stream_all2 P xs2 ys2" if "stream_all2 P (xs1 @- xs2) (ys1 @- ys2)" "length xs1 = length ys1"
+  using that proof (induction xs1 arbitrary: ys1)
+  case Nil
+  then show ?case by simp
+next
+  case (Cons a xs1 ys1)
+  then show ?case by (cases ys1) auto
+qed
 
 primcorec sgenerate where
   "shd (sgenerate f x ys) = x"

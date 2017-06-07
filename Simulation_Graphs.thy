@@ -35,6 +35,92 @@ lemma stream_all2_sset2:
   then show ?thesis unfolding stream.pred_set by auto
 qed
 
+lemma infs_cycle:
+  "infs (set xs) (cycle xs)" if "xs \<noteq> []"
+  by (rule infs_sset) (simp add: that)
+
+
+abbreviation "alw_ev P \<equiv> alw (ev P)"
+
+lemma alw_ev_coinduct[case_names alw_ev, consumes 1, coinduct pred: alw_ev]:
+  assumes "R w" and "\<And> w. R w \<Longrightarrow> \<exists> u v. w = u @- v \<and> u \<noteq> [] \<and> P v \<and> R v"
+  shows "alw (ev P) w"
+proof -
+  from \<open>R w\<close> have "\<exists> u v. w = u @- v \<and> R v" by (inst_existentials "[] :: 'a list") auto
+  then show ?thesis proof (coinduction arbitrary: w)
+    case (alw w)
+    then obtain u v where "w = u @- v" "R v" by auto
+    from assms(2)[OF \<open>R v\<close>] obtain v1 v2 where "v = v1 @- v2" "v1 \<noteq> []" "P v2" "R v2"
+      by auto
+    with \<open>w = _\<close> have "ev P w" by (auto intro: ev_shift)
+    with \<open>R v2\<close> show ?case
+      apply (inst_existentials w)
+        apply simp+
+      apply (rule disjI1)
+      apply (inst_existentials "tl (u @ v1)" v2)
+      unfolding \<open>w = _\<close> \<open>v = _\<close> using \<open>v1 \<noteq> []\<close> by auto
+  qed
+qed
+
+lemma alw_ev_flat_coinduct[case_names alw_ev_flat, consumes 1]:
+  assumes "R xss" and "\<And> xs xss. R (xs ## xss) \<Longrightarrow> (\<exists> x \<in> set xs. P x) \<and> R xss"
+  shows "alw (ev (holds P)) (flat xss)"
+proof -
+  from assms have "R (stl xss)" by (metis stream.exhaust_sel)
+  moreover from assms have "shd xss \<noteq> []" by (cases xss) fastforce+
+  ultimately show ?thesis
+  proof (coinduction arbitrary: xss)
+    case (alw_ev xss)
+    obtain xs yss where "stl xss = xs ## yss" by (metis stream.exhaust)
+    with assms(2) \<open>R (stl xss)\<close> obtain x where "x \<in> set xs" "P x" "R yss" by auto
+    from \<open>x \<in> set xs\<close> obtain xs1 xs2 where "xs = xs1 @ [x] @ xs2"
+      by atomize_elim (simp add: split_list)
+    with \<open>P x\<close> \<open>stl xss = _\<close> \<open>stl xss = _\<close> \<open>shd xss \<noteq> []\<close> \<open>R yss\<close> show ?case
+      apply (inst_existentials "shd xss @ xs1" "(x # xs2) @- flat yss")
+         apply (rewrite in \<open>flat xss\<close> stream.collapse[symmetric])
+         apply (cases "shd xss"; simp; fail)
+        apply (simp; fail)
+       apply (simp; fail)
+      apply (inst_existentials "(x # xs2) ## yss")
+      by auto
+  qed
+qed
+
+lemma alw_ev_HLD_cycle:
+  "alw_ev (HLD a) xs" if "stream_all2 op \<in> xs (cycle as)" "a \<in> set as"
+  using that
+  unfolding HLD_def proof (coinduction arbitrary: xs as)
+  case prems: (alw_ev xs as)
+  from this(2) obtain as1 as2 where "as = as1 @ a # as2" by (auto simp: in_set_conv_decomp)
+  then have "sdrop (length as) (cycle as) = cycle as"
+    by (subst cycle_decomp) auto
+  moreover have "sdrop (length as1) (cycle as) = cycle (a # as2 @ as1)"
+    unfolding \<open>as = _\<close>
+    apply (subst sdrop_cycle)
+     apply (simp; fail)
+    by (subst rotate_drop_take, simp)
+  ultimately have "sdrop (length as + length as1) (cycle as) = cycle (a # as2 @ as1)"
+    unfolding sdrop_add[symmetric] by simp
+  with prems have "stream_all2 op \<in> (sdrop (length as + length as1) xs) (cycle (a # as2 @ as1))"
+    apply (subst (asm) stake_sdrop[symmetric, of _ "length as + length as1"])
+    apply (rewrite at \<open>cycle as\<close> in asm stake_sdrop[symmetric, of _ "length as + length as1"])
+    by (drule stream_all2_tail; simp)
+  with prems show ?case
+    apply (inst_existentials "stake (length as + length as1) xs" "sdrop (length as + length as1) xs")
+       apply simp
+      apply force
+     apply (subst (asm) cycle_Cons, simp only: stream_all2_Cons2)
+    by force+
+qed
+
+lemma pred_stream_flat_coinduct[case_names pred_stream_flat, consumes 1]:
+  assumes "R ws" and "\<And> w ws. R (w ## ws) \<Longrightarrow> w \<noteq> [] \<and> list_all P w \<and> R ws"
+  shows "pred_stream P (flat ws)"
+  using assms(1) proof (coinduction arbitrary: ws rule: stream_pred_coinduct_shift)
+  case (stream_pred ws)
+  then show ?case by (cases ws) (auto 4 4 dest!: assms(2))
+qed
+
 lemma list_all2_op_map_iff:
   "list_all2 (\<lambda> a b. b = f a) xs ys \<longleftrightarrow> map f xs = ys"
   unfolding list_all2_iff
@@ -253,13 +339,88 @@ next
   then show ?case by (cases xs; auto 4 4 elim: steps.cases)
 qed
 
+lemma steps_rotate:
+  assumes "steps (x # xs @ y # ys @ [x])"
+  shows "steps (y # ys @ x # xs @ [y])"
+proof -
+  from steps_decomp[of "x # xs" "y # ys @ [x]"] assms have
+    "steps (x # xs)" "steps (y # ys @ [x])" "C (last (x # xs)) y"
+    by auto
+  then have "steps ((x # xs) @ [y])" by (blast intro: steps_append_single)
+  from steps_append[OF \<open>steps (y # ys @ [x])\<close> this] show ?thesis by auto
+qed
+
+lemma run_shift_coinduct[case_names run_shift, consumes 1]:
+  assumes "R w"
+      and "\<And> w. R w \<Longrightarrow> \<exists> u v x y. w = u @- x ## y ## v \<and> steps (u @ [x]) \<and> C x y \<and> R (y ## v)"
+  shows "run w"
+  using assms(2)[OF \<open>R w\<close>] proof (coinduction arbitrary: w)
+  case (run w)
+  then obtain u v x y where "w = u @- x ## y ## v" "steps (u @ [x])" "C x y" "R (y ## v)"
+    by auto
+  then show ?case
+    apply -
+    apply (drule assms(2))
+    apply (cases u)
+     apply force
+    subgoal for z zs
+      apply (cases zs)
+      subgoal
+        apply simp
+        apply safe
+         apply (force elim: steps.cases)
+        subgoal for u' v' x' y'
+          by (inst_existentials "x # u'") (cases u'; auto)
+        done
+      subgoal for a as
+        apply simp
+        apply safe
+         apply (force elim: steps.cases)
+        subgoal for u' v' x' y'
+          apply (inst_existentials "a # as @ x # u'")
+          using steps_append[of "a # as @ [x, y]" "u' @ [x']"]
+          apply simp
+          apply (drule steps_appendI[of "a # as" x, rotated])
+          by (cases u'; force elim: steps.cases)+
+        done
+      done
+    done
+qed
+
+lemma run_flat_coinduct[case_names run_shift, consumes 1]:
+  assumes "R xss"
+    and
+    "\<And> xs ys xss.
+    R (xs ## ys ## xss) \<Longrightarrow> xs \<noteq> [] \<and> steps xs \<and> C (last xs) (hd ys) \<and> R (ys ## xss)"
+  shows "run (flat xss)"
+proof -
+  obtain xs ys xss' where "xss = xs ## ys ## xss'" by (metis stream.collapse)
+  with assms(2)[OF assms(1)[unfolded this]] show ?thesis
+  proof (coinduction arbitrary: xs ys xss' xss rule: run_shift_coinduct)
+    case (run_shift xs ys xss' xss)
+    from run_shift show ?case
+      apply (cases xss')
+      apply clarify
+      apply (drule assms(2))
+      apply (inst_existentials "butlast xs" "tl ys @- flat xss'" "last xs" "hd ys")
+         apply (cases ys)
+          apply (simp; fail)
+         apply (rewrite in \<open>_ = \<hole>\<close> append_single_shift[symmetric]; simp; fail)
+        apply (simp; fail)
+       apply assumption
+      subgoal for ws wss
+        by (inst_existentials ys ws wss) (cases ys, auto)
+      done
+  qed
+qed
+
 
 definition
-  "alw_ev \<phi> x \<equiv> \<forall> xs. run (x ## xs) \<longrightarrow> ev (holds \<phi>) (x ## xs)"
+  "Alw_ev \<phi> x \<equiv> \<forall> xs. run (x ## xs) \<longrightarrow> ev (holds \<phi>) (x ## xs)"
 
-lemma alw_ev:
-  "alw_ev \<phi> x \<longleftrightarrow> \<not> (\<exists> xs. run (x ## xs) \<and> alw (holds (Not o \<phi>)) (x ## xs))"
-  unfolding alw_ev_def
+lemma Alw_ev:
+  "Alw_ev \<phi> x \<longleftrightarrow> \<not> (\<exists> xs. run (x ## xs) \<and> alw (holds (Not o \<phi>)) (x ## xs))"
+  unfolding Alw_ev_def
 proof (safe, goal_cases)
   case prems: (1 xs)
   then have "ev (holds \<phi>) (x ## xs)" by auto
@@ -468,7 +629,6 @@ qed
 
 lemma Steps_cycle_first_prestable:
   "\<exists> b y. C x y \<and> x \<in> b \<and> b \<in> set as \<union> {a}" if assms: "Steps (a # as @ [a])" "x \<in> a"
-  using assms
 proof (cases as)
   case Nil
   with assms show ?thesis by (auto elim!: Steps_cases dest: prestable)
@@ -483,55 +643,67 @@ lemma Steps_cycle_every_prestable:
   using assms Steps_cycle_every_prestable'[of "a # as" a] Steps_cycle_first_prestable by auto
 
 text \<open>Abstract cycles lead to concrete infinite runs.\<close>
+lemma Steps_run_cycle_buechi:
+  "\<exists> xs. run (x ## xs) \<and> stream_all2 op \<in> xs (cycle (as @ [a]))"
+  if assms: "Steps (a # as @ [a])" "x \<in> a"
+proof -
+  note C = Steps_prestable[OF assms(1), simplified]
+  define P where "P \<equiv> \<lambda> x xs. steps (last x # xs) \<and> list_all2 (op \<in>) xs (as @ [a])"
+  define f where "f \<equiv> \<lambda> x. SOME xs. P x xs"
+  from Steps_prestable[OF assms(1)] \<open>x \<in> a\<close> obtain ys where ys:
+    "steps (x # ys)" "list_all2 op \<in> (x # ys) (a # as @ [a])"
+    by auto
+  define xs where "xs = flat (siterate f ys)"
+  from ys have "P [x] ys" unfolding P_def by auto
+  from \<open>P _ _\<close> have *: "\<exists> xs. P xs ys" by blast
+  have P_1[intro]:"ys \<noteq> []" if "P xs ys" for xs ys using that unfolding P_def by (cases ys) auto
+  have P_2[intro]: "last ys \<in> a" if "P xs ys" for xs ys
+    using that P_1[OF that] unfolding P_def by (auto dest:  list_all2_last)
+  from * have "stream_all2 op \<in> xs (cycle (as @ [a]))"
+    unfolding xs_def proof (coinduction arbitrary: ys rule: stream_rel_coinduct_shift)
+    case prems: stream_rel
+    then have "ys \<noteq> []" "last ys \<in> a" by (blast dest: P_1 P_2)+
+    from \<open>ys \<noteq> []\<close> C[OF \<open>last ys \<in> a\<close>] have "\<exists> xs. P ys xs" unfolding P_def by auto
+    from someI_ex[OF this] have "P ys (f ys)" unfolding f_def .
+    with \<open>ys \<noteq> []\<close> prems show ?case
+      apply (inst_existentials ys "flat (siterate f (f ys))" "as @ [a]" "cycle (as @ [a])")
+           apply (subst siterate.ctr; simp; fail)
+          apply (subst cycle_decomp; simp; fail)
+       by (auto simp: P_def)
+  qed
+  from * have "run xs"
+  unfolding xs_def proof (coinduction arbitrary: ys rule: run_flat_coinduct)
+    case prems: (run_shift xs ws xss ys)
+    then have "ys \<noteq> []" "last ys \<in> a" by (blast dest: P_1 P_2)+
+    from \<open>ys \<noteq> []\<close> C[OF \<open>last ys \<in> a\<close>] have "\<exists> xs. P ys xs" unfolding P_def by auto
+    from someI_ex[OF this] have "P ys (f ys)" unfolding f_def .
+    with \<open>ys \<noteq> []\<close> prems show ?case by (auto elim: steps.cases simp: P_def)
+  qed
+  with P_1[OF \<open>P _ _\<close>] \<open>steps (x # ys)\<close> have "run (x ## xs)"
+    unfolding xs_def
+    by (subst siterate.ctr, subst (asm) siterate.ctr) (cases ys; auto elim: steps.cases)
+  with \<open>stream_all2 _ _ _\<close> show ?thesis by blast
+qed
+
+lemma Steps_run_cycle_buechi'':
+  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> alw_ev (HLD b) (x ## xs)"
+  if assms: "Steps (a # as @ [a])" "x \<in> a" "b \<in> set (a # as @ [a])"
+  using Steps_run_cycle_buechi[OF that(1,2)] that(2,3)
+  apply safe
+  apply (rule exI conjI)+
+   apply assumption
+  apply (subst alw_ev_stl[symmetric])
+  by (force dest: alw_ev_HLD_cycle[of _ _ b] stream_all2_sset1)
+
+lemma Steps_run_cycle_buechi':
+  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> alw_ev (HLD a) (x ## xs)"
+  if assms: "Steps (a # as @ [a])" "x \<in> a"
+  using Steps_run_cycle_buechi''[OF that] \<open>x \<in> a\<close> by auto
+
 lemma Steps_run_cycle':
   "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a)"
   if assms: "Steps (a # as @ [a])" "x \<in> a"
-proof -
-  from assms(1,2) have *: "\<exists> a \<in> set as \<union> {a}. x \<in> a" by (fastforce elim: Steps_cases)
-  note C = Steps_cycle_every_prestable[OF assms(1)]
-  let ?f = "\<lambda> x. SOME y. C x y \<and> (\<exists> a \<in> set as \<union> {a}. y \<in> a)"
-  define xs where "xs = siterate ?f x"
-  (* XXX Proof Duplication *)
-  from * \<open>xs = _\<close> have "stream_all (\<lambda> x. \<exists> a \<in> set as \<union> {a}. x \<in> a) xs"
-  proof (coinduction arbitrary: x xs)
-    case (step x xs)
-    obtain y ys where
-      "xs = x ## ys"
-      "y = ?f x"
-      "ys = siterate ?f y"
-      unfolding step(2)
-      apply atomize_elim
-      apply (subst stream.collapse[symmetric])
-      by simp
-    from C[of x] step(1) have "\<exists>y. C x y \<and> (\<exists> b \<in> set as \<union> {a}. y \<in> b)" by auto
-    from someI_ex[OF this] have "C x y" "\<exists>b\<in>set as \<union> {a}. y \<in> b" unfolding \<open>y = _\<close> by auto
-    with \<open>xs = x ## _\<close> \<open>ys = _\<close> step(1) show ?case by auto
-  qed
-  then have "\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a"
-    unfolding stream_all_iff by blast
-  moreover from * \<open>xs = _\<close> have "run xs"
-  proof (coinduction arbitrary: x xs)
-    case (run x xs)
-    obtain y ys where
-      "xs = x ## y ## ys"
-      "y = ?f x"
-      "ys = siterate ?f (?f y)"
-      unfolding run(2)
-      apply atomize_elim
-      apply (subst stream.collapse[symmetric])
-      apply (subst (3) stream.collapse[symmetric])
-      by simp
-    from C[of x] run(1) have "\<exists>y. C x y \<and> (\<exists> b \<in> set as \<union> {a}. y \<in> b)" by auto
-    from someI_ex[OF this] have "C x y" "\<exists>b\<in>set as \<union> {a}. y \<in> b" unfolding \<open>y = _\<close> by auto
-    with C[of y] have "\<exists>z. C y z \<and> (\<exists> b \<in> set as \<union> {a}. z \<in> b)" by auto
-    from someI_ex[OF this] have "\<exists> a \<in> set as \<union> {a}. ?f y \<in> a" by auto
-    with \<open>C x y\<close> \<open>xs = x ## _\<close> \<open>ys = _\<close> \<open>\<exists>b\<in>set as \<union> {a}. y \<in> b\<close> show ?case
-      by (inst_existentials x y ys) force+
-  qed
-  moreover have "shd xs \<in> a" using \<open>x \<in> _\<close> unfolding xs_def by auto
-  moreover have "x ## stl xs = xs" unfolding xs_def by simp
-  ultimately show ?thesis by (inst_existentials "stl xs") (auto dest: stl_sset)
-qed
+  using Steps_run_cycle_buechi'[OF assms] by auto
 
 lemma Steps_run_cycle:
   "\<exists> xs. run xs \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> shd xs \<in> a"
@@ -1472,8 +1644,6 @@ next
   then show ?case by (rule P2_a\<^sub>0)
 qed
 
-thm phi.infinite_run_cycle_iff
-
 lemma phi_run_iff:
   "phi.run (x ## xs) \<and> \<phi> x \<longleftrightarrow> run (x ## xs) \<and> pred_stream \<phi> (x ## xs)"
 proof -
@@ -1493,10 +1663,10 @@ corollary infinite_run_cycle_iff:
   unfolding phi.infinite_run_cycle_iff[OF that(1,2), symmetric] phi_run_iff[symmetric]
   using that(3) by auto
 
-theorem alw_ev_mc:
-  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+theorem Alw_ev_mc:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
   if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
-  unfolding alw_ev alw_holds_pred_stream infinite_run_cycle_iff[OF that, symmetric]
+  unfolding Alw_ev alw_holds_pred_stream infinite_run_cycle_iff[OF that, symmetric]
   by (auto simp: comp_def)
 
 end
@@ -1510,6 +1680,8 @@ text \<open>
   there are equivalent runs
 \<^item> Can offer representation view via suitable locale instantiations?
 \<^item> Abstractions view?
+\<^item> \<phi>-construction can be done on an automaton too (also for disjunctions)
+\<^item> Büchi properties are nothing but \<box>\<diamond>-properties (@{term \<open>alw_ev\<close>}
 \<close>
 
 end (* Theory *)
