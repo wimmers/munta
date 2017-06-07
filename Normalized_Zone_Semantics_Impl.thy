@@ -3386,7 +3386,7 @@ begin
     step_z_dbm_DBM = step_z_dbm_DBM[OF _ global_clock_numbering']
 
   lemmas
-    step_z_dbm_mono = alpha_interp.step_z_dbm_mono[OF global_clock_numbering']
+    step_z_dbm_mono = step_z_dbm_mono[OF global_clock_numbering']
 
   lemmas
     step_z_norm_mono' = step_z_norm_mono[OF _ global_clock_numbering' valid_abstraction']
