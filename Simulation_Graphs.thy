@@ -121,10 +121,92 @@ lemma alw_ev_mono:
 lemma pred_stream_flat_coinduct[case_names pred_stream_flat, consumes 1]:
   assumes "R ws" and "\<And> w ws. R (w ## ws) \<Longrightarrow> w \<noteq> [] \<and> list_all P w \<and> R ws"
   shows "pred_stream P (flat ws)"
-  using assms(1) proof (coinduction arbitrary: ws rule: stream_pred_coinduct_shift)
+  using assms(1)
+proof (coinduction arbitrary: ws rule: stream_pred_coinduct_shift)
   case (stream_pred ws)
   then show ?case by (cases ws) (auto 4 4 dest!: assms(2))
 qed
+
+lemma sfilter_shd_LEAST:
+  "shd (sfilter P xs) = xs !! (LEAST n. P (xs !! n))" if "ev (holds P) xs"
+proof -
+  from sdrop_wait[OF \<open>ev _ xs\<close>] have "\<exists> n. P (xs !! n)" by auto
+  from sdrop_while_sdrop_LEAST[OF this] show ?thesis by simp
+qed
+
+lemma alw_nxt_holds_cong:
+  "(nxt ^^ n) (holds (\<lambda>x. P x \<and> Q x)) xs = (nxt ^^ n) (holds Q) xs" if "alw (holds P) xs"
+  using that unfolding nxt_holds_iff_snth alw_iff_sdrop by simp
+
+lemma alw_wait_holds_cong:
+  "wait (holds (\<lambda>x. P x \<and> Q x)) xs = wait (holds Q) xs" if "alw (holds P) xs"
+  unfolding wait_def alw_nxt_holds_cong[OF that] ..
+
+lemma alw_sfilter:
+  "sfilter (\<lambda> x. P x \<and> Q x) xs = sfilter Q xs" if "alw (holds P) xs" "alw (ev (holds Q)) xs"
+  using that
+proof (coinduction arbitrary: xs)
+  case prems: stream_eq
+  from prems(3,4) have ev_one: "ev (holds (\<lambda>x. P x \<and> Q x)) xs"
+    by (subst ev_cong[of _ _ _ "holds Q"]) (assumption | auto)+
+  from prems have "a = shd (sfilter (\<lambda>x. P x \<and> Q x) xs)" "b = shd (sfilter Q xs)"
+    by (metis stream.sel(1))+
+  with prems(3,4) have
+    "a = xs !! (LEAST n. P (xs !! n) \<and> Q (xs !! n))" "b = xs !! (LEAST n. Q (xs !! n))"
+    using ev_one by (auto 4 3 dest: sfilter_shd_LEAST)
+  with alw_wait_holds_cong[unfolded wait_LEAST, OF \<open>alw (holds P) xs\<close>] have "a = b" by simp
+  from sfilter_SCons_decomp'[OF prems(1)[symmetric], OF ev_one] guess u2 by clarsimp
+  note guessed_a = this
+  have "ev (holds Q) xs" using prems(4) by blast
+  from sfilter_SCons_decomp'[OF prems(2)[symmetric], OF this] guess v2 by clarsimp
+  with guessed_a \<open>a = b\<close> show ?case
+    apply (intro conjI exI)
+        apply assumption+
+      apply (simp add: alw_wait_holds_cong[OF prems(3)], metis shift_left_inj stream.inject)
+    by (metis alw.cases alw_shift prems(3,4) stream.sel(2))+
+qed
+
+lemma alw_ev_holds_mp:
+  "alw (holds P) xs \<Longrightarrow> ev (holds Q) xs \<Longrightarrow> ev (holds (\<lambda>x. P x \<and> Q x)) xs"
+  by (subst ev_cong, assumption) auto
+
+lemma alw_ev_conjI:
+  "alw_ev (holds (\<lambda> x. P x \<and> Q x)) xs" if "alw (holds P) xs" "alw (ev (holds Q)) xs"
+  using that(2,1) by - (erule alw_mp, coinduction arbitrary: xs, auto intro: alw_ev_holds_mp)
+
+lemma alw_ev_sfilter_mono:
+  assumes alw_ev: "alw (ev (holds P)) xs"
+    and mono: "\<And> x. P x \<Longrightarrow> Q x"
+  shows "stream_all Q (sfilter P xs)"
+  using alw_ev
+proof (coinduction arbitrary: xs)
+  case (step xs)
+  then have "ev (holds P) xs" by auto
+  have "sfilter P xs = shd (sfilter P xs) ## stl (sfilter P xs)"
+    by (cases "sfilter P xs") auto
+  from sfilter_SCons_decomp[OF this \<open>ev (holds P) xs\<close>] guess ys' zs' by clarsimp
+  then show ?case
+    by (inst_existentials zs') (auto intro: mono, metis alw_shift append_single_shift local.step)
+qed
+
+lemma sset_sfilter:
+  "sset (sfilter P xs) \<subseteq> sset xs" if "alw_ev (holds P) xs"
+proof -
+  have "alw (holds (\<lambda> x. x \<in> sset xs)) xs" by (simp add: alw_iff_sdrop)
+  with \<open>alw_ev _ _\<close> alw_sfilter[OF this \<open>alw_ev _ _\<close>, symmetric] have
+    "\<forall> x \<in> sset (sfilter P xs). x \<in> sset xs"
+    unfolding stream_all_iff[symmetric]
+    by (simp only:) (rule alw_ev_sfilter_mono; auto intro: alw_ev_conjI)
+  then show ?thesis by blast
+qed
+
+lemma stream_all_eq_pred_stream:
+  "stream_all = pred_stream"
+  unfolding stream_pred_snth stream_all_def ..
+
+lemma alw_holds_pred_stream_iff:
+  "alw (holds P) xs \<longleftrightarrow> pred_stream P xs"
+  by (simp add: alw_iff_sdrop stream_pred_snth)
 
 lemma list_all2_op_map_iff:
   "list_all2 (\<lambda> a b. b = f a) xs ys \<longleftrightarrow> map f xs = ys"
@@ -1453,14 +1535,16 @@ qed
 lemma buechi_run_finite_state_set_cycle:
   assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
   shows
-    "\<exists> ys zs. run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> zs \<noteq> [] \<and> (\<exists> x \<in> set zs. \<phi> x)"
+  "\<exists> ys zs.
+    run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs
+    \<and> zs \<noteq> [] \<and> (\<exists> x \<in> set zs. \<phi> x)"
 proof -
   from run_finite_state_set[OF assms(1)] have "finite (sset (x\<^sub>0 ## xs))" .
-  with assms(2) obtain x ws ys zs where
+  with sset_sfilter[OF \<open>alw_ev _ _\<close>] have "finite (sset (sfilter \<phi> (x\<^sub>0 ## xs)))"
+    by (rule finite_subset)
+  from finite_sset_sfilter_decomp[OF this assms(2)] obtain x ws ys zs where
     decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" and "\<phi> x"
-    apply atomize_elim
-    apply simp
-      sorry
+    by simp metis
   from run_decomp[OF assms(1)[unfolded decomp]] guess by auto
   note decomp_first = this
   from run_sdrop[OF assms(1), of "length (ws @ [x])"] guess by simp
@@ -1623,8 +1707,11 @@ lemma buechi_run_finite_state_set_cycle_steps:
   using run_complete[OF assms(1-3)]
   apply safe
   apply (drule Steps_finite.buechi_run_finite_state_set_cycle_steps[where \<phi> = "\<lambda> S. \<exists> x \<in> S. \<phi> x"])
-    subgoal for as
-  using assms(4) sorry
+  subgoal for as
+    using assms(4)
+    apply (subst alw_ev_stl[symmetric], simp)
+    apply (erule alw_stream_all2_mono[where Q = "ev (holds \<phi>)"], fastforce)
+    by (metis (mono_tags, lifting) ev_holds_sset stream_all2_sset1)
   apply safe
   subgoal for as x ys zs y a
     apply (inst_existentials x ys zs)
@@ -1710,10 +1797,6 @@ end
 end (* Double Simulation Finite Complete Abstraction *)
 
 
-lemma alw_holds_pred_stream:
-  "alw (holds \<phi>) xs \<longleftrightarrow> pred_stream \<phi> xs"
-  by (simp add: alw_iff_sdrop stream_pred_snth)
-
 locale Double_Simulation_Finite_Complete_Abstraction_Prop =
   Double_Simulation +
   fixes a\<^sub>0
@@ -1794,7 +1877,7 @@ corollary infinite_run_cycle_iff:
 theorem Alw_ev_mc:
   "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
   if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
-  unfolding Alw_ev alw_holds_pred_stream infinite_run_cycle_iff[OF that, symmetric]
+  unfolding Alw_ev alw_holds_pred_stream_iff infinite_run_cycle_iff[OF that, symmetric]
   by (auto simp: comp_def)
 
 end
