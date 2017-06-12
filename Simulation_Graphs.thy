@@ -10,204 +10,6 @@ begin
 
 paragraph \<open>Misc\<close>
 
-text \<open>XXX Resolve Problems with Cava/Sequence import\<close>
-lemma stream_all2_sset1:
-  "\<forall> x \<in> sset xs. \<exists> a \<in> sset as. P x a" if "stream_all2 P xs as"
-  using that proof -
-  have "pred_stream (\<lambda> x. \<exists> a \<in> S. P x a) xs" if "sset as \<subseteq> S" for S
-    using that \<open>stream_all2 P xs as\<close>
-  proof (coinduction arbitrary: xs as)
-    case (stream_pred x ys xs as)
-    then show ?case by (cases as) auto
-  qed
-  then show ?thesis unfolding stream.pred_set by auto
-qed
-
-lemma stream_all2_sset2:
-  "\<forall> a \<in> sset as. \<exists> x \<in> sset xs. P x a" if "stream_all2 P xs as"
-  using that proof -
-  have "pred_stream (\<lambda> a. \<exists> x \<in> S. P x a) as" if "sset xs \<subseteq> S" for S
-    using that \<open>stream_all2 P xs as\<close>
-  proof (coinduction arbitrary: xs as)
-    case (stream_pred x ys xs as)
-    then show ?case by (cases xs) auto
-  qed
-  then show ?thesis unfolding stream.pred_set by auto
-qed
-
-lemma infs_cycle:
-  "infs (set xs) (cycle xs)" if "xs \<noteq> []"
-  by (rule infs_sset) (simp add: that)
-
-
-abbreviation "alw_ev P \<equiv> alw (ev P)"
-
-lemma alw_ev_coinduct[case_names alw_ev, consumes 1, coinduct pred: alw_ev]:
-  assumes "R w" and "\<And> w. R w \<Longrightarrow> \<exists> u v. w = u @- v \<and> u \<noteq> [] \<and> P v \<and> R v"
-  shows "alw (ev P) w"
-proof -
-  from \<open>R w\<close> have "\<exists> u v. w = u @- v \<and> R v" by (inst_existentials "[] :: 'a list") auto
-  then show ?thesis proof (coinduction arbitrary: w)
-    case (alw w)
-    then obtain u v where "w = u @- v" "R v" by auto
-    from assms(2)[OF \<open>R v\<close>] obtain v1 v2 where "v = v1 @- v2" "v1 \<noteq> []" "P v2" "R v2"
-      by auto
-    with \<open>w = _\<close> have "ev P w" by (auto intro: ev_shift)
-    with \<open>R v2\<close> show ?case
-      apply (inst_existentials w)
-        apply simp+
-      apply (rule disjI1)
-      apply (inst_existentials "tl (u @ v1)" v2)
-      unfolding \<open>w = _\<close> \<open>v = _\<close> using \<open>v1 \<noteq> []\<close> by auto
-  qed
-qed
-
-lemma alw_ev_flat_coinduct[case_names alw_ev_flat, consumes 1]:
-  assumes "R xss" and "\<And> xs xss. R (xs ## xss) \<Longrightarrow> (\<exists> x \<in> set xs. P x) \<and> R xss"
-  shows "alw (ev (holds P)) (flat xss)"
-proof -
-  from assms have "R (stl xss)" by (metis stream.exhaust_sel)
-  moreover from assms have "shd xss \<noteq> []" by (cases xss) fastforce+
-  ultimately show ?thesis
-  proof (coinduction arbitrary: xss)
-    case (alw_ev xss)
-    obtain xs yss where "stl xss = xs ## yss" by (metis stream.exhaust)
-    with assms(2) \<open>R (stl xss)\<close> obtain x where "x \<in> set xs" "P x" "R yss" by auto
-    from \<open>x \<in> set xs\<close> obtain xs1 xs2 where "xs = xs1 @ [x] @ xs2"
-      by atomize_elim (simp add: split_list)
-    with \<open>P x\<close> \<open>stl xss = _\<close> \<open>stl xss = _\<close> \<open>shd xss \<noteq> []\<close> \<open>R yss\<close> show ?case
-      apply (inst_existentials "shd xss @ xs1" "(x # xs2) @- flat yss")
-         apply (rewrite in \<open>flat xss\<close> stream.collapse[symmetric])
-         apply (cases "shd xss"; simp; fail)
-        apply (simp; fail)
-       apply (simp; fail)
-      apply (inst_existentials "(x # xs2) ## yss")
-      by auto
-  qed
-qed
-
-lemma alw_ev_HLD_cycle:
-  "alw_ev (HLD a) xs" if "stream_all2 op \<in> xs (cycle as)" "a \<in> set as"
-  using that
-  unfolding HLD_def proof (coinduction arbitrary: xs as)
-  case prems: (alw_ev xs as)
-  from this(2) obtain as1 as2 where "as = as1 @ a # as2" by (auto simp: in_set_conv_decomp)
-  then have "sdrop (length as) (cycle as) = cycle as"
-    by (subst cycle_decomp) auto
-  moreover have "sdrop (length as1) (cycle as) = cycle (a # as2 @ as1)"
-    unfolding \<open>as = _\<close>
-    apply (subst sdrop_cycle)
-     apply (simp; fail)
-    by (subst rotate_drop_take, simp)
-  ultimately have "sdrop (length as + length as1) (cycle as) = cycle (a # as2 @ as1)"
-    unfolding sdrop_add[symmetric] by simp
-  with prems have "stream_all2 op \<in> (sdrop (length as + length as1) xs) (cycle (a # as2 @ as1))"
-    apply (subst (asm) stake_sdrop[symmetric, of _ "length as + length as1"])
-    apply (rewrite at \<open>cycle as\<close> in asm stake_sdrop[symmetric, of _ "length as + length as1"])
-    by (drule stream_all2_tail; simp)
-  with prems show ?case
-    apply (inst_existentials "stake (length as + length as1) xs" "sdrop (length as + length as1) xs")
-       apply simp
-      apply force
-     apply (subst (asm) cycle_Cons, simp only: stream_all2_Cons2)
-    by force+
-qed
-
-lemma alw_ev_mono:
-  assumes "alw_ev \<phi> xs" and "\<And> xs. \<phi> xs \<Longrightarrow> \<psi> xs"
-  shows "alw_ev \<psi> xs"
-  by (rule alw_mp[OF assms(1)]) (auto intro: ev_mono assms(2) simp: alw_iff_sdrop)
-
-lemma pred_stream_flat_coinduct[case_names pred_stream_flat, consumes 1]:
-  assumes "R ws" and "\<And> w ws. R (w ## ws) \<Longrightarrow> w \<noteq> [] \<and> list_all P w \<and> R ws"
-  shows "pred_stream P (flat ws)"
-  using assms(1)
-proof (coinduction arbitrary: ws rule: stream_pred_coinduct_shift)
-  case (stream_pred ws)
-  then show ?case by (cases ws) (auto 4 4 dest!: assms(2))
-qed
-
-lemma sfilter_shd_LEAST:
-  "shd (sfilter P xs) = xs !! (LEAST n. P (xs !! n))" if "ev (holds P) xs"
-proof -
-  from sdrop_wait[OF \<open>ev _ xs\<close>] have "\<exists> n. P (xs !! n)" by auto
-  from sdrop_while_sdrop_LEAST[OF this] show ?thesis by simp
-qed
-
-lemma alw_nxt_holds_cong:
-  "(nxt ^^ n) (holds (\<lambda>x. P x \<and> Q x)) xs = (nxt ^^ n) (holds Q) xs" if "alw (holds P) xs"
-  using that unfolding nxt_holds_iff_snth alw_iff_sdrop by simp
-
-lemma alw_wait_holds_cong:
-  "wait (holds (\<lambda>x. P x \<and> Q x)) xs = wait (holds Q) xs" if "alw (holds P) xs"
-  unfolding wait_def alw_nxt_holds_cong[OF that] ..
-
-lemma alw_sfilter:
-  "sfilter (\<lambda> x. P x \<and> Q x) xs = sfilter Q xs" if "alw (holds P) xs" "alw (ev (holds Q)) xs"
-  using that
-proof (coinduction arbitrary: xs)
-  case prems: stream_eq
-  from prems(3,4) have ev_one: "ev (holds (\<lambda>x. P x \<and> Q x)) xs"
-    by (subst ev_cong[of _ _ _ "holds Q"]) (assumption | auto)+
-  from prems have "a = shd (sfilter (\<lambda>x. P x \<and> Q x) xs)" "b = shd (sfilter Q xs)"
-    by (metis stream.sel(1))+
-  with prems(3,4) have
-    "a = xs !! (LEAST n. P (xs !! n) \<and> Q (xs !! n))" "b = xs !! (LEAST n. Q (xs !! n))"
-    using ev_one by (auto 4 3 dest: sfilter_shd_LEAST)
-  with alw_wait_holds_cong[unfolded wait_LEAST, OF \<open>alw (holds P) xs\<close>] have "a = b" by simp
-  from sfilter_SCons_decomp'[OF prems(1)[symmetric], OF ev_one] guess u2 by clarsimp
-  note guessed_a = this
-  have "ev (holds Q) xs" using prems(4) by blast
-  from sfilter_SCons_decomp'[OF prems(2)[symmetric], OF this] guess v2 by clarsimp
-  with guessed_a \<open>a = b\<close> show ?case
-    apply (intro conjI exI)
-        apply assumption+
-      apply (simp add: alw_wait_holds_cong[OF prems(3)], metis shift_left_inj stream.inject)
-    by (metis alw.cases alw_shift prems(3,4) stream.sel(2))+
-qed
-
-lemma alw_ev_holds_mp:
-  "alw (holds P) xs \<Longrightarrow> ev (holds Q) xs \<Longrightarrow> ev (holds (\<lambda>x. P x \<and> Q x)) xs"
-  by (subst ev_cong, assumption) auto
-
-lemma alw_ev_conjI:
-  "alw_ev (holds (\<lambda> x. P x \<and> Q x)) xs" if "alw (holds P) xs" "alw (ev (holds Q)) xs"
-  using that(2,1) by - (erule alw_mp, coinduction arbitrary: xs, auto intro: alw_ev_holds_mp)
-
-lemma alw_ev_sfilter_mono:
-  assumes alw_ev: "alw (ev (holds P)) xs"
-    and mono: "\<And> x. P x \<Longrightarrow> Q x"
-  shows "stream_all Q (sfilter P xs)"
-  using alw_ev
-proof (coinduction arbitrary: xs)
-  case (step xs)
-  then have "ev (holds P) xs" by auto
-  have "sfilter P xs = shd (sfilter P xs) ## stl (sfilter P xs)"
-    by (cases "sfilter P xs") auto
-  from sfilter_SCons_decomp[OF this \<open>ev (holds P) xs\<close>] guess ys' zs' by clarsimp
-  then show ?case
-    by (inst_existentials zs') (auto intro: mono, metis alw_shift append_single_shift local.step)
-qed
-
-lemma sset_sfilter:
-  "sset (sfilter P xs) \<subseteq> sset xs" if "alw_ev (holds P) xs"
-proof -
-  have "alw (holds (\<lambda> x. x \<in> sset xs)) xs" by (simp add: alw_iff_sdrop)
-  with \<open>alw_ev _ _\<close> alw_sfilter[OF this \<open>alw_ev _ _\<close>, symmetric] have
-    "\<forall> x \<in> sset (sfilter P xs). x \<in> sset xs"
-    unfolding stream_all_iff[symmetric]
-    by (simp only:) (rule alw_ev_sfilter_mono; auto intro: alw_ev_conjI)
-  then show ?thesis by blast
-qed
-
-lemma stream_all_eq_pred_stream:
-  "stream_all = pred_stream"
-  unfolding stream_pred_snth stream_all_def ..
-
-lemma alw_holds_pred_stream_iff:
-  "alw (holds P) xs \<longleftrightarrow> pred_stream P xs"
-  by (simp add: alw_iff_sdrop stream_pred_snth)
-
 lemma list_all2_op_map_iff:
   "list_all2 (\<lambda> a b. b = f a) xs ys \<longleftrightarrow> map f xs = ys"
   unfolding list_all2_iff
@@ -230,6 +32,26 @@ lemma list_all2_last:
     case (Cons a xs ys)
     then show ?case by (cases ys) auto
   qed
+
+lemma list_all2_set1:
+  "\<forall>x\<in>set xs. \<exists>xa\<in>set as. P x xa" if "list_all2 P xs as"
+  using that
+proof (induction xs arbitrary: as)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a xs as)
+  then show ?case by (cases as) auto
+qed
+
+lemma list_all2_swap:
+  "list_all2 P xs ys \<longleftrightarrow> list_all2 (\<lambda> x y. P y x) ys xs"
+  unfolding list_all2_iff by (fastforce simp: in_set_zip)+
+
+lemma list_all2_set2:
+  "\<forall>x\<in>set as. \<exists>xa\<in>set xs. P xa x" if "list_all2 P xs as"
+  using that by - (rule list_all2_set1, subst (asm) list_all2_swap)
+
 
 text \<open>
   A directed graph where every node has at least one ingoing edge, contains a directed cycle.
@@ -278,6 +100,12 @@ next
     then show ?thesis by (blast intro: rtranclp_trans dest: E'_E)
     qed
   qed
+
+(* XXX Move? *)
+lemma prod_set_fst_id:
+  "x = y" if "\<forall> a \<in> x. fst a = b" "\<forall> a \<in> y. fst a = b" "snd ` x = snd ` y"
+  using that by (auto 4 6 simp: fst_def snd_def image_def split: prod.splits)
+
 
 locale Graph_Defs =
   fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
@@ -546,25 +374,6 @@ lemmas Steps_cases = Steps.steps.cases
 
 end (* Simulation Graph *)
 
-
-lemma list_all2_set1:
-  "\<forall>x\<in>set xs. \<exists>xa\<in>set as. P x xa" if "list_all2 P xs as"
-  using that
-proof (induction xs arbitrary: as)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a xs as)
-  then show ?case by (cases as) auto
-qed
-
-lemma list_all2_swap:
-  "list_all2 P xs ys \<longleftrightarrow> list_all2 (\<lambda> x y. P y x) ys xs"
-  unfolding list_all2_iff by (fastforce simp: in_set_zip)+
-
-lemma list_all2_set2:
-  "\<forall>x\<in>set as. \<exists>xa\<in>set xs. P xa x" if "list_all2 P xs as"
-  using that by - (rule list_all2_set1, subst (asm) list_all2_swap)
 
 locale Simulation_Graph_Poststable = Simulation_Graph_Defs +
   assumes poststable: "A S T \<Longrightarrow> \<forall> s' \<in> T. \<exists> s \<in> S. C s s'"
@@ -1006,7 +815,7 @@ proof -
        apply (fastforce dest!: list_all2_set1)
      apply blast
     using \<open>alw_ev (HLD (\<Union> closure a)) (y ## ys)\<close>
-    by - (rule alw_ev_sdrop[of _ "length (x\<^sub>0 # xs)"], simp)
+      by - (rule alw_ev_sdrop[of _ "length (x\<^sub>0 # xs)"], simp add: sdrop_shift)
 qed
 
 end (* Double Simulation Graph *)
@@ -1266,11 +1075,6 @@ end (* End of context for fixed location *)
 end (* End of Regions *)
 
 
-(* XXX Move? *)
-lemma prod_set_fst_id:
-  "x = y" if "\<forall> a \<in> x. fst a = b" "\<forall> a \<in> y. fst a = b" "snd ` x = snd ` y"
-  using that by (auto 4 6 simp: fst_def snd_def image_def split: prod.splits)
-
 definition state_set :: "('a, 'c, 'time, 's) ta \<Rightarrow> 's set" where
   "state_set A \<equiv> fst ` (fst A) \<union> (snd o snd o snd o snd) ` (fst A)"
 
@@ -1509,7 +1313,7 @@ proof -
   note decomp_first = this
   from run_sdrop[OF assms, of "length (ws @ [x])"] guess by simp
   moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
-    by (cases ws; simp)
+    by (cases ws; simp add: sdrop_shift)
   ultimately have "run ((ys @ [x]) @- zs)" by simp
   from run_decomp[OF this] guess by clarsimp
   from run_cycle[OF this(1)] decomp_first have
@@ -1549,7 +1353,7 @@ proof -
   note decomp_first = this
   from run_sdrop[OF assms(1), of "length (ws @ [x])"] guess by simp
   moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
-    by (cases ws; simp)
+    by (cases ws; simp add: sdrop_shift)
   ultimately have "run ((ys @ [x]) @- zs)" by simp
   from run_decomp[OF this] guess by clarsimp
   from run_cycle[OF this(1)] decomp_first have
@@ -1594,7 +1398,9 @@ qed
 (* XXX Duplication *)
 lemma buechi_run_finite_state_set_cycle_steps:
   assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
-  shows "\<exists> x ys zs. steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> (\<exists> y \<in> set (x # zs). \<phi> y)"
+  shows
+  "\<exists> x ys zs.
+    steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> (\<exists> y \<in> set (x # zs). \<phi> y)"
 proof -
   from buechi_run_finite_state_set_cycle[OF assms] guess ys zs x by safe
   note guessed = this
