@@ -1,7 +1,6 @@
 theory Simulation_Graphs
   imports
     Stream_More
-    "~/Isabelle/cava/Basic/Sequence"
     "~~/src/HOL/Library/Rewrite"
     Instantiate_Existentials
     "~~/src/HOL/Library/BNF_Corec"
@@ -1421,6 +1420,8 @@ qed
 end (* Finite Graph *)
 
 
+abbreviation "sgenerate f x xs \<equiv> x ## sscan (\<lambda> x y. f y x) xs x"
+
 context Simulation_Graph_Defs
 begin
 
@@ -1428,7 +1429,7 @@ definition "abstract_run = sgenerate (\<lambda> a y. SOME b. A a b \<and> y \<in
 
 lemma abstract_run_ctr:
   "abstract_run x xs = x ## abstract_run (SOME b. A x b \<and> shd xs \<in> b) (stl xs)"
-  unfolding abstract_run_def by (subst sgenerate.ctr) (rule HOL.refl)
+  unfolding abstract_run_def by (subst sscan.ctr) (rule HOL.refl)
 
 end
 

@@ -402,15 +402,4 @@ lemma infs_cycle:
   "infs (set xs) (cycle xs)" if "xs \<noteq> []"
   by (rule infs_sset) (simp add: that)
 
-
-subsection \<open>sgenerate\<close>
-
-primcorec sgenerate where
-  "shd (sgenerate f x ys) = x"
-| "stl (sgenerate f x ys) = sgenerate f (f x (shd ys)) (stl ys)"
-
-lemma sgenerate_Cons:
-  "sgenerate f x (y ## ys) = x ## sgenerate f (f x y) ys"
-  by (subst sgenerate.ctr) simp
-
 end (* Theory *)
