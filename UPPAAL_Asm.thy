@@ -17,7 +17,8 @@ datatype instr =
   PUSH int -- "Push value on stack" |
   POP |
   LID reg -- "Push register value on stack" |
-  STORE reg val -- "Store value in register" |
+  STORE -- "Store stack value in register" |
+  STOREI reg val -- "Store value in register" |
   COPY |
   CALL |
   RETURN |
@@ -48,7 +49,9 @@ fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
   "step (PUSH v) (pc, st, m, f, rs) = Some (pc + 1, v # st, m, f, rs)" |
   "step POP (pc, v # st, m, f, rs) = Some (pc + 1, st, m, f, rs)" |
   "step (LID r) (pc, st, m, f, rs) = Some (pc + 1, m ! r # st, m, f, rs)" |
-  "step (STORE r v) (pc, st, m, f, rs) = Some (pc + 1, st, m[r := v], f, rs)" |
+  "step STORE (pc, v # r # st, m, f, rs) =
+    (if r \<ge> 0 then Some (pc + 1, st, m[nat r := v], f, rs) else None)" |
+  "step (STOREI r v) (pc, st, m, f, rs) = Some (pc + 1, st, m[r := v], f, rs)" |
   "step COPY (pc, st, m, f, rs) = Some (pc + 1, int_of f # st, m, f, rs)" |
   "step CALL (pc, q # st, m, f, rs) =
     (if q \<ge> 0 then Some (nat q, int pc # st, m, f, rs) else None)" |

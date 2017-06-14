@@ -94,6 +94,11 @@ code_printing
 
 thm UPPAAL_Reachability_Problem_precompiled_def
 
+(* For debugging purposes only *)
+definition
+  "bounded_int bounds (s :: int list) \<equiv>
+   length s = length bounds \<and> (\<forall> i < length s. fst (bounds ! i) < s ! i \<and> s ! i < snd (bounds ! i))"
+
 export_code
   check_and_verify init_pred_check time_indep_check1 time_indep_check2 conjunction_check2
   LT LE EQ GE GT integer_of_nat nat_of_integer int_of_integer integer_of_int
@@ -104,6 +109,7 @@ export_code
   UPPAAL_Reachability_Problem_precompiled
   UPPAAL_Reachability_Problem_precompiled_start_state_axioms
   UPPAAL_Reachability_Problem_precompiled_defs.check_ceiling
+  bounded_int
   nat
   REACHABLE UNREACHABLE INIT_INV_ERR
   UPPAAL_Reachability_Problem_precompiled_defs.k
