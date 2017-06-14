@@ -3,8 +3,8 @@ theory Stream_More
     "~~/src/HOL/Library/Stream"
     "~~/src/HOL/Library/Linear_Temporal_Logic_on_Streams"
     "~~/src/HOL/Library/Rewrite"
-    Instantiate_Existentials
-    "~/Isabelle/cava/Basic/Sequence"
+    "Instantiate_Existentials"
+    "Sequence"
 begin
 
 section \<open>Additional Theorems on Stream and LTL\<close>
@@ -401,5 +401,10 @@ subsection \<open>More stuff for Cava/Sequence\<close>
 lemma infs_cycle:
   "infs (set xs) (cycle xs)" if "xs \<noteq> []"
   by (rule infs_sset) (simp add: that)
+
+
+subsection \<open>New definitions\<close>
+
+abbreviation "sgenerate f x xs \<equiv> x ## sscan (\<lambda> x y. f y x) xs x"
 
 end (* Theory *)

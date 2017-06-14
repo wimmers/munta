@@ -1,6 +1,6 @@
 theory State_Networks
   imports Networks Normalized_Zone_Semantics_Impl
-    "~/Formalizations/Experiments/Reordering_Quantifiers"
+    "library/Reordering_Quantifiers"
 begin
 
 (* XXX Move *)

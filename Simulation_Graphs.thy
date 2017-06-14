@@ -1,9 +1,8 @@
 theory Simulation_Graphs
   imports
-    Stream_More
+    "library/Stream_More"
     "~~/src/HOL/Library/Rewrite"
-    Instantiate_Existentials
-    "~~/src/HOL/Library/BNF_Corec"
+    "library/Instantiate_Existentials"
     Normalized_Zone_Semantics
 begin
 
@@ -1420,8 +1419,6 @@ qed
 end (* Finite Graph *)
 
 
-abbreviation "sgenerate f x xs \<equiv> x ## sscan (\<lambda> x y. f y x) xs x"
-
 context Simulation_Graph_Defs
 begin
 
@@ -1595,7 +1592,7 @@ next
     apply safe
     subgoal for x xs b
       apply (inst_existentials x xs)
-      by (force simp: HLD_iff intro: alw_ev_mono)+
+      by (force simp: HLD_iff intro: alw_ev_mono)+ (* Slow *)
     done
 qed
 

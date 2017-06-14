@@ -1,10 +1,8 @@
 theory Infinite_TA_Runs
   imports
     Normalized_Zone_Semantics
-    Stream_More
-    Instantiate_Existentials
-    "~~/src/HOL/Library/BNF_Corec"
-  (* "$AFP/Coinductive/Coinductive_Stream" *)
+    "library/Stream_More"
+    "library/Instantiate_Existentials"
 begin
 
 type_synonym ('s, 'c, 't) run = "('s * ('c, 't) cval) stream"
@@ -137,8 +135,6 @@ proof (coinduction arbitrary: l u Z ts xs)
     apply (subst stream.collapse[symmetric])
     apply (simp add: step_z.simps)
     apply (cases "shd ts")
-    apply (subst stream.collapse[symmetric])
-    apply (rewrite at \<open>sgenerate _ _ _\<close> in \<open>_ = sgenerate _ _ _\<close> stream.collapse[symmetric])
     by (auto elim: step_from_cases)
   with guessed prems(2) show ?case
     apply simp
@@ -149,7 +145,7 @@ qed
 lemma is_run_from_abstract:
   "is_run_from A ((l, u) ## xs) ts \<Longrightarrow> u \<in> Z
   \<Longrightarrow> stream_all2 (\<lambda> (l, u) (l', Z). l = l' \<and> u \<in> Z) ((l, u) ## xs) (gen_zrun A (l, Z) ts)"
-proof (coinduction arbitrary: l u Z ts xs)
+proof (coinduction arbitrary: l u Z ts xs rule: stream.rel_coinduct)
   case prems: Eq_stream
   from is_run_from.cases[OF prems(1)] guess u l g a1 r l2 u2 xs1 ts' .
   note guessed = this
@@ -165,8 +161,6 @@ proof (coinduction arbitrary: l u Z ts xs)
     apply (subst stream.collapse[symmetric])
     apply (simp add: step_z.simps)
     apply (cases "shd ts")
-    apply (subst stream.collapse[symmetric])
-    apply (rewrite at \<open>sgenerate _ _ _\<close> in \<open>_ = sgenerate _ _ _\<close> stream.collapse[symmetric])
     by (auto elim: step_from_cases)
   with guessed prems(2) show ?case
     apply simp

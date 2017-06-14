@@ -1,6 +1,6 @@
 theory Networks
   imports Timed_Automata Normalized_Zone_Semantics_Impl
-    "~/Formalizations/Experiments/Reordering_Quantifiers"
+    "library/Reordering_Quantifiers"
 begin
 
 no_notation Ref.update ("_ := _" 62)
