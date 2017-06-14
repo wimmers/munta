@@ -72,9 +72,9 @@ export_code
   REACHABLE UNREACHABLE INIT_INV_ERR
   UPPAAL_Reachability_Problem_precompiled_defs.k
   in SML_imp module_name Reachability_Checker
-  file "ML/UPPAAL_Reachability_Checker.ml"
+  file "ML/UPPAAL_Reachability_Checker.sml"
 
-ML_file_debug "ML/UPPAAL_Reachability_Checker.ml"
+ML_file_debug "ML/UPPAAL_Reachability_Checker.sml"
 
 ML \<open>
   open Reachability_Checker;;
