@@ -54,7 +54,7 @@ lemma extend_ta_iff:
     apply (force simp add: extend_cc_iff delay_V)
   apply (cases rule: step_a.cases, assumption)
    apply (auto simp add: reset_V extend_cc_iff intro: step_a.intros)
-  using extend_cc_iff delay_V by blast
+  using extend_cc_iff delay_V by fast
 
 lemma steps_iffI:
   "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<longleftrightarrow> A' \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" if
@@ -70,7 +70,7 @@ lemma steps_iffI:
 lemma step_V:
   "\<forall> c. u' c \<ge> 0" if "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" "\<forall> c. u c \<ge> 0"
   using that by (auto simp: reset_V delay_V elim: step_a.cases)
- 
+
 lemma extend_ta_iff_steps:
   "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<longleftrightarrow> extend_ta A cs \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" if "\<forall> c. u c \<ge> 0"
   apply (intro steps_iffI extend_ta_iff)
