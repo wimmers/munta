@@ -1,0 +1,5 @@
+all: UPPAAL_Reachability_Checker.mlb UPPAAL_Reachability_Checker_patched.sml
+	mlton UPPAAL_Reachability_Checker.mlb
+
+UPPAAL_Reachability_Checker_patched.sml:
+	patch -i postprocessing.patch -o UPPAAL_Reachability_Checker_patched.sml

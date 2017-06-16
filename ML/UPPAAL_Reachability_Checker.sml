@@ -255,7 +255,7 @@ fun array_blit src si dst di len = (
 
   structure Statistics : sig
     type stat_entry = string * (unit -> bool) * (unit -> string)
-
+  
     val register_stat : stat_entry -> unit
     val get_active_stats : unit -> (string * string) list
     val pretty_stats : (string * string) list -> string
@@ -263,7 +263,7 @@ fun array_blit src si dst di len = (
   end = struct
     type stat_entry = string * (unit -> bool) * (unit -> string)
     val stats : stat_entry list Unsynchronized.ref = Unsynchronized.ref []
-
+  
     fun register_stat e = stats := e :: !stats
 
     fun get_active_stats () = let
@@ -278,7 +278,7 @@ fun array_blit src si dst di len = (
   end
 
 (* Argh! Functors not compatible with ML_val command!
-  functor Timer () : sig
+  functor Timer () : sig 
     val reset : unit -> unit
     val start : unit -> unit
     val stop : unit -> unit
@@ -292,25 +292,25 @@ fun array_blit src si dst di len = (
     val time : Time.time Unsynchronized.ref = Unsynchronized.ref Time.zeroTime
     val running : bool Unsynchronized.ref = Unsynchronized.ref false
     val start_time : Time.time Unsynchronized.ref = Unsynchronized.ref Time.zeroTime
-
+        
     fun reset () = (
       time := Time.zeroTime;
       running := false;
       start_time := Time.zeroTime
     )
 
-    fun start () =
-      if !running then
-        ()
+    fun start () = 
+      if !running then 
+        () 
       else (
         running := true;
         start_time := Time.now ()
       )
 
-    fun this_runs_time () =
-      if !running then
-        Time.now () - !start_time
-      else
+    fun this_runs_time () = 
+      if !running then 
+        Time.now () - !start_time 
+      else 
         Time.zeroTime
 
     fun stop () = (
@@ -320,7 +320,7 @@ fun array_blit src si dst di len = (
 
     fun get () = !time + this_runs_time ()
     fun set t = time := t - this_runs_time ()
-
+  
     fun pretty () = Time.toString (!time) ^ "s"
   end
   *)
@@ -357,11 +357,38 @@ fun test_bit x n =
 end; (*struct Bits_Integer*)
 
 
+    structure Gabow_Skeleton_Statistics = struct
+      val active = Unsynchronized.ref false
+      val num_vis = Unsynchronized.ref 0
+
+      val time = Unsynchronized.ref Time.zeroTime
+
+      fun is_active () = !active
+      fun newnode () =
+      (
+        num_vis := !num_vis + 1;
+        if !num_vis mod 10000 = 0 then tracing (IntInf.toString (!num_vis) ^ "\n") else ()
+      )
+
+      fun start () = (active := true; time := Time.now ())
+      fun stop () = (time := Time.- (Time.now (), !time))
+
+      fun to_string () = let
+        val t = Time.toMilliseconds (!time)
+        val states_per_ms = real (!num_vis) / real t
+        val realStr = Real.fmt (StringCvt.FIX (SOME 2))
+      in
+        "Required time: " ^ IntInf.toString (t) ^ "ms\n"
+      ^ "States per ms: " ^ realStr states_per_ms ^ "\n"
+      ^ "# states: " ^ IntInf.toString (!num_vis) ^ "\n"
+      end
+        
+      val _ = Statistics.register_stat ("Gabow-Skeleton",is_active,to_string)
+
+    end
+
+
 structure Reachability_Checker : sig
-  val cnt : int Unsynchronized.ref
-  val cnt2 : int Unsynchronized.ref
-  val cnt3 : int Unsynchronized.ref
-  val debug_level: int Unsynchronized.ref
   datatype int = Int_of_integer of IntInf.int
   val integer_of_int : int -> IntInf.int
   type nat
@@ -448,11 +475,6 @@ structure Reachability_Checker : sig
             (((nat * (nat act * (nat * nat))) list) list) list ->
               (int instrc option) list -> ((int list) list) list
 end = struct
-
-val cnt = Unsynchronized.ref 0;
-val cnt2 = Unsynchronized.ref 0;
-val cnt3 = Unsynchronized.ref 0;
-val debug_level = Unsynchronized.ref 0;
 
 datatype int = Int_of_integer of IntInf.int;
 
@@ -1691,18 +1713,18 @@ fun len A_ a =
             end);
 
 fun new A_ =
-  (fn a => fn b => (fn () => Array.array
+  (fn a => fn b => (fn () => Array.array 
 (IntInf.toInt a, b))) o
     integer_of_nat;
 
-fun ntha A_ a n = (fn () => Array.sub
+fun ntha A_ a n = (fn () => Array.sub 
 (a, IntInf.toInt (integer_of_nat n)));
 
 fun upd A_ i x a =
   (fn () =>
     let
       val _ =
-        (fn () => Array.update
+        (fn () => Array.update 
 (a, IntInf.toInt (integer_of_nat i), x)) ();
     in
       a
@@ -1720,7 +1742,7 @@ fun map f [] = []
 fun image f (Set xs) = Set (map f xs);
 
 fun make A_ n f =
-  (fn () =>
+  (fn () => 
 Array.tabulate (IntInf.toInt (integer_of_nat n),
     (f o nat_of_integer) o IntInf.fromInt));
 
@@ -1776,7 +1798,7 @@ fun is_none (SOME x) = false
   | is_none NONE = true;
 
 fun blit A_ src si dst di len =
-  (fn () =>
+  (fn () => 
     array_blit src (integer_of_nat
                      si) dst (integer_of_nat di) (integer_of_nat len));
 
@@ -2663,6 +2685,7 @@ fun ahm_empty def_size = new_hashmap_with def_size;
 fun push_code (A1_, A2_) g_impl =
   (fn x => fn (xa, (xb, (xc, xd))) =>
     let
+      val _ = Gabow_Skeleton_Statistics.newnode ();
       val xf = as_length xa;
       val xg = as_push xa x;
       val xh = as_push xb xf;
@@ -2676,6 +2699,7 @@ fun push_code (A1_, A2_) g_impl =
 
 fun compute_SCC_tr (A1_, A2_) g =
   let
+    val _ = Gabow_Skeleton_Statistics.start ();
     val xa = ([], ahm_empty (def_hashmap_size A2_ Type));
     val a =
       foldli (id (gi_V0 g)) (fn _ => true)
@@ -2744,6 +2768,7 @@ fun compute_SCC_tr (A1_, A2_) g =
             else (a, b)))
         xa;
     val (aa, _) = a;
+    val _ = Gabow_Skeleton_Statistics.stop ();
   in
     aa
   end;
@@ -3115,7 +3140,7 @@ fun fw_upd_impl_int n =
       val xb = mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi) ();
     in
       mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
-        (min (ord_DBMEntry (equal_int, linorder_int)) x (cnt := !cnt+1; dbm_add_int xa xb)) ()
+        (min (ord_DBMEntry (equal_int, linorder_int)) x (dbm_add_int xa xb)) ()
     end);
 
 fun fw_impl_int n =
@@ -4065,12 +4090,9 @@ fun check_and_verify pa m k max_steps i t prog final bounds p s_0 na =
         s_0 na k
     then (fn () =>
            let
-             val time_stamp = Time.now ()
              val x =
                reachability_checker_impl pa m max_steps i t prog bounds p s_0 na
                  k final ();
-             val time_stamp = Time.- (Time.now (), time_stamp)
-             val _ = if !debug_level >= 1 then print ("Internal model checking time: " ^ Time.toString time_stamp ^ "\n") else ()
            in
              SOME x
            end)

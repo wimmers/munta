@@ -33,5 +33,8 @@ session "TA_All" = "TA_Impl" +
 
 session "TA_Code" = "TA_Impl_Refine_Calc_Prereq" +
   theories [document = false]
-    UPPAAL_Reachability_Benchmarks
+    Export_Checker
 
+session "TA_Build" = "TA_Code" +
+  files
+    Makefile

@@ -5,7 +5,7 @@ local
     Unsynchronized.sml
 
     ann "nonexhaustiveMatch ignore" in
-      UPPAAL_Reachability_Checker.sml
+      UPPAAL_Reachability_Checker_patched.sml
     end
 in
     structure Reachability_Checker
