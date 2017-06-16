@@ -1,15 +1,3 @@
-(*
-session "Timed_Automata" = "HOL" +
-  options [document = pdf, document_output = "output"]
-  theories [document = false]
-    Main
-  theories
-    Timed_Automata Misc Closure Floyd_Warshall Paths_Cycles DBM_Operations Normalized_Zone_Semantics
-  document_files
-    "root.tex"
-    "root.bib"
-*)
-
 session "TA" = "Refine_Imperative_HOL" +
   theories [document = false]
     Main Real
@@ -32,14 +20,19 @@ session "TA_Impl_Refine_Calc_Prereq" = "TA_Impl" +
     UPPAAL_State_Networks_Impl
 
 session "TA_All" = "TA_Impl" +
+  options [document = pdf, document_output = "output"]
   theories
     UPPAAL_State_Networks_Impl_Refine
+    Infinite_TA_Runs
+    Simulation_Graphs
+    TA_More
+    Worklist_Subsumption_Impl1
+    Worklist_Subsumption_Multiset
+    (* Worklist_Subsumption_PW_Multiset *)
+  document_files
+    "root.tex"
+    "root.bib"
 
 session "TA_Code" = "TA_Impl_Refine_Calc_Prereq" +
   theories [document = false]
     Export_Checker
-
-session "TA_Build" = "TA_Code" +
-  theories
-  files
-    "ML/Makefile"
