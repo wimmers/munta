@@ -36,5 +36,6 @@ session "TA_Code" = "TA_Impl_Refine_Calc_Prereq" +
     Export_Checker
 
 session "TA_Build" = "TA_Code" +
+  theories
   files
     "ML/Makefile"
