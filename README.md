@@ -2,7 +2,7 @@
 
 ## Introduction
 MUNTA is
-- a model checker for the popular realtime modeling formalism of Timed Automata
+- a model checker for the popular realtime systems modeling formalism of Timed Automata
 - formally verified with Isabelle/HOL -- there is a machine-checked proof that it only computes correct results!
 
 MUNTA is at an early development state. Nevertheless, you can:
