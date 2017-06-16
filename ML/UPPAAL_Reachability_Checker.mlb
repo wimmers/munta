@@ -1,0 +1,23 @@
+$(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/basis/mlton.mlb
+
+local
+    Unsynchronized.sml
+
+    ann "nonexhaustiveMatch ignore" in
+      UPPAAL_Reachability_Checker.sml
+    end
+in
+    structure Reachability_Checker
+end
+
+basics.ML
+ann "nonexhaustiveMatch ignore" in
+    library.ML
+end
+scan.ML
+ann "nonexhaustiveMatch ignore" in
+    Scan_More.ML
+end
+Checker.sml
+mlton_main.sml
