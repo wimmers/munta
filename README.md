@@ -38,7 +38,7 @@ and build the checker as described above.
 ## Running
 Pick one of the files from `benchmarks` and run:
 ```
-./munta < <the_benchmark>.munta
+ML/munta < benchmarks/<the_benchmark>.munta
 ```
 
 ## Input Format
@@ -46,3 +46,7 @@ MUNTA is aimed at understanding bytecode produced by [UPPAAL](http://http://uppa
 However, for the time being, this bytecode needs to be pre-processed slightly.
 You can find some pre-processed benchmarks in `benchmarks`.
 The input format is documented in `UPPAAL_Asm.thy` and `ML/Checker.sml`.
+
+## Benchmarks
+The benchmarks are derived from the [UPPAAL](https://www.it.uu.se/research/group/darts/uppaal/benchmarks/) and
+[TChecker](http://www.labri.fr/perso/herbrete/tchecker/) benchmarks.
