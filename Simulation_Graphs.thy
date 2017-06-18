@@ -1695,7 +1695,7 @@ text \<open>
   there are equivalent runs
 \<^item> Can offer representation view via suitable locale instantiations?
 \<^item> Abstractions view?
-\<^item> \<phi>-construction can be done on an automaton too (also for disjunctions)
+\<^item> \<open>\<phi>\<close>-construction can be done on an automaton too (also for disjunctions)
 \<^item> Büchi properties are nothing but \<open>\<box>\<diamond>\<close>-properties (@{term \<open>alw_ev\<close>}
 \<close>
 
