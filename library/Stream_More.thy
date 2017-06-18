@@ -44,7 +44,7 @@ proof (rule ccontr)
 qed
 
 
-subsection \<open>stream_all/pred_stream, stream_all2, sset\<close>
+subsection \<open>@{term stream_all}/@{term pred_stream}, @{term stream_all2}, @{term sset}\<close>
 
 lemma stream_all2_Cons1:
   "stream_all2 P (y ## ys) xs \<longleftrightarrow> (\<exists> x xs'. xs = x ## xs' \<and> P y x \<and> stream_all2 P ys xs')"
