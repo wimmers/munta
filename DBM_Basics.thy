@@ -388,7 +388,7 @@ next
   from dbm_entry_val_add_4[OF this] len_decomp[OF vs, of M] show ?thesis unfolding add by auto
 qed
 
-text \<open>An equivalent way of handling \<zero>\<close>
+text \<open>An equivalent way of handling \<open>\<zero>\<close>\<close>
 
 fun val_0 :: "('c \<Rightarrow> ('a :: linordered_ab_group_add)) \<Rightarrow> 'c option \<Rightarrow> 'a" where
   "val_0 u None = 0" |

@@ -571,7 +571,7 @@ begin
     unfolding unbounded_dbm'_def
     by simp
 
-  text \<open>We need the custom rule here because unbounded_dbm is a higher-order constant\<close>
+  text \<open>We need the custom rule here because unbounded\_dbm is a higher-order constant\<close>
   lemma [sepref_fr_rules]:
     "(uncurry0 (return unbounded_dbm'), uncurry0 (RETURN (PR_CONST (unbounded_dbm'))))
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a pure (nat_rel \<times>\<^sub>r nat_rel \<rightarrow> Id)"

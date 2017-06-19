@@ -563,7 +563,7 @@ proof -
   finally show ?thesis using FW_zone_equiv[OF surj] by metis
 qed
 
-text \<open>Eliminating the clock_numbering\<close>
+text \<open>Eliminating the clock numbering\<close>
 
 definition reset''' where
   "reset''' M n cs d = fold (\<lambda> c M. reset_canonical M c d) cs M"

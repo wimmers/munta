@@ -87,7 +87,7 @@ begin
     for Lei a\<^sub>0i Fi succsi emptyi
     uses Worklist_Map2_Impl.pw_algo_map2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 
-  end -- \<open>Worklist_Map2 Impl\<close>
+  end -- \<open>Worklist Map2 Impl\<close>
 
   locale Worklist_Map2_Impl_finite = Worklist_Map2_Impl + Worklist_Map2_finite
   begin

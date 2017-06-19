@@ -42,7 +42,7 @@ ML/munta < benchmarks/<the_benchmark>.munta
 ```
 
 ## Input Format
-MUNTA is aimed at understanding bytecode produced by [UPPAAL](http://http://uppaal.org/).
+MUNTA is aimed at understanding bytecode produced by [UPPAAL](http://uppaal.org/).
 However, for the time being, this bytecode needs to be pre-processed slightly.
 You can find some pre-processed benchmarks in `benchmarks`.
 The input format is documented in `UPPAAL_Asm.thy` and `ML/Checker.sml`.
