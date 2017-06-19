@@ -1,3 +1,4 @@
+(* Taken from Isabelle: https://isabelle.in.tum.de *)
 (*  Title:      Pure/General/basics.ML
     Author:     Florian Haftmann and Makarius, TU Muenchen
 

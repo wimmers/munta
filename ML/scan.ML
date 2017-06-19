@@ -1,3 +1,4 @@
+(* Taken from Isabelle: https://isabelle.in.tum.de *)
 (*  Title:      Pure/General/scan.ML
     Author:     Markus Wenzel and Tobias Nipkow, TU Muenchen
 

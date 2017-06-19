@@ -1,3 +1,4 @@
+(* Taken from Isabelle: https://isabelle.in.tum.de *)
 (*  Title:      Pure/library.ML
     Author:     Lawrence C Paulson, Cambridge University Computer Laboratory
     Author:     Markus Wenzel, TU Muenchen
