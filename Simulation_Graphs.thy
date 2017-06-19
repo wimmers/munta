@@ -6,6 +6,8 @@ theory Simulation_Graphs
     Normalized_Zone_Semantics
 begin
 
+chapter \<open>Simulation Graphs\<close>
+
 paragraph \<open>Misc\<close>
 
 lemma list_all2_op_map_iff:

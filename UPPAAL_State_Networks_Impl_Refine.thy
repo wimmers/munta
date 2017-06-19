@@ -5,6 +5,8 @@ theory UPPAAL_State_Networks_Impl_Refine
     "~~/src/HOL/Library/Lattice_Syntax"
 begin
 
+chapter \<open>Imperative Implementation of UPPAAL Style Networks\<close>
+
 (* XXX Rename this way *)
 lemmas mem_nth = aux
 

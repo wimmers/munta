@@ -7,6 +7,8 @@ theory Normalized_Zone_Semantics_Impl_Refine
     Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 
+  chapter \<open>Imperative Implementation of Reachability Checking\<close>
+
   lemma rev_map_fold_append_aux:
     "fold (\<lambda> x xs. f x # xs) xs zs @ ys = fold (\<lambda> x xs. f x # xs) xs (zs@ys)"
    apply (induction xs arbitrary: zs)

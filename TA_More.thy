@@ -2,6 +2,8 @@ theory TA_More
   imports Timed_Automata DBM_Operations "IICF/IICF"
 begin
 
+chapter \<open>Mixed Additional Material on Timed Automata\<close>
+
 text \<open>
   Additional Lemmas on Timed Automata that do not belong to a particular other part of the
   formalization.

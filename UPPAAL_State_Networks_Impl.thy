@@ -2,6 +2,8 @@ theory UPPAAL_State_Networks_Impl
   imports Normalized_Zone_Semantics_Impl UPPAAL_State_Networks
 begin
 
+chapter \<open>Implementation of UPPAAL Style Networks\<close>
+
 lemma step_resets:
   "\<forall> c \<in> set r'. \<exists> x pc. Some (INSTR (STOREC c x)) = P pc"
   if "stepc cmd u (pc, st, s, f, r) = Some (pc', st', s', f', r')"

@@ -46,9 +46,9 @@ session "TA_All" = "TA" +
     "~~/src/HOL/Library/IArray"
   theories
     UPPAAL_State_Networks_Impl_Refine
-    Infinite_TA_Runs
     Simulation_Graphs
     TA_More
+    Infinite_TA_Runs
     Worklist_Subsumption_Impl1
     Worklist_Subsumption_Multiset
     (* Worklist_Subsumption_PW_Multiset *)

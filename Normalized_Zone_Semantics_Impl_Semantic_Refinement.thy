@@ -4,6 +4,8 @@ theory Normalized_Zone_Semantics_Impl_Semantic_Refinement
     Normalized_Zone_Semantics_Impl
 begin
 
+chapter \<open>Semantic Refinement of the Reachability Checker\<close>
+
 no_notation Ref.update ("_ := _" 62)
 
 hide_const D

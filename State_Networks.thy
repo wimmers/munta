@@ -3,6 +3,8 @@ theory State_Networks
     "library/Reordering_Quantifiers"
 begin
 
+chapter \<open>Networks of Timed Automata with Discrete State\<close>
+
 (* XXX Move *)
 lemma finite_Collect_bounded_ex_2 [simp]:
   assumes "finite {(a,b). P a b}"

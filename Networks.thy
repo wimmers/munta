@@ -3,6 +3,8 @@ theory Networks
     "library/Reordering_Quantifiers"
 begin
 
+chapter \<open>Networks of Timed Automata\<close>
+
 no_notation Ref.update ("_ := _" 62)
 
 section \<open>Networks of Timed Automata\<close>

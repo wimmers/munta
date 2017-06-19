@@ -2,6 +2,8 @@ theory UPPAAL_State_Networks
   imports State_Networks Normalized_Zone_Semantics UPPAAL_Asm_Clocks
 begin
 
+chapter \<open>Networks of Timed Automata -- UPPAAL Style\<close>
+
 no_notation Ref.update ("_ := _" 62)
 no_notation fun_rel_syn (infixr "\<rightarrow>" 60)
 

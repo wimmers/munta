@@ -4,6 +4,8 @@ theory DBM_Operations_Impl
 
 begin
 
+chapter \<open>Implementation of DBM Operations\<close>
+
 section \<open>Misc\<close>
 
 lemma fold_last:

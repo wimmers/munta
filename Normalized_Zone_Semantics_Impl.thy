@@ -7,6 +7,8 @@ theory Normalized_Zone_Semantics_Impl
     FW_Code
 begin
 
+chapter \<open>Implementation of Reachability Checking\<close>
+
 hide_const D
 
 definition default_ceiling where
