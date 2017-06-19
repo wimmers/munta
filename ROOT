@@ -1,13 +1,16 @@
 (* Use this to get document output for the abstract formalization of Reachability Checking *)
 session "TA" = "Refine_Imperative_HOL" +
-  options [document = pdf, document_output = "output"]
+  options
+    [document = pdf, document_output = "output",
+     document_variants = "abstract_reachability_proofs:abstract_reachability=/proof,/ML"]
   theories [document = false]
     Main Real Floyd_Warshall FW_Code
   theories
     Normalized_Zone_Semantics
   document_files
-    "root.tex"
     "root.bib"
+  document_files (in "document/abstract_reachability")
+    "root.tex"
 
 session "TA_Impl" = "TA" +
   theories [document = false]
@@ -33,7 +36,9 @@ session "TA_All_Pre" = "TA_Impl_Refine_Calc_Prereq" +
 
 (* Use this to get document output for the implementation of Reachability Checking *)
 session "TA_All" = "TA" +
-  options [document = pdf, document_output = "output"]
+  options
+    [document = pdf, document_output = "output",
+     document_variants = "model_checking_proofs:model_checking=/proof,/ML"]
   theories [document = false]
     IICF
     "library/DRAT_Misc"
@@ -51,9 +56,8 @@ session "TA_All" = "TA" +
     Worklist_Subsumption_Impl1
     Worklist_Subsumption_Multiset
     (* Worklist_Subsumption_PW_Multiset *)
-  document_files
+  document_files (in "document/model_checking")
     "root.tex"
-    "root.bib"
 
 session "TA_Code" = "TA_Impl_Refine_Calc_Prereq" +
   theories [document = false]
