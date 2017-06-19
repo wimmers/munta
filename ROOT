@@ -4,6 +4,9 @@ session "TA" = "Refine_Imperative_HOL" +
     Main Real Floyd_Warshall FW_Code
   theories
     Normalized_Zone_Semantics
+  document_files
+    "root.tex"
+    "root.bib"
 
 session "TA_Impl" = "TA" +
   options [document = pdf, document_output = "output"]
@@ -13,6 +16,9 @@ session "TA_Impl" = "TA" +
     "~~/src/HOL/Library/IArray"
   theories
     Normalized_Zone_Semantics_Impl_Refine
+  document_files
+    "root.tex"
+    "root.bib"
 
 session "TA_Impl_Calc_Prereq" = "TA_Impl" +
   theories [document = false]
@@ -22,6 +28,9 @@ session "TA_Impl_Refine_Calc_Prereq" = "TA_Impl" +
   options [document = pdf, document_output = "output"]
   theories
     UPPAAL_State_Networks_Impl
+  document_files
+    "root.tex"
+    "root.bib"
 
 session "TA_All_Pre" = "TA_Impl_Refine_Calc_Prereq" +
   options [document = pdf, document_output = "output"]
