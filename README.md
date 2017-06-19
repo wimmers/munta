@@ -53,6 +53,7 @@ The input format is documented in `UPPAAL_Asm.thy` and `ML/Checker.sml`.
 Human readable `.pdf` documents (with textual annotations) of the formalizations can be produced by Isabelle.
 Run
 ```
+isabelle build -d . TA
 isabelle build -d . TA_All
 ```
 and you will get the following:
