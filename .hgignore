@@ -3,5 +3,5 @@ syntax: glob
 .DS_Store
 *~
 .hg
-output/document/*
+output/*
 *.orig
