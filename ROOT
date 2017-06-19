@@ -1,3 +1,4 @@
+(* Use this to get document output for the abstract formalization of Reachability Checking *)
 session "TA" = "Refine_Imperative_HOL" +
   options [document = pdf, document_output = "output"]
   theories [document = false]
@@ -9,39 +10,28 @@ session "TA" = "Refine_Imperative_HOL" +
     "root.bib"
 
 session "TA_Impl" = "TA" +
-  options [document = pdf, document_output = "output"]
   theories [document = false]
     IICF
     "library/DRAT_Misc"
     "~~/src/HOL/Library/IArray"
   theories
     Normalized_Zone_Semantics_Impl_Refine
-  document_files
-    "root.tex"
-    "root.bib"
 
 session "TA_Impl_Calc_Prereq" = "TA_Impl" +
   theories [document = false]
     "$AFP/Gabow_SCC/Gabow_SCC_Code"
 
 session "TA_Impl_Refine_Calc_Prereq" = "TA_Impl" +
-  options [document = pdf, document_output = "output"]
   theories
     UPPAAL_State_Networks_Impl
-  document_files
-    "root.tex"
-    "root.bib"
 
 session "TA_All_Pre" = "TA_Impl_Refine_Calc_Prereq" +
-  options [document = pdf, document_output = "output"]
   theories [document = false]
     "library/ML_Util"
   theories
     UPPAAL_State_Networks_Impl_Refine
-  document_files
-    "root.tex"
-    "root.bib"
 
+(* Use this to get document output for the implementation of Reachability Checking *)
 session "TA_All" = "TA" +
   options [document = pdf, document_output = "output"]
   theories [document = false]
