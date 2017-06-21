@@ -1,5 +1,5 @@
-*** /Users/wimm/Formalizations/Timed_Automata/UPPAAL_Reachability_Checker.ml	Thu Apr 13 21:31:04 2017
---- UPPAAL_Reachability_Checker.sml	Thu Apr 13 21:31:55 2017
+*** UPPAAL_Reachability_Checker.sml	Wed Jun 21 18:33:10 2017
+--- UPPAAL_Reachability_Checker_patched.sml	Wed Jun 21 18:28:27 2017
 ***************
 *** 255,261 ****
   
@@ -174,8 +174,8 @@
     val integer_of_int : int -> IntInf.int
     type nat
 ***************
-*** 475,480 ****
---- 448,458 ----
+*** 476,481 ****
+--- 449,459 ----
                 (int instrc option) list -> ((int list) list) list
   end = struct
   
@@ -188,7 +188,7 @@
   
   fun integer_of_int (Int_of_integer k) = k;
 ***************
-*** 1543,1560 ****
+*** 1713,1730 ****
               end);
   
   fun new A_ =
@@ -207,7 +207,7 @@
   (a, IntInf.toInt (integer_of_nat i), x)) ();
       in
         a
---- 1521,1538 ----
+--- 1691,1708 ----
               end);
   
   fun new A_ =
@@ -227,7 +227,7 @@
       in
         a
 ***************
-*** 1572,1578 ****
+*** 1742,1748 ****
   fun image f (Set xs) = Set (map f xs);
   
   fun make A_ n f =
@@ -235,7 +235,7 @@
   Array.tabulate (IntInf.toInt (integer_of_nat n),
       (f o nat_of_integer) o IntInf.fromInt));
   
---- 1550,1556 ----
+--- 1720,1726 ----
   fun image f (Set xs) = Set (map f xs);
   
   fun make A_ n f =
@@ -244,7 +244,7 @@
       (f o nat_of_integer) o IntInf.fromInt));
   
 ***************
-*** 1664,1670 ****
+*** 1798,1804 ****
     | is_none NONE = true;
   
   fun blit A_ src si dst di len =
@@ -252,7 +252,7 @@
       array_blit src (integer_of_nat
                        si) dst (integer_of_nat di) (integer_of_nat len));
   
---- 1642,1648 ----
+--- 1776,1782 ----
     | is_none NONE = true;
   
   fun blit A_ src si dst di len =
@@ -261,7 +261,43 @@
                        si) dst (integer_of_nat di) (integer_of_nat len));
   
 ***************
-*** 2503,2509 ****
+*** 2395,2402 ****
+                                    of (NONE, a2f) =>
+                                      (fn f_ => fn () => f_ ((copyi xj) ()) ())
+                                        (fn xf =>
+! (fn f_ => fn () => f_ ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k [xf] a2f)
+!   ()) ())
+    (fn x_m => (fn () => (x_m, (op_list_prepend xj a1e, false)))))
+                                    | (SOME x_m, a2f) =>
+                                      (fn f_ => fn () => f_
+--- 2373,2380 ----
+                                    of (NONE, a2f) =>
+                                      (fn f_ => fn () => f_ ((copyi xj) ()) ())
+                                        (fn xf =>
+! (fn f_ => fn () => ((cnt2 := !cnt2 + 1); f_ ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k [xf] a2f)
+!   ()) ()))
+    (fn x_m => (fn () => (x_m, (op_list_prepend xj a1e, false)))))
+                                    | (SOME x_m, a2f) =>
+                                      (fn f_ => fn () => f_
+***************
+*** 2406,2412 ****
+    then (fn f_ => fn () => f_
+           ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k x_m a2f) ()) ())
+           (fn x_o => (fn () => (x_o, (a1e, false))))
+!   else (fn f_ => fn () => f_ ((copyi xj) ()) ())
+           (fn xf =>
+             (fn f_ => fn () => f_
+               ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k (xf :: x_m) a2f) ())
+--- 2384,2390 ----
+    then (fn f_ => fn () => f_
+           ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k x_m a2f) ()) ())
+           (fn x_o => (fn () => (x_o, (a1e, false))))
+!   else (fn f_ => fn () => ((cnt2 := !cnt2 + 1); f_ ((copyi xj) ()) ()))
+           (fn xf =>
+             (fn f_ => fn () => f_
+               ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k (xf :: x_m) a2f) ())
+***************
+*** 2685,2691 ****
   fun push_code (A1_, A2_) g_impl =
     (fn x => fn (xa, (xb, (xc, xd))) =>
       let
@@ -269,9 +305,9 @@
         val xf = as_length xa;
         val xg = as_push xa x;
         val xh = as_push xb xf;
---- 2481,2486 ----
+--- 2663,2668 ----
 ***************
-*** 2517,2523 ****
+*** 2699,2705 ****
   
   fun compute_SCC_tr (A1_, A2_) g =
     let
@@ -279,9 +315,9 @@
       val xa = ([], ahm_empty (def_hashmap_size A2_ Type));
       val a =
         foldli (id (gi_V0 g)) (fn _ => true)
---- 2494,2499 ----
+--- 2676,2681 ----
 ***************
-*** 2586,2592 ****
+*** 2768,2774 ****
               else (a, b)))
           xa;
       val (aa, _) = a;
@@ -289,9 +325,9 @@
     in
       aa
     end;
---- 2562,2567 ----
+--- 2744,2749 ----
 ***************
-*** 2948,2954 ****
+*** 3140,3146 ****
         val xb = mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi) ();
       in
         mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
@@ -299,7 +335,7 @@
       end);
   
   fun fw_impl_int n =
---- 2923,2929 ----
+--- 3115,3121 ----
         val xb = mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi) ();
       in
         mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
@@ -308,8 +344,8 @@
   
   fun fw_impl_int n =
 ***************
-*** 3837,3845 ****
---- 3812,3823 ----
+*** 4090,4098 ****
+--- 4065,4076 ----
           s_0 na k
       then (fn () =>
              let

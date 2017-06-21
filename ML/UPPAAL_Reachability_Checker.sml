@@ -2395,7 +2395,7 @@ fun pw_impl A_ (B1_, B2_, B3_) keyi copyi lei a_0i fi succsi emptyi =
                                   of (NONE, a2f) =>
                                     (fn f_ => fn () => f_ ((copyi xj) ()) ())
                                       (fn xf =>
-(fn f_ => fn () => !cnt2 := cnt2 + 1; f_ ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k [xf] a2f)
+(fn f_ => fn () => f_ ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k [xf] a2f)
   ()) ())
   (fn x_m => (fn () => (x_m, (op_list_prepend xj a1e, false)))))
                                   | (SOME x_m, a2f) =>
@@ -2406,7 +2406,7 @@ fun pw_impl A_ (B1_, B2_, B3_) keyi copyi lei a_0i fi succsi emptyi =
   then (fn f_ => fn () => f_
          ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k x_m a2f) ()) ())
          (fn x_o => (fn () => (x_o, (a1e, false))))
-  else (fn f_ => fn () => !cnt2 := cnt2 + 1; f_ ((copyi xj) ()) ())
+  else (fn f_ => fn () => f_ ((copyi xj) ()) ())
          (fn xf =>
            (fn f_ => fn () => f_
              ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k (xf :: x_m) a2f) ())

@@ -278,8 +278,7 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
     val _ = if !debug_level >= 1 then
       let
         val _ = println("# additions on DBM entries:" ^ Int.toString (!cnt))
-        val _ = println("# states added to wait list:" ^ Int.toString (!cnt2))
-        val _ = println("# states added to passed list:" ^ Int.toString (!cnt3))
+        val _ = println("# explored states:" ^ Int.toString (!cnt2))
         val _ = println("")
       in () end else ();
   in
