@@ -222,12 +222,12 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
     val m = to_nat m
     val max_steps = to_nat max_steps
     val na = to_nat na;
-    val _ = if !debug_level >= 1 then println("Now calculating ceiling") else ();
+    val _ = if !debug_level >= 3 then println("Now calculating ceiling") else ();
     val k = k p m max_steps inv trans prog;
     val k = map (map (map nat_of_int)) k;
-    val _ = if !debug_level >= 1 then println("Finished calculating ceiling") else ();
+    val _ = if !debug_level >= 3 then println("Finished calculating ceiling") else ();
     val _ =
-      if !debug_level >= 2 then
+      if !debug_level >= 3 then
         println (
           "\n"
           ^ list_to_string (list_to_string (list_to_string (IntInf.toString o integer_of_nat))) k
@@ -235,68 +235,53 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
         )
       else ()
 
-    val test1 = uPPAAL_Reachability_Problem_precompiled_start_state
-        p m max_steps inv trans prog bounds pred s
-    val _ = if !debug_level >= 1 then println ("Test 1: " ^ (if test1 then "Passed" else "Failed")) else ()
-    val test1a = uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog
-    val _ = if !debug_level >= 1 then println ("Test 1a: " ^ (if test1a then "Passed" else "Failed")) else ()
-    val test1aa = check_pre p m inv pred trans prog
-    val _ = if !debug_level >= 1 then println ("Test 1aa: " ^ (if test1aa then "Passed" else "Failed")) else ()
-    (*
-    val b = equal_nata (size_list inv) p andalso equal_nata (size_list pred) p andalso
-            equal_nata (size_list trans) p
-    val c = (all_interval_nat
-         (fn i =>
-           equal_nata (size_list (nth pred i))
-             (size_list (nth trans i)) andalso
-             equal_nata (size_list (nth inv i)) (size_list (nth trans i))) zero_nat p)
-    val d = list_all
-           (fn t =>
-             list_all
-               (list_all (fn (_, (_, (_, l))) => less_nat l (size_list t))) t)
-           trans
-    val e = equal_nata (size_list k) (plus_nat m one_nat) andalso
-            less_nat zero_nat p andalso less_nat zero_nat m
-    val f = all_interval_nat (fn i => not (null (nth trans i))) zero_nat p
-    val g = all_interval_nat
-                     (fn q => not (null (nth (nth trans q) zero_nat)))
-                     zero_nat p
-    val h = equal_nata (nth k zero_nat) zero_nat
-    val i = ball (clkp_set inv prog) (fn (_, a) => less_eq_int zero_inta a)
-    val j = eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog) (Set (upt one_nat (suc m)))
-    val test1aa1 = check_resets prog andalso b andalso c andalso d andalso e andalso f andalso g
-      andalso h andalso i andalso j
-    val _ = println ("Test 1aa1: " ^ (if test1aa1 then "Passed" else "Failed"))
-    *)
-    val test1ab = check_ceiling p m max_steps inv trans prog k;
-    val _ = if !debug_level >= 1 then println ("Test 1ab: " ^ (if test1ab then "Passed" else "Failed")) else ()
-    val test1b =
-      uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps trans
-          prog bounds pred s;
-    val _ = if !debug_level >= 1 then println ("Test 1b: " ^ (if test1b then "Passed" else "Failed")) else ()
-    val init_pred_check = init_pred_check p prog max_steps pred s;
-    val _ = if !debug_level >= 1 then println ("Init pred: " ^ (if init_pred_check then "Passed" else "Failed")) else ()
-    val bounded_check = bounded_int bounds s
-    val _ = println ("Boundedness check: " ^ (if bounded_check then "Passed" else "Failed"))
-    val indep_1 = time_indep_check1 pred prog max_steps
-    val _ = if !debug_level >= 1 then println ("Time independence check 1: " ^ (if indep_1 then "Passed" else "Failed")) else ()
-    val indep_2 = time_indep_check2 trans prog max_steps
-    val _ = if !debug_level >= 1 then println ("Time independence check 2: " ^ (if indep_1 then "Passed" else "Failed")) else ()
-    val d = conjunction_check2 trans prog max_steps
-    val _ = if !debug_level >= 1 then println ("Conjunction check: " ^ (if d then "Passed" else "Failed")) else ()
-    (*
-    val test2 = uPPAAL_Reachability_Problem_precompiled_axioms trans na
-    val _ = println ("Test 2: " ^ (if test2 then "Passed" else "Failed"))
-    *)
+    fun print_precondition_check name test =
+      let
+        val s = "Precondition check " ^ name ^ ": " ^ (if test then "Passed" else "Failed")
+      in println s end;
+
+    val _ = if !debug_level >= 2 then
+      let
+        val test1 = uPPAAL_Reachability_Problem_precompiled_start_state
+            p m max_steps inv trans prog bounds pred s
+        val test1a = uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog
+        val test1aa = check_pre p m inv pred trans prog
+        val test1ab = check_ceiling p m max_steps inv trans prog k;
+        val test1b =
+          uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps trans
+              prog bounds pred s;
+        val init_pred_check = init_pred_check p prog max_steps pred s;
+        val bounded_check = bounded_int bounds s
+        val indep_1 = time_indep_check1 pred prog max_steps
+        val indep_2 = time_indep_check2 trans prog max_steps
+        val d = conjunction_check2 trans prog max_steps
+        val tests =
+          [
+            ("1", test1),
+            ("1a", test1a),
+            ("1aa", test1aa),
+            ("1ab", test1ab),
+            ("1b", test1b),
+            ("initial_predicate", init_pred_check),
+            ("boundedness", bounded_check),
+            ("time_independence_1", indep_1),
+            ("time_independence_2", indep_2),
+            ("conjunctiveness", d)
+          ]
+        val _ = map (uncurry print_precondition_check) tests;
+      in println "" end else ();
     val t = Time.now ()
     val result = Reachability_Checker.check_and_verify p m k max_steps inv trans prog query bounds pred s na ()
     val t = Time.- (Time.now (), t)
     val _ = println("Internal time for precondition check + actual checking: " ^ Time.toString t)
     val _ = println("")
-    val _ = println("# additions on DBM entries:" ^ Int.toString (!cnt))
-    val _ = println("# states added to wait list:" ^ Int.toString (!cnt2))
-    val _ = println("# states added to passed list:" ^ Int.toString (!cnt3))
-    val _ = println("")
+    val _ = if !debug_level >= 1 then
+      let
+        val _ = println("# additions on DBM entries:" ^ Int.toString (!cnt))
+        val _ = println("# states added to wait list:" ^ Int.toString (!cnt2))
+        val _ = println("# states added to passed list:" ^ Int.toString (!cnt3))
+        val _ = println("")
+      in () end else ();
   in
     print_result result
   end;
