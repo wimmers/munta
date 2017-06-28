@@ -107,6 +107,8 @@ lemma prod_set_fst_id:
   using that by (auto 4 6 simp: fst_def snd_def image_def split: prod.splits)
 
 
+section \<open>Graphs\<close>
+
 locale Graph_Defs =
   fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
 begin
@@ -353,6 +355,9 @@ qed
 
 end (* Graph Defs *)
 
+
+section \<open>Simulation Graphs\<close>
+
 locale Simulation_Graph_Defs = Graph_Defs C for C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" +
   fixes A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool"
 begin
@@ -374,6 +379,8 @@ lemmas Steps_cases = Steps.steps.cases
 
 end (* Simulation Graph *)
 
+
+section \<open>Poststability\<close>
 
 locale Simulation_Graph_Poststable = Simulation_Graph_Defs +
   assumes poststable: "A S T \<Longrightarrow> \<forall> s' \<in> T. \<exists> s \<in> S. C s s'"
@@ -478,6 +485,8 @@ qed
 
 end (* Simulation Graph Poststable *)
 
+
+section \<open>Prestability\<close>
 
 locale Simulation_Graph_Prestable = Simulation_Graph_Defs +
   assumes prestable: "A S T \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C s s'"
@@ -609,6 +618,7 @@ lemma Steps_run_cycle:
 end (* Simulation Graph Prestable *)
 
 
+section \<open>Double Simulation\<close>
 
 locale Double_Simulation_Defs =
   fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- "Concrete step relation"
@@ -820,6 +830,427 @@ qed
 
 end (* Double Simulation Graph *)
 
+
+section \<open>Finite Graphs\<close>
+
+locale Finite_Graph = Graph_Defs +
+  fixes x\<^sub>0
+  assumes finite_reachable: "finite {x. C\<^sup>*\<^sup>* x\<^sub>0 x}"
+begin
+
+subsection \<open>Infinite Büchi Runs Correspond to Finite Cycles\<close>
+
+lemma run_finite_state_set:
+  assumes "run (x\<^sub>0 ## xs)"
+  shows "finite (sset (x\<^sub>0 ## xs))"
+proof -
+  let ?S = "{x. C\<^sup>*\<^sup>* x\<^sub>0 x}"
+  from run_reachable[OF assms] have "sset xs \<subseteq> ?S" unfolding stream_all_iff by auto
+  moreover have "finite ?S" using finite_reachable by auto
+  ultimately show ?thesis by (auto intro: finite_subset)
+qed
+
+lemma run_finite_state_set_cycle:
+  assumes "run (x\<^sub>0 ## xs)"
+  shows
+    "\<exists> ys zs. run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> zs \<noteq> []"
+proof -
+  from run_finite_state_set[OF assms] have "finite (sset (x\<^sub>0 ## xs))" .
+  from finite_sset_decomp[OF this] guess x ws ys zs .
+  then have decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" by simp
+  from run_decomp[OF assms[unfolded decomp]] guess by auto
+  note decomp_first = this
+  from run_sdrop[OF assms, of "length (ws @ [x])"] guess by simp
+  moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
+    by (cases ws; simp add: sdrop_shift)
+  ultimately have "run ((ys @ [x]) @- zs)" by simp
+  from run_decomp[OF this] guess by clarsimp
+  from run_cycle[OF this(1)] decomp_first have
+    "run (cycle (ys @ [x]))"
+    by (force split: if_split_asm)
+  with
+    extend_run[of "(ws @ [x])" "if ys = [] then shd (x ## zs) else hd ys" "stl (cycle (ys @ [x]))"]
+    decomp_first
+  have
+    "run ((ws @ [x]) @- cycle (ys @ [x]))"
+    apply (simp split: if_split_asm)
+    subgoal
+      using cycle_Cons[of x "[]", simplified] by auto
+    apply (cases ys)
+     apply (simp; fail)
+    by (simp add: cycle_Cons)
+  with decomp show ?thesis
+    apply (inst_existentials "tl (ws @ [x])" "(ys @ [x])")
+    by (cases ws; force)+
+qed
+
+(* XXX Duplication *)
+lemma buechi_run_finite_state_set_cycle:
+  assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
+  shows
+  "\<exists> ys zs.
+    run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs
+    \<and> zs \<noteq> [] \<and> (\<exists> x \<in> set zs. \<phi> x)"
+proof -
+  from run_finite_state_set[OF assms(1)] have "finite (sset (x\<^sub>0 ## xs))" .
+  with sset_sfilter[OF \<open>alw_ev _ _\<close>] have "finite (sset (sfilter \<phi> (x\<^sub>0 ## xs)))"
+    by (rule finite_subset)
+  from finite_sset_sfilter_decomp[OF this assms(2)] obtain x ws ys zs where
+    decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" and "\<phi> x"
+    by simp metis
+  from run_decomp[OF assms(1)[unfolded decomp]] guess by auto
+  note decomp_first = this
+  from run_sdrop[OF assms(1), of "length (ws @ [x])"] guess by simp
+  moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
+    by (cases ws; simp add: sdrop_shift)
+  ultimately have "run ((ys @ [x]) @- zs)" by simp
+  from run_decomp[OF this] guess by clarsimp
+  from run_cycle[OF this(1)] decomp_first have
+    "run (cycle (ys @ [x]))"
+    by (force split: if_split_asm)
+  with
+    extend_run[of "(ws @ [x])" "if ys = [] then shd (x ## zs) else hd ys" "stl (cycle (ys @ [x]))"]
+    decomp_first
+  have
+    "run ((ws @ [x]) @- cycle (ys @ [x]))"
+    apply (simp split: if_split_asm)
+    subgoal
+      using cycle_Cons[of x "[]", simplified] by auto
+    apply (cases ys)
+     apply (simp; fail)
+    by (simp add: cycle_Cons)
+  with decomp \<open>\<phi> x\<close> show ?thesis
+    apply (inst_existentials "tl (ws @ [x])" "(ys @ [x])")
+    by (cases ws; force)+
+qed
+
+lemma run_finite_state_set_cycle_steps:
+  assumes "run (x\<^sub>0 ## xs)"
+  shows "\<exists> x ys zs. steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs"
+proof -
+  from run_finite_state_set_cycle[OF assms] guess ys zs by safe
+  note guessed = this
+  from \<open>zs \<noteq> []\<close> have "cycle zs = (hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs])"
+    apply (cases zs)
+     apply (simp; fail)
+    apply simp
+    apply (subst cycle_Cons[symmetric])
+    apply (subst cycle_decomp)
+    by simp+
+  from guessed(1)[unfolded this] have
+    "run ((x\<^sub>0 # ys @ hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs]))"
+    by simp
+  from run_decomp[OF this] guessed(2,3) show ?thesis
+    by (inst_existentials "hd zs" ys "tl zs") (auto dest: list.set_sel(2))
+qed
+
+(* XXX Duplication *)
+lemma buechi_run_finite_state_set_cycle_steps:
+  assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
+  shows
+  "\<exists> x ys zs.
+    steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> (\<exists> y \<in> set (x # zs). \<phi> y)"
+proof -
+  from buechi_run_finite_state_set_cycle[OF assms] guess ys zs x by safe
+  note guessed = this
+  from \<open>zs \<noteq> []\<close> have "cycle zs = (hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs])"
+    apply (cases zs)
+     apply (simp; fail)
+    apply simp
+    apply (subst cycle_Cons[symmetric])
+    apply (subst cycle_decomp)
+    by simp+
+  from guessed(1)[unfolded this] have
+    "run ((x\<^sub>0 # ys @ hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs]))"
+    by simp
+  from run_decomp[OF this] guessed(2,3,4,5) show ?thesis
+    by (inst_existentials "hd zs" ys "tl zs") (auto dest: list.set_sel(2))
+qed
+
+end (* Finite Graph *)
+
+
+section \<open>Complete Simulation Graphs\<close>
+
+context Simulation_Graph_Defs
+begin
+
+definition "abstract_run = sgenerate (\<lambda> a y. SOME b. A a b \<and> y \<in> b)"
+
+lemma abstract_run_ctr:
+  "abstract_run x xs = x ## abstract_run (SOME b. A x b \<and> shd xs \<in> b) (stl xs)"
+  unfolding abstract_run_def by (subst sscan.ctr) (rule HOL.refl)
+
+end
+
+locale Simulation_Graph_Complete_Abstraction_Defs =
+  Simulation_Graph_Defs C A for C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" +
+  fixes P :: "'a set \<Rightarrow> bool" -- "well-formed abstractions"
+
+locale Simulation_Graph_Complete_Abstraction = Simulation_Graph_Complete_Abstraction_Defs +
+  assumes complete: "C x y \<Longrightarrow> P S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A S T \<and> y \<in> T"
+      and P_invariant: "P S \<Longrightarrow> A S T \<Longrightarrow> P T"
+begin
+
+lemma steps_complete:
+  "\<exists> as. Steps (a # as) \<and> list_all2 (op \<in>) xs as" if "steps (x # xs)" "x \<in> a" "P a"
+  using that
+  by (induction xs arbitrary: x a) (erule steps.cases; fastforce dest!: complete intro: P_invariant)+
+
+lemma abstract_run_Run:
+  "Run (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
+  using that
+proof (coinduction arbitrary: a x xs)
+  case (run a x xs)
+  obtain y ys where "xs = y ## ys" by (metis stream.collapse)
+  with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
+  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
+  then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
+  moreover with \<open>P a\<close> have "P (SOME b. A a b \<and> y \<in> b)" by (blast intro: P_invariant)
+  ultimately show ?case using \<open>run (y ## ys)\<close> unfolding \<open>xs = _\<close>
+    apply (subst abstract_run_ctr, simp)
+    apply (subst abstract_run_ctr, simp)
+    by (auto simp: abstract_run_ctr[symmetric])
+qed
+
+lemma abstract_run_abstract:
+  "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
+using that proof (coinduction arbitrary: a x xs)
+  case run: (stream_rel x' u b' v a x xs)
+  obtain y ys where "xs = y ## ys" by (metis stream.collapse)
+  with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
+  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
+  then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
+  with \<open>run (y ## ys)\<close> \<open>x \<in> a\<close> \<open>P a\<close> run(1,2) \<open>xs = _\<close> show ?case
+    by (subst (asm) abstract_run_ctr) (auto intro: P_invariant)
+qed
+
+lemma run_complete:
+  "\<exists> as. Run (a ## as) \<and> stream_all2 (op \<in>) xs as" if "run (x ## xs)" "x \<in> a" "P a"
+  using abstract_run_Run[OF that] abstract_run_abstract[OF that]
+  apply (subst (asm) abstract_run_ctr)
+  apply (subst (asm) (2) abstract_run_ctr)
+  by auto
+
+end (* Simulation Graph Complete Abstraction *)
+
+
+subsection \<open>Runs in Finite Complete Graphs\<close>
+
+locale Simulation_Graph_Finite_Complete_Abstraction = Simulation_Graph_Complete_Abstraction +
+  fixes a\<^sub>0
+  assumes finite_abstract_reachable: "finite {a. A\<^sup>*\<^sup>* a\<^sub>0 a}"
+begin
+
+sublocale Steps_finite: Finite_Graph A a\<^sub>0
+  by standard (rule finite_abstract_reachable)
+
+lemma run_finite_state_set_cycle_steps:
+  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0"
+  shows "\<exists> x ys zs.
+    Steps (a\<^sub>0 # ys @ x # zs @ [x]) \<and> (\<forall> a \<in> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)"
+  using run_complete[OF assms]
+  apply safe
+  apply (drule Steps_finite.run_finite_state_set_cycle_steps)
+  apply safe
+  subgoal for as x ys zs
+    apply (inst_existentials x ys zs)
+    using assms(2) by (auto dest: stream_all2_sset2)
+  done
+
+lemma buechi_run_finite_state_set_cycle_steps:
+  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
+  shows "\<exists> x ys zs.
+    Steps (a\<^sub>0 # ys @ x # zs @ [x])
+    \<and> (\<forall> a \<in> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)
+    \<and> (\<exists> y \<in> set (x # zs). \<exists> a \<in> y. \<phi> a)"
+  using run_complete[OF assms(1-3)]
+  apply safe
+  apply (drule Steps_finite.buechi_run_finite_state_set_cycle_steps[where \<phi> = "\<lambda> S. \<exists> x \<in> S. \<phi> x"])
+  subgoal for as
+    using assms(4)
+    apply (subst alw_ev_stl[symmetric], simp)
+    apply (erule alw_stream_all2_mono[where Q = "ev (holds \<phi>)"], fastforce)
+    by (metis (mono_tags, lifting) ev_holds_sset stream_all2_sset1)
+  apply safe
+  subgoal for as x ys zs y a
+    apply (inst_existentials x ys zs)
+    using assms(2) by (auto dest: stream_all2_sset2)
+  done
+
+end (* Simulation Graph Finite Complete Abstraction *)
+
+
+section \<open>Finite Complete Double Simulations\<close>
+
+locale Double_Simulation_Finite_Complete_Abstraction = Double_Simulation +
+  fixes a\<^sub>0
+  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
+  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+      and P2_a\<^sub>0: "P2 a\<^sub>0"
+begin
+
+sublocale Simulation_Graph_Finite_Complete_Abstraction C A2 P2 a\<^sub>0
+  by standard (blast intro: complete finite_abstract_reachable P2_invariant)+
+
+lemma P2_invariant_Steps:
+  "list_all P2 as" if "Steps (a\<^sub>0 # as)"
+  using that P2_a\<^sub>0 by (induction "a\<^sub>0 # as" arbitrary: as a\<^sub>0) (auto intro: P2_invariant)
+
+theorem infinite_run_cycle_iff:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
+proof (safe, goal_cases)
+  case (1 x\<^sub>0 xs)
+  from run_finite_state_set_cycle_steps[OF this(2,1)] that(2) show ?case by auto
+next
+  case prems: (2 as a bs)
+  with Steps.steps_decomp[of "a\<^sub>0 # as @ [a]" "bs @ [a]"] have "Steps (a\<^sub>0 # as @ [a])" by auto
+  from P2_invariant_Steps[OF this] have "P2 a" by auto
+  from Steps_run_cycle''[OF prems this] that show ?case by auto
+qed
+
+context
+  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  assumes \<phi>_closure_compatible: "x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
+begin
+
+theorem infinite_buechi_run_cycle_iff:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> alw_ev (holds \<phi>) (x\<^sub>0 ## xs))
+  \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> closure a. \<phi> x))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
+proof (safe, goal_cases)
+  case (1 x\<^sub>0 xs)
+  from buechi_run_finite_state_set_cycle_steps[OF this(2,1) that(2) this(3)] guess a ys zs
+    by clarsimp
+  note guessed = this
+  from guessed(3) show ?case
+  proof (standard, goal_cases)
+    case 1
+    then obtain x where "x \<in> a" "\<phi> x" by auto
+    with \<phi>_closure_compatible have "\<forall> x \<in> \<Union> closure a. \<phi> x" by blast
+    with guessed(1,2) show ?case by auto
+  next
+    case 2
+    then obtain b x where "x \<in> b" "b \<in> set zs" "\<phi> x" by auto
+    with \<phi>_closure_compatible have *: "\<forall> x \<in> \<Union> closure b. \<phi> x" by blast
+    from \<open>b \<in> set zs\<close> obtain zs1 zs2 where "zs = zs1 @ b # zs2" by (force simp: split_list)
+    with guessed(1) have "Steps ((a\<^sub>0 # ys) @ (a # zs1 @ [b]) @ zs2 @ [a])" by simp
+    then have "Steps (a # zs1 @ [b])" by (blast dest!: Steps.steps_decomp)
+    with \<open>zs = _\<close> guessed * show ?case
+      apply (inst_existentials "ys @ a # zs1" b "zs2 @ a # zs1")
+      using Steps.steps_append[of "a\<^sub>0 # ys @ a # zs1 @ b # zs2 @ [a]" "a # zs1 @ [b]"]
+      by auto
+  qed
+next
+  case prems: (2 as a bs)
+  with Steps.steps_decomp[of "a\<^sub>0 # as @ [a]" "bs @ [a]"] have "Steps (a\<^sub>0 # as @ [a])" by auto
+  from P2_invariant_Steps[OF this] have "P2 a" by auto
+  from Steps_run_cycle''[OF prems(1) this] prems this that show ?case
+    apply safe
+    subgoal for x xs b
+      apply (inst_existentials x xs)
+      by (force simp: HLD_iff intro: alw_ev_mono)+ (* Slow *)
+    done
+qed
+
+end
+
+end (* Double Simulation Finite Complete Abstraction *)
+
+
+section \<open>Encoding of Formulas in Runs\<close>
+
+locale Double_Simulation_Finite_Complete_Abstraction_Prop =
+  Double_Simulation +
+  fixes a\<^sub>0
+  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
+  assumes finite_P2: "finite {a. P2 a}"
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+      and P2_a\<^sub>0: "P2 a\<^sub>0"
+  assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
+      and \<phi>_P2_compatible: "P2 a \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
+begin
+
+definition "C_\<phi> x y \<equiv> C x y \<and> \<phi> y"
+definition "A1_\<phi> a b \<equiv> A1 a b \<and> b \<subseteq> {x. \<phi> x}"
+definition "A2_\<phi> S S' \<equiv> \<exists> S''. A2 S S'' \<and> S'' \<inter> {x. \<phi> x} = S'"
+
+lemma A2_\<phi>_P2_invariant:
+  "P2 a" if "A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a"
+  using that by induction (auto intro: \<phi>_P2_compatible P2_invariant P2_a\<^sub>0 simp: A2_\<phi>_def)
+
+sublocale phi: Double_Simulation_Finite_Complete_Abstraction C_\<phi> A1_\<phi> P1 A2_\<phi> P2 a\<^sub>0
+proof (standard, goal_cases)
+  case (1 S T)
+  then show ?case unfolding A1_\<phi>_def C_\<phi>_def by (auto 4 4 dest: \<phi>_A1_compatible prestable)
+next
+  case (2 y b a)
+  then obtain c where "A2 a c" "c \<inter> {x. \<phi> x} = b" unfolding A2_\<phi>_def by auto
+  with \<open>y \<in> _\<close> have "y \<in> closure c" by (auto dest: closure_intD)
+  moreover have "y \<subseteq> {x. \<phi> x}"
+    by (smt "2"(1) \<phi>_A1_compatible \<open>A2 a c\<close> \<open>c \<inter> {x. \<phi> x} = b\<close> \<open>y \<in> closure c\<close> closure_def
+        closure_poststable inf_assoc inf_bot_right inf_commute mem_Collect_eq)
+  ultimately show ?case using \<open>A2 a c\<close> unfolding A1_\<phi>_def A2_\<phi>_def
+    by (auto dest: closure_poststable)
+next
+  case (3 x y)
+  then show ?case by (rule P1_distinct)
+next
+  case 4
+  then show ?case by (rule P1_finite)
+next
+  case (5 a)
+  then show ?case by (rule P2_cover)
+next
+  case (6 x y S)
+  then show ?case unfolding C_\<phi>_def A2_\<phi>_def by (auto dest!: complete)
+next
+  case 7
+  have "{a. A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a} \<subseteq> {a. P2 a}"
+    by (blast intro: A2_\<phi>_P2_invariant)
+  then show ?case (is "finite ?S") using finite_P2 by (rule finite_subset)
+next
+  case (8 a a')
+  then show ?case unfolding A2_\<phi>_def by (auto intro: P2_invariant \<phi>_P2_compatible)
+next
+  case 9
+  then show ?case by (rule P2_a\<^sub>0)
+qed
+
+lemma phi_run_iff:
+  "phi.run (x ## xs) \<and> \<phi> x \<longleftrightarrow> run (x ## xs) \<and> pred_stream \<phi> (x ## xs)"
+proof -
+  have "phi.run xs" if "run xs" "pred_stream \<phi> xs" for xs
+    using that by (coinduction arbitrary: xs) (auto elim: run.cases simp: C_\<phi>_def)
+  moreover have "run xs" if "phi.run xs" for xs
+    using that by (coinduction arbitrary: xs) (auto elim: phi.run.cases simp: C_\<phi>_def)
+  moreover have "pred_stream \<phi> xs" if "phi.run (x ## xs)" "\<phi> x"
+    using that by (coinduction arbitrary: xs x) (auto 4 3 elim: phi.run.cases simp: C_\<phi>_def)
+  ultimately show ?thesis by auto
+qed
+
+corollary infinite_run_cycle_iff:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> pred_stream \<phi> (x\<^sub>0 ## xs)) \<longleftrightarrow>
+   (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding phi.infinite_run_cycle_iff[OF that(1,2), symmetric] phi_run_iff[symmetric]
+  using that(3) by auto
+
+theorem Alw_ev_mc:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding Alw_ev alw_holds_pred_stream_iff infinite_run_cycle_iff[OF that, symmetric]
+  by (auto simp: comp_def)
+
+end
+
+section \<open>Instantiation of Double Simulation\<close>
+
+subsection \<open>Additional Lemmas on Regions\<close>
+
 context AlphaClosure
 begin
 
@@ -919,6 +1350,12 @@ qed
 
 end (* End of context for fixed locations *)
 
+
+text \<open>
+  Poststability of Closures:
+  For every transition in the zone graph and each region in the closure of the resulting zone,
+  there exists a similar transition in the region graph.
+\<close>
 lemma regions_poststable:
   assumes valid_abstraction: "valid_abstraction A X k"
   and A:
@@ -1074,6 +1511,8 @@ end (* End of context for fixed location *)
 
 end (* End of Regions *)
 
+
+subsection \<open>Instantiation\<close>
 
 definition state_set :: "('a, 'c, 'time, 's) ta \<Rightarrow> 's set" where
   "state_set A \<equiv> fst ` (fst A) \<union> (snd o snd o snd o snd) ` (fst A)"
@@ -1242,6 +1681,10 @@ next
     by (auto simp: from_R_fst intro: step_z_beta'_V'[OF valid_abstraction])
 qed
 
+text \<open>
+  Infinite runs in the simulation graph yield infinite concrete runs, which pass through the same
+  closures. However, this lemma is not strong enough for Büchi runs.
+\<close>
 lemma beta_steps_run_cycle:
   assumes assms: "steps ((l, Z) # xs @ [(l, Z)])" "Z \<in> V'" "Z \<noteq> {}" "l \<in> state_set A"
   shows "\<exists> ys.
@@ -1284,409 +1727,6 @@ qed
 
 end (* Regions TA *)
 
-locale Finite_Graph = Graph_Defs +
-  fixes x\<^sub>0
-  assumes finite_reachable: "finite {x. C\<^sup>*\<^sup>* x\<^sub>0 x}"
-begin
-
-paragraph \<open>Infinite Paths in a finite graph contain cycles\<close>
-
-lemma run_finite_state_set:
-  assumes "run (x\<^sub>0 ## xs)"
-  shows "finite (sset (x\<^sub>0 ## xs))"
-proof -
-  let ?S = "{x. C\<^sup>*\<^sup>* x\<^sub>0 x}"
-  from run_reachable[OF assms] have "sset xs \<subseteq> ?S" unfolding stream_all_iff by auto
-  moreover have "finite ?S" using finite_reachable by auto
-  ultimately show ?thesis by (auto intro: finite_subset)
-qed
-
-lemma run_finite_state_set_cycle:
-  assumes "run (x\<^sub>0 ## xs)"
-  shows
-    "\<exists> ys zs. run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> zs \<noteq> []"
-proof -
-  from run_finite_state_set[OF assms] have "finite (sset (x\<^sub>0 ## xs))" .
-  from finite_sset_decomp[OF this] guess x ws ys zs .
-  then have decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" by simp
-  from run_decomp[OF assms[unfolded decomp]] guess by auto
-  note decomp_first = this
-  from run_sdrop[OF assms, of "length (ws @ [x])"] guess by simp
-  moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
-    by (cases ws; simp add: sdrop_shift)
-  ultimately have "run ((ys @ [x]) @- zs)" by simp
-  from run_decomp[OF this] guess by clarsimp
-  from run_cycle[OF this(1)] decomp_first have
-    "run (cycle (ys @ [x]))"
-    by (force split: if_split_asm)
-  with
-    extend_run[of "(ws @ [x])" "if ys = [] then shd (x ## zs) else hd ys" "stl (cycle (ys @ [x]))"]
-    decomp_first
-  have
-    "run ((ws @ [x]) @- cycle (ys @ [x]))"
-    apply (simp split: if_split_asm)
-    subgoal
-      using cycle_Cons[of x "[]", simplified] by auto
-    apply (cases ys)
-     apply (simp; fail)
-    by (simp add: cycle_Cons)
-  with decomp show ?thesis
-    apply (inst_existentials "tl (ws @ [x])" "(ys @ [x])")
-    by (cases ws; force)+
-qed
-
-(* XXX Duplication *)
-lemma buechi_run_finite_state_set_cycle:
-  assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
-  shows
-  "\<exists> ys zs.
-    run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs
-    \<and> zs \<noteq> [] \<and> (\<exists> x \<in> set zs. \<phi> x)"
-proof -
-  from run_finite_state_set[OF assms(1)] have "finite (sset (x\<^sub>0 ## xs))" .
-  with sset_sfilter[OF \<open>alw_ev _ _\<close>] have "finite (sset (sfilter \<phi> (x\<^sub>0 ## xs)))"
-    by (rule finite_subset)
-  from finite_sset_sfilter_decomp[OF this assms(2)] obtain x ws ys zs where
-    decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" and "\<phi> x"
-    by simp metis
-  from run_decomp[OF assms(1)[unfolded decomp]] guess by auto
-  note decomp_first = this
-  from run_sdrop[OF assms(1), of "length (ws @ [x])"] guess by simp
-  moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
-    by (cases ws; simp add: sdrop_shift)
-  ultimately have "run ((ys @ [x]) @- zs)" by simp
-  from run_decomp[OF this] guess by clarsimp
-  from run_cycle[OF this(1)] decomp_first have
-    "run (cycle (ys @ [x]))"
-    by (force split: if_split_asm)
-  with
-    extend_run[of "(ws @ [x])" "if ys = [] then shd (x ## zs) else hd ys" "stl (cycle (ys @ [x]))"]
-    decomp_first
-  have
-    "run ((ws @ [x]) @- cycle (ys @ [x]))"
-    apply (simp split: if_split_asm)
-    subgoal
-      using cycle_Cons[of x "[]", simplified] by auto
-    apply (cases ys)
-     apply (simp; fail)
-    by (simp add: cycle_Cons)
-  with decomp \<open>\<phi> x\<close> show ?thesis
-    apply (inst_existentials "tl (ws @ [x])" "(ys @ [x])")
-    by (cases ws; force)+
-qed
-
-lemma run_finite_state_set_cycle_steps:
-  assumes "run (x\<^sub>0 ## xs)"
-  shows "\<exists> x ys zs. steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs"
-proof -
-  from run_finite_state_set_cycle[OF assms] guess ys zs by safe
-  note guessed = this
-  from \<open>zs \<noteq> []\<close> have "cycle zs = (hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs])"
-    apply (cases zs)
-     apply (simp; fail)
-    apply simp
-    apply (subst cycle_Cons[symmetric])
-    apply (subst cycle_decomp)
-    by simp+
-  from guessed(1)[unfolded this] have
-    "run ((x\<^sub>0 # ys @ hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs]))"
-    by simp
-  from run_decomp[OF this] guessed(2,3) show ?thesis
-    by (inst_existentials "hd zs" ys "tl zs") (auto dest: list.set_sel(2))
-qed
-
-(* XXX Duplication *)
-lemma buechi_run_finite_state_set_cycle_steps:
-  assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
-  shows
-  "\<exists> x ys zs.
-    steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> (\<exists> y \<in> set (x # zs). \<phi> y)"
-proof -
-  from buechi_run_finite_state_set_cycle[OF assms] guess ys zs x by safe
-  note guessed = this
-  from \<open>zs \<noteq> []\<close> have "cycle zs = (hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs])"
-    apply (cases zs)
-     apply (simp; fail)
-    apply simp
-    apply (subst cycle_Cons[symmetric])
-    apply (subst cycle_decomp)
-    by simp+
-  from guessed(1)[unfolded this] have
-    "run ((x\<^sub>0 # ys @ hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs]))"
-    by simp
-  from run_decomp[OF this] guessed(2,3,4,5) show ?thesis
-    by (inst_existentials "hd zs" ys "tl zs") (auto dest: list.set_sel(2))
-qed
-
-end (* Finite Graph *)
-
-
-context Simulation_Graph_Defs
-begin
-
-definition "abstract_run = sgenerate (\<lambda> a y. SOME b. A a b \<and> y \<in> b)"
-
-lemma abstract_run_ctr:
-  "abstract_run x xs = x ## abstract_run (SOME b. A x b \<and> shd xs \<in> b) (stl xs)"
-  unfolding abstract_run_def by (subst sscan.ctr) (rule HOL.refl)
-
-end
-
-locale Simulation_Graph_Complete_Abstraction_Defs =
-  Simulation_Graph_Defs C A for C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" +
-  fixes P :: "'a set \<Rightarrow> bool" -- "well-formed abstractions"
-
-locale Simulation_Graph_Complete_Abstraction = Simulation_Graph_Complete_Abstraction_Defs +
-  assumes complete: "C x y \<Longrightarrow> P S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A S T \<and> y \<in> T"
-      and P_invariant: "P S \<Longrightarrow> A S T \<Longrightarrow> P T"
-begin
-
-lemma steps_complete:
-  "\<exists> as. Steps (a # as) \<and> list_all2 (op \<in>) xs as" if "steps (x # xs)" "x \<in> a" "P a"
-  using that
-  by (induction xs arbitrary: x a) (erule steps.cases; fastforce dest!: complete intro: P_invariant)+
-
-lemma abstract_run_Run:
-  "Run (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
-  using that
-proof (coinduction arbitrary: a x xs)
-  case (run a x xs)
-  obtain y ys where "xs = y ## ys" by (metis stream.collapse)
-  with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
-  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
-  then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
-  moreover with \<open>P a\<close> have "P (SOME b. A a b \<and> y \<in> b)" by (blast intro: P_invariant)
-  ultimately show ?case using \<open>run (y ## ys)\<close> unfolding \<open>xs = _\<close>
-    apply (subst abstract_run_ctr, simp)
-    apply (subst abstract_run_ctr, simp)
-    by (auto simp: abstract_run_ctr[symmetric])
-qed
-
-lemma abstract_run_abstract:
-  "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
-using that proof (coinduction arbitrary: a x xs)
-  case run: (stream_rel x' u b' v a x xs)
-  obtain y ys where "xs = y ## ys" by (metis stream.collapse)
-  with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
-  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
-  then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
-  with \<open>run (y ## ys)\<close> \<open>x \<in> a\<close> \<open>P a\<close> run(1,2) \<open>xs = _\<close> show ?case
-    by (subst (asm) abstract_run_ctr) (auto intro: P_invariant)
-qed
-
-lemma run_complete:
-  "\<exists> as. Run (a ## as) \<and> stream_all2 (op \<in>) xs as" if "run (x ## xs)" "x \<in> a" "P a"
-  using abstract_run_Run[OF that] abstract_run_abstract[OF that]
-  apply (subst (asm) abstract_run_ctr)
-  apply (subst (asm) (2) abstract_run_ctr)
-  by auto
-
-end (* Simulation Graph Complete Abstraction *)
-
-locale Simulation_Graph_Finite_Complete_Abstraction = Simulation_Graph_Complete_Abstraction +
-  fixes a\<^sub>0
-  assumes finite_abstract_reachable: "finite {a. A\<^sup>*\<^sup>* a\<^sub>0 a}"
-begin
-
-sublocale Steps_finite: Finite_Graph A a\<^sub>0
-  by standard (rule finite_abstract_reachable)
-
-lemma run_finite_state_set_cycle_steps:
-  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0"
-  shows "\<exists> x ys zs.
-    Steps (a\<^sub>0 # ys @ x # zs @ [x]) \<and> (\<forall> a \<in> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)"
-  using run_complete[OF assms]
-  apply safe
-  apply (drule Steps_finite.run_finite_state_set_cycle_steps)
-  apply safe
-  subgoal for as x ys zs
-    apply (inst_existentials x ys zs)
-    using assms(2) by (auto dest: stream_all2_sset2)
-  done
-
-lemma buechi_run_finite_state_set_cycle_steps:
-  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
-  shows "\<exists> x ys zs.
-    Steps (a\<^sub>0 # ys @ x # zs @ [x])
-    \<and> (\<forall> a \<in> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)
-    \<and> (\<exists> y \<in> set (x # zs). \<exists> a \<in> y. \<phi> a)"
-  using run_complete[OF assms(1-3)]
-  apply safe
-  apply (drule Steps_finite.buechi_run_finite_state_set_cycle_steps[where \<phi> = "\<lambda> S. \<exists> x \<in> S. \<phi> x"])
-  subgoal for as
-    using assms(4)
-    apply (subst alw_ev_stl[symmetric], simp)
-    apply (erule alw_stream_all2_mono[where Q = "ev (holds \<phi>)"], fastforce)
-    by (metis (mono_tags, lifting) ev_holds_sset stream_all2_sset1)
-  apply safe
-  subgoal for as x ys zs y a
-    apply (inst_existentials x ys zs)
-    using assms(2) by (auto dest: stream_all2_sset2)
-  done
-
-end (* Simulation Graph Finite Complete Abstraction *)
-
-locale Double_Simulation_Finite_Complete_Abstraction = Double_Simulation +
-  fixes a\<^sub>0
-  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
-  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
-  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
-      and P2_a\<^sub>0: "P2 a\<^sub>0"
-begin
-
-sublocale Simulation_Graph_Finite_Complete_Abstraction C A2 P2 a\<^sub>0
-  by standard (blast intro: complete finite_abstract_reachable P2_invariant)+
-
-lemma P2_invariant_Steps:
-  "list_all P2 as" if "Steps (a\<^sub>0 # as)"
-  using that P2_a\<^sub>0 by (induction "a\<^sub>0 # as" arbitrary: as a\<^sub>0) (auto intro: P2_invariant)
-
-theorem infinite_run_cycle_iff:
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
-proof (safe, goal_cases)
-  case (1 x\<^sub>0 xs)
-  from run_finite_state_set_cycle_steps[OF this(2,1)] that(2) show ?case by auto
-next
-  case prems: (2 as a bs)
-  with Steps.steps_decomp[of "a\<^sub>0 # as @ [a]" "bs @ [a]"] have "Steps (a\<^sub>0 # as @ [a])" by auto
-  from P2_invariant_Steps[OF this] have "P2 a" by auto
-  from Steps_run_cycle''[OF prems this] that show ?case by auto
-qed
-
-context
-  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
-  assumes \<phi>_closure_compatible: "x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
-begin
-
-theorem infinite_buechi_run_cycle_iff:
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> alw_ev (holds \<phi>) (x\<^sub>0 ## xs))
-  \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> closure a. \<phi> x))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
-proof (safe, goal_cases)
-  case (1 x\<^sub>0 xs)
-  from buechi_run_finite_state_set_cycle_steps[OF this(2,1) that(2) this(3)] guess a ys zs
-    by clarsimp
-  note guessed = this
-  from guessed(3) show ?case
-  proof (standard, goal_cases)
-    case 1
-    then obtain x where "x \<in> a" "\<phi> x" by auto
-    with \<phi>_closure_compatible have "\<forall> x \<in> \<Union> closure a. \<phi> x" by blast
-    with guessed(1,2) show ?case by auto
-  next
-    case 2
-    then obtain b x where "x \<in> b" "b \<in> set zs" "\<phi> x" by auto
-    with \<phi>_closure_compatible have *: "\<forall> x \<in> \<Union> closure b. \<phi> x" by blast
-    from \<open>b \<in> set zs\<close> obtain zs1 zs2 where "zs = zs1 @ b # zs2" by (force simp: split_list)
-    with guessed(1) have "Steps ((a\<^sub>0 # ys) @ (a # zs1 @ [b]) @ zs2 @ [a])" by simp
-    then have "Steps (a # zs1 @ [b])" by (blast dest!: Steps.steps_decomp)
-    with \<open>zs = _\<close> guessed * show ?case
-      apply (inst_existentials "ys @ a # zs1" b "zs2 @ a # zs1")
-      using Steps.steps_append[of "a\<^sub>0 # ys @ a # zs1 @ b # zs2 @ [a]" "a # zs1 @ [b]"]
-      by auto
-  qed
-next
-  case prems: (2 as a bs)
-  with Steps.steps_decomp[of "a\<^sub>0 # as @ [a]" "bs @ [a]"] have "Steps (a\<^sub>0 # as @ [a])" by auto
-  from P2_invariant_Steps[OF this] have "P2 a" by auto
-  from Steps_run_cycle''[OF prems(1) this] prems this that show ?case
-    apply safe
-    subgoal for x xs b
-      apply (inst_existentials x xs)
-      by (force simp: HLD_iff intro: alw_ev_mono)+ (* Slow *)
-    done
-qed
-
-end
-
-end (* Double Simulation Finite Complete Abstraction *)
-
-
-locale Double_Simulation_Finite_Complete_Abstraction_Prop =
-  Double_Simulation +
-  fixes a\<^sub>0
-  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
-  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
-  assumes finite_P2: "finite {a. P2 a}"
-  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
-      and P2_a\<^sub>0: "P2 a\<^sub>0"
-  assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
-      and \<phi>_P2_compatible: "P2 a \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
-begin
-
-definition "C_\<phi> x y \<equiv> C x y \<and> \<phi> y"
-definition "A1_\<phi> a b \<equiv> A1 a b \<and> b \<subseteq> {x. \<phi> x}"
-definition "A2_\<phi> S S' \<equiv> \<exists> S''. A2 S S'' \<and> S'' \<inter> {x. \<phi> x} = S'"
-
-lemma A2_\<phi>_P2_invariant:
-  "P2 a" if "A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a"
-  using that by induction (auto intro: \<phi>_P2_compatible P2_invariant P2_a\<^sub>0 simp: A2_\<phi>_def)
-
-sublocale phi: Double_Simulation_Finite_Complete_Abstraction C_\<phi> A1_\<phi> P1 A2_\<phi> P2 a\<^sub>0
-proof (standard, goal_cases)
-  case (1 S T)
-  then show ?case unfolding A1_\<phi>_def C_\<phi>_def by (auto 4 4 dest: \<phi>_A1_compatible prestable)
-next
-  case (2 y b a)
-  then obtain c where "A2 a c" "c \<inter> {x. \<phi> x} = b" unfolding A2_\<phi>_def by auto
-  with \<open>y \<in> _\<close> have "y \<in> closure c" by (auto dest: closure_intD)
-  moreover have "y \<subseteq> {x. \<phi> x}"
-    by (smt "2"(1) \<phi>_A1_compatible \<open>A2 a c\<close> \<open>c \<inter> {x. \<phi> x} = b\<close> \<open>y \<in> closure c\<close> closure_def
-        closure_poststable inf_assoc inf_bot_right inf_commute mem_Collect_eq)
-  ultimately show ?case using \<open>A2 a c\<close> unfolding A1_\<phi>_def A2_\<phi>_def
-    by (auto dest: closure_poststable)
-next
-  case (3 x y)
-  then show ?case by (rule P1_distinct)
-next
-  case 4
-  then show ?case by (rule P1_finite)
-next
-  case (5 a)
-  then show ?case by (rule P2_cover)
-next
-  case (6 x y S)
-  then show ?case unfolding C_\<phi>_def A2_\<phi>_def by (auto dest!: complete)
-next
-  case 7
-  have "{a. A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a} \<subseteq> {a. P2 a}"
-    by (blast intro: A2_\<phi>_P2_invariant)
-  then show ?case (is "finite ?S") using finite_P2 by (rule finite_subset)
-next
-  case (8 a a')
-  then show ?case unfolding A2_\<phi>_def by (auto intro: P2_invariant \<phi>_P2_compatible)
-next
-  case 9
-  then show ?case by (rule P2_a\<^sub>0)
-qed
-
-lemma phi_run_iff:
-  "phi.run (x ## xs) \<and> \<phi> x \<longleftrightarrow> run (x ## xs) \<and> pred_stream \<phi> (x ## xs)"
-proof -
-  have "phi.run xs" if "run xs" "pred_stream \<phi> xs" for xs
-    using that by (coinduction arbitrary: xs) (auto elim: run.cases simp: C_\<phi>_def)
-  moreover have "run xs" if "phi.run xs" for xs
-    using that by (coinduction arbitrary: xs) (auto elim: phi.run.cases simp: C_\<phi>_def)
-  moreover have "pred_stream \<phi> xs" if "phi.run (x ## xs)" "\<phi> x"
-    using that by (coinduction arbitrary: xs x) (auto 4 3 elim: phi.run.cases simp: C_\<phi>_def)
-  ultimately show ?thesis by auto
-qed
-
-corollary infinite_run_cycle_iff:
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> pred_stream \<phi> (x\<^sub>0 ## xs)) \<longleftrightarrow>
-   (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
-  unfolding phi.infinite_run_cycle_iff[OF that(1,2), symmetric] phi_run_iff[symmetric]
-  using that(3) by auto
-
-theorem Alw_ev_mc:
-  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
-  unfolding Alw_ev alw_holds_pred_stream_iff infinite_run_cycle_iff[OF that, symmetric]
-  by (auto simp: comp_def)
-
-end
 
 section \<open>Comments\<close>
 
