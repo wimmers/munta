@@ -2283,15 +2283,15 @@ next
     "A \<turnstile> \<langle>l'', Approx\<^sub>\<beta> l'' Z''\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l''', W4\<rangle>" "W''' \<subseteq> W4"
     by auto
   with step(1,2) have "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l''', W4\<rangle>"
-    by (blast intro: steps_z_beta_alt)
+    by (blast intro: steps_z_beta_alt elim!: step_z.cases)
   with \<open>Z''' \<subseteq> W'''\<close> \<open>W''' \<subseteq> W4\<close> show ?case by auto
 qed
 
 lemma steps_z_beta_complete':
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {}
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
-using steps_z_beta_complete by fast
+using steps_z_beta_complete by blast
 
 end (* End of locale for local regions *)
 
-end
+end (* End of Theory *)

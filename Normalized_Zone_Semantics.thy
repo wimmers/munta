@@ -583,7 +583,7 @@ lemma steps_z_norm_sound:
     and   "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
     and   "[D']\<^bsub>v,n\<^esub> \<noteq> {}"
   shows "\<exists> u \<in> [D]\<^bsub>v,n\<^esub>. \<exists> u'. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
-  using steps_z_norm_sound''[OF assms(2,3,1,4,5)] steps_z_sound by fast
+  using steps_z_norm_sound''[OF assms(2,3,1,4,5)] by (auto dest: steps_z_sound)
 
 theorem steps_z_norm_decides_emptiness:
   assumes "global_clock_numbering A v n" "valid_abstraction A X k" "valid_dbm D"
@@ -867,4 +867,4 @@ lemma (in Regions') V_alt_def:
   shows "{u. \<forall> c. v c > 0 \<and> v c \<le> n \<longrightarrow> u c \<ge> 0} = V"
 unfolding V_def using clock_numbering by metis
 
-end
+end (* Theory *)

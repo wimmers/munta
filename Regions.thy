@@ -2836,7 +2836,7 @@ proof (induction rule: step.induct, goal_cases)
   ultimately show ?case using *(3) by meson
 next
   case (2 A l u d l' u')
-  hence u': "u' = (u \<oplus> d)" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d" and "l = l'" by auto
+  hence u': "u' = (u \<oplus> d)" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d" and "l = l'" by (auto elim!: step_t.cases)
   from region_cover'[OF 2(2,4)] have R: "[u]\<^sub>\<R> \<in> \<R>" "u \<in> [u]\<^sub>\<R>" by auto
   from SuccI2[OF 2(2) this(2,1) \<open>0 \<le> d\<close>, of "[u']\<^sub>\<R>"] u'(1) have u'1:
     "[u']\<^sub>\<R> \<in> Succ \<R> ([u]\<^sub>\<R>)" "[u']\<^sub>\<R> \<in> \<R>"

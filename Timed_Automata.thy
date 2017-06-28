@@ -175,9 +175,11 @@ inductive step_t ::
 where
   "\<lbrakk>u \<oplus> d \<turnstile> inv_of A l; d \<ge> 0\<rbrakk> \<Longrightarrow> A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l, u \<oplus> d\<rangle>"
 
-declare step_t.intros[intro!]
+declare step_t.intros[intro]
 
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l',u'\<rangle>"
+context
+  notes step_t.cases[elim!] step_t.intros[intro!]
+begin
 
 lemma step_t_determinacy1:
   "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l',u'\<rangle> \<Longrightarrow>  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l'',u''\<rangle> \<Longrightarrow> l' = l''"
@@ -197,6 +199,8 @@ proof -
   with A show ?thesis by auto
 qed
 
+end (* End of context for aggressive elimination and intro rules *)
+
 inductive step_a ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) cval \<Rightarrow> 'a \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
@@ -210,9 +214,8 @@ where
   step_a: "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l',u'\<rangle> \<Longrightarrow> (A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>)" |
   step_t: "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l',u'\<rangle> \<Longrightarrow> (A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>)"
 
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>"
-
 declare step.intros[intro]
+declare step.cases[elim]
 
 inductive
   steps :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) cval \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
@@ -354,7 +357,6 @@ where
   step': "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', u'\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l'', u''\<rangle> \<Longrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l'', u''\<rangle>"
 
 lemmas step'[intro]
-inductive_cases[elim!]: "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
 
 lemma step'_altI:
   assumes
@@ -382,6 +384,11 @@ qed
 lemma cval_add_simp:
   "(u \<oplus> d) \<oplus> d' = u \<oplus> (d + d')" for d d' :: "'t :: time"
   unfolding cval_add_def by auto
+
+context
+  notes [elim!]  = step'.cases step_t.cases
+  and   [intro!] = step_t.intros
+begin
 
 lemma step_t_trans:
   "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d + d'\<^esup> \<langle>l, u''\<rangle>" if "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l, u'\<rangle>" "A \<turnstile> \<langle>l, u'\<rangle> \<rightarrow>\<^bsup>d'\<^esup> \<langle>l, u''\<rangle>"
@@ -423,6 +430,9 @@ lemma steps_steps'_equiv:
   "(\<exists> u'. A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>) \<longleftrightarrow> (\<exists> u'. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)" if "u \<turnstile> inv_of A l"
   using that steps'_sound steps'_complete by metis
 
+end (* End of context for aggressive elimination and intro rules *)
+
+
 section \<open>Zone Semantics\<close>
 
 type_synonym ('c, 't) zone = "('c, 't) cval set"
@@ -458,8 +468,8 @@ where
   if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
 
 lemmas step_z.intros[intro]
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', u'\<rangle>"
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', u'\<rangle>"
+inductive_cases step_t_z_E[elim]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', u'\<rangle>"
+inductive_cases step_a_z_E[elim]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', u'\<rangle>"
 
 subsection \<open>Zone Semantics for Compressed Runs\<close>
 
@@ -473,6 +483,11 @@ where
   \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l''', Z'''\<rangle>"
 
 declare steps_z.intros[intro]
+declare steps_z.cases[elim]
+
+context
+  notes [elim!]  = step.cases step'.cases step_t.cases step_z.cases
+begin
 
 lemma steps_z_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> u' \<in> Z' \<Longrightarrow> \<exists> u \<in> Z. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
@@ -499,8 +514,6 @@ next
   with Z' show ?case by blast
 qed
 
-inductive_cases[elim!]: "A \<turnstile> \<langle>l, u\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', u'\<rangle>"
-
 lemma step_z_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>"
   by (auto 4 6 simp: zone_delay_def zone_set_def intro: step_a.intros)
@@ -516,6 +529,8 @@ lemma step_t_z_complete:
 lemma step_z_complete:
   "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z' a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
   by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
+
+end (* End of context for aggressive elimination rules *)
 
 (*
 inductive step_z ::

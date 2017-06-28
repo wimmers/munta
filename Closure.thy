@@ -333,7 +333,7 @@ proof (cases rule: step_z.cases, assumption, goal_cases)
   have "(Closure\<^sub>\<alpha> Z)\<^sup>\<up> \<subseteq> Closure\<^sub>\<alpha> (Z\<^sup>\<up>)" using A(2) by (blast intro!: closure_delay_mono)
   then have "Z' \<subseteq> Closure\<^sub>\<alpha> (Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l})"
   using closure_constraint_mono'[OF *, of "Z\<^sup>\<up>"] unfolding ccval_def by (auto simp: Int_commute A(6))
-  with A(4,3) show ?thesis by auto
+  with A(4,3) show ?thesis by (auto elim!: step_z.cases)
 next
   case (2 g a r)
   note A = this
