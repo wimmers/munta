@@ -225,12 +225,12 @@ lemma run_sdrop:
 
 lemma run_reachable':
   assumes "run (x ## xs)" "C\<^sup>*\<^sup>* x\<^sub>0 x"
-  shows "stream_all (\<lambda> x. C\<^sup>*\<^sup>* x\<^sub>0 x) xs"
+  shows "pred_stream (\<lambda> x. C\<^sup>*\<^sup>* x\<^sub>0 x) xs"
   using assms by (coinduction arbitrary: x xs) (auto 4 3 elim: run.cases)
 
 lemma run_reachable:
   assumes "run (x\<^sub>0 ## xs)"
-  shows "stream_all (\<lambda> x. C\<^sup>*\<^sup>* x\<^sub>0 x) xs"
+  shows "pred_stream (\<lambda> x. C\<^sup>*\<^sup>* x\<^sub>0 x) xs"
   by (rule run_reachable'[OF assms]) blast
 
 lemma run_decomp:
@@ -321,7 +321,18 @@ proof -
       apply (inst_existentials "butlast xs" "tl ys @- flat xss'" "last xs" "hd ys")
          apply (cases ys)
           apply (simp; fail)
-         apply (rewrite in \<open>_ = \<hole>\<close> append_single_shift[symmetric]; simp; fail)
+      subgoal premises prems for x1 x2 z zs
+      proof (cases "xs = []")
+        case True
+        with prems show ?thesis
+          by auto
+      next
+        case False
+        then have "xs = butlast xs @ [last xs]" by auto
+        then have "butlast xs @- last xs ## tail = xs @- tail" for tail
+          by (metis shift.simps(1,2) shift_append)
+        with prems show ?thesis by simp
+      qed
         apply (simp; fail)
        apply assumption
       subgoal for ws wss
@@ -576,7 +587,7 @@ proof -
        by (auto simp: P_def)
   qed
   from * have "run xs"
-  unfolding xs_def proof (coinduction arbitrary: ys rule: run_flat_coinduct)
+    unfolding xs_def proof (coinduction arbitrary: ys rule: run_flat_coinduct)
     case prems: (run_shift xs ws xss ys)
     then have "ys \<noteq> []" "last ys \<in> a" by (blast dest: P_1 P_2)+
     from \<open>ys \<noteq> []\<close> C[OF \<open>last ys \<in> a\<close>] have "\<exists> xs. P ys xs" unfolding P_def by auto
@@ -590,7 +601,7 @@ proof -
 qed
 
 lemma Steps_run_cycle_buechi'':
-  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> alw_ev (HLD b) (x ## xs)"
+  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> infs b (x ## xs)"
   if assms: "Steps (a # as @ [a])" "x \<in> a" "b \<in> set (a # as @ [a])"
   using Steps_run_cycle_buechi[OF that(1,2)] that(2,3)
   apply safe
@@ -600,7 +611,7 @@ lemma Steps_run_cycle_buechi'':
   by (force dest: alw_ev_HLD_cycle[of _ _ b] stream_all2_sset1)
 
 lemma Steps_run_cycle_buechi':
-  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> alw_ev (HLD a) (x ## xs)"
+  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> infs a (x ## xs)"
   if assms: "Steps (a # as @ [a])" "x \<in> a"
   using Steps_run_cycle_buechi''[OF that] \<open>x \<in> a\<close> by auto
 
@@ -773,7 +784,7 @@ qed
 lemma Steps_run_cycle'':
   "\<exists> x xs. run (x ## xs) \<and> x \<in> \<Union> closure a\<^sub>0
   \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a} \<union> set bs. x \<in> \<Union> closure a)
-  \<and> alw_ev (HLD (\<Union> closure a)) (x ## xs)"
+  \<and> infs (\<Union> closure a) (x ## xs)"
   if assms: "Steps (a\<^sub>0 # as @ a # bs @ [a])" "P2 a"
 proof -
   from Steps_Union[OF assms(1) HOL.refl] guess as1 by safe
@@ -809,9 +820,9 @@ proof -
     unfolding list_all2_Cons1 by (auto intro: list_all2_last)
   with pre.prestable[OF \<open>A1 a2 a1\<close>] obtain y where "C (last (x\<^sub>0 # xs)) y" "y \<in> a1" by auto
   from pre.Steps_run_cycle_buechi'[OF as1(1) \<open>y \<in> a1\<close>] obtain ys where ys:
-    "run (y ## ys)" "\<forall>x\<in>sset ys. \<exists>a\<in>set as1 \<union> {a1}. x \<in> a" "alw_ev (HLD a1) (y ## ys)"
+    "run (y ## ys)" "\<forall>x\<in>sset ys. \<exists>a\<in>set as1 \<union> {a1}. x \<in> a" "infs a1 (y ## ys)"
     by auto
-  from ys(3) \<open>a1 \<in> closure a\<close> have "alw_ev (HLD (\<Union> closure a)) (y ## ys)"
+  from ys(3) \<open>a1 \<in> closure a\<close> have "infs (\<Union> closure a) (y ## ys)"
     by (auto simp: HLD_iff elim!: alw_ev_mono)
   from extend_run[OF xs(1) \<open>C _ _\<close> \<open>run (y ## ys)\<close>] have "run ((x\<^sub>0 # xs) @- y ## ys)" by simp
   then show ?thesis
@@ -823,8 +834,8 @@ proof -
       apply auto
        apply (fastforce dest!: list_all2_set1)
      apply blast
-    using \<open>alw_ev (HLD (\<Union> closure a)) (y ## ys)\<close>
-      by - (rule alw_ev_sdrop[of _ "length (x\<^sub>0 # xs)"], simp add: sdrop_shift)
+    using \<open>infs (\<Union> closure a) (y ## ys)\<close>
+    by (simp add: sdrop_shift)
 qed
 
 end (* Double Simulation Graph *)
@@ -844,7 +855,7 @@ lemma run_finite_state_set:
   shows "finite (sset (x\<^sub>0 ## xs))"
 proof -
   let ?S = "{x. C\<^sup>*\<^sup>* x\<^sub>0 x}"
-  from run_reachable[OF assms] have "sset xs \<subseteq> ?S" unfolding stream_all_iff by auto
+  from run_reachable[OF assms] have "sset xs \<subseteq> ?S" unfolding stream.pred_set by auto
   moreover have "finite ?S" using finite_reachable by auto
   ultimately show ?thesis by (auto intro: finite_subset)
 qed
@@ -855,7 +866,9 @@ lemma run_finite_state_set_cycle:
     "\<exists> ys zs. run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> zs \<noteq> []"
 proof -
   from run_finite_state_set[OF assms] have "finite (sset (x\<^sub>0 ## xs))" .
-  from finite_sset_decomp[OF this] guess x ws ys zs .
+  with sdistinct_infinite_sset[of "x\<^sub>0 ## xs"] not_sdistinct_decomp[of "x\<^sub>0 ## xs"] obtain x ws ys zs
+    where "x\<^sub>0 ## xs = ws @- x ## ys @- x ## zs"
+    by force
   then have decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" by simp
   from run_decomp[OF assms[unfolded decomp]] guess by auto
   note decomp_first = this
@@ -885,14 +898,14 @@ qed
 
 (* XXX Duplication *)
 lemma buechi_run_finite_state_set_cycle:
-  assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
+  assumes "run (x\<^sub>0 ## xs)" "alw (ev (holds \<phi>)) (x\<^sub>0 ## xs)"
   shows
   "\<exists> ys zs.
     run (x\<^sub>0 ## ys @- cycle zs) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs
     \<and> zs \<noteq> [] \<and> (\<exists> x \<in> set zs. \<phi> x)"
 proof -
   from run_finite_state_set[OF assms(1)] have "finite (sset (x\<^sub>0 ## xs))" .
-  with sset_sfilter[OF \<open>alw_ev _ _\<close>] have "finite (sset (sfilter \<phi> (x\<^sub>0 ## xs)))"
+  with sset_sfilter[OF \<open>alw (ev _) _\<close>] have "finite (sset (sfilter \<phi> (x\<^sub>0 ## xs)))"
     by (rule finite_subset)
   from finite_sset_sfilter_decomp[OF this assms(2)] obtain x ws ys zs where
     decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" and "\<phi> x"
@@ -945,7 +958,7 @@ qed
 
 (* XXX Duplication *)
 lemma buechi_run_finite_state_set_cycle_steps:
-  assumes "run (x\<^sub>0 ## xs)" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
+  assumes "run (x\<^sub>0 ## xs)" "alw (ev (holds \<phi>)) (x\<^sub>0 ## xs)"
   shows
   "\<exists> x ys zs.
     steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs \<and> (\<exists> y \<in> set (x # zs). \<phi> y)"
@@ -974,7 +987,7 @@ section \<open>Complete Simulation Graphs\<close>
 context Simulation_Graph_Defs
 begin
 
-definition "abstract_run = sgenerate (\<lambda> a y. SOME b. A a b \<and> y \<in> b)"
+definition "abstract_run x xs = x ## sscan (\<lambda> y a. SOME b. A a b \<and> y \<in> b) xs x"
 
 lemma abstract_run_ctr:
   "abstract_run x xs = x ## abstract_run (SOME b. A x b \<and> shd xs \<in> b) (stl xs)"
@@ -1058,7 +1071,7 @@ lemma run_finite_state_set_cycle_steps:
   done
 
 lemma buechi_run_finite_state_set_cycle_steps:
-  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0" "alw_ev (holds \<phi>) (x\<^sub>0 ## xs)"
+  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0" "alw (ev (holds \<phi>)) (x\<^sub>0 ## xs)"
   shows "\<exists> x ys zs.
     Steps (a\<^sub>0 # ys @ x # zs @ [x])
     \<and> (\<forall> a \<in> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)
@@ -1116,14 +1129,14 @@ context
 begin
 
 theorem infinite_buechi_run_cycle_iff:
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> alw_ev (holds \<phi>) (x\<^sub>0 ## xs))
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
   \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> closure a. \<phi> x))"
   if "\<Union>closure a\<^sub>0 = a\<^sub>0"
 proof (safe, goal_cases)
   case (1 x\<^sub>0 xs)
-  from buechi_run_finite_state_set_cycle_steps[OF this(2,1) P2_a\<^sub>0 this(3)] guess a ys zs
+  from buechi_run_finite_state_set_cycle_steps[OF this(2,1) P2_a\<^sub>0, of \<phi>] this(3) guess a ys zs
     by clarsimp
-  note guessed = this
+  note guessed = this(2-)
   from guessed(3) show ?case
   proof (standard, goal_cases)
     case 1
@@ -1149,8 +1162,7 @@ next
   from Steps_run_cycle''[OF prems(1) this] prems this that show ?case
     apply safe
     subgoal for x xs b
-      apply (inst_existentials x xs)
-      by (force simp: HLD_iff intro: alw_ev_mono)+ (* Slow *)
+      unfolding HLD_iff by (inst_existentials x xs) (auto intro: alw_ev_mono) (* Slow *)
     done
 qed
 
@@ -1969,12 +1981,12 @@ context
 begin
 
 lemma infinite_buechi_run_cycle_iff':
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> sim.run (x\<^sub>0 ## xs) \<and> alw_ev (holds \<phi>) (x\<^sub>0 ## xs))
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> sim.run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
   \<longleftrightarrow> (\<exists> as a bs. sim.Steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> sim.closure a. \<phi> x))"
   using sim_complete.infinite_buechi_run_cycle_iff[OF \<phi>_closure_compatible, OF _ sim_closure] .
 
 theorem infinite_buechi_run_cycle_iff:
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> sim.run (x\<^sub>0 ## xs) \<and> alw_ev (holds \<phi>) (x\<^sub>0 ## xs))
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> sim.run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
   \<longleftrightarrow> (\<exists> as l Z bs. steps ((l\<^sub>0, Z\<^sub>0) # as @ (l, Z) # bs @ [(l, Z)]) \<and> (\<forall> x \<in> Closure\<^sub>\<alpha>\<^sub>,\<^sub>l Z. \<phi> (l, x)))"
   unfolding infinite_buechi_run_cycle_iff' sim_steps_equiv[OF start_state(2)]
   apply (simp add: a\<^sub>0_def)
@@ -2046,7 +2058,7 @@ text \<open>
 \<^item> Can offer representation view via suitable locale instantiations?
 \<^item> Abstractions view?
 \<^item> \<open>\<phi>\<close>-construction can be done on an automaton too (also for disjunctions)
-\<^item> Büchi properties are nothing but \<open>\<box>\<diamond>\<close>-properties (@{term \<open>alw_ev\<close>}
+\<^item> Büchi properties are nothing but \<open>\<box>\<diamond>\<close>-properties (@{term \<open>alw (ev \<phi>)\<close>}
 \<close>
 
 end (* Theory *)

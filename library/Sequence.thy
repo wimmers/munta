@@ -13,16 +13,16 @@ begin
   declare butlast.simps[simp del]
   declare Cons_nth_drop_Suc[simp]
 
+  lemma list_pred_cases:
+    assumes "list_all P xs"
+    obtains (nil) "xs = []" | (cons) y ys where "xs = y # ys" "P y" "list_all P ys"
+    using assms by (cases xs) (auto)
+
   lemma fold_const: "fold const xs a = last (a # xs)"
     by (induct xs arbitrary: a) (auto simp: last.simps)
 
   lemma take_Suc: "take (Suc n) xs = (if xs = [] then [] else hd xs # take n (tl xs))"
     by (simp add: take_Suc)
-
-  lemma list_pred_cases:
-    assumes "list_all P xs"
-    obtains (nil) "xs = []" | (cons) y ys where "xs = y # ys" "P y" "list_all P ys"
-    using assms by (cases xs) (auto)
 
   (* stream basics *)
 
@@ -31,10 +31,15 @@ begin
   declare stream.set_sel(1)[intro!, simp]
   declare stream.pred_map[iff]
   declare stream.rel_map[iff]
+  declare shift_simps[simp del]
   declare stake_sdrop[simp]
   declare stake_siterate[simp del]
   declare sdrop_snth[simp]
-  declare flat_unfold[simp]
+
+  lemma stream_pred_cases:
+    assumes "pred_stream P xs"
+    obtains (scons) y ys where "xs = y ## ys" "P y" "pred_stream P ys"
+    using assms by (cases xs) (auto)
 
   lemma stream_rel_coinduct[case_names stream_rel, coinduct pred: stream_all2]:
     assumes "R u v"
@@ -66,6 +71,12 @@ begin
       using assms(1) by (metis list_all_simps(2) shift.simps(1))
     then show ?thesis using assms(2) by (coinduct) (force elim: list_pred_cases)
   qed
+  lemma stream_pred_flat_coinduct[case_names stream_pred, consumes 1]:
+    assumes "R ws"
+    assumes "\<And> w ws. R (w ## ws) \<Longrightarrow> w \<noteq> [] \<and> list_all P w \<and> R ws"
+    shows "pred_stream P (flat ws)"
+    using assms
+    by (coinduction arbitrary: ws rule: stream_pred_coinduct_shift) (metis stream.exhaust flat_Stream)
 
   lemmas stream_eq_coinduct[case_names stream_eq, coinduct pred: HOL.eq] =
     stream_rel_coinduct[where ?P = HOL.eq, unfolded stream.rel_eq]
@@ -77,6 +88,13 @@ begin
   lemma stream_pred_snth: "pred_stream P w \<longleftrightarrow> (\<forall> i. P (w !! i))"
     unfolding stream.pred_set sset_range by simp
 
+  lemma stream_pred_shift[iff]: "pred_stream P (u @- v) \<longleftrightarrow> list_all P u \<and> pred_stream P v"
+    by (induct u) (auto)
+  lemma stream_rel_shift[iff]:
+    assumes "length u\<^sub>1 = length v\<^sub>1"
+    shows "stream_all2 P (u\<^sub>1 @- u\<^sub>2) (v\<^sub>1 @- v\<^sub>2) \<longleftrightarrow> list_all2 P u\<^sub>1 v\<^sub>1 \<and> stream_all2 P u\<^sub>2 v\<^sub>2"
+    using assms by (induct rule: list_induct2) (auto)
+
   lemma eq_scons: "w = a ## v \<longleftrightarrow> a = shd w \<and> v = stl w" by auto
   lemma scons_eq: "a ## v = w \<longleftrightarrow> shd w = a \<and> stl w = v" by auto
   lemma eq_shift: "w = u @- v \<longleftrightarrow> stake (length u) w = u \<and> sdrop (length u) w = v"
@@ -87,6 +105,23 @@ begin
     by (cases u) (auto)
   lemma shift_eq_scons: "u @- v = a ## w \<longleftrightarrow> (u = [] \<and> v = a ## w) \<or> (\<exists> u'. u = a # u' \<and> u' @- v = w)"
     by (cases u) (auto)
+
+  lemma stream_all2_sset1:
+    assumes "stream_all2 P xs ys"
+    shows "\<forall> x \<in> sset xs. \<exists> y \<in> sset ys. P x y"
+  proof -
+    have "pred_stream (\<lambda> x. \<exists> y \<in> S. P x y) xs" if "sset ys \<subseteq> S" for S
+      using assms that by (coinduction arbitrary: xs ys) (force elim: stream.rel_cases)
+    then show ?thesis unfolding stream.pred_set by auto
+  qed
+  lemma stream_all2_sset2:
+    assumes "stream_all2 P xs ys"
+    shows "\<forall> y \<in> sset ys. \<exists> x \<in> sset xs. P x y"
+  proof -
+    have "pred_stream (\<lambda> y. \<exists> x \<in> S. P x y) ys" if "sset xs \<subseteq> S" for S
+      using assms that by (coinduction arbitrary: xs ys) (force elim: stream.rel_cases)
+    then show ?thesis unfolding stream.pred_set by auto
+  qed
 
   lemma smap_eq_scons[iff]: "smap f xs = y ## ys \<longleftrightarrow> f (shd xs) = y \<and> smap f (stl xs) = ys"
     using smap_ctr by metis
@@ -109,135 +144,25 @@ begin
     shows "u = v"
     using assms by (coinduction arbitrary: u v) (metis stream.sel snth.simps)
 
-  (* zip *)
-(*
-  notation zip (infixr "||" 51)
+  lemma set_sset_stake[intro!, simp]: "set (stake n xs) \<subseteq> sset xs"
+    by (metis sset_shift stake_sdrop sup_ge1)
+  lemma sset_sdrop[intro!, simp]: "sset (sdrop n xs) \<subseteq> sset xs"
+    by (metis sset_shift stake_sdrop sup_ge2)
 
-  declare zip_map_fst_snd[simp]
+  lemma set_stake_snth: "x \<in> set (stake n xs) \<longleftrightarrow> (\<exists> i < n. xs !! i = x)"
+    unfolding in_set_conv_nth by auto
 
-  (*
-    we add a split rule for lists of pairs (in analogy to split_paired_all)
-    this rule could simply be added to the simpset
-    however, we want to add it as a safe simp rule, such that methods like safe and clarify use it
-    to do so, we have to use safe_asm_full_simp_tac
-    we also have to add the can_split matching logic to avoid looping
-  *)
-  lemma split_zip[no_atp]: "(\<And> x. PROP P x) \<equiv> (\<And> y z. length y = length z \<Longrightarrow> PROP P (y || z))"
+  lemma split_stream_first:
+    assumes "x \<in> sset xs"
+    obtains ys zs
+    where "xs = ys @- x ## zs" "x \<notin> set ys"
   proof
-    fix y z
-    assume 1: "\<And> x. PROP P x"
-    show "PROP P (y || z)" using 1 by this
-  next
-    fix x :: "('a \<times> 'b) list"
-    assume 1: "\<And> y z. length y = length z \<Longrightarrow> PROP P (y || z)"
-    have 2: "length (map fst x) = length (map snd x)" by simp
-    have 3: "PROP P (map fst x || map snd x)" using 1 2 by this
-    show "PROP P x" using 3 by simp
+    let ?n = "LEAST n. xs !! n = x"
+    have 1: "xs !! ?n = x" using assms unfolding sset_range by (auto intro: LeastI)
+    have 2: "xs !! n \<noteq> x" if "n < ?n" for n using that by (metis (full_types) not_less_Least)
+    show "xs = stake ?n xs @- x ## sdrop (Suc ?n) xs" using 1 by (metis id_stake_snth_sdrop)
+    show "x \<notin> set (stake ?n xs)" using 2 by (meson set_stake_snth)
   qed
-
-  ML
-  {*
-    local
-      fun
-        can_split (Const (@{const_name Pure.all}, _) $ Abs (_, Type (@{type_name list}, [T]), t)) =
-          can HOLogic.dest_prodT T orelse can_split t |
-        can_split (t $ u) = can_split t orelse can_split u |
-        can_split (Abs (_, _, t)) = can_split t |
-        can_split _ = false;
-      val ss = simpset_of (put_simpset HOL_basic_ss @{context} addsimps
-        [@{thm split_zip}, @{thm length_zip}, @{thm min.idem}]);
-    in
-      fun split_zip_tac ctxt = SUBGOAL (fn (t, i) =>
-        if can_split t then safe_asm_full_simp_tac (put_simpset ss ctxt) i else no_tac);
-    end;
-  *}
-  setup {* map_theory_claset (fn ctxt => ctxt addSbefore ("split_zip", split_zip_tac)) *}
-
-  lemma split_zip_all[no_atp, iff]: "(\<forall> x. P x) \<longleftrightarrow> (\<forall> y z. length y = length z \<longrightarrow> P (y || z))" by auto
-  lemma split_zip_ex[no_atp, iff]: "(\<exists> x. P x) \<longleftrightarrow> (\<exists> y z. length y = length z \<and> P (y || z))" by auto
-
-  lemma last_zip[simp]:
-    assumes "xs || ys \<noteq> []" "length xs = length ys"
-    shows "last (xs || ys) = (last xs, last ys)"
-  proof -
-    have 1: "xs \<noteq> []" "ys \<noteq> []" using assms(1) by auto
-    have "last (xs || ys) = (xs || ys) ! (length (xs || ys) - 1)" using last_conv_nth assms by blast
-    also have "\<dots> = (xs ! (length (xs || ys) - 1), ys ! (length (xs || ys) - 1))" using assms 1 by simp
-    also have "\<dots> = (xs ! (length xs - 1), ys ! (length ys - 1))" using assms(2) by simp
-    also have "\<dots> = (last xs, last ys)" using last_conv_nth 1 by metis
-    finally show ?thesis by this
-  qed
-
-  (* szip *)
-
-  notation szip (infixr "|||" 51)
-
-  declare szip_unfold[simp]
-
-  lemma szip_smap_fst[simp]: "smap fst (xs ||| ys) = xs" by (coinduction arbitrary: xs ys) (auto)
-  lemma szip_smap_snd[simp]: "smap snd (xs ||| ys) = ys" by (coinduction arbitrary: xs ys) (auto)
-  lemma szip_smap[simp]: "smap fst zs ||| smap snd zs = zs" by (coinduction arbitrary: zs) (auto)
-
-  (* see split_zip for explanation *)
-  lemma split_szip[no_atp]: "(\<And> x. PROP P x) \<equiv> (\<And> y z. PROP P (y ||| z))"
-  proof
-    fix y z
-    assume 1: "\<And> x. PROP P x"
-    show "PROP P (y ||| z)" using 1 by this
-  next
-    fix x
-    assume 1: "\<And> y z. PROP P (y ||| z)"
-    have 2: "PROP P (smap fst x ||| smap snd x)" using 1 by this
-    show "PROP P x" using 2 by simp
-  qed
-
-  ML
-  {*
-    local
-      fun
-        can_split (Const (@{const_name Pure.all}, _) $ Abs (_, Type (@{type_name stream}, [T]), t)) =
-          can HOLogic.dest_prodT T orelse can_split t |
-        can_split (t $ u) = can_split t orelse can_split u |
-        can_split (Abs (_, _, t)) = can_split t |
-        can_split _ = false;
-      val ss = simpset_of (put_simpset HOL_basic_ss @{context} addsimps [@{thm split_szip}]);
-    in
-      fun split_szip_tac ctxt = SUBGOAL (fn (t, i) =>
-        if can_split t then safe_asm_full_simp_tac (put_simpset ss ctxt) i else no_tac);
-    end;
-  *}
-  setup {* map_theory_claset (fn ctxt => ctxt addSbefore ("split_szip", split_szip_tac)) *}
-
-  lemma split_szip_all[no_atp, iff]: "(\<forall> x. P x) \<longleftrightarrow> (\<forall> y z. P (y ||| z))" by auto
-  lemma split_szip_ex[no_atp, iff]: "(\<exists> x. P x) \<longleftrightarrow> (\<exists> y z. P (y ||| z))" by auto
-
-  lemma szip_shift[simp]:
-    assumes "length u = length s"
-    shows "u @- v ||| s @- t = (u || s) @- (v ||| t)"
-    using assms by (simp add: eq_shift)
-
-  lemma szip_sset_fst[simp]: "fst ` sset (u ||| v) = sset u" by (metis stream.set_map szip_smap_fst)
-  lemma szip_sset_snd[simp]: "snd ` sset (u ||| v) = sset v" by (metis stream.set_map szip_smap_snd)
-  lemma szip_sset_elim[elim]:
-    assumes "(a, b) \<in> sset (u ||| v)"
-    obtains "a \<in> sset u" "b \<in> sset v"
-    using assms by (metis image_eqI fst_conv snd_conv szip_sset_fst szip_sset_snd)
-  lemma szip_sset[simp]: "sset (u ||| v) \<subseteq> sset u \<times> sset v" by auto
-
-  lemma sset_szip_finite[iff]: "finite (sset (u ||| v)) \<longleftrightarrow> finite (sset u) \<and> finite (sset v)"
-  proof safe
-    assume 1: "finite (sset (u ||| v))"
-    have 2: "finite (fst ` sset (u ||| v))" using 1 by blast
-    have 3: "finite (snd ` sset (u ||| v))" using 1 by blast
-    show "finite (sset u)" using 2 by simp
-    show "finite (sset v)" using 3 by simp
-  next
-    assume 1: "finite (sset u)" "finite (sset v)"
-    have "sset (u ||| v) \<subseteq> sset u \<times> sset v" by simp
-    also have "finite \<dots>" using 1 by simp
-    finally show "finite (sset (u ||| v))" by this
-  qed
-*)
 
   (* scans *)
 
@@ -301,80 +226,6 @@ begin
   lemma sscan_sdrop[simp]: "sdrop k (sscan f xs a) = sscan f (sdrop k xs) (fold f (stake k xs) a)"
     by (induct k arbitrary: a xs) (auto)
 
-  (* finite/infinite occurrence *)
-
-  definition fins :: "'a set \<Rightarrow> 'a stream \<Rightarrow> bool" where
-    "fins A w \<equiv> \<exists> u v. w = u @- v \<and> sset v \<inter> A = {}"
-
-  abbreviation "infs A w \<equiv> \<not> fins A w"
-
-  lemma fins_alt_def: "fins A w \<longleftrightarrow> (\<exists> n. \<forall> k \<ge> n. w !! k \<notin> A)"
-  unfolding fins_def
-  proof safe
-    fix u v
-    assume "sset v \<inter> A = {}"
-    then have "v !! k \<notin> A" for k unfolding sset_range by auto
-    then show "\<exists> n. \<forall> k \<ge> n. (u @- v) !! k \<notin> A" using shift_snth_ge by metis
-  next
-    fix n
-    assume "\<forall> k \<ge> n. w !! k \<notin> A"
-    then have "sset (sdrop n w) \<inter> A = {}" unfolding sset_range by auto
-    then show "\<exists> u v. w = u @- v \<and> sset v \<inter> A = {}" using stake_sdrop by metis
-  qed
-
-  lemma fins_scons[iff]: "fins A (a ## w) \<longleftrightarrow> fins A w"
-    unfolding fins_alt_def by (metis Suc_le_D Suc_le_mono le_Suc_eq snth_Stream)
-  lemma fins_shift[iff]: "fins A (u @- v) \<longleftrightarrow> fins A v" by (induct u) (auto)
-  lemma fins_stl[iff]: "fins A (stl w) \<longleftrightarrow> fins A w" using fins_scons by (metis stream.collapse)
-  lemma fins_sdrop[iff]: "fins A (sdrop n w) \<longleftrightarrow> fins A w" using fins_shift by (metis stake_sdrop)
-  lemma fins_sconst[iff]: "fins A (sconst a) \<longleftrightarrow> a \<notin> A" unfolding fins_alt_def by auto
-  lemma fins_smap[iff]: "fins A (smap f w) \<longleftrightarrow> fins (f -` A) w" unfolding fins_alt_def by auto
-
-  lemma fins_induct[case_names tail scons, induct pred: fins]:
-    assumes "fins A w"
-    assumes "\<And> w. sset w \<inter> A = {} \<Longrightarrow> P w"
-    assumes "\<And> a w. P w \<Longrightarrow> P (a ## w)"
-    shows "P w"
-  proof -
-    obtain u v where "w = u @- v" "sset v \<inter> A = {}" using assms(1) unfolding fins_def by auto
-    then show ?thesis using assms(2, 3) by (induct u arbitrary: w) (auto)
-  qed
-  lemma infs_coinduct[case_names infs, coinduct pred: infs]:
-    assumes "R w"
-    assumes "\<And> w. R w \<Longrightarrow> \<exists> u v. w = u @- v \<and> set u \<inter> A \<noteq> {} \<and> R v"
-    shows "infs A w"
-  proof
-    assume "fins A w"
-    moreover have "\<exists> u v. w = u @- v \<and> R v" using shift.simps(1) assms(1) by metis
-    ultimately show "False"
-      using assms(2)
-      by (induct) (force, metis empty_set inf_bot_right inf_commute shift_simps(2) stream.sel(2))
-  qed
-
-  lemma fins_subset[trans]: "sset w \<inter> A \<subseteq> B \<Longrightarrow> fins B w \<Longrightarrow> fins A w" unfolding fins_def by force
-  lemma infs_supset[trans]: "infs A w \<Longrightarrow> sset w \<inter> A \<subseteq> B \<Longrightarrow> infs B w" using fins_subset by auto
-
-  lemma fins_union[iff]: "fins (A \<union> B) w \<longleftrightarrow> fins A w \<and> fins B w"
-  proof safe
-    show "fins A w" "fins B w" if "fins (A \<union> B) w" using that by (auto intro: fins_subset)
-    show "fins (A \<union> B) w" if "fins A w" "fins B w" using that by (induct) (auto intro: fins_subset)
-  qed
-
-  lemma fins_sset: "sset w \<inter> A = {} \<Longrightarrow> fins A w" unfolding fins_def using shift.simps(1) by metis
-  lemma infs_sset: "sset w \<subseteq> A \<Longrightarrow> infs A w" unfolding fins_def using inf.absorb1 by force
-
-  lemma fins_sset'[intro!, simp]: "fins (- sset w) w" by (auto intro!: fins_sset)
-  lemma infs_sset'[intro!, simp]: "infs (sset w) w" by (auto intro!: infs_sset)
-
-  lemma fins_empty[intro!, simp]: "fins {} w" by (auto intro!: fins_sset)
-  lemma infs_UNIV[intro!, simp]: "infs UNIV w" by (auto intro!: infs_sset)
-
-  lemma infs_flat_coinduct[case_names infs_flat, consumes 1]:
-    assumes "R xss"
-    assumes "\<And> xs xss. R (xs ## xss) \<Longrightarrow> set xs \<inter> A \<noteq> {} \<and> R xss"
-    shows "infs A (flat xss)"
-    using assms by (coinduction arbitrary: xss) (metis empty_set inf_bot_left flat_Stream stream.exhaust)
-
   (* sdistinct *)
 
   coinductive sdistinct :: "'a stream \<Rightarrow> bool" where
@@ -404,6 +255,18 @@ begin
     assumes "sdistinct w"
     shows "infinite (sset w)"
     using assms by (coinduction arbitrary: w) (force elim: sdistinct.cases)
+
+  lemma not_sdistinct_decomp:
+    assumes "\<not> sdistinct w"
+    obtains u v a w'
+    where "w = u @- a ## v @- a ## w'"
+  proof (rule ccontr)
+    assume 1: "\<not> thesis"
+    assume 2: "w = u @- a ## v @- a ## w' \<Longrightarrow> thesis" for u a v w'
+    have 3: "\<forall> u v a w'. w \<noteq> u @- a ## v @- a ## w'" using 1 2 by auto
+    have 4: "sdistinct w" using 3 by (coinduct) (metis id_stake_snth_sdrop imageE shift.simps sset_range)
+    show False using assms 4 by auto
+  qed
 
   (* sorted streams *)
 

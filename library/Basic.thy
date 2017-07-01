@@ -7,9 +7,6 @@ begin
 
   abbreviation (input) "const x \<equiv> \<lambda> _. x"
 
-  abbreviation comp_2 (infixr "\<circ>\<circ>" 55) where "f \<circ>\<circ> g \<equiv> comp (comp f) g"
-  abbreviation comp_3 (infixr "\<circ>\<circ>\<circ>" 55) where "f \<circ>\<circ>\<circ> g \<equiv> comp (comp (comp f)) g"
-
   lemma infinite_subset[trans]: "infinite A \<Longrightarrow> A \<subseteq> B \<Longrightarrow> infinite B" using infinite_super by this
   lemma finite_subset[trans]: "A \<subseteq> B \<Longrightarrow> finite B \<Longrightarrow> finite A" using finite_subset by this
 
