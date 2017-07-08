@@ -1,57 +1,13 @@
 theory Simulation_Graphs
   imports
-    "library/Stream_More"
-    "~~/src/HOL/Library/Rewrite"
-    "library/Instantiate_Existentials"
+    "library/Graphs"
+    "library/More_List"
     Normalized_Zone_Semantics
 begin
 
 chapter \<open>Simulation Graphs\<close>
 
 paragraph \<open>Misc\<close>
-
-lemma list_all2_op_map_iff:
-  "list_all2 (\<lambda> a b. b = f a) xs ys \<longleftrightarrow> map f xs = ys"
-  unfolding list_all2_iff
-  proof (induction xs arbitrary: ys)
-    case Nil
-    then show ?case by auto
-  next
-    case (Cons a xs ys)
-    then show ?case by (cases ys) auto
-  qed
-
-lemma list_all2_last:
-  "R (last xs) (last ys)" if "list_all2 R xs ys" "xs \<noteq> []"
-  using that
-  unfolding list_all2_iff
-  proof (induction xs arbitrary: ys)
-    case Nil
-    then show ?case by simp
-  next
-    case (Cons a xs ys)
-    then show ?case by (cases ys) auto
-  qed
-
-lemma list_all2_set1:
-  "\<forall>x\<in>set xs. \<exists>xa\<in>set as. P x xa" if "list_all2 P xs as"
-  using that
-proof (induction xs arbitrary: as)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a xs as)
-  then show ?case by (cases as) auto
-qed
-
-lemma list_all2_swap:
-  "list_all2 P xs ys \<longleftrightarrow> list_all2 (\<lambda> x y. P y x) ys xs"
-  unfolding list_all2_iff by (fastforce simp: in_set_zip)+
-
-lemma list_all2_set2:
-  "\<forall>x\<in>set as. \<exists>xa\<in>set xs. P xa x" if "list_all2 P xs as"
-  using that by - (rule list_all2_set1, subst (asm) list_all2_swap)
-
 
 text \<open>
   A directed graph where every node has at least one ingoing edge, contains a directed cycle.
@@ -105,265 +61,6 @@ next
 lemma prod_set_fst_id:
   "x = y" if "\<forall> a \<in> x. fst a = b" "\<forall> a \<in> y. fst a = b" "snd ` x = snd ` y"
   using that by (auto 4 6 simp: fst_def snd_def image_def split: prod.splits)
-
-
-section \<open>Graphs\<close>
-
-locale Graph_Defs =
-  fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
-begin
-
-inductive steps where
-  Single: "steps [x]" |
-  Cons: "steps (x # y # xs)" if "C x y" "steps (y # xs)"
-
-lemmas [intro] = steps.intros
-
-lemma steps_append:
-  "steps (xs @ tl ys)" if "steps xs" "steps ys" "last xs = hd ys"
-  using that by induction (auto 4 4 elim: steps.cases)
-
-coinductive run where
-  "run (x ## y ## xs)" if "C x y" "run (y ## xs)"
-
-lemmas [intro] = run.intros
-
-lemma steps_appendD1:
-  "steps xs" if "steps (xs @ [x])" "xs \<noteq> []"
-  using that proof (induction xs)
-  case Nil
-  then show ?case by (auto elim!: steps.cases)
-next
-  case prems: (Cons a xs)
-  then show ?case by - (cases xs; auto elim: steps.cases)
-qed
-
-lemma steps_appendD2:
-  "steps (xs @ [x]) \<and> C x y" if "steps (xs @ [x, y])"
-  using that proof (induction xs)
-  case Nil
-  then show ?case by (auto elim!: steps.cases)
-next
-  case prems: (Cons a xs)
-  then show ?case by (cases xs) (auto elim: steps.cases)
-qed
-
-lemma steps_alt_induct[consumes 1, case_names Single Snoc]:
-  assumes
-    "steps x" "(\<And>x. P [x])"
-    "\<And>y x xs. C y x \<Longrightarrow> steps (xs @ [y]) \<Longrightarrow> P (xs @ [y]) \<Longrightarrow> P (xs @ [y,x])"
-  shows "P x"
-  using assms(1)
-  proof (induction rule: rev_induct)
-    case Nil
-    then show ?case by (auto elim: steps.cases)
-  next
-    case prems: (snoc x xs)
-    then show ?case by (cases xs rule: rev_cases) (auto intro: assms(2,3) dest!: steps_appendD2)
-  qed
-
-lemma steps_appendI:
-  "steps (xs @ [x, y])" if "steps (xs @ [x])" "C x y"
-  using that
-proof (induction xs)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a xs)
-  then show ?case by (cases xs; auto elim: steps.cases)
-qed
-
-lemma steps_append_single:
-  assumes
-    "steps xs" "C (last xs) x" "xs \<noteq> []"
-  shows "steps (xs @ [x])"
-  using assms(3,1,2) by (induction xs rule: list_nonempty_induct) (auto 4 4 elim: steps.cases)
-
-lemma extend_run:
-  assumes
-    "steps xs" "C (last xs) x" "run (x ## ys)" "xs \<noteq> []"
-  shows "run (xs @- x ## ys)"
-  using assms(4,1-3) by (induction xs rule: list_nonempty_induct) (auto 4 3 elim: steps.cases)
-
-lemma run_cycle:
-  assumes "steps xs" "C (last xs) (hd xs)" "xs \<noteq> []"
-  shows "run (cycle xs)"
-  using assms proof (coinduction arbitrary: xs)
-  case run
-  then show ?case
-    apply (rewrite at \<open>cycle xs\<close> stream.collapse[symmetric])
-    apply (rewrite at \<open>stl (cycle xs)\<close> stream.collapse[symmetric])
-    apply clarsimp
-    apply (erule steps.cases)
-    subgoal for x
-      apply (rule conjI)
-       apply (simp; fail)
-      apply (rule disjI1)
-      apply (inst_existentials xs)
-         apply (simp, metis cycle_Cons[of x "[]", simplified])
-      by auto
-    subgoal for x y xs'
-      apply (rule conjI)
-       apply (simp; fail)
-      apply (rule disjI1)
-      apply (inst_existentials "y # xs' @ [x]")
-      using steps_append_single[of "y # xs'" x]
-         apply (auto elim: steps.cases split: if_split_asm)
-       apply (subst (2) cycle_Cons, simp) (* XXX Automate forward reasoning *)
-      apply (subst cycle_Cons, simp)
-      done
-    done
-qed
-
-lemma run_stl:
-  "run (stl xs)" if "run xs"
-  using that by (auto elim: run.cases)
-
-lemma run_sdrop:
-  "run (sdrop n xs)" if "run xs"
-  using that by (induction n arbitrary: xs) (auto intro: run_stl)
-
-lemma run_reachable':
-  assumes "run (x ## xs)" "C\<^sup>*\<^sup>* x\<^sub>0 x"
-  shows "pred_stream (\<lambda> x. C\<^sup>*\<^sup>* x\<^sub>0 x) xs"
-  using assms by (coinduction arbitrary: x xs) (auto 4 3 elim: run.cases)
-
-lemma run_reachable:
-  assumes "run (x\<^sub>0 ## xs)"
-  shows "pred_stream (\<lambda> x. C\<^sup>*\<^sup>* x\<^sub>0 x) xs"
-  by (rule run_reachable'[OF assms]) blast
-
-lemma run_decomp:
-  assumes "run (xs @- ys)" "xs \<noteq> []"
-  shows "steps xs \<and> run ys \<and> C (last xs) (shd ys)"
-using assms(2,1) proof (induction xs rule: list_nonempty_induct)
-  case (single x)
-  then show ?case by (auto elim: run.cases)
-next
-  case (cons x xs)
-  then show ?case by (cases xs; auto 4 4 elim: run.cases)
-qed
-
-lemma steps_decomp:
-  assumes "steps (xs @ ys)" "xs \<noteq> []" "ys \<noteq> []"
-  shows "steps xs \<and> steps ys \<and> C (last xs) (hd ys)"
-using assms(2,1,3) proof (induction xs rule: list_nonempty_induct)
-  case (single x)
-  then show ?case by (auto elim: steps.cases)
-next
-  case (cons x xs)
-  then show ?case by (cases xs; auto 4 4 elim: steps.cases)
-qed
-
-lemma steps_rotate:
-  assumes "steps (x # xs @ y # ys @ [x])"
-  shows "steps (y # ys @ x # xs @ [y])"
-proof -
-  from steps_decomp[of "x # xs" "y # ys @ [x]"] assms have
-    "steps (x # xs)" "steps (y # ys @ [x])" "C (last (x # xs)) y"
-    by auto
-  then have "steps ((x # xs) @ [y])" by (blast intro: steps_append_single)
-  from steps_append[OF \<open>steps (y # ys @ [x])\<close> this] show ?thesis by auto
-qed
-
-lemma run_shift_coinduct[case_names run_shift, consumes 1]:
-  assumes "R w"
-      and "\<And> w. R w \<Longrightarrow> \<exists> u v x y. w = u @- x ## y ## v \<and> steps (u @ [x]) \<and> C x y \<and> R (y ## v)"
-  shows "run w"
-  using assms(2)[OF \<open>R w\<close>] proof (coinduction arbitrary: w)
-  case (run w)
-  then obtain u v x y where "w = u @- x ## y ## v" "steps (u @ [x])" "C x y" "R (y ## v)"
-    by auto
-  then show ?case
-    apply -
-    apply (drule assms(2))
-    apply (cases u)
-     apply force
-    subgoal for z zs
-      apply (cases zs)
-      subgoal
-        apply simp
-        apply safe
-         apply (force elim: steps.cases)
-        subgoal for u' v' x' y'
-          by (inst_existentials "x # u'") (cases u'; auto)
-        done
-      subgoal for a as
-        apply simp
-        apply safe
-         apply (force elim: steps.cases)
-        subgoal for u' v' x' y'
-          apply (inst_existentials "a # as @ x # u'")
-          using steps_append[of "a # as @ [x, y]" "u' @ [x']"]
-          apply simp
-          apply (drule steps_appendI[of "a # as" x, rotated])
-          by (cases u'; force elim: steps.cases)+
-        done
-      done
-    done
-qed
-
-lemma run_flat_coinduct[case_names run_shift, consumes 1]:
-  assumes "R xss"
-    and
-    "\<And> xs ys xss.
-    R (xs ## ys ## xss) \<Longrightarrow> xs \<noteq> [] \<and> steps xs \<and> C (last xs) (hd ys) \<and> R (ys ## xss)"
-  shows "run (flat xss)"
-proof -
-  obtain xs ys xss' where "xss = xs ## ys ## xss'" by (metis stream.collapse)
-  with assms(2)[OF assms(1)[unfolded this]] show ?thesis
-  proof (coinduction arbitrary: xs ys xss' xss rule: run_shift_coinduct)
-    case (run_shift xs ys xss' xss)
-    from run_shift show ?case
-      apply (cases xss')
-      apply clarify
-      apply (drule assms(2))
-      apply (inst_existentials "butlast xs" "tl ys @- flat xss'" "last xs" "hd ys")
-         apply (cases ys)
-          apply (simp; fail)
-      subgoal premises prems for x1 x2 z zs
-      proof (cases "xs = []")
-        case True
-        with prems show ?thesis
-          by auto
-      next
-        case False
-        then have "xs = butlast xs @ [last xs]" by auto
-        then have "butlast xs @- last xs ## tail = xs @- tail" for tail
-          by (metis shift.simps(1,2) shift_append)
-        with prems show ?thesis by simp
-      qed
-        apply (simp; fail)
-       apply assumption
-      subgoal for ws wss
-        by (inst_existentials ys ws wss) (cases ys, auto)
-      done
-  qed
-qed
-
-
-definition
-  "Alw_ev \<phi> x \<equiv> \<forall> xs. run (x ## xs) \<longrightarrow> ev (holds \<phi>) (x ## xs)"
-
-lemma Alw_ev:
-  "Alw_ev \<phi> x \<longleftrightarrow> \<not> (\<exists> xs. run (x ## xs) \<and> alw (holds (Not o \<phi>)) (x ## xs))"
-  unfolding Alw_ev_def
-proof (safe, goal_cases)
-  case prems: (1 xs)
-  then have "ev (holds \<phi>) (x ## xs)" by auto
-  then show ?case
-    using prems(2,3) by induction (auto intro: run_stl)
-next
-  case prems: (2 xs)
-  then have "\<not> alw (holds (Not \<circ> \<phi>)) (x ## xs)"
-    by auto
-  moreover have "(\<lambda> x. \<not> holds (Not \<circ> \<phi>) x) = holds \<phi>"
-    by (rule ext) simp
-  ultimately show ?case
-    unfolding not_alw_iff by simp
-qed
-
-end (* Graph Defs *)
 
 
 section \<open>Simulation Graphs\<close>
@@ -695,7 +392,7 @@ using that proof (induction xs rule: rev_induct)
   then show ?case by auto
 next
   case (snoc y xs)
-  from snoc.prems(1) Steps_appendD1[of "x # xs" y] have "Steps (x # xs)" by simp
+  from snoc.prems(1) Steps_appendD1[of "x # xs"] have "Steps (x # xs)" by simp
   from snoc.IH[OF this snoc.prems(2-)] guess as by safe
   note guessed = this
   show ?case
@@ -706,7 +403,7 @@ next
   next
     case (snoc ys z)
     with snoc.prems have "A2 z y"
-      by (metis Steps_appendD2 append_Cons append_assoc append_self_conv2)
+      by (metis Steps.steps_appendD3 append_Cons append_assoc append_self_conv2)
     with snoc guessed obtain as' where [simp]: "as = as' @ [closure z]"
       by (auto simp add: list_all2_append1 list_all2_Cons1)
     with \<open>A2 z y\<close> have "A2' (closure z) (closure y)" by (auto dest!: A2'_A2_closure)
@@ -845,7 +542,7 @@ section \<open>Finite Graphs\<close>
 
 locale Finite_Graph = Graph_Defs +
   fixes x\<^sub>0
-  assumes finite_reachable: "finite {x. C\<^sup>*\<^sup>* x\<^sub>0 x}"
+  assumes finite_reachable: "finite {x. E\<^sup>*\<^sup>* x\<^sub>0 x}"
 begin
 
 subsection \<open>Infinite Büchi Runs Correspond to Finite Cycles\<close>
@@ -854,7 +551,7 @@ lemma run_finite_state_set:
   assumes "run (x\<^sub>0 ## xs)"
   shows "finite (sset (x\<^sub>0 ## xs))"
 proof -
-  let ?S = "{x. C\<^sup>*\<^sup>* x\<^sub>0 x}"
+  let ?S = "{x. E\<^sup>*\<^sup>* x\<^sub>0 x}"
   from run_reachable[OF assms] have "sset xs \<subseteq> ?S" unfolding stream.pred_set by auto
   moreover have "finite ?S" using finite_reachable by auto
   ultimately show ?thesis by (auto intro: finite_subset)

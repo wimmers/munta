@@ -1,163 +1,12 @@
 theory Subsumption_Graphs
-  imports Simulation_Graphs
+  imports
+    "library/Graphs"
+    "library/More_List"
 begin
 
 chapter \<open>Subsumption Graphs\<close>
 
 section \<open>Preliminaries\<close>
-
-subsection \<open>Graphs\<close>
-
-context Graph_Defs
-begin
-
-lemma steps_non_empty[simp]:
-  "\<not> steps []"
-  by (auto elim: steps.cases)
-
-lemma steps_replicate:
-  "steps (hd xs # concat (replicate n (tl xs)))" if "last xs = hd xs" "steps xs" "n > 0"
-  using that
-proof (induction n)
-  case 0
-  then show ?case by simp
-next
-  case (Suc n)
-  show ?case
-  proof (cases n)
-    case 0
-    with Suc.prems show ?thesis by (cases xs; auto)
-  next
-    case prems: (Suc nat)
-    from Suc.prems have [simp]: "hd xs # tl xs @ ys = xs @ ys" for ys
-      by (cases xs; auto)
-    from Suc.prems have **: "tl xs @ ys = tl (xs @ ys)" for ys
-      by (cases xs; auto)
-    from prems Suc show ?thesis
-      by - (simp; simp add: **; rule steps_append; cases xs; auto)
-  qed
-qed
-
-lemma steps_ConsD:
-  "steps xs" if "steps (x # xs)" "xs \<noteq> []"
-  using that by (auto elim: steps.cases)
-
-lemma steps_appendD1:
-  "steps xs" if "steps (xs @ ys)" "xs \<noteq> []"
-  using that proof (induction xs)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a xs)
-  then show ?case
-    by - (cases xs; auto elim: steps.cases)
-qed
-
-lemma steps_appendD2:
-  "steps ys" if "steps (xs @ ys)" "ys \<noteq> []"
-  using that by (induction xs) (auto elim: steps.cases)
-
-lemmas (in Graph_Defs) stepsD = steps_ConsD steps_appendD1 steps_appendD2
-
-end (* Graph Defs *)
-
-
-locale Graph_Start_Defs = Graph_Defs +
-  fixes s\<^sub>0 :: 'a
-begin
-
-definition reachable where
-  "reachable = C\<^sup>*\<^sup>* s\<^sub>0"
-
-lemma start_reachable[intro!, simp]:
-  "reachable s\<^sub>0"
-  unfolding reachable_def by auto
-
-lemma reachable_step[intro]:
-  "reachable b" if "reachable a" "C a b"
-  using that unfolding reachable_def by auto
-
-lemma reachable_steps_append:
-  assumes "reachable a" "steps xs" "hd xs = a" "last xs = b"
-  shows "reachable b"
-  using assms unfolding reachable_def
-  by (induction xs arbitrary: a; force intro: rtranclp.rtrancl_into_rtrancl elim: steps.cases)
-
-lemmas steps_reachable = reachable_steps_append[of s\<^sub>0, simplified]
-
-lemma reachable_steps_elem:
-  "reachable y" if "reachable x" "steps xs" "y \<in> set xs" "hd xs = x"
-proof -
-  from \<open>y \<in> set xs\<close> obtain as bs where [simp]: "xs = as @ y # bs"
-    by (auto simp: in_set_conv_decomp)
-  show ?thesis
-  proof (cases "as = []")
-    case True
-    with that show ?thesis
-      by simp
-  next
-    case False
-    with steps_appendD1[of \<open>as @ [y]\<close> bs] \<open>steps xs\<close> have "steps (as @ [y])"
-      by simp
-    with \<open>as \<noteq> []\<close> \<open>hd xs = x\<close> \<open>reachable x\<close> show ?thesis
-      by (auto intro: reachable_steps_append)
-  qed
-qed
-
-lemma reachable_steps:
-  "\<exists> xs. steps xs \<and> hd xs = s\<^sub>0 \<and> last xs = x" if "reachable x"
-  using that unfolding reachable_def
-proof induction
-  case base
-  then show ?case by (inst_existentials "[s\<^sub>0]"; force)
-next
-  case (step y z)
-  from step.IH guess xs by clarify
-  with step.hyps show ?case
-    apply (inst_existentials "xs @ [z]")
-    apply (force intro: steps_append_single)
-    by (cases xs; auto)+
-qed
-
-lemma reachable_cycle_iff:
-  "(\<exists> ws. steps (s\<^sub>0 # ws @ [x] @ xs @ [x])) \<longleftrightarrow> reachable x \<and> steps ([x] @ xs @ [x])"
-proof (safe, goal_cases)
-  case (1 ws)
-  then have "steps ((s\<^sub>0 # ws @ [x]) @ (xs @ [x]))"
-    by simp
-  then have "steps (s\<^sub>0 # ws @ [x])"
-    by (blast dest: stepsD)
-  then show ?case
-    by (auto intro: steps_reachable stepsD)
-next
-  case (2 ws)
-  then show ?case by (auto dest: stepsD)
-next
-  case prems: 3
-  show ?case
-  proof (cases "s\<^sub>0 = x")
-    case True
-    with prems show ?thesis
-      by (inst_existentials xs) (frule steps_append, assumption, auto)
-  next
-    case False
-    from reachable_steps[OF \<open>reachable x\<close>] obtain ws where
-      "steps ws" "hd ws = s\<^sub>0" "last ws = x"
-      by auto
-    with \<open>_ \<noteq> x\<close> obtain us where "ws = s\<^sub>0 # us @ [x]"
-      apply atomize_elim
-      apply (cases ws)
-       apply (simp; fail)
-      subgoal for a ws'
-        by (inst_existentials "butlast ws'") auto
-      done
-    with \<open>steps ws\<close> prems show ?thesis
-      by (inst_existentials us) (drule steps_append, assumption, auto)
-  qed
-qed
-
-end (* Graph Start Defs *)
-
 
 subsection \<open>Lists\<close>
 
@@ -473,10 +322,6 @@ subsection \<open>Orders\<close>
 locale Order_Defs =
   fixes less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50)
 begin
-
-(* XXX Clean *)
-no_notation dbm_le ("_ \<preceq> _" [51, 51] 50)
-no_notation dbm_lt ("_ \<prec> _" [51, 51] 50)
 
 definition less (infix "\<prec>" 50) where
   "a \<prec> b \<equiv> a \<noteq> b \<and> a \<preceq> b"
