@@ -531,7 +531,7 @@ sublocale G: Graph_Start_Defs RE s\<^sub>0 .
 
 sublocale G': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<prec> y \<and> RE\<^sup>*\<^sup>* s\<^sub>0 y)" s\<^sub>0 .
 
-sublocale G'': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<preceq> y \<and> E\<^sup>*\<^sup>* s\<^sub>0 y)" s\<^sub>0 .
+(* sublocale G'': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<preceq> y \<and> E\<^sup>*\<^sup>* s\<^sub>0 y)" s\<^sub>0 . *)
 
 end (* Subsumption Graph Defs *)
 
@@ -580,29 +580,6 @@ locale Liveness_Compatible_Subsumption_Graph = Reachability_Compatible_Subsumpti
 
 section \<open>Reachability\<close>
 
-context Subsumption_Graph_Pre
-begin
-
-lemma steps_mono:
-  assumes "steps (x # xs)" "x \<preceq> y" "reachable x" "reachable y"
-  shows "\<exists> ys. steps (y # ys) \<and> list_all2 (op \<preceq>) xs ys"
-  using assms
-proof (induction "x # xs" arbitrary: x y xs)
-  case (Single x)
-  then show ?case by auto
-next
-  case (Cons x y xs x')
-  from mono[OF \<open>x \<preceq> x'\<close> \<open>E x y\<close>] Cons.prems obtain y' where "E x' y'" "y \<preceq> y'"
-    by auto
-  with Cons.hyps(3)[OF \<open>y \<preceq> y'\<close>] \<open>E x y\<close> Cons.prems obtain ys where
-    "steps (y' # ys)" "list_all2 op \<preceq> xs ys"
-    by auto
-  with \<open>E x' y'\<close> \<open>y \<preceq> y'\<close> show ?case
-    by auto
-qed
-
-end (* Subsumption Graph Pre *)
-
 context Reachability_Compatible_Subsumption_Graph
 begin
 
@@ -642,18 +619,22 @@ lemma G'_reachability_sound[intro]:
   by (induction;
       blast intro: rtranclp.intros(2) G_reachability_sound[unfolded reachable_def G.reachable_def])
 
-lemma G'_reachable_G_reachable[intro]:
+lemma (in Subsumption_Graph_Defs) G'_reachable_G_reachable[intro]:
   "G.reachable a" if "G'.reachable a"
   using that unfolding G'.reachable_def G.reachable_def
   by (induction; blast intro: rtranclp.intros(2))
 
-lemma G'_finite_reachable: "finite {a. G'.reachable a}"
-  by (blast intro: finite_subset[OF _ finite_reachable])
-
-lemma G_reachable_G'_reachable[intro]:
+lemma (in Subsumption_Graph_Defs) G_reachable_G'_reachable[intro]:
   "G'.reachable a" if "G.reachable a"
   using that unfolding G'.reachable_def G.reachable_def
   by (induction; blast intro: rtranclp.intros(2))
+
+lemma (in Subsumption_Graph_Defs) G_G'_reachable_iff:
+  "G.reachable a \<longleftrightarrow> G'.reachable a"
+  by blast
+
+lemma G'_finite_reachable: "finite {a. G'.reachable a}"
+  by (blast intro: finite_subset[OF _ finite_reachable])
 
 lemma reachable_has_surrogate':
   "\<exists> t xs. G'.steps xs \<and> xs \<noteq> [] \<and> hd xs = s \<and> last xs = t \<and> s \<preceq> t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')"
@@ -835,168 +816,6 @@ next
     done
 qed
 
-lemma cycle_G'_cycle:
-  assumes "steps (x # xs @ [x])" "G.reachable x"
-  shows "\<exists> y ys. x \<preceq> y \<and> G'.steps (y # ys @ [y]) \<and> G'.reachable y"
-proof -
-  let ?n  = "card {x. G'.reachable x} + 1"
-  let ?xs = "x # concat (replicate ?n (xs @ [x]))"
-  from steps_replicate[of "x # xs @ [x]" ?n] assms(1) have "steps ?xs"
-    by auto
-  from steps_G'_steps[OF this, of x] \<open>G.reachable x\<close> obtain ys ns where ys:
-    "list_all2 op \<preceq> (concat (replicate ?n (xs @ [x]))) (sublist ys ns)" "G'.steps (x # ys)"
-    by auto
-  let ?ys = "filter (op \<preceq> x) ys"
-  have "length ?ys \<ge> ?n"
-    using list_all2_replicate_elem_filter[OF ys(1), of x]
-    using filter_sublist_length[of "(op \<preceq> x)" ys ns]
-    by auto
-  have "set ?ys \<subseteq> set ys"
-    by auto
-  also have "\<dots> \<subseteq> {x. G'.reachable x}"
-    using \<open>G'.steps _\<close> \<open>G.reachable x\<close>
-    by clarsimp (rule G'.reachable_steps_elem[rotated], assumption, auto)
-  finally have "\<not> distinct ?ys"
-    using distinct_card[of ?ys] \<open>_ >= ?n\<close>
-    by - (rule ccontr; drule distinct_length_le[OF G'_finite_reachable]; simp)
-  from not_distinct_decomp[OF this] obtain as y bs cs where "?ys = as @ [y] @ bs @ [y] @ cs"
-    by auto
-  then obtain as' bs' cs' where
-    "ys = as' @ [y] @ bs' @ [y] @ cs'"
-    apply atomize_elim
-    apply simp
-    apply (drule filter_eq_appendD filter_eq_ConsD filter_eq_appendD[OF sym], clarify)+
-    apply clarsimp
-    subgoal for as1 as2 bs1 bs2 cs'
-      by (inst_existentials "as1 @ as2" "bs1 @ bs2") simp
-    done
-  with \<open>G'.steps _\<close> have "G'.steps (y # bs' @ [y])"
-  proof -
-    (* XXX Decision procedure? *)
-    from \<open>G'.steps (x # ys)\<close> \<open>ys = _\<close> have "G'.steps (x # as' @ (y # bs' @ [y]) @ cs')"
-      by auto
-    then show ?thesis
-      by - ((simp; fail) | drule G'.steps_ConsD G'.steps_appendD1 G'.steps_appendD2)+
-  qed
-  moreover have "G'.reachable y"
-  proof -
-    (* XXX Decision procedure? *)
-    from \<open>G'.steps (x # ys)\<close> \<open>ys = _\<close> have "G'.steps ((x # as' @ [y]) @ bs' @ y # cs')"
-      by auto
-    from G'.steps_appendD1[OF this] have "G'.steps (x # as' @ [y])"
-      by simp
-    with \<open>G.reachable x\<close> show ?thesis
-      by - (rule G'.reachable_steps_append, auto)
-  qed
-  moreover from \<open>?ys = _\<close> have "x \<preceq> y"
-  proof -
-    from \<open>?ys = _\<close> have "y \<in> set ?ys" by auto
-    then show ?thesis by auto
-  qed
-  ultimately show ?thesis by auto
-qed
-
-lemma cycle_G'_cycle':
-  assumes "steps (s\<^sub>0 # ws @ x # xs @ [x])"
-  shows "\<exists> y ys. x \<preceq> y \<and> G'.steps (y # ys @ [y]) \<and> G'.reachable y"
-proof -
-  let ?n  = "card {x. G'.reachable x} + 1"
-  let ?xs = "x # concat (replicate ?n (xs @ [x]))"
-  from assms(1) have "steps (x # xs @ [x])"
-    by (auto dest: stepsD)
-  with steps_replicate[of "x # xs @ [x]" ?n] have "steps ?xs"
-    by auto
-  then have "steps (s\<^sub>0 # ws @ ?xs)"
-  proof -
-    from assms have "steps ((s\<^sub>0 # ws @ [x]) @ xs @ [x])"
-      by auto
-    then have "steps (s\<^sub>0 # ws @ [x])"
-      by (fastforce dest: stepsD)
-    from steps_append[OF this \<open>steps ?xs\<close>] show ?thesis
-      by auto
-  qed
-  from steps_G'_steps[OF this, of s\<^sub>0] obtain ys ns where ys:
-    "list_all2 op \<preceq> (ws @ x # concat (replicate ?n (xs @ [x]))) (sublist ys ns)"
-    "G'.steps (s\<^sub>0 # ys)"
-    by auto
-  then obtain x' ys' ns' where ys':
-    "G'.steps (x' # ys')" "G'.reachable x'"
-    "list_all2 op \<preceq> (concat (replicate ?n (xs @ [x]))) (sublist ys' ns')"
-    apply atomize_elim
-    apply auto
-    apply (subst (asm) list_all2_append1)
-    apply safe
-    apply (subst (asm) list_all2_Cons1)
-    apply safe
-    apply (drule sublist_eq_appendD)
-    apply safe
-    apply (drule sublist_eq_ConsD)
-    apply safe
-    subgoal for ys1 ys2 z ys3 ys4 ys5 ys6 ys7 i
-      apply (inst_existentials z ys7)
-      subgoal
-        by (auto dest: G'.stepsD)
-      subgoal premises prems
-      proof -
-        from prems have "G'.steps ((s\<^sub>0 # ys4 @ ys6 @ [z]) @ ys7)"
-          by auto
-        then have "G'.steps (s\<^sub>0 # ys4 @ ys6 @ [z])"
-          by (fastforce dest: G'.stepsD)
-        then show ?thesis
-          by - (rule G'.reachable_steps_elem, auto)
-      qed
-      by force
-    done
-  let ?ys = "filter (op \<preceq> x) ys'"
-  have "length ?ys \<ge> ?n"
-    using list_all2_replicate_elem_filter[OF ys'(3), of x]
-    using filter_sublist_length[of "(op \<preceq> x)" ys' ns']
-    by auto
-  have "set ?ys \<subseteq> set ys'"
-    by auto
-  also have "\<dots> \<subseteq> {x. G'.reachable x}"
-    using \<open>G'.steps (x' # _)\<close> \<open>G'.reachable x'\<close>
-    by clarsimp (rule G'.reachable_steps_elem[rotated], assumption, auto)
-  finally have "\<not> distinct ?ys"
-    using distinct_card[of ?ys] \<open>_ >= ?n\<close>
-    by - (rule ccontr; drule distinct_length_le[OF G'_finite_reachable]; simp)
-  from not_distinct_decomp[OF this] obtain as y bs cs where "?ys = as @ [y] @ bs @ [y] @ cs"
-    by auto
-  then obtain as' bs' cs' where
-    "ys' = as' @ [y] @ bs' @ [y] @ cs'"
-    apply atomize_elim
-    apply simp
-    apply (drule filter_eq_appendD filter_eq_ConsD filter_eq_appendD[OF sym], clarify)+
-    apply clarsimp
-    subgoal for as1 as2 bs1 bs2 cs'
-      by (inst_existentials "as1 @ as2" "bs1 @ bs2") simp
-    done
-  have "G'.steps (y # bs' @ [y])"
-  proof -
-    (* XXX Decision procedure? *)
-    from \<open>G'.steps (x' # _)\<close> \<open>ys' = _\<close> have "G'.steps (x' # as' @ (y # bs' @ [y]) @ cs')"
-      by auto
-    then show ?thesis
-      by - ((simp; fail) | drule G'.stepsD)+
-  qed
-  moreover have "G'.reachable y"
-  proof -
-    (* XXX Decision procedure? *)
-    from \<open>G'.steps (x' # ys')\<close> \<open>ys' = _\<close> have "G'.steps ((x' # as' @ [y]) @ bs' @ y # cs')"
-      by auto
-    from G'.steps_appendD1[OF this] have "G'.steps (x' # as' @ [y])"
-      by simp
-    with \<open>G'.reachable x'\<close> show ?thesis
-      by - (rule G'.reachable_steps_append, auto)
-  qed
-  moreover from \<open>?ys = _\<close> have "x \<preceq> y"
-  proof -
-    from \<open>?ys = _\<close> have "y \<in> set ?ys" by auto
-    then show ?thesis by auto
-  qed
-  ultimately show ?thesis by auto
-qed
-
 lemma cycle_G'_cycle'':
   assumes "steps (s\<^sub>0 # ws @ x # xs @ [x])"
   shows "\<exists> x' xs' ys'. x \<preceq> x' \<and> G'.steps (s\<^sub>0 # xs' @ x' # ys' @ [x'])"
@@ -1101,6 +920,30 @@ proof -
     by (inst_existentials y "ws' @ x' # as'" bs') (auto dest: G'.steps_append)
 qed
 
+lemma cycle_G'_cycle':
+  assumes "steps (s\<^sub>0 # ws @ x # xs @ [x])"
+  shows "\<exists> y ys. x \<preceq> y \<and> G'.steps (y # ys @ [y]) \<and> G'.reachable y"
+proof -
+  from cycle_G'_cycle''[OF assms] obtain x' xs' ys' where
+    "x \<preceq> x'" "G'.steps (s\<^sub>0 # xs' @ x' # ys' @ [x'])"
+    by auto
+  then show ?thesis
+    by (inst_existentials x' ys') (auto dest: G'.stepsD intro: G'.steps_reachable)
+qed
+
+lemma cycle_G'_cycle:
+  assumes "steps (x # xs @ [x])" "G.reachable x"
+  shows "\<exists> y ys. x \<preceq> y \<and> G'.steps (y # ys @ [y]) \<and> G'.reachable y"
+proof -
+  from steps_append[OF assms(1) assms(1)] have *: "steps (x # xs @ x # xs @ [x])"
+    by simp
+  from reachable_steps[of x] assms(2) obtain ws where "steps ws" "hd ws = s\<^sub>0" "last ws = x"
+    by auto
+  with steps_append[OF this(1) *] obtain us where "steps (s\<^sub>0 # (us @ xs) @ x # xs @ [x])"
+    by (cases ws; auto)
+  from cycle_G'_cycle'[OF this] show ?thesis .
+qed
+
 corollary G'_reachability_complete:
   "\<exists> s'. s \<preceq> s' \<and> G.reachable s'" if "G'.reachable s"
   using reachability_complete that by auto
@@ -1111,8 +954,48 @@ corollary (in Reachability_Compatible_Subsumption_Graph_Final) reachability_corr
   "(\<exists> s'. reachable s' \<and> F s') \<longleftrightarrow> (\<exists> s'. G.reachable s' \<and> F s')"
   using reachability_complete by blast
 
+
+section \<open>Liveness\<close>
+
+theorem (in Liveness_Compatible_Subsumption_Graph) cycle_iff:
+  "(\<exists> x xs. steps   (x # xs @ [x]) \<and> reachable x   \<and> F x) \<longleftrightarrow>
+   (\<exists> x xs. G.steps (x # xs @ [x]) \<and> G.reachable x \<and> F x)"
+proof (safe, goal_cases)
+  -- \<open>steps \<open>\<rightarrow>\<close> G.steps\<close>
+  case prems: (1 x xs)
+  with reachable_cycle_iff[of x xs] obtain ws where
+    "steps (s\<^sub>0 # ws @ x # xs @ [x])"
+    by auto
+  from cycle_G'_cycle'[OF this] obtain y ys where
+    "x \<preceq> y" "G'.steps (y # ys @ [y])" "G'.reachable y"
+    by auto
+  with \<open>F x\<close> show ?case
+    by (auto intro: no_subsumption_cycle)
+qed auto
+
+
+section \<open>Appendix\<close>
+
 context Subsumption_Graph_Pre
 begin
+
+lemma steps_mono:
+  assumes "steps (x # xs)" "x \<preceq> y" "reachable x" "reachable y"
+  shows "\<exists> ys. steps (y # ys) \<and> list_all2 (op \<preceq>) xs ys"
+  using assms
+proof (induction "x # xs" arbitrary: x y xs)
+  case (Single x)
+  then show ?case by auto
+next
+  case (Cons x y xs x')
+  from mono[OF \<open>x \<preceq> x'\<close> \<open>E x y\<close>] Cons.prems obtain y' where "E x' y'" "y \<preceq> y'"
+    by auto
+  with Cons.hyps(3)[OF \<open>y \<preceq> y'\<close>] \<open>E x y\<close> Cons.prems obtain ys where
+    "steps (y' # ys)" "list_all2 op \<preceq> xs ys"
+    by auto
+  with \<open>E x' y'\<close> \<open>y \<preceq> y'\<close> show ?case
+    by auto
+qed
 
 lemma steps_append_subsumption:
   assumes "steps (x # xs)" "steps (y # ys)" "y \<preceq> last (x # xs)" "reachable x" "reachable y"
@@ -1249,24 +1132,57 @@ end (* Finite Reachable Subgraph *)
 end (* Subsumption Graph Pre *)
 
 
-section \<open>Liveness\<close>
+context Subsumption_Graph_Defs
+begin
 
-theorem (in Liveness_Compatible_Subsumption_Graph) cycle_iff:
-  "(\<exists> x xs. steps   (x # xs @ [x]) \<and> reachable x   \<and> F x) \<longleftrightarrow>
-   (\<exists> x xs. G.steps (x # xs @ [x]) \<and> G.reachable x \<and> F x)"
-proof (safe, goal_cases)
-  -- \<open>steps \<open>\<rightarrow>\<close> G.steps\<close>
-  case prems: (1 x xs)
-  with reachable_cycle_iff[of x xs] obtain ws where
-    "steps (s\<^sub>0 # ws @ x # xs @ [x])"
-    by auto
-  from cycle_G'_cycle'[OF this] obtain y ys where
-    "x \<preceq> y" "G'.steps (y # ys @ [y])" "G'.reachable y"
-    by auto
-  with \<open>F x\<close> show ?case
-    by (auto intro: no_subsumption_cycle)
-qed auto
+sublocale G'': Graph_Start_Defs "\<lambda> x y. \<exists> z. G.reachable z \<and> x \<preceq> z \<and> RE z y" s\<^sub>0 .
 
+lemma G''_reachable_G'[intro]:
+  "G'.reachable x" if "G''.reachable x"
+  using that
+  unfolding G'.reachable_def G''.reachable_def G_G'_reachable_iff Graph_Start_Defs.reachable_def
+proof (induction)
+  case base
+  then show ?case
+    by blast
+next
+  case (step y z)
+  then obtain z' where
+    "RE\<^sup>*\<^sup>* s\<^sub>0 z'" "y \<preceq> z'" "RE z' z"
+    by auto
+  from this(1) have "(\<lambda>x y. RE x y \<or> x \<prec> y \<and> RE\<^sup>*\<^sup>* s\<^sub>0 y)\<^sup>*\<^sup>* s\<^sub>0 z'"
+    by (induction; blast intro: rtranclp.intros(2))
+  with \<open>RE z' z\<close> show ?case
+    by (blast intro: rtranclp.intros(2))
+qed
+
+end (* Subsumption Graph Defs *)
+
+locale Reachability_Compatible_Subsumption_Graph_Total = Reachability_Compatible_Subsumption_Graph +
+  assumes total: "reachable a \<Longrightarrow> reachable b \<Longrightarrow> a \<preceq> b \<or> b \<preceq> a"
+begin
+
+sublocale G''_pre: Subsumption_Graph_Pre "op \<preceq>" "\<lambda> x y. \<exists> z. G.reachable z \<and> x \<preceq> z \<and> RE z y"
+proof (standard, safe, goal_cases)
+  case prems: (1 a b a' z)
+  show ?case
+  proof (cases "b \<preceq> z")
+    case True
+    with prems show ?thesis
+      by auto
+  next
+    case False
+    with total[of b z] prems have "z \<preceq> b"
+      by auto
+    with subsumption_step[of z a' b] prems obtain a'' b' where
+      "b \<preceq> a''" "a' \<preceq> b'" "RE a'' b'" "G.reachable a''"
+      by auto
+    then show ?thesis
+      by (inst_existentials b' a'') auto
+  qed
+qed
+
+end (* Reachability Compatible Subsumption Graph Total *)
 
 section \<open>Old Material\<close>
 
@@ -1363,13 +1279,7 @@ next
   case (Cons x y xs)
   from subsumption_step[OF \<open>reachable x\<close> \<open>E _ _\<close> \<open>G.reachable b\<close> \<open>x \<preceq> b\<close>] guess b' y' by clarify
   with Cons obtain y'' ys where "list_all2 op \<preceq> xs ys" "G.steps (y'' # ys)" "y' \<preceq> y''"
-    by fastforce
-  with \<open>RE _ _\<close> \<open>y \<preceq> y'\<close> show ?case
-    apply (inst_existentials b' "y'' # ys")
-     apply auto
-      apply rule
-oops
-
+    oops
 
 (* XXX Does this hold? *)
 theorem run_complete':
