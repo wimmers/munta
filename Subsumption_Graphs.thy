@@ -83,7 +83,7 @@ lemma reachable_steps_append:
   using assms unfolding reachable_def
   by (induction xs arbitrary: a; force intro: rtranclp.rtrancl_into_rtrancl elim: steps.cases)
 
-lemmas steps_reachable = reachable_steps_append[of s\<^sub>0]
+lemmas steps_reachable = reachable_steps_append[of s\<^sub>0, simplified]
 
 lemma reachable_steps_elem:
   "reachable y" if "reachable x" "steps xs" "y \<in> set xs" "hd xs = x"
@@ -335,6 +335,52 @@ next
     done
 qed
 
+lemma filter_sublist_length:
+  "length (filter P (sublist xs I)) \<le> length (filter P xs)"
+proof (induction xs arbitrary: I)
+  case Nil
+  then show ?case
+    by simp
+next
+  case Cons
+  then show ?case
+  (* Found by sledgehammer *)
+  proof -
+    fix a :: 'a and xsa :: "'a list" and Ia :: "nat set"
+    assume a1: "\<And>I. length (filter P (sublist xsa I)) \<le> length (filter P xsa)"
+    have f2:
+      "\<forall>b bs N. if 0 \<in> N then sublist ((b::'a) # bs) N =
+        [b] @ sublist bs {n. Suc n \<in> N} else sublist (b # bs) N = [] @ sublist bs {n. Suc n \<in> N}"
+      by (simp add: sublist_Cons)
+    have f3:
+      "sublist (a # xsa) Ia = [] @ sublist xsa {n. Suc n \<in> Ia}
+        \<longrightarrow> length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P xsa)"
+      using a1 by (metis append_Nil)
+    have f4: "length (filter P (sublist xsa {n. Suc n \<in> Ia})) + 0 \<le> length (filter P xsa) + 0"
+      using a1 by simp
+    have f5:
+      "Suc (length (filter P (sublist xsa {n. Suc n \<in> Ia})) + 0)
+      = length (a # filter P (sublist xsa {n. Suc n \<in> Ia}))"
+      by force
+    have f6: "Suc (length (filter P xsa) + 0) = length (a # filter P xsa)"
+      by simp
+    { assume "\<not> length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
+      { assume "sublist (a # xsa) Ia \<noteq> [a] @ sublist xsa {n. Suc n \<in> Ia}"
+        moreover
+        { assume
+            "sublist (a # xsa) Ia = [] @ sublist xsa {n. Suc n \<in> Ia}
+            \<and> length (filter P (a # xsa)) \<le> length (filter P xsa)"
+          then have "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
+            using a1 by (metis (no_types) append_Nil filter.simps(2) impossible_Cons) }
+        ultimately have "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
+          using f3 f2 by (meson dual_order.trans le_cases) }
+      then have "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
+        using f6 f5 f4 a1 by (metis Suc_le_mono append_Cons append_Nil filter.simps(2)) }
+    then show "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
+      by meson
+  qed
+qed
+
 
 subsection \<open>Transitive Closure\<close>
 
@@ -454,6 +500,10 @@ locale Partial_Order = Pre_Order +
   assumes antisym[simp]: "a \<preceq> b \<Longrightarrow> b \<preceq> a \<Longrightarrow> a = b"
 begin
 
+(* XXX *)
+sublocale order "op \<preceq>" "op \<prec>"
+  by standard (auto simp: less_def)
+
 lemma less_trans[intro, trans]:
   "x \<prec> z" if "x \<prec> y" "y \<prec> z" for x y z
   using that unfolding less_def by auto
@@ -463,14 +513,19 @@ end (* Partial Order *)
 
 subsection \<open>Definitions Subsumption Graphs\<close>
 
-(* XXX Merge with Worklist locales *)
-locale Subsumption_Graph_Defs = Order_Defs +
+locale Subsumption_Graph_Pre_Defs = Order_Defs +
   fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>The full edge set\<close>
-    and RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subgraph of the graph given by the full edge set\<close>
     and s\<^sub>0 :: 'a                 -- \<open>Start state\<close>
 begin
 
 sublocale Graph_Start_Defs E s\<^sub>0 .
+
+end
+
+(* XXX Merge with Worklist locales *)
+locale Subsumption_Graph_Defs = Subsumption_Graph_Pre_Defs +
+  fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subgraph of the graph given by the full edge set\<close>
+begin
 
 sublocale G: Graph_Start_Defs RE s\<^sub>0 .
 
@@ -481,28 +536,28 @@ sublocale G'': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<preceq> y \<an
 end (* Subsumption Graph Defs *)
 
 
-locale Reachability_Compatible_Subsumption_Graph = Subsumption_Graph_Defs + Partial_Order +
+locale Subsumption_Graph_Pre = Subsumption_Graph_Pre_Defs + Partial_Order +
+  assumes mono:
+    "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
+
+locale Reachability_Compatible_Subsumption_Graph = Subsumption_Graph_Defs + Subsumption_Graph_Pre +
   assumes reachability_compatible:
     "\<forall> s. G.reachable s \<longrightarrow> (\<forall> s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists> t. s \<prec> t \<and> G.reachable t)"
   assumes subgraph: "\<forall> s s'. RE s s' \<longrightarrow> E s s'"
   assumes finite_reachable: "finite {a. G.reachable a}"
-  assumes mono:
-    "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
 
 locale Subsumption_Graph_View_Defs = Subsumption_Graph_Defs +
   fixes SE ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subsumption edges\<close>
     and covered :: "'a \<Rightarrow> bool"
 
 locale Reachability_Compatible_Subsumption_Graph_View =
-  Subsumption_Graph_View_Defs + Partial_Order +
+  Subsumption_Graph_View_Defs + Subsumption_Graph_Pre +
   assumes reachability_compatible:
     "\<forall> s. G.reachable s \<longrightarrow>
       (if covered s then (\<exists> t. SE s t \<and> G.reachable t) else (\<forall> s'. E s s' \<longrightarrow> RE s s'))"
   assumes subsumption: "\<forall> s'. SE s s' \<longrightarrow> s \<prec> s'"
   assumes subgraph: "\<forall> s s'. RE s s' \<longrightarrow> E s s'"
   assumes finite_reachable: "finite {a. G.reachable a}"
-  assumes mono:
-    "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
 begin
 
 sublocale Reachability_Compatible_Subsumption_Graph
@@ -524,6 +579,29 @@ locale Liveness_Compatible_Subsumption_Graph = Reachability_Compatible_Subsumpti
     "G'.reachable x \<Longrightarrow> G'.steps (x # xs @ [x]) \<Longrightarrow> G.steps (x # xs @ [x])"
 
 section \<open>Reachability\<close>
+
+context Subsumption_Graph_Pre
+begin
+
+lemma steps_mono:
+  assumes "steps (x # xs)" "x \<preceq> y" "reachable x" "reachable y"
+  shows "\<exists> ys. steps (y # ys) \<and> list_all2 (op \<preceq>) xs ys"
+  using assms
+proof (induction "x # xs" arbitrary: x y xs)
+  case (Single x)
+  then show ?case by auto
+next
+  case (Cons x y xs x')
+  from mono[OF \<open>x \<preceq> x'\<close> \<open>E x y\<close>] Cons.prems obtain y' where "E x' y'" "y \<preceq> y'"
+    by auto
+  with Cons.hyps(3)[OF \<open>y \<preceq> y'\<close>] \<open>E x y\<close> Cons.prems obtain ys where
+    "steps (y' # ys)" "list_all2 op \<preceq> xs ys"
+    by auto
+  with \<open>E x' y'\<close> \<open>y \<preceq> y'\<close> show ?case
+    by auto
+qed
+
+end (* Subsumption Graph Pre *)
 
 context Reachability_Compatible_Subsumption_Graph
 begin
@@ -755,52 +833,6 @@ next
     subgoal
       by (cases as) auto
     done
-qed
-
-lemma filter_sublist_length:
-  "length (filter P (sublist xs I)) \<le> length (filter P xs)"
-proof (induction xs arbitrary: I)
-  case Nil
-  then show ?case
-    by simp
-next
-  case Cons
-  then show ?case
-  (* Found by sledgehammer *)
-  proof -
-    fix a :: 'b and xsa :: "'b list" and Ia :: "nat set"
-    assume a1: "\<And>I. length (filter P (sublist xsa I)) \<le> length (filter P xsa)"
-    have f2:
-      "\<forall>b bs N. if 0 \<in> N then sublist ((b::'b) # bs) N =
-        [b] @ sublist bs {n. Suc n \<in> N} else sublist (b # bs) N = [] @ sublist bs {n. Suc n \<in> N}"
-      by (simp add: sublist_Cons)
-    have f3:
-      "sublist (a # xsa) Ia = [] @ sublist xsa {n. Suc n \<in> Ia}
-        \<longrightarrow> length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P xsa)"
-      using a1 by (metis append_Nil)
-    have f4: "length (filter P (sublist xsa {n. Suc n \<in> Ia})) + 0 \<le> length (filter P xsa) + 0"
-      using a1 by simp
-    have f5:
-      "Suc (length (filter P (sublist xsa {n. Suc n \<in> Ia})) + 0)
-      = length (a # filter P (sublist xsa {n. Suc n \<in> Ia}))"
-      by force
-    have f6: "Suc (length (filter P xsa) + 0) = length (a # filter P xsa)"
-      by simp
-    { assume "\<not> length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
-      { assume "sublist (a # xsa) Ia \<noteq> [a] @ sublist xsa {n. Suc n \<in> Ia}"
-        moreover
-        { assume
-            "sublist (a # xsa) Ia = [] @ sublist xsa {n. Suc n \<in> Ia}
-            \<and> length (filter P (a # xsa)) \<le> length (filter P xsa)"
-          then have "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
-            using a1 by (metis (no_types) append_Nil filter.simps(2) impossible_Cons) }
-        ultimately have "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
-          using f3 f2 by (meson dual_order.trans le_cases) }
-      then have "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
-        using f6 f5 f4 a1 by (metis Suc_le_mono append_Cons append_Nil filter.simps(2)) }
-    then show "length (filter P (sublist (a # xsa) Ia)) \<le> length (filter P (a # xsa))"
-      by meson
-  qed
 qed
 
 lemma cycle_G'_cycle:
@@ -1069,41 +1101,158 @@ proof -
     by (inst_existentials y "ws' @ x' # as'" bs') (auto dest: G'.steps_append)
 qed
 
-(* XXX Move to different context *)
-lemma steps_mono:
-  assumes "steps (x # xs)" "x \<preceq> y" "reachable x" "reachable y"
-  shows "\<exists> ys. steps (y # ys) \<and> list_all2 (op \<preceq>) xs ys"
-  using assms
-proof (induction "x # xs" arbitrary: x y xs)
-  case (Single x)
-  then show ?case by auto
-next
-  case (Cons x y xs x')
-  from mono[OF \<open>x \<preceq> x'\<close> \<open>E x y\<close>] Cons.prems obtain y' where "E x' y'" "y \<preceq> y'"
-    by auto
-  with Cons.hyps(3)[OF \<open>y \<preceq> y'\<close>] \<open>E x y\<close> Cons.prems obtain ys where
-    "steps (y' # ys)" "list_all2 op \<preceq> xs ys"
-    by auto
-  with \<open>E x' y'\<close> \<open>y \<preceq> y'\<close> show ?case
-    by auto
-qed
-
 corollary G'_reachability_complete:
   "\<exists> s'. s \<preceq> s' \<and> G.reachable s'" if "G'.reachable s"
   using reachability_complete that by auto
 
 end (* Reachability Compatible Subsumption Graph *)
 
-
 corollary (in Reachability_Compatible_Subsumption_Graph_Final) reachability_correct:
   "(\<exists> s'. reachable s' \<and> F s') \<longleftrightarrow> (\<exists> s'. G.reachable s' \<and> F s')"
   using reachability_complete by blast
+
+context Subsumption_Graph_Pre
+begin
+
+lemma steps_append_subsumption:
+  assumes "steps (x # xs)" "steps (y # ys)" "y \<preceq> last (x # xs)" "reachable x" "reachable y"
+  shows "\<exists> ys'. steps (x # xs @ ys') \<and> list_all2 op \<preceq> ys ys'"
+proof -
+  from assms have "reachable (last (x # xs))"
+    by - (rule reachable_steps_elem, auto)
+  from steps_mono[OF \<open>steps (y # ys)\<close> \<open>y \<preceq> _\<close> \<open>reachable y\<close> this] obtain ys' where
+    "steps (last (x # xs) # ys')" "list_all2 op \<preceq> ys ys'"
+    by auto
+  with steps_append[OF \<open>steps (x # xs)\<close> this(1)] show ?thesis
+    by auto
+qed
+
+lemma steps_replicate_subsumption:
+  assumes "x \<preceq> last (x # xs)" "steps (x # xs)" "n > 0" "reachable x"
+  shows "\<exists> ys. steps (x # ys) \<and> list_all2 (op \<preceq>) (concat (replicate n xs)) ys"
+  using assms
+proof (induction n)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  show ?case
+  proof (cases n)
+    case 0
+    with Suc.prems show ?thesis
+      by (inst_existentials xs) (auto intro: list_all2_refl)
+  next
+    case prems: (Suc n')
+    with Suc \<open>n = _\<close> obtain ys where ys:
+      "list_all2 op \<preceq> (concat (replicate n xs)) ys" "steps (x # ys)"
+      by auto
+    with \<open>n = _\<close> have "list_all2 op \<preceq> (concat (replicate n' xs) @ xs) ys"
+      by (metis append_Nil2 concat.simps(1,2) concat_append replicate_Suc replicate_append_same)
+    with \<open>x \<preceq> _\<close> have "x \<preceq> last (x # ys)"
+      by (cases xs; auto dest: list_all2_last split: if_split_asm simp: list_all2_Cons1)
+    from steps_append_subsumption[OF \<open>steps (x # ys)\<close> \<open>steps (x # xs)\<close> this] \<open>reachable x\<close> obtain
+      ys' where "steps (x # ys @ ys')" "list_all2 op \<preceq> xs ys'"
+      by auto
+    with ys(1) \<open>n = _\<close> show ?thesis
+      apply (inst_existentials "ys @ ys'")
+      by auto
+        (metis
+          append_Nil2 concat.simps(1,2) concat_append list_all2_appendI replicate_Suc
+          replicate_append_same
+        )
+  qed
+qed
+
+context
+  assumes finite_reachable: "finite {x. reachable x}"
+begin
+
+(* XXX Unused *)
+lemma wf_less_on_reachable_set:
+  "wf {(x, y). y \<prec> x \<and> reachable x \<and> reachable y}" (is "wf ?S")
+proof (rule finite_acyclic_wf)
+  have "?S \<subseteq> {(x, y). reachable x \<and> reachable y}"
+    by auto
+  also have "finite \<dots>"
+    using finite_reachable by auto
+  finally show "finite ?S" .
+next
+  show "acyclicP (\<lambda>x y. y \<prec> x \<and> reachable x \<and> reachable y)"
+    by (rule acyclicI_order[where f = id]) auto
+qed
+
+text \<open>
+  This shows that looking for cycles and pre-cycles is equivalent in monotone subsumption graphs.
+\<close>
+(* XXX Duplication -- cycle_G'_cycle'' *)
+lemma pre_cycle_cycle:
+  (* XXX Move to different locale *)
+  assumes A: "x \<preceq> x'" "steps (x # xs @ [x'])" "reachable x"
+  shows "\<exists> x'' ys. x' \<preceq> x'' \<and> steps (x'' # ys @ [x'']) \<and> reachable x''"
+proof -
+  let ?n  = "card {x. reachable x} + 1"
+  let ?xs = "concat (replicate ?n (xs @ [x']))"
+  from steps_replicate_subsumption[OF _ \<open>steps _\<close>, of ?n] \<open>reachable x\<close> \<open>x \<preceq> x'\<close> obtain ys where
+    "steps (x # ys)" "list_all2 (op \<preceq>) ?xs ys"
+    by auto
+  let ?ys = "filter (op \<preceq> x') ys"
+  have "length ?ys \<ge> ?n"
+    using list_all2_replicate_elem_filter[OF \<open>list_all2 (op \<preceq>) ?xs ys\<close>, of x']
+    by auto
+  have "set ?ys \<subseteq> set ys"
+    by auto
+  also have "\<dots> \<subseteq> {x. reachable x}"
+    using \<open>steps (x # ys)\<close> \<open>reachable x\<close>
+    by clarsimp (rule reachable_steps_elem[rotated], assumption, auto)
+  finally have "\<not> distinct ?ys"
+    using distinct_card[of ?ys] \<open>_ >= ?n\<close>
+    by - (rule ccontr; drule distinct_length_le[OF finite_reachable]; simp)
+  from not_distinct_decomp[OF this] obtain as y bs cs where "?ys = as @ [y] @ bs @ [y] @ cs"
+    by auto
+  then obtain as' bs' cs' where
+    "ys = as' @ [y] @ bs' @ [y] @ cs'"
+    apply atomize_elim
+    apply simp
+    apply (drule filter_eq_appendD filter_eq_ConsD filter_eq_appendD[OF sym], clarify)+
+    apply clarsimp
+    subgoal for as1 as2 bs1 bs2 cs'
+      by (inst_existentials "as1 @ as2" "bs1 @ bs2") simp
+    done
+  have "steps (y # bs' @ [y])"
+  proof -
+    (* XXX Decision procedure? *)
+    from \<open>steps (x # ys)\<close> \<open>ys = _\<close> have "steps (x # as' @ (y # bs' @ [y]) @ cs')"
+      by auto
+    then show ?thesis
+      by - ((simp; fail) | drule stepsD)+
+  qed
+  moreover have "reachable y"
+  proof -
+    from \<open>steps (x # ys)\<close> \<open>ys = _\<close> have "steps ((x # as' @ [y]) @ (bs' @ y # cs'))"
+      by simp
+    then have "steps (x # as' @ [y])"
+      by (blast dest: stepsD)
+    with \<open>reachable x\<close> show ?thesis
+      by (auto intro: reachable_steps_append)
+  qed
+  moreover from \<open>?ys = _\<close> have "x' \<preceq> y"
+  proof -
+    from \<open>?ys = _\<close> have "y \<in> set ?ys" by auto
+    then show ?thesis by auto
+  qed
+  ultimately show ?thesis
+    by auto
+qed
+
+end (* Finite Reachable Subgraph *)
+
+end (* Subsumption Graph Pre *)
 
 
 section \<open>Liveness\<close>
 
 theorem (in Liveness_Compatible_Subsumption_Graph) cycle_iff:
-  "(\<exists> x xs. steps (x # xs @ [x]) \<and> reachable x \<and> F x) \<longleftrightarrow>
+  "(\<exists> x xs. steps   (x # xs @ [x]) \<and> reachable x   \<and> F x) \<longleftrightarrow>
    (\<exists> x xs. G.steps (x # xs @ [x]) \<and> G.reachable x \<and> F x)"
 proof (safe, goal_cases)
   -- \<open>steps \<open>\<rightarrow>\<close> G.steps\<close>
