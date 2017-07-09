@@ -83,7 +83,7 @@ next
   then show ?case by (cases xs; auto elim: steps.cases)
 qed
 
-lemma steps_append_single:
+lemma steps_append_single[intro]:
   assumes
     "steps xs" "E (last xs) x" "xs \<noteq> []"
   shows "steps (xs @ [x])"
@@ -300,6 +300,77 @@ next
       by - (simp; simp add: **; rule steps_append; cases xs; auto)
   qed
 qed
+
+notation E ("_ \<rightarrow> _" [100, 100] 40)
+
+abbreviation reaches ("_ \<rightarrow>* _" [100, 100] 40) where "reaches x y \<equiv> E\<^sup>*\<^sup>* x y"
+
+abbreviation reaches1 ("_ \<rightarrow>\<^sup>+ _" [100, 100] 40) where "reaches1 x y \<equiv> E\<^sup>+\<^sup>+ x y"
+
+lemma steps_reaches:
+  "hd xs \<rightarrow>* last xs" if "steps xs"
+  using that by (induction xs) auto
+
+lemma reaches_steps:
+  "\<exists> xs. hd xs = x \<and> last xs = y \<and> steps xs" if "x \<rightarrow>* y"
+  using that
+  apply (induction)
+   apply force
+  apply clarsimp
+  subgoal for z xs
+    by (inst_existentials "xs @ [z]", (cases xs; simp), auto)
+  done
+
+lemma reaches_steps_iff:
+  "x \<rightarrow>* y \<longleftrightarrow> (\<exists> xs. hd xs = x \<and> last xs = y \<and> steps xs)"
+  using steps_reaches reaches_steps by fast
+
+lemma steps_reaches1:
+  "x \<rightarrow>\<^sup>+ y" if "steps (x # xs @ [y])"
+  by (metis list.sel(1,3) rtranclp_into_tranclp2 snoc_eq_iff_butlast steps.cases steps_reaches that)
+
+lemma stepsI[intro]:
+  "steps (x # xs)" if "x \<rightarrow> hd xs" "steps xs"
+  using that by (cases xs) auto
+
+lemma reaches1_steps:
+  "\<exists> xs. steps (x # xs @ [y])" if "x \<rightarrow>\<^sup>+ y"
+proof -
+  from that obtain z where "x \<rightarrow> z" "z \<rightarrow>* y"
+    by atomize_elim (simp add: tranclpD)
+  from reaches_steps[OF this(2)] obtain xs where *: "hd xs = z" "last xs = y" "steps xs"
+    by auto
+  then obtain xs' where [simp]: "xs = xs' @ [y]"
+    by (cases "xs = []", auto intro: append_butlast_last_id[symmetric])
+  with \<open>x \<rightarrow> z\<close> * show ?thesis
+    by auto
+qed
+
+lemma reaches1_steps_iff:
+  "x \<rightarrow>\<^sup>+ y \<longleftrightarrow> (\<exists> xs. steps (x # xs @ [y]))"
+  using steps_reaches1 reaches1_steps by fast
+
+lemma reaches1_reaches_iff1:
+  "x \<rightarrow>\<^sup>+ y \<longleftrightarrow> (\<exists> z. x \<rightarrow> z \<and> z \<rightarrow>* y)"
+  by (auto dest: tranclpD)
+
+lemma reaches1_reaches_iff2:
+  "x \<rightarrow>\<^sup>+ y \<longleftrightarrow> (\<exists> z. x \<rightarrow>* z \<and> z \<rightarrow> y)"
+  apply safe
+   apply (metis Nitpick.rtranclp_unfold tranclp.cases)
+  by auto
+
+lemma
+  "x \<rightarrow>\<^sup>+ z" if "x \<rightarrow>* y" "y \<rightarrow>\<^sup>+ z"
+  using that by auto
+
+lemma
+  "x \<rightarrow>\<^sup>+ z" if "x \<rightarrow>\<^sup>+ y" "y \<rightarrow>* z"
+  using that by auto
+
+lemma steps_append2:
+  "steps (xs @ x # ys)" if "steps (xs @ [x])" "steps (x # ys)"
+  using that by (auto dest: steps_append)
 
 end (* Graph Defs *)
 
