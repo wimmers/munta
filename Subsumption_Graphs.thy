@@ -10,6 +10,19 @@ section \<open>Preliminaries\<close>
 
 subsection \<open>Transitive Closure\<close>
 
+context
+  fixes R :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  assumes R_trans[intro]: "\<And> x y z. R x y \<Longrightarrow> R y z \<Longrightarrow> R x z"
+begin
+
+lemma rtranclp_transitive_compress1: "R a c" if "R a b" "R\<^sup>*\<^sup>* b c"
+  using that(2,1) by induction auto
+
+lemma rtranclp_transitive_compress2: "R a c" if "R\<^sup>*\<^sup>* a b" "R b c"
+  using that by induction auto
+
+end (* Transitivity *)
+
 (* XXX Move *)
 lemma rtranclp_ev_induct[consumes 1, case_names irrefl trans step]:
   fixes P :: "'a \<Rightarrow> bool" and R :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
@@ -18,12 +31,6 @@ lemma rtranclp_ev_induct[consumes 1, case_names irrefl trans step]:
   assumes step: "\<And> x. R\<^sup>*\<^sup>* a x \<Longrightarrow> P x \<or> (\<exists> y. R x y)"
   shows "\<exists> x. P x \<and> R\<^sup>*\<^sup>* a x"
 proof -
-  (* XXX Lemma *)
-  have trans_1: "R a c" if "R a b" "R\<^sup>*\<^sup>* b c" for a b c
-    using that(2,1) by induction auto
-  (* XXX Lemma *)
-  have trans_2: "R a c" if "R\<^sup>*\<^sup>* a b" "R b c" for a b c
-    using that by induction auto
   let ?S = "{y. R\<^sup>*\<^sup>* a y}"
   from reachable_finite have "finite ?S"
     by auto
@@ -50,7 +57,7 @@ proof -
         then obtain z where "R y z" by safe
         let ?T = "{y. R\<^sup>*\<^sup>* z y}"
         from \<open>R y z\<close> \<open>R\<^sup>*\<^sup>* a y\<close> have "\<not> R\<^sup>*\<^sup>* z a"
-          by (auto simp: R_irrefl dest: trans_1 trans_2)
+          by (auto simp: R_irrefl dest!: rtranclp_transitive_compress2[of R, rotated])
         then have "a \<notin> ?T" by auto
         moreover have "?T \<subseteq> ?S"
           using \<open>R\<^sup>*\<^sup>* a y\<close> \<open>R y z\<close> by auto
@@ -70,7 +77,7 @@ qed
 
 (* XXX Move *)
 lemma rtranclp_ev_induct2[consumes 2, case_names irrefl trans step]:
-  fixes P Q :: "'a \<Rightarrow> bool" and R :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  fixes P Q :: "'a \<Rightarrow> bool"
   assumes Q_finite: "finite {x. Q x}" and Q_witness: "Q a"
   assumes R_irrefl: "\<And> x. \<not> R x x" and R_trans[intro]: "\<And> x y z. R x y \<Longrightarrow> R y z \<Longrightarrow> R x z"
   assumes step: "\<And> x. Q x \<Longrightarrow> P x \<or> (\<exists> y. R x y \<and> Q y)"
