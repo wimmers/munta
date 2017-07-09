@@ -101,48 +101,10 @@ qed
 
 section \<open>Definitions\<close>
 
-subsection \<open>Orders\<close>
-
-locale Order_Defs =
-  fixes less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50)
-begin
-
-definition less (infix "\<prec>" 50) where
-  "a \<prec> b \<equiv> a \<noteq> b \<and> a \<preceq> b"
-
-lemma less_irrefl[intro, simp]:
-  "\<not> x \<prec> x"
-  unfolding less_def by auto
-
-lemma subsumes_strictly_subsumesI[intro]:
-  "a \<preceq> b" if "a \<prec> b"
-  using that unfolding less_def by auto
-
-end (* Order Defs *)
-
-
-locale Pre_Order = Order_Defs +
-  assumes refl[intro!, simp]:  "a \<preceq> a"
-      and trans[trans, intro]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
-
-locale Partial_Order = Pre_Order +
-  assumes antisym[simp]: "a \<preceq> b \<Longrightarrow> b \<preceq> a \<Longrightarrow> a = b"
-begin
-
-(* XXX *)
-sublocale order "op \<preceq>" "op \<prec>"
-  by standard (auto simp: less_def)
-
-lemma less_trans[intro, trans]:
-  "x \<prec> z" if "x \<prec> y" "y \<prec> z" for x y z
-  using that unfolding less_def by auto
-
-end (* Partial Order *)
-
-
 subsection \<open>Definitions Subsumption Graphs\<close>
 
-locale Subsumption_Graph_Pre_Defs = Order_Defs +
+locale Subsumption_Graph_Pre_Defs =
+  ord less_eq less for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
   fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>The full edge set\<close>
     and s\<^sub>0 :: 'a                 -- \<open>Start state\<close>
 begin
@@ -165,9 +127,14 @@ sublocale G': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<prec> y \<and> 
 end (* Subsumption Graph Defs *)
 
 
-locale Subsumption_Graph_Pre = Subsumption_Graph_Pre_Defs + Partial_Order +
+locale Subsumption_Graph_Pre = Subsumption_Graph_Pre_Defs + order less_eq less +
   assumes mono:
     "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
+begin
+
+lemmas [intro] = order.trans
+
+end (* Subsumption Graph Pre *)
 
 locale Reachability_Compatible_Subsumption_Graph = Subsumption_Graph_Defs + Subsumption_Graph_Pre +
   assumes reachability_compatible:
@@ -315,7 +282,8 @@ proof -
   from mono[OF \<open>a' \<preceq> a''\<close> \<open>E a' b'\<close>] \<open>G.reachable a'\<close> \<open>G.reachable a''\<close> obtain b'' where
     "E a'' b''" "b' \<preceq> b''"
     by auto
-  with * \<open>a' \<preceq> a''\<close> \<open>b \<preceq> b'\<close> \<open>G.reachable a''\<close> show ?thesis by auto
+  with * \<open>a' \<preceq> a''\<close> \<open>b \<preceq> b'\<close> \<open>G.reachable a''\<close> show ?thesis
+    by auto
 qed
 
 lemma subsumption_step':
@@ -333,7 +301,7 @@ proof -
     "E a'' b''" "b' \<preceq> b''"
     by auto
   with * \<open>a' \<preceq> a''\<close> \<open>b \<preceq> b'\<close> \<open>G'.reachable a''\<close> show ?thesis
-    by (inst_existentials b'' "xs @ [b'']") (auto intro: G'.steps_append_single)
+    by (inst_existentials b'' "xs @ [b'']") auto
 qed
 
 theorem reachability_complete':
@@ -396,7 +364,7 @@ corollary reachability_complete:
 
 corollary reachability_correct:
   "(\<exists> s'. s \<preceq> s' \<and> reachable s') \<longleftrightarrow> (\<exists> s'. s \<preceq> s' \<and> G.reachable s')"
-  using reachability_complete by blast
+  by (blast dest: reachability_complete)
 
 lemma G_steps_G'_steps[intro]:
   "G'.steps as" if "G.steps as"
@@ -791,7 +759,7 @@ locale Reachability_Compatible_Subsumption_Graph_Total = Reachability_Compatible
   assumes total: "reachable a \<Longrightarrow> reachable b \<Longrightarrow> a \<preceq> b \<or> b \<preceq> a"
 begin
 
-sublocale G''_pre: Subsumption_Graph_Pre "op \<preceq>" "\<lambda> x y. \<exists> z. G.reachable z \<and> x \<preceq> z \<and> RE z y"
+sublocale G''_pre: Subsumption_Graph_Pre "op \<preceq>" "op \<prec>" "\<lambda> x y. \<exists> z. G.reachable z \<and> x \<preceq> z \<and> RE z y"
 proof (standard, safe, goal_cases)
   case prems: (1 a b a' z)
   show ?case
@@ -815,7 +783,7 @@ end (* Reachability Compatible Subsumption Graph Total *)
 
 section \<open>Old Material\<close>
 
-locale Reachability_Compatible_Subsumption_Graph' = Subsumption_Graph_Defs + Partial_Order +
+locale Reachability_Compatible_Subsumption_Graph' = Subsumption_Graph_Defs + order "op \<preceq>" "op \<prec>" +
   assumes reachability_compatible:
     "\<forall> s. G.reachable s \<longrightarrow> (\<forall> s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists> t. s \<prec> t \<and> G.reachable t)"
   assumes subgraph: "\<forall> s s'. RE s s' \<longrightarrow> E s s'"
@@ -823,6 +791,8 @@ locale Reachability_Compatible_Subsumption_Graph' = Subsumption_Graph_Defs + Par
   assumes mono:
     "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> G.reachable b \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
 begin
+
+lemmas [intro] = order.trans
 
 lemma subgraph'[intro]:
   "E s s'" if "RE s s'"
