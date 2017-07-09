@@ -120,9 +120,20 @@ begin
 
 sublocale G: Graph_Start_Defs RE s\<^sub>0 .
 
-sublocale G': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<prec> y \<and> RE\<^sup>*\<^sup>* s\<^sub>0 y)" s\<^sub>0 .
+sublocale G': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<prec> y \<and> G.reachable y)" s\<^sub>0 .
 
-(* sublocale G'': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<preceq> y \<and> E\<^sup>*\<^sup>* s\<^sub>0 y)" s\<^sub>0 . *)
+abbreviation G'_E    ("_ \<rightarrow>\<^sub>G\<^sub>'* _" [100, 100] 40) where
+  "G'_E x y \<equiv> RE x y \<or> (x \<prec> y \<and> G.reachable y)"
+
+notation RE          ("_ \<rightarrow>\<^sub>G _"   [100, 100] 40)
+
+notation G.reaches   ("_ \<rightarrow>\<^sub>G* _"  [100, 100] 40)
+
+notation G.reaches1  ("_ \<rightarrow>\<^sub>G\<^sup>+ _"  [100, 100] 40)
+
+notation G'.reaches  ("_ \<rightarrow>\<^sub>G*' _" [100, 100] 40)
+
+notation G'.reaches1 ("_ \<rightarrow>\<^sub>G\<^sup>+' _" [100, 100] 40)
 
 end (* Subsumption Graph Defs *)
 
@@ -185,19 +196,41 @@ lemma subgraph'[intro]:
 
 lemma G_reachability_sound[intro]:
   "reachable a" if "G.reachable a"
-  using that unfolding reachable_def G.reachable_def by (induction; blast intro: rtranclp.intros(2))
+  using that by (induction; blast)
 
 lemma G_steps_sound[intro]:
   "steps xs" if "G.steps xs"
-  using that by induction auto
+  using that by (induction; blast)
 
 lemma G_run_sound[intro]:
   "run xs" if "G.run xs"
   using that by (coinduction arbitrary: xs) (auto 4 3 elim: G.run.cases)
 
+lemma G'_reachability_sound[intro]:
+  "reachable a" if "G'.reachable a"
+  using that by (induction; blast)
+
+lemma (in Subsumption_Graph_Defs) G'_reachable_G_reachable[intro]:
+  "G.reachable a" if "G'.reachable a"
+  using that by (induction; blast)
+
+lemma (in Subsumption_Graph_Defs) G_reachable_G'_reachable[intro]:
+  "G'.reachable a" if "G.reachable a"
+  using that by (induction; blast)
+
+lemma (in Subsumption_Graph_Defs) G_G'_reachable_iff:
+  "G.reachable a \<longleftrightarrow> G'.reachable a"
+  by blast
+
+lemma G'_finite_reachable: "finite {a. G'.reachable a}"
+  by (blast intro: finite_subset[OF _ finite_reachable])
+
+lemma G_steps_G'_steps[intro]:
+  "G'.steps as" if "G.steps as"
+  using that by induction auto
+
 lemma reachable_has_surrogate:
   "\<exists> t. G.reachable t \<and> s \<preceq> t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')" if "G.reachable s"
-  using that
 proof -
   from finite_reachable \<open>G.reachable s\<close> obtain x where
     "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "op \<prec>\<^sup>*\<^sup>* s x"
@@ -208,29 +241,6 @@ proof -
     by induction auto
   ultimately show ?thesis by auto
 qed
-
-lemma G'_reachability_sound[intro]:
-  "reachable a" if "G'.reachable a"
-  using that unfolding G'.reachable_def reachable_def
-  by (induction;
-      blast intro: rtranclp.intros(2) G_reachability_sound[unfolded reachable_def G.reachable_def])
-
-lemma (in Subsumption_Graph_Defs) G'_reachable_G_reachable[intro]:
-  "G.reachable a" if "G'.reachable a"
-  using that unfolding G'.reachable_def G.reachable_def
-  by (induction; blast intro: rtranclp.intros(2))
-
-lemma (in Subsumption_Graph_Defs) G_reachable_G'_reachable[intro]:
-  "G'.reachable a" if "G.reachable a"
-  using that unfolding G'.reachable_def G.reachable_def
-  by (induction; blast intro: rtranclp.intros(2))
-
-lemma (in Subsumption_Graph_Defs) G_G'_reachable_iff:
-  "G.reachable a \<longleftrightarrow> G'.reachable a"
-  by blast
-
-lemma G'_finite_reachable: "finite {a. G'.reachable a}"
-  by (blast intro: finite_subset[OF _ finite_reachable])
 
 lemma reachable_has_surrogate':
   "\<exists> t xs. G'.steps xs \<and> xs \<noteq> [] \<and> hd xs = s \<and> last xs = t \<and> s \<preceq> t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')"
@@ -248,7 +258,7 @@ proof -
   proof
     assume "s \<prec> x"
     with real_edges \<open>G.reachable x\<close> show ?thesis
-      by (inst_existentials "x" "[s,x]") (auto simp: G.reachable_def)
+      by (inst_existentials "x" "[s,x]") auto
   next
     assume "s = x"
     with real_edges show ?thesis
@@ -256,19 +266,9 @@ proof -
   qed
 qed
 
-lemma reachable_has_surrogate'':
-  "\<exists> t. G.reachable t \<and> s \<preceq> t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')" if "G'.reachable s"
-proof -
-  from \<open>G'.reachable s\<close> have \<open>G.reachable s\<close> by auto
-  from finite_reachable this obtain x where
-    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "op \<prec>\<^sup>*\<^sup>* s x"
-    apply atomize_elim
-    apply (induction rule: rtranclp_ev_induct2)
-    using reachability_compatible by auto
-  moreover from \<open>op \<prec>\<^sup>*\<^sup>* s x\<close> have "s \<prec> x \<or> s = x"
-    by induction auto
-  ultimately show ?thesis by auto
-qed
+lemma reachable_has_surrogate1:
+  "\<exists> t. s \<preceq> t \<and> s \<rightarrow>\<^sub>G*' t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')" if "G.reachable s"
+  using reachable_has_surrogate'[OF that] by auto
 
 lemma subsumption_step:
   "\<exists> a'' b'. a' \<preceq> a'' \<and> b \<preceq> b' \<and> RE a'' b' \<and> G.reachable a''" if
@@ -304,8 +304,16 @@ proof -
     by (inst_existentials b'' "xs @ [b'']") auto
 qed
 
+lemma subsumption_step1:
+  "\<exists> b'. b \<preceq> b' \<and> a' \<rightarrow>\<^sub>G\<^sup>+' b'" if "reachable a" "E a b" "G'.reachable a'" "a \<preceq> a'"
+proof -
+  from subsumption_step'[OF that] guess b' xs by safe
+  then show ?thesis
+    by - (subst (asm) (2) hd_butlast_last_id[symmetric], auto intro: G'.steps_reaches1)
+qed
+
 theorem reachability_complete':
-  "\<exists> s'. s \<preceq> s' \<and> G.reachable s'" if "E\<^sup>*\<^sup>* a s" "G.reachable a"
+  "\<exists> s'. s \<preceq> s' \<and> G.reachable s'" if "a \<rightarrow>* s" "G.reachable a"
   using that
 proof (induction)
   case base
@@ -317,10 +325,10 @@ next
   with step(4) have "reachable a" "G.reachable s'"
     by auto
   with step(1) have "reachable s"
-    by (auto simp: reachable_def)
+    by auto
   from subsumption_step[OF \<open>reachable s\<close> \<open>E s t\<close> \<open>G.reachable s'\<close> \<open>s \<preceq> s'\<close>] guess s'' t' by clarify
   with \<open>G.reachable s'\<close> show ?case
-    by (auto simp: reachable_def)
+    by auto
 qed
 
 theorem steps_complete':
@@ -365,11 +373,6 @@ corollary reachability_complete:
 corollary reachability_correct:
   "(\<exists> s'. s \<preceq> s' \<and> reachable s') \<longleftrightarrow> (\<exists> s'. s \<preceq> s' \<and> G.reachable s')"
   by (blast dest: reachability_complete)
-
-lemma G_steps_G'_steps[intro]:
-  "G'.steps as" if "G.steps as"
-  using that
-  by induction auto
 
 lemma steps_G'_steps:
   "\<exists> ys ns. list_all2 (op \<preceq>) xs (sublist ys ns) \<and> G'.steps (b # ys)" if
@@ -708,12 +711,12 @@ proof -
   qed
   moreover have "reachable y"
   proof -
-    from \<open>steps (x # ys)\<close> \<open>ys = _\<close> have "steps ((x # as' @ [y]) @ (bs' @ y # cs'))"
+    from \<open>steps (x # ys)\<close> \<open>ys = _\<close> have "steps ((x # as' @ [y]) @ (bs' @ y # cs'))" (* XXX *)
       by simp
     then have "steps (x # as' @ [y])"
       by (blast dest: stepsD)
     with \<open>reachable x\<close> show ?thesis
-      by (auto intro: reachable_steps_append)
+      by (auto 4 3)
   qed
   moreover from \<open>?ys = _\<close> have "x' \<preceq> y"
   proof -
@@ -911,9 +914,7 @@ corollary reachability_correct:
 
 lemma G'_reachability_sound[intro]:
   "reachable a" if "G'.reachable a"
-  using that unfolding G'.reachable_def reachable_def
-  by (induction;
-      blast intro: rtranclp.intros(2) G_reachability_sound[unfolded reachable_def G.reachable_def])
+  using that by induction auto
 
 corollary G'_reachability_complete:
   "\<exists> s'. s \<preceq> s' \<and> G.reachable s'" if "G'.reachable s"

@@ -172,7 +172,7 @@ proof -
   from steps_decomp[of "x # xs" "y # ys @ [x]"] assms have
     "steps (x # xs)" "steps (y # ys @ [x])" "E (last (x # xs)) y"
     by auto
-  then have "steps ((x # xs) @ [y])" by (blast intro: steps_append_single)
+  then have "steps ((x # xs) @ [y])" by blast
   from steps_append[OF \<open>steps (y # ys @ [x])\<close> this] show ?thesis by auto
 qed
 
@@ -311,6 +311,10 @@ lemma steps_reaches:
   "hd xs \<rightarrow>* last xs" if "steps xs"
   using that by (induction xs) auto
 
+lemma steps_reaches'[intro]:
+  "x \<rightarrow>* y" if "steps xs" "hd xs = x" "last xs = y"
+  using that steps_reaches by auto
+
 lemma reaches_steps:
   "\<exists> xs. hd xs = x \<and> last xs = y \<and> steps xs" if "x \<rightarrow>* y"
   using that
@@ -385,15 +389,18 @@ lemma start_reachable[intro!, simp]:
   "reachable s\<^sub>0"
   unfolding reachable_def by auto
 
-lemma reachable_step[intro]:
+lemma reachable_step:
   "reachable b" if "reachable a" "E a b"
   using that unfolding reachable_def by auto
+
+lemma reachable_reaches[intro]:
+  "reachable b" if "reachable a" "a \<rightarrow>* b"
+  using that(2,1) by induction (auto intro: reachable_step)
 
 lemma reachable_steps_append:
   assumes "reachable a" "steps xs" "hd xs = a" "last xs = b"
   shows "reachable b"
-  using assms unfolding reachable_def
-  by (induction xs arbitrary: a; force intro: rtranclp.rtrancl_into_rtrancl elim: steps.cases)
+  using assms by auto
 
 lemmas steps_reachable = reachable_steps_append[of s\<^sub>0, simplified]
 
@@ -409,10 +416,11 @@ proof -
       by simp
   next
     case False
-    with steps_appendD1[of \<open>as @ [y]\<close> bs] \<open>steps xs\<close> have "steps (as @ [y])"
-      by simp
+    (* XXX *)
+    from \<open>steps xs\<close> have "steps (as @ [y])"
+      by (auto intro: stepsD)
     with \<open>as \<noteq> []\<close> \<open>hd xs = x\<close> \<open>reachable x\<close> show ?thesis
-      by (auto intro: reachable_steps_append)
+      by (auto 4 3)
   qed
 qed
 
@@ -427,7 +435,7 @@ next
   from step.IH guess xs by clarify
   with step.hyps show ?case
     apply (inst_existentials "xs @ [z]")
-    apply (force intro: steps_append_single)
+    apply force
     by (cases xs; auto)+
 qed
 
@@ -467,6 +475,14 @@ next
       by (inst_existentials us) (drule steps_append, assumption, auto)
   qed
 qed
+
+lemma reachable_induct[consumes 1, case_names start step, induct pred: reachable]:
+  assumes "reachable x"
+    and "P s\<^sub>0"
+    and "\<And> a b. reachable a \<Longrightarrow> P a \<Longrightarrow> a \<rightarrow> b \<Longrightarrow> P b"
+  shows "P x"
+  using assms(1) unfolding reachable_def
+  by induction (auto intro: assms(2-)[unfolded reachable_def])
 
 end (* Graph Start Defs *)
 

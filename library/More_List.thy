@@ -5,6 +5,12 @@ theory More_List
     Instantiate_Existentials
 begin
 
+section \<open>First and Last Elements of Lists\<close>
+
+lemma (in -) hd_butlast_last_id:
+  "hd xs # tl (butlast xs) @ [last xs] = xs" if "length xs > 1"
+  using that by (cases xs) auto
+
 section \<open>@{term list_all2}\<close>
 
 lemma list_all2_op_map_iff:
