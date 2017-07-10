@@ -3,7 +3,7 @@ theory Normalized_Zone_Semantics_Impl_Refine
     Normalized_Zone_Semantics_Impl DBM_Operations_Impl_Refine
     "~~/src/HOL/Library/IArray"
     Code_Numeral
-    Worklist_Subsumption_Impl1 Unified_PW_Impl
+    "Worklist_Algorithms/Worklist_Subsumption_Impl1" "Worklist_Algorithms/Unified_PW_Impl"
     Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 

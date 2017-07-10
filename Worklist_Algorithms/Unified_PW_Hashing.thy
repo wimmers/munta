@@ -1,5 +1,5 @@
 theory Unified_PW_Hashing
-  imports Unified_PW "library/DRAT_Misc"
+  imports Unified_PW "../library/DRAT_Misc"
 begin
 
 subsection \<open>Towards an Implementation of the Unified Passed-Wait List\<close>

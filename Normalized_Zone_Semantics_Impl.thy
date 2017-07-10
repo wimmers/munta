@@ -2,7 +2,7 @@ theory Normalized_Zone_Semantics_Impl
   imports
     Normalized_Zone_Semantics
     (* XXX Reordering these lets transfer proofs fail *)
-    Worklist_Locales
+    "Worklist_Algorithms/Worklist_Locales"
     DBM_Operations_Impl
     FW_Code
 begin
