@@ -87,7 +87,7 @@ next
   then show ?case by (cases xs; auto elim: steps.cases)
 qed
 
-lemma steps_append_single[intro]:
+lemma steps_append_single:
   assumes
     "steps xs" "E (last xs) x" "xs \<noteq> []"
   shows "steps (xs @ [x])"
@@ -176,7 +176,7 @@ proof -
   from steps_decomp[of "x # xs" "y # ys @ [x]"] assms have
     "steps (x # xs)" "steps (y # ys @ [x])" "E (last (x # xs)) y"
     by auto
-  then have "steps ((x # xs) @ [y])" by blast
+  then have "steps ((x # xs) @ [y])" by (blast intro: steps_append_single)
   from steps_append[OF \<open>steps (y # ys @ [x])\<close> this] show ?thesis by auto
 qed
 
@@ -320,7 +320,7 @@ lemma steps_reaches:
   "hd xs \<rightarrow>* last xs" if "steps xs"
   using that by (induction xs) auto
 
-lemma steps_reaches'[intro]:
+lemma steps_reaches':
   "x \<rightarrow>* y" if "steps xs" "hd xs = x" "last xs = y"
   using that steps_reaches by auto
 
@@ -331,7 +331,7 @@ lemma reaches_steps:
    apply force
   apply clarsimp
   subgoal for z xs
-    by (inst_existentials "xs @ [z]", (cases xs; simp), auto)
+    by (inst_existentials "xs @ [z]", (cases xs; simp), auto intro: steps_append_single)
   done
 
 lemma reaches_steps_iff:
@@ -342,7 +342,7 @@ lemma steps_reaches1:
   "x \<rightarrow>\<^sup>+ y" if "steps (x # xs @ [y])"
   by (metis list.sel(1,3) rtranclp_into_tranclp2 snoc_eq_iff_butlast steps.cases steps_reaches that)
 
-lemma stepsI[intro]:
+lemma stepsI:
   "steps (x # xs)" if "x \<rightarrow> hd xs" "steps xs"
   using that by (cases xs) auto
 
@@ -356,7 +356,7 @@ proof -
   then obtain xs' where [simp]: "xs = xs' @ [y]"
     by atomize_elim (auto 4 3 intro: append_butlast_last_id[symmetric])
   with \<open>x \<rightarrow> z\<close> * show ?thesis
-    by auto
+    by (auto intro: stepsI)
 qed
 
 lemma reaches1_steps_iff:
@@ -390,6 +390,26 @@ lemma reaches1_steps_append:
   shows "\<exists> ys. steps (a # ys @ xs)"
   using assms by (fastforce intro: steps_append' dest: reaches1_steps)
 
+lemmas graphI =
+  steps_append_single
+  steps_reaches'
+  stepsI
+
+lemmas graphI_aggressive =
+  tranclp_into_rtranclp
+
+lemmas graphI_aggressive1 =
+  graphI_aggressive
+  steps_append'
+
+lemmas graphI_aggressive2 =
+  graphI_aggressive
+  stepsD
+  steps_reaches1
+
+lemmas graphD =
+  reaches1_steps
+
 end (* Graph Defs *)
 
 locale Graph_Start_Defs = Graph_Defs +
@@ -407,14 +427,14 @@ lemma reachable_step:
   "reachable b" if "reachable a" "E a b"
   using that unfolding reachable_def by auto
 
-lemma reachable_reaches[intro]:
+lemma reachable_reaches:
   "reachable b" if "reachable a" "a \<rightarrow>* b"
   using that(2,1) by induction (auto intro: reachable_step)
 
 lemma reachable_steps_append:
   assumes "reachable a" "steps xs" "hd xs = a" "last xs = b"
   shows "reachable b"
-  using assms by auto
+  using assms by (auto intro: graphI reachable_reaches)
 
 lemmas steps_reachable = reachable_steps_append[of s\<^sub>0, simplified]
 
@@ -434,7 +454,7 @@ proof -
     from \<open>steps xs\<close> have "steps (as @ [y])"
       by (auto intro: stepsD)
     with \<open>as \<noteq> []\<close> \<open>hd xs = x\<close> \<open>reachable x\<close> show ?thesis
-      by (auto 4 3)
+      by (auto 4 3 intro: reachable_reaches graphI)
   qed
 qed
 
@@ -449,7 +469,7 @@ next
   from step.IH guess xs by clarify
   with step.hyps show ?case
     apply (inst_existentials "xs @ [z]")
-    apply force
+    apply (force intro: graphI)
     by (cases xs; auto)+
 qed
 
@@ -479,6 +499,26 @@ lemma reachable_induct[consumes 1, case_names start step, induct pred: reachable
   using assms(1) unfolding reachable_def
   by induction (auto intro: assms(2-)[unfolded reachable_def])
 
+lemmas graph_startI =
+  reachable_reaches
+
 end (* Graph Start Defs *)
+
+bundle graph_automation
+begin
+
+lemmas [intro] = Graph_Defs.graphI
+lemmas [dest]  = Graph_Defs.graphD
+
+end
+
+bundle graph_start_automation
+begin
+
+unbundle graph_automation
+
+lemmas [intro] = Graph_Start_Defs.graph_startI
+
+end
 
 end
