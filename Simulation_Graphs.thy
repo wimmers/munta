@@ -148,48 +148,6 @@ proof -
   with \<open>x \<in> a\<close> show ?thesis unfolding E_def by auto
 qed
 
-(* XXX Unused *)
-lemma Steps_steps_cycle':
-  "\<exists> xs. steps xs \<and> hd xs = last xs \<and> (\<forall> x \<in> set xs. \<exists> a \<in> set as. x \<in> a) \<and> hd xs \<in> hd as"
-  if assms: "Steps as" "hd as = last as" "finite (hd as)" "hd as \<noteq> {}"
-proof -
-  define E where
-    "E x y = (\<exists> xs. steps xs \<and> hd xs = x \<and> last xs = y \<and> (\<forall> x \<in> set xs. \<exists> a \<in> set as. x \<in> a))"
-    for x y
-  from assms(2-) have "\<exists> x. E x y \<and> x \<in> hd as" if "y \<in> hd as" for y
-    using that unfolding E_def
-    apply simp
-    apply (drule Steps_poststable[OF assms(1)])
-    apply clarify
-    subgoal for xs
-      apply (inst_existentials "hd xs" xs)
-        apply ((assumption | rule HOL.refl); fail)+
-       apply (blast intro!: list_all2_set1)
-      by (metis list.rel_sel list.simps(3) steps.cases)
-    done
-  with \<open>finite (hd as)\<close> \<open>hd as \<noteq> {}\<close> obtain x y where cycle: "E x y" "E\<^sup>*\<^sup>* y x" "x \<in> hd as"
-    by (force dest!: directed_graph_indegree_ge_1_cycle[where E = E])
-  from assms have "as \<noteq> []" by cases auto
-  have trans[intro]: "E x z" if "E x y" "E y z" for x y z
-    using that unfolding E_def
-    apply safe
-    subgoal for xs ys
-      apply (inst_existentials "xs @ tl ys")
-         apply (rule steps_append; assumption)
-      by (cases ys, auto dest: list.set_sel(2)[rotated] elim: steps.cases)
-    done
-  have "E x y" if "E\<^sup>*\<^sup>* x y" "x \<in> hd as" for x y
-  using that proof induction
-    case base
-    with \<open>as \<noteq> []\<close> show ?case unfolding E_def by force
-  next
-    case (step y z)
-    then show ?case by auto
-  qed
-  with cycle have "E x x" by blast
-  with \<open>x \<in> hd as\<close> show ?thesis unfolding E_def by auto
-qed
-
 end (* Simulation Graph Poststable *)
 
 
@@ -211,47 +169,6 @@ next
   with Cons.IH[of y] guess xs by clarsimp
   with \<open>x \<in> _\<close> show ?case by auto
 qed
-
-lemma Steps_cycle_every_prestable':
-  "\<exists> b y. C x y \<and> y \<in> b \<and> b \<in> set as \<union> {a}"
-  if assms: "Steps (as @ [a])" "x \<in> b" "b \<in> set as"
-  using assms
-proof (induction "as @ [a]" arbitrary: as)
-  case Single
-  then show ?case by simp
-next
-  case (Cons a c xs)
-  show ?case
-  proof (cases "a = b")
-    case True
-    with prestable[OF \<open>A a c\<close>] \<open>x \<in> b\<close> obtain y where "y \<in> c" "C x y"
-      by auto
-    with \<open>a # c # _ = _\<close> show ?thesis
-      apply (inst_existentials c y)
-    proof (assumption+, cases as, goal_cases)
-      case (2 a list)
-      then show ?case by (cases list) auto
-    qed simp
-  next
-    case False
-    with Cons.hyps(3)[of "tl as"] Cons.prems Cons.hyps(1,2,4-) show ?thesis by (cases as) auto
-  qed
-qed
-
-lemma Steps_cycle_first_prestable:
-  "\<exists> b y. C x y \<and> x \<in> b \<and> b \<in> set as \<union> {a}" if assms: "Steps (a # as @ [a])" "x \<in> a"
-proof (cases as)
-  case Nil
-  with assms show ?thesis by (auto elim!: Steps_cases dest: prestable)
-next
-  case (Cons b as)
-  with assms show ?thesis by (auto 4 4 elim: Steps_cases dest: prestable)
-qed
-
-lemma Steps_cycle_every_prestable:
-  "\<exists> b y. C x y \<and> y \<in> b \<and> b \<in> set as \<union> {a}"
-  if assms: "Steps (a # as @ [a])" "x \<in> b" "b \<in> set as \<union> {a}"
-  using assms Steps_cycle_every_prestable'[of "a # as" a] Steps_cycle_first_prestable by auto
 
 text \<open>Abstract cycles lead to concrete infinite runs.\<close>
 lemma Steps_run_cycle_buechi:
@@ -320,6 +237,49 @@ lemma Steps_run_cycle:
   "\<exists> xs. run xs \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> shd xs \<in> a"
   if assms: "Steps (a # as @ [a])" "a \<noteq> {}"
   using Steps_run_cycle'[OF assms(1)] assms(2) by force
+
+paragraph \<open>Unused\<close>
+
+lemma Steps_cycle_every_prestable':
+  "\<exists> b y. C x y \<and> y \<in> b \<and> b \<in> set as \<union> {a}"
+  if assms: "Steps (as @ [a])" "x \<in> b" "b \<in> set as"
+  using assms
+proof (induction "as @ [a]" arbitrary: as)
+  case Single
+  then show ?case by simp
+next
+  case (Cons a c xs)
+  show ?case
+  proof (cases "a = b")
+    case True
+    with prestable[OF \<open>A a c\<close>] \<open>x \<in> b\<close> obtain y where "y \<in> c" "C x y"
+      by auto
+    with \<open>a # c # _ = _\<close> show ?thesis
+      apply (inst_existentials c y)
+    proof (assumption+, cases as, goal_cases)
+      case (2 a list)
+      then show ?case by (cases list) auto
+    qed simp
+  next
+    case False
+    with Cons.hyps(3)[of "tl as"] Cons.prems Cons.hyps(1,2,4-) show ?thesis by (cases as) auto
+  qed
+qed
+
+lemma Steps_cycle_first_prestable:
+  "\<exists> b y. C x y \<and> x \<in> b \<and> b \<in> set as \<union> {a}" if assms: "Steps (a # as @ [a])" "x \<in> a"
+proof (cases as)
+  case Nil
+  with assms show ?thesis by (auto elim!: Steps_cases dest: prestable)
+next
+  case (Cons b as)
+  with assms show ?thesis by (auto 4 4 elim: Steps_cases dest: prestable)
+qed
+
+lemma Steps_cycle_every_prestable:
+  "\<exists> b y. C x y \<and> y \<in> b \<and> b \<in> set as \<union> {a}"
+  if assms: "Steps (a # as @ [a])" "x \<in> b" "b \<in> set as \<union> {a}"
+  using assms Steps_cycle_every_prestable'[of "a # as" a] Steps_cycle_first_prestable by auto
 
 end (* Simulation Graph Prestable *)
 
@@ -415,18 +375,6 @@ next
       apply (inst_existentials "as' @ [closure z]" "[closure y]")
       by (auto dest: list_all2_lengthD)
   qed
-qed
-
-(* XXX Unused? *)
-lemma post_Steps_P1:
-  "P1 x" if "post_defs.Steps (a # as)" "x \<in> b" "b \<in> set as"
-  using that
-proof (induction "a # as" arbitrary: a as)
-  case Single
-  then show ?case by auto
-next
-  case (Cons a c as)
-  then show ?case by (auto simp: A2'_def closure_def)
 qed
 
 lemma post_Steps_non_empty:
@@ -532,6 +480,19 @@ proof -
      apply blast
     using \<open>infs (\<Union> closure a) (y ## ys)\<close>
     by (simp add: sdrop_shift)
+qed
+
+paragraph \<open>Unused\<close>
+
+lemma post_Steps_P1:
+  "P1 x" if "post_defs.Steps (a # as)" "x \<in> b" "b \<in> set as"
+  using that
+proof (induction "a # as" arbitrary: a as)
+  case Single
+  then show ?case by auto
+next
+  case (Cons a c as)
+  then show ?case by (auto simp: A2'_def closure_def)
 qed
 
 end (* Double Simulation Graph *)
