@@ -192,7 +192,7 @@ begin
 
 text \<open>Setup for automation\<close>
 context
-  includes graph_start_automation
+  includes graph_automation
 begin
 
 lemma G'_reachable_G_reachable[intro]:
@@ -216,7 +216,7 @@ begin
 
 text \<open>Setup for automation\<close>
 context
-  includes graph_start_automation
+  includes graph_automation
 begin
 
 lemma subgraph'[intro]:
@@ -567,7 +567,7 @@ begin
 
 text \<open>Setup for automation\<close>
 context
-  includes graph_start_automation
+  includes graph_automation
 begin
 
 lemma steps_mono:
@@ -790,7 +790,7 @@ begin
 
 text \<open>Setup for automation\<close>
 context
-  includes graph_start_automation
+  includes graph_automation
   notes [intro] = order.trans
 begin
 

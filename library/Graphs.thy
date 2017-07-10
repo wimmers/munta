@@ -395,21 +395,6 @@ lemmas graphI =
   steps_reaches'
   stepsI
 
-lemmas graphI_aggressive =
-  tranclp_into_rtranclp
-
-lemmas graphI_aggressive1 =
-  graphI_aggressive
-  steps_append'
-
-lemmas graphI_aggressive2 =
-  graphI_aggressive
-  stepsD
-  steps_reaches1
-
-lemmas graphD =
-  reaches1_steps
-
 end (* Graph Defs *)
 
 locale Graph_Start_Defs = Graph_Defs +
@@ -499,6 +484,22 @@ lemma reachable_induct[consumes 1, case_names start step, induct pred: reachable
   using assms(1) unfolding reachable_def
   by induction (auto intro: assms(2-)[unfolded reachable_def])
 
+lemmas graphI_aggressive =
+  tranclp_into_rtranclp
+
+lemmas graphI_aggressive1 =
+  graphI_aggressive
+  steps_append'
+
+lemmas graphI_aggressive2 =
+  graphI_aggressive
+  stepsD
+  steps_reaches1
+  steps_reachable
+
+lemmas graphD =
+  reaches1_steps
+
 lemmas graph_startI =
   reachable_reaches
 
@@ -507,17 +508,8 @@ end (* Graph Start Defs *)
 bundle graph_automation
 begin
 
-lemmas [intro] = Graph_Defs.graphI
-lemmas [dest]  = Graph_Defs.graphD
-
-end
-
-bundle graph_start_automation
-begin
-
-unbundle graph_automation
-
-lemmas [intro] = Graph_Start_Defs.graph_startI
+lemmas [intro] = Graph_Defs.graphI Graph_Start_Defs.graph_startI
+lemmas [dest]  = Graph_Start_Defs.graphD
 
 end
 

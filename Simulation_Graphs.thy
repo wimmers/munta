@@ -1377,7 +1377,8 @@ next
     by (inst_existentials "(\<lambda> x. (l, x)) ` ([u]\<^sub>l)" l) (force simp: sim_defs R_of_def image_def)+
 qed
 
-sublocale Graph_Defs "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}" .
+sublocale Graph_Start_Defs
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}" "(l\<^sub>0, Z\<^sub>0)" .
 
 lemmas step_z_beta'_V' = step_z_beta'_V'[OF valid_abstraction]
 
@@ -1700,6 +1701,17 @@ next
     by (inst_existentials "map (\<lambda>(x, y). from_R x y) as")
        (force simp: sim_closure_from_R cla_def dest: from_R_loc from_R_val)
 qed
+
+theorem infinite_buechi_run_cycle_iff1:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> sim.run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
+  \<longleftrightarrow> (\<exists> l Z. reachable (l, Z) \<and> reaches1 (l, Z) (l, Z) \<and> (\<forall> x \<in> Closure\<^sub>\<alpha>\<^sub>,\<^sub>l Z. \<phi> (l, x)))"
+  unfolding infinite_buechi_run_cycle_iff
+  apply safe
+  subgoal for as l Z bs
+    using reachable_cycle_iff[of "(l, Z)"] by auto
+  subgoal for l Z
+    using reachable_cycle_iff[of "(l, Z)"] by auto
+  done
 
 end (* Context for Formula *)
 
