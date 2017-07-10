@@ -122,7 +122,7 @@ sublocale G: Graph_Start_Defs RE s\<^sub>0 .
 
 sublocale G': Graph_Start_Defs "\<lambda> x y. RE x y \<or> (x \<prec> y \<and> G.reachable y)" s\<^sub>0 .
 
-abbreviation G'_E    ("_ \<rightarrow>\<^sub>G\<^sub>'* _" [100, 100] 40) where
+abbreviation G'_E    ("_ \<rightarrow>\<^sub>G\<^sub>' _" [100, 100] 40) where
   "G'_E x y \<equiv> RE x y \<or> (x \<prec> y \<and> G.reachable y)"
 
 notation RE          ("_ \<rightarrow>\<^sub>G _"   [100, 100] 40)
@@ -183,7 +183,7 @@ locale Reachability_Compatible_Subsumption_Graph_Final = Reachability_Compatible
 
 locale Liveness_Compatible_Subsumption_Graph = Reachability_Compatible_Subsumption_Graph_Final +
   assumes no_subsumption_cycle:
-    "G'.reachable x \<Longrightarrow> G'.steps (x # xs @ [x]) \<Longrightarrow> G.steps (x # xs @ [x])"
+    "G'.reachable x \<Longrightarrow> x \<rightarrow>\<^sub>G\<^sup>+' x \<Longrightarrow> x \<rightarrow>\<^sub>G\<^sup>+ x"
 
 section \<open>Reachability\<close>
 
@@ -243,8 +243,7 @@ proof -
 qed
 
 lemma reachable_has_surrogate':
-  "\<exists> t xs. G'.steps xs \<and> xs \<noteq> [] \<and> hd xs = s \<and> last xs = t \<and> s \<preceq> t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')"
-  if "G.reachable s"
+  "\<exists> t. s \<preceq> t \<and> s \<rightarrow>\<^sub>G*' t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')" if "G.reachable s"
 proof -
   from \<open>G.reachable s\<close> have \<open>G.reachable s\<close> by auto
   from finite_reachable this obtain x where
@@ -258,20 +257,16 @@ proof -
   proof
     assume "s \<prec> x"
     with real_edges \<open>G.reachable x\<close> show ?thesis
-      by (inst_existentials "x" "[s,x]") auto
+      by (inst_existentials "x") auto
   next
     assume "s = x"
     with real_edges show ?thesis
-      by (inst_existentials "s" "[s]") auto
+      by (inst_existentials "s") auto
   qed
 qed
 
-lemma reachable_has_surrogate1:
-  "\<exists> t. s \<preceq> t \<and> s \<rightarrow>\<^sub>G*' t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')" if "G.reachable s"
-  using reachable_has_surrogate'[OF that] by auto
-
 lemma subsumption_step:
-  "\<exists> a'' b'. a' \<preceq> a'' \<and> b \<preceq> b' \<and> RE a'' b' \<and> G.reachable a''" if
+  "\<exists> a'' b'. a' \<preceq> a'' \<and> b \<preceq> b' \<and> a'' \<rightarrow>\<^sub>G b' \<and> G.reachable a''" if
   "reachable a" "E a b" "G.reachable a'" "a \<preceq> a'"
 proof -
   from mono[OF \<open>a \<preceq> a'\<close> \<open>E a b\<close> \<open>reachable a\<close>] \<open>G.reachable a'\<close> obtain b' where "E a' b'" "b \<preceq> b'"
@@ -287,29 +282,21 @@ proof -
 qed
 
 lemma subsumption_step':
-  "\<exists> b' xs. b \<preceq> b' \<and> G'.steps xs \<and> hd xs = a' \<and> last xs = b' \<and> length xs > 1" if
-  "reachable a" "E a b" "G'.reachable a'" "a \<preceq> a'"
+  "\<exists> b'. b \<preceq> b' \<and> a' \<rightarrow>\<^sub>G\<^sup>+' b'" if "reachable a" "a \<rightarrow> b" "G'.reachable a'" "a \<preceq> a'"
 proof -
-  from mono[OF \<open>a \<preceq> a'\<close> \<open>E a b\<close> \<open>reachable a\<close>] \<open>G'.reachable a'\<close> obtain b' where "E a' b'" "b \<preceq> b'"
+  from mono[OF \<open>a \<preceq> a'\<close> \<open>E a b\<close> \<open>reachable a\<close>] \<open>G'.reachable a'\<close> obtain b' where
+    "b \<preceq> b'" "a' \<rightarrow> b'"
     by auto
-  from reachable_has_surrogate'[of a'] \<open>G'.reachable a'\<close> obtain a'' xs where *:
-    "G'.steps xs" "xs \<noteq> []" "hd xs = a'" "last xs = a''" "a' \<preceq> a''" "(\<forall>s'. E a'' s' \<longrightarrow> RE a'' s')"
+  from reachable_has_surrogate'[of a'] \<open>G'.reachable a'\<close> obtain a'' where *:
+    "a' \<preceq> a''" "a' \<rightarrow>\<^sub>G*' a''" "\<forall>s'. a'' \<rightarrow> s' \<longrightarrow> a'' \<rightarrow>\<^sub>G s'"
     by auto
   with \<open>G'.reachable a'\<close> have "G'.reachable a''"
-    by (blast intro: G'.reachable_steps_append)
+    by blast
   with mono[OF \<open>a' \<preceq> a''\<close> \<open>E a' b'\<close>] \<open>G'.reachable a'\<close> obtain b'' where
-    "E a'' b''" "b' \<preceq> b''"
+    "b' \<preceq> b''" "a'' \<rightarrow> b''"
     by auto
-  with * \<open>a' \<preceq> a''\<close> \<open>b \<preceq> b'\<close> \<open>G'.reachable a''\<close> show ?thesis
-    by (inst_existentials b'' "xs @ [b'']") auto
-qed
-
-lemma subsumption_step1:
-  "\<exists> b'. b \<preceq> b' \<and> a' \<rightarrow>\<^sub>G\<^sup>+' b'" if "reachable a" "E a b" "G'.reachable a'" "a \<preceq> a'"
-proof -
-  from subsumption_step'[OF that] guess b' xs by safe
-  then show ?thesis
-    by - (subst (asm) (2) hd_butlast_last_id[symmetric], auto intro: G'.steps_reaches1)
+  with * \<open>b \<preceq> b'\<close> \<open>b' \<preceq> b''\<close> \<open>G'.reachable a''\<close> show ?thesis
+    by (auto simp: G'.reaches1_reaches_iff2) (* XXX *)
 qed
 
 theorem reachability_complete':
@@ -383,37 +370,32 @@ proof (induction "a # xs" arbitrary: a b xs)
   then show ?case by force
 next
   case (Cons x y xs)
-  from subsumption_step'[OF \<open>reachable x\<close> \<open>E x y\<close> _ \<open>x \<preceq> b\<close>] \<open>G'.reachable b\<close> obtain b' as where
-    "y \<preceq> b'" "G'.steps as" "hd as = b" "last as = b'" "length as > 1"
+  from subsumption_step'[OF \<open>reachable x\<close> \<open>E x y\<close> _ \<open>x \<preceq> b\<close>] \<open>G'.reachable b\<close> obtain b' where
+    "y \<preceq> b'" "b \<rightarrow>\<^sub>G\<^sup>+' b'"
     by auto
   with \<open>reachable x\<close> Cons.hyps(1) Cons.prems(3) obtain ys ns where
     "list_all2 op \<preceq> xs (sublist ys ns)" "G'.steps (b' # ys)"
-    by atomize_elim (rule Cons.hyps(3)[OF _ \<open>y \<preceq> b'\<close>]; auto intro: G'.reachable_steps_append)
-  with \<open>G'.steps as\<close> \<open>last as = b'\<close> have "G'.steps (as @ ys)"
-    using G'.steps_append by force
-  with \<open>hd as = b\<close> \<open>y \<preceq> b'\<close> \<open>last as = b'\<close> \<open>length as > 1\<close> show ?case
-    apply (inst_existentials "tl as @ ys" "{length as - 2} \<union> {n + length as - 1 | n. n \<in> ns}")
+    by atomize_elim (blast intro: Cons.hyps(3)[OF _ \<open>y \<preceq> b'\<close>] tranclp_into_rtranclp (* XXX *))
+  from G'.reaches1_steps_append[OF \<open>b \<rightarrow>\<^sub>G\<^sup>+' b'\<close> this(2)] obtain as where
+    "G'.steps (b # as @ b' # ys)"
+    by auto
+  with \<open>y \<preceq> b'\<close> show ?case
+    apply (inst_existentials "as @ b' # ys" "{length as} \<union> {n + length as + 1 | n. n \<in> ns}")
     subgoal
-      apply (subst sublist_split)
-       apply force
+      apply (subst sublist_split, force)
       apply (subst sublist_nth, (simp; fail))
       apply simp
-      apply safe
-      subgoal
-        by (subst nth_append) (cases as; auto simp: last_conv_nth)
-      apply (subst sublist_shift)
-       apply force
+      apply (subst sublist_shift, force)
       subgoal premises prems
       proof -
-        from \<open>Suc 0 < _\<close> have
-          "{x - length (tl as) |x. x \<in> {n + length as - Suc 0 |n. n \<in> ns}} = ns"
+        have
+          "{x - length as |x. x \<in> {Suc (n + length as) |n. n \<in> ns}} = {n + 1 | n. n \<in> ns}"
           by force
-        with \<open>list_all2 _ _ _\<close> show ?thesis by auto
+        with \<open>list_all2 _ _ _\<close> show ?thesis
+          by (simp add: sublist_Cons)
       qed
       done
-    subgoal
-      by (cases as) auto
-    done
+    by assumption
 qed
 
 lemma cycle_G'_cycle'':
@@ -426,14 +408,12 @@ proof -
     by (auto dest: stepsD)
   with steps_replicate[of "x # xs @ [x]" ?n] have "steps ?xs"
     by auto
-  then have "steps (s\<^sub>0 # ws @ ?xs)"
+  have "steps (s\<^sub>0 # ws @ ?xs)"
   proof -
-    from assms have "steps ((s\<^sub>0 # ws @ [x]) @ xs @ [x])"
-      by auto
-    then have "steps (s\<^sub>0 # ws @ [x])"
-      by (fastforce dest: stepsD)
-    from steps_append[OF this \<open>steps ?xs\<close>] show ?thesis
-      by auto
+    from assms have "steps (s\<^sub>0 # ws @ [x])" (* XXX *)
+      by (auto intro: stepsD)
+    with \<open>steps ?xs\<close> show ?thesis
+      by (fastforce intro: steps_append')
   qed
   from steps_G'_steps[OF this, of s\<^sub>0] obtain ys ns where ys:
     "list_all2 op \<preceq> (ws @ x # concat (replicate ?n (xs @ [x]))) (sublist ys ns)"
@@ -473,7 +453,7 @@ proof -
     using filter_sublist_length[of "(op \<preceq> x)" ys' ns']
     by auto
   from \<open>G'.steps (s\<^sub>0 # ws' @ [x'])\<close> have "G'.reachable x'"
-    by (auto intro: G'.steps_reachable)
+    by - (rule G'.steps_reachable, auto)
   have "set ?ys \<subseteq> set ys'"
     by auto
   also have "\<dots> \<subseteq> {x. G'.reachable x}"
@@ -496,20 +476,16 @@ proof -
   have "G'.steps (y # bs' @ [y])"
   proof -
     (* XXX Decision procedure? *)
-    from \<open>G'.steps (x' # _)\<close> \<open>ys' = _\<close> have "G'.steps (x' # as' @ (y # bs' @ [y]) @ cs')"
-      by auto
-    then show ?thesis
-      by - ((simp; fail) | drule G'.stepsD)+
+    from \<open>G'.steps (x' # _)\<close> \<open>ys' = _\<close> show ?thesis
+      by (force intro: G'.stepsD)
   qed
   moreover have "G'.steps (s\<^sub>0 # ws' @ x' # as' @ [y])"
   proof -
     (* XXX Decision procedure? *)
-    from \<open>G'.steps (x' # ys')\<close> \<open>ys' = _\<close> have "G'.steps ((x' # as' @ [y]) @ bs' @ y # cs')"
-      by auto
-    from G'.steps_appendD1[OF this] have "G'.steps (x' # as' @ [y])"
-      by simp
+    from \<open>G'.steps (x' # ys')\<close> \<open>ys' = _\<close> have "G'.steps (x' # as' @ [y])"
+      by (force intro: G'.stepsD)
     with \<open>G'.steps (s\<^sub>0 # ws' @ [x'])\<close> show ?thesis
-      by (auto dest: G'.steps_append)
+      by (fastforce intro: G'.steps_append')
   qed
   moreover from \<open>?ys = _\<close> have "x \<preceq> y"
   proof -
@@ -517,7 +493,7 @@ proof -
     then show ?thesis by auto
   qed
   ultimately show ?thesis
-    by (inst_existentials y "ws' @ x' # as'" bs') (auto dest: G'.steps_append)
+    by (inst_existentials y "ws' @ x' # as'" bs'; fastforce intro: G'.steps_append')
 qed
 
 lemma cycle_G'_cycle':
@@ -528,20 +504,21 @@ proof -
     "x \<preceq> x'" "G'.steps (s\<^sub>0 # xs' @ x' # ys' @ [x'])"
     by auto
   then show ?thesis
-    by (inst_existentials x' ys') (auto dest: G'.stepsD intro: G'.steps_reachable)
+    by (inst_existentials x' ys') (auto intro: G'.stepsD G'.steps_reachable del: reachable_reaches)
 qed
 
 lemma cycle_G'_cycle:
-  assumes "steps (x # xs @ [x])" "G.reachable x"
-  shows "\<exists> y ys. x \<preceq> y \<and> G'.steps (y # ys @ [y]) \<and> G'.reachable y"
+  assumes "reachable x" "x \<rightarrow>\<^sup>+ x"
+  shows "\<exists> y ys. x \<preceq> y \<and> G'.reachable y \<and> y \<rightarrow>\<^sub>G\<^sup>+' y"
 proof -
-  from steps_append[OF assms(1) assms(1)] have *: "steps (x # xs @ x # xs @ [x])"
-    by simp
-  from reachable_steps[of x] assms(2) obtain ws where "steps ws" "hd ws = s\<^sub>0" "last ws = x"
+  from assms(2) obtain xs where *: "steps (x # xs @ x # xs @ [x])"
+    by (fastforce dest: reaches1_steps intro: steps_append')
+  from reachable_steps[of x] assms(1) obtain ws where "steps ws" "hd ws = s\<^sub>0" "last ws = x"
     by auto
-  with steps_append[OF this(1) *] obtain us where "steps (s\<^sub>0 # (us @ xs) @ x # xs @ [x])"
-    by (cases ws; auto)
-  from cycle_G'_cycle'[OF this] show ?thesis .
+  with * obtain us where "steps (s\<^sub>0 # (us @ xs) @ x # xs @ [x])"
+    by (cases ws; force intro: steps_append')
+  from cycle_G'_cycle'[OF this] show ?thesis
+    by (auto intro: G'.steps_reaches1)
 qed
 
 corollary G'_reachability_complete:
@@ -558,21 +535,8 @@ corollary (in Reachability_Compatible_Subsumption_Graph_Final) reachability_corr
 section \<open>Liveness\<close>
 
 theorem (in Liveness_Compatible_Subsumption_Graph) cycle_iff:
-  "(\<exists> x xs. steps   (x # xs @ [x]) \<and> reachable x   \<and> F x) \<longleftrightarrow>
-   (\<exists> x xs. G.steps (x # xs @ [x]) \<and> G.reachable x \<and> F x)"
-proof (safe, goal_cases)
-  -- \<open>steps \<open>\<rightarrow>\<close> G.steps\<close>
-  case prems: (1 x xs)
-  with reachable_cycle_iff[of x xs] obtain ws where
-    "steps (s\<^sub>0 # ws @ x # xs @ [x])"
-    by auto
-  from cycle_G'_cycle'[OF this] obtain y ys where
-    "x \<preceq> y" "G'.steps (y # ys @ [y])" "G'.reachable y"
-    by auto
-  with \<open>F x\<close> show ?case
-    by (auto intro: no_subsumption_cycle)
-qed auto
-
+  "(\<exists> x. x \<rightarrow>\<^sup>+ x \<and> reachable x \<and> F x) \<longleftrightarrow> (\<exists> x. x \<rightarrow>\<^sub>G\<^sup>+ x \<and> G.reachable x \<and> F x)"
+  by (auto 4 4 intro: no_subsumption_cycle steps_reaches1 dest: cycle_G'_cycle G.reaches1_steps)
 
 section \<open>Appendix\<close>
 

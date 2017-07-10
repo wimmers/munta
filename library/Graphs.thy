@@ -22,6 +22,10 @@ lemma steps_append:
   "steps (xs @ tl ys)" if "steps xs" "steps ys" "last xs = hd ys"
   using that by induction (auto 4 4 elim: steps.cases)
 
+lemma steps_append':
+  "steps xs" if "steps as" "steps bs" "last as = hd bs" "as @ tl bs = xs"
+  using steps_append that by blast
+
 coinductive run where
   "run (x ## y ## xs)" if "E x y" "run (y ## xs)"
 
@@ -278,6 +282,11 @@ lemma steps_non_empty[simp]:
   "\<not> steps []"
   by (auto elim: steps.cases)
 
+lemma steps_non_empty'[simp]:
+  "xs \<noteq> []" if "steps xs"
+  using that by auto
+
+(* XXX Generalize *)
 lemma steps_replicate:
   "steps (hd xs # concat (replicate n (tl xs)))" if "last xs = hd xs" "steps xs" "n > 0"
   using that
@@ -297,7 +306,7 @@ next
     from Suc.prems have **: "tl xs @ ys = tl (xs @ ys)" for ys
       by (cases xs; auto)
     from prems Suc show ?thesis
-      by - (simp; simp add: **; rule steps_append; cases xs; auto)
+      by (fastforce intro: steps_append')
   qed
 qed
 
@@ -345,7 +354,7 @@ proof -
   from reaches_steps[OF this(2)] obtain xs where *: "hd xs = z" "last xs = y" "steps xs"
     by auto
   then obtain xs' where [simp]: "xs = xs' @ [y]"
-    by (cases "xs = []", auto intro: append_butlast_last_id[symmetric])
+    by atomize_elim (auto 4 3 intro: append_butlast_last_id[symmetric])
   with \<open>x \<rightarrow> z\<close> * show ?thesis
     by auto
 qed
@@ -375,6 +384,11 @@ lemma
 lemma steps_append2:
   "steps (xs @ x # ys)" if "steps (xs @ [x])" "steps (x # ys)"
   using that by (auto dest: steps_append)
+
+lemma reaches1_steps_append:
+  assumes "a \<rightarrow>\<^sup>+ b" "steps xs" "hd xs = b"
+  shows "\<exists> ys. steps (a # ys @ xs)"
+  using assms by (fastforce intro: steps_append' dest: reaches1_steps)
 
 end (* Graph Defs *)
 
@@ -440,40 +454,21 @@ next
 qed
 
 lemma reachable_cycle_iff:
-  "(\<exists> ws. steps (s\<^sub>0 # ws @ [x] @ xs @ [x])) \<longleftrightarrow> reachable x \<and> steps ([x] @ xs @ [x])"
+  "reachable x \<and> x \<rightarrow>\<^sup>+ x \<longleftrightarrow> (\<exists> ws xs. steps (s\<^sub>0 # ws @ [x] @ xs @ [x]))"
 proof (safe, goal_cases)
-  case (1 ws)
-  then have "steps ((s\<^sub>0 # ws @ [x]) @ (xs @ [x]))"
-    by simp
-  then have "steps (s\<^sub>0 # ws @ [x])"
-    by (blast dest: stepsD)
+  case (2 ws)
   then show ?case
     by (auto intro: steps_reachable stepsD)
 next
-  case (2 ws)
-  then show ?case by (auto dest: stepsD)
+  case (3 ws xs)
+  then show ?case
+    by (auto intro: stepsD steps_reaches1)
 next
-  case prems: 3
-  show ?case
-  proof (cases "s\<^sub>0 = x")
-    case True
-    with prems show ?thesis
-      by (inst_existentials xs) (frule steps_append, assumption, auto)
-  next
-    case False
-    from reachable_steps[OF \<open>reachable x\<close>] obtain ws where
-      "steps ws" "hd ws = s\<^sub>0" "last ws = x"
-      by auto
-    with \<open>_ \<noteq> x\<close> obtain us where "ws = s\<^sub>0 # us @ [x]"
-      apply atomize_elim
-      apply (cases ws)
-       apply (simp; fail)
-      subgoal for a ws'
-        by (inst_existentials "butlast ws'") auto
-      done
-    with \<open>steps ws\<close> prems show ?thesis
-      by (inst_existentials us) (drule steps_append, assumption, auto)
-  qed
+  case prems: 1
+  from \<open>reachable x\<close> prems(2) have "s\<^sub>0 \<rightarrow>\<^sup>+ x"
+    unfolding reachable_def by auto
+  with \<open>x \<rightarrow>\<^sup>+ x\<close> show ?case
+    by (fastforce intro: steps_append' dest: reaches1_steps)
 qed
 
 lemma reachable_induct[consumes 1, case_names start step, induct pred: reachable]:
