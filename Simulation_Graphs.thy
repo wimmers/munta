@@ -199,7 +199,6 @@ locale Simulation_Graph_Prestable = Simulation_Graph_Defs +
   assumes prestable: "A S T \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C s s'"
 begin
 
-(* XXX Unused *)
 lemma Steps_prestable:
   "\<exists> xs. steps (x # xs) \<and> list_all2 (op \<in>) (x # xs) as" if "Steps as" "x \<in> hd as"
   using that
