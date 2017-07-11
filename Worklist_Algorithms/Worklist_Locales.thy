@@ -1,5 +1,5 @@
 theory Worklist_Locales
-  imports "$AFP/Refine_Imperative_HOL/Sepref" "$AFP/Collections/Lib/HashCode"
+  imports "$AFP/Refine_Imperative_HOL/Sepref" "$AFP/Collections/Lib/HashCode" "../library/Graphs"
 begin
 
 subsection \<open>Search Spaces\<close>
@@ -13,8 +13,10 @@ locale Search_Space_Defs =
     and F :: "'a \<Rightarrow> bool"      -- \<open>Final states\<close>
     and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) -- \<open>Subsumption preorder\<close>
 begin
-  definition reachable where
-    "reachable = E\<^sup>*\<^sup>* a\<^sub>0"
+
+  sublocale Graph_Start_Defs E a\<^sub>0 .
+
+  no_notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
   definition "F_reachable \<equiv> \<exists>a. reachable a \<and> F a"
 
