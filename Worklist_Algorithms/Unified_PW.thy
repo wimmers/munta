@@ -2,6 +2,8 @@ theory Unified_PW
   imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Locales
 begin
 
+hide_const wait
+
 subsection \<open>Utilities\<close>
 
 definition take_from_set where
@@ -32,27 +34,12 @@ lemma set_mset_mp: "set_mset m \<subseteq> s \<Longrightarrow> n < count m x \<L
 
 lemma pred_not_lt_is_zero: "(\<not> n - Suc 0 < n) \<longleftrightarrow> n=0" by auto
 
-
-context Search_Space
-begin
-
-  lemma start_reachable[intro!, simp]:
-    "reachable a\<^sub>0"
-  unfolding reachable_def by simp
-
-  lemma step_reachable:
-    assumes "reachable a" "E a a'"
-    shows "reachable a'"
-  using assms unfolding reachable_def by simp
-
-end -- \<open>Search Space\<close>
-
 lemma (in Search_Space_finite) finitely_branching:
   assumes "reachable a"
   shows "finite ({a'. E a a' \<and> \<not> empty a'})"
 proof -
   have "{a'. E a a' \<and> \<not> empty a'} \<subseteq> {a'. reachable a' \<and> \<not> empty a'}"
-    using assms(1) by (auto intro: step_reachable)
+    using assms(1) by (auto intro: reachable_step)
   then show ?thesis using finite_reachable
     by (rule finite_subset)
 qed
@@ -286,12 +273,12 @@ context Search_Space_finite begin
           by auto
         note cases = this
         from cases \<open>\<not> b \<in>' set_mset wait'\<close> assms'(4) \<open>reachable a\<close> \<open>passed \<subseteq> _\<close> have "reachable b"
-          by cases (auto intro: step_reachable)
+          by cases (auto intro: reachable_step)
         with A(3,4) have "\<not> empty b" by (auto simp: empty_E)
         from cases this \<open>reachable b\<close> consider "a = b" | "a \<noteq> b" "b \<in>' passed" "reachable b"
           apply cases
           using \<open>\<not> b \<in>' set_mset wait'\<close> assms'(4)
-          by (fastforce intro: step_reachable)+
+          by (fastforce intro: reachable_step)+
         then consider "b \<preceq> a" "reachable b" | "\<not> b \<preceq> a" "b \<in>' passed" "reachable b"
           apply cases
           using \<open>\<not> b \<in>' set_mset wait'\<close> assms'(4) \<open>reachable a\<close> by fastforce+
@@ -398,7 +385,7 @@ context Search_Space_finite begin
           with step.IH[OF \<open>a1 \<preceq> b1\<close> this \<open>b1'' \<in> passed\<close>] \<open>reachable a\<close> \<open>E a a1\<close> \<open>reachable b\<close> \<open>E b b1\<close>
           obtain x' x'' where
             "E\<^sup>*\<^sup>* b1 x'" "x \<preceq> x'" "x' \<preceq> x''" "x'' \<in> passed"
-            by (auto intro: step_reachable)
+            by (auto intro: reachable_step)
           moreover from \<open>E b b1\<close> \<open>E\<^sup>*\<^sup>* b1 x'\<close> have "E\<^sup>*\<^sup>* b x'" by auto
           ultimately show ?thesis by auto
         qed
@@ -408,7 +395,7 @@ context Search_Space_finite begin
       by (auto intro: trans)
   qed
 
-  lemmas [intro] = step_reachable
+  lemmas [intro] = reachable_step
 
   private lemma aux7:
     assumes

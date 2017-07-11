@@ -41,7 +41,7 @@ lemma pred_not_lt_is_zero: "(\<not> n - Suc 0 < n) \<longleftrightarrow> n=0" by
 lemma (in Search_Space_finite_strict) finitely_branching:
   assumes "reachable a"
   shows "finite (Collect (E a))"
-  by (metis assms finite_reachable finite_subset mem_Collect_eq step_reachable subsetI)
+  by (metis assms finite_reachable finite_subset mem_Collect_eq reachable_step subsetI)
 
 subsection \<open>Standard Worklist Algorithm\<close>
 
@@ -270,7 +270,7 @@ context Search_Space_finite_strict begin
           with step.IH[OF \<open>a1 \<preceq> b1\<close> this \<open>b1'' \<in> passed\<close>] \<open>reachable a\<close> \<open>E a a1\<close> \<open>reachable b\<close> \<open>E b b1\<close>
           obtain x' x'' where
             "E\<^sup>*\<^sup>* b1 x'" "x \<preceq> x'" "x' \<preceq> x''" "x'' \<in> passed"
-            by (auto intro: step_reachable)
+            by (auto intro: reachable_step)
           moreover from \<open>E b b1\<close> \<open>E\<^sup>*\<^sup>* b1 x'\<close> have "E\<^sup>*\<^sup>* b x'" by auto
           ultimately show ?thesis by auto
         qed
@@ -308,7 +308,7 @@ context Search_Space_finite_strict begin
         (*Invariant*)
         apply (clarsimp split: if_split_asm) (* Split on F in successors *)
           (* Found final state *)
-          apply (clarsimp simp: worklist_inv_def; blast intro: step_reachable; fail)
+          apply (clarsimp simp: worklist_inv_def; blast intro: reachable_step; fail)
           (* No final state *)
       apply (auto
         simp: worklist_inv_def aux3 aux6 finitely_branching
@@ -317,14 +317,14 @@ context Search_Space_finite_strict begin
     subgoal for ab aaa baa aba aca _ x
     proof -
       (* s/h alternative: *)
-      (* by (metis (mono_tags, hide_lams) Un_iff in_diffD mem_Collect_eq step_reachable subsetCE *)
+      (* by (metis (mono_tags, hide_lams) Un_iff in_diffD mem_Collect_eq reachable_step subsetCE *)
       assume
         "reachable aba"
         "set_mset aca \<subseteq> set_mset (aaa - {#aba#}) \<union> Collect (E aba)"
         "set_mset aaa \<subseteq> Collect reachable"
         "x \<in># aca"
       then show ?thesis
-        by (auto intro: step_reachable dest: in_diffD)
+        by (auto intro: reachable_step dest: in_diffD)
     qed
         apply (auto simp: worklist_inv_def aux1; fail)
       (* I \<and> \<not> b \<longrightarrow> post *)
