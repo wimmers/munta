@@ -117,12 +117,7 @@ begin
 
   lemma
     "pw_inv_frontier passed wait" if "pw_inv_frontier' passed wait"
-    using that
-    unfolding pw_inv_frontier_def
-    apply safe
-    using that
-    unfolding pw_inv_frontier'_def
-    by blast
+    using that unfolding pw_inv_frontier_def pw_inv_frontier'_def by blast
 
   definition pw_algo where
     "pw_algo = do

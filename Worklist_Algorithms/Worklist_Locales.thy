@@ -16,6 +16,9 @@ begin
 
   sublocale Graph_Start_Defs E a\<^sub>0 .
 
+  definition subsumes_strictly (infix "\<prec>" 50) where
+    "subsumes_strictly x y = (x \<preceq> y \<and> \<not> y \<preceq> x)"
+
   no_notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
   definition "F_reachable \<equiv> \<exists>a. reachable a \<and> F a"
@@ -38,6 +41,12 @@ locale Search_Space = Search_Space_Defs_Empty +
       and empty_mono: "\<not> empty a \<Longrightarrow> a \<preceq> b \<Longrightarrow> \<not> empty b"
       and empty_E: "reachable x \<Longrightarrow> empty x \<Longrightarrow> E x x' \<Longrightarrow> empty x'"
       and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
+begin
+
+  sublocale preorder "op \<preceq>" "op \<prec>"
+    by standard (auto simp: subsumes_strictly_def intro: trans)
+
+end (* Search Space *)
 
 locale Search_Space_finite = Search_Space +
   assumes finite_reachable: "finite {a. reachable a \<and> \<not> empty a}"

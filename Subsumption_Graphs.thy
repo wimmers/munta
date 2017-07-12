@@ -926,3 +926,5 @@ corollary G'_reachability_complete:
 end (* Automation *)
 
 end (* Reachability Compatible Subsumption Graph' *)
+
+end (* Theory *)
