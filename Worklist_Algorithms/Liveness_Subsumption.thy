@@ -215,6 +215,17 @@ proof -
     by (clarsimp simp add: **) (blast dest: *)
 qed
 
+lemma liveness_compatible_inv:
+  assumes "reachable v" "\<forall>s\<in>ST. s \<rightarrow>* v" "liveness_compatible P'" "\<forall>va. v \<rightarrow> va \<longrightarrow> (\<exists>x\<in>P'. va \<preceq> x)"
+  shows "liveness_compatible (insert v P')"
+  using assms
+  apply (subst liveness_compatible_def)
+  apply safe
+     apply clarsimp_all
+     apply (meson mono order_trans; fail)
+    apply (subst (asm) liveness_compatible_def, meson; fail)
+  by (blast intro: liveness_compatible_extend liveness_compatible_extend')+
+
 lemma dfs_correct:
   "dfs \<le> dfs_spec"
 proof -
@@ -343,16 +354,7 @@ proof -
 
       (* No cycle \<longrightarrow> Post *)
       subgoal for P' ST' c
-        apply (subst rpost_def, subst (asm) inv_def)
-        apply clarsimp
-        apply (rule conjI)
-         apply fastforce
-        apply (subst liveness_compatible_def)
-        apply safe
-           apply clarsimp_all
-           apply (meson mono order_trans; fail)
-          apply (subst (asm) liveness_compatible_def, meson; fail)
-        by (blast intro: liveness_compatible_extend liveness_compatible_extend')+
+        by (subst rpost_def, subst (asm) inv_def, auto intro: liveness_compatible_inv)
 
       (* Cycle \<longrightarrow> Post *)
       subgoal
