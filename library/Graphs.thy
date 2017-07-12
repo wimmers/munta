@@ -486,6 +486,9 @@ lemma reachable_induct[consumes 1, case_names start step, induct pred: reachable
 
 lemmas graphI_aggressive =
   tranclp_into_rtranclp
+  rtranclp.rtrancl_into_rtrancl
+  tranclp.trancl_into_trancl
+  rtranclp_into_tranclp2
 
 lemmas graphI_aggressive1 =
   graphI_aggressive
@@ -500,10 +503,71 @@ lemmas graphI_aggressive2 =
 lemmas graphD =
   reaches1_steps
 
+lemmas graphD_aggressive =
+  tranclpD
+
 lemmas graph_startI =
   reachable_reaches
 
 end (* Graph Start Defs *)
+
+locale Subgraph_Defs = G: Graph_Defs +
+  fixes E' :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+begin
+
+sublocale G': Graph_Defs E' .
+
+end (* Subgrap Defs *)
+
+locale Subgraph_Start_Defs = G: Graph_Start_Defs +
+  fixes E' :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+begin
+
+sublocale G': Graph_Start_Defs E' s\<^sub>0 .
+
+end (* Subgrap Start Defs *)
+
+locale Subgraph = Subgraph_Defs +
+  assumes subgraph[intro]: "E' a b \<Longrightarrow> E a b"
+begin
+
+lemma non_subgraph_cycle_decomp:
+  "\<exists> c d. G.reaches a c \<and> E c d \<and> \<not> E' c d \<and> G.reaches d b" if
+  "G.reaches1 a b" "\<not> G'.reaches1 a b" for a b
+    using that
+  proof induction
+    case (base y)
+    then show ?case
+      by auto
+  next
+    case (step y z)
+    show ?case
+    proof (cases "E' y z")
+      case True
+      with step have "\<not> G'.reaches1 a y"
+        by (auto intro: tranclp.trancl_into_trancl) (* XXX *)
+      with step obtain c d where
+        "G.reaches a c" "E c d" "\<not> E' c d" "G.reaches d y"
+        by auto
+      with \<open>E' y z\<close> show ?thesis
+        by (blast intro: rtranclp.rtrancl_into_rtrancl) (* XXX *)
+    next
+      case False
+      with step show ?thesis
+        by (intro exI conjI) auto
+    qed
+  qed
+
+end (* Subgraph *)
+
+locale Subgraph_Start = Subgraph_Start_Defs + Subgraph
+begin
+
+lemma reachable_subgraph[intro]: "G.reachable b" if \<open>G.reachable a\<close> \<open>G'.reaches a b\<close> for a b
+  using that
+  by (auto 4 3 intro: G.graph_startI mono_rtranclp[rule_format, of E'])
+
+end (* Subgraph Start *)
 
 bundle graph_automation
 begin
@@ -511,6 +575,16 @@ begin
 lemmas [intro] = Graph_Defs.graphI Graph_Start_Defs.graph_startI
 lemmas [dest]  = Graph_Start_Defs.graphD
 
-end
+end (* Bundle *)
 
-end
+bundle graph_automation_aggressive
+begin
+
+unbundle graph_automation
+
+lemmas [intro] = Graph_Start_Defs.graphI_aggressive
+lemmas [dest]  = Graph_Start_Defs.graphD_aggressive
+
+end (* Bundle *)
+
+end (* Theory *)

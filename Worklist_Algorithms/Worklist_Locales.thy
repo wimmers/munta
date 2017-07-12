@@ -148,4 +148,4 @@ locale Worklist_Map2_Impl_Defs =
   fixes keyi :: "'ai \<Rightarrow> 'ki Heap"
   fixes copyi :: "'ai \<Rightarrow> 'ai Heap"
 
-end
+end (* Theory *)

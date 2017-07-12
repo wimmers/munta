@@ -1,17 +1,7 @@
+(* Authors: Simon Wimmer, Peter Lammich *)
 theory Liveness_Subsumption
-  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Locales "../Subsumption_Graphs"
+  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common
 begin
-
-(* XXX Duplication with Unified_PW *)
-lemma (in Search_Space_finite) finitely_branching:
-  assumes "reachable a"
-  shows "finite ({a'. E a a' \<and> \<not> empty a'})"
-proof -
-  have "{a'. E a a' \<and> \<not> empty a'} \<subseteq> {a'. reachable a' \<and> \<not> empty a'}"
-    using assms(1) by (auto intro: reachable_step)
-  then show ?thesis using finite_reachable
-    by (rule finite_subset)
-qed
 
 context Search_Space_Defs_Empty
 begin
@@ -57,26 +47,32 @@ lemma mono:
   "a \<preceq> b \<Longrightarrow> a \<rightarrow> a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<exists> b'. b \<rightarrow> b' \<and> a' \<preceq> b'"
   by (auto intro: mono simp: empty)
 
+context
+  fixes P :: "'a set" and E1 E2 :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and v :: 'a
+  defines [simp]: "E1 \<equiv> \<lambda>x y. x \<rightarrow> y \<and> (\<exists>x'\<in>P. x \<preceq> x') \<and> (\<exists>x\<in>P. y \<preceq> x)"
+  defines [simp]: "E2 \<equiv> \<lambda>x y. x \<rightarrow> y \<and> (x \<preceq> v \<or> (\<exists>xa\<in>P. x \<preceq> xa)) \<and> (y \<preceq> v \<or> (\<exists>x\<in>P. y \<preceq> x))"
+begin
+
+interpretation G:  Graph_Defs E1  .
+interpretation G': Graph_Defs E2 .
+interpretation SG: Subgraph E2 E1 by standard auto
+interpretation SG': Subgraph_Start E a\<^sub>0 E1 by standard auto
+interpretation SG'': Subgraph_Start E a\<^sub>0 E2 by standard auto
+
 lemma liveness_compatible_extend:
   assumes
     "reachable s" "reachable v" "s \<preceq> v"
     "liveness_compatible P"
     "\<forall>va. v \<rightarrow> va \<longrightarrow> (\<exists>x\<in>P. va \<preceq> x)"
-    "(\<lambda>x y. x \<rightarrow> y \<and> (x \<preceq> v \<or> (\<exists>xa\<in>P. x \<preceq> xa)) \<and> (y \<preceq> v \<or> (\<exists>x\<in>P. y \<preceq> x)))\<^sup>+\<^sup>+ s s"
+    "E2\<^sup>+\<^sup>+ s s"
   shows False
 proof -
-  define E E'
-    where E_def [simp]: "E  \<equiv> \<lambda>x y. x \<rightarrow> y \<and> (\<exists>x'\<in>P. x \<preceq> x') \<and> (\<exists>x\<in>P. y \<preceq> x)"
-      and E'_def[simp]: "E' \<equiv> \<lambda>x y. x \<rightarrow> y \<and> (x \<preceq> v \<or> (\<exists>xa\<in>P. x \<preceq> xa)) \<and> (y \<preceq> v \<or> (\<exists>x\<in>P. y \<preceq> x))"
-  interpret G:  Graph_Defs E  .
-  interpret G': Graph_Defs E' .
+  include graph_automation_aggressive
   have 1: "\<exists> b' \<in> P. b \<preceq> b'" if "G.reaches a b" "a \<preceq> a'" "a' \<in> P" for a a' b
     using that by cases auto
-  have 2: "E a b" if "a \<rightarrow> b" "a \<preceq> a'" "a' \<in> P" "reachable a" for a a' b
+  have 2: "E1 a b" if "a \<rightarrow> b" "a \<preceq> a'" "a' \<in> P" "reachable a" for a a' b
     using assms(4) that unfolding liveness_compatible_def by auto
-  have 3: "reachable b" if \<open>reachable a\<close> \<open>G.reaches a b\<close> for a b
-    by (metis E_def mono_rtranclp reachable_reaches that(1) that(2))
-  from assms(6) have "E'\<^sup>+\<^sup>+ s s"
+  from assms(6) have "E2\<^sup>+\<^sup>+ s s"
     by auto
   have 4: "G.reaches a b" if "G'.reaches a b" "a \<preceq> a'" "a' \<in> P" "reachable a" for a a' b
     using that
@@ -88,33 +84,31 @@ proof -
     case (step b c)
     then have "G.reaches a b"
       by auto
-    from \<open>E' b c\<close> have "b \<rightarrow> c"
-      by auto
     from \<open>reachable a\<close> \<open>G.reaches a b\<close> have "reachable b"
-      by (blast intro: 3)
+      by blast
     from \<open>G.reaches a b\<close> \<open>a \<preceq> a'\<close> \<open>a' \<in> P\<close> obtain b' where "b' \<in> P" "b \<preceq> b'"
       by (fastforce dest: 1)
-    with \<open>b \<rightarrow> c\<close> \<open>reachable b\<close> have "E b c"
-      by (blast intro: 2)
+    with \<open>E2 b c\<close> \<open>reachable b\<close> have "E1 b c"
+      by (fastforce intro: 2)
     with \<open>G.reaches a b\<close> show ?case
-      by (meson rtranclp.rtrancl_into_rtrancl) (* XXX *)
+      by blast
   qed
-  from \<open>E'\<^sup>+\<^sup>+ s s\<close> obtain x where "E' s x" "G'.reaches x s"
-    by atomize_elim (meson tranclpD) (* XXX *)
+  from \<open>E2\<^sup>+\<^sup>+ s s\<close> obtain x where "E2 s x" "G'.reaches x s"
+    by atomize_elim blast (* XXX *)
   then have "s \<rightarrow> x"
     by auto
   with \<open>s \<preceq> v\<close> \<open>reachable s\<close> \<open>reachable v\<close> obtain x' where "v \<rightarrow> x'" "x \<preceq> x'"
     by (auto dest: mono)
   with assms(5) obtain x'' where "x \<preceq> x''" "x'' \<in> P"
     by (auto intro: order_trans)
-  from 4[OF \<open>G'.reaches x s\<close> \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close>] have "G.reaches x s"
-    using \<open>s \<rightarrow> x\<close> assms(1) reachable_step by blast
+  from 4[OF \<open>G'.reaches x s\<close> \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close>] \<open>s \<rightarrow> x\<close> assms(1) have "G.reaches x s"
+    by blast
   with \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close> obtain s' where "s \<preceq> s'" "s' \<in> P"
     by (blast dest: 1)
-  with \<open>s \<rightarrow> x\<close> \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close> have "E s x"
+  with \<open>s \<rightarrow> x\<close> \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close> have "E1 s x"
     by auto
   with \<open>G.reaches x s\<close> have "G.reaches1 s s"
-    by (meson rtranclp_into_tranclp2) (* XXX *)
+    by blast
   with assms(4) \<open>s' \<in> P\<close> \<open>s \<preceq> s'\<close> \<open>reachable s\<close> show False
     unfolding liveness_compatible_def by auto
 qed
@@ -124,42 +118,9 @@ lemma liveness_compatible_extend':
     "reachable s" "reachable v" "s \<preceq> s'" "s' \<in> P"
     "\<forall>va. v \<rightarrow> va \<longrightarrow> (\<exists>x\<in>P. va \<preceq> x)"
     "liveness_compatible P"
-    "(\<lambda>x y. x \<rightarrow> y \<and> (x \<preceq> v \<or> (\<exists>xa\<in>P. x \<preceq> xa)) \<and> (y \<preceq> v \<or> (\<exists>x\<in>P. y \<preceq> x)))\<^sup>+\<^sup>+ s s"
+    "E2\<^sup>+\<^sup>+ s s"
   shows False
 proof -
-  define E E'
-    where E_def [simp]: "E  \<equiv> \<lambda>x y. x \<rightarrow> y \<and> (\<exists>x'\<in>P. x \<preceq> x') \<and> (\<exists>x\<in>P. y \<preceq> x)"
-      and E'_def[simp]: "E' \<equiv> \<lambda>x y. x \<rightarrow> y \<and> (x \<preceq> v \<or> (\<exists>xa\<in>P. x \<preceq> xa)) \<and> (y \<preceq> v \<or> (\<exists>x\<in>P. y \<preceq> x))"
-  interpret G:  Graph_Defs E  .
-  interpret G': Graph_Defs E' .
-  (* XXX Lemma *)
-  have *: "\<exists> c d. G'.reaches a c \<and> E' c d \<and> \<not> E c d \<and> G'.reaches d b"
-    if "G'.reaches1 a b" "\<not> G.reaches1 a b" for a b
-    using that
-  proof induction
-    case (base y)
-    then show ?case
-      by auto
-  next
-    case (step y z)
-    show ?case
-    proof (cases "E y z")
-      case True
-      with step have "\<not> G.reaches1 a y"
-        by (auto simp del: E_def E'_def intro: tranclp.trancl_into_trancl) (* XXX *)
-      with step obtain c d where
-        "G'.reaches a c" "E' c d" "\<not> E c d" "G'.reaches d y"
-        by auto
-      with \<open>E' y z\<close> show ?thesis
-        by (blast intro: rtranclp.rtrancl_into_rtrancl) (* XXX *)
-    next
-      case False
-      with step show ?thesis
-        by (intro exI conjI) (auto simp del: E_def E'_def)
-    qed
-  qed
-  have 3[intro]: "reachable b" if \<open>reachable a\<close> \<open>G'.reaches a b\<close> for a b
-    by (metis E'_def mono_rtranclp reachable_reaches that(1) that(2))
   show ?thesis
   proof (cases "G.reaches1 s s")
     case True
@@ -167,48 +128,36 @@ proof -
       unfolding liveness_compatible_def by auto
   next
     case False
-    with *[of s s] assms(7) obtain c d where **:
-      "G'.reaches s c" "E' c d" "\<not> E c d" "G'.reaches d s"
+    with SG.non_subgraph_cycle_decomp[of s s] assms(7) obtain c d where **:
+      "G'.reaches s c" "E2 c d" "\<not> E1 c d" "G'.reaches d s"
       by auto
-    from \<open>E' c d\<close> \<open>\<not> E c d\<close> have "c \<preceq> v \<or> d \<preceq> v"
+    from \<open>E2 c d\<close> \<open>\<not> E1 c d\<close> have "c \<preceq> v \<or> d \<preceq> v"
       by auto
     with \<open>reachable s\<close> ** obtain v' where "G'.reaches1 v' v'" "v' \<preceq> v" "reachable v'"
-      by (auto simp del: E'_def E_def intro!: that)
+      by (auto simp del: E2_def E1_def intro!: that)
     with assms show ?thesis
       by (auto intro: liveness_compatible_extend)
   qed
 qed
 
+end (* Edge sets restricted to passed set *)
+
 lemma liveness_compatible_cycle_start:
   assumes
-    "liveness_compatible P" "reachable x" "x \<rightarrow>\<^sup>+ x"
-    "a\<^sub>0 \<preceq> s" "s \<in> P"
+    "liveness_compatible P" "reachable x" "x \<rightarrow>\<^sup>+ x" "a\<^sub>0 \<preceq> s" "s \<in> P"
   shows False
 proof -
+  include graph_automation_aggressive
   have *: "\<exists> y \<in> P. x \<preceq> y" if "reachable x" for x
-    using that
-  proof induction
-    case start
-    from assms show ?case
-      by auto
-  next
-    case (step a b)
-    then obtain a' where "a' \<in> P" "a \<preceq> a'"
-      by auto
-    with assms(1) \<open>reachable a\<close> \<open>a \<rightarrow> b\<close> show ?case
-      unfolding liveness_compatible_def by auto
-  qed
+    using that assms unfolding liveness_compatible_def by induction auto
   have **:
-    "(\<lambda>x y. x \<rightarrow> y \<and> (\<exists>x'\<in>P. x \<preceq> x') \<and> (\<exists>x\<in>P. y \<preceq> x))\<^sup>+\<^sup>+ a b \<longleftrightarrow>
-     a \<rightarrow>\<^sup>+ b
-    " if "reachable a" for a b
+    "(\<lambda>x y. x \<rightarrow> y \<and> (\<exists>x'\<in>P. x \<preceq> x') \<and> (\<exists>x\<in>P. y \<preceq> x))\<^sup>+\<^sup>+ a b \<longleftrightarrow> a \<rightarrow>\<^sup>+ b " if "reachable a" for a b
     apply standard
     subgoal
-      by (induction rule: tranclp_induct; blast intro: tranclp.intros(2))
+      by (induction rule: tranclp_induct; blast)
     subgoal
       using \<open>reachable a\<close>
-      including graph_automation
-      by - (induction rule: tranclp.induct, auto 4 4 intro: * tranclp.intros(2))
+      by - (induction rule: tranclp.induct, auto 4 4 intro: *)
     done
   from assms show ?thesis
     unfolding liveness_compatible_def
@@ -216,8 +165,8 @@ proof -
 qed
 
 lemma liveness_compatible_inv:
-  assumes "reachable v" "\<forall>s\<in>ST. s \<rightarrow>* v" "liveness_compatible P'" "\<forall>va. v \<rightarrow> va \<longrightarrow> (\<exists>x\<in>P'. va \<preceq> x)"
-  shows "liveness_compatible (insert v P')"
+  assumes "reachable v" "liveness_compatible P" "\<forall>va. v \<rightarrow> va \<longrightarrow> (\<exists>x\<in>P. va \<preceq> x)"
+  shows "liveness_compatible (insert v P)"
   using assms
   apply (subst liveness_compatible_def)
   apply safe

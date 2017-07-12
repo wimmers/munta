@@ -1,5 +1,5 @@
 theory Unified_PW
-  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Locales
+  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common
 begin
 
 hide_const wait
@@ -33,16 +33,6 @@ lemma set_mset_mp: "set_mset m \<subseteq> s \<Longrightarrow> n < count m x \<L
   by (meson count_greater_zero_iff le_less_trans subsetCE zero_le)
 
 lemma pred_not_lt_is_zero: "(\<not> n - Suc 0 < n) \<longleftrightarrow> n=0" by auto
-
-lemma (in Search_Space_finite) finitely_branching:
-  assumes "reachable a"
-  shows "finite ({a'. E a a' \<and> \<not> empty a'})"
-proof -
-  have "{a'. E a a' \<and> \<not> empty a'} \<subseteq> {a'. reachable a' \<and> \<not> empty a'}"
-    using assms(1) by (auto intro: reachable_step)
-  then show ?thesis using finite_reachable
-    by (rule finite_subset)
-qed
 
 subsection \<open>Generalized Worklist Algorithm\<close>
 
@@ -500,6 +490,6 @@ proof -
       using F_mono by (fastforce simp: pw_inv_def dest!: aux4 dest: final_non_empty)
 qed
 
-lemmas (in Search_Space'_finite) [refine_vcg] = pw_algo_correct[THEN order_trans]
+lemmas (in Search_Space'_finite) [refine_vcg] = pw_algo_correct[THEN order.trans]
 
 end -- \<open>End of Theory\<close>
