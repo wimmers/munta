@@ -643,12 +643,12 @@ qed
 
 context
   assumes finite_reachable: "finite {x. reachable x}"
-      and antisym: "x \<preceq> y \<Longrightarrow> y \<preceq> x \<Longrightarrow> x = y"
 begin
 
 (* XXX Unused *)
 lemma wf_less_on_reachable_set:
-  "wf {(x, y). y \<prec> x \<and> reachable x \<and> reachable y}" (is "wf ?S")
+  assumes antisym: "\<And> x y. x \<preceq> y \<Longrightarrow> y \<preceq> x \<Longrightarrow> x = y"
+  shows "wf {(x, y). y \<prec> x \<and> reachable x \<and> reachable y}" (is "wf ?S")
 proof (rule finite_acyclic_wf)
   have "?S \<subseteq> {(x, y). reachable x \<and> reachable y}"
     by auto
@@ -665,7 +665,7 @@ text \<open>
   This shows that looking for cycles and pre-cycles is equivalent in monotone subsumption graphs.
 \<close>
 (* XXX Duplication -- cycle_G'_cycle'' *)
-lemma pre_cycle_cycle:
+lemma pre_cycle_cycle':
   (* XXX Move to different locale *)
   assumes A: "x \<preceq> x'" "steps (x # xs @ [x'])" "reachable x"
   shows "\<exists> x'' ys. x' \<preceq> x'' \<and> steps (x'' # ys @ [x'']) \<and> reachable x''"
@@ -723,6 +723,10 @@ proof -
   ultimately show ?thesis
     by auto
 qed
+
+lemma pre_cycle_cycle:
+  "(\<exists> x x'. reachable x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x') \<longleftrightarrow> (\<exists> x. reachable x \<and> x \<rightarrow>\<^sup>+ x)"
+  including reaches_steps_iff by (force dest: pre_cycle_cycle')
 
 end (* Automation *)
 

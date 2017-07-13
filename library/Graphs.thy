@@ -577,6 +577,10 @@ lemmas [dest]  = Graph_Start_Defs.graphD
 
 end (* Bundle *)
 
+bundle reaches_steps_iff =
+  Graph_Defs.reaches1_steps_iff [iff]
+  Graph_Defs.reaches_steps_iff  [iff]
+
 bundle graph_automation_aggressive
 begin
 

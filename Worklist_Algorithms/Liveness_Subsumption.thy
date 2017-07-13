@@ -1,15 +1,18 @@
 (* Authors: Simon Wimmer, Peter Lammich *)
 theory Liveness_Subsumption
-  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common
+  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common "../Subsumption_Graphs"
 begin
 
 context Search_Space_Defs_Empty
 begin
 
+text \<open>Plain set membership is also an option.\<close>
+definition "check_loop v ST = (\<exists> v' \<in> ST. v' \<preceq> v)"
+
 definition dfs :: "('a set \<times> bool) nres" where
   "dfs \<equiv> do {
     (P,ST,r) \<leftarrow> RECT (\<lambda>dfs (P,ST,v).
-      if v\<in>ST then RETURN (P, ST, True)
+      if check_loop v ST then RETURN (P, ST, True)
       else do {
         if \<exists> v' \<in> P. v \<preceq> v' then
           RETURN (P, ST, False)
@@ -39,6 +42,12 @@ end (* Search Space Defs *)
 context Search_Space_finite_strict
 begin
 
+lemma check_loop_loop: "\<exists> v' \<in> ST. v' \<preceq> v" if "check_loop v ST"
+  using that unfolding check_loop_def by blast
+
+lemma check_loop_no_loop: "v \<notin> ST" if "\<not> check_loop v ST"
+  using that unfolding check_loop_def by blast
+
 context
   assumes empty: "empty = (\<lambda> x. False)"
 begin
@@ -46,6 +55,9 @@ begin
 lemma mono:
   "a \<preceq> b \<Longrightarrow> a \<rightarrow> a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<exists> b'. b \<rightarrow> b' \<and> a' \<preceq> b'"
   by (auto intro: mono simp: empty)
+
+interpretation Subsumption_Graph_Pre "op \<preceq>" "op \<prec>" E a\<^sub>0
+  by standard (blast intro: mono)
 
 context
   fixes P :: "'a set" and E1 E2 :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and v :: 'a
@@ -188,7 +200,7 @@ proof -
     "
 
   define rpost where "rpost \<equiv> \<lambda>(P,ST,v) (P',ST',r).
-    (r \<longrightarrow> (\<exists> x. v \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)) \<and>
+    (r \<longrightarrow> (\<exists> x x'. reachable x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
     (\<not> r \<longrightarrow>
       P \<subseteq> P'
       \<and> P' \<subseteq> {x. reachable x}
@@ -201,7 +213,7 @@ proof -
       "
 
   define inv where "inv \<equiv> \<lambda> P ST v it (P', ST', r).
-    (r \<longrightarrow> (\<exists> x. v \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)) \<and>
+    (r \<longrightarrow> (\<exists> x x'. reachable x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
     (\<not> r \<longrightarrow>
         P \<subseteq> P'
       \<and> P' \<subseteq> {x. reachable x}
@@ -248,10 +260,9 @@ proof -
       (* The postcondition establishes the specification *)
     subgoal
       apply refine_vcg
-      unfolding rpost_def reachable_def
+      unfolding rpost_def pre_cycle_cycle[OF finite_reachable]
       including graph_automation
       using liveness_compatible_cycle_start by blast
-
 
     apply (thin_tac "_ = f")
 
@@ -260,7 +271,7 @@ proof -
 
     (* Cycle found *)
     subgoal for f x a b aa ba
-      by (subst rpost_def, subst (asm) (2) rpre_def, force)
+      by (subst rpost_def, subst (asm) (2) rpre_def, auto 4 4 dest: check_loop_loop)
 
     (* Subsumption *)
     subgoal for f x P b ST v
@@ -292,7 +303,8 @@ proof -
 
         (* Termination *)
         subgoal
-          unfolding Termination_def by (auto simp: finite_psupset_def inv_def)
+          unfolding Termination_def
+          by (auto simp: finite_psupset_def inv_def dest: check_loop_no_loop)
 
         (* Post \<longrightarrow> Inv *)
         subgoal
@@ -303,7 +315,8 @@ proof -
 
       (* No cycle \<longrightarrow> Post *)
       subgoal for P' ST' c
-        by (subst rpost_def, subst (asm) inv_def, auto intro: liveness_compatible_inv)
+        by (subst rpost_def, subst (asm) inv_def,
+            auto intro: liveness_compatible_inv dest: check_loop_no_loop)
 
       (* Cycle \<longrightarrow> Post *)
       subgoal
