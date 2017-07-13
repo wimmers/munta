@@ -9,7 +9,7 @@ begin
 text \<open>Plain set membership is also an option.\<close>
 definition "check_loop v ST = (\<exists> v' \<in> ST. v' \<preceq> v)"
 
-definition dfs :: "('a set \<times> bool) nres" where
+definition dfs :: "bool nres" where
   "dfs \<equiv> do {
     (P,ST,r) \<leftarrow> RECT (\<lambda>dfs (P,ST,v).
       if check_loop v ST then RETURN (P, ST, True)
@@ -26,7 +26,7 @@ definition dfs :: "('a set \<times> bool) nres" where
           }
       }
     ) ({},{},a\<^sub>0);
-    RETURN (P, r)
+    RETURN r
   }"
 
 definition liveness_compatible where "liveness_compatible P \<equiv>
@@ -35,7 +35,7 @@ definition liveness_compatible where "liveness_compatible P \<equiv>
       \<not> (\<lambda> x y. E x y \<and> (\<exists> x' \<in> P. \<exists> y' \<in> P. x \<preceq> x' \<and> y \<preceq> y'))\<^sup>+\<^sup>+ s s)
     "
 
-definition "dfs_spec \<equiv> SPEC (\<lambda>(P,r). r \<longleftrightarrow> (\<exists> x. reachable x \<and> x \<rightarrow>\<^sup>+ x))"
+definition "dfs_spec \<equiv> SPEC (\<lambda> r. r \<longleftrightarrow> (\<exists> x. reachable x \<and> x \<rightarrow>\<^sup>+ x))"
 
 end (* Search Space Defs *)
 
