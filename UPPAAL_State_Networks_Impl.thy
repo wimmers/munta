@@ -4,6 +4,8 @@ begin
 
 chapter \<open>Implementation of UPPAAL Style Networks\<close>
 
+no_notation OR (infix "or" 60)
+
 lemma step_resets:
   "\<forall> c \<in> set r'. \<exists> x pc. Some (INSTR (STOREC c x)) = P pc"
   if "stepc cmd u (pc, st, s, f, r) = Some (pc', st', s', f', r')"
