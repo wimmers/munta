@@ -634,9 +634,11 @@ begin
     case prems: (step_sn_t N d P)
     note [simp] = A_simp[OF prems(1)]
     from prems have "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', u'\<rangle>"
-      unfolding N_s_def by (auto simp: inv_of_def intro: step_n_t)
+      unfolding N_s_def by (auto 4 3 simp: inv_of_def intro: step_n_t)
     with prems show ?thesis
-      by (auto 4 4 simp add: product_inv_prod_simp[OF length_L] elim!: product_delay_complete)
+      by (auto 4 4
+          simp: product_inv_prod_simp[OF length_L]
+          elim!: product_delay_complete step_t.cases)
   next
     case prems: (step_sn_i l g a c m f l' N q r I)
     note [simp] = A_simp[OF prems(1)]

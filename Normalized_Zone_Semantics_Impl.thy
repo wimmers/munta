@@ -11,6 +11,8 @@ chapter \<open>Implementation of Reachability Checking\<close>
 
 hide_const D
 
+no_notation Extended_Nat.infinity_class.infinity ("\<infinity>")
+
 definition default_ceiling where
   "default_ceiling A = (
     let M = (\<lambda> c. {m . (c, m) \<in> Timed_Automata.clkp_set A}) in
@@ -2110,6 +2112,7 @@ lemma map_DBMEntry_int_const:
 using assms by (cases a; auto simp: Ints_def)
 
 lemma map_DBMEntry_not_inf:
+  fixes a :: "_ DBMEntry"
   assumes "a \<noteq> \<infinity>"
   shows "map_DBMEntry real_of_int a \<noteq> \<infinity>"
 using assms by (cases a; auto simp: Ints_def)

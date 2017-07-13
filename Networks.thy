@@ -687,7 +687,7 @@ begin
     case prems: (step_n_t d)
     from prems have *:
       "\<forall>p\<in>{..<length N}. u \<oplus> d \<turnstile> inv_of (N ! p) (L ! p)"
-    by auto
+    by (auto elim!: step_t.cases)
     from prems * show ?thesis
     by (fastforce simp add: product_ta_def inv_of_def product_invariant_def[abs_def]
                   intro!: guard_concat that
