@@ -802,6 +802,56 @@ theorem infinite_buechi_run_cycle_iff1:
 
 end (* Context for Formula *)
 
+context
+  fixes P :: "'s \<Rightarrow> bool" -- "The state property we want to check"
+  assumes sim_closure: "\<Union>sim.closure a\<^sub>0 = a\<^sub>0"
+begin
+
+definition "\<phi> = P o fst"
+
+lemma closure_location:
+  "\<exists> l. \<forall> x \<in> \<Union> sim.closure a. fst x = l" if "P2 a"
+proof (cases "\<Union> sim.closure a = {}")
+  case True
+  then show ?thesis
+    by auto
+next
+  case False
+  then obtain x b where "a \<inter> b \<noteq> {}" "P1 b" "b \<in> sim.closure a" "x \<in> a" "x \<in> b"
+    unfolding sim.closure_def by auto
+  from \<open>P1 b\<close> \<open>x \<in> b\<close> obtain l where "\<forall>x\<in>b. fst x = l"
+    unfolding P1_def by auto
+  with \<open>x \<in> a\<close> \<open>x \<in> b\<close> \<open>P2 a\<close> show ?thesis
+    unfolding sim.closure_def
+    unfolding P1_def P2_def
+    by (inst_existentials l) (auto, metis fst_conv)
+qed
+
+lemma P2_closure:
+  "x \<in> \<Union> sim.closure a" if "x \<in> a" "P2 a"
+  using that unfolding P2_def
+proof (clarify, goal_cases)
+  case prems: (1 l)
+  then have "snd x \<in> V"
+    by (auto simp: R_of_def dest: V'_V)
+  then have "snd x \<in> [snd x]\<^sub>l" "[snd x]\<^sub>l \<in> \<R> l"
+    by (auto simp: V_def intro: region_cover')
+  with prems have "x \<in> from_R l ([snd x]\<^sub>l)" "P1 (from_R l ([snd x]\<^sub>l))"
+     apply -
+    subgoal
+      unfolding from_R_def by auto
+    subgoal
+      by (auto simp: from_R_fst P1_def)
+    done
+  with prems show ?case
+    unfolding sim.closure_def by auto
+qed
+
+lemma \<phi>_closure_compatible: "\<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> sim.closure a. \<phi> x)" if "x \<in> a" "P2 a"
+  using closure_location[OF \<open>P2 a\<close>] P2_closure[OF that] unfolding \<phi>_def by (simp, fastforce)
+
+end (* Context for State Formula *)
+
 end (* Regions TA with Start State*)
 
 end (* Theory *)
