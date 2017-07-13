@@ -809,6 +809,8 @@ begin
 
 definition "\<phi> = P o fst"
 
+paragraph \<open>State formulas are compatible with closures.\<close>
+
 lemma closure_location:
   "\<exists> l. \<forall> x \<in> \<Union> sim.closure a. fst x = l" if "P2 a"
 proof (cases "\<Union> sim.closure a = {}")
