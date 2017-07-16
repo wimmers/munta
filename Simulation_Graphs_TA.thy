@@ -1000,6 +1000,10 @@ next
     by auto
 qed
 
+theorem Alw_ev_mc1:
+  "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (P l\<^sub>0 \<and> (\<exists>a. G\<^sub>\<phi>.reachable a \<and> G\<^sub>\<phi>.reaches1 a a))"
+  unfolding Alw_ev_mc using G\<^sub>\<phi>.reachable_cycle_iff by auto
+
 end (* Context for State Formula *)
 
 end (* Regions TA with Start State*)
