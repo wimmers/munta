@@ -834,17 +834,19 @@ locale Double_Simulation_Finite_Complete_Abstraction_Prop =
   Double_Simulation +
   fixes a\<^sub>0
   fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
-  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
-  assumes finite_P2: "finite {a. P2 a}"
+  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> P2 S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
+  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
   assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
       and P2_a\<^sub>0: "P2 a\<^sub>0"
   assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
-      and \<phi>_P2_compatible: "P2 a \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
+      and \<phi>_P2_compatible: "P2 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
+      and \<phi>_A2_compatible: "A2\<^sup>*\<^sup>* a\<^sub>0 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> A2\<^sup>*\<^sup>* a\<^sub>0 (a \<inter> {x. \<phi> x})"
+      and P2_non_empty: "P2 a \<Longrightarrow> a \<noteq> {}"
 begin
 
 definition "C_\<phi> x y \<equiv> C x y \<and> \<phi> y"
 definition "A1_\<phi> a b \<equiv> A1 a b \<and> b \<subseteq> {x. \<phi> x}"
-definition "A2_\<phi> S S' \<equiv> \<exists> S''. A2 S S'' \<and> S'' \<inter> {x. \<phi> x} = S'"
+definition "A2_\<phi> S S' \<equiv> \<exists> S''. A2 S S'' \<and> S'' \<inter> {x. \<phi> x} = S' \<and> S' \<noteq> {}"
 
 lemma A2_\<phi>_P2_invariant:
   "P2 a" if "A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a"
@@ -877,9 +879,25 @@ next
   then show ?case unfolding C_\<phi>_def A2_\<phi>_def by (auto dest!: complete)
 next
   case 7
-  have "{a. A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a} \<subseteq> {a. P2 a}"
-    by (blast intro: A2_\<phi>_P2_invariant)
-  then show ?case (is "finite ?S") using finite_P2 by (rule finite_subset)
+  have "{a. A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a} \<subseteq> {a. Steps.reaches a\<^sub>0 a}"
+    apply safe
+    subgoal premises prems for x
+        using prems
+        proof (induction x1 \<equiv> a\<^sub>0 x rule: rtranclp.induct)
+          case rtrancl_refl
+          then show ?case by blast
+        next
+          case prems: (rtrancl_into_rtrancl b c)
+          then have "c \<noteq> {}"
+            by - (rule P2_non_empty, auto intro: A2_\<phi>_P2_invariant)
+          from \<open>A2_\<phi> b c\<close> obtain S'' x where
+            "A2 b S''" "c = S'' \<inter> {x. \<phi> x}" "x \<in> S''" "\<phi> x"
+            unfolding A2_\<phi>_def by auto
+          with prems \<open>c \<noteq> {}\<close> \<phi>_A2_compatible[of S''] show ?case
+            including graph_automation_aggressive by auto
+        qed
+    done
+  then show ?case (is "finite ?S") using finite_abstract_reachable by (rule finite_subset)
 next
   case (8 a a')
   then show ?case unfolding A2_\<phi>_def by (auto intro: P2_invariant \<phi>_P2_compatible)
@@ -903,13 +921,13 @@ qed
 corollary infinite_run_cycle_iff:
   "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> pred_stream \<phi> (x\<^sub>0 ## xs)) \<longleftrightarrow>
    (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
-  unfolding phi.infinite_run_cycle_iff[OF that(1,2), symmetric] phi_run_iff[symmetric]
-  using that(3) by auto
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding phi.infinite_run_cycle_iff[OF that(1) P2_a\<^sub>0, symmetric] phi_run_iff[symmetric]
+  using that(2) by auto
 
 theorem Alw_ev_mc:
   "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
   unfolding Alw_ev alw_holds_pred_stream_iff infinite_run_cycle_iff[OF that, symmetric]
   by (auto simp: comp_def)
 

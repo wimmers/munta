@@ -257,7 +257,7 @@ proof -
 
      defer
 
-      (* The postcondition establishes the specification *)
+    (* The postcondition establishes the specification *)
     subgoal
       apply refine_vcg
       unfolding rpost_def pre_cycle_cycle[OF finite_reachable]

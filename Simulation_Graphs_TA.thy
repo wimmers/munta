@@ -484,8 +484,6 @@ using that proof (induction "(l, Z) # xs" arbitrary: l Z xs)
 next
   case (Cons lZ' xs l Z)
   obtain l' Z' where [simp]: "lZ' = (l', Z')" by (metis prod.exhaust)
-  from Cons have "Z' \<in> V'"
-    by (auto intro: step_z_beta'_V')
   from Cons.prems Cons.hyps(1,2) Cons.hyps(3)[OF \<open>lZ' = _\<close>] show ?case
     apply simp
     apply (rule Graph_Defs.steps.intros)
@@ -851,6 +849,156 @@ qed
 
 lemma \<phi>_closure_compatible: "\<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> sim.closure a. \<phi> x)" if "x \<in> a" "P2 a"
   using closure_location[OF \<open>P2 a\<close>] P2_closure[OF that] unfolding \<phi>_def by (simp, fastforce)
+
+
+paragraph \<open>Runs satisfying a formula all the way long\<close>
+
+lemma P_a\<^sub>0_phi: "a\<^sub>0 \<subseteq> Collect \<phi>" if "P l\<^sub>0"
+  using that unfolding a\<^sub>0_def \<phi>_def by (auto simp: from_R_def)
+
+lemma P2_\<phi>:
+  "a \<inter> Collect \<phi> = a" if "P2 a" "a \<inter> Collect \<phi> \<noteq> {}"
+  using that \<phi>_closure_compatible by auto
+
+lemma sim_Steps_P2:
+  "P2 a" if "sim.Steps.reaches a\<^sub>0 a"
+  using that by (induction; blast intro: sim_complete.P2_invariant sim_complete.P2_a\<^sub>0)
+
+lemma \<phi>_A1_compatible:
+  "b \<subseteq> Collect \<phi> \<or> b \<inter> Collect \<phi> = {}" if "A1 a b"
+  using that unfolding A1_def \<phi>_def by auto (metis fst_conv)
+
+interpretation Double_Simulation_Finite_Complete_Abstraction_Prop C A1 P1 A2 P2 a\<^sub>0 \<phi>
+  apply standard
+  subgoal for x y S
+    by (rule sim_complete.complete)
+  subgoal
+    by (rule sim_complete.finite_abstract_reachable)
+  subgoal
+    by (rule sim_complete.P2_invariant)
+  subgoal
+    by (rule sim_complete.P2_a\<^sub>0)
+  subgoal for a b
+    by (rule \<phi>_A1_compatible)
+  subgoal for a
+    by (frule P2_\<phi>, auto)
+  subgoal for a
+    by (simp add: sim_Steps_P2 P2_\<phi>)
+  subgoal for a
+    unfolding P2_def R_of_def by auto
+  done
+
+interpretation G\<^sub>\<phi>: Graph_Start_Defs
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {} \<and> P l'" "(l\<^sub>0, Z\<^sub>0)" .
+
+lemma steps_phi_Steps:
+  "phi.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))" if "G\<^sub>\<phi>.steps ((l, Z) # xs)" "Z \<in> V'"
+using that proof (induction "(l, Z) # xs" arbitrary: l Z xs)
+  case Single
+  then show ?case by (auto intro: Graph_Defs.steps.intros)
+next
+  case (Cons lZ' xs l Z)
+  then show ?case
+    apply simp
+    apply (rule Graph_Defs.steps.intros)
+     apply (subst A2_\<phi>_def, subst A2_def)
+    by (fastforce dest: from_R_loc simp: \<phi>_def intro: step_z_beta'_V')+
+qed
+
+lemma from_R_\<phi>:
+  "S = from_R l Z \<and> P l" if "S \<inter> Collect \<phi> = from_R l Z" "from_R l Z \<noteq> {}" "\<forall>x \<in> S. fst x = l''"
+proof (safe, goal_cases)
+  case (1 a b)
+  from that have S_l: "\<forall>x \<in> S. fst x = l"
+    by (metis IntE all_not_in_conv from_R_fst)
+  from that(1) have *: "S \<inter> Collect \<phi> = {(l, u) | u. u \<in> R_of (S \<inter> Collect \<phi>)}"
+    unfolding from_R_def R_of_def by force
+  moreover have "R_of (S \<inter> Collect \<phi>) = R_of S"
+    unfolding R_of_def \<phi>_def
+    by auto (metis IntI Int_emptyI \<phi>_def comp_apply image_iff mem_Collect_eq snd_conv that(1,2) S_l)
+  ultimately have "{(l, u) | u. u \<in> R_of S} = from_R l Z"
+    using that(1) by metis
+  then have "from_R l Z = S"
+    apply (simp only: from_R_def R_of_def)
+    using that(1) apply auto
+    subgoal
+      using S_l unfolding \<phi>_def by auto
+    subgoal
+      using \<open>R_of (S \<inter> Collect \<phi>) = R_of S\<close> by auto
+    done
+  with \<open>_ \<in> _\<close> show ?case
+    by auto
+next
+  case (2 a b)
+  with that(1) show ?case by auto
+next
+  case 3
+  with that show ?case
+    by (force simp: from_R_def \<phi>_def)
+qed
+
+lemma phi_Steps_steps:
+  "G\<^sub>\<phi>.steps ((l, Z) # xs)" if "phi.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))" "Z \<in> V'"
+using that proof (induction "map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs)" arbitrary: l Z xs)
+  case (Single x)
+  then show ?case by (auto intro: Graph_Defs.steps.intros)
+next
+  case (Cons x y xs l Z xs')
+  then obtain l' Z' ys where [simp]:
+    "xs' = (l', Z') # ys" "x = from_R l Z" "y = from_R l' Z'"
+    by (cases xs') auto
+  with \<open>x # y # _ = _\<close> have "y # xs = map (\<lambda>(x, y). from_R x y) ((l', Z') # ys)" by simp
+  from \<open>A2_\<phi> x y\<close> obtain a where "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {} \<and> P l'"
+    apply atomize_elim
+    apply (simp add: A2_\<phi>_def; simp add: A2_def)
+    apply clarify
+    apply (drule from_R_\<phi>, assumption+)
+    by (intro conjI; simp; auto dest: step_z_beta'_empty simp: from_R_def)
+  moreover with Cons.prems step_z_beta'_V' have "Z' \<in> V'" by blast
+  moreover from Cons.hyps(3)[OF \<open>y # xs = _\<close> \<open>Z' \<in> V'\<close>] have "G\<^sub>\<phi>.steps ((l', Z') # ys)" .
+  ultimately show ?case unfolding \<open>xs' = _\<close> by - (rule G\<^sub>\<phi>.steps.intros; auto)
+qed
+
+lemma sim_steps_equiv:
+  "G\<^sub>\<phi>.steps ((l, Z) # xs) \<longleftrightarrow> phi.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))" if "Z \<in> V'"
+  using that phi_Steps_steps steps_phi_Steps by fast
+
+lemma run_map_from_R:
+  "map (\<lambda>(x, y). from_R x y) (map (\<lambda> lR. ((THE l. \<forall> x \<in> lR. fst x = l), R_of lR)) xs) = xs"
+  if "phi.Steps (x # xs)"
+  using that
+proof (induction "x # xs" arbitrary: x xs)
+  case Single
+  then show ?case by simp
+next
+  case (Cons x y xs)
+  then show ?case
+    apply (subst (asm) A2_\<phi>_def)
+    apply (subst (asm) A2_def)
+    apply simp
+    apply clarify
+    apply (rule from_R_R_of)
+    apply (rule theI)
+    unfolding R_of_def by force+
+qed
+
+theorem Alw_ev_mc:
+  "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> P l\<^sub>0 \<or> (\<nexists>as a bs. G\<^sub>\<phi>.steps ((l\<^sub>0, Z\<^sub>0) # as @ a # bs @ [a]))"
+proof (subst sim_steps_equiv[OF start_state(2)], cases "P l\<^sub>0", goal_cases)
+  case 1
+  then show ?case
+    apply (subst Alw_ev_mc[OF sim_closure P_a\<^sub>0_phi])
+    apply (auto simp del: map_map simp add: a\<^sub>0_def)
+    apply (frule run_map_from_R)
+    apply (simp del: map_map)
+    by (metis (no_types, lifting))
+next
+  case 2
+  then have "\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) x\<^sub>0"
+    unfolding sim.Alw_ev_def using from_R_fst by (force simp add: holds_Stream \<phi>_def a\<^sub>0_def)
+  with \<open>\<not> P l\<^sub>0\<close> show ?case
+    by auto
+qed
 
 end (* Context for State Formula *)
 
