@@ -936,7 +936,7 @@ end (* Double Simulation Finite Complete Abstraction Prop *)
 section \<open>Comments\<close>
 
 text \<open>
-\<^item> Pre-stability can easily be extended to infinite runs (see construction with \<open>sgenerate\<close> above)
+\<^item> Pre-stability can easily be extended to infinite runs (see construction with @{term sscan} above)
 \<^item> Post-stability can not
 \<^item> Pre-stability + Completeness means that for every two concrete states in the same abstract class,
   there are equivalent runs
