@@ -86,11 +86,114 @@ lemmas Steps_cases = Steps.steps.cases
 
 end (* Simulation Graph *)
 
+locale Simulation_Graph_Poststable = Simulation_Graph_Defs +
+  assumes poststable: "A S T \<Longrightarrow> \<forall> s' \<in> T. \<exists> s \<in> S. C s s'"
+
+locale Simulation_Graph_Prestable = Simulation_Graph_Defs +
+  assumes prestable: "A S T \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C s s'"
+
+locale Double_Simulation_Defs =
+  fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- "Concrete step relation"
+    and A1 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" -- "Step relation for the first abstraction layer"
+    and P1 :: "'a set \<Rightarrow> bool" -- "Valid states of the first abstraction layer"
+    and A2 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" -- "Step relation for the second abstraction layer"
+    and P2 :: "'a set \<Rightarrow> bool" -- "Valid states of the second abstraction layer"
+begin
+
+sublocale Simulation_Graph_Defs C A2 .
+
+sublocale pre_defs: Simulation_Graph_Defs C A1 .
+
+definition "closure a = {x. P1 x \<and> a \<inter> x \<noteq> {}}"
+
+definition "A2' a b \<equiv> \<exists> x y. a = closure x \<and> b = closure y \<and> A2 x y"
+
+sublocale post_defs: Simulation_Graph_Defs A1 A2' .
+
+lemma closure_mono:
+  "closure a \<subseteq> closure b" if "a \<subseteq> b"
+  using that unfolding closure_def by auto
+
+lemma closure_intD:
+  "x \<in> closure a \<and> x \<in> closure b" if "x \<in> closure (a \<inter> b)"
+  using that closure_mono by blast
+
+end (* Double Simulation Graph Defs *)
+
+locale Double_Simulation = Double_Simulation_Defs +
+  assumes prestable: "A1 S T \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C s s'"
+      and closure_poststable: "s' \<in> closure y \<Longrightarrow> A2 x y \<Longrightarrow> \<exists>s\<in>closure x. A1 s s'"
+      and P1_distinct: "P1 x \<Longrightarrow> P1 y \<Longrightarrow> x \<noteq> y \<Longrightarrow> x \<inter> y = {}"
+      and P1_finite: "finite {x. P1 x}"
+      and P2_cover: "P2 a \<Longrightarrow> \<exists> x. P1 x \<and> x \<inter> a \<noteq> {}"
+begin
+
+sublocale post: Simulation_Graph_Poststable A1 A2'
+  unfolding A2'_def by standard (auto dest: closure_poststable)
+
+sublocale pre: Simulation_Graph_Prestable C A1 by standard (rule prestable)
+
+end (* Double Simulation *)
+
+locale Finite_Graph = Graph_Defs +
+  fixes x\<^sub>0
+  assumes finite_reachable: "finite {x. E\<^sup>*\<^sup>* x\<^sub>0 x}"
+
+locale Simulation_Graph_Complete_Defs =
+  Simulation_Graph_Defs C A for C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" +
+  fixes P :: "'a set \<Rightarrow> bool" -- "well-formed abstractions"
+
+locale Simulation_Graph_Complete = Simulation_Graph_Complete_Defs +
+  assumes complete: "C x y \<Longrightarrow> P S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A S T \<and> y \<in> T"
+      and P_invariant: "P S \<Longrightarrow> A S T \<Longrightarrow> P T"
+
+locale Simulation_Graph_Finite_Complete = Simulation_Graph_Complete +
+  fixes a\<^sub>0
+  assumes finite_abstract_reachable: "finite {a. A\<^sup>*\<^sup>* a\<^sub>0 a}"
+begin
+
+sublocale Steps_finite: Finite_Graph A a\<^sub>0
+  by standard (rule finite_abstract_reachable)
+
+end (* Simulation Graph Finite Complete *)
+
+locale Double_Simulation_Finite_Complete = Double_Simulation +
+  fixes a\<^sub>0
+  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> P2 S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
+  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+      and P2_a\<^sub>0: "P2 a\<^sub>0"
+begin
+
+sublocale Simulation_Graph_Finite_Complete C A2 P2 a\<^sub>0
+  by standard (blast intro: complete finite_abstract_reachable P2_invariant)+
+
+end (* Double Simulation Finite Complete *)
+
+locale Double_Simulation_Finite_Complete_Abstraction_Prop =
+  Double_Simulation +
+  fixes a\<^sub>0
+  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> P2 S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
+  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+      and P2_a\<^sub>0: "P2 a\<^sub>0"
+  assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
+      and \<phi>_P2_compatible: "P2 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
+      and \<phi>_A2_compatible: "A2\<^sup>*\<^sup>* a\<^sub>0 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> A2\<^sup>*\<^sup>* a\<^sub>0 (a \<inter> {x. \<phi> x})"
+      and P2_non_empty: "P2 a \<Longrightarrow> a \<noteq> {}"
+
+locale Simulation_Graph_Complete_Prestable = Simulation_Graph_Complete + Simulation_Graph_Prestable
+
+locale Double_Simulation_Finite_Complete_Abstraction_Prop' =
+  Double_Simulation_Finite_Complete_Abstraction_Prop +
+  assumes A1_complete: "C x y \<Longrightarrow> P1 S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A1 S T \<and> y \<in> T"
+      and P_invariant: "P1 S \<Longrightarrow> A1 S T \<Longrightarrow> P1 T"
+
 
 section \<open>Poststability\<close>
 
-locale Simulation_Graph_Poststable = Simulation_Graph_Defs +
-  assumes poststable: "A S T \<Longrightarrow> \<forall> s' \<in> T. \<exists> s \<in> S. C s s'"
+context Simulation_Graph_Poststable
 begin
 
 lemma Steps_poststable:
@@ -150,11 +253,9 @@ qed
 
 end (* Simulation Graph Poststable *)
 
-
 section \<open>Prestability\<close>
 
-locale Simulation_Graph_Prestable = Simulation_Graph_Defs +
-  assumes prestable: "A S T \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C s s'"
+context Simulation_Graph_Prestable
 begin
 
 lemma Steps_prestable:
@@ -286,46 +387,8 @@ end (* Simulation Graph Prestable *)
 
 section \<open>Double Simulation\<close>
 
-locale Double_Simulation_Defs =
-  fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- "Concrete step relation"
-    and A1 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" -- "Step relation for the first abstraction layer"
-    and P1 :: "'a set \<Rightarrow> bool" -- "Valid states of the first abstraction layer"
-    and A2 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" -- "Step relation for the second abstraction layer"
-    and P2 :: "'a set \<Rightarrow> bool" -- "Valid states of the second abstraction layer"
+context Double_Simulation
 begin
-
-sublocale Simulation_Graph_Defs C A2 .
-
-sublocale pre_defs: Simulation_Graph_Defs C A1 .
-
-definition "closure a = {x. P1 x \<and> a \<inter> x \<noteq> {}}"
-
-definition "A2' a b \<equiv> \<exists> x y. a = closure x \<and> b = closure y \<and> A2 x y"
-
-sublocale post_defs: Simulation_Graph_Defs A1 A2' .
-
-lemma closure_mono:
-  "closure a \<subseteq> closure b" if "a \<subseteq> b"
-  using that unfolding closure_def by auto
-
-lemma closure_intD:
-  "x \<in> closure a \<and> x \<in> closure b" if "x \<in> closure (a \<inter> b)"
-  using that closure_mono by blast
-
-end (* Double Simulation Graph Defs *)
-
-locale Double_Simulation = Double_Simulation_Defs +
-  assumes prestable: "A1 S T \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C s s'"
-      and closure_poststable: "s' \<in> closure y \<Longrightarrow> A2 x y \<Longrightarrow> \<exists>s\<in>closure x. A1 s s'"
-      and P1_distinct: "P1 x \<Longrightarrow> P1 y \<Longrightarrow> x \<noteq> y \<Longrightarrow> x \<inter> y = {}"
-      and P1_finite: "finite {x. P1 x}"
-      and P2_cover: "P2 a \<Longrightarrow> \<exists> x. P1 x \<and> x \<inter> a \<noteq> {}"
-begin
-
-sublocale post: Simulation_Graph_Poststable A1 A2'
-  unfolding A2'_def by standard (auto dest: closure_poststable)
-
-sublocale pre: Simulation_Graph_Prestable C A1 by standard (rule prestable)
 
 lemma closure_involutive:
   "closure (\<Union> closure x) = closure x"
@@ -500,9 +563,7 @@ end (* Double Simulation Graph *)
 
 section \<open>Finite Graphs\<close>
 
-locale Finite_Graph = Graph_Defs +
-  fixes x\<^sub>0
-  assumes finite_reachable: "finite {x. E\<^sup>*\<^sup>* x\<^sub>0 x}"
+context Finite_Graph
 begin
 
 subsection \<open>Infinite Büchi Runs Correspond to Finite Cycles\<close>
@@ -652,13 +713,7 @@ lemma abstract_run_ctr:
 
 end
 
-locale Simulation_Graph_Complete_Defs =
-  Simulation_Graph_Defs C A for C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" +
-  fixes P :: "'a set \<Rightarrow> bool" -- "well-formed abstractions"
-
-locale Simulation_Graph_Complete = Simulation_Graph_Complete_Defs +
-  assumes complete: "C x y \<Longrightarrow> P S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A S T \<and> y \<in> T"
-      and P_invariant: "P S \<Longrightarrow> A S T \<Longrightarrow> P T"
+context Simulation_Graph_Complete
 begin
 
 lemma steps_complete:
@@ -706,13 +761,8 @@ end (* Simulation Graph Complete Abstraction *)
 
 subsection \<open>Runs in Finite Complete Graphs\<close>
 
-locale Simulation_Graph_Finite_Complete = Simulation_Graph_Complete +
-  fixes a\<^sub>0
-  assumes finite_abstract_reachable: "finite {a. A\<^sup>*\<^sup>* a\<^sub>0 a}"
+context Simulation_Graph_Finite_Complete
 begin
-
-sublocale Steps_finite: Finite_Graph A a\<^sub>0
-  by standard (rule finite_abstract_reachable)
 
 lemma run_finite_state_set_cycle_steps:
   assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0"
@@ -752,16 +802,8 @@ end (* Simulation Graph Finite Complete Abstraction *)
 
 section \<open>Finite Complete Double Simulations\<close>
 
-locale Double_Simulation_Finite_Complete = Double_Simulation +
-  fixes a\<^sub>0
-  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> P2 S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
-  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
-  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
-      and P2_a\<^sub>0: "P2 a\<^sub>0"
+context Double_Simulation_Finite_Complete
 begin
-
-sublocale Simulation_Graph_Finite_Complete C A2 P2 a\<^sub>0
-  by standard (blast intro: complete finite_abstract_reachable P2_invariant)+
 
 lemma P2_invariant_Steps:
   "list_all P2 as" if "Steps (a\<^sub>0 # as)"
@@ -828,25 +870,14 @@ next
     done
 qed
 
-end
+end (* Context for Fixed Formula *)
 
 end (* Double Simulation Finite Complete Abstraction *)
 
 
 section \<open>Encoding of Properties in Runs\<close>
 
-locale Double_Simulation_Finite_Complete_Abstraction_Prop =
-  Double_Simulation +
-  fixes a\<^sub>0
-  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
-  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> P2 S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
-  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
-  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
-      and P2_a\<^sub>0: "P2 a\<^sub>0"
-  assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
-      and \<phi>_P2_compatible: "P2 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
-      and \<phi>_A2_compatible: "A2\<^sup>*\<^sup>* a\<^sub>0 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> A2\<^sup>*\<^sup>* a\<^sub>0 (a \<inter> {x. \<phi> x})"
-      and P2_non_empty: "P2 a \<Longrightarrow> a \<noteq> {}"
+context Double_Simulation_Finite_Complete_Abstraction_Prop
 begin
 
 definition "C_\<phi> x y \<equiv> C x y \<and> \<phi> y"
@@ -938,19 +969,6 @@ theorem Alw_ev_mc:
 
 end (* Double Simulation Finite Complete Abstraction Prop *)
 
-section \<open>Comments\<close>
-
-text \<open>
-\<^item> Pre-stability can easily be extended to infinite runs (see construction with @{term sscan} above)
-\<^item> Post-stability can not
-\<^item> Pre-stability + Completeness means that for every two concrete states in the same abstract class,
-  there are equivalent runs
-\<^item> Can offer representation view via suitable locale instantiations?
-\<^item> Abstractions view?
-\<^item> \<open>\<phi>\<close>-construction can be done on an automaton too (also for disjunctions)
-\<^item> Büchi properties are nothing but \<open>\<box>\<diamond>\<close>-properties (@{term \<open>alw (ev \<phi>)\<close>}
-\<close>
-
 context Simulation_Graph_Defs
 begin
 
@@ -995,7 +1013,7 @@ qed
 
 end (* Simulation Graph Prestable *)
 
-locale Simulation_Graph_Complete_Prestable = Simulation_Graph_Complete + Simulation_Graph_Prestable
+context Simulation_Graph_Complete_Prestable
 begin
 
 lemma runs_bisim:
@@ -1047,10 +1065,7 @@ qed
 
 end (* Simulation Graph Complete Prestable *)
 
-locale Double_Simulation_Finite_Complete_Abstraction_Prop' =
-  Double_Simulation_Finite_Complete_Abstraction_Prop +
-  assumes A1_complete: "C x y \<Longrightarrow> P1 S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A1 S T \<and> y \<in> T"
-      and P_invariant: "P1 S \<Longrightarrow> A1 S T \<Longrightarrow> P1 T"
+context Double_Simulation_Finite_Complete_Abstraction_Prop'
 begin
 
 sublocale Simulation_Graph_Complete_Prestable C_\<phi> A1_\<phi> P1
@@ -1077,5 +1092,19 @@ theorem Alw_ev_mc:
   by (auto simp: comp_def)
 
 end (* Double Simulation Finite Complete Abstraction Prop *)
+
+
+section \<open>Comments\<close>
+
+text \<open>
+\<^item> Pre-stability can easily be extended to infinite runs (see construction with @{term sscan} above)
+\<^item> Post-stability can not
+\<^item> Pre-stability + Completeness means that for every two concrete states in the same abstract class,
+  there are equivalent runs
+\<^item> Can offer representation view via suitable locale instantiations?
+\<^item> Abstractions view?
+\<^item> \<open>\<phi>\<close>-construction can be done on an automaton too (also for disjunctions)
+\<^item> Büchi properties are nothing but \<open>\<box>\<diamond>\<close>-properties (@{term \<open>alw (ev \<phi>)\<close>}
+\<close>
 
 end (* Theory *)
