@@ -141,7 +141,34 @@ lemma closure_regions_poststable:
   apply auto
     oops
 
+(* XXX Move *)
+paragraph \<open>More theorems on closures -- to be moved?\<close>
 
+lemma step_t_r_loc:
+  "l' = l" if "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', R'\<rangle>"
+  using that by cases auto
+
+lemma \<R>_V:
+  "u \<in> V" if "R \<in> \<R> l" "u \<in> R"
+  using that unfolding \<R>_def V_def by auto
+
+lemma step_r'_complete:
+  assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>" "valid_abstraction A X (\<lambda> x. real o k x)" "u \<in> V"
+  shows "\<exists> a R'. u' \<in> R' \<and> A,\<R> \<turnstile> \<langle>l, [u]\<^sub>l\<rangle> \<leadsto>\<^sub>a \<langle>l',R'\<rangle>"
+  using assms
+  apply cases
+  apply (drule step_t_r_complete, (rule assms; fail), simp add: V_def)
+  apply clarify
+  apply (frule step_a_r_complete)
+  by (auto dest: step_t_r_loc simp: \<R>_def simp: region_unique intro!: step_r'.intros)
+
+lemma step_r_\<R>:
+  "R' \<in> \<R> l'" if "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', R'\<rangle>"
+  using that by (auto elim: step_r.cases)
+
+lemma step_r'_\<R>:
+  "R' \<in> \<R> l'" if "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^sub>a \<langle>l', R'\<rangle>"
+  using that by (auto intro: step_r_\<R> elim: step_r'.cases)
 
 end (* End of Alpha Closure *)
 
@@ -275,6 +302,18 @@ definition state_set :: "('a, 'c, 'time, 's) ta \<Rightarrow> 's set" where
 lemma finite_trans_of_finite_state_set:
   "finite (state_set A)" if "finite (trans_of A)"
   using that unfolding state_set_def trans_of_def by auto
+
+lemma state_setI1:
+  "l \<in> state_set A" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  using that unfolding state_set_def trans_of_def image_def by (auto 4 4)
+
+lemma state_setI2:
+  "l' \<in> state_set A" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  using that unfolding state_set_def trans_of_def image_def by (auto 4 4)
+
+lemma (in AlphaClosure) step_r'_state_set:
+  "l' \<in> state_set A" if "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^sub>a \<langle>l', R'\<rangle>"
+  using that by (blast intro: state_setI2 elim: step_r'.cases)
 
 context Regions
 begin
@@ -802,7 +841,6 @@ end (* Context for Formula *)
 
 context
   fixes P :: "'s \<Rightarrow> bool" -- "The state property we want to check"
-  assumes sim_closure: "\<Union>sim.closure a\<^sub>0 = a\<^sub>0"
 begin
 
 definition "\<phi> = P o fst"
@@ -982,12 +1020,36 @@ next
     unfolding R_of_def by force+
 qed
 
+lemma step_r'_complete_spec:
+  assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>" "u \<in> V"
+  shows "\<exists> a R'. u' \<in> R' \<and> A,\<R> \<turnstile> \<langle>l, [u]\<^sub>l\<rangle> \<leadsto>\<^sub>a \<langle>l',R'\<rangle>"
+  using assms valid_abstraction by (auto simp: comp_def V_def intro!: step_r'_complete)
+
+interpretation Double_Simulation_Finite_Complete_Abstraction_Prop' C A1 P1 A2 P2 a\<^sub>0 \<phi>
+proof (standard, goal_cases)
+  case (1 x y S)
+  then show ?case
+    unfolding C_def P1_def A1_def
+    apply clarify
+    apply (drule step_r'_complete_spec, (auto intro: \<R>_V; fail))
+    apply safe
+    subgoal for l1 u1 l2 u2 l a R'
+      apply (inst_existentials "from_R l2 R'")
+       apply (subst (asm) region_unique[of _ _ _ u1 "R_of S"], simp add: \<R>_def)
+      by (auto 4 3 simp: from_R_fst)
+    done
+next
+  case (2 S T)
+  then show ?case
+    unfolding P1_def A1_def by (auto elim: step_r'_\<R> step_r'_state_set)
+qed
+
 theorem Alw_ev_mc:
   "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> P l\<^sub>0 \<or> (\<nexists>as a bs. G\<^sub>\<phi>.steps ((l\<^sub>0, Z\<^sub>0) # as @ a # bs @ [a]))"
 proof (subst sim_steps_equiv[OF start_state(2)], cases "P l\<^sub>0", goal_cases)
   case 1
   then show ?case
-    apply (subst Alw_ev_mc[OF sim_closure P_a\<^sub>0_phi])
+    apply (subst Alw_ev_mc[OF P_a\<^sub>0_phi])
     apply (auto simp del: map_map simp add: a\<^sub>0_def)
     apply (frule run_map_from_R)
     apply (simp del: map_map)

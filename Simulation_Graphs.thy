@@ -767,18 +767,23 @@ lemma P2_invariant_Steps:
   "list_all P2 as" if "Steps (a\<^sub>0 # as)"
   using that P2_a\<^sub>0 by (induction "a\<^sub>0 # as" arbitrary: as a\<^sub>0) (auto intro: P2_invariant)
 
-theorem infinite_run_cycle_iff:
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
+theorem infinite_run_cycle_iff':
+  assumes "P2 a\<^sub>0" "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>closure a\<^sub>0 \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys)"
+  shows "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
 proof (safe, goal_cases)
   case (1 x\<^sub>0 xs)
-  from run_finite_state_set_cycle_steps[OF this(2,1)] that(2) show ?case by auto
+  from run_finite_state_set_cycle_steps[OF this(2,1)] \<open>P2 a\<^sub>0\<close> show ?case by auto
 next
   case prems: (2 as a bs)
   with Steps.steps_decomp[of "a\<^sub>0 # as @ [a]" "bs @ [a]"] have "Steps (a\<^sub>0 # as @ [a])" by auto
   from P2_invariant_Steps[OF this] have "P2 a" by auto
-  from Steps_run_cycle''[OF prems this] that show ?case by auto
+  from Steps_run_cycle''[OF prems this] assms(2) show ?case by auto
 qed
+
+corollary infinite_run_cycle_iff:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
+  by (rule infinite_run_cycle_iff', auto simp: that)
 
 context
   fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
@@ -945,5 +950,132 @@ text \<open>
 \<^item> \<open>\<phi>\<close>-construction can be done on an automaton too (also for disjunctions)
 \<^item> Büchi properties are nothing but \<open>\<box>\<diamond>\<close>-properties (@{term \<open>alw (ev \<phi>)\<close>}
 \<close>
+
+context Simulation_Graph_Defs
+begin
+
+definition "represent_run x as = x ## sscan (\<lambda> b x. SOME y. C x y \<and> y \<in> b) as x"
+
+lemma represent_run_ctr:
+  "represent_run x as = x ## represent_run (SOME y. C x y \<and> y \<in> shd as) (stl as)"
+  unfolding represent_run_def by (subst sscan.ctr) (rule HOL.refl)
+
+end
+
+context Simulation_Graph_Prestable
+begin
+
+lemma represent_run_Run:
+  "run (represent_run x as)" if "Run (a ## as)" "x \<in> a"
+using that
+proof (coinduction arbitrary: a x as)
+  case (run a x as)
+  obtain b bs where "as = b ## bs" by (metis stream.collapse)
+  with run have "A a b" "Run (b ## bs)" by (auto elim: Steps.run.cases)
+  from prestable[OF \<open>A a b\<close>] \<open>x \<in> a\<close> obtain y where "C x y \<and> y \<in> b" by auto
+  then have "C x (SOME y. C x y \<and> y \<in> b) \<and> (SOME y. C x y \<and> y \<in> b) \<in> b" by (rule someI)
+  then show ?case using \<open>Run (b ## bs)\<close> unfolding \<open>as = _\<close>
+    apply (subst represent_run_ctr, simp)
+    apply (subst represent_run_ctr, simp)
+    by (auto simp: represent_run_ctr[symmetric])
+qed
+
+lemma represent_run_represent:
+  "stream_all2 (op \<in>) (represent_run x as) (a ## as)" if "Run (a ## as)" "x \<in> a"
+using that
+proof (coinduction arbitrary: a x as)
+  case (stream_rel x' xs a' as' a x as)
+  obtain b bs where "as = b ## bs" by (metis stream.collapse)
+  with stream_rel have "A a b" "Run (b ## bs)" by (auto elim: Steps.run.cases)
+  from prestable[OF \<open>A a b\<close>] \<open>x \<in> a\<close> obtain y where "C x y \<and> y \<in> b" by auto
+  then have "C x (SOME y. C x y \<and> y \<in> b) \<and> (SOME y. C x y \<and> y \<in> b) \<in> b" by (rule someI)
+  with \<open>x' ## xs = _\<close> \<open>a' ## as' = _\<close> \<open>x \<in> a\<close> \<open>Run (b ## bs)\<close> show ?case unfolding \<open>as = _\<close>
+    by (subst (asm) represent_run_ctr) auto
+qed
+
+end (* Simulation Graph Prestable *)
+
+locale Simulation_Graph_Complete_Prestable = Simulation_Graph_Complete + Simulation_Graph_Prestable
+begin
+
+lemma runs_bisim:
+  "\<exists> ys. run (y ## ys) \<and> stream_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> P a) xs ys"
+  if "run (x ## xs)" "x \<in> a" "y \<in> a" "P a"
+proof -
+  let ?as = "abstract_run (SOME b. A a b \<and> shd xs \<in> b) (stl xs)"
+  from abstract_run_Run abstract_run_abstract that have
+    "Run (abstract_run a xs)" "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)"
+    by blast+
+  with abstract_run_ctr[of a xs] have "Run (a ## ?as)"
+    by auto
+  then have "stream_all P ?as"
+    sorry
+  from
+    represent_run_Run[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>] represent_run_represent[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>]
+  have
+    "run (represent_run y ?as)" "stream_all2 op \<in> (represent_run y ?as) (a ## ?as)" .
+  then show ?thesis
+    using \<open>stream_all2 (op \<in>) (x ## xs) _\<close>
+    apply (intro exI conjI)
+     apply (subst (asm) represent_run_ctr)
+     apply assumption
+    apply (subst (asm) (2) represent_run_ctr)
+    apply (subst abstract_run_ctr)
+    apply (subst (2) abstract_run_ctr)
+      apply (subst (asm) (2) abstract_run_ctr)
+    apply simp
+    apply (subst (asm) (2) abstract_run_ctr)
+    apply simp
+    apply (subst (asm) (4) abstract_run_ctr)
+    apply simp
+    using \<open>stream_all P ?as\<close>
+    apply -
+oops
+
+lemma runs_bisim':
+  "\<exists> ys. run (y ## ys)" if "run (x ## xs)" "x \<in> a" "y \<in> a" "P a"
+proof -
+  from abstract_run_Run that have
+    "Run (abstract_run a xs)"
+    by blast
+  with abstract_run_ctr[of a xs] have
+    "Run (a ## abstract_run (SOME b. A a b \<and> shd xs \<in> b) (stl xs))"
+    by auto
+  from represent_run_Run[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>] show ?thesis
+    by (subst (asm) represent_run_ctr) auto
+qed
+
+end (* Simulation Graph Complete Prestable *)
+
+locale Double_Simulation_Finite_Complete_Abstraction_Prop' =
+  Double_Simulation_Finite_Complete_Abstraction_Prop +
+  assumes A1_complete: "C x y \<Longrightarrow> P1 S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A1 S T \<and> y \<in> T"
+      and P_invariant: "P1 S \<Longrightarrow> A1 S T \<Longrightarrow> P1 T"
+begin
+
+sublocale Simulation_Graph_Complete_Prestable C_\<phi> A1_\<phi> P1
+  by (standard; force dest: P_invariant \<phi>_A1_compatible A1_complete simp: C_\<phi>_def A1_\<phi>_def)
+
+lemma runs_closure_bisim:
+  "\<exists>y ys. y \<in> a\<^sub>0 \<and> phi.run (y ## ys)" if "phi.run (x ## xs)" "x \<in> \<Union>phi.closure a\<^sub>0"
+  using that(2) runs_bisim'[OF that(1)] unfolding phi.closure_def by auto
+
+lemma infinite_run_cycle_iff':
+  "(\<exists>x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> phi.run (x\<^sub>0 ## xs)) = (\<exists>as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  by (intro phi.infinite_run_cycle_iff' P2_a\<^sub>0 runs_closure_bisim)
+
+corollary infinite_run_cycle_iff:
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> pred_stream \<phi> (x\<^sub>0 ## xs)) \<longleftrightarrow>
+   (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding infinite_run_cycle_iff'[symmetric] phi_run_iff[symmetric] using that by auto
+
+theorem Alw_ev_mc:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
+  if "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding Alw_ev alw_holds_pred_stream_iff infinite_run_cycle_iff[OF that, symmetric]
+  by (auto simp: comp_def)
+
+end (* Double Simulation Finite Complete Abstraction Prop *)
 
 end (* Theory *)
