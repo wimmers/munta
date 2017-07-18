@@ -255,29 +255,6 @@ proof -
   qed
 qed
 
-
-definition
-  "Alw_ev \<phi> x \<equiv> \<forall> xs. run (x ## xs) \<longrightarrow> ev (holds \<phi>) (x ## xs)"
-
-lemma Alw_ev:
-  "Alw_ev \<phi> x \<longleftrightarrow> \<not> (\<exists> xs. run (x ## xs) \<and> alw (holds (Not o \<phi>)) (x ## xs))"
-  unfolding Alw_ev_def
-proof (safe, goal_cases)
-  case prems: (1 xs)
-  then have "ev (holds \<phi>) (x ## xs)" by auto
-  then show ?case
-    using prems(2,3) by induction (auto intro: run_stl)
-next
-  case prems: (2 xs)
-  then have "\<not> alw (holds (Not \<circ> \<phi>)) (x ## xs)"
-    by auto
-  moreover have "(\<lambda> x. \<not> holds (Not \<circ> \<phi>) x) = holds \<phi>"
-    by (rule ext) simp
-  ultimately show ?case
-    unfolding not_alw_iff by simp
-qed
-
-
 lemma steps_non_empty[simp]:
   "\<not> steps []"
   by (auto elim: steps.cases)
