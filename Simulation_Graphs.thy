@@ -1,6 +1,6 @@
 theory Simulation_Graphs
   imports
-    "library/Graphs"
+    "library/CTL"
     "library/More_List"
     Normalized_Zone_Semantics
 begin

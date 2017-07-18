@@ -1,5 +1,5 @@
 theory CTL
-  imports Graphs "~/Isabelle/Util/Explorer"
+  imports Graphs
 begin
 
 context Graph_Defs
@@ -142,5 +142,7 @@ qed
 lemma leadsto_iff':
   "leadsto \<phi> \<psi> x \<longleftrightarrow> (\<nexists>y. x \<rightarrow>* y \<and> \<phi> y \<and> \<not> Alw_ev \<psi> y)" if "\<not> deadlock x"
   unfolding leadsto_iff Ex_ev[OF \<open>\<not> deadlock x\<close>] ..
+
+end (* Graph Defs *)
 
 end (* Theory *)
