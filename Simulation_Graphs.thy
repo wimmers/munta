@@ -3,6 +3,7 @@ theory Simulation_Graphs
     "library/CTL"
     "library/More_List"
     Normalized_Zone_Semantics
+    "~/Isabelle/Util/Explorer"
 begin
 
 chapter \<open>Simulation Graphs\<close>
@@ -170,6 +171,21 @@ sublocale Simulation_Graph_Finite_Complete C A2 P2 a\<^sub>0
 
 end (* Double Simulation Finite Complete *)
 
+locale Simulation_Graph_Complete_Prestable = Simulation_Graph_Complete + Simulation_Graph_Prestable
+
+locale Double_Simulation_Finite_Complete_Bisim = Double_Simulation_Finite_Complete +
+  assumes A1_complete: "C x y \<Longrightarrow> P1 S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A1 S T \<and> y \<in> T"
+      and P1_invariant: "P1 S \<Longrightarrow> A1 S T \<Longrightarrow> P1 T"
+begin
+
+sublocale bisim: Simulation_Graph_Complete_Prestable C A1 P1
+  by standard (blast intro: A1_complete P1_invariant)+
+
+end (* Double Simulation Finite Complete Bisim *)
+
+locale Double_Simulation_Finite_Complete_Bisim_Cover = Double_Simulation_Finite_Complete_Bisim +
+  assumes P2_P1_cover: "P2 a \<Longrightarrow> x \<in> a \<Longrightarrow> \<exists> a'. a \<inter> a' \<noteq> {} \<and> P1 a' \<and> x \<in> a'"
+
 locale Double_Simulation_Finite_Complete_Abstraction_Prop =
   Double_Simulation +
   fixes a\<^sub>0
@@ -183,13 +199,8 @@ locale Double_Simulation_Finite_Complete_Abstraction_Prop =
       and \<phi>_A2_compatible: "A2\<^sup>*\<^sup>* a\<^sub>0 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> A2\<^sup>*\<^sup>* a\<^sub>0 (a \<inter> {x. \<phi> x})"
       and P2_non_empty: "P2 a \<Longrightarrow> a \<noteq> {}"
 
-locale Simulation_Graph_Complete_Prestable = Simulation_Graph_Complete + Simulation_Graph_Prestable
-
-locale Double_Simulation_Finite_Complete_Abstraction_Prop' =
-  Double_Simulation_Finite_Complete_Abstraction_Prop +
-  assumes A1_complete: "C x y \<Longrightarrow> P1 S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A1 S T \<and> y \<in> T"
-      and P_invariant: "P1 S \<Longrightarrow> A1 S T \<Longrightarrow> P1 T"
-
+locale Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim =
+  Double_Simulation_Finite_Complete_Abstraction_Prop + Double_Simulation_Finite_Complete_Bisim
 
 section \<open>Poststability\<close>
 
@@ -978,7 +989,7 @@ lemma represent_run_ctr:
   "represent_run x as = x ## represent_run (SOME y. C x y \<and> y \<in> shd as) (stl as)"
   unfolding represent_run_def by (subst sscan.ctr) (rule HOL.refl)
 
-end
+end (* Simulation Graph Defs *)
 
 context Simulation_Graph_Prestable
 begin
@@ -1013,6 +1024,68 @@ qed
 
 end (* Simulation Graph Prestable *)
 
+(* XXX Move *)
+theorem stream_all2_SCons1:
+  fixes P :: "'b \<Rightarrow> 'c \<Rightarrow> bool"
+    and x :: "'b"
+    and xs :: "'b stream"
+    and ys :: "'c stream"
+  shows "stream_all2 P (x ## xs) ys = (\<exists>z zs. ys = z ## zs \<and> P x z \<and> stream_all2 P xs zs)"
+  by (subst (3) stream.collapse[symmetric], simp del: stream.collapse, force)
+
+(* XXX Move *)
+theorem stream_all2_SCons2:
+  fixes P :: "'b \<Rightarrow> 'c \<Rightarrow> bool"
+    and xs :: "'b stream"
+    and y :: "'c"
+    and ys :: "'c stream"
+  shows "stream_all2 P xs (y ## ys) = (\<exists>z zs. xs = z ## zs \<and> P z y \<and> stream_all2 P zs ys)"
+    by (subst stream.collapse[symmetric], simp del: stream.collapse, force)
+
+lemma stream_all2_shift1:
+  "stream_all2 P (xs1 @- xs2) ys =
+  (\<exists> ys1 ys2. ys = ys1 @- ys2 \<and> list_all2 P xs1 ys1 \<and> stream_all2 P xs2 ys2)"
+  apply (induction xs1 arbitrary: ys)
+   apply (simp; fail)
+  apply (simp add: stream_all2_SCons1 list_all2_Cons1)
+  apply safe
+  subgoal for a xs1 ys z zs ys1 ys2
+    by (inst_existentials "z # ys1" ys2; simp)
+  subgoal for a xs1 ys ys1 ys2 z zs
+    by (inst_existentials z "zs @- ys2" zs "ys2"; simp)
+  done
+
+lemma stream_all2_shift2:
+  "stream_all2 P ys (xs1 @- xs2) =
+  (\<exists> ys1 ys2. ys = ys1 @- ys2 \<and> list_all2 P ys1 xs1 \<and> stream_all2 P ys2 xs2)"
+  by (meson list.rel_flip stream.rel_flip stream_all2_shift1)
+
+(* XXX Move *)
+lemma stream_all2_bisim:
+  assumes "stream_all2 op \<in> xs as" "stream_all2 op \<in> ys as" "sset as \<subseteq> S"
+  shows "stream_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> a \<in> S) xs ys"
+  using assms
+  apply (coinduction arbitrary: as xs ys)
+  subgoal for a u b v as xs ys
+    apply (rule conjI)
+     apply (inst_existentials "shd as", auto simp: stream_all2_SCons1; fail)
+    apply (inst_existentials "stl as", auto 4 3 simp: stream_all2_SCons1; fail)
+    done
+  done
+
+context Graph_Defs
+begin
+
+(* XXX Move *)
+lemma run_invariant_pred_stream:
+  fixes P :: "'a \<Rightarrow> bool"
+  assumes invariant: "\<And> x y. P x \<Longrightarrow> x \<rightarrow> y \<Longrightarrow> P y"
+  and run: "run (x ## xs)" and P: "P x"
+shows "pred_stream P (x ## xs)"
+  using run P by (coinduction arbitrary: x xs) (auto 4 3 elim: invariant run.cases)
+
+end (* Graph Defs *)
+
 context Simulation_Graph_Complete_Prestable
 begin
 
@@ -1020,56 +1093,117 @@ lemma runs_bisim:
   "\<exists> ys. run (y ## ys) \<and> stream_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> P a) xs ys"
   if "run (x ## xs)" "x \<in> a" "y \<in> a" "P a"
 proof -
-  let ?as = "abstract_run (SOME b. A a b \<and> shd xs \<in> b) (stl xs)"
+  define f where "f a x = (SOME b. A a b \<and> x \<in> b)" for a x
+  let ?as = "abstract_run (f a (shd xs)) (stl xs)"
   from abstract_run_Run abstract_run_abstract that have
     "Run (abstract_run a xs)" "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)"
     by blast+
   with abstract_run_ctr[of a xs] have "Run (a ## ?as)"
-    by auto
-  then have "stream_all P ?as"
-    sorry
+    by (auto simp: f_def)
+  then have "pred_stream P ?as"
+    by - (drule Steps.run_invariant_pred_stream[rotated], rule \<open>P a\<close>, auto intro: P_invariant)
   from
     represent_run_Run[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>] represent_run_represent[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>]
   have
     "run (represent_run y ?as)" "stream_all2 op \<in> (represent_run y ?as) (a ## ?as)" .
-  then show ?thesis
+  with \<open>stream_all2 op \<in> (x ## xs) _\<close> have
+    "stream_all2 (\<lambda>x y. \<exists>a. x \<in> a \<and> y \<in> a \<and> a \<in> sset ?as) xs (stl (represent_run y ?as))"
+    apply -
+    apply (rule stream_all2_bisim)
+      apply (subst (asm) abstract_run_ctr, force)
+     apply (subst (asm) (2) represent_run_ctr, subst represent_run_ctr, simp add: f_def)
+    by (auto simp: f_def)
+  then have "stream_all2 (\<lambda>x y. \<exists>a. x \<in> a \<and> y \<in> a \<and> P a) xs (stl (represent_run y ?as))"
+    apply (rule stream.rel_mono_strong)
+    using \<open>pred_stream P _\<close> by (auto simp: stream.pred_set)
+  with \<open>run (represent_run y ?as)\<close> show ?thesis
     using \<open>stream_all2 (op \<in>) (x ## xs) _\<close>
     apply (intro exI conjI)
      apply (subst (asm) represent_run_ctr)
      apply assumption
-    apply (subst (asm) (2) represent_run_ctr)
-    apply (subst abstract_run_ctr)
-    apply (subst (2) abstract_run_ctr)
-      apply (subst (asm) (2) abstract_run_ctr)
-    apply simp
-    apply (subst (asm) (2) abstract_run_ctr)
-    apply simp
-    apply (subst (asm) (4) abstract_run_ctr)
-    apply simp
-    using \<open>stream_all P ?as\<close>
-    apply -
-oops
+    apply (subst (asm) (2) represent_run_ctr, simp; fail)
+    done
+qed
 
 lemma runs_bisim':
   "\<exists> ys. run (y ## ys)" if "run (x ## xs)" "x \<in> a" "y \<in> a" "P a"
+  using runs_bisim[OF that] by blast
+
+context
+  fixes Q :: "'a \<Rightarrow> bool"
+  assumes compatible: "Q x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P a \<Longrightarrow> Q y"
+begin
+
+lemma Alw_ev_compatible':
+  assumes "\<forall>xs. run (x ## xs) \<longrightarrow> ev (holds Q) (x ## xs)" "run (y ## xs)" "x \<in> a" "y \<in> a" "P a"
+  shows "ev (holds Q) (y ## xs)"
 proof -
-  from abstract_run_Run that have
-    "Run (abstract_run a xs)"
-    by blast
-  with abstract_run_ctr[of a xs] have
-    "Run (a ## abstract_run (SOME b. A a b \<and> shd xs \<in> b) (stl xs))"
+  let ?f = \<open>\<lambda>x y. \<exists>a. x \<in> a \<and> y \<in> a \<and> P a\<close>
+  from runs_bisim[OF assms(2) \<open>y \<in> a\<close> \<open>x \<in> a\<close> \<open>P a\<close>] obtain ys where
+    "run (x ## ys)" "stream_all2 ?f xs ys"
     by auto
-  from represent_run_Run[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>] show ?thesis
-    by (subst (asm) represent_run_ctr) auto
+  with assms(1) have "ev (holds Q) (x ## ys)"
+    by auto
+  show ?thesis
+  proof (cases "Q x")
+    case True
+    with \<open>y \<in> a\<close> \<open>x \<in> a\<close> \<open>P a\<close> have "Q y"
+      by (auto intro: compatible)
+    then show ?thesis
+      by auto
+  next
+    case False
+    from False \<open>ev (holds Q) (x ## ys)\<close> have \<open>ev (holds Q) ys\<close>
+      by (simp add: ev_Stream)
+    from ev_imp_shift[OF this] obtain x1 ys1 ys2 where
+      "ys = ys1 @- x1 ## ys2" "Q x1"
+      apply clarsimp
+        using stream.collapse by metis
+    with \<open>stream_all2 _ _ _\<close> obtain y1 xs1 xs2 where
+      "xs = xs1 @- y1 ## xs2" "?f x1 y1"
+      by (auto simp: stream_all2_shift2 stream_all2_SCons2)
+    with \<open>Q x1\<close> have "Q y1"
+      by (auto intro: compatible)
+    with \<open>xs = _\<close> show ?thesis
+      by (simp add: ev_Stream ev_shift)
+  qed
 qed
+
+lemma Alw_ev_compatible:
+  "Alw_ev Q x \<longleftrightarrow> Alw_ev Q y" if "x \<in> a" "y \<in> a" "P a"
+  unfolding Alw_ev_def using that by (auto intro: Alw_ev_compatible')
+
+end (* Context for Compatibility *)
+
+(* XXX Move *)
+(* XXX These theorems should be generalized *)
+lemma list_all_Steps:
+  "list_all P as" if "Steps (a # as)" "P a"
+  using that
+  by (induction "a # as" arbitrary: a as) (auto intro: P_invariant)
+
+lemma steps_bisim:
+  "\<exists> ys. steps (y # ys) \<and> list_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> P a) xs ys"
+  if "steps (x # xs)" "x \<in> a" "y \<in> a" "P a"
+  using \<open>y \<in> a\<close> steps_complete[OF that(1,2,4)]
+  apply clarify
+  apply (frule Steps_prestable)
+   apply simp
+  apply clarify
+  apply (intro exI conjI)
+   apply assumption
+  subgoal premises prems for as xs'
+    using prems(3,6) list_all_Steps[OF prems(2) \<open>P a\<close>]
+    by (induction as arbitrary: xs') (auto simp: list_all2_Cons2)
+  done
 
 end (* Simulation Graph Complete Prestable *)
 
-context Double_Simulation_Finite_Complete_Abstraction_Prop'
+context Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim
 begin
 
 sublocale Simulation_Graph_Complete_Prestable C_\<phi> A1_\<phi> P1
-  by (standard; force dest: P_invariant \<phi>_A1_compatible A1_complete simp: C_\<phi>_def A1_\<phi>_def)
+  by (standard; force dest: P1_invariant \<phi>_A1_compatible A1_complete simp: C_\<phi>_def A1_\<phi>_def)
 
 lemma runs_closure_bisim:
   "\<exists>y ys. y \<in> a\<^sub>0 \<and> phi.run (y ## ys)" if "phi.run (x ## xs)" "x \<in> \<Union>phi.closure a\<^sub>0"
@@ -1093,6 +1227,101 @@ theorem Alw_ev_mc:
 
 end (* Double Simulation Finite Complete Abstraction Prop *)
 
+context Double_Simulation_Finite_Complete_Bisim_Cover
+begin
+
+lemma P2_closure_subs:
+  "a \<subseteq> \<Union> closure a" if "P2 a"
+  using P2_P1_cover[OF that] unfolding closure_def by auto
+
+lemma (in Double_Simulation_Finite_Complete) P2_Steps_last:
+  "P2 (last as)" if "Steps as" "a\<^sub>0 = hd as"
+  using that by - (cases as, auto dest!: P2_invariant_Steps simp: list_all_iff P2_a\<^sub>0)
+
+context
+  fixes P
+  assumes P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+begin
+
+lemma reaches_all_1:
+  fixes b :: "'a set" and y :: "'a" and as :: "'a set list"
+  assumes A: "\<forall>y. (\<exists>x\<^sub>0\<in>\<Union>closure (hd as). \<exists>xs. hd xs = x\<^sub>0 \<and> last xs = y \<and> steps xs) \<longrightarrow> P y"
+     and "y \<in> last as" and "a\<^sub>0 = hd as" and "Steps as"
+  shows "P y"
+proof -
+  from assms obtain bs where [simp]: "as = a\<^sub>0 # bs" by (cases as) auto
+  from Steps_Union[of a\<^sub>0 bs "closure a\<^sub>0"] \<open>Steps _\<close> obtain bs' where
+    "post_defs.Steps (closure a\<^sub>0 # bs')" "list_all2 (\<lambda>x a. a = closure x) bs bs'"
+    by auto
+  from \<open>Steps as\<close> \<open>a\<^sub>0 = _\<close> have "P2 (last as)"
+    by (rule P2_Steps_last)
+  obtain b2 where b2:
+    "y \<in> b2" "b2 \<in> last (closure a\<^sub>0 # bs')" "last (closure a\<^sub>0 # bs') = closure (last as)"
+    apply atomize_elim
+    apply simp
+    apply safe
+    using \<open>y \<in> _\<close> P2_closure_subs[OF \<open>P2 (last as)\<close>] \<open>list_all2 (\<lambda>x a. a = closure x) bs bs'\<close>
+    by (auto dest!: list_all2_last)
+  with post.Steps_poststable[OF \<open>post_defs.Steps _\<close>, of b2] obtain as' where as':
+    "pre_defs.Steps as'" "list_all2 op \<in> as' (closure a\<^sub>0 # bs')" "last as' = b2"
+    by auto
+  then obtain x\<^sub>0 where "x\<^sub>0 \<in> hd as'"
+    by (cases as') (auto split: if_split_asm simp: closure_def)
+  from pre.Steps_prestable[OF \<open>pre_defs.Steps _\<close> \<open>x\<^sub>0 \<in> _\<close>] obtain xs where
+    "steps (x\<^sub>0 # xs)" "list_all2 op \<in> (x\<^sub>0 # xs) as'"
+    by auto
+  from \<open>x\<^sub>0 \<in> _\<close> \<open>list_all2 op \<in> as' _\<close> have "x\<^sub>0 \<in> \<Union> closure a\<^sub>0"
+    by (cases as') auto
+  with A \<open>steps _\<close> have "P (last (x\<^sub>0 # xs))"
+    by fastforce
+  from as' have "P1 b2"
+    using b2 by (auto simp: closure_def)
+  from \<open>list_all2 op \<in> as' _\<close> \<open>list_all2 op \<in> _ as'\<close> \<open>_ = b2\<close> have "last (x\<^sub>0 # xs) \<in> b2"
+     by (fastforce dest!: list_all2_last)
+  from P1_P[OF this \<open>y \<in> b2\<close> \<open>P1 b2\<close>] \<open>P _\<close> show "P y" ..
+qed
+
+lemma reaches_all_2:
+  fixes x\<^sub>0 a xs
+  assumes A: "\<forall>b y. (\<exists>xs. hd xs = a\<^sub>0 \<and> last xs = b \<and> Steps xs) \<and> y \<in> b \<longrightarrow> P y"
+    and "hd xs \<in> a" and "a \<in> closure a\<^sub>0" and "steps xs"
+  shows "P (last xs)"
+proof -
+  {
+    fix y x\<^sub>0 xs
+    assume "hd xs \<in> a\<^sub>0" and "steps xs"
+    then obtain x ys where [simp]: "xs = x # ys" "x \<in> a\<^sub>0" by (cases xs) auto
+    from steps_complete[of x ys a\<^sub>0] \<open>steps xs\<close> P2_a\<^sub>0 obtain as where
+      "Steps (a\<^sub>0 # as)" "list_all2 op \<in> ys as"
+      by auto
+    then have "last xs \<in> last (a\<^sub>0 # as)"
+      by (fastforce dest: list_all2_last)
+    with A \<open>Steps _\<close> \<open>x \<in> _\<close> have "P (last xs)"
+      by (force split: if_split_asm)
+  } note * = this
+  from \<open>a \<in> closure a\<^sub>0\<close> obtain x where x: "x \<in> a" "x \<in> a\<^sub>0" "P1 a"
+    by (auto simp: closure_def)
+  with \<open>hd xs \<in> a\<close> \<open>steps xs\<close> bisim.steps_bisim[of "hd xs" "tl xs" a x] obtain xs' where
+    "hd xs' = x" "steps xs'" "list_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> P1 a) xs xs'"
+    apply atomize_elim
+    apply clarsimp
+    subgoal for ys
+      by (inst_existentials "x # ys"; force simp: list_all2_Cons2)
+    done
+  with *[of xs'] x have "P (last xs')"
+    by auto
+  from \<open>steps xs\<close> \<open>list_all2 _ xs xs'\<close> obtain b where "last xs \<in> b" "last xs' \<in> b" "P1 b"
+    by atomize_elim (fastforce dest!: list_all2_last)
+  from P1_P[OF this] \<open>P (last xs')\<close> show "P (last xs)" ..
+qed
+
+lemma reaches_all:
+  "(\<forall> y. (\<exists> x\<^sub>0\<in>\<Union>closure a\<^sub>0. reaches x\<^sub>0 y) \<longrightarrow> P y) \<longleftrightarrow> (\<forall> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> P y)"
+  unfolding reaches_steps_iff Steps.reaches_steps_iff using reaches_all_1 reaches_all_2 by auto
+
+end (* Locale for Compatibility *)
+
+end (* Double Simulation *)
 
 section \<open>Comments\<close>
 
