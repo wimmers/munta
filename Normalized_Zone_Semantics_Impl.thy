@@ -4067,7 +4067,7 @@ subsection \<open>Instantiating the Reachability Problem\<close>
       apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of a'])
       apply safe
       by (drule E_mono';
-          fastforce simp: E_def subsumes_def dbm_subset_def Search_Space_Defs.reachable_def
+          fastforce simp: E_def subsumes_def dbm_subset_def Graph_Start_Defs.reachable_def
           intro!: reachable_wf_dbm)
     subgoal
       unfolding F_rel_def subsumes_def by auto
@@ -4082,7 +4082,7 @@ subsection \<open>Instantiating the Reachability Problem\<close>
   sublocale Standard_Search_Space_finite_strict:
     Search_Space_finite_strict E a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
     apply standard
-    using E_closure_finite unfolding Search_Space_Defs.reachable_def by (auto; fail)
+    using E_closure_finite unfolding Graph_Start_Defs.reachable_def by (auto; fail)
 
 
 
