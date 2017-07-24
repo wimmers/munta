@@ -864,6 +864,11 @@ end (* Double Simulation Finite Complete Abstraction *)
 
 section \<open>Encoding of Properties in Runs\<close>
 
+text \<open>
+  This approach only works if we assume strong compatibility of the property.
+  For weak compatibility, encoding in the automaton is likely the right way.
+\<close>
+
 context Double_Simulation_Finite_Complete_Abstraction_Prop
 begin
 
