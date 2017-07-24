@@ -418,36 +418,25 @@ lemma A2'_A2_closure:
   using that unfolding A2'_def by auto
 
 lemma Steps_Union:
-  "\<exists> as. post_defs.Steps (a # as) \<and> list_all2 (\<lambda> x a. a = closure x) (x # xs) (a # as)"
-  if "Steps (x # xs)" "a = closure x"
+  "post_defs.Steps (map closure xs)" if "Steps xs"
 using that proof (induction xs rule: rev_induct)
   case Nil
   then show ?case by auto
 next
   case (snoc y xs)
-  from snoc.prems(1) Steps_appendD1[of "x # xs"] have "Steps (x # xs)" by simp
-  from snoc.IH[OF this snoc.prems(2-)] guess as by safe
-  note guessed = this
   show ?case
   proof (cases xs rule: rev_cases)
     case Nil
-    with snoc.prems have "A2 x y" by (auto elim: Steps_cases)
-    with guessed \<open>xs = _\<close> show ?thesis by (auto dest!: A2'_A2_closure)
+    then show ?thesis by auto
   next
     case (snoc ys z)
-    with snoc.prems have "A2 z y"
+    with Steps_appendD1[OF \<open>Steps (xs @ [y])\<close>] have "Steps xs" by simp
+    then have *: "post_defs.Steps (map closure xs)" by (rule snoc.IH)
+    with \<open>xs = _\<close> snoc.prems have "A2 z y"
       by (metis Steps.steps_appendD3 append_Cons append_assoc append_self_conv2)
-    with snoc guessed obtain as' where [simp]: "as = as' @ [closure z]"
-      by (auto simp add: list_all2_append1 list_all2_Cons1)
     with \<open>A2 z y\<close> have "A2' (closure z) (closure y)" by (auto dest!: A2'_A2_closure)
-    then show ?thesis
-      apply (inst_existentials "as' @ [closure z, closure y]")
-      using guessed post_defs.Steps_appendI[of "a # as'" "closure z" "closure y"] apply force
-      using guessed
-      apply safe
-      unfolding list_all2_append1
-      apply (inst_existentials "as' @ [closure z]" "[closure y]")
-      by (auto dest: list_all2_lengthD)
+    with * post_defs.Steps_appendI show ?thesis
+      by (simp add: \<open>xs = _\<close>)
   qed
 qed
 
@@ -480,23 +469,10 @@ lemma Steps_run_cycle:
   "\<exists> xs. run xs \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> \<Union> closure a) \<and> shd xs \<in> \<Union> closure a"
   if assms: "Steps (a # as @ [a])" "P2 a"
 proof -
-  from Steps_Union[OF assms(1) HOL.refl] guess as1 by safe
-  note as1 = this
-  obtain as1 where
-    "post_defs.Steps (closure a # as1 @ [closure a])"
-    "list_all2 (\<lambda>x a. a = closure x) (a # as @ [a]) (closure a # as1 @ [closure a])"
-  proof (atomize_elim, cases "as = []", goal_cases)
-    case 1
-    with as1 have "post_defs.Steps [closure a, closure a]" by (simp add: list_all2_Cons1)
-    with \<open>as = []\<close> show ?case by - (rule exI[where x = "[]"]; simp)
-  next
-    case 2
-    with as1 obtain as2 where "as1 = as2 @ [closure a]"
-      by (auto simp: list_all2_append1 list_all2_Cons1)
-    with as1 show ?case by auto
-  qed
-  from Steps_run_cycle'[OF this(1) closure_finite closure_non_empty[OF \<open>P2 a\<close>]] this(2)
-  show ?thesis by (force dest: list_all2_set2)
+  from Steps_Union[OF assms(1)] have "post_defs.Steps (closure a # map closure as @ [closure a])"
+    by simp
+  from Steps_run_cycle'[OF this closure_finite closure_non_empty[OF \<open>P2 a\<close>]]
+    show ?thesis by (force dest: list_all2_set2)
 qed
 
 lemma Steps_run_cycle'':
@@ -505,9 +481,9 @@ lemma Steps_run_cycle'':
   \<and> infs (\<Union> closure a) (x ## xs)"
   if assms: "Steps (a\<^sub>0 # as @ a # bs @ [a])" "P2 a"
 proof -
-  from Steps_Union[OF assms(1) HOL.refl] guess as1 by safe
+  from Steps_Union[OF assms(1)] have "post_defs.Steps (map closure (a\<^sub>0 # as @ a # bs @ [a]))"
+    by simp
   note as1 = this
-  from as1(2) have "as1 = map closure (as @ a # bs @ [a])" unfolding list_all2_op_map_iff ..
   from
     post_defs.Steps.steps_decomp[of "closure a\<^sub>0 # map closure as" "map closure (a # bs @ [a])"]
     as1(1)[unfolded this]
@@ -1250,20 +1226,17 @@ lemma reaches_all_1:
   shows "P y"
 proof -
   from assms obtain bs where [simp]: "as = a\<^sub>0 # bs" by (cases as) auto
-  from Steps_Union[of a\<^sub>0 bs "closure a\<^sub>0"] \<open>Steps _\<close> obtain bs' where
-    "post_defs.Steps (closure a\<^sub>0 # bs')" "list_all2 (\<lambda>x a. a = closure x) bs bs'"
-    by auto
+  from Steps_Union[OF \<open>Steps _\<close>] have "post_defs.Steps (map closure as)" .
   from \<open>Steps as\<close> \<open>a\<^sub>0 = _\<close> have "P2 (last as)"
     by (rule P2_Steps_last)
-  obtain b2 where b2:
-    "y \<in> b2" "b2 \<in> last (closure a\<^sub>0 # bs')" "last (closure a\<^sub>0 # bs') = closure (last as)"
+  obtain b2 where b2: "y \<in> b2" "b2 \<in> last (closure a\<^sub>0 # map closure bs)"
     apply atomize_elim
     apply simp
     apply safe
-    using \<open>y \<in> _\<close> P2_closure_subs[OF \<open>P2 (last as)\<close>] \<open>list_all2 (\<lambda>x a. a = closure x) bs bs'\<close>
-    by (auto dest!: list_all2_last)
+    using \<open>y \<in> _\<close> P2_closure_subs[OF \<open>P2 (last as)\<close>]
+    by (auto simp: last_map)
   with post.Steps_poststable[OF \<open>post_defs.Steps _\<close>, of b2] obtain as' where as':
-    "pre_defs.Steps as'" "list_all2 op \<in> as' (closure a\<^sub>0 # bs')" "last as' = b2"
+    "pre_defs.Steps as'" "list_all2 op \<in> as' (closure a\<^sub>0 # map closure bs)" "last as' = b2"
     by auto
   then obtain x\<^sub>0 where "x\<^sub>0 \<in> hd as'"
     by (cases as') (auto split: if_split_asm simp: closure_def)
@@ -1275,7 +1248,7 @@ proof -
   with A \<open>steps _\<close> have "P (last (x\<^sub>0 # xs))"
     by fastforce
   from as' have "P1 b2"
-    using b2 by (auto simp: closure_def)
+    using b2 by (auto simp: closure_def last_map split: if_split_asm)
   from \<open>list_all2 op \<in> as' _\<close> \<open>list_all2 op \<in> _ as'\<close> \<open>_ = b2\<close> have "last (x\<^sub>0 # xs) \<in> b2"
      by (fastforce dest!: list_all2_last)
   from P1_P[OF this \<open>y \<in> b2\<close> \<open>P1 b2\<close>] \<open>P _\<close> show "P y" ..
@@ -1321,6 +1294,17 @@ lemma reaches_all:
 
 end (* Locale for Compatibility *)
 
+lemma (in -)
+  assumes "\<And> x y a. P x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P y"
+  shows "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+    by (auto intro: assms)
+
+lemma (in Double_Simulation_Defs)
+  assumes compatible: "\<And> x y a. P x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P y"
+    and that: "\<forall> x \<in> a. P x"
+  shows "\<forall> x \<in> \<Union> closure a. P x"
+  using that unfolding closure_def by (auto dest: compatible)
+
 end (* Double Simulation *)
 
 section \<open>Comments\<close>
@@ -1330,6 +1314,9 @@ text \<open>
 \<^item> Post-stability can not
 \<^item> Pre-stability + Completeness means that for every two concrete states in the same abstract class,
   there are equivalent runs
+\<^item> For Büchi properties, the predicate has to be compatible with whole closures instead of single
+  \<open>P1\<close>-states. This is because for a finite graph where every node has at least indegree one,
+  we cannot necessarily conclude that there is a cycle through \<^emph>\<open>every\<close> node.
 \<^item> Can offer representation view via suitable locale instantiations?
 \<^item> Abstractions view?
 \<^item> \<open>\<phi>\<close>-construction can be done on an automaton too (also for disjunctions)
