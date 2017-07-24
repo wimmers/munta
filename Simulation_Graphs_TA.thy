@@ -358,12 +358,6 @@ end (* Global Set of Regions *)
 end (* Regions *)
 
 
-locale Regions_TA = Regions X _ _  k for X :: "'c set" and k :: "'s \<Rightarrow> 'c \<Rightarrow> nat" +
-  fixes A :: "('a, 'c, t, 's) ta"
-  assumes valid_abstraction: "valid_abstraction A X k"
-    and finite_state_set: "finite (state_set A)"
-begin
-
 definition "R_of lR = snd ` lR"
 
 definition "from_R l R = {(l, u) | u. u \<in> R}"
@@ -375,6 +369,13 @@ lemma from_R_fst:
 lemma R_of_from_R [simp]:
   "R_of (from_R l R) = R"
   unfolding R_of_def from_R_def image_def by auto
+
+
+locale Regions_TA = Regions X _ _  k for X :: "'c set" and k :: "'s \<Rightarrow> 'c \<Rightarrow> nat" +
+  fixes A :: "('a, 'c, t, 's) ta"
+  assumes valid_abstraction: "valid_abstraction A X k"
+    and finite_state_set: "finite (state_set A)"
+begin
 
 (* XXX Bundle this? *)
 no_notation Regions_Beta.part ("[_]\<^sub>_" [61,61] 61)
@@ -650,15 +651,91 @@ qed
 end (* Regions TA *)
 
 
+(* XXX Move *)
+lemma (in Graph_Defs) steps_last_step:
+  "\<exists> a. a \<rightarrow> last xs" if "steps xs" "length xs > 1"
+  using that by induction auto
 
-locale Regions_TA_Start_State = Regions_TA _ _ _ _ _ A for A :: "('a, 'c, t, 's) ta" +
-  fixes l\<^sub>0 :: "'s" and Z\<^sub>0 :: "('c, t) zone"
-  assumes start_state: "l\<^sub>0 \<in> state_set A" "Z\<^sub>0 \<in> V'" "Z\<^sub>0 \<noteq> {}"
+lemma (in Graph_Defs) steps_last_invariant:
+  assumes invariant: "\<And> a b. a \<rightarrow> b \<Longrightarrow> P b"
+      and that: "steps (x # xs)" "xs \<noteq> []"
+  shows "P (last xs)"
+using steps_last_step[of "x # xs"] that by (auto intro: invariant)
+
+context Regions_TA
 begin
 
-definition "a\<^sub>0 = from_R l\<^sub>0 Z\<^sub>0"
+lemma A1_P1 [intro]:
+  "P1 b" if "A1 a b"
+  using that unfolding P1_def A1_def by (auto elim: step_r'_\<R> step_r'_state_set)
 
-lemma step_z_beta'_complete:
+lemma A2_P2 [intro]:
+  "P2 b" if "A2 a b"
+  using that by (meson P2_def sim_defs(3) step_z_beta'_V' step_z_beta'_state_set)
+
+(* XXX Move *)
+lemma (in -) R_ofI[intro]:
+  "Z \<in> R_of S" if "(l, Z) \<in> S"
+  using that unfolding R_of_def by force
+
+(* XXX Move *)
+lemma (in -) from_R_I[intro]:
+  "(l', u') \<in> from_R l' Z'" if "u' \<in> Z'"
+  using that unfolding from_R_def by auto
+
+(* XXX Move *)
+lemma (in -) R_of_non_emptyD:
+  "a \<noteq> {}" if "R_of a \<noteq> {}"
+  using that unfolding R_of_def by simp
+
+lemma P2_from_R:
+  "\<exists> l' Z'. x = from_R l' Z'" if "P2 x"
+  using that unfolding P2_def by (fastforce dest: from_R_R_of)
+
+(* XXX Move *)
+lemma P2_from_R':
+  "\<exists> Z. u \<in> Z \<and> from_R l Z = a" if "P2 a" "(l, u) \<in> a"
+  by (metis P2_def R_ofI from_R_R_of fst_eqD that)
+
+lemma sim_Steps_from_R:
+  "\<exists> ys. xs = map (\<lambda>(l, Z). from_R l Z) ys" if "sim.Steps (from_R l Z # xs)"
+  using that
+proof (induction "from_R l Z # xs" arbitrary: l Z xs)
+  case Single
+  then show ?case by simp
+next
+  case (Cons y xs)
+  then obtain l' Z' where "y = from_R l' Z'"
+    by - (drule A2_P2, drule P2_from_R, auto)
+  with Cons.hyps obtain ys where "xs = map (\<lambda>(x, y). from_R x y) ys"
+    by auto
+  with \<open>y = _\<close> show ?case
+    by (inst_existentials "(l', Z') # ys") simp
+qed
+
+lemma P2_non_empty:
+  "a \<noteq> {}" if "P2 a"
+  using that unfolding P2_def by (auto intro!: R_of_non_emptyD)
+
+(* XXX Move *)
+lemma sim_Steps_last_non_empty:
+  "last xs \<noteq> {}" if "sim.Steps (x # xs)" "xs \<noteq> []"
+  using sim.Steps.steps_last_invariant[of P2, OF _ that] by (auto dest: P2_non_empty)
+
+(* XXX Move *)
+lemma P1_fst:
+  "fst x = fst y" if "x \<in> a" "y \<in> a" "P1 a"
+  using that unfolding P1_def by auto
+
+lemma step_r'_complete_spec:
+  assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>" "u \<in> V"
+  shows "\<exists> a R'. u' \<in> R' \<and> A,\<R> \<turnstile> \<langle>l, [u]\<^sub>l\<rangle> \<leadsto>\<^sub>a \<langle>l',R'\<rangle>"
+  using assms valid_abstraction by (auto simp: comp_def V_def intro!: step_r'_complete)
+
+end (* Regions TA *)
+
+(* XXX Move *)
+lemma (in Regions) step_z_beta'_complete:
   assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" "u \<in> Z" "Z \<subseteq> V"
   shows "\<exists> Z' a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
 proof -
@@ -676,13 +753,17 @@ proof -
        ((rule, assumption)+, (drule step_z_V, assumption)+, rule apx_subset)
 qed
 
-lemma R_ofI[intro]:
-  "Z \<in> R_of S" if "(l, Z) \<in> S"
-  using that unfolding R_of_def by force
+(* XXX Move *)
+lemma (in Double_Simulation) P1_closure_id:
+  "closure R = {R}" if "P1 R" "R \<noteq> {}"
+  unfolding closure_def using that P1_distinct by blast
 
-lemma from_R_I[intro]:
-  "(l', u') \<in> from_R l' Z'" if "u' \<in> Z'"
-  using that unfolding from_R_def by auto
+locale Regions_TA_Start_State = Regions_TA _ _ _ _ _ A for A :: "('a, 'c, t, 's) ta" +
+  fixes l\<^sub>0 :: "'s" and Z\<^sub>0 :: "('c, t) zone"
+  assumes start_state: "l\<^sub>0 \<in> state_set A" "Z\<^sub>0 \<in> V'" "Z\<^sub>0 \<noteq> {}"
+begin
+
+definition "a\<^sub>0 = from_R l\<^sub>0 Z\<^sub>0"
 
 sublocale sim_complete: Double_Simulation_Finite_Complete
   C  -- "Concrete step relation"
@@ -743,19 +824,11 @@ next
   finally show ?case .
 next
   case prems: (3 a a')
-  -- \<open>Preservation of Well-Formedness\<close>
-  with sim.P2_cover[OF prems(1)] show ?case
-    unfolding sim_defs
-    by (auto intro: step_z_beta'_state_set; auto dest!: step_z_beta'_V'[rotated] dest: V'_V)
+  then show ?case by auto
 next
   case 4
   from start_state show ?case unfolding a\<^sub>0_def by (auto simp: sim_defs from_R_fst)
 qed
-
-lemma step_r'_complete_spec:
-  assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>" "u \<in> V"
-  shows "\<exists> a R'. u' \<in> R' \<and> A,\<R> \<turnstile> \<langle>l, [u]\<^sub>l\<rangle> \<leadsto>\<^sub>a \<langle>l',R'\<rangle>"
-  using assms valid_abstraction by (auto simp: comp_def V_def intro!: step_r'_complete)
 
 sublocale sim_complete_bisim: Double_Simulation_Finite_Complete_Bisim_Cover
   C  -- "Concrete step relation"
@@ -778,8 +851,7 @@ proof (standard, goal_cases)
     done
 next
   case (2 S T)
-  then show ?case
-    unfolding P1_def A1_def by (auto elim: step_r'_\<R> step_r'_state_set)
+  then show ?case by auto
 next
   case prems: (3 a x)
   then obtain l where l:
@@ -793,10 +865,6 @@ next
     unfolding P1_def P2_def
     by (inst_existentials "from_R l ([snd x]\<^sub>l)" l) (auto simp: from_R_fst)
 qed
-
-lemma (in Double_Simulation) P1_closure_id:
-  "closure R = {R}" if "P1 R" "R \<noteq> {}"
-  unfolding closure_def using that P1_distinct by blast
 
 context
   fixes \<phi> :: "'s \<times> ('c \<Rightarrow> real) \<Rightarrow> bool" -- "The property we want to check"
@@ -942,7 +1010,7 @@ lemma P2_\<phi>:
 
 lemma sim_Steps_P2:
   "P2 a" if "sim.Steps.reaches a\<^sub>0 a"
-  using that by (induction; blast intro: sim_complete.P2_invariant sim_complete.P2_a\<^sub>0)
+  using that sim_complete.P2_a\<^sub>0 by cases auto
 
 lemma \<phi>_A1_compatible:
   "b \<subseteq> Collect \<phi> \<or> b \<inter> Collect \<phi> = {}" if "A1 a b"
@@ -1089,60 +1157,6 @@ theorem Alw_ev_mc1:
 
 end (* Context for State Formula *)
 
-end (* Regions TA with Start State*)
-
-lemma (in Regions_TA) A2_from_R:
-  "\<exists> l' Z'. x = from_R l' Z'" if "A2 (from_R l Z) x"
-  using that unfolding A2_def by (fastforce dest: from_R_R_of)
-
-lemma (in Regions_TA) sim_Steps_from_R:
-  "\<exists> ys. xs = map (\<lambda>(l, Z). from_R l Z) ys" if "sim.Steps (from_R l Z # xs)"
-  using that
-proof (induction "from_R l Z # xs" arbitrary: l Z xs)
-  case Single
-  then show ?case by simp
-next
-  case (Cons y xs)
-  then obtain l' Z' where "y = from_R l' Z'"
-    by - (drule A2_from_R, auto)
-  with Cons.hyps obtain ys where "xs = map (\<lambda>(x, y). from_R x y) ys"
-    by auto
-  with \<open>y = _\<close> show ?case
-    by (inst_existentials "(l', Z') # ys") simp
-qed
-
-context Graph_Defs
-begin
-
-lemma steps_last_step:
-  "\<exists> a. a \<rightarrow> last xs" if "steps xs" "length xs > 1"
-  using that by induction auto
-
-end (* Graph Defs *)
-
-context Regions_TA_Start_State
-begin
-
-(* XXX Move *)
-lemma R_of_non_emptyD:
-  "a \<noteq> {}" if "R_of a \<noteq> {}"
-  using that unfolding R_of_def by simp
-
-(* XXX Move *)
-lemma A2_non_empty:
-  "b \<noteq> {}" if "A2 a b"
-  using that unfolding A2_def by (auto intro!: R_of_non_emptyD)
-
-(* XXX Move *)
-lemma sim_Steps_last_non_empty:
-  "last xs \<noteq> {}" if "sim.Steps (x # xs)" "xs \<noteq> []"
-proof -
-  from sim.Steps.steps_last_step[of "x # xs"] that obtain a where "A2 a (last xs)"
-    by auto
-  then show ?thesis
-    by (auto dest: A2_non_empty)
-qed
-
 lemma sim_reaches_equiv:
   "reaches (l, Z) (l', Z') \<longleftrightarrow> sim.Steps.reaches (from_R l Z) (from_R l' Z')" if "Z \<in> V'" "Z \<noteq> {}"
   using \<open>Z \<in> V'\<close>
@@ -1151,66 +1165,50 @@ lemma sim_reaches_equiv:
   subgoal for xs
     apply (cases xs)
      apply (blast dest: steps_non_empty')
-      using sim_steps_equiv[OF \<open>Z \<in> V'\<close>, of l]
+    using sim_steps_equiv[OF \<open>Z \<in> V'\<close>, of l]
     apply (intro exI conjI; simp split: if_split_asm add: last_map)
     done
-  subgoal for xs
-    apply (cases xs)
-     apply (blast dest: sim.Steps.steps_non_empty')
-    using sim_steps_equiv[OF \<open>Z \<in> V'\<close>, of l, symmetric]
-    apply simp
-    apply (frule sim_Steps_from_R)
-      apply (subgoal_tac "last xs \<noteq> {}")
-      apply clarsimp
-    apply (intro exI conjI; simp split: if_split_asm add: last_map)
-      apply (force simp add: from_R_def)
-     apply (simp add: from_R_def)
-    subgoal premises prems for ys
-      using prems(4,7)
-      apply (cases "last ys")
+  subgoal premises prems for xs
+  proof (cases xs)
+    case Nil
+    with prems show ?thesis by (blast dest: sim.Steps.steps_non_empty')
+  next
+    case (Cons x' xs')
+    with prems have "last xs \<noteq> {}"
+      using that(2) by (cases xs') (auto simp: from_R_def dest: sim_Steps_last_non_empty)
+    with \<open>xs = _\<close> prems show ?thesis
+      using sim_steps_equiv[OF \<open>Z \<in> V'\<close>, of l, symmetric]
       apply simp
-      apply (simp add: from_R_def)
-      subgoal premises prems for a b
-        using prems by force (* XXX *)
+      apply (frule sim_Steps_from_R)
+      apply clarsimp
+      apply (intro exI conjI; simp split: if_split_asm add: last_map)
+       apply (force simp add: from_R_def)
+      subgoal premises prems for ys
+        using \<open>from_R l' Z' \<noteq> {}\<close> prems(9)
+        apply (cases "last ys")
+        subgoal by (force simp: from_R_def) (* XXX *)
+        done
       done
-    using that(2) by (auto simp: from_R_def dest: sim_Steps_last_non_empty)
+  qed
   done
 
-context
-  fixes \<phi> :: "'s \<times> ('c \<Rightarrow> real) \<Rightarrow> bool" -- "The property we want to check"
-  assumes \<phi>_closure_compatible: "x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> sim.closure a. \<phi> x)"
-begin
-
+(* XXX Generalize? *)
 lemma closure_compatible_alt:
-  "\<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
+  fixes \<phi> :: "'s \<times> ('c \<Rightarrow> real) \<Rightarrow> bool" -- "The property we want to check"
+  assumes \<phi>_closure_compatible: "\<And> x a. x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> sim.closure a. \<phi> x)"
+  shows "\<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
   by (auto simp: sim.closure_def dest: \<phi>_closure_compatible)
 
-end (* Context for Compatibility *)
-
-context
-  fixes \<phi> :: "'s \<times> ('c \<Rightarrow> real) \<Rightarrow> bool" -- "The property we want to check"
-  assumes \<phi>_closure_compatible: "\<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
-begin
-
 lemma Alw_ev_compatible:
-  "sim.Alw_ev \<phi> (l, u) \<longleftrightarrow> sim.Alw_ev \<phi> (l, u')" if "u \<in> R" "u' \<in> R" "R \<in> \<R> l" "l \<in> state_set A"
+  fixes \<phi> :: "'s \<times> ('c \<Rightarrow> real) \<Rightarrow> bool" -- "The property we want to check"
+  assumes \<phi>_closure_compatible: "\<And> x y a. \<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
+  assumes that: "u \<in> R" "u' \<in> R" "R \<in> \<R> l" "l \<in> state_set A"
+  shows "sim.Alw_ev \<phi> (l, u) \<longleftrightarrow> sim.Alw_ev \<phi> (l, u')"
   apply (rule sim_complete_bisim.bisim.Alw_ev_compatible[of _ _ "from_R l R"])
      apply (rule \<phi>_closure_compatible; assumption; fail)
     apply (intro from_R_I that; fail)+
   apply (subst P1_def; inst_existentials l; auto simp add: that intro!: from_R_fst)
   done
-
-end (* Context for compatibility *)
-
-(* XXX Move *)
-lemma P1_fst:
-  "fst x = fst y" if "x \<in> a" "y \<in> a" "P1 a"
-  using that unfolding P1_def by auto
-
-(* XXX Move *)
-lemma P2_from_R:
-  "\<exists> Z. u \<in> Z \<and> from_R l Z = a" if "P2 a" "(l, u) \<in> a"
-  by (metis P2_def R_ofI from_R_R_of fst_eqD that)
 
 lemma reaches_all:
   assumes
@@ -1249,7 +1247,7 @@ proof -
       subgoal for Z u
         unfolding from_R_def by auto
       subgoal for a u
-        by (frule sim_Steps_P2) (auto dest: P2_from_R)
+        by (frule sim_Steps_P2) (auto dest: P2_from_R')
       done
     done
 qed
@@ -1275,10 +1273,7 @@ lemma \<psi>_closure_compatible_alt':
   by (auto dest: \<psi>_closure_compatible_alt)
 
 lemma \<psi>_Alw_ev_compatible:
-  assumes "u \<in> R"
-    and "u' \<in> R"
-    and "R \<in> \<R> l"
-    and "l \<in> state_set A"
+  assumes "u \<in> R" "u' \<in> R" "R \<in> \<R> l" "l \<in> state_set A"
   shows "sim.Alw_ev (Not \<circ> \<psi>) (l, u) = sim.Alw_ev (Not \<circ> \<psi>) (l, u')"
   by (assumption | rule Alw_ev_compatible \<psi>_closure_compatible_alt' assms)+
 
@@ -1287,7 +1282,7 @@ interpretation G\<^sub>\<psi>: Graph_Defs
 
 theorem leadsto_mc1:
   "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.leadsto (\<phi> P) (Not \<circ> \<psi>) x\<^sub>0) \<longleftrightarrow>
-   (\<nexists>x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> \<phi> P x \<and> Q (fst x) \<and> (\<exists>a. G\<^sub>\<psi>.reaches x a \<and> G\<^sub>\<psi>.reaches1 a a))"
+   (\<nexists>x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> P (fst x) \<and> Q (fst x) \<and> (\<exists>a. G\<^sub>\<psi>.reaches x a \<and> G\<^sub>\<psi>.reaches1 a a))"
   if "\<forall>x\<^sub>0\<in>a\<^sub>0. \<not> sim.deadlock x\<^sub>0"
 proof -
   have *: "l \<in> state_set A" "Z \<in> V'" "Z \<noteq> {}" if "reaches (l\<^sub>0, Z\<^sub>0) (l, Z)" for l Z
@@ -1301,20 +1296,21 @@ proof -
       using that start_state by cases auto
     done
 
-  { fix l Z assume A: "reaches (l\<^sub>0, Z\<^sub>0) (l, Z)"
+  have Alw_ev_mc1:
+    "(\<forall>x\<^sub>0\<in>from_R l Z. sim.Alw_ev (Not \<circ> \<psi>) x\<^sub>0) \<longleftrightarrow>
+      \<not> (Q l \<and> (\<exists>a. G\<^sub>\<psi>.reaches (l, Z) a \<and> G\<^sub>\<psi>.reaches1 a a))"
+    if "reaches (l\<^sub>0, Z\<^sub>0) (l, Z)" for l Z
+  proof -
     interpret Start: Regions_TA_Start_State v n not_in_X X k A l Z
-      by standard (rule * A)+
-    have "(\<forall>x\<^sub>0\<in>from_R l Z. sim.Alw_ev (Not \<circ> \<psi>) x\<^sub>0) \<longleftrightarrow>
-        \<not> (Q l \<and> (\<exists>a. G\<^sub>\<psi>.reaches (l, Z) a \<and> G\<^sub>\<psi>.reaches1 a a))"
+      by standard (rule * that)+
+    show ?thesis
       using Start.Alw_ev_mc1[unfolded Start.a\<^sub>0_def Start.\<phi>_def, of Q]
       unfolding \<psi>_def Graph_Start_Defs.reachable_def .
-  } note Alw_ev_mc1 = this
+  qed
 
   have "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.leadsto (\<phi> P) (Not \<circ> \<psi>) x\<^sub>0)
     \<longleftrightarrow> (\<forall>x\<^sub>0\<in>a\<^sub>0. \<nexists>y. sim.reaches x\<^sub>0 y \<and> \<phi> P y \<and> \<not> sim.Alw_ev (Not \<circ> \<psi>) y)"
     using that by (simp add: sim.Ex_ev sim.leadsto_iff)
-  also have "\<dots> \<longleftrightarrow> (\<forall> y. (\<exists> x\<^sub>0\<in>a\<^sub>0. sim.reaches x\<^sub>0 y) \<longrightarrow> \<not> (\<phi> P y \<and> \<not> sim.Alw_ev (Not \<circ> \<psi>) y))"
-    by blast
   also have
     "\<dots> \<longleftrightarrow> (\<forall> l u. (\<exists> x\<^sub>0\<in>a\<^sub>0. sim.reaches x\<^sub>0 (l, u)) \<longrightarrow> \<not> (P l \<and> \<not> sim.Alw_ev (Not \<circ> \<psi>) (l, u)))"
     unfolding \<phi>_def by auto
@@ -1323,30 +1319,17 @@ proof -
     by (subst sim_closure[symmetric], subst reaches_all)
        (auto simp: \<phi>_def \<psi>_def comp_def dest: \<psi>_Alw_ev_compatible)
   also have
-    "\<dots> \<longleftrightarrow> (\<nexists> l Z. reaches (l\<^sub>0, Z\<^sub>0) (l, Z) \<and> \<not> (\<forall> u \<in> Z. \<not> (P l \<and> \<not> sim.Alw_ev (Not \<circ> \<psi>) (l, u))))"
-    by auto
-  also have
-    "\<dots> \<longleftrightarrow> (\<nexists> l Z. reaches (l\<^sub>0, Z\<^sub>0) (l, Z) \<and> P l \<and> (\<exists> u \<in> Z. \<not> sim.Alw_ev (Not \<circ> \<psi>) (l, u)))"
-    by auto
-  also have
-    "\<dots> \<longleftrightarrow> (\<nexists> l Z. reaches (l\<^sub>0, Z\<^sub>0) (l, Z) \<and> P l \<and> \<not> (\<forall> u \<in> Z. sim.Alw_ev (Not \<circ> \<psi>) (l, u)))"
-    by auto
-  also have
-    "\<dots> \<longleftrightarrow> (\<nexists> x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> \<phi> P x \<and>
-              (case x of (l, Z) \<Rightarrow> \<not> (\<forall> u \<in> Z. sim.Alw_ev (Not \<circ> \<psi>) (l, u))))"
-    unfolding \<phi>_def by auto
-  also have
-    "\<dots> \<longleftrightarrow> (\<nexists> x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> \<phi> P x \<and>
+    "\<dots> \<longleftrightarrow> (\<nexists> x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> P (fst x) \<and>
               (case x of (l, Z) \<Rightarrow> \<not> (\<forall> y \<in> from_R l Z. sim.Alw_ev (Not \<circ> \<psi>) y)))"
-    unfolding from_R_def by auto
+    unfolding from_R_def \<phi>_def by auto
   also have
-    "\<dots> \<longleftrightarrow> (\<nexists>x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> \<phi> P x \<and> Q (fst x) \<and> (\<exists>a. G\<^sub>\<psi>.reaches x a \<and> G\<^sub>\<psi>.reaches1 a a))"
+    "\<dots> \<longleftrightarrow> (\<nexists>x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> P (fst x) \<and> Q (fst x) \<and> (\<exists>a. G\<^sub>\<psi>.reaches x a \<and> G\<^sub>\<psi>.reaches1 a a))"
     by (auto simp: Alw_ev_mc1)
   finally show ?thesis .
 qed
 
 end (* Context for State Formulae *)
 
-end (* Regions TA *)
+end (* Regions TA with Start State *)
 
 end (* Theory *)
