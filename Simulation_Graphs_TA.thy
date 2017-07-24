@@ -1255,27 +1255,23 @@ qed
 context
   fixes P Q :: "'s \<Rightarrow> bool" -- "The state property we want to check"
   assumes sim_closure: "\<Union>sim.closure a\<^sub>0 = a\<^sub>0"
-  assumes Q_closure_compatible: "x \<in> a \<Longrightarrow> \<phi> Q x \<longleftrightarrow> (\<forall> x \<in> \<Union> sim.closure a. \<phi> Q x)"
+  assumes Q_closure_compatible: "\<phi> Q x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> Q y"
 begin
 
 definition "\<psi> = Q o fst"
 
 lemma \<psi>_closure_compatible:
-  "\<psi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> sim.closure a. \<psi> x)" if "x \<in> a"
-  using Q_closure_compatible[OF \<open>x \<in> a\<close>] unfolding \<phi>_def \<psi>_def .
-
-lemma \<psi>_closure_compatible_alt:
   "\<psi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<psi> y"
-  using closure_compatible_alt[OF \<psi>_closure_compatible] by blast
+  using Q_closure_compatible unfolding \<phi>_def \<psi>_def by auto
 
-lemma \<psi>_closure_compatible_alt':
+lemma \<psi>_closure_compatible':
   "(Not o \<psi>) x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> (Not o \<psi>) y"
-  by (auto dest: \<psi>_closure_compatible_alt)
+  by (auto dest: \<psi>_closure_compatible)
 
 lemma \<psi>_Alw_ev_compatible:
   assumes "u \<in> R" "u' \<in> R" "R \<in> \<R> l" "l \<in> state_set A"
   shows "sim.Alw_ev (Not \<circ> \<psi>) (l, u) = sim.Alw_ev (Not \<circ> \<psi>) (l, u')"
-  by (assumption | rule Alw_ev_compatible \<psi>_closure_compatible_alt' assms)+
+  by (assumption | rule Alw_ev_compatible \<psi>_closure_compatible' assms)+
 
 interpretation G\<^sub>\<psi>: Graph_Defs
   "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {} \<and> Q l'" .
