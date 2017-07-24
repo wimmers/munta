@@ -63,6 +63,70 @@ lemma prod_set_fst_id:
   "x = y" if "\<forall> a \<in> x. fst a = b" "\<forall> a \<in> y. fst a = b" "snd ` x = snd ` y"
   using that by (auto 4 6 simp: fst_def snd_def image_def split: prod.splits)
 
+locale Graph_Invariant = Graph_Defs +
+  fixes P :: "'a \<Rightarrow> bool"
+  assumes invariant: "P a \<Longrightarrow> a \<rightarrow> b \<Longrightarrow> P b"
+begin
+
+lemma invariant_steps:
+  "list_all P as" if "steps (a # as)" "P a"
+  using that by (induction "a # as" arbitrary: as a) (auto intro: invariant)
+
+lemma invariant_reaches:
+  "P b" if "a \<rightarrow>* b" "P a"
+  using that by (induction; blast intro: invariant)
+
+lemma invariant_run:
+  assumes run: "run (x ## xs)" and P: "P x"
+  shows "pred_stream P (x ## xs)"
+  using run P by (coinduction arbitrary: x xs) (auto 4 3 elim: invariant run.cases)
+
+end (* Graph Invariant *)
+
+locale Graph_Invariant_Start = Graph_Start_Defs + Graph_Invariant +
+  assumes P_s\<^sub>0: "P s\<^sub>0"
+begin
+
+lemma invariant_steps:
+  "list_all P as" if "steps (s\<^sub>0 # as)"
+  using that P_s\<^sub>0 by (rule invariant_steps)
+
+lemma invariant_reaches:
+  "P b" if "s\<^sub>0 \<rightarrow>* b"
+  using invariant_reaches[OF that P_s\<^sub>0] .
+
+lemmas invariant_run = invariant_run[OF _ P_s\<^sub>0]
+
+end (* Graph Invariant Start *)
+
+(* XXX Move *)
+lemma (in Graph_Defs) steps_last_step:
+  "\<exists> a. a \<rightarrow> last xs" if "steps xs" "length xs > 1"
+  using that by induction auto
+
+locale Graph_Invariant_Strong = Graph_Defs +
+  fixes P :: "'a \<Rightarrow> bool"
+  assumes invariant: "a \<rightarrow> b \<Longrightarrow> P b"
+begin
+
+sublocale inv: Graph_Invariant by standard (rule invariant)
+
+lemma P_invariant_steps:
+  "list_all P as" if "steps (a # as)"
+  using that by (induction "a # as" arbitrary: as a) (auto intro: invariant)
+
+lemma steps_last_invariant:
+  "P (last xs)" if "steps (x # xs)" "xs \<noteq> []"
+  using steps_last_step[of "x # xs"] that by (auto intro: invariant)
+
+lemmas invariant_reaches = inv.invariant_reaches
+
+lemma invariant_reaches1:
+  "P b" if "a \<rightarrow>\<^sup>+ b"
+  using that by (induction; blast intro: invariant)
+
+end (* Graph Invariant *)
+
 
 section \<open>Simulation Graphs\<close>
 
@@ -169,9 +233,17 @@ begin
 sublocale Simulation_Graph_Finite_Complete C A2 P2 a\<^sub>0
   by standard (blast intro: complete finite_abstract_reachable P2_invariant)+
 
+sublocale P2_invariant: Graph_Invariant_Start A2 a\<^sub>0 P2
+  by (standard; blast intro: P2_invariant P2_a\<^sub>0)
+
 end (* Double Simulation Finite Complete *)
 
 locale Simulation_Graph_Complete_Prestable = Simulation_Graph_Complete + Simulation_Graph_Prestable
+begin
+
+sublocale Graph_Invariant A P by standard (rule P_invariant)
+
+end (* Simulation Graph Complete Prestable *)
 
 locale Double_Simulation_Finite_Complete_Bisim = Double_Simulation_Finite_Complete +
   assumes A1_complete: "C x y \<Longrightarrow> P1 S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A1 S T \<and> y \<in> T"
@@ -792,9 +864,7 @@ section \<open>Finite Complete Double Simulations\<close>
 context Double_Simulation_Finite_Complete
 begin
 
-lemma P2_invariant_Steps:
-  "list_all P2 as" if "Steps (a\<^sub>0 # as)"
-  using that P2_a\<^sub>0 by (induction "a\<^sub>0 # as" arbitrary: as a\<^sub>0) (auto intro: P2_invariant)
+lemmas P2_invariant_Steps = P2_invariant.invariant_steps
 
 theorem infinite_run_cycle_iff':
   assumes "P2 a\<^sub>0" "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>closure a\<^sub>0 \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys)"
@@ -878,7 +948,11 @@ definition "A2_\<phi> S S' \<equiv> \<exists> S''. A2 S S'' \<and> S'' \<inter> 
 
 lemma A2_\<phi>_P2_invariant:
   "P2 a" if "A2_\<phi>\<^sup>*\<^sup>* a\<^sub>0 a"
-  using that by induction (auto intro: \<phi>_P2_compatible P2_invariant P2_a\<^sub>0 simp: A2_\<phi>_def)
+proof -
+  interpret invariant: Graph_Invariant_Start A2_\<phi> a\<^sub>0 P2
+    by standard (auto intro: \<phi>_P2_compatible P2_invariant P2_a\<^sub>0 simp: A2_\<phi>_def)
+  from invariant.invariant_reaches[OF that] show ?thesis .
+qed
 
 sublocale phi: Double_Simulation_Finite_Complete C_\<phi> A1_\<phi> P1 A2_\<phi> P2 a\<^sub>0
 proof (standard, goal_cases)
@@ -1054,19 +1128,6 @@ lemma stream_all2_bisim:
     done
   done
 
-context Graph_Defs
-begin
-
-(* XXX Move *)
-lemma run_invariant_pred_stream:
-  fixes P :: "'a \<Rightarrow> bool"
-  assumes invariant: "\<And> x y. P x \<Longrightarrow> x \<rightarrow> y \<Longrightarrow> P y"
-  and run: "run (x ## xs)" and P: "P x"
-shows "pred_stream P (x ## xs)"
-  using run P by (coinduction arbitrary: x xs) (auto 4 3 elim: invariant run.cases)
-
-end (* Graph Defs *)
-
 context Simulation_Graph_Complete_Prestable
 begin
 
@@ -1082,7 +1143,7 @@ proof -
   with abstract_run_ctr[of a xs] have "Run (a ## ?as)"
     by (auto simp: f_def)
   then have "pred_stream P ?as"
-    by - (drule Steps.run_invariant_pred_stream[rotated], rule \<open>P a\<close>, auto intro: P_invariant)
+    by - (drule invariant_run, rule \<open>P a\<close>, auto intro: P_invariant)
   from
     represent_run_Run[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>] represent_run_represent[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>]
   have
@@ -1156,13 +1217,6 @@ lemma Alw_ev_compatible:
 
 end (* Context for Compatibility *)
 
-(* XXX Move *)
-(* XXX These theorems should be generalized *)
-lemma list_all_Steps:
-  "list_all P as" if "Steps (a # as)" "P a"
-  using that
-  by (induction "a # as" arbitrary: a as) (auto intro: P_invariant)
-
 lemma steps_bisim:
   "\<exists> ys. steps (y # ys) \<and> list_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> P a) xs ys"
   if "steps (x # xs)" "x \<in> a" "y \<in> a" "P a"
@@ -1174,7 +1228,7 @@ lemma steps_bisim:
   apply (intro exI conjI)
    apply assumption
   subgoal premises prems for as xs'
-    using prems(3,6) list_all_Steps[OF prems(2) \<open>P a\<close>]
+    using prems(3,6) invariant_steps[OF prems(2) \<open>P a\<close>]
     by (induction as arbitrary: xs') (auto simp: list_all2_Cons2)
   done
 

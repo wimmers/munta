@@ -600,6 +600,32 @@ qed
 
 end (* Regions TA *)
 
+lemma from_R_loc:
+  "l' = l" if "(l', u) \<in> from_R l Z"
+  using that unfolding from_R_def by auto
+
+lemma from_R_val:
+  "u \<in> Z" if "(l', u) \<in> from_R l Z"
+  using that unfolding from_R_def by auto
+
+lemma from_R_R_of:
+  "from_R l (R_of S) = S" if "\<forall> x \<in> S. fst x = l"
+  using that unfolding from_R_def R_of_def by force
+
+(* XXX Move *)
+lemma (in -) R_ofI[intro]:
+  "Z \<in> R_of S" if "(l, Z) \<in> S"
+  using that unfolding R_of_def by force
+
+(* XXX Move *)
+lemma (in -) from_R_I[intro]:
+  "(l', u') \<in> from_R l' Z'" if "u' \<in> Z'"
+  using that unfolding from_R_def by auto
+
+(* XXX Move *)
+lemma (in -) R_of_non_emptyD:
+  "a \<noteq> {}" if "R_of a \<noteq> {}"
+  using that unfolding R_of_def by simp
 
 context Regions_TA
 begin
@@ -617,18 +643,6 @@ lemma sim_closure_from_R:
   subgoal
     unfolding image_def by auto
   done
-
-lemma from_R_loc:
-  "l' = l" if "(l', u) \<in> from_R l Z"
-  using that unfolding from_R_def by auto
-
-lemma from_R_val:
-  "u \<in> Z" if "(l', u) \<in> from_R l Z"
-  using that unfolding from_R_def by auto
-
-lemma from_R_R_of:
-  "from_R l (R_of S) = S" if "\<forall> x \<in> S. fst x = l"
-  using that unfolding from_R_def R_of_def by force
 
 lemma run_map_from_R:
   "map (\<lambda>(x, y). from_R x y) (map (\<lambda> lR. ((THE l. \<forall> x \<in> lR. fst x = l), R_of lR)) xs) = xs"
@@ -650,18 +664,6 @@ qed
 
 end (* Regions TA *)
 
-
-(* XXX Move *)
-lemma (in Graph_Defs) steps_last_step:
-  "\<exists> a. a \<rightarrow> last xs" if "steps xs" "length xs > 1"
-  using that by induction auto
-
-lemma (in Graph_Defs) steps_last_invariant:
-  assumes invariant: "\<And> a b. a \<rightarrow> b \<Longrightarrow> P b"
-      and that: "steps (x # xs)" "xs \<noteq> []"
-  shows "P (last xs)"
-using steps_last_step[of "x # xs"] that by (auto intro: invariant)
-
 context Regions_TA
 begin
 
@@ -673,20 +675,9 @@ lemma A2_P2 [intro]:
   "P2 b" if "A2 a b"
   using that by (meson P2_def sim_defs(3) step_z_beta'_V' step_z_beta'_state_set)
 
-(* XXX Move *)
-lemma (in -) R_ofI[intro]:
-  "Z \<in> R_of S" if "(l, Z) \<in> S"
-  using that unfolding R_of_def by force
+interpretation P1_invariant: Graph_Invariant_Strong A1 P1 by standard auto
 
-(* XXX Move *)
-lemma (in -) from_R_I[intro]:
-  "(l', u') \<in> from_R l' Z'" if "u' \<in> Z'"
-  using that unfolding from_R_def by auto
-
-(* XXX Move *)
-lemma (in -) R_of_non_emptyD:
-  "a \<noteq> {}" if "R_of a \<noteq> {}"
-  using that unfolding R_of_def by simp
+interpretation P2_invariant: Graph_Invariant_Strong A2 P2 by standard auto
 
 lemma P2_from_R:
   "\<exists> l' Z'. x = from_R l' Z'" if "P2 x"
@@ -720,7 +711,7 @@ lemma P2_non_empty:
 (* XXX Move *)
 lemma sim_Steps_last_non_empty:
   "last xs \<noteq> {}" if "sim.Steps (x # xs)" "xs \<noteq> []"
-  using sim.Steps.steps_last_invariant[of P2, OF _ that] by (auto dest: P2_non_empty)
+  using P2_invariant.steps_last_invariant[OF that] by (auto dest: P2_non_empty)
 
 (* XXX Move *)
 lemma P1_fst:
