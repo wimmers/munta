@@ -1,12 +1,14 @@
 (* Author: Simon Wimmer *)
 theory Graphs
   imports
-    "Stream_More"
+    More_List Stream_More
     "~~/src/HOL/Library/Rewrite"
-    "Instantiate_Existentials"
+    Instantiate_Existentials
 begin
 
 chapter \<open>Graphs\<close>
+
+section \<open>Basic Definitions and Theorems\<close>
 
 locale Graph_Defs =
   fixes E :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
@@ -367,12 +369,20 @@ lemma reaches1_steps_append:
   shows "\<exists> ys. steps (a # ys @ xs)"
   using assms by (fastforce intro: steps_append' dest: reaches1_steps)
 
+lemma steps_last_step:
+  "\<exists> a. a \<rightarrow> last xs" if "steps xs" "length xs > 1"
+  using that by induction auto
+
 lemmas graphI =
+  steps.intros
   steps_append_single
   steps_reaches'
   stepsI
 
 end (* Graph Defs *)
+
+
+section \<open>Graphs with a Start Node\<close>
 
 locale Graph_Start_Defs = Graph_Defs +
   fixes s\<^sub>0 :: 'a
@@ -488,6 +498,9 @@ lemmas graph_startI =
 
 end (* Graph Start Defs *)
 
+
+section \<open>Subgraphs\<close>
+
 locale Subgraph_Defs = G: Graph_Defs +
   fixes E' :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
 begin
@@ -546,6 +559,9 @@ lemma reachable_subgraph[intro]: "G.reachable b" if \<open>G.reachable a\<close>
 
 end (* Subgraph Start *)
 
+
+section \<open>Bundles\<close>
+
 bundle graph_automation
 begin
 
@@ -567,5 +583,230 @@ lemmas [intro] = Graph_Start_Defs.graphI_aggressive
 lemmas [dest]  = Graph_Start_Defs.graphD_aggressive
 
 end (* Bundle *)
+
+
+section \<open>Simulations and Bisimulations\<close>
+
+locale Graph_Invariant = Graph_Defs +
+  fixes P :: "'a \<Rightarrow> bool"
+  assumes invariant: "P a \<Longrightarrow> a \<rightarrow> b \<Longrightarrow> P b"
+begin
+
+lemma invariant_steps:
+  "list_all P as" if "steps (a # as)" "P a"
+  using that by (induction "a # as" arbitrary: as a) (auto intro: invariant)
+
+lemma invariant_reaches:
+  "P b" if "a \<rightarrow>* b" "P a"
+  using that by (induction; blast intro: invariant)
+
+lemma invariant_run:
+  assumes run: "run (x ## xs)" and P: "P x"
+  shows "pred_stream P (x ## xs)"
+  using run P by (coinduction arbitrary: x xs) (auto 4 3 elim: invariant run.cases)
+
+end (* Graph Invariant *)
+
+locale Graph_Invariant_Start = Graph_Start_Defs + Graph_Invariant +
+  assumes P_s\<^sub>0: "P s\<^sub>0"
+begin
+
+lemma invariant_steps:
+  "list_all P as" if "steps (s\<^sub>0 # as)"
+  using that P_s\<^sub>0 by (rule invariant_steps)
+
+lemma invariant_reaches:
+  "P b" if "s\<^sub>0 \<rightarrow>* b"
+  using invariant_reaches[OF that P_s\<^sub>0] .
+
+lemmas invariant_run = invariant_run[OF _ P_s\<^sub>0]
+
+end (* Graph Invariant Start *)
+
+locale Graph_Invariant_Strong = Graph_Defs +
+  fixes P :: "'a \<Rightarrow> bool"
+  assumes invariant: "a \<rightarrow> b \<Longrightarrow> P b"
+begin
+
+sublocale inv: Graph_Invariant by standard (rule invariant)
+
+lemma P_invariant_steps:
+  "list_all P as" if "steps (a # as)"
+  using that by (induction "a # as" arbitrary: as a) (auto intro: invariant)
+
+lemma steps_last_invariant:
+  "P (last xs)" if "steps (x # xs)" "xs \<noteq> []"
+  using steps_last_step[of "x # xs"] that by (auto intro: invariant)
+
+lemmas invariant_reaches = inv.invariant_reaches
+
+lemma invariant_reaches1:
+  "P b" if "a \<rightarrow>\<^sup>+ b"
+  using that by (induction; blast intro: invariant)
+
+end (* Graph Invariant *)
+
+locale Simulation_Defs =
+  fixes A :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and B :: "'b \<Rightarrow> 'b \<Rightarrow> bool"
+    and sim :: "'a \<Rightarrow> 'b \<Rightarrow> bool" (infixr "\<sim>" 60)
+begin
+
+sublocale A: Graph_Defs A .
+
+sublocale B: Graph_Defs B .
+
+end (* Simulation Defs *)
+
+locale Simulation = Simulation_Defs +
+  assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
+begin
+
+lemma simulation_reaches:
+  "\<exists> b'. B\<^sup>*\<^sup>* b b' \<and> a' \<sim> b'" if "A\<^sup>*\<^sup>* a a'" "a \<sim> b"
+  using that by (induction rule: rtranclp_induct) (auto intro: rtranclp.intros(2) dest: A_B_step)
+
+lemma simulation_steps:
+  "\<exists> bs. B.steps (b # bs) \<and> list_all2 (\<lambda> a b. a \<sim> b) as bs" if "A.steps (a # as)" "a \<sim> b"
+  using that
+  apply (induction "a # as" arbitrary: a b as)
+   apply force
+  apply (frule A_B_step, auto)
+  done
+
+end (* Simulation *)
+
+locale Simulation_Invariants = Simulation_Defs +
+  fixes PA :: "'a \<Rightarrow> bool" and PB :: "'b \<Rightarrow> bool"
+  assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
+  assumes A_invariant[intro]: "\<And> a b. PA a \<Longrightarrow> A a b \<Longrightarrow> PA b"
+  assumes B_invariant[intro]: "\<And> a b. PB a \<Longrightarrow> B a b \<Longrightarrow> PB b"
+begin
+
+definition "equiv' \<equiv> \<lambda> a b. a \<sim> b \<and> PA a \<and> PB b"
+
+sublocale Simulation A B equiv' by standard (auto dest: A_B_step simp: equiv'_def)
+
+sublocale PA_invariant: Graph_Invariant A PA by standard blast
+
+lemma simulation_reaches:
+  "\<exists> b'. B\<^sup>*\<^sup>* b b' \<and> a' \<sim> b' \<and> PA a' \<and> PB b'" if "A\<^sup>*\<^sup>* a a'" "a \<sim> b" "PA a" "PB b"
+  using simulation_reaches[of a a' b] that unfolding equiv'_def by simp
+
+lemma simulation_steps:
+  "\<exists> bs. B.steps (b # bs) \<and> list_all2 (\<lambda> a b. a \<sim> b \<and> PA a \<and> PB b) as bs"
+  if "A.steps (a # as)" "a \<sim> b" "PA a" "PB b"
+  using simulation_steps[of a as b] that unfolding equiv'_def by simp
+
+lemma simulation_steps':
+  "\<exists> bs. B.steps (b # bs) \<and> list_all2 (\<lambda> a b. a \<sim> b) as bs \<and> list_all PA as \<and> list_all PB bs"
+  if "A.steps (a # as)" "a \<sim> b" "PA a" "PB b"
+  using simulation_steps[OF that]
+  by (force dest: list_all2_set1 list_all2_set2 simp: list_all_iff elim: list_all2_mono)
+
+context
+  fixes f
+  assumes eq: "a \<sim> b \<Longrightarrow> b = f a"
+begin
+
+lemma simulation_steps'_map:
+  "\<exists> bs.
+    B.steps (b # bs) \<and> bs = map f as
+    \<and> list_all2 (\<lambda> a b. a \<sim> b) as bs
+    \<and> list_all PA as \<and> list_all PB bs"
+  if "A.steps (a # as)" "a \<sim> b" "PA a" "PB b"
+proof -
+  from simulation_steps'[OF that] guess bs by clarify
+  note guessed = this
+  from this(2) have "bs = map f as"
+    by (induction; simp add: eq)
+  with guessed show ?thesis
+    by auto
+qed
+
+end (* Context for Equality Relation *)
+
+end (* Simulation *)
+
+locale Bisimulation = Simulation_Defs +
+  assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
+  assumes B_A_step: "\<And> a a' b'. B a' b' \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b. A a b \<and> b \<sim> b')"
+begin
+
+sublocale A_B: Simulation A B "op \<sim>" by standard (rule A_B_step)
+
+sublocale B_A: Simulation B A "\<lambda> x y. y \<sim> x" by standard (rule B_A_step)
+
+lemma A_B_reaches:
+  "\<exists> b'. B\<^sup>*\<^sup>* b b' \<and> a' \<sim> b'" if "A\<^sup>*\<^sup>* a a'" "a \<sim> b"
+  using A_B.simulation_reaches[OF that] .
+
+lemma B_A_reaches:
+  "\<exists> b'. A\<^sup>*\<^sup>* b b' \<and> b' \<sim> a'" if "B\<^sup>*\<^sup>* a a'" "b \<sim> a"
+  using B_A.simulation_reaches[OF that] .
+
+end (* Bisim *)
+
+locale Bisimulation_Invariants = Simulation_Defs +
+  fixes PA :: "'a \<Rightarrow> bool" and PB :: "'b \<Rightarrow> bool"
+  assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> a \<sim> a' \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
+  assumes B_A_step: "\<And> a a' b'. B a' b' \<Longrightarrow> a \<sim> a' \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> (\<exists> b. A a b \<and> b \<sim> b')"
+  assumes A_invariant[intro]: "\<And> a b. PA a \<Longrightarrow> A a b \<Longrightarrow> PA b"
+  assumes B_invariant[intro]: "\<And> a b. PB a \<Longrightarrow> B a b \<Longrightarrow> PB b"
+begin
+
+sublocale PA_invariant: Graph_Invariant A PA by standard blast
+
+sublocale PB_invariant: Graph_Invariant B PB by standard blast
+
+lemmas B_steps_invariant[intro] = PB_invariant.invariant_reaches
+
+definition "equiv' \<equiv> \<lambda> a b. a \<sim> b \<and> PA a \<and> PB b"
+
+sublocale bisim: Bisimulation A B equiv'
+  by standard (clarsimp simp add: equiv'_def, frule A_B_step B_A_step, assumption; auto)+
+
+sublocale A_B: Simulation_Invariants A B "op \<sim>" PA PB
+  by (standard; blast intro: A_B_step B_A_step)
+
+sublocale B_A: Simulation_Invariants B A "\<lambda> x y. y \<sim> x" PB PA
+  by (standard; blast intro: A_B_step B_A_step)
+
+context
+  fixes f
+  assumes eq: "a \<sim> b \<longleftrightarrow> b = f a"
+    and inj: "\<forall> a b. PB (f a) \<and> PA b \<and> f a = f b \<longrightarrow> a = b"
+begin
+
+lemma list_all2_inj_map_eq:
+  "as = bs" if "list_all2 (\<lambda>a b. a = f b) (map f as) bs" "list_all PB (map f as)" "list_all PA bs"
+  using that inj
+  by (induction "map f as" bs arbitrary: as rule: list_all2_induct) (auto simp: inj_on_def)
+
+lemma steps_map_equiv:
+  "A.steps (a # as) \<longleftrightarrow> B.steps (b # map f as)" if "a \<sim> b" "PA a" "PB b"
+  using A_B.simulation_steps'_map[of f a as b] B_A.simulation_steps'[of b "map f as" a] that eq
+  by (auto dest: list_all2_inj_map_eq)
+
+lemma steps_map:
+  "\<exists> as. bs = map f as" if "B.steps (f a # bs)" "PA a" "PB (f a)"
+proof -
+  have "a \<sim> f a" unfolding eq ..
+  from B_A.simulation_steps'[OF that(1) this \<open>PB _\<close> \<open>PA _\<close>] guess as by clarify
+  from this(2) show ?thesis
+    unfolding eq by (inst_existentials as, induction rule: list_all2_induct, auto)
+qed
+
+lemma reaches_equiv:
+  "A.reaches a a' \<longleftrightarrow> B.reaches (f a) (f a')" if "PA a" "PB (f a)"
+  apply safe
+   apply (drule A_B.simulation_reaches[of a a' "f a"]; simp add: eq that)
+  apply (drule B_A.simulation_reaches)
+     defer
+     apply (rule that | clarsimp simp: eq | metis inj)+
+  done
+
+end (* Context for Equality Relation *)
+
+end (* Bisim Invariants *)
 
 end (* Theory *)
