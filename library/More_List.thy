@@ -11,6 +11,19 @@ lemma (in -) hd_butlast_last_id:
   "hd xs # tl (butlast xs) @ [last xs] = xs" if "length xs > 1"
   using that by (cases xs) auto
 
+section \<open>@{term list_all}\<close>
+
+lemma (in -) list_all_map:
+  assumes inv: "\<And> x. P x \<Longrightarrow> \<exists> y. f y = x"
+    and all: "list_all P as"
+  shows "\<exists> as'. map f as' = as"
+  using all
+    apply (induction as)
+   apply (auto dest!: inv)
+  subgoal for as' a
+    by (inst_existentials "a # as'") simp
+  done
+
 section \<open>@{term list_all2}\<close>
 
 lemma list_all2_op_map_iff:

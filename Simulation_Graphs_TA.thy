@@ -566,10 +566,6 @@ lemma A2_P2 [intro]:
   "P2 b" if "A2 a b"
   using that by (meson P2_def sim_defs(3) step_z_beta'_V' step_z_beta'_state_set)
 
-sublocale P1_invariant: Graph_Invariant_Strong A1 P1 by standard auto
-
-sublocale P2_invariant: Graph_Invariant_Strong A2 P2 by standard auto
-
 lemma P2_from_R:
   "\<exists> l' Z'. x = from_R l' Z'" if "P2 x"
   using that unfolding P2_def by (fastforce dest: from_R_R_of)
@@ -620,6 +616,10 @@ sublocale Bisimulation_Invariants
   qed
   done
   by (auto 4 4 intro: P2_V' step_z_beta'_V' dest:  A2_P2)
+
+sublocale P1_invariant: Graph_Invariant_Strong A1 P1 by standard auto
+
+sublocale P2_invariant: Graph_Invariant_Strong A2 P2 by standard auto
 
 (* XXX Move *)
 lemma inj_from_R:
@@ -716,24 +716,23 @@ lemma sim_closure_from_R:
     unfolding image_def by auto
   done
 
-(* XXX Generalize *)
+lemma P2_state_set:
+  "l \<in> state_set A" if "P2 (from_R l Z)"
+   using that sim.closure_non_empty sim_closure_from_R by fastforce
+
+(* Unused *)
 lemma run_map_from_R:
   "map (\<lambda>(x, y). from_R x y) (map (\<lambda> lR. ((THE l. \<forall> x \<in> lR. fst x = l), R_of lR)) xs) = xs"
   if "sim.Steps (x # xs)"
-  using that
-proof (induction "x # xs" arbitrary: x xs)
-  case Single
-  then show ?case by simp
-next
-  case (Cons x y xs)
-  then show ?case
-    apply (subst (asm) A2_def)
-    apply simp
-    apply clarify
-    apply (rule from_R_R_of)
-    apply (rule theI)
-    unfolding R_of_def by force+
-qed
+  using P2_invariant.P_invariant_steps[OF that]
+  apply (induction xs)
+   apply (simp; fail)
+  apply simp
+  apply (subst (asm) P2_def)
+  apply clarify
+  apply (rule from_R_R_of)
+  apply (rule theI)
+  unfolding R_of_def by force+
 
 lemma sim_Steps_from_R:
   "\<exists> ys. xs = map (\<lambda>(l, Z). from_R l Z) ys" if "sim.Steps (from_R l Z # xs)" "Z \<in> V'"
@@ -888,6 +887,10 @@ lemma infinite_buechi_run_cycle_iff':
   \<longleftrightarrow> (\<exists> as a bs. sim.Steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> sim.closure a. \<phi> x))"
   using sim_complete.infinite_buechi_run_cycle_iff[OF \<phi>_closure_compatible, OF _ sim_closure] .
 
+lemma P2_from_R_list:
+  "\<exists> as'. map (\<lambda>(x, y). from_R x y) as' = as" if "list_all P2 as"
+  by (rule list_all_map[OF _ that]) (auto dest!: P2_from_R)
+
 theorem infinite_buechi_run_cycle_iff:
   "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> sim.run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
   \<longleftrightarrow> (\<exists> as l Z bs. steps ((l\<^sub>0, Z\<^sub>0) # as @ (l, Z) # bs @ [(l, Z)]) \<and> (\<forall> x \<in> Closure\<^sub>\<alpha>\<^sub>,\<^sub>l Z. \<phi> (l, x)))"
@@ -895,51 +898,27 @@ theorem infinite_buechi_run_cycle_iff:
   apply (simp add: a\<^sub>0_def)
 proof (safe, goal_cases)
   case prems: (1 as a bs)
-  let ?l = "(THE l. \<forall>la\<in>a. fst la = l)"
-  from prems(2) obtain a1 where "A2 a1 a"
-    apply atomize_elim
-    apply (cases as)
-     apply (auto elim: sim.Steps_cases)
-    by (metis append_Cons list.discI list.sel(1) sim.Steps.steps_decomp)
-  then have "a \<noteq> {}" unfolding A2_def R_of_def by auto
-  with \<open>A2 a1 a\<close> have "\<forall> x \<in> a. fst x = ?l"
-    unfolding A2_def by - ((erule exE conjE)+, (rule theI; force))
-  moreover with \<open>A2 a1 a\<close> \<open>a \<noteq> {}\<close> have "?l \<in> state_set A" unfolding A2_def
-    by (fastforce intro: step_z_beta'_state_set)
-  ultimately have "\<forall>x\<in>Closure\<^sub>\<alpha>\<^sub>,\<^sub>?l R_of a. \<phi> (?l, x)"
+  let ?f = "\<lambda>(x, y). from_R x y"
+  from P2_invariant.P_invariant_steps[OF prems(2)] have "list_all P2 (as @ a # bs @ [a])" .
+  then have "list_all P2 as" "P2 a" "list_all P2 bs"
+    by auto
+  then obtain as' l Z bs' where "map ?f as' = as" "a = from_R l Z" "map ?f bs' = bs"
+    by atomize_elim (auto dest: P2_from_R_list P2_from_R)
+  moreover from \<open>a = _\<close> prems(1) have "\<forall> x \<in> Closure\<^sub>\<alpha>\<^sub>,\<^sub>l Z. \<phi> (l, x)"
     unfolding cla_def
   proof (clarify, goal_cases)
-    case prems2: (1 x X)
-    then have P1_l_X: "P1 (from_R (THE l. \<forall>la\<in>a. fst la = l) X)"
-      unfolding P1_def
-      apply (inst_existentials ?l)
-        apply (rule from_R_fst; fail)
-      by (simp only: R_of_from_R; fail)+
-    from prems prems2 show ?case
-      unfolding sim.closure_def
-      apply rotate_tac
-      apply (drule bspec[where x = "from_R ?l X"])
-      subgoal
-        using P1_l_X
-        apply clarify
-        subgoal premises prems
-        proof -
-          from \<open>X \<inter> _ \<noteq> {}\<close> obtain l u where "u \<in> X" "(l, u) \<in> a"
-            unfolding R_of_def from_R_def by auto
-          moreover with prems have "l = ?l" by fastforce
-          ultimately show ?thesis using prems(8) by auto
-        qed
-        done
-      apply (subst \<phi>_closure_compatible[of _ "from_R ?l X"])
-       apply blast
-      by (subst sim.P1_closure_id; blast intro: P1_l_X)
+    case prems2: (1 u R)
+    with \<open>P2 a\<close> have "P1 (from_R l R)"
+      unfolding P1_def by (auto simp: from_R_fst dest: P2_state_set)
+    with prems2 have "from_R l R \<in> sim.closure (from_R l Z)"
+      unfolding sim.closure_def by auto
+    moreover have "(l, u) \<in> from_R l R"
+      using prems2 unfolding from_R_def by auto
+    ultimately show ?case
+      using prems2(1) by auto
   qed
-  with prems(2) run_map_from_R[OF prems(2)] show ?case
-    by (inst_existentials
-        "map (\<lambda>lR. (THE l. \<forall>x\<in>lR. fst x = l, R_of lR)) as"
-        ?l "R_of a"
-        "map (\<lambda>lR. (THE l. \<forall>x\<in>lR. fst x = l, R_of lR)) bs"
-        ) auto
+  ultimately show ?case
+    using prems by auto
 next
   case (2 as l Z bs)
   then show ?case
@@ -1125,27 +1104,11 @@ next
     by (force simp: from_R_def \<phi>_def)
 qed
 
-(* XXX Generalize *)
-lemma run_map_from_R:
-  "map (\<lambda>(x, y). from_R x y) (map (\<lambda> lR. ((THE l. \<forall> x \<in> lR. fst x = l), R_of lR)) xs) = xs"
-  if "phi.Steps (x # xs)"
-  using that
-proof (induction "x # xs" arbitrary: x xs)
-  case Single
-  then show ?case by simp
-next
-  case (Cons x y xs)
-  then show ?case
-    apply (subst (asm) A2_\<phi>_def)
-    apply (subst (asm) A2_def)
-    apply simp
-    apply clarify
-    apply (rule from_R_R_of)
-    apply (rule theI)
-    unfolding R_of_def by force+
-qed
-
 interpretation Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim C A1 P1 A2 P2 a\<^sub>0 \<phi> ..
+
+lemma P2_from_R_list':
+  "\<exists> as'. map (\<lambda>(x, y). from_R x y) as' = as" if "list_all P2 as"
+  by (rule list_all_map[OF _ that]) (auto dest!: P2_from_R)
 
 theorem Alw_ev_mc:
   "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) x\<^sub>0) \<longleftrightarrow>
@@ -1154,10 +1117,9 @@ proof (subst sim_phi_steps_equiv[OF start_state(2)], cases "P l\<^sub>0", goal_c
   case 1
   then show ?case
     apply (subst Alw_ev_mc[OF P_a\<^sub>0_phi])
-    apply (auto simp del: map_map simp add: a\<^sub>0_def)
-    apply (frule run_map_from_R)
-    apply (simp del: map_map)
-    by (metis (no_types, lifting))
+     apply (auto simp del: map_map simp add: a\<^sub>0_def)
+    apply (frule phi.P2_invariant.invariant_steps[unfolded a\<^sub>0_def])
+    by (auto dest!: P2_from_R P2_from_R_list')
 next
   case 2
   then have "\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) x\<^sub>0"
@@ -1181,13 +1143,6 @@ lemma sim_reaches_equiv:
   subgoal
     by (simp add: P2_def)
   done
-
-(* XXX Generalize? *)
-lemma closure_compatible_alt:
-  fixes \<phi> :: "'s \<times> ('c \<Rightarrow> real) \<Rightarrow> bool" -- "The property we want to check"
-  assumes \<phi>_closure_compatible: "\<And> x a. x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> sim.closure a. \<phi> x)"
-  shows "\<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
-  by (auto simp: sim.closure_def dest: \<phi>_closure_compatible)
 
 lemma Alw_ev_compatible:
   fixes \<phi> :: "'s \<times> ('c \<Rightarrow> real) \<Rightarrow> bool" -- "The property we want to check"

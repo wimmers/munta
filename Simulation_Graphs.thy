@@ -557,6 +557,12 @@ next
   then show ?case by (auto simp: A2'_def closure_def)
 qed
 
+lemma strong_compatibility_impl_weak:
+  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  assumes \<phi>_closure_compatible: "\<And> x a. x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
+  shows "\<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
+  by (auto simp: closure_def dest: \<phi>_closure_compatible)
+
 end (* Double Simulation Graph *)
 
 
