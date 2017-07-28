@@ -200,14 +200,20 @@ lemma closure_parts_id:
   "Closure\<^sub>\<alpha>\<^sub>,\<^sub>l Z = Closure\<^sub>\<alpha>\<^sub>,\<^sub>l Z'"
   using closure_parts_mono that by blast
 
+paragraph \<open>More lemmas on regions\<close>
+
 (* XXX All of these should be considered for moving into the locales for global sets of regions *)
 context
-  fixes l' :: 's and A :: "('a, 'c, t, 's) ta"
-  assumes valid_abstraction: "valid_abstraction A X k"
+  fixes l' :: 's
 begin
 
 interpretation regions: Regions_global _ _ _ "k l'"
   by standard (rule finite clock_numbering not_in_X non_empty)+
+
+context
+  fixes A :: "('a, 'c, t, 's) ta"
+  assumes valid_abstraction: "valid_abstraction A X k"
+begin
 
 lemmas regions_poststable = regions_poststable[OF valid_abstraction]
 
@@ -289,45 +295,7 @@ lemma step_z_beta'_V':
       step_z_beta'_steps_z_beta steps_z_beta_V'[OF _ valid_abstraction clock_numbering_le that(1)]
       )
 
-end (* End of context for fixed location *)
-
-end (* End of Regions *)
-
-
-subsection \<open>Instantiation of Double Simulation\<close>
-
-definition state_set :: "('a, 'c, 'time, 's) ta \<Rightarrow> 's set" where
-  "state_set A \<equiv> fst ` (fst A) \<union> (snd o snd o snd o snd) ` (fst A)"
-
-lemma finite_trans_of_finite_state_set:
-  "finite (state_set A)" if "finite (trans_of A)"
-  using that unfolding state_set_def trans_of_def by auto
-
-lemma state_setI1:
-  "l \<in> state_set A" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-  using that unfolding state_set_def trans_of_def image_def by (auto 4 4)
-
-lemma state_setI2:
-  "l' \<in> state_set A" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-  using that unfolding state_set_def trans_of_def image_def by (auto 4 4)
-
-lemma (in AlphaClosure) step_r'_state_set:
-  "l' \<in> state_set A" if "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^sub>a \<langle>l', R'\<rangle>"
-  using that by (blast intro: state_setI2 elim: step_r'.cases)
-
-context Regions
-begin
-
-lemma step_z_beta'_state_set:
-  "l' \<in> state_set A" if "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle>"
-  using that by (force elim!: step_z_beta'.cases simp: state_set_def trans_of_def)
-
-context
-  fixes l' :: 's
-begin
-
-interpretation regions: Regions_global _ _ _ "k l'"
-  by standard (rule finite clock_numbering not_in_X non_empty)+
+end (* Context for automaton *)
 
 lemma apx_finite:
   "finite {Approx\<^sub>\<beta> l' Z | Z. Z \<subseteq> V}" (is "finite ?S")
@@ -353,7 +321,7 @@ lemma step_z_beta'_empty:
       simp: regions.beta_interp.apx_empty zone_delay_def zone_set_def
      )
 
-end (* Global Set of Regions *)
+end (* End of context for fixed location *)
 
 lemma step_z_beta'_complete:
   assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" "u \<in> Z" "Z \<subseteq> V"
@@ -373,7 +341,35 @@ proof -
        ((rule, assumption)+, (drule step_z_V, assumption)+, rule apx_subset)
 qed
 
-end (* Regions *)
+end (* End of Regions *)
+
+
+subsection \<open>Instantiation of Double Simulation\<close>
+
+subsection \<open>Auxiliary Definitions\<close>
+
+definition state_set :: "('a, 'c, 'time, 's) ta \<Rightarrow> 's set" where
+  "state_set A \<equiv> fst ` (fst A) \<union> (snd o snd o snd o snd) ` (fst A)"
+
+lemma finite_trans_of_finite_state_set:
+  "finite (state_set A)" if "finite (trans_of A)"
+  using that unfolding state_set_def trans_of_def by auto
+
+lemma state_setI1:
+  "l \<in> state_set A" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  using that unfolding state_set_def trans_of_def image_def by (auto 4 4)
+
+lemma state_setI2:
+  "l' \<in> state_set A" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  using that unfolding state_set_def trans_of_def image_def by (auto 4 4)
+
+lemma (in AlphaClosure) step_r'_state_set:
+  "l' \<in> state_set A" if "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^sub>a \<langle>l', R'\<rangle>"
+  using that by (blast intro: state_setI2 elim: step_r'.cases)
+
+lemma (in Regions) step_z_beta'_state_set:
+  "l' \<in> state_set A" if "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle>"
+  using that by (force elim!: step_z_beta'.cases simp: state_set_def trans_of_def)
 
 paragraph \<open>\<open>R_of\<close>/\<open>from_R\<close>\<close>
 
@@ -413,6 +409,7 @@ lemma R_of_non_emptyD:
   "a \<noteq> {}" if "R_of a \<noteq> {}"
   using that unfolding R_of_def by simp
 
+subsection \<open>Instantiation\<close>
 
 locale Regions_TA = Regions X _ _  k for X :: "'c set" and k :: "'s \<Rightarrow> 'c \<Rightarrow> nat" +
   fixes A :: "('a, 'c, t, 's) ta"
@@ -577,7 +574,6 @@ lemma P2_from_R:
   "\<exists> l' Z'. x = from_R l' Z'" if "P2 x"
   using that unfolding P2_def by (fastforce dest: from_R_R_of)
 
-(* XXX Move *)
 lemma P2_from_R':
   "\<exists> Z. u \<in> Z \<and> from_R l Z = a" if "P2 a" "(l, u) \<in> a"
   by (metis P2_def R_ofI from_R_R_of fst_eqD that)
@@ -598,7 +594,8 @@ paragraph \<open>Equivalence of step relations\<close>
 
 sublocale Bisimulation_Invariants
   "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}" A2 "\<lambda> (l, Z) b. b = from_R l Z"
-  "\<lambda> (l, Z). Z \<in> V' \<and> Z \<noteq> {}" "\<lambda> lZ. R_of lZ \<in> V' \<and> R_of lZ \<noteq> {}"
+  "\<lambda> (l, Z). Z \<in> V'" "\<lambda> (l, Z). Z \<in> V' \<and> Z \<noteq> {}"
+  "\<lambda> lZ. R_of lZ \<in> V'" P2
   apply standard
      apply simp_all
   subgoal for a b a'
@@ -608,19 +605,21 @@ sublocale Bisimulation_Invariants
   subgoal for a a' b'
     unfolding A2_def
       apply auto
-    subgoal premises prems for l1 R l l' aa xa xb xc
+    subgoal premises prems for l1 R l l' aa xa
   proof -
+    from prems(6,8) have "R \<noteq> {}"
+      by (auto dest: step_z_beta'_empty)
     from prems have "b' = from_R l' (R_of b')"
       by (simp add: from_R_R_of)
-    moreover from prems from_R_fst[of l1 R] have "l1 = l"
+    moreover from prems \<open>R \<noteq> {}\<close> from_R_fst[of l1 R] have "l1 = l"
       by (auto 4 3)
     moreover from prems have "R_of b' \<in> V'"
       by (auto intro: step_z_beta'_V')
     ultimately show False
-      using prems(6,7,10) by fastforce
+      using prems by fastforce
   qed
   done
-  by (auto 4 4 intro: P2_V' step_z_beta'_V' dest: P2_non_empty A2_P2)
+  by (auto 4 4 intro: P2_V' step_z_beta'_V' dest:  A2_P2)
 
 (* XXX Move *)
 lemma inj_from_R:
@@ -629,22 +628,18 @@ lemma inj_from_R:
 
 (* XXX Move *)
 lemma inj:
-  "\<forall>a b. (R_of (case a of (l, Z) \<Rightarrow> from_R l Z) \<in> V' \<and> R_of (case a of (l, Z) \<Rightarrow> from_R l Z) \<noteq> {}) \<and>
-          (case b of (l, Z) \<Rightarrow> Z \<in> V' \<and> Z \<noteq> {}) \<and>
-          (case a of (l, Z) \<Rightarrow> from_R l Z) = (case b of (l, Z) \<Rightarrow> from_R l Z) \<longrightarrow>
-          a = b"
+  "\<forall>a b.
+    P2 (case a of (l, Z) \<Rightarrow> from_R l Z) \<and>
+    (case b of (l, Z) \<Rightarrow> Z \<in> V' \<and> Z \<noteq> {}) \<and>
+    (case a of (l, Z) \<Rightarrow> from_R l Z) = (case b of (l, Z) \<Rightarrow> from_R l Z) \<longrightarrow> a = b"
   unfolding from_R_def by auto
 
-lemma sim_steps_equiv':
-  "steps ((l, Z) # xs) \<longleftrightarrow> sim.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))"
-  if "Z \<in> V'" "Z \<noteq> {}"
-  using that steps_map_equiv[of "\<lambda> (l, Z). from_R l Z" "(l, Z)" "from_R l Z" xs, OF _ inj]
-  by auto
-
+(* XXX Obsolete *)
 lemma steps_empty_start:
   "xs = []" if "steps ((l, Z) # xs)" "Z = {}"
   using that by cases (auto dest: step_z_beta'_empty)
 
+(* XXX Obsolete *)
 lemma sim_Steps_empty_start:
   "xs = []" if "sim.Steps (from_R l Z # xs)" "Z = {}"
   using that by cases (auto dest: step_z_beta'_empty simp: A2_def)
@@ -652,8 +647,7 @@ lemma sim_Steps_empty_start:
 lemma sim_steps_equiv:
   "steps ((l, Z) # xs) \<longleftrightarrow> sim.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))"
   if "Z \<in> V'"
-  using that including graph_automation
-  by (cases "Z = {}"; fastforce dest: steps_empty_start sim_Steps_empty_start sim_steps_equiv')
+  using that steps_map_equiv[of "\<lambda> (l, Z). from_R l Z" "(l, Z)" "from_R l Z" xs, OF _ inj] by auto
 
 lemma steps_sim_Steps:
   "sim.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))" if "steps ((l, Z) # xs)" "Z \<in> V'"
@@ -705,10 +699,8 @@ proof -
   ultimately show ?thesis using \<open>sim.run ys\<close> by (inst_existentials ys) auto
 qed
 
-end (* Regions TA *)
 
-context Regions_TA
-begin
+paragraph \<open>Auxiliary Lemmas\<close>
 
 lemma sim_closure_from_R:
   "sim.closure (from_R l Z) = {from_R l Z' | Z'. l \<in> state_set A \<and> Z' \<in> \<R> l \<and> Z \<inter> Z' \<noteq> {}}"
@@ -743,16 +735,12 @@ next
     unfolding R_of_def by force+
 qed
 
-end (* Regions TA *)
-
-context Regions_TA
-begin
-
-text \<open>
-  This could be generalized if we split the invariant predicate into a pre- and a postcondition.
-  The crucial point here is the initial case distinction.
-\<close>
 lemma sim_Steps_from_R:
+  "\<exists> ys. xs = map (\<lambda>(l, Z). from_R l Z) ys" if "sim.Steps (from_R l Z # xs)" "Z \<in> V'"
+  using steps_map[of "\<lambda> (l, Z). from_R l Z", OF _ inj, of "(l, Z)" xs] that by auto
+
+(* Unused *)
+lemma sim_Steps_from_R':
   "\<exists> ys. xs = map (\<lambda>(l, Z). from_R l Z) ys" if "sim.Steps (from_R l Z # xs)"
   using that proof cases
   case Single
@@ -762,17 +750,14 @@ next
   then have "P2 y" by auto
   then obtain l' Z' where "y = from_R l' Z'"
     by (auto dest: P2_from_R)
-  from steps_map[of "\<lambda> (l, Z). from_R l Z", OF _ inj, of "(l', Z')" ys] \<open>sim.Steps (y # ys)\<close> \<open>P2 y\<close>
+  from
+    Post_Bisim.steps_map[of "\<lambda> (l, Z). from_R l Z", OF _ inj, of "(l', Z')" ys]
+    \<open>sim.Steps (y # ys)\<close> \<open>P2 y\<close>
   obtain zs where "ys = map (\<lambda>(l, Z). from_R l Z) zs"
     by (auto simp: \<open>y = _\<close> P2_def)
   with \<open>xs = _\<close> \<open>y = _\<close> show ?thesis
     by (inst_existentials "(l', Z') # zs") simp
 qed
-
-(* XXX Move *)
-lemma sim_Steps_last_non_empty:
-  "last xs \<noteq> {}" if "sim.Steps (x # xs)" "xs \<noteq> []"
-  using P2_invariant.steps_last_invariant[OF that] by (auto dest: P2_non_empty)
 
 lemma step_r'_complete_spec:
   assumes "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>" "u \<in> V"
@@ -781,10 +766,8 @@ lemma step_r'_complete_spec:
 
 end (* Regions TA *)
 
-(* XXX Move *)
-lemma (in Double_Simulation) P1_closure_id:
-  "closure R = {R}" if "P1 R" "R \<noteq> {}"
-  unfolding closure_def using that P1_distinct by blast
+
+subsection \<open>Büchi Runs\<close>
 
 locale Regions_TA_Start_State = Regions_TA _ _ _ _ _ A for A :: "('a, 'c, t, 's) ta" +
   fixes l\<^sub>0 :: "'s" and Z\<^sub>0 :: "('c, t) zone"
@@ -977,6 +960,9 @@ theorem infinite_buechi_run_cycle_iff1:
 
 end (* Context for Formula *)
 
+
+subsection \<open>State Formulas\<close>
+
 context
   fixes P :: "'s \<Rightarrow> bool" -- "The state property we want to check"
 begin
@@ -1070,13 +1056,14 @@ interpretation G\<^sub>\<phi>: Graph_Start_Defs
 interpretation \<phi>_bisim: Bisimulation_Invariants
   "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {} \<and> P l'" A2_\<phi>
   "\<lambda> (l, Z) b. b = from_R l Z"
-  "\<lambda> (l, Z). Z \<in> V' \<and> Z \<noteq> {}" "\<lambda> lZ. R_of lZ \<in> V' \<and> R_of lZ \<noteq> {}"
+  "\<lambda> (l, Z). Z \<in> V'" "\<lambda> (l, Z). Z \<in> V' \<and> Z \<noteq> {}"
+  "\<lambda> lZ. R_of lZ \<in> V'" P2
   apply standard
      apply simp_all
   subgoal for a b a'
     unfolding A2_\<phi>_def
     apply safe
-    subgoal premises prems for x y xa ya aa xb xc xd
+    subgoal premises prems for x y xa ya aa xb
     proof -
       have "from_R xa ya \<inter> Collect \<phi> = from_R xa ya"
         unfolding \<phi>_def from_R_def using \<open>P xa\<close> by auto
@@ -1089,16 +1076,12 @@ interpretation \<phi>_bisim: Bisimulation_Invariants
    apply (force intro: step_z_beta'_V')
   unfolding A2_\<phi>_def by (clarify, drule A2_P2, frule P2_\<phi>, auto dest: P2_V')
 
-lemma sim_phi_steps_equiv':
-  "G\<^sub>\<phi>.steps ((l, Z) # xs) \<longleftrightarrow> phi.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))"
-  if "Z \<in> V'" "Z \<noteq> {}"
-  using that \<phi>_bisim.steps_map_equiv[of "\<lambda> (l, Z). from_R l Z", OF _ inj, of "(l, Z)" "from_R l Z"]
-  by auto
-
+(* Obsolete *)
 lemma \<phi>_steps_empty_start:
   "xs = []" if "G\<^sub>\<phi>.steps ((l, Z) # xs)" "Z = {}"
   using that by cases (auto dest: step_z_beta'_empty)
 
+(* Obsolete *)
 lemma phi_Steps_empty_start:
   "xs = []" if "phi.Steps (from_R l Z # xs)" "Z = {}"
   using that by (cases, unfold A2_\<phi>_def, auto dest: step_z_beta'_empty simp: A2_def)
@@ -1106,8 +1089,8 @@ lemma phi_Steps_empty_start:
 lemma sim_phi_steps_equiv:
   "G\<^sub>\<phi>.steps((l, Z) # xs) \<longleftrightarrow> phi.Steps (map (\<lambda> (l, Z). from_R l Z) ((l, Z) # xs))"
   if "Z \<in> V'"
-  using that including graph_automation
-  by (cases "Z = {}"; fastforce dest: \<phi>_steps_empty_start phi_Steps_empty_start sim_phi_steps_equiv')
+  using that \<phi>_bisim.steps_map_equiv[of "\<lambda> (l, Z). from_R l Z", OF _ inj, of "(l, Z)" "from_R l Z"]
+  by auto
 
 (* XXX Unused *)
 lemma from_R_\<phi>:
@@ -1190,8 +1173,14 @@ theorem Alw_ev_mc1:
 end (* Context for State Formula *)
 
 lemma sim_reaches_equiv:
-  "reaches (l, Z) (l', Z') \<longleftrightarrow> sim.Steps.reaches (from_R l Z) (from_R l' Z')" if "Z \<in> V'" "Z \<noteq> {}"
-  using reaches_equiv[of "\<lambda> (l, Z). from_R l Z", OF _ inj, of "(l, Z)"] that by auto
+  "reaches (l, Z) (l', Z') \<longleftrightarrow> sim.Steps.reaches (from_R l Z) (from_R l' Z')" if "P2 (from_R l Z)"
+  apply (subst Post_Bisim.reaches_equiv[of "\<lambda> (l, Z). from_R l Z", OF _ inj, of "(l, Z)"])
+  using that apply safe
+  subgoal
+    using PB_QB by force
+  subgoal
+    by (simp add: P2_def)
+  done
 
 (* XXX Generalize? *)
 lemma closure_compatible_alt:
@@ -1241,7 +1230,7 @@ proof -
       using prems by auto
     done
   then show ?thesis
-    unfolding sim_reaches_equiv[OF start_state(2,3)]
+    unfolding sim_reaches_equiv[OF sim_complete.P2_a\<^sub>0[unfolded a\<^sub>0_def]]
     apply (simp add: a\<^sub>0_def[symmetric])
     subgoal premises prems
       apply safe
@@ -1252,6 +1241,9 @@ proof -
       done
     done
 qed
+
+
+subsection \<open>Leads-To Properties\<close>
 
 context
   fixes P Q :: "'s \<Rightarrow> bool" -- "The state property we want to check"

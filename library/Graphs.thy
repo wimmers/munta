@@ -675,7 +675,7 @@ lemma simulation_steps:
 
 end (* Simulation *)
 
-locale Simulation_Invariants = Simulation_Defs +
+locale Simulation_Invariant = Simulation_Defs +
   fixes PA :: "'a \<Rightarrow> bool" and PB :: "'b \<Rightarrow> bool"
   assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
   assumes A_invariant[intro]: "\<And> a b. PA a \<Longrightarrow> A a b \<Longrightarrow> PA b"
@@ -725,7 +725,23 @@ qed
 
 end (* Context for Equality Relation *)
 
-end (* Simulation *)
+end (* Simulation Invariant *)
+
+locale Simulation_Invariants = Simulation_Defs +
+  fixes PA QA :: "'a \<Rightarrow> bool" and PB QB :: "'b \<Rightarrow> bool"
+  assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
+  assumes A_invariant[intro]: "\<And> a b. PA a \<Longrightarrow> A a b \<Longrightarrow> QA b"
+  assumes B_invariant[intro]: "\<And> a b. PB a \<Longrightarrow> B a b \<Longrightarrow> QB b"
+  assumes PA_QA[intro]: "\<And> a. QA a \<Longrightarrow> PA a" and PB_QB[intro]: "\<And> a. QB a \<Longrightarrow> PB a"
+begin
+
+sublocale Pre: Simulation_Invariant A B "op \<sim>" PA PB
+  by standard (auto intro: A_B_step)
+
+sublocale Post: Simulation_Invariant A B "op \<sim>" QA QB
+  by standard (auto intro: A_B_step)
+
+end (* Simualation Invariants *)
 
 locale Bisimulation = Simulation_Defs +
   assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
@@ -746,7 +762,7 @@ lemma B_A_reaches:
 
 end (* Bisim *)
 
-locale Bisimulation_Invariants = Simulation_Defs +
+locale Bisimulation_Invariant = Simulation_Defs +
   fixes PA :: "'a \<Rightarrow> bool" and PB :: "'b \<Rightarrow> bool"
   assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> a \<sim> a' \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
   assumes B_A_step: "\<And> a a' b'. B a' b' \<Longrightarrow> a \<sim> a' \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> (\<exists> b. A a b \<and> b \<sim> b')"
@@ -765,10 +781,10 @@ definition "equiv' \<equiv> \<lambda> a b. a \<sim> b \<and> PA a \<and> PB b"
 sublocale bisim: Bisimulation A B equiv'
   by standard (clarsimp simp add: equiv'_def, frule A_B_step B_A_step, assumption; auto)+
 
-sublocale A_B: Simulation_Invariants A B "op \<sim>" PA PB
+sublocale A_B: Simulation_Invariant A B "op \<sim>" PA PB
   by (standard; blast intro: A_B_step B_A_step)
 
-sublocale B_A: Simulation_Invariants B A "\<lambda> x y. y \<sim> x" PB PA
+sublocale B_A: Simulation_Invariant B A "\<lambda> x y. y \<sim> x" PB PA
   by (standard; blast intro: A_B_step B_A_step)
 
 context
@@ -807,6 +823,147 @@ lemma reaches_equiv:
 
 end (* Context for Equality Relation *)
 
-end (* Bisim Invariants *)
+end (* Bisim Invariant *)
+
+locale Bisimulation_Invariants = Simulation_Defs +
+  fixes PA QA :: "'a \<Rightarrow> bool" and PB QB :: "'b \<Rightarrow> bool"
+  assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> a \<sim> a' \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
+  assumes B_A_step: "\<And> a a' b'. B a' b' \<Longrightarrow> a \<sim> a' \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> (\<exists> b. A a b \<and> b \<sim> b')"
+  assumes A_invariant[intro]: "\<And> a b. PA a \<Longrightarrow> A a b \<Longrightarrow> QA b"
+  assumes B_invariant[intro]: "\<And> a b. PB a \<Longrightarrow> B a b \<Longrightarrow> QB b"
+  assumes PA_QA[intro]: "\<And> a. QA a \<Longrightarrow> PA a" and PB_QB[intro]: "\<And> a. QB a \<Longrightarrow> PB a"
+begin
+
+sublocale PA_invariant: Graph_Invariant A PA by standard blast
+
+sublocale PB_invariant: Graph_Invariant B PB by standard blast
+
+sublocale QA_invariant: Graph_Invariant A QA by standard blast
+
+sublocale QB_invariant: Graph_Invariant B QB by standard blast
+
+sublocale Pre_Bisim: Bisimulation_Invariant A B "op \<sim>" PA PB
+  by standard (auto intro: A_B_step B_A_step)
+
+sublocale Post_Bisim: Bisimulation_Invariant A B "op \<sim>" QA QB
+  by standard (auto intro: A_B_step B_A_step)
+
+sublocale A_B: Simulation_Invariants A B "op \<sim>" PA QA PB QB
+  by standard (blast intro: A_B_step)+
+
+sublocale B_A: Simulation_Invariants B A "\<lambda> x y. y \<sim> x" PB QB PA QA
+  by standard (blast intro: B_A_step)+
+
+(*
+definition "equiv' \<equiv> \<lambda> a b. a \<sim> b \<and> PA a \<and> PB b"
+
+sublocale bisim: Bisimulation A B equiv'
+  by standard (clarsimp simp add: equiv'_def, frule A_B_step B_A_step, assumption; auto)+
+
+sublocale A_B: Simulation_Invariant A B "op \<sim>" PA PB
+  by (standard; blast intro: A_B_step B_A_step)
+
+sublocale B_A: Simulation_Invariant B A "\<lambda> x y. y \<sim> x" PB PA
+  by (standard; blast intro: A_B_step B_A_step)
+*)
+
+context
+  fixes f
+  assumes eq[simp]: "a \<sim> b \<longleftrightarrow> b = f a"
+    and inj: "\<forall> a b. QB (f a) \<and> QA b \<and> f a = f b \<longrightarrow> a = b"
+begin
+
+lemmas list_all2_inj_map_eq = Post_Bisim.list_all2_inj_map_eq[OF eq inj]
+lemmas steps_map_equiv' = Post_Bisim.steps_map_equiv[OF eq inj]
+
+lemma list_all2_inj_map_eq':
+  "as = bs" if "list_all2 (\<lambda>a b. a = f b) (map f as) bs" "list_all QB (map f as)" "list_all QA bs"
+  using that by (rule list_all2_inj_map_eq)
+
+lemma steps_map_equiv:
+  "A.steps (a # as) \<longleftrightarrow> B.steps (b # map f as)" if "a \<sim> b" "PA a" "PB b"
+proof
+  assume "A.steps (a # as)"
+  then show "B.steps (b # map f as)"
+  proof cases
+    case Single
+    then show ?thesis by auto
+  next
+    case prems: (Cons a' xs)
+    from A_B_step[OF \<open>A a a'\<close> \<open>a \<sim> b\<close> \<open>PA a\<close> \<open>PB b\<close>] obtain b' where "B b b'" "a' \<sim> b'"
+      by auto
+    with steps_map_equiv'[OF \<open>a' \<sim> b'\<close>, of xs] prems that show ?thesis
+      by auto
+  qed
+next
+  assume "B.steps (b # map f as)"
+  then show "A.steps (a # as)"
+  proof cases
+    case Single
+    then show ?thesis by auto
+  next
+    case prems: (Cons b' xs)
+    from B_A_step[OF \<open>B b b'\<close> \<open>a \<sim> b\<close> \<open>PA a\<close> \<open>PB b\<close>] obtain a' where "A a a'" "a' \<sim> b'"
+      by auto
+    with that prems have "QA a'" "QB b'"
+      by auto
+    with \<open>A a a'\<close> \<open>a' \<sim> b'\<close> steps_map_equiv'[OF \<open>a' \<sim> b'\<close>, of "tl as"] prems that show ?thesis
+      apply clarsimp
+      subgoal for z zs
+        using inj[rule_format, of z a'] by auto
+      done
+  qed
+qed
+
+lemma steps_map:
+  "\<exists> as. bs = map f as" if "B.steps (f a # bs)" "PA a" "PB (f a)"
+  using that proof cases
+  case Single
+  then show ?thesis by simp
+next
+  case prems: (Cons b' xs)
+  from B_A_step[OF \<open>B _ b'\<close> _ \<open>PA a\<close> \<open>PB (f a)\<close>] obtain a' where "A a a'" "a' \<sim> b'"
+    by auto
+  with that prems have "QA a'" "QB b'"
+    by auto
+  with Post_Bisim.steps_map[OF eq inj, of a' xs] prems \<open>a' \<sim> b'\<close> obtain ys where "xs = map f ys"
+    by auto
+  with \<open>bs = _\<close> \<open>a' \<sim> b'\<close> show ?thesis
+    by (inst_existentials "a' # ys") auto
+qed
+
+text \<open>
+  @{thm Post_Bisim.reaches_equiv} cannot be lifted directly:
+  injectivity cannot be applied for the reflexive case.
+\<close>
+lemma reaches1_equiv:
+  "A.reaches1 a a' \<longleftrightarrow> B.reaches1 (f a) (f a')" if "PA a" "PB (f a)"
+proof safe
+  assume "A.reaches1 a a'"
+  then obtain a'' where prems: "A a a''" "A.reaches a'' a'"
+    including graph_automation_aggressive by blast
+  from A_B_step[OF \<open>A a _\<close> _ that] obtain b where "B (f a) b" "a'' \<sim> b"
+    by auto
+  with that prems have "QA a''" "QB b"
+    by auto
+  with Post_Bisim.reaches_equiv[OF eq inj, of a'' a'] prems \<open>B (f a) b\<close> \<open>a'' \<sim> b\<close>
+  show "B.reaches1 (f a) (f a')"
+    by auto
+next
+  assume "B.reaches1 (f a) (f a')"
+  then obtain b where prems: "B (f a) b" "B.reaches b (f a')"
+    including graph_automation_aggressive by blast
+  from B_A_step[OF \<open>B _ b\<close> _ \<open>PA a\<close> \<open>PB (f a)\<close>] obtain a'' where "A a a''" "a'' \<sim> b"
+    by auto
+  with that prems have "QA a''" "QB b"
+    by auto
+  with Post_Bisim.reaches_equiv[OF eq inj, of a'' a'] prems \<open>A a a''\<close> \<open>a'' \<sim> b\<close>
+  show "A.reaches1 a a'"
+    by auto
+qed
+
+end (* Context for Equality Relation *)
+
+end (* Bisim Invariant *)
 
 end (* Theory *)

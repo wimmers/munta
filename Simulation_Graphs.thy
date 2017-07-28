@@ -421,6 +421,10 @@ lemma closure_non_empty:
   "closure x \<noteq> {}" if "P2 x"
   using that unfolding closure_def by (auto dest!: P2_cover)
 
+lemma P1_closure_id:
+  "closure R = {R}" if "P1 R" "R \<noteq> {}"
+  unfolding closure_def using that P1_distinct by blast
+
 lemma A2'_A2_closure:
   "A2' (closure x) (closure y)" if "A2 x y"
   using that unfolding A2'_def by auto
