@@ -25,9 +25,32 @@ begin
 
 end
 
+locale Search_Space_Nodes_Defs = Search_Space_Defs +
+  fixes V :: "'a \<Rightarrow> bool"
 
 locale Search_Space_Defs_Empty = Search_Space_Defs +
   fixes empty :: "'a \<Rightarrow> bool"
+
+locale Search_Space_Nodes_Empty_Defs = Search_Space_Nodes_Defs + Search_Space_Defs_Empty
+
+text \<open>The set of reachable states must be finite,
+  subsumption must be a preorder, and be compatible with steps and final states.\<close>
+locale Search_Space_Nodes = Search_Space_Nodes_Empty_Defs +
+  assumes refl[intro!, simp]: "a \<preceq> a"
+      and trans[trans]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
+
+  assumes mono:
+      "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> V a \<Longrightarrow> V b \<Longrightarrow> \<not> empty a \<Longrightarrow> \<exists> b'. V b' \<and> E b b' \<and> a' \<preceq> b'"
+      and empty_subsumes: "empty a \<Longrightarrow> a \<preceq> a'"
+      and empty_mono: "\<not> empty a \<Longrightarrow> a \<preceq> b \<Longrightarrow> \<not> empty b"
+      and empty_E: "V x \<Longrightarrow> empty x \<Longrightarrow> E x x' \<Longrightarrow> empty x'"
+      and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
+begin
+
+  sublocale preorder "op \<preceq>" "op \<prec>"
+    by standard (auto simp: subsumes_strictly_def intro: trans)
+
+end (* Search Space Nodes *)
 
 text \<open>The set of reachable states must be finite,
   subsumption must be a preorder, and be compatible with steps and final states.\<close>
@@ -45,6 +68,11 @@ begin
 
   sublocale preorder "op \<preceq>" "op \<prec>"
     by standard (auto simp: subsumes_strictly_def intro: trans)
+
+sublocale Search_Space_Nodes E a\<^sub>0 F "op \<preceq>" reachable empty
+  including graph_automation
+  by standard
+    (auto intro: trans empty_subsumes dest: empty_mono empty_E F_mono, auto 4 4 dest: mono)
 
 end (* Search Space *)
 

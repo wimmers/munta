@@ -560,6 +560,40 @@ lemma reachable_subgraph[intro]: "G.reachable b" if \<open>G.reachable a\<close>
 end (* Subgraph Start *)
 
 
+locale Subgraph_Node_Defs = Graph_Defs +
+  fixes V :: "'a \<Rightarrow> bool"
+begin
+
+definition E' where "E' x y \<equiv> E x y \<and> V x \<and> V y"
+
+sublocale Subgraph E E' by standard (auto simp: E'_def)
+
+lemma E'_V1:
+  "V x" if "E' x y"
+  using that unfolding E'_def by auto
+
+lemma E'_V2:
+  "V y" if "E' x y"
+  using that unfolding E'_def by auto
+
+lemma G'_reaches_V:
+  "V y" if "G'.reaches x y" "V x"
+  using that by (cases) (auto intro: E'_V2)
+
+lemma G'_steps_V_all:
+  "list_all V xs" if "G'.steps xs" "V (hd xs)"
+  using that by induction (auto intro: E'_V2)
+
+lemma G'_steps_V_last:
+  "V (last xs)" if "G'.steps xs" "V (hd xs)"
+  using that by induction (auto dest: E'_V2)
+
+lemmas subgraphI = E'_V1 E'_V2 G'_reaches_V
+
+lemmas subgraphD = E'_V1 E'_V2 G'_reaches_V
+
+end (* Subgraph Node *)
+
 section \<open>Bundles\<close>
 
 bundle graph_automation
@@ -581,6 +615,16 @@ unbundle graph_automation
 
 lemmas [intro] = Graph_Start_Defs.graphI_aggressive
 lemmas [dest]  = Graph_Start_Defs.graphD_aggressive
+
+end (* Bundle *)
+
+bundle subgraph_automation
+begin
+
+unbundle graph_automation
+
+lemmas [intro] = Subgraph_Node_Defs.subgraphI
+lemmas [dest]  = Subgraph_Node_Defs.subgraphD
 
 end (* Bundle *)
 
