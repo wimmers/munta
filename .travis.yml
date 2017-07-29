@@ -6,6 +6,7 @@ sudo: required
 before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y lib32stdc++6
+  - sudo apt-get install texlive-latex-extra
 
 script:
   - curl -Ls -o isabellectl https://dl.bintray.com/larsrh/libisabelle/nightly/isabellectl
