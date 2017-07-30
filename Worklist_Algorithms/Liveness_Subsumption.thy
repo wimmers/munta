@@ -35,8 +35,8 @@ notation G.G'.reaches1 ("_ \<rightarrow>\<^sup>+ _" [100, 100] 40)
 text \<open>Plain set membership is also an option.\<close>
 definition "check_loop v ST = (\<exists> v' \<in> ST. v' \<preceq> v)"
 
-definition dfs :: "bool nres" where
-  "dfs \<equiv> do {
+definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
+  "dfs P \<equiv> do {
     (P,ST,r) \<leftarrow> RECT (\<lambda>dfs (P,ST,v).
       if check_loop v ST then RETURN (P, ST, True)
       else do {
@@ -51,8 +51,8 @@ definition dfs :: "bool nres" where
             RETURN (P, ST, r)
           }
       }
-    ) ({},{},a\<^sub>0);
-    RETURN r
+    ) (P,{},a\<^sub>0);
+    RETURN (r, P)
   }"
 
 definition liveness_compatible where "liveness_compatible P \<equiv>
@@ -61,7 +61,11 @@ definition liveness_compatible where "liveness_compatible P \<equiv>
       \<not> (\<lambda> x y. x \<rightarrow> y \<and> (\<exists> x' \<in> P. \<exists> y' \<in> P. x \<preceq> x' \<and> y \<preceq> y'))\<^sup>+\<^sup>+ s s)
     "
 
-definition "dfs_spec \<equiv> SPEC (\<lambda> r. r \<longrightarrow> (\<exists> x. x \<rightarrow>\<^sup>+ x) \<and> \<not> r \<longrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x))"
+definition "dfs_spec \<equiv>
+  SPEC (\<lambda> (r, P).
+    r \<longrightarrow> (\<exists> x. x \<rightarrow>\<^sup>+ x) \<and> \<not> r \<longrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)
+  \<and> liveness_compatible P \<and> P \<subseteq> {x. V x}
+  )"
 
 end (* Search Space Defs *)
 
@@ -244,7 +248,7 @@ lemma pre_cycle_cycle:
   by (meson G.E'_def G.G'.reaches1_reaches_iff1 subsumption.pre_cycle_cycle_reachable finite_V)
 
 lemma dfs_correct:
-  "dfs \<le> dfs_spec" if "V a\<^sub>0"
+  "dfs P \<le> dfs_spec" if "V a\<^sub>0" "liveness_compatible P" "P \<subseteq> {x. V x}"
 proof -
 
   define rpre where "rpre \<equiv> \<lambda>(P,ST,v).
@@ -284,8 +288,8 @@ proof -
   define Termination :: "(('a set \<times> 'a set \<times> 'a) \<times> 'a set \<times> 'a set \<times> 'a) set" where
     "Termination = inv_image (finite_psupset {x. V x}) (\<lambda> (a,b,c). b)"
 
-  have rpre_init: "rpre ({}, {}, a\<^sub>0)"
-    unfolding rpre_def liveness_compatible_def using \<open>V a\<^sub>0\<close> by auto
+  have rpre_init: "rpre (P, {}, a\<^sub>0)"
+    unfolding rpre_def using \<open>liveness_compatible P\<close> \<open>P \<subseteq> _\<close> by auto
 
   have wf: "wf Termination"
     unfolding Termination_def by (blast intro: finite_V)
