@@ -3,23 +3,6 @@ theory Liveness_Subsumption
   imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common "../Subsumption_Graphs"
 begin
 
-context Subgraph_Node_Defs
-begin
-
-lemma E'_V1[intro, dest]:
-  "V x" if "E' x y"
-  using that unfolding E'_def by auto
-
-lemma E'_V2[intro, dest]:
-  "V y" if "E' x y"
-  using that unfolding E'_def by auto
-
-lemma G'_reaches_V[intro, dest]:
-  "V y" if "G'.reaches x y" "V x"
-  using that by (cases) auto
-
-end (* Subgraph Node Defs *)
-
 context Search_Space_Nodes_Empty_Defs
 begin
 
@@ -137,7 +120,7 @@ proof -
     then have "G.reaches a b"
       by auto
     from \<open>V a\<close> \<open>G.reaches a b\<close> have "V b"
-      by blast
+      including subgraph_automation by blast
     from \<open>G.reaches a b\<close> \<open>a \<preceq> a'\<close> \<open>a' \<in> P\<close> obtain b' where "b' \<in> P" "b \<preceq> b'"
       by (fastforce dest: 1)
     with \<open>E2 b c\<close> \<open>V b\<close> have "E1 b c"
@@ -154,7 +137,7 @@ proof -
   with assms(5) obtain x'' where "x \<preceq> x''" "x'' \<in> P"
     by (auto intro: order_trans)
   from 4[OF \<open>G'.reaches x s\<close> \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close>] \<open>s \<rightarrow> x\<close> \<open>V s\<close> have "G.reaches x s"
-    by blast
+    including subgraph_automation by blast
   with \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close> obtain s' where "s \<preceq> s'" "s' \<in> P"
     by (blast dest: 1)
   with \<open>s \<rightarrow> x\<close> \<open>x \<preceq> x''\<close> \<open>x'' \<in> P\<close> have "E1 s x"
@@ -190,10 +173,10 @@ proof -
       apply (erule disjE)
       subgoal
         including graph_automation_aggressive
-        by (blast intro: rtranclp_trans)
+        by (blast intro: rtranclp_trans G.subgraphI) (* XXX Fix automation *)
       subgoal
         unfolding G'.reaches1_reaches_iff2
-        by (blast intro: rtranclp_trans) (* XXX Fix automation *)
+        by (blast intro: rtranclp_trans intro: G.subgraphI) (* XXX Fix automation *)
       done
     with assms show ?thesis
       by (auto intro: liveness_compatible_extend)
@@ -224,7 +207,7 @@ proof -
       by (rule tranclp.intros(2), auto intro: *)
     done
   from assms show ?thesis
-    unfolding liveness_compatible_def by clarsimp (blast dest: * **)
+    unfolding liveness_compatible_def by clarsimp (blast dest: * ** intro: G.subgraphI)
 qed
 
 lemma liveness_compatible_inv:
@@ -373,7 +356,7 @@ proof -
         (* Termination *)
         subgoal
           using \<open>V a\<^sub>0\<close> unfolding Termination_def
-          by (auto simp: finite_psupset_def inv_def dest: check_loop_no_loop)
+          by (auto simp: finite_psupset_def inv_def dest: check_loop_no_loop intro: G.subgraphI)
 
         (* Post \<longrightarrow> Inv *)
         subgoal
@@ -386,7 +369,7 @@ proof -
       subgoal for P' ST' c
         using \<open>V a\<^sub>0\<close>
         by (subst rpost_def, subst (asm) inv_def,
-            auto intro: liveness_compatible_inv dest: check_loop_no_loop)
+            auto intro: liveness_compatible_inv dest: check_loop_no_loop intro: G.subgraphI)
 
       (* Cycle \<longrightarrow> Post *)
       subgoal

@@ -501,13 +501,15 @@ end (* Graph Start Defs *)
 
 section \<open>Subgraphs\<close>
 
+subsection \<open>Edge-induced Subgraphs\<close>
+
 locale Subgraph_Defs = G: Graph_Defs +
   fixes E' :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
 begin
 
 sublocale G': Graph_Defs E' .
 
-end (* Subgrap Defs *)
+end (* Subgraph Defs *)
 
 locale Subgraph_Start_Defs = G: Graph_Start_Defs +
   fixes E' :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
@@ -515,7 +517,7 @@ begin
 
 sublocale G': Graph_Start_Defs E' s\<^sub>0 .
 
-end (* Subgrap Start Defs *)
+end (* Subgraph Start Defs *)
 
 locale Subgraph = Subgraph_Defs +
   assumes subgraph[intro]: "E' a b \<Longrightarrow> E a b"
@@ -560,6 +562,8 @@ lemma reachable_subgraph[intro]: "G.reachable b" if \<open>G.reachable a\<close>
 end (* Subgraph Start *)
 
 
+subsection \<open>Node-induced Subgraphs\<close>
+
 locale Subgraph_Node_Defs = Graph_Defs +
   fixes V :: "'a \<Rightarrow> bool"
 begin
@@ -567,6 +571,10 @@ begin
 definition E' where "E' x y \<equiv> E x y \<and> V x \<and> V y"
 
 sublocale Subgraph E E' by standard (auto simp: E'_def)
+
+lemma subgraph':
+  "E' x y" if "E x y" "V x" "V y"
+  using that unfolding E'_def by auto
 
 lemma E'_V1:
   "V x" if "E' x y"
@@ -593,6 +601,66 @@ lemmas subgraphI = E'_V1 E'_V2 G'_reaches_V
 lemmas subgraphD = E'_V1 E'_V2 G'_reaches_V
 
 end (* Subgraph Node *)
+
+
+locale Subgraph_Node_Defs_Notation = Subgraph_Node_Defs
+begin
+
+no_notation E ("_ \<rightarrow> _" [100, 100] 40)
+notation E' ("_ \<rightarrow> _" [100, 100] 40)
+no_notation reaches ("_ \<rightarrow>* _" [100, 100] 40)
+notation G'.reaches ("_ \<rightarrow>* _" [100, 100] 40)
+no_notation reaches1 ("_ \<rightarrow>\<^sup>+ _" [100, 100] 40)
+notation G'.reaches1 ("_ \<rightarrow>\<^sup>+ _" [100, 100] 40)
+
+end (* Subgraph_Node_Defs_Notation *)
+
+
+subsection \<open>The Reachable Subgraph\<close>
+
+context Graph_Start_Defs
+begin
+
+interpretation Subgraph_Node_Defs_Notation E reachable .
+
+sublocale reachable_subgraph: Subgraph_Node_Defs E reachable .
+
+lemma reachable_supgraph:
+  "x \<rightarrow> y" if "E x y" "reachable x"
+  using that unfolding E'_def by (auto intro: graph_startI)
+
+lemma reachable_reaches_equiv: "reaches x y \<longleftrightarrow> x \<rightarrow>* y" if "reachable x" for x y
+  apply standard
+  subgoal premises prems
+    using prems \<open>reachable x\<close>
+    by induction (auto dest: reachable_supgraph intro: graph_startI graphI_aggressive)
+  subgoal premises prems
+    using prems \<open>reachable x\<close>
+    by induction (auto dest: subgraph)
+  done
+
+lemma reachable_reaches1_equiv: "reaches1 x y \<longleftrightarrow> x \<rightarrow>\<^sup>+ y" if "reachable x" for x y
+  apply standard
+  subgoal premises prems
+    using prems \<open>reachable x\<close>
+    by induction (auto dest: reachable_supgraph intro: graph_startI graphI_aggressive)
+  subgoal premises prems
+    using prems \<open>reachable x\<close>
+    by induction (auto dest: subgraph)
+  done
+
+lemma reachable_steps_equiv:
+  "steps (x # xs) \<longleftrightarrow> G'.steps (x # xs)" if "reachable x"
+  apply standard
+  subgoal premises prems
+    using prems \<open>reachable x\<close>
+    by (induction "x # xs" arbitrary: x xs) (auto dest: reachable_supgraph intro: graph_startI)
+  subgoal premises prems
+    using prems by induction auto
+  done
+
+end (* Graph Start Defs *)
+
 
 section \<open>Bundles\<close>
 
