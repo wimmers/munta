@@ -112,8 +112,8 @@ begin
   definition pw_algo where
     "pw_algo = do
       {
-        if F a\<^sub>0 then RETURN True
-        else if empty a\<^sub>0 then RETURN False
+        if F a\<^sub>0 then RETURN (True, {})
+        else if empty a\<^sub>0 then RETURN (False, {})
         else do {
           (passed, wait) \<leftarrow> init_pw_spec;
           (passed, wait, brk) \<leftarrow> WHILEIT pw_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> {#})
@@ -125,7 +125,7 @@ begin
               }
             )
             (passed, wait, False);
-            RETURN brk
+            RETURN (brk, passed)
         }
       }
     "
@@ -454,7 +454,9 @@ context Search_Space_finite begin
 end -- \<open>Search Space\<close>
 
 theorem (in Search_Space'_finite) pw_algo_correct:
-  "pw_algo \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
+  "pw_algo \<le> SPEC (\<lambda> (brk, passed).
+    (brk \<longleftrightarrow> F_reachable) \<and> (\<not> brk \<longrightarrow> (\<forall> a. reachable a \<and> \<not> empty a \<longrightarrow> (\<exists> b \<in> passed. a \<preceq> b)))
+  )"
 proof -
   note [simp] = size_Diff_submset pred_not_lt_is_zero
   note [dest] = set_mset_mp
@@ -465,7 +467,11 @@ proof -
              apply (auto; fail)
       (* empty a\<^sub>0 *)
             subgoal
-              using empty_E_star final_non_empty reachable_def by auto
+              using empty_E_star final_non_empty unfolding reachable_def by auto
+            subgoal
+              using empty_E_star final_non_empty unfolding reachable_def by auto
+            subgoal
+              using empty_E_star final_non_empty unfolding reachable_def by auto
       (* Invar start*)
            apply (fastforce simp: pw_inv_def pw_inv_frontier_def start_subsumed_def
                             split: if_split_asm dest: mset_subset_eqD)
@@ -487,7 +493,7 @@ proof -
         by (clarsimp simp: pw_inv_def split: if_split_asm; safe)
            (simp_all add: aux12 aux13 pw_var_def)
       (* I \<and> \<not> b \<longrightarrow> post *)
-      using F_mono by (fastforce simp: pw_inv_def dest!: aux4 dest: final_non_empty)
+      using F_mono by (fastforce simp: pw_inv_def dest!: aux4 dest: final_non_empty)+
 qed
 
 lemmas (in Search_Space'_finite) [refine_vcg] = pw_algo_correct[THEN order.trans]

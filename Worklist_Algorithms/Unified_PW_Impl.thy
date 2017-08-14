@@ -70,7 +70,8 @@ begin
 
     lemmas [sepref_fr_rules] = hd_tl_hnr
 
-    sepref_thm pw_algo_map2_impl is "uncurry0 pw_algo_map2" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    sepref_thm pw_algo_map2_impl is
+      "uncurry0 (do {(r, p) \<leftarrow> pw_algo_map2; RETURN r})" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
       unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def
       supply [[goals_limit = 1]]
       supply conv_to_is_Nil[simp]
@@ -92,12 +93,43 @@ begin
   locale Worklist_Map2_Impl_finite = Worklist_Map2_Impl + Worklist_Map2_finite
   begin
 
+  lemma pw_algo_map2_correct':
+    "(do {(r, p) \<leftarrow> pw_algo_map2; RETURN r}) \<le> SPEC (\<lambda>brk. brk = F_reachable)"
+    using pw_algo_map2_correct
+    apply auto
+    apply (cases pw_algo_map2)
+     apply simp
+    apply simp
+    unfolding RETURN_def
+    apply auto
+      subgoal for X
+      apply (cases "do {(r, p) \<leftarrow> RES X; RES {r}}")
+         apply simp
+         apply (subst (asm) Refine_Basic.bind_def)
+         apply force
+        subgoal premises prems for X'
+        proof -
+          have "r = F_reachable" if "(r, p) \<in> X" for r p
+            using that prems(1) by auto
+          then show ?thesis
+            (* XXX Fix SMT *)
+            by (smt
+                bind_rule_complete inres_simps(2) mem_Collect_eq nofail_simps(2) prod_rule
+                pw_ords_iff(1) singleton_conv2
+               )
+        qed
+        done
+      done
+
   lemma pw_impl_hnr_F_reachable:
-      "(uncurry0 (pw_impl keyi copyi Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
-      \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-      using pw_impl.refine[OF Worklist_Map2_Impl_axioms,
-        FCOMP pw_algo_map2_correct[THEN Id_SPEC_refine, THEN nres_relI]]
-      by (simp add: RETURN_def)
+    "(uncurry0 (pw_impl keyi copyi Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    using
+      pw_impl.refine[
+        OF Worklist_Map2_Impl_axioms,
+        FCOMP pw_algo_map2_correct'[THEN Id_SPEC_refine, THEN nres_relI]
+        ]
+    by (simp add: RETURN_def)
 
   end
 

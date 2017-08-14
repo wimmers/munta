@@ -109,8 +109,8 @@ definition "add_pw' passed wait a \<equiv>
 definition pw_algo_unified where
     "pw_algo_unified = do
       {
-        if F a\<^sub>0 then RETURN True
-        else if empty a\<^sub>0 then RETURN False
+        if F a\<^sub>0 then RETURN (True, {})
+        else if empty a\<^sub>0 then RETURN (False, {})
         else do {
           (passed, wait) \<leftarrow> RETURN ({a\<^sub>0}, {#a\<^sub>0#});
           (passed, wait, brk) \<leftarrow> WHILEIT pw_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> {#})
@@ -122,7 +122,7 @@ definition pw_algo_unified where
               }
             )
             (passed, wait, False);
-            RETURN brk
+            RETURN (brk, passed)
         }
       }
     "
@@ -255,8 +255,8 @@ definition
 definition pw_algo_map where
   "pw_algo_map = do
     {
-      if F a\<^sub>0 then RETURN True
-      else if empty a\<^sub>0 then RETURN False
+      if F a\<^sub>0 then RETURN (True, Map.empty)
+      else if empty a\<^sub>0 then RETURN (False, Map.empty)
       else do {
         (passed, wait) \<leftarrow> RETURN ([key a\<^sub>0 \<mapsto> {a\<^sub>0}], [a\<^sub>0]);
         (passed, wait, brk) \<leftarrow> WHILEIT pw_map_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> [])
@@ -268,7 +268,7 @@ definition pw_algo_map where
             }
           )
           (passed, wait, False);
-          RETURN brk
+          RETURN (brk, passed)
       }
     }
   "
@@ -353,10 +353,11 @@ lemma take_from_list_ref[refine]:
   by (clarsimp simp: pw_le_iff refine_pw_simps)
 
 lemma pw_algo_map_ref:
-  "pw_algo_map \<le> \<Down> Id pw_algo_unified"
+  "pw_algo_map \<le> \<Down> (Id \<times>\<^sub>r map_set_rel) pw_algo_unified"
   unfolding pw_algo_map_def pw_algo_unified_def
   apply refine_rcg
-  unfolding pw_map_inv_def list_mset_rel_def br_def by auto
+  unfolding pw_map_inv_def list_mset_rel_def br_def map_set_rel_def by auto
+
 
 end -- \<open>Worklist Map\<close>
 
@@ -388,8 +389,8 @@ definition
 definition pw_algo_map2 where
   "pw_algo_map2 = do
     {
-      if F a\<^sub>0 then RETURN True
-      else if empty a\<^sub>0 then RETURN False
+      if F a\<^sub>0 then RETURN (True, Map.empty)
+      else if empty a\<^sub>0 then RETURN (False, Map.empty)
       else do {
         (passed, wait) \<leftarrow> RETURN ([key a\<^sub>0 \<mapsto> {a\<^sub>0}], [a\<^sub>0]);
         (passed, wait, brk) \<leftarrow> WHILEIT pw_map_inv (\<lambda> (passed, wait, brk). \<not> brk \<and> wait \<noteq> [])
@@ -401,7 +402,7 @@ definition pw_algo_map2 where
             }
           )
           (passed, wait, False);
-          RETURN brk
+          RETURN (brk, passed)
       }
     }
   "
@@ -430,13 +431,17 @@ lemma pw_algo_map2_ref[refine]:
 end -- \<open>Worklist Map 2\<close>
 
 lemma (in Worklist_Map2_finite) pw_algo_map2_correct:
-  "pw_algo_map2 \<le> SPEC (\<lambda> brk. brk \<longleftrightarrow> F_reachable)"
+  "pw_algo_map2 \<le> SPEC (\<lambda> (brk, passed).
+    (brk \<longleftrightarrow> F_reachable) \<and>
+    (\<not> brk \<longrightarrow> (\<exists> p. (passed, p) \<in> map_set_rel \<and> (\<forall>a. reachable a \<and> \<not> empty a \<longrightarrow> (\<exists>b\<in>p. a \<preceq> b))))
+   )"
 proof -
   note pw_algo_map2_ref
   also note pw_algo_map_ref
   also note pw_algo_unified_ref
   also note pw_algo_correct
-  finally show ?thesis .
+  finally show ?thesis
+    unfolding conc_fun_def Image_def by (fastforce intro: order.trans)
 qed
 
 end -- \<open>End of Theory\<close>
