@@ -93,6 +93,7 @@ begin
   locale Worklist_Map2_Impl_finite = Worklist_Map2_Impl + Worklist_Map2_finite
   begin
 
+  (* XXX Missing review from Peter *)
   lemma pw_algo_map2_correct':
     "(do {(r, p) \<leftarrow> pw_algo_map2; RETURN r}) \<le> SPEC (\<lambda>brk. brk = F_reachable)"
     using pw_algo_map2_correct
