@@ -78,7 +78,7 @@ proof -
   let ?x = "last (x # xs)" let ?f = "\<lambda> x. SOME y. x \<rightarrow> y" let ?ys = "siterate ?f ?x"
   have "\<exists>z. y \<rightarrow> z" if "?x \<rightarrow>* y" for y
   proof -
-    from \<open>steps _\<close> have "x \<rightarrow>* ?x"
+    from \<open>steps (x # xs)\<close> have "x \<rightarrow>* ?x"
     by auto
     from \<open>x \<rightarrow>* ?x\<close> \<open>?x \<rightarrow>* y\<close> have "x \<rightarrow>* y"
       by auto
@@ -87,7 +87,7 @@ proof -
   qed
   then have "run ?ys"
     by (blast intro: run_siterate_from)
-  with \<open>steps _\<close> show ?thesis
+  with \<open>steps (x # xs)\<close> show ?thesis
     by (fastforce intro: extend_run')
 qed
 
