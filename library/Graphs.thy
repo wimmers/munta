@@ -719,6 +719,32 @@ lemma invariant_run:
 
 end (* Graph Invariant *)
 
+locale Graph_Invariants = Graph_Defs +
+  fixes P Q :: "'a \<Rightarrow> bool"
+  assumes invariant: "P a \<Longrightarrow> a \<rightarrow> b \<Longrightarrow> Q b" and Q_P: "Q a \<Longrightarrow> P a"
+begin
+
+sublocale Pre: Graph_Invariant E P
+  by standard (blast intro: invariant Q_P)
+
+sublocale Post: Graph_Invariant E Q
+  by standard (blast intro: invariant Q_P)
+
+lemma invariant_steps:
+  "list_all Q as" if "steps (a # as)" "P a"
+  using that by (induction "a # as" arbitrary: as a) (auto intro: invariant Q_P)
+
+lemma invariant_run:
+  assumes run: "run (x ## xs)" and P: "P x"
+  shows "pred_stream Q xs"
+  using run P by (coinduction arbitrary: x xs) (auto 4 4 elim: invariant run.cases intro: Q_P)
+
+lemma invariant_reaches1:
+  "Q b" if "a \<rightarrow>\<^sup>+ b" "P a"
+  using that by (induction; blast intro: invariant Q_P)
+
+end (* Graph Invariants *)
+
 locale Graph_Invariant_Start = Graph_Start_Defs + Graph_Invariant +
   assumes P_s\<^sub>0: "P s\<^sub>0"
 begin
@@ -776,6 +802,10 @@ begin
 lemma simulation_reaches:
   "\<exists> b'. B\<^sup>*\<^sup>* b b' \<and> a' \<sim> b'" if "A\<^sup>*\<^sup>* a a'" "a \<sim> b"
   using that by (induction rule: rtranclp_induct) (auto intro: rtranclp.intros(2) dest: A_B_step)
+
+lemma simulation_reaches1:
+  "\<exists> b'. B\<^sup>+\<^sup>+ b b' \<and> a' \<sim> b'" if "A\<^sup>+\<^sup>+ a a'" "a \<sim> b"
+  using that by (induction rule: tranclp_induct) (auto 4 3 intro: tranclp.intros(2) dest: A_B_step)
 
 lemma simulation_steps:
   "\<exists> bs. B.steps (b # bs) \<and> list_all2 (\<lambda> a b. a \<sim> b) as bs" if "A.steps (a # as)" "a \<sim> b"
@@ -852,6 +882,23 @@ sublocale Pre: Simulation_Invariant A B "op \<sim>" PA PB
 
 sublocale Post: Simulation_Invariant A B "op \<sim>" QA QB
   by standard (auto intro: A_B_step)
+
+sublocale A_invs: Graph_Invariants A PA QA
+  by standard auto
+
+sublocale B_invs: Graph_Invariants B PB QB
+  by standard auto
+
+lemma simulation_reaches1:
+  "\<exists> b2. B.reaches1 b1 b2 \<and> a2 \<sim> b2 \<and> QB b2" if "A.reaches1 a1 a2" "a1 \<sim> b1" "PA a1" "PB b1"
+  using that
+  by - (drule Pre.simulation_reaches1, auto intro: B_invs.invariant_reaches1 simp: Pre.equiv'_def)
+
+lemma reaches1_unique:
+  assumes unique: "\<And> b2. a \<sim> b2 \<Longrightarrow> QB b2 \<Longrightarrow> b2 = b"
+    and that: "A.reaches1 a a" "a \<sim> b" "PA a" "PB b"
+  shows "B.reaches1 b b"
+  using that by (auto dest: unique simulation_reaches1)
 
 end (* Simualation Invariants *)
 
