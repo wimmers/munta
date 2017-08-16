@@ -907,7 +907,7 @@ begin
       apply (rule prod.exhaust[of a], rule prod.exhaust[of b], rule prod.exhaust[of a'])
       apply safe
       by (drule E_from_op_mono';
-          fastforce simp: E_def subsumes_def dbm_subset_def Search_Space_Defs.reachable_def
+          fastforce simp: E_def subsumes_def dbm_subset_def Graph_Start_Defs.reachable_def
           intro!: reachable_wf_dbm)
     subgoal
       unfolding F_rel_def subsumes_def by auto
@@ -921,7 +921,7 @@ begin
 
   sublocale Search_Space_finite E_from_op a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
     by standard
-       (auto intro: finite_subset[OF _ E_closure_finite] simp: Search_Space_Defs.reachable_def)
+       (auto intro: finite_subset[OF _ E_closure_finite] simp: Graph_Start_Defs.reachable_def)
 
 end (* End of context for finiteness and bisimilarity *)
 
