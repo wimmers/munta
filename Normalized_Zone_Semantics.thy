@@ -604,9 +604,10 @@ by (simp add: norm_def)
 
 instance int :: linordered_cancel_ab_monoid_add by (standard; simp)
 
-lemma [simp]:
+(* XXX Move *)
+lemma inf_lt_impl_False[simp]:
   "\<infinity> < x = False"
-unfolding less by auto
+  by auto
 
 (* XXX Copy from Normalized_Zone_Semantics *)
 lemma normalized_integral_dbms_finite:
