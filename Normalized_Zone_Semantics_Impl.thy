@@ -2220,13 +2220,7 @@ using assms
  apply (rule subset_eq_dbm_subset[OF assms(1)])
  apply (auto; fail)
  apply (auto; fail)
-by blast+
-
-lemma
-  "x = y" if "[x]@xs@[x]=[y]@xs@[x]"
-  using that
-    using [[simp_trace]]
-  by simp
+ by blast+
 
 lemma step_z_dbm_diag_preservation:
   assumes "step_z_dbm A l D v n a l' D'" "\<forall> i \<le> n. D i i \<le> 0"
