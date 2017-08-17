@@ -95,6 +95,17 @@ lemma E_op''_alt_def:
 
 end (* End of context for reachability problem defs *)
 
+(* XXX Move? *)
+lemma Bisimulation_Invariant_simulation_strengthen:
+  assumes "Bisimulation_Invariant A B sim PA PB"
+          "\<And> a b. sim a b \<Longrightarrow> PA a \<Longrightarrow> PB b \<Longrightarrow> R a b"
+    shows "Bisimulation_Invariant A B (\<lambda> a b. sim a b \<and> R a b) PA PB"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB by (rule assms)
+  show ?thesis
+    by (standard; (blast dest: A_B_step intro: assms(2) | blast dest: B_A_step intro: assms(2)))
+qed
+
 context Reachability_Problem
   begin
 
@@ -152,6 +163,10 @@ lemma E_E\<^sub>1_steps_empty:
    (\<exists> l' M'. E\<^sub>1\<^sup>*\<^sup>* a\<^sub>0 (l', M') \<and> [curry (conv_M M')]\<^bsub>v,n\<^esub> = {})"
   by (auto 4 4 simp: state_equiv_def dbm_equiv_def dest: E_E\<^sub>1_steps E\<^sub>1_E_steps)
 
+lemma E_E\<^sub>1_bisim:
+  "Bisimulation_Invariant E E\<^sub>1 op \<sim> wf_state wf_state"
+  by standard (blast intro: state_equiv_sym dest: E\<^sub>1_E_step' intro: E_E\<^sub>1_step')+
+
 context
   fixes P :: "'s \<times> _ \<Rightarrow> bool"
     assumes P: "P a \<Longrightarrow> a \<sim> b \<Longrightarrow> wf_state a \<Longrightarrow> wf_state b \<Longrightarrow> P b"
@@ -166,6 +181,10 @@ lemma E_E\<^sub>1_steps_equiv:
   subgoal
     by (frule E\<^sub>1_E_steps, safe; blast intro: P)
   done
+
+lemma E_E\<^sub>1_bisim':
+  "Bisimulation_Invariant E E\<^sub>1 (\<lambda> a b. a \<sim> b \<and> (P a \<longleftrightarrow> P b)) wf_state wf_state"
+  by (rule Bisimulation_Invariant_simulation_strengthen; blast intro: state_equiv_sym P E_E\<^sub>1_bisim)
 
 end
 
@@ -728,6 +747,10 @@ lemma E_from_op_mono':
     and "dbm_subset n D M"
   shows "\<exists> M'. E_from_op (l,M) (l',M') \<and> dbm_subset n D' M'"
   using assms by - (rule E\<^sub>1_mono'[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state]; blast)
+
+lemma E_from_op_bisim:
+  "Bisimulation_Invariant E E_from_op op \<sim> wf_state wf_state"
+  by (rule E_E\<^sub>1_bisim[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
 
 end (* End of context for bisimilarity *)
 

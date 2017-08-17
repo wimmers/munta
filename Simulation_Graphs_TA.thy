@@ -1,5 +1,5 @@
 theory Simulation_Graphs_TA
-  imports Simulation_Graphs
+  imports Simulation_Graphs Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 
 section \<open>Instantiation of Simulation Locales\<close>
@@ -1024,7 +1024,8 @@ interpretation Double_Simulation_Finite_Complete_Abstraction_Prop C A1 P1 A2 P2 
   subgoal for a
     by (frule P2_\<phi>, auto)
   subgoal for a
-    by (simp add: sim_Steps_P2 P2_\<phi>)
+    sorry
+    (* by (simp add: sim_Steps_P2 P2_\<phi>) *)
   subgoal for a
     unfolding P2_def R_of_def by auto
   done
@@ -1274,6 +1275,529 @@ qed
 
 end (* Context for State Formulae *)
 
+definition (in Regions) step_z_norm'' ("_ \<turnstile>' \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<N>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+where
+  "A \<turnstile>' \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l'', D''\<rangle> \<equiv>
+  \<exists> l' D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D'\<rangle> \<and> A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^bsub>\<N>(\<upharpoonleft>a)\<^esub> \<langle>l'', D''\<rangle>"
+
+sublocale DBM: Graph_Start_Defs
+  "\<lambda> (l, D) (l', D'). \<exists> a. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', D'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {}" "(l\<^sub>0, D\<^sub>0)" .
+
+lemma (in -) Bisimulation_Invariant_composition:
+  assumes
+    "Bisimulation_Invariant A B sim1 PA PB"
+    "Bisimulation_Invariant B C sim2 PB PC"
+  shows
+    "Bisimulation_Invariant A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA PC"
+proof -
+  interpret A: Bisimulation_Invariant A B sim1 PA PB
+    by (rule assms(1))
+  interpret B: Bisimulation_Invariant B C sim2 PB PC
+    by (rule assms(2))
+  show ?thesis
+    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
+qed
+
+lemma (in -) Bisimulation_Invariant_filter:
+  assumes
+    "Bisimulation_Invariant A B sim PA PB"
+    "\<And> a b. sim a b \<Longrightarrow> PA a \<Longrightarrow> PB b \<Longrightarrow> FA a \<longleftrightarrow> FB b"
+    "\<And> a b. A a b \<and> FA b \<longleftrightarrow> A' a b"
+    "\<And> a b. B a b \<and> FB b \<longleftrightarrow> B' a b"
+  shows
+    "Bisimulation_Invariant A' B' sim PA PB"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB
+    by (rule assms(1))
+  have unfold:
+    "A' = (\<lambda> a b. A a b \<and> FA b)" "B' = (\<lambda> a b. B a b \<and> FB b)"
+    using assms(3,4) by auto
+  show ?thesis
+    unfolding unfold
+    apply standard
+    using assms(2) apply (blast dest: A_B_step)
+    using assms(2) apply (blast dest: B_A_step)
+    by blast+
+qed
+
+lemma (in -) Bisimulation_Invariants_filter:
+  assumes
+    "Bisimulation_Invariants A B sim PA QA PB QB"
+    "\<And> a b. QA a \<Longrightarrow> QB b \<Longrightarrow> FA a \<longleftrightarrow> FB b"
+    "\<And> a b. A a b \<and> FA b \<longleftrightarrow> A' a b"
+    "\<And> a b. B a b \<and> FB b \<longleftrightarrow> B' a b"
+  shows
+    "Bisimulation_Invariants A' B' sim PA QA PB QB"
+proof -
+  interpret Bisimulation_Invariants A B sim PA QA PB QB
+    by (rule assms(1))
+  have unfold:
+    "A' = (\<lambda> a b. A a b \<and> FA b)" "B' = (\<lambda> a b. B a b \<and> FB b)"
+    using assms(3,4) by auto
+  show ?thesis
+    unfolding unfold
+    apply standard
+    using assms(2) apply (blast dest: A_B_step)
+    using assms(2) apply (blast dest: B_A_step)
+    by blast+
+qed
+
+lemma (in -) Bisimulation_Invariants_composition:
+  assumes
+    "Bisimulation_Invariants A B sim1 PA QA PB QB"
+    "Bisimulation_Invariants B C sim2 PB QB PC QC"
+  shows
+    "Bisimulation_Invariants A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA QA PC QC"
+proof -
+  interpret A: Bisimulation_Invariants A B sim1 PA QA PB QB
+    by (rule assms(1))
+  interpret B: Bisimulation_Invariants B C sim2 PB QB PC QC
+    by (rule assms(2))
+  show ?thesis
+    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
+qed
+
+lemma (in -) Bisimulation_Invariant_Invariants_composition:
+  assumes
+    "Bisimulation_Invariant A B sim1 PA PB"
+    "Bisimulation_Invariants B C sim2 PB QB PC QC"
+  shows
+    "Bisimulation_Invariants A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA PA PC QC"
+proof -
+  interpret Bisimulation_Invariant A B sim1 PA PB
+    by (rule assms(1))
+  interpret B: Bisimulation_Invariants B C sim2 PB QB PC QC
+    by (rule assms(2))
+  interpret A: Bisimulation_Invariants A B sim1 PA PA PB QB
+    by (standard; blast intro: A_B_step B_A_step)+
+  show ?thesis
+    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
+qed
+
+context
+  assumes global_clock_numbering: "global_clock_numbering A v n"
+  notes [intro] = step_z_valid_dbm'[OF global_clock_numbering valid_abstraction]
+begin
+
+lemma norm_beta_sound'':
+  assumes "A \<turnstile>' \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l'', D''\<rangle>"
+      and "valid_dbm D"
+    shows "A \<turnstile>' \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l'', [D'']\<^bsub>v,n\<^esub>\<rangle>"
+proof -
+  from assms(1) obtain l' D' where
+    "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D'\<rangle>" "A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^bsub>\<N>(\<upharpoonleft>a)\<^esub> \<langle>l'', D''\<rangle>"
+    by (auto simp: step_z_norm''_def)
+  moreover with \<open>valid_dbm D\<close> have "valid_dbm D'"
+    by auto
+  ultimately have "A \<turnstile> \<langle>l', [D']\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>\<upharpoonleft>a\<^esub> \<langle>l'', [D'']\<^bsub>v,n\<^esub>\<rangle>"
+    by - (rule norm_beta_sound'[OF global_clock_numbering valid_abstraction])
+  with step_z_dbm_sound[OF \<open>A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D'\<rangle>\<close> global_clock_numbering] show ?thesis ..
+qed
+
+lemma norm_beta_complete:
+  assumes "A \<turnstile>' \<langle>l,[D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l'',Z''\<rangle>"
+  and     "valid_dbm D"
+  obtains D'' where "A \<turnstile>' \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l'',D''\<rangle>" "[D'']\<^bsub>v,n\<^esub> = Z''" "valid_dbm D''"
+proof -
+  from assms(1) obtain l' Z' where steps:
+    "A \<turnstile> \<langle>l, [D]\<^bsub>v,n\<^esub>\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle>" "A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<beta>(\<upharpoonleft>a)\<^esub> \<langle>l'', Z''\<rangle>"
+    by (auto elim!: step_z_beta'.cases)
+  from step_z_dbm_DBM[OF this(1) global_clock_numbering] obtain D' where D':
+    "A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D'\<rangle>" "Z' = [D']\<^bsub>v,n\<^esub>"
+    by auto
+  with \<open>valid_dbm D\<close> have "valid_dbm D'"
+    by auto
+  from steps D' show ?thesis
+    by (auto
+        intro!: that[unfolded step_z_norm''_def]
+        elim!: norm_beta_complete'[OF global_clock_numbering valid_abstraction _ \<open>valid_dbm D'\<close>]
+        )
+qed
+
+lemma bisim:
+  "Bisimulation_Invariant
+  (\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {})
+  (\<lambda> (l, D) (l', D'). \<exists> a. A \<turnstile>' \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', D'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {})
+  (\<lambda> (l, Z) (l', D). l = l' \<and> Z = [D]\<^bsub>v,n\<^esub>)
+  (\<lambda> _. True) (\<lambda> (l, D). valid_dbm D)"
+proof (standard, goal_cases)
+  -- \<open>\<beta> \<Rightarrow> \<N>\<close>
+  case (1 a b a')
+  then show ?case
+    by (blast elim: norm_beta_complete)
+next
+  -- \<open>\<N> \<Rightarrow> \<beta>\<close>
+  case (2 a a' b')
+  then show ?case
+    by (blast intro: norm_beta_sound'')
+next
+  -- \<open>\<beta> invariant\<close>
+  case (3 a b)
+  then show ?case
+    by simp
+next
+  -- \<open>\<N> invariant\<close>
+  case (4 a b)
+  then show ?case
+    unfolding step_z_norm''_def
+    by (auto intro: step_z_norm_valid_dbm'[OF global_clock_numbering valid_abstraction])
+qed
+
+interpretation Bisimulation_Invariant
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
+  "\<lambda> (l, D) (l', D'). \<exists> a. A \<turnstile>' \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', D'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {}"
+  "\<lambda> (l, Z) (l', D). l = l' \<and> Z = [D]\<^bsub>v,n\<^esub>"
+  "\<lambda> _. True" "\<lambda> (l, D). valid_dbm D"
+  by (rule bisim)
+
+context
+  fixes P Q :: "'s \<Rightarrow> bool" -- "The state property we want to check"
+begin
+
+interpretation bisim_\<psi>: Bisimulation_Invariant
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {} \<and> Q l'"
+  "\<lambda> (l, D) (l', D'). \<exists> a. A \<turnstile>' \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', D'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {} \<and> Q l'"
+  "\<lambda> (l, Z) (l', D). l = l' \<and> Z = [D]\<^bsub>v,n\<^esub>"
+  "\<lambda> _. True" "\<lambda> (l, D). valid_dbm D"
+  by (rule Bisimulation_Invariant_filter[OF bisim, of "\<lambda> (l, _). Q l" "\<lambda> (l, _). Q l"]) auto
+
+thm bisim_\<psi>.A_B.simulation_reaches bisim_\<psi>.B_A.simulation_reaches A_B.simulation_reaches
+
+term bisim_\<psi>.A.reaches
+
+lemma
+  assumes "canonical (curry (conv_M M)) n" "\<not> check_diag n M" "canonical (curry (conv_M D)) n" "\<not> check_diag n D"
+    "[(curry (conv_M D))]\<^bsub>v,n\<^esub> = [(curry (conv_M M))]\<^bsub>v,n\<^esub>" "valid_dbm (curry (conv_M D))" "valid_dbm (curry (conv_M M))" "i \<le> n" "j \<le> n"
+    "i \<noteq> j"
+  shows "M (i, j) = D (i, j)"
+    oops
+    thm canonical_eq_upto[OF clock_numbering(1) cn_weak]
+
+
+context
+  fixes D\<^sub>0
+  assumes D\<^sub>0_Z\<^sub>0: "[D\<^sub>0]\<^bsub>v,n\<^esub> = Z\<^sub>0" and D\<^sub>0_valid: "valid_dbm D\<^sub>0"
+begin
+
+lemma
+  "(\<exists>x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> P (fst x) \<and> Q (fst x) \<and> (\<exists>a. bisim_\<psi>.A.reaches x a \<and> bisim_\<psi>.A.reaches1 a a))
+  \<longleftrightarrow> (\<exists>x. B.reaches (l\<^sub>0, D\<^sub>0) x \<and> P (fst x) \<and> Q (fst x) \<and> (\<exists>a. bisim_\<psi>.B.reaches x a \<and> bisim_\<psi>.B.reaches1 a a))"
+  apply safe
+   apply (drule A_B.simulation_reaches[where b = "(l\<^sub>0, D\<^sub>0)"])
+      apply (simp add: D\<^sub>0_Z\<^sub>0; fail)+
+    apply (blast intro: D\<^sub>0_valid)
+   apply clarify
+   apply (drule bisim_\<psi>.A_B.simulation_reaches)
+      apply blast
+     apply blast
+    oops
+
+
+end
+
+end (* Context for State Formulae *)
+
+thm A_B.simulation_reaches B_A.simulation_reaches
+
+end (* Context for Global Clock Numbering *)
+
 end (* Regions TA with Start State *)
+
+context Reachability_Problem_Defs
+begin
+
+abbreviation step_impl' ("\<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  "\<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l'', Z'''\<rangle> \<equiv> \<exists> l' Z' Z''.
+    A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', Z'\<rangle>
+    \<and> A \<turnstile>\<^sub>I \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle>
+    \<and> FW' (norm_upd Z'' (k' l'') n) n = Z'''"
+
+end (* Reachability Problem Defs *)
+
+(* XXX Move *)
+lemma Bisimulation_Invariant_sim_replace:
+  assumes "Bisimulation_Invariant A B sim PA PB"
+      and "\<And> a b. PA a \<Longrightarrow> PB b \<Longrightarrow> sim a b \<longleftrightarrow> sim' a b"
+    shows "Bisimulation_Invariant A B sim' PA PB"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB
+    by (rule assms(1))
+  show ?thesis
+    apply standard
+    using assms(2) apply (blast dest: A_B_step)
+    using assms(2) apply (blast dest: B_A_step)
+    by blast+
+qed
+
+lemma finite_conv_A:
+  "finite (trans_of (conv_A A))" if "finite (trans_of A)"
+  using that unfolding trans_of_def by (cases A) auto
+
+context Reachability_Problem
+begin
+
+sublocale Regions_TA v n "Suc n" "{1..<Suc n}" k "conv_A A"
+  by (standard; intro valid_abstraction' finite_conv_A finite_trans_of_finite_state_set finite_trans)
+
+(* XXX Move *)
+lemma step_impl_delay_loc_eq:
+  "l' = l" if "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', D'\<rangle>"
+  using that by cases auto
+
+lemma step_impl'_E:
+  "(\<lambda> (l, D) (l', D'). \<exists> a. \<langle>l, D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', D'\<rangle>) = E"
+  unfolding E_def by (intro ext) auto
+
+lemma step_z_norm''_step_impl'_equiv:
+  "Bisimulation_Invariant
+     (\<lambda> (l, D) (l', D'). \<exists> a. step_z_norm'' (conv_A A) l D a l' D')
+     (\<lambda>(l, D) (l', D'). \<exists>a. \<langle>l, D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', D'\<rangle>)
+     (\<lambda>(l, M) (l', D). l = l' \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>)
+     (\<lambda>(l, y). valid_dbm y)
+     wf_state"
+proof (standard, goal_cases)
+  case prems: (1 a b a')
+  obtain l M l' M' l1 D where unfolds[simp]: "a = (l, M)" "b = (l', M')" "a' = (l1, D)"
+    by force+
+  from prems have [simp]: "l1 = l"
+    by auto
+  from prems obtain a1 where
+    "step_z_norm'' (conv_A A) l M a1 l' M'"
+    by auto
+  then obtain l2 M1 where steps:
+    "conv_A A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l2, M1\<rangle>"
+    "step_z_norm' (conv_A A) l2 M1 \<upharpoonleft>a1 l' M'"
+    unfolding step_z_norm''_def by auto
+  from step_z_dbm_equiv'[OF steps(1), of "curry (conv_M D)"] prems(2-) obtain M2 where
+    "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l2, M2\<rangle>" "wf_dbm D" "[M1]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+    by (auto simp: wf_state_def)
+  with step_impl_complete''_improved[OF this(1)] obtain D2 where D2:
+    "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l2, D2\<rangle>" "[curry (conv_M D2)]\<^bsub>v,n\<^esub> = [M1]\<^bsub>v,n\<^esub>"
+    by auto
+  from step_impl_wf_dbm[OF D2(1) \<open>wf_dbm D\<close>] have "wf_dbm D2" .
+  then have *:
+    "canonical' (conv_M D2) \<or> check_diag n D2"
+    "\<forall>i\<le>n. conv_M D2 (i, i) \<le> 0"
+    "valid_dbm (curry (conv_M D2))"
+    using wf_dbm_D by blast+
+  have "valid_dbm M1"
+    using prems steps(1) by - (rule step_z_valid_dbm', auto)
+  from step_z_norm_equiv'[OF steps(2), OF this *(3) sym[OF D2(2)]] guess D3 by (elim conjE exE)
+  note D3 = this
+  from step_impl_norm_complete''[OF D3(1) *(3,1,2)] obtain D4 where D4:
+    "A \<turnstile>\<^sub>I \<langle>l2, D2\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a1\<^esub> \<langle>l', D4\<rangle>"
+    "[curry (conv_M (FW' (norm_upd D4 (k' l') n) n))]\<^bsub>v,n\<^esub> = [D3]\<^bsub>v,n\<^esub>"
+    by auto
+  with D2(1) have "\<langle>l, D\<rangle> \<leadsto>\<^bsub>a1\<^esub> \<langle>l', FW' (norm_upd D4 (k' l') n) n\<rangle>"
+    by auto
+  with D4(2) D3(2) show ?case
+    by force
+next
+  case prems: (2 a a' b')
+  obtain l M l' D' l1 D where unfolds[simp]: "a = (l, M)" "b' = (l', D')" "a' = (l1, D)"
+    by force+
+  from prems have [simp]: "l1 = l"
+    by auto
+  from prems obtain a1 where "\<langle>l, D\<rangle> \<leadsto>\<^bsub>a1\<^esub> \<langle>l', D'\<rangle>"
+    by auto
+  then obtain D1 D2 where steps:
+    "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l, D1\<rangle>" "A \<turnstile>\<^sub>I \<langle>l, D1\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a1\<^esub> \<langle>l', D2\<rangle>"
+    "D' = FW' (norm_upd D2 (k' l') n) n"
+    by (auto dest: step_impl_delay_loc_eq)
+  from prems have "wf_dbm D"
+    by (auto simp: wf_state_def)
+  with steps have "wf_dbm D1"
+    by (blast intro: step_impl_wf_dbm)
+  from \<open>wf_dbm D\<close> have
+    "canonical' (conv_M D) \<or> check_diag n D"
+    "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
+    "valid_dbm (curry (conv_M D))"
+    using wf_dbm_D by blast+
+  from step_impl_sound'[OF steps(1) this] obtain M2 where M2:
+    "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l, M2\<rangle>"
+    "[curry (conv_M D1)]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+    by auto
+  from step_impl_sound_wf[OF steps(2) \<open>wf_dbm D1\<close>] obtain M3 where M3:
+    "step_z_norm' (conv_A A) l (curry (conv_M D1)) \<upharpoonleft>a1 l' M3"
+    "[curry (conv_M (FW' (norm_upd D2 (k' l') n) n))]\<^bsub>v,n\<^esub> = [M3]\<^bsub>v,n\<^esub>"
+    by auto
+  from step_z_dbm_equiv'[OF M2(1), of M] prems(2) obtain M2' where M2':
+    "conv_A A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l, M2'\<rangle>" "[M2]\<^bsub>v,n\<^esub> = [M2']\<^bsub>v,n\<^esub>"
+    by auto
+  have "valid_dbm (curry (conv_M D1))" "valid_dbm M2'"
+    subgoal
+      using \<open>wf_dbm D1\<close> wf_dbm_D(3) by auto
+    subgoal
+      using prems M2'(1) by - (rule step_z_valid_dbm', auto)
+    done
+  from step_z_norm_equiv'[OF M3(1), of M2', OF this] M2(2) M2'(2) obtain M3' where
+    "step_z_norm' (conv_A A) l M2' \<upharpoonleft>a1 l' M3'" "[M3]\<^bsub>v,n\<^esub> = [M3']\<^bsub>v,n\<^esub>"
+    by auto
+  with M2'(1) M3(2) steps(3) show ?case
+    unfolding step_z_norm''_def by auto
+next
+  case (3 a b)
+  then show ?case
+    unfolding step_z_norm''_def using step_z_norm_valid_dbm'_spec step_z_valid_dbm' by auto
+next
+  case (4 a b)
+  then show ?case
+    by (clarsimp simp: norm_step_wf_dbm step_impl_wf_dbm wf_state_def)
+qed
+
+thm Bisimulation_Invariant_composition[OF
+    step_z_norm''_step_impl'_equiv[unfolded step_impl'_E] E_op''.E_from_op_bisim]
+
+lemma init_dbm_non_empty:
+  "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<noteq> {}"
+proof -
+  let ?u = "\<lambda> c. 0 :: real"
+  have "?u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>"
+    by (rule init_dbm_semantics'', auto)
+  then show ?thesis by auto
+qed
+
+(* XXX Move? *)
+lemma canonical_empty_check_diag':
+  assumes "wf_dbm D" "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {}"
+  shows "check_diag n D"
+  apply (rule canonical_empty_check_diag[OF _ assms(2)])
+  using wf_dbm_D(1)[OF assms(1)] unfolding check_diag_def neutral by auto
+
+context
+  assumes "l\<^sub>0 \<in> state_set A"
+begin
+
+lemma l\<^sub>0_state_set:
+  "l\<^sub>0 \<in> state_set (conv_A A)"
+  using \<open>l\<^sub>0 \<in> state_set A\<close> unfolding state_set_def trans_of_def by (cases A; force)
+
+interpretation start:
+  Regions_TA_Start_State v n "Suc n" "{1..<Suc n}" k "conv_A A"
+  l\<^sub>0 "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
+  apply standard
+  subgoal
+    by (rule l\<^sub>0_state_set)
+  subgoal
+    using valid_dbm_V' by blast
+  subgoal
+    by (rule init_dbm_non_empty)
+  done
+
+thm Bisimulation_Invariant_composition[OF start.bisim[OF global_clock_numbering']]
+  Bisimulation_Invariant_composition[OF step_z_norm''_step_impl'_equiv[unfolded step_impl'_E] E_op''.E_from_op_bisim]
+
+lemma norm_final_bisim:
+  "Bisimulation_Invariant
+   (\<lambda>(l, D) (l', D'). \<exists>a. step_z_norm'' (conv_A A) l D a l' D')
+   E_op''.E_from_op
+   (\<lambda> (l, M) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>)
+   (\<lambda>(l, y). valid_dbm y) wf_state"
+  by (rule
+    Bisimulation_Invariant_sim_replace[OF
+      Bisimulation_Invariant_composition[OF
+        step_z_norm''_step_impl'_equiv[unfolded step_impl'_E] E_op''.E_from_op_bisim
+      ]
+    ])
+    (auto simp add: state_equiv_def dbm_equiv_def)
+
+lemma norm_final_bisim_empty:
+  "Bisimulation_Invariant
+   (\<lambda>(l, D) (l', D'). \<exists>a. step_z_norm'' (conv_A A) l D a l' D' \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {})
+   (\<lambda> a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))
+   (\<lambda> (l, M) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>)
+   (\<lambda>(l, y). valid_dbm y) wf_state"
+  by (rule
+    Bisimulation_Invariant_filter[OF
+      norm_final_bisim, of "\<lambda> (l, D). [D]\<^bsub>v,n\<^esub> \<noteq> {}" "\<lambda> a. \<not> check_diag n (snd a)"]
+    )
+    (auto
+      intro!: canonical_empty_check_diag' simp: wf_state_def
+      dest: check_diag_empty_spec[OF check_diag_conv_M]
+    )
+
+
+thm
+  Bisimulation_Invariant_filter[OF
+   Bisimulation_Invariant_composition[OF
+     step_z_norm''_step_impl'_equiv[unfolded step_impl'_E] E_op''.E_from_op_bisim
+   ]
+ ]
+
+end (* Start State *)
+
+end (* Reachability Problem *)
+
+interpretation Bisimulation_Invariant
+  "\<lambda> (l, D) (l', D'). \<exists> a. step_z_norm'' (conv_A A) l D a l' D'"
+  "\<lambda> (l, D) (l', D'). \<exists> a. \<langle>l, D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', D'\<rangle>"
+  "\<lambda> (l, M) (l', D). l = l' \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  "\<lambda> (l, M). valid_dbm M \<and> (\<exists> D. M = curry (conv_M D) \<and> wf_dbm D)" "\<lambda> (l, D). wf_dbm D"
+  proof (standard, goal_cases)
+    case prems: (1 a b a')
+    obtain l M l' M' l1 D where unfolds[simp]: "a = (l, M)" "b = (l', M')" "a' = (l1, D)"
+      by force+
+    from prems have [simp]: "l1 = l"
+      by auto
+    from prems obtain a1 D1 where
+      "curry (conv_M D1) = M" "wf_dbm D1"
+      "step_z_norm'' (conv_A A) l (curry (conv_M D1)) a1 l' M'"
+      by auto
+    then obtain l2 M1 where steps:
+      "conv_A A \<turnstile> \<langle>l, curry (conv_M D1)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l2, M1\<rangle>"
+      "step_z_norm' (conv_A A) l2 M1 \<upharpoonleft>a1 l' M'"
+      unfolding step_z_norm''_def by auto
+    from step_impl_complete''_improved[OF this(1) \<open>wf_dbm D1\<close>] obtain D2 where D2:
+      "A \<turnstile>\<^sub>I \<langle>l, D1\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l2, D2\<rangle>" "[curry (conv_M D2)]\<^bsub>v,n\<^esub> = [M1]\<^bsub>v,n\<^esub>"
+      by auto
+    have "valid_dbm M1" "valid_dbm (curry (conv_M D2))"
+      sorry
+    from step_z_norm_equiv'[OF steps(2), OF this sym[OF D2(2)]] guess D3 by (elim conjE exE)
+    note D3 = this
+    have "canonical' (conv_M D2)" "\<forall>i\<le>n. conv_M D2 (i, i) \<le> 0" "valid_dbm (curry (conv_M D2))"
+      sorry
+    from step_impl_norm_complete[OF D3(1) this] obtain D4 where D4:
+      "A \<turnstile>\<^sub>I \<langle>l2, D2\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a1\<^esub> \<langle>l', D4\<rangle>"
+      "[curry (conv_M (FW' (norm_upd D4 (k' l') n) n))]\<^bsub>v,n\<^esub> = [D3]\<^bsub>v,n\<^esub>"
+      by auto
+    with D2(1) have "\<langle>l, D1\<rangle> \<leadsto>\<^bsub>a1\<^esub> \<langle>l', FW' (norm_upd D4 (k' l') n) n\<rangle>"
+      by auto
+    from \<open>_ = M\<close> prems have "wf_dbm D" "D1 \<simeq> D"
+      unfolding dbm_equiv_def by auto
+    from step_impl_norm_equiv[OF D2(1) D4(1) HOL.refl \<open>wf_dbm D1\<close> this] D4(2) D3(2) show ?case
+      by (force simp: dbm_equiv_def)
+  next
+    case (2 a a' b')
+    then show ?case sorry
+  next
+    case (3 a b)
+    then show ?case sorry
+  next
+    case (4 a b)
+    then show ?case sorry
+  qed
+  oops
+  apply standard
+     apply safe
+      apply (drule step_impl_complete''_improved)
+       apply assumption
+      apply (elim exE conjE)
+      apply (drule step_z_dbm_equiv', rule sym, assumption)
+      apply (elim exE conjE)
+      apply (drule step_impl_complete''_improved)
+    defer
+    thm step_z_dbm_equiv' step_z_norm_equiv'
+      apply (drule step_impl_complete''_improved
+    back
+
+interpretation Bisimulation_Invariant
+  "\<lambda> (l, D) (l', D'). \<exists> a. step_z_norm'' (conv_A A) l D a l' D' \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {}"
+  "\<lambda> (l, D) (l', D'). \<exists> a. \<langle>l, D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', D'\<rangle> \<and> \<not> check_diag n D'"
+  "\<lambda> (l, M) (l', D). l = l' \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  "\<lambda> _. True" "\<lambda> (l, D). wf_dbm D"
+  apply standard
+
+end (* Reachability Problem *)
 
 end (* Theory *)
