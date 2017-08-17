@@ -2378,7 +2378,19 @@ definition "F_rel \<equiv> \<lambda> (l, M). F l \<and> \<not> check_diag n M"
 
 definition "a\<^sub>0 = (l\<^sub>0, init_dbm)"
 
-end
+abbreviation
+  "canonical' D \<equiv> canonical (curry D) n"
+
+abbreviation
+  "canonical_diag' D \<equiv> canonical' D \<or> check_diag n D"
+
+abbreviation
+  "canonical_diag D \<equiv> canonical' (conv_M D) \<or> check_diag n D"
+
+abbreviation
+  "canonical_subs' I M \<equiv> canonical_subs n I (curry M)"
+
+end (* Reachability Problem Defs *)
 
 locale Reachability_Problem =
   Reachability_Problem_Defs _ _ _ A k for A :: "('a, nat, int, 's) ta" and k :: "'s \<Rightarrow> nat \<Rightarrow> nat" +
@@ -3336,24 +3348,44 @@ begin
     apply (intro wf_dbm_I)
     unfolding check_diag_def neutral[symmetric] using diag_conv by auto
 
+  (* XXX Move? *)
+  lemma step_impl_check_diag:
+    assumes "check_diag n M" "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
+    shows "check_diag n M'"
+    using step_impl_neg_diag_preservation assms unfolding check_diag_def neutral by auto
+
+  (* XXX Move? *)
+  lemma canonical_diagI:
+  "canonical_diag D"  if "canonical_diag' D"
+  using that canonical_conv by auto
+
+  (* XXX Move? *)
+  lemma canonical_check_diag_empty_iff:
+  "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> check_diag n D" if "canonical_diag' D"
+  apply standard
+  subgoal
+    apply (rule canonical_empty_check_diag)
+    using canonical_diagI[OF that] unfolding check_diag_def neutral by auto
+  by (intro check_diag_empty_spec check_diag_conv_M)
+
   lemma step_impl_norm_complete'':
     assumes step: "step_z_norm' (conv_A A) l (curry (conv_M M)) a l' D"
-        and valid: "valid_dbm (curry (conv_M M))"
-        and canonical: "canonical (curry (conv_M M)) n \<or> check_diag n M"
-        and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> 0"
-      shows
-        "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>
-         \<and> [curry (conv_M (FW' (norm_upd M' (k' l') n) n))]\<^bsub>v,n\<^esub> \<supseteq> [D]\<^bsub>v,n\<^esub>"
+      and valid: "valid_dbm (curry (conv_M M))"
+      and canonical: "canonical (curry (conv_M M)) n \<or> check_diag n M"
+      and diag: "\<forall>i\<le>n. conv_M M (i, i) \<le> 0"
+    shows
+      "\<exists> M'. A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>
+           \<and> [curry (conv_M (FW' (norm_upd M' (k' l') n) n))]\<^bsub>v,n\<^esub> = [D]\<^bsub>v,n\<^esub>"
   proof (cases "check_diag n M")
     case True
     then have "[curry (conv_M M)]\<^bsub>v,n\<^esub> = {}" by (intro check_diag_empty_spec check_diag_conv_M)
     with step valid have
       "[D]\<^bsub>v,n\<^esub> = {}"
-    by (rule step_z_norm'_empty_preservation)
-    moreover from step obtain M' where M': "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
-    apply cases
-    apply (cases rule: step_z_dbm.cases)
-    apply assumption
+      by (rule step_z_norm'_empty_preservation)
+    from step obtain M' where M': "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
+      apply cases
+      apply (cases rule: step_z_dbm.cases)
+        apply assumption
     proof goal_cases
       case 1
       then show ?thesis by - (rule that; simp; rule step_t_impl)
@@ -3369,12 +3401,17 @@ begin
         apply (rule that)
         unfolding \<open>a = _\<close> by (rule step_a_impl)
     qed
-    ultimately show ?thesis by auto
+    from step_impl_check_diag[OF \<open>check_diag n M\<close> M'] have "check_diag n M'" .
+    from norm_step_check_diag_preservation[OF this] have
+      "check_diag n (FW' (norm_upd M' (k' l') n) n)"
+      by auto
+    with M' \<open>[D]\<^bsub>v,n\<^esub> = {}\<close> canonical_check_diag_empty_iff show ?thesis
+      by blast
   next
     case False
     with canonical have
       "canonical (curry (conv_M M)) n"
-    unfolding check_diag_def neutral by auto
+      unfolding check_diag_def neutral by auto
     then show ?thesis using diag valid step_impl_norm_complete[OF step] by auto
   qed
 
@@ -3474,12 +3511,6 @@ lemma state_equiv_sym:
 lemma state_equiv_D:
   "M \<simeq> M'" if "(l, M) \<sim> (l', M')"
   using that unfolding state_equiv_def by auto
-
-
-lemma step_impl_check_diag:
-  assumes "check_diag n M" "A \<turnstile>\<^sub>I \<langle>l, M\<rangle> \<leadsto>\<^bsub>n,a\<^esub> \<langle>l', M'\<rangle>"
-  shows "check_diag n M'"
-  using step_impl_neg_diag_preservation assms unfolding check_diag_def neutral by auto
 
 lemma step_impl_complete''_improved:
   assumes step: "conv_A A \<turnstile> \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D\<rangle>"

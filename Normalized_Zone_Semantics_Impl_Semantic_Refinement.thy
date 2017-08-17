@@ -49,18 +49,6 @@ definition
 context Reachability_Problem_Defs
 begin
 
-abbreviation
-  "canonical' D \<equiv> canonical (curry D) n"
-
-abbreviation
-  "canonical_diag' D \<equiv> canonical' D \<or> check_diag n D"
-
-abbreviation
-  "canonical_diag D \<equiv> canonical' (conv_M D) \<or> check_diag n D"
-
-abbreviation
-  "canonical_subs' I M \<equiv> canonical_subs n I (curry M)"
-
 definition
   "abstra_repair ac M = repair_pair n (abstra_upd ac M) 0 (constraint_clk ac)"
 
@@ -216,11 +204,6 @@ lemma E\<^sub>1_mono':
   done
 
 end (* End of anonymous context *)
-
-
-lemma canonical_diagI:
-  "canonical_diag D"  if "canonical_diag' D"
-  using that canonical_conv by auto
 
 lemma canonical'_up_canonical_upd:
   assumes "canonical' M"
@@ -617,14 +600,6 @@ lemma reset_canonical_upd_equiv':
       prefer 5
       apply (subst reset_canonical_upd_correct_conv_M)
   by auto
-
-lemma canonical_check_diag_empty_iff:
-  "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> check_diag n D" if "canonical_diag' D"
-  apply standard
-  subgoal
-    apply (rule canonical_empty_check_diag)
-    using canonical_diagI[OF that] unfolding check_diag_def neutral by auto
-  by (intro check_diag_empty_spec check_diag_conv_M)
 
 lemma reset_canonical_upd_check_diag_preservation:
   "check_diag n (reset_canonical_upd D n i d)" if "check_diag n D" "i > 0"
