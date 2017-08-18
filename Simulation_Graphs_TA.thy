@@ -1998,20 +1998,53 @@ interpretation bisims_Q:
     "\<lambda>_. True" "\<lambda>_. True" "\<lambda> (l, D). dbm_inv D" "\<lambda> (l, D). dbm_inv D"
   by (intro Bisimulation_Invariant_Bisimulation_Invariants beta_final_bisim_empty_Q)
 
+(* XXX Move *)
+lemma init_dbm_semantics:
+  "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<longleftrightarrow> (\<forall>c\<in>{1..n}. u c = 0)"
+  by (safe elim!: init_dbm_semantics' init_dbm_semantics'')
+
+(* XXX Move *)
+lemma \<R>_regions_distinct:
+  "R = R'" if "u \<in> R" "u \<in> R'" "R \<in> \<R> l" "R' \<in> \<R> l"
+  using that unfolding \<R>_def by clarsimp (rule valid_regions_distinct; auto)
+
+(* XXX Move *)
 lemma cla_init_dbm_id:
   "cla l\<^sub>0 ([curry init_dbm]\<^bsub>v,n\<^esub>) = ([curry init_dbm]\<^bsub>v,n\<^esub>)"
-  sorry
+proof -
+  let ?u = "\<lambda> c. 0 :: real"
+  let ?I = "\<lambda> _. Const 0"
+  let ?R = "region X ?I {}"
+  have "valid_region X (k l\<^sub>0) ?I {}"
+    by standard auto
+  then have "?R \<in> \<R> l\<^sub>0"
+    unfolding \<R>_def X_alt_def by blast
+  have region: "u \<in> ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
+    using that unfolding init_dbm_semantics X_def by - (standard; fastforce)
+  have iff: "u \<in> ?R \<longleftrightarrow> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
+    apply standard
+    subgoal
+      unfolding init_dbm_semantics X_def[symmetric]
+      by (auto elim: Regions.intv_elem.cases elim!: Regions.region.cases)
+    by (rule region)
+  have single: "R = ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" "u \<in> R" "R \<in> \<R> l\<^sub>0" for u R
+    using that \<open>?R \<in> \<R> l\<^sub>0\<close> by - (rule \<R>_regions_distinct; auto intro: region)
+  show ?thesis
+    using \<open>?R \<in> _\<close>
+    unfolding cla_def
+    apply safe
+     apply (drule single, assumption+)
+     apply (subst (asm) iff[symmetric], simp; fail)
+    apply (frule region)
+    by auto
+qed
 
 lemma start_closure:
   "\<Union>TA.sim.closure start.a\<^sub>0 = start.a\<^sub>0"
-  unfolding start.a\<^sub>0_def
-  apply (subst TA.sim_closure_from_R)
-    using l\<^sub>0_state_set
-    apply simp
-    using cla_init_dbm_id
-    unfolding cla_def from_R_def
-      apply simp
-    by blast
+  using l\<^sub>0_state_set cla_init_dbm_id
+  unfolding start.a\<^sub>0_def TA.sim_closure_from_R
+  unfolding cla_def from_R_def
+  by simp blast
 
 (* XXX Why do we need this? *)
 lemma Q_compatible:
@@ -2025,10 +2058,6 @@ begin
 lemma no_deadlock':
   "\<forall>x\<^sub>0\<in>start.a\<^sub>0. \<not> TA.sim.deadlock x\<^sub>0"
   unfolding TA.C_def start.a\<^sub>0_def from_R_def using no_deadlock by (auto dest: init_dbm_semantics')
-
-lemma init_dbm_semantics:
-  "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<longleftrightarrow> (\<forall>c\<in>{1..n}. u c = 0)"
-  by (safe elim!: init_dbm_semantics' init_dbm_semantics'')
 
 (* XXX Clean *)
 lemma \<psi>_def:
