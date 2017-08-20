@@ -2859,7 +2859,7 @@ begin
     by (cases "Z (i, j)") auto
   done
 
-  lemma check_diag_conv_M[intro]:
+  lemma (in -) check_diag_conv_M[intro]:
     assumes "check_diag n M"
     shows "check_diag n (conv_M M)"
   using assms unfolding check_diag_def by (auto dest!: conv_dbm_entry_mono_strict)
@@ -4258,7 +4258,7 @@ end (* End of locale context for ensuring that the invariant of the start state 
 context Reachability_Problem
 begin
 
-lemma check_diag_conv_M_rev:
+lemma (in -) check_diag_conv_M_rev:
   assumes "check_diag n (conv_M M)"
   shows "check_diag n M"
 using assms unfolding check_diag_def by (auto intro!: conv_dbm_entry_mono_strict_rev)

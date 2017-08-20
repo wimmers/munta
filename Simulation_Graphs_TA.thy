@@ -1274,6 +1274,9 @@ qed
 
 end (* Context for State Formulae *)
 
+
+subsection \<open>Connection with implementation semantics\<close>
+
 definition (in Regions) step_z_norm'' ("_ \<turnstile>' \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<N>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
 where
   "A \<turnstile>' \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l'', D''\<rangle> \<equiv>
@@ -1281,185 +1284,6 @@ where
 
 sublocale DBM: Graph_Start_Defs
   "\<lambda> (l, D) (l', D'). \<exists> a. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l', D'\<rangle> \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {}" "(l\<^sub>0, D\<^sub>0)" .
-
-lemma (in -) Bisimulation_Invariant_composition:
-  assumes
-    "Bisimulation_Invariant A B sim1 PA PB"
-    "Bisimulation_Invariant B C sim2 PB PC"
-  shows
-    "Bisimulation_Invariant A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA PC"
-proof -
-  interpret A: Bisimulation_Invariant A B sim1 PA PB
-    by (rule assms(1))
-  interpret B: Bisimulation_Invariant B C sim2 PB PC
-    by (rule assms(2))
-  show ?thesis
-    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
-qed
-
-lemma (in -) Bisimulation_Invariant_filter:
-  assumes
-    "Bisimulation_Invariant A B sim PA PB"
-    "\<And> a b. sim a b \<Longrightarrow> PA a \<Longrightarrow> PB b \<Longrightarrow> FA a \<longleftrightarrow> FB b"
-    "\<And> a b. A a b \<and> FA b \<longleftrightarrow> A' a b"
-    "\<And> a b. B a b \<and> FB b \<longleftrightarrow> B' a b"
-  shows
-    "Bisimulation_Invariant A' B' sim PA PB"
-proof -
-  interpret Bisimulation_Invariant A B sim PA PB
-    by (rule assms(1))
-  have unfold:
-    "A' = (\<lambda> a b. A a b \<and> FA b)" "B' = (\<lambda> a b. B a b \<and> FB b)"
-    using assms(3,4) by auto
-  show ?thesis
-    unfolding unfold
-    apply standard
-    using assms(2) apply (blast dest: A_B_step)
-    using assms(2) apply (blast dest: B_A_step)
-    by blast+
-qed
-
-lemma (in -) Bisimulation_Invariants_filter:
-  assumes
-    "Bisimulation_Invariants A B sim PA QA PB QB"
-    "\<And> a b. QA a \<Longrightarrow> QB b \<Longrightarrow> FA a \<longleftrightarrow> FB b"
-    "\<And> a b. A a b \<and> FA b \<longleftrightarrow> A' a b"
-    "\<And> a b. B a b \<and> FB b \<longleftrightarrow> B' a b"
-  shows
-    "Bisimulation_Invariants A' B' sim PA QA PB QB"
-proof -
-  interpret Bisimulation_Invariants A B sim PA QA PB QB
-    by (rule assms(1))
-  have unfold:
-    "A' = (\<lambda> a b. A a b \<and> FA b)" "B' = (\<lambda> a b. B a b \<and> FB b)"
-    using assms(3,4) by auto
-  show ?thesis
-    unfolding unfold
-    apply standard
-    using assms(2) apply (blast dest: A_B_step)
-    using assms(2) apply (blast dest: B_A_step)
-    by blast+
-qed
-
-lemma (in -) Bisimulation_Invariants_composition:
-  assumes
-    "Bisimulation_Invariants A B sim1 PA QA PB QB"
-    "Bisimulation_Invariants B C sim2 PB QB PC QC"
-  shows
-    "Bisimulation_Invariants A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA QA PC QC"
-proof -
-  interpret A: Bisimulation_Invariants A B sim1 PA QA PB QB
-    by (rule assms(1))
-  interpret B: Bisimulation_Invariants B C sim2 PB QB PC QC
-    by (rule assms(2))
-  show ?thesis
-    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
-qed
-
-lemma (in -) Bisimulation_Invariant_Invariants_composition:
-  assumes
-    "Bisimulation_Invariant A B sim1 PA PB"
-    "Bisimulation_Invariants B C sim2 PB QB PC QC"
-  shows
-    "Bisimulation_Invariants A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA PA PC QC"
-proof -
-  interpret Bisimulation_Invariant A B sim1 PA PB
-    by (rule assms(1))
-  interpret B: Bisimulation_Invariants B C sim2 PB QB PC QC
-    by (rule assms(2))
-  interpret A: Bisimulation_Invariants A B sim1 PA PA PB QB
-    by (standard; blast intro: A_B_step B_A_step)+
-  show ?thesis
-    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
-qed
-
-lemma (in -) Bisimulation_Invariant_Bisimulation_Invariants:
-  assumes "Bisimulation_Invariant A B sim PA PB"
-  shows "Bisimulation_Invariants A B sim PA PA PB PB"
-proof -
-  interpret Bisimulation_Invariant A B sim PA PB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step B_A_step)
-qed
-
-lemma (in -) Bisimulation_Invariant_strengthen_post:
-  assumes
-    "Bisimulation_Invariant A B sim PA PB"
-    "\<And> a b. PA' a \<Longrightarrow> PA b \<Longrightarrow> A a b \<Longrightarrow> PA' b"
-    "\<And> a. PA' a \<Longrightarrow> PA a"
-  shows "Bisimulation_Invariant A B sim PA' PB"
-proof -
-  interpret Bisimulation_Invariant A B sim PA PB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step B_A_step assms)
-qed
-
-lemma (in -) Bisimulation_Invariant_strengthen_post':
-  assumes
-    "Bisimulation_Invariant A B sim PA PB"
-    "\<And> a b. PB' a \<Longrightarrow> PB b \<Longrightarrow> B a b \<Longrightarrow> PB' b"
-    "\<And> a. PB' a \<Longrightarrow> PB a"
-  shows "Bisimulation_Invariant A B sim PA PB'"
-proof -
-  interpret Bisimulation_Invariant A B sim PA PB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step B_A_step assms)
-qed
-
-lemma (in -) Simulation_Invariant_strengthen_post:
-  assumes
-    "Simulation_Invariant A B sim PA PB"
-    "\<And> a b. PA a \<Longrightarrow> PA b \<Longrightarrow> A a b \<Longrightarrow> PA' b"
-    "\<And> a. PA' a \<Longrightarrow> PA a"
-  shows "Simulation_Invariant A B sim PA' PB"
-proof -
-  interpret Simulation_Invariant A B sim PA PB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step assms)
-qed
-
-lemma (in -) Simulation_Invariant_strengthen_post':
-  assumes
-    "Simulation_Invariant A B sim PA PB"
-    "\<And> a b. PB a \<Longrightarrow> PB b \<Longrightarrow> B a b \<Longrightarrow> PB' b"
-    "\<And> a. PB' a \<Longrightarrow> PB a"
-  shows "Simulation_Invariant A B sim PA PB'"
-proof -
-  interpret Simulation_Invariant A B sim PA PB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step assms)
-qed
-
-lemma (in -) Simulation_Invariants_strengthen_post:
-  assumes
-    "Simulation_Invariants A B sim PA QA PB QB"
-    "\<And> a b. PA a \<Longrightarrow> QA b \<Longrightarrow> A a b \<Longrightarrow> QA' b"
-    "\<And> a. QA' a \<Longrightarrow> QA a"
-  shows "Simulation_Invariants A B sim PA QA' PB QB"
-proof -
-  interpret Simulation_Invariants A B sim PA QA PB QB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step assms)
-qed
-
-lemma (in -) Simulation_Invariants_strengthen_post':
-  assumes
-    "Simulation_Invariants A B sim PA QA PB QB"
-    "\<And> a b. PB a \<Longrightarrow> QB b \<Longrightarrow> B a b \<Longrightarrow> QB' b"
-    "\<And> a. QB' a \<Longrightarrow> QB a"
-  shows "Simulation_Invariants A B sim PA QA PB QB'"
-proof -
-  interpret Simulation_Invariants A B sim PA QA PB QB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step assms)
-qed
 
 context
   assumes global_clock_numbering: "global_clock_numbering A v n"
@@ -1548,43 +1372,7 @@ interpretation bisim_\<psi>: Bisimulation_Invariant
   "\<lambda> _. True" "\<lambda> (l, D). valid_dbm D"
   by (rule Bisimulation_Invariant_filter[OF bisim, of "\<lambda> (l, _). Q l" "\<lambda> (l, _). Q l"]) auto
 
-thm bisim_\<psi>.A_B.simulation_reaches bisim_\<psi>.B_A.simulation_reaches A_B.simulation_reaches
-
-term bisim_\<psi>.A.reaches
-
-lemma
-  assumes "canonical (curry (conv_M M)) n" "\<not> check_diag n M" "canonical (curry (conv_M D)) n" "\<not> check_diag n D"
-    "[(curry (conv_M D))]\<^bsub>v,n\<^esub> = [(curry (conv_M M))]\<^bsub>v,n\<^esub>" "valid_dbm (curry (conv_M D))" "valid_dbm (curry (conv_M M))" "i \<le> n" "j \<le> n"
-    "i \<noteq> j"
-  shows "M (i, j) = D (i, j)"
-    oops
-    thm canonical_eq_upto[OF clock_numbering(1) cn_weak]
-
-
-context
-  fixes D\<^sub>0
-  assumes D\<^sub>0_Z\<^sub>0: "[D\<^sub>0]\<^bsub>v,n\<^esub> = Z\<^sub>0" and D\<^sub>0_valid: "valid_dbm D\<^sub>0"
-begin
-
-lemma
-  "(\<exists>x. reaches (l\<^sub>0, Z\<^sub>0) x \<and> P (fst x) \<and> Q (fst x) \<and> (\<exists>a. bisim_\<psi>.A.reaches x a \<and> bisim_\<psi>.A.reaches1 a a))
-  \<longleftrightarrow> (\<exists>x. B.reaches (l\<^sub>0, D\<^sub>0) x \<and> P (fst x) \<and> Q (fst x) \<and> (\<exists>a. bisim_\<psi>.B.reaches x a \<and> bisim_\<psi>.B.reaches1 a a))"
-  apply safe
-   apply (drule A_B.simulation_reaches[where b = "(l\<^sub>0, D\<^sub>0)"])
-      apply (simp add: D\<^sub>0_Z\<^sub>0; fail)+
-    apply (blast intro: D\<^sub>0_valid)
-   apply clarify
-   apply (drule bisim_\<psi>.A_B.simulation_reaches)
-      apply blast
-     apply blast
-    oops
-
-
-end
-
 end (* Context for State Formulae *)
-
-thm A_B.simulation_reaches B_A.simulation_reaches
 
 end (* Context for Global Clock Numbering *)
 
@@ -1604,24 +1392,49 @@ sublocale Graph_Defs "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle
 
 end (* Reachability Problem Defs *)
 
-(* XXX Move *)
-lemma Bisimulation_Invariant_sim_replace:
-  assumes "Bisimulation_Invariant A B sim PA PB"
-      and "\<And> a b. PA a \<Longrightarrow> PB b \<Longrightarrow> sim a b \<longleftrightarrow> sim' a b"
-    shows "Bisimulation_Invariant A B sim' PA PB"
-proof -
-  interpret Bisimulation_Invariant A B sim PA PB
-    by (rule assms(1))
-  show ?thesis
-    apply standard
-    using assms(2) apply (blast dest: A_B_step)
-    using assms(2) apply (blast dest: B_A_step)
-    by blast+
-qed
+
+subsubsection \<open>Misc\<close>
 
 lemma finite_conv_A:
   "finite (trans_of (conv_A A))" if "finite (trans_of A)"
   using that unfolding trans_of_def by (cases A) auto
+
+(* XXX Move *)
+lemma real_of_int_inj:
+  "inj real_of_int"
+  by standard auto
+
+(* XXX Move *)
+lemma map_DBMEntry_real_of_int_inj:
+  "a = b" if "map_DBMEntry real_of_int a = map_DBMEntry real_of_int b"
+proof -
+  have "inj (map_DBMEntry real_of_int)"
+    by (intro DBMEntry.inj_map real_of_int_inj)
+  with that show ?thesis
+    by - (erule injD)
+qed
+
+(* XXX Move *)
+lemma (in -) n_eq_conv_MI:
+  "curry D =\<^sub>n (curry D')" if "curry (conv_M D) =\<^sub>n curry (conv_M D')"
+  using that unfolding n_eq_def by (auto intro: map_DBMEntry_real_of_int_inj)
+
+(* XXX Move? *)
+lemma (in Reachability_Problem) check_diag_conv_M_iff:
+  "check_diag n D \<longleftrightarrow> check_diag n (conv_M D)"
+  using check_diag_conv_M check_diag_conv_M_rev by fast
+
+(* XXX Move *)
+lemma (in Regions) \<R>_regions_distinct:
+  "R = R'" if "u \<in> R" "u \<in> R'" "R \<in> \<R> l" "R' \<in> \<R> l"
+  using that unfolding \<R>_def by clarsimp (rule valid_regions_distinct; auto)
+
+(* XXX Move *)
+lemma step_impl_delay_loc_eq:
+  "l' = l" if "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', D'\<rangle>"
+  using that by cases auto
+
+
 
 context Reachability_Problem
 begin
@@ -1629,10 +1442,169 @@ begin
 sublocale TA: Regions_TA v n "Suc n" "{1..<Suc n}" k "conv_A A"
   by (standard; intro valid_abstraction' finite_conv_A finite_trans_of_finite_state_set finite_trans)
 
+
+subsubsection \<open>@{term init_dbm}\<close>
+
 (* XXX Move *)
-lemma step_impl_delay_loc_eq:
-  "l' = l" if "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', D'\<rangle>"
-  using that by cases auto
+lemma init_dbm_semantics:
+  "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<longleftrightarrow> (\<forall>c\<in>{1..n}. u c = 0)"
+  by (safe elim!: init_dbm_semantics' init_dbm_semantics'')
+
+lemma init_dbm_non_empty:
+  "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<noteq> {}"
+proof -
+  let ?u = "\<lambda> c. 0 :: real"
+  have "?u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>"
+    by (rule init_dbm_semantics'', auto)
+  then show ?thesis by auto
+qed
+
+(* XXX Move *)
+lemma cla_init_dbm_id:
+  "cla l\<^sub>0 ([curry init_dbm]\<^bsub>v,n\<^esub>) = ([curry init_dbm]\<^bsub>v,n\<^esub>)"
+proof -
+  let ?u = "\<lambda> c. 0 :: real"
+  let ?I = "\<lambda> _. Const 0"
+  let ?R = "region X ?I {}"
+  have "valid_region X (k l\<^sub>0) ?I {}"
+    by standard auto
+  then have "?R \<in> \<R> l\<^sub>0"
+    unfolding \<R>_def X_alt_def by blast
+  have region: "u \<in> ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
+    using that unfolding init_dbm_semantics X_def by - (standard; fastforce)
+  have iff: "u \<in> ?R \<longleftrightarrow> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
+    apply standard
+    subgoal
+      unfolding init_dbm_semantics X_def[symmetric]
+      by (auto elim: Regions.intv_elem.cases elim!: Regions.region.cases)
+    by (rule region)
+  have single: "R = ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" "u \<in> R" "R \<in> \<R> l\<^sub>0" for u R
+    using that \<open>?R \<in> \<R> l\<^sub>0\<close> by - (rule \<R>_regions_distinct; auto intro: region)
+  show ?thesis
+    using \<open>?R \<in> _\<close>
+    unfolding cla_def
+    apply safe
+     apply (drule single, assumption+)
+     apply (subst (asm) iff[symmetric], simp; fail)
+    apply (frule region)
+    by auto
+qed
+
+
+subsubsection \<open>@{term dbm_default}\<close>
+
+lemma dbm_default_n_eq_eqI:
+  assumes "dbm_default (curry D) n" "dbm_default (curry D') n" "curry D' =\<^sub>n curry D"
+  shows "D' = D"
+  using assms
+    apply (intro ext)
+      apply safe
+      subgoal for a b
+        by (cases "a \<le> n"; cases "b \<le> n"; simp add: n_eq_def)
+      done
+
+(* XXX Move *)
+lemma E_op''_dbm_default':
+  "dbm_default (curry (E_op'' l r g l' M)) n"
+  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "dbm_default (curry M) n"
+proof -
+  note default_intros =
+    filter_diag_default up_canonical_upd_default reset'_upd_default abstr_repair_default
+  (* XXX Duplication *)
+  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
+  moreover have
+    "\<forall>c\<in>constraint_clk ` set (inv_of A l'). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set g. c \<le> n"
+    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover have "\<forall>i\<in>set r. i \<le> n"
+    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover note side_conds = calculation that(2)
+  let ?M = "
+    filter_diag (\<lambda>M. abstr_repair (inv_of A l') (reset'_upd M n r 0))
+      (filter_diag (abstr_repair g) (abstr_repair (inv_of A l) (up_canonical_upd M n)))"
+  have "dbm_default (curry ?M) n"
+    by (intro default_intros[unfolded collect_clks_def] side_conds)
+  then have "dbm_default (curry (filter_diag (\<lambda>M. FW' (norm_upd M (k' l') n) n) ?M)) n"
+    by - (rule default_intros, intro FW'_default norm_upd_default)
+  then show ?thesis
+    unfolding E_op''_def by (auto simp: Let_def filter_diag_def)
+qed
+
+(* XXX Move *)
+lemma E_op''_dbm_default:
+  assumes
+    "E_op''.E_from_op (l, D) (l', D')"
+    "dbm_default (curry D) n"
+  shows
+    "dbm_default (curry D') n"
+  using assms E_op''_dbm_default' unfolding E_op''.E_from_op_def by auto
+
+
+subsubsection \<open>@{term check_diag}\<close>
+
+(* XXX Move? *)
+lemma canonical_empty_check_diag':
+  assumes "wf_dbm D" "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {}"
+  shows "check_diag n D"
+  apply (rule canonical_empty_check_diag[OF _ assms(2)])
+  using wf_dbm_D(1)[OF assms(1)] unfolding check_diag_def neutral by auto
+
+subsubsection \<open>Stronger invariant on DBMs\<close>
+
+definition
+  "dbm_inv D \<equiv>
+    canonical' (conv_M D) \<and> \<not> check_diag n D \<and> (\<forall>i\<le>n. conv_M D (i, i) \<le> 0)
+    \<and> valid_dbm (curry (conv_M D))
+    \<and> dbm_default (curry D) n"
+
+lemma dbm_inv_equvi_eqI:
+  assumes "dbm_inv D" "dbm_inv D'" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [curry (conv_M D)]\<^bsub>v,n\<^esub>"
+  shows "D = D'"
+proof -
+  from assms have "wf_dbm D" "\<not> check_diag n D"
+    unfolding dbm_inv_def wf_dbm_def by auto
+  then have *: "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<noteq> {}"
+    by (auto dest!: canonical_empty_check_diag')
+  from assms have
+    "curry (conv_M D) =\<^sub>n curry (conv_M D')"
+    apply -
+    apply (rule canonical_eq_upto[OF clock_numbering(1) surj_numbering _ _ * assms(3)[symmetric]])
+    unfolding dbm_inv_def
+       apply (simp; fail)+
+    subgoal
+      unfolding check_diag_conv_M_iff
+      unfolding check_diag_def neutral[symmetric] by fastforce
+    subgoal
+      unfolding check_diag_conv_M_iff
+      unfolding check_diag_def neutral[symmetric] by fastforce
+    done
+  then have "curry D =\<^sub>n curry D'"
+    by (rule n_eq_conv_MI)
+  moreover from assms have "dbm_default (curry D) n" "dbm_default (curry D') n"
+    unfolding dbm_inv_def by simp+
+  ultimately show ?thesis
+    by - (rule dbm_default_n_eq_eqI)
+qed
+
+lemma dbm_invI:
+  "dbm_inv D" if "wf_dbm D" "\<not> check_diag n D" "dbm_default (curry D) n"
+  using that unfolding dbm_inv_def wf_dbm_def by auto
+
+lemma init_dbm_dbm_inv[intro, simp]:
+  "dbm_inv init_dbm"
+proof -
+  have "\<not> check_diag n init_dbm"
+    unfolding init_dbm_def check_diag_def by auto
+  moreover have "dbm_default (curry init_dbm) n"
+    unfolding init_dbm_def neutral by auto
+  ultimately show ?thesis
+    using wf_dbm_init_dbm by - (rule dbm_invI)
+qed
+
+
+subsection \<open>Bridging the semantic gap\<close>
 
 lemma step_impl'_E:
   "(\<lambda> (l, D) (l', D'). \<exists> a. \<langle>l, D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', D'\<rangle>) = E"
@@ -1735,30 +1707,6 @@ next
     by (clarsimp simp: norm_step_wf_dbm step_impl_wf_dbm wf_state_def)
 qed
 
-thm Bisimulation_Invariant_composition[OF
-    step_z_norm''_step_impl'_equiv[unfolded step_impl'_E] E_op''.E_from_op_bisim]
-
-lemma init_dbm_non_empty:
-  "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<noteq> {}"
-proof -
-  let ?u = "\<lambda> c. 0 :: real"
-  have "?u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>"
-    by (rule init_dbm_semantics'', auto)
-  then show ?thesis by auto
-qed
-
-(* XXX Move? *)
-lemma canonical_empty_check_diag':
-  assumes "wf_dbm D" "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {}"
-  shows "check_diag n D"
-  apply (rule canonical_empty_check_diag[OF _ assms(2)])
-  using wf_dbm_D(1)[OF assms(1)] unfolding check_diag_def neutral by auto
-
-(* XXX Move? *)
-lemma check_diag_conv_M_iff:
-  "check_diag n D \<longleftrightarrow> check_diag n (conv_M D)"
-  using check_diag_conv_M check_diag_conv_M_rev by fast
-
 context
   assumes "l\<^sub>0 \<in> state_set A"
 begin
@@ -1779,8 +1727,12 @@ interpretation start:
     by (rule init_dbm_non_empty)
   done
 
-thm Bisimulation_Invariant_composition[OF start.bisim[OF global_clock_numbering']]
-  Bisimulation_Invariant_composition[OF step_z_norm''_step_impl'_equiv[unfolded step_impl'_E] E_op''.E_from_op_bisim]
+lemma start_closure:
+  "\<Union>TA.sim.closure start.a\<^sub>0 = start.a\<^sub>0"
+  using l\<^sub>0_state_set cla_init_dbm_id
+  unfolding start.a\<^sub>0_def TA.sim_closure_from_R
+  unfolding cla_def from_R_def
+  by simp blast
 
 lemma norm_final_bisim:
   "Bisimulation_Invariant
@@ -1826,66 +1778,6 @@ lemma beta_final_bisim_empty:
     )
     (auto dest!: wf_dbm_D(3) simp: wf_state_def)
 
-definition
-  "dbm_inv D \<equiv>
-    canonical' (conv_M D) \<and> \<not> check_diag n D \<and> (\<forall>i\<le>n. conv_M D (i, i) \<le> 0)
-    \<and> valid_dbm (curry (conv_M D))
-    \<and> dbm_default (curry D) n"
-
-lemma dbm_invI:
-  "dbm_inv D" if "wf_dbm D" "\<not> check_diag n D" "dbm_default (curry D) n"
-  using that unfolding dbm_inv_def wf_dbm_def by auto
-
-lemma init_dbm_dbm_inv[intro, simp]:
-  "dbm_inv init_dbm"
-proof -
-  have "\<not> check_diag n init_dbm"
-    unfolding init_dbm_def check_diag_def by auto
-  moreover have "dbm_default (curry init_dbm) n"
-    unfolding init_dbm_def neutral by auto
-  ultimately show ?thesis
-    using wf_dbm_init_dbm by - (rule dbm_invI)
-qed
-
-thm E_op''_FW_norm
-(* XXX Move *)
-lemma E_op''_dbm_default':
-  "dbm_default (curry (E_op'' l r g l' M)) n"
-  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "dbm_default (curry M) n"
-proof -
-  note default_intros =
-    filter_diag_default up_canonical_upd_default reset'_upd_default abstr_repair_default
-  (* XXX Duplication *)
-  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). c \<le> n"
-    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
-  moreover have
-    "\<forall>c\<in>constraint_clk ` set (inv_of A l'). c \<le> n"
-    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
-  moreover have "\<forall>c\<in>constraint_clk ` set g. c \<le> n"
-    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
-  moreover have "\<forall>i\<in>set r. i \<le> n"
-    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
-  moreover note side_conds = calculation that(2)
-  let ?M = "
-    filter_diag (\<lambda>M. abstr_repair (inv_of A l') (reset'_upd M n r 0))
-      (filter_diag (abstr_repair g) (abstr_repair (inv_of A l) (up_canonical_upd M n)))"
-  have "dbm_default (curry ?M) n"
-    by (intro default_intros[unfolded collect_clks_def] side_conds)
-  then have "dbm_default (curry (filter_diag (\<lambda>M. FW' (norm_upd M (k' l') n) n) ?M)) n"
-    by - (rule default_intros, intro FW'_default norm_upd_default)
-  then show ?thesis
-    unfolding E_op''_def by (auto simp: Let_def filter_diag_def)
-qed
-
-(* XXX Move *)
-lemma E_op''_dbm_default:
-  assumes
-    "E_op''.E_from_op (l, D) (l', D')"
-    "dbm_default (curry D) n"
-  shows
-    "dbm_default (curry D') n"
-  using assms E_op''_dbm_default' unfolding E_op''.E_from_op_def by auto
-
 lemma beta_final_bisim_empty_strong:
   "Bisimulation_Invariant
      (\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {})
@@ -1923,65 +1815,6 @@ lemma beta_final_bisim_empty_Q:
       ]
     ) auto
 
-lemma dbm_default_n_eq_eqI:
-  assumes "dbm_default (curry D) n" "dbm_default (curry D') n" "curry D' =\<^sub>n curry D"
-  shows "D' = D"
-  using assms
-    apply (intro ext)
-      apply safe
-      subgoal for a b
-        by (cases "a \<le> n"; cases "b \<le> n"; simp add: n_eq_def)
-      done
-
-(* XXX Move *)
-lemma real_of_int_inj:
-  "inj real_of_int"
-  by standard auto
-
-(* XXX Move *)
-lemma map_DBMEntry_real_of_int_inj:
-  "a = b" if "map_DBMEntry real_of_int a = map_DBMEntry real_of_int b"
-proof -
-  have "inj (map_DBMEntry real_of_int)"
-    by (intro DBMEntry.inj_map real_of_int_inj)
-  with that show ?thesis
-    by - (erule injD)
-qed
-
-(* XXX Move *)
-lemma n_eq_conv_MI:
-  "curry D =\<^sub>n curry D'" if "curry (conv_M D) =\<^sub>n curry (conv_M D')"
-  using that unfolding n_eq_def by (auto intro: map_DBMEntry_real_of_int_inj)
-
-lemma dbm_inv_equvi_eqI:
-  assumes "dbm_inv D" "dbm_inv D'" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [curry (conv_M D)]\<^bsub>v,n\<^esub>"
-  shows "D = D'"
-proof -
-  from assms have "wf_dbm D" "\<not> check_diag n D"
-    unfolding dbm_inv_def wf_dbm_def by auto
-  then have *: "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<noteq> {}"
-    by (auto dest!: canonical_empty_check_diag')
-  from assms have
-    "curry (conv_M D) =\<^sub>n curry (conv_M D')"
-    apply -
-    apply (rule canonical_eq_upto[OF clock_numbering(1) surj_numbering _ _ * assms(3)[symmetric]])
-    unfolding dbm_inv_def
-       apply (simp; fail)+
-    subgoal
-      unfolding check_diag_conv_M_iff
-      unfolding check_diag_def neutral[symmetric] by fastforce
-    subgoal
-      unfolding check_diag_conv_M_iff
-      unfolding check_diag_def neutral[symmetric] by fastforce
-    done
-  then have "curry D =\<^sub>n curry D'"
-    by (rule n_eq_conv_MI)
-  moreover from assms have "dbm_default (curry D) n" "dbm_default (curry D') n"
-    unfolding dbm_inv_def by simp+
-  ultimately show ?thesis
-    by - (rule dbm_default_n_eq_eqI)
-qed
-
 interpretation bisim_Q:
   Bisimulation_Invariant
     "\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {} \<and> Q l'"
@@ -1997,54 +1830,6 @@ interpretation bisims_Q:
     "\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z"
     "\<lambda>_. True" "\<lambda>_. True" "\<lambda> (l, D). dbm_inv D" "\<lambda> (l, D). dbm_inv D"
   by (intro Bisimulation_Invariant_Bisimulation_Invariants beta_final_bisim_empty_Q)
-
-(* XXX Move *)
-lemma init_dbm_semantics:
-  "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<longleftrightarrow> (\<forall>c\<in>{1..n}. u c = 0)"
-  by (safe elim!: init_dbm_semantics' init_dbm_semantics'')
-
-(* XXX Move *)
-lemma \<R>_regions_distinct:
-  "R = R'" if "u \<in> R" "u \<in> R'" "R \<in> \<R> l" "R' \<in> \<R> l"
-  using that unfolding \<R>_def by clarsimp (rule valid_regions_distinct; auto)
-
-(* XXX Move *)
-lemma cla_init_dbm_id:
-  "cla l\<^sub>0 ([curry init_dbm]\<^bsub>v,n\<^esub>) = ([curry init_dbm]\<^bsub>v,n\<^esub>)"
-proof -
-  let ?u = "\<lambda> c. 0 :: real"
-  let ?I = "\<lambda> _. Const 0"
-  let ?R = "region X ?I {}"
-  have "valid_region X (k l\<^sub>0) ?I {}"
-    by standard auto
-  then have "?R \<in> \<R> l\<^sub>0"
-    unfolding \<R>_def X_alt_def by blast
-  have region: "u \<in> ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
-    using that unfolding init_dbm_semantics X_def by - (standard; fastforce)
-  have iff: "u \<in> ?R \<longleftrightarrow> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
-    apply standard
-    subgoal
-      unfolding init_dbm_semantics X_def[symmetric]
-      by (auto elim: Regions.intv_elem.cases elim!: Regions.region.cases)
-    by (rule region)
-  have single: "R = ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" "u \<in> R" "R \<in> \<R> l\<^sub>0" for u R
-    using that \<open>?R \<in> \<R> l\<^sub>0\<close> by - (rule \<R>_regions_distinct; auto intro: region)
-  show ?thesis
-    using \<open>?R \<in> _\<close>
-    unfolding cla_def
-    apply safe
-     apply (drule single, assumption+)
-     apply (subst (asm) iff[symmetric], simp; fail)
-    apply (frule region)
-    by auto
-qed
-
-lemma start_closure:
-  "\<Union>TA.sim.closure start.a\<^sub>0 = start.a\<^sub>0"
-  using l\<^sub>0_state_set cla_init_dbm_id
-  unfolding start.a\<^sub>0_def TA.sim_closure_from_R
-  unfolding cla_def from_R_def
-  by simp blast
 
 (* XXX Why do we need this? *)
 lemma Q_compatible:
@@ -2119,6 +1904,8 @@ lemma leadsto_mc2:
    apply blast
   apply (drule bisims_Q.B_A.reaches1_unique[rotated]; force)
   done
+
+lemmas leadsto_mc = leadsto_mc1[unfolded leadsto_mc2]
 
 end (* No deadlock *)
 

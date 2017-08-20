@@ -1013,19 +1013,6 @@ sublocale A_B: Simulation_Invariants A B "op \<sim>" PA QA PB QB
 sublocale B_A: Simulation_Invariants B A "\<lambda> x y. y \<sim> x" PB QB PA QA
   by standard (blast intro: B_A_step)+
 
-(*
-definition "equiv' \<equiv> \<lambda> a b. a \<sim> b \<and> PA a \<and> PB b"
-
-sublocale bisim: Bisimulation A B equiv'
-  by standard (clarsimp simp add: equiv'_def, frule A_B_step B_A_step, assumption; auto)+
-
-sublocale A_B: Simulation_Invariant A B "op \<sim>" PA PB
-  by (standard; blast intro: A_B_step B_A_step)
-
-sublocale B_A: Simulation_Invariant B A "\<lambda> x y. y \<sim> x" PB PA
-  by (standard; blast intro: A_B_step B_A_step)
-*)
-
 context
   fixes f
   assumes eq[simp]: "a \<sim> b \<longleftrightarrow> b = f a"
@@ -1124,5 +1111,198 @@ qed
 end (* Context for Equality Relation *)
 
 end (* Bisim Invariant *)
+
+lemma Bisimulation_Invariant_composition:
+  assumes
+    "Bisimulation_Invariant A B sim1 PA PB"
+    "Bisimulation_Invariant B C sim2 PB PC"
+  shows
+    "Bisimulation_Invariant A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA PC"
+proof -
+  interpret A: Bisimulation_Invariant A B sim1 PA PB
+    by (rule assms(1))
+  interpret B: Bisimulation_Invariant B C sim2 PB PC
+    by (rule assms(2))
+  show ?thesis
+    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
+qed
+
+lemma Bisimulation_Invariant_filter:
+  assumes
+    "Bisimulation_Invariant A B sim PA PB"
+    "\<And> a b. sim a b \<Longrightarrow> PA a \<Longrightarrow> PB b \<Longrightarrow> FA a \<longleftrightarrow> FB b"
+    "\<And> a b. A a b \<and> FA b \<longleftrightarrow> A' a b"
+    "\<And> a b. B a b \<and> FB b \<longleftrightarrow> B' a b"
+  shows
+    "Bisimulation_Invariant A' B' sim PA PB"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB
+    by (rule assms(1))
+  have unfold:
+    "A' = (\<lambda> a b. A a b \<and> FA b)" "B' = (\<lambda> a b. B a b \<and> FB b)"
+    using assms(3,4) by auto
+  show ?thesis
+    unfolding unfold
+    apply standard
+    using assms(2) apply (blast dest: A_B_step)
+    using assms(2) apply (blast dest: B_A_step)
+    by blast+
+qed
+
+lemma Bisimulation_Invariants_filter:
+  assumes
+    "Bisimulation_Invariants A B sim PA QA PB QB"
+    "\<And> a b. QA a \<Longrightarrow> QB b \<Longrightarrow> FA a \<longleftrightarrow> FB b"
+    "\<And> a b. A a b \<and> FA b \<longleftrightarrow> A' a b"
+    "\<And> a b. B a b \<and> FB b \<longleftrightarrow> B' a b"
+  shows
+    "Bisimulation_Invariants A' B' sim PA QA PB QB"
+proof -
+  interpret Bisimulation_Invariants A B sim PA QA PB QB
+    by (rule assms(1))
+  have unfold:
+    "A' = (\<lambda> a b. A a b \<and> FA b)" "B' = (\<lambda> a b. B a b \<and> FB b)"
+    using assms(3,4) by auto
+  show ?thesis
+    unfolding unfold
+    apply standard
+    using assms(2) apply (blast dest: A_B_step)
+    using assms(2) apply (blast dest: B_A_step)
+    by blast+
+qed
+
+lemma Bisimulation_Invariants_composition:
+  assumes
+    "Bisimulation_Invariants A B sim1 PA QA PB QB"
+    "Bisimulation_Invariants B C sim2 PB QB PC QC"
+  shows
+    "Bisimulation_Invariants A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA QA PC QC"
+proof -
+  interpret A: Bisimulation_Invariants A B sim1 PA QA PB QB
+    by (rule assms(1))
+  interpret B: Bisimulation_Invariants B C sim2 PB QB PC QC
+    by (rule assms(2))
+  show ?thesis
+    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
+qed
+
+lemma Bisimulation_Invariant_Invariants_composition:
+  assumes
+    "Bisimulation_Invariant A B sim1 PA PB"
+    "Bisimulation_Invariants B C sim2 PB QB PC QC"
+  shows
+    "Bisimulation_Invariants A C (\<lambda> a c. \<exists> b. PB b \<and> sim1 a b \<and> sim2 b c) PA PA PC QC"
+proof -
+  interpret Bisimulation_Invariant A B sim1 PA PB
+    by (rule assms(1))
+  interpret B: Bisimulation_Invariants B C sim2 PB QB PC QC
+    by (rule assms(2))
+  interpret A: Bisimulation_Invariants A B sim1 PA PA PB QB
+    by (standard; blast intro: A_B_step B_A_step)+
+  show ?thesis
+    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
+qed
+
+lemma Bisimulation_Invariant_Bisimulation_Invariants:
+  assumes "Bisimulation_Invariant A B sim PA PB"
+  shows "Bisimulation_Invariants A B sim PA PA PB PB"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step B_A_step)
+qed
+
+lemma Bisimulation_Invariant_strengthen_post:
+  assumes
+    "Bisimulation_Invariant A B sim PA PB"
+    "\<And> a b. PA' a \<Longrightarrow> PA b \<Longrightarrow> A a b \<Longrightarrow> PA' b"
+    "\<And> a. PA' a \<Longrightarrow> PA a"
+  shows "Bisimulation_Invariant A B sim PA' PB"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step B_A_step assms)
+qed
+
+lemma Bisimulation_Invariant_strengthen_post':
+  assumes
+    "Bisimulation_Invariant A B sim PA PB"
+    "\<And> a b. PB' a \<Longrightarrow> PB b \<Longrightarrow> B a b \<Longrightarrow> PB' b"
+    "\<And> a. PB' a \<Longrightarrow> PB a"
+  shows "Bisimulation_Invariant A B sim PA PB'"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step B_A_step assms)
+qed
+
+lemma Simulation_Invariant_strengthen_post:
+  assumes
+    "Simulation_Invariant A B sim PA PB"
+    "\<And> a b. PA a \<Longrightarrow> PA b \<Longrightarrow> A a b \<Longrightarrow> PA' b"
+    "\<And> a. PA' a \<Longrightarrow> PA a"
+  shows "Simulation_Invariant A B sim PA' PB"
+proof -
+  interpret Simulation_Invariant A B sim PA PB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step assms)
+qed
+
+lemma Simulation_Invariant_strengthen_post':
+  assumes
+    "Simulation_Invariant A B sim PA PB"
+    "\<And> a b. PB a \<Longrightarrow> PB b \<Longrightarrow> B a b \<Longrightarrow> PB' b"
+    "\<And> a. PB' a \<Longrightarrow> PB a"
+  shows "Simulation_Invariant A B sim PA PB'"
+proof -
+  interpret Simulation_Invariant A B sim PA PB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step assms)
+qed
+
+lemma Simulation_Invariants_strengthen_post:
+  assumes
+    "Simulation_Invariants A B sim PA QA PB QB"
+    "\<And> a b. PA a \<Longrightarrow> QA b \<Longrightarrow> A a b \<Longrightarrow> QA' b"
+    "\<And> a. QA' a \<Longrightarrow> QA a"
+  shows "Simulation_Invariants A B sim PA QA' PB QB"
+proof -
+  interpret Simulation_Invariants A B sim PA QA PB QB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step assms)
+qed
+
+lemma Simulation_Invariants_strengthen_post':
+  assumes
+    "Simulation_Invariants A B sim PA QA PB QB"
+    "\<And> a b. PB a \<Longrightarrow> QB b \<Longrightarrow> B a b \<Longrightarrow> QB' b"
+    "\<And> a. QB' a \<Longrightarrow> QB a"
+  shows "Simulation_Invariants A B sim PA QA PB QB'"
+proof -
+  interpret Simulation_Invariants A B sim PA QA PB QB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step assms)
+qed
+
+lemma Bisimulation_Invariant_sim_replace:
+  assumes "Bisimulation_Invariant A B sim PA PB"
+      and "\<And> a b. PA a \<Longrightarrow> PB b \<Longrightarrow> sim a b \<longleftrightarrow> sim' a b"
+    shows "Bisimulation_Invariant A B sim' PA PB"
+proof -
+  interpret Bisimulation_Invariant A B sim PA PB
+    by (rule assms(1))
+  show ?thesis
+    apply standard
+    using assms(2) apply (blast dest: A_B_step)
+    using assms(2) apply (blast dest: B_A_step)
+    by blast+
+qed
 
 end (* Theory *)
