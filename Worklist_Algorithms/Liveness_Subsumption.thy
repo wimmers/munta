@@ -46,8 +46,10 @@ definition liveness_compatible where "liveness_compatible P \<equiv>
 
 definition "dfs_spec \<equiv>
   SPEC (\<lambda> (r, P).
-    r \<longrightarrow> (\<exists> x. x \<rightarrow>\<^sup>+ x) \<and> \<not> r \<longrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)
-  \<and> liveness_compatible P \<and> P \<subseteq> {x. V x}
+    (r \<longrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x))
+  \<and> (\<not> r \<longrightarrow> \<not> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)
+      \<and> liveness_compatible P \<and> P \<subseteq> {x. V x}
+    )
   )"
 
 end (* Search Space Defs *)
@@ -221,11 +223,9 @@ lemma liveness_compatible_inv:
     apply (subst (asm) liveness_compatible_def, meson; fail)
   by (blast intro: liveness_compatible_extend liveness_compatible_extend')+
 
-(* Obsolete *)
 interpretation subsumption: Subsumption_Graph_Pre_Nodes "op \<preceq>" "op \<prec>" E a\<^sub>0
   by standard (drule mono, auto simp: Subgraph_Node_Defs.E'_def)
 
-(* Obsolete *)
 lemma pre_cycle_cycle:
   "(\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x') \<longleftrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)"
   by (meson G.E'_def G.G'.reaches1_reaches_iff1 subsumption.pre_cycle_cycle_reachable finite_V)
@@ -243,7 +243,7 @@ proof -
     "
 
   define rpost where "rpost \<equiv> \<lambda>(P,ST,v) (P',ST',r).
-    (r \<longrightarrow> (\<exists> x x'. x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
+    (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
     (\<not> r \<longrightarrow>
       P \<subseteq> P'
       \<and> P' \<subseteq> {x. V x}
@@ -256,7 +256,7 @@ proof -
       "
 
   define inv where "inv \<equiv> \<lambda> P ST v it (P', ST', r).
-    (r \<longrightarrow> (\<exists> x x'. x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
+    (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
     (\<not> r \<longrightarrow>
         P \<subseteq> P'
       \<and> P' \<subseteq> {x. V x}
@@ -303,7 +303,7 @@ proof -
     (* The postcondition establishes the specification *)
     subgoal
       apply refine_vcg
-      unfolding rpost_def
+      unfolding rpost_def pre_cycle_cycle
       including graph_automation
       by (auto dest: liveness_compatible_cycle_start)
 
