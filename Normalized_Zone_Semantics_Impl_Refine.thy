@@ -320,6 +320,8 @@ begin
   context
   begin
 
+  notation fun_rel_syn (infixr "\<rightarrow>" 60)
+
   lemma [sepref_import_param]:
     "(op =, op =) \<in> location_rel \<rightarrow> location_rel \<rightarrow> Id"
     by auto
