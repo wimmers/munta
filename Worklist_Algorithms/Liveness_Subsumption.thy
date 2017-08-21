@@ -380,4 +380,6 @@ qed
 
 end (* Search Space Finite Strict *)
 
+end (* Assumption on empty *)
+
 end (* Theory *)
