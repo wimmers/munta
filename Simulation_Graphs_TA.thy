@@ -1836,14 +1836,6 @@ lemma Q_compatible:
   "start.\<phi> Q x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> TA.P1 a \<Longrightarrow> start.\<phi> Q y" for x
   unfolding start.\<phi>_def by (auto dest: TA.P1_fst)
 
-context
-  assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
-begin
-
-lemma no_deadlock':
-  "\<forall>x\<^sub>0\<in>start.a\<^sub>0. \<not> TA.sim.deadlock x\<^sub>0"
-  unfolding TA.C_def start.a\<^sub>0_def from_R_def using no_deadlock by (auto dest: init_dbm_semantics')
-
 (* XXX Clean *)
 lemma \<psi>_def:
   "start.\<psi> Q = Q \<circ> fst"
@@ -1860,16 +1852,6 @@ proof -
     unfolding TA.C_def start.a\<^sub>0_def from_R_def init_dbm_semantics start.\<phi>_def \<psi>_def comp_def unfold
     by auto
 qed
-
-lemma leadsto_mc1:
-  "(\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> leadsto (\<lambda> (l, u). P l) (\<lambda> (l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0)) =
-   (\<nexists>x. TA.reaches (l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>) x \<and>
-       P (fst x) \<and>
-       Q (fst x) \<and>
-       (\<exists>a. (\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>*\<^sup>* x a \<and>
-            (\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>+\<^sup>+ a a))"
-  unfolding leadsto_sem_equiv[symmetric]
-  by (rule start.leadsto_mc1[OF start_closure Q_compatible no_deadlock', unfolded TA.C_def])
 
 lemma leadsto_mc2:
   "(\<exists>x.
@@ -1905,6 +1887,24 @@ lemma leadsto_mc2:
   apply (drule bisims_Q.B_A.reaches1_unique[rotated]; force)
   done
 
+context
+  assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
+begin
+
+lemma no_deadlock':
+  "\<forall>x\<^sub>0\<in>start.a\<^sub>0. \<not> TA.sim.deadlock x\<^sub>0"
+  unfolding TA.C_def start.a\<^sub>0_def from_R_def using no_deadlock by (auto dest: init_dbm_semantics')
+
+lemma leadsto_mc1:
+  "(\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> leadsto (\<lambda> (l, u). P l) (\<lambda> (l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0)) =
+   (\<nexists>x. TA.reaches (l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>) x \<and>
+       P (fst x) \<and>
+       Q (fst x) \<and>
+       (\<exists>a. (\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>*\<^sup>* x a \<and>
+            (\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>+\<^sup>+ a a))"
+  unfolding leadsto_sem_equiv[symmetric]
+  by (rule start.leadsto_mc1[OF start_closure Q_compatible no_deadlock', unfolded TA.C_def])
+
 lemmas leadsto_mc = leadsto_mc1[unfolded leadsto_mc2]
 
 end (* No deadlock *)
@@ -1914,5 +1914,16 @@ end (* State properties *)
 end (* Start State *)
 
 end (* Reachability Problem *)
+
+context Reachability_Problem_precompiled
+begin
+
+lemma start_in_state_set:
+  "0 \<in> state_set A"
+  unfolding state_set_def A_def T_def using n_gt_0 start_has_trans by fastforce
+
+thm leadsto_mc[OF start_in_state_set]
+
+end (* Reachability Problem precompiled *)
 
 end (* Theory *)
