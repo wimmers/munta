@@ -161,40 +161,40 @@ context Worklist1
 begin
 
 lemma add_succ1_ref[refine]:
-    "add_succ1 wait a \<le> \<Down>(Id \<times>\<^sub>r bool_rel) (add_succ_spec_list wait' a')"
-    if "(wait,wait')\<in>Id" "(a,a')\<in>b_rel Id reachable" "\<forall> x \<in> set wait'. \<not> empty x"
-    using that
-    apply simp
-    unfolding add_succ_spec_list_def add_succ1_def
-    apply (refine_vcg nfoldli_rule[where I =
-          "\<lambda>l1 _ (wait',brk).
+  "add_succ1 wait a \<le> \<Down>(Id \<times>\<^sub>r bool_rel) (add_succ_spec_list wait' a')"
+  if "(wait,wait')\<in>Id" "(a,a')\<in>b_rel Id reachable" "\<forall> x \<in> set wait'. \<not> empty x"
+  using that
+  apply simp
+  unfolding add_succ_spec_list_def add_succ1_def
+  apply (refine_vcg nfoldli_rule[where I =
+        "\<lambda>l1 _ (wait',brk).
             (if brk then \<exists>a'. E a a' \<and> F a'
             else set wait' \<subseteq> set wait \<union> set l1 \<and> set l1 \<inter> Collect F = {}
               \<and> (\<forall> x \<in> set wait \<union> set l1. \<not> empty x \<longrightarrow> (\<exists> x' \<in> set wait'. x \<preceq> x')))
             \<and> (\<forall> x \<in> set wait'. \<not> empty x)"]
-          )
-              apply (auto; fail)
-             apply (auto; fail)
-    using succs_correct[of a] apply (auto; fail)
-    using succs_correct apply fastforce
-          apply (auto; fail)
-    subgoal
-      apply (clarsimp split: if_split_asm)
-       apply rule
-        apply blast
-       apply rule
-        apply blast
-       apply (meson empty_mono local.trans)
-      apply rule
-       apply blast
-      apply (meson empty_mono local.trans)
-      done
-        apply (auto split: if_split_asm; fail)
-       apply (auto; fail)
-      apply (auto; fail)
-    using succs_correct[of a] apply (auto; fail)
-    apply (auto; fail)
+        )
+            apply (auto; fail)
+           apply (auto; fail)
+          using succs_correct[of a] apply (auto; fail)
+         using succs_correct[of a] apply (auto; fail)
+        apply (auto; fail)
+  subgoal
+    apply (clarsimp split: if_split_asm)
+     apply rule
+      apply blast
+     apply rule
+      apply blast
+     apply (meson empty_mono local.trans)
+    apply rule
+     apply blast
+    apply (meson empty_mono local.trans)
     done
+      apply (auto split: if_split_asm; fail)
+     apply (auto; fail)
+    apply (auto; fail)
+  using succs_correct[of a] apply (auto; fail)
+  apply (auto; fail)
+  done
 
 end
 
@@ -387,7 +387,6 @@ begin
     also note worklist_algo1_ref
     finally show ?thesis .
   qed
-
 end -- \<open>Worklist3\<close>
 
 end -- \<open>Theory\<close>
