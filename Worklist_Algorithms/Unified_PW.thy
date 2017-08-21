@@ -455,8 +455,11 @@ end -- \<open>Search Space\<close>
 
 theorem (in Search_Space'_finite) pw_algo_correct:
   "pw_algo \<le> SPEC (\<lambda> (brk, passed).
-    (brk \<longleftrightarrow> F_reachable) \<and> (\<not> brk \<longrightarrow> (\<forall> a. reachable a \<and> \<not> empty a \<longrightarrow> (\<exists> b \<in> passed. a \<preceq> b)))
-  )"
+    (brk \<longleftrightarrow> F_reachable)
+  \<and> (\<not> brk \<longrightarrow>
+      (\<forall> a. reachable a \<and> \<not> empty a \<longrightarrow> (\<exists> b \<in> passed. a \<preceq> b))
+    \<and> passed \<subseteq> {a. reachable a \<and> \<not> empty a})
+    )"
 proof -
   note [simp] = size_Diff_submset pred_not_lt_is_zero
   note [dest] = set_mset_mp
@@ -466,6 +469,10 @@ proof -
       (* F a\<^sub>0*)
              apply (auto; fail)
       (* empty a\<^sub>0 *)
+            subgoal
+              using empty_E_star final_non_empty unfolding reachable_def by auto
+            subgoal
+              using empty_E_star final_non_empty unfolding reachable_def by auto
             subgoal
               using empty_E_star final_non_empty unfolding reachable_def by auto
             subgoal
