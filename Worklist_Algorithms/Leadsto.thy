@@ -179,11 +179,7 @@ definition
     (\<exists> b. (\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y)\<^sup>*\<^sup>* a b \<and> (\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y)\<^sup>+\<^sup>+ b b)"
 
 definition leadsto_spec where
-  "leadsto_spec =
-    SPEC (\<lambda> r.
-      r \<longleftrightarrow>
-      (\<exists> a. A.reachable a \<and> \<not> empty a \<and> P a \<and> Q a \<and> reaches_cycle a)
-    )"
+  "leadsto_spec = SPEC (\<lambda> r. r \<longleftrightarrow> (\<exists> a. A.reachable a \<and> \<not> empty a \<and> P a \<and> Q a \<and> reaches_cycle a))"
 
 lemma
   "leadsto \<le> leadsto_spec"
@@ -361,6 +357,40 @@ proof -
           done
         done
     qed
+
+definition leadsto_spec_alt where
+  "leadsto_spec_alt =
+    SPEC (\<lambda> r.
+      r \<longleftrightarrow>
+      (\<exists> a. (\<lambda> x y. E x y \<and> \<not> empty y)\<^sup>*\<^sup>* a\<^sub>0 a \<and> \<not> empty a \<and> P a \<and> Q a \<and> reaches_cycle a)
+    )"
+
+lemma E_reaches_non_empty:
+  "(\<lambda> x y. E x y \<and> \<not> empty y)\<^sup>*\<^sup>* a b" if "a \<rightarrow>* b" "A.reachable a" "\<not> empty b" for a b
+  using that
+proof induction
+  case base
+  then show ?case by blast
+next
+  case (step y z)
+  from \<open>a \<rightarrow>* y\<close> \<open>A.reachable a\<close> have "A.reachable y"
+    by - (rule A.reachable_reaches)
+  have "\<not> empty y"
+  proof (rule ccontr, simp)
+    assume "empty y"
+    from A.empty_E[OF \<open>A.reachable y\<close> \<open>empty y\<close> \<open>E y z\<close>] \<open>\<not> empty z\<close> show False by blast
+  qed
+  with step show ?case
+    by (auto intro: rtranclp.intros(2))
+qed
+
+lemma leadsto_spec_leadsto_spec_alt:
+  "leadsto_spec \<le> leadsto_spec_alt"
+  unfolding leadsto_spec_def leadsto_spec_alt_def
+  by (auto
+      intro: Subgraph.intro Subgraph.reaches[rotated] E_reaches_non_empty[OF _ A.start_reachable]
+      simp: A.reachable_def
+     )
 
 end (* Leadsto Search Space *)
 
