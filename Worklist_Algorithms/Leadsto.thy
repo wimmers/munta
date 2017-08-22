@@ -2,6 +2,127 @@ theory Leadsto
   imports Liveness_Subsumption Unified_PW "../library/CTL"
 begin
 
+(* XXX Move *)
+lemma (in Subgraph) reaches:
+  "G.reaches a b" if "G'.reaches a b"
+  using that by induction (auto intro: rtranclp.intros(2))
+
+(* XXX Move *)
+lemma (in Subgraph) reaches1:
+  "G.reaches1 a b" if "G'.reaches1 a b"
+  using that by induction (auto intro: tranclp.intros(2))
+
+context Subsumption_Graph_Pre_Nodes
+begin
+
+context
+  assumes finite_V: "finite {x. V x}"
+begin
+
+  (* XXX Duplication *)
+lemma steps_cycle_mono:
+  assumes "G'.steps (x # ws @ y # xs @ [y])" "x \<preceq> x'" "V x" "V x'"
+  shows "\<exists> y' xs' ys'. y \<preceq> y' \<and> G'.steps (x' # xs' @ y' # ys' @ [y'])"
+proof -
+  let ?n  = "card {x. V x} + 1"
+  let ?xs = "y # concat (replicate ?n (xs @ [y]))"
+  from assms(1) have "G'.steps (x # ws @ [y])" "G'.steps (y # xs @ [y])"
+    by (auto intro: Graph_Start_Defs.graphI_aggressive2)
+  with G'.steps_replicate[of "y # xs @ [y]" ?n] have "G'.steps ?xs"
+    by auto
+  from steps_mono[OF \<open>G'.steps (x # ws @ [y])\<close> \<open>x \<preceq> x'\<close> \<open>V x\<close> \<open>V x'\<close>] obtain ys where
+    "G'.steps (x' # ys)" "list_all2 op \<preceq> (ws @ [y]) ys"
+    by auto
+  then obtain y' ws' where "G'.steps (x' # ws' @ [y'])" "y \<preceq> y'"
+    unfolding list_all2_append1 list_all2_Cons1 by auto
+  with \<open>G'.steps (x # ws @ [y])\<close> have "V y" "V y'"
+    subgoal
+      using G'_steps_V_last assms(3) by fastforce
+    using G'_steps_V_last \<open>G'.steps (x' # ws' @ [y'])\<close> assms(4) by fastforce
+  with steps_mono[OF \<open>G'.steps ?xs\<close> \<open>y \<preceq> y'\<close>] obtain ys where ys:
+    "list_all2 op \<preceq> (concat (replicate ?n (xs @ [y]))) ys" "G'.steps (y' # ys)"
+    by auto
+  let ?ys = "filter (op \<preceq> y) ys"
+  have "length ?ys \<ge> ?n"
+    using list_all2_replicate_elem_filter[OF ys(1), of y]
+    by auto
+  have "set ?ys \<subseteq> set ys"
+    by auto
+  also have "\<dots> \<subseteq> {x. V x}"
+    using \<open>G'.steps (y' # _)\<close> \<open>V y'\<close> by (auto simp: list_all_iff dest: G'_steps_V_all)
+  finally have "\<not> distinct ?ys"
+    using distinct_card[of ?ys] \<open>_ >= ?n\<close>
+    by - (rule ccontr; drule distinct_length_le[OF finite_V]; simp)
+  from not_distinct_decomp[OF this] obtain as y'' bs cs where "?ys = as @ [y''] @ bs @ [y''] @ cs"
+    by auto
+  then obtain as' bs' cs' where
+    "ys = as' @ [y''] @ bs' @ [y''] @ cs'"
+    apply atomize_elim
+    apply simp
+    apply (drule filter_eq_appendD filter_eq_ConsD filter_eq_appendD[OF sym], clarify)+
+    apply clarsimp
+    subgoal for as1 as2 bs1 bs2 cs'
+      by (inst_existentials "as1 @ as2" "bs1 @ bs2") simp
+    done
+  from \<open>G'.steps (y' # _)\<close> have "G'.steps (y' # as' @ y'' # bs' @ [y''])"
+    unfolding \<open>ys = _\<close> by (force intro: Graph_Start_Defs.graphI_aggressive2)
+  moreover from \<open>?ys = _\<close> have "y \<preceq> y''"
+  proof -
+    from \<open>?ys = _\<close> have "y'' \<in> set ?ys" by auto
+    then show ?thesis by auto
+  qed
+  ultimately show ?thesis
+    using \<open>G'.steps (x' # ws' @ [y'])\<close>
+    by (inst_existentials y'' "ws' @ y' # as'" bs';
+        fastforce intro: Graph_Start_Defs.graphI_aggressive1
+        )
+qed
+
+lemma reaches_cycle_mono:
+  assumes "G'.reaches x y" "y \<rightarrow>\<^sup>+ y" "x \<preceq> x'" "V x" "V x'"
+  shows "\<exists> y'. y \<preceq> y' \<and> G'.reaches x' y' \<and> y' \<rightarrow>\<^sup>+ y'"
+proof -
+  from assms obtain xs ys where "G'.steps (x # xs)" "y = last (x # xs)" "G'.steps (y # ys @ [y])"
+    apply atomize_elim
+    including reaches_steps_iff
+    apply safe
+    subgoal for xs xs'
+      by (inst_existentials "tl xs" xs') auto
+    done
+  then obtain ws where "G'.steps (x # ws @ y # ys @ [y])"
+    apply atomize_elim
+    apply (cases xs)
+     apply (inst_existentials ys)
+     apply simp
+      apply rotate_tac
+     apply (rule G'.steps_append', assumption+, simp+)
+    apply auto
+     apply (inst_existentials "[] :: 'a list")
+     apply (auto dest: G'.steps_append; fail)
+    apply (drule G'.steps_append)
+      apply assumption
+     apply simp
+    apply simp
+    proof -
+      fix a :: 'a and list :: "'a list"
+      assume a1: "G'.steps (x # a # list @ ys @ [last list])"
+      assume "list \<noteq> []"
+      then have "butlast (a # list) @ [last list] = a # list"
+        by (metis (no_types) append_butlast_last_id last_ConsR list.simps(3))
+      then show "\<exists>as. G'.steps (x # as @ last list # ys @ [last list])"
+        using a1 by (metis (no_types) Cons_eq_appendI append.assoc self_append_conv2)
+    qed
+    from steps_cycle_mono[OF this \<open>x \<preceq> x'\<close> \<open>V x\<close> \<open>V x'\<close>] guess y' xs' ys' by safe
+    then have "G'.steps (x' # xs' @ [y'])" "G'.steps (y' # ys' @ [y'])"
+      by (force intro: Graph_Start_Defs.graphI_aggressive2)+
+    with \<open>y \<preceq> y'\<close> show ?thesis
+      including reaches_steps_iff by force
+  qed
+
+end (* Finite subgraph *)
+
+end (* Subsumption Graph Pre Nodes *)
+
 locale Leadsto_Search_Space =
   A: Search_Space'_finite E a\<^sub>0 _ "op \<preceq>" empty
   for E a\<^sub>0 Q_any empty V_any and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50)
@@ -9,15 +130,7 @@ locale Leadsto_Search_Space =
   fixes P Q :: "'a \<Rightarrow> bool"
   assumes P_mono: "a \<preceq> a' \<Longrightarrow> P a \<Longrightarrow> P a'"
   assumes Q_mono: "a \<preceq> a' \<Longrightarrow> Q a \<Longrightarrow> Q a'"
-  (*
-  B: Search_Space_Nodes B a\<^sub>0 _ "op \<preceq>" V_any empty
-  for A B a\<^sub>0 P Q_any empty V_any and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50)
-  *)
 begin
-
-term A.pw_algo
-
-term FOREACHc
 
 interpretation A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty
   apply standard
@@ -61,8 +174,6 @@ definition leadsto :: "bool nres" where
     RETURN r
   }"
 
-thm A'.pw_algo_correct
-
 definition
   "reaches_cycle a =
     (\<exists> b. (\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y)\<^sup>*\<^sup>* a b \<and> (\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y)\<^sup>+\<^sup>+ b b)"
@@ -71,7 +182,7 @@ definition leadsto_spec where
   "leadsto_spec =
     SPEC (\<lambda> r.
       r \<longleftrightarrow>
-      (\<exists> a. A.reachable a \<and> P a \<and> Q a \<and> reaches_cycle a)
+      (\<exists> a. A.reachable a \<and> \<not> empty a \<and> P a \<and> Q a \<and> reaches_cycle a)
     )"
 
 lemma
@@ -91,25 +202,106 @@ proof -
     "\<not> A'.F_reachable"
     unfolding A'.F_reachable_def by simp
 
+  have B_reaches_empty:
+    "\<not> empty b" if "\<not> empty a" "B.reaches a b" for a b
+    using that(2,1)by induction auto
+
+  interpret Subgraph_Start E a\<^sub>0 "\<lambda> a x. E a x \<and> Q x \<and> \<not> empty x"
+    by standard auto
+
+  have B_A_reaches:
+    "A.reaches a b" if "B.reaches a b" for a b
+    using that by (rule reaches)
+
+  have reaches_iff: "B.reaches a x \<longleftrightarrow> B.G.G'.reaches a x"
+    if "A.reachable a" "\<not> empty a" for a x
+    unfolding reaches_cycle_def thm B.G.E'_def
+    apply standard
+    using that
+      apply (rotate_tac 3)
+     apply (induction rule: rtranclp.induct)
+      apply blast
+     apply rule
+      apply assumption
+     apply (subst B.G.E'_def)
+    subgoal for a b c
+      by (auto dest: B_reaches_empty)
+    subgoal
+      by (rule B.G.reaches)
+    done
+
+  have reaches1_iff: "B.reaches1 a x \<longleftrightarrow> B.G.G'.reaches1 a x"
+    if "A.reachable a" "\<not> empty a" for a x
+    unfolding reaches_cycle_def
+    apply standard
+    subgoal
+      using that
+        apply (rotate_tac 3)
+      apply (induction rule: tranclp.induct)
+       apply (rule tranclp.intros(1), auto simp: B.G.E'_def; fail)
+      apply (
+          rule tranclp.intros(2);
+          auto 4 3 simp: B.G.E'_def dest:B_reaches_empty tranclp_into_rtranclp
+          )
+      done
+    subgoal
+      by (rule B.G.reaches1)
+    done
+
   have reaches_cycle_iff: "reaches_cycle a \<longleftrightarrow> (\<exists>x. B.G.G'.reaches a x \<and> B.G.G'.reaches1 x x)"
     if "A.reachable a" "\<not> empty a" for a
-    unfolding reaches_cycle_def thm B.G.E'_def
-    sorry
+    unfolding reaches_cycle_def
+    apply (subst reaches_iff[OF that])
+    using reaches1_iff B.G.G'_reaches_V that by blast
 
   have aux1:
-    "(\<forall>a\<in>{x. A.reachable x \<and> P x \<and> Q x}. \<not> reaches_cycle a)"
+    "\<not> reaches_cycle x"
     if
       "\<forall>a. A.reachable a \<and> \<not> empty a \<longrightarrow> (\<exists>x\<in>passed. a \<preceq> x)"
       "passed \<subseteq> {a. A.reachable a \<and> \<not> empty a}"
       "\<forall>x \<in> passed. P x \<and> Q x \<longrightarrow> \<not> reaches_cycle x"
-    for passed
-    sorry
+      "A.reachable x" "\<not> empty x" "P x" "Q x"
+    for x passed
+  proof (rule ccontr, simp)
+    assume "reaches_cycle x"
+    from that obtain x' where "x' \<in> passed" "x \<preceq> x'"
+      by auto
+    with that have "P x'" "Q x'"
+      by (auto intro: P_mono Q_mono)
+    with \<open>x' \<in> passed\<close> that(3) have "\<not> reaches_cycle x'"
+      by auto
+    have "A.reachable x'" "\<not> empty x'"
+      using \<open>x' \<in> passed\<close> that(2) A.empty_mono \<open>x \<preceq> x'\<close> that(5) by auto
+    note reaches_cycle_iff' = reaches_cycle_iff[OF this] reaches_iff[OF this] reaches1_iff[OF this]
+    from \<open>reaches_cycle x\<close> guess y unfolding reaches_cycle_def
+      by safe
+    interpret
+      Subsumption_Graph_Pre_Nodes
+        "op \<preceq>" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0
+        "\<lambda> x. A.reachable x \<and> \<not> empty x"
+      by standard (rule B.mono[simplified]; assumption)
+    from \<open>B.reaches x y\<close> \<open>x \<preceq> x'\<close> \<open>B.reaches1 y y\<close> reaches_cycle_mono[OF B.finite_V] obtain y' where
+      "y \<preceq> y'" "B.G.G'.reaches x' y'" "B.G.G'.reaches1 y' y'"
+      apply atomize_elim
+      apply (subst (asm) reaches_iff[rotated 2])
+        defer
+        defer
+        apply (subst (asm) reaches1_iff)
+          defer
+          defer
+      using \<open>A.reachable x\<close> \<open>\<not> empty x\<close> \<open>A.reachable x'\<close> \<open>\<not> empty x'\<close> \<open>B.reaches1 y y\<close>
+      by (auto simp: B.reaches1_reaches_iff2 dest!: B.G.G'_reaches_V)
+    with \<open>A.reachable x'\<close> \<open>\<not> empty x'\<close> have "reaches_cycle x'"
+      unfolding reaches_cycle_iff'
+      by auto
+    with \<open>\<not> reaches_cycle x'\<close> show False ..
+  qed
+
 
   show ?thesis
     unfolding leadsto_def leadsto_spec_def
     apply (refine_rcg refine_vcg)
       subgoal for _ r passed
-      thm FOREACHc_rule'
       apply (refine_vcg
             FOREACHc_rule'[where I = "inv {x \<in> passed. P x \<and> Q x}"]
             )
@@ -129,7 +321,8 @@ proof -
           proof -
             interpret B':
               Search_Space_Nodes_finite_strict
-              "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False"
+              "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
+              "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False"
               ..
             from \<open>inv _ _ _\<close> have
               "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"
@@ -160,7 +353,7 @@ proof -
 
           (* I \<and> \<not> b \<longrightarrow> post *)
           subgoal for \<sigma> a b
-            unfolding inv_def by (auto dest: aux1)
+            unfolding inv_def by (auto dest!: aux1)
 
           (* I \<and> b \<longrightarrow> post *)
           subgoal for it \<sigma> a b
