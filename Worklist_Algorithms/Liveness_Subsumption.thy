@@ -26,7 +26,7 @@ definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
         if \<exists> v' \<in> P. v \<preceq> v' then
           RETURN (P, ST, False)
         else do {
-            let ST=insert v ST;
+            let ST = insert v ST;
             (P, ST, r) \<leftarrow>
               FOREACH\<^sub>C {v' . v \<rightarrow> v'} (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
             let ST = ST - {v};
