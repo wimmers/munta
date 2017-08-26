@@ -16,7 +16,7 @@ no_notation reaches1 ("_ \<rightarrow>\<^sup>+ _" [100, 100] 40)
 notation G.G'.reaches1 ("_ \<rightarrow>\<^sup>+ _" [100, 100] 40)
 
 text \<open>Plain set membership is also an option.\<close>
-definition "check_loop v ST = (\<exists> v' \<in> ST. v' \<preceq> v)"
+definition "check_loop v ST = (\<exists> v' \<in> set ST. v' \<preceq> v)"
 
 definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
   "dfs P \<equiv> do {
@@ -26,15 +26,15 @@ definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
         if \<exists> v' \<in> P. v \<preceq> v' then
           RETURN (P, ST, False)
         else do {
-            let ST = insert v ST;
+            let ST = v # ST;
             (P, ST, r) \<leftarrow>
               FOREACH\<^sub>C {v' . v \<rightarrow> v'} (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
-            let ST = ST - {v};
+            let ST = tl ST;
             let P = insert v P;
             RETURN (P, ST, r)
           }
       }
-    ) (P,{},a\<^sub>0);
+    ) (P,[],a\<^sub>0);
     RETURN (r, P)
   }"
 
@@ -60,10 +60,10 @@ locale Search_Space_Nodes_finite_strict = Search_Space_Nodes +
 context Search_Space_Nodes_finite_strict
 begin
 
-lemma check_loop_loop: "\<exists> v' \<in> ST. v' \<preceq> v" if "check_loop v ST"
+lemma check_loop_loop: "\<exists> v' \<in> set ST. v' \<preceq> v" if "check_loop v ST"
   using that unfolding check_loop_def by blast
 
-lemma check_loop_no_loop: "v \<notin> ST" if "\<not> check_loop v ST"
+lemma check_loop_no_loop: "v \<notin> set ST" if "\<not> check_loop v ST"
   using that unfolding check_loop_def by blast
 
 context
@@ -237,9 +237,10 @@ proof -
   define rpre where "rpre \<equiv> \<lambda>(P,ST,v).
         a\<^sub>0 \<rightarrow>* v
       \<and> P \<subseteq> {x. V x}
-      \<and> ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
+      \<and> set ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
       \<and> liveness_compatible P
-      \<and> (\<forall> s \<in> ST. s \<rightarrow>\<^sup>+ v)
+      \<and> (\<forall> s \<in> set ST. s \<rightarrow>\<^sup>+ v)
+      \<and> distinct ST
     "
 
   define rpost where "rpost \<equiv> \<lambda>(P,ST,v) (P',ST',r).
@@ -247,11 +248,12 @@ proof -
     (\<not> r \<longrightarrow>
       P \<subseteq> P'
       \<and> P' \<subseteq> {x. V x}
-      \<and> ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
+      \<and> set ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
       \<and> ST' = ST
-      \<and> (\<forall> s \<in> ST. s \<rightarrow>* v)
+      \<and> (\<forall> s \<in> set ST. s \<rightarrow>* v)
       \<and> liveness_compatible P'
       \<and> (\<exists> v' \<in> P'. v \<preceq> v')
+      \<and> distinct ST
       )
       "
 
@@ -260,18 +262,19 @@ proof -
     (\<not> r \<longrightarrow>
         P \<subseteq> P'
       \<and> P' \<subseteq> {x. V x}
-      \<and> ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
+      \<and> set ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
       \<and> ST' = ST
-      \<and> (\<forall> s \<in> ST. s \<rightarrow>* v)
+      \<and> (\<forall> s \<in> set ST. s \<rightarrow>* v)
       \<and> liveness_compatible P'
       \<and> (\<forall> v \<in> {v'. v \<rightarrow> v'} - it. (\<exists> v' \<in> P'. v \<preceq> v'))
+      \<and> distinct ST
     )
   "
 
-  define Termination :: "(('a set \<times> 'a set \<times> 'a) \<times> 'a set \<times> 'a set \<times> 'a) set" where
-    "Termination = inv_image (finite_psupset {x. V x}) (\<lambda> (a,b,c). b)"
+  define Termination :: "(('a set \<times> 'a list \<times> 'a) \<times> 'a set \<times> 'a list \<times> 'a) set" where
+    "Termination = inv_image (finite_psupset {x. V x}) (\<lambda> (a,b,c). set b)"
 
-  have rpre_init: "rpre (P, {}, a\<^sub>0)"
+  have rpre_init: "rpre (P, [], a\<^sub>0)"
     unfolding rpre_def using \<open>liveness_compatible P\<close> \<open>P \<subseteq> _\<close> by auto
 
   have wf: "wf Termination"
@@ -324,7 +327,7 @@ proof -
     subgoal for f x P b ST v
 
       apply (refine_vcg
-          FOREACHc_rule'[where I = "inv P (insert v ST) v"]
+          FOREACHc_rule'[where I = "inv P (v # ST) v"]
           )
           apply clarsimp_all
       (* Finitely Branching *)
@@ -333,7 +336,7 @@ proof -
 
       (* Pre \<longrightarrow> Invariant *)
       subgoal
-        using \<open>V a\<^sub>0\<close> by (subst (asm) (2) rpre_def, subst inv_def, auto)
+        using \<open>V a\<^sub>0\<close> by (subst (asm) (2) rpre_def, subst inv_def, auto simp: check_loop_def)
 
       (* Invariant *)
       subgoal for v' it P' ST' c
