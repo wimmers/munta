@@ -3,7 +3,9 @@ theory Liveness_Subsumption
   imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common "../Subsumption_Graphs"
 begin
 
-context Search_Space_Nodes_Empty_Defs
+locale Liveness_Search_Space_Defs =
+  Search_Space_Nodes_Empty_Defs +
+  fixes succs :: "'a \<Rightarrow> 'a list"
 begin
 
 sublocale G: Subgraph_Node_Defs .
@@ -28,7 +30,7 @@ definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
         else do {
             let ST = v # ST;
             (P, ST, r) \<leftarrow>
-              FOREACH\<^sub>C {v' . v \<rightarrow> v'} (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
+              nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
             let ST = tl ST;
             let P = insert v P;
             RETURN (P, ST, r)
@@ -54,10 +56,12 @@ definition "dfs_spec \<equiv>
 
 end (* Search Space Defs *)
 
-locale Search_Space_Nodes_finite_strict = Search_Space_Nodes +
+locale Liveness_Search_Space = Liveness_Search_Space_Defs +
+  Search_Space_Nodes +
+  assumes succs_correct: "reachable a \<Longrightarrow> set (succs a) = {x. a \<rightarrow> x}"
   assumes finite_V: "finite {a. V a}"
 
-context Search_Space_Nodes_finite_strict
+context Liveness_Search_Space
 begin
 
 lemma check_loop_loop: "\<exists> v' \<in> set ST. v' \<preceq> v" if "check_loop v ST"
@@ -230,6 +234,10 @@ lemma pre_cycle_cycle:
   "(\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x') \<longleftrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)"
   by (meson G.E'_def G.G'.reaches1_reaches_iff1 subsumption.pre_cycle_cycle_reachable finite_V)
 
+lemma reachable_alt:
+  "reachable v" if "a\<^sub>0 \<rightarrow>* v"
+  using that by (metis G.subgraph mono_rtranclp reachable_def)
+
 lemma dfs_correct:
   "dfs P \<le> dfs_spec" if "V a\<^sub>0" "liveness_compatible P" "P \<subseteq> {x. V x}"
 proof -
@@ -257,7 +265,7 @@ proof -
       )
       "
 
-  define inv where "inv \<equiv> \<lambda> P ST v it (P', ST', r).
+  define inv where "inv \<equiv> \<lambda> P ST v (_ :: 'a list) it (P', ST', r).
     (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
     (\<not> r \<longrightarrow>
         P \<subseteq> P'
@@ -266,7 +274,7 @@ proof -
       \<and> ST' = ST
       \<and> (\<forall> s \<in> set ST. s \<rightarrow>* v)
       \<and> liveness_compatible P'
-      \<and> (\<forall> v \<in> {v'. v \<rightarrow> v'} - it. (\<exists> v' \<in> P'. v \<preceq> v'))
+      \<and> (\<forall> v \<in> {v'. v \<rightarrow> v'} - set it. (\<exists> v' \<in> P'. v \<preceq> v'))
       \<and> distinct ST
     )
   "
@@ -326,17 +334,27 @@ proof -
     (* Foreach *)
     subgoal for f x P b ST v
 
+      thm nfoldli_rule
       apply (refine_vcg
-          FOREACHc_rule'[where I = "inv P (v # ST) v"]
+          nfoldli_rule[where I = "inv P (v # ST) v"]
           )
-          apply clarsimp_all
+         apply clarsimp_all
+        (*
       (* Finitely Branching *)
       subgoal
-        by (auto intro: successors_finite simp: rpre_def rpost_def)
+        thm succs_correct
+        apply (auto intro: successors_finite simp: rpre_def rpost_def succs_correct)
+          apply (subst succs_correct)
+          oops
+*)
 
       (* Pre \<longrightarrow> Invariant *)
       subgoal
-        using \<open>V a\<^sub>0\<close> by (subst (asm) (2) rpre_def, subst inv_def, auto simp: check_loop_def)
+        using \<open>V a\<^sub>0\<close>
+        by (
+          subst (asm) (2) rpre_def, subst inv_def,
+          auto simp: succs_correct[OF reachable_alt] dest: check_loop_no_loop
+        )
 
       (* Invariant *)
       subgoal for v' it P' ST' c
@@ -346,11 +364,11 @@ proof -
         (* Inv \<longrightarrow> Pre *)
         subgoal
           apply (subst rpre_def, subst (asm) inv_def)
-          apply auto
-          subgoal premises prems for s
+          apply clarsimp
+          subgoal premises prems
           proof -
             from prems have "v \<rightarrow> v'"
-              by auto
+              by (auto dest!: succs_correct[OF reachable_alt])
             with prems show ?thesis
               by auto
           qed
@@ -359,24 +377,25 @@ proof -
         (* Termination *)
         subgoal
           using \<open>V a\<^sub>0\<close> unfolding Termination_def
-          by (auto simp: finite_psupset_def inv_def dest: check_loop_no_loop intro: G.subgraphI)
+          by (auto simp: finite_psupset_def inv_def intro: G.subgraphI)
 
         (* Post \<longrightarrow> Inv *)
         subgoal
           apply (subst inv_def, subst (asm) inv_def, subst rpost_def)
           apply (clarsimp simp: it_step_insert_iff)
           by (safe; (intro exI conjI)?; blast intro: rtranclp_trans)
+
         done
+
+      (* Cycle \<longrightarrow> Post *)
+      subgoal for P' ST' c
+        using \<open>V a\<^sub>0\<close> by (subst rpost_def, subst (asm) inv_def, auto)
 
       (* No cycle \<longrightarrow> Post *)
       subgoal for P' ST' c
         using \<open>V a\<^sub>0\<close>
-        by (subst rpost_def, subst (asm) inv_def,
-            auto intro: liveness_compatible_inv dest: check_loop_no_loop intro: G.subgraphI)
+        by (subst rpost_def, subst (asm) inv_def, auto intro: liveness_compatible_inv G.subgraphI)
 
-      (* Cycle \<longrightarrow> Post *)
-      subgoal
-        by (subst (asm) inv_def, subst (asm) (2) rpre_def, subst rpost_def, auto)
       done
     done
 qed
