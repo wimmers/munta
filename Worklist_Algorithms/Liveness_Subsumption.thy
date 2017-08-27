@@ -29,9 +29,10 @@ definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
           RETURN (P, ST, False)
         else do {
             let ST = v # ST;
-            (P, ST, r) \<leftarrow>
+            (P, ST', r) \<leftarrow>
               nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
-            let ST = tl ST;
+            ASSERT (ST' = ST);
+            let ST = tl ST';
             let P = insert v P;
             RETURN (P, ST, r)
           }
@@ -252,7 +253,7 @@ proof -
     "
 
   define rpost where "rpost \<equiv> \<lambda>(P,ST,v) (P',ST',r).
-    (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
+    (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x') \<and> ST' = ST) \<and>
     (\<not> r \<longrightarrow>
       P \<subseteq> P'
       \<and> P' \<subseteq> {x. V x}
@@ -266,7 +267,7 @@ proof -
       "
 
   define inv where "inv \<equiv> \<lambda> P ST v (_ :: 'a list) it (P', ST', r).
-    (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x')) \<and>
+    (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x') \<and> ST' = ST) \<and>
     (\<not> r \<longrightarrow>
         P \<subseteq> P'
       \<and> P' \<subseteq> {x. V x}
@@ -383,16 +384,24 @@ proof -
         subgoal
           apply (subst inv_def, subst (asm) inv_def, subst rpost_def)
           apply (clarsimp simp: it_step_insert_iff)
-          by (safe; (intro exI conjI)?; blast intro: rtranclp_trans)
+          by (safe; (intro exI conjI)?; (blast intro: rtranclp_trans))
 
         done
+
+      (* Cycle \<longrightarrow> Assertion *)
+      subgoal
+        by (subst (asm) inv_def, simp)
 
       (* Cycle \<longrightarrow> Post *)
       subgoal for P' ST' c
         using \<open>V a\<^sub>0\<close> by (subst rpost_def, subst (asm) inv_def, auto)
 
+      (* No cycle \<longrightarrow> Assertion *)
+      subgoal
+        by (subst (asm) inv_def, simp)
+
       (* No cycle \<longrightarrow> Post *)
-      subgoal for P' ST' c
+      subgoal for P' ST'
         using \<open>V a\<^sub>0\<close>
         by (subst rpost_def, subst (asm) inv_def, auto intro: liveness_compatible_inv G.subgraphI)
 
