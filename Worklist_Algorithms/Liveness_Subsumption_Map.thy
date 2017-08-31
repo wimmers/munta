@@ -59,7 +59,10 @@ begin
 (* XXX Duplication *)
 definition
   "map_set_rel =
-    {(m, s). \<Union> ran m = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k))}"
+    {(m, s).
+      \<Union> ran m = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k)) \<and>
+      finite (dom m) \<and> (\<forall> k S. m k = Some S \<longrightarrow> finite S)
+    }"
 
 term sorted
 
@@ -136,7 +139,7 @@ lemma insert_map_set_ref:
     by (metis insertCI option.inject)
   subgoal
     unfolding ran_def Let_def by (auto split: option.splits if_split_asm)
-  done
+  by (auto simp: Let_def split: if_split_asm option.split)
 
 lemma map_list_rel_memD:
   assumes "(m, xs) \<in> map_list_rel" "x \<in> set xs"
@@ -380,7 +383,7 @@ lemma dfs_map_dfs_refine:
         apply (clarsimp, rule push_map_list_ref'; assumption)
       by (auto intro: insert_map_set_ref pop_map_list_ref)
 
-end (* Search Space Nodes Finite Strict Key *)
+end (* Liveness Search Space Key *)
 
 (*
 locale Liveness_Search_Space_Key1_Defs =
