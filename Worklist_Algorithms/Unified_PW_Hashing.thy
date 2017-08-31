@@ -222,7 +222,10 @@ begin
 
 definition
   "map_set_rel =
-    {(m, s). \<Union> ran m = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k))}"
+    {(m, s).
+      \<Union> ran m = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k)) \<and>
+      finite (dom m) \<and> (\<forall> k S. m k = Some S \<longrightarrow> finite S)
+    }"
 
 definition
   "add_pw'_map passed wait a \<equiv>
@@ -321,6 +324,7 @@ lemma add_pw'_map_ref[refine]:
         using empty_subsumes'2 by force
     qed
     have "(passed(k \<mapsto> insert a xs), insert a' passed') \<in> map_set_rel"
+      using \<open>(passed, passed') \<in> map_set_rel\<close>
       unfolding map_set_rel_def
       apply safe
       subgoal
@@ -330,11 +334,11 @@ lemma add_pw'_map_ref[refine]:
       subgoal for a''
         unfolding union ran_def
         apply clarsimp
-        subgoal for p k'
+        subgoal for k'
           unfolding xs_def by (cases "k' = k") auto
         done
       by (clarsimp split: if_split_asm, safe,
-          auto intro!: keys simp: xs_def k_def split: option.split_asm)
+          auto intro!: keys simp: xs_def k_def split: option.split_asm if_split_asm)
     with rel_wait rel_passed show ?thesis
       unfolding *[symmetric]
       unfolding xs_def k_def Let_def
@@ -433,7 +437,11 @@ end -- \<open>Worklist Map 2\<close>
 lemma (in Worklist_Map2_finite) pw_algo_map2_correct:
   "pw_algo_map2 \<le> SPEC (\<lambda> (brk, passed).
     (brk \<longleftrightarrow> F_reachable) \<and>
-    (\<not> brk \<longrightarrow> (\<exists> p. (passed, p) \<in> map_set_rel \<and> (\<forall>a. reachable a \<and> \<not> empty a \<longrightarrow> (\<exists>b\<in>p. a \<preceq> b))))
+    (\<not> brk \<longrightarrow>
+      (\<exists> p.
+        (passed, p) \<in> map_set_rel \<and> (\<forall>a. reachable a \<and> \<not> empty a \<longrightarrow> (\<exists>b\<in>p. a \<preceq> b))
+        \<and> p \<subseteq> {a. reachable a \<and> \<not> empty a})
+    )
    )"
 proof -
   note pw_algo_map2_ref
@@ -441,7 +449,7 @@ proof -
   also note pw_algo_unified_ref
   also note pw_algo_correct
   finally show ?thesis
-    unfolding conc_fun_def Image_def by (fastforce intro: order.trans)
+    unfolding conc_fun_def Image_def by (fastforce intro: order.trans) (* Slow *)
 qed
 
 end -- \<open>End of Theory\<close>
