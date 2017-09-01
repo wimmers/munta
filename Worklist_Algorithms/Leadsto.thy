@@ -130,9 +130,11 @@ locale Leadsto_Search_Space =
   fixes P Q :: "'a \<Rightarrow> bool"
   assumes P_mono: "a \<preceq> a' \<Longrightarrow> P a \<Longrightarrow> P a'"
   assumes Q_mono: "a \<preceq> a' \<Longrightarrow> Q a \<Longrightarrow> Q a'"
+  fixes succs :: "'a \<Rightarrow> 'a list"
+  assumes succs_correct: "A.reachable a \<Longrightarrow> set (succs a) = {y. a \<rightarrow> y \<and> Q y \<and> \<not> empty y}"
 begin
 
-interpretation A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty
+sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty
   apply standard
           apply (rule A.refl A.trans A.mono A.empty_subsumes A.empty_mono A.empty_E; assumption)+
     apply assumption
@@ -140,14 +142,30 @@ interpretation A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<p
   apply (rule A.finite_reachable)
   done
 
-interpretation B:
-  Search_Space_Nodes_finite_strict
+sublocale B:
+  Liveness_Search_Space
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False"
+  "\<lambda> _. False" succs
   apply standard
-         apply (rule A.refl A.trans; assumption)+
+          apply (rule A.refl A.trans; assumption)+
   subgoal for a b a'
     by safe (drule A.mono; auto intro: Q_mono dest: A.mono A.empty_mono)
+  prefer 5
+  subgoal
+    apply (subst succs_correct)
+     defer
+      unfolding Subgraph_Node_Defs.E'_def
+       apply simp
+       apply safe
+         defer
+      defer
+         apply rule
+          defer
+          apply assumption
+         prefer 3
+      subgoal sorry
+      subgoal sorry
+      sorry
   by (auto intro: A.trans A.mono A.empty_subsumes A.empty_E A.finite_reachable dest: A.empty_mono)
 
 context
@@ -155,10 +173,18 @@ context
 begin
 
 interpretation B':
-  Search_Space_Nodes_finite_strict
+  Liveness_Search_Space
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False"
-  ..
+  "\<lambda> _. False" succs
+  apply standard
+  subgoal
+    apply (subst succs_correct)
+    unfolding B.G.E'_def
+      apply auto
+    sorry
+  subgoal
+    by (rule A.finite_reachable)
+  done
 
 definition has_cycle where
   "has_cycle = B'.dfs"
@@ -316,10 +342,18 @@ proof -
           subgoal premises prems
           proof -
             interpret B':
-              Search_Space_Nodes_finite_strict
+              Liveness_Search_Space
               "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
-              "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False"
-              ..
+              "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False" succs
+              apply standard
+              subgoal
+                apply (subst succs_correct)
+                unfolding B.G.E'_def
+                 apply auto
+                sorry
+              subgoal
+                by (rule A.finite_reachable)
+              done
             from \<open>inv _ _ _\<close> have
               "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"
               unfolding inv_def by auto
