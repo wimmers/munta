@@ -227,26 +227,42 @@ context
 begin
 
 interpretation B':
-  Liveness_Search_Space_Key
-  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False" succs key
-  apply standard
-  subgoal
-    apply (subst succs_correct)
-    unfolding B.G.E'_def
-      apply auto
-    sorry
-  subgoal
-    by (rule A.finite_reachable)
-  subgoal
-    (* XXX This is not yet correct *)
-    sorry
-  done
+  Liveness_Search_Space_Key_Defs
+  a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
+  "\<lambda> _. False" succs "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" key .
 
 definition has_cycle_map where
   "has_cycle_map = B'.dfs_map"
 
+context
+  assumes "A.reachable a\<^sub>1"
+begin
+
+interpretation B':
+  Liveness_Search_Space_Key
+  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
+  "\<lambda> _. False" succs key
+proof (standard, goal_cases)
+  case prems: (1 a)
+  interpret Subgraph_Start E a\<^sub>0 "\<lambda> a x. E a x \<and> Q x \<and> \<not> empty x"
+    by standard auto
+  from prems[unfolded Graph_Start_Defs.reachable_def] show ?case
+    apply (subst succs_correct)
+    unfolding B.G.E'_def
+    including graph_automation
+    using \<open>A.reachable a\<^sub>1\<close> by (auto intro: A.empty_E)
+next
+  case 2
+  then show ?case by (rule A.finite_reachable)
+next
+  case (3 a b)
+    (* XXX This is not yet correct *)
+  then show ?case sorry
+qed
+
 lemmas has_cycle_map_ref[refine] = B'.dfs_map_dfs_refine[folded has_cycle_map_def has_cycle_def]
+
+end (* Reachability assumption *)
 
 end (* Second start state *)
 
@@ -278,7 +294,10 @@ definition leadsto' :: "bool nres" where
       (\<lambda> passed' (_,acc).
           FOREACHcdi (inner_inv acc) passed' (\<lambda>(b,_). \<not>b)
             (\<lambda>v' (_,passed).
-              if P v' \<and> Q v' then has_cycle v' passed else RETURN (False, passed)
+              do {
+                ASSERT(A.reachable v');
+                if P v' \<and> Q v' then has_cycle v' passed else RETURN (False, passed)
+              }
             )
             (False, acc)
       )
@@ -419,57 +438,68 @@ proof -
       subgoal
         by auto
 
-     (* Inner invariant holds initially *)
+      (* Inner invariant holds initially *)
       subgoal for x a b S1 S2 todo \<sigma> aa passed
         unfolding inner_inv_def outer_inv_def by simp
 
+      (* Assertion *)
+      subgoal
+        unfolding inner_inv_def outer_inv_def A'.map_set_rel_def by auto
+
+      (* Inner invariant is preserved *)
       subgoal for _ _ b S1 S2 xa \<sigma> aa passed S1' S2' a\<^sub>1 \<sigma>' ab passed'
         unfolding outer_inv_def
         apply clarsimp
         subgoal premises prems for p
         proof -
-            interpret B':
-              Liveness_Search_Space
-              "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
-              "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False" succs
-              apply standard
+          from prems have "a\<^sub>1 \<in> p"
+            unfolding A'.map_set_rel_def by auto
+          with \<open>passed \<subseteq> _\<close> \<open>p \<subseteq> _\<close> have "A.reachable a\<^sub>1"
+            by auto
+          interpret B':
+            Liveness_Search_Space
+            "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
+            "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False" succs
+          proof (standard, goal_cases)
+            case prems: (1 a)
+            interpret Subgraph_Start E a\<^sub>0 "\<lambda> a x. E a x \<and> Q x \<and> \<not> empty x"
+              by standard auto
+            from prems[unfolded Graph_Start_Defs.reachable_def] show ?case
+              apply (subst succs_correct)
+              unfolding B.G.E'_def
+              including graph_automation
+              using \<open>A.reachable a\<^sub>1\<close> by (auto intro: A.empty_E)
+          next
+            case 2
+            then show ?case by (rule A.finite_reachable)
+          qed
+          from \<open>inner_inv _ _ _ _\<close> have
+            "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"
+            unfolding inner_inv_def by auto
+          from B'.dfs_correct[OF _ _ this] \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close> have
+            "B'.dfs passed' \<le> B'.dfs_spec"
+            by auto
+          then show ?thesis
+            unfolding has_cycle_def
+            apply (rule order.trans)
+            unfolding B'.dfs_spec_def
+            apply clarsimp
+            subgoal for r passed1
+              apply (cases r)
+               apply simp
               subgoal
-                apply (subst succs_correct)
-                unfolding B.G.E'_def
-                 apply auto
-                sorry
+                unfolding inner_inv_def
+                using \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close>
+                apply simp
+                apply (inst_existentials a\<^sub>1)
+                by (auto 4 3 simp: reaches_cycle_iff intro: prems)
               subgoal
-                by (rule A.finite_reachable)
-              done
-            from prems have "a\<^sub>1 \<in> p"
-              unfolding A'.map_set_rel_def by auto
-            from \<open>inner_inv _ _ _ _\<close> have
-              "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"
-              unfolding inner_inv_def by auto
-            from B'.dfs_correct[OF _ _ this] \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close> have
-              "B'.dfs passed' \<le> B'.dfs_spec"
-              by auto
-            then show ?thesis
-              unfolding has_cycle_def
-              apply (rule order.trans)
-              unfolding B'.dfs_spec_def
-              apply clarsimp
-              subgoal for r passed1
-                apply (cases r)
-                 apply simp
-                subgoal
-                  unfolding inner_inv_def
-                  using \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close>
-                  apply simp
-                  apply (inst_existentials a\<^sub>1)
-                  by (auto 4 3 simp: reaches_cycle_iff intro: prems)
-                subgoal
-                  using \<open>inner_inv _ _ _ _\<close> \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close> reaches_cycle_iff
-                  unfolding inner_inv_def by auto
-                  done
+                using \<open>inner_inv _ _ _ _\<close> \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close> reaches_cycle_iff
+                unfolding inner_inv_def by auto
                 done
-            qed
-            done
+              done
+          qed
+          done
 
           (* Current state filtered out *)
           subgoal for x a b S1 S2 xa \<sigma> aa ba S1a S2a xb \<sigma>' ab bb
@@ -504,7 +534,7 @@ lemma map_set_rel_id:
   unfolding A'.map_set_rel_def B.map_set_rel_def ..
 
 lemma has_cycle_map_ref'[refine]:
-  assumes "(P1, P1') \<in> A'.map_set_rel" "(a, a') \<in> Id"
+  assumes "(P1, P1') \<in> A'.map_set_rel" "(a, a') \<in> Id" "A.reachable a"
   shows "has_cycle_map a P1 \<le> \<Down> (bool_rel \<times>\<^sub>r A'.map_set_rel) (has_cycle a' P1')"
   using has_cycle_map_ref assms by (auto simp: map_set_rel_id)
 
@@ -570,7 +600,7 @@ lemma leadsto_map3'_ref[refine]:
   apply (subst (2) FOREACHcdi_def)
   apply (subst (2) FOREACHcd_def)
   apply refine_rcg
-              apply refine_dref_type
+               apply refine_dref_type
   by (auto simp: br_def intro: map_dom_ran_finite)
 
 definition leadsto_map3 :: "bool nres" where
