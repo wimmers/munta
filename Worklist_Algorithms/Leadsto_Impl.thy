@@ -38,8 +38,8 @@ uses Worklist_Map2_Impl.pw_algo_map2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 end (* Worklist Map 2 Impl *)
 
 locale Leadsto_Search_Space_Key_Impl =
-  Leadsto_Search_Space_Key a\<^sub>0 F _ empty _ E key F' _ _ P Q succs succs1 +
-  Liveness_Search_Space_Key_Impl a\<^sub>0 F _ V empty succs E key A succsi a\<^sub>0i Lei keyi copyi
+  Leadsto_Search_Space_Key a\<^sub>0 F _ empty _ E key F' P Q succs succs1 +
+  Liveness_Search_Space_Key_Impl a\<^sub>0 F _ V succs E _ key A succsi a\<^sub>0i Lei keyi copyi
   for key :: "'v :: {heap} \<Rightarrow> 'k :: {hashable,heap}"
   and a\<^sub>0 F F' copyi P Q V empty succs succs1 E A succsi a\<^sub>0i Lei keyi +
   fixes succs1i and Lei' and Pi Qi

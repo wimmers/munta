@@ -5,6 +5,7 @@ begin
 locale Liveness_Search_Space_Key_Defs =
   Liveness_Search_Space_Defs E for E :: "'v \<Rightarrow> 'v \<Rightarrow> bool" +
   fixes key :: "'v \<Rightarrow> 'k"
+  fixes subsumes' :: "'v \<Rightarrow> 'v \<Rightarrow> bool" (infix "\<unlhd>" 50)
 begin
 
 definition "check_loop_list v ST = (\<exists> v' \<in> set ST. v' \<preceq> v)"
@@ -18,11 +19,11 @@ definition "push_map_list v S \<equiv>
 "
 
 definition "check_subsumption_map_set v S \<equiv>
-  let k = key v; S' = (case S k of Some S \<Rightarrow> S | None \<Rightarrow> {}) in (\<exists> x \<in> S'. v \<preceq> x)
+  let k = key v; S' = (case S k of Some S \<Rightarrow> S | None \<Rightarrow> {}) in (\<exists> x \<in> S'. v \<unlhd> x)
 "
 
 definition "check_subsumption_map_list v S \<equiv>
-  let k = key v; S' = (case S k of Some S \<Rightarrow> S | None \<Rightarrow> []) in (\<exists> x \<in> set S'. x \<preceq> v)
+  let k = key v; S' = (case S k of Some S \<Rightarrow> S | None \<Rightarrow> []) in (\<exists> x \<in> set S'. x \<unlhd> v)
 "
 
 definition "pop_map_list v S \<equiv>
@@ -53,7 +54,8 @@ end (* Search Space Nodes Empty Key Defs *)
 
 locale Liveness_Search_Space_Key =
   Liveness_Search_Space + Liveness_Search_Space_Key_Defs +
-  assumes subsumes_key[intro, simp]: "a \<preceq> b \<Longrightarrow> key a = key b"
+  assumes subsumes_key[intro, simp]: "a \<unlhd> b \<Longrightarrow> key a = key b"
+  assumes V_subsumes': "V a \<Longrightarrow> a \<preceq> b \<longleftrightarrow> a \<unlhd> b"
 begin
 
 (* XXX Duplication *)
@@ -98,17 +100,19 @@ lemma refine_True':
   unfolding map_set_rel_def list_set_rel_def oops
 
 lemma check_subsumption_ref[refine]:
-  "(x1b, x1) \<in> map_set_rel \<Longrightarrow> check_subsumption_map_set x2a x1b = (\<exists>x\<in>x1. x2a \<preceq> x)"
+  "V x2a \<Longrightarrow> (x1b, x1) \<in> map_set_rel \<Longrightarrow> check_subsumption_map_set x2a x1b = (\<exists>x\<in>x1. x2a \<preceq> x)"
   unfolding map_set_rel_def list_set_rel_def check_subsumption_map_set_def
-  unfolding ran_def by (auto split: option.splits)
+  unfolding ran_def by (auto split: option.splits simp: V_subsumes')
 
 lemma check_subsumption'_ref[refine]:
-  "(m, xs) \<in> map_list_rel \<Longrightarrow> check_subsumption_map_list x m = check_loop x xs"
+  "set xs \<subseteq> {x. V x} \<Longrightarrow> (m, xs) \<in> map_list_rel
+  \<Longrightarrow> check_subsumption_map_list x m = check_loop x xs"
   unfolding map_list_rel_def list_set_rel_def check_subsumption_map_list_def check_loop_def
   unfolding ran_def apply (auto split: option.splits)
   subgoal for R x' xs'
-    by (drule sym, drule sym, auto)
-  by force
+    by (drule sym, drule sym, subst (asm) V_subsumes'[symmetric], auto)
+  thm UN_iff V_subsumes' mem_Collect_eq subsetCE subsumes_key
+  by (subst (asm) V_subsumes'; force)
 
 lemma not_check_loop_non_elem:
   "x \<notin> set xs" if "\<not> check_loop_list x xs"
@@ -246,11 +250,12 @@ lemma insert_map_set_ref'[refine]:
   by (auto intro: insert_map_set_ref)
 
 lemma map_list_rel_check_subsumption_map_list:
-  "(m, xs) \<in> map_list_rel \<Longrightarrow> \<not> check_subsumption_map_list x m \<Longrightarrow> x \<notin> set xs"
-  unfolding check_subsumption_map_list_def by (auto elim!: map_list_rel_memD)
+  "set xs \<subseteq> {x. V x} \<Longrightarrow> (m, xs) \<in> map_list_rel \<Longrightarrow> \<not> check_subsumption_map_list x m \<Longrightarrow> x \<notin> set xs"
+  unfolding check_subsumption_map_list_def by (auto 4 3 elim!: map_list_rel_memD dest: V_subsumes')
 
 lemma push_map_list_ref'[refine]:
-  "(x1b, x1) \<in> map_set_rel \<Longrightarrow>
+  "set x1a \<subseteq> {x. V x} \<Longrightarrow>
+   (x1b, x1) \<in> map_set_rel \<Longrightarrow>
    (x1c, x1a) \<in> map_list_rel \<Longrightarrow>
    \<not> check_subsumption_map_list x2a x1c \<Longrightarrow>
    ((x1b, push_map_list x2a x1c, False), x1, x2a # x1a, False) \<in> map_set_rel \<times>\<^sub>r map_list_rel \<times>\<^sub>r Id"
@@ -375,8 +380,8 @@ lemma dfs_map_dfs_refine:
   unfolding dfs_map_def dfs_def
   apply refine_rcg
     using [[goals_limit=1]]
-            apply (clarsimp, rule check_subsumption'_ref, assumption)
-           apply (clarsimp, rule refine_True; assumption)
+             apply (clarsimp, rule check_subsumption'_ref; assumption)
+            apply (clarsimp, rule refine_True; assumption)
           apply (clarsimp, rule check_subsumption_ref; assumption)
           apply (simp; fail)
          apply (clarsimp; rule succs_id_ref; fail)

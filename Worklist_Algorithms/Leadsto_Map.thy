@@ -204,11 +204,7 @@ lemma (in Worklist_Map2_finite) map_set_rel_finite_ranI[intro]:
 
 locale Leadsto_Search_Space_Key =
   A: Worklist_Map2 _ _ _ _ _ _ _ succs1 +
-  Leadsto_Search_Space
-  for succs1
-  (*
-  fixes key :: "'v \<Rightarrow> 'k"
-  assumes subsumes_key[intro, simp]: "a \<preceq> b \<Longrightarrow> key a = key b" *)
+  Leadsto_Search_Space for succs1
 begin
 
 sublocale A': Worklist_Map2_finite a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty "op \<unlhd>" E key succs1 "\<lambda> _. False"
@@ -217,10 +213,8 @@ sublocale A': Worklist_Map2_finite a\<^sub>0 "\<lambda> _. False" "op \<preceq>"
 interpretation B:
   Liveness_Search_Space_Key
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False" succs key
-  apply standard
-    (* XXX This is not yet correct *)
-  sorry
+  succs key
+  by standard (auto intro!: A.empty_subsumes')
 
 context
   fixes a\<^sub>1 :: 'a
@@ -229,7 +223,7 @@ begin
 interpretation B':
   Liveness_Search_Space_Key_Defs
   a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False" succs "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" key .
+  succs "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" key .
 
 definition has_cycle_map where
   "has_cycle_map = B'.dfs_map"
@@ -241,24 +235,8 @@ begin
 interpretation B':
   Liveness_Search_Space_Key
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False" succs key
-proof (standard, goal_cases)
-  case prems: (1 a)
-  interpret Subgraph_Start E a\<^sub>0 "\<lambda> a x. E a x \<and> Q x \<and> \<not> empty x"
-    by standard auto
-  from prems[unfolded Graph_Start_Defs.reachable_def] show ?case
-    apply (subst succs_correct)
-    unfolding B.G.E'_def
-    including graph_automation
-    using \<open>A.reachable a\<^sub>1\<close> by (auto intro: A.empty_E)
-next
-  case 2
-  then show ?case by (rule A.finite_reachable)
-next
-  case (3 a b)
-    (* XXX This is not yet correct *)
-  then show ?case sorry
-qed
+  succs key
+  by standard
 
 lemmas has_cycle_map_ref[refine] = B'.dfs_map_dfs_refine[folded has_cycle_map_def has_cycle_def]
 
@@ -459,24 +437,12 @@ proof -
           interpret B':
             Liveness_Search_Space
             "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
-            "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False" succs
-          proof (standard, goal_cases)
-            case prems: (1 a)
-            interpret Subgraph_Start E a\<^sub>0 "\<lambda> a x. E a x \<and> Q x \<and> \<not> empty x"
-              by standard auto
-            from prems[unfolded Graph_Start_Defs.reachable_def] show ?case
-              apply (subst succs_correct)
-              unfolding B.G.E'_def
-              including graph_automation
-              using \<open>A.reachable a\<^sub>1\<close> by (auto intro: A.empty_E)
-          next
-            case 2
-            then show ?case by (rule A.finite_reachable)
-          qed
+            "\<lambda> x. A.reachable x \<and> \<not> empty x" succs
+            by standard
           from \<open>inner_inv _ _ _ _\<close> have
             "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"
             unfolding inner_inv_def by auto
-          from B'.dfs_correct[OF _ _ this] \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close> have
+          from B'.dfs_correct[OF _ this] \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>p \<subseteq> _\<close> have
             "B'.dfs passed' \<le> B'.dfs_spec"
             by auto
           then show ?thesis

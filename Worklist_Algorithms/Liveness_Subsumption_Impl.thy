@@ -3,7 +3,7 @@ theory Liveness_Subsumption_Impl
 begin
 
 locale Liveness_Search_Space_Key_Impl_Defs =
-  Liveness_Search_Space_Key_Defs _ _ _ _ _ _ _ key for key :: "'a \<Rightarrow> 'ki :: {hashable, heap}" +
+  Liveness_Search_Space_Key_Defs _ _ _ _ _ _ key for key :: "'a \<Rightarrow> 'ki :: {hashable, heap}" +
   fixes A :: "'a \<Rightarrow> ('ai :: heap) \<Rightarrow> assn"
   fixes succsi :: "'ai \<Rightarrow> 'ai list Heap"
   fixes a\<^sub>0i :: "'ai Heap"
@@ -17,7 +17,7 @@ locale Liveness_Search_Space_Key_Impl =
   assumes refinements[sepref_fr_rules]:
     "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
     "(Fi,RETURN o PR_CONST F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-    "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<preceq>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
     "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a id_assn"
     "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
@@ -42,7 +42,7 @@ lemma check_subsumption_map_set_alt_def: "check_subsumption_map_set v S = (
   let
     k = key v; (S', S) = op_map_extract k S;
     S1' = (case S' of Some S1 \<Rightarrow> S1 | None \<Rightarrow> {})
-  in (\<exists> x \<in> S1'. v \<preceq> x)
+  in (\<exists> x \<in> S1'. v \<unlhd> x)
 )
 "
   unfolding check_subsumption_map_set_def op_map_extract_def by (auto simp: Let_def)
@@ -52,7 +52,7 @@ lemma check_subsumption_map_set_extract: "(S, check_subsumption_map_set v S) = (
     k = key v; (S', S) = op_map_extract k S
   in (
     case S' of
-      Some S1 \<Rightarrow> (let r = (\<exists> x \<in> S1. v \<preceq> x) in (op_map_update k S1 S, r))
+      Some S1 \<Rightarrow> (let r = (\<exists> x \<in> S1. v \<unlhd> x) in (op_map_update k S1 S, r))
     | None \<Rightarrow> (S, False)
   )
 )
@@ -65,7 +65,7 @@ lemma check_subsumption_map_list_extract: "(S, check_subsumption_map_list v S) =
     k = key v; (S', S) = op_map_extract k S
   in (
     case S' of
-      Some S1 \<Rightarrow> (let r = (\<exists> x \<in> set S1. x \<preceq> v) in (op_map_update k S1 S, r))
+      Some S1 \<Rightarrow> (let r = (\<exists> x \<in> set S1. x \<unlhd> v) in (op_map_update k S1 S, r))
     | None \<Rightarrow> (S, False)
   )
 )
@@ -202,11 +202,10 @@ context Liveness_Search_Space_Key_Impl
 begin
 
 sepref_register
-  "PR_CONST a\<^sub>0" "PR_CONST op \<preceq>" "PR_CONST succs" "PR_CONST key"
+  "PR_CONST a\<^sub>0" "PR_CONST op \<unlhd>" "PR_CONST succs" "PR_CONST key"
 
 lemma [def_pat_rules]:
-  "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "op \<preceq> \<equiv> UNPROTECT op \<preceq>" "succs \<equiv> UNPROTECT succs"
-  "keyi \<equiv> UNPROTECT keyi" "key \<equiv> UNPROTECT key"
+  "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "op \<unlhd> \<equiv> UNPROTECT op \<unlhd>" "succs \<equiv> UNPROTECT succs" "key \<equiv> UNPROTECT key"
   by simp_all
 
 abbreviation "passed_assn \<equiv> hm.hms_assn' id_assn (lso_assn A)"

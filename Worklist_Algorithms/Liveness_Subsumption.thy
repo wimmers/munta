@@ -4,7 +4,7 @@ theory Liveness_Subsumption
 begin
 
 locale Liveness_Search_Space_Defs =
-  Search_Space_Nodes_Empty_Defs +
+  Search_Space_Nodes_Defs +
   fixes succs :: "'a \<Rightarrow> 'a list"
 begin
 
@@ -23,19 +23,22 @@ definition "check_loop v ST = (\<exists> v' \<in> set ST. v' \<preceq> v)"
 definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
   "dfs P \<equiv> do {
     (P,ST,r) \<leftarrow> RECT (\<lambda>dfs (P,ST,v).
-      if check_loop v ST then RETURN (P, ST, True)
-      else do {
-        if \<exists> v' \<in> P. v \<preceq> v' then
-          RETURN (P, ST, False)
+      do {
+        ASSERT (V v \<and> set ST \<subseteq> {x. V x});
+        if check_loop v ST then RETURN (P, ST, True)
         else do {
-            let ST = v # ST;
-            (P, ST', r) \<leftarrow>
-              nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
-            ASSERT (ST' = ST);
-            let ST = tl ST';
-            let P = insert v P;
-            RETURN (P, ST, r)
-          }
+          if \<exists> v' \<in> P. v \<preceq> v' then
+            RETURN (P, ST, False)
+          else do {
+              let ST = v # ST;
+              (P, ST', r) \<leftarrow>
+                nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
+              ASSERT (ST' = ST);
+              let ST = tl ST';
+              let P = insert v P;
+              RETURN (P, ST, r)
+            }
+        }
       }
     ) (P,[],a\<^sub>0);
     RETURN (r, P)
@@ -59,7 +62,7 @@ end (* Search Space Defs *)
 
 locale Liveness_Search_Space = Liveness_Search_Space_Defs +
   Search_Space_Nodes +
-  assumes succs_correct: "reachable a \<Longrightarrow> set (succs a) = {x. a \<rightarrow> x}"
+  assumes succs_correct: "V a \<Longrightarrow> set (succs a) = {x. a \<rightarrow> x}"
   assumes finite_V: "finite {a. V a}"
 
 context Liveness_Search_Space
@@ -71,13 +74,9 @@ lemma check_loop_loop: "\<exists> v' \<in> set ST. v' \<preceq> v" if "check_loo
 lemma check_loop_no_loop: "v \<notin> set ST" if "\<not> check_loop v ST"
   using that unfolding check_loop_def by blast
 
-context
-  assumes empty: "empty = (\<lambda> x. False)"
-begin
-
 lemma mono:
   "a \<preceq> b \<Longrightarrow> a \<rightarrow> a' \<Longrightarrow> V b \<Longrightarrow> \<exists> b'. b \<rightarrow> b' \<and> a' \<preceq> b'"
-  by (auto dest: mono simp: empty G.E'_def)
+  by (auto dest: mono simp: G.E'_def)
 
 context
   fixes P :: "'a set" and E1 E2 :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and v :: 'a
@@ -236,8 +235,8 @@ lemma pre_cycle_cycle:
   by (meson G.E'_def G.G'.reaches1_reaches_iff1 subsumption.pre_cycle_cycle_reachable finite_V)
 
 lemma reachable_alt:
-  "reachable v" if "a\<^sub>0 \<rightarrow>* v"
-  using that by (metis G.subgraph mono_rtranclp reachable_def)
+  "V v" if "V a\<^sub>0" "a\<^sub>0 \<rightarrow>* v"
+  using that(2,1) by cases (auto simp: G.E'_def)
 
 lemma dfs_correct:
   "dfs P \<le> dfs_spec" if "V a\<^sub>0" "liveness_compatible P" "P \<subseteq> {x. V x}"
@@ -245,8 +244,10 @@ proof -
 
   define rpre where "rpre \<equiv> \<lambda>(P,ST,v).
         a\<^sub>0 \<rightarrow>* v
+      \<and> V v
       \<and> P \<subseteq> {x. V x}
       \<and> set ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
+      \<and> set ST \<subseteq> {x. V x}
       \<and> liveness_compatible P
       \<and> (\<forall> s \<in> set ST. s \<rightarrow>\<^sup>+ v)
       \<and> distinct ST
@@ -284,7 +285,7 @@ proof -
     "Termination = inv_image (finite_psupset {x. V x}) (\<lambda> (a,b,c). set b)"
 
   have rpre_init: "rpre (P, [], a\<^sub>0)"
-    unfolding rpre_def using \<open>liveness_compatible P\<close> \<open>P \<subseteq> _\<close> by auto
+    unfolding rpre_def using \<open>V a\<^sub>0\<close> \<open>liveness_compatible P\<close> \<open>P \<subseteq> _\<close> by auto
 
   have wf: "wf Termination"
     unfolding Termination_def by (blast intro: finite_V)
@@ -323,6 +324,14 @@ proof -
 
     (* Pre \<longrightarrow> Post *)
     apply refine_vcg
+
+    (* Assertion *)
+    subgoal for f x a b aa ba
+      unfolding rpre_def by auto
+
+    (* Assertion *)
+    subgoal for f x a b aa ba
+      unfolding rpre_def by auto
 
     (* Cycle found *)
     subgoal for f x a b aa ba
@@ -368,10 +377,10 @@ proof -
           apply clarsimp
           subgoal premises prems
           proof -
-            from prems have "v \<rightarrow> v'"
+            from prems \<open>V a\<^sub>0\<close> have "v \<rightarrow> v'"
               by (auto dest!: succs_correct[OF reachable_alt])
             with prems show ?thesis
-              by auto
+              by (auto intro: G.E'_V2)
           qed
           done
 
@@ -410,7 +419,5 @@ proof -
 qed
 
 end (* Search Space Finite Strict *)
-
-end (* Assumption on empty *)
 
 end (* Theory *)

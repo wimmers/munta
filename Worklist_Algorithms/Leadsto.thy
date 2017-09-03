@@ -145,28 +145,16 @@ sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq
 sublocale B:
   Liveness_Search_Space
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False" succs
+  succs
   apply standard
           apply (rule A.refl A.trans; assumption)+
   subgoal for a b a'
     by safe (drule A.mono; auto intro: Q_mono dest: A.mono A.empty_mono)
-  prefer 5
+  apply blast
   subgoal
     apply (subst succs_correct)
-     defer
-      unfolding Subgraph_Node_Defs.E'_def
-       apply simp
-       apply safe
-         defer
-      defer
-         apply rule
-          defer
-          apply assumption
-         prefer 3
-      subgoal sorry
-      subgoal sorry
-      sorry
-  by (auto intro: A.trans A.mono A.empty_subsumes A.empty_E A.finite_reachable dest: A.empty_mono)
+    unfolding Subgraph_Node_Defs.E'_def by auto
+  by (auto intro: A.finite_reachable)
 
 context
   fixes a\<^sub>1 :: 'a
@@ -174,17 +162,8 @@ begin
 
 interpretation B':
   Liveness_Search_Space
-  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  "\<lambda> _. False" succs
-  apply standard
-  subgoal
-    apply (subst succs_correct)
-    unfolding B.G.E'_def
-      apply auto
-    sorry
-  subgoal
-    by (rule A.finite_reachable)
-  done
+  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x" succs
+  by standard
 
 definition has_cycle where
   "has_cycle = B'.dfs"
@@ -344,20 +323,12 @@ proof -
             interpret B':
               Liveness_Search_Space
               "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
-              "\<lambda> x. A.reachable x \<and> \<not> empty x" "\<lambda> _. False" succs
-              apply standard
-              subgoal
-                apply (subst succs_correct)
-                unfolding B.G.E'_def
-                 apply auto
-                sorry
-              subgoal
-                by (rule A.finite_reachable)
-              done
+              "\<lambda> x. A.reachable x \<and> \<not> empty x" succs
+              by standard
             from \<open>inv _ _ _\<close> have
               "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"
               unfolding inv_def by auto
-            from B'.dfs_correct[OF _ _ this] \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>it \<subseteq> _\<close> have
+            from B'.dfs_correct[OF _ this] \<open>passed \<subseteq> _\<close> \<open>a\<^sub>1 \<in> _\<close> \<open>it \<subseteq> _\<close> have
               "B'.dfs passed' \<le> B'.dfs_spec"
               by auto
             then show ?thesis

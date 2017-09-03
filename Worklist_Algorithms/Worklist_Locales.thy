@@ -33,9 +33,23 @@ locale Search_Space_Defs_Empty = Search_Space_Defs +
 
 locale Search_Space_Nodes_Empty_Defs = Search_Space_Nodes_Defs + Search_Space_Defs_Empty
 
+locale Search_Space_Nodes = Search_Space_Nodes_Defs +
+  assumes refl[intro!, simp]: "a \<preceq> a"
+      and trans[trans]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
+
+  assumes mono:
+      "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> V a \<Longrightarrow> V b \<Longrightarrow> \<exists> b'. V b' \<and> E b b' \<and> a' \<preceq> b'"
+      and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
+begin
+
+  sublocale preorder "op \<preceq>" "op \<prec>"
+    by standard (auto simp: subsumes_strictly_def intro: trans)
+
+end (* Search Space Nodes *)
+
 text \<open>The set of reachable states must be finite,
   subsumption must be a preorder, and be compatible with steps and final states.\<close>
-locale Search_Space_Nodes = Search_Space_Nodes_Empty_Defs +
+locale Search_Space_Nodes_Empty = Search_Space_Nodes_Empty_Defs +
   assumes refl[intro!, simp]: "a \<preceq> a"
       and trans[trans]: "a \<preceq> b \<Longrightarrow> b \<preceq> c \<Longrightarrow> a \<preceq> c"
 
@@ -49,6 +63,15 @@ begin
 
   sublocale preorder "op \<preceq>" "op \<prec>"
     by standard (auto simp: subsumes_strictly_def intro: trans)
+
+  sublocale search_space:
+    Search_Space_Nodes "\<lambda> x y. E x y \<and> \<not> empty y" a\<^sub>0 F "op \<preceq>" "\<lambda> v. V v \<and> \<not> empty v"
+    apply standard
+       apply blast
+      apply (blast intro: trans)
+     apply (drule mono; blast dest: empty_mono)
+    apply (blast intro: F_mono)
+    done
 
 end (* Search Space Nodes *)
 
@@ -69,10 +92,10 @@ begin
   sublocale preorder "op \<preceq>" "op \<prec>"
     by standard (auto simp: subsumes_strictly_def intro: trans)
 
-sublocale Search_Space_Nodes E a\<^sub>0 F "op \<preceq>" reachable empty
-  including graph_automation
-  by standard
-    (auto intro: trans empty_subsumes dest: empty_mono empty_E F_mono, auto 4 4 dest: mono)
+  sublocale Search_Space_Nodes_Empty E a\<^sub>0 F "op \<preceq>" reachable empty
+    including graph_automation
+    by standard
+      (auto intro: trans empty_subsumes dest: empty_mono empty_E F_mono, auto 4 4 dest: mono)
 
 end (* Search Space *)
 
