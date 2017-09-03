@@ -22,7 +22,6 @@ definition
    nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
     (\<lambda>a (passed, wait, _).
       do {
-      (* ASSERT (\<forall> wait \<in> ran wait. \<forall> x \<in> set wait. \<not> empty x); *)
       RETURN (
         if empty a then
             (passed, wait, False)
@@ -273,7 +272,7 @@ definition leadsto' :: "bool nres" where
           FOREACHcdi (inner_inv acc) passed' (\<lambda>(b,_). \<not>b)
             (\<lambda>v' (_,passed).
               do {
-                ASSERT(A.reachable v');
+                ASSERT(A.reachable v' \<and> \<not> empty v');
                 if P v' \<and> Q v' then has_cycle v' passed else RETURN (False, passed)
               }
             )
@@ -313,7 +312,7 @@ proof -
 
   have reaches_iff: "B.reaches a x \<longleftrightarrow> B.G.G'.reaches a x"
     if "A.reachable a" "\<not> empty a" for a x
-    unfolding reaches_cycle_def thm B.G.E'_def
+    unfolding reaches_cycle_def
     apply standard
     using that
       apply (rotate_tac 3)
@@ -424,6 +423,10 @@ proof -
       subgoal
         unfolding inner_inv_def outer_inv_def A'.map_set_rel_def by auto
 
+      (* Assertion *)
+      subgoal
+        unfolding inner_inv_def outer_inv_def A'.map_set_rel_def by auto
+
       (* Inner invariant is preserved *)
       subgoal for _ _ b S1 S2 xa \<sigma> aa passed S1' S2' a\<^sub>1 \<sigma>' ab passed'
         unfolding outer_inv_def
@@ -500,7 +503,7 @@ lemma map_set_rel_id:
   unfolding A'.map_set_rel_def B.map_set_rel_def ..
 
 lemma has_cycle_map_ref'[refine]:
-  assumes "(P1, P1') \<in> A'.map_set_rel" "(a, a') \<in> Id" "A.reachable a"
+  assumes "(P1, P1') \<in> A'.map_set_rel" "(a, a') \<in> Id" "A.reachable a" "\<not> empty a"
   shows "has_cycle_map a P1 \<le> \<Down> (bool_rel \<times>\<^sub>r A'.map_set_rel) (has_cycle a' P1')"
   using has_cycle_map_ref assms by (auto simp: map_set_rel_id)
 

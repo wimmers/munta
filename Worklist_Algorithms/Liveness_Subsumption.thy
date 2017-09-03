@@ -1,11 +1,11 @@
 (* Authors: Simon Wimmer, Peter Lammich *)
 theory Liveness_Subsumption
-  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common "../Subsumption_Graphs"
+  imports
+    "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common "../Subsumption_Graphs"
+    "../library/DRAT_Misc"
 begin
 
-locale Liveness_Search_Space_Defs =
-  Search_Space_Nodes_Defs +
-  fixes succs :: "'a \<Rightarrow> 'a list"
+context Search_Space_Nodes_Defs
 begin
 
 sublocale G: Subgraph_Node_Defs .
@@ -24,7 +24,6 @@ definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
   "dfs P \<equiv> do {
     (P,ST,r) \<leftarrow> RECT (\<lambda>dfs (P,ST,v).
       do {
-        ASSERT (V v \<and> set ST \<subseteq> {x. V x});
         if check_loop v ST then RETURN (P, ST, True)
         else do {
           if \<exists> v' \<in> P. v \<preceq> v' then
@@ -32,7 +31,7 @@ definition dfs :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
           else do {
               let ST = v # ST;
               (P, ST', r) \<leftarrow>
-                nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
+                FOREACHcd {v'. v \<rightarrow> v'} (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
               ASSERT (ST' = ST);
               let ST = tl ST';
               let P = insert v P;
@@ -60,12 +59,9 @@ definition "dfs_spec \<equiv>
 
 end (* Search Space Defs *)
 
-locale Liveness_Search_Space = Liveness_Search_Space_Defs +
+locale Liveness_Search_Space_pre =
   Search_Space_Nodes +
-  assumes succs_correct: "V a \<Longrightarrow> set (succs a) = {x. a \<rightarrow> x}"
   assumes finite_V: "finite {a. V a}"
-
-context Liveness_Search_Space
 begin
 
 lemma check_loop_loop: "\<exists> v' \<in> set ST. v' \<preceq> v" if "check_loop v ST"
@@ -267,7 +263,7 @@ proof -
       )
       "
 
-  define inv where "inv \<equiv> \<lambda> P ST v (_ :: 'a list) it (P', ST', r).
+  define inv where "inv \<equiv> \<lambda> P ST v (_ :: 'a set) it (P', ST', r).
     (r \<longrightarrow> (\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x') \<and> ST' = ST) \<and>
     (\<not> r \<longrightarrow>
         P \<subseteq> P'
@@ -275,8 +271,9 @@ proof -
       \<and> set ST \<subseteq> {x. a\<^sub>0 \<rightarrow>* x}
       \<and> ST' = ST
       \<and> (\<forall> s \<in> set ST. s \<rightarrow>* v)
+      \<and> set ST \<subseteq> {x. V x}
       \<and> liveness_compatible P'
-      \<and> (\<forall> v \<in> {v'. v \<rightarrow> v'} - set it. (\<exists> v' \<in> P'. v \<preceq> v'))
+      \<and> (\<forall> v \<in> {v'. v \<rightarrow> v'} - it. (\<exists> v' \<in> P'. v \<preceq> v'))
       \<and> distinct ST
     )
   "
@@ -303,7 +300,9 @@ proof -
           M = "\<lambda>x. SPEC (rpost x)"
           ])
 
-        apply refine_mono
+      (* Trimono *)
+      subgoal
+        unfolding FOREACHcd_def by refine_mono
 
       (* Termination *)
        apply (rule wf; fail)
@@ -325,6 +324,7 @@ proof -
     (* Pre \<longrightarrow> Post *)
     apply refine_vcg
 
+    (*
     (* Assertion *)
     subgoal for f x a b aa ba
       unfolding rpre_def by auto
@@ -332,6 +332,7 @@ proof -
     (* Assertion *)
     subgoal for f x a b aa ba
       unfolding rpre_def by auto
+    *)
 
     (* Cycle found *)
     subgoal for f x a b aa ba
@@ -346,7 +347,7 @@ proof -
 
       thm nfoldli_rule
       apply (refine_vcg
-          nfoldli_rule[where I = "inv P (v # ST) v"]
+          FOREACHcd_rule[where I = "inv P (v # ST) v"]
           )
          apply clarsimp_all
         (*
@@ -358,16 +359,20 @@ proof -
           oops
 *)
 
+      (* Finitely Branching *)
+      subgoal
+        by (auto intro: successors_finite)
+
       (* Pre \<longrightarrow> Invariant *)
       subgoal
         using \<open>V a\<^sub>0\<close>
         by (
           subst (asm) (2) rpre_def, subst inv_def,
-          auto simp: succs_correct[OF reachable_alt] dest: check_loop_no_loop
+          auto dest: check_loop_no_loop
         )
 
       (* Invariant *)
-      subgoal for v' it P' ST' c
+      subgoal for _ it v' P' ST' c
         apply (rule order.trans)
          apply rprems
 
@@ -378,7 +383,7 @@ proof -
           subgoal premises prems
           proof -
             from prems \<open>V a\<^sub>0\<close> have "v \<rightarrow> v'"
-              by (auto dest!: succs_correct[OF reachable_alt])
+              by auto
             with prems show ?thesis
               by (auto intro: G.E'_V2)
           qed
@@ -419,5 +424,95 @@ proof -
 qed
 
 end (* Search Space Finite Strict *)
+
+locale Liveness_Search_Space_Defs =
+  Search_Space_Nodes_Defs +
+  fixes succs :: "'a \<Rightarrow> 'a list"
+begin
+
+definition dfs1 :: "'a set \<Rightarrow> (bool \<times> 'a set) nres" where
+  "dfs1 P \<equiv> do {
+    (P,ST,r) \<leftarrow> RECT (\<lambda>dfs (P,ST,v).
+      do {
+        ASSERT (V v \<and> set ST \<subseteq> {x. V x});
+        if check_loop v ST then RETURN (P, ST, True)
+        else do {
+          if \<exists> v' \<in> P. v \<preceq> v' then
+            RETURN (P, ST, False)
+          else do {
+              let ST = v # ST;
+              (P, ST', r) \<leftarrow>
+                nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST,False);
+              ASSERT (ST' = ST);
+              let ST = tl ST';
+              let P = insert v P;
+              RETURN (P, ST, r)
+            }
+        }
+      }
+    ) (P,[],a\<^sub>0);
+    RETURN (r, P)
+  }"
+
+end (* Liveness Search Space Defs *)
+
+locale Liveness_Search_Space =
+  Liveness_Search_Space_Defs +
+  Liveness_Search_Space_pre +
+  assumes succs_correct: "V a \<Longrightarrow> set (succs a) = {x. a \<rightarrow> x}"
+  assumes finite_V: "finite {a. V a}"
+begin
+
+(* XXX
+  The following complications only arise because we add the assertion in this refinement step.
+*)
+lemma succs_ref[refine]:
+  "(succs a, succs b) \<in> \<langle>Id\<rangle>list_rel" if "(a, b) \<in> Id"
+  using that by auto
+
+lemma start_ref[refine]:
+  "((P, [], a\<^sub>0), P, [], a\<^sub>0) \<in> Id \<times>\<^sub>r br id (\<lambda> xs. set xs \<subseteq> {x. V x}) \<times>\<^sub>r br id V" if "V a\<^sub>0"
+  using that by (auto simp: br_def)
+
+lemma refine_aux[refine]:
+  "((x, x1c, True), x', x1a, True) \<in> Id \<times>\<^sub>r br id (\<lambda>xs. set xs \<subseteq> Collect V) \<times>\<^sub>r Id"
+  if "(x1c, x1a) \<in> br id (\<lambda>xs. set xs \<subseteq> {x. V x})" "(x, x') \<in> Id"
+  using that by auto
+
+lemma refine_loop:
+  "(\<And>x x'. (x, x') \<in> Id \<times>\<^sub>r br id (\<lambda>xs. set xs \<subseteq> {x. V x}) \<times>\<^sub>r br id V \<Longrightarrow>
+            dfs' x \<le> \<Down> (Id \<times>\<^sub>r br id (\<lambda>xs. set xs \<subseteq> Collect V) \<times>\<^sub>r bool_rel) (dfsa x')) \<Longrightarrow>
+   (x, x') \<in> Id \<times>\<^sub>r br id (\<lambda>xs. set xs \<subseteq> {x. V x}) \<times>\<^sub>r br id V \<Longrightarrow>
+   x2 = (x1a, x2a) \<Longrightarrow>
+   x' = (x1, x2) \<Longrightarrow>
+   x2b = (x1c, x2c) \<Longrightarrow>
+   x = (x1b, x2b) \<Longrightarrow>
+   nfoldli (succs x2c) (\<lambda>(_, _, b). \<not> b) (\<lambda>v' (P, ST, _). dfs' (P, ST, v')) (x1b, x2c # x1c, False)
+   \<le> \<Down> (Id \<times>\<^sub>r br id (\<lambda>xs. set xs \<subseteq> {x. V x}) \<times>\<^sub>r bool_rel)
+       (FOREACHcd {v'. x2a \<rightarrow> v'} (\<lambda>(_, _, b). \<not> b)
+          (\<lambda>v' (P, ST, _). dfsa (P, ST, v')) (x1, x2a # x1a, False))"
+  apply (subgoal_tac "(succs x2c, succs x2a) \<in> \<langle>br id V\<rangle>list_rel")
+
+  unfolding FOREACHcd_def
+   apply refine_rcg
+   apply (rule rhs_step_bind_SPEC)
+    apply (rule succs_correct)
+    apply (auto simp: br_def; fail)
+   apply (erule nfoldli_refine)
+     apply (auto simp: br_def; fail)
+    apply (auto simp: br_def; fail)
+   apply (auto simp: br_def; fail)
+  unfolding br_def list_rel_def
+  by (simp, rule list.rel_refl_strong, auto intro: G.E'_V2 simp: succs_correct)
+
+lemma dfs1_le_dfs:
+  "dfs1 P \<le> \<Down> Id (dfs P)" if "V a\<^sub>0"
+  using that unfolding dfs1_def dfs_def
+  apply refine_rcg
+            apply (auto simp: br_def; fail)+
+     apply (rule refine_loop; assumption)
+  by (auto simp: br_def)
+
+end (* Liveness Search Space *)
 
 end (* Theory *)

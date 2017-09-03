@@ -131,7 +131,7 @@ locale Leadsto_Search_Space =
   assumes P_mono: "a \<preceq> a' \<Longrightarrow> P a \<Longrightarrow> P a'"
   assumes Q_mono: "a \<preceq> a' \<Longrightarrow> Q a \<Longrightarrow> Q a'"
   fixes succs :: "'a \<Rightarrow> 'a list"
-  assumes succs_correct: "A.reachable a \<Longrightarrow> set (succs a) = {y. a \<rightarrow> y \<and> Q y \<and> \<not> empty y}"
+  assumes succs_correct: "A.reachable a \<Longrightarrow> set (succs a) = {y. E a y \<and> Q y \<and> \<not> empty y}"
 begin
 
 sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty
@@ -147,14 +147,15 @@ sublocale B:
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
   succs
   apply standard
-          apply (rule A.refl A.trans; assumption)+
+       apply (rule A.refl A.trans; assumption)+
   subgoal for a b a'
     by safe (drule A.mono; auto intro: Q_mono dest: A.mono A.empty_mono)
-  apply blast
+    apply blast
+   apply (auto intro: A.finite_reachable; fail)
   subgoal
     apply (subst succs_correct)
     unfolding Subgraph_Node_Defs.E'_def by auto
-  by (auto intro: A.finite_reachable)
+  done
 
 context
   fixes a\<^sub>1 :: 'a

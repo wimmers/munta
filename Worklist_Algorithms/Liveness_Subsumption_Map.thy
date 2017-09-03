@@ -66,8 +66,6 @@ definition
       finite (dom m) \<and> (\<forall> k S. m k = Some S \<longrightarrow> finite S)
     }"
 
-term sorted
-
 definition
   "irrefl_trans_on R S \<equiv> (\<forall> x \<in> S. \<not> R x x) \<and> (\<forall> x \<in> S. \<forall> y \<in> S. \<forall> z \<in> S. R x y \<and> R y z \<longrightarrow> R x z)"
 
@@ -92,12 +90,9 @@ lemma rel_start[refine]:
   using that unfolding map_set_rel_def by (auto intro: empty_map_list_rel)
 
 lemma refine_True:
-  "(x1b, x1) \<in> map_set_rel \<Longrightarrow> (x1c, x1a) \<in> map_list_rel \<Longrightarrow> ((x1b, x1c, True), x1, x1a, True) \<in> map_set_rel \<times>\<^sub>r map_list_rel \<times>\<^sub>r Id"
+  "(x1b, x1) \<in> map_set_rel \<Longrightarrow> (x1c, x1a) \<in> map_list_rel
+  \<Longrightarrow> ((x1b, x1c, True), x1, x1a, True) \<in> map_set_rel \<times>\<^sub>r map_list_rel \<times>\<^sub>r Id"
   by simp
-
-lemma refine_True':
-  "(x1b, x1) \<in> map_set_rel \<Longrightarrow> (x1c, x1a) \<in> list_set_rel \<Longrightarrow> ((x1b, x1c, True), x1, x1a, True) \<in> map_set_rel \<times>\<^sub>r list_set_hd_rel x \<times>\<^sub>r Id"
-  unfolding map_set_rel_def list_set_rel_def oops
 
 lemma check_subsumption_ref[refine]:
   "V x2a \<Longrightarrow> (x1b, x1) \<in> map_set_rel \<Longrightarrow> check_subsumption_map_set x2a x1b = (\<exists>x\<in>x1. x2a \<preceq> x)"
@@ -374,10 +369,10 @@ lemma succs_id_ref:
   "(succs x, succs x) \<in> \<langle>Id\<rangle> list_rel"
   by simp
 
-lemma dfs_map_dfs_refine:
-  "dfs_map P \<le> \<Down> (Id \<times>\<^sub>r map_set_rel) (dfs P')" if "(P, P') \<in> map_set_rel"
+lemma dfs_map_dfs_refine':
+  "dfs_map P \<le> \<Down> (Id \<times>\<^sub>r map_set_rel) (dfs1 P')" if "(P, P') \<in> map_set_rel"
   using that
-  unfolding dfs_map_def dfs_def
+  unfolding dfs_map_def dfs1_def
   apply refine_rcg
     using [[goals_limit=1]]
              apply (clarsimp, rule check_subsumption'_ref; assumption)
@@ -387,6 +382,14 @@ lemma dfs_map_dfs_refine:
          apply (clarsimp; rule succs_id_ref; fail)
         apply (clarsimp, rule push_map_list_ref'; assumption)
       by (auto intro: insert_map_set_ref pop_map_list_ref)
+
+lemma dfs_map_dfs_refine:
+  "dfs_map P \<le> \<Down> (Id \<times>\<^sub>r map_set_rel) (dfs P')" if "(P, P') \<in> map_set_rel" "V a\<^sub>0"
+proof -
+  note dfs_map_dfs_refine'[OF \<open>_ \<in> map_set_rel\<close>]
+  also note dfs1_dfs_ref[OF \<open>V a\<^sub>0\<close>]
+  finally show ?thesis .
+qed
 
 end (* Liveness Search Space Key *)
 
