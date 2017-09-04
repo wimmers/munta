@@ -41,7 +41,8 @@ method solve_ex_triv = (((rule exI)+)?, solve_conj_triv)
 subsection \<open>Executable successor computation\<close>
 
 no_notation Ref.update ("_ := _" 62)
-no_notation test_bit (infixl "!!" 100)
+no_notation Bits.test_bit (infixl "!!" 100)
+no_notation Stream.snth (infixl "!!" 100)
 
 lemma exec_state_length:
   assumes "exec prog n (pc, st, s, f, rs) pcs = Some ((pc', st', s', f', rs'), pcs')"
