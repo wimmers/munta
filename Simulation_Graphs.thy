@@ -3,7 +3,6 @@ theory Simulation_Graphs
     "library/CTL"
     "library/More_List"
     Normalized_Zone_Semantics
-    "~/Isabelle/Util/Explorer"
 begin
 
 chapter \<open>Simulation Graphs\<close>
