@@ -505,7 +505,7 @@ lemma refine_loop:
   unfolding br_def list_rel_def
   by (simp, rule list.rel_refl_strong, auto intro: G.E'_V2 simp: succs_correct)
 
-lemma dfs1_le_dfs:
+lemma dfs1_dfs_ref[refine]:
   "dfs1 P \<le> \<Down> Id (dfs P)" if "V a\<^sub>0"
   using that unfolding dfs1_def dfs_def
   apply refine_rcg

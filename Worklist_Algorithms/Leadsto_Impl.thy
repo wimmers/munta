@@ -31,28 +31,32 @@ sepref_thm pw_algo_map2_impl is
   unfolding F_split (* XXX Why? F only appears in the invariant *)
   by sepref
 
-concrete_definition (in -) pw_impl
-for Lei a\<^sub>0i Fi succsi emptyi
-uses Worklist_Map2_Impl.pw_algo_map2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
-
 end (* Worklist Map 2 Impl *)
 
 locale Leadsto_Search_Space_Key_Impl =
-  Leadsto_Search_Space_Key a\<^sub>0 F _ empty _ E key F' P Q succs succs1 +
-  Liveness_Search_Space_Key_Impl a\<^sub>0 F _ V succs E _ key A succsi a\<^sub>0i Lei keyi copyi
-  for key :: "'v :: {heap} \<Rightarrow> 'k :: {hashable,heap}"
-  and a\<^sub>0 F F' copyi P Q V empty succs succs1 E A succsi a\<^sub>0i Lei keyi +
-  fixes succs1i and Lei' and Pi Qi
+  Leadsto_Search_Space_Key a\<^sub>0 F _ empty _ E key F' P Q succs_Q succs1 +
+  liveness: Liveness_Search_Space_Key_Impl a\<^sub>0 F _ V succs_Q "\<lambda> x y. E x y \<and> \<not> empty y \<and> Q y"
+    _ key A succsi a\<^sub>0i Lei keyi copyi
+  for key :: "'v \<Rightarrow> 'k :: {hashable,heap}"
+  and a\<^sub>0 F F' copyi P Q V empty succs_Q succs1 E A succsi a\<^sub>0i Lei keyi +
+  fixes succs1i and emptyi and Pi Qi
   assumes  succs1_impl: "(succs1i, (RETURN \<circ>\<circ> PR_CONST) succs1) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
-    and Lei': "(uncurry Lei', uncurry ((RETURN \<circ>\<circ>\<circ> PR_CONST) op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-    and [sepref_fr_rules]: "(Pi,RETURN o P) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn" "(Qi,RETURN o Q) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    and empty_impl:
+      "(emptyi,RETURN o PR_CONST empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    assumes [sepref_fr_rules]:
+      "(Pi,RETURN o PR_CONST P) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn" "(Qi,RETURN o PR_CONST Q) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
 begin
 
-sublocale Worklist_Map2_Impl _ _ "\<lambda> _. False" _ succs1 _ _ "(\<lambda>_. False)" _ succs1i _ _ Lei'
-  by (standard; rule refinements Lei' succs1_impl)
+sublocale Worklist_Map2_Impl _ _ "\<lambda> _. False" _ succs1 _ _ "\<lambda>_. False" _ succs1i _
+  "\<lambda>_. return False" Lei
+  apply (standard)
+        apply (rule liveness.refinements succs1_impl)
+  subgoal
+    by sepref_to_hoare sep_auto
+  by (rule liveness.refinements succs1_impl empty_impl)+
 
 sepref_register pw_algo_map2_copy
-sepref_register P Q
+sepref_register "PR_CONST P" "PR_CONST Q"
 
 lemmas [sepref_fr_rules] = lso_id_hnr ran_of_map_impl.refine[folded hm.hms_assn'_id_hms_assn]
 
@@ -71,21 +75,38 @@ lemma has_cycle_map_copy_fold:
 sepref_register has_cycle_map_copy
 
 lemma has_cycle_map_fold:
-  "has_cycle_map = dfs_map'"
-  unfolding has_cycle_map_def dfs_map'_def
+  "has_cycle_map = liveness.dfs_map'"
+  unfolding has_cycle_map_def liveness.dfs_map'_def
   by (subst Liveness_Search_Space_Key_Defs.dfs_map_alt_def) standard
 
 lemmas [sepref_fr_rules] =
-  dfs_map'_impl.refine_raw[folded has_cycle_map_fold, folded has_cycle_map_copy_fold]
+  liveness.dfs_map'_impl.refine_raw[folded has_cycle_map_fold, folded has_cycle_map_copy_fold]
 
-sepref_definition leadsto_impl is
+sepref_thm leadsto_impl is
   "uncurry0 leadsto_map4'" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding leadsto_map4'_def
+  apply (rewrite in P PR_CONST_def[symmetric])
+  apply (rewrite in Q PR_CONST_def[symmetric])
   unfolding pw_algo_map2_copy_def[symmetric]
   unfolding has_cycle_map_copy_def[symmetric]
   unfolding hm.hms_fold_custom_empty
   unfolding list_of_set_def[symmetric]
   by sepref
+
+concrete_definition (in -) leadsto_impl
+  uses Leadsto_Search_Space_Key_Impl.leadsto_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
+
+lemma leadsto_impl_hnr:
+  "(uncurry0 (
+    leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd) copyi succsi a\<^sub>0i Lei keyi succs1i emptyi Pi Qi
+    ),
+    uncurry0 leadsto_spec_alt
+   ) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "V a\<^sub>0"
+  unfolding leadsto_spec_alt_def
+  using leadsto_impl.refine[
+    OF Leadsto_Search_Space_Key_Impl_axioms,
+    FCOMP leadsto_map4'_correct[unfolded leadsto_spec_alt_def, THEN Id_SPEC_refine, THEN nres_relI]
+    ] .
 
 end (* Leadsto Search Space Key Impl *)
 

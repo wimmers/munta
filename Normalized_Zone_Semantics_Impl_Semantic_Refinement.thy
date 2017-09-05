@@ -2,6 +2,7 @@ theory Normalized_Zone_Semantics_Impl_Semantic_Refinement
   imports TA_Impl_Misc Floyd_Warshall
     FW_More
     Normalized_Zone_Semantics_Impl
+    "Worklist_Algorithms/Liveness_Subsumption"
 begin
 
 chapter \<open>Semantic Refinement of the Reachability Checker\<close>
@@ -920,6 +921,38 @@ begin
   sublocale Search_Space_finite E_from_op a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
     by standard
        (auto intro: finite_subset[OF _ E_closure_finite] simp: Graph_Start_Defs.reachable_def)
+
+  sublocale liveness_pre:
+    Liveness_Search_Space_pre
+    "\<lambda> (l, M) (l', M'). E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M'" a\<^sub>0 "\<lambda> _. False"
+    "subsumes n" "\<lambda> (l, M). \<not> check_diag n M \<and> reachable (l, M)"
+    apply standard
+        apply blast
+       apply (blast intro: trans)
+      apply safe
+     apply (frule mono)
+         apply assumption
+        apply assumption
+       apply assumption
+      apply (simp; fail)
+     apply safe
+     apply (intro exI conjI)
+       prefer 3
+       apply assumption
+      apply safe
+    subgoal a
+      using empty_mono by auto
+    subgoal
+      using reachable_step by blast
+    subgoal
+      by (metis subsumes_simp_2)
+    subgoal
+      by (metis subsumes_simp_2)
+    subgoal
+      by (rule a)
+    subgoal
+      using finite_reachable by (auto intro: finite_subset[rotated])
+    done
 
 end (* End of context for finiteness and bisimilarity *)
 

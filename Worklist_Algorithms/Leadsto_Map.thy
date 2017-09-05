@@ -212,7 +212,7 @@ sublocale A': Worklist_Map2_finite a\<^sub>0 "\<lambda> _. False" "op \<preceq>"
 interpretation B:
   Liveness_Search_Space_Key
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  succs key
+  succs_Q key
   by standard (auto intro!: A.empty_subsumes')
 
 context
@@ -222,7 +222,7 @@ begin
 interpretation B':
   Liveness_Search_Space_Key_Defs
   a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  succs "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" key .
+  succs_Q "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" key .
 
 definition has_cycle_map where
   "has_cycle_map = B'.dfs_map"
@@ -234,7 +234,7 @@ begin
 interpretation B':
   Liveness_Search_Space_Key
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  succs key
+  succs_Q key
   by standard
 
 lemmas has_cycle_map_ref[refine] = B'.dfs_map_dfs_refine[folded has_cycle_map_def has_cycle_def]
@@ -440,7 +440,7 @@ proof -
           interpret B':
             Liveness_Search_Space
             "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
-            "\<lambda> x. A.reachable x \<and> \<not> empty x" succs
+            "\<lambda> x. A.reachable x \<and> \<not> empty x" succs_Q
             by standard
           from \<open>inner_inv _ _ _ _\<close> have
             "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"

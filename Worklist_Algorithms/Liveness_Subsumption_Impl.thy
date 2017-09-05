@@ -16,7 +16,6 @@ locale Liveness_Search_Space_Key_Impl =
   Liveness_Search_Space_Key +
   assumes refinements[sepref_fr_rules]:
     "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
-    "(Fi,RETURN o PR_CONST F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
     "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a id_assn"
@@ -231,7 +230,7 @@ lemmas [sepref_fr_rules] = dfs_map_impl.refine_raw
 
 lemma passed_empty_refine[sepref_fr_rules]:
   "(uncurry0 hm.hms_empty, uncurry0 (RETURN (PR_CONST hm.op_hms_empty))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a passed_assn"
-  by (rule hfrefI, auto simp: pure_unit_rel_eq_empty intro!: sepref_fr_rules(14)[simplified])
+  by (rule hfrefI, auto simp: pure_unit_rel_eq_empty intro!: sepref_fr_rules(13)[simplified])
 
 sepref_register hm.op_hms_empty
 
@@ -250,6 +249,41 @@ sepref_definition dfs_map'_impl is
   unfolding lso_fold_custom_empty hm.hms_fold_custom_empty HOL_list.fold_custom_empty
   by sepref
 
-end (* Search Space Nodes Finite Strict Key Impl 1 *)
+concrete_definition (in -) dfs_map_impl'
+  uses Liveness_Search_Space_Key_Impl.dfs_map_impl'.refine_raw is "(uncurry0 ?f,_)\<in>_"
+
+lemma (in Liveness_Search_Space_Key) dfs_map_empty:
+  "dfs_map Map.empty \<le> \<Down> (bool_rel \<times>\<^sub>r map_set_rel) dfs_spec" if "V a\<^sub>0"
+proof -
+  (* XXX Make lemma *)
+  have "liveness_compatible {}"
+    unfolding liveness_compatible_def by auto
+  have "(Map.empty, {}) \<in> map_set_rel"
+    unfolding map_set_rel_def by auto
+  note dfs_map_dfs_refine[OF this \<open>V a\<^sub>0\<close>]
+  also note dfs_correct[OF \<open>V a\<^sub>0\<close> \<open>liveness_compatible {}\<close>]
+  finally show ?thesis
+    by auto
+qed
+
+lemma (in Liveness_Search_Space_Key) dfs_map_empty_correct:
+  "do {(r, p) \<leftarrow> dfs_map Map.empty; RETURN r} \<le> SPEC (\<lambda> r. r \<longleftrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x))"
+  if "V a\<^sub>0"
+  supply dfs_map_empty[OF \<open>V a\<^sub>0\<close>, THEN order.trans, refine_vcg]
+  apply refine_vcg
+  unfolding dfs_spec_def pw_le_iff by (auto simp: refine_pw_simps)
+
+lemma dfs_map_impl'_hnr:
+  "(uncurry0 (dfs_map_impl' TYPE('f) TYPE('g) TYPE('h) succsi a\<^sub>0i Lei keyi copyi),
+    uncurry0 (SPEC (\<lambda>r. r = (\<exists>x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)))
+   ) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "V a\<^sub>0"
+  using
+    dfs_map_impl'.refine[
+      OF Liveness_Search_Space_Key_Impl_axioms,
+      FCOMP dfs_map_empty_correct[THEN Id_SPEC_refine, THEN nres_relI],
+      OF \<open>V a\<^sub>0\<close>
+      ] .
+
+end (* Liveness Search Space Key Impl *)
 
 end (* Theory *)

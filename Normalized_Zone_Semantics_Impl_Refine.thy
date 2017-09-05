@@ -4,7 +4,9 @@ theory Normalized_Zone_Semantics_Impl_Refine
     "~~/src/HOL/Library/IArray"
     Code_Numeral
     "Worklist_Algorithms/Worklist_Subsumption_Impl1" "Worklist_Algorithms/Unified_PW_Impl"
+    "Worklist_Algorithms/Liveness_Subsumption_Impl" "Worklist_Algorithms/Leadsto_Impl"
     Normalized_Zone_Semantics_Impl_Semantic_Refinement
+    Simulation_Graphs_TA
 begin
 
   chapter \<open>Imperative Implementation of Reachability Checking\<close>
@@ -121,6 +123,24 @@ begin
 
 end
 
+context Search_Space_finite
+begin
+
+sublocale liveness_search_space_pre:
+  Liveness_Search_Space_pre "\<lambda> x y. E x y \<and> F x \<and> F y \<and> \<not> empty y" a\<^sub>0 F "op \<preceq>"
+  "\<lambda> v. reachable v \<and> \<not> empty v \<and> F v"
+  using finite_reachable apply -
+  apply (standard)
+      apply (blast intro: finite_subset[rotated] F_mono trans)
+     apply (blast intro: finite_subset[rotated] F_mono trans)
+  subgoal
+    by safe (blast dest: mono F_mono empty_mono)
+   apply (blast intro: finite_subset[rotated] F_mono trans)
+  apply (blast intro: finite_subset[rotated] F_mono trans)
+  done
+
+end
+
 locale Reachability_Problem_Impl_Op =
   Reachability_Problem_Impl _ _ _ _ _ l\<^sub>0
   + op: E_From_Op_Bisim_Finite l\<^sub>0 for l\<^sub>0 :: "'s :: {hashable, heap}" +
@@ -128,7 +148,7 @@ locale Reachability_Problem_Impl_Op =
   assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
 begin
 
-end
+end (* Reachability Problem Impl Op *)
 
 text \<open>Shared Setup\<close>
 context Reachability_Problem_Impl
@@ -265,13 +285,24 @@ begin
   definition succs where
     "succs \<equiv> \<lambda> (l, D). rev (map (\<lambda> (g,a,r,l'). (l', f l r g l' D)) (trans_fun l))"
 
+  definition succs_P where
+    "succs_P P \<equiv> \<lambda> (l, D).
+      rev (map (\<lambda> (g,a,r,l'). (l', f l r g l' D)) (filter (\<lambda> (g,a,r,l'). P l') (trans_fun l)))"
+
   definition succs' where
     "succs' \<equiv> \<lambda> (l, D). do
       {
-        xs \<leftarrow> nfoldli (trans_fun l) (\<lambda> _. True) (\<lambda> (g,a,r,l') xs. do
-          {
-            RETURN ((l', f l r g l' (op_mtx_copy D)) # xs)
-          }
+        xs \<leftarrow> nfoldli (trans_fun l) (\<lambda> _. True) (\<lambda> (g,a,r,l') xs.
+          RETURN ((l', f l r g l' (op_mtx_copy D)) # xs)
+        ) [];
+        RETURN xs
+      }"
+
+  definition succs_P' where
+    "succs_P' P \<equiv> \<lambda> (l, D). do
+      {
+        xs \<leftarrow> nfoldli (trans_fun l) (\<lambda> _. True) (\<lambda> (g,a,r,l') xs.
+          RETURN (if P l' then (l', f l r g l' (op_mtx_copy D)) # xs else xs)
         ) [];
         RETURN xs
       }"
@@ -295,6 +326,15 @@ begin
     apply (fo_rule arg_cong fun_cong)+
     apply auto
   done
+
+  lemma succs_P'_succs_P:
+    "succs_P' P lD = RETURN (succs_P P lD)"
+    unfolding succs_P'_def succs_P_def rev_map_fold fold_filter
+    apply (cases lD)
+    apply simp
+    apply (rewrite fold_eq_nfoldli)
+    apply (fo_rule arg_cong fun_cong)+
+    by auto
 
   lemmas [sepref_fr_rules] = dbm_subset'_impl.refine
 
@@ -410,14 +450,24 @@ begin
 
   lemma [sepref_import_param]:
     "(trans_fun, trans_fun)
-    \<in> location_rel \<rightarrow> \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle> acconstraint_rel\<rangle> list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle> list_rel \<times>\<^sub>r location_rel\<rangle> list_rel"
+    \<in> location_rel \<rightarrow>
+      \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle> acconstraint_rel\<rangle> list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle> list_rel \<times>\<^sub>r location_rel\<rangle>
+      list_rel"
   apply (rule fun_relI)
   apply simp
   subgoal premises prems for x x'
   proof -
     { fix l :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
-      assume "\<forall> g a r l'. (g, a, r, l') \<in> set l \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> states"
-      then have "(l, l) \<in> \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r location_rel\<rangle>list_rel"
+      assume
+        "\<forall> g a r l'. (g, a, r, l') \<in> set l
+        \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> states"
+      then have
+        "(l, l) \<in>
+        \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel
+            \<times>\<^sub>r Id
+            \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel
+            \<times>\<^sub>r location_rel
+        \<rangle>list_rel"
       proof (induction l)
         case Nil then show ?case by simp
       next
@@ -472,14 +522,67 @@ begin
   begin
 
   sepref_definition succs_impl is
-    "RETURN o succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
+    "RETURN o PR_CONST succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
+  unfolding PR_CONST_def
   unfolding
     comp_def succs'_succs[symmetric] succs'_def
     FW''_def[symmetric] rev_map_fold inv_of_A_def[symmetric]
   apply (rewrite "HOL_list.fold_custom_empty")
   by sepref
 
+  sepref_register succs :: "'s \<times> (int DBMEntry i_mtx) \<Rightarrow> ('s \<times> (int DBMEntry i_mtx)) list"
+
+  lemmas [sepref_fr_rules] = succs_impl.refine
+
+  sepref_definition succs_impl' is
+    "RETURN o (filter (\<lambda> (l, M). \<not>check_diag n M) o succs)"  :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
+    apply (rewrite in succs PR_CONST_def[symmetric])
+    unfolding list_filter_foldli (* XXX This might be slightly inefficient \<rightarrow> can we do better? *)
+    apply (rewrite "HOL_list.fold_custom_empty")
+    by sepref
+
   end (* End sepref setup *)
+
+  context
+    fixes P :: "'s \<Rightarrow> bool" and P_fun
+    assumes P_fun: "(P_fun, P) \<in> inv_rel states"
+  begin
+
+  context
+    notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
+      and [sepref_import_param] = IdI[of n]
+  begin
+
+  sepref_register "PR_CONST P"
+
+  lemma [sepref_fr_rules]:
+    "(return o P_fun, RETURN o PR_CONST P) \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+    using P_fun by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def)
+
+  sepref_definition succs_P_impl is
+    "RETURN o PR_CONST (succs_P P)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
+    unfolding PR_CONST_def
+    apply (rewrite in P PR_CONST_def[symmetric])
+    unfolding
+      comp_def succs_P'_succs_P[symmetric] succs_P'_def
+      FW''_def[symmetric] rev_map_fold inv_of_A_def[symmetric]
+    apply (rewrite "HOL_list.fold_custom_empty")
+    by sepref
+
+  sepref_register "succs_P P" :: "'s \<times> (int DBMEntry i_mtx) \<Rightarrow> ('s \<times> (int DBMEntry i_mtx)) list"
+
+  lemmas [sepref_fr_rules] = succs_P_impl.refine
+
+  sepref_definition succs_P_impl' is
+    "RETURN o (filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P P)"  :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
+    apply (rewrite in "succs_P P" PR_CONST_def[symmetric])
+    unfolding list_filter_foldli (* XXX This might be slightly inefficient \<rightarrow> can we do better? *)
+    apply (rewrite "HOL_list.fold_custom_empty")
+    by sepref
+
+  end (* End sepref setup *)
+
+  end (* Fixed predicate *)
 
   (* XXX Move to different context *)
   lemma reachable_states:
@@ -536,7 +639,7 @@ begin
     apply standard
     apply (unfold PR_CONST_def)
     by (rule
-        a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine
+        a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine[unfolded PR_CONST_def]
         emptiness_check_impl.refine[unfolded emptiness_check_def]
         )+
 
@@ -564,6 +667,184 @@ begin
     op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
     state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl
     "return o fst" state_copy_impl fst by standard
+
+  sublocale liveness: Liveness_Search_Space_Key
+    "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M'" a\<^sub>0
+    "\<lambda> _. False"
+    "subsumes n" "\<lambda> (l, M). op.reachable (l, M) \<and> \<not> check_diag n M \<and> F l"
+    "filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P F" fst subsumes'
+    apply standard
+           apply blast
+          apply (blast intro: op.liveness_search_space_pre.trans)
+    subgoal for a b a'
+      apply (drule op.liveness_search_space_pre.mono[where a'=a'])
+      unfolding op.liveness_search_space_pre.G.E'_def by (auto simp: F_rel_def)
+        apply blast
+    subgoal
+      using op.liveness_search_space_pre.finite_V
+      by (auto elim: finite_subset[rotated] simp: F_rel_def)
+    subgoal premises prems for a
+    proof -
+      have
+        "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P F) a)
+        = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l' \<and> \<not> check_diag n M') a x}"
+        unfolding op.E_from_op_def succs_P_def using prems by (force dest!: reachable_states)
+      also have "\<dots> =
+        {x. Subgraph_Node_Defs.E'
+         (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M')
+         (\<lambda>(l, M). op.reachable (l, M) \<and> \<not> check_diag n M \<and> F l) a x}"
+        unfolding Subgraph_Node_Defs.E'_def using prems by auto
+      finally show ?thesis .
+    qed
+    by (blast intro!: empty_subsumes')+
+
+  sublocale liveness: Liveness_Search_Space_Key_Impl
+    a\<^sub>0 "\<lambda> _. False" "subsumes n" "\<lambda> (l, M). op.reachable (l, M) \<and> \<not> check_diag n M \<and> F l"
+    "filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P F"
+    "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M'"
+    subsumes' fst
+    state_assn' "succs_P_impl' F_fun" a\<^sub>0_impl subsumes_impl "return o fst" state_copy_impl
+    apply standard
+        apply (unfold PR_CONST_def, rule a\<^sub>0_impl.refine; fail)
+       apply (unfold PR_CONST_def, rule subsumes_impl.refine; fail)
+      apply (unfold PR_CONST_def, rule succs_P_impl'.refine[OF F_fun])
+    subgoal
+      by sepref_to_hoare sep_auto
+    by (rule state_copy_impl.refine)
+
+  (* XXX Move *)
+  lemma (in Subgraph_Start) reachable:
+    "G.reachable x" if "G'.reachable x"
+    using that unfolding G.reachable_def G'.reachable_def by (rule reaches)
+
+  context
+    fixes Q :: "'s \<Rightarrow> bool" and Q_fun
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
+  begin
+
+  interpretation leadsto: Leadsto_Search_Space_Key
+    a\<^sub>0 "\<lambda> _. False" "subsumes n" "\<lambda> (l, M). check_diag n M" subsumes'
+    "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> \<not> check_diag n M'"
+    fst "\<lambda> _. False" "\<lambda> (l, M). F l" "\<lambda> (l, M). Q l"
+    "filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q" "filter (\<lambda> (l, M). \<not>check_diag n M) o succs"
+  proof (goal_cases)
+    case 1
+    interpret Subgraph_Start
+      op.E_from_op a\<^sub>0 "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> \<not> check_diag n M'"
+      by standard auto
+    show ?case
+      apply standard
+                    apply blast
+                   apply (blast intro: liveness.trans)
+      subgoal for a b a'
+        by (drule op.mono[where a' = a'], auto dest: op.empty_mono[rotated] intro: reachable)
+                 apply (blast intro: op.empty_subsumes)
+                apply (rule op.empty_mono; assumption)
+      subgoal for x x'
+        by (auto dest: op.E_from_op_check_diag)
+              apply assumption
+             apply blast
+            apply blast
+      subgoal for a
+        by (auto dest: succs_correct reachable)
+          apply (simp; fail)
+      subgoal
+        using op.finite_reachable by (auto intro: reachable elim!: finite_subset[rotated])
+      thm op.F_mono[unfolded F_rel_def] final_non_empty
+      subgoal for a a'
+        by (auto simp: empty_subsumes' dest: subsumes_key)
+      subgoal for a a'
+        by (auto simp: empty_subsumes' dest: subsumes_key)
+      subgoal premises prems for a
+      proof -
+        have
+          "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
+            = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
+          unfolding op.E_from_op_def succs_P_def using prems
+          by (force dest!: reachable reachable_states)
+        then show ?thesis
+          by auto
+      qed
+      done
+  qed
+
+  sepref_register "PR_CONST Q"
+
+  lemma [sepref_fr_rules]:
+    "(return o Q_fun, RETURN o PR_CONST Q) \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+    using Q_fun by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def)
+
+  sepref_definition Q_impl is
+    "RETURN o (\<lambda> (l, M). Q l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    by (rewrite in Q PR_CONST_def[symmetric]) sepref
+
+  interpretation leadsto: Leadsto_Search_Space_Key_Impl
+    "subsumes n" subsumes' fst a\<^sub>0 "\<lambda> _. False" "\<lambda> _. False" state_copy_impl
+    "\<lambda> (l, M). F l" "\<lambda> (l, M). Q l"
+    "\<lambda> (l, M). op.reachable (l, M) \<and> \<not> check_diag n M"
+    "\<lambda> (l, M). check_diag n M"
+    "filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q" "filter (\<lambda> (l, M). \<not>check_diag n M) o succs"
+    "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> \<not> check_diag n M'"
+    state_assn'
+    "succs_P_impl' Q_fun" a\<^sub>0_impl subsumes_impl "return o fst" succs_impl'
+    emptiness_check_impl F_impl Q_impl
+    apply standard
+                    apply blast
+                   apply (blast intro: op.trans)
+    subgoal for a b a'
+      apply (drule op.mono[where a' = a'], auto dest: op.empty_mono[rotated])
+      apply (intro exI conjI)
+           apply (auto dest: op.empty_mono[rotated])
+      by (auto simp: empty_subsumes' dest: subsumes_key)
+                 apply blast
+    subgoal
+      using op.finite_reachable by (auto elim!: finite_subset[rotated])
+    subgoal premises prems for a
+    proof -
+      have
+        "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
+          = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
+        unfolding op.E_from_op_def succs_P_def using prems by (force dest!: reachable_states)
+      also have "\<dots> =
+          {x. Subgraph_Node_Defs.E'
+           (\<lambda>x y.
+            (case x of (l, M) \<Rightarrow> \<lambda>(l', M'). op.E_from_op (l, M) (l', M') \<and> \<not> check_diag n M') y
+              \<and> \<not> (case y of (l, M) \<Rightarrow> check_diag n M) \<and> (case y of (l, M) \<Rightarrow> Q l)
+            )
+           (\<lambda>(l, M). op.reachable (l, M) \<and> \<not> check_diag n M) a x}"
+        unfolding Subgraph_Node_Defs.E'_def using prems by auto
+      finally show ?thesis .
+    qed
+              apply blast
+             apply (clarsimp simp: empty_subsumes'; fail)
+            apply (rule liveness.refinements)
+           apply (rule liveness.refinements)
+          apply (unfold PR_CONST_def, rule succs_P_impl'.refine[OF Q_fun])
+    subgoal
+      by sepref_to_hoare sep_auto
+    by (rule
+        succs_impl'.refine liveness.refinements
+        emptiness_check_impl.refine[unfolded emptiness_check_def]
+        F_impl.refine Q_impl.refine
+        )+
+
+  definition
+    "leadsto_spec_alt = SPEC (\<lambda>r. r \<longleftrightarrow>
+       (\<exists>a. leadsto.A.search_space.reaches a\<^sub>0 a \<and>
+            \<not> (case a of (l, M) \<Rightarrow> check_diag n M) \<and>
+            (case a of (l, M) \<Rightarrow> F l) \<and> (case a of (l, M) \<Rightarrow> Q l) \<and>
+            (\<exists>b. leadsto.B.reaches a b \<and> leadsto.B.reaches1 b b))
+     )
+    "
+
+  lemmas leadsto_impl_hnr =
+    leadsto.leadsto_impl_hnr[
+      unfolded leadsto.leadsto_spec_alt_def, unfolded leadsto.reaches_cycle_def,
+      folded leadsto_spec_alt_def
+    ]
+
+  end (* Context for second predicate *)
+
 
   paragraph \<open>Implementation for the invariant precondition check\<close>
 
@@ -657,6 +938,66 @@ sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op''" _ E_op'
 lemma E_op_F_reachable:
   "op.F_reachable = E_op''.F_reachable" unfolding PR_CONST_def ..
 
+lemma not_check_diag_init_dbm[intro, simp]:
+  "\<not> check_diag n init_dbm"
+  unfolding check_diag_def init_dbm_def by auto
+
+lemma precond_a\<^sub>0:
+  "case a\<^sub>0 of (l, M) \<Rightarrow> op.reachable (l, M) \<and> \<not> check_diag n M"
+  unfolding op.reachable_def unfolding a\<^sub>0_def by auto
+
+lemma state_set_eq[simp]:
+  "Simulation_Graphs_TA.state_set A = state_set (trans_of A)"
+  unfolding Simulation_Graphs_TA.state_set_def state_set_def trans_of_def ..
+
+context
+    fixes Q :: "'s \<Rightarrow> bool" and Q_fun
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
+    assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set (trans_of A)"
+    assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
+begin
+
+lemma leadsto_spec_refine:
+  "leadsto_spec_alt Q
+  \<le> SPEC (\<lambda> r. \<not> r \<longleftrightarrow>
+    (\<nexists>x. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) x \<and>
+       F (fst x) \<and>
+       Q (fst x) \<and>
+       (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and>
+                   \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>*
+             x a \<and>
+            (\<lambda>a b. E_op''.E_from_op a b \<and>
+                   \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+
+             a a))
+    )"
+proof -
+  have *:"
+    (\<lambda>x y. (case y of (l', M') \<Rightarrow> E_op''.E_from_op x (l', M') \<and> \<not> check_diag n M') \<and>
+    \<not> (case y of (l, M) \<Rightarrow> check_diag n M))
+    = (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))"
+    by (intro ext) auto
+  have **:
+    "(\<lambda>x y. (case y of (l', M') \<Rightarrow> E_op''.E_from_op x (l', M') \<and> \<not> check_diag n M') \<and>
+     (case y of (l, M) \<Rightarrow> Q l) \<and> \<not> (case y of (l, M) \<Rightarrow> check_diag n M))
+     = (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))"
+    by (intro ext) auto
+  have ***: "\<not> check_diag n b"
+    if "(\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* a\<^sub>0 (a, b)" for a b
+    using that by cases (auto simp: a\<^sub>0_def)
+  show ?thesis
+    unfolding leadsto_spec_alt_def[OF Q_fun]
+    unfolding PR_CONST_def a\<^sub>0_def[symmetric] by (auto dest: *** simp: * **)
+  qed
+
+lemmas leadsto_impl_hnr =
+  leadsto_impl_hnr[
+    OF Q_fun precond_a\<^sub>0,
+    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI],
+    folded leadsto_mc[OF l\<^sub>0_state_set[folded state_set_eq] no_deadlock]
+    ]
+
+end (* Context for leadsto predicate *)
+
 end (* End of Reachability Problem Impl *)
 
 datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
@@ -701,7 +1042,7 @@ begin
 
   lemma inv_fun_inv_of[intro, simp]:
     "(inv_fun, inv_of A) \<in> inv_rel Defs.states"
-  using state_set_n n_gt_0 unfolding inv_rel_def inv_fun_def[abs_def] inv_of_def A_def I_def[abs_def]
+  using state_set_n n_gt_0 unfolding inv_rel_def inv_fun_def inv_of_def A_def I_def
   by auto
 
   definition "final_fun = List.member final"

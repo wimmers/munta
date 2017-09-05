@@ -128,10 +128,10 @@ locale Leadsto_Search_Space =
   for E a\<^sub>0 empty and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50)
   +
   fixes P Q :: "'a \<Rightarrow> bool"
-  assumes P_mono: "a \<preceq> a' \<Longrightarrow> P a \<Longrightarrow> P a'"
-  assumes Q_mono: "a \<preceq> a' \<Longrightarrow> Q a \<Longrightarrow> Q a'"
-  fixes succs :: "'a \<Rightarrow> 'a list"
-  assumes succs_correct: "A.reachable a \<Longrightarrow> set (succs a) = {y. E a y \<and> Q y \<and> \<not> empty y}"
+  assumes P_mono: "a \<preceq> a' \<Longrightarrow> \<not> empty a \<Longrightarrow> P a \<Longrightarrow> P a'"
+  assumes Q_mono: "a \<preceq> a' \<Longrightarrow> \<not> empty a \<Longrightarrow> Q a \<Longrightarrow> Q a'"
+  fixes succs_Q :: "'a \<Rightarrow> 'a list"
+  assumes succs_Q_correct: "A.reachable a \<Longrightarrow> set (succs_Q a) = {y. E a y \<and> Q y \<and> \<not> empty y}"
 begin
 
 sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty
@@ -145,7 +145,7 @@ sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq
 sublocale B:
   Liveness_Search_Space
   "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
-  succs
+  succs_Q
   apply standard
        apply (rule A.refl A.trans; assumption)+
   subgoal for a b a'
@@ -153,7 +153,7 @@ sublocale B:
     apply blast
    apply (auto intro: A.finite_reachable; fail)
   subgoal
-    apply (subst succs_correct)
+    apply (subst succs_Q_correct)
     unfolding Subgraph_Node_Defs.E'_def by auto
   done
 
@@ -163,7 +163,7 @@ begin
 
 interpretation B':
   Liveness_Search_Space
-  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x" succs
+  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x" succs_Q
   by standard
 
 definition has_cycle where
@@ -324,7 +324,7 @@ proof -
             interpret B':
               Liveness_Search_Space
               "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
-              "\<lambda> x. A.reachable x \<and> \<not> empty x" succs
+              "\<lambda> x. A.reachable x \<and> \<not> empty x" succs_Q
               by standard
             from \<open>inv _ _ _\<close> have
               "B'.liveness_compatible passed'" "passed' \<subseteq> {x. A.reachable x \<and> \<not> empty x}"
