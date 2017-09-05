@@ -206,6 +206,9 @@ fun check_bexp :: "bexp \<Rightarrow> nat list \<Rightarrow> int list \<Rightarr
   "check_bexp (ge i x) _ s \<longleftrightarrow> s ! i \<ge> x" |
   "check_bexp (gt i x) _ s \<longleftrightarrow> s ! i > x"
 
+datatype formula =
+  EX bexp | EG bexp | AX bexp | AG bexp | Leadsto bexp bexp
+
 abbreviation "repeat x n \<equiv> map (\<lambda> _. x) [0..<n]"
 
 abbreviation "conv_prog P pc \<equiv> map_option (map_instrc real_of_int) (P pc)"
