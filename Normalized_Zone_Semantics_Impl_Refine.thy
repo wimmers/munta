@@ -846,7 +846,7 @@ begin
   end (* Context for second predicate *)
 
 
-  paragraph \<open>Implementation for the invariant precondition check\<close>
+  paragraph \<open>Implementation of the invariant precondition check\<close>
 
   definition
     "unbounded_dbm' = unbounded_dbm"
