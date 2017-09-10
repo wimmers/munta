@@ -711,6 +711,112 @@ begin
     subgoal
       by sepref_to_hoare sep_auto
     by (rule state_copy_impl.refine)
+    
+  (* XXX Move *)
+  lemma (in -) rtranclp_equiv:
+    "R\<^sup>*\<^sup>* x y \<longleftrightarrow> S\<^sup>*\<^sup>* x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
+  proof
+    assume A: "R\<^sup>*\<^sup>* x y"
+    note that(1)[iff] that(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> S\<^sup>*\<^sup>* x y"
+      by induction auto
+    then show "S\<^sup>*\<^sup>* x y" ..
+  next
+    assume A: "S\<^sup>*\<^sup>* x y"
+    note that(1)[iff] that(2)[intro] rtranclp.intros(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> R\<^sup>*\<^sup>* x y"
+      by (induction; blast)
+    then show "R\<^sup>*\<^sup>* x y" ..
+  qed
+  
+  (* XXX Move *)
+  lemma (in -) tranclp_equiv:
+    "R\<^sup>+\<^sup>+ x y \<longleftrightarrow> S\<^sup>+\<^sup>+ x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
+  proof
+    assume A: "R\<^sup>+\<^sup>+ x y"
+    note that(1)[iff] that(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> S\<^sup>+\<^sup>+ x y"
+      by induction auto
+    then show "S\<^sup>+\<^sup>+ x y" ..
+  next
+    assume A: "S\<^sup>+\<^sup>+ x y"
+    note that(1)[iff] that(2)[intro] tranclp.intros(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> R\<^sup>+\<^sup>+ x y"
+      by (induction; blast)
+    then show "R\<^sup>+\<^sup>+ x y" ..
+  qed
+  
+  lemma (in -) rtranclp_tranclp_equiv:
+    "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z \<longleftrightarrow> S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z" if
+    "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
+  proof
+    assume A: "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z"
+    note that(1)[iff] that(2)[intro]
+    from A[THEN conjunct1] \<open>P x\<close> have "P y"
+      by induction auto
+    then show "S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z"
+      using rtranclp_equiv[of P R S x y, OF that] tranclp_equiv[of P R S y z, OF that(1,2)] A
+      by fastforce
+  next
+    assume A: "S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z"
+    note that(1)[iff] that(2)[intro]
+    from A[THEN conjunct1] \<open>P x\<close> have "P y"
+      by induction auto
+    then show "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z"
+      using rtranclp_equiv[of P R S x y, OF that] tranclp_equiv[of P R S y z, OF that(1,2)] A
+      by force
+  qed
+    
+  lemma liveness_step_equiv:
+    fixes x y
+    assumes "(\<lambda> (l, M). op.reachable (l, M) \<and> \<not> check_diag n M \<and> F l) x"
+    shows "liveness.G.E' x y \<longleftrightarrow>
+      (\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M') x y"
+    using assms unfolding liveness.G.E'_def by auto
+
+  lemma not_check_diag_init_dbm[intro, simp]:
+    "\<not> check_diag n init_dbm"
+    unfolding check_diag_def init_dbm_def by auto
+    
+  lemma precond_a\<^sub>0:
+    "case a\<^sub>0 of (l, M) \<Rightarrow> op.reachable (l, M) \<and> \<not> check_diag n M"
+    unfolding op.reachable_def unfolding a\<^sub>0_def by auto
+    
+  lemma liveness_check_equiv:
+    "(\<exists>x. liveness.G.G'.reaches a\<^sub>0 x \<and> liveness.G.G'.reaches1 x x) \<longleftrightarrow>
+       (\<exists> x. op.liveness_pre.reaches a\<^sub>0 x \<and> op.liveness_pre.reaches1 x x)"
+    if "F l\<^sub>0"
+    apply (subst rtranclp_tranclp_equiv[OF liveness_step_equiv])
+       apply assumption
+    subgoal
+      unfolding liveness.G.E'_def by auto
+    subgoal
+      using that precond_a\<^sub>0 by (auto simp: a\<^sub>0_def)
+    ..
+
+  lemma liveness_spec_refine:
+    "SPEC (\<lambda>r. r =
+       (\<exists>x. liveness.G.G'.reaches a\<^sub>0 x \<and> liveness.G.G'.reaches1 x x)) \<le>
+     (SPEC (\<lambda> r. r =
+     (\<exists> x.
+       (\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M')\<^sup>*\<^sup>* a\<^sub>0 x \<and>
+       (\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M')\<^sup>+\<^sup>+ x x)
+      )
+     )
+    " if "F l\<^sub>0"
+    using liveness_check_equiv[OF that] by auto
+
+  lemma liveness_hnr:
+    "(uncurry0
+      (dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd) (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl
+        (return \<circ> fst) state_copy_impl),
+     uncurry0 (SPEC (\<lambda>r. r = (\<exists>x. op.liveness_pre.reaches a\<^sub>0 x \<and> op.liveness_pre.reaches1 x x))))
+      \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    if "F l\<^sub>0"
+    apply (rule liveness.dfs_map_impl'_hnr[
+        FCOMP liveness_spec_refine[THEN Id_SPEC_refine, THEN nres_relI]
+        ])
+    using that precond_a\<^sub>0 by (auto simp: a\<^sub>0_def)
 
   (* XXX Move *)
   lemma (in Subgraph_Start) reachable:
@@ -942,13 +1048,25 @@ lemma not_check_diag_init_dbm[intro, simp]:
   "\<not> check_diag n init_dbm"
   unfolding check_diag_def init_dbm_def by auto
 
-lemma precond_a\<^sub>0:
-  "case a\<^sub>0 of (l, M) \<Rightarrow> op.reachable (l, M) \<and> \<not> check_diag n M"
-  unfolding op.reachable_def unfolding a\<^sub>0_def by auto
-
 lemma state_set_eq[simp]:
   "Simulation_Graphs_TA.state_set A = state_set (trans_of A)"
   unfolding Simulation_Graphs_TA.state_set_def state_set_def trans_of_def ..
+    
+lemma op_liveness_reaches_cycle_equiv:
+  "(\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> F (fst b))\<^sup>*\<^sup>* a\<^sub>0 a \<and>
+   (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> F (fst b))\<^sup>+\<^sup>+ a b
+  \<longleftrightarrow> op.liveness_pre.reaches a\<^sub>0 a \<and> op.liveness_pre.reaches1 a b" if "F l\<^sub>0"
+  using that by - (rule rtranclp_tranclp_equiv[of "F o fst"], auto simp: a\<^sub>0_def)
+
+lemma Alw_ev_impl_hnr:
+  "(uncurry0
+    (dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd)
+      (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst) state_copy_impl),
+   uncurry0 (SPEC (\<lambda>r. r \<longleftrightarrow> \<not> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> Alw_ev (\<lambda>(l, u). \<not> F l) (l\<^sub>0, u\<^sub>0)))))
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "F l\<^sub>0" "l\<^sub>0 \<in> state_set (trans_of A)"
+  apply (subst Alw_ev_mc[folded a\<^sub>0_def, OF that(2)[folded state_set_eq]])
+  apply (subst op_liveness_reaches_cycle_equiv[OF that(1)])
+  using that(1) liveness_hnr by simp
 
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
@@ -994,7 +1112,7 @@ lemmas leadsto_impl_hnr =
     OF Q_fun precond_a\<^sub>0,
     FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI],
     folded leadsto_mc[OF l\<^sub>0_state_set[folded state_set_eq] no_deadlock]
-    ]
+    ]                                          
 
 end (* Context for leadsto predicate *)
 

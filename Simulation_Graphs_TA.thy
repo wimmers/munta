@@ -1201,7 +1201,7 @@ qed
 subsection \<open>Leads-To Properties\<close>
 
 context
-  fixes P Q :: "'s \<Rightarrow> bool" -- "The state property we want to check"
+  fixes P Q :: "'s \<Rightarrow> bool" -- "The state properties we want to check"
   assumes sim_closure: "\<Union>sim.closure a\<^sub>0 = a\<^sub>0"
   assumes Q_closure_compatible: "\<phi> Q x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> Q y"
 begin
@@ -1853,6 +1853,17 @@ proof -
     by auto
 qed
 
+lemma Alw_ev_sem_equiv:
+  "(\<forall>x\<^sub>0\<in>start.a\<^sub>0. TA.sim.Alw_ev ((Not \<circ>\<circ> start.\<phi>) Q) x\<^sub>0)
+  = (\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> Alw_ev (\<lambda> (l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0))"
+proof -
+  have unfold: "(\<lambda>(l, u). \<not> Q l) = (\<lambda>x. \<not> Q (fst x))"
+    by auto
+  show ?thesis
+    unfolding TA.C_def start.a\<^sub>0_def from_R_def init_dbm_semantics start.\<phi>_def unfold
+    unfolding comp_def by auto
+qed  
+  
 lemma leadsto_mc2:
   "(\<exists>x.
     TA.reaches (l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>) x \<and>
@@ -1887,6 +1898,41 @@ lemma leadsto_mc2:
   apply (drule bisims_Q.B_A.reaches1_unique[rotated]; force)
   done
 
+lemma Alw_ev_mc2:
+  "Q l\<^sub>0 \<and>
+  (\<exists>a. (\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>*\<^sup>*
+    (l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>) a \<and>
+  (\<lambda>(l, Z) (l', Z'). \<exists>a. step_z_beta' (conv_A A) l Z a l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>+\<^sup>+ a a)
+   \<longleftrightarrow>
+   Q l\<^sub>0 \<and>
+   (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) a \<and>
+        (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+ a a)
+  "
+  apply safe
+  subgoal for a b
+    apply (drule bisim_Q.A_B.simulation_reaches[where b = "(l\<^sub>0, init_dbm)"])
+       apply force
+      apply blast
+     apply blast
+    apply clarify
+    apply (frule bisims_Q.A_B.reaches1_unique[rotated], blast+)
+     apply (auto dest: dbm_inv_equvi_eqI; fail)
+    apply force
+    done
+  subgoal for a b
+    apply (drule bisim_Q.B_A.simulation_reaches[where b = "(l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>)"])
+       apply (simp; fail)
+      apply blast
+     apply blast
+    apply (drule bisims_Q.B_A.reaches1_unique[rotated], auto)
+    done
+  done
+
+lemmas Alw_ev_mc = Alw_ev_sem_equiv[symmetric,
+    unfolded start.Alw_ev_mc1[of Q, unfolded Graph_Start_Defs.reachable_def],
+    unfolded Alw_ev_mc2
+    ]
+
 context
   assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
 begin
@@ -1911,6 +1957,8 @@ end (* No deadlock *)
 
 end (* State properties *)
 
+thm leadsto_mc Alw_ev_mc
+  
 end (* Start State *)
 
 end (* Reachability Problem *)
