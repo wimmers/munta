@@ -1044,14 +1044,10 @@ sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op''" _ E_op'
 lemma E_op_F_reachable:
   "op.F_reachable = E_op''.F_reachable" unfolding PR_CONST_def ..
 
-lemma not_check_diag_init_dbm[intro, simp]:
-  "\<not> check_diag n init_dbm"
-  unfolding check_diag_def init_dbm_def by auto
-
 lemma state_set_eq[simp]:
   "Simulation_Graphs_TA.state_set A = state_set (trans_of A)"
   unfolding Simulation_Graphs_TA.state_set_def state_set_def trans_of_def ..
-    
+
 lemma op_liveness_reaches_cycle_equiv:
   "(\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> F (fst b))\<^sup>*\<^sup>* a\<^sub>0 a \<and>
    (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> F (fst b))\<^sup>+\<^sup>+ a b
@@ -1112,7 +1108,7 @@ lemmas leadsto_impl_hnr =
     OF Q_fun precond_a\<^sub>0,
     FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI],
     folded leadsto_mc[OF l\<^sub>0_state_set[folded state_set_eq] no_deadlock]
-    ]                                          
+    ]
 
 end (* Context for leadsto predicate *)
 
