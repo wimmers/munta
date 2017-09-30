@@ -711,7 +711,7 @@ begin
     subgoal
       by sepref_to_hoare sep_auto
     by (rule state_copy_impl.refine)
-    
+
   (* XXX Move *)
   lemma (in -) rtranclp_equiv:
     "R\<^sup>*\<^sup>* x y \<longleftrightarrow> S\<^sup>*\<^sup>* x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
@@ -728,7 +728,7 @@ begin
       by (induction; blast)
     then show "R\<^sup>*\<^sup>* x y" ..
   qed
-  
+
   (* XXX Move *)
   lemma (in -) tranclp_equiv:
     "R\<^sup>+\<^sup>+ x y \<longleftrightarrow> S\<^sup>+\<^sup>+ x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
@@ -745,7 +745,7 @@ begin
       by (induction; blast)
     then show "R\<^sup>+\<^sup>+ x y" ..
   qed
-  
+
   lemma (in -) rtranclp_tranclp_equiv:
     "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z \<longleftrightarrow> S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z" if
     "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
@@ -766,7 +766,7 @@ begin
       using rtranclp_equiv[of P R S x y, OF that] tranclp_equiv[of P R S y z, OF that(1,2)] A
       by force
   qed
-    
+
   lemma liveness_step_equiv:
     fixes x y
     assumes "(\<lambda> (l, M). op.reachable (l, M) \<and> \<not> check_diag n M \<and> F l) x"
@@ -777,11 +777,11 @@ begin
   lemma not_check_diag_init_dbm[intro, simp]:
     "\<not> check_diag n init_dbm"
     unfolding check_diag_def init_dbm_def by auto
-    
+
   lemma precond_a\<^sub>0:
     "case a\<^sub>0 of (l, M) \<Rightarrow> op.reachable (l, M) \<and> \<not> check_diag n M"
     unfolding op.reachable_def unfolding a\<^sub>0_def by auto
-    
+
   lemma liveness_check_equiv:
     "(\<exists>x. liveness.G.G'.reaches a\<^sub>0 x \<and> liveness.G.G'.reaches1 x x) \<longleftrightarrow>
        (\<exists> x. op.liveness_pre.reaches a\<^sub>0 x \<and> op.liveness_pre.reaches1 x x)"
@@ -1018,6 +1018,11 @@ begin
 
 end (* End of locale *)
 
+(* XXX Move *)
+lemma (in Graph_Defs) Alw_ev:
+  "Alw_ev \<phi> x" if "\<phi> x"
+  using that unfolding Alw_ev_def by auto
+
 context Reachability_Problem_Impl
 begin
 
@@ -1056,13 +1061,16 @@ lemma op_liveness_reaches_cycle_equiv:
 
 lemma Alw_ev_impl_hnr:
   "(uncurry0
-    (dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd)
-      (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst) state_copy_impl),
+    (if F l\<^sub>0 then
+      dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd)
+        (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst) state_copy_impl
+     else return False),
    uncurry0 (SPEC (\<lambda>r. r \<longleftrightarrow> \<not> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> Alw_ev (\<lambda>(l, u). \<not> F l) (l\<^sub>0, u\<^sub>0)))))
-  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "F l\<^sub>0" "l\<^sub>0 \<in> state_set (trans_of A)"
-  apply (subst Alw_ev_mc[folded a\<^sub>0_def, OF that(2)[folded state_set_eq]])
-  apply (subst op_liveness_reaches_cycle_equiv[OF that(1)])
-  using that(1) liveness_hnr by simp
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "l\<^sub>0 \<in> state_set (trans_of A)"
+  apply (subst Alw_ev_mc[folded a\<^sub>0_def, OF that[folded state_set_eq]])
+  apply (cases "F l\<^sub>0")
+  using that(1) liveness_hnr apply (auto simp add: op_liveness_reaches_cycle_equiv)
+  by sepref_to_hoare sep_auto
 
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
