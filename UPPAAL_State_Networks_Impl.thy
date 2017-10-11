@@ -214,6 +214,13 @@ abbreviation "repeat x n \<equiv> map (\<lambda> _. x) [0..<n]"
 abbreviation "conv_prog P pc \<equiv> map_option (map_instrc real_of_int) (P pc)"
 abbreviation "conv_A' \<equiv> \<lambda> (T, I). (T, conv_cc o I)"
 
+fun hd_of_formula :: "formula \<Rightarrow> nat list \<Rightarrow> int list \<Rightarrow> bool" where
+  "hd_of_formula (formula.EX \<phi>) = check_bexp \<phi>" |
+  "hd_of_formula (EG \<phi>) = check_bexp \<phi>" |
+  "hd_of_formula (AX \<phi>) = Not oo check_bexp \<phi>" |
+  "hd_of_formula (AG \<phi>) = Not oo check_bexp \<phi>" |
+  "hd_of_formula (Leadsto \<phi> _) = check_bexp \<phi>"
+
 subsection \<open>Pre-compiled networks with states and clocks as natural numbers\<close>
 locale UPPAAL_Reachability_Problem_precompiled_defs =
   fixes p :: nat -- "Number of processes"
@@ -228,7 +235,7 @@ locale UPPAAL_Reachability_Problem_precompiled_defs =
     and trans :: "(addr * nat act * addr * nat) list list list"
       -- "Transitions between states per process"
     and prog :: "int instrc option list"
-    and formula :: bexp -- "Model checking formula"
+    and formula :: formula -- "Model checking formula"
     and bounds :: "(int * int) list"
 begin
   definition "clkp_set' \<equiv>
@@ -246,7 +253,7 @@ begin
   definition N :: "(nat, int, nat) unta" where
     "N \<equiv> (PROG, map (\<lambda> i. (T i, I i)) [0..<p], P, bounds)"
   definition "init \<equiv> repeat (0::nat) p"
-  definition "F \<equiv> check_bexp formula"
+  definition "F \<equiv> hd_of_formula formula"
 
   sublocale equiv: Equiv_TA_Defs N max_steps .
 

@@ -3298,18 +3298,18 @@ begin
     apply (drule spec[of _ 0])
     by (auto split: option.split dest: bounded_bounded''; auto split: option.split_asm)
 
-  lemma (in UPPAAL_Reachability_Problem_precompiled') P_state_length:
+  lemma P_state_length:
     "(\<forall>q<p. (equiv.defs.P ! q) (L ! q) s) \<Longrightarrow> length s = length bounds"
     by (intro P_bounded bounded_bounded'')
 
-  lemma (in UPPAAL_Reachability_Problem_precompiled') state_set_state_length:
+  lemma state_set_state_length:
     "length s = length bounds" if "(L, s) \<in> state_set (trans_of A)"
     using that unfolding state_set_def
     apply (safe dest!: equiv.defs.prod_ta_cases)
     unfolding equiv.defs.prod_trans_i_alt_def equiv.defs.prod_trans_s_alt_def
     by safe (auto dest: P_state_length)
 
-  lemma (in UPPAAL_Reachability_Problem_precompiled') state_set_states:
+  lemma state_set_states:
     "state_set (trans_of A) \<subseteq> states'"
     using state_set_states' state_set_pred unfolding states'_def
     by (auto intro: P_unfold_1 state_set_state_length)
@@ -3389,7 +3389,7 @@ begin
     "(inv_fun, inv_of A) \<in> inv_rel states"
     using inv_fun_inv_of' states_states' by (rule inv_rel_mono)
 
-  definition "final_fun \<equiv> \<lambda> (L, s). check_bexp formula L s"
+  definition "final_fun \<equiv> \<lambda> (L, s). hd_of_formula formula L s"
 
   lemma final_fun_final':
     "(final_fun, (\<lambda> (l, s). F l s)) \<in> inv_rel states'"
@@ -3560,9 +3560,9 @@ begin
     "impl.op.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
-      )"
-    using E_op''.E_from_op_reachability_check reachability_check
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
+      )" if "formula = formula.EX \<phi>"
+    using that E_op''.E_from_op_reachability_check reachability_check
     unfolding impl.E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
     unfolding F_def by auto
 
@@ -3752,15 +3752,14 @@ begin
     "impl.op.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
-      )" if "start_inv_check"
-      unfolding F_reachable_correct'
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
+      )" if "formula = formula.EX \<phi>" "start_inv_check"
+      unfolding F_reachable_correct'[OF that(1)]
       apply (subst product'.prod_correct[symmetric])
       using prod_conv p_p p_gt_0 apply simp
       using prod_conv p_p p_gt_0 apply simp
-      using F_reachable_equiv[OF that]
-      by (simp add: F_def)
-
+      using F_reachable_equiv[OF that(2)]
+      by (simp add: F_def, simp add: that(1))
 
   definition
     "reachability_checker_old \<equiv>
@@ -3778,22 +3777,23 @@ begin
       uncurry0 (
         Refine_Basic.RETURN (\<exists> L' s' u u'.
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
        )
       )
      )
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  using impl.pw_impl_hnr_F_reachable unfolding reachability_checker'_def F_reachable_correct' .
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "formula = formula.EX \<phi>"
+    using impl.pw_impl_hnr_F_reachable
+    unfolding reachability_checker'_def F_reachable_correct'[OF that] .
 
   corollary reachability_checker'_hoare:
     "<emp> reachability_checker'
     <\<lambda> r. \<up>(r = (\<exists> L' s' u u'.
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
-        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
+        \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
        ))
-    >\<^sub>t"
+    >\<^sub>t" if "formula = formula.EX \<phi>"
    apply (rule cons_post_rule)
-   using reachability_check'[to_hnr] apply (simp add: hn_refine_def)
+   using reachability_check'[OF that, to_hnr] apply (simp add: hn_refine_def)
    by (sep_auto simp: pure_def)
 
   definition reachability_checker where
@@ -3818,15 +3818,15 @@ begin
               (
               \<exists> L' s' u u'.
                 conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
-              \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
+              \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
               )
             then REACHABLE
             else UNREACHABLE
           else INIT_INV_ERR
       )
      ))
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
-    apply (simp only: F_reachable_correct[symmetric] cong: if_cong)
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn" if "formula = formula.EX \<phi>"
+    apply (simp only: F_reachable_correct[OF that, symmetric] cong: if_cong)
     supply
       impl.pw_impl_hnr_F_reachable
       [unfolded reachability_checker'_def[symmetric], to_hnr, unfolded hn_refine_def,
@@ -3846,16 +3846,16 @@ begin
               (
               \<exists> L' s' u u'.
                 conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
-              \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
+              \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
               )
             then REACHABLE
             else UNREACHABLE
           else INIT_INV_ERR
       )
        )
-    >\<^sub>t"
+    >\<^sub>t" if "formula = formula.EX \<phi>"
    apply (rule cons_post_rule)
-   using reachability_check[to_hnr] apply (simp add: hn_refine_def)
+   using reachability_check[OF that, to_hnr] apply (simp add: hn_refine_def)
    by (sep_auto simp: pure_def)
 
   (* XXX Add to standard library? Move *)
@@ -3897,15 +3897,15 @@ begin
               (
               \<exists> L' s' u u'.
                 conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
-              \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'
+              \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
               )
             then REACHABLE
             else UNREACHABLE
           else INIT_INV_ERR
       )
        )
-    >\<^sub>t"
-    using reachability_checker_hoare unfolding start_inv_check_correct inv_of_init_unfold .
+    >\<^sub>t" if "formula = formula.EX \<phi>"
+    using reachability_checker_hoare[OF that] unfolding start_inv_check_correct inv_of_init_unfold .
 
   subsubsection \<open>Post-processing\<close>
 
@@ -4513,7 +4513,7 @@ definition [code]:
 abbreviation "N \<equiv> UPPAAL_Reachability_Problem_precompiled_defs.N"
 
 theorem reachability_check:
-  "(uncurry0 (check_and_verify p m k max_steps I T prog formula bounds P s\<^sub>0 na),
+  "(uncurry0 (check_and_verify p m k max_steps I T prog (formula.EX formula) bounds P s\<^sub>0 na),
     uncurry0 (
        Refine_Basic.RETURN (
         if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
@@ -4546,10 +4546,14 @@ proof -
         A \<turnstile>\<^sub>max_steps
         \<langle>repeat 0 p, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
       \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp formula L' s'"
-  note [sep_heap_rules] = UPPAAL_Reachability_Problem_precompiled'.reachability_checker_hoare'
-  [unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
-    of p m max_steps I T prog bounds P s\<^sub>0 na k formula,
-    unfolded A_def[symmetric] start_inv_def[symmetric] reach_def[symmetric]
+  thm UPPAAL_Reachability_Problem_precompiled'.reachability_checker_hoare'
+  thm HOL.refl[of "formula.EX formula"]
+  note [sep_heap_rules] =
+    UPPAAL_Reachability_Problem_precompiled'.reachability_checker_hoare'
+    [ OF _ HOL.refl[of "formula.EX formula"],
+      unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
+      of p m max_steps I T prog bounds P s\<^sub>0 na k,
+      unfolded A_def[symmetric] start_inv_def[symmetric] reach_def[symmetric]
     ]
   show ?thesis
     unfolding A_def[symmetric] start_inv_def[symmetric] reach_def[symmetric]
