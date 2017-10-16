@@ -49,16 +49,6 @@ lemmas Relation.IdI[where a = \<infinity>, sepref_import_param]
 lemma [sepref_import_param]: "(op+,op+) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
 lemma [sepref_import_param]: "(uminus,uminus) \<in> (Id::(_*_)set)\<rightarrow>Id" by simp
 
-term reset_canonical_upd
-
-term "reset_canonical_upd :: int DBM' \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int DBM'"
-
-term "(uncurry2 (uncurry (\<lambda>x. RETURN ooo (reset_canonical_upd :: int DBM' \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int DBM')x)))"
-
-term "SYNTH (uncurry2 (uncurry (\<lambda>x. RETURN ooo (reset_canonical_upd :: int DBM' \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int \<Rightarrow> int DBM')x))) ([\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn)"
-
-term "[\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn"
-
 sepref_definition reset_canonical_upd_impl' is
   "uncurry2 (uncurry (\<lambda>x. RETURN ooo reset_canonical_upd x))" ::
   "[\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn"
