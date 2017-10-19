@@ -6,33 +6,279 @@ begin
 
 hide_const models
 
-term "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
+context Simulation
+begin
 
-term "Graph_Defs.Alw_ev (\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)"
+lemma simulation_run:
+  "\<exists> ys. B.run (y ## ys) \<and> stream_all2 op \<sim> xs ys" if "A.run (x ## xs)" "x \<sim> y"
+proof -
+  let ?ys = "sscan (\<lambda> a' b. SOME b'. B b b' \<and> a' \<sim> b') xs y"
+  have "B.run (y ## ?ys)"
+    using that
+    apply (coinduction arbitrary: x y xs)
+    apply simp
+    apply (rule conjI)
+    subgoal for x y xs
+      by (auto dest!: someI_ex A_B_step elim: A.run.cases)
+    subgoal for x y xs
+      apply (rule disjI1)
+      apply (inst_existentials "shd xs" "stl xs")
+      apply (auto dest!: someI_ex A_B_step elim: A.run.cases)
+      done
+    done
+  moreover have "stream_all2 op \<sim> xs ?ys"
+    using that
+    apply (coinduction arbitrary: x y xs)
+    apply simp
+    apply (rule conjI)
+    subgoal for x y xs
+      by (auto dest!: someI_ex A_B_step elim: A.run.cases)
+    subgoal for a u b v x y xs
+      by (inst_existentials "shd xs" "(SOME b'. B y b' \<and> a \<sim> b')")
+         (auto dest!: someI_ex A_B_step elim: A.run.cases)
+    done
+  ultimately show ?thesis by blast
+qed
 
-term check_bexp
+end
+
+(*
+Summarize the two action steps first. Then do delay \<rightarrow> action.
+*)
+inductive step_u' ::
+  "('a, 't :: time, 's) unta \<Rightarrow> nat \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> (nat, 't) cval
+  \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> (nat, 't) cval \<Rightarrow> bool"
+("_ \<turnstile>\<^sup>_ \<langle>_, _, _\<rangle> \<rightarrow> \<langle>_, _, _\<rangle>" [61,61,61,61,61,61] 61) where
+  "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" if
+  "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" "A \<turnstile>\<^sub>n \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>"
+
+inductive steps_un' ::
+  "('a, 't :: time, 's) unta \<Rightarrow> nat \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> (nat, 't) cval
+  \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> (nat, 't) cval \<Rightarrow> bool"
+("_ \<turnstile>\<^sup>_ \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61,61,61,61,61,61] 61)
+where
+  refl: "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L, s, u\<rangle>" |
+  step: "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<Longrightarrow> A \<turnstile>\<^sup>n \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>
+        \<Longrightarrow> A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>"
+
+declare steps_un'.intros[intro]
+
+lemma stepI2:
+  "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>" if
+  "A \<turnstile>\<^sup>n \<langle>L', s', u'\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>" "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  using that by induction auto
+
+context Equiv_TA
+begin
+
+lemma prod_correct':
+  "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle> =
+     state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  apply rule
+   apply (rule prod.prod_sound prod.prod_complete, assumption)+
+  done
+
+lemma equiv_correct:
+  "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle> =
+  A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  apply rule
+   apply (rule equiv_sound equiv_complete, assumption)+
+  done
+
+lemma prod_correct:
+  "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle> =
+  A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  unfolding prod_correct' equiv_correct ..
+
+(* XXX Move *)
+lemma (in -) steps'_altI:
+  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l'', u''\<rangle>" if "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" "A \<turnstile>' \<langle>l', u'\<rangle> \<rightarrow> \<langle>l'', u''\<rangle>"
+  using that by induction auto
+
+context
+  assumes "0 < p"
+begin
+
+lemmas equiv_complete'' = equiv_complete''[OF _ \<open>0 < p\<close>]
+
+definition
+  "all_prop L' s' \<equiv>
+    (\<forall>q<p. \<exists>pc st s'' rs pcs.
+      exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
+      Some ((pc, st, s'', True, rs), pcs)
+    ) \<and> bounded B s' \<and> L' \<in> defs.states' s' (* \<and> (\<forall>q<p. (defs.P ! q) (L' ! q) s') *)
+  "
+
+lemma step_u_inv:
+  "all_prop L' s'" if "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  using equiv_complete''[OF that] equiv_complete'[OF that]
+  unfolding all_prop_def by auto
+
+lemma step_inv:
+  "all_prop L' s'" if "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  using step_u_inv[OF equiv_sound[OF that]] .
+
+lemma Equiv_TA_I:
+  "Equiv_TA A n L' s'" if *[unfolded all_prop_def]: "all_prop L' s'"
+  apply standard
+    subgoal
+      using * by auto
+    subgoal
+      by (rule pred_time_indep)
+    subgoal
+      by (rule upd_time_indep)
+    subgoal
+      by (rule clock_conj)
+    subgoal
+      by (rule Len)
+    subgoal
+      using * by auto
+    subgoal
+      using * by auto
+    done
+
+lemma step_u'_inv:
+  "all_prop L'' s'' \<and> defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L'', s''), u''\<rangle>"
+  if "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>"
+using that proof cases
+  case prems: (1 L' s' u')
+  from step_u_inv[OF prems(1)] have *[unfolded all_prop_def]: "all_prop L' s'" .
+  interpret equiv: Equiv_TA A n L' s'
+    using Equiv_TA_I[OF step_u_inv[OF prems(1)]] .
+  thm prems(1)[unfolded prod_correct[symmetric]]
+  from equiv.step_u_inv[OF \<open>0 < p\<close> prems(2)] show ?thesis
+    apply -
+    apply rule
+     apply assumption
+    apply rule
+    using prems[unfolded prod_correct[symmetric] equiv.prod_correct[symmetric]] sorry
+    (* We just need to split up the prod_correct theorem here. Pure refactoring *)
+qed
+
+lemma step'_inv:
+  "all_prop L'' s'' \<and> A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>"
+  if "defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L'', s''), u''\<rangle>"
+using that proof cases
+  case (step' d l' u' a)
+  then show ?thesis
+    sorry
+qed
+
+lemma prod_correct_step':
+  "defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle> =
+  A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  using step'_inv step_u'_inv by blast
+
+lemma all_prop_start:
+  "all_prop L s"
+  using Equiv_TA_axioms unfolding Equiv_TA_def all_prop_def by auto
+
+lemma steps_u'_inv:
+  "all_prop L'' s'' \<and> defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L'', s''), u''\<rangle>"
+  if "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>"
+  using that
+    thm steps_un'.induct
+proof (induction A \<equiv> A n \<equiv> n L \<equiv> L s \<equiv> s u L'' s'' u'')
+  case (refl u)
+  show ?case using all_prop_start by auto
+next
+  case (step u L' s' u' L'' s'' u'')
+  then interpret equiv: Equiv_TA A n L' s'
+    by (blast intro: Equiv_TA_I)
+  from equiv.step_u'_inv[OF \<open>0 < p\<close> step.hyps(3)] step.hyps(1-2) show ?case
+    by (blast intro: steps'_altI)
+qed
+
+lemma steps'_inv:
+  "all_prop L'' s'' \<and> A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>"
+  if "defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L'', s''), u''\<rangle>"
+  using that all_prop_start
+proof (induction defs.prod_ta "(L, s)" u "(L'', s'')" u'' arbitrary: L s)
+  case (refl' u)
+  then show ?case using all_prop_start by auto
+next
+  case (step' u l' u' u'' L s)
+  obtain L' s' where "l' = (L', s')" by force
+  from step' interpret equiv: Equiv_TA A n L s
+    by (blast intro: Equiv_TA_I)
+  from equiv.step'_inv[OF \<open>0 < p\<close> step'(1)[unfolded \<open>l' = _\<close>]] step'(3)[OF \<open>l' = _\<close>] show ?case
+    by (auto intro: stepI2)
+qed
+
+lemma steps_un'_complete:
+  "defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L'', s''), u''\<rangle>"
+  if "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>"
+  using steps_u'_inv[OF that] ..
+
+lemma steps'_sound:
+  "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>"
+  if "defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L'', s''), u''\<rangle>"
+  using steps'_inv[OF that] ..
+
+lemma prod_reachable_correct:
+  "defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<longleftrightarrow> A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>"
+  using steps'_sound steps_un'_complete by fast
+
+interpretation Bisimulation_Invariant
+  "\<lambda> (L, s, u) (L', s', u'). defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
+  "\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  "op ="
+  "\<lambda> (L, s, u). all_prop L s"
+  "\<lambda> (L, s, u). all_prop L s"
+  proof ((standard; clarsimp), goal_cases)
+    case prems: (1 L' s' u' L s u)
+    then interpret equiv: Equiv_TA A n L s
+      by - (rule Equiv_TA_I)
+    from prems(1) show ?case
+      unfolding equiv.prod_correct_step'[OF \<open>0 < p\<close>] .
+  next
+    case prems: (2 L s u L' s' u')
+    then interpret equiv: Equiv_TA A n L s
+      by - (rule Equiv_TA_I)
+    from prems(1) show ?case
+      unfolding equiv.prod_correct_step'[OF \<open>0 < p\<close>] .
+  next
+    case prems: (3 L s u L' s' u')
+    then interpret equiv: Equiv_TA A n L s
+      by - (rule Equiv_TA_I)
+    from prems show ?case
+      by (blast dest: equiv.step'_inv[OF \<open>0 < p\<close>])
+  next
+    case prems: (4 L s u L' s' u')
+    then interpret equiv: Equiv_TA A n L s
+      by - (rule Equiv_TA_I)
+    from prems show ?case
+      by (blast dest: equiv.step_u'_inv[OF \<open>0 < p\<close>])
+  qed
+
+end (* p > 0 *)
+
+end (* Equiv TA *)
+
+thm Equiv_TA.prod_correct
+
 
 definition models ("_,_ \<Turnstile>\<^sub>_ _" [61,61] 61) where
   "A,a\<^sub>0 \<Turnstile>\<^sub>n \<Phi> \<equiv> (case \<Phi> of
     formula.EX \<phi> \<Rightarrow>
       Graph_Defs.Ex_ev
-        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
         (\<lambda> (L, s, _). check_bexp \<phi> L s)
   | formula.EG \<phi> \<Rightarrow>
       Graph_Defs.Ex_alw
-        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
         (\<lambda> (L, s, _). check_bexp \<phi> L s)
   | formula.AX \<phi> \<Rightarrow>
       Graph_Defs.Alw_ev
-        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
         (\<lambda> (L, s, _). check_bexp \<phi> L s)
   | formula.AG \<phi> \<Rightarrow>
       Graph_Defs.Alw_alw
-        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
         (\<lambda> (L, s, _). check_bexp \<phi> L s)
   | formula.Leadsto \<phi> \<psi> \<Rightarrow>
       Graph_Defs.leadsto
-        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+        (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
         (\<lambda> (L, s, _). check_bexp \<phi> L s)
         (\<lambda> (L, s, _). check_bexp \<psi> L s)
   ) a\<^sub>0
@@ -42,6 +288,7 @@ term "A,a\<^sub>0 \<Turnstile>\<^sub>n \<Phi>"
 
 lemmas models_iff = models_def[unfolded Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff]
 
+(*
 term sscan term "\<lambda> xs. sscan (\<lambda> a (_, i). (a, Suc i)) xs (undefined, 0)"
 
 definition substream :: "'a stream => nat set => 'a stream" where
@@ -95,6 +342,7 @@ oops
 
 end
 
+*)
 
 (* XXX Move *)
 lemma cval_add_0:
@@ -153,7 +401,7 @@ lemma Ex_ev_eq_reachability:
               "A \<turnstile>\<^sub>n \<langle>L'', s'', u''\<rangle> \<rightarrow>* \<langle>L', s', a\<rangle>" "P L' s'"
               by atomize_elim (fastforce elim: Graph_Defs.run.cases)
             with Cons.prems(2) show ?case
-              by - (erule Graph_Defs.run.cases, clarsimp, metis stepI2)
+              by - (erule Graph_Defs.run.cases, clarsimp, metis UPPAAL_State_Networks.stepI2)
           qed
         qed
         done
@@ -191,6 +439,22 @@ lemma Ex_ev_eq_reachability:
     qed
     done
 
+lemma Ex_ev_eq_reachability':
+  assumes
+    "\<forall>p<length (fst (snd A)). \<exists>pc st s' rs.
+       stepst (fst A) n u
+          ((fst (snd (snd A)) ! p) (L ! p), [], s, True, [])
+          (pc, st, s', True, rs)"
+    "\<forall>p<length (fst (snd A)). u \<turnstile> snd (fst (snd A) ! p) (L ! p)"
+    "bounded (snd (snd (snd A))) s"
+  shows
+  "Graph_Defs.Ex_ev
+    (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+    (\<lambda> (L, s, _). P L s) (L, s, u)
+   \<longleftrightarrow> (\<exists> L' s' u'. A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> P L' s')
+  "
+  sorry
+
 lemma models_alt_def:
   assumes
     "\<forall>p<length (fst (snd A)). \<exists>pc st s' rs.
@@ -202,20 +466,20 @@ lemma models_alt_def:
   shows
     "A,(L,s,u) \<Turnstile>\<^sub>n \<Phi> = (case \<Phi> of
       formula.EX \<phi> \<Rightarrow>
-        (\<lambda> (L, s, u). \<exists> L' s' u'. A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> check_bexp \<phi> L' s')
+        (\<lambda> (L, s, u). \<exists> L' s' u'. A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> check_bexp \<phi> L' s')
     | formula.EG \<phi> \<Rightarrow>
         Not o Graph_Defs.Alw_ev
-          (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+          (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
           (\<lambda> (L, s, _). \<not> check_bexp \<phi> L s)
     | formula.AX \<phi> \<Rightarrow>
         Graph_Defs.Alw_ev
-          (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+          (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
           (\<lambda> (L, s, _). check_bexp \<phi> L s)
     | formula.AG \<phi> \<Rightarrow>
-        Not o (\<lambda> (L, s, u). \<exists> L' s' u'. A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> \<not> check_bexp \<phi> L' s')
+        Not o (\<lambda> (L, s, u). \<exists> L' s' u'. A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<and> \<not> check_bexp \<phi> L' s')
     | formula.Leadsto \<phi> \<psi> \<Rightarrow>
         Graph_Defs.leadsto
-          (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+          (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
           (\<lambda> (L, s, _). check_bexp \<phi> L s)
           (\<lambda> (L, s, _). check_bexp \<psi> L s)
     ) (L,s,u)
@@ -226,7 +490,7 @@ proof -
     by auto
   show ?thesis
     unfolding models_def Graph_Defs.Alw_alw_iff Graph_Defs.Ex_alw_iff
-    by (cases "\<Phi>") (auto simp: * Ex_ev_eq_reachability[OF assms])
+    by (cases "\<Phi>") (auto simp: * Ex_ev_eq_reachability'[OF assms])
 qed
 
 context Reachability_Problem
@@ -270,6 +534,97 @@ theorem reachability_check_new:
 
 end
 
+context Reachability_Problem_Impl
+begin
+
+context
+    fixes Q :: "'s \<Rightarrow> bool" and Q_fun
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
+    assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set (trans_of A)"
+begin
+
+lemma leadsto_spec_refine:
+  "leadsto_spec_alt Q
+  \<le> SPEC (\<lambda> r. \<not> r \<longleftrightarrow>
+    (\<nexists>x. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) x \<and>
+       F (fst x) \<and>
+       Q (fst x) \<and>
+       (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and>
+                   \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>*
+             x a \<and>
+            (\<lambda>a b. E_op''.E_from_op a b \<and>
+                   \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+
+             a a))
+    )"
+proof -
+  have *:"
+    (\<lambda>x y. (case y of (l', M') \<Rightarrow> E_op''.E_from_op x (l', M') \<and> \<not> check_diag n M') \<and>
+    \<not> (case y of (l, M) \<Rightarrow> check_diag n M))
+    = (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))"
+    by (intro ext) auto
+  have **:
+    "(\<lambda>x y. (case y of (l', M') \<Rightarrow> E_op''.E_from_op x (l', M') \<and> \<not> check_diag n M') \<and>
+     (case y of (l, M) \<Rightarrow> Q l) \<and> \<not> (case y of (l, M) \<Rightarrow> check_diag n M))
+     = (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))"
+    by (intro ext) auto
+  have ***: "\<not> check_diag n b"
+    if "(\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* a\<^sub>0 (a, b)" for a b
+    using that by cases (auto simp: a\<^sub>0_def)
+  show ?thesis
+    unfolding leadsto_spec_alt_def[OF Q_fun]
+    unfolding PR_CONST_def a\<^sub>0_def[symmetric] by (auto dest: *** simp: * **)
+  qed
+
+lemma leadsto_impl_hnr:
+  "(uncurry0
+    (leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd)
+      state_copy_impl (succs_P_impl' Q_fun) a\<^sub>0_impl
+      subsumes_impl (return \<circ> fst) local.succs_impl'
+      emptiness_check_impl F_impl (Q_impl Q_fun)),
+   uncurry0
+    (SPEC
+      (\<lambda>r. (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)) \<longrightarrow> (\<not> r) =
+           (\<forall>u\<^sub>0.
+               (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow>
+               leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l)
+                (l\<^sub>0, u\<^sub>0)))))
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+proof -
+  define P where "P = (\<forall>u\<^sub>0.
+               (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow>
+               leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l)
+                (l\<^sub>0, u\<^sub>0))"
+  define q where "q = (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0))"
+  define r where "r = (\<nexists>x. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) x \<and>
+       F (fst x) \<and>
+       Q (fst x) \<and>
+       (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>* x a \<and>
+            (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+ a a))"
+  define prog where "prog = leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd)
+      state_copy_impl (succs_P_impl' Q_fun) a\<^sub>0_impl
+      subsumes_impl (return \<circ> fst) local.succs_impl'
+      emptiness_check_impl F_impl (Q_impl Q_fun)"
+  show ?thesis
+    unfolding prog_def[symmetric] P_def[symmetric] q_def[symmetric]
+
+
+  using Reachability_Problem_Impl_Op.leadsto_impl_hnr[OF Reachability_Problem_Impl_Op_axioms,
+    OF Q_fun precond_a\<^sub>0,
+    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI],
+    where 'b35 = 'bb and 'c35 = 'cc and 'd35 = 'dd,
+    folded prog_def P_def q_def r_def,
+    to_hnr, unfolded hn_refine_def
+    ]
+  apply sepref_to_hoare
+  apply sep_auto
+  apply (erule cons_post_rule)
+  apply (sep_auto simp: leadsto_mc[OF l\<^sub>0_state_set[folded state_set_eq], of F Q, symmetric, folded q_def r_def P_def])
+  done
+qed
+
+end
+
+end (* Context for leadsto predicate *)
 
 context UPPAAL_Reachability_Problem_precompiled'
 begin
@@ -303,33 +658,22 @@ lemma F_reachable_correct'_new':
 lemma F_reachable_correct_new:
   "impl.op.F_reachable
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
-      conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
+      conv N \<turnstile>\<^sup>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
        \<and> check_bexp \<phi> L' s')
-    )" if "formula = formula.EX \<phi>" "start_inv_check"
-    unfolding F_reachable_correct'_new[OF that(1)]
-    apply (subst product'.prod_correct[symmetric])
-    using prod_conv p_p p_gt_0 apply simp
-    using prod_conv p_p p_gt_0 apply simp
-    using F_reachable_equiv[OF that(2)]
-    apply (simp add: F_def)
-      apply (simp add: that(1))
-    sorry
-    (* by (simp add: F_def, simp add: that(1)) *)
+    )" if "formula = formula.EX \<phi>"
+    unfolding F_reachable_correct'_new[OF that]
+    apply (subst product'.prod_reachable_correct[symmetric])
+    using prod_conv p_p p_gt_0 by simp+
 
 lemma F_reachable_correct_new':
   "impl.op.F_reachable
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
-      conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
+      conv N \<turnstile>\<^sup>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
        \<and> \<not> check_bexp \<phi> L' s')
-    )" if "formula = formula.AG \<phi>" "start_inv_check"
-    unfolding F_reachable_correct'_new'[OF that(1)]
-    apply (subst product'.prod_correct[symmetric])
-    using prod_conv p_p p_gt_0 apply simp
-    using prod_conv p_p p_gt_0 apply simp
-    using F_reachable_equiv[OF that(2)]
-    apply (simp add: F_def)
-      apply (simp add: that(1))
-    sorry
+    )" if "formula = formula.AG \<phi>"
+    unfolding F_reachable_correct'_new'[OF that]
+    apply (subst product'.prod_reachable_correct[symmetric])
+    using prod_conv p_p p_gt_0 by simp+
 
 thm reachability_checker'_def impl.pw_impl_hnr_F_reachable
 
@@ -413,13 +757,8 @@ lemma models_correct:
         (\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
         (\<lambda> ((L, s), _). check_bexp \<phi> L s)
         (\<lambda> ((L, s), _). check_bexp \<psi> L s)
-  ) ((init, s\<^sub>0), u\<^sub>0)" if start_inv_check "\<forall> c \<in> {1..m}. u\<^sub>0 c = 0"
+  ) ((init, s\<^sub>0), u\<^sub>0)" if "\<forall> c \<in> {1..m}. u\<^sub>0 c = 0"
 proof -
-  interpret start: Reachability_Problem_start "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m A k_fun
-    apply standard
-    using that(1) unfolding start_inv_check .
-  have "u\<^sub>0 \<turnstile> inv_of (conv_A A) (init, s\<^sub>0)"
-    using start.start_vals[OF that(2)] .
   show ?thesis
     apply (subst models_alt_def)
     subgoal
@@ -432,8 +771,8 @@ proof -
   using [[goals_limit=1]]
     subgoal for \<phi>
     using prod_conv p_p p_gt_0
-      steps_steps'_equiv[of _ \<open>conv_A A\<close> "(init, s\<^sub>0)", OF start.start_vals[OF that(2)]]
-    by (fastforce simp: product'.prod_correct[symmetric, simplified])
+    by (fastforce simp: product'.prod_reachable_correct[symmetric, simplified])
+      apply simp
   sorry
 qed
 
@@ -467,6 +806,25 @@ lemma hfref_emp_neg_RES:
   using assms[to_hnr]
   by (auto intro!: hfrefI hn_refine_emp_neg_RES simp: pure_unit_rel_eq_empty)
 
+lemma hfref_emp_neg_RES':
+  assumes "(uncurry0 f, uncurry0 (SPEC R)) \<in> (unit_assn, unit_assn) \<rightarrow>\<^sub>a bool_assn"
+  shows "(uncurry0 (do {r \<leftarrow> f; return (\<not> r)}), uncurry0 (SPEC (R o Not)))
+  \<in> (unit_assn, unit_assn) \<rightarrow>\<^sub>a bool_assn"
+proof -
+  have "(\<lambda>y. \<exists>x. y = (\<not> x) \<and> R x) = R o Not"
+    apply (rule ext)
+    apply simp
+      subgoal for y
+        apply (cases y)
+         apply simp
+        apply simp
+        done
+      done
+  then show ?thesis
+    using hfref_emp_neg_RES[OF assms]
+    by auto
+qed
+
 lemma hn_refine_emp_return_neg_RES:
   assumes "hn_refine emp (return False) emp bool_assn (RES Y)"
   shows "hn_refine emp (return True) emp bool_assn (RES {\<not> x | x. x \<in> Y})"
@@ -483,18 +841,16 @@ lemma maxiscope_impl:
   "(\<forall> a. P a \<longrightarrow> (\<forall> b. Q a b)) = (\<forall> b a. P a \<longrightarrow> Q a b)" for P Q
   by auto
 
-thm reachability_checker'_def model_checker_def
-
-theorem reachability_check':
+theorem model_check':
   "(uncurry0 (model_checker TYPE('bb) TYPE('cc) TYPE('dd)),
     uncurry0 (
-      Refine_Basic.RETURN (
-        \<forall> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<longrightarrow> conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula
+      SPEC (\<lambda> r.
+        (\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0)) \<longrightarrow>
+        r = (\<forall> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<longrightarrow> conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula)
       )
     )
    )
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  if start_inv_check "\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0)"
 proof -
   have *: "(\<lambda>(l, u). \<not> (case l of (L, s) \<Rightarrow> (Not \<circ>\<circ>\<circ> check_bexp) \<phi> L s))
     = (\<lambda>((L, s), _). check_bexp \<phi> L s)" for \<phi>
@@ -509,7 +865,7 @@ proof -
     by auto
 
   show ?thesis
-    using models_correct[OF \<open>start_inv_check\<close>]
+    using models_correct
     apply simp
     unfolding model_checker_def reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
     apply (cases formula; simp)
@@ -519,7 +875,99 @@ proof -
       using impl.pw_impl_hnr_F_reachable
       apply (subst (asm) F_reachable_correct_new)
         apply (rule prems; fail)
-       apply (rule that; fail)
+      apply auto
+      sorry
+
+        -- \<open>\<open>EG\<close>\<close>
+    subgoal premises prems for \<phi>
+      using impl.Alw_ev_impl_hnr[OF init_state_in_state_set, where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd]
+      unfolding final_fun_def F_def
+      unfolding
+        UPPAAL_Reachability_Problem_precompiled'.final_fun_def[
+          OF UPPAAL_Reachability_Problem_precompiled'_axioms
+          ]
+        UPPAAL_Reachability_Problem_precompiled_defs.F_def
+      unfolding prems(2)
+      apply simp
+      unfolding Refine_Basic.RETURN_def **
+      by (auto 4 2 simp add: pure_unit_rel_eq_empty Alw_ev_bisim intro: hn_refine_ref hfrefI)
+
+        -- \<open>\<open>AX\<close>\<close>
+    subgoal premises prems for \<phi>
+      using impl.Alw_ev_impl_hnr[OF init_state_in_state_set, where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd]
+      unfolding final_fun_def F_def
+      unfolding UPPAAL_Reachability_Problem_precompiled_defs.F_def
+      apply (subst
+          UPPAAL_Reachability_Problem_precompiled'.final_fun_def[
+            OF UPPAAL_Reachability_Problem_precompiled'_axioms
+            ])
+      apply (safe; clarsimp simp: prems(2))
+      subgoal premises prems
+        using prems(1)[unfolded *, THEN hfref_emp_neg_RES]
+        by (simp add: RETURN_def disj_not1[symmetric])
+      subgoal premises prems
+        using prems(1)[unfolded *, THEN hfref_emp_neg_RES]
+        by (simp add: RETURN_def disj_not1[symmetric])
+      done
+
+        -- \<open>\<open>AG\<close>\<close>
+    subgoal premises prems for \<phi>
+      using impl.pw_impl_hnr_F_reachable
+      apply (subst (asm) F_reachable_correct_new')
+        apply (rule prems; fail)
+      apply auto
+      subgoal premises prems
+        using prems(1)[unfolded * RETURN_def, THEN hfref_emp_neg_RES]
+        apply (simp add: RETURN_def)
+        apply (simp only: maxiscope_impl)
+          -- "We also need bisimilarity here."
+        sorry
+      done
+
+        -- \<open>\<open>Leadsto\<close>\<close>
+    subgoal premises prems for \<phi> \<psi>
+      using impl.leadsto_impl_hnr[
+          OF final_fun_final init_state_in_state_set, of "Not oo check_bexp \<psi>"
+          ]
+      unfolding * F_def
+      by (auto simp: prems(2) *** dest: hfref_emp_neg_RES' simp: comp_def)
+    done
+qed
+
+theorem model_check'_old:
+  "(uncurry0 (model_checker TYPE('bb) TYPE('cc) TYPE('dd)),
+    uncurry0 (
+      Refine_Basic.RETURN (
+        \<forall> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<longrightarrow> conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula
+      )
+    )
+   )
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  if "\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0)"
+proof -
+  have *: "(\<lambda>(l, u). \<not> (case l of (L, s) \<Rightarrow> (Not \<circ>\<circ>\<circ> check_bexp) \<phi> L s))
+    = (\<lambda>((L, s), _). check_bexp \<phi> L s)" for \<phi>
+    by auto
+  have **:
+    "(\<lambda>(l, u). \<not> (case l of (L, s) \<Rightarrow> check_bexp \<phi> L s)) = (\<lambda>((L, s), _). \<not> check_bexp \<phi> L s)"
+    for \<phi> by auto
+  have ***:
+    "(\<lambda>(l, u). case l of (L, s) \<Rightarrow> check_bexp \<phi> L s) = (\<lambda>((L, s), _). check_bexp \<phi> L s)" for \<phi>
+    by auto
+  have ****: "{\<not> xa |xa. (\<not> xa) = x} = {x}" for x
+    by auto
+
+  show ?thesis
+    using models_correct
+    apply simp
+    unfolding model_checker_def reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
+    apply (cases formula; simp)
+
+      -- \<open>\<open>EX\<close>\<close>
+    subgoal premises prems for \<phi>
+      using impl.pw_impl_hnr_F_reachable
+      apply (subst (asm) F_reachable_correct_new)
+        apply (rule prems; fail)
       apply auto
       sorry
 
@@ -560,7 +1008,6 @@ proof -
       using impl.pw_impl_hnr_F_reachable
       apply (subst (asm) F_reachable_correct_new')
         apply (rule prems; fail)
-       apply (rule that; fail)
       apply auto
       subgoal premises prems
         using prems(1)[unfolded * RETURN_def, THEN hfref_emp_neg_RES]
@@ -573,24 +1020,21 @@ proof -
         -- \<open>\<open>Leadsto\<close>\<close>
     subgoal premises prems for \<phi> \<psi>
       using impl.leadsto_impl_hnr[
-          OF final_fun_final init_state_in_state_set that(2), of "Not oo check_bexp \<psi>"
+          OF final_fun_final init_state_in_state_set that(1), of "Not oo check_bexp \<psi>"
           ]
       unfolding * F_def
       by (auto simp: prems(2) RETURN_def *** **** dest: hfref_emp_neg_RES)
     done
 qed
 
-term A
-
-thm dfs_map_impl'_def
-
-thm
-  impl.leadsto_impl_hnr[OF _ init_state_in_state_set]
-  impl.Alw_ev_impl_hnr[OF init_state_in_state_set]
-
-term E thm E_def thm start_inv_check_def
-
-thm reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
+theorem model_check'_hoare:
+  "<emp>
+    model_checker TYPE('bb) TYPE('cc) TYPE('dd)
+  <\<lambda>r. \<up> ((\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0)) \<longrightarrow> r = (
+    (\<forall> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<longrightarrow> conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula)
+  ))>\<^sub>t"
+  using model_check'[to_hnr, unfolded hn_refine_def, where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd]
+  by (sep_auto simp: pure_def elim!: cons_post_rule)
 
 lemma Alw_ev_checker_alt_def':
   "Alw_ev_checker TYPE('bb) TYPE('cc) TYPE('dd) \<equiv>
@@ -858,6 +1302,66 @@ definition [code]:
       \<bind> (\<lambda> x. return (Some x))
     else return None"
 
+theorem model_check:
+  "<emp> precond_mc TYPE('bb) TYPE('cc) TYPE('dd) p m k max_steps I T prog formula bounds P s\<^sub>0 na
+    <\<lambda> r. \<up> (
+    if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
+    then (\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> Graph_Defs.deadlock
+          (\<lambda>(l, u) (l', u').
+              (case Prod_TA_Defs.prod_ta
+                     (Equiv_TA_Defs.state_ta
+                       (N p I P T prog bounds) max_steps) of
+               (T, I) \<Rightarrow>
+                 ((\<lambda>(l, g, a, r, l').
+                      (l, map conv_ac g, a, r, l')) `
+                  T,
+                  map conv_ac \<circ> I)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+          ((UPPAAL_Reachability_Problem_precompiled_defs.init
+             p,
+            s\<^sub>0),
+           u\<^sub>0)) \<longrightarrow>
+      r = Some (
+        \<forall> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<longrightarrow>
+        conv (N p I P T prog bounds),(repeat 0 p, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula
+      )
+    else r = None
+    )>\<^sub>t"
+proof -
+  define A where "A \<equiv> conv (N p I P T prog bounds)"
+  define no_deadlock where
+    "no_deadlock \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> Graph_Defs.deadlock
+          (\<lambda>(l, u) (l', u').
+              (case Prod_TA_Defs.prod_ta
+                     (Equiv_TA_Defs.state_ta
+                       (N p I P T prog bounds) max_steps) of
+               (T, I) \<Rightarrow>
+                 ((\<lambda>(l, g, a, r, l').
+                      (l, map conv_ac g, a, r, l')) `
+                  T,
+                  map conv_ac \<circ> I)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+          ((repeat 0 p,
+            s\<^sub>0),
+           u\<^sub>0))"
+  define check where
+    "check \<equiv>
+      \<forall> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<longrightarrow>
+        A,(repeat 0 p, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula"
+  note [sep_heap_rules] =
+    UPPAAL_Reachability_Problem_precompiled'.model_check'_hoare[
+      of p m max_steps I T prog bounds P s\<^sub>0 na k formula,
+      unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
+      folded A_def check_def no_deadlock_def,
+      where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd
+      ]
+  have *: "(no_deadlock \<longrightarrow> r = Some check) \<longleftrightarrow> (if no_deadlock then r = Some check else True)" for r
+    by auto
+  show ?thesis
+    unfolding UPPAAL_Reachability_Problem_precompiled_defs.init_def
+    unfolding A_def[symmetric] check_def[symmetric] no_deadlock_def[symmetric]
+    unfolding precond_mc_def * by (sep_auto simp: model_checker.refine[symmetric])
+qed
+
+
 prepare_code_thms dfs_map_impl'_def leadsto_impl_def
 
 (* XXX Debug code generator performance problems in conjunction with Let-expressions *)
@@ -867,8 +1371,10 @@ lemmas [code] =
   leadsto_checker_def
   model_checker_def[unfolded UPPAAL_Reachability_Problem_precompiled_defs.F_def PR_CONST_def]
 
+(*
 export_code
   precond_mc Pure.type init_pred_check time_indep_check1 time_indep_check1 conjunction_check2
   checking SML_imp
+*)
 
 end (* Theory *)
