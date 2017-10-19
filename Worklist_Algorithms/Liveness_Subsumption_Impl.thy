@@ -284,6 +284,19 @@ lemma dfs_map_impl'_hnr:
       OF \<open>V a\<^sub>0\<close>
       ] .
 
+lemma dfs_map_impl'_hoare_triple:
+  "<\<up>(V a\<^sub>0)> 
+    dfs_map_impl' TYPE('f) TYPE('g) TYPE('h) succsi a\<^sub>0i Lei keyi copyi 
+  <\<lambda>r. \<up>(r \<longleftrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x))>\<^sub>t"
+  using dfs_map_impl'_hnr[to_hnr]
+  unfolding hn_refine_def
+  apply clarsimp
+  apply (erule cons_post_rule)
+  by (sep_auto simp: pure_def)
+      
 end (* Liveness Search Space Key Impl *)
+
+
+
 
 end (* Theory *)
