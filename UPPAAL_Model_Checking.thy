@@ -594,30 +594,35 @@ thm reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
 
 lemma Alw_ev_checker_alt_def':
   "Alw_ev_checker TYPE('bb) TYPE('cc) TYPE('dd) \<equiv>
-    let
-      key = return \<circ> fst;
-      sub = impl.subsumes_impl;
-      copy = impl.state_copy_impl;
-      start = impl.a\<^sub>0_impl;
-      succs =  impl.succs_P_impl' final_fun
-    in dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd) succs start sub key copy"
+    do {
+      x \<leftarrow> let
+        key = return \<circ> fst;
+        sub = impl.subsumes_impl;
+        copy = impl.state_copy_impl;
+        start = impl.a\<^sub>0_impl;
+        succs =  impl.succs_P_impl' final_fun
+      in dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd) succs start sub key copy;
+      _ \<leftarrow> return ();
+      return x
+    }"
   unfolding Alw_ev_checker_def by simp
 
 lemma leadsto_checker_alt_def':
   "leadsto_checker TYPE('bb) TYPE('cc) TYPE('dd) \<psi> \<equiv>
-    let
-      key = return \<circ> fst;
-      sub = impl.subsumes_impl;
-      copy = impl.state_copy_impl;
-      start = impl.a\<^sub>0_impl;
-      final = impl.F_impl;
-      final' = (impl.Q_impl (\<lambda>(L, s). \<not> check_bexp \<psi> L s));
-      succs =  impl.succs_P_impl' (\<lambda>(L, s). \<not> check_bexp \<psi> L s);
-      succs' =  impl.succs_impl';
-      empty = impl.emptiness_check_impl
-    in do {
-      r \<leftarrow>
-      leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd) copy succs start sub key succs' empty final final';
+    do {
+      r \<leftarrow> let
+        key = return \<circ> fst;
+        sub = impl.subsumes_impl;
+        copy = impl.state_copy_impl;
+        start = impl.a\<^sub>0_impl;
+        final = impl.F_impl;
+        final' = (impl.Q_impl (\<lambda>(L, s). \<not> check_bexp \<psi> L s));
+        succs =  impl.succs_P_impl' (\<lambda>(L, s). \<not> check_bexp \<psi> L s);
+        succs' =  impl.succs_impl';
+        empty = impl.emptiness_check_impl
+      in
+        leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd)
+          copy succs start sub key succs' empty final final';
       return (\<not> r)
     }"
   unfolding leadsto_checker_def by simp
@@ -653,14 +658,17 @@ lemmas succs_impl'_alt_def =
 lemma reachability_checker'_alt_def':
   "reachability_checker' \<equiv>
     do {
-      let key = return \<circ> fst;
-      let sub = impl.subsumes_impl;
-      let copy = impl.state_copy_impl;
-      let start = impl.a\<^sub>0_impl;
-      let final = impl.F_impl;
-      let succs =  impl.succs_impl;
-      let empty = impl.emptiness_check_impl;
-      x \<leftarrow> pw_impl key copy sub start final succs empty;
+      x \<leftarrow> do {
+        let key = return \<circ> fst;
+        let sub = impl.subsumes_impl;
+        let copy = impl.state_copy_impl;
+        let start = impl.a\<^sub>0_impl;
+        let final = impl.F_impl;
+        let succs =  impl.succs_impl;
+        let empty = impl.emptiness_check_impl;
+        pw_impl key copy sub start final succs empty
+      };
+      _ \<leftarrow> return ();
       return x
     }"
   unfolding reachability_checker'_def by simp
@@ -854,26 +862,10 @@ prepare_code_thms dfs_map_impl'_def leadsto_impl_def
 
 (* XXX Debug code generator performance problems in conjunction with Let-expressions *)
 lemmas [code] =
-  reachability_checker'_def[unfolded Let_def]
-  Alw_ev_checker_def[unfolded Let_def]
-  leadsto_checker_def[unfolded Let_def]
+  reachability_checker'_def
+  Alw_ev_checker_def
+  leadsto_checker_def
   model_checker_def[unfolded UPPAAL_Reachability_Problem_precompiled_defs.F_def PR_CONST_def]
-
-export_code
-  reachability_checker'
-  checking SML_imp
-
-export_code open
-  Alw_ev_checker
-  checking SML_imp
-
-export_code open
-  leadsto_checker
-  checking SML_imp
-
-export_code open
-  model_checker
-  checking SML_imp
 
 export_code
   precond_mc Pure.type init_pred_check time_indep_check1 time_indep_check1 conjunction_check2
