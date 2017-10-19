@@ -5,10 +5,10 @@ local
     Unsynchronized.sml
 
     ann "nonexhaustiveMatch ignore" in
-      UPPAAL_Reachability_Checker_patched.sml
+      UPPAAL_Model_Checker_patched.sml
     end
 in
-    structure Reachability_Checker
+    structure Model_Checker
 end
 
 basics.ML
@@ -19,5 +19,6 @@ scan.ML
 ann "nonexhaustiveMatch ignore" in
     Scan_More.ML
 end
+Unsynchronized.sml
 Checker.sml
 mlton_main.sml

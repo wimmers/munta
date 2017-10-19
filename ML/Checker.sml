@@ -1,4 +1,4 @@
-open Reachability_Checker;
+open Model_Checker;
 
 (*** Utilities for parsing
  * Should be removed at some point
@@ -16,6 +16,14 @@ datatype ('a, 'b) bexp' =
   Imply' of ('a, 'b) bexp' * ('a, 'b) bexp' |
   Loc' of 'a * 'a | Eq' of 'a * 'b | Lea' of 'a * 'b |
   Lta' of 'a * 'b | Ge' of 'a * 'b | Gt' of 'a * 'b
+
+datatype ('a, 'b) formula' =
+  EX' of ('a, 'b) bexp' |
+  EG' of ('a, 'b) bexp' |
+  AX' of ('a, 'b) bexp' |
+  AG' of ('a, 'b) bexp' |
+  Leadsto' of ('a, 'b) bexp' * ('a, 'b) bexp'
+
 
 infix 9 Lea' Lta' Ge' Gt' Eq'
 infix 8 And'
@@ -58,6 +66,19 @@ fun map_bexp f_nat f_int = fn
   v Eq' x => Eq (f_nat v, f_int x) |
   v Ge' x => Ge (f_nat v, f_int x) |
   v Gt' x => Gt (f_nat v, f_int x)
+
+fun map_formula f_nat f_int =
+  let
+    val f = map_bexp f_nat f_int
+  in
+    fn
+      EX' a => EX (f a) |
+      EG' a => EG (f a) |
+      AX' a => AX (f a) |
+      AG' a => AG (f a) |
+      Leadsto' (a, b) => Leadsto (f a, f b)
+  end
+
 
 val to_int = Int_of_integer o IntInf.fromInt
 val to_nat = nat_of_integer o IntInf.fromInt
@@ -119,6 +140,15 @@ fun scan_bexp xs =
   in
     scan_7 xs
   end
+
+val scan_formula = scan_parens "(" ")" (Scan.first [
+  scan_singlec scan_bexp "EX" op EX',
+  scan_singlec scan_bexp "EG" op EG',
+  scan_singlec scan_bexp "AX" op AX',
+  scan_singlec scan_bexp "AG" op AG',
+  scan_infix_pairc scan_bexp scan_bexp "Leadsto" op Leadsto',
+  scan_infix_pairc scan_bexp scan_bexp "-->"     op Leadsto'
+  ])
 
 val scan_singlec_int = scan_singlec scan_int
 
@@ -184,7 +214,7 @@ val scan_all =
   scan_invariant --- (* inv *)
   scan_trans --- (* trans *)
   scan_prog --- (* prog *)
-  scan_bexp --- (* query *)
+  scan_formula --- (* query *)
   scan_list (scan_pair [scan_int, scan_int]) --- (* bounds *)
   (scan_int |> scan_list |> scan_list) --- (* pred *)
   scan_list scan_int --- (* s *)
@@ -197,24 +227,30 @@ fun println s = print (s ^ "\n")
 
 fun list_to_string f = (fn x => "[" ^ x ^ "]") o String.concatWith ", " o map f;
 
+(*
 fun print_result NONE = println("Invalid input\n")
     | print_result (SOME REACHABLE) = println("Property is not satisfied\n")
     | print_result (SOME UNREACHABLE) = println("Property is not satisfied\n")
     | print_result (SOME INIT_INV_ERR) =
     println("The invariant of the initial state is not fulfilled initially\n")
+*)
+fun print_result NONE = println("Invalid input\n")
+    | print_result (SOME true) = println("Property is satisfied\n")
+    | print_result (SOME false) = println("Property is not satisfied\n")
 
 
 (*** Wrapping up the checker ***)
 fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s na () =
   let
-    val _ = debug_level := 1
+    val debug_level: Int32.int Unsynchronized.ref = ref 0
+    val _ = debug_level := 2
 
     val map_constraint = map (map_acconstraint to_nat to_int);
     val inv = map (map map_constraint) inv;
     val trans =
       map (map (map (fn (g, a, r, l) => (to_nat g, (map_act to_nat a, (to_nat r, to_nat l)))))) trans;
     val prog = map (map_option (map_instrc to_nat to_int to_int)) prog
-    val query = map_bexp to_nat to_int query
+    val query = map_formula to_nat to_int query
     val bounds = map (fn (a, b) => (to_int a, to_int b)) bounds
     val pred = map (map to_nat) pred
     val s = map to_int s
@@ -271,7 +307,7 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
         val _ = map (uncurry print_precondition_check) tests;
       in println "" end else ();
     val t = Time.now ()
-    val result = Reachability_Checker.check_and_verify p m k max_steps inv trans prog query bounds pred s na ()
+    val result = Model_Checker.precond_mc Type Type Type p m k max_steps inv trans prog query bounds pred s na ()
     val t = Time.- (Time.now (), t)
     val _ = println("Internal time for precondition check + actual checking: " ^ Time.toString t)
     val _ = println("")
