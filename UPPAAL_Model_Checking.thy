@@ -612,8 +612,8 @@ apply standard
 
 lemma clocks_I:
   "(\<forall> c. c \<in> clk_set (conv_A A) \<longrightarrow> u c = u' c)" if "\<forall> c \<in> {1..n}. u c = u' c"
-  sorry
-      
+  unfolding clk_set_conv_A using clocks_n using that by auto
+
 lemma init_dbm_reaches_iff:
   "(\<exists> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)
   \<longleftrightarrow> ([curry (init_dbm :: real DBM')]\<^bsub>v,n\<^esub> \<noteq> {} \<and>
