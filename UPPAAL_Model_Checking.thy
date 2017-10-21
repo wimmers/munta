@@ -494,22 +494,157 @@ definition models ("_,_ \<Turnstile>\<^sub>_ _" [61,61] 61) where
 
 lemmas models_iff = models_def[unfolded Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff]
 
+lemma ac_iff:
+  "u1 \<turnstile>\<^sub>a ac \<longleftrightarrow> u2 \<turnstile>\<^sub>a ac" if
+  "u1 (fst (constraint_pair ac)) = u2 (fst (constraint_pair ac))"
+  using that by (cases ac) auto
+
+lemma ac_iff':
+  "u1 \<turnstile>\<^sub>a ac \<longleftrightarrow> u2 \<turnstile>\<^sub>a ac" if
+  "u1 (constraint_clk ac) = u2 (constraint_clk ac)"
+  using that by (cases ac) auto
+    
+lemma cc_iff:
+  "u1 \<turnstile> cc \<longleftrightarrow> u2 \<turnstile> cc" if "\<forall> (c, d) \<in> collect_clock_pairs cc. u1 c = u2 c"
+  using that
+  apply (auto simp: list_all_iff collect_clock_pairs_def intro!: clock_val.intros)
+   apply (subst ac_iff[of u2 _ u1], force, force)
+  apply (subst ac_iff[of u1 _ u2], force, force)
+  done
+
+lemma cc_iff':
+  "u1 \<turnstile> cc \<longleftrightarrow> u2 \<turnstile> cc" if "\<forall> c \<in> collect_clks cc. u1 c = u2 c"
+  using that
+  apply (auto simp: list_all_iff collect_clks_def intro!: clock_val.intros)
+   apply (subst ac_iff'[of u2 _ u1], force, force)
+  apply (subst ac_iff'[of u1 _ u2], force, force)
+  done
+
+lemma step_t_bisim:
+  "\<exists> u2'. A \<turnstile> \<langle>l, u2\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u2'\<rangle> \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u1' c = u2' c)"
+  if assms: "A \<turnstile> \<langle>l, u1\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u1'\<rangle>" "\<forall> c. c \<in> clk_set A \<longrightarrow> u1 c = u2 c"
+  using that(1)
+  apply cases
+  apply (subst (asm) cc_iff'[of _ _ "u2 \<oplus> d"])
+  subgoal
+    using assms(2)
+    using collect_clks_inv_clk_set[of A l]
+    by (force simp: cval_add_def)
+  using assms(2) by (force simp: cval_add_def)
+
+lemma step_a_bisim:
+  "\<exists> u2'. A \<turnstile> \<langle>l, u2\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l', u2'\<rangle> \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u1' c = u2' c)"
+  if assms: "A \<turnstile> \<langle>l, u1\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l', u1'\<rangle>" "\<forall> c. c \<in> clk_set A \<longrightarrow> u1 c = u2 c"
+  using that(1)
+  apply cases
+  subgoal for g r
+    apply (subst (asm) cc_iff'[of _ _ "u2"])
+    subgoal
+      using assms(2)
+      by (force dest: collect_clocks_clk_set)
+    apply (subst (asm) (2) cc_iff'[of _ _ "[r\<rightarrow>0]u2"])
+    subgoal
+      apply rule
+      subgoal for c
+        using collect_clks_inv_clk_set[of A l'] assms(2)
+        by (cases "c \<in> set r"; force)
+      done
+    apply (intro exI conjI)
+     apply (rule, assumption+)
+     apply (simp; fail)
+    apply rule
+    subgoal for c
+      using collect_clks_inv_clk_set[of A l'] assms(2)
+      by (cases "c \<in> set r"; force)
+    done
+  done
+
+lemma step'_bisim:
+  "\<exists> u2'. A \<turnstile>' \<langle>l, u2\<rangle> \<rightarrow> \<langle>l', u2'\<rangle> \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u1' c = u2' c)"
+  if assms: "A \<turnstile>' \<langle>l, u1\<rangle> \<rightarrow> \<langle>l', u1'\<rangle>" "\<forall> c. c \<in> clk_set A \<longrightarrow> u1 c = u2 c"
+  using that(1)
+  apply cases
+  apply (drule step_t_bisim[OF _ that(2)])
+  apply clarify
+  apply (drule step_a_bisim, assumption)
+  apply auto
+  done
+
+lemma ta_bisimulation:
+  "Bisimulation_Invariant
+  (\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+  (\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+  (\<lambda> (l, u) (l', u'). l' = l \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u c = u' c))
+  (\<lambda> _. True) (\<lambda> _. True)
+  "
+  apply standard
+  subgoal for a b a'
+    apply clarify
+    apply (drule step'_bisim)
+    apply auto
+    done
+      subgoal for a b a'
+        apply clarify
+        subgoal for _ u1 _ u2 _ u3
+          apply (drule step'_bisim[of _ _ u1 _ u3 u2])
+           apply auto
+          done
+        done
+      by auto
+
 context Reachability_Problem
 begin
 
+lemma reaches_steps':
+  "reaches (l, u) (l', u') \<longleftrightarrow> conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
+apply standard
+  subgoal premises prems
+      using prems
+      apply (induction "(l, u)" "(l', u')" arbitrary: l' u')
+      apply (auto intro: steps'_altI)
+      done
+    subgoal premises prems
+      using prems
+      apply induction
+       apply (auto intro: converse_rtranclp_into_rtranclp)
+      done
+    done
+
+lemma clocks_I:
+  "(\<forall> c. c \<in> clk_set (conv_A A) \<longrightarrow> u c = u' c)" if "\<forall> c \<in> {1..n}. u c = u' c"
+  sorry
+      
 lemma init_dbm_reaches_iff:
   "(\<exists> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)
   \<longleftrightarrow> ([curry (init_dbm :: real DBM')]\<^bsub>v,n\<^esub> \<noteq> {} \<and>
     (\<forall> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>))
   "
-  apply safe
-    apply force
-  subgoal for u1 u' u2
-    (* Use bisimilarity as below *)
-    sorry
-  subgoal for u
-    by blast
-  done
+proof -
+  interpret ta_bisim: Bisimulation_Invariant
+    "(\<lambda>(l, u) (l', u').
+       conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)"
+    "(\<lambda>(l, u) (l', u').
+       conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)"
+    "(\<lambda>(l, u) (l', u').
+       l' = l \<and>
+       (\<forall> c. c \<in> clk_set (conv_A A) \<longrightarrow>
+            u c = u' c))"
+    "(\<lambda>_. True)" "(\<lambda>_. True)"
+    by (rule ta_bisimulation[of "conv_A A"])
+  show ?thesis
+    apply safe
+      apply force
+    subgoal for u1 u' u2
+      (* Use bisimilarity as below *)
+      unfolding init_dbm_semantics reaches_steps'[symmetric]
+      apply (drule ta_bisim.A_B.simulation_reaches[of _ _ "(l\<^sub>0, u2)"])
+      subgoal
+        using clocks_I[of u1 u2] by fastforce
+      by auto
+    subgoal for u
+      by blast
+    done
+qed
 
 theorem reachable_decides_emptiness_new:
   "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
@@ -627,92 +762,6 @@ qed
 end
 
 end (* Context for leadsto predicate *)
-
-lemma ac_iff:
-  "u1 \<turnstile>\<^sub>a ac \<longleftrightarrow> u2 \<turnstile>\<^sub>a ac" if
-  "u1 (fst (constraint_pair ac)) = u2 (fst (constraint_pair ac))"
-  using that by (cases ac) auto
-
-lemma ac_iff':
-  "u1 \<turnstile>\<^sub>a ac \<longleftrightarrow> u2 \<turnstile>\<^sub>a ac" if
-  "u1 (constraint_clk ac) = u2 (constraint_clk ac)"
-  using that by (cases ac) auto
-    
-lemma cc_iff:
-  "u1 \<turnstile> cc \<longleftrightarrow> u2 \<turnstile> cc" if "\<forall> (c, d) \<in> collect_clock_pairs cc. u1 c = u2 c"
-  using that
-  apply (auto simp: list_all_iff collect_clock_pairs_def intro!: clock_val.intros)
-   apply (subst ac_iff[of u2 _ u1], force, force)
-  apply (subst ac_iff[of u1 _ u2], force, force)
-  done
-
-lemma cc_iff':
-  "u1 \<turnstile> cc \<longleftrightarrow> u2 \<turnstile> cc" if "\<forall> c \<in> collect_clks cc. u1 c = u2 c"
-  using that
-  apply (auto simp: list_all_iff collect_clks_def intro!: clock_val.intros)
-   apply (subst ac_iff'[of u2 _ u1], force, force)
-  apply (subst ac_iff'[of u1 _ u2], force, force)
-  done
-
-lemma step_t_bisim:
-  "\<exists> u2'. A \<turnstile> \<langle>l, u2\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u2'\<rangle> \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u1' c = u2' c)"
-  if assms: "A \<turnstile> \<langle>l, u1\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u1'\<rangle>" "\<forall> c. c \<in> clk_set A \<longrightarrow> u1 c = u2 c"
-  using that(1)
-  apply cases
-  apply (subst (asm) cc_iff'[of _ _ "u2 \<oplus> d"])
-  subgoal
-    using assms(2)
-    unfolding cval_add_def
-    using collect_clks_inv_clk_set[of A l]
-      by force
-  apply simp
-  apply (intro exI conjI)
-   apply rule
-    apply assumption
-   apply assumption
-  using assms(2)
-  unfolding cval_add_def
-  apply auto
-    done
-
-lemma step_a_bisim:
-  "\<exists> u2'. A \<turnstile> \<langle>l, u2\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l', u2'\<rangle> \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u1' c = u2' c)"
-  if assms: "A \<turnstile> \<langle>l, u1\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l', u1'\<rangle>" "\<forall> c. c \<in> clk_set A \<longrightarrow> u1 c = u2 c"
-  sorry
-
-lemma step'_bisim:
-  "\<exists> u2'. A \<turnstile>' \<langle>l, u2\<rangle> \<rightarrow> \<langle>l', u2'\<rangle> \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u1' c = u2' c)"
-  if assms: "A \<turnstile>' \<langle>l, u1\<rangle> \<rightarrow> \<langle>l', u1'\<rangle>" "\<forall> c. c \<in> clk_set A \<longrightarrow> u1 c = u2 c"
-  using that(1)
-  apply cases
-  apply (drule step_t_bisim[OF _ that(2)])
-  apply clarify
-  apply (drule step_a_bisim, assumption)
-  apply auto
-  done
-
-lemma ta_bisimulation:
-  "Bisimulation_Invariant
-  (\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
-  (\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
-  (\<lambda> (l, u) (l', u'). l' = l \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u c = u' c))
-  (\<lambda> _. True) (\<lambda> _. True)
-  "
-  apply standard
-  subgoal for a b a'
-    apply clarify
-    apply (drule step'_bisim)
-    apply auto
-    done
-      subgoal for a b a'
-        apply clarify
-        subgoal for _ u1 _ u2 _ u3
-          thm step'_bisim[of _ _ u1 _ u3 u2]
-          apply (drule step'_bisim[of _ _ u1 _ u3 u2])
-           apply auto
-          done
-        done
-      by auto  
 
 context UPPAAL_Reachability_Problem_precompiled'
 begin
@@ -1001,8 +1050,6 @@ lemma final_fun_final[intro, simp]:
   "((\<lambda> (L, s). P L s), (\<lambda> (L, s). P L s)) \<in> inv_rel states" for P
   using final_fun_final' states_states' by (rule inv_rel_mono)
 
-term "conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula"
-
 lemma hn_refine_emp_neg_RES:
   assumes "hn_refine emp (f) emp bool_assn (RES Y)"
   shows "hn_refine emp (do {r \<leftarrow> f; return (\<not> r)}) emp bool_assn (RES {\<not> x | x. x \<in> Y})"
@@ -1046,10 +1093,6 @@ lemma maxiscope_impl:
 
 abbreviation "u\<^sub>0 \<equiv> (\<lambda> _. 0 :: real)"
 
-lemma clocks_I:
-  "(\<forall> c. c \<in> clk_set (conv_A A) \<longrightarrow> u c = u' c)" if "\<forall> c \<in> {1..m}. u c = u' c"
-  sorry
-    
 theorem model_check':
   "(uncurry0 (model_checker TYPE('bb) TYPE('cc) TYPE('dd)),
     uncurry0 (
@@ -1074,8 +1117,6 @@ proof -
     by auto
   have *****: "(\<lambda>(L, y). (Not \<circ>\<circ>\<circ> check_bexp) \<psi> L y) = (\<lambda>(L, y). \<not>check_bexp \<psi> L y)" for \<psi>
     by auto
-
-   thm ta_bisimulation[of "conv_A A"]
       
   interpret ta_bisim: Bisimulation_Invariant
    "(\<lambda>(l, u) (l', u').
