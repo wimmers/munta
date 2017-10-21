@@ -1065,17 +1065,35 @@ lemma Alw_ev_impl_hnr:
       dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd)
         (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst) state_copy_impl
      else return False),
-   uncurry0 (SPEC (\<lambda>r. r \<longleftrightarrow> \<not> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> Alw_ev (\<lambda>(l, u). \<not> F l) (l\<^sub>0, u\<^sub>0)))))
-  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "l\<^sub>0 \<in> state_set (trans_of A)"
-  apply (subst Alw_ev_mc[folded a\<^sub>0_def, OF that[folded state_set_eq]])
+   uncurry0 (SPEC (\<lambda>r. l\<^sub>0 \<in> state_set (trans_of A) \<longrightarrow>
+    r \<longleftrightarrow> \<not> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> Alw_ev (\<lambda>(l, u). \<not> F l) (l\<^sub>0, u\<^sub>0)))))
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  unfolding state_set_eq[symmetric]
   apply (cases "F l\<^sub>0")
-  using that(1) liveness_hnr apply (auto simp add: op_liveness_reaches_cycle_equiv)
-  by sepref_to_hoare sep_auto
+  subgoal premises prems
+  proof -
+    define protected1 where "protected1 = E_op''.liveness_pre.reaches"
+    define protected2 where "protected2 = E_op''.liveness_pre.reaches1"
+    show ?thesis
+      using prems Alw_ev_mc[folded a\<^sub>0_def, of F, unfolded op_liveness_reaches_cycle_equiv[OF prems]]
+      apply (simp add: )
+      unfolding protected1_def[symmetric] protected2_def[symmetric]
+      using liveness_hnr[OF prems, to_hnr, unfolded hn_refine_def]
+        apply sepref_to_hoare
+      apply sep_auto
+      apply (erule cons_post_rule)
+      unfolding protected1_def[symmetric] protected2_def[symmetric]
+      by sep_auto
+  qed
+  subgoal
+    using Alw_ev_mc[folded a\<^sub>0_def, of F]
+    apply simp
+    by sepref_to_hoare sep_auto
+  done
 
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
     assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
-    assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set (trans_of A)"
     assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
 begin
 
@@ -1110,13 +1128,30 @@ proof -
     unfolding leadsto_spec_alt_def[OF Q_fun]
     unfolding PR_CONST_def a\<^sub>0_def[symmetric] by (auto dest: *** simp: * **)
   qed
-
-lemmas leadsto_impl_hnr =
-  leadsto_impl_hnr[
+  
+lemma leadsto_impl_hnr:
+  "(uncurry0
+    (leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd) state_copy_impl
+      (succs_P_impl' Q_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst)
+      succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun)),
+   uncurry0
+    (SPEC
+      (\<lambda>r. l\<^sub>0 \<in> state_set (trans_of A) \<longrightarrow>
+           (\<not> r) =
+           (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow>
+                  leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0)))))
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"  
+  unfolding state_set_eq[symmetric]
+ using leadsto_impl_hnr[
     OF Q_fun precond_a\<^sub>0,
-    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI],
-    folded leadsto_mc[OF l\<^sub>0_state_set[folded state_set_eq] no_deadlock]
-    ]
+    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI], to_hnr, unfolded hn_refine_def]
+  using leadsto_mc[OF _ no_deadlock, of F Q]
+  apply (simp del: state_set_eq)
+  apply sepref_to_hoare
+  apply sep_auto
+  apply (erule cons_post_rule)
+  apply sep_auto
+  done
 
 end (* Context for leadsto predicate *)
 

@@ -762,7 +762,7 @@ qed
 end
 
 end (* Context for leadsto predicate *)
-
+  
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
@@ -812,16 +812,6 @@ lemma F_reachable_correct_new':
     apply (subst product'.prod_reachable_correct[symmetric])
     using prod_conv p_p p_gt_0 by simp+
 
-thm reachability_checker'_def impl.pw_impl_hnr_F_reachable
-
-thm final_fun_def F_def
-
-thm
-  impl.leadsto_impl_hnr[OF _]
-  impl.Alw_ev_impl_hnr[OF _]
-
-term formula term pw_impl
-
 definition
   "Alw_ev_checker = dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd)
      (impl.succs_P_impl' final_fun) impl.a\<^sub>0_impl impl.subsumes_impl (return \<circ> fst)
@@ -859,19 +849,9 @@ definition
   )
   "
 
-term model_checker
-
-thm model_checker_def
-
-term TA.steps
-
 sublocale sem: Graph_Defs "\<lambda> (l, u) (l', u'). conv_A A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" .
 
-term "conv N"
-
 sublocale network: Graph_Defs "\<lambda> (L, s, u) (L', s', u'). conv N \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" .
-
-term a\<^sub>0
 
 interpretation Bisim_A: Bisimulation_Invariant
    "(\<lambda>(L, s, u) (L', s', u').
@@ -1038,6 +1018,7 @@ qed
 (* XXX *)
 lemma init_state_in_state_set:
   "(init, s\<^sub>0) \<in> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of A)"
+  if "\<not> deadlock ((init, s\<^sub>0), u\<^sub>0)"
   sorry
 
 (* XXX Remove less general versions *)
@@ -1254,12 +1235,6 @@ have bla:
         apply (subst (asm) bisim5)
         apply sep_auto
         unfolding final_fun_def F_def prems
-          (*
-      unfolding UPPAAL_Reachability_Problem_precompiled_defs.F_def
-      apply (subst
-          UPPAAL_Reachability_Problem_precompiled'.final_fun_def[
-            OF UPPAAL_Reachability_Problem_precompiled'_axioms
-            ]) *)
         apply (rule cons_post_rule)
          apply assumption
         apply (sep_auto simp: pure_def)
@@ -1267,7 +1242,7 @@ have bla:
 
         -- \<open>\<open>EG\<close>\<close>
     subgoal premises prems for \<phi>
-      using impl.Alw_ev_impl_hnr[OF init_state_in_state_set, where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
+      using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
           to_hnr, unfolded hn_refine_def
           ]
       unfolding final_fun_def F_def
@@ -1284,6 +1259,7 @@ have bla:
         apply (subst (asm) bisim1)
         apply (rule cons_post_rule)
          apply assumption
+         using init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def protect_def ***)
         done
       subgoal
@@ -1291,13 +1267,14 @@ have bla:
           apply simp
         apply (rule cons_post_rule)
          apply assumption
+         using init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def protect_def ***)
         done
       done
 
         -- \<open>\<open>AX\<close>\<close>
     subgoal premises prems for \<phi>
-      using impl.Alw_ev_impl_hnr[OF init_state_in_state_set, where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
+      using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
           to_hnr, unfolded hn_refine_def
           ]
       unfolding final_fun_def F_def
@@ -1309,13 +1286,18 @@ have bla:
       apply (safe; clarsimp simp: prems(2))
       unfolding bisim2
       unfolding * ***
-       apply (sep_auto simp: pure_def protect_def)
-      unfolding protect_def
-      unfolding bla
-      apply (rule bind_rule)
-       apply assumption
-      apply (sep_auto simp: pure_def)
+      subgoal
+       using init_state_in_state_set[of u\<^sub>0]
+       by (sep_auto simp: pure_def protect_def)
+      subgoal
+        unfolding protect_def bla
+        apply (rule bind_rule)
+         apply assumption
+        using init_state_in_state_set[of u\<^sub>0]
+        apply (sep_auto simp: pure_def)
+        done
       done
+      
 
         -- \<open>\<open>AG\<close>\<close>
     subgoal premises prems for \<phi>
@@ -1331,7 +1313,7 @@ have bla:
         -- \<open>\<open>Leadsto\<close>\<close>
     subgoal premises prems for \<phi> \<psi>
       using impl.leadsto_impl_hnr[
-          OF final_fun_final init_state_in_state_set, of "Not oo check_bexp \<psi>",
+          OF final_fun_final, of "Not oo check_bexp \<psi>",
           to_hnr, unfolded hn_refine_def
           ]
       apply simp      unfolding * F_def
