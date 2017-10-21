@@ -1049,7 +1049,7 @@ abbreviation "u\<^sub>0 \<equiv> (\<lambda> _. 0 :: real)"
 lemma clocks_I:
   "(\<forall> c. c \<in> clk_set (conv_A A) \<longrightarrow> u c = u' c)" if "\<forall> c \<in> {1..m}. u c = u' c"
   sorry
-
+    
 theorem model_check':
   "(uncurry0 (model_checker TYPE('bb) TYPE('cc) TYPE('dd)),
     uncurry0 (
@@ -1168,11 +1168,34 @@ proof -
       by simp
     done
 
+have bisim5:
+  "(\<forall>u. (\<forall>c\<in>{1..m}. u c = 0) \<longrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<and> \<phi> L' s'))
+  \<longleftrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<^sub>0\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<and> \<phi> L' s')
+  " for \<phi> L' s'
+  unfolding reaches_steps'[symmetric]
+  apply safe
+  subgoal
+    apply (elim allE[of _ u\<^sub>0] impE; simp; fail)
+    done
+  subgoal for u' u
+    apply (drule ta_bisim.bisim.A_B_reaches[of _ _ "((init, s\<^sub>0), u)"])
+    subgoal
+        using clocks_I[of u "\<lambda>_. 0"]
+        unfolding ta_bisim.equiv'_def
+        apply auto
+        done
+      unfolding ta_bisim.equiv'_def by auto
+    done
+      
   define protect where
     "protect = ((\<lambda>(l, u) (l', u').
                               conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>))"
 
-        
+    
+have bla:
+  "return True = (return False \<bind> return o Not)"
+  by auto
+    
   show ?thesis
     using models_correct
     apply simp
@@ -1185,10 +1208,21 @@ proof -
       -- \<open>\<open>EX\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
-      apply (subst (asm) F_reachable_correct'_new)
-        apply (rule prems; fail)
-      apply sep_auto
-      sorry
+      apply (subst (asm) (2) F_reachable_correct'_new)
+       apply (rule prems; fail)
+        apply (subst (asm) bisim5)
+        apply sep_auto
+        unfolding final_fun_def F_def prems
+          (*
+      unfolding UPPAAL_Reachability_Problem_precompiled_defs.F_def
+      apply (subst
+          UPPAAL_Reachability_Problem_precompiled'.final_fun_def[
+            OF UPPAAL_Reachability_Problem_precompiled'_axioms
+            ]) *)
+        apply (rule cons_post_rule)
+         apply assumption
+        apply (sep_auto simp: pure_def)
+          done
 
         -- \<open>\<open>EG\<close>\<close>
     subgoal premises prems for \<phi>
@@ -1236,18 +1270,21 @@ proof -
       unfolding * ***
        apply (sep_auto simp: pure_def protect_def)
       unfolding protect_def
-      sorry
+      unfolding bla
+      apply (rule bind_rule)
+       apply assumption
+      apply (sep_auto simp: pure_def)
+      done
 
         -- \<open>\<open>AG\<close>\<close>
     subgoal premises prems for \<phi>
-      using impl.pw_impl_hnr_F_reachable
-      apply (subst (asm) F_reachable_correct_new')
-        apply (rule prems; fail)
-      apply auto
-      subgoal premises prems
-        using prems(1)[unfolded * RETURN_def, THEN hfref_emp_neg_RES]
-        apply (simp add: RETURN_def)
-        sorry
+      using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
+      apply (subst (asm) (2) F_reachable_correct'_new')
+       apply (rule prems; fail)
+      apply (subst (asm) bisim5)
+        apply simp
+      unfolding final_fun_def F_def prems
+      apply (sep_auto simp: pure_def)
       done
 
         -- \<open>\<open>Leadsto\<close>\<close>
@@ -1599,7 +1636,6 @@ proof -
     unfolding precond_mc_def * by (sep_auto simp: model_checker.refine[symmetric])
 qed
 
-
 prepare_code_thms dfs_map_impl'_def leadsto_impl_def
 
 (* XXX Debug code generator performance problems in conjunction with Let-expressions *)
@@ -1609,10 +1645,8 @@ lemmas [code] =
   leadsto_checker_def
   model_checker_def[unfolded UPPAAL_Reachability_Problem_precompiled_defs.F_def PR_CONST_def]
 
-(*
 export_code
   precond_mc Pure.type init_pred_check time_indep_check1 time_indep_check1 conjunction_check2
   checking SML_imp
-*)
 
 end (* Theory *)
