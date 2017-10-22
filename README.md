@@ -22,7 +22,7 @@ make
 ```
 
 #### To browse the sources interactively in Isabelle:
-Install [Isabelle](https://isabelle.in.tum.de/) and the [AFP](https://www.isa-afp.org/using.shtml). Then run:
+Install [Isabelle 2016-1](https://isabelle.in.tum.de/) and the [AFP](https://www.isa-afp.org/using.shtml). Then run:
 ```
 isabelle jedit -l Refine_Imperative_HOL
 ```
