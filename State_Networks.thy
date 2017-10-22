@@ -114,17 +114,19 @@ text \<open>
   (output before input).
 \<close>
 
+datatype 'b label = Del | Act 'b | Syn 'b
+
 inductive step_sn ::
-  "('a, 'c, 't, 's, 'st) snta \<Rightarrow> 's list \<Rightarrow> 'st \<Rightarrow> ('c, ('t::time)) cval
+  "('a, 'c, 't, 's, 'st) snta \<Rightarrow> 's list \<Rightarrow> 'st \<Rightarrow> ('c, ('t::time)) cval \<Rightarrow> 'a label
   \<Rightarrow> 's list \<Rightarrow> 'st \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
-  ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow> \<langle>_, _, _\<rangle>" [61,61,61] 61)
+  ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 where
   step_sn_t:
-    "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L, s, u \<oplus> d\<rangle>"
+    "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L, s, u \<oplus> d\<rangle>"
     if "\<forall> p \<in> {..<length N}. u \<oplus> d \<turnstile> snd (N ! p) (L ! p)"
        "d \<ge> 0" "length N = length I" |
   step_sn_i:
-    "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+    "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Act a\<^esub> \<langle>L', s', u'\<rangle>"
     if "(l, g, (Sil a, c, m), f, l') \<in> fst (N!p)"
        "u \<turnstile> g s" "\<forall> p \<in> {..<length N}. u' \<turnstile> snd (N!p) (L'!p)"
        "r = f s"
@@ -132,7 +134,7 @@ where
        "c s" "\<forall> p < length I. (I ! p) (L' ! p) s'" "Some s' = m s"
        "length N = length I" |
   step_sn_s:
-    "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+    "(N, I) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Syn a\<^esub> \<langle>L', s', u'\<rangle>"
     if "(l1, g1, (In a, ci, mi), f1, l1') \<in> fst (N!p)"
        "(l2, g2, (Out a, co, mo), f2, l2') \<in> fst (N!q)" "u \<turnstile> g1 s" "u \<turnstile> g2 s"
        "\<forall> p \<in> {..<length N}. u' \<turnstile> snd (N!p) (L'!p)"
@@ -142,7 +144,7 @@ where
        "ci s" "co s" "\<forall> p < length I. (I ! p) (L' ! p) s'"
        "Some so = mo s" "Some s' = mi so" "length N = length I"
 
-inductive_cases[elim!]: "N \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+inductive_cases[elim!]: "N \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Syn a\<^esub> \<langle>L', s', u'\<rangle>"
 
 inductive steps_sn ::
   "('a, 'c, 't, 's, 'st) snta \<Rightarrow> 's list \<Rightarrow> 'st \<Rightarrow> ('c, ('t::time)) cval
@@ -150,14 +152,14 @@ inductive steps_sn ::
 ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61, 61, 61,61,61] 61)
 where
   refl: "N \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L, s, u\<rangle>" |
-  step: "N \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<Longrightarrow> N \<turnstile> \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>
+  step: "N \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<Longrightarrow> N \<turnstile> \<langle>L', s', u'\<rangle> \<rightarrow>\<^bsub>l\<^esub> \<langle>L'', s'', u''\<rangle>
         \<Longrightarrow> N \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L'', s'', u''\<rangle>"
 
 declare steps_sn.intros[intro]
 
 lemma stepI2:
   "N \<turnstile> \<langle>l, s, u\<rangle> \<rightarrow>* \<langle>l'', s'', u''\<rangle>" if
-  "N \<turnstile> \<langle>l', s', u'\<rangle> \<rightarrow>* \<langle>l'', s'', u''\<rangle>" "N \<turnstile> \<langle>l, s, u\<rangle> \<rightarrow> \<langle>l', s', u'\<rangle>"
+  "N \<turnstile> \<langle>l', s', u'\<rangle> \<rightarrow>* \<langle>l'', s'', u''\<rangle>" "N \<turnstile> \<langle>l, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l', s', u'\<rangle>"
   using that
   apply induction
    apply rule
@@ -171,11 +173,6 @@ abbreviation state_set :: "('a, 'c, 't, 's, 'st) transition set \<Rightarrow> 's
 
 subsection \<open>Product Automaton\<close>
 
-(*
-abbreviation state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
-  "state_set T \<equiv> fst ` T \<union> (snd o snd o snd o snd) ` T"
-*)
-
 locale Prod_TA_Defs =
   fixes A :: "('a, 'c, 't, 's, 'st) snta"
 begin
@@ -185,14 +182,6 @@ definition
 
 definition
   "N_s s = map (\<lambda> p. (T_s p s, snd (fst A ! p))) [0..<length (fst A)]"
-
-term Product_TA_Defs.product_ta
-
-(* sublocale Product_TA_Defs "N_s s" . *)
-
-term product_ta
-
-print_theorems
 
 abbreviation "P \<equiv> snd A"
 
@@ -207,17 +196,17 @@ definition
   "prod_trans_i =
     {((L, s), g, a, r, (L', s')) | L s g c a r m L' s'.
      (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
-     \<and> (L, g, (a, Act (c, m)), r, L') \<in> T' s \<and> c s \<and> Some s' = m s}"
+     \<and> (L, g, (a, Networks.label.Act (c, m)), r, L') \<in> T' s \<and> c s \<and> Some s' = m s}"
 
 definition
-    "prod_trans_s =
-      {((L, s), g, a, r, (L', s')) | L s g ci co a r mi mo L' s' so.
-        ci s \<and> co s
-        \<and> (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
-        \<and> (L, g, (a, Syn (ci, mi) (co, mo)), r, L') \<in> T' s
-        \<and> Some so = mo s
-        \<and> Some s' = mi so
-      }"
+  "prod_trans_s =
+    {((L, s), g, a, r, (L', s')) | L s g ci co a r mi mo L' s' so.
+      ci s \<and> co s
+      \<and> (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
+      \<and> (L, g, (a, Networks.label.Syn (ci, mi) (co, mo)), r, L') \<in> T' s
+      \<and> Some so = mo s
+      \<and> Some s' = mi so
+    }"
 
   definition
     "prod_trans \<equiv> prod_trans_i \<union> prod_trans_s"
@@ -336,7 +325,7 @@ begin
     unfolding Product_TA_Defs.product_trans_def
   proof safe
     have "Product_TA_Defs.product_trans_i (N_s s)
-        \<subseteq> {(L, g, (a, Act (aa, b)), r, L[p := l']) |L p g a aa b r l'.
+        \<subseteq> {(L, g, (a, Networks.label.Act (aa, b)), r, L[p := l']) |L p g a aa b r l'.
             L \<in> Product_TA_Defs.states (N_s s) \<and> p < length (N_s s) \<and>
             (L ! p, g, (Sil a, aa, b), r, l') \<in> \<Union> (trans_of ` set (N_s s))}"
       unfolding Product_TA_Defs.product_trans_i_def
@@ -363,7 +352,8 @@ begin
     ultimately show "finite (Product_TA_Defs.product_trans_i (N_s s))" by (rule finite_subset)
   next
     have "Product_TA_Defs.product_trans_s (N_s s)
-        \<subseteq> {(L, g1 @ g2, (a, Syn b1 b2), r1 @ r2, L[p := l1', q := l2']) |L p q g1 g2 a b1 b2 r1 r2 l1' l2'.
+        \<subseteq> {(L, g1 @ g2, (a, Networks.label.Syn b1 b2), r1 @ r2, L[p := l1', q := l2']) |
+              L p q g1 g2 a b1 b2 r1 r2 l1' l2'.
               L \<in> Product_TA_Defs.states (N_s s) \<and>
               p < length (N_s s) \<and> q < length (N_s s) \<and>
               (L ! p, g1, (In a, b1), r1, l1') \<in> map trans_of (N_s s) ! p \<and>
@@ -401,7 +391,7 @@ begin
   lemma prod_trans_i_alt_def:
     "prod_trans_i =
       {((L, s), g, a, r, (L', s')) | L s g c a r m L' s'.
-       (L, g, (a, Act (c, m)), r, L') \<in> T' s \<and>
+       (L, g, (a, Networks.label.Act (c, m)), r, L') \<in> T' s \<and>
        (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
        \<and> c s \<and> Some s' = m s}"
     unfolding prod_trans_i_def by (safe; metis)
@@ -418,7 +408,7 @@ begin
     have "prod_trans_i \<subseteq>
         {((L, s), g, a, r, (L', s')) | L s g c a r m L' s'.
          Q s \<and>
-         (L, g, (a, Act (c, m)), r, L') \<in> T' s \<and>
+         (L, g, (a, Networks.label.Act (c, m)), r, L') \<in> T' s \<and>
          (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
          \<and> c s \<and> Some s' = m s}
       "
@@ -438,7 +428,7 @@ begin
     have "prod_trans_s \<subseteq>
         {((L, s), g, a, r, (L', s')) | L s g ci co a r mi mo L' s' so.
           Q s \<and>
-          product s \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Syn (ci, mi) (co, mo)),r\<^esup> L' \<and>
+          product s \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Networks.label.Syn (ci, mi) (co, mo)),r\<^esup> L' \<and>
           (\<forall>q<p. (P ! q) (L ! q) s) \<and> (\<forall>q<p. (P ! q) (L' ! q) s') \<and>
           ci s \<and> co s \<and> Some so = mo s \<and> Some s' = mi so}
       "
@@ -485,38 +475,45 @@ locale Prod_TA_Defs' =
   Prod_TA_Defs A for A :: "('a, 'c, 't :: time, 's, 'st) snta"
 begin
 
-term N
-
-  (* sublocale Product_TA_Defs' "N_s s". *)
-
-  thm Networks.Product_TA_Defs'.product_invariantD
-
-  term "step_sn A" term Product_TA_Defs.states
-
-term N
-
 lemma A_unfold:
   "A \<equiv> (N, P)"
   by auto
 
-lemma network_step:
-  assumes step: "(N, P) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" and len: "length L = p"
-  obtains a where "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', u'\<rangle>"
-  subgoal premises prems
+lemma network_step_delay:
+  assumes step: "(N, P) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>" and len: "length L = p"
+  shows "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Networks.label.Del\<^esub> \<langle>L', u'\<rangle>"
+  subgoal
     using step
     apply cases
     subgoal
-      apply (rule prems)
       apply simp
       apply (rule step_n_t)
       subgoal
         unfolding N_s_def by (auto simp: inv_of_def)
       apply assumption
       done
+    done
+  done
+
+lemma network_step_silent:
+  assumes step: "(N, P) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Act a\<^esub> \<langle>L', s', u'\<rangle>" and len: "length L = p"
+  obtains a where "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Networks.label.Act a\<^esub> \<langle>L', u'\<rangle>"
+  subgoal premises prems
+    using step
+    apply cases
     subgoal
       apply (rule prems)
       apply (rule step_n_i)
       unfolding N_s_def T_s_def by (auto 4 0 simp: trans_of_def inv_of_def len p_def)
+    done
+  done
+
+lemma network_step_sync:
+  assumes step: "(N, P) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Syn a\<^esub> \<langle>L', s', u'\<rangle>" and len: "length L = p"
+  obtains a b where "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Networks.label.Syn a b\<^esub> \<langle>L', u'\<rangle>"
+  subgoal premises prems
+    using step
+    apply cases
     subgoal
       subgoal premises A
         apply (rule prems)
@@ -533,6 +530,18 @@ lemma network_step:
                apply (rule A(11); fail)
         using A unfolding N_s_def T_s_def by (auto 4 0 simp: trans_of_def len p_def)
       done
+    done
+  done
+
+lemma network_step:
+  assumes step: "(N, P) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" and len: "length L = p"
+  obtains a where "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', u'\<rangle>"
+  subgoal
+    using step
+    apply (cases a; simp)
+      apply (rule that, erule network_step_delay[OF _ len, simplified])
+     apply (erule network_step_silent[OF _ len, simplified], erule that)
+    apply (erule network_step_sync[OF _ len, simplified], erule that)
     done
   done
 
@@ -553,7 +562,7 @@ lemma states'_simp:
   unfolding Product_TA_Defs.states_def by (simp add: N_s_length trans_of_N_s_1 trans_of_N_s_2)
 
   lemma states_step:
-    "L' \<in> states' s" if "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" "L \<in> states' s"
+    "L' \<in> states' s" if "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" "L \<in> states' s"
   proof -
     interpret Product_TA_Defs' "N_s s" .
     from \<open>L \<in> _\<close> have "L \<in> states" .
@@ -576,13 +585,13 @@ lemma states'_simp:
 
   lemma inv_step:
     "\<forall>p<length P. (P ! p) (L' ! p) s'" if
-    "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" "\<forall>p<length P. (P ! p) (L ! p) s"
+    "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" "\<forall>p<length P. (P ! p) (L ! p) s"
     using that by (cases) auto
 
   lemma inv_steps:
     "\<forall>p<length P. (P ! p) (L' ! p) s'" if
     "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>" "\<forall>p<length P. (P ! p) (L ! p) s"
-    using that apply (induction A \<equiv> A _ _ _ _ _ _ rule: steps_sn.induct) by (auto intro: inv_step)
+    using that by (induction A \<equiv> A _ _ _ _ _ _ rule: steps_sn.induct) (auto dest: inv_step)
 
 end
 
@@ -627,26 +636,33 @@ begin
     "length L = p"
     by (simp add: N_s_length)
 
-  lemma prod_complete:
-    assumes step: "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-    shows "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
+  lemma prod_complete_delay:
+    assumes step: "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
+    obtains d where "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>"
   using step proof cases
     case prems: (step_sn_t N d P)
     note [simp] = A_simp[OF prems(1)]
-    from prems have "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', u'\<rangle>"
+    from prems have "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Networks.Del\<^esub> \<langle>L', u'\<rangle>"
       unfolding N_s_def by (auto 4 3 simp: inv_of_def intro: step_n_t)
     with prems show ?thesis
       by (auto 4 4
+          intro: that
           simp: product_inv_prod_simp[OF length_L]
           elim!: product_delay_complete step_t.cases)
-  next
-    case prems: (step_sn_i l g a c m f l' N q r I)
+  qed
+
+  lemma prod_complete_silent:
+    assumes step: "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Act a\<^esub> \<langle>L', s', u'\<rangle>"
+    obtains a where "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
+  using step proof cases
+    case prems: (step_sn_i l g c m f l' N q r I)
     note [simp] = A_simp[OF prems(1)]
     from prems(13) have [simp]: "length P = p" by (simp add: p_def)
-    have "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Act (c, m)\<^esub> \<langle>L', u'\<rangle>"
+    have "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Networks.label.Act (c, m)\<^esub> \<langle>L', u'\<rangle>"
       apply (rule step_n_i)
       using prems unfolding N_s_def T_s_def by (auto 3 0 simp: trans_of_def inv_of_def N_s_length)
-    with \<open>length P = p\<close> obtain b where "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(b, Act (c, m))\<^esub> \<langle>L', u'\<rangle>"
+    with \<open>length P = p\<close> obtain b where
+      "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(b, Networks.label.Act (c, m))\<^esub> \<langle>L', u'\<rangle>"
       by (clarsimp elim!: product_int_complete)
     with prems inv obtain g r where step:
       "((L, s), g, b, r, (L', s')) \<in> prod_trans_i"
@@ -659,15 +675,20 @@ begin
       using length_L prems(8) by auto
     ultimately show ?thesis
       apply -
-      apply (rule step_a)
+      apply (rule that)
       apply rule
       using step(2-) by force+
-  next
-    case prems: (step_sn_s l1 g1 a ci mi f1 l1' N q1 l2 g2 co mo f2 l2' q2 r1 r2 I)
+  qed
+
+  lemma prod_complete_sync:
+    assumes step: "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Syn a\<^esub> \<langle>L', s', u'\<rangle>"
+    obtains a where "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
+  using step proof cases
+    case prems: (step_sn_s l1 g1 ci mi f1 l1' N q1 l2 g2 co mo f2 l2' q2 r1 r2 I so)
     note [simp] = A_simp[OF prems(1)]
     from prems(21) have [simp]: "length P = p" by (simp add: p_def)
     (* XXX Clean *)
-    have "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Syn (ci, mi) (co, mo)\<^esub> \<langle>L', u'\<rangle>"
+    have "N_s s \<turnstile>\<^sub>N \<langle>L, u\<rangle> \<rightarrow>\<^bsub>Networks.label.Syn (ci, mi) (co, mo)\<^esub> \<langle>L', u'\<rangle>"
         apply (rule step_n_s)
                    defer
                    defer
@@ -680,7 +701,8 @@ begin
                 apply (rule prems; fail)
                apply (rule prems(12); fail)
         using prems unfolding N_s_def T_s_def by (auto 3 0 simp: trans_of_def p_def N_s_length)
-    with \<open>length P = p\<close> obtain a where "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Syn (ci, mi) (co, mo))\<^esub> \<langle>L', u'\<rangle>"
+    with \<open>length P = p\<close> obtain a where
+      "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Networks.label.Syn (ci, mi) (co, mo))\<^esub> \<langle>L', u'\<rangle>"
       by (auto elim!: product_sync_complete)
     with prems inv obtain g r where step:
         "((L, s), g, a, r, (L', s')) \<in> prod_trans_s"
@@ -694,83 +716,99 @@ begin
       using length_L \<open>L' = _\<close> by auto
     ultimately show ?thesis
       apply -
-      apply (rule step_a)
+      apply (rule that)
       apply rule
       using step(2-) by force+
   qed
+    
+  lemma prod_complete:
+    assumes step: "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+    shows "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
+    using step
+    by (cases a; simp; blast elim!: prod_complete_delay prod_complete_silent prod_complete_sync)
 
   lemma A_unfold:
     "A = (N, P)"
     by simp
 
-  thm states_step
+  lemma prod_sound'_delay:
+    assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>"
+    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
+           \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
+    using assms proof cases
+    case prems: 1
+    then have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>L', u'\<rangle>" unfolding inv_of_simp by fast
+    moreover from product_delay_sound[OF this] prems(1-3) have "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
+      apply simp
+      apply (subst A_unfold)
+      apply (rule step_sn_t)
+      by (auto simp: N_s_def inv_of_def step_t.simps N_s_length p_def Len intro: \<open>0 \<le> d\<close>)
+    ultimately show ?thesis using prems inv by fast
+  qed
+
+  lemma prod_sound'_action:
+    assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
+    obtains a where "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
+             \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
+    using assms
+  proof cases
+    case prems: (1 g r)
+    from Len have [simp]: "length P = p" by (simp add: p_def)
+    from prems(1) show ?thesis
+      apply -
+    proof (drule prod_ta_cases, erule disjE, goal_cases)
+      case 1
+      then obtain c m where *:
+        "Some s' = m s" "\<forall>q<p. (P ! q) (L ! q) s" "\<forall>q<p. (P ! q) (L' ! q) s'"
+        "product_ta \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Networks.label.Act (c, m)),r\<^esup> L'" "c s"
+        unfolding prod_trans_i_def by auto
+      with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Networks.label.Act (c, m))\<^esub> \<langle>L', u'\<rangle>"
+        unfolding inv_of_simp by (metis I'_simp step_a.intros)
+      moreover from product_action_sound[OF this] prems(3-4) obtain a where
+        "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+        apply safe
+        apply (simp add: N_s_def trans_of_def N_s_length T_s_def)
+        apply (simp only: ex_simps[symmetric])
+        apply (erule exE, erule exE)
+        apply (rule that)
+        apply (subst A_unfold)
+        apply (rule step_sn_i)
+                   apply fast
+        using *(3) by (auto simp: N_s_def inv_of_def p_def \<open>Some s' = m s\<close> intro: \<open>c s\<close>)
+      ultimately show ?thesis using * by (auto intro: that)
+    next
+      case 2
+      then obtain ci co mi mo si where *:
+        "Some s' = mi si" "Some si = mo s" "\<forall>q<p. (P ! q) (L ! q) s" "\<forall>q<p. (P ! q) (L' ! q) s'"
+        "product_ta \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Networks.label.Syn (ci, mi) (co, mo)),r\<^esup> L'"
+        "ci s" "co s"
+        unfolding prod_trans_s_def by auto
+      with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Networks.label.Syn (ci, mi) (co, mo))\<^esub> \<langle>L', u'\<rangle>"
+        unfolding inv_of_simp by (metis I'_simp step_a.intros)
+      moreover from product_action_sound[OF this] prems(3-4) obtain a where
+        "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+        apply safe
+        apply (simp add: N_s_def trans_of_def N_s_length T_s_def)
+        apply (simp only: ex_simps[symmetric])
+        apply (erule exE, erule exE, erule exE, erule exE)
+        apply (rule that)
+        apply (subst A_unfold)
+        apply (rule step_sn_s)
+                           apply fast
+                          apply blast
+        using *(4) by (auto simp: N_s_def inv_of_def p_def \<open>Some s' = _\<close> \<open>Some si = _\<close> intro: *(6-)) (* Slow *)
+      ultimately show ?thesis using * by (auto intro: that)
+    qed
+  qed
 
   lemma prod_sound':
     assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
-           \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
-    using assms proof cases
-    case (step_t d)
-    then show ?thesis
-    proof cases
-      case prems: 1
-      then have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>L', u'\<rangle>" unfolding inv_of_simp by fast
-      moreover from product_delay_sound[OF this] prems(1-3) have "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-        apply simp
-        apply (subst A_unfold)
-        apply (rule step_sn_t)
-        by (auto simp: N_s_def inv_of_def step_t.simps N_s_length p_def Len intro: \<open>0 \<le> d\<close>)
-      ultimately show ?thesis using prems inv by fast
-    qed
-  next
-    case (step_a a)
-    from Len have [simp]: "length P = p" by (simp add: p_def)
-    from step_a show ?thesis
-    proof cases
-      case prems: (1 g r)
-      from this(1) show ?thesis
-        apply -
-      proof (drule prod_ta_cases, erule disjE, goal_cases)
-        case 1
-        then obtain c m where *:
-          "Some s' = m s" "\<forall>q<p. (P ! q) (L ! q) s"
-          "\<forall>q<p. (P ! q) (L' ! q) s'" "product_ta \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Act (c, m)),r\<^esup> L'" "c s"
-          unfolding prod_trans_i_def by auto
-        with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Act (c, m))\<^esub> \<langle>L', u'\<rangle>"
-          unfolding inv_of_simp by (metis I'_simp step_a.intros)
-        moreover from product_action_sound[OF this] prems(3-4) have "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-          apply safe
-          apply (simp add: N_s_def trans_of_def N_s_length T_s_def)
-          apply (simp only: ex_simps[symmetric])
-          apply (erule exE, erule exE)
-          apply (subst A_unfold)
-          apply (rule step_sn_i)
-                     apply blast
-          using *(3) by (auto simp: N_s_def inv_of_def p_def \<open>Some s' = m s\<close> intro: \<open>c s\<close>)
-        ultimately show ?thesis using * by auto
-      next
-        case 2
-        then obtain ci co mi mo si where *:
-          "Some s' = mi si" "Some si = mo s" "\<forall>q<p. (P ! q) (L ! q) s"
-          "\<forall>q<p. (P ! q) (L' ! q) s'" "product_ta \<turnstile> L \<longrightarrow>\<^bsup>g,(a, Syn (ci, mi) (co, mo)),r\<^esup> L'"
-          "ci s" "co s"
-          unfolding prod_trans_s_def by auto
-        with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Syn (ci, mi) (co, mo))\<^esub> \<langle>L', u'\<rangle>"
-          unfolding inv_of_simp by (metis I'_simp step_a.intros)
-        moreover from product_action_sound[OF this] prems(3-4) have "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-          apply safe
-          apply (simp add: N_s_def trans_of_def N_s_length T_s_def)
-          apply (simp only: ex_simps[symmetric])
-          apply (erule exE, erule exE, erule exE, erule exE)
-          apply (subst A_unfold)
-          apply (rule step_sn_s)
-                            apply blast
-                           apply blast
-          using *(4) by (auto simp: N_s_def inv_of_def p_def \<open>Some s' = _\<close> \<open>Some si = _\<close> intro: *(6-)) (* Slow *)
-        ultimately show ?thesis using * by auto
-      qed
-    qed
-  qed
+    obtains a where "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
+             \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
+    using assms apply cases
+     apply (erule prod_sound'_action, erule that)
+    apply (rule that, erule prod_sound'_delay)
+    done
 
   lemmas prod_sound = prod_sound'[THEN conjunct1]
   lemmas prod_inv_1 = prod_sound'[THEN conjunct2, THEN conjunct1]
@@ -778,11 +816,11 @@ begin
 
   lemma states_prod_step[intro]:
     "L' \<in> states" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    using that by (intro states_product_step prod_inv_1)
+    by (blast intro: prod_inv_1[OF that])
 
   lemma inv_prod_step[intro]:
     "\<forall>p<length P. (P ! p) (L' ! p) s'" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-    using that by (intro states_product_step prod_inv_2)
+    using that by (blast intro: prod_inv_2)
 
   lemma prod_steps_sound:
     assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>"
@@ -799,8 +837,7 @@ begin
       unfolding \<open>l' = _\<close>
       by (metis Prod_TA_Defs'.states'_simp interp.states_prod_step interp.inv_prod_step)
     show ?case
-      apply (rule stepI2)
-      using * prems by (auto simp: \<open>l' = _\<close> intro: interp.prod_sound)
+      using * prems by (auto simp: \<open>l' = _\<close> intro: interp.prod_sound stepI2)
   qed
 
   lemma prod_steps_complete:

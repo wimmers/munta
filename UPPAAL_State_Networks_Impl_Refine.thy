@@ -221,7 +221,7 @@ begin
   lemma prod_trans_i_alt_def:
     "prod_trans_i =
       {((L, s), g, a, r, (L', s')) | L s g c a r m L' s'.
-       (L, g, (a, Act (c, m)), r, L') \<in> Product_TA_Defs.product_trans_i (N_s s) \<and>
+       (L, g, (a, Networks.label.Act (c, m)), r, L') \<in> Product_TA_Defs.product_trans_i (N_s s) \<and>
        (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
        \<and> c s \<and> Some s' = m s}"
     unfolding
@@ -235,7 +235,8 @@ begin
       {((L, s), g, a, r, (L', s')) | L s g ci co a r mi mo L' s1 s'.
         ci s \<and> co s
         \<and> (\<forall> q < p. (P ! q) (L ! q) s) \<and> (\<forall> q < p. (P ! q) (L' ! q) s')
-        \<and> (L, g, (a, Syn (ci, mi) (co, mo)), r, L') \<in> Product_TA_Defs.product_trans_s (N_s s)
+        \<and> (L, g, (a, Networks.label.Syn (ci, mi) (co, mo)), r, L')
+          \<in> Product_TA_Defs.product_trans_s (N_s s)
         \<and> Some s' = mi s1 \<and> Some s1 = mo s
       }"
     unfolding
@@ -3050,7 +3051,7 @@ begin
               unfolding make_reset_def
               by (force split: option.splits if_split_asm)
           moreover then have
-              "(L, g, (a, Act (equiv.make_c pc_g, equiv.make_mf pc_u)), r, L')
+              "(L, g, (a, Networks.label.Act (equiv.make_c pc_g, equiv.make_mf pc_u)), r, L')
               \<in> Product_TA_Defs.product_trans_i (equiv.defs.N_s s)"
           unfolding Product_TA_Defs.product_trans_i_def
           apply clarsimp
