@@ -50,8 +50,6 @@ code_printing
   constant List.gen_length \<rightharpoonup> (SML) "(fn n => fn xs => nat_of_integer (length xs + integer_of_nat n))"
 *)
 
-thm UPPAAL_Reachability_Problem_precompiled_def
-
 (* For debugging purposes only *)
 definition
   "bounded_int bounds (s :: int list) \<equiv>
@@ -101,5 +99,11 @@ export_code
   UPPAAL_Reachability_Problem_precompiled_defs.k
   in SML_imp module_name Model_Checker
   file "ML/UPPAAL_Model_Checker.sml"
+
+ML_file_debug "ML/UPPAAL_Model_Checker.sml"
+
+ML \<open>
+  open Model_Checker;;
+\<close>
 
 end (* End of Theory *)
