@@ -8,7 +8,7 @@ session "TA" = "Refine_Imperative_HOL" +
   theories
     Normalized_Zone_Semantics
   document_files
-    "root.bib"
+    "root.bib" "wasysym.sty"
   document_files (in "document/abstract_reachability")
     "root.tex"
 
