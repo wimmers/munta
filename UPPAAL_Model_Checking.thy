@@ -674,12 +674,31 @@ end
 context Reachability_Problem_Impl
 begin
 
+(* XXX *)
+lemma init_state_in_state_set:
+  "l\<^sub>0 \<in> state_set (trans_of A)" if "\<not> deadlock (l\<^sub>0, u\<^sub>0)"
+proof -
+  obtain l u where "conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<^sub>0\<rangle> \<rightarrow> \<langle>l, u\<rangle>"
+    using \<open>\<not> deadlock _\<close> unfolding deadlock_def deadlocked_def by force
+  then have "l\<^sub>0 \<in> state_set (trans_of (conv_A A))"
+    unfolding state_set_def
+    by cases (auto elim!: step_a.cases step_t.cases)
+  then show ?thesis
+    unfolding state_set_def unfolding trans_of_def by (cases A) force
+qed
+
+(* XXX *)
+lemma init_state_in_state_set':
+  "l\<^sub>0 \<in> state_set (trans_of A)"
+  if "(\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0))"
+  using init_state_in_state_set that by auto
+
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
     assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
-    assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set (trans_of A)"
 begin
 
+(* XXX Duplication *)
 lemma leadsto_spec_refine:
   "leadsto_spec_alt Q
   \<le> SPEC (\<lambda> r. \<not> r \<longleftrightarrow>
@@ -712,50 +731,42 @@ proof -
     unfolding PR_CONST_def a\<^sub>0_def[symmetric] by (auto dest: *** simp: * **)
   qed
 
-lemma leadsto_impl_hnr:
+(* XXX *)
+lemma leadsto_impl_hnr':
   "(uncurry0
-    (leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd)
-      state_copy_impl (succs_P_impl' Q_fun) a\<^sub>0_impl
-      subsumes_impl (return \<circ> fst) local.succs_impl'
-      emptiness_check_impl F_impl (Q_impl Q_fun)),
+    (leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd) state_copy_impl
+      (succs_P_impl' Q_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst)
+      succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun)),
    uncurry0
     (SPEC
-      (\<lambda>r. (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)) \<longrightarrow> (\<not> r) =
-           (\<forall>u\<^sub>0.
-               (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow>
-               leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l)
-                (l\<^sub>0, u\<^sub>0)))))
+      (\<lambda>r. (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)) \<longrightarrow>
+           (\<not> r) =
+           (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow>
+                  leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0)))))
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
 proof -
-  define P where "P = (\<forall>u\<^sub>0.
-               (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow>
-               leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l)
-                (l\<^sub>0, u\<^sub>0))"
-  define q where "q = (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0))"
-  define r where "r = (\<nexists>x. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) x \<and>
-       F (fst x) \<and>
-       Q (fst x) \<and>
-       (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>* x a \<and>
-            (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+ a a))"
-  define prog where "prog = leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd)
-      state_copy_impl (succs_P_impl' Q_fun) a\<^sub>0_impl
-      subsumes_impl (return \<circ> fst) local.succs_impl'
-      emptiness_check_impl F_impl (Q_impl Q_fun)"
+  define p1 where "p1 \<equiv>
+    (\<nexists>x. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) x \<and>
+         F (fst x) \<and> Q (fst x) \<and>
+         (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>* x a \<and>
+              (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+ a a))"
+  define p2 where "p2 \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0))"
+  define p3 where
+    "p3 \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0))"
   show ?thesis
-    unfolding prog_def[symmetric] P_def[symmetric] q_def[symmetric]
-
-
+  unfolding state_set_eq[symmetric]
   using Reachability_Problem_Impl_Op.leadsto_impl_hnr[OF Reachability_Problem_Impl_Op_axioms,
     OF Q_fun precond_a\<^sub>0,
-    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI],
-    where 'b35 = 'bb and 'c35 = 'cc and 'd35 = 'dd,
-    folded prog_def P_def q_def r_def,
-    to_hnr, unfolded hn_refine_def
-    ]
+    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI], to_hnr, unfolded hn_refine_def
+  ]
+  using init_state_in_state_set'
+  using leadsto_mc[of F Q]
+  unfolding p1_def[symmetric] p2_def[symmetric] p3_def[symmetric]
+  apply (simp del: state_set_eq)
   apply sepref_to_hoare
   apply sep_auto
   apply (erule cons_post_rule)
-  apply (sep_auto simp: leadsto_mc[OF l\<^sub>0_state_set[folded state_set_eq], of F Q, symmetric, folded q_def r_def P_def])
+  apply sep_auto
   done
 qed
 
@@ -1015,12 +1026,6 @@ proof -
     done
 qed
 
-(* XXX *)
-lemma init_state_in_state_set:
-  "(init, s\<^sub>0) \<in> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of A)"
-  if "\<not> deadlock ((init, s\<^sub>0), u\<^sub>0)"
-  sorry
-
 (* XXX Remove less general versions *)
 lemma final_fun_final':
   "((\<lambda> (L, s). P L s), (\<lambda> (L, s). P L s)) \<in> inv_rel states'" for P
@@ -1068,10 +1073,6 @@ lemma hn_refine_emp_return_neg_RES:
   shows "hn_refine emp (return True) emp bool_assn (RES {\<not> x | x. x \<in> Y})"
   using hn_refine_emp_neg_RES[OF assms] by simp
 
-lemma maxiscope_impl:
-  "(\<forall> a. P a \<longrightarrow> (\<forall> b. Q a b)) = (\<forall> b a. P a \<longrightarrow> Q a b)" for P Q
-  by auto
-
 abbreviation "u\<^sub>0 \<equiv> (\<lambda> _. 0 :: real)"
 
 theorem model_check':
@@ -1100,17 +1101,17 @@ proof -
     by auto
       
   interpret ta_bisim: Bisimulation_Invariant
-   "(\<lambda>(l, u) (l', u').
+    "(\<lambda>(l, u) (l', u').
        conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)"
-   "(\<lambda>(l, u) (l', u').
+    "(\<lambda>(l, u) (l', u').
        conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)"
-   "(\<lambda>(l, u) (l', u').
+    "(\<lambda>(l, u) (l', u').
        l' = l \<and>
        (\<forall> c. c \<in> clk_set (conv_A A) \<longrightarrow>
             u c = u' c))"
-   "(\<lambda>_. True)" "(\<lambda>_. True)"
+    "(\<lambda>_. True)" "(\<lambda>_. True)"
     by (rule ta_bisimulation[of "conv_A A"])
-     
+      
   have bisim2:
     "(\<exists>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<and>
                   \<not> Alw_ev (\<lambda>(l, u). \<phi> l) ((init, s\<^sub>0), u\<^sub>0))
@@ -1134,24 +1135,27 @@ proof -
       apply force
       done
     done
-
+      
   have bisim1:
     "(\<exists>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<and> \<not> Alw_ev (\<lambda>((L, s), _). \<not> check_bexp \<phi> L s) ((init, s\<^sub>0), u\<^sub>0)) =
      (\<not> Alw_ev (\<lambda>((L, s), _). \<not> check_bexp \<phi> L s) ((init, s\<^sub>0), u\<^sub>0))" for \<phi>
     using bisim2[of "\<lambda> (L, s). \<not> check_bexp \<phi> L s"]
-      unfolding *** .
-
-    have bisim3:
-      "(\<forall>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<longrightarrow>
+    unfolding *** .
+      
+  have bisim3:
+    "(\<forall>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<longrightarrow>
                          leadsto (\<lambda>((L, s), _). check_bexp \<phi> L s) (\<lambda>((L, s), _). check_bexp \<psi> L s)
                           ((init, s\<^sub>0), u\<^sub>0)) =
                      leadsto (\<lambda>((L, s), _). check_bexp \<phi> L s) (\<lambda>((L, s), _). check_bexp \<psi> L s)
                       ((init, s\<^sub>0), u\<^sub>0)
     " for \<phi> \<psi>
-      apply safe
-       apply (elim allE[of _ u\<^sub>0] impE; simp; fail)
+    apply safe
+     apply (elim allE[of _ u\<^sub>0] impE; simp; fail)
     subgoal for u
-      apply (subst (asm) ta_bisim.Leadsto_iff[of _ "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "(\<lambda>((L, s), _). check_bexp \<psi> L s)" _ "((init, s\<^sub>0), u)"])
+      apply (subst (asm) ta_bisim.Leadsto_iff[of
+        _ "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "(\<lambda>((L, s), _). check_bexp \<psi> L s)"
+        _ "((init, s\<^sub>0), u)"
+      ])
       subgoal
         unfolding ta_bisim.A_B.equiv'_def
         apply auto
@@ -1168,14 +1172,14 @@ proof -
         done
       by simp
     done
-   
+      
   have bisim4:
     "(\<forall>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0))
     \<longleftrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0)
     "
     apply safe
      apply (elim allE[of _ u\<^sub>0] impE; simp; fail)
-      subgoal for u
+    subgoal for u
       apply (subst (asm) ta_bisim.deadlock_iff[of _ "((init, s\<^sub>0), u)"])
       subgoal
         using clocks_I[of u "\<lambda>_. 0"]
@@ -1189,19 +1193,19 @@ proof -
         done
       by simp
     done
-
-have bisim5:
-  "(\<forall>u. (\<forall>c\<in>{1..m}. u c = 0) \<longrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<and> \<phi> L' s'))
+      
+  have bisim5:
+    "(\<forall>u. (\<forall>c\<in>{1..m}. u c = 0) \<longrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<and> \<phi> L' s'))
   \<longleftrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<^sub>0\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<and> \<phi> L' s')
   " for \<phi> L' s'
-  unfolding reaches_steps'[symmetric]
-  apply safe
-  subgoal
-    apply (elim allE[of _ u\<^sub>0] impE; simp; fail)
-    done
-  subgoal for u' u
-    apply (drule ta_bisim.bisim.A_B_reaches[of _ _ "((init, s\<^sub>0), u)"])
+    unfolding reaches_steps'[symmetric]
+    apply safe
     subgoal
+      apply (elim allE[of _ u\<^sub>0] impE; simp; fail)
+      done
+    subgoal for u' u
+      apply (drule ta_bisim.bisim.A_B_reaches[of _ _ "((init, s\<^sub>0), u)"])
+      subgoal
         using clocks_I[of u "\<lambda>_. 0"]
         unfolding ta_bisim.equiv'_def
         apply auto
@@ -1212,12 +1216,12 @@ have bisim5:
   define protect where
     "protect = ((\<lambda>(l, u) (l', u').
                               conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>))"
-
     
-have bla:
-  "return True = (return False \<bind> return o Not)"
-  by auto
     
+  have bla:
+    "return True = (return False \<bind> return o Not)"
+    by auto
+      
   show ?thesis
     using models_correct
     apply simp
@@ -1226,20 +1230,20 @@ have bla:
     apply sep_auto
     unfolding model_checker_def reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
     apply (cases formula; simp)
-
+      
       -- \<open>\<open>EX\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
       apply (subst (asm) (2) F_reachable_correct'_new)
        apply (rule prems; fail)
-        apply (subst (asm) bisim5)
-        apply sep_auto
-        unfolding final_fun_def F_def prems
-        apply (rule cons_post_rule)
-         apply assumption
-        apply (sep_auto simp: pure_def)
-          done
-
+      apply (subst (asm) bisim5)
+      apply sep_auto
+      unfolding final_fun_def F_def prems
+      apply (rule cons_post_rule)
+       apply assumption
+      apply (sep_auto simp: pure_def)
+      done
+        
         -- \<open>\<open>EG\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
@@ -1259,19 +1263,19 @@ have bla:
         apply (subst (asm) bisim1)
         apply (rule cons_post_rule)
          apply assumption
-         using init_state_in_state_set[of u\<^sub>0]
+        using impl.init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def protect_def ***)
         done
       subgoal
         apply (subst (asm) bisim1)
-          apply simp
+        apply simp
         apply (rule cons_post_rule)
          apply assumption
-         using init_state_in_state_set[of u\<^sub>0]
+        using impl.init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def protect_def ***)
         done
       done
-
+        
         -- \<open>\<open>AX\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
@@ -1287,45 +1291,44 @@ have bla:
       unfolding bisim2
       unfolding * ***
       subgoal
-       using init_state_in_state_set[of u\<^sub>0]
-       by (sep_auto simp: pure_def protect_def)
+        using impl.init_state_in_state_set[of u\<^sub>0]
+        by (sep_auto simp: pure_def protect_def)
       subgoal
         unfolding protect_def bla
         apply (rule bind_rule)
          apply assumption
-        using init_state_in_state_set[of u\<^sub>0]
+        using impl.init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def)
         done
       done
-      
-
+        
         -- \<open>\<open>AG\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
       apply (subst (asm) (2) F_reachable_correct'_new')
        apply (rule prems; fail)
       apply (subst (asm) bisim5)
-        apply simp
+      apply simp
       unfolding final_fun_def F_def prems
       apply (sep_auto simp: pure_def)
       done
-
+        
         -- \<open>\<open>Leadsto\<close>\<close>
     subgoal premises prems for \<phi> \<psi>
-      using impl.leadsto_impl_hnr[
+      using impl.leadsto_impl_hnr'[
           OF final_fun_final, of "Not oo check_bexp \<psi>",
           to_hnr, unfolded hn_refine_def
           ]
       apply simp      unfolding * F_def
       apply (simp add: prems(2))
-        unfolding * *** ** *****
+      unfolding * *** ** *****
       unfolding bisim3
-        unfolding bisim4
+      unfolding bisim4
       apply (erule bind_rule)
-        apply (sep_auto simp: pure_def protect_def)
-        done
+      apply (sep_auto simp: pure_def protect_def)
       done
-    qed
+    done
+qed
 
 theorem model_check'_hoare:
   "<emp>
