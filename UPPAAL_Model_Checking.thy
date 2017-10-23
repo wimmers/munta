@@ -251,7 +251,7 @@ inductive step_u' ::
   \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> (nat, 't) cval \<Rightarrow> bool"
 ("_ \<turnstile>\<^sup>_ \<langle>_, _, _\<rangle> \<rightarrow> \<langle>_, _, _\<rangle>" [61,61,61,61,61,61] 61) where
   "A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>" if
-  "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" "A \<turnstile>\<^sub>n \<langle>L', s', u'\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>"
+  "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>" "a \<noteq> Del" "A \<turnstile>\<^sub>n \<langle>L', s', u'\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L'', s'', u''\<rangle>"
 
 inductive steps_un' ::
   "('a, 't :: time, 's) unta \<Rightarrow> nat \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> (nat, 't) cval
@@ -272,24 +272,58 @@ lemma stepI2:
 context Equiv_TA
 begin
 
-lemma prod_correct':
-  "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle> =
-     state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-  apply rule
-   apply (rule prod.prod_sound prod.prod_complete, assumption)+
+lemma prod_correct'_action:
+  "(\<exists> a. defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>) =
+   (\<exists> a. state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> a \<noteq> Del)"
+  apply standard    
+  subgoal
+    apply clarify
+    apply (erule prod.prod_sound'_action)
+     sorry
+   apply clarify
+   subgoal for a
+     apply (cases a; simp; erule prod.prod_complete_silent prod.prod_complete_sync, fast)
+     done
   done
 
+lemma prod_correct'_delay:
+  "(\<exists> d. defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>) =
+   state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
+  by (blast dest: prod.prod_sound'_delay elim: prod.prod_complete_delay)
+
 lemma equiv_correct:
-  "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle> =
-  A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> =
+  A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
   apply rule
    apply (rule equiv_sound equiv_complete, assumption)+
   done
 
+lemma prod_correct_action:
+  "(\<exists> a. defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>) =
+   (\<exists> a. A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> a \<noteq> State_Networks.label.Del)"
+  unfolding prod_correct'_action equiv_correct ..
+
+lemma prod_correct_delay:
+  "(\<exists> d. defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>) =
+  A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
+  unfolding prod_correct'_delay equiv_correct ..
+    
 lemma prod_correct:
   "defs.prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle> =
-  A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-  unfolding prod_correct' equiv_correct ..
+  (\<exists> a. A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>)"
+  apply standard
+  subgoal
+    using prod_correct_action[of u L' s' u'] prod_correct_delay[of u L' s' u']
+      Timed_Automata.step.cases by metis
+  subgoal
+    apply clarify
+    subgoal for a
+    apply (cases a)
+    using prod_correct_action[of u L' s' u'] prod_correct_delay[of u L' s' u']
+      Timed_Automata.step.intros apply metis+
+    done
+  done
+  done
 
 (* XXX Move *)
 lemma (in -) steps'_altI:
@@ -311,12 +345,12 @@ definition
   "
 
 lemma step_u_inv:
-  "all_prop L' s'" if "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  "all_prop L' s'" if "A \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
   using equiv_complete''[OF that] equiv_complete'[OF that]
   unfolding all_prop_def by auto
 
 lemma step_inv:
-  "all_prop L' s'" if "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
+  "all_prop L' s'" if "state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
   using step_u_inv[OF equiv_sound[OF that]] .
 
 lemma Equiv_TA_I:
@@ -346,24 +380,31 @@ using that proof cases
   from step_u_inv[OF prems(1)] have *[unfolded all_prop_def]: "all_prop L' s'" .
   interpret equiv: Equiv_TA A n L' s'
     using Equiv_TA_I[OF step_u_inv[OF prems(1)]] .
-  thm prems(1)[unfolded prod_correct[symmetric]]
-  from equiv.step_u_inv[OF \<open>0 < p\<close> prems(2)] show ?thesis
-    apply -
-    apply rule
-     apply assumption
-    apply rule
-    using prems[unfolded prod_correct[symmetric] equiv.prod_correct[symmetric]] sorry
-    (* We just need to split up the prod_correct theorem here. Pure refactoring *)
+  from equiv.step_u_inv[OF \<open>0 < p\<close> prems(3)] show ?thesis
+    using prems prod_correct_delay[of u L' s' u'] equiv.prod_correct_action[of u' L'' s'' u'']
+      Timed_Automata.step'.intros
+    by metis
 qed
 
 lemma step'_inv:
   "all_prop L'' s'' \<and> A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L'', s'', u''\<rangle>"
   if "defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L'', s''), u''\<rangle>"
 using that proof cases
-  case (step' d l' u' a)
+  case prems: (step' d l' u' a)
+  obtain L' s' where "l' = (L', s')"
+    by force
+  from step_inv prod_correct'_delay prems(1) have *:
+    "all_prop L' s'"
+    unfolding \<open>l' = _\<close> by fast
+  interpret equiv: Equiv_TA A n L' s'
+    by (rule Equiv_TA_I[OF *])
+  from equiv.step_inv[OF \<open>0 < p\<close>] equiv.prod_correct'_action prems(2)[unfolded \<open>l' = _\<close>] have
+    "all_prop L'' s''"
+    by metis
   then show ?thesis
-    (* Same refactoring *)
-    sorry
+    using prems prod_correct_delay[of u L' s' u'] equiv.prod_correct_action[of u' L'' s'' u'']
+      step_u'.intros
+    unfolding \<open>l' = _\<close> by metis
 qed
 
 lemma prod_correct_step':
@@ -862,7 +903,8 @@ definition
 
 sublocale sem: Graph_Defs "\<lambda> (l, u) (l', u'). conv_A A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" .
 
-sublocale network: Graph_Defs "\<lambda> (L, s, u) (L', s', u'). conv N \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" .
+sublocale network:
+  Graph_Defs "\<lambda> (L, s, u) (L', s', u'). \<exists> a. conv N \<turnstile>\<^sub>n \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" .
 
 interpretation Bisim_A: Bisimulation_Invariant
    "(\<lambda>(L, s, u) (L', s', u').
