@@ -1649,7 +1649,8 @@ theorem model_check:
   "<emp> precond_mc TYPE('bb) TYPE('cc) TYPE('dd) p m k max_steps I T prog formula bounds P s\<^sub>0 na
     <\<lambda> r. \<up> (
     if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
-    then \<not> Graph_Defs.deadlock
+    then r \<noteq> None \<and>
+      (\<not> Graph_Defs.deadlock
           (\<lambda>(l, u) (l', u').
               (case Prod_TA_Defs.prod_ta
                      (Equiv_TA_Defs.state_ta
@@ -1665,7 +1666,7 @@ theorem model_check:
            \<lambda>_ . 0) \<longrightarrow>
       r = Some (
         conv (N p I P T prog bounds),(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula
-      )
+      ))
     else r = None
     )>\<^sub>t"
 proof -
