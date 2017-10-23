@@ -748,7 +748,7 @@ begin
 
   lemma prod_sound'_action:
     assumes step: "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
-    obtains a where "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
+    obtains a where "(A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> a \<noteq> Del) \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
              \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
     using assms
   proof cases
@@ -765,7 +765,7 @@ begin
       with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Networks.label.Act (c, m))\<^esub> \<langle>L', u'\<rangle>"
         unfolding inv_of_simp by (metis I'_simp step_a.intros)
       moreover from product_action_sound[OF this] prems(3-4) obtain a where
-        "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+        "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Act a\<^esub> \<langle>L', s', u'\<rangle>"
         apply safe
         apply (simp add: N_s_def trans_of_def N_s_length T_s_def)
         apply (simp only: ex_simps[symmetric])
@@ -786,7 +786,7 @@ begin
       with prems have "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow>\<^bsub>(a, Networks.label.Syn (ci, mi) (co, mo))\<^esub> \<langle>L', u'\<rangle>"
         unfolding inv_of_simp by (metis I'_simp step_a.intros)
       moreover from product_action_sound[OF this] prems(3-4) obtain a where
-        "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+        "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Syn a\<^esub> \<langle>L', s', u'\<rangle>"
         apply safe
         apply (simp add: N_s_def trans_of_def N_s_length T_s_def)
         apply (simp only: ex_simps[symmetric])
@@ -797,7 +797,7 @@ begin
                            apply fast
                           apply blast
         using *(4) by (auto simp: N_s_def inv_of_def p_def \<open>Some s' = _\<close> \<open>Some si = _\<close> intro: *(6-)) (* Slow *)
-      ultimately show ?thesis using * by (auto intro: that)
+      ultimately show ?thesis using * by (intro that conjI) auto
     qed
   qed
 
@@ -806,7 +806,7 @@ begin
     obtains a where "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>
              \<and> (\<forall>p<length P. (P ! p) (L' ! p) s')"
     using assms apply cases
-     apply (erule prod_sound'_action, erule that)
+     apply (erule prod_sound'_action; blast intro: that)
     apply (rule that, erule prod_sound'_delay)
     done
 
