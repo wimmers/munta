@@ -14,77 +14,45 @@ lemma simulation_run:
 proof -
   let ?ys = "sscan (\<lambda> a' b. SOME b'. B b b' \<and> a' \<sim> b') xs y"
   have "B.run (y ## ?ys)"
-    using that
-    apply (coinduction arbitrary: x y xs)
-    apply simp
-    apply (rule conjI)
-    subgoal for x y xs
-      by (auto dest!: someI_ex A_B_step elim: A.run.cases)
-    subgoal for x y xs
-      apply (rule disjI1)
-      apply (inst_existentials "shd xs" "stl xs")
-      apply (auto dest!: someI_ex A_B_step elim: A.run.cases)
-      done
-    done
+    using that by (coinduction arbitrary: x y xs) (force dest!: someI_ex A_B_step elim: A.run.cases)
   moreover have "stream_all2 op \<sim> xs ?ys"
-    using that
-    apply (coinduction arbitrary: x y xs)
-    apply simp
-    apply (rule conjI)
-    subgoal for x y xs
-      by (auto dest!: someI_ex A_B_step elim: A.run.cases)
-    subgoal for a u b v x y xs
-      by (inst_existentials "shd xs" "(SOME b'. B y b' \<and> a \<sim> b')")
-         (auto dest!: someI_ex A_B_step elim: A.run.cases)
-    done
+    using that by (coinduction arbitrary: x y xs) (force dest!: someI_ex A_B_step elim: A.run.cases)
   ultimately show ?thesis by blast
 qed
 
-end
+end (* Simulation *)
 
 context Bisimulation_Invariant
 begin
-  
+
 lemma equiv'_D:
   "a \<sim> b" if "A_B.equiv' a b"
   using that unfolding A_B.equiv'_def by auto
 
 lemma equiv'_D1:
   "B_A.equiv' b a" if "A_B.equiv' a b"
-  using that
-  apply (auto simp: B_A.equiv'_def A_B.equiv'_def)
-  done
+  using that by (auto simp: B_A.equiv'_def A_B.equiv'_def)
 
 lemma equiv'_D2:
   "A_B.equiv' a b" if "B_A.equiv' b a"
-  using that
-  apply (auto simp: B_A.equiv'_def A_B.equiv'_def)
-  done
+  using that by (auto simp: B_A.equiv'_def A_B.equiv'_def)
 
 lemma stream_all2D1:
   "stream_all2 op \<sim> xs ys" if "stream_all2 A_B.equiv' xs ys"
-  using that apply (coinduction arbitrary: xs ys)
-  apply (auto dest: equiv'_D)
-  done
+  using that by (coinduction arbitrary: xs ys) (auto dest: equiv'_D)
 
 lemma stream_all2D2:
   "stream_all2 B_A.equiv' ys xs \<Longrightarrow> stream_all2 op \<sim>\<inverse>\<inverse> ys xs"
-  apply (coinduction arbitrary: xs ys)
-  apply (auto simp: B_A.equiv'_def)
-  done
-    
+  by (coinduction arbitrary: xs ys) (auto simp: B_A.equiv'_def)
+
 lemma stream_all2D:
   "stream_all2 B_A.equiv' ys xs \<Longrightarrow> stream_all2 A_B.equiv' xs ys"
-  apply (coinduction arbitrary: xs ys)
-  apply (auto simp: B_A.equiv'_def A_B.equiv'_def)
-  done
-    
+  by (coinduction arbitrary: xs ys) (auto simp: B_A.equiv'_def A_B.equiv'_def)
+
 lemma stream_all2D':
   "stream_all2 A_B.equiv' xs ys \<Longrightarrow> stream_all2 B_A.equiv' ys xs"
-  apply (coinduction arbitrary: xs ys)
-  apply (auto simp: B_A.equiv'_def A_B.equiv'_def)
-  done
-    
+  by (coinduction arbitrary: xs ys) (auto simp: B_A.equiv'_def A_B.equiv'_def)
+
 context
   fixes \<phi> :: "'a \<Rightarrow> bool" and \<psi> :: "'b \<Rightarrow> bool"
   assumes compatible: "A_B.equiv' a b \<Longrightarrow> \<phi> a \<longleftrightarrow> \<psi> b"
