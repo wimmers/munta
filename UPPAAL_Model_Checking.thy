@@ -277,9 +277,7 @@ lemma prod_correct'_action:
    (\<exists> a. state_ta \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle> \<and> a \<noteq> Del)"
   apply standard    
   subgoal
-    apply clarify
-    apply (erule prod.prod_sound'_action)
-     sorry
+    by (blast elim: prod.prod_sound'_action)
    apply clarify
    subgoal for a
      apply (cases a; simp; erule prod.prod_complete_silent prod.prod_complete_sync, fast)
