@@ -1118,11 +1118,17 @@ lemma hn_refine_emp_return_neg_RES:
 
 abbreviation "u\<^sub>0 \<equiv> (\<lambda> _. 0 :: real)"
 
+lemma deadlock_start_iff:
+  "Bisim_A.B.deadlock (init, s\<^sub>0, \<lambda>_. 0) \<longleftrightarrow> deadlock ((init, s\<^sub>0), u\<^sub>0)"
+  using product'.all_prop_start[OF p'_gt_0]
+  by - (rule deadlock_iff[of _ "(init, s\<^sub>0, u\<^sub>0)", symmetric]; simp)
+
 theorem model_check':
   "(uncurry0 (model_checker TYPE('bb) TYPE('cc) TYPE('dd)),
     uncurry0 (
       SPEC (\<lambda> r.
-        (\<not> deadlock ((init, s\<^sub>0), u\<^sub>0)) \<longrightarrow>
+        \<not> Graph_Defs.deadlock
+          (\<lambda> (L, s, u) (L', s', u'). conv N \<turnstile>\<^sup>max_steps \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) (init, s\<^sub>0, u\<^sub>0) \<longrightarrow>
         r = (conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula)
       )
     )
@@ -1264,6 +1270,7 @@ proof -
     by auto
 
   show ?thesis
+    unfolding deadlock_start_iff
     using models_correct
     apply simp
     unfolding protect_def[symmetric]
@@ -1364,7 +1371,7 @@ qed
 theorem model_check'_hoare:
   "<emp>
     model_checker TYPE('bb) TYPE('cc) TYPE('dd)
-  <\<lambda>r. \<up> ((\<not> deadlock ((init, s\<^sub>0), u\<^sub>0)) \<longrightarrow> r = (
+  <\<lambda>r. \<up> ((\<not> Bisim_A.B.deadlock (init, s\<^sub>0, \<lambda>_. 0)) \<longrightarrow> r = (
     conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula
   ))>\<^sub>t"
   using model_check'[to_hnr, unfolded hn_refine_def, where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd]
@@ -1634,16 +1641,10 @@ theorem model_check:
     if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
     then r \<noteq> None \<and>
       (\<not> Graph_Defs.deadlock
-          (\<lambda>(l, u) (l', u').
-              (case Prod_TA_Defs.prod_ta
-                     (Equiv_TA_Defs.state_ta
-                       (N p I P T prog bounds) max_steps) of
-               (T, I) \<Rightarrow>
-                 ((\<lambda>(l, g, a, r, l').
-                      (l, map conv_ac g, a, r, l')) `
-                  T,
-                  map conv_ac \<circ> I)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
-          ((repeat 0 p, s\<^sub>0), \<lambda>_ . 0) \<longrightarrow>
+          (\<lambda> (L, s, u) (L', s', u').
+            conv (N p I P T prog bounds) \<turnstile>\<^sup>max_steps \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>
+          )
+          (repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
       r = Some (
         conv (N p I P T prog bounds),(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula
       ))
