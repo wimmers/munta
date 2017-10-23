@@ -816,12 +816,6 @@ end (* Context for leadsto predicate *)
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
-(* XXX Fix naming problem *)
-(* XXX Unnecessary *)
-lemmas reachability_check_old =
-  Normalized_Zone_Semantics_Impl.Reachability_Problem.reachability_check
-  [OF Reachability_Problem_axioms]
-
 lemma F_reachable_correct'_new:
   "impl.op.F_reachable
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
@@ -944,7 +938,9 @@ proof -
               (case a of (l, u') \<Rightarrow> \<lambda>(L, s, u). (l, u') = ((L, s), u)) b \<and> b = c)"
    "\<lambda> _. True"
    "(\<lambda>(L, s, u). product'.all_prop L s)"
-    using Bisimulation_Invariant_composition[OF Bisim_B.Bisimulation_Invariant_axioms Bisim_A.Bisimulation_Invariant_axioms]
+    using Bisimulation_Invariant_composition[OF
+        Bisim_B.Bisimulation_Invariant_axioms Bisim_A.Bisimulation_Invariant_axioms
+        ]
     .
   show "Bisimulation_Invariant
      (\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
@@ -965,19 +961,15 @@ proof -
      apply auto
     done
 qed
-    
+
 lemma p'_gt_0:
   "0 < defs'.p"
-  unfolding p_p
-  apply (rule p_gt_0)
-  done
+  unfolding p_p by (rule p_gt_0)
 
 lemma reaches_steps':
   "reaches ((L, s), u) ((L', s'), u') \<longleftrightarrow> conv_A A \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>"
 apply standard
   subgoal premises prems
-    term Graph_Defs.reaches
-    thm rtranclp.induct
       using prems
       apply (induction "((L, s), u)" "((L', s'), u')" arbitrary: L' s' u')
       apply (auto intro: steps'_altI)
@@ -988,7 +980,7 @@ apply standard
        apply (auto intro: converse_rtranclp_into_rtranclp)
       done
     done
-     
+
 lemma models_correct:
   "conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps \<Phi> = (case \<Phi> of
     formula.EX \<phi> \<Rightarrow>
@@ -1014,32 +1006,38 @@ lemma models_correct:
 proof -
   have *: "((Not \<circ>\<circ> case_prod) (\<lambda>(L, s) _. check_bexp \<phi> L s)) =
     (\<lambda>((L, s), _). \<not> check_bexp \<phi> L s)" for \<phi> by auto
-  
+
   show ?thesis
     apply (subst models_def)
     apply (cases \<Phi>)
     subgoal for \<phi>
       apply simp
-        
-      apply (subst Ex_ev_iff[of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified])          
+
+      apply (subst Ex_ev_iff[
+            of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified
+            ])
         apply (drule equiv'_D[simplified], force)
        apply (subst A_B.equiv'_def[simplified], simp)
       using  product'.all_prop_start[OF p'_gt_0] apply simp
       apply (subst Ex_ev[OF that])
       unfolding reaches_steps'[symmetric]
       apply auto
-        done
+      done
     subgoal for \<phi>
       apply simp
         
-      apply (subst Ex_alw_iff[of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified])
+      apply (subst Ex_alw_iff[
+            of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified
+            ])
         apply (drule equiv'_D[simplified]; force)
        apply (subst A_B.equiv'_def[simplified], simp)
       using  product'.all_prop_start[OF p'_gt_0] apply simp
       unfolding Graph_Defs.Ex_alw_iff * ..
     subgoal for \<phi>
       apply simp
-      apply (subst Alw_ev_iff[of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified])
+      apply (subst Alw_ev_iff[
+            of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified
+            ])
         apply (drule equiv'_D[simplified]; force)
        apply (subst A_B.equiv'_def[simplified], simp)
       using  product'.all_prop_start[OF p'_gt_0] apply simp
@@ -1047,17 +1045,22 @@ proof -
     subgoal for \<phi>
       apply simp
       unfolding Graph_Defs.Alw_alw_iff
-      apply (subst Ex_ev_iff[of "(\<lambda>((L, s), _). \<not>check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified])          
+      apply (subst Ex_ev_iff[
+            of "(\<lambda>((L, s), _). \<not>check_bexp \<phi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified
+            ])
         apply (drule equiv'_D[simplified], subst *[symmetric], force)
        apply (subst A_B.equiv'_def[simplified], simp)
       using  product'.all_prop_start[OF p'_gt_0] apply simp
       apply (subst Ex_ev[OF that])
-        unfolding reaches_steps'[symmetric]
+      unfolding reaches_steps'[symmetric]
       apply auto
-        done
+      done
     subgoal for \<phi> \<psi>
       apply simp
-      apply (subst Leadsto_iff[of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _ "(\<lambda>((L, s), _). check_bexp \<psi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified])
+      apply (subst Leadsto_iff[
+            of "(\<lambda>((L, s), _). check_bexp \<phi> L s)" _
+               "(\<lambda>((L, s), _). check_bexp \<psi> L s)" _ "((init, s\<^sub>0), u\<^sub>0)", symmetric, simplified
+            ])
          apply (drule equiv'_D[simplified]; force)
         apply (drule equiv'_D[simplified]; force)
        apply (subst A_B.equiv'_def[simplified], simp)
@@ -1135,11 +1138,9 @@ proof -
   have ***:
     "(\<lambda>(l, u). case l of (L, s) \<Rightarrow> \<phi> L s) = (\<lambda>((L, s), _). \<phi> L s)" for \<phi>
     by auto
-  have ****: "{\<not> xa |xa. (\<not> xa) = x} = {x}" for x
+  have ****: "(\<lambda>(L, y). (Not \<circ>\<circ>\<circ> check_bexp) \<psi> L y) = (\<lambda>(L, y). \<not>check_bexp \<psi> L y)" for \<psi>
     by auto
-  have *****: "(\<lambda>(L, y). (Not \<circ>\<circ>\<circ> check_bexp) \<psi> L y) = (\<lambda>(L, y). \<not>check_bexp \<psi> L y)" for \<psi>
-    by auto
-      
+
   interpret ta_bisim: Bisimulation_Invariant
     "(\<lambda>(l, u) (l', u').
        conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)"
@@ -1151,7 +1152,7 @@ proof -
             u c = u' c))"
     "(\<lambda>_. True)" "(\<lambda>_. True)"
     by (rule ta_bisimulation[of "conv_A A"])
-      
+
   have bisim2:
     "(\<exists>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<and>
                   \<not> Alw_ev (\<lambda>(l, u). \<phi> l) ((init, s\<^sub>0), u\<^sub>0))
@@ -1175,13 +1176,13 @@ proof -
       apply force
       done
     done
-      
+
   have bisim1:
     "(\<exists>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<and> \<not> Alw_ev (\<lambda>((L, s), _). \<not> check_bexp \<phi> L s) ((init, s\<^sub>0), u\<^sub>0)) =
      (\<not> Alw_ev (\<lambda>((L, s), _). \<not> check_bexp \<phi> L s) ((init, s\<^sub>0), u\<^sub>0))" for \<phi>
     using bisim2[of "\<lambda> (L, s). \<not> check_bexp \<phi> L s"]
     unfolding *** .
-      
+
   have bisim3:
     "(\<forall>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<longrightarrow>
                          leadsto (\<lambda>((L, s), _). check_bexp \<phi> L s) (\<lambda>((L, s), _). check_bexp \<psi> L s)
@@ -1212,7 +1213,7 @@ proof -
         done
       by simp
     done
-      
+
   have bisim4:
     "(\<forall>u\<^sub>0. (\<forall>c\<in>{Suc 0..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0))
     \<longleftrightarrow> \<not> deadlock ((init, s\<^sub>0), u\<^sub>0)
@@ -1233,7 +1234,7 @@ proof -
         done
       by simp
     done
-      
+
   have bisim5:
     "(\<forall>u. (\<forall>c\<in>{1..m}. u c = 0) \<longrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<and> \<phi> L' s'))
   \<longleftrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<^sub>0\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle> \<and> \<phi> L' s')
@@ -1252,16 +1253,16 @@ proof -
         done
       unfolding ta_bisim.equiv'_def by auto
     done
-      
+
   define protect where
     "protect = ((\<lambda>(l, u) (l', u').
                               conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>))"
-    
-    
-  have bla:
+
+
+  have *****:
     "return True = (return False \<bind> return o Not)"
     by auto
-      
+
   show ?thesis
     using models_correct
     apply simp
@@ -1270,7 +1271,7 @@ proof -
     apply sep_auto
     unfolding model_checker_def reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
     apply (cases formula; simp)
-      
+
       -- \<open>\<open>EX\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
@@ -1279,43 +1280,37 @@ proof -
       apply (subst (asm) bisim5)
       apply sep_auto
       unfolding final_fun_def F_def prems
-      apply (rule cons_post_rule)
-       apply assumption
+      apply (erule cons_post_rule)
       apply (sep_auto simp: pure_def)
       done
-        
+
         -- \<open>\<open>EG\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
           to_hnr, unfolded hn_refine_def
           ]
-      unfolding final_fun_def F_def
-      unfolding
+      unfolding final_fun_def F_def prems(2)
         UPPAAL_Reachability_Problem_precompiled'.final_fun_def[
           OF UPPAAL_Reachability_Problem_precompiled'_axioms
           ]
         UPPAAL_Reachability_Problem_precompiled_defs.F_def
-      unfolding prems(2)
-      apply simp
       apply sep_auto
       unfolding **
       subgoal
         apply (subst (asm) bisim1)
-        apply (rule cons_post_rule)
-         apply assumption
+        apply (erule cons_post_rule)
         using impl.init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def protect_def ***)
         done
       subgoal
         apply (subst (asm) bisim1)
         apply simp
-        apply (rule cons_post_rule)
-         apply assumption
+        apply (erule cons_post_rule)
         using impl.init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def protect_def ***)
         done
       done
-        
+
         -- \<open>\<open>AX\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
@@ -1334,36 +1329,32 @@ proof -
         using impl.init_state_in_state_set[of u\<^sub>0]
         by (sep_auto simp: pure_def protect_def)
       subgoal
-        unfolding protect_def bla
-        apply (rule bind_rule)
-         apply assumption
+        unfolding protect_def *****
+        apply (erule bind_rule)
         using impl.init_state_in_state_set[of u\<^sub>0]
         apply (sep_auto simp: pure_def)
         done
       done
-        
+
         -- \<open>\<open>AG\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
       apply (subst (asm) (2) F_reachable_correct'_new')
        apply (rule prems; fail)
       apply (subst (asm) bisim5)
-      apply simp
       unfolding final_fun_def F_def prems
       apply (sep_auto simp: pure_def)
       done
-        
+
         -- \<open>\<open>Leadsto\<close>\<close>
     subgoal premises prems for \<phi> \<psi>
       using impl.leadsto_impl_hnr'[
           OF final_fun_final, of "Not oo check_bexp \<psi>",
           to_hnr, unfolded hn_refine_def
           ]
-      apply simp      unfolding * F_def
+      unfolding * F_def
       apply (simp add: prems(2))
-      unfolding * *** ** *****
-      unfolding bisim3
-      unfolding bisim4
+      unfolding *** **** bisim3 bisim4
       apply (erule bind_rule)
       apply (sep_auto simp: pure_def protect_def)
       done
@@ -1520,10 +1511,6 @@ schematic_goal leadsto_checker_alt_def:
   unfolding impl.state_copy_impl_def
   by (rule Pure.reflexive)
 
-thm model_checker_def[unfolded
-  reachability_checker'_alt_def Alw_ev_checker_alt_def leadsto_checker_alt_def
-]
-
 schematic_goal reachability_checker'_alt_def_refined:
   "reachability_checker' \<equiv> ?impl"
   unfolding reachability_checker'_alt_def
@@ -1619,8 +1606,6 @@ concrete_definition Alw_ev_checker
 concrete_definition leadsto_checker
   uses UPPAAL_Reachability_Problem_precompiled'.leadsto_checker_alt_def_refined
 
-thm reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
-
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
@@ -1629,8 +1614,6 @@ lemmas model_checker_def_refined = model_checker_def[unfolded
     Alw_ev_checker.refine[OF UPPAAL_Reachability_Problem_precompiled'_axioms]
     leadsto_checker.refine[OF UPPAAL_Reachability_Problem_precompiled'_axioms]
   ]
-
-thm model_checker_def_refined
 
 end
 
@@ -1660,10 +1643,7 @@ theorem model_check:
                       (l, map conv_ac g, a, r, l')) `
                   T,
                   map conv_ac \<circ> I)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
-          ((UPPAAL_Reachability_Problem_precompiled_defs.init
-             p,
-            s\<^sub>0),
-           \<lambda>_ . 0) \<longrightarrow>
+          ((repeat 0 p, s\<^sub>0), \<lambda>_ . 0) \<longrightarrow>
       r = Some (
         conv (N p I P T prog bounds),(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula
       ))
