@@ -227,13 +227,6 @@ fun println s = print (s ^ "\n")
 
 fun list_to_string f = (fn x => "[" ^ x ^ "]") o String.concatWith ", " o map f;
 
-(*
-fun print_result NONE = println("Invalid input\n")
-    | print_result (SOME REACHABLE) = println("Property is not satisfied\n")
-    | print_result (SOME UNREACHABLE) = println("Property is not satisfied\n")
-    | print_result (SOME INIT_INV_ERR) =
-    println("The invariant of the initial state is not fulfilled initially\n")
-*)
 fun print_result NONE = println("Invalid input\n")
     | print_result (SOME true) = println("Property is satisfied\n")
     | print_result (SOME false) = println("Property is not satisfied\n")
@@ -243,7 +236,7 @@ fun print_result NONE = println("Invalid input\n")
 fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s na () =
   let
     val debug_level: Int32.int Unsynchronized.ref = ref 0
-    val _ = debug_level := 2
+    val _ = debug_level := 1
 
     val map_constraint = map (map_acconstraint to_nat to_int);
     val inv = map (map map_constraint) inv;
@@ -311,12 +304,13 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
     val t = Time.- (Time.now (), t)
     val _ = println("Internal time for precondition check + actual checking: " ^ Time.toString t)
     val _ = println("")
-    val _ = if !debug_level >= 1 then
+    (*val _ = if !debug_level >= 1 then
       let
         val _ = println("# additions on DBM entries:" ^ Int.toString (!cnt))
         val _ = println("# explored states:" ^ Int.toString (!cnt2))
         val _ = println("")
       in () end else ();
+     *)
   in
     print_result result
   end;
