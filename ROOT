@@ -53,8 +53,8 @@ session "TA_All" = "TA" +
     Simulation_Graphs
     TA_More
     Infinite_TA_Runs
-    Worklist_Subsumption_Impl1
-    Worklist_Subsumption_Multiset
+    "Worklist_Algorithms/Worklist_Subsumption_Impl1"
+    "Worklist_Algorithms/Worklist_Subsumption_Multiset"
     (* Worklist_Subsumption_PW_Multiset *)
   document_files (in "document/model_checking")
     "root.tex"
