@@ -2,8 +2,8 @@
 (* This is originally a part of the CAVA model checker *)
 theory Sequence
 imports
-  "Basic"
-  "~~/src/HOL/Library/Stream"
+  Basic
+  "HOL-Library.Stream"
 begin
 
   (* list basics *)

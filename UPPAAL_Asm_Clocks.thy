@@ -1,5 +1,5 @@
 theory UPPAAL_Asm_Clocks
-  imports Timed_Automata Normalized_Zone_Semantics UPPAAL_Asm Complex_Main
+  imports TA.Timed_Automata TA.Normalized_Zone_Semantics UPPAAL_Asm Complex_Main
 begin
 
 (*

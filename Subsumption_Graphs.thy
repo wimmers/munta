@@ -401,7 +401,7 @@ corollary reachability_correct:
   by (blast dest: reachability_complete intro: preorder_intros)
 
 lemma steps_G'_steps:
-  "\<exists> ys ns. list_all2 (op \<preceq>) xs (sublist ys ns) \<and> G'.steps (b # ys)" if
+  "\<exists> ys ns. list_all2 (op \<preceq>) xs (nths ys ns) \<and> G'.steps (b # ys)" if
   "steps (a # xs)" "reachable a" "a \<preceq> b" "G'.reachable b"
   using that
 proof (induction "a # xs" arbitrary: a b xs)
@@ -413,7 +413,7 @@ next
     "y \<preceq> b'" "b \<rightarrow>\<^sub>G\<^sup>+' b'"
     by auto
   with \<open>reachable x\<close> Cons.hyps(1) Cons.prems(3) obtain ys ns where
-    "list_all2 op \<preceq> xs (sublist ys ns)" "G'.steps (b' # ys)"
+    "list_all2 op \<preceq> xs (nths ys ns)" "G'.steps (b' # ys)"
     by atomize_elim (blast intro: Cons.hyps(3)[OF _ \<open>y \<preceq> b'\<close>] intro: graphI_aggressive)
   from  \<open>b \<rightarrow>\<^sub>G\<^sup>+' b'\<close> this(2) obtain as where
     "G'.steps (b # as @ b' # ys)"
@@ -421,17 +421,17 @@ next
   with \<open>y \<preceq> b'\<close> show ?case
     apply (inst_existentials "as @ b' # ys" "{length as} \<union> {n + length as + 1 | n. n \<in> ns}")
     subgoal
-      apply (subst sublist_split, force)
-      apply (subst sublist_nth, (simp; fail))
+      apply (subst nths_split, force)
+      apply (subst nths_nth, (simp; fail))
       apply simp
-      apply (subst sublist_shift, force)
+      apply (subst nths_shift, force)
       subgoal premises prems
       proof -
         have
           "{x - length as |x. x \<in> {Suc (n + length as) |n. n \<in> ns}} = {n + 1 | n. n \<in> ns}"
           by force
         with \<open>list_all2 _ _ _\<close> show ?thesis
-          by (simp add: sublist_Cons)
+          by (simp add: nths_Cons)
       qed
       done
     by assumption
@@ -455,21 +455,21 @@ proof -
       by (fastforce intro: graphI_aggressive1)
   qed
   from steps_G'_steps[OF this, of s\<^sub>0] obtain ys ns where ys:
-    "list_all2 op \<preceq> (ws @ x # concat (replicate ?n (xs @ [x]))) (sublist ys ns)"
+    "list_all2 op \<preceq> (ws @ x # concat (replicate ?n (xs @ [x]))) (nths ys ns)"
     "G'.steps (s\<^sub>0 # ys)"
     by auto
   then obtain x' ys' ns' ws' where ys':
     "G'.steps (x' # ys')" "G'.steps (s\<^sub>0 # ws' @ [x'])"
-    "list_all2 op \<preceq> (concat (replicate ?n (xs @ [x]))) (sublist ys' ns')"
+    "list_all2 op \<preceq> (concat (replicate ?n (xs @ [x]))) (nths ys' ns')"
     apply atomize_elim
     apply auto
     apply (subst (asm) list_all2_append1)
     apply safe
     apply (subst (asm) list_all2_Cons1)
     apply safe
-    apply (drule sublist_eq_appendD)
+    apply (drule nths_eq_appendD)
     apply safe
-    apply (drule sublist_eq_ConsD)
+    apply (drule nths_eq_ConsD)
     apply safe
     subgoal for ys1 ys2 z ys3 ys4 ys5 ys6 ys7 i
       apply (inst_existentials z ys7)
@@ -489,7 +489,7 @@ proof -
   let ?ys = "filter (op \<preceq> x) ys'"
   have "length ?ys \<ge> ?n"
     using list_all2_replicate_elem_filter[OF ys'(3), of x]
-    using filter_sublist_length[of "(op \<preceq> x)" ys' ns']
+    using filter_nths_length[of "(op \<preceq> x)" ys' ns']
     by auto
   from \<open>G'.steps (s\<^sub>0 # ws' @ [x'])\<close> have "G'.reachable x'"
     by - (rule G'.reachable_reaches, auto)

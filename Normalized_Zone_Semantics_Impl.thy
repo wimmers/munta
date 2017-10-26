@@ -1,10 +1,10 @@
 theory Normalized_Zone_Semantics_Impl
   imports
-    Normalized_Zone_Semantics
+    TA.Normalized_Zone_Semantics
     (* XXX Reordering these lets transfer proofs fail *)
     "Worklist_Algorithms/Worklist_Locales"
     DBM_Operations_Impl
-    FW_Code
+    TA.FW_Code
 begin
 
 chapter \<open>Implementation of Reachability Checking\<close>

@@ -2,7 +2,7 @@ theory Simulation_Graphs
   imports
     "library/CTL"
     "library/More_List"
-    Normalized_Zone_Semantics
+    TA.Normalized_Zone_Semantics
 begin
 
 chapter \<open>Simulation Graphs\<close>

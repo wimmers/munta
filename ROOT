@@ -15,14 +15,15 @@ session "TA" = "Refine_Imperative_HOL" +
 session "TA_Impl" = "TA" +
   theories [document = false]
     IICF
-    "library/DRAT_Misc"
-    "~~/src/HOL/Library/IArray"
+    "HOL-Library.IArray"
   theories
     Normalized_Zone_Semantics_Impl_Refine
 
 session "TA_Impl_Calc_Prereq" = "TA_Impl" +
+  sessions
+    Gabow_SCC
   theories [document = false]
-    "$AFP/Gabow_SCC/Gabow_SCC_Code"
+    "Gabow_SCC.Gabow_SCC_Code"
 
 session "TA_Impl_Refine_Calc_Prereq" = "TA_Impl" +
   theories
@@ -40,14 +41,13 @@ session "TA_All" = "TA" +
     [document = pdf, document_output = "output",
      document_variants = "model_checking_proofs:model_checking=/proof,/ML"]
   theories [document = false]
-    IICF
-    "library/DRAT_Misc"
+    Refine_Imperative_HOL.IICF
     "library/Instantiate_Existentials"
     "library/ML_Util"
     "library/Reordering_Quantifiers"
     "library/Sequence"
     "library/Stream_More"
-    "~~/src/HOL/Library/IArray"
+    "HOL-Library.IArray"
   theories
     UPPAAL_State_Networks_Impl_Refine
     Simulation_Graphs
@@ -60,5 +60,7 @@ session "TA_All" = "TA" +
     "root.tex"
 
 session "TA_Code" = "TA_Impl_Refine_Calc_Prereq" +
+  sessions
+    Gabow_SCC
   theories [document = false]
     Export_Checker

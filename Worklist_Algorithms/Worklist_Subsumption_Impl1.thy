@@ -1,5 +1,5 @@
 theory Worklist_Subsumption_Impl1
-  imports "../IICF/IICF" Worklist_Subsumption1
+  imports Refine_Imperative_HOL.IICF Worklist_Subsumption1
 begin
 
   subsection \<open>Implementation on Lists\<close>

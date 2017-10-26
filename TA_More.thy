@@ -1,5 +1,5 @@
 theory TA_More
-  imports Timed_Automata DBM_Operations "IICF/IICF"
+  imports TA.Timed_Automata TA.DBM_Operations Refine_Imperative_HOL.IICF
 begin
 
 chapter \<open>Mixed Additional Material on Timed Automata\<close>

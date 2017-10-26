@@ -2,8 +2,8 @@
 (* This is originally a part of the CAVA model checker *)
 theory Sequence_LTL
 imports
-  "Sequence"
-  "~~/src/HOL/Library/Linear_Temporal_Logic_on_Streams"
+  Sequence
+  "HOL-Library.Linear_Temporal_Logic_on_Streams"
 begin
 
   (* basics *)
@@ -25,7 +25,9 @@ begin
   lemma HLD_sconst[iff]: "HLD A (sconst a) \<longleftrightarrow> a \<in> A" unfolding HLD_def by simp
 
   lemma ev_stl: "ev \<phi> (stl w) \<longleftrightarrow> (\<exists> u v. w = u @- v \<and> u \<noteq> [] \<and> \<phi> v)"
-    by (metis ev.base ev_imp_shift ev_shift list.simps(3) prefixes.cases scons_eq shift.simps(2))
+    by (metis ev.base ev_shift list.distinct(1) rotate1.simps(2) rotate1_is_Nil_conv
+        sdrop.simps(2) sdrop_wait shift_simps(2) stake_Suc stake_sdrop
+      )
 
   lemma ev_HLD_sset: "ev (HLD A) w \<longleftrightarrow> sset w \<inter> A \<noteq> {}" unfolding HLD_def ev_holds_sset by auto
 

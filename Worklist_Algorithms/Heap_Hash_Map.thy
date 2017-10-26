@@ -1,5 +1,7 @@
 theory Heap_Hash_Map
-  imports Sep_Main Sep_Examples IICF
+  imports
+    Separation_Logic_Imperative_HOL.Sep_Main Separation_Logic_Imperative_HOL.Sep_Examples
+    Refine_Imperative_HOL.IICF
 begin
 
 (* TODO: Move to Separation_Logic_Imperative_HOL *)
@@ -142,17 +144,18 @@ lemma hms_extract_rule [sep_heap_rules]:
   apply (sep_auto eintros del: exI)
   subgoal
     unfolding map_assn_def by auto
-      subgoal for mh
-        apply (rule exI[where x = "mh(k := None)"])
-        apply sep_auto
-        apply (rule entails_preI)
-        by sep_auto
-   apply (sep_auto eintros del: exI)
-        subgoal for mh
-          apply (rule exI[where x = "mh(k := None)"]) thm map_assn_delete
-            apply (rule ent_frame_fwd[OF map_assn_delete[where A = A]], frame_inference)
-          by sep_auto
-        done
+  subgoal for mh
+    apply (rule exI[where x = "mh(k := None)"])
+    apply (rule fr_refl)
+    apply (rule ent_star_mono, simp add: fun_upd_idem)
+    apply (rule entails_preI, simp add: fun_upd_idem)
+    done
+  apply (sep_auto eintros del: exI)
+  subgoal for mh
+    apply (rule exI[where x = "mh(k := None)"])
+    apply (rule ent_frame_fwd[OF map_assn_delete[where A = A]], frame_inference)
+    by (sep_auto simp add: map_upd_eq_restrict)+
+  done
 
 end
 
@@ -213,8 +216,6 @@ lemma hms_extract_hnr:
 sepref_decl_impl "extract": hms_extract_hnr uses op_map_extract.fref[where V = Id] .
 
 end
-
-thm hm.fold_custom_empty
 
 interpretation hms_hm: imp_map_extract_derived is_hashmap hm_delete hm_lookup by standard
 

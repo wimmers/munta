@@ -1,8 +1,8 @@
 theory Normalized_Zone_Semantics_Impl_Refine
   imports
     Normalized_Zone_Semantics_Impl DBM_Operations_Impl_Refine
-    "~~/src/HOL/Library/IArray"
-    Code_Numeral
+    "HOL-Library.IArray"
+    HOL.Code_Numeral
     "Worklist_Algorithms/Worklist_Subsumption_Impl1" "Worklist_Algorithms/Unified_PW_Impl"
     "Worklist_Algorithms/Liveness_Subsumption_Impl" "Worklist_Algorithms/Leadsto_Impl"
     Normalized_Zone_Semantics_Impl_Semantic_Refinement

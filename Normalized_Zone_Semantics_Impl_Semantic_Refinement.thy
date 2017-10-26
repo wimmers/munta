@@ -1,5 +1,5 @@
 theory Normalized_Zone_Semantics_Impl_Semantic_Refinement
-  imports TA_Impl_Misc Floyd_Warshall
+  imports TA_Impl_Misc TA.Floyd_Warshall
     FW_More
     Normalized_Zone_Semantics_Impl
     "Worklist_Algorithms/Liveness_Subsumption"

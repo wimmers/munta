@@ -163,7 +163,7 @@ lemma (in imp_map_delete) hms_delete_rule [sep_heap_rules]:
   subgoal for mh
     apply (rule exI[where x = "mh(k := None)"])
     apply (rule ent_frame_fwd[OF map_assn_delete[where A = A]], frame_inference)
-    by sep_auto
+    by (sep_auto simp: map_upd_eq_restrict)
   done
 
 context imp_map_delete

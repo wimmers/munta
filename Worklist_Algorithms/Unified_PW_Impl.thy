@@ -1,5 +1,5 @@
 theory Unified_PW_Impl
-  imports "../IICF/IICF" Unified_PW_Hashing Heap_Hash_Map
+  imports Refine_Imperative_HOL.IICF Unified_PW_Hashing Heap_Hash_Map
 begin
 
   subsection \<open>Implementation on Lists\<close>

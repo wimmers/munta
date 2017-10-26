@@ -1,8 +1,7 @@
 (* Authors: Simon Wimmer, Peter Lammich *)
 theory Liveness_Subsumption
   imports
-    "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common "../Subsumption_Graphs"
-    "../library/DRAT_Misc"
+    Refine_Imperative_HOL.Sepref Worklist_Common "../Subsumption_Graphs"
 begin
 
 context Search_Space_Nodes_Defs

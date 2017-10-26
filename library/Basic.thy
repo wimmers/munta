@@ -2,7 +2,7 @@
 (* This is originally a part of the CAVA model checker *)
 theory Basic
 imports
-  "~~/src/HOL/Main"
+  Main
 begin
 
   abbreviation (input) "const x \<equiv> \<lambda> _. x"
@@ -24,17 +24,17 @@ begin
     fixes k :: nat
     assumes "P k" "\<And> k. P k \<Longrightarrow> k \<le> l"
     shows "P (GREATEST k. P k)"
-  proof (rule GreatestI, safe)
+  proof (rule GreatestI_nat, safe)
     show "P k" using assms(1) by this
-    show "k < Suc l" if "P k" for k using assms(2) that by force
+    show "k \<le> l" if "P k" for k using assms(2) that by force
   qed
   lemma Greatest_le:
     fixes k :: nat
     assumes "P k" "\<And> k. P k \<Longrightarrow> k \<le> l"
     shows "k \<le> (GREATEST k. P k)"
-  proof (rule Greatest_le, safe)
+  proof (rule Greatest_le_nat, safe)
     show "P k" using assms(1) by this
-    show "k < Suc l" if "P k" for k using assms(2) that by force
+    show "k \<le> l" if "P k" for k using assms(2) that by force
   qed
   lemma Greatest_not_less:
     fixes k :: nat

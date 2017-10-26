@@ -1,6 +1,6 @@
 theory DBM_Operations_Impl
-  imports DBM_Operations Normalized_Zone_Semantics
-          "IICF/IICF"
+  imports TA.DBM_Operations TA.Normalized_Zone_Semantics
+          Refine_Imperative_HOL.IICF
 
 begin
 

@@ -1,6 +1,6 @@
 theory Infinite_TA_Runs
   imports
-    Normalized_Zone_Semantics
+    TA.Normalized_Zone_Semantics
     "library/Stream_More"
     "library/Instantiate_Existentials"
 begin

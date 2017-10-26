@@ -166,8 +166,9 @@ lemma ran_of_map_correct[refine]:
        apply (simp; fail)
       apply (clarsimp; fail)
      apply (clarsimp; fail)
-  subgoal
-    unfolding dom_def by (clarsimp, auto dest: insert_restrict_ran)
+  subgoal for s xs m' x v xs' xs1 xs'1
+    unfolding dom_def
+    by (clarsimp simp: map_upd_eq_restrict, auto dest: insert_restrict_ran)
   subgoal
     unfolding ran_of_map_var_def op_map_extract_def by (fastforce intro: card_Diff1_less)
   by auto
@@ -190,7 +191,6 @@ lemma hms_is_empty_hnr[sepref_fr_rules]:
   by sepref_to_hoare sep_auto
 
 sepref_decl_impl is_empty: hms_is_empty_hnr uses op_map_is_empty.fref[where V = Id] .
-print_theorems
 
 end
 

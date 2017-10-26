@@ -2,7 +2,7 @@
 theory Graphs
   imports
     More_List Stream_More
-    "~~/src/HOL/Library/Rewrite"
+    "HOL-Library.Rewrite"
     Instantiate_Existentials
 begin
 

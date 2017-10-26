@@ -1,5 +1,5 @@
 theory Sepref_Acconstraint
-  imports "IICF/IICF" Timed_Automata
+  imports Refine_Imperative_HOL.IICF TA.Timed_Automata
 begin
 
 term hn_ctxt

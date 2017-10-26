@@ -1,5 +1,5 @@
 theory Worklist_Locales
-  imports "$AFP/Refine_Imperative_HOL/Sepref" "$AFP/Collections/Lib/HashCode" "../library/Graphs"
+  imports Refine_Imperative_HOL.Sepref Collections.HashCode "../library/Graphs"
 begin
 
 subsection \<open>Search Spaces\<close>

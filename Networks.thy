@@ -1,5 +1,5 @@
 theory Networks
-  imports Timed_Automata Normalized_Zone_Semantics_Impl
+  imports TA.Timed_Automata Normalized_Zone_Semantics_Impl
     "library/Reordering_Quantifiers"
 begin
 

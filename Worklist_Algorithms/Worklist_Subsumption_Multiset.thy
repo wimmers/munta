@@ -2,7 +2,7 @@
 section \<open>Generic Worklist Algorithm with Subsumption\<close>
 theory Worklist_Subsumption_Multiset
   imports
-    "$AFP/Refine_Imperative_HOL/Sepref"
+    Refine_Imperative_HOL.Sepref
     Worklist_Locales
     Unified_PW (* Only for shared definitions *)
 begin

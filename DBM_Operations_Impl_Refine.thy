@@ -2,7 +2,7 @@ theory DBM_Operations_Impl_Refine
   imports
     DBM_Operations_Impl
     Sepref_Acconstraint
-    "~~/src/HOL/Library/IArray"
+    "HOL-Library.IArray"
 begin
 
 section \<open>Refinement\<close>

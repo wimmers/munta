@@ -1,5 +1,5 @@
 theory Liveness_Subsumption_Map
-  imports Liveness_Subsumption "../library/DRAT_Misc"
+  imports Liveness_Subsumption
 begin
 
 locale Liveness_Search_Space_Key_Defs =
@@ -77,8 +77,6 @@ definition
           \<and> distinct xs
     }"
 
-definition "list_set_rel \<equiv> {(l, s). set l = s \<and> distinct l}"
-
 definition "list_set_hd_rel x \<equiv> {(l, s). set l = s \<and> distinct l \<and> l \<noteq> [] \<and> hd l = x}"
 
 lemma empty_map_list_rel:
@@ -106,7 +104,6 @@ lemma check_subsumption'_ref[refine]:
   unfolding ran_def apply (auto split: option.splits)
   subgoal for R x' xs'
     by (drule sym, drule sym, subst (asm) V_subsumes'[symmetric], auto)
-  thm UN_iff V_subsumes' mem_Collect_eq subsetCE subsumes_key
   by (subst (asm) V_subsumes'; force)
 
 lemma not_check_loop_non_elem:
@@ -115,10 +112,11 @@ lemma not_check_loop_non_elem:
 
 lemma insert_ref[refine]:
   "(x1b, x1) \<in> map_set_rel \<Longrightarrow>
-   (x1c, x1a) \<in> list_set_rel \<Longrightarrow>
+   (x1c, x1a) \<in> \<langle>Id\<rangle>list_set_rel \<Longrightarrow>
    \<not> check_loop_list x2a x1c \<Longrightarrow>
    ((x1b, x2a # x1c, False), x1, insert x2a x1a, False) \<in> map_set_rel \<times>\<^sub>r list_set_hd_rel x2a \<times>\<^sub>r Id"
-  unfolding list_set_hd_rel_def list_set_rel_def by (auto dest: not_check_loop_non_elem)
+  unfolding list_set_hd_rel_def list_set_rel_def
+  by (auto dest: not_check_loop_non_elem simp: br_def)
 
 lemma insert_map_set_ref:
   "(m, S) \<in> map_set_rel \<Longrightarrow> (insert_map_set x m, insert x S) \<in> map_set_rel"
@@ -358,12 +356,9 @@ lemma pop_map_list_ref[refine]:
 lemma tl_list_set_ref:
   "(m, S) \<in> map_set_rel \<Longrightarrow>
    (st, ST) \<in> list_set_hd_rel x \<Longrightarrow>
-   (tl st, ST - {x}) \<in> list_set_rel"
+   (tl st, ST - {x}) \<in> \<langle>Id\<rangle>list_set_rel"
   unfolding list_set_hd_rel_def list_set_rel_def
-  apply auto
-    apply (blast dest: in_set_tlD)
-  apply (simp add: distinct_hd_tl)
-  by (meson in_hd_or_tl_conv)
+  by (auto simp: br_def distinct_hd_tl dest: in_set_tlD in_hd_or_tl_conv)
 
 lemma succs_id_ref:
   "(succs x, succs x) \<in> \<langle>Id\<rangle> list_rel"

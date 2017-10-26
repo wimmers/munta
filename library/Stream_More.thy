@@ -1,8 +1,8 @@
 theory Stream_More
 imports
-  "Sequence_LTL"
-  "Instantiate_Existentials"
-  "~~/src/HOL/Library/Rewrite"
+  Sequence_LTL
+  Instantiate_Existentials
+  "HOL-Library.Rewrite"
 begin
 
 (*

@@ -1,5 +1,5 @@
 theory Unified_PW
-  imports "$AFP/Refine_Imperative_HOL/Sepref" Worklist_Common
+  imports Refine_Imperative_HOL.Sepref Worklist_Common
 begin
 
 hide_const wait

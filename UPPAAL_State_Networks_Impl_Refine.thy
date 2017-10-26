@@ -2,7 +2,7 @@ theory UPPAAL_State_Networks_Impl_Refine
   imports
     UPPAAL_State_Networks_Impl Normalized_Zone_Semantics_Impl_Refine TA_Impl_Misc
     "library/ML_Util"
-    "~~/src/HOL/Library/Lattice_Syntax"
+    "HOL-Library.Lattice_Syntax"
 begin
 
 chapter \<open>Imperative Implementation of UPPAAL Style Networks\<close>

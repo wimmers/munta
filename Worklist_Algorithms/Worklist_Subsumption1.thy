@@ -1,6 +1,6 @@
 (* Authors: Lammich, Wimmer *)
 theory Worklist_Subsumption1
-  imports Worklist_Subsumption_Multiset "../library/DRAT_Misc"
+  imports Worklist_Subsumption_Multiset
 begin
 
 subsection \<open>From Multisets to Lists\<close>

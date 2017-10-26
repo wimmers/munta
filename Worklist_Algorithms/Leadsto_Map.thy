@@ -597,11 +597,17 @@ lemma map_list_set_rel_ran_set_rel:
   using that unfolding map_list_set_rel_def set_rel_def
   apply safe
   subgoal for x
-    unfolding ran_def dom_def by force
-  subgoal for x'
-    unfolding ran_def by (auto dest!: A.map_list_set_relD[OF that] simp: br_def)
-  subgoal
-    unfolding Domain_fst br_def by auto
+    by (auto simp: ran_def dom_def in_br_conv dest: A.map_list_set_relD[OF that])
+  subgoal premises prems for x'
+  proof -
+    from prems(4) obtain a where "ms a = Some x'"
+      unfolding ran_def by clarsimp
+    with prems(1) obtain m' where
+      "ml a = Some (m' a)"
+      by (fastforce simp: dom_def ran_def)
+    with prems(2) \<open>ms a = _\<close> show ?thesis
+      by (fastforce simp: in_br_conv dom_def ran_def)
+  qed
   done
 
 lemma Id_list_rel_ref:
