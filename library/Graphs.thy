@@ -815,6 +815,17 @@ lemma simulation_steps:
   apply (frule A_B_step, auto)
   done
 
+lemma simulation_run:
+  "\<exists> ys. B.run (y ## ys) \<and> stream_all2 op \<sim> xs ys" if "A.run (x ## xs)" "x \<sim> y"
+proof -
+  let ?ys = "sscan (\<lambda> a' b. SOME b'. B b b' \<and> a' \<sim> b') xs y"
+  have "B.run (y ## ?ys)"
+    using that by (coinduction arbitrary: x y xs) (force dest!: someI_ex A_B_step elim: A.run.cases)
+  moreover have "stream_all2 op \<sim> xs ?ys"
+    using that by (coinduction arbitrary: x y xs) (force dest!: someI_ex A_B_step elim: A.run.cases)
+  ultimately show ?thesis by blast
+qed
+
 end (* Simulation *)
 
 locale Simulation_Invariant = Simulation_Defs +
@@ -981,6 +992,34 @@ lemma reaches_equiv:
   done
 
 end (* Context for Equality Relation *)
+
+lemma equiv'_D:
+  "a \<sim> b" if "A_B.equiv' a b"
+  using that unfolding A_B.equiv'_def by auto
+
+lemma equiv'_rotate_1:
+  "B_A.equiv' b a" if "A_B.equiv' a b"
+  using that by (auto simp: B_A.equiv'_def A_B.equiv'_def)
+
+lemma equiv'_rotate_2:
+  "A_B.equiv' a b" if "B_A.equiv' b a"
+  using that by (auto simp: B_A.equiv'_def A_B.equiv'_def)
+
+lemma stream_all2_equiv'_D:
+  "stream_all2 op \<sim> xs ys" if "stream_all2 A_B.equiv' xs ys"
+  using stream_all2_weaken[OF that equiv'_D] by fast
+
+lemma stream_all2_equiv'_D2:
+  "stream_all2 B_A.equiv' ys xs \<Longrightarrow> stream_all2 op \<sim>\<inverse>\<inverse> ys xs"
+  by (coinduction arbitrary: xs ys) (auto simp: B_A.equiv'_def)
+
+lemma stream_all2_rotate_1:
+  "stream_all2 B_A.equiv' ys xs \<Longrightarrow> stream_all2 A_B.equiv' xs ys"
+  by (coinduction arbitrary: xs ys) (auto simp: B_A.equiv'_def A_B.equiv'_def)
+
+lemma stream_all2_rotate_2:
+  "stream_all2 A_B.equiv' xs ys \<Longrightarrow> stream_all2 B_A.equiv' ys xs"
+  by (coinduction arbitrary: xs ys) (auto simp: B_A.equiv'_def A_B.equiv'_def)
 
 end (* Bisim Invariant *)
 

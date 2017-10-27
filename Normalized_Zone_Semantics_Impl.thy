@@ -5,6 +5,7 @@ theory Normalized_Zone_Semantics_Impl
     "Worklist_Algorithms/Worklist_Locales"
     DBM_Operations_Impl
     TA.FW_Code
+    TA_More
 begin
 
 chapter \<open>Implementation of Reachability Checking\<close>
@@ -225,51 +226,9 @@ lemma list_all_upt:
   shows "list_all (\<lambda> x. x < b) [a..<b]"
 unfolding list_all_iff by auto
 
-lemma collect_clkvt_alt_def:
-  "collect_clkvt T = \<Union>((set o fst \<circ> snd \<circ> snd \<circ> snd) ` T)"
-unfolding collect_clkvt_def by fastforce
-
 lemma collect_clkt_alt_def:
   "collect_clkt S l = \<Union> (collect_clock_pairs ` (fst o snd) ` {t. t \<in> S \<and> fst t = l})"
 unfolding collect_clkt_def by fastforce
-
-lemma ta_collect_clkt_alt_def:
-  "Timed_Automata.collect_clkt S = \<Union> (collect_clock_pairs ` (fst o snd) ` S)"
-unfolding Timed_Automata.collect_clkt_def by fastforce
-
-lemma ta_collect_clki_alt_def:
-  "Timed_Automata.collect_clki I = \<Union> (collect_clock_pairs ` I ` UNIV)"
-unfolding Timed_Automata.collect_clki_def by auto
-
-lemma constraint_clk_constraint_pair:
-  "constraint_clk ac = fst (constraint_pair ac)"
-by (cases ac) auto
-
-lemma collect_clks_inv_clk_set:
-  "Timed_Automata.collect_clks (inv_of A l) \<subseteq> clk_set A"
-  unfolding
-    Timed_Automata.clkp_set_def Timed_Automata.collect_clki_def collect_clks_def
-    collect_clock_pairs_def
-  by (auto simp: constraint_clk_constraint_pair) blast
-
-lemma collect_clocks_clk_set:
-  assumes
-    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-  shows
-    "collect_clks g \<subseteq> clk_set A"
-  using assms
-  (* s/h *)
-  (* XXX Fix *)
-  by (smt Timed_Automata.clkp_set_def Timed_Automata.collect_clkt_def UnCI collect_clks_id
-          imageE image_eqI mem_Collect_eq mem_simps(9) prod.sel(1) prod.sel(2) subsetI
-     )
-
-lemma reset_clk_set:
-  assumes
-    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-  shows
-    "set r \<subseteq> clk_set A"
-using assms by (fastforce simp: Timed_Automata.clkp_set_def Timed_Automata.collect_clkvt_def)
 
 lemma norm_k_cong:
   assumes "\<forall> i \<le> n. k i = k' i"

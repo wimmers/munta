@@ -145,4 +145,137 @@ lemma leadsto_iff':
 
 end (* Graph Defs *)
 
+context Bisimulation_Invariant
+begin
+
+context
+  fixes \<phi> :: "'a \<Rightarrow> bool" and \<psi> :: "'b \<Rightarrow> bool"
+  assumes compatible: "A_B.equiv' a b \<Longrightarrow> \<phi> a \<longleftrightarrow> \<psi> b"
+begin
+
+lemma ev_\<psi>_\<phi>:
+  "ev (holds \<phi>) xs" if "stream_all2 B_A.equiv' ys xs" "ev (holds \<psi>) ys"
+  using that
+  apply -
+  apply (drule stream_all2_rotate_1)
+  apply (drule ev_imp_shift)
+  apply clarify
+  unfolding stream_all2_shift2
+  apply (subst (asm) stream.rel_sel)
+  apply (auto intro!: ev_shift dest!: compatible[symmetric])
+  done
+
+lemma ev_\<phi>_\<psi>:
+  "ev (holds \<psi>) ys" if "stream_all2 A_B.equiv' xs ys" "ev (holds \<phi>) xs"
+  using that
+  apply -
+  apply (subst (asm) stream.rel_flip[symmetric])
+  apply (drule ev_imp_shift)
+  apply clarify
+  unfolding stream_all2_shift2
+  apply (subst (asm) stream.rel_sel)
+  apply (auto intro!: ev_shift dest!: compatible)
+  done
+
+lemma Ex_ev_iff:
+  "A.Ex_ev \<phi> a \<longleftrightarrow> B.Ex_ev \<psi> b" if "A_B.equiv' a b"
+  unfolding Graph_Defs.Ex_ev_def
+  apply safe
+  subgoal for xs
+    apply (drule A_B.simulation_run[of a xs b])
+    subgoal
+      using that .
+    apply clarify
+    subgoal for ys
+      apply (inst_existentials ys)
+      using that
+       apply (auto intro!: ev_\<phi>_\<psi> dest: stream_all2_rotate_1)
+      done
+    done
+  subgoal for ys
+    apply (drule B_A.simulation_run[of b ys a])
+    subgoal
+      using that by (rule equiv'_rotate_1)
+    apply clarify
+    subgoal for xs
+      apply (inst_existentials xs)
+      using that
+       apply (auto intro!: ev_\<psi>_\<phi> dest: equiv'_rotate_1)
+      done
+    done
+  done
+
+lemma Alw_ev_iff:
+  "A.Alw_ev \<phi> a \<longleftrightarrow> B.Alw_ev \<psi> b" if "A_B.equiv' a b"
+  unfolding Graph_Defs.Alw_ev_def
+  apply safe
+  subgoal for ys
+    apply (drule B_A.simulation_run[of b ys a])
+    subgoal
+      using that by (rule equiv'_rotate_1)
+    apply safe
+    subgoal for xs
+      apply (inst_existentials xs)
+        apply (elim allE impE, assumption)
+      using that
+        apply (auto intro!: ev_\<phi>_\<psi> dest: stream_all2_rotate_1)
+      done
+    done
+  subgoal for xs
+    apply (drule A_B.simulation_run[of a xs b])
+    subgoal
+      using that .
+    apply safe
+    subgoal for ys
+      apply (inst_existentials ys)
+      apply (elim allE impE, assumption)
+      using that
+      apply (auto intro!: ev_\<psi>_\<phi>)
+       apply (erule equiv'_rotate_1)
+        apply (erule stream_all2_rotate_2)
+      done
+    done
+  done  
+
+end (* Compatiblity *)
+
+context
+  fixes \<phi> :: "'a \<Rightarrow> bool" and \<psi> :: "'b \<Rightarrow> bool"
+  assumes compatible1: "A_B.equiv' a b \<Longrightarrow> \<phi> a \<longleftrightarrow> \<psi> b"
+begin
+
+lemma Alw_alw_iff_strong:
+  "A.Alw_alw \<phi> a \<longleftrightarrow> B.Alw_alw \<psi> b" if "A_B.equiv' a b"
+  unfolding Graph_Defs.Alw_alw_iff using that by (auto dest: compatible1 intro!: Ex_ev_iff)
+
+lemma Ex_alw_iff:
+  "A.Ex_alw \<phi> a \<longleftrightarrow> B.Ex_alw \<psi> b" if "A_B.equiv' a b"
+  unfolding Graph_Defs.Ex_alw_iff using that by (auto dest: compatible1 intro!: Alw_ev_iff)
+
+end (* Compatibility *)
+
+context
+  fixes \<phi> :: "'a \<Rightarrow> bool" and \<psi> :: "'b \<Rightarrow> bool"
+    and \<phi>' :: "'a \<Rightarrow> bool" and \<psi>' :: "'b \<Rightarrow> bool"
+  assumes compatible1: "A_B.equiv' a b \<Longrightarrow> \<phi> a \<longleftrightarrow> \<psi> b"
+  assumes compatible2: "A_B.equiv' a b \<Longrightarrow> \<phi>' a \<longleftrightarrow> \<psi>' b"
+begin
+
+lemma Leadsto_iff:
+  "A.leadsto \<phi> \<phi>' a \<longleftrightarrow> B.leadsto \<psi> \<psi>' b" if "A_B.equiv' a b"
+  unfolding Graph_Defs.leadsto_def
+  by (auto
+        dest: Alw_ev_iff[of \<phi>' \<psi>', rotated] compatible1 compatible2 equiv'_D
+        intro!: Alw_alw_iff_strong[OF _ that]
+     )
+
+end (* Compatibility *)
+
+lemma deadlock_iff:
+  "A.deadlock a \<longleftrightarrow> B.deadlock b" if "a \<sim> b" "PA a" "PB b"
+  using that unfolding A.deadlock_def A.deadlocked_def B.deadlock_def B.deadlocked_def
+  by (force dest: A_B_step B_A_step B_A.simulation_reaches A_B.simulation_reaches)
+
+end
+
 end (* Theory *)

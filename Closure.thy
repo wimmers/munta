@@ -736,6 +736,10 @@ definition clkp_set :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c *
 where
   "clkp_set A s = collect_clki (inv_of A) s \<union> collect_clkt (trans_of A) s"
 
+lemma collect_clkt_alt_def:
+  "collect_clkt S l = \<Union> (collect_clock_pairs ` (fst o snd) ` {t. t \<in> S \<and> fst t = l})"
+  unfolding collect_clkt_def by fastforce
+
 inductive valid_abstraction
 where
   "\<lbrakk>\<forall> l. \<forall>(x,m) \<in> clkp_set A l. m \<le> k l x \<and> x \<in> X \<and> m \<in> \<nat>; collect_clkvt (trans_of A) \<subseteq> X; finite X;

@@ -345,12 +345,6 @@ proof -
   qed
 qed
 
-lemma norm_beta_empty:
-  assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"
-  and     "valid_dbm D" "[D]\<^bsub>v,n\<^esub> = {}"
-  shows   "[D']\<^bsub>v,n\<^esub> = {}" using assms
-oops
-
 (* XXX Maybe move *)
 lemma step_z_norm_mono:
   assumes "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>\<N>(a)\<^esub> \<langle>l',D'\<rangle>" "global_clock_numbering A v n" "valid_abstraction A X k"

@@ -1024,55 +1024,6 @@ qed
 
 end (* Simulation Graph Prestable *)
 
-(* XXX Move *)
-theorem stream_all2_SCons1:
-  fixes P :: "'b \<Rightarrow> 'c \<Rightarrow> bool"
-    and x :: "'b"
-    and xs :: "'b stream"
-    and ys :: "'c stream"
-  shows "stream_all2 P (x ## xs) ys = (\<exists>z zs. ys = z ## zs \<and> P x z \<and> stream_all2 P xs zs)"
-  by (subst (3) stream.collapse[symmetric], simp del: stream.collapse, force)
-
-(* XXX Move *)
-theorem stream_all2_SCons2:
-  fixes P :: "'b \<Rightarrow> 'c \<Rightarrow> bool"
-    and xs :: "'b stream"
-    and y :: "'c"
-    and ys :: "'c stream"
-  shows "stream_all2 P xs (y ## ys) = (\<exists>z zs. xs = z ## zs \<and> P z y \<and> stream_all2 P zs ys)"
-    by (subst stream.collapse[symmetric], simp del: stream.collapse, force)
-
-lemma stream_all2_shift1:
-  "stream_all2 P (xs1 @- xs2) ys =
-  (\<exists> ys1 ys2. ys = ys1 @- ys2 \<and> list_all2 P xs1 ys1 \<and> stream_all2 P xs2 ys2)"
-  apply (induction xs1 arbitrary: ys)
-   apply (simp; fail)
-  apply (simp add: stream_all2_SCons1 list_all2_Cons1)
-  apply safe
-  subgoal for a xs1 ys z zs ys1 ys2
-    by (inst_existentials "z # ys1" ys2; simp)
-  subgoal for a xs1 ys ys1 ys2 z zs
-    by (inst_existentials z "zs @- ys2" zs "ys2"; simp)
-  done
-
-lemma stream_all2_shift2:
-  "stream_all2 P ys (xs1 @- xs2) =
-  (\<exists> ys1 ys2. ys = ys1 @- ys2 \<and> list_all2 P ys1 xs1 \<and> stream_all2 P ys2 xs2)"
-  by (meson list.rel_flip stream.rel_flip stream_all2_shift1)
-
-(* XXX Move *)
-lemma stream_all2_bisim:
-  assumes "stream_all2 op \<in> xs as" "stream_all2 op \<in> ys as" "sset as \<subseteq> S"
-  shows "stream_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> a \<in> S) xs ys"
-  using assms
-  apply (coinduction arbitrary: as xs ys)
-  subgoal for a u b v as xs ys
-    apply (rule conjI)
-     apply (inst_existentials "shd as", auto simp: stream_all2_SCons1; fail)
-    apply (inst_existentials "stl as", auto 4 3 simp: stream_all2_SCons1; fail)
-    done
-  done
-
 context Simulation_Graph_Complete_Prestable
 begin
 
