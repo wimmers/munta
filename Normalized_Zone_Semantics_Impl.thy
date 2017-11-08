@@ -226,10 +226,6 @@ lemma list_all_upt:
   shows "list_all (\<lambda> x. x < b) [a..<b]"
 unfolding list_all_iff by auto
 
-lemma collect_clkt_alt_def:
-  "collect_clkt S l = \<Union> (collect_clock_pairs ` (fst o snd) ` {t. t \<in> S \<and> fst t = l})"
-unfolding collect_clkt_def by fastforce
-
 lemma norm_k_cong:
   assumes "\<forall> i \<le> n. k i = k' i"
   shows "norm M k n = norm M k' n"
@@ -3135,15 +3131,8 @@ begin
     "RI n init_dbm init_dbm"
   unfolding init_dbm_def rel_fun_def ri_def by auto
 
-  lemma steps_z_norm'_valid_dbm_preservation:
-    assumes "steps_z_norm' (conv_A A) l M l' M'" "valid_dbm M"
-    shows "valid_dbm M'"
-    using assms(1,2)
-    apply (induction "conv_A A" l M l' M' rule: steps_z_norm_induct)
-    by (blast intro:
-        step_z_norm_valid_dbm_preservation[OF _ global_clock_numbering' valid_abstraction']
-        step_z_valid_dbm[OF _ global_clock_numbering' valid_abstraction']
-        )+
+  lemmas steps_z_norm'_valid_dbm_preservation =
+    steps_z_norm'_valid_dbm_invariant[OF global_clock_numbering' valid_abstraction']
 
   lemma conv_M_init_dbm[simp]:
     "conv_M init_dbm = init_dbm"
@@ -3868,7 +3857,7 @@ next
     "step_z_norm' (conv_A A) li Mi' (\<upharpoonleft>a) l' M'''" "[M'']\<^bsub>v,n\<^esub> = [M''']\<^bsub>v,n\<^esub>"
     by atomize_elim
   with Mi'(1) M'(1) step'(3) show ?case
-    by auto
+    unfolding step_z_norm''_def by (auto 4 5 elim: rtranclp.intros(2))
 qed
 
 lemma dbm_int_conv_M_equiv:
@@ -3887,35 +3876,66 @@ proof -
     by auto
 qed
 
+definition "A' = conv_A A"
+
+interpretation Bisimulation_Invariant
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. step_z_norm'' (conv_A A) l Z a l' Z'"
+  E_step
+  "\<lambda> (l, M) (l', D). l' = l \<and> [M]\<^bsub>v,n\<^esub> = [curry (conv_M D)]\<^bsub>v,n\<^esub>"
+  "\<lambda> (l, M). valid_dbm M" "\<lambda> (l, D). valid_dbm (curry (conv_M D))"
+  apply standard
+  subgoal premises prems for a b a'
+  proof -
+    from prems(2) obtain l M D l' M' where [simp]: "a = (l, M)" "a' = (l, D)" "b = (l', M')"
+      by force
+    from prems[unfolded step_z_norm''_def, simplified, folded A'_def] obtain l1 M1 a where steps:
+      "A' \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l1, M1\<rangle>"
+      "A' \<turnstile> \<langle>l1, M1\<rangle> \<leadsto>\<^bsub>(\<lambda>l. (k l \<circ>\<circ>\<circ> Regions.v' {Suc 0..<Suc n} v) n (Suc n)),v,n,\<upharpoonleft>a\<^esub> \<langle>l', M'\<rangle>"
+      by auto
+    from step_z_dbm_equiv'[folded A'_def, OF this(1), of "curry (conv_M D)"] prems(2) obtain M2
+      where M2: "A' \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l1, M2\<rangle>" "[M1]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+      by auto
+    from steps(2) obtain M3
+      where M3:
+        "A' \<turnstile> \<langle>l1, M2\<rangle> \<leadsto>\<^bsub>(\<lambda>l. (k l \<circ>\<circ>\<circ> Regions.v' {Suc 0..<Suc n} v) n (Suc n)),v,n,\<upharpoonleft>a\<^esub> \<langle>l', M3\<rangle>"
+        "[M']\<^bsub>v,n\<^esub> = [M3]\<^bsub>v,n\<^esub>"
+      using prems(3,4) steps(1) M2(1)
+      by atomize_elim (auto
+          intro!: step_z_norm_equiv'[folded A'_def, simplified, OF steps(2) _ _ M2(2)]
+          dest: step_z_valid_dbm'[folded A'_def]
+          )
+    from prems(4) M2(1) M3(1) have "valid_dbm M3"
+      by - (rule step_z_norm_valid_dbm'_spec[folded A'_def], fastforce,
+          fastforce dest: step_z_valid_dbm'[folded A'_def]
+          )
+    then have "dbm_int M3 n"
+      by - (erule valid_dbm_cases)
+    from dbm_int_conv_M_equiv[OF this] obtain D' where "[M3]\<^bsub>v,n\<^esub> = [curry (conv_M D')]\<^bsub>v,n\<^esub>"
+      by auto
+    with \<open>[M']\<^bsub>v,n\<^esub> = _\<close> show ?thesis
+      unfolding E_step_def A'_def[symmetric] by (fastforce intro: M2(1) M3(1))
+  qed
+
+  subgoal for a a' b'
+    unfolding step_z_norm''_def E_step_def A'_def[symmetric]
+    apply clarsimp
+    apply (frule step_z_dbm_equiv'[folded A'_def], rule sym, assumption)
+    apply clarify
+    by (frule step_z_norm_equiv'[folded A'_def, simplified];
+        auto elim: step_z_valid_dbm'[folded A'_def, simplified]
+        ) auto
+
+  subgoal for a b
+    by (blast intro: steps_z_norm'_valid_dbm_preservation)
+
+  subgoal for a b
+    by blast
+  done
+
 lemma steps_z_norm'_E_steps:
   "\<exists> D'. E_step\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [M']\<^bsub>v,n\<^esub> = [curry (conv_M D')]\<^bsub>v,n\<^esub>" if
   "steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M'"
-  using that
-proof (induction "conv_A A" x2 \<equiv> l\<^sub>0 "curry init_dbm :: real DBM" l' M' rule: steps_z_norm_induct)
-  case (refl)
-  then show ?case by (auto simp: a\<^sub>0_def; fail)
-next
-  case (step a l' Z' l'' Z'' l''' Z''')
-  from step(2) obtain D' where D':
-    "E_step\<^sup>*\<^sup>* a\<^sub>0 (l', D')" "[Z']\<^bsub>v,n\<^esub> = [curry (conv_M D')]\<^bsub>v,n\<^esub>"
-    by auto
-  from step_z_dbm_equiv'[OF step(3) this(2)] obtain M' where M':
-    "conv_A A \<turnstile> \<langle>l', curry (conv_M D')\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l'', M'\<rangle>" "[Z'']\<^bsub>v,n\<^esub> = [M']\<^bsub>v,n\<^esub>"
-    by atomize_elim
-  with D'(1) step have "valid_dbm Z''" "valid_dbm M'"
-    by (blast intro: steps_z_norm'_valid_dbm_preservation step_z_valid_dbm')+
-  from step_z_norm_equiv'[OF step(4) this M'(2)] obtain M'' where M'':
-    "step_z_norm' (conv_A A) l'' M' (\<upharpoonleft>a) l''' M''" "[Z''']\<^bsub>v,n\<^esub> = [M'']\<^bsub>v,n\<^esub>"
-    by atomize_elim
-  with \<open>valid_dbm M'\<close> have "valid_dbm M''"
-    by - (rule step_z_norm_valid_dbm'[OF global_clock_numbering' valid_abstraction'])
-  then have "dbm_int M'' n"
-    by blast
-  from dbm_int_conv_M_equiv[OF this] M'' M'(1) obtain D'' where
-    "E_step (l', D') (l''', D'')" "[Z''']\<^bsub>v,n\<^esub> = [curry (conv_M D'')]\<^bsub>v,n\<^esub>"
-    unfolding E_step_def by blast
-  with D'(1) show ?case by (auto intro: rtranclp.intros(2))
-qed
+  using bisim.A_B_reaches[OF that, of a\<^sub>0] valid_init_dbm unfolding a\<^sub>0_def equiv'_def by auto
 
 lemma E_steps_steps_z_norm'_iff:
   "(\<exists> D'. E_step\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
@@ -3989,15 +4009,21 @@ subsection \<open>Instantiating the Reachability Problem\<close>
     \<longleftrightarrow> (\<exists> M'. steps_z_norm' (conv_A A) l\<^sub>0 (curry init_dbm) l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {})"
     unfolding E_steps_steps_z_norm'_iff E_steps_equiv ..
 
+  lemma finite_trans':
+    "finite (trans_of (conv_A A))"
+    using finite_trans unfolding trans_of_def by (cases A) auto
+
   theorem reachable_decides_emptiness:
     "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
     \<longleftrightarrow> (\<exists> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>. \<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>)"
-    apply (subst reachable_steps_z_norm')
-    apply (subst
-      steps_z_norm_decides_emptiness
-      [OF global_clock_numbering' valid_abstraction'[unfolded X_alt_def] valid_init_dbm]
+    by (subst reachable_steps_z_norm')
+       (subst
+          steps_z_norm_decides_emptiness
+            [OF global_clock_numbering' valid_abstraction'[unfolded X_alt_def]
+              finite_trans_of_finite_state_set[OF finite_trans'] valid_init_dbm
+            ],
+        rule HOL.refl
       )
-    by (rule HOL.refl)
 
   lemma init_dbm_semantics':
     assumes "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"

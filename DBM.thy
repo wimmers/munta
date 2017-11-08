@@ -4,6 +4,8 @@ begin
 
 chapter \<open>Difference Bound Matrices\<close>
 
+no_notation infinity ("\<infinity>")
+
 section \<open>Definitions\<close>
 
 text \<open>
@@ -352,7 +354,7 @@ lemma inf_not_le_Le[simp]: "\<infinity> \<le> Le x = False" unfolding less_eq db
 lemma inf_not_le_Lt[simp]: "\<infinity> \<le> Lt x = False" unfolding less_eq dbm_le_def by auto
 lemma inf_not_lt[simp]: "\<infinity> \<prec> x = False" by auto
 
-lemma any_le_inf: "x \<le> \<infinity>" by (metis less_eq dmb_le_dbm_entry_bound_inf le_cases)
+lemma any_le_inf: "x \<le> (\<infinity> :: _ DBMEntry)" by (metis less_eq dmb_le_dbm_entry_bound_inf le_cases)
 
 lemma [code]:
   "dbm_lt (Lt a) \<infinity> = True"
@@ -611,7 +613,7 @@ proof -
     case False
     then have "\<exists> k \<in> set vs. k = 0" by auto
     then obtain us ws where vs: "vs = us @ 0 # ws" by (meson split_list_last)
-    with cnt_at_most_1_D[of 0 "i # j # us"] assms(3) have
+    with cnt_at_most_1_D[of 0 "i # j # us" ws] assms(3) have
       "0 \<notin> set us" "0 \<notin> set ws" "i \<noteq> 0" "j \<noteq> 0"
     by auto
     with vs have vs: "vs = us @ 0 # ws" "\<forall> k \<in> set us. k > 0" "\<forall> k \<in> set ws. k > 0" by auto
@@ -672,4 +674,4 @@ next
   thus ?case using 2(4) unfolding DBM_val_bounded_def by simp
 qed
 
-end
+end (* Theory *)

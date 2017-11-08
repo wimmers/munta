@@ -1,5 +1,5 @@
 theory Timed_Automata
-  imports Main
+  imports "library/Graphs"
 begin
 
 chapter \<open>Basic Definitions and Semantics\<close>
@@ -342,46 +342,29 @@ inductive_cases step_a_z_E[elim]: "A \<turnstile> \<langle>l, u\<rangle> \<leads
 
 subsection \<open>Zone Semantics for Compressed Runs\<close>
 
-inductive
+definition
+  step_z' :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z''\<rangle> \<equiv> (\<exists> Z' a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l, Z'\<rangle> \<and> A \<turnstile> \<langle>l, Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', Z''\<rangle>)"
+
+abbreviation
   steps_z :: "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>* \<langle>_, _\<rangle>" [61,61,61] 61)
 where
-  refl: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l, Z\<rangle>" |
-  step:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l'', Z''\<rangle> \<leadsto>* \<langle>l''', Z'''\<rangle>
-  \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l''', Z'''\<rangle>"
-
-declare steps_z.intros[intro]
-declare steps_z.cases[elim]
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z''\<rangle> \<equiv> (\<lambda> (l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z''\<rangle>)\<^sup>*\<^sup>* (l, Z) (l', Z'')"
 
 context
   notes [elim!]  = step.cases step'.cases step_t.cases step_z.cases
 begin
 
-lemma steps_z_sound:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> u' \<in> Z' \<Longrightarrow> \<exists> u \<in> Z. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
-proof (induction A l _ l' _ arbitrary: rule: steps_z.induct)
-  case refl thus ?case by fast
-next
-  case (step A l Z l' Z' a l'' Z'' l''' Z''')
-  then obtain u'' where u'': "A \<turnstile>' \<langle>l'', u''\<rangle> \<rightarrow>* \<langle>l''', u'\<rangle>" "u'' \<in> Z''" by auto
-  with step(1,2) obtain u where "u \<in> Z" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l'',u''\<rangle>"
-    by atomize_elim (auto 4 4 intro: step'_altI simp: zone_delay_def zone_set_def)
-  with u'' show ?case by blast
-qed
+lemma step_t_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z. \<exists> d.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l',u'\<rangle>"
+  by (auto 4 5 simp: zone_delay_def zone_set_def)
 
-lemma steps_z_complete:
-  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
-proof (induction arbitrary: Z rule: steps'.induct)
-  case refl' thus ?case by auto
-next
-  case (step' A l u l' u' l'' u'' Z)
-  from step'(1,4) obtain a Z' Z'' where Z':
-    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l, Z'\<rangle>" "A \<turnstile> \<langle>l, Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',Z''\<rangle>" "u' \<in> Z''"
-      by atomize_elim (auto 4 10 simp: zone_delay_def zone_set_def elim: step_a.cases)
-  then obtain Z''' where "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>* \<langle>l'',Z'''\<rangle>" "u'' \<in> Z'''" using step' by metis
-  with Z' show ?case by blast
-qed
+lemma step_a_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z. \<exists> d.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l',u'\<rangle>"
+  by (auto 4 4 simp: zone_delay_def zone_set_def intro: step_a.intros)
 
 lemma step_z_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>"
@@ -400,5 +383,48 @@ lemma step_z_complete:
   by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
 
 end (* End of context for aggressive elimination rules *)
+
+lemma step_z_sound':
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z.  A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l',u'\<rangle>"
+  unfolding step_z'_def by (fastforce dest!: step_t_z_sound step_a_z_sound)
+
+lemma step_z_complete':
+  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  unfolding step_z'_def by (auto dest!: step_a_z_complete step_t_z_complete elim!: step'.cases)
+
+lemma steps_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> u' \<in> Z' \<Longrightarrow> \<exists> u \<in> Z. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
+  by (induction arbitrary: u' rule: rtranclp_induct2;
+      fastforce intro: steps'_altI dest!: step_z_sound')
+
+lemma steps_z_complete:
+  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  oops
+
+lemma ta_zone_sim:
+  "Simulation
+    (\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+    (\<lambda>(l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z''\<rangle>)
+    (\<lambda>(l, u) (l', Z). u \<in> Z \<and> l = l')"
+  by standard (auto dest!: step_z_complete')
+
+interpretation Simulation
+  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
+  "\<lambda> (l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z''\<rangle>"
+  "\<lambda> (l, u) (l', Z). u \<in> Z \<and> l = l'"
+  by (fact ta_zone_sim)
+
+lemma steps'_iff:
+  "(\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)\<^sup>*\<^sup>* (l, u) (l', u') \<longleftrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
+  apply standard
+  subgoal
+    by (induction rule: rtranclp_induct2; blast intro: steps'_altI)
+  subgoal
+    by (induction rule: steps'.induct; blast intro: converse_rtranclp_into_rtranclp)
+  done
+
+lemma steps_z_complete:
+  "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  using simulation_reaches[of A "(l, u)" "(l', u')", unfolded steps'_iff] by auto
 
 end (* Theory *)

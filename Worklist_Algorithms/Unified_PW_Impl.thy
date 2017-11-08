@@ -113,11 +113,7 @@ begin
           have "r = F_reachable" if "(r, p) \<in> X" for r p
             using that prems(1) by auto
           then show ?thesis
-            (* XXX Fix SMT *)
-            by (smt
-                bind_rule_complete inres_simps(2) mem_Collect_eq nofail_simps(2) prod_rule
-                pw_ords_iff(1) singleton_conv2
-               )
+            by (auto simp: pw_le_iff refine_pw_simps)
         qed
         done
       done

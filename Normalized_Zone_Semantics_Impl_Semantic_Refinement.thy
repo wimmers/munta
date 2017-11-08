@@ -1190,4 +1190,581 @@ sublocale E_op'': E_From_Op_Bisim_Finite _ _ _ _ _ E_op''
 
 end (* End of context for reachability problem*)
 
+context Reachability_Problem_Defs
+begin
+
+abbreviation step_impl' ("\<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  "\<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l'', Z'''\<rangle> \<equiv> \<exists> l' Z' Z''.
+    A \<turnstile>\<^sub>I \<langle>l, Z\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', Z'\<rangle>
+    \<and> A \<turnstile>\<^sub>I \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle>
+    \<and> FW' (norm_upd Z'' (k' l'') n) n = Z'''"
+
+sublocale Graph_Defs "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" .
+
+end (* Reachability Problem Defs *)
+
+
+subsubsection \<open>Misc\<close>
+
+lemma finite_conv_A:
+  "finite (trans_of (conv_A A))" if "finite (trans_of A)"
+  using that unfolding trans_of_def by (cases A) auto
+
+(* XXX Move *)
+lemma real_of_int_inj:
+  "inj real_of_int"
+  by standard auto
+
+(* XXX Move *)
+lemma map_DBMEntry_real_of_int_inj:
+  "a = b" if "map_DBMEntry real_of_int a = map_DBMEntry real_of_int b"
+proof -
+  have "inj (map_DBMEntry real_of_int)"
+    by (intro DBMEntry.inj_map real_of_int_inj)
+  with that show ?thesis
+    by - (erule injD)
+qed
+
+(* XXX Move *)
+lemma (in -) n_eq_conv_MI:
+  "curry D =\<^sub>n (curry D')" if "curry (conv_M D) =\<^sub>n curry (conv_M D')"
+  using that unfolding n_eq_def by (auto intro: map_DBMEntry_real_of_int_inj)
+
+(* XXX Move? *)
+lemma (in Reachability_Problem) check_diag_conv_M_iff:
+  "check_diag n D \<longleftrightarrow> check_diag n (conv_M D)"
+  using check_diag_conv_M check_diag_conv_M_rev by fast
+
+(* XXX Move *)
+lemma (in Regions) \<R>_regions_distinct:
+  "R = R'" if "u \<in> R" "u \<in> R'" "R \<in> \<R> l" "R' \<in> \<R> l"
+  using that unfolding \<R>_def by clarsimp (rule valid_regions_distinct; auto)
+
+(* XXX Move *)
+lemma step_impl_delay_loc_eq:
+  "l' = l" if "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l', D'\<rangle>"
+  using that by cases auto
+
+
+
+context Reachability_Problem
+begin
+
+sublocale TA: Regions_TA v n "Suc n" "{1..<Suc n}" k "conv_A A"
+  by (standard; intro valid_abstraction' finite_conv_A finite_trans_of_finite_state_set finite_trans)
+
+
+subsubsection \<open>@{term init_dbm}\<close>
+
+(* XXX Move *)
+lemma init_dbm_semantics:
+  "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<longleftrightarrow> (\<forall>c\<in>{1..n}. u c = 0)"
+  by (safe elim!: init_dbm_semantics' init_dbm_semantics'')
+
+lemma init_dbm_non_empty:
+  "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<noteq> {}"
+proof -
+  let ?u = "\<lambda> c. 0 :: real"
+  have "?u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>"
+    by (rule init_dbm_semantics'', auto)
+  then show ?thesis by auto
+qed
+
+subsubsection \<open>@{term dbm_default}\<close>
+
+lemma dbm_default_n_eq_eqI:
+  assumes "dbm_default (curry D) n" "dbm_default (curry D') n" "curry D' =\<^sub>n curry D"
+  shows "D' = D"
+  using assms
+    apply (intro ext)
+      apply safe
+      subgoal for a b
+        by (cases "a \<le> n"; cases "b \<le> n"; simp add: n_eq_def)
+      done
+
+(* XXX Move *)
+lemma E_op''_dbm_default':
+  "dbm_default (curry (E_op'' l r g l' M)) n"
+  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "dbm_default (curry M) n"
+proof -
+  note default_intros =
+    filter_diag_default up_canonical_upd_default reset'_upd_default abstr_repair_default
+  (* XXX Duplication *)
+  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
+  moreover have
+    "\<forall>c\<in>constraint_clk ` set (inv_of A l'). c \<le> n"
+    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
+  moreover have "\<forall>c\<in>constraint_clk ` set g. c \<le> n"
+    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover have "\<forall>i\<in>set r. i \<le> n"
+    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
+  moreover note side_conds = calculation that(2)
+  let ?M = "
+    filter_diag (\<lambda>M. abstr_repair (inv_of A l') (reset'_upd M n r 0))
+      (filter_diag (abstr_repair g) (abstr_repair (inv_of A l) (up_canonical_upd M n)))"
+  have "dbm_default (curry ?M) n"
+    by (intro default_intros[unfolded collect_clks_def] side_conds)
+  then have "dbm_default (curry (filter_diag (\<lambda>M. FW' (norm_upd M (k' l') n) n) ?M)) n"
+    by - (rule default_intros, intro FW'_default norm_upd_default)
+  then show ?thesis
+    unfolding E_op''_def by (auto simp: Let_def filter_diag_def)
+qed
+
+(* XXX Move *)
+lemma E_op''_dbm_default:
+  assumes
+    "E_op''.E_from_op (l, D) (l', D')"
+    "dbm_default (curry D) n"
+  shows
+    "dbm_default (curry D') n"
+  using assms E_op''_dbm_default' unfolding E_op''.E_from_op_def by auto
+
+
+subsubsection \<open>@{term check_diag}\<close>
+
+(* XXX Move? *)
+lemma canonical_empty_check_diag':
+  assumes "wf_dbm D" "[curry (conv_M D)]\<^bsub>v,n\<^esub> = {}"
+  shows "check_diag n D"
+  apply (rule canonical_empty_check_diag[OF _ assms(2)])
+  using wf_dbm_D(1)[OF assms(1)] unfolding check_diag_def neutral by auto
+
+subsubsection \<open>Stronger invariant on DBMs\<close>
+
+definition
+  "dbm_inv D \<equiv>
+    canonical' (conv_M D) \<and> \<not> check_diag n D \<and> (\<forall>i\<le>n. conv_M D (i, i) \<le> 0)
+    \<and> valid_dbm (curry (conv_M D))
+    \<and> dbm_default (curry D) n"
+
+lemma dbm_inv_equvi_eqI:
+  assumes "dbm_inv D" "dbm_inv D'" "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [curry (conv_M D)]\<^bsub>v,n\<^esub>"
+  shows "D = D'"
+proof -
+  from assms have "wf_dbm D" "\<not> check_diag n D"
+    unfolding dbm_inv_def wf_dbm_def by auto
+  then have *: "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<noteq> {}"
+    by (auto dest!: canonical_empty_check_diag')
+  from assms have
+    "curry (conv_M D) =\<^sub>n curry (conv_M D')"
+    apply -
+    apply (rule canonical_eq_upto[OF clock_numbering(1) surj_numbering _ _ * assms(3)[symmetric]])
+    unfolding dbm_inv_def
+       apply (simp; fail)+
+    subgoal
+      unfolding check_diag_conv_M_iff
+      unfolding check_diag_def neutral[symmetric] by fastforce
+    subgoal
+      unfolding check_diag_conv_M_iff
+      unfolding check_diag_def neutral[symmetric] by fastforce
+    done
+  then have "curry D =\<^sub>n curry D'"
+    by (rule n_eq_conv_MI)
+  moreover from assms have "dbm_default (curry D) n" "dbm_default (curry D') n"
+    unfolding dbm_inv_def by simp+
+  ultimately show ?thesis
+    by - (rule dbm_default_n_eq_eqI)
+qed
+
+lemma dbm_invI:
+  "dbm_inv D" if "wf_dbm D" "\<not> check_diag n D" "dbm_default (curry D) n"
+  using that unfolding dbm_inv_def wf_dbm_def by auto
+
+lemma init_dbm_dbm_inv[intro, simp]:
+  "dbm_inv init_dbm"
+proof -
+  have "\<not> check_diag n init_dbm"
+    unfolding init_dbm_def check_diag_def by auto
+  moreover have "dbm_default (curry init_dbm) n"
+    unfolding init_dbm_def neutral by auto
+  ultimately show ?thesis
+    using wf_dbm_init_dbm by - (rule dbm_invI)
+qed
+
+
+subsection \<open>Bridging the semantic gap\<close>
+
+lemma step_impl'_E:
+  "(\<lambda> (l, D) (l', D'). \<exists> a. \<langle>l, D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', D'\<rangle>) = E"
+  unfolding E_def by (intro ext) auto
+
+lemma step_z_norm''_step_impl'_equiv:
+  "Bisimulation_Invariant
+     (\<lambda> (l, D) (l', D'). \<exists> a. step_z_norm'' (conv_A A) l D a l' D')
+     (\<lambda>(l, D) (l', D'). \<exists>a. \<langle>l, D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', D'\<rangle>)
+     (\<lambda>(l, M) (l', D). l = l' \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>)
+     (\<lambda>(l, y). valid_dbm y)
+     wf_state"
+proof (standard, goal_cases)
+  case prems: (1 a b a')
+  obtain l M l' M' l1 D where unfolds[simp]: "a = (l, M)" "b = (l', M')" "a' = (l1, D)"
+    by force+
+  from prems have [simp]: "l1 = l"
+    by auto
+  from prems obtain a1 where
+    "step_z_norm'' (conv_A A) l M a1 l' M'"
+    by auto
+  then obtain l2 M1 where steps:
+    "conv_A A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l2, M1\<rangle>"
+    "step_z_norm' (conv_A A) l2 M1 \<upharpoonleft>a1 l' M'"
+    unfolding step_z_norm''_def by auto
+  from step_z_dbm_equiv'[OF steps(1), of "curry (conv_M D)"] prems(2-) obtain M2 where
+    "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l2, M2\<rangle>" "wf_dbm D" "[M1]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+    by (auto simp: wf_state_def)
+  with step_impl_complete''_improved[OF this(1)] obtain D2 where D2:
+    "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l2, D2\<rangle>" "[curry (conv_M D2)]\<^bsub>v,n\<^esub> = [M1]\<^bsub>v,n\<^esub>"
+    by auto
+  from step_impl_wf_dbm[OF D2(1) \<open>wf_dbm D\<close>] have "wf_dbm D2" .
+  then have *:
+    "canonical' (conv_M D2) \<or> check_diag n D2"
+    "\<forall>i\<le>n. conv_M D2 (i, i) \<le> 0"
+    "valid_dbm (curry (conv_M D2))"
+    using wf_dbm_D by blast+
+  have "valid_dbm M1"
+    using prems steps(1) by - (rule step_z_valid_dbm', auto)
+  from step_z_norm_equiv'[OF steps(2), OF this *(3) sym[OF D2(2)]] guess D3 by (elim conjE exE)
+  note D3 = this
+  from step_impl_norm_complete''[OF D3(1) *(3,1,2)] obtain D4 where D4:
+    "A \<turnstile>\<^sub>I \<langle>l2, D2\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a1\<^esub> \<langle>l', D4\<rangle>"
+    "[curry (conv_M (FW' (norm_upd D4 (k' l') n) n))]\<^bsub>v,n\<^esub> = [D3]\<^bsub>v,n\<^esub>"
+    by auto
+  with D2(1) have "\<langle>l, D\<rangle> \<leadsto>\<^bsub>a1\<^esub> \<langle>l', FW' (norm_upd D4 (k' l') n) n\<rangle>"
+    by auto
+  with D4(2) D3(2) show ?case
+    by force
+next
+  case prems: (2 a a' b')
+  obtain l M l' D' l1 D where unfolds[simp]: "a = (l, M)" "b' = (l', D')" "a' = (l1, D)"
+    by force+
+  from prems have [simp]: "l1 = l"
+    by auto
+  from prems obtain a1 where "\<langle>l, D\<rangle> \<leadsto>\<^bsub>a1\<^esub> \<langle>l', D'\<rangle>"
+    by auto
+  then obtain D1 D2 where steps:
+    "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l, D1\<rangle>" "A \<turnstile>\<^sub>I \<langle>l, D1\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a1\<^esub> \<langle>l', D2\<rangle>"
+    "D' = FW' (norm_upd D2 (k' l') n) n"
+    by (auto dest: step_impl_delay_loc_eq)
+  from prems have "wf_dbm D"
+    by (auto simp: wf_state_def)
+  with steps have "wf_dbm D1"
+    by (blast intro: step_impl_wf_dbm)
+  from \<open>wf_dbm D\<close> have
+    "canonical' (conv_M D) \<or> check_diag n D"
+    "\<forall>i\<le>n. conv_M D (i, i) \<le> 0"
+    "valid_dbm (curry (conv_M D))"
+    using wf_dbm_D by blast+
+  from step_impl_sound'[OF steps(1) this] obtain M2 where M2:
+    "conv_A A \<turnstile> \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l, M2\<rangle>"
+    "[curry (conv_M D1)]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
+    by auto
+  from step_impl_sound_wf[OF steps(2) \<open>wf_dbm D1\<close>] obtain M3 where M3:
+    "step_z_norm' (conv_A A) l (curry (conv_M D1)) \<upharpoonleft>a1 l' M3"
+    "[curry (conv_M (FW' (norm_upd D2 (k' l') n) n))]\<^bsub>v,n\<^esub> = [M3]\<^bsub>v,n\<^esub>"
+    by auto
+  from step_z_dbm_equiv'[OF M2(1), of M] prems(2) obtain M2' where M2':
+    "conv_A A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l, M2'\<rangle>" "[M2]\<^bsub>v,n\<^esub> = [M2']\<^bsub>v,n\<^esub>"
+    by auto
+  have "valid_dbm (curry (conv_M D1))" "valid_dbm M2'"
+    subgoal
+      using \<open>wf_dbm D1\<close> wf_dbm_D(3) by auto
+    subgoal
+      using prems M2'(1) by - (rule step_z_valid_dbm', auto)
+    done
+  from step_z_norm_equiv'[OF M3(1), of M2', OF this] M2(2) M2'(2) obtain M3' where
+    "step_z_norm' (conv_A A) l M2' \<upharpoonleft>a1 l' M3'" "[M3]\<^bsub>v,n\<^esub> = [M3']\<^bsub>v,n\<^esub>"
+    by auto
+  with M2'(1) M3(2) steps(3) show ?case
+    unfolding step_z_norm''_def by auto
+next
+  case (3 a b)
+  then show ?case
+    unfolding step_z_norm''_def using step_z_norm_valid_dbm'_spec step_z_valid_dbm' by auto
+next
+  case (4 a b)
+  then show ?case
+    by (clarsimp simp: norm_step_wf_dbm step_impl_wf_dbm wf_state_def)
+qed
+
+context
+  assumes "l\<^sub>0 \<in> state_set A"
+begin
+
+lemma l\<^sub>0_state_set:
+  "l\<^sub>0 \<in> state_set (conv_A A)"
+  using \<open>l\<^sub>0 \<in> state_set A\<close> unfolding state_set_def trans_of_def by (cases A; force)
+
+interpretation start:
+  Regions_TA_Start_State v n "Suc n" "{1..<Suc n}" k "conv_A A"
+  l\<^sub>0 "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub>"
+  apply standard
+  subgoal
+    by (rule l\<^sub>0_state_set)
+  subgoal
+    using valid_dbm_V' by blast
+  subgoal
+    by (rule init_dbm_non_empty)
+  done
+
+lemma norm_final_bisim:
+  "Bisimulation_Invariant
+     (\<lambda>(l, D) (l', D'). \<exists>a. step_z_norm'' (conv_A A) l D a l' D')
+     E_op''.E_from_op
+     (\<lambda> (l, M) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>)
+     (\<lambda>(l, y). valid_dbm y) wf_state"
+  by (rule
+    Bisimulation_Invariant_sim_replace[OF
+      Bisimulation_Invariant_composition[OF
+        step_z_norm''_step_impl'_equiv[unfolded step_impl'_E] E_op''.E_from_op_bisim
+      ]
+    ])
+    (auto simp add: state_equiv_def dbm_equiv_def)
+
+lemma norm_final_bisim_empty:
+  "Bisimulation_Invariant
+     (\<lambda>(l, D) (l', D'). \<exists>a. step_z_norm'' (conv_A A) l D a l' D' \<and> [D']\<^bsub>v,n\<^esub> \<noteq> {})
+     (\<lambda> a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))
+     (\<lambda> (l, M) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>)
+     (\<lambda>(l, y). valid_dbm y) wf_state"
+  by (rule
+    Bisimulation_Invariant_filter[OF
+      norm_final_bisim, of "\<lambda> (l, D). [D]\<^bsub>v,n\<^esub> \<noteq> {}" "\<lambda> a. \<not> check_diag n (snd a)"]
+    )
+    (auto
+      intro!: canonical_empty_check_diag' simp: wf_state_def
+      dest: check_diag_empty_spec[OF check_diag_conv_M]
+    )
+
+lemma beta_final_bisim_empty:
+  "Bisimulation_Invariant
+     (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {})
+     (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))
+     (\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z)
+     (\<lambda>_. True) wf_state"
+  by (rule
+    Bisimulation_Invariant_sim_replace[OF
+      Bisimulation_Invariant_composition[OF
+        bisim[OF global_clock_numbering' valid_abstraction'] norm_final_bisim_empty
+      ]
+    ]
+    )
+    (auto dest!: wf_dbm_D(3) simp: wf_state_def)
+
+lemma beta_final_bisim_empty_strong:
+  "Bisimulation_Invariant
+     (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {})
+     (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))
+     (\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z)
+     (\<lambda>_. True) (\<lambda> (l, D). dbm_inv D)"
+  apply (rule Bisimulation_Invariant_strengthen_post'[OF beta_final_bisim_empty])
+  subgoal for a b
+    unfolding dbm_inv_def wf_state_def wf_dbm_def by (fastforce dest!: E_op''_dbm_default)
+  subgoal for a
+    unfolding wf_state_def dbm_inv_def wf_dbm_def by auto
+  done
+
+interpretation bisim:
+  Bisimulation_Invariant
+    "\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {}"
+    "\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b)"
+    "\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z"
+    "\<lambda>_. True" "\<lambda> (l, D). dbm_inv D"
+  by (rule beta_final_bisim_empty_strong)
+
+context
+  fixes P Q :: "'s \<Rightarrow> bool" -- "The state property we want to check"
+begin
+
+lemma beta_final_bisim_empty_Q:
+  "Bisimulation_Invariant
+     (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l')
+     (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))
+     (\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z)
+     (\<lambda>_. True) (\<lambda> (l, D). dbm_inv D)"
+  by (rule
+      Bisimulation_Invariant_filter[
+        OF beta_final_bisim_empty_strong, of "\<lambda> (l, _). Q l" "\<lambda> (l, _). Q l"
+      ]
+    ) auto
+
+interpretation bisim_Q:
+  Bisimulation_Invariant
+    "\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l'"
+    "\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b)"
+    "\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z"
+    "\<lambda>_. True" "(\<lambda> (l, D). dbm_inv D)"
+  by (rule beta_final_bisim_empty_Q)
+
+interpretation bisims_Q:
+  Bisimulation_Invariants
+    "\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l'"
+    "\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b)"
+    "\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z"
+    "\<lambda>_. True" "\<lambda>_. True" "\<lambda> (l, D). dbm_inv D" "\<lambda> (l, D). dbm_inv D"
+  by (intro Bisimulation_Invariant_Bisimulation_Invariants beta_final_bisim_empty_Q)
+
+lemma leadsto_sem_equiv:
+  "(\<forall>x\<^sub>0\<in>start.a\<^sub>0. leadsto (start.\<phi> P) ((Not \<circ>\<circ> start.\<psi>) Q) x\<^sub>0)
+  = (\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> leadsto (\<lambda> (l, u). P l) (\<lambda> (l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0))
+  "
+proof -
+  have unfold: "(\<lambda>(l, u). P l) = (\<lambda> x. P (fst x))" "(\<lambda>(l, u). \<not> Q l) = (\<lambda>x. \<not> Q (fst x))"
+    by auto
+  show ?thesis
+    unfolding
+      start.a\<^sub>0_def from_R_def init_dbm_semantics start.\<phi>_def start.\<psi>_def comp_def unfold
+    by auto
+qed
+
+lemma Alw_ev_sem_equiv:
+  "(\<forall>x\<^sub>0\<in>start.a\<^sub>0. Alw_ev ((Not \<circ>\<circ> start.\<phi>) Q) x\<^sub>0)
+  = (\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> Alw_ev (\<lambda> (l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0))"
+proof -
+  have unfold: "(\<lambda>(l, u). \<not> Q l) = (\<lambda>x. \<not> Q (fst x))"
+    by auto
+  show ?thesis
+    unfolding start.a\<^sub>0_def from_R_def init_dbm_semantics start.\<phi>_def unfold
+    unfolding comp_def by auto
+qed
+
+lemma leadsto_mc2:
+  "(\<exists>x.
+    TA.reaches (l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>) x \<and>
+    P (fst x) \<and>
+    Q (fst x) \<and>
+    (\<exists>a. (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>*\<^sup>* x a \<and>
+         (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>+\<^sup>+ a a))
+   \<longleftrightarrow>
+   (\<exists>x.
+    (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) x \<and>
+    P (fst x) \<and>
+    Q (fst x) \<and>
+    (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>* x a \<and>
+         (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+ a a))
+  "
+  apply safe
+   apply (drule bisim.A_B.simulation_reaches[where b = "(l\<^sub>0, init_dbm)"], (simp; fail)+)
+   apply clarify
+   apply (drule bisim_Q.A_B.simulation_reaches)
+      apply blast
+     apply blast
+    apply blast
+   apply clarify
+   apply (frule bisims_Q.A_B.reaches1_unique[rotated], blast+)
+    apply (auto dest: dbm_inv_equvi_eqI; fail)
+   apply force
+  apply (drule bisim.B_A.simulation_reaches[where b = "(l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>)"], (simp; fail)+)
+  apply (drule bisim_Q.B_A.simulation_reaches)
+     apply blast
+    apply blast
+   apply blast
+  apply (drule bisims_Q.B_A.reaches1_unique[rotated]; force)
+  done
+
+lemma Alw_ev_mc2:
+  "Q l\<^sub>0 \<and>
+  (\<exists>a. (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>*\<^sup>*
+    (l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>) a \<and>
+  (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>+\<^sup>+ a a)
+   \<longleftrightarrow>
+   Q l\<^sub>0 \<and>
+   (\<exists>a. (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) a \<and>
+        (\<lambda>a b. E_op''.E_from_op a b \<and> \<not> check_diag n (snd b) \<and> Q (fst b))\<^sup>+\<^sup>+ a a)
+  "
+  apply safe
+  subgoal for a b
+    apply (drule bisim_Q.A_B.simulation_reaches[where b = "(l\<^sub>0, init_dbm)"])
+       apply force
+      apply blast
+     apply blast
+    apply clarify
+    apply (frule bisims_Q.A_B.reaches1_unique[rotated], blast+)
+     apply (auto dest: dbm_inv_equvi_eqI; fail)
+    apply force
+    done
+  subgoal for a b
+    apply (drule bisim_Q.B_A.simulation_reaches[where b = "(l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>)"])
+       apply (simp; fail)
+      apply blast
+     apply blast
+    apply (drule bisims_Q.B_A.reaches1_unique[rotated], auto)
+    done
+  done
+
+lemmas Alw_ev_mc = Alw_ev_sem_equiv[symmetric,
+    unfolded start.Alw_ev_mc1[of Q, unfolded Graph_Start_Defs.reachable_def],
+    unfolded Alw_ev_mc2
+    ]
+
+context
+  assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
+begin
+
+lemma no_deadlock':
+  "\<forall>x\<^sub>0\<in>start.a\<^sub>0. \<not> deadlock x\<^sub>0"
+  unfolding start.a\<^sub>0_def from_R_def using no_deadlock by (auto dest: init_dbm_semantics')
+
+lemma leadsto_mc1:
+  "(\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> leadsto (\<lambda> (l, u). P l) (\<lambda> (l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0)) =
+   (\<nexists>x. TA.reaches (l\<^sub>0, [curry init_dbm]\<^bsub>v,n\<^esub>) x \<and>
+       P (fst x) \<and>
+       Q (fst x) \<and>
+       (\<exists>a. (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>*\<^sup>* x a \<and>
+            (\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z' \<and> Z' \<noteq> {} \<and> Q l')\<^sup>+\<^sup>+ a a))"
+  unfolding leadsto_sem_equiv[symmetric] by (rule start.leadsto_mc1[OF no_deadlock'])
+
+lemmas leadsto_mc = leadsto_mc1[unfolded leadsto_mc2]
+
+end (* No deadlock *)
+
+end (* State properties *)
+  
+end (* Start State *)
+
+(* Unused *)
+(* XXX Move *)
+lemma cla_init_dbm_id:
+  "cla l\<^sub>0 ([curry init_dbm]\<^bsub>v,n\<^esub>) = ([curry init_dbm]\<^bsub>v,n\<^esub>)"
+proof -
+  let ?u = "\<lambda> c. 0 :: real"
+  let ?I = "\<lambda> _. Const 0"
+  let ?R = "region X ?I {}"
+  have "valid_region X (k l\<^sub>0) ?I {}"
+    by standard auto
+  then have "?R \<in> \<R> l\<^sub>0"
+    unfolding \<R>_def X_alt_def by blast
+  have region: "u \<in> ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
+    using that unfolding init_dbm_semantics X_def by - (standard; fastforce)
+  have iff: "u \<in> ?R \<longleftrightarrow> u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" for u
+    apply standard
+    subgoal
+      unfolding init_dbm_semantics X_def[symmetric]
+      by (auto elim: Regions.intv_elem.cases elim!: Regions.region.cases)
+    by (rule region)
+  have single: "R = ?R" if "u \<in> [curry init_dbm]\<^bsub>v,n\<^esub>" "u \<in> R" "R \<in> \<R> l\<^sub>0" for u R
+    using that \<open>?R \<in> \<R> l\<^sub>0\<close> by - (rule \<R>_regions_distinct; auto intro: region)
+  show ?thesis
+    using \<open>?R \<in> _\<close>
+    unfolding cla_def
+    apply safe
+     apply (drule single, assumption+)
+     apply (subst (asm) iff[symmetric], simp; fail)
+    apply (frule region)
+    by auto
+qed
+
+end (* Reachability Problem *)
+
+context Reachability_Problem_precompiled
+begin
+
+lemma start_in_state_set:
+  "0 \<in> state_set A"
+  unfolding state_set_def A_def T_def using n_gt_0 start_has_trans by fastforce
+
+thm leadsto_mc[OF start_in_state_set]
+
+end (* Reachability Problem Pre-compiled *)
+
 end (* End of theory *)

@@ -2404,12 +2404,12 @@ lemma get_const_sum[simp]:
 by (cases a) (cases b, auto simp: add)+
 
 lemma sum_not_inf_dest:
-  assumes "a + b \<noteq> \<infinity>"
-  shows "a \<noteq> \<infinity> \<and> b \<noteq> \<infinity>"
+  assumes "a + b \<noteq> (\<infinity> :: _ DBMEntry)"
+  shows "a \<noteq> (\<infinity> :: _ DBMEntry) \<and> b \<noteq> (\<infinity> :: _ DBMEntry)"
 using assms by (cases a; cases b; simp add: add)
 
 lemma sum_not_inf_int:
-  assumes "a + b \<noteq> \<infinity>" "get_const a \<in> \<int>" "get_const b \<in> \<int>"
+  assumes "a + b \<noteq> (\<infinity> :: _ DBMEntry)" "get_const a \<in> \<int>" "get_const b \<in> \<int>"
   shows "get_const (a + b) \<in> \<int>"
 using assms sum_not_inf_dest by fastforce
 

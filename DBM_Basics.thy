@@ -5,7 +5,7 @@ begin
 fun get_const where
   "get_const (Le c) = c" |
   "get_const (Lt c) = c" |
-  "get_const \<infinity> = undefined"
+  "get_const (\<infinity> :: _ DBMEntry) = undefined"
 
 
 subsection \<open>Discourse on updating DBMs\<close>
@@ -396,8 +396,6 @@ fun val_0 :: "('c \<Rightarrow> ('a :: linordered_ab_group_add)) \<Rightarrow> '
 
 notation val_0 ("_\<^sub>\<zero> _" [90,90] 90)
 
-term "val_0 u (Some 3) + 1"
-
 lemma dbm_entry_val_None_None[dest]:
   "dbm_entry_val u None None l \<Longrightarrow> l = \<infinity>"
 by (auto elim: dbm_entry_val.cases)
@@ -405,9 +403,7 @@ by (auto elim: dbm_entry_val.cases)
 lemma dbm_entry_val_dbm_lt:
   assumes "dbm_entry_val u x y l"
   shows "Lt (u\<^sub>\<zero> x - u\<^sub>\<zero> y) \<prec> l"
-using assms
-  apply (cases x; cases y)
-by (cases rule: dbm_entry_val.cases, auto)+
+using assms by (cases rule: dbm_entry_val.cases, auto)
 
 lemma dbm_lt_dbm_entry_val_1:
   assumes "Lt (u x) \<prec> l"

@@ -130,7 +130,8 @@ begin
 sublocale post: Simulation_Graph_Poststable A1 A2'
   unfolding A2'_def by standard (auto dest: closure_poststable)
 
-sublocale pre: Simulation_Graph_Prestable C A1 by standard (rule prestable)
+sublocale pre: Simulation_Graph_Prestable C A1
+  by standard (rule prestable)
 
 end (* Double Simulation *)
 
@@ -143,8 +144,13 @@ locale Simulation_Graph_Complete_Defs =
   fixes P :: "'a set \<Rightarrow> bool" -- "well-formed abstractions"
 
 locale Simulation_Graph_Complete = Simulation_Graph_Complete_Defs +
-  assumes complete: "C x y \<Longrightarrow> P S \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A S T \<and> y \<in> T"
-      and P_invariant: "P S \<Longrightarrow> A S T \<Longrightarrow> P T"
+  simulation: Simulation_Invariant C A "op \<in>" "\<lambda> _. True" P
+begin
+
+lemmas complete = simulation.A_B_step
+lemmas P_invariant = simulation.B_invariant
+
+end
 
 locale Simulation_Graph_Finite_Complete = Simulation_Graph_Complete +
   fixes a\<^sub>0
@@ -193,13 +199,8 @@ locale Double_Simulation_Finite_Complete_Bisim_Cover = Double_Simulation_Finite_
   assumes P2_P1_cover: "P2 a \<Longrightarrow> x \<in> a \<Longrightarrow> \<exists> a'. a \<inter> a' \<noteq> {} \<and> P1 a' \<and> x \<in> a'"
 
 locale Double_Simulation_Finite_Complete_Abstraction_Prop =
-  Double_Simulation +
-  fixes a\<^sub>0
+  Double_Simulation_Finite_Complete +
   fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
-  assumes complete: "C x y \<Longrightarrow> x \<in> S \<Longrightarrow> P2 S \<Longrightarrow> \<exists> T. A2 S T \<and> y \<in> T"
-  assumes finite_abstract_reachable: "finite {a. A2\<^sup>*\<^sup>* a\<^sub>0 a}"
-  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
-      and P2_a\<^sub>0: "P2 a\<^sub>0"
   assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
       and \<phi>_P2_compatible: "P2 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
       and \<phi>_A2_compatible: "A2\<^sup>*\<^sup>* a\<^sub>0 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> A2\<^sup>*\<^sup>* a\<^sub>0 (a \<inter> {x. \<phi> x})"
@@ -226,6 +227,19 @@ next
   with poststable[OF \<open>A a b\<close>] obtain y where "y \<in> a" "C y (hd xs)" by auto
   with \<open>list_all2 _ _ _\<close> \<open>steps _\<close> \<open>x = _\<close> show ?case by (cases xs) auto
 qed
+
+lemma reaches_poststable:
+  "\<exists> x \<in> a. reaches x y" if "Steps.reaches a b" "y \<in> b"
+  using that unfolding reaches_steps_iff Steps.reaches_steps_iff
+  apply clarify
+  apply (drule Steps_poststable, assumption)
+  apply clarify
+  subgoal for as xs
+    apply (cases "xs = []")
+     apply force
+    apply (rule bexI[where x = "hd xs"])
+    using list.rel_sel by (auto dest: Graph_Defs.steps_non_empty')
+  done    
 
 lemma Steps_steps_cycle:
   "\<exists> x xs. steps (x # xs @ [x]) \<and> (\<forall> x \<in> set xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> x \<in> a"
@@ -287,6 +301,11 @@ next
   with Cons.IH[of y] guess xs by clarsimp
   with \<open>x \<in> _\<close> show ?case by auto
 qed
+
+lemma reaches_prestable:
+  "\<exists> y. reaches x y \<and> y \<in> b" if "Steps.reaches a b" "x \<in> a"
+  using that unfolding reaches_steps_iff Steps.reaches_steps_iff
+  by (force simp: hd_map last_map dest: list_all2_last dest!: Steps_prestable)
 
 text \<open>Abstract cycles lead to concrete infinite runs.\<close>
 lemma Steps_run_cycle_buechi:
@@ -449,6 +468,16 @@ next
       by (simp add: \<open>xs = _\<close>)
   qed
 qed
+
+lemma closure_reaches:
+  "post_defs.Steps.reaches (closure x) (closure y)" if "Steps.reaches x y"
+  using that
+  unfolding Steps.reaches_steps_iff post_defs.Steps.reaches_steps_iff
+  apply clarify
+  apply (drule Steps_Union)
+  subgoal for xs
+    by (cases "xs = []"; force simp: hd_map last_map)
+  done
 
 lemma post_Steps_non_empty:
   "x \<noteq> {}" if "post_defs.Steps (a # as)" "x \<in> b" "b \<in> set as"
@@ -659,7 +688,7 @@ qed
 
 lemma run_finite_state_set_cycle_steps:
   assumes "run (x\<^sub>0 ## xs)"
-  shows "\<exists> x ys zs. steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs"
+  shows "\<exists> x ys zs. steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> {x} \<union> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs"
 proof -
   from run_finite_state_set_cycle[OF assms] guess ys zs by safe
   note guessed = this
@@ -674,7 +703,7 @@ proof -
     "run ((x\<^sub>0 # ys @ hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs]))"
     by simp
   from run_decomp[OF this] guessed(2,3) show ?thesis
-    by (inst_existentials "hd zs" ys "tl zs") (auto dest: list.set_sel(2))
+    by (inst_existentials "hd zs" ys "tl zs") (auto dest: list.set_sel)
 qed
 
 (* XXX Duplication *)
@@ -698,6 +727,41 @@ proof -
     by simp
   from run_decomp[OF this] guessed(2,3,4,5) show ?thesis
     by (inst_existentials "hd zs" ys "tl zs") (auto dest: list.set_sel(2))
+qed
+
+lemma cycle_steps_run:
+  assumes "steps (x\<^sub>0 # ys @ x # zs @ [x])"
+  shows "\<exists> xs. run (x\<^sub>0 ## xs) \<and> sset xs = {x} \<union> set ys \<union> set zs"
+proof -
+  from assms have "steps (x\<^sub>0 # ys @ [x])" "steps (x # zs @ [x])"
+    (* apply (smt Graph_Defs.stepsI append_eq_append_conv2 append_is_Nil_conv hd_append2 list.inject list.sel(1) list.simps(3) steps.cases steps_append_single steps_decomp) *)
+     apply (metis Graph_Defs.steps_appendD1 append.assoc append_Cons append_Nil snoc_eq_iff_butlast)
+    by (metis Graph_Defs.steps_appendD2 append_Cons assms snoc_eq_iff_butlast)
+    
+  (*
+  proof -
+    have f1: "\<forall>as asa asb p. ((asb::'a list) @ asa = [] \<or> Graph_Defs.steps p (asb @ asa)) \<or> \<not> Graph_Defs.steps p (asb @ asa @ as)"
+      by (metis (no_types) Graph_Defs.steps_appendD1 append.assoc)
+    have f2: "\<forall>as a. [a::'a] @ as = a # as"
+      by simp
+    have f3: "steps ((x\<^sub>0 # ys) @ (x # zs) @ [x])"
+      using assms by fastforce
+    have "(x\<^sub>0 # ys) @ x # zs \<noteq> []"
+      by force
+    then have "steps ((x\<^sub>0 # ys) @ [x])"
+      using f3 f2 f1 by (metis snoc_eq_iff_butlast)
+    then show "steps (x\<^sub>0 # ys @ [x])"
+      by auto
+  *)
+  from this(2) have "x \<rightarrow> hd (zs @ [x])" "steps (zs @ [x])"
+     apply (metis Graph_Defs.steps_decomp last_snoc list.sel(1) list.sel(3) snoc_eq_iff_butlast steps_ConsD steps_append')
+    by (meson steps_ConsD \<open>steps (x # zs @ [x])\<close> snoc_eq_iff_butlast)
+  from run_cycle[OF this(2)] this(1) have "run (cycle (zs @ [x]))" by auto
+  with extend_run[OF \<open>steps (x\<^sub>0 # ys @ [x])\<close>, of "hd (zs @ [x])" "stl (cycle (zs @ [x]))"] \<open>x \<rightarrow> _\<close>
+  have "run (x\<^sub>0 ## ys @- x ## cycle (zs @ [x]))"
+    by simp (metis cycle.ctr)
+  then show ?thesis
+    by auto
 qed
 
 end (* Finite Graph *)
@@ -731,7 +795,7 @@ proof (coinduction arbitrary: a x xs)
   case (run a x xs)
   obtain y ys where "xs = y ## ys" by (metis stream.collapse)
   with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
-  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
+  from complete[OF \<open>C x y\<close> _ \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
   then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
   moreover with \<open>P a\<close> have "P (SOME b. A a b \<and> y \<in> b)" by (blast intro: P_invariant)
   ultimately show ?case using \<open>run (y ## ys)\<close> unfolding \<open>xs = _\<close>
@@ -746,7 +810,7 @@ using that proof (coinduction arbitrary: a x xs)
   case run: (stream_rel x' u b' v a x xs)
   obtain y ys where "xs = y ## ys" by (metis stream.collapse)
   with run have "C x y" "run (y ## ys)" by (auto elim: run.cases)
-  from complete[OF \<open>C x y\<close> \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
+  from complete[OF \<open>C x y\<close> _ \<open>P a\<close> \<open>x \<in> a\<close>] obtain b where "A a b \<and> y \<in> b" by auto
   then have "A a (SOME b. A a b \<and> y \<in> b) \<and> y \<in> (SOME b. A a b \<and> y \<in> b)" by (rule someI)
   with \<open>run (y ## ys)\<close> \<open>x \<in> a\<close> \<open>P a\<close> run(1,2) \<open>xs = _\<close> show ?case
     by (subst (asm) abstract_run_ctr) (auto intro: P_invariant)
@@ -770,7 +834,7 @@ begin
 lemma run_finite_state_set_cycle_steps:
   assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0"
   shows "\<exists> x ys zs.
-    Steps (a\<^sub>0 # ys @ x # zs @ [x]) \<and> (\<forall> a \<in> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)"
+    Steps (a\<^sub>0 # ys @ x # zs @ [x]) \<and> (\<forall> a \<in> {x} \<union> set ys \<union> set zs. \<exists> x \<in> {x\<^sub>0} \<union> sset xs. x \<in> a)"
   using run_complete[OF assms]
   apply safe
   apply (drule Steps_finite.run_finite_state_set_cycle_steps)
@@ -1026,41 +1090,28 @@ end (* Simulation Graph Prestable *)
 context Simulation_Graph_Complete_Prestable
 begin
 
+lemma step_bisim:
+  "\<exists>y'. C x' y' \<and> (\<exists>a. P a \<and> y \<in> a \<and> y' \<in> a)" if "C x y" "x \<in> a" "x' \<in> a" "P a"
+proof -
+  from complete[OF \<open>C x y\<close> _ \<open>P a\<close> \<open>x \<in> a\<close>] obtain b' where "A a b'" "y \<in> b'"
+    by auto
+  from prestable[OF \<open>A a b'\<close>] \<open>x' \<in> a\<close> obtain y' where "y' \<in> b'" "C x' y'"
+    by auto
+  with \<open>P a\<close> \<open>A a b'\<close> \<open>y \<in> b'\<close> show ?thesis
+    by auto
+qed
+
+sublocale steps_bisim:
+  Bisimulation_Invariant C C "\<lambda> x y. \<exists> a. P a \<and> x \<in> a \<and> y \<in> a" "\<lambda> _. True" "\<lambda> _. True"
+  by (standard; meson step_bisim)
+
 lemma runs_bisim:
   "\<exists> ys. run (y ## ys) \<and> stream_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> P a) xs ys"
   if "run (x ## xs)" "x \<in> a" "y \<in> a" "P a"
-proof -
-  define f where "f a x = (SOME b. A a b \<and> x \<in> b)" for a x
-  let ?as = "abstract_run (f a (shd xs)) (stl xs)"
-  from abstract_run_Run abstract_run_abstract that have
-    "Run (abstract_run a xs)" "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)"
-    by blast+
-  with abstract_run_ctr[of a xs] have "Run (a ## ?as)"
-    by (auto simp: f_def)
-  then have "pred_stream P ?as"
-    by - (drule invariant_run, rule \<open>P a\<close>, auto intro: P_invariant)
-  from
-    represent_run_Run[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>] represent_run_represent[OF \<open>Run (a ## _)\<close> \<open>y \<in> a\<close>]
-  have
-    "run (represent_run y ?as)" "stream_all2 op \<in> (represent_run y ?as) (a ## ?as)" .
-  with \<open>stream_all2 op \<in> (x ## xs) _\<close> have
-    "stream_all2 (\<lambda>x y. \<exists>a. x \<in> a \<and> y \<in> a \<and> a \<in> sset ?as) xs (stl (represent_run y ?as))"
-    apply -
-    apply (rule stream_all2_bisim)
-      apply (subst (asm) abstract_run_ctr, force)
-     apply (subst (asm) (2) represent_run_ctr, subst represent_run_ctr, simp add: f_def)
-    by (auto simp: f_def)
-  then have "stream_all2 (\<lambda>x y. \<exists>a. x \<in> a \<and> y \<in> a \<and> P a) xs (stl (represent_run y ?as))"
-    apply (rule stream.rel_mono_strong)
-    using \<open>pred_stream P _\<close> by (auto simp: stream.pred_set)
-  with \<open>run (represent_run y ?as)\<close> show ?thesis
-    using \<open>stream_all2 (op \<in>) (x ## xs) _\<close>
-    apply (intro exI conjI)
-     apply (subst (asm) represent_run_ctr)
-     apply assumption
-    apply (subst (asm) (2) represent_run_ctr, simp; fail)
-    done
-qed
+  using that
+  by - (drule steps_bisim.bisim.A_B.simulation_run[of _ _ y],
+        auto elim!: stream_all2_weaken simp: steps_bisim.equiv'_def
+       )
 
 lemma runs_bisim':
   "\<exists> ys. run (y ## ys)" if "run (x ## xs)" "x \<in> a" "y \<in> a" "P a"
@@ -1075,35 +1126,19 @@ lemma Alw_ev_compatible':
   assumes "\<forall>xs. run (x ## xs) \<longrightarrow> ev (holds Q) (x ## xs)" "run (y ## xs)" "x \<in> a" "y \<in> a" "P a"
   shows "ev (holds Q) (y ## xs)"
 proof -
-  let ?f = \<open>\<lambda>x y. \<exists>a. x \<in> a \<and> y \<in> a \<and> P a\<close>
-  from runs_bisim[OF assms(2) \<open>y \<in> a\<close> \<open>x \<in> a\<close> \<open>P a\<close>] obtain ys where
-    "run (x ## ys)" "stream_all2 ?f xs ys"
-    by auto
+  from assms obtain ys where "run (x ## ys)" "stream_all2 steps_bisim.equiv' xs ys"
+    by (auto 4 3 simp: steps_bisim.equiv'_def dest: steps_bisim.bisim.A_B.simulation_run)
   with assms(1) have "ev (holds Q) (x ## ys)"
     by auto
-  show ?thesis
-  proof (cases "Q x")
-    case True
-    with \<open>y \<in> a\<close> \<open>x \<in> a\<close> \<open>P a\<close> have "Q y"
-      by (auto intro: compatible)
-    then show ?thesis
-      by auto
-  next
-    case False
-    from False \<open>ev (holds Q) (x ## ys)\<close> have \<open>ev (holds Q) ys\<close>
-      by (simp add: ev_Stream)
-    from ev_imp_shift[OF this] obtain x1 ys1 ys2 where
-      "ys = ys1 @- x1 ## ys2" "Q x1"
-      apply clarsimp
-        using stream.collapse by metis
-    with \<open>stream_all2 _ _ _\<close> obtain y1 xs1 xs2 where
-      "xs = xs1 @- y1 ## xs2" "?f x1 y1"
-      by (auto simp: stream_all2_shift2 stream_all2_SCons2)
-    with \<open>Q x1\<close> have "Q y1"
-      by (auto intro: compatible)
-    with \<open>xs = _\<close> show ?thesis
-      by (simp add: ev_Stream ev_shift)
-  qed
+  from \<open>stream_all2 _ _ _\<close> assms have "stream_all2 steps_bisim.B_A.equiv' (x ## ys) (y ## xs)"
+    by (fastforce
+          simp: steps_bisim.equiv'_def steps_bisim.A_B.equiv'_def
+          intro: steps_bisim.stream_all2_rotate_2
+       )
+  then show ?thesis
+    by - (rule steps_bisim.ev_\<psi>_\<phi>[OF _ _ \<open>ev _ _\<close>],
+          auto dest: compatible simp: steps_bisim.A_B.equiv'_def
+         )
 qed
 
 lemma Alw_ev_compatible:
@@ -1112,32 +1147,53 @@ lemma Alw_ev_compatible:
 
 end (* Context for Compatibility *)
 
+(* XXX Move *)
+lemma (in -) list_all2_weaken:
+  "list_all2 Q xs ys" if "list_all2 P xs ys" "\<And> x y. P x y \<Longrightarrow> Q x y"
+  using that by induction auto
+
 lemma steps_bisim:
   "\<exists> ys. steps (y # ys) \<and> list_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> P a) xs ys"
   if "steps (x # xs)" "x \<in> a" "y \<in> a" "P a"
-  using \<open>y \<in> a\<close> steps_complete[OF that(1,2,4)]
-  apply clarify
-  apply (frule Steps_prestable)
-   apply simp
-  apply clarify
-  apply (intro exI conjI)
-   apply assumption
-  subgoal premises prems for as xs'
-    using prems(3,6) invariant_steps[OF prems(2) \<open>P a\<close>]
-    by (induction as arbitrary: xs') (auto simp: list_all2_Cons2)
-  done
+  using that
+  by (auto 4 4
+      dest: steps_bisim.bisim.A_B.simulation_steps
+      intro: list_all2_weaken simp: steps_bisim.equiv'_def
+     )
 
 end (* Simulation Graph Complete Prestable *)
+
+context Subgraph_Node_Defs
+begin
+
+lemma subgraph_runD:
+  "run xs" if "G'.run xs"
+  by (metis G'.run.cases run.coinduct subgraph that)
+
+lemma subgraph_V_all:
+  "pred_stream V xs" if "G'.run xs"
+  by (metis (no_types, lifting) G'.run.simps Subgraph_Node_Defs.E'_V1 stream.inject stream_pred_coinduct that)
+
+lemma subgraph_runI:
+  "G'.run xs" if "pred_stream V xs" "run xs"
+  using that 
+  by (coinduction arbitrary: xs) (metis Subgraph_Node_Defs.E'_def run.cases stream.pred_inject)
+
+lemma subgraph_run_iff:
+  "G'.run xs \<longleftrightarrow> pred_stream V xs \<and> run xs"
+  using subgraph_V_all subgraph_runD subgraph_runI by blast
+
+end
 
 context Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim
 begin
 
-sublocale Simulation_Graph_Complete_Prestable C_\<phi> A1_\<phi> P1
+sublocale sim_complete: Simulation_Graph_Complete_Prestable C_\<phi> A1_\<phi> P1
   by (standard; force dest: P1_invariant \<phi>_A1_compatible A1_complete simp: C_\<phi>_def A1_\<phi>_def)
 
 lemma runs_closure_bisim:
   "\<exists>y ys. y \<in> a\<^sub>0 \<and> phi.run (y ## ys)" if "phi.run (x ## xs)" "x \<in> \<Union>phi.closure a\<^sub>0"
-  using that(2) runs_bisim'[OF that(1)] unfolding phi.closure_def by auto
+  using that(2) sim_complete.runs_bisim'[OF that(1)] unfolding phi.closure_def by auto
 
 lemma infinite_run_cycle_iff':
   "(\<exists>x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> phi.run (x\<^sub>0 ## xs)) = (\<exists>as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
@@ -1155,18 +1211,84 @@ theorem Alw_ev_mc:
   unfolding Alw_ev alw_holds_pred_stream_iff infinite_run_cycle_iff[OF that, symmetric]
   by (auto simp: comp_def)
 
+(* XXX Move? *)
+lemma phi_Steps_Alw_ev:
+  "\<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a])) \<longleftrightarrow> phi.Steps.Alw_ev (\<lambda> _. False) a\<^sub>0"
+  unfolding phi.Steps.Alw_ev
+  by (auto 4 3 dest:
+      sdrop_wait phi.Steps_finite.run_finite_state_set_cycle_steps phi.Steps_finite.cycle_steps_run
+      simp: not_alw_iff comp_def
+     )
+
+theorem Alw_ev_mc':
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> phi.Steps.Alw_ev (\<lambda> _. False) a\<^sub>0"
+  if "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  unfolding Alw_ev_mc[OF that] phi_Steps_Alw_ev[symmetric] ..
+
 end (* Double Simulation Finite Complete Abstraction Prop *)
+
+lemma (in Simulation_Invariant)
+  "\<not> A.deadlock a" if "\<not> B.deadlock b" "a \<sim> b" "PA a" "PB b"
+  using that
+  unfolding B.deadlock_def A.deadlock_def A.deadlocked_def B.deadlocked_def
+  apply safe
+  apply (auto dest!: simulation_reaches)
+  using A_B_step
+  oops
+
+lemma (in Simulation_Invariant)
+  "\<not> B.deadlock b" if "\<not> A.deadlock a" "a \<sim> b"
+  using that
+  unfolding B.deadlock_def A.deadlock_def A.deadlocked_def B.deadlocked_def
+  apply safe
+  apply (auto dest: simulation_reaches)
+  oops
+
+context Graph_Start_Defs
+begin
+
+interpretation Bisimulation_Invariant E E "op =" reachable reachable
+  including graph_automation by standard auto
+
+lemma Alw_alw_iff_default:
+  "Alw_alw \<phi> x \<longleftrightarrow> Alw_alw \<psi> x" if "\<And> x. reachable x \<Longrightarrow> \<phi> x \<longleftrightarrow> \<psi> x" "reachable x"
+  by (rule Alw_alw_iff_strong) (auto simp: that A_B.equiv'_def)
+
+lemma Alw_ev_iff_default:
+  "Alw_ev \<phi> x \<longleftrightarrow> Alw_ev \<psi> x" if "\<And> x. reachable x \<Longrightarrow> \<phi> x \<longleftrightarrow> \<psi> x" "reachable x"
+  by (rule Alw_ev_iff) (auto simp: that A_B.equiv'_def)
+
+end (* Graph Start Defs *)
 
 context Double_Simulation_Finite_Complete_Bisim_Cover
 begin
 
 lemma P2_closure_subs:
   "a \<subseteq> \<Union> closure a" if "P2 a"
-  using P2_P1_cover[OF that] unfolding closure_def by auto
+  using P2_P1_cover[OF that] unfolding closure_def by fastforce
 
 lemma (in Double_Simulation_Finite_Complete) P2_Steps_last:
   "P2 (last as)" if "Steps as" "a\<^sub>0 = hd as"
   using that by - (cases as, auto dest!: P2_invariant_Steps simp: list_all_iff P2_a\<^sub>0)
+
+lemma compatible_closure:
+  assumes compatible: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+      and "\<forall> x \<in> a. P x"
+    shows "\<forall> x \<in> \<Union> closure a. P x"
+  unfolding closure_def using assms(2) by (auto dest: compatible)
+
+lemma compatible_closure_all_iff:
+  assumes compatible: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y" and "P2 a"
+  shows "(\<forall> x \<in> a. P x) \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. P x)"
+  using \<open>P2 a\<close> by (auto dest!: P2_closure_subs dest: compatible simp: closure_def)
+
+lemma no_deadlock_closureI: "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0" if "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0"
+  using that by - (rule compatible_closure, simp, rule bisim.steps_bisim.deadlock_iff, auto)
+
+lemma compatible_closure_ex_iff:
+  assumes compatible: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y" and "P2 a"
+  shows "(\<exists> x \<in> a. P x) \<longleftrightarrow> (\<exists> x \<in> \<Union> closure a. P x)"
+  using \<open>P2 a\<close> by (auto 4 3 dest!: P2_closure_subs dest: compatible P2_cover simp: closure_def)
 
 context
   fixes P
@@ -1246,7 +1368,310 @@ lemma reaches_all:
   "(\<forall> y. (\<exists> x\<^sub>0\<in>\<Union>closure a\<^sub>0. reaches x\<^sub>0 y) \<longrightarrow> P y) \<longleftrightarrow> (\<forall> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> P y)"
   unfolding reaches_steps_iff Steps.reaches_steps_iff using reaches_all_1 reaches_all_2 by auto
 
-end (* Locale for Compatibility *)
+lemma reaches_all':
+  "(\<forall>x\<^sub>0\<in>\<Union>closure a\<^sub>0. \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y) = (\<forall>y. Steps.reaches a\<^sub>0 y \<longrightarrow> (\<forall>x\<in>y. P x))"
+  using reaches_all by auto
+
+lemma reaches_all'':
+  "(\<forall> y. \<forall> x\<^sub>0\<in>a\<^sub>0. reaches x\<^sub>0 y \<longrightarrow> P y) \<longleftrightarrow> (\<forall> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> P y)"
+proof -
+  have "(\<forall>x\<^sub>0\<in>a\<^sub>0. \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y) \<longleftrightarrow> (\<forall>x\<^sub>0\<in>\<Union>closure a\<^sub>0. \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y)"
+    apply (rule compatible_closure_all_iff[OF _ P2_a\<^sub>0])
+    apply safe
+    subgoal for a x y y'
+      by (blast dest: P1_P bisim.steps_bisim.A_B.simulation_reaches[of _ _ x])
+    subgoal for a x y y'
+      by (blast dest: P1_P bisim.steps_bisim.A_B.simulation_reaches[of _ _ y])
+    done
+  from this[unfolded reaches_all'] show ?thesis
+    by auto
+qed
+
+lemma reaches_ex:
+  "(\<exists>y. \<exists>x\<^sub>0\<in>\<Union>closure a\<^sub>0. reaches x\<^sub>0 y \<and> P y) = (\<exists>b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<and> P y)"
+proof (safe, goal_cases)
+  case (1 y x\<^sub>0 X)
+  then obtain x where "x \<in> X" "x \<in> a\<^sub>0" "P1 X"
+    unfolding closure_def by auto
+  with \<open>x\<^sub>0 \<in> _\<close> \<open>reaches _ _\<close> obtain y' Y where "reaches x y'" "P1 Y" "y' \<in> Y" "y \<in> Y"
+    by (auto dest: bisim.steps_bisim.A_B.simulation_reaches[of _ _ x])
+  with simulation.simulation_reaches[OF \<open>reaches x y'\<close> \<open>x \<in> a\<^sub>0\<close> _ P2_a\<^sub>0] \<open>P _\<close> show ?case
+    by (auto dest: P1_P)
+next
+  case (2 b y)
+  with \<open>y \<in> b\<close> obtain Y where "y \<in> Y" "Y \<in> closure b" "P1 Y"
+    unfolding closure_def
+    by (metis (mono_tags, lifting) P2_P1_cover P2_invariant.invariant_reaches mem_Collect_eq)
+  from closure_reaches[OF \<open>Steps.reaches _ _\<close>] have
+    "post_defs.Steps.reaches (closure a\<^sub>0) (closure b)"
+    by auto
+  from post.reaches_poststable[OF this \<open>Y \<in> _\<close>] obtain X where
+    "X \<in> closure a\<^sub>0 " "pre_defs.Steps.reaches X Y"
+    by auto
+  then obtain x where "x \<in> X" "x \<in> a\<^sub>0"
+    unfolding closure_def by auto
+  from pre.reaches_prestable[OF \<open>pre_defs.Steps.reaches X Y\<close> \<open>x \<in> X\<close>] obtain y' where
+    "reaches x y'" "y' \<in> Y"
+    by auto
+  with \<open>x \<in> X\<close> \<open>X \<in> _\<close> \<open>P y\<close> \<open>P1 Y\<close> \<open>y \<in> Y\<close> show ?case
+    by (auto dest: P1_P)
+qed
+
+lemma reaches_ex':
+  "(\<exists> y. \<exists> x\<^sub>0\<in>a\<^sub>0. reaches x\<^sub>0 y \<and> P y) \<longleftrightarrow> (\<exists> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<and> P y)"
+proof -
+  (* XXX Move this one and others *)
+  have "(\<exists>x\<^sub>0\<in>a\<^sub>0. \<exists>y. reaches x\<^sub>0 y \<and> P y) \<longleftrightarrow> (\<exists>x\<^sub>0\<in>\<Union>closure a\<^sub>0. \<exists>y. reaches x\<^sub>0 y \<and> P y)"
+    apply (rule compatible_closure_ex_iff[OF _ P2_a\<^sub>0])
+    apply safe
+    subgoal for a x y y'
+      by (blast dest: P1_P bisim.steps_bisim.A_B.simulation_reaches[of _ _ y])
+    subgoal for a x y y'
+      by (blast dest: P1_P bisim.steps_bisim.A_B.simulation_reaches[of _ _ x])
+    done
+  from this reaches_ex show ?thesis
+    by auto
+qed
+
+end (* Context for Compatibility *)
+
+lemma P1_deadlocked_compatible: "deadlocked x = deadlocked y" if "x \<in> a" "y \<in> a" "P1 a" for x y a
+  unfolding deadlocked_def using that apply auto
+  subgoal
+    using A1_complete prestable by blast
+  subgoal using A1_complete prestable by blast
+  done
+
+lemma steps_Steps_no_deadlock:
+  "\<not> Steps.deadlock a\<^sub>0"
+  if no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0"
+proof -
+  from P1_deadlocked_compatible have
+    "(\<forall>y. (\<exists>x\<^sub>0\<in>\<Union>closure a\<^sub>0. reaches x\<^sub>0 y) \<longrightarrow> (Not \<circ> deadlocked) y) =
+     (\<forall>b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> (Not \<circ> deadlocked) y)"
+    using reaches_all[of "Not o deadlocked"] unfolding comp_def by blast
+  then show "\<not> Steps.deadlock a\<^sub>0"
+    using no_deadlock
+    unfolding Steps.deadlock_def deadlock_def
+    apply safe
+    subgoal
+      by (simp add: Graph_Defs.deadlocked_def)
+         (metis  P2_cover P2_invariant.invariant_reaches disjoint_iff_not_equal simulation.A_B_step)
+    subgoal 
+      by auto
+    done
+qed
+
+lemma steps_Steps_no_deadlock1:
+  "\<not> Steps.deadlock a\<^sub>0"
+  if no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  using steps_Steps_no_deadlock[unfolded closure_simp, OF no_deadlock] .
+
+lemma Alw_alw_iff:
+  "(\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
+  if P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0"
+proof -
+  from steps_Steps_no_deadlock[OF no_deadlock] show ?thesis
+  by (simp add: Alw_alw_iff Steps.Alw_alw_iff no_deadlock  Steps.Ex_ev Ex_ev)
+     (rule reaches_all'[simplified]; erule P1_P; assumption)
+qed
+
+lemma Alw_alw_iff1:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
+  if P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  using Alw_alw_iff[OF P1_P] no_deadlock unfolding closure_simp by auto
+
+lemma Alw_alw_iff2:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
+  if P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0"
+proof -
+  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_alw P x\<^sub>0)"
+    apply -
+    apply (rule compatible_closure_all_iff, rule bisim.steps_bisim.Alw_alw_iff_strong)
+    unfolding bisim.steps_bisim.A_B.equiv'_def
+    by (blast intro: P2_a\<^sub>0 dest: P1_P)+
+  also have "\<dots> \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
+    by (rule Alw_alw_iff[OF P1_P no_deadlock_closureI[OF no_deadlock]])
+  finally show ?thesis .
+qed
+
+lemma Steps_all_Alw_ev:
+  "\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0" if "Steps.Alw_ev (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
+  using that unfolding Alw_ev_def Steps.Alw_ev_def
+  apply safe
+  apply (drule run_complete[OF _ _ P2_a\<^sub>0], assumption)
+  apply safe
+  apply (elim allE impE, assumption)
+  subgoal premises prems for x xs as
+    using prems(4,3,1)
+    by (induction "a\<^sub>0 ## as" arbitrary: a\<^sub>0 as x xs rule: ev.induct)
+       (auto 4 3 elim: stream.rel_cases intro: ev_Stream)
+  done
+
+lemma closure_compatible_Steps_all_ex_iff:
+  "Steps.Alw_ev (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0 \<longleftrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
+  if closure_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+proof -
+  interpret Bisimulation_Invariant A2 A2 "op =" P2 P2
+    by standard auto
+  show ?thesis
+    using P2_a\<^sub>0
+    by - (rule Alw_ev_iff, unfold A_B.equiv'_def; meson P2_cover closure_P disjoint_iff_not_equal)
+qed
+
+(* XXX Move *)
+lemma (in -) alw_holds_sset:
+  "alw (holds P) xs = (\<forall> x \<in> sset xs. P x)"
+  by (simp add: alw_holds_pred_stream_iff stream.pred_set)
+
+lemma Alw_ev_Steps_ex:
+  "(\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
+  if closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  unfolding Alw_ev Steps.Alw_ev
+  apply safe
+  apply (frule Steps_finite.run_finite_state_set_cycle_steps)
+  apply clarify
+  apply (frule Steps_run_cycle'')
+   apply (auto dest!: P2_invariant.invariant_run simp: stream.pred_set; fail)
+  unfolding that
+   apply clarify
+  subgoal premises prems for xs x ys zs x' xs' R
+  proof -
+    from \<open>x' \<in> R\<close> \<open>R \<in> _\<close> that have \<open>x' \<in> \<Union> closure a\<^sub>0\<close>
+      by auto
+    with prems(5,9) have
+      "\<forall> c \<in> {x'} \<union> sset xs'. \<exists> y \<in> {a\<^sub>0} \<union> sset xs. c \<in> \<Union> closure y"
+      by fast
+    with prems(3) have *:
+      "\<forall> c \<in> {x'} \<union> sset xs'. \<exists> y \<in> {a\<^sub>0} \<union> sset xs. c \<in> \<Union> closure y \<and> (\<forall> c \<in> y. \<not> P c)"
+      unfolding alw_holds_sset by simp
+    from \<open>Run _\<close> have **: "P2 y" if "y \<in> {a\<^sub>0} \<union> sset xs" for y
+      using that by (auto dest!: P2_invariant.invariant_run simp: stream.pred_set)
+    have ***: "\<not> P c" if "c \<in> \<Union> closure y" "\<forall> d \<in> y. \<not> P d" "P2 y" for c y
+    proof -
+      from that P2_cover[OF \<open>P2 y\<close>] obtain d where "d \<in> y" "d \<in> \<Union> closure y"
+        by (fastforce dest!: P2_closure_subs)
+      with that closure_P show ?thesis
+        by blast
+    qed
+    from * have "\<forall> c \<in> {x'} \<union> sset xs'. \<not> P c"
+      by (fastforce intro: ** dest!: ***[rotated])
+    with prems(1) \<open>run _\<close> \<open>x' \<in> \<Union> closure _\<close> show ?thesis
+      unfolding alw_holds_sset by auto
+  qed
+  done
+
+lemma Alw_ev_Steps_ex2:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
+  if  closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  and P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+proof -
+  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_ev P x\<^sub>0)"
+    by (intro compatible_closure_all_iff bisim.Alw_ev_compatible; auto dest: P1_P simp: P2_a\<^sub>0)
+  also have "\<dots> \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
+    by (intro Alw_ev_Steps_ex that)
+  finally show ?thesis .
+qed
+
+lemma Alw_ev_Steps_ex1:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0" if "\<Union> closure a\<^sub>0 = a\<^sub>0"
+  and closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  by (subst that(1)[symmetric]) (intro Alw_ev_Steps_ex closure_P; assumption)
+
+lemma closure_compatible_Alw_ev_Steps_iff:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longleftrightarrow> Steps.Alw_ev (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
+  if closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+    and P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  apply standard
+  subgoal
+    apply (subst closure_compatible_Steps_all_ex_iff[OF closure_P])
+       prefer 4
+       apply (rule Alw_ev_Steps_ex2[OF that, rule_format])
+    by (auto dest!: P2_closure_subs)
+  by (rule Steps_all_Alw_ev) (auto dest: P2_closure_subs)
+
+lemma (in -) compatible_imp:
+  assumes "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+      and "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
+    shows "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> (Q x \<longrightarrow> P x) \<longleftrightarrow> (Q y \<longrightarrow> P y)"
+  using assms by metis
+
+lemma Leadsto_iff:
+  "(\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. P c \<longrightarrow> Alw_ev Q c) a\<^sub>0"
+  if  P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0"
+  unfolding leadsto_def
+  by (subst Alw_alw_iff[OF _ no_deadlock],
+      intro compatible_imp bisim.Alw_ev_compatible,
+      (subst (asm) P1_Q; force), (assumption | intro HOL.refl P1_P)+
+     )
+
+lemma Leadsto_iff1:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. P c \<longrightarrow> Alw_ev Q c) a\<^sub>0"
+  if  P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  by (subst closure_simp[symmetric], rule Leadsto_iff)
+     (auto simp: closure_simp no_deadlock dest: P1_Q P1_P)
+
+lemma Leadsto_iff2:
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. P c \<longrightarrow> Alw_ev Q c) a\<^sub>0"
+  if  P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0"
+proof -
+  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. leadsto P Q x\<^sub>0)"
+    apply -
+    apply (rule compatible_closure_all_iff, rule bisim.steps_bisim.Leadsto_iff)
+    unfolding bisim.steps_bisim.A_B.equiv'_def by (blast intro: P2_a\<^sub>0 dest: P1_P P1_Q)+
+  also have "\<dots> \<longleftrightarrow> Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. P c \<longrightarrow> Alw_ev Q c) a\<^sub>0"
+    by (rule Leadsto_iff[OF _ _ no_deadlock_closureI[OF no_deadlock]]; rule P1_P P1_Q)
+  finally show ?thesis .
+qed
+
+lemma Leadsto_iff':
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. leadsto P Q x\<^sub>0)
+   \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. (\<forall> c \<in> a. P c) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<forall> c \<in> a. Q c) a) a\<^sub>0"
+  if  P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+    and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
+    and closure_Q: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
+    and closure_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+    and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  apply (subst Leadsto_iff1, (rule that; assumption)+)
+  subgoal
+    apply (rule P2_invariant.Alw_alw_iff_default)
+    subgoal premises prems for a
+    proof -
+      have "P2 a"
+        by (rule P2_invariant.invariant_reaches[OF prems[unfolded Graph_Start_Defs.reachable_def]])
+      interpret a: Double_Simulation_Finite_Complete_Bisim_Cover C A1 P1 A2 P2 a
+        apply standard
+              apply (rule complete; assumption; fail)
+        subgoal
+        proof -
+          have "{b. Steps.reaches a b} \<subseteq> {b. Steps.reaches a\<^sub>0 b}"
+            by (blast intro: rtranclp_trans prems[unfolded Graph_Start_Defs.reachable_def])
+          with finite_abstract_reachable show ?thesis
+            by - (rule finite_subset)
+        qed
+            apply (rule P2_invariant; assumption)
+        subgoal
+          by (fact \<open>P2 a\<close>)
+          apply (rule A1_complete; assumption)
+         apply (rule P1_invariant; assumption)
+        apply (rule P2_P1_cover; assumption)
+        done
+      from \<open>P2 a\<close> show ?thesis
+        by - (subst a.closure_compatible_Alw_ev_Steps_iff[symmetric], (rule that; assumption)+,
+            auto dest: closure_P intro: that
+            )
+    qed
+    ..
+  done
 
 lemma (in -)
   assumes "\<And> x y a. P x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P y"
@@ -1260,6 +1685,595 @@ lemma (in Double_Simulation_Defs)
   using that unfolding closure_def by (auto dest: compatible)
 
 end (* Double Simulation *)
+
+paragraph \<open>\<open>R_of\<close>/\<open>from_R\<close>\<close>
+
+definition "R_of lR = snd ` lR"
+
+definition "from_R l R = {(l, u) | u. u \<in> R}"
+
+lemma from_R_fst:
+  "\<forall>x\<in>from_R l R. fst x = l"
+  unfolding from_R_def by auto
+
+lemma R_of_from_R [simp]:
+  "R_of (from_R l R) = R"
+  unfolding R_of_def from_R_def image_def by auto
+
+lemma from_R_loc:
+  "l' = l" if "(l', u) \<in> from_R l Z"
+  using that unfolding from_R_def by auto
+
+lemma from_R_val:
+  "u \<in> Z" if "(l', u) \<in> from_R l Z"
+  using that unfolding from_R_def by auto
+
+lemma from_R_R_of:
+  "from_R l (R_of S) = S" if "\<forall> x \<in> S. fst x = l"
+  using that unfolding from_R_def R_of_def by force
+
+lemma R_ofI[intro]:
+  "Z \<in> R_of S" if "(l, Z) \<in> S"
+  using that unfolding R_of_def by force
+
+lemma from_R_I[intro]:
+  "(l', u') \<in> from_R l' Z'" if "u' \<in> Z'"
+  using that unfolding from_R_def by auto
+
+lemma R_of_non_emptyD:
+  "a \<noteq> {}" if "R_of a \<noteq> {}"
+  using that unfolding R_of_def by simp
+
+lemma R_of_empty[simp]:
+  "R_of {} = {}"
+  using R_of_non_emptyD by metis
+
+lemma fst_simp:
+  "x = l" if "\<forall>x\<in>a. fst x = l" "(x, y) \<in> a"
+  using that by auto
+
+lemma from_R_D:
+  "u \<in> Z" if "(l', u) \<in> from_R l Z"
+  using that unfolding from_R_def by auto
+
+locale Double_Simulation_paired_Defs =
+  fixes C :: "('a \<times> 'b) \<Rightarrow> ('a \<times> 'b) \<Rightarrow> bool" -- "Concrete step relation"
+    and A1 :: "('a \<times> 'b set) \<Rightarrow> ('a \<times> 'b set) \<Rightarrow> bool"
+    -- "Step relation for the first abstraction layer"
+    and P1 :: "('a \<times> 'b set) \<Rightarrow> bool" -- "Valid states of the first abstraction layer"
+    and A2 :: "('a \<times> 'b set) \<Rightarrow> ('a \<times> 'b set) \<Rightarrow> bool"
+    -- "Step relation for the second abstraction layer"
+    and P2 :: "('a \<times> 'b set) \<Rightarrow> bool" -- "Valid states of the second abstraction layer"
+begin
+
+definition
+  "A1' = (\<lambda> lR lR'. \<exists> l l'. (\<forall> x \<in> lR. fst x = l) \<and> (\<forall> x \<in> lR'. fst x = l')
+    \<and> P1 (l, R_of lR) \<and> A1 (l, R_of lR) (l', R_of lR')
+    )"
+
+definition
+  "A2' = (\<lambda> lR lR'. \<exists> l l'. (\<forall> x \<in> lR. fst x = l) \<and> (\<forall> x \<in> lR'. fst x = l')
+    \<and> P2 (l, R_of lR) \<and> A2 (l, R_of lR) (l', R_of lR')
+    )"
+
+definition
+  "P1' = (\<lambda> lR. \<exists> l. (\<forall> x \<in> lR. fst x = l) \<and> P1 (l, R_of lR))"
+
+definition
+  "P2' = (\<lambda> lR. \<exists> l. (\<forall> x \<in> lR. fst x = l) \<and> P2 (l, R_of lR))"
+
+definition "closure' l a = {x. P1 (l, x) \<and> a \<inter> x \<noteq> {}}"
+
+sublocale sim: Double_Simulation_Defs C A1' P1' A2' P2' .
+
+end
+
+locale Double_Simulation_paired = Double_Simulation_paired_Defs +
+  assumes prestable: "P1 (l, S) \<Longrightarrow> A1 (l, S) (l', T) \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C (l, s) (l', s')"
+      and closure_poststable:
+        "s' \<in> closure' l' y \<Longrightarrow> P2 (l, x) \<Longrightarrow> A2 (l, x) (l', y)
+        \<Longrightarrow> \<exists>s\<in>closure' l x. A1 (l, s) (l', s')"
+      and P1_distinct: "P1 (l, x) \<Longrightarrow> P1 (l, y) \<Longrightarrow> x \<noteq> y \<Longrightarrow> x \<inter> y = {}"
+      and P1_finite: "finite {(l, x). P1 (l, x)}"
+      and P2_cover: "P2 (l, a) \<Longrightarrow> \<exists> x. P1 (l, x) \<and> x \<inter> a \<noteq> {}"
+begin
+
+sublocale sim: Double_Simulation C A1' P1' A2' P2'
+proof (standard, goal_cases)
+  case (1 S T)
+  then show ?case
+    unfolding A1'_def by (metis from_R_I from_R_R_of from_R_val prestable prod.collapse)
+next
+  case (2 s' y x)
+  then show ?case
+    unfolding A2'_def A1'_def sim.closure_def
+    unfolding P1'_def
+    apply clarify
+    subgoal premises prems for l l1 l2
+    proof -
+      from prems have "l2 = l1"
+        by force
+      from prems have "R_of s' \<in> closure' l1 (R_of y)"
+        unfolding closure'_def by auto
+      with \<open>A2 _ _\<close> \<open>P2 _\<close> closure_poststable[of "R_of s'" l1 "R_of y" l "R_of x"] obtain s where
+        "s \<in> closure' l (R_of x)" "A1 (l, s) (l1, R_of s')"
+        by auto
+      with prems from_R_fst R_of_from_R show ?thesis
+        apply -
+        unfolding \<open>l2 = l1\<close>
+        apply (rule bexI[where x = "from_R l s"])
+         apply (inst_existentials l l1)
+            apply (simp add: from_R_fst; fail)+
+        subgoal
+          unfolding closure'_def by auto
+         apply (simp; fail)
+        unfolding closure'_def
+        apply (intro CollectI conjI exI)
+          apply fastforce
+         apply fastforce
+        apply (fastforce simp: R_of_def from_R_def)
+        done
+    qed
+    done
+next
+  case (3 x y)
+  then show ?case
+    unfolding P1'_def using P1_distinct
+    by (smt disjoint_iff_not_equal eq_fst_iff from_R_R_of from_R_val)
+next
+  case 4
+  have "{x. \<exists>l. (\<forall>x\<in>x. fst x = l) \<and> P1 (l, R_of x)} \<subseteq> (\<lambda> (l, x). from_R l x) ` {(l, x). P1 (l, x)}"
+    using from_R_R_of image_iff by fastforce
+  with P1_finite show ?case
+    unfolding P1'_def by (auto elim: finite_subset)
+next
+  case (5 a)
+  then show ?case
+    unfolding P1'_def P2'_def
+    apply clarify
+    apply (frule P2_cover)
+    apply clarify
+    subgoal for l x
+      apply (inst_existentials "from_R l x" l, (simp add: from_R_fst)+)
+      using R_of_def by (fastforce simp: from_R_fst)
+    done
+qed
+
+context
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+begin
+
+(* This lemma could be more general by adding non-emptiness as an invariant
+  (see use of double_sim.P2_cover below )
+*)
+lemma A2_A2'_bisim: "Bisimulation_Invariant A2 A2' (\<lambda> (l, Z) b. b = from_R l Z) P2 P2'"
+  apply standard
+  subgoal A2_A2' for a b a'
+    unfolding P2'_def
+    apply clarify
+    apply (inst_existentials "from_R (fst b) (snd b)")
+    subgoal for x y l
+      unfolding A2'_def
+      apply simp
+      apply (inst_existentials l)
+      by (auto dest!: P2_cover simp: from_R_def)
+    by clarsimp
+  subgoal A2'_A2 for a a' b'
+    using from_R_fst by (fastforce dest: sim.P2_cover simp: from_R_R_of A2'_def)
+  subgoal P2_invariant for a b
+    by (fact P2_invariant)
+  subgoal P2'_invariant for a b
+    unfolding P2'_def A2'_def using P2_invariant by blast
+  done
+
+end (* Context for invariance of P2 *)
+
+end (* Double Simulation paired *)
+
+locale Double_Simulation_Finite_Complete_paired = Double_Simulation_paired +
+  fixes l\<^sub>0 a\<^sub>0
+  assumes complete: "C (l, x) (l', y) \<Longrightarrow> x \<in> S \<Longrightarrow> P2 (l, S) \<Longrightarrow> \<exists> T. A2 (l, S) (l', T) \<and> y \<in> T"
+  assumes finite_abstract_reachable: "finite {(l, a). A2\<^sup>*\<^sup>* (l\<^sub>0, a\<^sub>0) (l, a) \<and> P2 (l, a)}"
+  assumes P2_invariant: "P2 a \<Longrightarrow> A2 a a' \<Longrightarrow> P2 a'"
+      and P2_a\<^sub>0': "P2 (l\<^sub>0, a\<^sub>0)"
+begin
+
+interpretation Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = from_R l Z" P2 P2'
+  by (rule A2_A2'_bisim[OF P2_invariant])
+
+sublocale Double_Simulation_Finite_Complete C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0"
+proof (standard, goal_cases)
+  case prems: (1 x y S) -- complete
+  then show ?case
+    unfolding A2'_def P2'_def using from_R_fst
+    by (clarify; cases x; cases y; simp; fastforce dest!: complete[of _ _ _ _ "R_of S"])
+next
+  case prems: 2 -- finite_abstract_reachable
+  have *: "\<exists> l. x = from_R l (R_of x) \<and> A2\<^sup>*\<^sup>* (l\<^sub>0, a\<^sub>0) (l, R_of x)"
+    if "sim.Steps.reaches (from_R l\<^sub>0 a\<^sub>0) x" for x
+    using bisim.B_A_reaches[OF that, of "(l\<^sub>0, a\<^sub>0)"] P2_a\<^sub>0' P2'_def equiv'_def from_R_fst by fastforce 
+  have "{a. sim.Steps.reaches (from_R l\<^sub>0 a\<^sub>0) a}
+    \<subseteq> (\<lambda> (l, R). from_R l R) ` {(l, a). A2\<^sup>*\<^sup>* (l\<^sub>0, a\<^sub>0) (l, a) \<and> P2 (l, a)}"
+    using P2_a\<^sub>0' by (fastforce dest: * intro: PA_invariant.invariant_reaches)
+  then show ?case
+    using finite_abstract_reachable by (auto elim!: finite_subset)
+next
+  case prems: (3 a a') -- P2_invariant
+  then show ?case
+    by (meson A2'_def P2'_def P2_invariant)
+next
+  case prems: 4 -- P2_start
+  then show ?case
+    using P2'_def P2_a\<^sub>0' from_R_fst by fastforce
+qed
+
+sublocale P2_invariant': Graph_Invariant_Start A2 "(l\<^sub>0, a\<^sub>0)" P2
+  by (standard; rule P2_a\<^sub>0')
+
+end (* Double Simulation Finite Complete paired *)
+
+locale Double_Simulation_Finite_Complete_Bisim_paired = Double_Simulation_Finite_Complete_paired +
+  assumes A1_complete: "C (l, x) (l', y) \<Longrightarrow> P1 (l,S) \<Longrightarrow> x \<in> S \<Longrightarrow> \<exists> T. A1 (l, S) (l', T) \<and> y \<in> T"
+      and P1_invariant: "P1 (l, S) \<Longrightarrow> A1 (l, S) (l', T) \<Longrightarrow> P1 (l', T)"
+begin
+
+sublocale Double_Simulation_Finite_Complete_Bisim C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0"
+proof (standard, goal_cases)
+case (1 x y S)
+  then show ?case
+    unfolding A1'_def P1'_def
+    apply (cases x; cases y; simp)
+    apply (drule A1_complete[where S = "R_of S"])
+      apply fastforce
+     apply fastforce
+    apply clarify
+    subgoal for a b l' ba l T
+      by (inst_existentials "from_R l' T" l l') (auto simp: from_R_fst)
+    done
+next
+  case (2 S T)
+  then show ?case
+    unfolding A1'_def P1'_def by (auto intro: P1_invariant)
+qed
+
+end (* Double Simulation Finite Complete Bisim paired *)
+
+locale Double_Simulation_Finite_Complete_Bisim_Cover_paired =
+  Double_Simulation_Finite_Complete_Bisim_paired +
+  assumes P2_P1_cover: "P2 (l, a) \<Longrightarrow> x \<in> a \<Longrightarrow> \<exists> a'. a \<inter> a' \<noteq> {} \<and> P1 (l, a') \<and> x \<in> a'"
+begin
+
+sublocale Double_Simulation_Finite_Complete_Bisim_Cover C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0"
+  apply standard
+  unfolding P2'_def P1'_def
+  apply clarify
+  apply (drule P2_P1_cover, force)
+  apply clarify
+  subgoal for a aa b l a'
+    by (inst_existentials "from_R l a'") (fastforce simp: from_R_fst)+
+  done
+
+end (* Double Simulation Finite Complete Bisim Cover paired *)
+
+locale Double_Simulation_Finite_Complete_Abstraction_Prop_paired =
+  Double_Simulation_Finite_Complete_paired +
+  fixes P :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  assumes P2_non_empty: "P2 (l, a) \<Longrightarrow> a \<noteq> {}"
+begin
+
+definition "\<phi> = P o fst"
+
+lemma P2_\<phi>:
+  "a \<inter> Collect \<phi> = a" if "P2' a" "a \<inter> Collect \<phi> \<noteq> {}"
+  using that unfolding \<phi>_def P2'_def by (auto simp del: fst_conv)
+
+sublocale Double_Simulation_Finite_Complete_Abstraction_Prop C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0" \<phi>
+proof (standard, goal_cases)
+  case (1 a b)
+  then obtain l where "\<forall>x\<in>b. fst x = l"
+    unfolding A1'_def by fast
+  then show ?case
+    unfolding \<phi>_def by (auto simp del: fst_conv)
+next
+  case (2 a)
+  then show ?case
+    by - (frule P2_\<phi>, auto)
+next
+  case prems: (3 a)
+  then have "P2' a"
+    by (simp add: P2_invariant.invariant_reaches)
+  from P2_\<phi>[OF this] prems show ?case
+    by simp
+next
+  case (4 a)
+  then show ?case
+    unfolding P2'_def by (auto dest!: P2_non_empty)
+qed
+
+end (* Double Simulation Finite Complete Abstraction Prop paired *)
+
+locale Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim_paired =
+  Double_Simulation_Finite_Complete_Abstraction_Prop_paired +
+  Double_Simulation_Finite_Complete_Bisim_paired
+begin
+
+interpretation bisim: Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = from_R l Z" P2 P2'
+  by (rule A2_A2'_bisim[OF P2_invariant])
+
+sublocale Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim
+  C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0" \<phi> ..
+
+lemma P2'_non_empty:
+  "P2' a \<Longrightarrow> a \<noteq> {}"
+  using P2_non_empty unfolding P2'_def by force
+
+lemma from_R_int_\<phi>[simp]:
+  "from_R l R \<inter> Collect \<phi> = from_R l R" if "P l"
+  using from_R_fst that unfolding \<phi>_def by fastforce
+
+interpretation G\<^sub>\<phi>: Graph_Start_Defs
+  "\<lambda> (l, Z) (l', Z'). A2 (l, Z) (l', Z') \<and> P l'" "(l\<^sub>0, a\<^sub>0)" .
+
+interpretation Bisimulation_Invariant "\<lambda> (l, Z) (l', Z'). A2 (l, Z) (l', Z') \<and> P l'"
+  A2_\<phi> "\<lambda> (l, Z) b. b = from_R l Z" P2 P2'
+  apply standard
+  unfolding A2_\<phi>_def
+     apply clarify
+  subgoal for l a l' a'
+    apply (drule bisim.A_B_step)
+    prefer 3
+       apply assumption
+      apply safe
+    apply (frule P2_invariant.invariant, assumption+)
+    using from_R_fst by (fastforce simp: \<phi>_def P2'_def dest!: P2'_non_empty)+
+  subgoal for a a' b'
+    apply clarify
+    apply (drule bisim.B_A_step)
+       prefer 2
+       apply assumption
+      apply safe
+    apply (frule P2_invariant, assumption+)
+    apply (subst (asm) (3) \<phi>_def)
+    apply simp
+    apply (elim allE impE, assumption)
+    using from_R_fst apply force
+    apply (subst (asm) (2) from_R_int_\<phi>)
+    using from_R_fst by fastforce+
+  subgoal
+    by blast
+  subgoal
+    using \<phi>_P2_compatible by blast
+  done
+
+lemma from_R_subs_\<phi>:
+  "from_R l a \<subseteq> Collect \<phi>" if "P l"
+  using that unfolding \<phi>_def from_R_def by auto
+
+lemma P2'_from_R:
+  "\<exists> l' Z'. x = from_R l' Z'" if "P2' x"
+  using that unfolding P2'_def by (fastforce dest: from_R_R_of)
+
+lemma P2_from_R_list':
+  "\<exists> as'. map (\<lambda>(x, y). from_R x y) as' = as" if "list_all P2' as"
+  by (rule list_all_map[OF _ that]) (auto dest!: P2'_from_R)
+
+theorem Alw_ev_mc:
+  "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) (l\<^sub>0, x\<^sub>0)) \<longleftrightarrow>
+    \<not> P l\<^sub>0 \<or> (\<nexists>as a bs. G\<^sub>\<phi>.steps ((l\<^sub>0, a\<^sub>0) # as @ a # bs @ [a]))"
+  apply (subst steps_map_equiv[of "\<lambda> (l, Z). from_R l Z" _ "from_R l\<^sub>0 a\<^sub>0"])
+       apply force
+      apply (clarsimp simp: from_R_def)
+  subgoal
+    by (fastforce dest!: P2'_non_empty)
+     apply (simp; fail)
+    apply (rule P2_a\<^sub>0'; fail)
+   apply (rule phi.P2_a\<^sub>0; fail)
+proof (cases "P l\<^sub>0", goal_cases)
+  case 1
+  have *: "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) (l\<^sub>0, x\<^sub>0)) \<longleftrightarrow> (\<forall>x\<^sub>0\<in>from_R l\<^sub>0 a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) x\<^sub>0)"
+    unfolding from_R_def by auto
+  from \<open>P _\<close> show ?case
+    unfolding *
+    apply (subst Alw_ev_mc[OF from_R_subs_\<phi>], assumption)
+    apply (auto simp del: map_map)
+    apply (frule phi.P2_invariant.invariant_steps)
+    apply (auto dest!: P2'_from_R P2_from_R_list')
+    done
+next
+  case 2
+  then have "\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) (l\<^sub>0, x\<^sub>0)"
+    unfolding sim.Alw_ev_def by (force simp: \<phi>_def)
+  with \<open>\<not> P l\<^sub>0\<close> show ?case
+    by auto
+qed
+
+theorem Alw_ev_mc1:
+  "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.Alw_ev (Not \<circ> \<phi>) (l\<^sub>0, x\<^sub>0)) \<longleftrightarrow> \<not> (P l\<^sub>0 \<and> (\<exists>a. G\<^sub>\<phi>.reachable a \<and> G\<^sub>\<phi>.reaches1 a a))"
+  unfolding Alw_ev_mc using G\<^sub>\<phi>.reachable_cycle_iff by auto
+
+end
+
+context Double_Simulation_Finite_Complete_Bisim_Cover_paired
+begin
+
+interpretation bisim: Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = from_R l Z" P2 P2'
+  by (rule A2_A2'_bisim[OF P2_invariant])
+
+interpretation Start: Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim_paired
+  C A1 P1 A2 P2 l\<^sub>0 a\<^sub>0 PP
+  using P2_cover by - (standard, blast)
+
+lemma sim_reaches_equiv:
+  "P2_invariant'.reaches (l, Z) (l', Z') \<longleftrightarrow> sim.Steps.reaches (from_R l Z) (from_R l' Z')"
+  if "P2 (l, Z)"
+  apply (subst bisim.reaches_equiv[of "\<lambda> (l, Z). from_R l Z"])
+      apply force
+     apply clarsimp
+  subgoal
+    by (metis Int_emptyI R_of_from_R from_R_fst sim.P2_cover)
+    apply (rule that)
+  subgoal
+    apply clarsimp
+    using P2'_def from_R_fst that by force
+  by auto
+
+lemma reaches_all:
+  assumes
+    "\<And> u u' R l. u \<in> R \<Longrightarrow> u' \<in> R \<Longrightarrow> P1 (l, R) \<Longrightarrow> P l u \<longleftrightarrow> P l u'"
+  shows
+    "(\<forall> u. (\<exists> x\<^sub>0\<in>\<Union>sim.closure (from_R l\<^sub>0 a\<^sub>0). sim.reaches x\<^sub>0 (l, u)) \<longrightarrow> P l u) \<longleftrightarrow>
+     (\<forall> Z u. P2_invariant'.reaches (l\<^sub>0, a\<^sub>0) (l, Z) \<and> u \<in> Z \<longrightarrow> P l u)"
+proof -
+  let ?P = "\<lambda> (l, u). P l u"
+  have *: "\<And>a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1' a \<Longrightarrow> ?P x = ?P y"
+    unfolding P1'_def by clarsimp (subst assms[rotated 2], force+, metis fst_conv)+
+  let ?P = "\<lambda> (l', u). l' = l \<longrightarrow> P l u"
+  have *: "x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1' a \<Longrightarrow> ?P x = ?P y" for a x y
+    by (frule *[of x a y], assumption+; auto simp: P1'_def; metis fst_conv)
+  have
+    "(\<forall>b. (\<exists>y\<in>sim.closure (from_R l\<^sub>0 a\<^sub>0). \<exists>x\<^sub>0\<in>y. sim.reaches x\<^sub>0 (l, b)) \<longrightarrow> P l b) \<longleftrightarrow>
+     (\<forall>b ba. sim.Steps.reaches (from_R l\<^sub>0 a\<^sub>0) b \<and> (l, ba) \<in> b \<longrightarrow> P l ba)"
+    unfolding sim.reaches_steps_iff sim.Steps.reaches_steps_iff
+    apply safe
+    subgoal for b b' xs
+      apply (rule reaches_all_1[of ?P xs "(l, b')", simplified])
+          apply (erule *; assumption; fail)
+         apply (simp; fail)+
+      done
+
+    subgoal premises prems for b y a b' xs
+      apply (rule
+          reaches_all_2[of ?P xs y, unfolded \<open>last xs = (l, b)\<close>, simplified]
+          )
+          apply (erule *; assumption; fail)
+      using prems by auto
+    done
+  then show ?thesis
+    unfolding sim_reaches_equiv[OF P2_a\<^sub>0']
+    apply simp
+    subgoal premises prems
+      apply safe
+      subgoal for Z u
+        unfolding from_R_def by auto
+      subgoal for a u
+        apply (frule P2_invariant.invariant_reaches)
+        apply (auto dest!: Start.P2'_from_R simp: from_R_def)
+        done
+      done
+    done
+qed
+
+context
+  fixes P Q :: "'a \<Rightarrow> bool" -- "The state properties we want to check"
+begin
+
+definition "\<phi>' = P o fst"
+
+definition "\<psi> = Q o fst"
+
+lemma \<psi>_closure_compatible:
+  "\<psi> (l, x) \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 (l, a) \<Longrightarrow> \<psi> (l, y)"
+  unfolding \<phi>'_def \<psi>_def by auto
+
+lemma \<psi>_closure_compatible':
+  "(Not o \<psi>) (l, x) \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 (l, a) \<Longrightarrow> (Not o \<psi>) (l, y)"
+  by (auto dest: \<psi>_closure_compatible)
+
+lemma P1_P1':
+  "R \<noteq> {} \<Longrightarrow> P1 (l, R) \<Longrightarrow> P1' (from_R l R)"
+  using P1'_def from_R_fst by fastforce
+
+lemma \<psi>_Alw_ev_compatible:
+  assumes "u \<in> R" "u' \<in> R" "P1 (l, R)"
+  shows "sim.Alw_ev (Not \<circ> \<psi>) (l, u) = sim.Alw_ev (Not \<circ> \<psi>) (l, u')"
+  apply (rule bisim.Alw_ev_compatible[of _ _ "from_R l R"])
+  subgoal for x a y
+    using \<psi>_closure_compatible unfolding P1'_def by (metis \<psi>_def comp_def)
+  using assms by (auto intro: P1_P1')
+
+interpretation Graph_Start_Defs A2 "(l\<^sub>0, a\<^sub>0)" .
+
+interpretation G\<^sub>\<psi>: Graph_Start_Defs
+  "\<lambda> (l, Z) (l', Z'). A2 (l, Z) (l', Z') \<and> Q l'" "(l\<^sub>0, a\<^sub>0)" .
+
+lemma Alw_ev_mc1:
+  "(\<forall>x\<^sub>0\<in>from_R l Z. sim.Alw_ev (Not \<circ> \<psi>) x\<^sub>0) \<longleftrightarrow>
+      \<not> (Q l \<and> (\<exists>a. G\<^sub>\<psi>.reaches (l, Z) a \<and> G\<^sub>\<psi>.reaches1 a a))"
+  if "P2_invariant'.reachable (l, Z)" for l Z
+proof -
+  from that have "P2 (l, Z)"
+    using P2_invariant'.invariant_reaches unfolding P2_invariant'.reachable_def by auto
+  interpret Start': Double_Simulation_Finite_Complete_Abstraction_Prop_Bisim_paired
+    C A1 P1 A2 P2 l Z Q
+    apply standard
+    subgoal
+      by (fact complete)
+    subgoal
+    proof -
+      have "{(l', a). A2\<^sup>*\<^sup>* (l,Z) (l',a) \<and> P2 (l',a)} \<subseteq> {(l, a). A2\<^sup>*\<^sup>* (l\<^sub>0,a\<^sub>0) (l,a) \<and> P2 (l,a)}"
+        using that unfolding P2_invariant'.reachable_def by auto
+      with finite_abstract_reachable show ?thesis
+        by - (erule finite_subset)
+    qed
+    subgoal
+      by (fact P2_invariant)
+    subgoal
+      by (fact \<open>P2 (l, Z)\<close>)
+    subgoal
+      using P2_cover by blast
+    subgoal
+      by (fact A1_complete)
+    subgoal
+      by (fact P1_invariant)
+    done
+  show ?thesis
+    using Start'.Alw_ev_mc1[unfolded Start'.\<phi>_def]
+    unfolding \<psi>_def Graph_Start_Defs.reachable_def from_R_def by auto
+qed
+
+theorem leadsto_mc1:
+  "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.leadsto \<phi>' (Not \<circ> \<psi>) (l\<^sub>0, x\<^sub>0)) \<longleftrightarrow>
+   (\<nexists>x. P2_invariant'.reaches (l\<^sub>0, a\<^sub>0) x \<and> P (fst x) \<and> Q (fst x)
+      \<and> (\<exists>a. G\<^sub>\<psi>.reaches x a \<and> G\<^sub>\<psi>.reaches1 a a)
+   )"
+  if  no_deadlock: "\<forall>x\<^sub>0\<in>a\<^sub>0. \<not> sim.deadlock (l\<^sub>0, x\<^sub>0)"
+proof -
+  from steps_Steps_no_deadlock[OF no_deadlock_closureI] no_deadlock have
+    "\<not> sim.Steps.deadlock (from_R l\<^sub>0 a\<^sub>0)"
+    unfolding from_R_def by auto
+  then have no_deadlock': "\<not> P2_invariant'.deadlock (l\<^sub>0, a\<^sub>0)"
+    by (subst bisim.deadlock_iff) (auto simp: P2_a\<^sub>0' from_R_fst P2'_def)
+  have "(\<forall>x\<^sub>0\<in>a\<^sub>0. sim.leadsto \<phi>' (Not \<circ> \<psi>) (l\<^sub>0, x\<^sub>0)) \<longleftrightarrow>
+    (\<forall>x\<^sub>0\<in>from_R l\<^sub>0 a\<^sub>0. sim.leadsto \<phi>' (Not \<circ> \<psi>) x\<^sub>0)
+    "
+    unfolding from_R_def by auto
+  also have "\<dots> \<longleftrightarrow> sim.Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. \<phi>' c \<longrightarrow> sim.Alw_ev (Not \<circ> \<psi>) c) (from_R l\<^sub>0 a\<^sub>0)"
+    apply (rule Leadsto_iff2[OF _ _ _])
+    subgoal for a x y
+      unfolding P1'_def \<phi>'_def by (auto dest: fst_simp)
+    subgoal for a x y
+      unfolding P1'_def \<psi>_def by (auto dest: fst_simp)
+    subgoal
+      using no_deadlock unfolding from_R_def by auto
+    done
+  also have
+    "\<dots> \<longleftrightarrow> P2_invariant'.Alw_alw (\<lambda>(l, Z). \<forall>c\<in>from_R l Z. \<phi>' c \<longrightarrow> sim.Alw_ev (Not \<circ> \<psi>) c) (l\<^sub>0, a\<^sub>0)"
+    by (auto simp: bisim.A_B.equiv'_def P2_a\<^sub>0 P2_a\<^sub>0' intro!: bisim.Alw_alw_iff_strong[symmetric])
+  also have
+    "\<dots> \<longleftrightarrow> P2_invariant'.Alw_alw
+      (\<lambda>(l, Z). P l \<longrightarrow> \<not> (Q l \<and> (\<exists>a. G\<^sub>\<psi>.reaches (l, Z) a \<and> G\<^sub>\<psi>.reaches1 a a))) (l\<^sub>0, a\<^sub>0)"
+    by (rule P2_invariant'.Alw_alw_iff_default)
+       (auto simp: \<phi>'_def from_R_def dest: Alw_ev_mc1[symmetric])
+  also have
+    "\<dots> \<longleftrightarrow> (\<nexists>x. P2_invariant'.reaches (l\<^sub>0,a\<^sub>0) x \<and> P (fst x) \<and> Q (fst x)
+      \<and> (\<exists>a. G\<^sub>\<psi>.reaches x a \<and> G\<^sub>\<psi>.reaches1 a a))"
+    unfolding P2_invariant'.Alw_alw_iff by (auto simp: P2_invariant'.Ex_ev no_deadlock')
+  finally show ?thesis .
+qed
+
+end
+
+end
 
 section \<open>Comments\<close>
 

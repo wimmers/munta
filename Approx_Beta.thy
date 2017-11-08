@@ -4,6 +4,8 @@ begin
 
 chapter \<open>Correctness of \<open>\<beta>\<close>-approximation from \<open>\<alpha>\<close>-regions\<close>
 
+no_notation infinity ("\<infinity>")
+
 (* XXX Move *)
 text \<open>Misc lemmas we will need later\<close>
 
@@ -2145,59 +2147,88 @@ qed
 
 end (* End of context for global regions *)
 
+lemma step_z'_V':
+  assumes "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto> \<langle>l',Z'\<rangle>" "valid_abstraction A X k" "\<forall>c\<in>clk_set A. v c \<le> n" "Z \<in> V'"
+  shows "Z' \<in> V'"
+  using assms unfolding step_z'_def by (auto elim: step_z_V')
+
 lemma steps_z_V':
   "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V' \<Longrightarrow> Z' \<in> V'"
-  by (induction rule: steps_z.induct; blast intro: step_z_V')
+  by (induction rule: rtranclp_induct2; blast intro: step_z'_V')
 
 subsection \<open>Multi step\<close>
 
-inductive
+definition
+  step_z_beta' :: "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^sub>\<beta> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z''\<rangle> = (\<exists> Z' a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l, Z'\<rangle> \<and> A \<turnstile> \<langle>l, Z'\<rangle> \<leadsto>\<^bsub>\<beta>(\<upharpoonleft>a)\<^esub> \<langle>l', Z''\<rangle>)"
+
+abbreviation
   steps_z_beta :: "('a, 'c, t, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>_, _\<rangle>" [61,61,61] 61)
 where
-  refl: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l, Z\<rangle>" |
-  step: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z''\<rangle>
-  \<Longrightarrow> A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<beta>(\<upharpoonleft>a)\<^esub> \<langle>l'', Z'''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l'', Z'''\<rangle>"
-
-declare steps_z_beta.intros[intro]
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z''\<rangle> \<equiv> (\<lambda> (l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z''\<rangle>)\<^sup>*\<^sup>* (l, Z) (l', Z'')"
 
 lemma V'_V: "Z \<in> V' \<Longrightarrow> Z \<subseteq> V" unfolding V'_def by auto
 
-lemma steps_z_beta_V':
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow>\<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V' \<Longrightarrow> Z' \<in> V'"
-proof (induction rule: steps_z_beta.induct)
-  case refl then show ?case by fast
-next
-  case (step A l Z l' Z' Z'' a l'' Z''')
-  interpret regions: Regions_global _ _ _ "k l''"
+context
+  fixes A :: "('a, 'c, t, 's) ta"
+  assumes valid_ta: "valid_abstraction A X k" "\<forall>c\<in>clk_set A. v c \<le> n"
+begin
+
+interpretation alpha: AlphaClosure_global _ "k l'" "\<R> l'" by standard (rule finite)
+lemma [simp]: "alpha.cla l' = cla l'" unfolding alpha.cla_def cla_def ..
+
+lemma step_z_alpha'_V:
+  "Z' \<subseteq> V" if "Z \<subseteq> V" "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l', Z'\<rangle>"
+  using that alpha.closure_V[simplified] unfolding step_z_alpha'_def by blast
+
+lemma step_z_beta'_V':
+  "Z' \<in> V'" if "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l',Z'\<rangle>" "Z \<in> V'"
+proof -
+  interpret regions: Regions_global _ _ _ "k l'"
     by standard (rule finite clock_numbering not_in_X non_empty)+
-  from step(3) obtain W''' where W''':
-    "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', W'''\<rangle>" "Z''' = Approx\<^sub>\<beta> l'' W'''" by auto
-  with step show ?case by (blast intro: step_z_V' regions.apx_V'[OF V'_V])
+  from that valid_ta show ?thesis
+    unfolding step_z_beta'_def by (blast intro: step_z_V' regions.apx_V'[OF V'_V])
 qed
+
+lemma steps_z_beta_V':
+  "A \<turnstile> \<langle>l,Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<in> V' \<Longrightarrow> Z' \<in> V'"
+  by (induction rule: rtranclp_induct2; blast intro: step_z_beta'_V')
 
 subsubsection \<open>Soundness\<close>
 
-lemma alpha_beta_steps:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> Z \<in> V'
-  \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', Z''\<rangle> \<and> Z' \<subseteq> Z''"
-proof (induction rule: steps_z_beta.induct)
-  case refl then show ?case by auto
-next
-  case (step A l Z l' Z' Z'' a l'' Z''')
-  then obtain W where *: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', W\<rangle>" "Z' \<subseteq> W" by auto
-  from step_z_mono[OF step.hyps(2) this(2)] obtain W' where W':
-    "A \<turnstile> \<langle>l', W\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', W'\<rangle>" "Z'' \<subseteq> W'"
-    by blast
-  with  \<open>Z \<in> V'\<close> have "W' \<subseteq> V"
-    by (metis V'_V steps_z_alpha_V[OF *(1)] step_z_V)
-  from step have "Z'' \<in> V'" by (blast intro: steps_z_beta_V' step_z_V')
-  with alpha_beta_step'[OF step.hyps(3) step.prems(1,2) this \<open>W' \<subseteq> V\<close> W'(2)]
-  obtain W'' where "A \<turnstile> \<langle>l', W'\<rangle> \<leadsto>\<^bsub>\<alpha>\<upharpoonleft>a\<^esub> \<langle>l'', W''\<rangle>" "Z''' \<subseteq> W''"
-    by blast
-  with * W'(1) show ?case by auto
-qed
+lemma alpha'_beta'_step:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle> \<Longrightarrow> Z \<in> V' \<Longrightarrow> W \<subseteq> V \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l', W'\<rangle> \<and> Z' \<subseteq> W'"
+  unfolding step_z_beta'_def step_z_alpha'_def
+  apply (elim exE conjE)
+  apply (frule step_z_mono, assumption)
+  apply (elim exE conjE)
+  apply (frule alpha_beta_step'[OF _ valid_ta])
+     prefer 3
+  using valid_ta by (blast intro: step_z_V' dest: step_z_V)+
 
+lemma alpha_beta_sim:
+  "Simulation_Invariant 
+    (\<lambda>(l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z''\<rangle>)
+    (\<lambda>(l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l', Z''\<rangle>)
+    (\<lambda>(l, Z) (l', Z'). l = l' \<and> Z \<subseteq> Z') (\<lambda>(_, Z). Z \<in> V') (\<lambda>(_, Z). Z \<subseteq> V)"
+  by standard (auto elim: alpha'_beta'_step step_z_beta'_V' dest: step_z_alpha'_V)
+
+interpretation
+  Simulation_Invariant
+  "\<lambda> (l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z''\<rangle>"
+  "\<lambda> (l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha> \<langle>l', Z''\<rangle>"
+  "\<lambda> (l, Z) (l', Z'). l = l' \<and> Z \<subseteq> Z'"
+  "\<lambda> (_, Z). Z \<in> V'" "\<lambda> (_, Z). Z \<subseteq> V"
+  by (fact alpha_beta_sim)
+
+lemma alpha_beta_steps:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> Z \<in> V' \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<alpha>* \<langle>l', Z''\<rangle> \<and> Z' \<subseteq> Z''"
+  using simulation_reaches[of "(l, Z)" "(l', Z')" "(l, Z)"] by (auto dest: V'_V)
+
+(*
 corollary steps_z_beta_sound:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> \<forall>c\<in>clk_set A. v c \<le> n \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<in> V' \<Longrightarrow> Z' \<noteq> {}
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z''\<rangle> \<and> Z'' \<noteq> {}"
@@ -2218,6 +2249,9 @@ proof (goal_cases)
   have "Z'' \<noteq> {}" by auto
   ultimately show ?thesis by auto
 qed
+*)
+
+end (* Valid TA *)
 
 subsubsection \<open>Completeness\<close>
 
@@ -2235,6 +2269,29 @@ proof (goal_cases)
   ultimately show ?case by blast
 qed
 
+lemma step_z_beta'_V:
+  "Z' \<subseteq> V" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle>" "Z \<subseteq> V"
+proof -
+  interpret regions: Regions_global _ _ _ "k l'"
+    by standard (rule finite clock_numbering not_in_X non_empty)+
+  from that show ?thesis unfolding step_z_beta'_def
+    by (auto intro: regions.apx_V dest: step_z_V del: subsetI)
+qed
+
+lemma steps_z_beta_V:
+  "Z' \<subseteq> V" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle>" "Z \<subseteq> V"
+  using that by (induction rule: rtranclp_induct2; blast intro: step_z_beta'_V del: subsetI)
+
+lemma step_z_beta'_mono:
+  "\<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', W'\<rangle> \<and> Z' \<subseteq> W'" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle>" "Z \<subseteq> W" "W \<subseteq> V"
+  using that unfolding step_z_beta'_def
+  apply (elim exE conjE)
+  apply (frule step_z_mono, assumption)
+  apply (elim exE conjE)
+  apply (drule step_z_beta_mono, assumption)
+   apply (auto dest: step_z_V)
+  done
+(*
 lemma steps_z_beta_V: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<subseteq> V"
 proof (induction rule: steps_z_beta.induct)
   case refl then show ?case by blast
@@ -2246,30 +2303,24 @@ next
   from step obtain W''' where "A \<turnstile> \<langle>l', Z''\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', W'''\<rangle>" "Z''' = Approx\<^sub>\<beta> l'' W'''" by auto
   with \<open>Z'' \<subseteq> V\<close> show ?case by (metis regions.apx_V step_z_V)
 qed
+*)
+
+
 
 lemma steps_z_beta_mono:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> Z \<subseteq> W \<Longrightarrow> W \<subseteq> V \<Longrightarrow> \<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', W'\<rangle> \<and> Z' \<subseteq> W'"
-proof (induction rule: steps_z_beta.induct)
-  case refl then show ?case by auto
-next
-  case (step A l Z l' Z' Z'' a l'' Z''')
-  then obtain W' where W': "A \<turnstile> \<langle>l, W\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', W'\<rangle>" "Z' \<subseteq> W'" by auto
-  with steps_z_beta_V[OF W'(1) step(6)] step_z_mono[OF step(2) W'(2)] obtain W'' where
-    "A \<turnstile> \<langle>l', W'\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', W''\<rangle>" "Z'' \<subseteq> W''" "W' \<subseteq> V"
-    by auto
-  with step_z_beta_mono[OF step(3) this(2)] step_z_V[OF this(1,3)] W'(1) show ?case
-    by auto
-qed
+  apply (induction rule: rtranclp_induct2)
+   apply blast
+  apply (clarsimp; drule step_z_beta'_mono;
+      blast intro: rtranclp.intros(2) steps_z_beta_V del: subsetI)
+  done
 
-lemma steps_z_beta_alt:
-  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l'', Z''\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l'', Z''\<rangle>"
-by (rotate_tac, induction rule: steps_z_beta.induct) blast+
-
+(*
 lemma steps_z_beta_complete:
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z''\<rangle> \<and> Z' \<subseteq> Z''"
 proof (induction rule: steps_z.induct)
-  case refl show ?case by blast
+  case refl show ?case by blas
 next
   case (step A l Z l' Z' a l'' Z'' l''' Z''')
   interpret regions: Regions_global _ _ _ "k l''"
@@ -2291,6 +2342,7 @@ lemma steps_z_beta_complete':
   "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l',Z'\<rangle> \<Longrightarrow> valid_abstraction A X k \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<noteq> {}
   \<Longrightarrow> \<exists> Z''. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l',Z''\<rangle> \<and> Z'' \<noteq> {}"
 using steps_z_beta_complete by blast
+*)
 
 end (* End of locale for local regions *)
 

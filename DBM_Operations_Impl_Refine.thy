@@ -5,6 +5,8 @@ theory DBM_Operations_Impl_Refine
     "HOL-Library.IArray"
 begin
 
+no_notation infinity ("\<infinity>")
+
 section \<open>Refinement\<close>
 
 instance DBMEntry :: ("{countable}") countable
