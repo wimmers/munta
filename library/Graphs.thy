@@ -495,6 +495,7 @@ lemmas graphD_aggressive =
 
 lemmas graph_startI =
   reachable_reaches
+  start_reachable
 
 end (* Graph Start Defs *)
 

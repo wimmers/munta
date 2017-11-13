@@ -70,6 +70,21 @@ lemma alw_ev_mono:
   shows "alw (ev \<psi>) xs"
   by (rule alw_mp[OF assms(1)]) (auto intro: ev_mono assms(2) simp: alw_iff_sdrop)
 
+lemma alw_ev_lockstep:
+  assumes
+    "alw (ev (holds P)) xs" "stream_all2 Q xs as"
+    "\<And> x a. P x \<Longrightarrow> Q x a \<Longrightarrow> R a"
+  shows
+    "alw (ev (holds R)) as"
+  using assms(1,2)
+  apply (coinduction arbitrary: xs as)
+  apply auto
+  subgoal
+    by (metis alw.cases assms(3) ev_holds_sset stream_all2_sset1)
+  subgoal
+    by (meson alw.cases stream.rel_sel)
+  done
+
 subsection \<open>sfilter, wait, nxt\<close>
 
 text \<open>Useful?\<close>
@@ -223,6 +238,10 @@ lemma alw_holds_pred_stream_iff:
   "alw (holds P) xs \<longleftrightarrow> pred_stream P xs"
   by (simp add: alw_iff_sdrop stream_pred_snth)
 
+lemma alw_holds_sset:
+  "alw (holds P) xs = (\<forall> x \<in> sset xs. P x)"
+  by (simp add: alw_holds_pred_stream_iff stream.pred_set)
+
 lemma pred_stream_sfilter:
   assumes alw_ev: "alw (ev (holds P)) xs"
   shows "pred_stream P (sfilter P xs)"
@@ -269,6 +288,13 @@ lemma stream_all2_SCons1:
 lemma stream_all2_SCons2:
   "stream_all2 P xs (y ## ys) = (\<exists>z zs. xs = z ## zs \<and> P z y \<and> stream_all2 P zs ys)"
   by (subst stream.collapse[symmetric], simp del: stream.collapse, force)
+
+lemma stream_all2_combine:
+  "stream_all2 R xs zs" if
+  "stream_all2 P xs ys" "stream_all2 Q ys zs" "\<And> x y z. P x y \<and> Q y z \<Longrightarrow> R x z"
+  using that(1,2)
+  by (coinduction arbitrary: xs ys zs)
+     (auto intro: that(3) simp: stream_all2_SCons1 stream_all2_SCons2)
 
 lemma stream_all2_shift1:
   "stream_all2 P (xs1 @- xs2) ys =

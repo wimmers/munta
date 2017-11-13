@@ -194,6 +194,108 @@ qed (use subgraph in \<open>auto intro: finite_reachable mono\<close>)
 
 end (* Reachability Compatible Subsumption Graph View *)
 
+locale Subsumption_Graph_Closure_View_Defs =
+  ord less_eq less for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
+  fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>The full edge set\<close>
+    and s\<^sub>0 :: 'a                 -- \<open>Start state\<close>
+  fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subgraph of the graph given by the full edge set\<close>
+  fixes SE ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subsumption edges\<close>
+    and covered :: "'a \<Rightarrow> bool"
+  fixes closure :: "'a \<Rightarrow> 'b"
+  fixes P :: "'a \<Rightarrow> bool"
+  fixes Q :: "'a \<Rightarrow> bool"
+begin
+
+sublocale Graph_Start_Defs E s\<^sub>0 .
+
+sublocale G: Graph_Start_Defs RE s\<^sub>0 .
+
+end (* Subsumption Graph Closure View Defs *)
+
+locale Reachability_Compatible_Subsumption_Graph_Closure_View =
+  Subsumption_Graph_Closure_View_Defs +
+  preorder less_eq less +
+  assumes mono:
+    "closure a \<preceq> closure b \<Longrightarrow> E a a' \<Longrightarrow> P a \<Longrightarrow> P b \<Longrightarrow> \<exists> b'. E b b' \<and> closure a' \<preceq> closure b'"
+  assumes closure_eq:
+    "closure a = closure b \<Longrightarrow> E a a' \<Longrightarrow> P a \<Longrightarrow> P b \<Longrightarrow> \<exists> b'. E b b' \<and> closure a' = closure b'"
+  assumes reachability_compatible:
+    "\<forall> s. Q s \<longrightarrow> (if covered s then (\<exists> t. SE s t \<and> G.reachable t) else (\<forall> s'. E s s' \<longrightarrow> RE s s'))"
+  assumes subsumption: "\<forall> s'. SE s s' \<longrightarrow> closure s \<prec> closure s'"
+  assumes subgraph: "\<forall> s s'. RE s s' \<longrightarrow> E s s'"
+  assumes finite_closure: "finite (closure ` UNIV)"
+  assumes P_pre: "a \<rightarrow> b \<Longrightarrow> P b"
+  assumes P_post: "a \<rightarrow> b \<Longrightarrow> P a"
+  assumes P_s\<^sub>0: "P s\<^sub>0"
+  assumes Q_pre: "RE a b \<Longrightarrow> Q b"
+  assumes Q_post: "RE a b \<Longrightarrow> Q a"
+  assumes Q_s\<^sub>0: "Q s\<^sub>0"
+begin
+
+definition close where "close e a b = (\<exists> x y. e x y \<and> a = closure x \<and> b = closure y)"
+
+lemma Simulation_close:
+  "Simulation A (close A) (\<lambda> a b. b = closure a)"
+  unfolding close_def by standard auto
+
+sublocale view: Reachability_Compatible_Subsumption_Graph
+  "op \<preceq>" "op \<prec>" "close E" "closure s\<^sub>0" "close RE"
+  supply close_def[simp]
+  supply P_pre[intro] P_post[intro] Q_pre[intro] Q_post[intro]
+proof (standard, goal_cases)
+  case prems: (1 a b a')
+  then obtain x y where [simp]: "x \<rightarrow> y" "a = closure x" "a' = closure y"
+    by auto
+  then have "P x" "P y"
+    by blast+
+  from prems(4) P_s\<^sub>0 obtain x' where [simp]: "b = closure x'" "P x'"
+    unfolding Graph_Start_Defs.reachable_def by cases auto
+  from mono[OF \<open>_ \<preceq> _\<close>[simplified] \<open>x \<rightarrow> y\<close> \<open>P x\<close> \<open>P x'\<close>] obtain b' where
+    "x' \<rightarrow> b'" "closure y \<preceq> closure b'"
+    by auto
+  then show ?case
+    by auto
+next
+  case 2
+  interpret Simulation RE "close RE" "\<lambda> a b. b = closure a"
+    by (rule Simulation_close)
+  { fix x assume "Graph_Start_Defs.reachable (close RE) (closure s\<^sub>0) x"
+    then obtain x' where [simp]: "x = closure x'" "Q x'" "P x'"
+      using Q_s\<^sub>0 P_s\<^sub>0 subgraph unfolding Graph_Start_Defs.reachable_def by cases auto
+    have "(\<forall>s'. close E x s' \<longrightarrow> close RE x s')
+        \<or> (\<exists>t. x \<prec> t \<and> Graph_Start_Defs.reachable (close RE) (closure s\<^sub>0) t)"
+    proof (cases "covered x'")
+      case True
+      with reachability_compatible \<open>Q x'\<close> obtain t where "SE x' t" "G.reachable t"
+        by fastforce
+      then show ?thesis
+        using subsumption
+        by - (rule disjI2, auto dest: simulation_reaches simp: Graph_Start_Defs.reachable_def)
+    next
+      case False
+      with reachability_compatible \<open>Q x'\<close> have "\<forall>s'. x' \<rightarrow> s' \<longrightarrow> RE x' s'"
+        by auto
+      then show ?thesis
+        unfolding close_def using closure_eq[OF _ _ _ \<open>P x'\<close>] by - (rule disjI1, force)
+    qed
+  }
+  then show ?case
+    by (intro allI impI)
+next
+  case 3
+  then show ?case
+    using subgraph by auto
+next
+  case 4
+  have "{a. Graph_Start_Defs.reachable (close RE) (closure s\<^sub>0) a} \<subseteq> closure ` UNIV"
+    by (smt Graph_Start_Defs.reachable_induct close_def full_SetCompr_eq mem_Collect_eq subsetI)
+  also have "finite \<dots>"
+    by (rule finite_closure)
+  finally show ?case .
+qed
+
+end (* Reachability Compatible Subsumption Graph Closure View *)
+
 locale Reachability_Compatible_Subsumption_Graph_Final = Reachability_Compatible_Subsumption_Graph +
   fixes F :: "'a \<Rightarrow> bool" -- \<open>Final states\<close>
   assumes F_mono[intro]: "F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> F b"

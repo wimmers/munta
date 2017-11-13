@@ -4,7 +4,195 @@ begin
 
 section \<open>Instantiation of Simulation Locales\<close>
 
+inductive step_trans ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) cval \<Rightarrow> (('c, 't) cconstraint \<times> 'a \<times> 'c list)
+  \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
+("_ \<turnstile>\<^sub>t \<langle>_, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  "\<lbrakk>A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'; u \<turnstile> g; u' \<turnstile> inv_of A l'; u' = [r \<rightarrow> 0]u\<rbrakk>
+  \<Longrightarrow> (A \<turnstile>\<^sub>t \<langle>l, u\<rangle> \<rightarrow>\<^bsub>(g,a,r)\<^esub> \<langle>l', u'\<rangle>)"
+
+inductive step_trans' ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) cval \<Rightarrow> ('c, 't) cconstraint \<times> 'a \<times> 'c list
+  \<Rightarrow> 's \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
+("_ \<turnstile>' \<langle>_, _\<rangle> \<rightarrow>\<^bsup>_\<^esup> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+where
+  step': "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u'\<rangle> \<Longrightarrow> A \<turnstile>\<^sub>t \<langle>l', u'\<rangle> \<rightarrow>\<^bsub>t\<^esub> \<langle>l'', u''\<rangle> \<Longrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l'', u''\<rangle>"
+
+inductive step_trans_z ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone
+  \<Rightarrow> (('c, 't) cconstraint \<times> 'a \<times> 'c list) action \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsup>_\<^esup> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+where
+  step_trans_t_z:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l, Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}\<rangle>" |
+  step_trans_a_z:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>(g,a,r)\<^esup> \<langle>l', zone_set (Z \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'}\<rangle>"
+  if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+
+inductive step_trans_z' ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> ('c, ('t::time)) zone \<Rightarrow> (('c, 't) cconstraint \<times> 'a \<times> 'c list)
+  \<Rightarrow> 's \<Rightarrow> ('c, 't) zone \<Rightarrow> bool"
+("_ \<turnstile>' \<langle>_, _\<rangle> \<leadsto>\<^bsup>_\<^esup> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+where
+  step_trans_z':
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l, Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l, Z'\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>t\<^esup> \<langle>l', Z''\<rangle> \<Longrightarrow> A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z''\<rangle>"
+
+lemmas [intro] =
+  step_trans.intros
+  step_trans'.intros
+  step_trans_z.intros
+  step_trans_z'.intros
+
+context
+  notes [elim!]  =
+    step.cases step_t.cases
+    step_trans.cases step_trans'.cases step_trans_z.cases step_trans_z'.cases
+begin
+
+lemma step_trans_t_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z. \<exists> d.  A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l',u'\<rangle>"
+  by (auto 4 5 simp: zone_delay_def zone_set_def)
+
+lemma step_trans_a_z_sound:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>t\<^esup> \<langle>l',Z'\<rangle> \<Longrightarrow> \<forall> u' \<in> Z'. \<exists> u \<in> Z. \<exists> d.  A \<turnstile>\<^sub>t \<langle>l, u\<rangle> \<rightarrow>\<^bsub>t\<^esub> \<langle>l',u'\<rangle>"
+  by (auto 4 4 simp: zone_delay_def zone_set_def)
+
+lemma step_trans_a_z_complete:
+  "A \<turnstile>\<^sub>t \<langle>l, u\<rangle> \<rightarrow>\<^bsub>t\<^esub> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>t\<^esup> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
+
+lemma step_trans_t_z_complete:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
+
+lemma step_trans_t_z_iff:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l', Z'\<rangle> = A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle>"
+  by auto
+
+lemma step_z_complete:
+  "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z' t. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
+  by (auto 4 4 simp: zone_delay_def zone_set_def elim!: step_a.cases)
+
+lemma step_trans_a_z_exact:
+  "u' \<in> Z'" if "A \<turnstile>\<^sub>t \<langle>l, u\<rangle> \<rightarrow>\<^bsub>t\<^esub> \<langle>l', u'\<rangle>" "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>t\<^esup> \<langle>l', Z'\<rangle>" "u \<in> Z"
+  using that by (auto 4 4 simp: zone_delay_def zone_set_def)
+
+lemma step_trans_t_z_exact:
+  "u' \<in> Z'" if "A \<turnstile> \<langle>l, u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u'\<rangle>" "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l', Z'\<rangle>" "u \<in> Z"
+  using that by (auto simp: zone_delay_def)
+
+lemma step_trans_z'_exact:
+  "u' \<in> Z'" if "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l', u'\<rangle>" "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z'\<rangle>" "u \<in> Z"
+  using that by (auto 4 4 simp: zone_delay_def zone_set_def)
+
+lemma step_trans_z_step_z_action:
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',Z'\<rangle>" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>(g,a,r)\<^esup> \<langle>l', Z'\<rangle>"
+  using that by auto
+
+lemma step_trans_z_step_z:
+  "\<exists> a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle>" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z'\<rangle>"
+  using that by auto
+
+lemma step_z_step_trans_z_action:
+  "\<exists> g r. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>(g,a,r)\<^esup> \<langle>l', Z'\<rangle>" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',Z'\<rangle>"
+  using that by (auto 4 4)
+
+lemma step_z_step_trans_z:
+  "\<exists> t. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z'\<rangle>" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle>"
+  using that by cases auto
+
+end (* Automation *)
+
+lemma step_z'_step_trans_z':
+  "\<exists> t. A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z''\<rangle>" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z''\<rangle>"
+  using that unfolding step_z'_def
+  by (auto dest!: step_z_step_trans_z_action simp: step_trans_t_z_iff[symmetric])
+
+lemma step_trans_z'_step_z':
+  "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z''\<rangle>" if "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z''\<rangle>"
+  using that unfolding step_z'_def
+  by (auto elim!: step_trans_z'.cases dest!: step_trans_z_step_z_action simp: step_trans_t_z_iff)
+
+lemma step_trans_z_determ:
+  "Z1 = Z2" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z1\<rangle>" "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z2\<rangle>"
+  using that by (auto elim!: step_trans_z.cases)
+
+lemma step_trans_z'_determ:
+  "Z1 = Z2" if "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z1\<rangle>" "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z2\<rangle>"
+  using that by (auto elim!: step_trans_z'.cases step_trans_z.cases)
+
+lemma (in Alpha_defs) step_trans_z_V: "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l',Z'\<rangle> \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> Z' \<subseteq> V"
+  by (induction rule: step_trans_z.induct; blast intro!: reset_V le_infI1 up_V)
+
 subsection \<open>Additional Lemmas on Regions\<close>
+
+context AlphaClosure
+begin
+
+inductive step_trans_r ::
+  "('a, 'c, t, 's) ta \<Rightarrow> _ \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> (('c, t) cconstraint \<times> 'a \<times> 'c list) action
+  \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
+("_,_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsup>_\<^esup> \<langle>_, _\<rangle>" [61,61,61,61,61] 61)
+where
+  step_trans_t_r:
+  "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l,R'\<rangle>" if
+  "valid_abstraction A X (\<lambda> x. real o k x)" "R \<in> \<R> l" "R' \<in> Succ (\<R> l) R" "R' \<subseteq> \<lbrace>inv_of A l\<rbrace>" |
+  step_trans_a_r:
+  "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>(g,a,r)\<^esup> \<langle>l', R'\<rangle>" if
+  "valid_abstraction A X (\<lambda> x. real o k x)" "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "R \<in> \<R> l"
+  "R \<subseteq> \<lbrace>g\<rbrace>" "region_set' R r 0 \<subseteq> R'" "R' \<subseteq> \<lbrace>inv_of A l'\<rbrace>" "R' \<in> \<R> l'"
+
+lemmas [intro] = step_trans_r.intros
+
+lemma step_trans_t_r_iff[simp]:
+  "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l',R'\<rangle> = A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l',R'\<rangle>"
+  by (auto elim!: step_trans_r.cases)
+
+lemma step_trans_r_step_r_action:
+  "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',R'\<rangle>" if "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>(g,a,r)\<^esup> \<langle>l',R'\<rangle>"
+  using that by (auto elim: step_trans_r.cases)
+
+lemma step_r_step_trans_r_action:
+  "\<exists> g r. A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>(g,a,r)\<^esup> \<langle>l',R'\<rangle>" if "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l',R'\<rangle>"
+  using that by (auto elim: step_trans_r.cases)
+
+inductive step_trans_r' ::
+  "('a, 'c, t, 's) ta \<Rightarrow> _ \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> ('c, t) cconstraint \<times> 'a \<times> 'c list
+  \<Rightarrow> 's \<Rightarrow> ('c, t) zone \<Rightarrow> bool"
+("_,_ \<turnstile>' \<langle>_, _\<rangle> \<leadsto>\<^bsup>_\<^esup> \<langle>_, _\<rangle>" [61,61,61,61,61] 61)
+where
+  "A,\<R> \<turnstile>' \<langle>l,R\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l',R''\<rangle>" if "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l,R'\<rangle>" "A,\<R> \<turnstile> \<langle>l,R'\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>t\<^esup> \<langle>l', R''\<rangle>"
+
+lemma step_trans_r'_step_r':
+  "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^sub>a \<langle>l',R'\<rangle>" if "A,\<R> \<turnstile>' \<langle>l,R\<rangle> \<leadsto>\<^bsup>(g,a,r)\<^esup> \<langle>l',R'\<rangle>"
+  using that by cases (auto dest: step_trans_r_step_r_action intro!: step_r'.intros)
+
+lemma step_r'_step_trans_r':
+  "\<exists> g r. A,\<R> \<turnstile>' \<langle>l,R\<rangle> \<leadsto>\<^bsup>(g,a,r)\<^esup> \<langle>l',R'\<rangle>" if "A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^sub>a \<langle>l',R'\<rangle>"
+  using that by cases (auto dest: step_r_step_trans_r_action intro!: step_trans_r'.intros)
+
+lemma step_trans_a_r_sound:
+  assumes "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>a\<^esup> \<langle>l',R'\<rangle>"
+  shows "\<forall> u \<in> R. \<exists> u' \<in> R'. A \<turnstile>\<^sub>t \<langle>l, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>l',u'\<rangle>"
+using assms proof cases
+  case A: (step_trans_a_r g a r)
+  show ?thesis
+  unfolding A(1) proof
+    fix u assume "u \<in> R"
+    from \<open>u \<in> R\<close> A have "u \<turnstile> g" "[r\<rightarrow>0]u \<turnstile> inv_of A l'" "[r\<rightarrow>0]u \<in> R'"
+      unfolding region_set'_def ccval_def by auto
+    with A show "\<exists>u'\<in>R'. A \<turnstile>\<^sub>t \<langle>l, u\<rangle> \<rightarrow>\<^bsub>(g,a,r)\<^esub> \<langle>l',u'\<rangle>"
+      by auto
+  qed
+qed
+
+lemma step_trans_r'_sound:
+  assumes "A,\<R> \<turnstile>' \<langle>l, R\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', R'\<rangle>"
+  shows "\<forall>u\<in>R. \<exists>u'\<in>R'. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l', u'\<rangle>"
+  using assms by cases (auto 6 0 dest!: step_trans_a_r_sound step_t_r_sound)
+
+end (* Alpha Closure *)
 
 context AlphaClosure
 begin
@@ -20,12 +208,12 @@ lemma [simp]: "alpha.cla = cla l" unfolding alpha.cla_def cla_def ..
 interpretation alpha': AlphaClosure_global _ "k l'" "\<R> l'" by standard (rule finite)
 lemma [simp]: "alpha'.cla = cla l'" unfolding alpha'.cla_def cla_def ..
 
-lemma regions_poststable':
+lemma regions_poststable1:
   assumes
-    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle>" "Z \<subseteq> V" "R' \<in> \<R> l'" "R' \<inter> Z' \<noteq> {}"
-  shows "\<exists> R \<in> \<R> l. A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',R'\<rangle> \<and> R \<inter> Z \<noteq> {}"
-using assms proof (induction A \<equiv> A l \<equiv> l _ _ l' \<equiv> l' _rule: step_z.induct)
-  case A: (step_t_z Z)
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsup>a\<^esup> \<langle>l',Z'\<rangle>" "Z \<subseteq> V" "R' \<in> \<R> l'" "R' \<inter> Z' \<noteq> {}"
+  shows "\<exists> R \<in> \<R> l. A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsup>a\<^esup> \<langle>l',R'\<rangle> \<and> R \<inter> Z \<noteq> {}"
+using assms proof (induction A \<equiv> A l \<equiv> l _ _ l' \<equiv> l' _rule: step_trans_z.induct)
+  case A: (step_trans_t_z Z)
   from \<open>R' \<inter> (Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}) \<noteq> {}\<close> obtain u d where u:
     "u \<in> Z" "u \<oplus> d \<in> R'" "u \<oplus> d \<turnstile> inv_of A l" "0 \<le> d"
     unfolding zone_delay_def by blast+
@@ -55,7 +243,7 @@ using assms proof (induction A \<equiv> A l \<equiv> l _ _ l' \<equiv> l' _rule:
     by (auto simp: comp_def \<open>[u \<oplus> d]\<^sub>l = R'\<close> \<open>_ = R\<close>)
   with \<open>l = l'\<close> \<open>R \<in> _\<close> \<open>u \<in> R\<close> \<open>u \<in> Z\<close> show ?case by - (rule bexI[where x = R]; auto)
 next
-  case A: (step_a_z g a r Z)
+  case A: (step_trans_a_z g a r Z)
   from A(4) obtain u v' where
     "u \<in> Z" and v': "v' = [r\<rightarrow>0]u" "u \<turnstile> g" "v' \<turnstile> inv_of A l'" "v' \<in> R'"
     unfolding zone_set_def by blast
@@ -98,13 +286,40 @@ next
   from alpha'.valid_regions_distinct_spec[OF *(3) \<open>R' \<in> \<R> l'\<close> \<open>v' \<in> [[r\<rightarrow>0]u]\<^sub>l'\<close> \<open>v' \<in> R'\<close>]
   have "[[r\<rightarrow>0]u]\<^sub>l' = R'" .
   from alpha.region_unique_spec[OF u'(1,3)] have "[u]\<^sub>l = R" by auto
-  from A valid_abstraction \<open>R \<in> _\<close> * have "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', R'\<rangle>"
+  from A valid_abstraction \<open>R \<in> _\<close> * have "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>(g,a,r)\<^esup> \<langle>l', R'\<rangle>"
     by (auto simp: comp_def \<open>_ = R'\<close> \<open>_ = R\<close>)
   with \<open>R \<in> _\<close> \<open>u \<in> R\<close> \<open>u \<in> Z\<close> show ?case by - (rule bexI[where x = R]; auto)
 qed
 
+lemma regions_poststable':
+  assumes
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',Z'\<rangle>" "Z \<subseteq> V" "R' \<in> \<R> l'" "R' \<inter> Z' \<noteq> {}"
+  shows "\<exists> R \<in> \<R> l. A,\<R> \<turnstile> \<langle>l,R\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',R'\<rangle> \<and> R \<inter> Z \<noteq> {}"
+  using assms
+  by (cases a)
+     (auto dest!: regions_poststable1 dest: step_trans_r_step_r_action step_z_step_trans_z_action
+           simp: step_trans_t_z_iff[symmetric]
+     )
+
 end (* End of context for fixed locations *)
 
+lemma regions_poststable2:
+  assumes valid_abstraction: "valid_abstraction A X k"
+  and prems: "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>a\<^esup> \<langle>l',Z'\<rangle>" "Z \<subseteq> V" "R' \<in> \<R> l'" "R' \<inter> Z' \<noteq> {}"
+    shows "\<exists> R \<in> \<R> l. A,\<R> \<turnstile>' \<langle>l,R\<rangle> \<leadsto>\<^bsup>a\<^esup> \<langle>l',R'\<rangle> \<and> R \<inter> Z \<noteq> {}"
+using prems(1) proof (cases)
+  case steps: (step_trans_z' Z1)
+  with prems have "Z1 \<subseteq> V"
+    by (blast dest: step_trans_z_V)
+  from regions_poststable1[OF valid_abstraction steps(2) \<open>Z1 \<subseteq> V\<close> prems(3,4)] obtain R1 where R1:
+    "R1 \<in> \<R> l" "A,\<R> \<turnstile> \<langle>l, R1\<rangle> \<leadsto>\<^bsup>\<upharpoonleft>a\<^esup> \<langle>l', R'\<rangle>" "R1 \<inter> Z1 \<noteq> {}"
+    by auto
+  from regions_poststable1[OF valid_abstraction steps(1) \<open>Z \<subseteq> V\<close> R1(1,3)] obtain R where
+    "R\<in>\<R> l" "A,\<R> \<turnstile> \<langle>l, R\<rangle> \<leadsto>\<^bsup>\<tau>\<^esup> \<langle>l, R1\<rangle>" "R \<inter> Z \<noteq> {}"
+    by auto
+  with R1(2) show ?thesis
+    by (auto intro: step_trans_r'.intros)
+qed
 
 text \<open>
   Poststability of Closures:
@@ -261,6 +476,57 @@ proof -
 qed
 
 lemmas step_z_beta'_V' = step_z_beta'_V'[OF valid_abstraction clock_numbering_le]
+
+lemma step_trans_z'_closure_subs:
+  assumes
+    "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z'\<rangle>" "Z \<subseteq> V" "\<forall> R \<in> \<R> l. R \<inter> Z \<noteq> {} \<longrightarrow> R \<inter> W \<noteq> {}"
+  shows
+    "\<exists> W'. A \<turnstile>' \<langle>l, W\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', W'\<rangle> \<and> (\<forall> R \<in> \<R> l'. R \<inter> Z' \<noteq> {} \<longrightarrow> R \<inter> W' \<noteq> {})"
+proof -
+  from assms(1) obtain W' where step: "A \<turnstile>' \<langle>l, W\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', W'\<rangle>"
+    by (auto elim!: step_trans_z.cases step_trans_z'.cases)
+  have "R' \<inter> W' \<noteq> {}" if "R' \<in> \<R> l'" "R' \<inter> Z' \<noteq> {}" for R'
+  proof -
+    from regions_poststable2[OF valid_abstraction assms(1) _ that] \<open>Z \<subseteq> V\<close> obtain R where R:
+      "R\<in>\<R> l" "A,\<R> \<turnstile>' \<langle>l, R\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', R'\<rangle>" "R \<inter> Z \<noteq> {}"
+      by auto
+    with assms(3) obtain u where "u \<in> R" "u \<in> W"
+      by auto
+    with step_trans_r'_sound[OF R(2)] obtain u' where "u' \<in> R'" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l', u'\<rangle>"
+      by auto
+    with step_trans_z'_exact[OF this(2) step \<open>u \<in> W\<close>] show ?thesis
+      by auto
+  qed
+  with step show ?thesis
+    by auto
+qed
+
+lemma step_trans_z'_closure_eq:
+  assumes
+    "A \<turnstile>' \<langle>l, Z\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', Z'\<rangle>" "Z \<subseteq> V" "W \<subseteq> V" "\<forall> R \<in> \<R> l. R \<inter> Z \<noteq> {} \<longleftrightarrow> R \<inter> W \<noteq> {}"
+  shows
+    "\<exists> W'. A \<turnstile>' \<langle>l, W\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', W'\<rangle> \<and> (\<forall> R \<in> \<R> l'. R \<inter> Z' \<noteq> {} \<longleftrightarrow> R \<inter> W' \<noteq> {})"
+proof -
+  from assms(4) have *:
+    "\<forall> R \<in> \<R> l. R \<inter> Z \<noteq> {} \<longrightarrow> R \<inter> W \<noteq> {}" "\<forall> R \<in> \<R> l. R \<inter> W \<noteq> {} \<longrightarrow> R \<inter> Z \<noteq> {}"
+    by auto
+  from step_trans_z'_closure_subs[OF assms(1,2) *(1)] obtain W' where W':
+    "A \<turnstile>' \<langle>l, W\<rangle> \<leadsto>\<^bsup>t\<^esup> \<langle>l', W'\<rangle>" "(\<forall>R\<in>\<R> l'. R \<inter> Z' \<noteq> {} \<longrightarrow> R \<inter> W' \<noteq> {})"
+    by auto
+  with step_trans_z'_closure_subs[OF W'(1) \<open>W \<subseteq> V\<close> *(2)] assms(1) show ?thesis
+    by (fastforce dest: step_trans_z'_determ)
+qed
+
+lemma step_z'_closure_subs:
+  assumes 
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "Z \<subseteq> V" "\<forall> R \<in> \<R> l. R \<inter> Z \<noteq> {} \<longrightarrow> R \<inter> W \<noteq> {}"
+  shows
+    "\<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<leadsto> \<langle>l', W'\<rangle> \<and> (\<forall> R \<in> \<R> l'. R \<inter> Z' \<noteq> {} \<longrightarrow> R \<inter> W' \<noteq> {})"
+  using assms(1)
+  by (auto
+      dest: step_trans_z'_step_z'
+      dest!: step_z'_step_trans_z' step_trans_z'_closure_subs[OF _ assms(2,3)]
+     )
 
 end (* Context for automaton *)
 
@@ -433,7 +699,7 @@ proof (standard, goal_cases)
   then show ?case
     by (force dest: step_z_beta'_complete[rotated 2, OF V'_V])
 next
-  case 2
+  case 4
   -- Finiteness
   (* XXX *)
   have *: "Z \<in> V'" if "A \<turnstile> \<langle>l\<^sub>0, Z\<^sub>0\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l, Z\<rangle>" for l Z
@@ -467,11 +733,11 @@ next
   finally show ?case
     by simp
 next
-  case prems: (3 a a')
+  case prems: (2 a a')
   then show ?case
     by (auto intro: step_z_beta'_V' step_z_beta'_state_set2)
 next
-  case 4
+  case 3
   from start_state show ?case unfolding a\<^sub>0_def by (auto simp: from_R_fst)
 qed
 

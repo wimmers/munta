@@ -812,5 +812,11 @@ proof -
   ultimately show ?thesis ..
 qed
 
+section \<open>Products\<close>
+
+lemma prod_set_fst_id:
+  "x = y" if "\<forall> a \<in> x. fst a = b" "\<forall> a \<in> y. fst a = b" "snd ` x = snd ` y"
+  using that by (auto 4 6 simp: fst_def snd_def image_def split: prod.splits)
+
 end
 (*>*)
