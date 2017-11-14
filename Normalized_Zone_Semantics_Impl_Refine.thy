@@ -818,11 +818,6 @@ begin
         ])
     using that precond_a\<^sub>0 by (auto simp: a\<^sub>0_def)
 
-  (* XXX Move *)
-  lemma (in Subgraph_Start) reachable:
-    "G.reachable x" if "G'.reachable x"
-    using that unfolding G.reachable_def G'.reachable_def by (rule reaches)
-
   context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
     assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"

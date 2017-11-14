@@ -557,11 +557,13 @@ locale Subgraph_Start = Subgraph_Start_Defs + Subgraph
 begin
 
 lemma reachable_subgraph[intro]: "G.reachable b" if \<open>G.reachable a\<close> \<open>G'.reaches a b\<close> for a b
-  using that
-  by (auto 4 3 intro: G.graph_startI mono_rtranclp[rule_format, of E'])
+  using that by (auto intro: G.graph_startI mono_rtranclp[rule_format, of E'])
+
+lemma reachable:
+  "G.reachable x" if "G'.reachable x"
+  using that by (fastforce simp: G.reachable_def G'.reachable_def)
 
 end (* Subgraph Start *)
-
 
 subsection \<open>Node-induced Subgraphs\<close>
 
