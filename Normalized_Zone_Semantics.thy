@@ -511,22 +511,22 @@ lemma bisim:
   (\<lambda> (l, Z) (l', D). l = l' \<and> Z = [D]\<^bsub>v,n\<^esub>)
   (\<lambda> _. True) (\<lambda> (l, D). valid_dbm D)"
 proof (standard, goal_cases)
-  -- \<open>\<beta> \<Rightarrow> \<N>\<close>
+  -- \<open>\<open>\<beta> \<Rightarrow> \<N>\<close>\<close>
   case (1 a b a')
   then show ?case
     by (blast elim: norm_beta_complete1)
 next
-  -- \<open>\<N> \<Rightarrow> \<beta>\<close>
+  -- \<open>\<open>\<N> \<Rightarrow> \<beta>\<close>\<close>
   case (2 a a' b')
   then show ?case
     by (blast intro: norm_beta_sound'')
 next
-  -- \<open>\<beta> invariant\<close>
+  -- \<open>\<open>\<beta>\<close> invariant\<close>
   case (3 a b)
   then show ?case
     by simp
 next
-  -- \<open>\<N> invariant\<close>
+  -- \<open>\<open>\<N>\<close> invariant\<close>
   case (4 a b)
   then show ?case
     unfolding step_z_norm''_def

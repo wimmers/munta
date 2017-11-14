@@ -105,29 +105,31 @@ lemma is_run_from_locs:
   subgoal for xs ts
     by (inst_existentials "stl xs" "stl ts") (auto elim: is_run_from.cases)
   done
+term "(\<lambda> (l, g, a, r, l') (_, u). (l', SOME u'. A \<turnstile> u \<rightarrow>\<^bsub>(l, g, a, r, l')\<^esub> u'))"
+term "sscan"
+definition
+  "gen_run A xs x =
+    x ## sscan (\<lambda> (l, g, a, r, l') (_, u). (l', SOME u'. A \<turnstile> u \<rightarrow>\<^bsub>(l, g, a, r, l')\<^esub> u')) xs x"
 
 definition
-  "gen_run A = sgenerate (\<lambda> (_, u) (l, g, a, r, l'). (l', SOME u'. A \<turnstile> u \<rightarrow>\<^bsub>(l, g, a, r, l')\<^esub> u'))"
-
-definition
-  "gen_zrun A =
-  sgenerate (
-    \<lambda> (_, Z) (l, g, a, r, l').
+  "gen_zrun A xs x = x ##
+  sscan (
+    \<lambda> (l, g, a, r, l') (_, Z).
       (l', zone_set ((Z\<^sup>\<up> \<inter> {u. u \<turnstile> inv_of A l}) \<inter> {u. u \<turnstile> g}) r \<inter> {u. u \<turnstile> inv_of A l'})
-  )"
+  ) xs x"
 
 lemma is_run_from_is_zrun:
-  "is_run_from A ((l, u) ## xs) ts \<Longrightarrow> u \<in> Z \<Longrightarrow> is_zrun A (gen_zrun A (l, Z) ts)"
+  "is_run_from A ((l, u) ## xs) ts \<Longrightarrow> u \<in> Z \<Longrightarrow> is_zrun A (gen_zrun A ts (l, Z))"
 proof (coinduction arbitrary: l u Z ts xs)
   case prems: is_zrun
   from is_run_from.cases[OF prems(1)] guess u l g a1 r l2 u2 xs1 ts'
     .
   note guessed = this
   then obtain l' Z' l'' Z'' xs' a where
-    "gen_zrun A (l, Z) ts = (l, Z) ## (l'', Z'') ## xs'"
+    "gen_zrun A ts (l, Z) = (l, Z) ## (l'', Z'') ## xs'"
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle>"
     "A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle>"
-    "(l'', Z'') ## xs' = gen_zrun A (l'', Z'') (stl ts)"
+    "(l'', Z'') ## xs' = gen_zrun A (stl ts) (l'', Z'')"
     "Z'' = zone_step A (l, g, a1, r, l2) Z"
     "l2 = l''"
     apply atomize_elim
@@ -144,16 +146,16 @@ qed
 
 lemma is_run_from_abstract:
   "is_run_from A ((l, u) ## xs) ts \<Longrightarrow> u \<in> Z
-  \<Longrightarrow> stream_all2 (\<lambda> (l, u) (l', Z). l = l' \<and> u \<in> Z) ((l, u) ## xs) (gen_zrun A (l, Z) ts)"
+  \<Longrightarrow> stream_all2 (\<lambda> (l, u) (l', Z). l = l' \<and> u \<in> Z) ((l, u) ## xs) (gen_zrun A ts (l, Z))"
 proof (coinduction arbitrary: l u Z ts xs rule: stream.rel_coinduct)
   case prems: Eq_stream
   from is_run_from.cases[OF prems(1)] guess u l g a1 r l2 u2 xs1 ts' .
   note guessed = this
   then obtain l' Z' l'' Z'' xs' a where
-    "gen_zrun A (l, Z) ts = (l, Z) ## (l'', Z'') ## xs'"
+    "gen_zrun A ts (l, Z) = (l, Z) ## (l'', Z'') ## xs'"
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle>"
     "A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle>"
-    "(l'', Z'') ## xs' = gen_zrun A (l'', Z'') (stl ts)"
+    "(l'', Z'') ## xs' = gen_zrun A (stl ts) (l'', Z'')"
     "Z'' = zone_step A (l, g, a1, r, l2) Z"
     "l2 = l''"
     apply atomize_elim
@@ -167,13 +169,6 @@ proof (coinduction arbitrary: l u Z ts xs rule: stream.rel_coinduct)
     apply (inst_existentials l' Z' a l'' Z'' xs')
     by (fastforce dest: step_from_complete)+
 qed
-
-lemma is_zrun_from_is_run:
-  "is_zrun_from A ((l, Z) ## xs) ts \<Longrightarrow> stream_all (\<lambda> (l, Z). Z \<noteq> {}) ((l, Z) ## xs)
-  \<Longrightarrow> u \<in> Z \<Longrightarrow> is_run A (gen_run A (l, u) ts)"
-  oops
-
-
 
 locale Zone_Step_Defs =
   fixes A :: "('a, 'c, 't :: time, 's) ta"
@@ -210,13 +205,13 @@ begin
 
 lemma is_zrun_from_transitions:
   assumes "is_zrun_from xs ts"
-  shows "stream_all (\<lambda> (l, g, a, r, l'). A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l') ts"
-using assms by (coinduction arbitrary: xs ts) (auto 4 3 elim: stepz_from.cases is_zrun_from.cases)
+  shows "pred_stream (\<lambda> (l, g, a, r, l'). A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l') ts"
+  using assms by (coinduction arbitrary: xs ts) (auto elim: stepz_from.cases is_zrun_from.cases)
 
 lemma is_zrun_from_reachable':
   assumes "is_zrun_from ((l, Z) ## xs) ts" "(\<lambda> Z Z'. \<exists> t. Z \<leadsto>\<^bsub>t\<^esub> Z')\<^sup>*\<^sup>* Z\<^sub>0 Z"
   shows
-    "stream_all (\<lambda> (l', Z). (\<lambda> Z Z'. \<exists> t. Z \<leadsto>\<^bsub>t\<^esub> Z')\<^sup>*\<^sup>* Z\<^sub>0 Z \<and> (\<exists> l g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l')) xs"
+    "pred_stream (\<lambda> (l', Z). (\<lambda> Z Z'. \<exists> t. Z \<leadsto>\<^bsub>t\<^esub> Z')\<^sup>*\<^sup>* Z\<^sub>0 Z \<and> (\<exists> l g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l')) xs"
   using assms
   by (coinduction arbitrary: l Z xs ts)
      (force elim: is_zrun_from.cases stepz_from.cases intro: rtranclp.intros(2)) (* Slow *)
@@ -224,7 +219,7 @@ lemma is_zrun_from_reachable':
 lemma is_zrun_from_reachable:
   assumes "is_zrun_from ((l\<^sub>0, Z\<^sub>0) ## xs) ts"
   shows
-    "stream_all (\<lambda> (l', Z). (\<lambda> Z Z'. \<exists> t. Z \<leadsto>\<^bsub>t\<^esub> Z')\<^sup>*\<^sup>* Z\<^sub>0 Z \<and> (\<exists> l g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l')) xs"
+    "pred_stream (\<lambda> (l', Z). (\<lambda> Z Z'. \<exists> t. Z \<leadsto>\<^bsub>t\<^esub> Z')\<^sup>*\<^sup>* Z\<^sub>0 Z \<and> (\<exists> l g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l')) xs"
   by (rule is_zrun_from_reachable'[OF assms]) blast
 
 lemma is_zrun_from_finite_state_set:
@@ -232,7 +227,7 @@ lemma is_zrun_from_finite_state_set:
   shows "finite (sset ((l\<^sub>0, Z\<^sub>0) ## xs))"
 proof -
   let ?S = "{(l', Z). (\<lambda> Z Z'. \<exists> t. Z \<leadsto>\<^bsub>t\<^esub> Z')\<^sup>*\<^sup>* Z\<^sub>0 Z \<and> (\<exists> l g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l')}"
-  from is_zrun_from_reachable[OF assms] have "sset xs \<subseteq> ?S" unfolding stream_all_iff by auto
+  from is_zrun_from_reachable[OF assms] have "sset xs \<subseteq> ?S" unfolding stream.pred_set by auto
   moreover have "finite ?S"
     using finite_reachable finite_transitions [[simproc add: finite_Collect]] by auto
   ultimately show ?thesis by (auto intro: finite_subset)
@@ -334,7 +329,9 @@ lemma is_zrun_from_finite_state_set_cycle:
   \<and> set ys \<union> set zs \<subseteq> {(l\<^sub>0, Z\<^sub>0)} \<union> sset xs \<and> sset ts' \<subseteq> sset ts"
 proof -
   from is_zrun_from_finite_state_set[OF assms] have "finite (sset ((l\<^sub>0, Z\<^sub>0) ## xs))" .
-  from finite_sset_decomp[OF this] guess x ws ys zs .
+  then have "\<not> sdistinct ((l\<^sub>0, Z\<^sub>0) ## xs)"
+    by (auto dest: sdistinct_infinite_sset)
+  from not_sdistinct_decomp[OF this] guess ws ys x zs .
   then have decomp: "(l\<^sub>0, Z\<^sub>0) ## xs = (ws @ [x]) @- ys @- x ## zs"
     by simp
   then have *: "(l\<^sub>0, Z\<^sub>0) ## tl (ws @ [x]) @- xs = (ws @ [x]) @- xs" for xs
@@ -385,8 +382,8 @@ proof -
       moreover have
         "shd ts ## stake (length ws) (stl ts) @- cycle (ts' @ [(l, g, a, r, l')])
        = stake (length ws) ts @- (l, g, a, r, l') ## cycle (ts' @ [(l, g, a, r, l')])"
-        unfolding \<open>ts !! _ = _\<close>[symmetric] append_single_shift[symmetric] stake_Suc[symmetric]
-        by simp
+        unfolding \<open>ts !! _ = _\<close>[symmetric]  stake_Suc[symmetric] using stake_Suc[of "length ws" ts]
+        by simp (metis (no_types) scons_eq_shift shift.simps(1) shift_append)
       ultimately show ?thesis using prems by simp
     qed
     done
@@ -403,7 +400,7 @@ proof -
         Cons_eq_append_conv decomp_first(3,4,6) fst_conv hd_append2 list.sel(1) snth_sset
         stream.sel(1)
         )
-    using set_sset_stake[of "length ws"] sset_sdrop \<open>set ts' \<subseteq> _\<close> by (force intro: stl_sset)+
+    using set_sset_stake[of "length ws"] sset_sdrop \<open>set ts' \<subseteq> _\<close> by - (rule stl_sset, fastforce)+
 qed
 
 paragraph \<open>Cycles in the Simulation Graph Contain Pre-stable Cycles\<close>

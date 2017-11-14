@@ -2141,11 +2141,11 @@ proof (standard, goal_cases)
     unfolding A2'_def P2'_def using from_R_fst
     by (clarify; cases x; cases y; simp; fastforce dest!: complete[of _ _ _ _ "R_of S"])
 next
-  case prems: (2 a a') -- P2_invariant
+  case prems: (2 a a') -- \<open>P2 invariant\<close>
   then show ?case
     by (meson A2'_def P2'_def P2_invariant)
 next
-  case prems: 3 -- P2_start
+  case prems: 3 -- \<open>P2 start\<close>
   then show ?case
     using P2'_def P2_a\<^sub>0' from_R_fst by fastforce
 qed
@@ -2164,7 +2164,7 @@ interpretation Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = from_R l Z
 
 sublocale Double_Simulation_Finite_Complete C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0"
 proof (standard, goal_cases)
-  case prems: 1 -- finite_abstract_reachable
+  case prems: 1 -- \<open>The set of abstract reachable states is finite.\<close>
   have *: "\<exists> l. x = from_R l (R_of x) \<and> A2\<^sup>*\<^sup>* (l\<^sub>0, a\<^sub>0) (l, R_of x)"
     if "sim.Steps.reaches (from_R l\<^sub>0 a\<^sub>0) x" for x
     using bisim.B_A_reaches[OF that, of "(l\<^sub>0, a\<^sub>0)"] P2_a\<^sub>0' P2'_def equiv'_def from_R_fst by fastforce 
