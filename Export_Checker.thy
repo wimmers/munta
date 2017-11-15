@@ -97,7 +97,7 @@ export_code
   nat
   REACHABLE UNREACHABLE INIT_INV_ERR
   UPPAAL_Reachability_Problem_precompiled_defs.k
-  in SML_imp module_name Model_Checker
+  in SML module_name Model_Checker
   file "ML/UPPAAL_Model_Checker.sml"
 
 ML_file_debug "ML/UPPAAL_Model_Checker.sml"
