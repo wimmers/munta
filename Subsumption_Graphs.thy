@@ -164,6 +164,19 @@ lemmas preorder_intros = order_trans less_trans less_imp_le
 
 end (* Subsumption Graph Pre Nodes *)
 
+text \<open>
+  This is sufficient to show that if \<open>\<rightarrow>\<^sub>G\<close> cannot reach an accepting state,
+  then \<open>\<rightarrow>\<close> cannot either.
+\<close>
+locale Reachability_Compatible_Subsumption_Graph_Pre =
+  Subsumption_Graph_Defs + preorder less_eq less +
+  assumes mono:
+    "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<or> G.reachable a \<Longrightarrow> reachable b \<or> G.reachable b
+    \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
+  assumes reachability_compatible:
+    "\<forall> s. G.reachable s \<longrightarrow> (\<forall> s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists> t. s \<prec> t \<and> G.reachable t)"
+  assumes finite_reachable: "finite {a. G.reachable a}"
+
 locale Reachability_Compatible_Subsumption_Graph = Subsumption_Graph_Defs + Subsumption_Graph_Pre +
   assumes reachability_compatible:
     "\<forall> s. G.reachable s \<longrightarrow> (\<forall> s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists> t. s \<prec> t \<and> G.reachable t)"
@@ -329,6 +342,64 @@ lemma G_G'_reachable_iff:
 end (* Automation *)
 
 end (* Subsumption Graph Defs *)
+
+
+context Reachability_Compatible_Subsumption_Graph_Pre
+begin
+
+lemmas preorder_intros = order_trans less_trans less_imp_le
+
+lemma G'_finite_reachable: "finite {a. G'.reachable a}"
+  by (blast intro: finite_subset[OF _ finite_reachable])
+
+lemma G_reachable_has_surrogate:
+  "\<exists> t. G.reachable t \<and> s \<preceq> t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')" if "G.reachable s"
+proof -
+  note [intro] = preorder_intros
+  from finite_reachable \<open>G.reachable s\<close> obtain x where
+    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "op \<prec>\<^sup>*\<^sup>* s x"
+    apply atomize_elim
+    apply (induction rule: rtranclp_ev_induct2)
+    using reachability_compatible by auto
+  moreover from \<open>op \<prec>\<^sup>*\<^sup>* s x\<close> have "s \<prec> x \<or> s = x"
+    by induction auto
+  ultimately show ?thesis
+    by auto
+qed
+
+lemma reachable_has_surrogate:
+  "\<exists> t. G.reachable t \<and> s \<preceq> t \<and> (\<forall> s'. E t s' \<longrightarrow> RE t s')" if "reachable s"
+  using that
+proof induction
+  case start
+  have "G.reachable s\<^sub>0"
+    by auto
+  then show ?case
+    by (rule G_reachable_has_surrogate)
+next
+  case (step a b)
+  then obtain t where *: "G.reachable t" "a \<preceq> t" "(\<forall>s'. t \<rightarrow> s' \<longrightarrow> t \<rightarrow>\<^sub>G s')"
+    by auto
+  from mono[OF \<open>a \<preceq> t\<close> \<open>a \<rightarrow> b\<close>] \<open>reachable a\<close> \<open>G.reachable t\<close> obtain b' where
+    "t \<rightarrow> b'" "b \<preceq> b'"
+    by auto
+  with G_reachable_has_surrogate[of b'] * show ?case
+    by (auto intro: preorder_intros G.reachable_step)
+qed
+
+context
+  fixes F :: "'a \<Rightarrow> bool" -- \<open>Final states\<close>
+  assumes F_mono[intro]: "F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> F b"
+begin
+
+corollary reachability_correct:
+  "\<nexists> s'. reachable s' \<and> F s'" if "\<nexists> s'. G.reachable s' \<and> F s'"
+  using that by (auto dest!: reachable_has_surrogate)
+
+end (* Context for property *)
+
+end (* Reachability Compatible Subsumption Graph Pre *)
+
 
 context Reachability_Compatible_Subsumption_Graph
 begin
