@@ -1589,6 +1589,6 @@ proof -
     by (sep_auto simp: reachability_checker_impl.refine[symmetric])
 qed
 
-export_code open check_and_verify checking SML_imp
+export_code open check_and_verify checking SML
 
 end (* End of theory *)
