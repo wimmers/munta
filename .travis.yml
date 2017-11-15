@@ -9,9 +9,9 @@ before_install:
   - sudo apt-get install texlive-latex-extra
 
 script:
-  - curl -Ls -o isabellectl https://dl.bintray.com/larsrh/libisabelle/nightly/isabellectl
+  - curl -Ls -o isabellectl https://home.in.tum.de/~hupel/bin/isabellectl
   - chmod +x isabellectl
-  - ./isabellectl --afp --version "2016-1" --verbose exec build -- -bv -d . -o timeout_scale=2 -o threads=2 "TA_Code"
+  - ./isabellectl --afp --version "2017" --verbose exec build -- -bv -d . -o timeout_scale=2 -o threads=2 "TA_Code"
 
 cache:
   directories:
