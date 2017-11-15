@@ -16,3 +16,7 @@ script:
 cache:
   directories:
     - $HOME/.local/share/libisabelle
+
+after_failure:
+  - echo "================== LATEX LOG =================="
+  - cat output/abstract_reachability/root.log
