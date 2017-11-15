@@ -2632,6 +2632,31 @@ end (* State *)
 
 end (* Double Simulation Finite Complete Bisim Cover paired *)
 
+paragraph \<open>
+  The second bisimulation property in prestable and complete simulation graphs.
+\<close>
+
+context Simulation_Graph_Complete_Prestable
+begin
+
+lemma C_A_bisim:
+  "Bisimulation_Invariant C A (\<lambda> x a. x \<in> a) (\<lambda>_. True) P"
+  by (standard; blast intro: complete dest: prestable)
+
+interpretation Bisimulation_Invariant C A "\<lambda> x a. x \<in> a" "\<lambda> _. True" P
+  by (rule C_A_bisim)
+
+lemma C_A_Leadsto_iff:
+  fixes \<phi> \<psi> :: "'a \<Rightarrow> bool"
+  assumes \<phi>_compatible: "\<And> x y a. \<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P a \<Longrightarrow> \<phi> y"
+      and \<psi>_compatible: "\<And> x y a. \<psi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P a \<Longrightarrow> \<psi> y"
+      and "x \<in> a" "P a"
+    shows "leadsto \<phi> \<psi> x = Steps.leadsto (\<lambda> a. \<forall> x \<in> a. \<phi> x) (\<lambda> a. \<forall> x \<in> a. \<psi> x) a"
+  by (rule Leadsto_iff)
+     (auto intro: \<phi>_compatible \<psi>_compatible simp: \<open>x \<in> a\<close> \<open>P a\<close> simulation.equiv'_def)
+
+end (* Simulation Graph Complete Prestable *)
+
 section \<open>Comments\<close>
 
 text \<open>
