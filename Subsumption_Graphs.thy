@@ -104,10 +104,9 @@ section \<open>Definitions\<close>
 locale Subsumption_Graph_Pre_Defs =
   ord less_eq less for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
   fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>The full edge set\<close>
-    and s\<^sub>0 :: 'a                 -- \<open>Start state\<close>
 begin
 
-sublocale Graph_Start_Defs E s\<^sub>0 .
+sublocale Graph_Start_Defs E .
 
 end
 
@@ -123,6 +122,7 @@ end  (* Subsumption Graph Pre Nodes Defs *)
 
 (* XXX Merge with Worklist locales *)
 locale Subsumption_Graph_Defs = Subsumption_Graph_Pre_Defs +
+  fixes s\<^sub>0 :: 'a -- \<open>Start state\<close>
   fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subgraph of the graph given by the full edge set\<close>
 begin
 
@@ -924,7 +924,7 @@ lemma pre_cycle_cycle:
 lemma pre_cycle_cycle_reachable:
   "(\<exists> x x'. a\<^sub>0 \<rightarrow>* x \<and> V x \<and> x \<rightarrow>\<^sup>+ x' \<and> x \<preceq> x') \<longleftrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> V x \<and> x \<rightarrow>\<^sup>+ x)"
 proof -
-  interpret interp: Subsumption_Graph_Pre_Nodes _ _ E _ "\<lambda> x. a\<^sub>0 \<rightarrow>* x \<and> V x"
+  interpret interp: Subsumption_Graph_Pre_Nodes _ _ E "\<lambda> x. a\<^sub>0 \<rightarrow>* x \<and> V x"
     including graph_automation_aggressive
     by standard (drule mono, auto 4 3 simp: Subgraph_Node_Defs.E'_def E'_def)
   interpret start: Graph_Start_Defs E' a\<^sub>0 .
@@ -956,7 +956,7 @@ context
   includes graph_automation
 begin
 
-interpretation Subsumption_Graph_Pre_Nodes _ _ E _ reachable
+interpretation Subsumption_Graph_Pre_Nodes _ _ E reachable
   apply standard
   apply (drule mono)
      apply (simp_all add: Subgraph_Node_Defs.E'_def)
