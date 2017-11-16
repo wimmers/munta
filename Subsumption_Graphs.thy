@@ -145,8 +145,7 @@ notation G'.reaches1 ("_ \<rightarrow>\<^sub>G\<^sup>+' _" [100, 100] 40)
 
 end (* Subsumption Graph Defs *)
 
-
-locale Subsumption_Graph_Pre = Subsumption_Graph_Pre_Defs + preorder less_eq less +
+locale Subsumption_Graph_Pre = Subsumption_Graph_Defs + preorder less_eq less +
   assumes mono:
     "a \<preceq> b \<Longrightarrow> E a a' \<Longrightarrow> reachable a \<Longrightarrow> reachable b \<Longrightarrow> \<exists> b'. E b b' \<and> a' \<preceq> b'"
 begin
@@ -154,6 +153,7 @@ begin
 lemmas preorder_intros = order_trans less_trans less_imp_le
 
 end (* Subsumption Graph Pre *)
+
 
 locale Subsumption_Graph_Pre_Nodes = Subsumption_Graph_Pre_Nodes_Defs + preorder less_eq less +
   assumes mono:
@@ -177,7 +177,8 @@ locale Reachability_Compatible_Subsumption_Graph_Pre =
     "\<forall> s. G.reachable s \<longrightarrow> (\<forall> s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists> t. s \<prec> t \<and> G.reachable t)"
   assumes finite_reachable: "finite {a. G.reachable a}"
 
-locale Reachability_Compatible_Subsumption_Graph = Subsumption_Graph_Defs + Subsumption_Graph_Pre +
+locale Reachability_Compatible_Subsumption_Graph =
+  Subsumption_Graph_Defs + Subsumption_Graph_Pre +
   assumes reachability_compatible:
     "\<forall> s. G.reachable s \<longrightarrow> (\<forall> s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists> t. s \<prec> t \<and> G.reachable t)"
   assumes subgraph: "\<forall> s s'. RE s s' \<longrightarrow> E s s'"
