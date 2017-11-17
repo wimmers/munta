@@ -353,11 +353,7 @@ proof (rule ccontr, simp)
       from \<open>E1 x y\<close> \<open>x \<in> a\<close> \<open>a \<in> S\<close> obtain b where "y \<in> b" "b \<in> S" "C a b"
         by (meson C_def E_def closed(1))
       with \<open>E.reaches1 y x\<close> obtain a' where "C.reaches1 b a'" "x \<in> a'" "a' \<in> S"
-        apply atomize_elim
-        apply (drule simulation_reaches1[of y x b])
-        subgoal
-          unfolding equiv'_def by auto
-        unfolding equiv'_def by auto
+        by (auto simp: equiv'_def dest!: simulation_reaches1[of y x b])
       with \<open>x \<in> a\<close> \<open>a \<in> S\<close> distinct have [simp]: "a' = a"
         by auto
       from \<open>x \<in> a\<close> \<open>a \<in> S\<close> \<open>C a b\<close> \<open>C.reaches1 b a'\<close> \<open>C.reachable a\<close> show ?thesis
