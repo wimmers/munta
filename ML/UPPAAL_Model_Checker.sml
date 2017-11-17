@@ -240,17 +240,18 @@ end;
 
 
 
-fun array_blit src si dst di len = (
-    src=dst andalso raise Fail ("array_blit: Same arrays");
-    ArraySlice.copy {
-      di = IntInf.toInt di,
-      src = ArraySlice.slice (src,IntInf.toInt si,SOME (IntInf.toInt len)),
-      dst = dst})
+   fun array_blit src si dst di len = (
+      src=dst andalso raise Fail ("array_blit: Same arrays");
+      ArraySlice.copy {
+        di = IntInf.toInt di,
+        src = ArraySlice.slice (src,IntInf.toInt si,SOME (IntInf.toInt len)),
+        dst = dst})
 
-  fun array_nth_oo v a i () = Array.sub(a,IntInf.toInt i) handle Subscript => v | Overflow => v
-  fun array_upd_oo f i x a () =
-    (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
+    fun array_nth_oo v a i () = Array.sub(a,IntInf.toInt i) handle Subscript => v | Overflow => v
+    fun array_upd_oo f i x a () = 
+      (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
 
+    
 
 
   structure Statistics : sig
@@ -406,7 +407,8 @@ structure Model_Checker : sig
   datatype bexp = Not of bexp | And of bexp * bexp | Or of bexp * bexp |
     Imply of bexp * bexp | Loc of nat * nat | Eq of nat * int | Lea of nat * int
     | Lta of nat * int | Ge of nat * int | Gt of nat * int
-  type formula
+  datatype formula = EX of bexp | EG of bexp | AX of bexp | AG of bexp |
+    Leadsto of bexp * bexp
   datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
   val nat : int -> nat
   val map_option : ('a -> 'b) -> 'a option -> 'b option
@@ -1713,22 +1715,17 @@ fun list_all p [] = true
 fun ball (Set xs) p = list_all p xs;
 
 fun len A_ a =
-  (fn f_ => fn () => f_ (((fn () => IntInf.fromInt
-(Array.length a))) ()) ())
+  (fn f_ => fn () => f_ (((fn () => IntInf.fromInt (Array.length a))) ()) ())
     (fn i => (fn () => (nat_of_integer i)));
 
 fun new A_ =
-  (fn a => fn b => (fn () => Array.array 
-(IntInf.toInt a, b))) o
-    integer_of_nat;
+  (fn a => fn b => (fn () => Array.array (IntInf.toInt a, b))) o integer_of_nat;
 
-fun ntha A_ a n = (fn () => Array.sub 
-(a, IntInf.toInt (integer_of_nat n)));
+fun ntha A_ a n = (fn () => Array.sub (a, IntInf.toInt (integer_of_nat n)));
 
 fun upd A_ i x a =
   (fn f_ => fn () => f_
-    (((fn () => Array.update 
-(a, IntInf.toInt (integer_of_nat i), x))) ()) ())
+    (((fn () => Array.update (a, IntInf.toInt (integer_of_nat i), x))) ()) ())
     (fn _ => (fn () => a));
 
 fun maps f [] = []
@@ -1743,8 +1740,7 @@ fun map f [] = []
 fun image f (Set xs) = Set (map f xs);
 
 fun make A_ n f =
-  (fn () => 
-Array.tabulate (IntInf.toInt (integer_of_nat n),
+  (fn () => Array.tabulate (IntInf.toInt (integer_of_nat n),
     (f o nat_of_integer) o IntInf.fromInt));
 
 fun sub asa n =
@@ -2083,17 +2079,11 @@ fun app f a = f a;
 
 fun hm_isEmpty ht = (fn () => (equal_nata (the_size ht) zero_nata));
 
-fun array_get a =
-  (fn a => FArray.IsabelleMapping.array_get a o IntInf.toInt) a o
-    integer_of_nat;
+fun array_get a = FArray.IsabelleMapping.array_get a o integer_of_nat;
 
-fun array_set a =
-  (fn a => FArray.IsabelleMapping.array_set a o IntInf.toInt) a o
-    integer_of_nat;
+fun array_set a = FArray.IsabelleMapping.array_set a o integer_of_nat;
 
-fun new_array v =
-  (fn a => FArray.IsabelleMapping.new_array a o IntInf.toInt) v o
-    integer_of_nat;
+fun new_array v = FArray.IsabelleMapping.new_array v o integer_of_nat;
 
 fun ls_delete A_ k [] = ([], false)
   | ls_delete A_ k ((l, w) :: ls) =
@@ -2189,9 +2179,7 @@ fun array_copy A_ a =
                        ()) ())
                        (fn _ => (fn () => aa))))));
 
-fun array_grow a =
-  (fn a => FArray.IsabelleMapping.array_grow a o IntInf.toInt) a o
-    integer_of_nat;
+fun array_grow a = FArray.IsabelleMapping.array_grow a o integer_of_nat;
 
 fun hm_it_adjust (A1_, A2_) B_ v ht =
   (if equal_nata v zero_nata then (fn () => zero_nata)
@@ -2224,12 +2212,9 @@ fun imp_for i u c f s =
 
 fun whilea b c s = (if b s then whilea b c (c s) else s);
 
-fun array_length x =
-  (nat_of_integer o IntInf.fromInt o FArray.IsabelleMapping.array_length) x;
+fun array_length x = (nat_of_integer o FArray.IsabelleMapping.array_length) x;
 
-fun array_shrink a =
-  (fn a => FArray.IsabelleMapping.array_shrink a o IntInf.toInt) a o
-    integer_of_nat;
+fun array_shrink a = FArray.IsabelleMapping.array_shrink a o integer_of_nat;
 
 fun as_get s i = let
                    val a = s;
