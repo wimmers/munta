@@ -377,7 +377,7 @@ proof -
       by safe
     interpret
       Subsumption_Graph_Pre_Nodes
-        "op \<preceq>" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0
+        "op \<preceq>" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y"
         "\<lambda> x. A.reachable x \<and> \<not> empty x"
       by standard (rule B.mono[simplified]; assumption)
     from \<open>B.reaches x y\<close> \<open>x \<preceq> x'\<close> \<open>B.reaches1 y y\<close> reaches_cycle_mono[OF B.finite_V] obtain y' where

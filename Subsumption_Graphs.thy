@@ -106,7 +106,7 @@ locale Subsumption_Graph_Pre_Defs =
   fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>The full edge set\<close>
 begin
 
-sublocale Graph_Start_Defs E .
+sublocale Graph_Defs E .
 
 end
 
@@ -125,6 +125,8 @@ locale Subsumption_Graph_Defs = Subsumption_Graph_Pre_Defs +
   fixes s\<^sub>0 :: 'a -- \<open>Start state\<close>
   fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subgraph of the graph given by the full edge set\<close>
 begin
+
+sublocale Graph_Start_Defs E s\<^sub>0 .
 
 sublocale G: Graph_Start_Defs RE s\<^sub>0 .
 
@@ -157,7 +159,7 @@ end (* Subsumption Graph Pre *)
 
 locale Subsumption_Graph_Pre_Nodes = Subsumption_Graph_Pre_Nodes_Defs + preorder less_eq less +
   assumes mono:
-    "a \<preceq> b \<Longrightarrow> a \<rightarrow> a' \<Longrightarrow> V b \<Longrightarrow> \<exists> b'. b \<rightarrow> b' \<and> a' \<preceq> b'"
+    "a \<preceq> b \<Longrightarrow> a \<rightarrow> a' \<Longrightarrow> V a \<Longrightarrow> V b \<Longrightarrow> \<exists> b'. b \<rightarrow> b' \<and> a' \<preceq> b'"
 begin
 
 lemmas preorder_intros = order_trans less_trans less_imp_le
