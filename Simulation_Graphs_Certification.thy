@@ -280,6 +280,9 @@ interpretation C_invariant: Graph_Invariant C "\<lambda> a. a \<in> S \<and> a \
 interpretation Simulation_Invariant E C "op \<in>" "\<lambda> x. \<exists> a \<in> S. x \<in> a" "\<lambda> a. a \<in> S \<and> a \<noteq> {}"
   unfolding C_def by (standard; blast dest: E_invariant.invariant[rotated])+
 
+interpretation Subgraph E E1
+  unfolding E_def by standard auto
+
 context
   assumes no_internal_E2:  "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y \<in> a. \<not> E2 x y"
       and no_component_cycle: "\<forall> a \<in> S. \<not> (C.reachable a \<and> C.reaches1 a a)"
@@ -289,9 +292,9 @@ lemma certify_no_E1_cycle:
   assumes "E.reachable x" "E.reaches1 x x"
     shows "E1.reaches1 x x"
 proof (rule ccontr)
-  assume "\<not> E1.reaches1 x x"
+  assume A: "\<not> E1.reaches1 x x"
   with \<open>E.reaches1 x x\<close> obtain y z where "E.reaches x y" "E2 y z" "E.reaches z x"
-    by (metis E_def Subgraph.intro Subgraph.non_subgraph_cycle_decomp)
+    by (fastforce dest!: non_subgraph_cycle_decomp simp: E_def)
   from start \<open>E.reachable x\<close> obtain a where [intro]: "C.reachable a" "x \<in> a" "a \<in> S"
     unfolding E.reachable_def C.reachable_def by (auto dest: simulation_reaches)
   with \<open>E.reaches x y\<close> obtain b where "C.reaches a b" "y \<in> b" "b \<in> S"
@@ -347,7 +350,7 @@ proof (rule ccontr, simp)
     next
       case (2 y)
       interpret sim: Simulation E1 E "op ="
-        by standard (auto simp: E_def)
+        by (rule Subgraph_Simulation)
       from \<open>E1.reaches1 y x\<close> have "E.reaches1 y x"
         by (auto dest: sim.simulation_reaches1)
       from \<open>E1 x y\<close> \<open>x \<in> a\<close> \<open>a \<in> S\<close> obtain b where "y \<in> b" "b \<in> S" "C a b"

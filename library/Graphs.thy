@@ -831,6 +831,10 @@ qed
 
 end (* Simulation *)
 
+lemma (in Subgraph) Subgraph_Simulation:
+  "Simulation E' E op ="
+  by standard auto
+
 locale Simulation_Invariant = Simulation_Defs +
   fixes PA :: "'a \<Rightarrow> bool" and PB :: "'b \<Rightarrow> bool"
   assumes A_B_step: "\<And> a b a'. A a b \<Longrightarrow> PA a \<Longrightarrow> PB a' \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b'. B a' b' \<and> b \<sim> b')"
