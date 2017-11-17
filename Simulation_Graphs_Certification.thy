@@ -233,11 +233,141 @@ text \<open>
   We can certify this by accepting a set of components and checking that:
   \<^item> there are no cycles in the component graph (including subsumption edges)
   \<^item> no non-trivial component contains a final state
-  \<^item> No component contains an internal subsumption edge
+  \<^item> no component contains an internal subsumption edge
 \<close>
 
 end (* Final states and liveness compatibility *)
 
 end (* Unreachability Invariant paired *)
+
+context
+  fixes E1 E2 :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  fixes S :: "'a set set"
+  fixes s\<^sub>0 :: 'a and a\<^sub>0 :: "'a set"
+  assumes start: "s\<^sub>0 \<in> a\<^sub>0" "a\<^sub>0 \<in> S"
+  assumes closed:
+    "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y. E1 x y \<longrightarrow> (\<exists> b \<in> S. y \<in> b)"
+    "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y. E2 x y \<longrightarrow> (\<exists> b \<in> S. y \<in> b)"
+  assumes distinct: "\<forall> a \<in> S. \<forall> b \<in> S. a \<inter> b \<noteq> {} \<longrightarrow> a = b" -- "Can we get rid of this?"
+  assumes finite: "\<forall> a \<in> S. finite a"
+begin
+
+definition "E \<equiv> \<lambda> x y. E1 x y \<or> E2 x y"
+
+definition "C \<equiv> \<lambda> a b. \<exists> x \<in> a. \<exists> y \<in> b. E x y \<and> b \<in> S"
+
+interpretation E1: Graph_Start_Defs E1 s\<^sub>0 .
+interpretation E2: Graph_Start_Defs E2 s\<^sub>0 .
+interpretation E: Graph_Start_Defs E s\<^sub>0 .
+interpretation C: Graph_Start_Defs C a\<^sub>0 .
+
+lemma E_closed:
+  "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y. E x y \<longrightarrow> (\<exists> b \<in> S. y \<in> b)"
+  using closed unfolding E_def by auto
+
+interpretation E_invariant: Graph_Invariant E "\<lambda> x. \<exists> a \<in> S. x \<in> a"
+  using E_closed by - (standard, auto)
+
+interpretation E1_invariant: Graph_Invariant E1 "\<lambda> x. \<exists> a \<in> S. x \<in> a"
+  using closed by - (standard, auto)
+
+interpretation E2_invariant: Graph_Invariant E2 "\<lambda> x. \<exists> a \<in> S. x \<in> a"
+  using closed by - (standard, auto)
+
+interpretation C_invariant: Graph_Invariant C "\<lambda> a. a \<in> S \<and> a \<noteq> {}"
+  unfolding C_def by standard auto
+
+interpretation Simulation_Invariant E C "op \<in>" "\<lambda> x. \<exists> a \<in> S. x \<in> a" "\<lambda> a. a \<in> S \<and> a \<noteq> {}"
+  unfolding C_def by (standard; blast dest: E_invariant.invariant[rotated])+
+
+context
+  assumes no_internal_E2:  "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y \<in> a. \<not> E2 x y"
+      and no_component_cycle: "\<forall> a \<in> S. \<not> (C.reachable a \<and> C.reaches1 a a)"
+begin
+
+lemma certify_no_E1_cycle:
+  assumes "E.reachable x" "E.reaches1 x x"
+    shows "E1.reaches1 x x"
+proof (rule ccontr)
+  assume "\<not> E1.reaches1 x x"
+  with \<open>E.reaches1 x x\<close> obtain y z where "E.reaches x y" "E2 y z" "E.reaches z x"
+    by (metis E_def Subgraph.intro Subgraph.non_subgraph_cycle_decomp)
+  from start \<open>E.reachable x\<close> obtain a where [intro]: "C.reachable a" "x \<in> a" "a \<in> S"
+    unfolding E.reachable_def C.reachable_def by (auto dest: simulation_reaches)
+  with \<open>E.reaches x y\<close> obtain b where "C.reaches a b" "y \<in> b" "b \<in> S"
+    by (auto dest: simulation_reaches)
+  with \<open>E2 y z\<close> obtain c where "C b c" \<open>z \<in> c\<close> \<open>c \<in> S\<close>
+    using A_B_step[of y z b] unfolding E_def by (auto dest: C_invariant.invariant[rotated])
+  with no_internal_E2 \<open>y \<in> _\<close> \<open>E2 y z\<close> have "b \<noteq> c"
+    by auto
+  with \<open>E2 y z\<close> \<open>y \<in> b\<close> \<open>z \<in> c\<close> \<open>c \<in> S\<close> have "C b c"
+    unfolding C_def E_def by auto
+  from \<open>E.reaches z x\<close> \<open>z \<in> c\<close> \<open>c \<in> S\<close> \<open>x \<in> a\<close> distinct have "C.reaches c a"
+    by (auto dest: simulation_reaches)
+  with \<open>C b c\<close> have "C.reaches1 c a"
+    using \<open>C.reaches a b\<close> by auto
+  with \<open>C.reaches a b\<close> have "C.reaches1 a a"
+    using \<open>local.C b c\<close> by auto
+  with \<open>C.reachable a\<close> no_component_cycle \<open>a \<in> S\<close> show False
+    by auto
+qed
+
+lemma certify_no_accepting_cycle:
+  assumes
+    "\<forall> a \<in> S. card a > 1 \<longrightarrow> (\<forall> x \<in> a. \<not> F x)"
+    "\<forall> a \<in> S. \<forall> x. a = {x} \<longrightarrow> (\<not> F x \<or> \<not> E1 x x)"
+  assumes "E.reachable x" "E1.reaches1 x x"
+  shows "\<not> F x"
+proof (rule ccontr, simp)
+  assume "F x"
+  from start \<open>E.reachable x\<close> obtain a where "x \<in> a" "a \<in> S" "C.reachable a"
+    unfolding E.reachable_def C.reachable_def by (auto dest: simulation_reaches)
+  consider "card a = 0" | "card a = 1" | "card a > 1"
+    by force
+  then show False
+  proof cases
+    assume "card a = 0"
+    with finite \<open>x \<in> a\<close> \<open>a \<in> S\<close> show False
+      by auto
+  next
+    assume "card a > 1"
+    with \<open>x \<in> a\<close> \<open>a \<in> S\<close> assms(1) \<open>F x\<close> show False
+      by auto
+  next
+    assume "card a = 1"
+    with finite \<open>x \<in> a\<close> \<open>a \<in> S\<close> have "a = {x}"
+      using card_1_singletonE by blast
+    with \<open>a \<in> S\<close> assms(2) \<open>F x\<close> have "\<not> E1 x x"
+      by auto
+    from assms(4) show False
+    proof (cases rule: converse_tranclpE, assumption, goal_cases)
+      case 1
+      with \<open>\<not> E1 x x\<close> show ?thesis
+        by auto
+    next
+      case (2 y)
+      interpret sim: Simulation E1 E "op ="
+        by standard (auto simp: E_def)
+      from \<open>E1.reaches1 y x\<close> have "E.reaches1 y x"
+        by (auto dest: sim.simulation_reaches1)
+      from \<open>E1 x y\<close> \<open>x \<in> a\<close> \<open>a \<in> S\<close> obtain b where "y \<in> b" "b \<in> S" "C a b"
+        by (meson C_def E_def closed(1))
+      with \<open>E.reaches1 y x\<close> obtain a' where "C.reaches1 b a'" "x \<in> a'" "a' \<in> S"
+        apply atomize_elim
+        apply (drule simulation_reaches1[of y x b])
+        subgoal
+          unfolding equiv'_def by auto
+        unfolding equiv'_def by auto
+      with \<open>x \<in> a\<close> \<open>a \<in> S\<close> distinct have [simp]: "a' = a"
+        by auto
+      from \<open>x \<in> a\<close> \<open>a \<in> S\<close> \<open>C a b\<close> \<open>C.reaches1 b a'\<close> \<open>C.reachable a\<close> show ?thesis
+        using no_component_cycle by (auto dest: tranclp_into_tranclp2)
+    qed
+  qed
+qed
+
+end (* Cycle-freeness *)
+
+end (* Graph Components *)
 
 end (* Theory *)
