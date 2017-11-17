@@ -240,11 +240,10 @@ locale Reachability_Compatible_Subsumption_Graph_Closure_View =
   assumes subsumption: "\<forall> s'. SE s s' \<longrightarrow> closure s \<prec> closure s'"
   assumes subgraph: "\<forall> s s'. RE s s' \<longrightarrow> E s s'"
   assumes finite_closure: "finite (closure ` UNIV)"
-  assumes P_pre: "a \<rightarrow> b \<Longrightarrow> P b"
-  assumes P_post: "a \<rightarrow> b \<Longrightarrow> P a"
+  assumes P_post: "a \<rightarrow> b \<Longrightarrow> P b"
+  assumes P_pre: "a \<rightarrow> b \<Longrightarrow> P a"
   assumes P_s\<^sub>0: "P s\<^sub>0"
-  assumes Q_pre: "RE a b \<Longrightarrow> Q b"
-  assumes Q_post: "RE a b \<Longrightarrow> Q a"
+  assumes Q_post: "RE a b \<Longrightarrow> Q b"
   assumes Q_s\<^sub>0: "Q s\<^sub>0"
 begin
 
@@ -256,8 +255,8 @@ lemma Simulation_close:
 
 sublocale view: Reachability_Compatible_Subsumption_Graph
   "op \<preceq>" "op \<prec>" "close E" "closure s\<^sub>0" "close RE"
-  supply close_def[simp]
-  supply P_pre[intro] P_post[intro] Q_pre[intro] Q_post[intro]
+  supply [simp] = close_def
+  supply [intro] = P_pre P_post Q_post
 proof (standard, goal_cases)
   case prems: (1 a b a')
   then obtain x y where [simp]: "x \<rightarrow> y" "a = closure x" "a' = closure y"
