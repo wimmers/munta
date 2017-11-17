@@ -1199,6 +1199,6 @@ lemmas [code] =
 
 export_code
   precond_mc Pure.type init_pred_check time_indep_check1 time_indep_check1 conjunction_check2
-  checking SML_imp
+  checking SML
 
 end (* Theory *)
