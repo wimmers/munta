@@ -551,6 +551,14 @@ lemma non_subgraph_cycle_decomp:
     qed
   qed
 
+lemma reaches:
+  "G.reaches a b" if "G'.reaches a b"
+  using that by induction (auto intro: rtranclp.intros(2))
+
+lemma reaches1:
+  "G.reaches1 a b" if "G'.reaches1 a b"
+  using that by induction (auto intro: tranclp.intros(2))
+
 end (* Subgraph *)
 
 locale Subgraph_Start = Subgraph_Start_Defs + Subgraph

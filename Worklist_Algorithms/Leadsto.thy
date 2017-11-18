@@ -2,16 +2,6 @@ theory Leadsto
   imports Liveness_Subsumption Unified_PW "../library/CTL"
 begin
 
-(* XXX Move *)
-lemma (in Subgraph) reaches:
-  "G.reaches a b" if "G'.reaches a b"
-  using that by induction (auto intro: rtranclp.intros(2))
-
-(* XXX Move *)
-lemma (in Subgraph) reaches1:
-  "G.reaches1 a b" if "G'.reaches1 a b"
-  using that by induction (auto intro: tranclp.intros(2))
-
 context Subsumption_Graph_Pre_Nodes
 begin
 
