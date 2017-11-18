@@ -240,6 +240,7 @@ end (* Final states and liveness compatibility *)
 
 end (* Unreachability Invariant paired *)
 
+subsection \<open>Certifying Cycle-Freeness with Graph Components\<close>
 context
   fixes E1 E2 :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
   fixes S :: "'a set set"
@@ -248,7 +249,6 @@ context
   assumes closed:
     "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y. E1 x y \<longrightarrow> (\<exists> b \<in> S. y \<in> b)"
     "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y. E2 x y \<longrightarrow> (\<exists> b \<in> S. y \<in> b)"
-  assumes distinct: "\<forall> a \<in> S. \<forall> b \<in> S. a \<inter> b \<noteq> {} \<longrightarrow> a = b" -- "Can we get rid of this?"
   assumes finite: "\<forall> a \<in> S. finite a"
 begin
 
@@ -285,8 +285,27 @@ interpretation Subgraph E E1
 
 context
   assumes no_internal_E2:  "\<forall> a \<in> S. \<forall> x \<in> a. \<forall> y \<in> a. \<not> E2 x y"
-      and no_component_cycle: "\<forall> a \<in> S. \<not> (C.reachable a \<and> C.reaches1 a a)"
+      and no_component_cycle: "\<forall> a \<in> S. \<nexists> b. (C.reachable a \<and> C a b \<and> C.reaches b a \<and> a \<noteq> b)"
 begin
+
+lemma E_C_reaches1:
+  "C.reaches1 a b" if "E.reaches1 x y" "x \<in> a" "a \<in> S" "y \<in> b" "b \<in> S"
+  using that
+proof (induction arbitrary: b)
+  case (base y)
+  then have "C a b"
+    unfolding C_def by auto
+  then show ?case
+    by auto
+next
+  case (step y z c)
+  then obtain b where "y \<in> b" "b \<in> S"
+    by (meson E_invariant.invariant_reaches tranclp_into_rtranclp)
+  from step.IH[OF \<open>x \<in> a\<close> \<open>a \<in> S\<close> this] have "C.reaches1 a b" .
+  moreover from step.prems \<open>E _ _\<close> \<open>y \<in> b\<close> \<open>b \<in> S\<close> have "C b c"
+    unfolding C_def by auto
+  finally show ?case .
+qed
 
 lemma certify_no_E1_cycle:
   assumes "E.reachable x" "E.reaches1 x x"
@@ -299,20 +318,36 @@ proof (rule ccontr)
     unfolding E.reachable_def C.reachable_def by (auto dest: simulation_reaches)
   with \<open>E.reaches x y\<close> obtain b where "C.reaches a b" "y \<in> b" "b \<in> S"
     by (auto dest: simulation_reaches)
-  with \<open>E2 y z\<close> obtain c where "C b c" \<open>z \<in> c\<close> \<open>c \<in> S\<close>
-    using A_B_step[of y z b] unfolding E_def by (auto dest: C_invariant.invariant[rotated])
-  with no_internal_E2 \<open>y \<in> _\<close> \<open>E2 y z\<close> have "b \<noteq> c"
-    by auto
-  with \<open>E2 y z\<close> \<open>y \<in> b\<close> \<open>z \<in> c\<close> \<open>c \<in> S\<close> have "C b c"
-    unfolding C_def E_def by auto
-  from \<open>E.reaches z x\<close> \<open>z \<in> c\<close> \<open>c \<in> S\<close> \<open>x \<in> a\<close> distinct have "C.reaches c a"
-    by (auto dest: simulation_reaches)
-  with \<open>C b c\<close> have "C.reaches1 c a"
-    using \<open>C.reaches a b\<close> by auto
-  with \<open>C.reaches a b\<close> have "C.reaches1 a a"
-    using \<open>local.C b c\<close> by auto
-  with \<open>C.reachable a\<close> no_component_cycle \<open>a \<in> S\<close> show False
-    by auto
+  from \<open>C.reaches a b\<close> have "C.reachable b"
+    by (blast intro: C.reachable_reaches)
+  from \<open>E.reaches z x\<close> have \<open>E.reaches1 z x \<or> z = x\<close> 
+    by (meson rtranclpD)
+  then show False
+  proof
+    assume "E.reaches1 z x"
+    from \<open>y \<in> b\<close> \<open>b \<in> S\<close> \<open>E2 y z\<close> obtain c where "C b c" \<open>z \<in> c\<close> \<open>c \<in> S\<close>
+      using A_B_step[of y z b] unfolding E_def by (auto dest: C_invariant.invariant[rotated])
+    with no_internal_E2 \<open>y \<in> _\<close> \<open>E2 y z\<close> have "b \<noteq> c"
+      by auto
+    with \<open>E2 y z\<close> \<open>y \<in> b\<close> \<open>z \<in> c\<close> \<open>c \<in> S\<close> have "C b c"
+      unfolding C_def E_def by auto
+    from \<open>E.reaches1 z x\<close> \<open>z \<in> c\<close> \<open>c \<in> S\<close> \<open>x \<in> a\<close> have "C.reaches1 c a"
+      by (auto intro: E_C_reaches1)
+    with \<open>C.reaches a b\<close> have "C.reaches1 c b"
+      by auto
+    then have "C.reaches c b"
+      by auto
+    with \<open>C b c\<close> \<open>b \<in> S\<close> \<open>C.reachable b\<close> \<open>b \<noteq> c\<close> no_component_cycle show False
+      by auto
+  next
+    assume [simp]: "z = x"
+    with \<open>y \<in> b\<close> \<open>E2 y z\<close> \<open>a \<in> S\<close> \<open>x \<in> a\<close> have "C b a"
+      unfolding C_def E_def by auto
+    with no_internal_E2 \<open>y \<in> _\<close> \<open>E2 y z\<close> have "b \<noteq> a"
+      by auto
+    with \<open>C.reaches a b\<close> \<open>C b a\<close> \<open>b \<in> S\<close> \<open>C.reachable b\<close> no_component_cycle show False
+      by auto
+  qed
 qed
 
 lemma certify_no_accepting_cycle:
@@ -353,14 +388,14 @@ proof (rule ccontr, simp)
         by (rule Subgraph_Simulation)
       from \<open>E1.reaches1 y x\<close> have "E.reaches1 y x"
         by (auto dest: sim.simulation_reaches1)
-      from \<open>E1 x y\<close> \<open>x \<in> a\<close> \<open>a \<in> S\<close> obtain b where "y \<in> b" "b \<in> S" "C a b"
+      from \<open>E1 x y\<close> \<open>\<not> E1 x x\<close> \<open>a = _\<close> \<open>x \<in> a\<close> \<open>a \<in> S\<close> obtain b where "y \<in> b" "b \<in> S" "C a b"
         by (meson C_def E_def closed(1))
-      with \<open>E.reaches1 y x\<close> obtain a' where "C.reaches1 b a'" "x \<in> a'" "a' \<in> S"
-        by (auto simp: equiv'_def dest!: simulation_reaches1[of y x b])
-      with \<open>x \<in> a\<close> \<open>a \<in> S\<close> distinct have [simp]: "a' = a"
+      with \<open>a = _\<close> \<open>\<not> E1 x x\<close> \<open>E1 x y\<close> have "a \<noteq> b"
         by auto
-      from \<open>x \<in> a\<close> \<open>a \<in> S\<close> \<open>C a b\<close> \<open>C.reaches1 b a'\<close> \<open>C.reachable a\<close> show ?thesis
-        using no_component_cycle by (auto dest: tranclp_into_tranclp2)
+      from \<open>y \<in> b\<close> \<open>b \<in> S\<close> \<open>E.reaches1 y x\<close> \<open>x \<in> a\<close> \<open>a \<in> S\<close> have "C.reaches1 b a"
+        by (auto intro: E_C_reaches1)
+      with \<open>x \<in> a\<close> \<open>a \<in> S\<close> \<open>C a b\<close> \<open>C.reachable a\<close> \<open>a \<noteq> b\<close> show ?thesis
+        including graph_automation_aggressive using no_component_cycle by auto
     qed
   qed
 qed
