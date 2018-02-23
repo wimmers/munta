@@ -309,13 +309,6 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
         val _ = println("# explored states: " ^ Int.toString(Tracing.get_count ()))
         val _ = println("")
       in () end else ();
-    (*val _ = if !debug_level >= 1 then
-      let
-        val _ = println("# additions on DBM entries:" ^ Int.toString (!cnt))
-        val _ = println("# explored states:" ^ Int.toString (!cnt2))
-        val _ = println("")
-      in () end else ();
-     *)
   in
     print_result result
   end;
