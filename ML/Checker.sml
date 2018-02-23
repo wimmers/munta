@@ -300,10 +300,15 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
         val _ = map (uncurry print_precondition_check) tests;
       in println "" end else ();
     val t = Time.now ()
-    val result = Model_Checker.precond_mc Type Type Type p m k max_steps inv trans prog query bounds pred s na ()
+    val result = Model_Checker.precond_mc p m k max_steps inv trans prog query bounds pred s na ()
     val t = Time.- (Time.now (), t)
     val _ = println("Internal time for precondition check + actual checking: " ^ Time.toString t)
     val _ = println("")
+    val _ = if !debug_level >= 1 then
+      let
+        val _ = println("# explored states: " ^ Int.toString(Tracing.get_count ()))
+        val _ = println("")
+      in () end else ();
     (*val _ = if !debug_level >= 1 then
       let
         val _ = println("# additions on DBM entries:" ^ Int.toString (!cnt))

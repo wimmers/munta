@@ -393,7 +393,7 @@ proof -
 (* XXX *)
 lemma leadsto_impl_hnr':
   "(uncurry0
-    (leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd) state_copy_impl
+    (leadsto_impl state_copy_impl
       (succs_P_impl' Q_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst)
       succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun)),
    uncurry0
@@ -477,13 +477,13 @@ lemma F_reachable_correct_new':
     using prod_conv p_p p_gt_0 by simp+
 
 definition
-  "Alw_ev_checker = dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd)
+  "Alw_ev_checker = dfs_map_impl'
      (impl.succs_P_impl' final_fun) impl.a\<^sub>0_impl impl.subsumes_impl (return \<circ> fst)
      impl.state_copy_impl"
 
 definition
   "leadsto_checker \<psi> = do {
-      r \<leftarrow> leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd)
+      r \<leftarrow> leadsto_impl
       impl.state_copy_impl (impl.succs_P_impl' (\<lambda> (L, s). \<not> check_bexp \<psi> L s))
       impl.a\<^sub>0_impl impl.subsumes_impl (return \<circ> fst)
       impl.succs_impl' impl.emptiness_check_impl impl.F_impl
@@ -501,15 +501,15 @@ definition
     } |
     formula.AX _ \<Rightarrow> do {
       r \<leftarrow> if PR_CONST (\<lambda>(x, y). F x y) (init, s\<^sub>0)
-      then Alw_ev_checker TYPE('bb) TYPE('cc) TYPE('dd)
+      then Alw_ev_checker
       else return False;
       return (\<not> r)
     } |
     formula.EG _ \<Rightarrow>
       if PR_CONST (\<lambda>(x, y). F x y) (init, s\<^sub>0)
-      then Alw_ev_checker TYPE('bb) TYPE('cc) TYPE('dd)
+      then Alw_ev_checker
       else return False |
-    formula.Leadsto _ \<psi> \<Rightarrow> leadsto_checker TYPE('bb) TYPE('cc) TYPE('dd) \<psi>
+    formula.Leadsto _ \<psi> \<Rightarrow> leadsto_checker \<psi>
   )
   "
 
@@ -673,7 +673,7 @@ lemma deadlock_start_iff:
   by - (rule deadlock_iff[of _ "(init, s\<^sub>0, u\<^sub>0)", symmetric]; simp)
 
 theorem model_check':
-  "(uncurry0 (model_checker TYPE('bb) TYPE('cc) TYPE('dd)),
+  "(uncurry0 model_checker,
     uncurry0 (
       SPEC (\<lambda> r.
         \<not> Graph_Defs.deadlock
@@ -797,7 +797,7 @@ proof -
 
         -- \<open>\<open>EG\<close>\<close>
     subgoal premises prems for \<phi>
-      using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
+      using impl.Alw_ev_impl_hnr[
           to_hnr, unfolded hn_refine_def
           ]
       unfolding final_fun_def F_def prems(2)
@@ -824,9 +824,7 @@ proof -
 
         -- \<open>\<open>AX\<close>\<close>
     subgoal premises prems for \<phi>
-      using impl.Alw_ev_impl_hnr[where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd,
-          to_hnr, unfolded hn_refine_def
-          ]
+      using impl.Alw_ev_impl_hnr[to_hnr, unfolded hn_refine_def]
       unfolding final_fun_def F_def
       unfolding UPPAAL_Reachability_Problem_precompiled_defs.F_def
       apply (subst
@@ -874,15 +872,15 @@ qed
 
 theorem model_check'_hoare:
   "<emp>
-    model_checker TYPE('bb) TYPE('cc) TYPE('dd)
+    model_checker
   <\<lambda>r. \<up> ((\<not> Bisim_A.B.deadlock (init, s\<^sub>0, \<lambda>_. 0)) \<longrightarrow> r = (
     conv N,(init, s\<^sub>0, u\<^sub>0) \<Turnstile>\<^sub>max_steps formula
   ))>\<^sub>t"
-  using model_check'[to_hnr, unfolded hn_refine_def, where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd]
+  using model_check'[to_hnr, unfolded hn_refine_def]
   by (sep_auto simp: pure_def elim!: cons_post_rule)
 
 lemma Alw_ev_checker_alt_def':
-  "Alw_ev_checker TYPE('bb) TYPE('cc) TYPE('dd) \<equiv>
+  "Alw_ev_checker \<equiv>
     do {
       x \<leftarrow> let
         key = return \<circ> fst;
@@ -890,14 +888,14 @@ lemma Alw_ev_checker_alt_def':
         copy = impl.state_copy_impl;
         start = impl.a\<^sub>0_impl;
         succs =  impl.succs_P_impl' final_fun
-      in dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd) succs start sub key copy;
+      in dfs_map_impl' succs start sub key copy;
       _ \<leftarrow> return ();
       return x
     }"
   unfolding Alw_ev_checker_def by simp
 
 lemma leadsto_checker_alt_def':
-  "leadsto_checker TYPE('bb) TYPE('cc) TYPE('dd) \<psi> \<equiv>
+  "leadsto_checker \<psi> \<equiv>
     do {
       r \<leftarrow> let
         key = return \<circ> fst;
@@ -910,8 +908,7 @@ lemma leadsto_checker_alt_def':
         succs' =  impl.succs_impl';
         empty = impl.emptiness_check_impl
       in
-        leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd)
-          copy succs start sub key succs' empty final final';
+        leadsto_impl copy succs start sub key succs' empty final final';
       return (\<not> r)
     }"
   unfolding leadsto_checker_def by simp
@@ -982,7 +979,7 @@ schematic_goal reachability_checker'_alt_def:
   by (rule Pure.reflexive)
 
 schematic_goal Alw_ev_checker_alt_def:
-  "Alw_ev_checker TYPE('bb) TYPE('cc) TYPE('dd) \<equiv> ?impl"
+  "Alw_ev_checker \<equiv> ?impl"
   unfolding Alw_ev_checker_alt_def' final_fun_def
     impl.succs_P_impl_def[OF final_fun_final] impl.succs_P_impl'_def[OF final_fun_final]
   unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
@@ -1002,7 +999,7 @@ schematic_goal Alw_ev_checker_alt_def:
   by (rule Pure.reflexive)
 
 schematic_goal leadsto_checker_alt_def:
-  "leadsto_checker TYPE('bb) TYPE('cc) TYPE('dd) \<equiv> ?impl"
+  "leadsto_checker \<equiv> ?impl"
   unfolding leadsto_checker_alt_def'
   unfolding impl.F_impl_def impl.Q_impl_def[OF final_fun_final]
   unfolding impl.succs_P_impl'_def[OF final_fun_final]
@@ -1051,7 +1048,7 @@ schematic_goal reachability_checker'_alt_def_refined:
   by (rule Pure.reflexive)
 
 schematic_goal Alw_ev_checker_alt_def_refined:
-  "Alw_ev_checker TYPE('bb) TYPE('cc) TYPE('dd) \<equiv> ?impl"
+  "Alw_ev_checker \<equiv> ?impl"
   unfolding Alw_ev_checker_alt_def
   unfolding fw_impl'_int
   unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
@@ -1079,7 +1076,7 @@ schematic_goal Alw_ev_checker_alt_def_refined:
   by (rule Pure.reflexive)
 
 schematic_goal leadsto_checker_alt_def_refined:
-  "leadsto_checker TYPE('bb) TYPE('cc) TYPE('dd) \<equiv> ?impl"
+  "leadsto_checker \<equiv> ?impl"
   unfolding leadsto_checker_alt_def
   unfolding fw_impl'_int
   unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
@@ -1135,12 +1132,58 @@ definition [code]:
   "precond_mc p m k max_steps I T prog final bounds P s\<^sub>0 na \<equiv>
     if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
     then
-      model_checker TYPE('bb) TYPE('cc) TYPE('dd) p m max_steps I T prog bounds P s\<^sub>0 na k final
+      model_checker p m max_steps I T prog bounds P s\<^sub>0 na k final
       \<bind> (\<lambda> x. return (Some x))
     else return None"
 
 theorem model_check:
-  "<emp> precond_mc TYPE('bb) TYPE('cc) TYPE('dd) p m k max_steps I T prog formula bounds P s\<^sub>0 na
+  "<emp> precond_mc p m k max_steps I T prog formula bounds P s\<^sub>0 na
+    <\<lambda> Some r \<Rightarrow> \<up>(
+        UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k \<and>
+        (\<not> Graph_Defs.deadlock
+          (\<lambda> (L, s, u) (L', s', u').
+            conv (N p I P T prog bounds) \<turnstile>\<^sup>max_steps \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>
+          )
+          (repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
+          r = conv (N p I P T prog bounds),(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula
+        ))
+     | None \<Rightarrow> \<up>(\<not> UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k)
+    >\<^sub>t"
+proof -
+  define A where "A \<equiv> conv (N p I P T prog bounds)"
+  define no_deadlock where
+    "no_deadlock \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> Graph_Defs.deadlock
+          (\<lambda>(l, u) (l', u').
+              (case Prod_TA_Defs.prod_ta
+                     (Equiv_TA_Defs.state_ta
+                       (N p I P T prog bounds) max_steps) of
+               (T, I) \<Rightarrow>
+                 ((\<lambda>(l, g, a, r, l').
+                      (l, map conv_ac g, a, r, l')) `
+                  T,
+                  map conv_ac \<circ> I)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+          ((repeat 0 p,
+            s\<^sub>0),
+           u\<^sub>0))"
+  define check where
+    "check \<equiv>
+        A,(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula"
+  note [sep_heap_rules] =
+    UPPAAL_Reachability_Problem_precompiled'.model_check'_hoare[
+      of p m max_steps I T prog bounds P s\<^sub>0 na k formula,
+      unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
+      folded A_def check_def no_deadlock_def
+      ]
+  have *: "(no_deadlock \<longrightarrow> r = Some check) \<longleftrightarrow> (if no_deadlock then r = Some check else True)" for r
+    by auto
+  show ?thesis
+    unfolding UPPAAL_Reachability_Problem_precompiled_defs.init_def
+    unfolding A_def[symmetric] check_def[symmetric] no_deadlock_def[symmetric]
+    unfolding precond_mc_def * by (sep_auto simp: model_checker.refine[symmetric])
+qed
+
+theorem model_check_alt:
+  "<emp> precond_mc p m k max_steps I T prog formula bounds P s\<^sub>0 na
     <\<lambda> r. \<up> (
     if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
     then r \<noteq> None \<and>
@@ -1177,8 +1220,7 @@ proof -
     UPPAAL_Reachability_Problem_precompiled'.model_check'_hoare[
       of p m max_steps I T prog bounds P s\<^sub>0 na k formula,
       unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
-      folded A_def check_def no_deadlock_def,
-      where 'bb = 'bb and 'cc = 'cc and 'dd = 'dd
+      folded A_def check_def no_deadlock_def
       ]
   have *: "(no_deadlock \<longrightarrow> r = Some check) \<longleftrightarrow> (if no_deadlock then r = Some check else True)" for r
     by auto

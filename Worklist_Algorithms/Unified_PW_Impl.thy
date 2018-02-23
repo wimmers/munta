@@ -72,7 +72,7 @@ begin
 
     sepref_thm pw_algo_map2_impl is
       "uncurry0 (do {(r, p) \<leftarrow> pw_algo_map2; RETURN r})" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-      unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def
+      unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def TRACE'_def[symmetric]
       supply [[goals_limit = 1]]
       supply conv_to_is_Nil[simp]
       unfolding fold_lso_bex

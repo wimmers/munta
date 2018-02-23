@@ -19,7 +19,7 @@ begin
 sepref_thm pw_algo_map2_impl is
   "uncurry0 (pw_algo_map2)" ::
   "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a (hm.hms_assn' id_assn (lso_assn A))"
-  unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def
+  unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def TRACE'_def[symmetric]
   supply [[goals_limit = 1]]
   supply conv_to_is_Nil[simp]
   unfolding fold_lso_bex
@@ -98,7 +98,7 @@ concrete_definition (in -) leadsto_impl
 
 lemma leadsto_impl_hnr:
   "(uncurry0 (
-    leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd) copyi succsi a\<^sub>0i Lei keyi succs1i emptyi Pi Qi
+    leadsto_impl copyi succsi a\<^sub>0i Lei keyi succs1i emptyi Pi Qi
     ),
     uncurry0 leadsto_spec_alt
    ) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "V a\<^sub>0"

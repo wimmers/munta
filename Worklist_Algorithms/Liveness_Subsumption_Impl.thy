@@ -1,5 +1,5 @@
 theory Liveness_Subsumption_Impl
-  imports Liveness_Subsumption_Map Heap_Hash_Map
+  imports Liveness_Subsumption_Map Heap_Hash_Map "../library/Tracing"
 begin
 
 locale Liveness_Search_Space_Key_Impl_Defs =
@@ -26,13 +26,13 @@ begin
 
 (* XXX The lemma has this form to avoid unwanted eta-expansions.
   The eta-expansions arise from the type of 'insert_map_set v S' *)
-lemma insert_map_set_alt_def: "(None, insert_map_set v S) = (
+lemma insert_map_set_alt_def: "((), insert_map_set v S) = (
   let
     k = key v; (S', S) = op_map_extract k S
   in
     case S' of
-      Some S1 \<Rightarrow> (None, S(k \<mapsto> (insert v S1)))
-    | None \<Rightarrow> (None, S(k \<mapsto> {v}))
+      Some S1 \<Rightarrow> ((), S(k \<mapsto> (insert v S1)))
+    | None \<Rightarrow> ((), S(k \<mapsto> {v}))
 )
 "
   unfolding insert_map_set_def op_map_extract_def by (auto simp: Let_def split: option.split)
@@ -72,25 +72,25 @@ lemma check_subsumption_map_list_extract: "(S, check_subsumption_map_list v S) =
   unfolding check_subsumption_map_list_def op_map_extract_def op_map_update_def op_map_delete_def
   by (auto simp: Let_def split: option.split)
 
-lemma push_map_list_alt_def: "(None, push_map_list v S) = (
+lemma push_map_list_alt_def: "((), push_map_list v S) = (
   let
     k = key v; (S', S) = op_map_extract k S
   in
     case S' of
-      Some S1 \<Rightarrow> (None, S(k \<mapsto> v # S1))
-    | None \<Rightarrow> (None, S(k \<mapsto> [v]))
+      Some S1 \<Rightarrow> ((), S(k \<mapsto> v # S1))
+    | None \<Rightarrow> ((), S(k \<mapsto> [v]))
 )
 "
   unfolding push_map_list_def op_map_extract_def by (auto simp: Let_def split: option.split)
 
 (* XXX The check for emptiness is superfluous if we thread through the pre-condition *)
-lemma pop_map_list_alt_def: "(None, pop_map_list v S) = (
+lemma pop_map_list_alt_def: "((), pop_map_list v S) = (
   let
     k = key v; (S', S) = op_map_extract k S
   in
     case S' of
-      Some S1 \<Rightarrow> (None, S(k \<mapsto> if op_list_is_empty S1 then [] else tl S1))
-    | None \<Rightarrow> (None, S(k \<mapsto> []))
+      Some S1 \<Rightarrow> ((), S(k \<mapsto> if op_list_is_empty S1 then [] else tl S1))
+    | None \<Rightarrow> ((), S(k \<mapsto> []))
 )
 "
   unfolding pop_map_list_def op_map_extract_def by (auto simp: Let_def split: option.split)
@@ -109,11 +109,12 @@ lemma dfs_map_alt_def:
         if b1 then
           RETURN (P, ST, False)
         else do {
-            let (_, ST1) = (None, push_map_list (COPY v) ST);
+            let (_, ST1) = ((), push_map_list (COPY v) ST);
             (P1, ST2, r) \<leftarrow>
               nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST1,False);
-            let (_, ST') = (None, pop_map_list (COPY v) ST2);
-            let (_, P') = (None, insert_map_set (COPY v) P1);
+            let (_, ST') = ((), pop_map_list (COPY v) ST2);
+            let (_, P')  = ((), insert_map_set (COPY v) P1);
+            TRACE (ExploredState);
             RETURN (P', ST', r)
           }
       }
@@ -123,6 +124,7 @@ lemma dfs_map_alt_def:
   unfolding dfs_map_def
   unfolding Let_def
   unfolding COPY_def
+  unfolding TRACE_bind
   by auto
 
 definition dfs_map' where
@@ -135,11 +137,12 @@ definition dfs_map' where
         if b1 then
           RETURN (P, ST, False)
         else do {
-            let (_, ST1) = (None :: 'v option, push_map_list (COPY v) ST);
+            let (_, ST1) = ((), push_map_list (COPY v) ST);
             (P1, ST2, r) \<leftarrow>
               nfoldli (succs v) (\<lambda>(_,_,b). \<not>b) (\<lambda>v' (P,ST,_). dfs (P,ST,v')) (P,ST1,False);
-            let (_, ST') = (None :: 'v option, pop_map_list (COPY v) ST2);
-            let (_, P') = (None :: 'v option, insert_map_set (COPY v) P1);
+            let (_, ST') = ((), pop_map_list (COPY v) ST2);
+            let (_, P')  = ((), insert_map_set (COPY v) P1);
+            TRACE (ExploredState);
             RETURN (P', ST', r)
           }
       }
@@ -150,7 +153,7 @@ definition dfs_map' where
 lemma dfs_map'_id:
   "dfs_map' a\<^sub>0 = dfs_map"
   apply (subst dfs_map_alt_def)
-  unfolding dfs_map'_def ..
+  unfolding dfs_map'_def TRACE_bind ..
 
 end (* Search Space Nodes Empty Key Impl Defs 1 *)
 
@@ -218,6 +221,7 @@ sepref_definition dfs_map_impl is
   "PR_CONST dfs_map" :: "passed_assn\<^sup>d \<rightarrow>\<^sub>a prod_assn bool_assn passed_assn"
   unfolding PR_CONST_def
   apply (subst dfs_map_alt_def)
+  unfolding TRACE'_def[symmetric]
   unfolding alt_defs
   unfolding Bex_set list_ex_foldli
   unfolding fold_lso_bex
@@ -230,7 +234,12 @@ lemmas [sepref_fr_rules] = dfs_map_impl.refine_raw
 
 lemma passed_empty_refine[sepref_fr_rules]:
   "(uncurry0 hm.hms_empty, uncurry0 (RETURN (PR_CONST hm.op_hms_empty))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a passed_assn"
-  by (rule hfrefI, auto simp: pure_unit_rel_eq_empty intro!: sepref_fr_rules(13)[simplified])
+proof -
+  have "hn_refine emp hm.hms_empty emp (hm.hms_assn' id_assn (lso_assn A)) (RETURN hm.op_hms_empty)"
+    using sepref_fr_rules(17)[simplified] .
+  then show ?thesis
+    by - (rule hfrefI, auto simp: pure_unit_rel_eq_empty)
+qed
 
 sepref_register hm.op_hms_empty
 
@@ -242,7 +251,7 @@ sepref_definition dfs_map'_impl is
   "uncurry dfs_map'"
   :: "A\<^sup>d *\<^sub>a (hm.hms_assn' id_assn (lso_assn A))\<^sup>d \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a hm.hms_assn' id_assn (lso_assn A)"
   unfolding dfs_map'_def
-  unfolding PR_CONST_def
+  unfolding PR_CONST_def TRACE'_def[symmetric]
   unfolding alt_defs
   unfolding Bex_set list_ex_foldli
   unfolding fold_lso_bex
@@ -274,7 +283,7 @@ lemma (in Liveness_Search_Space_Key) dfs_map_empty_correct:
   unfolding dfs_spec_def pw_le_iff by (auto simp: refine_pw_simps)
 
 lemma dfs_map_impl'_hnr:
-  "(uncurry0 (dfs_map_impl' TYPE('f) TYPE('g) TYPE('h) succsi a\<^sub>0i Lei keyi copyi),
+  "(uncurry0 (dfs_map_impl' succsi a\<^sub>0i Lei keyi copyi),
     uncurry0 (SPEC (\<lambda>r. r = (\<exists>x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x)))
    ) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "V a\<^sub>0"
   using
@@ -286,17 +295,14 @@ lemma dfs_map_impl'_hnr:
 
 lemma dfs_map_impl'_hoare_triple:
   "<\<up>(V a\<^sub>0)> 
-    dfs_map_impl' TYPE('f) TYPE('g) TYPE('h) succsi a\<^sub>0i Lei keyi copyi 
+    dfs_map_impl' succsi a\<^sub>0i Lei keyi copyi 
   <\<lambda>r. \<up>(r \<longleftrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x))>\<^sub>t"
   using dfs_map_impl'_hnr[to_hnr]
   unfolding hn_refine_def
   apply clarsimp
   apply (erule cons_post_rule)
   by (sep_auto simp: pure_def)
-      
+
 end (* Liveness Search Space Key Impl *)
-
-
-
 
 end (* Theory *)

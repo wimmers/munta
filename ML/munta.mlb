@@ -8,6 +8,7 @@ local
       UPPAAL_Model_Checker_patched.sml
     end
 in
+    structure Tracing
     structure Model_Checker
 end
 

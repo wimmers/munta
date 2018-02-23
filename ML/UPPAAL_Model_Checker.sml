@@ -240,6 +240,17 @@ end;
 
 
 
+structure Tracing : sig
+  val count_up : unit -> unit
+  val get_count : unit -> int
+end = struct
+  val counter = Unsynchronized.ref 0;
+  fun count_up () = (counter := !counter + 1);
+  fun get_count () = !counter;
+end
+
+
+
    fun array_blit src si dst di len = (
       src=dst andalso raise Fail ("array_blit: Same arrays");
       ArraySlice.copy {
@@ -460,20 +471,17 @@ structure Model_Checker : sig
             (((nat * (nat act * (nat * nat))) list) list) list ->
               (int instrc option) list -> ((nat list) list) list -> bool
   val precond_mc :
-    'a itself ->
-      'b itself ->
-        'c itself ->
+    nat ->
+      nat ->
+        ((nat list) list) list ->
           nat ->
-            nat ->
-              ((nat list) list) list ->
-                nat ->
-                  (((nat, int) acconstraint list) list) list ->
-                    (((nat * (nat act * (nat * nat))) list) list) list ->
-                      (int instrc option) list ->
-                        formula ->
-                          (int * int) list ->
-                            (nat list) list ->
-                              int list -> nat -> (unit -> (bool option))
+            (((nat, int) acconstraint list) list) list ->
+              (((nat * (nat act * (nat * nat))) list) list) list ->
+                (int instrc option) list ->
+                  formula ->
+                    (int * int) list ->
+                      (nat list) list ->
+                        int list -> nat -> (unit -> (bool option))
   val k :
     nat ->
       nat ->
@@ -1673,6 +1681,8 @@ datatype 'a set = Set of 'a list | Coset of 'a list;
 
 datatype 'a act = In of 'a | Out of 'a | Sil of 'a;
 
+datatype message = ExploredState;
+
 datatype ('a, 'b) hashtable = HashTable of (('a * 'b) list) array * nat;
 
 datatype ('a, 'b) hashmap =
@@ -1787,12 +1797,20 @@ fun remdups A_ [] = []
   | remdups A_ (x :: xs) =
     (if membera A_ xs x then remdups A_ xs else x :: remdups A_ xs);
 
+fun trace m x = let
+                  val _ = (fn x => Tracing.count_up ()) m;
+                in
+                  x
+                end;
+
 fun replicate n x =
   (if equal_nata n zero_nata then []
     else x :: replicate (minus_nat n one_nata) x);
 
 fun is_none (SOME x) = false
   | is_none NONE = true;
+
+fun tracea x = trace ExploredState x;
 
 fun blit A_ src si dst di len =
   (fn () => 
@@ -2079,6 +2097,8 @@ fun app f a = f a;
 
 fun hm_isEmpty ht = (fn () => (equal_nata (the_size ht) zero_nata));
 
+val tRACE_impl : (unit -> unit) = (fn () => (tracea ()));
+
 fun array_get a = FArray.IsabelleMapping.array_get a o integer_of_nat;
 
 fun array_set a = FArray.IsabelleMapping.array_set a o integer_of_nat;
@@ -2355,50 +2375,55 @@ not (op_list_is_empty a1b))))
 ())
 (fn x_e =>
   (if x_e then (fn () => (a1a, (a2c, a2b)))
-    else (fn f_ => fn () => f_ ((succsi a1c) ()) ())
-           (fn x_f =>
-             imp_nfoldli x_f (fn (_, (_, b)) => (fn () => (not b)))
-               (fn xj => fn (a1d, (a1e, _)) =>
-                 (fn f_ => fn () => f_ ((emptyi xj) ()) ())
-                   (fn x_i =>
-                     (if x_i then (fn () => (a1d, (a1e, false)))
-                       else (fn f_ => fn () => f_ ((fi xj) ()) ())
-                              (fn x_j =>
-                                (if x_j then (fn () => (a1d, (a1e, true)))
-                                  else (fn f_ => fn () => f_ ((keyi xj) ()) ())
- (fn x_k =>
-   (fn f_ => fn () => f_
-     ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
-        (ht_delete (B1_, B2_, B3_) (heap_list A_)) x_k a1d)
-     ()) ())
-     (fn a =>
-       (case a
-         of (NONE, a2f) =>
-           (fn f_ => fn () => f_ ((copyi xj) ()) ())
-             (fn xf =>
-               (fn f_ => fn () => f_
-                 ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k [xf] a2f) ())
-                 ())
-                 (fn x_m => (fn () => (x_m, (op_list_prepend xj a1e, false)))))
-         | (SOME x_m, a2f) =>
-           (fn f_ => fn () => f_ ((lso_bex_impl (lei xj) x_m) ()) ())
-             (fn x_n =>
-               (if x_n
-                 then (fn f_ => fn () => f_
-                        ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k x_m a2f)
-                        ()) ())
-                        (fn x_o => (fn () => (x_o, (a1e, false))))
-                 else (fn f_ => fn () => f_ ((copyi xj) ()) ())
-                        (fn xf =>
-                          (fn f_ => fn () => f_
-                            ((ht_update (B1_, B2_, B3_) (heap_list A_) x_k
-                               (xf :: x_m) a2f)
+    else (fn f_ => fn () => f_ (tRACE_impl ()) ())
+           (fn _ =>
+             (fn f_ => fn () => f_ ((succsi a1c) ()) ())
+               (fn x_g =>
+                 imp_nfoldli x_g (fn (_, (_, b)) => (fn () => (not b)))
+                   (fn xk => fn (a1d, (a1e, _)) =>
+                     (fn f_ => fn () => f_ ((emptyi xk) ()) ())
+                       (fn x_j =>
+                         (if x_j then (fn () => (a1d, (a1e, false)))
+                           else (fn f_ => fn () => f_ ((fi xk) ()) ())
+                                  (fn x_k =>
+                                    (if x_k then (fn () => (a1d, (a1e, true)))
+                                      else (fn f_ => fn () => f_ ((keyi xk) ())
+     ())
+     (fn x_l =>
+       (fn f_ => fn () => f_
+         ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+            (ht_delete (B1_, B2_, B3_) (heap_list A_)) x_l a1d)
+         ()) ())
+         (fn a =>
+           (case a
+             of (NONE, a2f) =>
+               (fn f_ => fn () => f_ ((copyi xk) ()) ())
+                 (fn xf =>
+                   (fn f_ => fn () => f_
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l [xf] a2f)
+                     ()) ())
+                     (fn x_n =>
+                       (fn () => (x_n, (op_list_prepend xk a1e, false)))))
+             | (SOME x_n, a2f) =>
+               (fn f_ => fn () => f_ ((lso_bex_impl (lei xk) x_n) ()) ())
+                 (fn x_o =>
+                   (if x_o
+                     then (fn f_ => fn () => f_
+                            ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l x_n
+                               a2f)
                             ()) ())
-                            (fn x_o =>
-                              (fn () =>
-                                (x_o, (op_list_prepend xj a1e,
-false)))))))))))))))
-               (a1a, (a2c, false)))))
+                            (fn x_p => (fn () => (x_p, (a1e, false))))
+                     else (fn f_ => fn () => f_ ((copyi xk) ()) ())
+                            (fn xf =>
+                              (fn f_ => fn () => f_
+                                ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l
+                                   (xf :: x_n) a2f)
+                                ()) ())
+                                (fn x_p =>
+                                  (fn () =>
+                                    (x_p, (op_list_prepend xk a1e,
+    false)))))))))))))))
+                   (a1a, (a2c, false))))))
                                     end)
                                   (a1, (a2, false)))
                                ()) ())
@@ -2474,159 +2499,158 @@ fun idx_iteratei get sz l c f sigma =
 
 fun as_empty B_ uu = (FArray.IsabelleMapping.array_of_list [], zero B_);
 
-fun leadsto_impl_0 D_ (E1_, E2_, E3_) Type Type Type copyia succsia leia keyia x
-  = let
-      val (a1, (a1a, a2a)) = x;
-    in
-      (fn f_ => fn () => f_ ((keyia a2a) ()) ())
-        (fn xa =>
-          (fn f_ => fn () => f_
-            ((hms_extract (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-               (ht_delete (E1_, E2_, E3_) (heap_list D_)) xa a1a)
-            ()) ())
-            (fn xaa =>
-              (fn f_ => fn () => f_
-                ((case xaa of (NONE, a2b) => (fn () => (a2b, false))
-                   | (SOME x_c, a2b) =>
-                     (fn f_ => fn () => f_
-                       ((imp_nfoldli x_c (fn sigma => (fn () => (not sigma)))
-                          (fn xe => fn sigma =>
-                            (fn f_ => fn () => f_ ((leia xe a2a) ()) ())
-                              (fn x_f => (fn () => (x_f orelse sigma))))
-                          false)
-                       ()) ())
-                       (fn x_d =>
-                         (fn f_ => fn () => f_
-                           ((ht_update (E1_, E2_, E3_) (heap_list D_) xa x_c
-                              a2b)
-                           ()) ())
-                           (fn x_e => (fn () => (x_e, x_d)))))
-                ()) ())
-                (fn a =>
-                  (case a of (a1b, true) => (fn () => (a1, (a1b, true)))
-                    | (a1b, false) =>
-                      (fn f_ => fn () => f_ ((keyia a2a) ()) ())
-                        (fn xb =>
-                          (fn f_ => fn () => f_
-                            ((hms_extract
-                               (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-                               (ht_delete (E1_, E2_, E3_) (heap_list D_)) xb a1)
-                            ()) ())
-                            (fn xab =>
-                              (fn f_ => fn () => f_
-                                ((case xab
-                                   of (NONE, a2c) => (fn () => (a2c, false))
-                                   | (SOME x_e, a2c) =>
-                                     (fn f_ => fn () => f_
-                                       ((lso_bex_impl (leia a2a) x_e) ()) ())
-                                       (fn x_f =>
- (fn f_ => fn () => f_ ((ht_update (E1_, E2_, E3_) (heap_list D_) xb x_e a2c)
-   ()) ())
-   (fn x_g => (fn () => (x_g, x_f)))))
-                                ()) ())
-                                (fn aa =>
-                                  (case aa
-                                    of (a1c, true) =>
-                                      (fn () => (a1c, (a1b, false)))
-                                    | (a1c, false) =>
-                                      (fn f_ => fn () => f_ ((copyia a2a) ())
-())
-(fn xc =>
-  (fn f_ => fn () => f_ ((keyia xc) ()) ())
-    (fn xd =>
-      (fn f_ => fn () => f_
-        ((hms_extract (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-           (ht_delete (E1_, E2_, E3_) (heap_list D_)) xd a1b)
-        ()) ())
-        (fn xac =>
-          (fn f_ => fn () => f_
-            ((case xac
-               of (NONE, a2d) =>
-                 (fn f_ => fn () => f_ ((copyia a2a) ()) ())
-                   (fn xad =>
-                     (fn f_ => fn () => f_
-                       ((ht_update (E1_, E2_, E3_) (heap_list D_) xd
-                          (op_list_prepend xad []) a2d)
-                       ()) ())
-                       (fn x_h => (fn () => (NONE, x_h))))
-               | (SOME x_g, a2d) =>
-                 (fn f_ => fn () => f_ ((copyia a2a) ()) ())
-                   (fn xad =>
-                     (fn f_ => fn () => f_
-                       ((ht_update (E1_, E2_, E3_) (heap_list D_) xd
-                          (op_list_prepend xad x_g) a2d)
-                       ()) ())
-                       (fn x_i => (fn () => (NONE, x_i)))))
-            ()) ())
-            (fn (_, a2d) =>
-              (fn f_ => fn () => f_ ((succsia a2a) ()) ())
-                (fn xe =>
-                  (fn f_ => fn () => f_
-                    ((imp_nfoldli xe (fn (_, (_, b)) => (fn () => (not b)))
-                       (fn xi => fn (a1e, (a1f, _)) =>
-                         leadsto_impl_0 D_ (E1_, E2_, E3_) Type Type Type copyia
-                           succsia leia keyia (a1e, (a1f, xi)))
-                       (a1c, (a2d, false)))
-                    ()) ())
-                    (fn (a1e, (a1f, a2f)) =>
-                      (fn f_ => fn () => f_ ((copyia a2a) ()) ())
-                        (fn xf =>
-                          (fn f_ => fn () => f_ ((keyia xf) ()) ())
-                            (fn xg =>
-                              (fn f_ => fn () => f_
-                                ((hms_extract
-                                   (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-                                   (ht_delete (E1_, E2_, E3_) (heap_list D_)) xg
-                                   a1f)
-                                ()) ())
-                                (fn xad =>
-                                  (fn f_ => fn () => f_
-                                    ((case xad
-                                       of (NONE, a2g) =>
- (fn f_ => fn () => f_ ((ht_update (E1_, E2_, E3_) (heap_list D_) xg [] a2g) ())
-   ())
-   (fn x_k => (fn () => (NONE, x_k)))
-                                       | (SOME x_j, a2g) =>
- (fn f_ => fn () => f_
-   ((ht_update (E1_, E2_, E3_) (heap_list D_) xg
-      (if op_list_is_empty x_j then [] else op_list_tl x_j) a2g)
-   ()) ())
-   (fn x_l => (fn () => (NONE, x_l))))
-                                    ()) ())
-                                    (fn (_, a2g) =>
-                                      (fn f_ => fn () => f_ ((copyia a2a) ())
-())
-(fn xh =>
-  (fn f_ => fn () => f_ ((keyia xh) ()) ())
-    (fn xi =>
-      (fn f_ => fn () => f_
-        ((hms_extract (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-           (ht_delete (E1_, E2_, E3_) (heap_list D_)) xi a1e)
-        ()) ())
-        (fn xae =>
-          (fn f_ => fn () => f_
-            ((case xae
-               of (NONE, a2h) =>
-                 (fn f_ => fn () => f_ ((copyia a2a) ()) ())
-                   (fn xaf =>
-                     (fn f_ => fn () => f_
-                       ((ht_update (E1_, E2_, E3_) (heap_list D_) xi [xaf] a2h)
-                       ()) ())
-                       (fn x_m => (fn () => (NONE, x_m))))
-               | (SOME x_l, a2h) =>
-                 (fn f_ => fn () => f_ ((copyia a2a) ()) ())
-                   (fn xaf =>
-                     (fn f_ => fn () => f_
-                       ((ht_update (E1_, E2_, E3_) (heap_list D_) xi
-                          (xaf :: x_l) a2h)
-                       ()) ())
-                       (fn x_n => (fn () => (NONE, x_n)))))
-            ()) ())
-            (fn (_, a2h) => (fn () => (a2h, (a2g, a2f)))))))))))))))))))))))))
-    end;
+fun leadsto_impl_0 A_ (B1_, B2_, B3_) copyia succsia leia keyia x =
+  let
+    val (a1, (a1a, a2a)) = x;
+  in
+    (fn f_ => fn () => f_ ((keyia a2a) ()) ())
+      (fn xa =>
+        (fn f_ => fn () => f_
+          ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+             (ht_delete (B1_, B2_, B3_) (heap_list A_)) xa a1a)
+          ()) ())
+          (fn xaa =>
+            (fn f_ => fn () => f_
+              ((case xaa of (NONE, a2b) => (fn () => (a2b, false))
+                 | (SOME x_c, a2b) =>
+                   (fn f_ => fn () => f_
+                     ((imp_nfoldli x_c (fn sigma => (fn () => (not sigma)))
+                        (fn xe => fn sigma =>
+                          (fn f_ => fn () => f_ ((leia xe a2a) ()) ())
+                            (fn x_f => (fn () => (x_f orelse sigma))))
+                        false)
+                     ()) ())
+                     (fn x_d =>
+                       (fn f_ => fn () => f_
+                         ((ht_update (B1_, B2_, B3_) (heap_list A_) xa x_c a2b)
+                         ()) ())
+                         (fn x_e => (fn () => (x_e, x_d)))))
+              ()) ())
+              (fn a =>
+                (case a of (a1b, true) => (fn () => (a1, (a1b, true)))
+                  | (a1b, false) =>
+                    (fn f_ => fn () => f_ ((keyia a2a) ()) ())
+                      (fn xb =>
+                        (fn f_ => fn () => f_
+                          ((hms_extract
+                             (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+                             (ht_delete (B1_, B2_, B3_) (heap_list A_)) xb a1)
+                          ()) ())
+                          (fn xab =>
+                            (fn f_ => fn () => f_
+                              ((case xab
+                                 of (NONE, a2c) => (fn () => (a2c, false))
+                                 | (SOME x_e, a2c) =>
+                                   (fn f_ => fn () => f_
+                                     ((lso_bex_impl (leia a2a) x_e) ()) ())
+                                     (fn x_f =>
+                                       (fn f_ => fn () => f_
+ ((ht_update (B1_, B2_, B3_) (heap_list A_) xb x_e a2c) ()) ())
+ (fn x_g => (fn () => (x_g, x_f)))))
+                              ()) ())
+                              (fn aa =>
+                                (case aa
+                                  of (a1c, true) =>
+                                    (fn () => (a1c, (a1b, false)))
+                                  | (a1c, false) =>
+                                    (fn f_ => fn () => f_ ((copyia a2a) ()) ())
+                                      (fn xc =>
+(fn f_ => fn () => f_ ((keyia xc) ()) ())
+  (fn xd =>
+    (fn f_ => fn () => f_
+      ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+         (ht_delete (B1_, B2_, B3_) (heap_list A_)) xd a1b)
+      ()) ())
+      (fn xac =>
+        (fn f_ => fn () => f_
+          ((case xac
+             of (NONE, a2d) =>
+               (fn f_ => fn () => f_ ((copyia a2a) ()) ())
+                 (fn xad =>
+                   (fn f_ => fn () => f_
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xd
+                        (op_list_prepend xad []) a2d)
+                     ()) ())
+                     (fn x_h => (fn () => ((), x_h))))
+             | (SOME x_g, a2d) =>
+               (fn f_ => fn () => f_ ((copyia a2a) ()) ())
+                 (fn xad =>
+                   (fn f_ => fn () => f_
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xd
+                        (op_list_prepend xad x_g) a2d)
+                     ()) ())
+                     (fn x_i => (fn () => ((), x_i)))))
+          ()) ())
+          (fn (_, a2d) =>
+            (fn f_ => fn () => f_ ((succsia a2a) ()) ())
+              (fn xe =>
+                (fn f_ => fn () => f_
+                  ((imp_nfoldli xe (fn (_, (_, b)) => (fn () => (not b)))
+                     (fn xi => fn (a1e, (a1f, _)) =>
+                       leadsto_impl_0 A_ (B1_, B2_, B3_) copyia succsia leia
+                         keyia (a1e, (a1f, xi)))
+                     (a1c, (a2d, false)))
+                  ()) ())
+                  (fn (a1e, (a1f, a2f)) =>
+                    (fn f_ => fn () => f_ ((copyia a2a) ()) ())
+                      (fn xf =>
+                        (fn f_ => fn () => f_ ((keyia xf) ()) ())
+                          (fn xg =>
+                            (fn f_ => fn () => f_
+                              ((hms_extract
+                                 (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+                                 (ht_delete (B1_, B2_, B3_) (heap_list A_)) xg
+                                 a1f)
+                              ()) ())
+                              (fn xad =>
+                                (fn f_ => fn () => f_
+                                  ((case xad
+                                     of (NONE, a2g) =>
+                                       (fn f_ => fn () => f_
+ ((ht_update (B1_, B2_, B3_) (heap_list A_) xg [] a2g) ()) ())
+ (fn x_k => (fn () => ((), x_k)))
+                                     | (SOME x_j, a2g) =>
+                                       (fn f_ => fn () => f_
+ ((ht_update (B1_, B2_, B3_) (heap_list A_) xg
+    (if op_list_is_empty x_j then [] else op_list_tl x_j) a2g)
+ ()) ())
+ (fn x_l => (fn () => ((), x_l))))
+                                  ()) ())
+                                  (fn (_, a2g) =>
+                                    (fn f_ => fn () => f_ ((copyia a2a) ()) ())
+                                      (fn xh =>
+(fn f_ => fn () => f_ ((keyia xh) ()) ())
+  (fn xi =>
+    (fn f_ => fn () => f_
+      ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+         (ht_delete (B1_, B2_, B3_) (heap_list A_)) xi a1e)
+      ()) ())
+      (fn xae =>
+        (fn f_ => fn () => f_
+          ((case xae
+             of (NONE, a2h) =>
+               (fn f_ => fn () => f_ ((copyia a2a) ()) ())
+                 (fn xaf =>
+                   (fn f_ => fn () => f_
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xi [xaf] a2h)
+                     ()) ())
+                     (fn x_m => (fn () => ((), x_m))))
+             | (SOME x_l, a2h) =>
+               (fn f_ => fn () => f_ ((copyia a2a) ()) ())
+                 (fn xaf =>
+                   (fn f_ => fn () => f_
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xi (xaf :: x_l)
+                        a2h)
+                     ()) ())
+                     (fn x_n => (fn () => ((), x_n)))))
+          ()) ())
+          (fn (_, a2h) =>
+            (fn f_ => fn () => f_ (tRACE_impl ()) ())
+              (fn _ => (fn () => (a2h, (a2g, a2f))))))))))))))))))))))))))
+  end;
 
-fun leadsto_impl D_ (E1_, E2_, E3_) Type Type Type copyia succsia a_0ia leia
-  keyia succs1i emptyi pi qi =
+fun leadsto_impl A_ (B1_, B2_, B3_) copyia succsia a_0ia leia keyia succs1i
+  emptyi pi qi =
   (fn f_ => fn () => f_ (a_0ia ()) ())
     (fn x =>
       (fn f_ => fn () => f_ ((emptyi x) ()) ())
@@ -2636,7 +2660,7 @@ fun leadsto_impl D_ (E1_, E2_, E3_) Type Type Type copyia succsia a_0ia leia
               (fn f_ => fn () => f_
                 ((if not xa andalso false
                    then (fn f_ => fn () => f_
-                          ((ht_new (E2_, E3_) (heap_list D_)) ()) ())
+                          ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
                           (fn x_b => (fn () => (true, x_b)))
                    else (fn f_ => fn () => f_ (a_0ia ()) ())
                           (fn xb =>
@@ -2644,7 +2668,7 @@ fun leadsto_impl D_ (E1_, E2_, E3_) Type Type Type copyia succsia a_0ia leia
                               (fn x_a =>
                                 (if x_a
                                   then (fn f_ => fn () => f_
- ((ht_new (E2_, E3_) (heap_list D_)) ()) ())
+ ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
  (fn x_c => (fn () => (false, x_c)))
                                   else (fn f_ => fn () => f_ (a_0ia ()) ())
  (fn xc =>
@@ -2652,10 +2676,10 @@ fun leadsto_impl D_ (E1_, E2_, E3_) Type Type Type copyia succsia a_0ia leia
      (fn xd =>
        (fn f_ => fn () => f_ (a_0ia ()) ())
          (fn xaa =>
-           (fn f_ => fn () => f_ ((ht_new (E2_, E3_) (heap_list D_)) ()) ())
+           (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
              (fn xba =>
                (fn f_ => fn () => f_
-                 ((ht_update (E1_, E2_, E3_) (heap_list D_) xd [xaa] xba) ())
+                 ((ht_update (B1_, B2_, B3_) (heap_list A_) xd [xaa] xba) ())
                  ())
                  (fn xe =>
                    (fn f_ => fn () => f_ (a_0ia ()) ())
@@ -2676,46 +2700,48 @@ fun leadsto_impl D_ (E1_, E2_, E3_) Type Type Type copyia succsia a_0ia leia
                                 (fn f_ => fn () => f_ ((emptyi a1c) ()) ())
                                   (fn x_e =>
                                     (if x_e then (fn () => (a1a, (a2c, a2b)))
-                                      else (fn f_ => fn () => f_ ((succs1i a1c)
-     ()) ())
-     (fn x_f =>
-       imp_nfoldli x_f (fn (_, (_, b)) => (fn () => (not b)))
-         (fn xj => fn (a1d, (a1e, _)) =>
-           (fn f_ => fn () => f_ ((emptyi xj) ()) ())
-             (fn x_i =>
-               (if x_i then (fn () => (a1d, (a1e, false)))
-                 else (fn f_ => fn () => f_ ((keyia xj) ()) ())
-                        (fn x_k =>
-                          (fn f_ => fn () => f_
-                            ((hms_extract
-                               (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-                               (ht_delete (E1_, E2_, E3_) (heap_list D_)) x_k
-                               a1d)
-                            ()) ())
-                            (fn a =>
-                              (case a
-                                of (NONE, a2f) =>
-                                  (fn f_ => fn () => f_ ((copyia xj) ()) ())
-                                    (fn xf =>
+                                      else (fn f_ => fn () => f_ (tRACE_impl ())
+     ())
+     (fn _ =>
+       (fn f_ => fn () => f_ ((succs1i a1c) ()) ())
+         (fn x_g =>
+           imp_nfoldli x_g (fn (_, (_, b)) => (fn () => (not b)))
+             (fn xk => fn (a1d, (a1e, _)) =>
+               (fn f_ => fn () => f_ ((emptyi xk) ()) ())
+                 (fn x_j =>
+                   (if x_j then (fn () => (a1d, (a1e, false)))
+                     else (fn f_ => fn () => f_ ((keyia xk) ()) ())
+                            (fn x_l =>
+                              (fn f_ => fn () => f_
+                                ((hms_extract
+                                   (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+                                   (ht_delete (B1_, B2_, B3_) (heap_list A_))
+                                   x_l a1d)
+                                ()) ())
+                                (fn a =>
+                                  (case a
+                                    of (NONE, a2f) =>
+                                      (fn f_ => fn () => f_ ((copyia xk) ()) ())
+(fn xf =>
+  (fn f_ => fn () => f_ ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l [xf] a2f)
+    ()) ())
+    (fn x_n => (fn () => (x_n, (op_list_prepend xk a1e, false)))))
+                                    | (SOME x_n, a2f) =>
                                       (fn f_ => fn () => f_
-((ht_update (E1_, E2_, E3_) (heap_list D_) x_k [xf] a2f) ()) ())
-(fn x_m => (fn () => (x_m, (op_list_prepend xj a1e, false)))))
-                                | (SOME x_m, a2f) =>
-                                  (fn f_ => fn () => f_
-                                    ((lso_bex_impl (leia xj) x_m) ()) ())
-                                    (fn x_n =>
-                                      (if x_n
-then (fn f_ => fn () => f_
-       ((ht_update (E1_, E2_, E3_) (heap_list D_) x_k x_m a2f) ()) ())
-       (fn x_o => (fn () => (x_o, (a1e, false))))
-else (fn f_ => fn () => f_ ((copyia xj) ()) ())
-       (fn xf =>
-         (fn f_ => fn () => f_
-           ((ht_update (E1_, E2_, E3_) (heap_list D_) x_k (xf :: x_m) a2f) ())
-           ())
-           (fn x_o =>
-             (fn () => (x_o, (op_list_prepend xj a1e, false)))))))))))))
-         (a1a, (a2c, false)))))
+((lso_bex_impl (leia xk) x_n) ()) ())
+(fn x_o =>
+  (if x_o
+    then (fn f_ => fn () => f_
+           ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l x_n a2f) ()) ())
+           (fn x_p => (fn () => (x_p, (a1e, false))))
+    else (fn f_ => fn () => f_ ((copyia xk) ()) ())
+           (fn xf =>
+             (fn f_ => fn () => f_
+               ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l (xf :: x_n) a2f)
+               ()) ())
+               (fn x_p =>
+                 (fn () => (x_p, (op_list_prepend xk a1e, false)))))))))))))
+             (a1a, (a2c, false))))))
                               end)
                             (xe, (op_list_prepend xab [], false)))
                          ()) ())
@@ -2723,9 +2749,9 @@ else (fn f_ => fn () => f_ ((copyia xj) ()) ())
                 ()) ())
                 (fn (_, a2) =>
                   (fn f_ => fn () => f_
-                    ((ran_of_map_impl (E1_, E2_, E3_) (heap_list D_) a2) ()) ())
+                    ((ran_of_map_impl (B1_, B2_, B3_) (heap_list A_) a2) ()) ())
                     (fn x_a =>
-                      (fn f_ => fn () => f_ ((ht_new (E2_, E3_) (heap_list D_))
+                      (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_))
                         ()) ())
                         (fn xb =>
                           (fn f_ => fn () => f_
@@ -2740,11 +2766,11 @@ else (fn f_ => fn () => f_ ((copyia xj) ()) ())
  (fn f_ => fn () => f_ ((qi xg) ()) ())
    (fn xaa =>
      (if xc andalso xaa
-       then (fn f_ => fn () => f_ ((ht_new (E2_, E3_) (heap_list D_)) ()) ())
+       then (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
               (fn xe =>
                 (fn f_ => fn () => f_
-                  ((leadsto_impl_0 D_ (E1_, E2_, E3_) Type Type Type copyia
-                     succsia leia keyia (a2b, (xe, xg)))
+                  ((leadsto_impl_0 A_ (B1_, B2_, B3_) copyia succsia leia keyia
+                     (a2b, (xe, xg)))
                   ()) ())
                   (fn (a1, (_, a2aa)) => (fn () => (a2aa, a1))))
        else (fn () => (false, a2b))))))
@@ -4282,8 +4308,7 @@ fun reachability_checker p m max_steps inv trans prog bounds pred s_0 na k
         (fn f_ => fn () => f_ ((fn () => ()) ()) ()) (fn _ => (fn () => x)))
   end;
 
-fun leadsto_checker Type Type Type p m max_steps inv trans prog bounds pred s_0
-  na k formula =
+fun leadsto_checker p m max_steps inv trans prog bounds pred s_0 na k formula =
   let
     val i = upt zero_nata (plus_nat m one_nata);
     val ia = Set (upt zero_nata p);
@@ -4693,21 +4718,21 @@ equal_int),
                hashable_prod (hashable_list hashable_nat)
                  (hashable_list hashable_int),
                heap_prod (heap_list heap_nat) (heap_list heap_int))
-             Type Type Type copy succs start suba key succsa empty final finala
+             copy succs start suba key succsa empty final finala
          end
         ()) ())
         (fn r => (fn () => (not r))))
   end;
 
-fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
+fun dfs_map_impl_0 A_ (B1_, B2_, B3_) succsi lei keyi copyi x =
   let
     val (a1, (a1a, a2a)) = x;
   in
     (fn f_ => fn () => f_ ((keyi a2a) ()) ())
       (fn xa =>
         (fn f_ => fn () => f_
-          ((hms_extract (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-             (ht_delete (E1_, E2_, E3_) (heap_list D_)) xa a1a)
+          ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+             (ht_delete (B1_, B2_, B3_) (heap_list A_)) xa a1a)
           ()) ())
           (fn xaa =>
             (fn f_ => fn () => f_
@@ -4722,7 +4747,7 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                      ()) ())
                      (fn x_d =>
                        (fn f_ => fn () => f_
-                         ((ht_update (E1_, E2_, E3_) (heap_list D_) xa x_c a2b)
+                         ((ht_update (B1_, B2_, B3_) (heap_list A_) xa x_c a2b)
                          ()) ())
                          (fn x_e => (fn () => (x_e, x_d)))))
               ()) ())
@@ -4733,8 +4758,8 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                       (fn xb =>
                         (fn f_ => fn () => f_
                           ((hms_extract
-                             (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-                             (ht_delete (E1_, E2_, E3_) (heap_list D_)) xb a1)
+                             (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+                             (ht_delete (B1_, B2_, B3_) (heap_list A_)) xb a1)
                           ()) ())
                           (fn xab =>
                             (fn f_ => fn () => f_
@@ -4745,7 +4770,7 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                                      ((lso_bex_impl (lei a2a) x_e) ()) ())
                                      (fn x_f =>
                                        (fn f_ => fn () => f_
- ((ht_update (E1_, E2_, E3_) (heap_list D_) xb x_e a2c) ()) ())
+ ((ht_update (B1_, B2_, B3_) (heap_list A_) xb x_e a2c) ()) ())
  (fn x_g => (fn () => (x_g, x_f)))))
                               ()) ())
                               (fn aa =>
@@ -4758,8 +4783,8 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
 (fn f_ => fn () => f_ ((keyi xc) ()) ())
   (fn xd =>
     (fn f_ => fn () => f_
-      ((hms_extract (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-         (ht_delete (E1_, E2_, E3_) (heap_list D_)) xd a1b)
+      ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+         (ht_delete (B1_, B2_, B3_) (heap_list A_)) xd a1b)
       ()) ())
       (fn xac =>
         (fn f_ => fn () => f_
@@ -4768,18 +4793,18 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                (fn f_ => fn () => f_ ((copyi a2a) ()) ())
                  (fn xad =>
                    (fn f_ => fn () => f_
-                     ((ht_update (E1_, E2_, E3_) (heap_list D_) xd
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xd
                         (op_list_prepend xad []) a2d)
                      ()) ())
-                     (fn x_h => (fn () => (NONE, x_h))))
+                     (fn x_h => (fn () => ((), x_h))))
              | (SOME x_g, a2d) =>
                (fn f_ => fn () => f_ ((copyi a2a) ()) ())
                  (fn xad =>
                    (fn f_ => fn () => f_
-                     ((ht_update (E1_, E2_, E3_) (heap_list D_) xd
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xd
                         (op_list_prepend xad x_g) a2d)
                      ()) ())
-                     (fn x_i => (fn () => (NONE, x_i)))))
+                     (fn x_i => (fn () => ((), x_i)))))
           ()) ())
           (fn (_, a2d) =>
             (fn f_ => fn () => f_ ((succsi a2a) ()) ())
@@ -4787,8 +4812,8 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                 (fn f_ => fn () => f_
                   ((imp_nfoldli xe (fn (_, (_, b)) => (fn () => (not b)))
                      (fn xk => fn (a1e, (a1f, _)) =>
-                       dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi
-                         lei keyi copyi (a1e, (a1f, xk)))
+                       dfs_map_impl_0 A_ (B1_, B2_, B3_) succsi lei keyi copyi
+                         (a1e, (a1f, xk)))
                      (a1c, (a2d, false)))
                   ()) ())
                   (fn (a1e, (a1f, a2f)) =>
@@ -4798,8 +4823,8 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                           (fn xg =>
                             (fn f_ => fn () => f_
                               ((hms_extract
-                                 (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-                                 (ht_delete (E1_, E2_, E3_) (heap_list D_)) xg
+                                 (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+                                 (ht_delete (B1_, B2_, B3_) (heap_list A_)) xg
                                  a1f)
                               ()) ())
                               (fn xad =>
@@ -4807,14 +4832,14 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                                   ((case xad
                                      of (NONE, a2g) =>
                                        (fn f_ => fn () => f_
- ((ht_update (E1_, E2_, E3_) (heap_list D_) xg [] a2g) ()) ())
- (fn x_k => (fn () => (NONE, x_k)))
+ ((ht_update (B1_, B2_, B3_) (heap_list A_) xg [] a2g) ()) ())
+ (fn x_k => (fn () => ((), x_k)))
                                      | (SOME x_j, a2g) =>
                                        (fn f_ => fn () => f_
- ((ht_update (E1_, E2_, E3_) (heap_list D_) xg
+ ((ht_update (B1_, B2_, B3_) (heap_list A_) xg
     (if op_list_is_empty x_j then [] else op_list_tl x_j) a2g)
  ()) ())
- (fn x_l => (fn () => (NONE, x_l))))
+ (fn x_l => (fn () => ((), x_l))))
                                   ()) ())
                                   (fn (_, a2g) =>
                                     (fn f_ => fn () => f_ ((copyi a2a) ()) ())
@@ -4822,8 +4847,8 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
 (fn f_ => fn () => f_ ((keyi xh) ()) ())
   (fn xi =>
     (fn f_ => fn () => f_
-      ((hms_extract (ht_lookup (E1_, E2_, E3_) (heap_list D_))
-         (ht_delete (E1_, E2_, E3_) (heap_list D_)) xi a1e)
+      ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+         (ht_delete (B1_, B2_, B3_) (heap_list A_)) xi a1e)
       ()) ())
       (fn xae =>
         (fn f_ => fn () => f_
@@ -4832,31 +4857,33 @@ fun dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei keyi copyi x =
                (fn f_ => fn () => f_ ((copyi a2a) ()) ())
                  (fn xaf =>
                    (fn f_ => fn () => f_
-                     ((ht_update (E1_, E2_, E3_) (heap_list D_) xi [xaf] a2h)
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xi [xaf] a2h)
                      ()) ())
-                     (fn x_m => (fn () => (NONE, x_m))))
+                     (fn x_m => (fn () => ((), x_m))))
              | (SOME x_l, a2h) =>
                (fn f_ => fn () => f_ ((copyi a2a) ()) ())
                  (fn xaf =>
                    (fn f_ => fn () => f_
-                     ((ht_update (E1_, E2_, E3_) (heap_list D_) xi (xaf :: x_l)
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) xi (xaf :: x_l)
                         a2h)
                      ()) ())
-                     (fn x_n => (fn () => (NONE, x_n)))))
+                     (fn x_n => (fn () => ((), x_n)))))
           ()) ())
-          (fn (_, a2h) => (fn () => (a2h, (a2g, a2f)))))))))))))))))))))))))
+          (fn (_, a2h) =>
+            (fn f_ => fn () => f_ (tRACE_impl ()) ())
+              (fn _ => (fn () => (a2h, (a2g, a2f))))))))))))))))))))))))))
   end;
 
-fun dfs_map_impl D_ (E1_, E2_, E3_) Type Type Type succsi a_0i lei keyi copyi =
-  (fn f_ => fn () => f_ ((ht_new (E2_, E3_) (heap_list D_)) ()) ())
+fun dfs_map_impl A_ (B1_, B2_, B3_) succsi a_0i lei keyi copyi =
+  (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
     (fn x =>
-      (fn f_ => fn () => f_ ((ht_new (E2_, E3_) (heap_list D_)) ()) ())
+      (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
         (fn xa =>
           (fn f_ => fn () => f_ (a_0i ()) ())
             (fn xb =>
               (fn f_ => fn () => f_
-                ((dfs_map_impl_0 D_ (E1_, E2_, E3_) Type Type Type succsi lei
-                   keyi copyi (x, (xa, xb)))
+                ((dfs_map_impl_0 A_ (B1_, B2_, B3_) succsi lei keyi copyi
+                   (x, (xa, xb)))
                 ()) ())
                 (fn xc =>
                   (fn f_ => fn () => f_ (let
@@ -4867,8 +4894,7 @@ fun dfs_map_impl D_ (E1_, E2_, E3_) Type Type Type succsi a_0i lei keyi copyi =
                     ()) ())
                     (fn (a1, _) => (fn () => a1))))));
 
-fun alw_ev_checker Type Type Type p m max_steps inv trans prog bounds pred s_0
-  na k formula =
+fun alw_ev_checker p m max_steps inv trans prog bounds pred s_0 na k formula =
   let
     val i = upt zero_nata (plus_nat m one_nata);
     val ia = Set (upt zero_nata p);
@@ -5106,15 +5132,14 @@ m xe zero_nata (constraint_clk ai)))))
              hashable_prod (hashable_list hashable_nat)
                (hashable_list hashable_int),
              heap_prod (heap_list heap_nat) (heap_list heap_int))
-           Type Type Type succs start suba key copy
+           succs start suba key copy
        end
       ()) ())
       (fn x =>
         (fn f_ => fn () => f_ ((fn () => ()) ()) ()) (fn _ => (fn () => x)))
   end;
 
-fun model_checker Type Type Type p m max_steps inv trans prog bounds pred s_0 na
-  k formula =
+fun model_checker p m max_steps inv trans prog bounds pred s_0 na k formula =
   (case formula
     of EX _ =>
       reachability_checker p m max_steps inv trans prog bounds pred s_0 na k
@@ -5125,8 +5150,8 @@ fun model_checker Type Type Type p m max_steps inv trans prog bounds pred s_0 na
           in
             hd_of_formula formula a b
           end
-        then alw_ev_checker Type Type Type p m max_steps inv trans prog bounds
-               pred s_0 na k formula
+        then alw_ev_checker p m max_steps inv trans prog bounds pred s_0 na k
+               formula
         else (fn () => false))
     | AX _ =>
       (fn f_ => fn () => f_
@@ -5135,8 +5160,8 @@ fun model_checker Type Type Type p m max_steps inv trans prog bounds pred s_0 na
              in
                hd_of_formula formula a b
              end
-           then alw_ev_checker Type Type Type p m max_steps inv trans prog
-                  bounds pred s_0 na k formula
+           then alw_ev_checker p m max_steps inv trans prog bounds pred s_0 na k
+                  formula
            else (fn () => false))
         ()) ())
         (fn r => (fn () => (not r)))
@@ -5147,16 +5172,15 @@ fun model_checker Type Type Type p m max_steps inv trans prog bounds pred s_0 na
         ()) ())
         (fn r => (fn () => (not r)))
     | Leadsto (_, a) =>
-      leadsto_checker Type Type Type p m max_steps inv trans prog bounds pred
-        s_0 na k formula a);
+      leadsto_checker p m max_steps inv trans prog bounds pred s_0 na k formula
+        a);
 
-fun precond_mc Type Type Type pa m k max_steps i t prog final bounds p s_0 na =
+fun precond_mc pa m k max_steps i t prog final bounds p s_0 na =
   (if uPPAAL_Reachability_Problem_precompileda pa m max_steps i t prog bounds p
         s_0 na k
     then (fn f_ => fn () => f_
-           ((model_checker Type Type Type pa m max_steps i t prog bounds p s_0
-              na k final)
-           ()) ())
+           ((model_checker pa m max_steps i t prog bounds p s_0 na k final) ())
+           ())
            (fn x => (fn () => (SOME x)))
     else (fn () => NONE));
 

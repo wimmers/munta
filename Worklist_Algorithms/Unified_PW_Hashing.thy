@@ -1,5 +1,5 @@
 theory Unified_PW_Hashing
-  imports Unified_PW Refine_Imperative_HOL.IICF_List_Mset
+  imports Unified_PW Refine_Imperative_HOL.IICF_List_Mset "../library/Tracing"
 begin
 
 subsection \<open>Towards an Implementation of the Unified Passed-Wait List\<close>
@@ -402,7 +402,11 @@ definition pw_algo_map2 where
             {
               (a, wait) \<leftarrow> take_from_list wait;
               ASSERT (reachable a);
-              if empty a then RETURN (passed, wait, brk) else add_pw'_map2 passed wait a
+              if empty a
+              then RETURN (passed, wait, brk)
+              else do {
+                TRACE (ExploredState); add_pw'_map2 passed wait a
+              }
             }
           )
           (passed, wait, False);
@@ -427,7 +431,7 @@ lemma add_pw'_map2_ref[refine]:
 
 lemma pw_algo_map2_ref[refine]:
   "pw_algo_map2 \<le> \<Down> Id pw_algo_map"
-  unfolding pw_algo_map2_def pw_algo_map_def
+  unfolding pw_algo_map2_def pw_algo_map_def TRACE_bind
   apply refine_rcg
            apply refine_dref_type
   by auto

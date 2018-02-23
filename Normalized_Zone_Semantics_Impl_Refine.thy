@@ -808,7 +808,7 @@ begin
 
   lemma liveness_hnr:
     "(uncurry0
-      (dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd) (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl
+      (dfs_map_impl' (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl
         (return \<circ> fst) state_copy_impl),
      uncurry0 (SPEC (\<lambda>r. r = (\<exists>x. op.liveness_pre.reaches a\<^sub>0 x \<and> op.liveness_pre.reaches1 x x))))
       \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -1057,7 +1057,7 @@ lemma op_liveness_reaches_cycle_equiv:
 lemma Alw_ev_impl_hnr:
   "(uncurry0
     (if F l\<^sub>0 then
-      dfs_map_impl' TYPE('bb) TYPE('cc) TYPE('dd)
+      dfs_map_impl'
         (succs_P_impl' F_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst) state_copy_impl
      else return False),
    uncurry0 (SPEC (\<lambda>r. l\<^sub>0 \<in> state_set (trans_of A) \<longrightarrow>
@@ -1126,7 +1126,7 @@ proof -
   
 lemma leadsto_impl_hnr:
   "(uncurry0
-    (leadsto_impl TYPE('bb) TYPE('cc) TYPE('dd) state_copy_impl
+    (leadsto_impl state_copy_impl
       (succs_P_impl' Q_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst)
       succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun)),
    uncurry0
