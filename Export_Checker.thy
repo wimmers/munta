@@ -1,5 +1,6 @@
 theory Export_Checker
   imports UPPAAL_Model_Checking UPPAAL_State_Networks_Impl_Refine_Calc
+    "library/OCaml_Diff_Array_Impl"
 begin
 
 (* XXX Add this fix to IArray theory *)
@@ -81,20 +82,11 @@ definition
   ]"
 
 export_code
-  precond_mc Pure.type init_pred_check time_indep_check1 time_indep_check2 conjunction_check2
-  LT LE EQ GE GT integer_of_nat nat_of_integer int_of_integer integer_of_int
-  In INSTR loc
-  UPPAAL_Reachability_Problem_precompiled_defs.check_pre
+  precond_mc
+  integer_of_nat nat_of_integer int_of_integer integer_of_int
+  acconstraint.LT LT INSTR In loc formula.EX
   map_option
-  UPPAAL_Reachability_Problem_precompiled_start_state
-  UPPAAL_Reachability_Problem_precompiled
-  UPPAAL_Reachability_Problem_precompiled_start_state_axioms
-  UPPAAL_Reachability_Problem_precompiled_defs.check_ceiling
-  bounded_int
-  nat
-  REACHABLE UNREACHABLE INIT_INV_ERR
   UPPAAL_Reachability_Problem_precompiled_defs.k
-  formula.EX
   pre_checks start_checks ceiling_checks more_checks
   in SML module_name Model_Checker
   file "ML/UPPAAL_Model_Checker.sml"
@@ -104,5 +96,15 @@ ML_file_debug "ML/UPPAAL_Model_Checker.sml"
 ML \<open>
   open Model_Checker;;
 \<close>
+
+export_code
+  precond_mc
+  integer_of_nat nat_of_integer int_of_integer integer_of_int
+  acconstraint.LT LT INSTR In loc formula.EX
+  map_option
+  UPPAAL_Reachability_Problem_precompiled_defs.k
+  pre_checks start_checks ceiling_checks more_checks
+  in OCaml module_name Model_Checker
+  file "ML/UPPAAL_Model_Checker.ml"
 
 end (* End of Theory *)

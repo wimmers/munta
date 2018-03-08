@@ -404,7 +404,6 @@ structure Model_Checker : sig
   datatype int = Int_of_integer of IntInf.int
   val integer_of_int : int -> IntInf.int
   type num
-  datatype 'a itself = Type
   type nat
   val nat_of_integer : IntInf.int -> nat
   val integer_of_nat : nat -> IntInf.int
@@ -421,8 +420,6 @@ structure Model_Checker : sig
     | Lta of nat * int | Ge of nat * int | Gt of nat * int
   datatype formula = EX of bexp | EG of bexp | AX of bexp | AG of bexp |
     Leadsto of bexp * bexp
-  datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
-  val nat : int -> nat
   val map_option : ('a -> 'b) -> 'a option -> 'b option
   val pre_checks :
     nat ->
@@ -431,21 +428,9 @@ structure Model_Checker : sig
           ('a list) list ->
             ((('b * ('c * ('d * nat))) list) list) list ->
               (int instrc option) list -> (char list * bool) list
-  val bounded_int : (int * int) list -> int list -> bool
   val more_checks :
     (((nat * (nat act * (nat * nat))) list) list) list ->
       nat -> (char list * bool) list
-  val conjunction_check2 :
-    (((nat * ('a * ('b * 'c))) list) list) list ->
-      (int instrc option) list -> nat -> bool
-  val time_indep_check2 :
-    ((('a * ('b * (nat * 'c))) list) list) list ->
-      (int instrc option) list -> nat -> bool
-  val time_indep_check1 :
-    (nat list) list -> (int instrc option) list -> nat -> bool
-  val init_pred_check :
-    nat ->
-      (int instrc option) list -> nat -> (nat list) list -> int list -> bool
   val start_checks :
     nat ->
       nat ->
@@ -461,41 +446,6 @@ structure Model_Checker : sig
             (((nat * (nat act * (nat * nat))) list) list) list ->
               (int instrc option) list ->
                 ((nat list) list) list -> (char list * bool) list
-  val uPPAAL_Reachability_Problem_precompiled_start_state_axioms :
-    nat ->
-      nat ->
-        (((nat * (nat act * (nat * nat))) list) list) list ->
-          (int instrc option) list ->
-            (int * int) list -> (nat list) list -> int list -> bool
-  val check_pre :
-    nat ->
-      nat ->
-        (((nat, int) acconstraint list) list) list ->
-          (nat list) list ->
-            (((nat * (nat act * (nat * nat))) list) list) list ->
-              (int instrc option) list -> bool
-  val uPPAAL_Reachability_Problem_precompiled :
-    nat ->
-      nat ->
-        (((nat, int) acconstraint list) list) list ->
-          (nat list) list ->
-            (((nat * (nat act * (nat * nat))) list) list) list ->
-              (int instrc option) list -> bool
-  val uPPAAL_Reachability_Problem_precompiled_start_state :
-    nat ->
-      nat ->
-        nat ->
-          (((nat, int) acconstraint list) list) list ->
-            (((nat * (nat act * (nat * nat))) list) list) list ->
-              (int instrc option) list ->
-                (int * int) list -> (nat list) list -> int list -> bool
-  val check_ceiling :
-    nat ->
-      nat ->
-        nat ->
-          (((nat, int) acconstraint list) list) list ->
-            (((nat * (nat act * (nat * nat))) list) list) list ->
-              (int instrc option) list -> ((nat list) list) list -> bool
   val precond_mc :
     nat ->
       nat ->
@@ -1723,8 +1673,6 @@ datatype formula = EX of bexp | EG of bexp | AX of bexp | AG of bexp |
 
 datatype ('a, 'b, 'c, 'd) gen_g_impl_ext = Gen_g_impl_ext of 'a * 'b * 'c * 'd;
 
-datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR;
-
 fun id x = (fn xa => xa) x;
 
 fun nat k = Nat (max ord_integer (0 : IntInf.int) (integer_of_int k));
@@ -2914,14 +2862,6 @@ fun leadsto_impl A_ (B1_, B2_, B3_) copyia succsia a_0ia leia keyia succs1i
                                (false, xb))
                             ()) ())
                             (fn (a1a, _) => (fn () => a1a))))))));
-
-fun bounded_int bounds s =
-  equal_nata (size_list s) (size_list bounds) andalso
-    all_interval_nat
-      (fn i =>
-        less_int (fst (nth bounds i)) (nth s i) andalso
-          less_int (nth s i) (snd (nth bounds i)))
-      zero_nata (size_list s);
 
 fun more_checks x =
   (fn trans => fn na =>

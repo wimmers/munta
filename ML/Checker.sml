@@ -273,36 +273,10 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
 
     val _ = if !debug_level >= 2 then
       let
-        val test1 = uPPAAL_Reachability_Problem_precompiled_start_state
-            p m max_steps inv trans prog bounds pred s
-        val test1a = uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog
-        val test1aa = check_pre p m inv pred trans prog
-        val test1ab = check_ceiling p m max_steps inv trans prog k;
-        val test1b =
-          uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps trans
-              prog bounds pred s;
-        val init_pred_check = init_pred_check p prog max_steps pred s;
-        val bounded_check = bounded_int bounds s
-        val indep_1 = time_indep_check1 pred prog max_steps
-        val indep_2 = time_indep_check2 trans prog max_steps
-        val d = conjunction_check2 trans prog max_steps
         val pre_checks = pre_checks p m inv pred trans prog
         val start_checks = start_checks p max_steps trans prog bounds pred s
         val ceiling_checks = ceiling_checks p m max_steps inv trans prog k
         val more_checks = more_checks trans na
-        val tests =
-          [
-            ("1", test1),
-            ("1a", test1a),
-            ("1aa", test1aa),
-            ("1ab", test1ab),
-            ("1b", test1b),
-            ("initial_predicate", init_pred_check),
-            ("boundedness", bounded_check),
-            ("time_independence_1", indep_1),
-            ("time_independence_2", indep_2),
-            ("conjunctiveness", d)
-          ]
         val _ = print_checks "Preconditions" pre_checks
         val _ = print_checks "Start" start_checks
         val _ = print_checks "Ceiling" ceiling_checks
