@@ -403,6 +403,7 @@ end; (*struct Bits_Integer*)
 structure Model_Checker : sig
   datatype int = Int_of_integer of IntInf.int
   val integer_of_int : int -> IntInf.int
+  type num
   datatype 'a itself = Type
   type nat
   val nat_of_integer : IntInf.int -> nat
@@ -423,7 +424,17 @@ structure Model_Checker : sig
   datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
   val nat : int -> nat
   val map_option : ('a -> 'b) -> 'a option -> 'b option
+  val pre_checks :
+    nat ->
+      nat ->
+        (((nat, int) acconstraint list) list) list ->
+          ('a list) list ->
+            ((('b * ('c * ('d * nat))) list) list) list ->
+              (int instrc option) list -> (char list * bool) list
   val bounded_int : (int * int) list -> int list -> bool
+  val more_checks :
+    (((nat * (nat act * (nat * nat))) list) list) list ->
+      nat -> (char list * bool) list
   val conjunction_check2 :
     (((nat * ('a * ('b * 'c))) list) list) list ->
       (int instrc option) list -> nat -> bool
@@ -435,6 +446,21 @@ structure Model_Checker : sig
   val init_pred_check :
     nat ->
       (int instrc option) list -> nat -> (nat list) list -> int list -> bool
+  val start_checks :
+    nat ->
+      nat ->
+        (((nat * ('a * (nat * 'b))) list) list) list ->
+          (int instrc option) list ->
+            (int * int) list ->
+              (nat list) list -> int list -> (char list * bool) list
+  val ceiling_checks :
+    nat ->
+      nat ->
+        nat ->
+          (((nat, int) acconstraint list) list) list ->
+            (((nat * (nat act * (nat * nat))) list) list) list ->
+              (int instrc option) list ->
+                ((nat list) list) list -> (char list * bool) list
   val uPPAAL_Reachability_Problem_precompiled_start_state_axioms :
     nat ->
       nat ->
@@ -2489,6 +2515,116 @@ fun stripf (INSTR instr) = instr
 fun stript (INSTR instr) = instr
   | stript (CEXP v) = SETF true;
 
+fun collect_store prog =
+  Set (map_filter
+        (fn a =>
+          (case a of NONE => NONE | SOME (INSTR (JMPZ _)) => NONE
+            | SOME (INSTR ADD) => NONE | SOME (INSTR NOT) => NONE
+            | SOME (INSTR AND) => NONE | SOME (INSTR LT) => NONE
+            | SOME (INSTR LE) => NONE | SOME (INSTR EQ) => NONE
+            | SOME (INSTR (PUSH _)) => NONE | SOME (INSTR POP) => NONE
+            | SOME (INSTR (LID _)) => NONE | SOME (INSTR STORE) => NONE
+            | SOME (INSTR (STOREI (_, _))) => NONE | SOME (INSTR COPY) => NONE
+            | SOME (INSTR CALL) => NONE | SOME (INSTR RETURN) => NONE
+            | SOME (INSTR HALT) => NONE
+            | SOME (INSTR (STOREC (c, x))) => SOME (c, x)
+            | SOME (INSTR (SETF _)) => NONE | SOME (CEXP _) => NONE))
+        prog);
+
+fun check_resets prog =
+  ball (collect_store prog) (fn (_, x) => equal_inta x zero_inta);
+
+fun collect_cexp prog =
+  Set (map_filter
+        (fn a =>
+          (case a of NONE => NONE
+            | SOME aa => (case aa of INSTR _ => NONE | CEXP ab => SOME ab)))
+        prog);
+
+fun sup_seta A_ (Set xs) = fold (sup_set A_) xs bot_set;
+
+fun constraint_pair (LTa (x, m)) = (x, m)
+  | constraint_pair (LEa (x, m)) = (x, m)
+  | constraint_pair (EQa (x, m)) = (x, m)
+  | constraint_pair (GE (x, m)) = (x, m)
+  | constraint_pair (GT (x, m)) = (x, m);
+
+fun collect_clock_pairs cc = image constraint_pair (Set cc);
+
+fun clkp_set inv prog =
+  sup_set (equal_prod equal_nat equal_int)
+    (sup_seta (equal_prod equal_nat equal_int)
+      (image collect_clock_pairs (Set (concat inv))))
+    (image constraint_pair (collect_cexp prog));
+
+fun clk_set inv prog =
+  sup_set equal_nat (image fst (clkp_set inv prog))
+    (image fst (collect_store prog));
+
+fun pre_checks x =
+  (fn p => fn m => fn inv => fn pred => fn trans => fn prog =>
+    [([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"i", #"n",
+        #"v", #"a", #"r", #"i", #"a", #"n", #"t", #" ", #"i", #"s", #" ", #"p"],
+       equal_nata (size_list inv) p),
+      ([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"t", #"r",
+         #"a", #"n", #"s", #"i", #"t", #"i", #"o", #"n", #"s", #" ", #"i", #"s",
+         #" ", #"p"],
+        equal_nata (size_list trans) p),
+      ([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"p", #"r",
+         #"e", #"d", #"i", #"c", #"a", #"t", #"e", #" ", #"i", #"s", #" ",
+         #"p"],
+        all_interval_nat
+          (fn i =>
+            equal_nata (size_list (nth pred i))
+              (size_list (nth trans i)) andalso
+              equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
+          zero_nata p),
+      ([#"T", #"r", #"a", #"n", #"s", #"i", #"t", #"i", #"o", #"n", #"s", #",",
+         #" ", #"p", #"r", #"e", #"d", #"i", #"c", #"a", #"t", #"e", #"s", #",",
+         #" ", #"a", #"n", #"d", #" ", #"i", #"n", #"v", #"a", #"r", #"i", #"a",
+         #"n", #"t", #"s", #" ", #"a", #"r", #"e", #" ", #"o", #"f", #" ", #"t",
+         #"h", #"e", #" ", #"r", #"i", #"g", #"h", #"t", #" ", #"l", #"e", #"n",
+         #"g", #"t", #"h", #" ", #"p", #"e", #"r", #" ", #"p", #"r", #"o", #"c",
+         #"e", #"s", #"s"],
+        all_interval_nat
+          (fn i =>
+            equal_nata (size_list (nth pred i))
+              (size_list (nth trans i)) andalso
+              equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
+          zero_nata p),
+      ([#"E", #"d", #"g", #"e", #" ", #"t", #"a", #"r", #"g", #"e", #"t", #"s",
+         #" ", #"a", #"r", #"e", #" ", #"i", #"n", #" ", #"b", #"o", #"u", #"n",
+         #"d", #"s"],
+        list_all
+          (fn t =>
+            list_all
+              (list_all (fn (_, (_, (_, l))) => less_nat l (size_list t))) t)
+          trans),
+      ([#"p", #" ", #">", #" ", #"0"], less_nat zero_nata p),
+      ([#"m", #" ", #">", #" ", #"0"], less_nat zero_nata m),
+      ([#"E", #"v", #"e", #"r", #"y", #" ", #"p", #"r", #"o", #"c", #"e", #"s",
+         #"s", #" ", #"h", #"a", #"s", #" ", #"a", #"t", #" ", #"l", #"e", #"a",
+         #"s", #"t", #" ", #"o", #"n", #"e", #" ", #"t", #"r", #"a", #"n", #"s",
+         #"i", #"t", #"i", #"o", #"n"],
+        all_interval_nat (fn i => not (null (nth trans i))) zero_nata p),
+      ([#"T", #"h", #"e", #" ", #"i", #"n", #"i", #"t", #"i", #"a", #"l", #" ",
+         #"s", #"t", #"a", #"t", #"e", #" ", #"o", #"f", #" ", #"e", #"a", #"c",
+         #"h", #" ", #"p", #"r", #"o", #"c", #"e", #"s", #"s", #" ", #"h", #"a",
+         #"s", #" ", #"a", #" ", #"t", #"r", #"a", #"n", #"s", #"i", #"t", #"i",
+         #"o", #"n"],
+        all_interval_nat (fn q => not (null (nth (nth trans q) zero_nata)))
+          zero_nata p),
+      ([#"C", #"l", #"o", #"c", #"k", #"s", #" ", #">", #"=", #" ", #"0"],
+        ball (clkp_set inv prog) (fn (_, a) => less_eq_int zero_inta a)),
+      ([#"S", #"e", #"t", #" ", #"o", #"f", #" ", #"c", #"l", #"o", #"c", #"k",
+         #"s", #" ", #"i", #"s", #" ", #"{", #"1", #".", #".", #"m", #"}"],
+        eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
+          (Set (upt one_nata (suc m)))),
+      ([#"R", #"e", #"s", #"e", #"t", #"s", #" ", #"c", #"o", #"r", #"r", #"e",
+         #"c", #"t"],
+        check_resets prog)])
+    x;
+
 fun idx_iteratei_aux get sz i l c f sigma =
   (if equal_nata i zero_nata orelse not (c sigma) then sigma
     else idx_iteratei_aux get sz (minus_nat i one_nata) l c f
@@ -2787,6 +2923,21 @@ fun bounded_int bounds s =
           less_int (nth s i) (snd (nth bounds i)))
       zero_nata (size_list s);
 
+fun more_checks x =
+  (fn trans => fn na =>
+    [([#"L", #"e", #"g", #"a", #"l", #" ", #"a", #"c", #"t", #"i", #"o", #"n",
+        #"s"],
+       list_all
+         (list_all
+           (list_all
+             (fn (_, a) => let
+                             val (aa, _) = a;
+                           in
+                             pred_act equal_nat (fn ab => less_nat ab na) aa
+                           end)))
+         trans)])
+    x;
+
 fun as_length x = snd x;
 
 fun last_seg_tr A_ s =
@@ -2899,6 +3050,249 @@ fun glist_delete eq x l = glist_delete_aux eq x l [];
 
 fun is_Nil a = (case a of [] => true | _ :: _ => false);
 
+fun check_conj_blocka A_ prog pc =
+  (if less_eq_nat (size_list prog) pc then NONE
+    else (if equal_optiona (equal_instrc A_) (nth prog pc) (SOME (INSTR HALT))
+           then SOME pc
+           else (if equal_optiona (equal_instrc A_) (nth prog pc)
+                      (SOME (INSTR COPY)) andalso
+                      ((case nth prog (plus_nat pc one_nata) of NONE => false
+                         | SOME (INSTR _) => false
+                         | SOME (CEXP _) => true) andalso
+                        equal_optiona (equal_instrc A_)
+                          (nth prog
+                            (plus_nat pc (nat_of_integer (2 : IntInf.int))))
+                          (SOME (INSTR AND)))
+                  then check_conj_blocka A_ prog
+                         (plus_nat pc (nat_of_integer (3 : IntInf.int)))
+                  else (if equal_optiona (equal_instrc A_) (nth prog pc)
+                             (SOME (INSTR COPY)) andalso
+                             ((case nth prog
+                                      (plus_nat pc
+(nat_of_integer (2 : IntInf.int)))
+                                of NONE => false | SOME (INSTR _) => false
+                                | SOME (CEXP _) => true) andalso
+                               (equal_optiona (equal_instrc A_)
+                                  (nth prog
+                                    (plus_nat pc
+                                      (nat_of_integer (3 : IntInf.int))))
+                                  (SOME (INSTR AND)) andalso
+                                 (case nth prog (plus_nat pc one_nata)
+                                   of NONE => false
+                                   | SOME (INSTR (JMPZ _)) => true
+                                   | SOME (INSTR ADD) => false
+                                   | SOME (INSTR NOT) => false
+                                   | SOME (INSTR AND) => false
+                                   | SOME (INSTR LT) => false
+                                   | SOME (INSTR LE) => false
+                                   | SOME (INSTR EQ) => false
+                                   | SOME (INSTR (PUSH _)) => false
+                                   | SOME (INSTR POP) => false
+                                   | SOME (INSTR (LID _)) => false
+                                   | SOME (INSTR STORE) => false
+                                   | SOME (INSTR (STOREI (_, _))) => false
+                                   | SOME (INSTR COPY) => false
+                                   | SOME (INSTR CALL) => false
+                                   | SOME (INSTR RETURN) => false
+                                   | SOME (INSTR HALT) => false
+                                   | SOME (INSTR (STOREC (_, _))) => false
+                                   | SOME (INSTR (SETF _)) => false
+                                   | SOME (CEXP _) => false)))
+                         then (case (nth prog (plus_nat pc one_nata),
+                                      check_conj_blocka A_ prog
+(plus_nat pc (nat_of_integer (4 : IntInf.int))))
+                                of (NONE, _) => NONE
+                                | (SOME (INSTR (JMPZ _)), NONE) => NONE
+                                | (SOME (INSTR (JMPZ pcb)), SOME pca) =>
+                                  (if equal_nata pcb pca then SOME pcb
+                                    else NONE)
+                                | (SOME (INSTR ADD), _) => NONE
+                                | (SOME (INSTR NOT), _) => NONE
+                                | (SOME (INSTR AND), _) => NONE
+                                | (SOME (INSTR LT), _) => NONE
+                                | (SOME (INSTR LE), _) => NONE
+                                | (SOME (INSTR EQ), _) => NONE
+                                | (SOME (INSTR (PUSH _)), _) => NONE
+                                | (SOME (INSTR POP), _) => NONE
+                                | (SOME (INSTR (LID _)), _) => NONE
+                                | (SOME (INSTR STORE), _) => NONE
+                                | (SOME (INSTR (STOREI (_, _))), _) => NONE
+                                | (SOME (INSTR COPY), _) => NONE
+                                | (SOME (INSTR CALL), _) => NONE
+                                | (SOME (INSTR RETURN), _) => NONE
+                                | (SOME (INSTR HALT), _) => NONE
+                                | (SOME (INSTR (STOREC (_, _))), _) => NONE
+                                | (SOME (INSTR (SETF _)), _) => NONE
+                                | (SOME (CEXP _), _) => NONE)
+                         else NONE))));
+
+fun check_conj_block p pca pc =
+  (case nth p pca of NONE => false | SOME (INSTR _) => false
+    | SOME (CEXP _) => true) andalso
+    equal_optiona equal_nat
+      (check_conj_blocka equal_int p (plus_nat pca one_nata)) (SOME pc) orelse
+    (case nth p pca of NONE => false | SOME (INSTR _) => false
+      | SOME (CEXP _) => true) andalso
+      (equal_optiona (equal_instrc equal_int) (nth p (plus_nat pca one_nata))
+         (SOME (INSTR AND)) andalso
+        equal_optiona equal_nat
+          (check_conj_blocka equal_int p
+            (plus_nat pca (nat_of_integer (2 : IntInf.int))))
+          (SOME pc));
+
+fun steps_approx n prog pc =
+  (if equal_nata n zero_nata
+    then (if less_nat pc (size_list prog) then insert equal_nat pc bot_set
+           else bot_set)
+    else (if less_eq_nat (size_list prog) pc then bot_set
+           else (case nth prog pc of NONE => insert equal_nat pc bot_set
+                  | SOME cmd =>
+                    let
+                      val succs =
+                        (case cmd
+                          of INSTR (JMPZ pca) =>
+                            insert equal_nat (plus_nat pc one_nata)
+                              (insert equal_nat pca bot_set)
+                          | INSTR ADD =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR NOT =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR AND =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR LT =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR LE =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR EQ =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR (PUSH _) =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR POP =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR (LID _) =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR STORE =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR (STOREI (_, _)) =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR COPY =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR CALL => Set (upt zero_nata (size_list prog))
+                          | INSTR RETURN => Set (upt zero_nata (size_list prog))
+                          | INSTR HALT => bot_set
+                          | INSTR (STOREC (_, _)) =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | INSTR (SETF _) =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set
+                          | CEXP _ =>
+                            insert equal_nat (plus_nat pc one_nata) bot_set);
+                    in
+                      sup_set equal_nat (insert equal_nat pc bot_set)
+                        (sup_seta equal_nat
+                          (image (steps_approx (minus_nat n one_nata) prog)
+                            succs))
+                    end)));
+
+fun mina A_ (Set (x :: xs)) =
+  fold (min ((ord_preorder o preorder_order o order_linorder) A_)) xs x;
+
+fun maxa A_ (Set (x :: xs)) =
+  fold (max ((ord_preorder o preorder_order o order_linorder) A_)) xs x;
+
+fun conjunction_check p pc_s n =
+  let
+    val s = steps_approx n p pc_s;
+    val sa =
+      filter
+        (fn pc =>
+          (case nth p pc of NONE => false | SOME (INSTR _) => false
+            | SOME (CEXP _) => true))
+        s;
+  in
+    eq_set (card_UNIV_nat, equal_nat) sa bot_set orelse
+      check_conj_block p (mina linorder_nat sa) (maxa linorder_nat s)
+  end;
+
+fun conjunction_check2 x =
+  (fn trans => fn prog => fn max_steps =>
+    list_all
+      (list_all
+        (list_all
+          (fn (pc_g, (_, (_, _))) => conjunction_check prog pc_g max_steps)))
+      trans)
+    x;
+
+fun is_instr (INSTR uu) = true
+  | is_instr (CEXP v) = false;
+
+fun time_indep_check prog pc n =
+  ball (steps_approx n prog pc)
+    (fn pca =>
+      (if less_nat pca (size_list prog)
+        then (case nth prog pca of NONE => true | SOME a => is_instr a)
+        else true));
+
+fun time_indep_check2 x =
+  (fn trans => fn prog => fn max_steps =>
+    list_all
+      (list_all
+        (list_all
+          (fn (_, (_, (pc_u, _))) => time_indep_check prog pc_u max_steps)))
+      trans)
+    x;
+
+fun time_indep_check1 x =
+  (fn pred => fn prog => fn max_steps =>
+    list_all (list_all (fn pc => time_indep_check prog pc max_steps)) pred)
+    x;
+
+fun init p = map (fn _ => zero_nata) (upt zero_nata p);
+
+fun prog prog pc = (if less_nat pc (size_list prog) then nth prog pc else NONE);
+
+fun stripfp p = map_option stripf o p;
+
+fun init_pred_check x =
+  (fn p => fn proga => fn max_steps => fn pred => fn s_0 =>
+    all_interval_nat
+      (fn q =>
+        (case exec (stripfp (prog proga)) max_steps
+                (nth (nth pred q) (nth (init p) q), ([], (s_0, (true, [])))) []
+          of NONE => false | SOME ((_, (_, (_, (true, _)))), _) => true
+          | SOME ((_, (_, (_, (false, _)))), _) => false))
+      zero_nata p)
+    x;
+
+fun bounded A_ bounds s =
+  equal_nata (size_list s) (size_list bounds) andalso
+    all_interval_nat
+      (fn i =>
+        less A_ (fst (nth bounds i)) (nth s i) andalso
+          less A_ (nth s i) (snd (nth bounds i)))
+      zero_nata (size_list s);
+
+fun start_checks x =
+  (fn p => fn max_steps => fn trans => fn prog => fn bounds => fn pred =>
+    fn s_0 =>
+    [([#"T", #"e", #"r", #"m", #"i", #"n", #"a", #"t", #"i", #"o", #"n", #" ",
+        #"o", #"f", #" ", #"p", #"r", #"e", #"d", #"i", #"c", #"a", #"t", #"e",
+        #"s"],
+       init_pred_check p prog max_steps pred s_0),
+      ([#"B", #"o", #"u", #"n", #"d", #"e", #"d", #"n", #"e", #"s", #"s"],
+        bounded ord_int bounds s_0),
+      ([#"P", #"r", #"e", #"d", #"i", #"c", #"a", #"t", #"e", #"s", #" ", #"a",
+         #"r", #"e", #" ", #"i", #"n", #"d", #"e", #"p", #"e", #"n", #"d", #"e",
+         #"n", #"t", #" ", #"o", #"f", #" ", #"t", #"i", #"m", #"e"],
+        time_indep_check1 pred prog max_steps),
+      ([#"U", #"p", #"d", #"a", #"t", #"e", #"s", #" ", #"a", #"r", #"e", #" ",
+         #"i", #"n", #"d", #"e", #"p", #"e", #"n", #"d", #"e", #"n", #"t", #" ",
+         #"o", #"f", #" ", #"t", #"i", #"m", #"e"],
+        time_indep_check2 trans prog max_steps),
+      ([#"C", #"o", #"n", #"j", #"u", #"n", #"c", #"t", #"i", #"o", #"n", #" ",
+         #"c", #"h", #"e", #"c", #"k"],
+        conjunction_check2 trans prog max_steps)])
+    x;
+
 fun find_max_nat n uu =
   (if equal_nata n zero_nata then zero_nata
     else (if uu (minus_nat n one_nata) then minus_nat n one_nata
@@ -2922,6 +3316,209 @@ fun minus_set A_ a (Coset xs) = Set (filtera (fn x => member A_ x a) xs)
   | minus_set A_ a (Set xs) = fold (remove A_) xs a;
 
 fun gi_V0 (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_V0;
+
+fun sup_option A_ (SOME x) (SOME y) = SOME (sup A_ x y)
+  | sup_option A_ x NONE = x
+  | sup_option A_ NONE y = y;
+
+fun find_resets_start prog pc =
+  (if less_nat pc (size_list prog)
+    then (case nth prog pc of NONE => NONE | SOME (INSTR (JMPZ _)) => NONE
+           | SOME (INSTR ADD) => NONE | SOME (INSTR NOT) => NONE
+           | SOME (INSTR AND) => NONE | SOME (INSTR LT) => NONE
+           | SOME (INSTR LE) => NONE | SOME (INSTR EQ) => NONE
+           | SOME (INSTR (PUSH _)) => NONE | SOME (INSTR POP) => NONE
+           | SOME (INSTR (LID _)) => NONE | SOME (INSTR STORE) => NONE
+           | SOME (INSTR (STOREI (_, _))) => NONE | SOME (INSTR COPY) => NONE
+           | SOME (INSTR CALL) => NONE | SOME (INSTR RETURN) => NONE
+           | SOME (INSTR HALT) => NONE
+           | SOME (INSTR (STOREC (_, _))) =>
+             sup_option sup_nat (SOME pc)
+               (find_resets_start prog (plus_nat pc one_nata))
+           | SOME (INSTR (SETF _)) => NONE | SOME (CEXP _) => NONE)
+    else NONE);
+
+fun collect_storea prog pc =
+  (case find_resets_start prog pc of NONE => bot_set
+    | SOME pca =>
+      sup_seta (equal_prod equal_nat equal_int)
+        (image
+          (fn a =>
+            (case a of NONE => bot_set | SOME (INSTR (JMPZ _)) => bot_set
+              | SOME (INSTR ADD) => bot_set | SOME (INSTR NOT) => bot_set
+              | SOME (INSTR AND) => bot_set | SOME (INSTR LT) => bot_set
+              | SOME (INSTR LE) => bot_set | SOME (INSTR EQ) => bot_set
+              | SOME (INSTR (PUSH _)) => bot_set | SOME (INSTR POP) => bot_set
+              | SOME (INSTR (LID _)) => bot_set | SOME (INSTR STORE) => bot_set
+              | SOME (INSTR (STOREI (_, _))) => bot_set
+              | SOME (INSTR COPY) => bot_set | SOME (INSTR CALL) => bot_set
+              | SOME (INSTR RETURN) => bot_set | SOME (INSTR HALT) => bot_set
+              | SOME (INSTR (STOREC (c, x))) =>
+                insert (equal_prod equal_nat equal_int) (c, x) bot_set
+              | SOME (INSTR (SETF _)) => bot_set | SOME (CEXP _) => bot_set))
+          (image (nth prog) (Set (upt pc (suc pca))))));
+
+fun collect_cexpa max_steps prog pc =
+  sup_seta (equal_acconstraint equal_nat equal_int)
+    (image
+      (fn a =>
+        (case a of NONE => bot_set | SOME (INSTR _) => bot_set
+          | SOME (CEXP ac) =>
+            insert (equal_acconstraint equal_nat equal_int) ac bot_set))
+      (image (nth prog) (steps_approx max_steps prog pc)));
+
+fun clkp_seta max_steps inv trans prog i l =
+  sup_set (equal_prod equal_nat equal_int)
+    (collect_clock_pairs (nth (nth inv i) l))
+    (sup_seta (equal_prod equal_nat equal_int)
+      (image
+        (fn (g, _) => image constraint_pair (collect_cexpa max_steps prog g))
+        (Set (nth (nth trans i) l))));
+
+fun find_next_halt prog pc =
+  (if less_nat pc (size_list prog)
+    then (case nth prog pc of NONE => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR (JMPZ _)) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR ADD) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR NOT) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR AND) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR LT) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR LE) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR EQ) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR (PUSH _)) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR POP) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR (LID _)) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR STORE) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR (STOREI (_, _))) =>
+             find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR COPY) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR CALL) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR RETURN) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR HALT) => SOME pc
+           | SOME (INSTR (STOREC (_, _))) =>
+             find_next_halt prog (plus_nat pc one_nata)
+           | SOME (INSTR (SETF _)) => find_next_halt prog (plus_nat pc one_nata)
+           | SOME (CEXP _) => find_next_halt prog (plus_nat pc one_nata))
+    else NONE);
+
+fun guaranteed_execution_cond A_ prog pc_s n =
+  (case find_next_halt prog pc_s of NONE => false
+    | SOME pc_t =>
+      all_interval_nat
+        (fn pc =>
+          not (is_none (nth prog pc)) andalso
+            (not (member (equal_option (equal_instrc A_)) (nth prog pc)
+                   (image SOME
+                     (image INSTR
+                       (insert equal_instr STORE
+                         (insert equal_instr HALT
+                           (insert equal_instr POP
+                             (insert equal_instr CALL
+                               (insert equal_instr RETURN
+                                 (insert equal_instr AND
+                                   (insert equal_instr NOT
+                                     (insert equal_instr ADD
+                                       (insert equal_instr LT
+ (insert equal_instr LE (insert equal_instr EQ bot_set)))))))))))))) andalso
+              (case nth prog pc of NONE => true | SOME (INSTR (JMPZ _)) => true
+                | SOME (INSTR ADD) => true | SOME (INSTR NOT) => true
+                | SOME (INSTR AND) => true | SOME (INSTR LT) => true
+                | SOME (INSTR LE) => true | SOME (INSTR EQ) => true
+                | SOME (INSTR (PUSH _)) => true | SOME (INSTR POP) => true
+                | SOME (INSTR (LID _)) => true | SOME (INSTR STORE) => true
+                | SOME (INSTR (STOREI (_, _))) => true
+                | SOME (INSTR COPY) => true | SOME (INSTR CALL) => true
+                | SOME (INSTR RETURN) => true | SOME (INSTR HALT) => true
+                | SOME (INSTR (STOREC (_, d))) => equal_inta d zero_inta
+                | SOME (INSTR (SETF _)) => true | SOME (CEXP _) => true)))
+        pc_s pc_t andalso
+        (all_interval_nat
+           (fn pc =>
+             (case nth prog pc of NONE => true
+               | SOME (INSTR (JMPZ pca)) =>
+                 less_nat pc pca andalso less_eq_nat pca pc_t
+               | SOME (INSTR ADD) => true | SOME (INSTR NOT) => true
+               | SOME (INSTR AND) => true | SOME (INSTR LT) => true
+               | SOME (INSTR LE) => true | SOME (INSTR EQ) => true
+               | SOME (INSTR (PUSH _)) => true | SOME (INSTR POP) => true
+               | SOME (INSTR (LID _)) => true | SOME (INSTR STORE) => true
+               | SOME (INSTR (STOREI (_, _))) => true
+               | SOME (INSTR COPY) => true | SOME (INSTR CALL) => true
+               | SOME (INSTR RETURN) => true | SOME (INSTR HALT) => true
+               | SOME (INSTR (STOREC (_, _))) => true
+               | SOME (INSTR (SETF _)) => true | SOME (CEXP _) => true))
+           pc_s pc_t andalso
+          less_nat (minus_nat pc_t pc_s) n));
+
+fun ceiling_checks x =
+  (fn p => fn m => fn max_steps => fn inv => fn trans => fn prog => fn k =>
+    [([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"c", #"e",
+        #"i", #"l", #"i", #"g"],
+       equal_nata (size_list k) p),
+      ([#"1"],
+        all_interval_nat
+          (fn i =>
+            all_interval_nat
+              (fn l =>
+                ball (clkp_seta max_steps inv trans prog i l)
+                  (fn (xa, ma) =>
+                    less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
+              zero_nata (size_list (nth trans i)))
+          zero_nata p),
+      ([#"2"],
+        all_interval_nat
+          (fn i =>
+            all_interval_nat
+              (fn l =>
+                ball (collect_clock_pairs (nth (nth inv i) l))
+                  (fn (xa, ma) =>
+                    less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
+              zero_nata (size_list (nth trans i)))
+          zero_nata p),
+      ([#"3"],
+        all_interval_nat
+          (fn i =>
+            all_interval_nat
+              (fn l =>
+                list_all
+                  (fn (_, (_, (r, la))) =>
+                    ball (minus_set equal_nat
+                           (Set (upt zero_nata (plus_nat m one_nata)))
+                           (image fst (collect_storea prog r)))
+                      (fn c =>
+                        less_eq_nat (nth (nth (nth k i) la) c)
+                          (nth (nth (nth k i) l) c)))
+                  (nth (nth trans i) l))
+              zero_nata (size_list (nth trans i)))
+          zero_nata p),
+      ([#"4"],
+        all_interval_nat
+          (fn i => equal_nata (size_list (nth k i)) (size_list (nth trans i)))
+          zero_nata p),
+      ([#"5"],
+        list_all
+          (list_all
+            (fn xxs => equal_nata (size_list xxs) (plus_nat m one_nata)))
+          k),
+      ([#"6"],
+        all_interval_nat
+          (fn i =>
+            all_interval_nat
+              (fn l => equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
+              zero_nata (size_list (nth trans i)))
+          zero_nata p),
+      ([#"7"],
+        all_interval_nat
+          (fn i =>
+            all_interval_nat
+              (fn l =>
+                list_all
+                  (fn (_, (_, (r, _))) =>
+                    guaranteed_execution_cond equal_int prog r max_steps)
+                  (nth (nth trans i) l))
+              zero_nata (size_list (nth trans i)))
+          zero_nata p)])
+    x;
 
 fun select_edge_tr (A1_, A2_) s =
   let
@@ -3077,235 +3674,6 @@ fun constraint_clk (LTa (c, uu)) = c
   | constraint_clk (GE (c, ux)) = c
   | constraint_clk (GT (c, uy)) = c;
 
-fun bounded A_ bounds s =
-  equal_nata (size_list s) (size_list bounds) andalso
-    all_interval_nat
-      (fn i =>
-        less A_ (fst (nth bounds i)) (nth s i) andalso
-          less A_ (nth s i) (snd (nth bounds i)))
-      zero_nata (size_list s);
-
-fun stripfp p = map_option stripf o p;
-
-fun constraint_pair (LTa (x, m)) = (x, m)
-  | constraint_pair (LEa (x, m)) = (x, m)
-  | constraint_pair (EQa (x, m)) = (x, m)
-  | constraint_pair (GE (x, m)) = (x, m)
-  | constraint_pair (GT (x, m)) = (x, m);
-
-fun is_instr (INSTR uu) = true
-  | is_instr (CEXP v) = false;
-
-fun maxa A_ (Set (x :: xs)) =
-  fold (max ((ord_preorder o preorder_order o order_linorder) A_)) xs x;
-
-fun mina A_ (Set (x :: xs)) =
-  fold (min ((ord_preorder o preorder_order o order_linorder) A_)) xs x;
-
-fun check_conj_blocka A_ prog pc =
-  (if less_eq_nat (size_list prog) pc then NONE
-    else (if equal_optiona (equal_instrc A_) (nth prog pc) (SOME (INSTR HALT))
-           then SOME pc
-           else (if equal_optiona (equal_instrc A_) (nth prog pc)
-                      (SOME (INSTR COPY)) andalso
-                      ((case nth prog (plus_nat pc one_nata) of NONE => false
-                         | SOME (INSTR _) => false
-                         | SOME (CEXP _) => true) andalso
-                        equal_optiona (equal_instrc A_)
-                          (nth prog
-                            (plus_nat pc (nat_of_integer (2 : IntInf.int))))
-                          (SOME (INSTR AND)))
-                  then check_conj_blocka A_ prog
-                         (plus_nat pc (nat_of_integer (3 : IntInf.int)))
-                  else (if equal_optiona (equal_instrc A_) (nth prog pc)
-                             (SOME (INSTR COPY)) andalso
-                             ((case nth prog
-                                      (plus_nat pc
-(nat_of_integer (2 : IntInf.int)))
-                                of NONE => false | SOME (INSTR _) => false
-                                | SOME (CEXP _) => true) andalso
-                               (equal_optiona (equal_instrc A_)
-                                  (nth prog
-                                    (plus_nat pc
-                                      (nat_of_integer (3 : IntInf.int))))
-                                  (SOME (INSTR AND)) andalso
-                                 (case nth prog (plus_nat pc one_nata)
-                                   of NONE => false
-                                   | SOME (INSTR (JMPZ _)) => true
-                                   | SOME (INSTR ADD) => false
-                                   | SOME (INSTR NOT) => false
-                                   | SOME (INSTR AND) => false
-                                   | SOME (INSTR LT) => false
-                                   | SOME (INSTR LE) => false
-                                   | SOME (INSTR EQ) => false
-                                   | SOME (INSTR (PUSH _)) => false
-                                   | SOME (INSTR POP) => false
-                                   | SOME (INSTR (LID _)) => false
-                                   | SOME (INSTR STORE) => false
-                                   | SOME (INSTR (STOREI (_, _))) => false
-                                   | SOME (INSTR COPY) => false
-                                   | SOME (INSTR CALL) => false
-                                   | SOME (INSTR RETURN) => false
-                                   | SOME (INSTR HALT) => false
-                                   | SOME (INSTR (STOREC (_, _))) => false
-                                   | SOME (INSTR (SETF _)) => false
-                                   | SOME (CEXP _) => false)))
-                         then (case (nth prog (plus_nat pc one_nata),
-                                      check_conj_blocka A_ prog
-(plus_nat pc (nat_of_integer (4 : IntInf.int))))
-                                of (NONE, _) => NONE
-                                | (SOME (INSTR (JMPZ _)), NONE) => NONE
-                                | (SOME (INSTR (JMPZ pcb)), SOME pca) =>
-                                  (if equal_nata pcb pca then SOME pcb
-                                    else NONE)
-                                | (SOME (INSTR ADD), _) => NONE
-                                | (SOME (INSTR NOT), _) => NONE
-                                | (SOME (INSTR AND), _) => NONE
-                                | (SOME (INSTR LT), _) => NONE
-                                | (SOME (INSTR LE), _) => NONE
-                                | (SOME (INSTR EQ), _) => NONE
-                                | (SOME (INSTR (PUSH _)), _) => NONE
-                                | (SOME (INSTR POP), _) => NONE
-                                | (SOME (INSTR (LID _)), _) => NONE
-                                | (SOME (INSTR STORE), _) => NONE
-                                | (SOME (INSTR (STOREI (_, _))), _) => NONE
-                                | (SOME (INSTR COPY), _) => NONE
-                                | (SOME (INSTR CALL), _) => NONE
-                                | (SOME (INSTR RETURN), _) => NONE
-                                | (SOME (INSTR HALT), _) => NONE
-                                | (SOME (INSTR (STOREC (_, _))), _) => NONE
-                                | (SOME (INSTR (SETF _)), _) => NONE
-                                | (SOME (CEXP _), _) => NONE)
-                         else NONE))));
-
-fun check_conj_block p pca pc =
-  (case nth p pca of NONE => false | SOME (INSTR _) => false
-    | SOME (CEXP _) => true) andalso
-    equal_optiona equal_nat
-      (check_conj_blocka equal_int p (plus_nat pca one_nata)) (SOME pc) orelse
-    (case nth p pca of NONE => false | SOME (INSTR _) => false
-      | SOME (CEXP _) => true) andalso
-      (equal_optiona (equal_instrc equal_int) (nth p (plus_nat pca one_nata))
-         (SOME (INSTR AND)) andalso
-        equal_optiona equal_nat
-          (check_conj_blocka equal_int p
-            (plus_nat pca (nat_of_integer (2 : IntInf.int))))
-          (SOME pc));
-
-fun sup_seta A_ (Set xs) = fold (sup_set A_) xs bot_set;
-
-fun steps_approx n prog pc =
-  (if equal_nata n zero_nata
-    then (if less_nat pc (size_list prog) then insert equal_nat pc bot_set
-           else bot_set)
-    else (if less_eq_nat (size_list prog) pc then bot_set
-           else (case nth prog pc of NONE => insert equal_nat pc bot_set
-                  | SOME cmd =>
-                    let
-                      val succs =
-                        (case cmd
-                          of INSTR (JMPZ pca) =>
-                            insert equal_nat (plus_nat pc one_nata)
-                              (insert equal_nat pca bot_set)
-                          | INSTR ADD =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR NOT =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR AND =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR LT =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR LE =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR EQ =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR (PUSH _) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR POP =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR (LID _) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR STORE =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR (STOREI (_, _)) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR COPY =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR CALL => Set (upt zero_nata (size_list prog))
-                          | INSTR RETURN => Set (upt zero_nata (size_list prog))
-                          | INSTR HALT => bot_set
-                          | INSTR (STOREC (_, _)) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | INSTR (SETF _) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
-                          | CEXP _ =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set);
-                    in
-                      sup_set equal_nat (insert equal_nat pc bot_set)
-                        (sup_seta equal_nat
-                          (image (steps_approx (minus_nat n one_nata) prog)
-                            succs))
-                    end)));
-
-fun conjunction_check p pc_s n =
-  let
-    val s = steps_approx n p pc_s;
-    val sa =
-      filter
-        (fn pc =>
-          (case nth p pc of NONE => false | SOME (INSTR _) => false
-            | SOME (CEXP _) => true))
-        s;
-  in
-    eq_set (card_UNIV_nat, equal_nat) sa bot_set orelse
-      check_conj_block p (mina linorder_nat sa) (maxa linorder_nat s)
-  end;
-
-fun conjunction_check2 x =
-  (fn trans => fn prog => fn max_steps =>
-    list_all
-      (list_all
-        (list_all
-          (fn (pc_g, (_, (_, _))) => conjunction_check prog pc_g max_steps)))
-      trans)
-    x;
-
-fun time_indep_check prog pc n =
-  ball (steps_approx n prog pc)
-    (fn pca =>
-      (if less_nat pca (size_list prog)
-        then (case nth prog pca of NONE => true | SOME a => is_instr a)
-        else true));
-
-fun time_indep_check2 x =
-  (fn trans => fn prog => fn max_steps =>
-    list_all
-      (list_all
-        (list_all
-          (fn (_, (_, (pc_u, _))) => time_indep_check prog pc_u max_steps)))
-      trans)
-    x;
-
-fun time_indep_check1 x =
-  (fn pred => fn prog => fn max_steps =>
-    list_all (list_all (fn pc => time_indep_check prog pc max_steps)) pred)
-    x;
-
-fun init p = map (fn _ => zero_nata) (upt zero_nata p);
-
-fun prog prog pc = (if less_nat pc (size_list prog) then nth prog pc else NONE);
-
-fun init_pred_check x =
-  (fn p => fn proga => fn max_steps => fn pred => fn s_0 =>
-    all_interval_nat
-      (fn q =>
-        (case exec (stripfp (prog proga)) max_steps
-                (nth (nth pred q) (nth (init p) q), ([], (s_0, (true, [])))) []
-          of NONE => false | SOME ((_, (_, (_, (true, _)))), _) => true
-          | SOME ((_, (_, (_, (false, _)))), _) => false))
-      zero_nata p)
-    x;
-
 fun uPPAAL_Reachability_Problem_precompiled_start_state_axioms x =
   (fn p => fn max_steps => fn trans => fn prog => fn bounds => fn pred =>
     fn s_0 =>
@@ -3315,44 +3683,6 @@ fun uPPAAL_Reachability_Problem_precompiled_start_state_axioms x =
           (time_indep_check2 trans prog max_steps andalso
             conjunction_check2 trans prog max_steps))))
     x;
-
-fun collect_store prog =
-  Set (map_filter
-        (fn a =>
-          (case a of NONE => NONE | SOME (INSTR (JMPZ _)) => NONE
-            | SOME (INSTR ADD) => NONE | SOME (INSTR NOT) => NONE
-            | SOME (INSTR AND) => NONE | SOME (INSTR LT) => NONE
-            | SOME (INSTR LE) => NONE | SOME (INSTR EQ) => NONE
-            | SOME (INSTR (PUSH _)) => NONE | SOME (INSTR POP) => NONE
-            | SOME (INSTR (LID _)) => NONE | SOME (INSTR STORE) => NONE
-            | SOME (INSTR (STOREI (_, _))) => NONE | SOME (INSTR COPY) => NONE
-            | SOME (INSTR CALL) => NONE | SOME (INSTR RETURN) => NONE
-            | SOME (INSTR HALT) => NONE
-            | SOME (INSTR (STOREC (c, x))) => SOME (c, x)
-            | SOME (INSTR (SETF _)) => NONE | SOME (CEXP _) => NONE))
-        prog);
-
-fun check_resets prog =
-  ball (collect_store prog) (fn (_, x) => equal_inta x zero_inta);
-
-fun collect_cexp prog =
-  Set (map_filter
-        (fn a =>
-          (case a of NONE => NONE
-            | SOME aa => (case aa of INSTR _ => NONE | CEXP ab => SOME ab)))
-        prog);
-
-fun collect_clock_pairs cc = image constraint_pair (Set cc);
-
-fun clkp_set inv prog =
-  sup_set (equal_prod equal_nat equal_int)
-    (sup_seta (equal_prod equal_nat equal_int)
-      (image collect_clock_pairs (Set (concat inv))))
-    (image constraint_pair (collect_cexp prog));
-
-fun clk_set inv prog =
-  sup_set equal_nat (image fst (clkp_set inv prog))
-    (image fst (collect_store prog));
 
 fun check_pre p m inv pred trans prog =
   equal_nata (size_list inv) p andalso
@@ -3390,139 +3720,6 @@ fun uPPAAL_Reachability_Problem_precompiled_start_state p m max_steps inv trans
   uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog andalso
     uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps trans
       prog bounds pred s_0;
-
-fun sup_option A_ (SOME x) (SOME y) = SOME (sup A_ x y)
-  | sup_option A_ x NONE = x
-  | sup_option A_ NONE y = y;
-
-fun find_resets_start prog pc =
-  (if less_nat pc (size_list prog)
-    then (case nth prog pc of NONE => NONE | SOME (INSTR (JMPZ _)) => NONE
-           | SOME (INSTR ADD) => NONE | SOME (INSTR NOT) => NONE
-           | SOME (INSTR AND) => NONE | SOME (INSTR LT) => NONE
-           | SOME (INSTR LE) => NONE | SOME (INSTR EQ) => NONE
-           | SOME (INSTR (PUSH _)) => NONE | SOME (INSTR POP) => NONE
-           | SOME (INSTR (LID _)) => NONE | SOME (INSTR STORE) => NONE
-           | SOME (INSTR (STOREI (_, _))) => NONE | SOME (INSTR COPY) => NONE
-           | SOME (INSTR CALL) => NONE | SOME (INSTR RETURN) => NONE
-           | SOME (INSTR HALT) => NONE
-           | SOME (INSTR (STOREC (_, _))) =>
-             sup_option sup_nat (SOME pc)
-               (find_resets_start prog (plus_nat pc one_nata))
-           | SOME (INSTR (SETF _)) => NONE | SOME (CEXP _) => NONE)
-    else NONE);
-
-fun collect_storea prog pc =
-  (case find_resets_start prog pc of NONE => bot_set
-    | SOME pca =>
-      sup_seta (equal_prod equal_nat equal_int)
-        (image
-          (fn a =>
-            (case a of NONE => bot_set | SOME (INSTR (JMPZ _)) => bot_set
-              | SOME (INSTR ADD) => bot_set | SOME (INSTR NOT) => bot_set
-              | SOME (INSTR AND) => bot_set | SOME (INSTR LT) => bot_set
-              | SOME (INSTR LE) => bot_set | SOME (INSTR EQ) => bot_set
-              | SOME (INSTR (PUSH _)) => bot_set | SOME (INSTR POP) => bot_set
-              | SOME (INSTR (LID _)) => bot_set | SOME (INSTR STORE) => bot_set
-              | SOME (INSTR (STOREI (_, _))) => bot_set
-              | SOME (INSTR COPY) => bot_set | SOME (INSTR CALL) => bot_set
-              | SOME (INSTR RETURN) => bot_set | SOME (INSTR HALT) => bot_set
-              | SOME (INSTR (STOREC (c, x))) =>
-                insert (equal_prod equal_nat equal_int) (c, x) bot_set
-              | SOME (INSTR (SETF _)) => bot_set | SOME (CEXP _) => bot_set))
-          (image (nth prog) (Set (upt pc (suc pca))))));
-
-fun collect_cexpa max_steps prog pc =
-  sup_seta (equal_acconstraint equal_nat equal_int)
-    (image
-      (fn a =>
-        (case a of NONE => bot_set | SOME (INSTR _) => bot_set
-          | SOME (CEXP ac) =>
-            insert (equal_acconstraint equal_nat equal_int) ac bot_set))
-      (image (nth prog) (steps_approx max_steps prog pc)));
-
-fun clkp_seta max_steps inv trans prog i l =
-  sup_set (equal_prod equal_nat equal_int)
-    (collect_clock_pairs (nth (nth inv i) l))
-    (sup_seta (equal_prod equal_nat equal_int)
-      (image
-        (fn (g, _) => image constraint_pair (collect_cexpa max_steps prog g))
-        (Set (nth (nth trans i) l))));
-
-fun find_next_halt prog pc =
-  (if less_nat pc (size_list prog)
-    then (case nth prog pc of NONE => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (JMPZ _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR ADD) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR NOT) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR AND) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR LT) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR LE) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR EQ) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (PUSH _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR POP) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (LID _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR STORE) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (STOREI (_, _))) =>
-             find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR COPY) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR CALL) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR RETURN) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR HALT) => SOME pc
-           | SOME (INSTR (STOREC (_, _))) =>
-             find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (SETF _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (CEXP _) => find_next_halt prog (plus_nat pc one_nata))
-    else NONE);
-
-fun guaranteed_execution_cond A_ prog pc_s n =
-  (case find_next_halt prog pc_s of NONE => false
-    | SOME pc_t =>
-      all_interval_nat
-        (fn pc =>
-          not (is_none (nth prog pc)) andalso
-            (not (member (equal_option (equal_instrc A_)) (nth prog pc)
-                   (image SOME
-                     (image INSTR
-                       (insert equal_instr STORE
-                         (insert equal_instr HALT
-                           (insert equal_instr POP
-                             (insert equal_instr CALL
-                               (insert equal_instr RETURN
-                                 (insert equal_instr AND
-                                   (insert equal_instr NOT
-                                     (insert equal_instr ADD
-                                       (insert equal_instr LT
- (insert equal_instr LE (insert equal_instr EQ bot_set)))))))))))))) andalso
-              (case nth prog pc of NONE => true | SOME (INSTR (JMPZ _)) => true
-                | SOME (INSTR ADD) => true | SOME (INSTR NOT) => true
-                | SOME (INSTR AND) => true | SOME (INSTR LT) => true
-                | SOME (INSTR LE) => true | SOME (INSTR EQ) => true
-                | SOME (INSTR (PUSH _)) => true | SOME (INSTR POP) => true
-                | SOME (INSTR (LID _)) => true | SOME (INSTR STORE) => true
-                | SOME (INSTR (STOREI (_, _))) => true
-                | SOME (INSTR COPY) => true | SOME (INSTR CALL) => true
-                | SOME (INSTR RETURN) => true | SOME (INSTR HALT) => true
-                | SOME (INSTR (STOREC (_, d))) => equal_inta d zero_inta
-                | SOME (INSTR (SETF _)) => true | SOME (CEXP _) => true)))
-        pc_s pc_t andalso
-        (all_interval_nat
-           (fn pc =>
-             (case nth prog pc of NONE => true
-               | SOME (INSTR (JMPZ pca)) =>
-                 less_nat pc pca andalso less_eq_nat pca pc_t
-               | SOME (INSTR ADD) => true | SOME (INSTR NOT) => true
-               | SOME (INSTR AND) => true | SOME (INSTR LT) => true
-               | SOME (INSTR LE) => true | SOME (INSTR EQ) => true
-               | SOME (INSTR (PUSH _)) => true | SOME (INSTR POP) => true
-               | SOME (INSTR (LID _)) => true | SOME (INSTR STORE) => true
-               | SOME (INSTR (STOREI (_, _))) => true
-               | SOME (INSTR COPY) => true | SOME (INSTR CALL) => true
-               | SOME (INSTR RETURN) => true | SOME (INSTR HALT) => true
-               | SOME (INSTR (STOREC (_, _))) => true
-               | SOME (INSTR (SETF _)) => true | SOME (CEXP _) => true))
-           pc_s pc_t andalso
-          less_nat (minus_nat pc_t pc_s) n));
 
 fun uPPAAL_Reachability_Problem_precompiled_ceiling_axioms p m max_steps inv
   trans prog k =

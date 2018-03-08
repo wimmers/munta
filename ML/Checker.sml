@@ -236,7 +236,7 @@ fun print_result NONE = println("Invalid input\n")
 fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s na () =
   let
     val debug_level: Int32.int Unsynchronized.ref = ref 0
-    val _ = debug_level := 1
+    val _ = debug_level := 2
 
     val map_constraint = map (map_acconstraint to_nat to_int);
     val inv = map (map map_constraint) inv;
@@ -264,10 +264,12 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
         )
       else ()
 
-    fun print_precondition_check name test =
-      let
-        val s = "Precondition check " ^ name ^ ": " ^ (if test then "Passed" else "Failed")
-      in println s end;
+    fun print_checks name tests =
+        if List.all snd tests then () else
+        "\n\nThe following checks failed (" ^ name ^ "):\n- " ^
+        String.concatWith "\n- " (tests |> List.filter (not o snd) |> List.map (String.implode o fst))
+        |> println
+
 
     val _ = if !debug_level >= 2 then
       let
@@ -284,6 +286,10 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
         val indep_1 = time_indep_check1 pred prog max_steps
         val indep_2 = time_indep_check2 trans prog max_steps
         val d = conjunction_check2 trans prog max_steps
+        val pre_checks = pre_checks p m inv pred trans prog
+        val start_checks = start_checks p max_steps trans prog bounds pred s
+        val ceiling_checks = ceiling_checks p m max_steps inv trans prog k
+        val more_checks = more_checks trans na
         val tests =
           [
             ("1", test1),
@@ -297,7 +303,10 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
             ("time_independence_2", indep_2),
             ("conjunctiveness", d)
           ]
-        val _ = map (uncurry print_precondition_check) tests;
+        val _ = print_checks "Preconditions" pre_checks
+        val _ = print_checks "Start" start_checks
+        val _ = print_checks "Ceiling" ceiling_checks
+        val _ = print_checks "Actions" more_checks
       in println "" end else ();
     val t = Time.now ()
     val result = Model_Checker.precond_mc p m k max_steps inv trans prog query bounds pred s na ()
