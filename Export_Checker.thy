@@ -97,6 +97,7 @@ ML \<open>
   open Model_Checker;;
 \<close>
 
+text \<open>Compile with \<open>nums.cmxa\<close>\<close>
 export_code
   precond_mc
   integer_of_nat nat_of_integer int_of_integer integer_of_int
