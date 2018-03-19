@@ -352,11 +352,11 @@ let check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
     in let t = Sys.time() -. t
     in let _ = println("Internal time for precondition check + actual checking: " ^ string_of_float t)
     and _ = println("")
-    (* and _ = if !debug_level >= 1 then
+    and _ = if !debug_level >= 1 then
       let
         _ = println("# explored states: " ^ string_of_int(Tracing.get_count ()))
         and _ = println("")
-      in () else (); *)
+      in () else ();
   in
     print_result result
 

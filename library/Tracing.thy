@@ -17,12 +17,25 @@ end = struct
   fun count_up () = (counter := !counter + 1);
   fun get_count () = !counter;
 end
+\<close> and (OCaml)
+\<open>
+module Tracing : sig
+  val count_up : unit -> unit
+  val get_count : unit -> int
+end = struct
+  let counter = ref 0
+  let count_up () = (counter := !counter + 1)
+  let get_count () = !counter
+end
 \<close>
 
 code_reserved SML Tracing
 
+code_reserved OCaml Tracing
+
 code_printing
   constant write_msg \<rightharpoonup> (SML) "(fn x => Tracing.count'_up ()) _"
+       and            (OCaml) "(fun x -> Tracing.count'_up ()) _"
 
 definition trace where
   "trace m x = (let a = write_msg m in x)"
