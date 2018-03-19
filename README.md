@@ -21,6 +21,14 @@ cd ML
 make
 ```
 
+#### To build the checker with OCaml:
+Replace `Big_int` with `Big_int_Z` in `UPPAAL_Model_Checker.ml` and `to_int` with `int_of_big_int`.
+Then run
+```
+cd ML
+ocamlfind ocamlopt -package zarith -package angstrom -linkpkg nums.cmxa -linkpkg UPPAAL_Model_Checker.ml -linkpkg Checker.ml
+```
+
 #### To browse the sources interactively in Isabelle:
 Install [Isabelle](https://isabelle.in.tum.de/) and the [AFP](https://www.isa-afp.org/using.shtml). Then run:
 ```
