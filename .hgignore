@@ -5,3 +5,11 @@ syntax: glob
 .hg
 output/*
 *.orig
+*.o
+*.out
+*.cmx
+*.cmo
+*.log
+ML/*.cmi
+ML/munta
+ML/munta_int
