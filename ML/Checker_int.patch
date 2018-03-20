@@ -1,0 +1,38 @@
+*** Checker.sml	2018-03-20 15:06:22.000000000 +0100
+--- Checker_int.sml	2018-03-20 15:06:14.000000000 +0100
+***************
+*** 80,87 ****
+    end
+  
+  
+! val to_int = Int_of_integer o IntInf.fromInt
+! val to_nat = nat_of_integer o IntInf.fromInt
+  val nat_of_int = nat_of_integer o integer_of_int
+  
+  
+--- 80,87 ----
+    end
+  
+  
+! val to_int = Int_of_integer o Int.fromInt
+! val to_nat = nat_of_integer o Int.fromInt
+  val nat_of_int = nat_of_integer o integer_of_int
+  
+  
+***************
+*** 259,265 ****
+        if !debug_level >= 3 then
+          println (
+            "\n"
+!           ^ list_to_string (list_to_string (list_to_string (IntInf.toString o integer_of_nat))) k
+            ^ "\n"
+          )
+        else ()
+--- 259,265 ----
+        if !debug_level >= 3 then
+          println (
+            "\n"
+!           ^ list_to_string (list_to_string (list_to_string (Int.toString o integer_of_nat))) k
+            ^ "\n"
+          )
+        else ()

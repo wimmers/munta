@@ -1,0 +1,32 @@
+*** munta.mlb	2018-03-20 15:25:51.000000000 +0100
+--- munta_int.mlb	2018-03-20 16:00:29.000000000 +0100
+***************
+*** 5,11 ****
+      Unsynchronized.sml
+  
+      ann "nonexhaustiveMatch ignore" in
+!       UPPAAL_Model_Checker_patched.sml
+      end
+  in
+      structure Tracing
+--- 5,11 ----
+      Unsynchronized.sml
+  
+      ann "nonexhaustiveMatch ignore" in
+!       UPPAAL_Model_Checker_int.sml
+      end
+  in
+      structure Tracing
+***************
+*** 21,25 ****
+      Scan_More.ML
+  end
+  Unsynchronized.sml
+! Checker.sml
+  Mlton_Main.sml
+--- 21,25 ----
+      Scan_More.ML
+  end
+  Unsynchronized.sml
+! Checker_int.sml
+  Mlton_Main.sml
