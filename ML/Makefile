@@ -8,6 +8,10 @@ munta_int: munta_int.mlb Checker_int.sml UPPAAL_Model_Checker_int.sml
 	mlton -output munta_int munta_int.mlb
 	chmod +x munta_int
 
+munta_ocaml: Checker.ml UPPAAL_Model_Checker.ml
+	ocamlfind ocamlopt -package zarith -package angstrom -linkpkg nums.cmxa -linkpkg UPPAAL_Model_Checker.ml -linkpkg Checker.ml -o munta_ocaml
+	chmod +x munta_ocaml
+
 UPPAAL_Reachability_Checker_patched.sml: UPPAAL_Reachability_Checker.sml
 	patch -i postprocessing.patch -o UPPAAL_Reachability_Checker_patched.sml
 
