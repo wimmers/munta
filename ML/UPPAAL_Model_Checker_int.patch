@@ -395,7 +395,7 @@
 <   nat_of_integer (IntInf.fromLarge (Word32.toLargeInt x) : IntInf.int);
 ---
 >   (* nat_of_integer (Int.fromLarge (Word32.toLargeInt x) : Int.int); *)
->   nat_of_integer (Word32.toInt (Word32.>> (x, Word32.fromInt 2)) : Int.int);
+>   nat_of_integer (Word32.toInt (Word32.>> (x, Word32.fromInt 1)) : Int.int);
 2111c2136
 <            (times_nat (nat_of_integer (2 : IntInf.int)) n))
 ---
