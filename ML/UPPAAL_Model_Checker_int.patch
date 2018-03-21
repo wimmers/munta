@@ -391,71 +391,72 @@
 >                              else (Int.- (Int.~ r, (1 : Int.int)),
 >                                     Int.- (Int.abs l, s)))
 >                          end))) end;
-1947c1971
+1947c1971,1972
 <   nat_of_integer (IntInf.fromLarge (Word32.toLargeInt x) : IntInf.int);
 ---
->   nat_of_integer (Int.fromLarge (Word32.toLargeInt x) : Int.int);
-2111c2135
+>   (* nat_of_integer (Int.fromLarge (Word32.toLargeInt x) : Int.int); *)
+>   nat_of_integer (Word32.toInt (Word32.>> (x, Word32.fromInt 2)) : Int.int);
+2111c2136
 <            (times_nat (nat_of_integer (2 : IntInf.int)) n))
 ---
 >            (times_nat (nat_of_integer (2 : Int.int)) n))
-2115c2139
+2115c2140
 < val load_factor : nat = nat_of_integer (75 : IntInf.int);
 ---
 > val load_factor : nat = nat_of_integer (75 : Int.int);
-2123c2147
+2123c2148
 <                (times_nat (the_size ht) (nat_of_integer (100 : IntInf.int)))
 ---
 >                (times_nat (the_size ht) (nat_of_integer (100 : Int.int)))
-2197c2221
+2197c2222
 <       (if less_eq_nat (times_nat (nat_of_integer (128 : IntInf.int)) n)
 ---
 >       (if less_eq_nat (times_nat (nat_of_integer (128 : Int.int)) n)
-2199c2223
+2199c2224
 <             less_nat (nat_of_integer (4 : IntInf.int)) n
 ---
 >             less_nat (nat_of_integer (4 : Int.int)) n
-2388,2389c2412,2413
+2388,2389c2413,2414
 <                (max ord_nat (nat_of_integer (4 : IntInf.int))
 <                  (times_nat (nat_of_integer (2 : IntInf.int)) n))
 ---
 >                (max ord_nat (nat_of_integer (4 : Int.int))
 >                  (times_nat (nat_of_integer (2 : Int.int)) n))
-2914c2938
+2914c2939
 < val load_factora : nat = nat_of_integer (75 : IntInf.int);
 ---
 > val load_factora : nat = nat_of_integer (75 : Int.int);
-2918c2942
+2918c2943
 <     (times_nat n (nat_of_integer (100 : IntInf.int)));
 ---
 >     (times_nat n (nat_of_integer (100 : Int.int)));
-2921,2922c2945,2946
+2921,2922c2946,2947
 <   plus_nat (times_nat (nat_of_integer (2 : IntInf.int)) (array_length a))
 <     (nat_of_integer (3 : IntInf.int));
 ---
 >   plus_nat (times_nat (nat_of_integer (2 : Int.int)) (array_length a))
 >     (nat_of_integer (3 : Int.int));
-2976c3000
+2976c3001
 <                             (plus_nat pc (nat_of_integer (2 : IntInf.int))))
 ---
 >                             (plus_nat pc (nat_of_integer (2 : Int.int))))
-2979c3003
+2979c3004
 <                          (plus_nat pc (nat_of_integer (3 : IntInf.int)))
 ---
 >                          (plus_nat pc (nat_of_integer (3 : Int.int)))
-2984c3008
+2984c3009
 < (nat_of_integer (2 : IntInf.int)))
 ---
 > (nat_of_integer (2 : Int.int)))
-2990c3014
+2990c3015
 <                                       (nat_of_integer (3 : IntInf.int))))
 ---
 >                                       (nat_of_integer (3 : Int.int))))
-3015c3039
+3015c3040
 < (plus_nat pc (nat_of_integer (4 : IntInf.int))))
 ---
 > (plus_nat pc (nat_of_integer (4 : Int.int))))
-3052c3076
+3052c3077
 <             (plus_nat pca (nat_of_integer (2 : IntInf.int))))
 ---
 >             (plus_nat pca (nat_of_integer (2 : Int.int))))
