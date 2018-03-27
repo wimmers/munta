@@ -88,8 +88,20 @@ export_code
   map_option
   UPPAAL_Reachability_Problem_precompiled_defs.k
   pre_checks start_checks ceiling_checks more_checks
+  in SML_imp module_name Model_Checker
+  file "ML/UPPAAL_Model_Checker_imp.sml"
+
+export_code
+  precond_mc
+  integer_of_nat nat_of_integer int_of_integer integer_of_int
+  acconstraint.LT LT INSTR In loc formula.EX
+  map_option
+  UPPAAL_Reachability_Problem_precompiled_defs.k
+  pre_checks start_checks ceiling_checks more_checks
   in SML module_name Model_Checker
   file "ML/UPPAAL_Model_Checker.sml"
+
+ML_file "ML/UPPAAL_Model_Checker_imp.sml"
 
 ML_file_debug "ML/UPPAAL_Model_Checker.sml"
 
