@@ -12,8 +12,8 @@ MUNTA is at an early stage of development. Nevertheless, you can:
 
 ## Graphical User Interface
 MUNTA now features a graphical user interface:
-- [source code](https://wimmers.github.io/munta-frontend/)
-- [try it](https://github.com/wimmers/munta-frontend)
+- [try it](https://wimmers.github.io/munta-frontend/)
+- [source code](https://github.com/wimmers/munta-frontend)
 
 ## Building
 
