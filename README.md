@@ -8,7 +8,12 @@ MUNTA is
 MUNTA is at an early stage of development. Nevertheless, you can:
 - run the model checker on a number of benchmarks
 - browse the Isabelle/HOL proof
+- try its graphical user interface [here](https://wimmers.github.io/munta-frontend/)
 
+## Graphical User Interface
+MUNTA now features a graphical user interface:
+- [try it](https://wimmers.github.io/munta-frontend/)
+- [source code](https://github.com/wimmers/munta-frontend)
 
 ## Building
 
