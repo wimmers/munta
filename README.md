@@ -14,6 +14,7 @@ MUNTA is at an early stage of development. Nevertheless, you can:
 MUNTA now features a graphical user interface:
 - [try it](https://wimmers.github.io/munta-frontend/)
 - [source code](https://github.com/wimmers/munta-frontend)
+- [instructions on how to run the verification server](#verification-server)
 
 ## Building
 
@@ -47,6 +48,14 @@ Install [Isabelle](https://isabelle.in.tum.de/) and the [AFP](https://www.isa-af
 isabelle build -d . TA_Code
 ```
 and build the checker as described above.
+
+## Verification Server
+After building, you can run the verification server via:
+```
+cd ML
+python server.py
+```
+The server will run under port 3069 and communicates with the GUI.
 
 ## Running
 Pick one of the files from `benchmarks` and run:
