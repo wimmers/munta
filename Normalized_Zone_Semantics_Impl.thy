@@ -4152,8 +4152,8 @@ subsection \<open>Instantiating the Reachability Problem\<close>
 
   (* XXX Unused *)
   (* XXX Generalize (see haves on clock numbering), move? *)
-  lemma DBM_val_bounded_cong:
-    "\<forall>c\<in>{Suc 0..n}. u c = d \<Longrightarrow> \<forall>c\<in>{Suc 0..n}. u' c = d \<Longrightarrow> u \<turnstile>\<^bsub>v,n\<^esub> M \<Longrightarrow> u' \<turnstile>\<^bsub>v,n\<^esub> M"
+  lemma DBM_val_bounded_cong':
+    "\<forall>c\<in>{Suc 0..n}. u c = u' c \<Longrightarrow> u \<turnstile>\<^bsub>v,n\<^esub> M \<Longrightarrow> u' \<turnstile>\<^bsub>v,n\<^esub> M"
     unfolding DBM_val_bounded_def
     proof (safe, goal_cases)
       case prems: (1 c)
@@ -4196,6 +4196,10 @@ subsection \<open>Instantiating the Reachability Problem\<close>
         with Lt v prems show ?thesis by auto
       qed auto
     qed
+
+  lemma DBM_val_bounded_cong:
+    "\<forall>c\<in>{Suc 0..n}. u c = d \<Longrightarrow> \<forall>c\<in>{Suc 0..n}. u' c = d \<Longrightarrow> u \<turnstile>\<^bsub>v,n\<^esub> M \<Longrightarrow> u' \<turnstile>\<^bsub>v,n\<^esub> M"
+    using DBM_val_bounded_cong' by force
 
 end (* End of locale context *)
 
