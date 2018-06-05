@@ -292,6 +292,23 @@ abbreviation "clock_to_option a \<equiv> (if a > 0 then Some a else None)"
 definition
   "dbm_entry_val' u a b e \<equiv> dbm_entry_val u (clock_to_option a) (clock_to_option b) e"
 
+lemma dbm_entry_val'_diff_shift:
+  "dbm_entry_val' (u \<oplus> d) c1 c2 (M c1 c2)" if "dbm_entry_val' u c1 c2 (M c1 c2)" "0 < c1" "0 < c2"
+  using that unfolding dbm_entry_val'_def cval_add_def
+  by (auto elim!: dbm_entry_val.cases intro!: dbm_entry_val.intros)
+
+lemma dbm_entry_val_iff_bounded_Le1:
+  "dbm_entry_val u (Some c1) None e \<longleftrightarrow> Le (u c1) \<le> e"
+  by (cases e) (auto simp: any_le_inf)
+
+lemma dbm_entry_val_iff_bounded_Le2:
+  "dbm_entry_val u None (Some c2) e \<longleftrightarrow> Le (- u c2) \<le> e"
+  by (cases e) (auto simp: any_le_inf)
+
+lemma dbm_entry_val_iff_bounded_Le3:
+  "dbm_entry_val u (Some c1) (Some c2) e \<longleftrightarrow> Le (u c1 - u c2) \<le> e"
+  by (cases e) (auto simp: any_le_inf)
+
 context
   notes [simp] = dbm_entry_val'_def
 begin
@@ -451,11 +468,9 @@ lemmas dbm_list_superset_op =
 
 end (* Trivial clock numbering *)
 
-definition
-  down :: "nat \<Rightarrow> ('t::linordered_cancel_ab_monoid_add) DBM \<Rightarrow> 't DBM"
-where
-  "down n M \<equiv>
-    \<lambda> i j. if i = 0 \<and> j > 0 then Min ({Le 0} \<union> {M k j | k. 1 \<le> k \<and> k \<le> n}) else M i j"
+subsubsection \<open>Down Operation\<close>
+
+paragraph \<open>Auxiliary\<close>
 
 lemma dbm_entry_le_iff:
   "Le a \<le> Le b \<longleftrightarrow> a \<le> b"
@@ -473,10 +488,15 @@ proof -
     by (cases x; auto)
 qed (auto simp: any_le_inf DBM.neutral)
 
-lemma (in -) dense':
+lemma Le_le_sum_iff:
+  "Le (y :: _ :: time) \<le> e \<longleftrightarrow> 0 \<le> e + Le (- y)"
+  by (cases e) (auto simp: DBM.add dbm_entry_le_iff)
+
+lemma dense':
   "\<exists>c\<ge>a. c \<le> b" if "a \<le> b" for a :: "_ :: time"
   using dense \<open>a \<le> b\<close> by auto
 
+(* XXX Move/rename/private *)
 lemma aux1:
   "- c \<le> (a :: _ :: time)" if "a \<ge> 0" "c \<ge> 0"
   using that using dual_order.trans neg_le_0_iff_le by blast
@@ -524,6 +544,14 @@ proof -
     by (rule dbm_entries_dense'_aux)
 qed
 
+lemma le_minus_iff:
+  "- x \<le> (y :: _ :: time) \<longleftrightarrow> 0 \<le> y + x"
+  by (metis add.commute add.right_inverse add_le_cancel_left)
+
+lemma lt_minus_iff:
+  "- x < (y :: _ :: time) \<longleftrightarrow> 0 < y + x"
+  by (metis add.commute add_less_cancel_right neg_eq_iff_add_eq_0)
+
 context Default_Nat_Clock_Numbering
 begin
 
@@ -551,11 +579,6 @@ lemma DBM_val_bounded_altI:
     "u \<in> \<lbrakk>m\<rbrakk>"
   unfolding DBM_zone_repr_def DBM_val_bounded_alt_def2 using assms by auto
 
-context
-  fixes M :: "('t::time) DBM"
-  assumes canonical: "canonical M n"
-begin
-
 lemma dbm_entry_val'_delay1:
   "dbm_entry_val' u c1 c2 (m c1 c2)" if "dbm_entry_val' (u \<oplus> d) c1 c2 (m c1 c2)" "d \<ge> 0" "c1 > 0"
   using that unfolding dbm_entry_val'_def
@@ -564,14 +587,6 @@ lemma dbm_entry_val'_delay1:
         dest: add_strict_increasing2 add_increasing intro!: dbm_entry_val.intros
         simp: cval_add_def
      )
-
-lemma le_minus_iff:
-  "- x \<le> (y :: _ :: time) \<longleftrightarrow> 0 \<le> y + x"
-  by (metis add.commute add.right_inverse add_le_cancel_left)
-
-lemma lt_minus_iff:
-  "- x < (y :: _ :: time) \<longleftrightarrow> 0 < y + x"
-  by (metis add.commute add_less_cancel_right neg_eq_iff_add_eq_0)
 
 lemma dbm_entry_val'_delay2:
   "dbm_entry_val' u (0 :: nat) c2 (m c1 c2)" if
@@ -586,6 +601,27 @@ lemma dbm_entry_val'_delay2:
 lemma dbm_entry_val'_nonneg_bound:
   "dbm_entry_val' u (0 :: nat) c (Le 0)" if "u c \<ge> 0" "c > 0"
   using that unfolding dbm_entry_val'_def by auto
+
+end (* Default Clock Numbering *)
+
+paragraph \<open>Definition\<close>
+
+definition
+  down :: "nat \<Rightarrow> ('t::linordered_cancel_ab_monoid_add) DBM \<Rightarrow> 't DBM"
+where
+  "down n M \<equiv>
+    \<lambda> i j. if i = 0 \<and> j > 0 then Min ({Le 0} \<union> {M k j | k. 1 \<le> k \<and> k \<le> n}) else M i j"
+
+
+paragraph \<open>Correctness\<close>
+
+context Default_Nat_Clock_Numbering
+begin
+
+context
+  fixes M :: "('t::time) DBM"
+  assumes canonical: "canonical M n"
+begin
 
 lemma down_complete: "u \<in> \<lbrakk>down n M\<rbrakk>" if "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" "\<forall> c \<le> n. u c \<ge> 0"
 proof (rule DBM_val_bounded_altI, goal_cases)
@@ -617,33 +653,6 @@ next
       by cases (auto intro: dbm_entry_val'_delay2 dbm_entry_val'_nonneg_bound simp: down_def)
   qed
 qed
-term "floor (t :: _ ::time)"
-
-
-fun bound_of where
-  "bound_of (Le x) = x" |
-  "bound_of (Lt x) = x"
-
-lemma dbm_entry_val'_diff_shift:
-  "dbm_entry_val' (u \<oplus> d) c1 c2 (M c1 c2)" if "dbm_entry_val' u c1 c2 (M c1 c2)" "0 < c1" "0 < c2"
-  using that unfolding dbm_entry_val'_def cval_add_def
-  by (auto elim!: dbm_entry_val.cases intro!: dbm_entry_val.intros)
-
-lemma dbm_entry_val_iff_bounded_Le1:
-  "dbm_entry_val u (Some c1) None e \<longleftrightarrow> Le (u c1) \<le> e"
-  by (cases e) (auto simp: any_le_inf)
-
-lemma dbm_entry_val_iff_bounded_Le2:
-  "dbm_entry_val u None (Some c2) e \<longleftrightarrow> Le (- u c2) \<le> e"
-  by (cases e) (auto simp: any_le_inf)
-
-lemma dbm_entry_val_iff_bounded_Le3:
-  "dbm_entry_val u (Some c1) (Some c2) e \<longleftrightarrow> Le (u c1 - u c2) \<le> e"
-  by (cases e) (auto simp: any_le_inf)
-
-lemma Le_le_sum_iff:
-  "Le (y :: 't) \<le> e \<longleftrightarrow> 0 \<le> e + Le (- y)"
-  by (cases e) (auto simp: DBM.add dbm_entry_le_iff)
 
 lemma down_sound: "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" if "u \<in> \<lbrakk>down n M\<rbrakk>"
 proof -
@@ -722,8 +731,8 @@ proof -
       case 2
       then have "l \<le> (M 0 c2 + Le (u c2))"
         unfolding l_def by (auto intro: Min_le)
-      with \<open>0 \<le> l + Le d\<close> have "0 \<le> (M 0 c2 + Le (u c2)) + Le d"
-        by (metis add.commute add_left_mono dual_order.trans)
+      with \<open>0 \<le> l + Le d\<close> have "0 \<le> M 0 c2 + Le (u c2) + Le d"
+        by (metis add.commute add_left_mono dual_order.trans) (* XXX Recurring proof pattern *)
       with 2 show ?thesis
         unfolding down_def dbm_entry_val'_def
         by (cases "M 0 c2")
@@ -734,7 +743,7 @@ proof -
       case 3
       then have "r \<le> M c1 0 + Le (- u c1)"
         unfolding r_def by (auto intro: Min_le)
-      with \<open>0 \<le> r + Le (- d)\<close> have "0 \<le> (M c1 0 + Le (- u c1)) + Le ( -d)"
+      with \<open>0 \<le> r + Le (- d)\<close> have "0 \<le> M c1 0 + Le (- u c1) + Le ( -d)"
         by (metis add.commute add_left_mono dual_order.trans)
       with 3 ** show ?thesis
         unfolding down_def dbm_entry_val'_def
