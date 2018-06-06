@@ -490,12 +490,27 @@ lemma dbm_entry_le_iff:
   "0 \<le> Lt a \<longleftrightarrow> 0 < a"
   "Le a \<le> 0 \<longleftrightarrow> a \<le> 0"
   "Lt a \<le> 0 \<longleftrightarrow> a \<le> 0"
-  "x \<le> \<infinity> \<longleftrightarrow> True"
   "\<infinity> \<le> x \<longleftrightarrow> x = \<infinity>"
+  "x \<le> \<infinity> \<longleftrightarrow> True"
 proof -
   show "\<infinity> \<le> x \<longleftrightarrow> x = \<infinity>"
     by (cases x; auto)
 qed (auto simp: any_le_inf DBM.neutral)
+
+lemma dbm_entry_lt_iff:
+  "Le a < Le b \<longleftrightarrow> a < b"
+  "Le a < Lt b \<longleftrightarrow> a < b"
+  "Lt a < Le b \<longleftrightarrow> a \<le> b"
+  "Lt a < Lt b \<longleftrightarrow> a < b"
+  "0 < Le a \<longleftrightarrow> 0 < a"
+  "0 < Lt a \<longleftrightarrow> 0 < a"
+  "Le a < 0 \<longleftrightarrow> a < 0"
+  "Lt a < 0 \<longleftrightarrow> a \<le> 0"
+  "x < \<infinity> \<longleftrightarrow> x \<noteq> \<infinity>"
+  "\<infinity> < x \<longleftrightarrow> False"
+  by (auto simp: any_le_inf DBM.neutral DBM.less)
+
+lemmas [dbm_entry_simps] = dbm_entry_le_iff(1-9) dbm_entry_lt_iff(1-9)
 
 lemma Le_le_sum_iff:
   "Le (y :: _ :: time) \<le> e \<longleftrightarrow> 0 \<le> e + Le (- y)"
@@ -553,33 +568,31 @@ proof -
     by (rule dbm_entries_dense'_aux)
 qed
 
+lemma (in time) non_trivial_pos: "\<exists> x. x > 0"
+  by (meson leD le_less_linear neg_le_0_iff_le non_trivial_neg)
+
 lemma dbm_entries_dense_pos:
   "\<exists>d>0. Le (d :: _ :: time) \<le> e" if "e > 0"
+  (* XXX Clean duplicate rewrite rule *)
+  using dbm_entry_simps[simp]
 proof (cases e)
 case (Le d)
   with that show ?thesis
-    apply auto
-     apply (auto simp: DBM.neutral DBM.less)
-    done
+    by auto
 next
   case prems: (Lt d)
   with that have "d > 0"
-    apply (auto simp: DBM.neutral DBM.less)
-    done
+    by auto
   from dense[OF this] obtain z where "z > 0" "z < d"
     by auto
   then show ?thesis
-    apply (inst_existentials z)
-     apply (auto simp: prems)
-    done
+    by (auto simp: prems)
 next
   case prems: INF
   obtain d :: 'a where "d > 0"
-    by (meson leD le_less_linear neg_le_0_iff_le non_trivial_neg)
+    by atomize_elim (rule non_trivial_pos)
   then show ?thesis
-    apply (inst_existentials d)
-     apply (auto simp: prems any_le_inf)
-    done
+    by (auto simp: prems)
 qed
 
 lemma le_minus_iff:
@@ -644,6 +657,68 @@ lemma neg_diag_empty_spec:
   "\<lbrakk>M\<rbrakk> = {}" if "i \<le> n" "M i i < 0"
   using that by (meson neg_diag_empty v_is_id(1))
 
+context
+  fixes M :: "('t::time) DBM"
+  assumes "\<lbrakk>M\<rbrakk> \<noteq> {}"
+begin
+
+(* XXX Do not need canonicality *)
+lemma M_0_0_ge_0: "M 0 0 \<ge> 0"
+  using \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> neg_diag_empty_spec[of 0 M] leI by auto
+
+(* XXX Do not need canonicality *)
+lemma M_k_0: "M k 0 \<ge> 0" if "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "k \<le> n"
+proof (cases "k = 0")
+  case True with M_0_0_ge_0 show ?thesis
+    by auto
+next
+  case False
+  from \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> obtain u where "u \<in> \<lbrakk>M\<rbrakk>"
+    by auto
+  with that(1) \<open>k \<le> n\<close> have "u k \<ge> 0"
+    by auto
+  from \<open>u \<in> _\<close> \<open>k \<noteq> 0\<close> \<open>k \<le> n\<close> have "dbm_entry_val' u k 0 (M k 0)"
+    unfolding DBM_zone_repr_def DBM_val_bounded_alt_def2 by auto
+  with \<open>k \<noteq> 0\<close> have "Le (u k) \<le> M k 0"
+    by (simp add: dbm_entry_val'_iff_bounded)
+  with \<open>u k \<ge> 0\<close> show "M k 0 \<ge> 0"
+    by (cases "M k 0") (auto simp: dbm_entry_le_iff)
+qed
+
+lemma non_empty_cycle_free:
+  "cycle_free M n"
+  using \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> non_empty_cycle_free v_is_id(1) by blast
+
+lemma M_0_k: "M 0 k \<le> 0" if "canonical M n" "M 0 0 \<le> 0" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "k \<le> n"
+proof (cases "k = 0")
+  case True
+  with \<open>M 0 0 \<le> 0\<close> show ?thesis
+    by auto
+next
+  case False
+  show ?thesis
+  proof (rule ccontr)
+    assume "\<not> M 0 k \<le> 0"
+    then have "M 0 k > 0"
+      by auto
+    from that(3) \<open>k \<le> n\<close> have "M k 0 \<ge> 0"
+      by (rule M_k_0)
+    from \<open>M 0 k > 0\<close> obtain d where
+      "Le d \<le> M 0 k" "d > 0"
+      by (rule dbm_entries_dense_pos[elim_format]) auto
+    with \<open>M k 0 \<ge> 0\<close> have "Le (-d) \<le> M k 0"
+      by (auto simp: dbm_entry_le_iff intro: order.trans[rotated])
+    with \<open>canonical M n\<close> \<open>Le d \<le> M 0 k\<close> obtain u where
+      "u \<in> \<lbrakk>M\<rbrakk>" "u k = -d"
+      using v_0 False \<open>k \<le> n\<close>
+      by - (rule canonical_saturated_2[of d M v k n], auto simp: v_is_id(1) non_empty_cycle_free)
+    with \<open>d > 0\<close> that(3) \<open>k \<le> n\<close> show False
+      by fastforce
+  qed
+qed
+
+end (* Fixed non-empty DBM *)
+
 end (* Default Clock Numbering *)
 
 paragraph \<open>Definition\<close>
@@ -662,7 +737,6 @@ begin
 
 context
   fixes M :: "('t::time) DBM"
-  assumes canonical: "canonical M n"
 begin
 
 lemma down_complete: "u \<in> \<lbrakk>down n M\<rbrakk>" if "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" "\<forall> c \<le> n. u c \<ge> 0"
@@ -696,8 +770,9 @@ next
   qed
 qed
 
-lemma down_sound: "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" if "u \<in> \<lbrakk>down n M\<rbrakk>"
+lemma down_sound: "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" if "u \<in> \<lbrakk>down n M\<rbrakk>" "canonical M n"
 proof -
+  note [simp] = dbm_entry_simps
   from \<open>u \<in> _\<close> have "Le 0 \<preceq> M 0 0"
     unfolding down_def DBM_zone_repr_def DBM_val_bounded_alt_def2 by auto
   from \<open>u \<in> _\<close> have *:
@@ -716,38 +791,30 @@ proof -
     from \<open>l \<in> _\<close> show "l \<le> 0"
       unfolding l_def by (auto intro: Min_le simp: DBM.neutral)
     from \<open>l \<in> _\<close> \<open>r \<in> _\<close> show "0 \<le> l + r"
-    proof (auto simp: algebra_simps, goal_cases)
-      case 1
-      then show ?case
-        by (simp add: any_le_inf)
-    next
-      case (2 c)
-      with \<open>u \<in> _\<close> have "Le (u c) \<le> M c 0"
-        unfolding dbm_entry_val_iff_bounded_Le1 down_def DBM_zone_repr_def DBM_val_bounded_alt_def1
-        by auto
-      then show ?case
-        by (auto simp: DBM.add Le_le_sum_iff)
-    next
-      case (3 c)
-      then show ?case
-        by (simp add: any_le_inf)
-    next
-      case (4 c1 c2)
+    proof (safe, goal_cases)
+      case prems: (1 c1 c2)
       with \<open>canonical M n\<close> have "M c2 0 + M 0 c1 \<ge> M c2 c1"
         by auto
       have "Le (u c1) + (M c2 0 + (M 0 c1 + Le (- u c2))) =
-      Le (u c1) + Le (- u c2) + (M c2 0 + M 0 c1)"
+            Le (u c1) + Le (- u c2) + (M c2 0 + M 0 c1)"
         by (simp add: algebra_simps)
-      from 4 \<open>u \<in> _\<close> have "Le (u c2 - u c1) \<le> M c2 c1"
+      from prems \<open>u \<in> _\<close> have "Le (u c2 - u c1) \<le> M c2 c1"
         unfolding dbm_entry_val_iff_bounded_Le3 down_def DBM_zone_repr_def DBM_val_bounded_alt_def1
         by auto
-      with \<open>M c2 c1 \<le> _\<close> have "Le (u c2 - u c1) \<le> M c2 0 + M 0 c1"
+      with \<open>M c2 c1 \<le> M c2 0 + M 0 c1\<close> have "Le (u c2 - u c1) \<le> M c2 0 + M 0 c1"
         by auto
       then have "0 \<le> M c2 0 + M 0 c1 + (Le (u c1) + Le (- u c2))"
         by (simp add: DBM.add Le_le_sum_iff)
       then show ?case
         by (simp add: algebra_simps)
-    qed
+    next
+      case (3 c)
+      with \<open>u \<in> _\<close> have "Le (u c) \<le> M c 0"
+        unfolding dbm_entry_val_iff_bounded_Le1 down_def DBM_zone_repr_def DBM_val_bounded_alt_def1
+        by auto
+      then show ?case
+        by (auto simp: DBM.add Le_le_sum_iff)
+    qed auto
   qed
   from dbm_entries_dense'[OF this(2,1)] obtain d where
     "d \<ge> 0" "0 \<le> l + Le d" "0 \<le> r + Le (- d)"
@@ -778,9 +845,7 @@ proof -
       with 2 show ?thesis
         unfolding down_def dbm_entry_val'_def
         by (cases "M 0 c2")
-           (auto 4 3 simp: cval_add_def DBM.add dbm_entry_le_iff
-            algebra_simps lt_minus_iff le_minus_iff
-           )
+           (auto 4 3 simp: cval_add_def DBM.add algebra_simps lt_minus_iff le_minus_iff)
     next
       case 3
       then have "r \<le> M c1 0 + Le (- u c1)"
@@ -789,78 +854,30 @@ proof -
         by (metis add.commute add_left_mono dual_order.trans)
       with 3 ** show ?thesis
         unfolding down_def dbm_entry_val'_def
-        apply (auto elim!: dbm_entry_val.cases intro!: dbm_entry_val.intros simp: cval_add_def)
-         apply (auto simp: algebra_simps DBM.add dbm_entry_le_iff)
-        done
+        by (auto elim!: dbm_entry_val.cases simp: cval_add_def algebra_simps DBM.add)
     qed
   qed
   with \<open>d \<ge> 0\<close> show ?thesis
     unfolding zone_time_pre_def cval_add_def by auto
 qed
 
-lemma
-  "canonical (down n M) n" if assms: "\<lbrakk>M\<rbrakk> \<noteq> {}" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "M 0 0 \<le> 0"
+lemma down_canonical:
+  "canonical (down n M) n"
+  if assms: "canonical M n" "\<lbrakk>M\<rbrakk> \<noteq> {}" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "M 0 0 \<le> 0"
 proof -
-  from \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> have "M 0 0 \<ge> 0"
-    using neg_diag_empty_spec[of 0 M] leI by auto
+  from M_0_0_ge_0[OF \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close>] have "M 0 0 \<ge> 0" .
   with \<open>M 0 0 \<le> 0\<close> have "M 0 0 = 0"
     by auto
-  from \<open>canonical M n\<close> \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> have M_k_0: "M k 0 \<ge> 0" if "k \<le> n" for k
-  proof (cases "k = 0")
-    case True with \<open>M 0 0 \<ge> 0\<close> show ?thesis
-      by auto
-  next
-    case False
-    from \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> obtain u where "u \<in> \<lbrakk>M\<rbrakk>"
-      by auto
-    with assms(2) \<open>k \<le> n\<close> have "u k \<ge> 0"
-      by auto
-    from \<open>u \<in> _\<close> \<open>k \<noteq> 0\<close> \<open>k \<le> n\<close> have "dbm_entry_val' u k 0 (M k 0)"
-      unfolding DBM_zone_repr_def DBM_val_bounded_alt_def2 by auto
-    with \<open>k \<noteq> 0\<close> have "Le (u k) \<le> M k 0"
-      by (simp add: dbm_entry_val'_iff_bounded)
-    with \<open>u k \<ge> 0\<close> show "M k 0 \<ge> 0"
-      by (cases "M k 0") (auto simp: dbm_entry_le_iff)
-  qed
-  from \<open>canonical M n\<close> \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> have M_0_k: "M 0 k \<le> 0" if "k \<le> n" for k
-  proof (cases "k = 0")
-    case True
-    with \<open>M 0 0 \<le> 0\<close> show ?thesis
-      by auto
-  next
-    case False
-    show ?thesis
-    proof (rule ccontr)
-      assume "\<not> M 0 k \<le> 0"
-      then have "M 0 k > 0"
-        by auto
-      from \<open>k \<le> n\<close> have "M k 0 \<ge> 0"
-        by (rule M_k_0)
-      from \<open>M 0 k > 0\<close> obtain d where
-        "Le d \<le> M 0 k" "d > 0"
-        by (rule dbm_entries_dense_pos[elim_format]) auto
-      with \<open>M k 0 \<ge> 0\<close> have "Le (-d) \<le> M k 0"
-        by (auto simp: dbm_entry_le_iff intro: order.trans[rotated])
-      with canonical \<open>Le d \<le> M 0 k\<close> obtain u where
-        "u \<in> \<lbrakk>M\<rbrakk>" "u k = -d"
-        apply -
-        apply (rule canonical_saturated_2[of d M v k n])
-        using v_0 False \<open>k \<le> n\<close> apply (auto simp: v_is_id(1))
-        subgoal
-          using assms(1) non_empty_cycle_free v_is_id(1) by blast
-        done
-      with \<open>d > 0\<close> assms(2) \<open>k \<le> n\<close> show False
-        by fastforce
-    qed
-  qed
+  note M_0_k = M_0_k[OF that(2,1,4,3)] and M_k_0 = M_k_0[OF that(2,3)]
   have Suc_0_le_iff: "Suc 0 \<le> x \<longleftrightarrow> 0 < x" for x
     by auto
   define S where "S j = Min ({Le 0} \<union> {M k j |k. 1 \<le> k \<and> k \<le> n})" for j
   { fix j :: nat
     consider (0) "S j = 0" "\<forall> i. 1 \<le> i \<and> i \<le> n \<longrightarrow> M i j \<ge> 0"
-      | (entry) i where "S j = M i j" "0 < i" "i \<le> n" "M i j \<le> 0"
-        "\<forall> k. 1 \<le> k \<and> k \<le> n \<longrightarrow> M i j \<le> M k j"
-      using Min_in[of "{Le 0} \<union> {M k j |k. 1 \<le> k \<and> k \<le> n}"] unfolding S_def neutral
+      | (entry) i where
+        "S j = M i j" "0 < i" "i \<le> n" "M i j \<le> 0" "\<forall> k. 1 \<le> k \<and> k \<le> n \<longrightarrow> M i j \<le> M k j"
+      unfolding S_def neutral
+      using Min_in[of "{Le 0} \<union> {M k j |k. 1 \<le> k \<and> k \<le> n}"]
       apply auto
       using Min_le[of "{Le 0} \<union> {M k j |k. 1 \<le> k \<and> k \<le> n}"]
        apply auto
@@ -879,49 +896,30 @@ proof -
     case (2 i j k)
     with \<open>canonical M n\<close> show ?case
       by (cases rule: S_cases[of k]; cases rule: S_cases[of j])
-        (auto intro: order.trans simp: Suc_0_le_iff)
+         (auto intro: order.trans simp: Suc_0_le_iff)
   next
     case prems: (3 i j k)
     then have "M 0 k \<le> S k"
       apply (cases rule: S_cases[of k])
       subgoal
-        using M_0_k[of k]
-        apply auto
-        done
+        using M_0_k[of k] by auto
       subgoal for i'
-        using M_0_k[of i']
-        apply auto
-        using canonical
-        by (metis (mono_tags, hide_lams) add.left_neutral add_right_mono dual_order.trans zero_order(1))
+        using M_0_k \<open>canonical M n\<close> by (metis add.left_neutral add_right_mono dual_order.trans)
       done
-    from canonical prems have "M i k \<le> M i 0 + M 0 k"
+    from \<open>canonical M n\<close> prems have "M i k \<le> M i 0 + M 0 k"
       by auto
     also from \<open>_ \<le> S k\<close> have "\<dots> \<le> M i 0 + S k"
       by (simp add: add_left_mono)
     finally show ?case .
   next
-    case (4 i j k)
-    with canonical show ?case
-      by simp
-  next
-    case (5 i j k)
-    with canonical show ?case
-      by simp
-  next
     case (6 i j k)
-    then show ?case
-      by (smt \<open>M 0 0 \<le> 0\<close> M_k_0 S_cases add_increasing canonical order.trans)
-  next
-    case (7 i j k)
-    with canonical show ?case
-      by simp
-  next
-    case (8 i j k)
-    with canonical show ?case
-      by simp
-  qed
+    with \<open>canonical M n\<close> \<open>M 0 0 \<le> 0\<close> show ?case
+      by (smt M_k_0 S_cases add_increasing order.trans)
+  qed (use \<open>canonical M n\<close> in simp_all)
 qed
 
 end (* Fixed DBM w/ Canonicality *)
 
 end (* Default Clock Numbering *)
+
+end
