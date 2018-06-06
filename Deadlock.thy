@@ -4,6 +4,8 @@ theory Deadlock
     TA_Impl.Normalized_Zone_Semantics_Impl
 begin
 
+no_notation Ref.update ("_ := _" 62)
+
 section \<open>Deadlock Checking\<close>
 
 subsection \<open>Notes\<close>
@@ -477,7 +479,7 @@ lemmas dbm_list_superset_op =
 
 end (* Trivial clock numbering *)
 
-subsubsection \<open>Down Operation\<close>
+subsubsection \<open>Down\<close>
 
 paragraph \<open>Auxiliary\<close>
 
@@ -617,14 +619,14 @@ lemma DBM_val_bounded_alt_def1:
 
 lemma DBM_val_bounded_alt_def2:
   "u \<turnstile>\<^bsub>v,n\<^esub> m \<equiv>
-     Le 0 \<preceq> m 0 0 \<and>
+     Le 0 \<le> m 0 0 \<and>
      (\<forall>c1 c2. (c1 \<noteq> 0 \<or> c2 \<noteq> 0) \<and> c1 \<le> n \<and> c2 \<le> n \<longrightarrow> dbm_entry_val' u c1 c2 (m c1 c2))"
-  unfolding DBM_val_bounded_alt_def1 dbm_entry_val'_def
+  unfolding DBM_val_bounded_alt_def1 dbm_entry_val'_def DBM.less_eq
   by (rule eq_reflection; clarsimp; safe; blast)
 
 lemma DBM_val_bounded_altI:
   assumes
-    "Le 0 \<preceq> m 0 0"
+    "Le 0 \<le> m 0 0"
     "\<And> c1 c2. (c1 \<noteq> 0 \<or> c2 \<noteq> 0) \<and> c1 \<le> n \<and> c2 \<le> n \<Longrightarrow> dbm_entry_val' u c1 c2 (m c1 c2)"
   shows
     "u \<in> \<lbrakk>m\<rbrakk>"
@@ -773,7 +775,7 @@ qed
 lemma down_sound: "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" if "u \<in> \<lbrakk>down n M\<rbrakk>" "canonical M n"
 proof -
   note [simp] = dbm_entry_simps
-  from \<open>u \<in> _\<close> have "Le 0 \<preceq> M 0 0"
+  from \<open>u \<in> _\<close> have "Le 0 \<le> M 0 0"
     unfolding down_def DBM_zone_repr_def DBM_val_bounded_alt_def2 by auto
   from \<open>u \<in> _\<close> have *:
     "(\<forall>c1 c2. (c1 \<noteq> 0 \<or> c2 \<noteq> 0) \<and> c1 \<le> n \<and> c2 \<le> n \<longrightarrow> dbm_entry_val' u c1 c2 (down n M c1 c2))"
@@ -822,7 +824,7 @@ proof -
   have "u \<oplus> d \<in> \<lbrakk>M\<rbrakk>"
   proof (rule DBM_val_bounded_altI, goal_cases)
     case 1
-    from \<open>Le 0 \<preceq> M 0 0\<close> show ?case .
+    from \<open>Le 0 \<le> M 0 0\<close> show ?case .
   next
     case (2 c1 c2)
     with * have **: "dbm_entry_val' u c1 c2 (down n M c1 c2)"
@@ -921,5 +923,92 @@ qed
 end (* Fixed DBM w/ Canonicality *)
 
 end (* Default Clock Numbering *)
+
+subsubsection \<open>Free\<close>
+
+paragraph \<open>Definition\<close>
+
+definition
+  free :: "nat \<Rightarrow> ('t::linordered_cancel_ab_monoid_add) DBM \<Rightarrow> nat \<Rightarrow> 't DBM"
+where
+  "free n M x \<equiv>
+    \<lambda> i j. if i = x \<and> j \<noteq> x then \<infinity> else if i \<noteq> x \<and> j = x then M i 0 else M i j"
+
+paragraph \<open>Auxiliary\<close>
+
+context Default_Nat_Clock_Numbering
+begin
+
+context
+  fixes c1 c2 c x :: nat
+  notes [simp] = dbm_entry_val'_iff_bounded dbm_entry_simps DBM.add algebra_simps
+begin
+
+lemma dbm_entry_val'_diag_iff: "dbm_entry_val' u c c e \<longleftrightarrow> e \<ge> 0" if "c > 0"
+  using that by (cases e) auto
+
+lemma dbm_entry_val'_inf: "dbm_entry_val' u c1 c2 \<infinity> \<longleftrightarrow> True"
+  unfolding dbm_entry_val'_def by auto
+
+lemma dbm_entry_val'_reset_1:
+  "dbm_entry_val' (u(x := d)) x c e \<longleftrightarrow> dbm_entry_val' u 0 c (e + Le (-d))"
+  if "d \<ge> 0" "c \<noteq> x" "c > 0" "x > 0"
+  using that \<open>d \<ge> 0\<close> by (cases e) auto
+
+lemma dbm_entry_val'_reset_2:
+  "dbm_entry_val' (u(x := d)) c x e \<longleftrightarrow> dbm_entry_val' u c (0 :: nat) (e + Le d)"
+  if "d \<ge> 0" "c \<noteq> x" "c > 0" "x > 0"
+  using that \<open>d \<ge> 0\<close> by (cases e) auto
+
+lemma dbm_entry_val'_reset_2':
+  "dbm_entry_val' (u(x := d)) 0 x e \<longleftrightarrow> Le (- d) \<le> e" if "d \<ge> 0" "x > 0"
+  using that \<open>d \<ge> 0\<close> by (cases e) auto
+
+lemma dbm_entry_val'_reset_3:
+  "dbm_entry_val' (u(x := d)) c1 c2 e \<longleftrightarrow> dbm_entry_val' u c1 c2 e" if "c1 \<noteq> x" "c2 \<noteq> x" for e
+  using that unfolding dbm_entry_val'_def by (cases e) auto
+
+end (* Simplifier setup *)
+
+paragraph \<open>Correctness\<close>
+
+context
+  fixes M :: "('t::time) DBM"
+begin
+
+lemma free_complete: "u(x := d) \<in> \<lbrakk>free n M x\<rbrakk>"
+  if assms: "u \<in> \<lbrakk>M\<rbrakk>" "d \<ge> 0" "x > 0" "\<forall>c \<le> n. M c c \<ge> 0"
+proof (rule DBM_val_bounded_altI, goal_cases)
+  case 1
+  with \<open>_ \<in> \<lbrakk>M\<rbrakk>\<close> show ?case
+    unfolding free_def DBM_zone_repr_def DBM_val_bounded_alt_def2 zone_time_pre_def by auto
+next
+  case prems: (2 c1 c2)
+  then have "c1 \<le> n" "c2 \<le> n"
+    by auto
+  note [simp] = dbm_entry_simps
+  have *: "Le (u c1) \<le> M c1 0 + Le d" if "c1 > 0"
+  proof -
+    from \<open>_ \<in> \<lbrakk>M\<rbrakk>\<close> \<open>c1 > 0\<close> \<open>c1 \<le> n\<close> have "dbm_entry_val' u c1 0 (M c1 0)"
+      unfolding DBM_zone_repr_def DBM_val_bounded_alt_def2 by auto
+    with \<open>c1 > 0\<close> have "Le (u c1) \<le> M c1 0"
+      by (auto simp: dbm_entry_val'_iff_bounded)
+    with \<open>d \<ge> 0\<close> show ?thesis
+      by (simp add: algebra_simps add_increasing)
+  qed
+  have "dbm_entry_val' (u(x := d)) c1 x (M c1 0)" if "c1 \<noteq> x"
+  proof (cases "c1 = 0")
+    case True
+    with that show ?thesis
+      using assms(4) \<open>d \<ge> 0\<close> by (auto intro: order.trans[rotated] simp: dbm_entry_val'_reset_2')
+  next
+    case False
+    with that \<open>x > 0\<close> show ?thesis
+      by (subst dbm_entry_val'_reset_2[OF \<open>d \<ge> 0\<close>]) (auto simp: dbm_entry_val'_iff_bounded *)
+  qed
+  with prems \<open>_ \<in> \<lbrakk>M\<rbrakk>\<close> that(4) show ?case
+    unfolding free_def DBM_zone_repr_def DBM_val_bounded_alt_def2
+    by (auto simp: dbm_entry_val'_diag_iff dbm_entry_val'_inf dbm_entry_val'_reset_3)
+qed
 
 end
