@@ -664,11 +664,9 @@ context
   assumes "\<lbrakk>M\<rbrakk> \<noteq> {}"
 begin
 
-(* XXX Do not need canonicality *)
 lemma M_0_0_ge_0: "M 0 0 \<ge> 0"
   using \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> neg_diag_empty_spec[of 0 M] leI by auto
 
-(* XXX Do not need canonicality *)
 lemma M_k_0: "M k 0 \<ge> 0" if "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "k \<le> n"
 proof (cases "k = 0")
   case True with M_0_0_ge_0 show ?thesis
@@ -795,17 +793,12 @@ proof -
     from \<open>l \<in> _\<close> \<open>r \<in> _\<close> show "0 \<le> l + r"
     proof (safe, goal_cases)
       case prems: (1 c1 c2)
-      with \<open>canonical M n\<close> have "M c2 0 + M 0 c1 \<ge> M c2 c1"
-        by auto
-      have "Le (u c1) + (M c2 0 + (M 0 c1 + Le (- u c2))) =
-            Le (u c1) + Le (- u c2) + (M c2 0 + M 0 c1)"
-        by (simp add: algebra_simps)
-      from prems \<open>u \<in> _\<close> have "Le (u c2 - u c1) \<le> M c2 c1"
+      with \<open>u \<in> _\<close> have "Le (u c2 - u c1) \<le> M c2 c1"
         unfolding dbm_entry_val_iff_bounded_Le3 down_def DBM_zone_repr_def DBM_val_bounded_alt_def1
         by auto
-      with \<open>M c2 c1 \<le> M c2 0 + M 0 c1\<close> have "Le (u c2 - u c1) \<le> M c2 0 + M 0 c1"
+      also from prems \<open>canonical M n\<close> have "M c2 0 + M 0 c1 \<ge> M c2 c1"
         by auto
-      then have "0 \<le> M c2 0 + M 0 c1 + (Le (u c1) + Le (- u c2))"
+      finally have "0 \<le> M c2 0 + M 0 c1 + (Le (u c1) + Le (- u c2))"
         by (simp add: DBM.add Le_le_sum_iff)
       then show ?case
         by (simp add: algebra_simps)
@@ -843,7 +836,7 @@ proof -
       then have "l \<le> (M 0 c2 + Le (u c2))"
         unfolding l_def by (auto intro: Min_le)
       with \<open>0 \<le> l + Le d\<close> have "0 \<le> M 0 c2 + Le (u c2) + Le d"
-        by (metis add.commute add_left_mono dual_order.trans) (* XXX Recurring proof pattern *)
+        by (auto intro: order.trans add_right_mono) (* XXX Recurring proof pattern *)
       with 2 show ?thesis
         unfolding down_def dbm_entry_val'_def
         by (cases "M 0 c2")
@@ -853,7 +846,7 @@ proof -
       then have "r \<le> M c1 0 + Le (- u c1)"
         unfolding r_def by (auto intro: Min_le)
       with \<open>0 \<le> r + Le (- d)\<close> have "0 \<le> M c1 0 + Le (- u c1) + Le ( -d)"
-        by (metis add.commute add_left_mono dual_order.trans)
+        by (auto intro: order.trans add_right_mono)
       with 3 ** show ?thesis
         unfolding down_def dbm_entry_val'_def
         by (auto elim!: dbm_entry_val.cases simp: cval_add_def algebra_simps DBM.add)
@@ -1010,5 +1003,162 @@ next
     unfolding free_def DBM_zone_repr_def DBM_val_bounded_alt_def2
     by (auto simp: dbm_entry_val'_diag_iff dbm_entry_val'_inf dbm_entry_val'_reset_3)
 qed
+
+lemma free_sound: "\<exists>d \<ge> 0. u(x := d) \<in> \<lbrakk>M\<rbrakk>" "u x \<ge> 0"
+  if assms: "u \<in> \<lbrakk>free n M x\<rbrakk>" "x > 0" "x \<le> n" "canonical M n" "M 0 x \<le> 0" "M 0 0 \<le> 0"
+proof -
+  define l where "l = Min ({M c x + Le (- u c) | c. 0 < c \<and> c \<le> n \<and> c \<noteq> x} \<union> {M 0 x})"
+  define r where "r = Min ({M x c + Le (u c)   | c. 0 < c \<and> c \<le> n \<and> c \<noteq> x} \<union> {M x 0})"
+  from M_0_0_ge_0 \<open>u \<in> _\<close> \<open>x > 0\<close> have "0 \<le> M 0 0"
+    unfolding free_def by fastforce
+  (* XXX *)
+  from \<open>u \<in> _\<close> have *:
+    "dbm_entry_val' u c1 c2 (free n M x c1 c2)" if "c1 \<noteq> 0 \<or> c2 \<noteq> 0" "c1 \<le> n" "c2 \<le> n" for c1 c2
+    using that unfolding zone_time_pre_def DBM_zone_repr_def DBM_val_bounded_alt_def2 by auto
+  have "0 \<le> l + r" "l \<le> 0"
+  proof -
+    have
+      "l \<in> {M c x + Le (- u c)   | c. 0 < c \<and> c \<le> n \<and> c \<noteq> x} \<union> {M 0 x}"
+      "r \<in> {M x c + Le (u c)     | c. 0 < c \<and> c \<le> n \<and> c \<noteq> x} \<union> {M x 0}"
+      unfolding l_def r_def by (intro Min_in; simp)+
+    from \<open>l \<in> _\<close> \<open>M 0 x \<le> 0\<close> show "l \<le> 0"
+      unfolding l_def by - (rule order.trans[rotated], auto intro: Min_le simp: DBM.neutral)
+    from \<open>l \<in> _\<close> \<open>r \<in> _\<close> show "0 \<le> l + r"
+    proof (safe, goal_cases)
+      case prems: (1 c1 c2)
+      with \<open>canonical M n\<close> \<open>x \<le> n\<close> have "M c1 x + M x c2 \<ge> M c1 c2"
+        by auto
+      from prems \<open>u \<in> _\<close> have "Le (u c1 - u c2) \<le> M c1 c2"
+        (* XXX *)
+        unfolding dbm_entry_val_iff_bounded_Le3 free_def DBM_zone_repr_def DBM_val_bounded_alt_def1
+        apply fastforce
+        done
+      with \<open>M c1 c2 \<le> _\<close> have "Le (u c1 - u c2) \<le> M c1 x + M x c2"
+        by auto
+      then have "0 \<le> M c1 x + M x c2 + (Le (u c2) + Le (- u c1))"
+        by (simp add: DBM.add Le_le_sum_iff)
+      then show ?case
+        by (simp add: algebra_simps)
+    next
+      case prems: (2 c)
+      from prems \<open>u \<in> _\<close> have "Le (u c) \<le> M c 0"
+        unfolding dbm_entry_val_iff_bounded_Le1 free_def DBM_zone_repr_def DBM_val_bounded_alt_def1
+        by auto
+      also from prems \<open>canonical M n\<close> \<open>x \<le> n\<close> have "\<dots> \<le> M c x + M x 0"
+        by auto
+      finally show ?case
+        by (simp add: algebra_simps Le_le_sum_iff)
+    next
+      case prems: (3 c)
+      from prems \<open>u \<in> _\<close> \<open>x > 0\<close> have "Le (- u c) \<le> M 0 c"
+        unfolding dbm_entry_val_iff_bounded_Le2 free_def DBM_zone_repr_def DBM_val_bounded_alt_def1
+        by auto
+      also from prems \<open>canonical M n\<close> \<open>x \<le> n\<close> have "\<dots> \<le> M 0 x + M x c"
+        by auto
+      finally show ?case
+        by (simp add: algebra_simps Le_le_sum_iff)
+    next
+      case 4
+      from \<open>0 \<le> M 0 0\<close> \<open>canonical M n\<close> \<open>x \<le> n\<close> show ?case
+        by (auto intro: order.trans)
+    qed
+  qed
+  from dbm_entries_dense'[OF this(2,1)] obtain d where
+    "d \<ge> 0" "0 \<le> l + Le d" "0 \<le> r + Le (- d)"
+    by auto
+  have "u(x := d) \<in> \<lbrakk>M\<rbrakk>"
+  proof (rule DBM_val_bounded_altI, goal_cases)
+    case 1
+    from \<open>0 \<le> M 0 0\<close> show ?case unfolding DBM.neutral .
+  next
+    case prems: (2 c1 c2)
+    then have **: "dbm_entry_val' u c1 c2 (free n M x c1 c2)"
+      by (auto intro: *)
+    with prems \<open>x > 0\<close> show ?case
+    proof (auto simp: dbm_entry_val'_iff_bounded free_def split: if_split_asm, goal_cases)
+      case prems: 1
+      then have "r \<le> M x c2 + Le (u c2)"
+        unfolding r_def by (intro Min_le) auto
+      with \<open>0 \<le> r + _\<close> have "0 \<le> M x c2 + Le (u c2) + Le (- d)"
+        by (auto intro: order.trans add_right_mono)
+      moreover have "Le (d - u c2) \<le> M x c2 \<longleftrightarrow> 0 \<le> M x c2 + Le (u c2) + Le (- d)"
+        by (cases "M x c2") (auto simp: dbm_entry_simps DBM.add algebra_simps)
+      ultimately show "Le (d - u c2) \<le> M x c2"
+        by simp
+    next
+      case prems: 2
+      from \<open>0 \<le> r + _\<close> have "Le d \<le> r"
+        by (simp add: Le_le_sum_iff)
+      also have "r \<le> M x 0"
+        unfolding r_def by auto
+      finally show "Le d \<le> M x 0" .
+    next
+      case prems: 3
+      then have "l \<le> M c1 x + Le (- u c1)"
+        unfolding l_def by (intro Min_le) auto
+      with \<open>0 \<le> l + Le d\<close> have "0 \<le> M c1 x + Le (- u c1) + Le d"
+        by (auto intro: order.trans add_right_mono)
+      moreover have "Le (u c1 - d) \<le> M c1 x \<longleftrightarrow> 0 \<le> M c1 x + Le (- u c1) + Le d"
+        by (cases "M c1 x") (auto simp: dbm_entry_simps DBM.add algebra_simps)
+      ultimately show "Le (u c1 - d) \<le> M c1 x"
+        by simp
+    next
+      case prems: 4
+      from \<open>0 \<le> l + Le d\<close> have "Le (- d) \<le> l"
+        by (simp add: Le_le_sum_iff)
+      also have "l \<le> M 0 x"
+        unfolding l_def by auto
+      finally show "Le (- d) \<le> M 0 x" .
+    qed
+  qed
+  with \<open>d \<ge> 0\<close> show "\<exists>d\<ge>0. u(x := d) \<in> \<lbrakk>M\<rbrakk>"
+    by auto
+  from \<open>x > 0\<close> \<open>x \<le> n\<close> have "dbm_entry_val' u 0 x (free n M x 0 x)"
+    by (auto intro: *)
+  with \<open>0 < x\<close> have "Le (- u x) \<le> M 0 0"
+    by (auto simp: free_def dbm_entry_val'_iff_bounded)
+  with \<open>M 0 0 \<le> 0\<close> have "Le (- u x) \<le> 0"
+    by (rule order.trans[rotated])
+  then show "0 \<le> u x"
+    by (auto simp: dbm_entry_simps)
+qed
+
+lemma free_correct:
+  "\<lbrakk>free n M x\<rbrakk> = {u(x := d) | u d. u \<in> \<lbrakk>M\<rbrakk> \<and> d \<ge> 0}"
+  if "x > 0" "x \<le> n" "\<forall>c \<le> n. M c c \<ge> 0" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. u x \<ge> 0" "canonical M n"
+     "M 0 x \<le> 0" "M 0 0 \<le> 0"
+  using that
+  apply auto
+  subgoal for u'
+    apply (frule free_sound, assumption+)
+    apply (frule free_sound(2), assumption+)
+    apply safe
+    subgoal for d
+      apply (inst_existentials "u'(x := d)" "u' x")
+        apply auto
+      done
+    done
+  subgoal for u d
+    apply (rule free_complete)
+       apply auto
+    done
+  done
+
+lemma
+  "{u. (u(x := (0::'t))) \<in> \<lbrakk>M\<rbrakk>} = {u(x := d) | u d. u \<in> \<lbrakk>M\<rbrakk> \<and> u x = 0 \<and> d \<ge> 0}"
+  apply auto
+  subgoal for u
+    apply (inst_existentials "u(x := (0::'t))" "u x")
+       apply auto
+    sorry
+  subgoal for u d
+    apply (subgoal_tac "u = u(x := 0)")
+     apply auto
+    done
+  done
+
+end (* Fixed DBM w/ Canonicality *)
+
+end (* Default Clock Numbering *)
 
 end
