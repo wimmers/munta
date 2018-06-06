@@ -913,7 +913,7 @@ proof -
   qed (use \<open>canonical M n\<close> in simp_all)
 qed
 
-end (* Fixed DBM w/ Canonicality *)
+end (* Fixed DBM *)
 
 end (* Default Clock Numbering *)
 
@@ -1123,6 +1123,14 @@ proof -
     by (auto simp: dbm_entry_simps)
 qed
 
+lemma free_canonical:
+  "canonical (free n M x) n" if "canonical M n" "x \<le> n" "M x x \<ge> 0"
+  unfolding free_def using that by (auto simp: add_increasing2 any_le_inf)
+
+lemma free_diag:
+  "free n M x i i = M i i"
+  unfolding free_def by auto
+
 lemma free_correct:
   "\<lbrakk>free n M x\<rbrakk> = {u(x := d) | u d. u \<in> \<lbrakk>M\<rbrakk> \<and> d \<ge> 0}"
   if "x > 0" "x \<le> n" "\<forall>c \<le> n. M c c \<ge> 0" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. u x \<ge> 0" "canonical M n"
@@ -1157,7 +1165,7 @@ lemma
     done
   done
 
-end (* Fixed DBM w/ Canonicality *)
+end (* Fixed DBM *)
 
 end (* Default Clock Numbering *)
 
