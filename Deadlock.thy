@@ -645,7 +645,7 @@ lemma dbm_entry_val'_delay2:
   "dbm_entry_val' u (0 :: nat) c2 (m c1 c2)" if
   "dbm_entry_val' (u \<oplus> d) c1 c2 (m c1 c2)" "d \<ge> 0"
   "c1 > 0" "c2 > 0" "c1 \<le> n" "c2 \<le> n"
-  "\<forall> c \<le> n. u c \<ge> 0"
+  "\<forall> c \<le> n. c > 0 \<longrightarrow> u c \<ge> 0"
   using that  unfolding dbm_entry_val'_def
   apply (auto elim!: dbm_entry_val.cases intro!: dbm_entry_val.intros simp: cval_add_def)
    apply (auto simp: algebra_simps le_minus_iff lt_minus_iff intro: dual_order.trans dual_order.strict_trans2)
@@ -671,7 +671,7 @@ begin
 lemma non_empty_diag_0_0: "M 0 0 \<ge> 0"
   using \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> neg_diag_empty_spec[of 0 M] leI by auto
 
-lemma M_k_0: "M k 0 \<ge> 0" if "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "k \<le> n"
+lemma M_k_0: "M k 0 \<ge> 0" if "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. c > 0 \<longrightarrow> u c \<ge> 0" "k \<le> n"
 proof (cases "k = 0")
   case True with non_empty_diag_0_0 show ?thesis
     by auto
@@ -679,7 +679,7 @@ next
   case False
   from \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> obtain u where "u \<in> \<lbrakk>M\<rbrakk>"
     by auto
-  with that(1) \<open>k \<le> n\<close> have "u k \<ge> 0"
+  with False that(1) \<open>k \<le> n\<close> have "u k \<ge> 0"
     by auto
   from \<open>u \<in> _\<close> \<open>k \<noteq> 0\<close> \<open>k \<le> n\<close> have "dbm_entry_val' u k 0 (M k 0)"
     unfolding DBM_zone_repr_def DBM_val_bounded_alt_def2 by auto
@@ -693,7 +693,18 @@ lemma non_empty_cycle_free:
   "cycle_free M n"
   using \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close> non_empty_cycle_free v_is_id(1) by blast
 
-lemma M_0_k: "M 0 k \<le> 0" if "canonical M n" "M 0 0 \<le> 0" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "k \<le> n"
+lemma canonical_saturated_2:
+  assumes "Le r \<le> M 0 c"
+    and "Le (- r) \<le> M c 0"
+    and "cycle_free M n"
+    and "canonical M n"
+    and "c \<le> n"
+    and "c > 0"
+  obtains u where "u \<in> \<lbrakk>M\<rbrakk>" "u c = - r"
+  using assms v_0 by (auto simp: v_is_id intro: canonical_saturated_2[of r M v c n])
+
+lemma M_0_k: "M 0 k \<le> 0"
+  if "canonical M n" "M 0 0 \<le> 0" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. c > 0 \<longrightarrow> u c \<ge> 0" "k \<le> n"
 proof (cases "k = 0")
   case True
   with \<open>M 0 0 \<le> 0\<close> show ?thesis
@@ -715,8 +726,8 @@ next
     with \<open>canonical M n\<close> \<open>Le d \<le> M 0 k\<close> obtain u where
       "u \<in> \<lbrakk>M\<rbrakk>" "u k = -d"
       using v_0 False \<open>k \<le> n\<close>
-      by - (rule canonical_saturated_2[of d M v k n], auto simp: v_is_id(1) non_empty_cycle_free)
-    with \<open>d > 0\<close> that(3) \<open>k \<le> n\<close> show False
+      by - (rule canonical_saturated_2[of d], auto simp: non_empty_cycle_free)
+    with \<open>d > 0\<close> that(3) False \<open>k \<le> n\<close> show False
       by fastforce
   qed
 qed
@@ -738,6 +749,8 @@ paragraph \<open>Correctness\<close>
 
 context Default_Nat_Clock_Numbering
 begin
+
+sublocale Alpha_defs "{1..n}" .
 
 context
   fixes M :: "('t::time) DBM"
@@ -856,7 +869,7 @@ qed
 
 lemma down_canonical:
   "canonical (down n M) n"
-  if assms: "canonical M n" "\<lbrakk>M\<rbrakk> \<noteq> {}" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. u c \<ge> 0" "M 0 0 \<le> 0"
+  if assms: "canonical M n" "\<lbrakk>M\<rbrakk> \<noteq> {}" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. \<forall> c \<le> n. c > 0 \<longrightarrow> u c \<ge> 0" "M 0 0 \<le> 0"
 proof -
   from non_empty_diag_0_0[OF \<open>\<lbrakk>M\<rbrakk> \<noteq> {}\<close>] have "M 0 0 \<ge> 0" .
   with \<open>M 0 0 \<le> 0\<close> have "M 0 0 = 0"
@@ -1146,6 +1159,43 @@ lemma
   done
 
 end (* Fixed DBM *)
+
+lemma canonical_nonneg_diag_non_empty:
+  assumes "canonical M n" "\<forall>i\<le>n. 0 \<le> M i i"
+  shows "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
+  using v_0 by (intro canonical_nonneg_diag_non_empty[OF assms]) force
+
+lemma canonical_V_non_empty_iff:
+  assumes "canonical M n" "M 0 0 \<le> 0"
+  shows "\<lbrakk>M\<rbrakk> \<subseteq> V \<and> \<lbrakk>M\<rbrakk> \<noteq> {} \<longleftrightarrow> (\<forall> i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0) \<and> (\<forall> i \<le> n. M i i \<ge> 0)"
+proof (safe, goal_cases)
+  case (1 u i)
+  with \<open>M 0 0 \<le> 0\<close> show ?case
+    unfolding V_def by - (rule M_0_k[OF _ \<open>canonical M n\<close>], auto)
+next
+  case (2 x i)
+  then show ?case
+    using neg_diag_empty_spec[of i M] by fastforce
+next
+  case prems: (3 u)
+  show ?case
+    unfolding V_def
+  proof clarsimp
+    fix i assume "Suc 0 \<le> i" "i \<le> n"
+    from in_DBM_D[OF \<open>u \<in> _\<close>, of 0 i] \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "dbm_entry_val' u 0 i (M 0 i)"
+      by auto
+    with \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "Le (- u i) \<le> M 0 i"
+      by (auto simp: dbm_entry_val'_iff_bounded)
+    also from prems \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "\<dots> \<le> 0"
+      by simp
+    finally show "0 \<le> u i"
+      by (auto simp: dbm_entry_simps)
+  qed
+next
+  case 4
+  with canonical_nonneg_diag_non_empty[OF \<open>canonical M n\<close>] show ?case
+    by simp
+qed
 
 end (* Default Clock Numbering *)
 
