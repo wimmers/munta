@@ -6,10 +6,10 @@ begin
 
 (* TODO: Move to Separation_Logic_Imperative_HOL *)
 definition big_star :: "assn multiset \<Rightarrow> assn" ("\<And>* _" [60] 90) where
-  "big_star S \<equiv> fold_mset (op *) emp S"
+  "big_star S \<equiv> fold_mset (( * )) emp S"
 
 interpretation comp_fun_commute_mult:
-  comp_fun_commute "(op * :: ('a :: ab_semigroup_mult \<Rightarrow> _ \<Rightarrow> _))"
+  comp_fun_commute "(( * ) :: ('a :: ab_semigroup_mult \<Rightarrow> _ \<Rightarrow> _))"
   by standard (auto simp: ab_semigroup_mult_class.mult.left_commute)
 
 lemma sep_big_star_insert [simp]: "\<And>* (add_mset x S) = (x * \<And>* S)"

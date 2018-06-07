@@ -1,6 +1,6 @@
 (*<*)
 theory TA_Misc
-  imports Main Real
+  imports Main HOL.Real
 begin
 
 chapter \<open>Basic lemmas which do not belong to the particular domain of Timed Automata\<close>
@@ -131,7 +131,7 @@ qed
 
 lemma frac_idempotent: "frac (frac x) = frac x" by (simp add: frac_eq frac_lt_1)
 
-lemma frac_nat_add_id: "frac ((n :: nat) + (r :: real)) = frac r" -- "Found by sledgehammer"
+lemma frac_nat_add_id: "frac ((n :: nat) + (r :: real)) = frac r" \<comment> \<open>Found by sledgehammer\<close>
 proof -
   have "\<And>r. frac (r::real) < 1"
     by (meson frac_lt_1)
@@ -225,7 +225,8 @@ lemma (in linorder) linorder_order_fun:
   where "(\<forall> x \<in> S. \<forall> y \<in> S. f x \<le> f y \<longleftrightarrow> x \<le> y)" and "range f \<subseteq> {0..card S - 1}"
 proof -
   obtain l where l_def: "l = sorted_list_of_set S" by auto
-  with sorted_list_of_set[OF assms] have l: "set l = S" "sorted l" "distinct l" by auto
+  with sorted_list_of_set(1)[OF assms] have l: "set l = S" "sorted l" "distinct l"
+    by auto
   from l(1,3) \<open>finite S\<close> have len: "length l = card S" using distinct_card by force 
   let ?f = "\<lambda> x. if x \<notin> S then 0 else THE i. i < length l \<and> l ! i = x"
   { fix x y assume A: "x \<in> S" "y \<in> S" "x < y"

@@ -103,7 +103,7 @@ section \<open>Definitions\<close>
 
 locale Subsumption_Graph_Pre_Defs =
   ord less_eq less for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
-  fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>The full edge set\<close>
+  fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>The full edge set\<close>
 begin
 
 sublocale Graph_Defs E .
@@ -122,8 +122,8 @@ end  (* Subsumption Graph Pre Nodes Defs *)
 
 (* XXX Merge with Worklist locales *)
 locale Subsumption_Graph_Defs = Subsumption_Graph_Pre_Defs +
-  fixes s\<^sub>0 :: 'a -- \<open>Start state\<close>
-  fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subgraph of the graph given by the full edge set\<close>
+  fixes s\<^sub>0 :: 'a \<comment> \<open>Start state\<close>
+  fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>Subgraph of the graph given by the full edge set\<close>
 begin
 
 sublocale Graph_Start_Defs E s\<^sub>0 .
@@ -187,7 +187,7 @@ locale Reachability_Compatible_Subsumption_Graph =
   assumes finite_reachable: "finite {a. G.reachable a}"
 
 locale Subsumption_Graph_View_Defs = Subsumption_Graph_Defs +
-  fixes SE ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subsumption edges\<close>
+  fixes SE ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>Subsumption edges\<close>
     and covered :: "'a \<Rightarrow> bool"
 
 locale Reachability_Compatible_Subsumption_Graph_View =
@@ -200,7 +200,7 @@ locale Reachability_Compatible_Subsumption_Graph_View =
   assumes finite_reachable: "finite {a. G.reachable a}"
 begin
 
-sublocale Reachability_Compatible_Subsumption_Graph "op \<preceq>" "op \<prec>" E s\<^sub>0 RE
+sublocale Reachability_Compatible_Subsumption_Graph "(\<preceq>)" "(\<prec>)" E s\<^sub>0 RE
 proof unfold_locales
   have "(\<forall>s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists>t. s \<prec> t \<and> G.reachable t)" if "G.reachable s" for s
     using that reachability_compatible subsumption by (cases "covered s"; fastforce)
@@ -212,10 +212,10 @@ end (* Reachability Compatible Subsumption Graph View *)
 
 locale Subsumption_Graph_Closure_View_Defs =
   ord less_eq less for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
-  fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>The full edge set\<close>
-    and s\<^sub>0 :: 'a                 -- \<open>Start state\<close>
-  fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subgraph of the graph given by the full edge set\<close>
-  fixes SE ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Subsumption edges\<close>
+  fixes E ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>The full edge set\<close>
+    and s\<^sub>0 :: 'a                 \<comment> \<open>Start state\<close>
+  fixes RE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>Subgraph of the graph given by the full edge set\<close>
+  fixes SE ::  "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>Subsumption edges\<close>
     and covered :: "'a \<Rightarrow> bool"
   fixes closure :: "'a \<Rightarrow> 'b"
   fixes P :: "'a \<Rightarrow> bool"
@@ -254,7 +254,7 @@ lemma Simulation_close:
   unfolding close_def by standard auto
 
 sublocale view: Reachability_Compatible_Subsumption_Graph
-  "op \<preceq>" "op \<prec>" "close E" "closure s\<^sub>0" "close RE"
+  "(\<preceq>)" "(\<prec>)" "close E" "closure s\<^sub>0" "close RE"
   supply [simp] = close_def
   supply [intro] = P_pre P_post Q_post
 proof (standard, goal_cases)
@@ -312,7 +312,7 @@ qed
 end (* Reachability Compatible Subsumption Graph Closure View *)
 
 locale Reachability_Compatible_Subsumption_Graph_Final = Reachability_Compatible_Subsumption_Graph +
-  fixes F :: "'a \<Rightarrow> bool" -- \<open>Final states\<close>
+  fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> F b"
 
 locale Liveness_Compatible_Subsumption_Graph = Reachability_Compatible_Subsumption_Graph_Final +
@@ -359,11 +359,11 @@ lemma G_reachable_has_surrogate:
 proof -
   note [intro] = preorder_intros
   from finite_reachable \<open>G.reachable s\<close> obtain x where
-    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "op \<prec>\<^sup>*\<^sup>* s x"
+    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "((\<prec>)\<^sup>*\<^sup>*) s x"
     apply atomize_elim
     apply (induction rule: rtranclp_ev_induct2)
     using reachability_compatible by auto
-  moreover from \<open>op \<prec>\<^sup>*\<^sup>* s x\<close> have "s \<prec> x \<or> s = x"
+  moreover from \<open>((\<prec>)\<^sup>*\<^sup>*) s x\<close> have "s \<prec> x \<or> s = x"
     by induction auto
   ultimately show ?thesis
     by auto
@@ -390,7 +390,7 @@ next
 qed
 
 context
-  fixes F :: "'a \<Rightarrow> bool" -- \<open>Final states\<close>
+  fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> F b"
 begin
 
@@ -443,11 +443,11 @@ lemma reachable_has_surrogate:
 proof -
   note [intro] = preorder_intros
   from finite_reachable \<open>G.reachable s\<close> obtain x where
-    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "op \<prec>\<^sup>*\<^sup>* s x"
+    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "((\<prec>)\<^sup>*\<^sup>*) s x"
     apply atomize_elim
     apply (induction rule: rtranclp_ev_induct2)
     using reachability_compatible by auto
-  moreover from \<open>op \<prec>\<^sup>*\<^sup>* s x\<close> have "s \<prec> x \<or> s = x"
+  moreover from \<open>((\<prec>)\<^sup>*\<^sup>*) s x\<close> have "s \<prec> x \<or> s = x"
     by induction auto
   ultimately show ?thesis
     by auto
@@ -459,11 +459,11 @@ proof -
   note [intro] = preorder_intros
   from \<open>G.reachable s\<close> have \<open>G.reachable s\<close> by auto
   from finite_reachable this obtain x where
-    real_edges: "\<forall>s'. E x s' \<longrightarrow> RE x s'" and "G.reachable x" "op \<prec>\<^sup>*\<^sup>* s x"
+    real_edges: "\<forall>s'. E x s' \<longrightarrow> RE x s'" and "G.reachable x" "((\<prec>)\<^sup>*\<^sup>*) s x"
     apply atomize_elim
     apply (induction rule: rtranclp_ev_induct2)
     using reachability_compatible by auto
-  from \<open>op \<prec>\<^sup>*\<^sup>* s x\<close> have "s \<prec> x \<or> s = x"
+  from \<open>((\<prec>)\<^sup>*\<^sup>*) s x\<close> have "s \<prec> x \<or> s = x"
     by induction auto
   then show ?thesis
   proof
@@ -533,7 +533,7 @@ next
 qed
 
 theorem steps_complete':
-  "\<exists> ys. list_all2 (op \<preceq>) xs ys \<and> G.steps (a # ys)" if
+  "\<exists> ys. list_all2 (\<preceq>) xs ys \<and> G.steps (a # ys)" if
   "steps (a # xs)" "G.reachable a"
   using that
 proof (induction "a # xs" arbitrary: a xs rule: steps_alt_induct)
@@ -542,13 +542,13 @@ proof (induction "a # xs" arbitrary: a xs rule: steps_alt_induct)
 oops
 
 theorem steps_complete':
-  "\<exists> c ys. list_all2 (op \<preceq>) xs ys \<and> G.steps (c # ys) \<and> b \<preceq> c" if
+  "\<exists> c ys. list_all2 (\<preceq>) xs ys \<and> G.steps (c # ys) \<and> b \<preceq> c" if
   "steps (a # xs)" "reachable a" "a \<preceq> b" "G.reachable b"
 oops
 
 (* XXX Does this hold? *)
 theorem run_complete':
-  "\<exists> ys. stream_all2 (op \<preceq>) xs ys \<and> G.run (a ## ys)" if "run (a ## xs)" "G.reachable a"
+  "\<exists> ys. stream_all2 (\<preceq>) xs ys \<and> G.run (a ## ys)" if "run (a ## xs)" "G.reachable a"
 proof -
   define f where "f = (\<lambda> x b. SOME y. x \<preceq> y \<and> RE b y)"
   define gen where "gen a xs = sscan f xs a" for a xs
@@ -576,7 +576,7 @@ corollary reachability_correct:
   by (blast dest: reachability_complete intro: preorder_intros)
 
 lemma steps_G'_steps:
-  "\<exists> ys ns. list_all2 (op \<preceq>) xs (nths ys ns) \<and> G'.steps (b # ys)" if
+  "\<exists> ys ns. list_all2 (\<preceq>) xs (nths ys ns) \<and> G'.steps (b # ys)" if
   "steps (a # xs)" "reachable a" "a \<preceq> b" "G'.reachable b"
   using that
 proof (induction "a # xs" arbitrary: a b xs)
@@ -588,7 +588,7 @@ next
     "y \<preceq> b'" "b \<rightarrow>\<^sub>G\<^sup>+' b'"
     by auto
   with \<open>reachable x\<close> Cons.hyps(1) Cons.prems(3) obtain ys ns where
-    "list_all2 op \<preceq> xs (nths ys ns)" "G'.steps (b' # ys)"
+    "list_all2 (\<preceq>) xs (nths ys ns)" "G'.steps (b' # ys)"
     by atomize_elim (blast intro: Cons.hyps(3)[OF _ \<open>y \<preceq> b'\<close>] intro: graphI_aggressive)
   from  \<open>b \<rightarrow>\<^sub>G\<^sup>+' b'\<close> this(2) obtain as where
     "G'.steps (b # as @ b' # ys)"
@@ -630,12 +630,12 @@ proof -
       by (fastforce intro: graphI_aggressive1)
   qed
   from steps_G'_steps[OF this, of s\<^sub>0] obtain ys ns where ys:
-    "list_all2 op \<preceq> (ws @ x # concat (replicate ?n (xs @ [x]))) (nths ys ns)"
+    "list_all2 (\<preceq>) (ws @ x # concat (replicate ?n (xs @ [x]))) (nths ys ns)"
     "G'.steps (s\<^sub>0 # ys)"
     by auto
   then obtain x' ys' ns' ws' where ys':
     "G'.steps (x' # ys')" "G'.steps (s\<^sub>0 # ws' @ [x'])"
-    "list_all2 op \<preceq> (concat (replicate ?n (xs @ [x]))) (nths ys' ns')"
+    "list_all2 (\<preceq>) (concat (replicate ?n (xs @ [x]))) (nths ys' ns')"
     apply atomize_elim
     apply auto
     apply (subst (asm) list_all2_append1)
@@ -661,10 +661,10 @@ proof -
       qed
       by force
     done
-  let ?ys = "filter (op \<preceq> x) ys'"
+  let ?ys = "filter ((\<preceq>) x) ys'"
   have "length ?ys \<ge> ?n"
     using list_all2_replicate_elem_filter[OF ys'(3), of x]
-    using filter_nths_length[of "(op \<preceq> x)" ys' ns']
+    using filter_nths_length[of "((\<preceq>) x)" ys' ns']
     by auto
   from \<open>G'.steps (s\<^sub>0 # ws' @ [x'])\<close> have "G'.reachable x'"
     by - (rule G'.reachable_reaches, auto)
@@ -769,7 +769,7 @@ begin
 
 lemma steps_mono:
   assumes "G'.steps (x # xs)" "x \<preceq> y" "V x" "V y"
-  shows "\<exists> ys. G'.steps (y # ys) \<and> list_all2 (op \<preceq>) xs ys"
+  shows "\<exists> ys. G'.steps (y # ys) \<and> list_all2 (\<preceq>) xs ys"
   using assms including subgraph_automation
 proof (induction "x # xs" arbitrary: x y xs)
   case (Single x)
@@ -779,7 +779,7 @@ next
   from mono[OF \<open>x \<preceq> x'\<close>] \<open>x \<rightarrow> y\<close> Cons.prems obtain y' where "x' \<rightarrow> y'" "y \<preceq> y'"
     by auto
   with Cons.hyps(3)[OF \<open>y \<preceq> y'\<close>] \<open>x \<rightarrow> y\<close> Cons.prems obtain ys where
-    "G'.steps (y' # ys)" "list_all2 op \<preceq> xs ys"
+    "G'.steps (y' # ys)" "list_all2 (\<preceq>) xs ys"
     by auto
   with \<open>x' \<rightarrow> y'\<close> \<open>y \<preceq> y'\<close> show ?case
     by auto
@@ -787,12 +787,12 @@ qed
 
 lemma steps_append_subsumption:
   assumes "G'.steps (x # xs)" "G'.steps (y # ys)" "y \<preceq> last (x # xs)" "V x" "V y"
-  shows "\<exists> ys'. G'.steps (x # xs @ ys') \<and> list_all2 op \<preceq> ys ys'"
+  shows "\<exists> ys'. G'.steps (x # xs @ ys') \<and> list_all2 (\<preceq>) ys ys'"
 proof -
   from assms have "V (last (x # xs))"
     by - (rule G'_steps_V_last, auto)
   from steps_mono[OF \<open>G'.steps (y # ys)\<close> \<open>y \<preceq> _\<close> \<open>V y\<close> this] obtain ys' where
-    "G'.steps (last (x # xs) # ys')" "list_all2 op \<preceq> ys ys'"
+    "G'.steps (last (x # xs) # ys')" "list_all2 (\<preceq>) ys ys'"
     by auto
   with G'.steps_append[OF \<open>G'.steps (x # xs)\<close> this(1)] show ?thesis
     by auto
@@ -801,7 +801,7 @@ qed
 lemma steps_replicate_subsumption:
   assumes "x \<preceq> last (x # xs)" "G'.steps (x # xs)" "n > 0" "V x"
   notes [intro] = preorder_intros
-  shows "\<exists> ys. G'.steps (x # ys) \<and> list_all2 (op \<preceq>) (concat (replicate n xs)) ys"
+  shows "\<exists> ys. G'.steps (x # ys) \<and> list_all2 (\<preceq>) (concat (replicate n xs)) ys"
   using assms
 proof (induction n)
   case 0
@@ -816,14 +816,14 @@ next
   next
     case prems: (Suc n')
     with Suc \<open>n = _\<close> obtain ys where ys:
-      "list_all2 op \<preceq> (concat (replicate n xs)) ys" "G'.steps (x # ys)"
+      "list_all2 (\<preceq>) (concat (replicate n xs)) ys" "G'.steps (x # ys)"
       by auto
-    with \<open>n = _\<close> have "list_all2 op \<preceq> (concat (replicate n' xs) @ xs) ys"
+    with \<open>n = _\<close> have "list_all2 (\<preceq>) (concat (replicate n' xs) @ xs) ys"
       by (metis append_Nil2 concat.simps(1,2) concat_append replicate_Suc replicate_append_same)
     with \<open>x \<preceq> _\<close> have "x \<preceq> last (x # ys)"
       by (cases xs; auto 4 3 dest: list_all2_last split: if_split_asm)
     from steps_append_subsumption[OF \<open>G'.steps (x # ys)\<close> \<open>G'.steps (x # xs)\<close> this] \<open>V x\<close> obtain
-      ys' where "G'.steps (x # ys @ ys')" "list_all2 op \<preceq> xs ys'"
+      ys' where "G'.steps (x # ys @ ys')" "list_all2 (\<preceq>) xs ys'"
       by auto
     with ys(1) \<open>n = _\<close> show ?thesis
       apply (inst_existentials "ys @ ys'")
@@ -867,11 +867,11 @@ proof -
   let ?n  = "card {x. V x} + 1"
   let ?xs = "concat (replicate ?n (xs @ [x']))"
   from steps_replicate_subsumption[OF _ \<open>G'.steps _\<close>, of ?n] \<open>V x\<close> \<open>x \<preceq> x'\<close> obtain ys where
-    "G'.steps (x # ys)" "list_all2 (op \<preceq>) ?xs ys"
+    "G'.steps (x # ys)" "list_all2 (\<preceq>) ?xs ys"
     by auto
-  let ?ys = "filter (op \<preceq> x') ys"
+  let ?ys = "filter ((\<preceq>) x') ys"
   have "length ?ys \<ge> ?n"
-    using list_all2_replicate_elem_filter[OF \<open>list_all2 (op \<preceq>) ?xs ys\<close>, of x']
+    using list_all2_replicate_elem_filter[OF \<open>list_all2 (\<preceq>) ?xs ys\<close>, of x']
     by auto
   have "set ?ys \<subseteq> set ys"
     by auto
@@ -966,18 +966,18 @@ interpretation Subsumption_Graph_Pre_Nodes _ _ E reachable
 
 lemma steps_mono:
   assumes "steps (x # xs)" "x \<preceq> y" "reachable x" "reachable y"
-  shows "\<exists> ys. steps (y # ys) \<and> list_all2 (op \<preceq>) xs ys"
+  shows "\<exists> ys. steps (y # ys) \<and> list_all2 (\<preceq>) xs ys"
   using assms steps_mono by (simp add: reachable_steps_equiv)
 
 lemma steps_append_subsumption:
   assumes "steps (x # xs)" "steps (y # ys)" "y \<preceq> last (x # xs)" "reachable x" "reachable y"
-  shows "\<exists> ys'. steps (x # xs @ ys') \<and> list_all2 op \<preceq> ys ys'"
+  shows "\<exists> ys'. steps (x # xs @ ys') \<and> list_all2 (\<preceq>) ys ys'"
   using assms steps_append_subsumption by (simp add: reachable_steps_equiv)
 
 lemma steps_replicate_subsumption:
   assumes "x \<preceq> last (x # xs)" "steps (x # xs)" "n > 0" "reachable x"
   notes [intro] = preorder_intros
-  shows "\<exists> ys. steps (x # ys) \<and> list_all2 (op \<preceq>) (concat (replicate n xs)) ys"
+  shows "\<exists> ys. steps (x # ys) \<and> list_all2 (\<preceq>) (concat (replicate n xs)) ys"
   using assms steps_replicate_subsumption by (simp add: reachable_steps_equiv)
 
 context
@@ -1051,7 +1051,7 @@ locale Reachability_Compatible_Subsumption_Graph_Total = Reachability_Compatible
   assumes total: "reachable a \<Longrightarrow> reachable b \<Longrightarrow> a \<preceq> b \<or> b \<preceq> a"
 begin
 
-sublocale G''_pre: Subsumption_Graph_Pre "op \<preceq>" "op \<prec>" "\<lambda> x y. \<exists> z. G.reachable z \<and> x \<preceq> z \<and> RE z y"
+sublocale G''_pre: Subsumption_Graph_Pre "(\<preceq>)" "(\<prec>)" "\<lambda> x y. \<exists> z. G.reachable z \<and> x \<preceq> z \<and> RE z y"
 proof (standard, safe, goal_cases)
   case prems: (1 a b a' z)
   show ?case
@@ -1075,7 +1075,7 @@ end (* Reachability Compatible Subsumption Graph Total *)
 
 section \<open>Old Material\<close>
 
-locale Reachability_Compatible_Subsumption_Graph' = Subsumption_Graph_Defs + order "op \<preceq>" "op \<prec>" +
+locale Reachability_Compatible_Subsumption_Graph' = Subsumption_Graph_Defs + order "(\<preceq>)" "(\<prec>)" +
   assumes reachability_compatible:
     "\<forall> s. G.reachable s \<longrightarrow> (\<forall> s'. E s s' \<longrightarrow> RE s s') \<or> (\<exists> t. s \<prec> t \<and> G.reachable t)"
   assumes subgraph: "\<forall> s s'. RE s s' \<longrightarrow> E s s'"
@@ -1111,11 +1111,11 @@ lemma reachable_has_surrogate:
   using that
 proof -
   from finite_reachable \<open>G.reachable s\<close> obtain x where
-    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "op \<prec>\<^sup>*\<^sup>* s x"
+    "\<forall>s'. E x s' \<longrightarrow> RE x s'" "G.reachable x" "((\<prec>)\<^sup>*\<^sup>*) s x"
     apply atomize_elim
     apply (induction rule: rtranclp_ev_induct2)
     using reachability_compatible by auto
-  moreover from \<open>op \<prec>\<^sup>*\<^sup>* s x\<close> have "s \<prec> x \<or> s = x"
+  moreover from \<open>((\<prec>)\<^sup>*\<^sup>*) s x\<close> have "s \<prec> x \<or> s = x"
     by induction auto
   ultimately show ?thesis by auto
 qed
@@ -1155,7 +1155,7 @@ next
 qed
 
 theorem steps_complete':
-  "\<exists> ys. list_all2 (op \<preceq>) xs ys \<and> G.steps (a # ys)" if
+  "\<exists> ys. list_all2 (\<preceq>) xs ys \<and> G.steps (a # ys)" if
   "steps (a # xs)" "G.reachable a"
   using that
 proof (induction "a # xs" arbitrary: a xs rule: steps_alt_induct)
@@ -1164,7 +1164,7 @@ proof (induction "a # xs" arbitrary: a xs rule: steps_alt_induct)
 oops
 
 theorem steps_complete':
-  "\<exists> c ys. list_all2 (op \<preceq>) xs ys \<and> G.steps (c # ys) \<and> b \<preceq> c" if
+  "\<exists> c ys. list_all2 (\<preceq>) xs ys \<and> G.steps (c # ys) \<and> b \<preceq> c" if
   "steps (a # xs)" "reachable a" "a \<preceq> b" "G.reachable b"
   using that
 proof (induction "a # xs" arbitrary: a b xs)
@@ -1173,12 +1173,12 @@ proof (induction "a # xs" arbitrary: a b xs)
 next
   case (Cons x y xs)
   from subsumption_step[OF \<open>reachable x\<close> \<open>E _ _\<close> \<open>G.reachable b\<close> \<open>x \<preceq> b\<close>] guess b' y' by clarify
-  with Cons obtain y'' ys where "list_all2 op \<preceq> xs ys" "G.steps (y'' # ys)" "y' \<preceq> y''"
+  with Cons obtain y'' ys where "list_all2 (\<preceq>) xs ys" "G.steps (y'' # ys)" "y' \<preceq> y''"
     oops
 
 (* XXX Does this hold? *)
 theorem run_complete':
-  "\<exists> ys. stream_all2 (op \<preceq>) xs ys \<and> G.run (a ## ys)" if "run (a ## xs)" "G.reachable a"
+  "\<exists> ys. stream_all2 (\<preceq>) xs ys \<and> G.run (a ## ys)" if "run (a ## xs)" "G.reachable a"
 proof -
   define f where "f = (\<lambda> x b. SOME y. x \<preceq> y \<and> RE b y)"
   define gen where "gen a xs = sscan f xs a" for a xs

@@ -333,9 +333,9 @@ context Search_Space_finite_strict begin
 
   lemmas [refine_vcg] = worklist_algo_correct[THEN order.trans]
 
-  end -- \<open>Context\<close>
+  end \<comment> \<open>Context\<close>
 
-end -- \<open>Search Space\<close>
+end \<comment> \<open>Search Space\<close>
 
 
 context Search_Space''_Defs
@@ -387,7 +387,7 @@ begin
       }
     "
 
-end -- \<open>Search Space'' Defs\<close>
+end \<comment> \<open>Search Space'' Defs\<close>
 
 
 context Search_Space''_start
@@ -432,7 +432,7 @@ begin
                     apply refine_dref_type
         by (auto simp: empty_subsumes')
 
-end -- \<open>Search Space'' Start\<close>
+end \<comment> \<open>Search Space'' Start\<close>
 
 
 context Search_Space''_Defs
@@ -443,7 +443,7 @@ begin
       if empty a\<^sub>0 then RETURN False else worklist_algo'
     "
 
-end -- \<open>Search Space'' Defs\<close>
+end \<comment> \<open>Search Space'' Defs\<close>
 
 
 context Search_Space''_finite_strict
@@ -466,7 +466,7 @@ begin
       using False unfolding worklist_algo''_def by simp
   qed
 
-end -- \<open>Search Space'' (strictly finite)\<close>
+end \<comment> \<open>Search Space'' (strictly finite)\<close>
 
 
-end -- \<open>End of Theory\<close>
+end \<comment> \<open>End of Theory\<close>

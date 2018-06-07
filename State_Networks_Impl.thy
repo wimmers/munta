@@ -23,15 +23,15 @@ abbreviation "repeat x n \<equiv> map (\<lambda> _. x) [0..<n]"
 
 subsection \<open>Pre-compiled networks with states and clocks as natural numbers\<close>
 locale State_Network_Reachability_Problem_precompiled_defs =
-  fixes p :: nat -- "Number of processes"
-    and m :: nat -- "Number of clocks"
-    and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
-    and inv :: "(nat, int) cconstraint list list" -- "Clock invariants on states per process"
-    and pred :: "('st \<Rightarrow> bool) list list" -- "Clock invariants on states per process"
+  fixes p :: nat \<comment> \<open>Number of processes\<close>
+    and m :: nat \<comment> \<open>Number of clocks\<close>
+    and k :: "nat list" \<comment> \<open>Clock ceiling. Maximal constant appearing in automaton for each state\<close>
+    and inv :: "(nat, int) cconstraint list list" \<comment> \<open>Clock invariants on states per process\<close>
+    and pred :: "('st \<Rightarrow> bool) list list" \<comment> \<open>Clock invariants on states per process\<close>
     and trans ::
     "((nat, int) cconstraint * ('st \<Rightarrow> bool) * nat act * nat list * ('st \<Rightarrow> 'st) * nat) list list list"
-    -- "Transitions between states per process"
-    and final :: "nat list list" -- "Final states per process. Initial location is 0"
+    \<comment> \<open>Transitions between states per process\<close>
+    and final :: "nat list list" \<comment> \<open>Final states per process. Initial location is 0\<close>
 begin
   definition "clkp_set' \<equiv> \<Union>
     (collect_clock_pairs ` set (concat inv)
@@ -68,7 +68,7 @@ locale State_Network_Reachability_Problem_precompiled_raw =
     and lengths:
     "\<forall> i < p. length (pred ! i) = length (trans ! i) \<and> length (inv ! i) = length (trans ! i)"
     and state_set: "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, _, _, l) \<in> set xs. l < length T"
-    and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
+    and k_length: "length k = m + 1" \<comment> \<open>Zero entry is just a dummy for the zero clock\<close>
     (* XXX Make this an abbreviation? *)
   assumes k_ceiling:
     (* "\<forall> c \<in> {1..m}. k ! c = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" *)
@@ -79,8 +79,8 @@ locale State_Network_Reachability_Problem_precompiled_raw =
     and p_gt_0: "p > 0"
     and m_gt_0: "m > 0"
     (* XXX Can get rid of these two? *)
-    and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []" -- \<open>Necessary for refinement\<close>
-    and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
+    and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []" \<comment> \<open>Necessary for refinement\<close>
+    and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" \<comment> \<open>Necessary for refinement\<close>
 
 locale State_Network_Reachability_Problem_precompiled =
   State_Network_Reachability_Problem_precompiled_raw +
@@ -294,7 +294,7 @@ begin
     by force
 
   lemma map_trans_of:
-    "map trans_of (map conv_A (fst N)) = map (op ` conv_t) (map trans_of (fst N))"
+    "map trans_of (map conv_A (fst N)) = map ((`) conv_t) (map trans_of (fst N))"
     by (simp add: trans_of_def split: prod.split)
 
   lemma [simp]:
@@ -343,26 +343,26 @@ fun modify :: "(nat, int) upd \<Rightarrow> int list \<Rightarrow> int list" whe
 | "modify (dec i) s = s[i := s ! i - 1]"
 
 locale State_Network_Reachability_Problem_precompiled_int_vars_defs =
-  fixes p :: nat -- "Number of processes"
-    and m :: nat -- "Number of clocks"
-    and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
-    and inv :: "(nat, int) cconstraint list list" -- "Clock invariants on states per process"
-    and pred :: "int_var_constr list list" -- "Clock invariants on states per process"
+  fixes p :: nat \<comment> \<open>Number of processes\<close>
+    and m :: nat \<comment> \<open>Number of clocks\<close>
+    and k :: "nat list" \<comment> \<open>Clock ceiling. Maximal constant appearing in automaton for each state\<close>
+    and inv :: "(nat, int) cconstraint list list" \<comment> \<open>Clock invariants on states per process\<close>
+    and pred :: "int_var_constr list list" \<comment> \<open>Clock invariants on states per process\<close>
     and trans ::
     "((nat, int) cconstraint * int_var_constr * nat act * nat list * int_var_upd * nat) list list list"
-    -- "Transitions between states per process"
-    and final :: "nat list list" -- "Final states per process. Initial location is 0"
-  fixes r :: nat -- "Number of integer variables"
-    and bounds :: "(int \<times> int) list" -- "Lower and upper bounds for the variables"
+    \<comment> \<open>Transitions between states per process\<close>
+    and final :: "nat list list" \<comment> \<open>Final states per process. Initial location is 0\<close>
+  fixes r :: nat \<comment> \<open>Number of integer variables\<close>
+    and bounds :: "(int \<times> int) list" \<comment> \<open>Lower and upper bounds for the variables\<close>
 begin
 
   definition
     "checkb c s \<equiv>
-    check c (op ! s) \<and> length s = r \<and> (\<forall> i < r. fst (bounds ! i) < s ! i \<and> s ! i < snd (bounds ! i))"
+    check c ((!) s) \<and> length s = r \<and> (\<forall> i < r. fst (bounds ! i) < s ! i \<and> s ! i < snd (bounds ! i))"
 
   definition pred' where "pred' = map (map checkb) pred"
   definition trans' where "trans' =
-    map (map (map (\<lambda> (g, c, a, r, m, l). (g, \<lambda> s. check c (op ! s), a, r, modify m, l)))) trans"
+    map (map (map (\<lambda> (g, c, a, r, m, l). (g, \<lambda> s. check c ((!) s), a, r, modify m, l)))) trans"
 
   definition "s\<^sub>0 \<equiv> repeat 0 r"
 
@@ -372,7 +372,7 @@ locale State_Network_Reachability_Problem_precompiled_int_vars =
   State_Network_Reachability_Problem_precompiled_int_vars_defs p m k inv pred trans final r bounds +
   State_Network_Reachability_Problem_precompiled_raw p m k inv pred' trans' final
   for p m k inv pred trans final r bounds +
-  fixes na :: nat -- "Number of action labels"
+  fixes na :: nat \<comment> \<open>Number of action labels\<close>
   assumes init_pred: "\<forall>i<p. (pred' ! i ! 0) s\<^sub>0"
     and actions_bounded:
     "\<forall>T\<in>set trans'. \<forall>xs\<in>set T. \<forall>(_, _, a, _)\<in>set xs. pred_act (\<lambda>a. a < na) a"

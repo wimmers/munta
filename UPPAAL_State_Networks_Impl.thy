@@ -186,9 +186,9 @@ lemma product_trans_guards:
 end
 
 datatype bexp =
-  not bexp | "and" bexp bexp | or bexp bexp | imply bexp bexp | -- "Boolean connectives"
-  loc nat nat | -- "Is process p in location l?"
-  eq nat int -- "Does var i equal x?" |
+  not bexp | "and" bexp bexp | or bexp bexp | imply bexp bexp | \<comment> \<open>Boolean connectives\<close>
+  loc nat nat | \<comment> \<open>Is process p in location l?\<close>
+  eq nat int \<comment> \<open>Does var i equal x?\<close> |
   le nat int |
   lt nat int |
   ge nat int |
@@ -223,19 +223,19 @@ fun hd_of_formula :: "formula \<Rightarrow> nat list \<Rightarrow> int list \<Ri
 
 subsection \<open>Pre-compiled networks with states and clocks as natural numbers\<close>
 locale UPPAAL_Reachability_Problem_precompiled_defs =
-  fixes p :: nat -- "Number of processes"
-    and m :: nat -- "Number of clocks"
+  fixes p :: nat \<comment> \<open>Number of processes\<close>
+    and m :: nat \<comment> \<open>Number of clocks\<close>
     (*
     and k :: "nat list list"
       -- "Clock ceiling. Maximal constant appearing in automaton for each state"
     *)
-    and max_steps :: nat -- "Maximal number of execution for steps of programs in the automaton"
-    and inv :: "(nat, int) cconstraint list list" -- "Clock invariants on locations per process"
-    and pred :: "addr list list" -- "State invariants on locations per process"
+    and max_steps :: nat \<comment> \<open>Maximal number of execution for steps of programs in the automaton\<close>
+    and inv :: "(nat, int) cconstraint list list" \<comment> \<open>Clock invariants on locations per process\<close>
+    and pred :: "addr list list" \<comment> \<open>State invariants on locations per process\<close>
     and trans :: "(addr * nat act * addr * nat) list list list"
-      -- "Transitions between states per process"
+      \<comment> \<open>Transitions between states per process\<close>
     and prog :: "int instrc option list"
-    and formula :: formula -- "Model checking formula"
+    and formula :: formula \<comment> \<open>Model checking formula\<close>
     and bounds :: "(int * int) list"
 begin
   definition "clkp_set' \<equiv>
@@ -306,8 +306,8 @@ locale UPPAAL_Reachability_Problem_precompiled =
     and p_gt_0: "p > 0"
     and m_gt_0: "m > 0"
     (* XXX Can get rid of these two? *)
-    and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []" -- \<open>Necessary for refinement\<close>
-    and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
+    and processes_have_trans: "\<forall> i < p. trans ! i \<noteq> []" \<comment> \<open>Necessary for refinement\<close>
+    and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" \<comment> \<open>Necessary for refinement\<close>
   (* XXX Do not need this but a useful cautious check for the user? *)
   assumes resets_zero: "\<forall> x c. Some (INSTR (STOREC c x)) \<in> set prog \<longrightarrow> x = 0"
 

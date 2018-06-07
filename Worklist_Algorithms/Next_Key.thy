@@ -9,12 +9,12 @@ subsection \<open>Definition and key properties\<close>
 definition
   "hm_it_next_key ht = do {
     n\<leftarrow>Array.len (the_array ht);
-    if n = 0 then raise ''Map is empty!''
+    if n = 0 then raise (STR ''Map is empty!'')
     else do {
       i\<leftarrow>hm_it_adjust (n - 1) ht;
       l\<leftarrow>Array.nth (the_array ht) i;
       case l of
-        [] \<Rightarrow> raise ''Map is empty!''
+        [] \<Rightarrow> raise (STR ''Map is empty!'')
       | (x # _) \<Rightarrow> return (fst x)
     }
   }
@@ -173,7 +173,7 @@ lemma ran_of_map_correct[refine]:
     unfolding ran_of_map_var_def op_map_extract_def by (fastforce intro: card_Diff1_less)
   by auto
 
-end -- \<open>End of private context for auxiliary facts and definitions\<close>
+end \<comment> \<open>End of private context for auxiliary facts and definitions\<close>
 
 sepref_register next_key :: "(('b, 'a) i_map \<Rightarrow> 'b nres)"
 

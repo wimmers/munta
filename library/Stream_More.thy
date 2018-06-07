@@ -47,15 +47,15 @@ lemma alw_stream_all2_mono:
   using assms stream.rel_sel by (coinduction arbitrary: xs ys) (blast)
 
 lemma alw_ev_HLD_cycle:
-  assumes "stream_all2 op \<in> xs (cycle as)" "a \<in> set as"
+  assumes "stream_all2 (\<in>) xs (cycle as)" "a \<in> set as"
   shows "infs a xs"
 using assms(1)
 proof coinduct
   case (infs xs)
   have 1: "as \<noteq> []" using assms(2) by auto
   have 2:
-    "list_all2 op \<in> (stake (length as) xs) (stake (length as) (cycle as))"
-    "stream_all2 op \<in> (sdrop (length as) xs) (sdrop (length as) (cycle as))"
+    "list_all2 (\<in>) (stake (length as) xs) (stake (length as) (cycle as))"
+    "stream_all2 (\<in>) (sdrop (length as) xs) (sdrop (length as) (cycle as))"
     using infs stream_rel_shift stake_sdrop length_stake by metis+
   have 3: "stake (length as) (cycle as) = as" using 1 by simp
   have 4: "sdrop (length as) (cycle as) = cycle as" using sdrop_cycle_eq 1 by this
@@ -315,7 +315,7 @@ lemma stream_all2_shift2:
   by (meson list.rel_flip stream.rel_flip stream_all2_shift1)
 
 lemma stream_all2_bisim:
-  assumes "stream_all2 op \<in> xs as" "stream_all2 op \<in> ys as" "sset as \<subseteq> S"
+  assumes "stream_all2 (\<in>) xs as" "stream_all2 (\<in>) ys as" "sset as \<subseteq> S"
   shows "stream_all2 (\<lambda> x y. \<exists> a. x \<in> a \<and> y \<in> a \<and> a \<in> S) xs ys"
   using assms
   apply (coinduction arbitrary: as xs ys)

@@ -4,7 +4,7 @@ session "TA" = "Refine_Imperative_HOL" +
     [document = pdf, document_output = "output",
      document_variants = "abstract_reachability_proofs:abstract_reachability=/proof,/ML"]
   theories [document = false]
-    Main Real Floyd_Warshall FW_Code
+    Main "HOL.Real" Floyd_Warshall FW_Code
   theories
     Normalized_Zone_Semantics
   document_files
@@ -14,7 +14,7 @@ session "TA" = "Refine_Imperative_HOL" +
 
 session "TA_Impl" = "TA" +
   theories [document = false]
-    IICF
+    "Refine_Imperative_HOL.IICF"
     "HOL-Library.IArray"
   theories
     Normalized_Zone_Semantics_Impl_Refine

@@ -1369,7 +1369,7 @@ lemma remove_cycles_neg_cycles_aux:
   defines "xs' \<equiv> i # ys"
   assumes "i \<notin> set ys"
   assumes "i \<in> set xs"
-  assumes "xs = as @ concat (map (op # i) xss) @ xs'"
+  assumes "xs = as @ concat (map ((#) i) xss) @ xs'"
   assumes "len m i j ys > len m i j xs"
   shows "\<exists> ys. set ys \<subseteq> set xs \<and> len m i i ys < 0" using assms
 proof (induction xss arbitrary: xs as)
@@ -1387,7 +1387,7 @@ proof (induction xss arbitrary: xs as)
   qed
 next
   case (Cons zs xss)
-  let ?xs = "zs @ concat (map (op # i) xss) @ xs'"
+  let ?xs = "zs @ concat (map ((#) i) xss) @ xs'"
   from Cons show ?case
   proof (cases "len m i i as \<ge> 0", goal_cases)
     case 1
@@ -1480,8 +1480,8 @@ proof-
   have len_lt': "len m k j bs < len m k j ys"
   using len_decomp[OF as_bs(1), of m i j] len_decomp[OF ys(1), of m i j] len_lt add_le_impl by metis
   from remove_cycles_cycles[OF \<open>k \<in> set bs\<close>] obtain xss as'
-  where "as' @ concat (map (op # k) xss) @ ?xs' = bs" by fastforce
-  hence "as' @ concat (map (op # k) xss) @ k # ys = bs" using ys(2) by simp
+  where "as' @ concat (map ((#) k) xss) @ ?xs' = bs" by fastforce
+  hence "as' @ concat (map ((#) k) xss) @ k # ys = bs" using ys(2) by simp
   from remove_cycles_neg_cycles_aux[OF \<open>k \<notin> set ys\<close> \<open>k \<in> set bs\<close> this[symmetric] len_lt']
   show ?thesis using as_bs(1) by auto
 qed
@@ -1508,7 +1508,7 @@ next
 qed
 
 lemma concat_map_cons_rev:
-  "rev (concat (map (op # j) xss)) = concat (map (\<lambda> xs. xs @ [j]) (rev (map rev xss)))"
+  "rev (concat (map ((#) j) xss)) = concat (map (\<lambda> xs. xs @ [j]) (rev (map rev xss)))"
 by (induction xss) auto
 
 lemma negative_cycle_dest: "len m i j (rem_cycles i j xs) > len m i j xs
@@ -1539,15 +1539,15 @@ proof -
           from remove_all_rev_removes[of j] have 1: "j \<notin> set ?xsj" by simp
           from True have "j \<in> set (rev ?xs)" by auto
           from remove_cycles_cycles[OF this] obtain xss as where as:
-          "as @ concat (map (op # j) xss) @ remove_cycles (rev ?xs) j [] = rev ?xs" "j \<notin> set as"
+          "as @ concat (map ((#) j) xss) @ remove_cycles (rev ?xs) j [] = rev ?xs" "j \<notin> set as"
           by blast
           from True have "?xsj = rev (tl (remove_cycles (rev ?xs) j []))" by (simp add: remove_all_rev_def)
           with remove_cycles_begins_with[OF \<open>j \<in> set (rev ?xs)\<close>, of "[]"]
           have "remove_cycles (rev ?xs) j [] = j # rev ?xsj" "j \<notin> set ?xsj"
           by auto
-          with as(1) have xss: "as @ concat (map (op # j) xss) @ j # rev ?xsj = rev ?xs" by simp
-          hence "rev (as @ concat (map (op # j) xss) @ j # rev ?xsj) = ?xs" by simp
-          hence "?xsj @ j # rev (concat (map (op # j) xss)) @ rev as = ?xs" by simp
+          with as(1) have xss: "as @ concat (map ((#) j) xss) @ j # rev ?xsj = rev ?xs" by simp
+          hence "rev (as @ concat (map ((#) j) xss) @ j # rev ?xsj) = ?xs" by simp
+          hence "?xsj @ j # rev (concat (map ((#) j) xss)) @ rev as = ?xs" by simp
           hence "?xsj @ j # concat (map (\<lambda> xs. xs @ [j]) (rev (map rev xss))) @ rev as = ?xs"
           by (simp add: concat_map_cons_rev)
           from remove_cycles_neg_cycles_aux'[OF 1 True this[symmetric] len_lt']
@@ -1565,12 +1565,12 @@ proof -
       case True
       from remove_all_removes[of i] have 1: "i \<notin> set ?xsij" by (simp add: remove_all_def)
       from remove_cycles_cycles[OF True] obtain xss as where as:
-      "as @ concat (map (op # i) xss) @ remove_cycles ?xsj i [] = ?xsj" "i \<notin> set as" by blast
+      "as @ concat (map ((#) i) xss) @ remove_cycles ?xsj i [] = ?xsj" "i \<notin> set as" by blast
       from True have "?xsij = tl (remove_cycles ?xsj i [])" by (simp add: remove_all_def)
       with remove_cycles_begins_with[OF True, of "[]"]
       have "remove_cycles ?xsj i [] = i # ?xsij" "i \<notin> set ?xsij"
       by auto
-      with as(1) have xss: "as @ concat (map (op # i) xss) @ i # ?xsij = ?xsj" by simp
+      with as(1) have xss: "as @ concat (map ((#) i) xss) @ i # ?xsij = ?xsj" by simp
       from remove_cycles_neg_cycles_aux[OF 1 True this[symmetric] len_lt']
       show ?thesis using remove_all_rev_subs remove_all_cycles_subs by fastforce
     qed

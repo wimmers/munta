@@ -506,7 +506,7 @@ context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
   definition
-    "collect_cexp' pc = {ac. Some (CEXP ac) \<in> (op ! prog) ` steps_approx max_steps prog pc}"
+    "collect_cexp' pc = {ac. Some (CEXP ac) \<in> ((!) prog) ` steps_approx max_steps prog pc}"
 
   definition "clkp_set'' i l \<equiv>
     collect_clock_pairs (inv ! i ! l) \<union>
@@ -517,7 +517,7 @@ begin
 
   definition
     "collect_store' pc =
-    {(c, x). Some (INSTR (STOREC c x)) \<in> (op ! prog) ` steps_approx max_steps prog pc}"
+    {(c, x). Some (INSTR (STOREC c x)) \<in> ((!) prog) ` steps_approx max_steps prog pc}"
 
 end
 
@@ -847,7 +847,7 @@ begin
     case find_resets_start prog pc of
       None \<Rightarrow> {} |
       Some pc' \<Rightarrow>
-        {(c, x). Some (INSTR (STOREC c x)) \<in> (op ! prog) ` {pc .. pc'}}"
+        {(c, x). Some (INSTR (STOREC c x)) \<in> ((!) prog) ` {pc .. pc'}}"
 
 end
 
@@ -2480,7 +2480,7 @@ begin
 
   (*
   lemma map_trans_of:
-    "map trans_of (map conv_A (fst N)) = map (op ` conv_t) (map trans_of (fst N))"
+    "map trans_of (map conv_A (fst N)) = map ((`) conv_t) (map trans_of (fst N))"
     by (simp add: trans_of_def split: prod.split)
 
   lemma [simp]:
@@ -3547,8 +3547,8 @@ begin
   (* XXX Unused *)
   lemma length_reachable:
   "length L' = p" if "E\<^sup>*\<^sup>* a\<^sub>0 ((L', s), u)"
-  thm impl.reachable_states impl.op.reachable_def term op.reachable
-    using states_states' impl.reachable_states[unfolded impl.op.reachable_def, OF that]
+  thm impl.reachable_states impl.(.reachable_def) term (.reachable)
+    using states_states' impl.reachable_states[unfolded impl.(.reachable_def), OF that]
     unfolding reachable_def (* by (force simp: init_def) *)
       oops
 
@@ -3558,7 +3558,7 @@ begin
   *)
 
   lemma F_reachable_correct':
-    "impl.op.F_reachable
+    "impl.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
@@ -3750,7 +3750,7 @@ begin
     by (simp add: prod_invariant_conv[symmetric] prod_trans_conv[symmetric])
 
   lemma F_reachable_correct:
-    "impl.op.F_reachable
+    "impl.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
@@ -4456,7 +4456,7 @@ begin
       Some pc' \<Rightarrow>
         \<Union> (
           (\<lambda> cmd. case cmd of Some (INSTR (STOREC c x)) \<Rightarrow> {(c, x)} | _ \<Rightarrow> {}) `
-            (op ! prog) ` {pc .. pc'}
+            ((!) prog) ` {pc .. pc'}
         )"
     unfolding collect_store''_def
     apply (rule eq_reflection)
@@ -4468,7 +4468,7 @@ begin
   lemma collect_cexp'_alt_def:
     "collect_cexp' pc \<equiv>
       \<Union> ((\<lambda> cmd. case cmd of Some (CEXP ac) \<Rightarrow> {ac} | _ \<Rightarrow> {}) `
-          (op ! prog) ` steps_approx max_steps prog pc
+          ((!) prog) ` steps_approx max_steps prog pc
       )"
     unfolding collect_cexp'_def
     by (auto 4 3 intro!: eq_reflection bexI intro: sym split: option.splits instrc.split_asm)

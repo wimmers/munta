@@ -64,7 +64,7 @@ definition pw_algo_map3 where
     }
   "
 
-end -- \<open>Worklist Map 2 Defs\<close>
+end \<comment> \<open>Worklist Map 2 Defs\<close>
 
 lemma map_list_set_rel_empty[refine, simp, intro]:
   "(Map.empty, Map.empty) \<in> map_list_set_rel"
@@ -182,7 +182,7 @@ proof -
     by (simp add: conc_fun_chain)
 qed
 
-end -- \<open>Worklist Map 2 Defs\<close>
+end \<comment> \<open>Worklist Map 2 Defs\<close>
 
 lemma (in Worklist_Map2_finite) map_set_rel_finite_domI[intro]:
   "finite (dom m)" if "(m, S) \<in> map_set_rel"
@@ -206,12 +206,12 @@ locale Leadsto_Search_Space_Key =
   Leadsto_Search_Space for succs1
 begin
 
-sublocale A': Worklist_Map2_finite a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty "op \<unlhd>" E key succs1 "\<lambda> _. False"
+sublocale A': Worklist_Map2_finite a\<^sub>0 "\<lambda> _. False" "(\<preceq>)" empty "(\<unlhd>)" E key succs1 "\<lambda> _. False"
   by (standard; blast intro!: A.succs_correct)
 
 interpretation B:
   Liveness_Search_Space_Key
-  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
+  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "(\<preceq>)" "\<lambda> x. A.reachable x \<and> \<not> empty x"
   succs_Q key
   by standard (auto intro!: A.empty_subsumes')
 
@@ -221,7 +221,7 @@ begin
 
 interpretation B':
   Liveness_Search_Space_Key_Defs
-  a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
+  a\<^sub>1 "\<lambda> _. False" "(\<preceq>)" "\<lambda> x. A.reachable x \<and> \<not> empty x"
   succs_Q "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" key .
 
 definition has_cycle_map where
@@ -233,7 +233,7 @@ begin
 
 interpretation B':
   Liveness_Search_Space_Key
-  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
+  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "(\<preceq>)" "\<lambda> x. A.reachable x \<and> \<not> empty x"
   succs_Q key
   by standard
 
@@ -377,7 +377,7 @@ proof -
       by safe
     interpret
       Subsumption_Graph_Pre_Nodes
-        "op \<preceq>" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y"
+        "(\<preceq>)" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y"
         "\<lambda> x. A.reachable x \<and> \<not> empty x"
       by standard (rule B.mono[simplified]; assumption)
     from \<open>B.reaches x y\<close> \<open>x \<preceq> x'\<close> \<open>B.reaches1 y y\<close> reaches_cycle_mono[OF B.finite_V] obtain y' where
@@ -439,7 +439,7 @@ proof -
             by auto
           interpret B':
             Liveness_Search_Space
-            "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
+            "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "(\<preceq>)"
             "\<lambda> x. A.reachable x \<and> \<not> empty x" succs_Q
             by standard
           from \<open>inner_inv _ _ _ _\<close> have

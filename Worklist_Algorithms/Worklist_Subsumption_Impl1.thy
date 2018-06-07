@@ -44,10 +44,10 @@ begin
 
   context Worklist4_Impl
   begin
-    sepref_register "PR_CONST a\<^sub>0" "PR_CONST F'" "PR_CONST op \<unlhd>" "PR_CONST succs" "PR_CONST empty"
+    sepref_register "PR_CONST a\<^sub>0" "PR_CONST F'" "PR_CONST (\<unlhd>)" "PR_CONST succs" "PR_CONST empty"
 
     lemma [def_pat_rules]:
-      "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "F' \<equiv> UNPROTECT F'" "op \<unlhd> \<equiv> UNPROTECT op \<unlhd>" "succs \<equiv> UNPROTECT succs"
+      "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "F' \<equiv> UNPROTECT F'" "(\<unlhd>) \<equiv> UNPROTECT (\<unlhd>)" "succs \<equiv> UNPROTECT succs"
       "empty \<equiv> UNPROTECT empty"
       by simp_all
 
@@ -95,7 +95,7 @@ begin
     for Lei a\<^sub>0i Fi succsi emptyi
     uses Worklist4_Impl.worklist_algo2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 
-    end -- \<open>Worklist4 Impl\<close>
+    end \<comment> \<open>Worklist4 Impl\<close>
 
   context Worklist4_Impl_finite_strict
     begin
@@ -115,14 +115,14 @@ begin
     lemma hnr_op_F_reachable:
       assumes "GEN_ALGO a\<^sub>0i (\<lambda>a\<^sub>0i. (uncurry0 a\<^sub>0i, uncurry0 (RETURN a\<^sub>0)) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A)"
       assumes "GEN_ALGO Fi (\<lambda>Fi. (Fi,RETURN o F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
-      assumes "GEN_ALGO Lei (\<lambda>Lei. (uncurry Lei,uncurry (RETURN oo op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
+      assumes "GEN_ALGO Lei (\<lambda>Lei. (uncurry Lei,uncurry (RETURN oo (\<unlhd>))) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
       assumes "GEN_ALGO succsi (\<lambda>succsi. (succsi,RETURN o succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A)"
       assumes "GEN_ALGO emptyi (\<lambda>Fi. (Fi,RETURN o empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
       shows
         "(uncurry0 (worklist_algo2_impl Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN (PR_CONST op_F_reachable)))
         \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     proof -
-      from assms interpret Worklist4_Impl E a\<^sub>0 F "op\<preceq>" succs empty "op \<unlhd>" F' A succsi a\<^sub>0i Fi Lei emptyi
+      from assms interpret Worklist4_Impl E a\<^sub>0 F "(\<preceq>)" succs empty "(\<unlhd>)" F' A succsi a\<^sub>0i Fi Lei emptyi
         by (unfold_locales; simp add: GEN_ALGO_def)
 
       from worklist_algo2_impl_hnr_F_reachable show ?thesis by simp
@@ -130,6 +130,6 @@ begin
 
     sepref_decl_impl hnr_op_F_reachable .
 
-  end -- \<open>Worklist4 (strictly finite)\<close>
+  end \<comment> \<open>Worklist4 (strictly finite)\<close>
 
-end -- \<open>End of Theory\<close>
+end \<comment> \<open>End of Theory\<close>

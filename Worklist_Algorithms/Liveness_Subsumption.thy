@@ -222,7 +222,7 @@ lemma liveness_compatible_inv:
     apply (subst (asm) liveness_compatible_def, meson; fail)
   by (blast intro: liveness_compatible_extend liveness_compatible_extend')+
 
-interpretation subsumption: Subsumption_Graph_Pre_Nodes "op \<preceq>" "op \<prec>" E V
+interpretation subsumption: Subsumption_Graph_Pre_Nodes "(\<preceq>)" "(\<prec>)" E V
   by standard (drule mono, auto simp: Subgraph_Node_Defs.E'_def)
 
 lemma pre_cycle_cycle:

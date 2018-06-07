@@ -73,7 +73,7 @@ definition
   "map_list_rel =
     {(m, xs). \<Union> (set ` ran m) = set xs \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> set x. key v = k))
           \<and> (\<exists> R. irrefl_trans_on R (set xs)
-              \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> sorted_by_rel R x) \<and> sorted_by_rel R xs)
+              \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> sorted_wrt R x) \<and> sorted_wrt R xs)
           \<and> distinct xs
     }"
 
@@ -193,17 +193,17 @@ lemma push_map_list_ref:
       "UNION (ran m) set = set xs"
       "\<forall>k x. m k = Some x \<longrightarrow> (\<forall>v\<in>set x. key v = k)"
       "distinct xs"
-      "\<forall>k x. m k = Some x \<longrightarrow> sorted_by_rel R x"
-      "sorted_by_rel R xs"
+      "\<forall>k x. m k = Some x \<longrightarrow> sorted_wrt R x"
+      "sorted_wrt R xs"
       "irrefl_trans_on R (set xs)"
       unfolding map_list_rel_def by auto
-    have **: "sorted_by_rel (\<lambda>a b. a = x \<and> b \<noteq> x \<or> a \<noteq> x \<and> b \<noteq> x \<and> R a b) xs" if
-      "sorted_by_rel R xs" "x \<notin> set xs" for xs
+    have **: "sorted_wrt (\<lambda>a b. a = x \<and> b \<noteq> x \<or> a \<noteq> x \<and> b \<noteq> x \<and> R a b) xs" if
+      "sorted_wrt R xs" "x \<notin> set xs" for xs
       using that by (induction xs) auto
 
     show ?thesis
       apply (inst_existentials "\<lambda> a b. a = x \<and> b \<noteq> x \<or> a \<noteq> x \<and> b \<noteq> x \<and> R a b")
-         apply auto
+         apply safe
       unfolding Let_def
          apply (auto split: option.split_asm if_split_asm)
       subgoal
@@ -212,26 +212,7 @@ lemma push_map_list_ref:
         apply (drule map_list_rel_not_memI, assumption, rule A)
         using *(5)
         by (auto intro: **)
-      subgoal for xs'
-        using A(1)
-        by (auto intro: A dest: map_list_rel_not_memI2)
-      subgoal for xs'
-        using A(1)
-        by (auto intro: A dest: map_list_rel_not_memI2)
-      subgoal for xs'
-        using A(1) *(5)
-        by (auto 4 3 intro: ** A dest: map_list_rel_not_memI2)
-      subgoal for xs'
-        using A(1) *(5)
-        by (auto 4 3 intro: ** A dest: map_list_rel_not_memI2)
-      subgoal for xs'
-        using A(1) *(5)
-        by (auto 4 3 intro: ** A dest: map_list_rel_not_memI2)
-      subgoal
-        using A by auto
-      subgoal
-        using A by (auto intro: * **)
-      done
+      using A(1) *(5) by (auto 4 3 intro: * ** A dest: map_list_rel_not_memI2)
   qed
   by (auto simp: map_list_rel_def)
 
@@ -254,8 +235,8 @@ lemma push_map_list_ref'[refine]:
    ((x1b, push_map_list x2a x1c, False), x1, x2a # x1a, False) \<in> map_set_rel \<times>\<^sub>r map_list_rel \<times>\<^sub>r Id"
   by (auto intro: push_map_list_ref dest: map_list_rel_check_subsumption_map_list)
 
-lemma sorted_by_rel_tl:
-  "sorted_by_rel R (tl xs)" if "sorted_by_rel R xs"
+lemma sorted_wrt_tl:
+  "sorted_wrt R (tl xs)" if "sorted_wrt R xs"
   using that by (induction xs) auto
 
 lemma irrefl_trans_on_mono:
@@ -277,7 +258,7 @@ lemma pop_map_list_ref[refine]:
       apply (auto split: if_split_asm)
       subgoal bla premises prems
       proof -
-        from prems have "sorted_by_rel R xs"
+        from prems have "sorted_wrt R xs"
           by auto
         from \<open>m (key v) = _\<close> have "v \<in> set xs"
           using map_list_rel_memD[OF \<open>(m, v # S) \<in> map_list_rel\<close>, of v] by auto
@@ -289,7 +270,7 @@ lemma pop_map_list_ref[refine]:
           with \<open>x \<in> _\<close> obtain a as bs where
             "xs = a # as @ v # bs"
             unfolding in_set_conv_decomp by (cases xs) auto
-          with \<open>sorted_by_rel R xs\<close> have "a \<in> set xs" "R a v" "a \<in> insert v (set S)"
+          with \<open>sorted_wrt R xs\<close> have "a \<in> set xs" "R a v" "a \<in> insert v (set S)"
             using map_list_rel_memI[OF \<open>_ \<in> map_list_rel\<close> \<open>m _ = _\<close>, of a]
             by auto
           with * \<open>irrefl_trans_on _ _\<close> show False
@@ -320,7 +301,7 @@ lemma pop_map_list_ref[refine]:
           assume "x \<notin> set (tl xs)"
           with xs' have "hd xs = x"
             by (cases xs) auto
-          from prems have "sorted_by_rel R xs"
+          from prems have "sorted_wrt R xs"
             by auto
           from \<open>m (key v) = _\<close> have "v \<in> set xs"
             using map_list_rel_memD[OF \<open>(m, v # S) \<in> map_list_rel\<close>, of v] by auto
@@ -331,7 +312,7 @@ lemma pop_map_list_ref[refine]:
           from \<open>v \<in> set xs\<close> \<open>hd xs = x\<close> \<open>x \<noteq> v\<close> have "R x v"
             unfolding in_set_conv_decomp
             apply auto
-            using \<open>sorted_by_rel R xs\<close>
+            using \<open>sorted_wrt R xs\<close>
             subgoal for ys
               by (cases ys) auto
             done
@@ -349,7 +330,7 @@ lemma pop_map_list_ref[refine]:
     subgoal
       by (meson in_set_tlD)
     subgoal for R
-      by (blast intro: irrefl_trans_on_mono sorted_by_rel_tl)
+      by (blast intro: irrefl_trans_on_mono sorted_wrt_tl)
     done
   done
 

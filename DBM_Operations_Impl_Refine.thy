@@ -21,7 +21,7 @@ done
 instance DBMEntry :: ("{heap}") heap ..
 
 definition dbm_subset' :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> 't DBM' \<Rightarrow> bool" where
-  "dbm_subset' n M M' \<equiv> pointwise_cmp (op \<le>) n (curry M) (curry M')"
+  "dbm_subset' n M M' \<equiv> pointwise_cmp (\<le>) n (curry M) (curry M')"
 
 lemma dbm_subset'_alt_def:
   "dbm_subset' n M M' \<equiv>
@@ -48,7 +48,7 @@ where
 
 lemma [sepref_import_param]: "(Le,Le) \<in> Id\<rightarrow>Id" by simp
 lemmas Relation.IdI[where a = \<infinity>, sepref_import_param]
-lemma [sepref_import_param]: "(op+,op+) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
+lemma [sepref_import_param]: "((+),(+)) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
 lemma [sepref_import_param]: "(uminus,uminus) \<in> (Id::(_*_)set)\<rightarrow>Id" by simp
 
 sepref_definition reset_canonical_upd_impl' is

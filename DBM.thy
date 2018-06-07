@@ -273,8 +273,8 @@ section \<open>DBM Entries Form a Linearly Ordered Abelian Monoid\<close>
 
 instantiation DBMEntry :: (linorder) linorder
 begin
-  definition less_eq: "op \<le> \<equiv> dbm_le"
-  definition less: "op < = dbm_lt"
+  definition less_eq: "(\<le>) \<equiv> dbm_le"
+  definition less: "(<) = dbm_lt"
   instance
   proof ((standard; unfold less less_eq), goal_cases)
     case 1 thus ?case unfolding dbm_le_def using dbm_lt_asymmetric by auto
@@ -310,7 +310,7 @@ end
 instantiation DBMEntry :: (linordered_cancel_ab_monoid_add) linordered_ab_monoid_add
 begin
 
-  definition add: "op + = dbm_add"
+  definition add: "(+) = dbm_add"
 
   instance proof ((standard; unfold add neutral less less_eq), goal_cases)
     case (1 a b c) thus ?case by (cases a; cases b; cases c; auto simp: add.assoc)

@@ -21,7 +21,7 @@ proof -
   with G'.steps_replicate[of "y # xs @ [y]" ?n] have "G'.steps ?xs"
     by auto
   from steps_mono[OF \<open>G'.steps (x # ws @ [y])\<close> \<open>x \<preceq> x'\<close> \<open>V x\<close> \<open>V x'\<close>] obtain ys where
-    "G'.steps (x' # ys)" "list_all2 op \<preceq> (ws @ [y]) ys"
+    "G'.steps (x' # ys)" "list_all2 (\<preceq>) (ws @ [y]) ys"
     by auto
   then obtain y' ws' where "G'.steps (x' # ws' @ [y'])" "y \<preceq> y'"
     unfolding list_all2_append1 list_all2_Cons1 by auto
@@ -30,9 +30,9 @@ proof -
       using G'_steps_V_last assms(3) by fastforce
     using G'_steps_V_last \<open>G'.steps (x' # ws' @ [y'])\<close> assms(4) by fastforce
   with steps_mono[OF \<open>G'.steps ?xs\<close> \<open>y \<preceq> y'\<close>] obtain ys where ys:
-    "list_all2 op \<preceq> (concat (replicate ?n (xs @ [y]))) ys" "G'.steps (y' # ys)"
+    "list_all2 (\<preceq>) (concat (replicate ?n (xs @ [y]))) ys" "G'.steps (y' # ys)"
     by auto
-  let ?ys = "filter (op \<preceq> y) ys"
+  let ?ys = "filter ((\<preceq>) y) ys"
   have "length ?ys \<ge> ?n"
     using list_all2_replicate_elem_filter[OF ys(1), of y]
     by auto
@@ -114,7 +114,7 @@ end (* Finite subgraph *)
 end (* Subsumption Graph Pre Nodes *)
 
 locale Leadsto_Search_Space =
-  A: Search_Space'_finite E a\<^sub>0 _ "op \<preceq>" empty
+  A: Search_Space'_finite E a\<^sub>0 _ "(\<preceq>)" empty
   for E a\<^sub>0 empty and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50)
   +
   fixes P Q :: "'a \<Rightarrow> bool"
@@ -124,7 +124,7 @@ locale Leadsto_Search_Space =
   assumes succs_Q_correct: "A.reachable a \<Longrightarrow> set (succs_Q a) = {y. E a y \<and> Q y \<and> \<not> empty y}"
 begin
 
-sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq>" empty
+sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "(\<preceq>)" empty
   apply standard
           apply (rule A.refl A.trans A.mono A.empty_subsumes A.empty_mono A.empty_E; assumption)+
     apply assumption
@@ -134,7 +134,7 @@ sublocale A': Search_Space'_finite E a\<^sub>0 "\<lambda> _. False" "op \<preceq
 
 sublocale B:
   Liveness_Search_Space
-  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x"
+  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>0 "\<lambda> _. False" "(\<preceq>)" "\<lambda> x. A.reachable x \<and> \<not> empty x"
   succs_Q
   apply standard
        apply (rule A.refl A.trans; assumption)+
@@ -153,7 +153,7 @@ begin
 
 interpretation B':
   Liveness_Search_Space
-  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>" "\<lambda> x. A.reachable x \<and> \<not> empty x" succs_Q
+  "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "(\<preceq>)" "\<lambda> x. A.reachable x \<and> \<not> empty x" succs_Q
   by standard
 
 definition has_cycle where
@@ -269,7 +269,7 @@ proof -
       by safe
     interpret
       Subsumption_Graph_Pre_Nodes
-        "op \<preceq>" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y"
+        "(\<preceq>)" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y"
         "\<lambda> x. A.reachable x \<and> \<not> empty x"
       by standard (rule B.mono[simplified]; assumption)
     from \<open>B.reaches x y\<close> \<open>x \<preceq> x'\<close> \<open>B.reaches1 y y\<close> reaches_cycle_mono[OF B.finite_V] obtain y' where
@@ -313,7 +313,7 @@ proof -
           proof -
             interpret B':
               Liveness_Search_Space
-              "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "op \<preceq>"
+              "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y" a\<^sub>1 "\<lambda> _. False" "(\<preceq>)"
               "\<lambda> x. A.reachable x \<and> \<not> empty x" succs_Q
               by standard
             from \<open>inv _ _ _\<close> have

@@ -405,7 +405,7 @@ lemma step_impl_norm_dbm_default_dbm_int:
   using assms
  apply (cases rule: step_impl.cases)
 
-  subgoal -- "Step is a time delay step"
+  subgoal \<comment> \<open>Step is a time delay step\<close>
   apply standard
   apply standard
   apply standard
@@ -433,7 +433,7 @@ lemma step_impl_norm_dbm_default_dbm_int:
     apply (simp add: Timed_Automata.clkp_set_def Timed_Automata.collect_clki_def; fast)+
   done
 
-  subgoal for g a r -- "Step is an action step"
+  subgoal for g a r \<comment> \<open>Step is an action step\<close>
   apply standard
   apply standard
   apply standard
@@ -790,7 +790,7 @@ begin
 
 definition "ri = (\<lambda> a b. real_of_int b = a)"
 
-abbreviation "acri \<equiv> rel_acconstraint (op =) ri"
+abbreviation "acri \<equiv> rel_acconstraint (=) ri"
 
 abbreviation "acri' n \<equiv> rel_acconstraint (eq_onp (\<lambda> x. x < Suc n)) ri"
 
@@ -802,7 +802,7 @@ lemma rel_DBMEntry_map_DBMEntry_ri [simp, intro]:
 by (cases x) (auto simp: ri_def)
 
 lemma RI_fun_upd[transfer_rule]:
-  "(RI n ===> op = ===> rel_DBMEntry ri ===> RI n) fun_upd fun_upd"
+  "(RI n ===> (=) ===> rel_DBMEntry ri ===> RI n) fun_upd fun_upd"
 unfolding rel_fun_def eq_onp_def by auto
 
 lemma min_ri_transfer[transfer_rule]:
@@ -845,19 +845,19 @@ lemma uminus_RI[transfer_rule]:
 unfolding ri_def by auto
 
 lemma add_RI[transfer_rule]:
-  "(ri ===> ri ===> ri) (op + ) (op +)"
+  "(ri ===> ri ===> ri) ((+) ) (+)"
 unfolding ri_def rel_fun_def by auto
 
 lemma add_rel_DBMEntry_transfer[transfer_rule]:
-  assumes R: "(A ===> B ===> C) (op +) (op +)"
-  shows "(rel_DBMEntry A ===> rel_DBMEntry B ===> rel_DBMEntry C) (op +) (op +)"
+  assumes R: "(A ===> B ===> C) (+) (+)"
+  shows "(rel_DBMEntry A ===> rel_DBMEntry B ===> rel_DBMEntry C) (+) (+)"
 using R unfolding rel_fun_def[abs_def] apply safe
 subgoal for x1 y1 x2 y2
 by (cases x1; cases x2; cases y1; cases y2; simp add: add)
 done
 
 lemma add_DBMEntry_RI[transfer_rule]:
-  "(rel_DBMEntry ri ===> rel_DBMEntry ri ===> rel_DBMEntry ri) (op + ) (op +)"
+  "(rel_DBMEntry ri ===> rel_DBMEntry ri ===> rel_DBMEntry ri) ((+) ) (+)"
 by transfer_prover
 
 lemma norm_upper_RI[transfer_rule]:
@@ -879,7 +879,7 @@ unfolding rel_fun_def
 done
 
 lemma norm_lower_RI':
-  "(rel_DBMEntry ri ===> op = ===> rel_DBMEntry ri) norm_lower norm_lower"
+  "(rel_DBMEntry ri ===> (=) ===> rel_DBMEntry ri) norm_lower norm_lower"
 unfolding rel_fun_def
  apply safe
  apply (case_tac x; case_tac y; clarsimp;
@@ -893,17 +893,17 @@ by (simp add: ri_def)
 
 lemma nth_transfer[transfer_rule]:
   fixes n :: nat
-  shows "((\<lambda> x y. list_all2 A x y \<and> length x = n) ===> eq_onp (\<lambda> x. x < n) ===> A) op ! op !"
+  shows "((\<lambda> x y. list_all2 A x y \<and> length x = n) ===> eq_onp (\<lambda> x. x < n) ===> A) (!) (!)"
 by (auto simp: eq_onp_def ri_def rel_fun_def dest: list_all2_nthD)
 
 lemma nth_RI:
   fixes n :: nat
-  shows "((\<lambda> x y. list_all2 ri x y \<and> length x = n) ===> eq_onp (\<lambda> x. x < n) ===> ri) op ! op !"
+  shows "((\<lambda> x y. list_all2 ri x y \<and> length x = n) ===> eq_onp (\<lambda> x. x < n) ===> ri) (!) (!)"
 by (auto simp: eq_onp_def ri_def rel_fun_def dest: list_all2_nthD)
 
 lemma nth_RI':
   fixes n :: nat
-  shows "((\<lambda> x y. list_all2 ri x y \<and> length x = n) ===> (\<lambda> x y. x = y \<and> x < n) ===> ri) op ! op !"
+  shows "((\<lambda> x y. list_all2 ri x y \<and> length x = n) ===> (\<lambda> x y. x = y \<and> x < n) ===> ri) (!) (!)"
 by (auto simp: ri_def rel_fun_def dest: list_all2_nthD)
 
 lemma weakening:
@@ -922,7 +922,7 @@ lemma eq_onp_Suc:
 unfolding rel_fun_def eq_onp_def by auto
 
 lemma upt_transfer_upper_bound[transfer_rule]:
-  "(op = ===> eq_onp (\<lambda> x. x = n) ===> list_all2 (eq_onp (\<lambda> x. x < n))) upt upt"
+  "((=) ===> eq_onp (\<lambda> x. x = n) ===> list_all2 (eq_onp (\<lambda> x. x < n))) upt upt"
 unfolding rel_fun_def eq_onp_def apply clarsimp
  apply (subst list.rel_eq_onp[unfolded eq_onp_def])
 unfolding list_all_iff by auto
@@ -936,7 +936,7 @@ lemma [transfer_rule]:
 unfolding bi_unique_def eq_onp_def by auto
 
 lemma [transfer_rule]:
-  "(eq_onp P ===> op = ===> op =) op + op +"
+  "(eq_onp P ===> (=) ===> (=)) (+) (+)"
 unfolding eq_onp_def rel_fun_def by auto
 
 lemma up_canonical_upd_RI2[transfer_rule]:
@@ -948,9 +948,9 @@ lemma up_canonical_upd_RI[transfer_rule]:
 unfolding up_canonical_upd_def[abs_def] by transfer_prover
 
 lemma up_canonical_upd_RI3[transfer_rule]:
-  "((rel_prod op = op = ===>
-   rel_DBMEntry op =) ===> (eq_onp (\<lambda> x. x = n)) ===> (rel_prod op = op = ===>
-   rel_DBMEntry op =)) up_canonical_upd up_canonical_upd"
+  "((rel_prod (=) (=) ===>
+   rel_DBMEntry (=)) ===> (eq_onp (\<lambda> x. x = n)) ===> (rel_prod (=) (=) ===>
+   rel_DBMEntry (=))) up_canonical_upd up_canonical_upd"
 unfolding up_canonical_upd_def[abs_def] by transfer_prover
 
 lemma norm_upd_line_transfer[transfer_rule]:
@@ -995,9 +995,9 @@ lemma fw_upd_transfer[transfer_rule]:
 unfolding fw_upd_def[abs_def] upd_def[abs_def] by transfer_prover
 
 lemma fw_upd_transfer'[transfer_rule]:
- "((op = ===> op = ===> rel_DBMEntry ri)
- ===> op = ===> op = ===> op =
- ===> (op = ===> op = ===> rel_DBMEntry ri))
+ "(((=) ===> (=) ===> rel_DBMEntry ri)
+ ===> (=) ===> (=) ===> (=)
+ ===> ((=) ===> (=) ===> rel_DBMEntry ri))
  fw_upd fw_upd"
 unfolding fw_upd_def[abs_def] upd_def[abs_def] by transfer_prover
 
@@ -1263,10 +1263,10 @@ lemma FW_RI_transfer'[transfer_rule]:
 using FW_RI_transfer[of n] unfolding FW'_def uncurry_def[abs_def] rel_fun_def by auto
 
 definition RI_I :: "nat \<Rightarrow> (nat, real, 's) invassn \<Rightarrow> (nat, int, 's) invassn \<Rightarrow> bool" where
-  "RI_I n \<equiv> (op = ===> list_all2 (acri' n))"
+  "RI_I n \<equiv> ((=) ===> list_all2 (acri' n))"
 
 definition
-  "RI_T n \<equiv> rel_prod op = (rel_prod (list_all2 (acri' n)) (rel_prod op = (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) op =)))"
+  "RI_T n \<equiv> rel_prod (=) (rel_prod (list_all2 (acri' n)) (rel_prod (=) (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) (=))))"
 
 definition RI_A :: "nat \<Rightarrow> ('a, nat, real, 's) ta \<Rightarrow> ('a, nat, int, 's) ta \<Rightarrow> bool" where
   "RI_A n \<equiv> rel_prod (rel_set (RI_T n)) (RI_I n)"
@@ -1276,7 +1276,7 @@ lemma inv_of_transfer [transfer_rule]:
 unfolding RI_A_def inv_of_def by transfer_prover
 
 lemma FW'_rsp:
-  "(op = ===> op = ===> op =) FW' FW'"
+  "((=) ===> (=) ===> (=)) FW' FW'"
 unfolding rel_fun_def by auto
 
 lemma [transfer_rule]:
@@ -1333,7 +1333,7 @@ next
   case prems: (step_a_impl g' a r')
   obtain T I T' I' where "A = (T, I)" and "A' = (T', I')" by force
   with lifts(2) prems(3) obtain g r where
-    "(rel_prod op = (rel_prod (list_all2 (acri' n)) (rel_prod op = (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) op =))))
+    "(rel_prod (=) (rel_prod (list_all2 (acri' n)) (rel_prod (=) (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) (=)))))
      (l, g', a, r', l') (l, g, a, r, l')"
     "(l, g, a, r, l') \<in> T"
   unfolding RI_A_def RI_T_def rel_set_def trans_of_def by (cases rule: rel_prod.cases) fastforce
@@ -1366,7 +1366,7 @@ next
   case prems: (step_a_impl g a r)
   obtain T I T' I' where "A = (T, I)" and "A' = (T', I')" by force
   with lifts(2) prems(3) obtain g' r' where
-    "(rel_prod op = (rel_prod (list_all2 (acri' n)) (rel_prod op = (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) op =))))
+    "(rel_prod (=) (rel_prod (list_all2 (acri' n)) (rel_prod (=) (rel_prod (list_all2 (eq_onp (\<lambda> x. x < Suc n))) (=)))))
      (l, g', a, r', l') (l, g, a, r, l')"
     "(l, g', a, r', l') \<in> T'"
   unfolding RI_A_def RI_T_def rel_set_def trans_of_def by (cases rule: rel_prod.cases) fastforce
@@ -1711,7 +1711,7 @@ qed
 
 section \<open>Reachability Checker\<close>
 
-abbreviation conv_M :: "int DBM' \<Rightarrow> real DBM'" where "conv_M \<equiv> op o (map_DBMEntry real_of_int)"
+abbreviation conv_M :: "int DBM' \<Rightarrow> real DBM'" where "conv_M \<equiv> (o) (map_DBMEntry real_of_int)"
 
 abbreviation conv_ac :: "('a, int) acconstraint \<Rightarrow> ('a, real) acconstraint" where
   "conv_ac \<equiv> map_acconstraint id real_of_int"
@@ -1826,7 +1826,7 @@ lemma collect_clock_pairs_conv_cc':
   fixes S :: "('a, int) acconstraint list set"
   shows
     "(collect_clock_pairs ` map conv_ac ` S)
-    = ((op ` (\<lambda> (a, b). (a, real_of_int b))) ` collect_clock_pairs ` S)"
+    = (((`) (\<lambda> (a, b). (a, real_of_int b))) ` collect_clock_pairs ` S)"
  apply safe
  apply (auto simp: collect_clock_pairs_conv_cc; fail)
 by (auto simp: collect_clock_pairs_conv_cc[symmetric])
@@ -1932,7 +1932,7 @@ lemma dbm_int_dbm_default_convD:
   assumes "dbm_int M n" "dbm_default M n"
   shows "\<exists> M'. curry (conv_M M') = M"
 proof -
-  let ?unconv = "op o (map_DBMEntry floor)"
+  let ?unconv = "(o) (map_DBMEntry floor)"
   let ?M' = "?unconv (uncurry M)"
   show ?thesis
    apply (rule exI[where x = ?M'])
@@ -1950,7 +1950,7 @@ lemma dbm_int_all_convD:
   assumes "dbm_int_all M"
   shows "\<exists> M'. curry (conv_M M') = M"
 proof -
-  let ?unconv = "op o (map_DBMEntry floor)"
+  let ?unconv = "(o) (map_DBMEntry floor)"
   let ?M' = "?unconv (uncurry M)"
   show ?thesis
    apply (rule exI[where x = ?M'])
@@ -2268,7 +2268,7 @@ using clock_numbering unfolding v'_def by auto
 
 definition
   "subsumes n
-  = (\<lambda> (l, M) (l', M'). check_diag n M \<or> l = l' \<and> pointwise_cmp (op \<le>) n (curry M) (curry M'))"
+  = (\<lambda> (l, M) (l', M'). check_diag n M \<or> l = l' \<and> pointwise_cmp (\<le>) n (curry M) (curry M'))"
 
 lemma subsumes_simp_1:
   "subsumes n (l, M) (l', M') = dbm_subset n M M'" if "l = l'"
@@ -2590,14 +2590,14 @@ begin
     from step diag * show ?thesis
      apply cases
 
-      subgoal -- "delay step"
+      subgoal \<comment> \<open>delay step\<close>
        apply simp
        apply (rule FW'_diag_preservation)
        apply (rule abstr_upd_diag_preservation')
          apply (subst up_canonical_upd_diag_preservation)
       by auto
 
-      subgoal -- "action step"
+      subgoal \<comment> \<open>action step\<close>
        apply simp
        apply (rule FW'_diag_preservation)
        apply (rule abstr_upd_diag_preservation')
@@ -2622,7 +2622,7 @@ begin
   using assms
     apply cases
 
-    subgoal -- "delay step"
+    subgoal \<comment> \<open>delay step\<close>
      apply simp
      apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
@@ -2631,7 +2631,7 @@ begin
       apply (subst up_canonical_upd_diag_preservation)
     by auto
 
-    subgoal -- "action step"
+    subgoal \<comment> \<open>action step\<close>
      apply simp
      apply (rule FW'_neg_diag_preservation)
        apply (subst abstr_upd_diag_preservation)
@@ -2840,14 +2840,14 @@ begin
     from regions.beta_interp.norm_V_preservation[OF that] have
       "[norm (curry (conv_M M)) (\<lambda> x. real (k l' x)) n]\<^bsub>v,n\<^esub> \<subseteq> V"
       by (simp only: k_simp_2')
-    then have *: "[norm (curry (conv_M M)) (op ! (map real_of_int (k' l'))) n]\<^bsub>v,n\<^esub> \<subseteq> V"
+    then have *: "[norm (curry (conv_M M)) ((!) (map real_of_int (k' l'))) n]\<^bsub>v,n\<^esub> \<subseteq> V"
       apply (subst norm_k_cong[of _ _ "(\<lambda> x. real (k l' x))"])
        apply safe
       (* s/h *)
       proof -
         fix i :: nat
         assume "i \<le> n"
-        then have "map real_of_int (k' l') ! i = (real_of_int \<circ>\<circ>\<circ> op \<circ>) int (k l') i"
+        then have "map real_of_int (k' l') ! i = (real_of_int \<circ>\<circ>\<circ> (\<circ>)) int (k l') i"
           by (metis (no_types) Normalized_Zone_Semantics_Impl.map_nth k'_def map_map)
         then show "map real_of_int (k' l') ! i = real (k l' i)"
           by simp
@@ -4335,7 +4335,7 @@ proof -
       have [transfer_rule]: "eq_onp (\<lambda>x. x < Suc n) n n"
         by (simp add: eq_onp_def)
       have [transfer_rule]:
-        "rel_fun (eq_onp (\<lambda>x. x < Suc n)) (rel_fun (eq_onp (\<lambda>x. x < Suc n)) (op =)) (op <) (op <)"
+        "rel_fun (eq_onp (\<lambda>x. x < Suc n)) (rel_fun (eq_onp (\<lambda>x. x < Suc n)) (=)) (<) (<)"
         unfolding rel_fun_def eq_onp_def by simp
       have [transfer_rule]: "(RI n) unbounded_dbm unbounded_dbm"
         unfolding unbounded_dbm_def by transfer_prover
@@ -4429,14 +4429,14 @@ unfolding collect_clock_pairs_def by auto
 
 subsection \<open>Pre-compiled automata with states and clocks as natural numbers\<close>
 locale Reachability_Problem_precompiled_defs =
-  fixes n :: nat -- "Number of states. States are 0 through n - 1"
-    and m :: nat -- "Number of clocks"
+  fixes n :: nat \<comment> \<open>Number of states. States are 0 through n - 1\<close>
+    and m :: nat \<comment> \<open>Number of clocks\<close>
     and k :: "nat list list"
-    -- "Clock ceiling. Maximal constant appearing in automaton for each clock for each state"
-    and inv :: "(nat, int) cconstraint list" -- "Clock invariants on states"
+    \<comment> \<open>Clock ceiling. Maximal constant appearing in automaton for each clock for each state\<close>
+    and inv :: "(nat, int) cconstraint list" \<comment> \<open>Clock invariants on states\<close>
     and trans :: "((nat, int) cconstraint * nat list * nat) list list"
-        -- "Transitions between states"
-    and final :: "nat list" -- "Final states. Initial location is 0"
+        \<comment> \<open>Transitions between states\<close>
+    and final :: "nat list" \<comment> \<open>Final states. Initial location is 0\<close>
 begin
   definition "clkp_set' l \<equiv>
     collect_clock_pairs (inv ! l) \<union> \<Union> ((\<lambda> (g, _). collect_clock_pairs g) ` set (trans ! l))"
@@ -4457,7 +4457,7 @@ locale Reachability_Problem_precompiled = Reachability_Problem_precompiled_defs 
       and trans_length: "length trans = n" (* "\<forall> xs \<in> set trans. length xs \<ge> n" *)
       and state_set: "\<forall> xs \<in> set trans. \<forall> (_, _, l) \<in> set xs. l < n"
       and k_length: "length k = n" "\<forall> l \<in> set k. length l = m + 1"
-        -- "Zero entry is just a dummy for the zero clock"
+        \<comment> \<open>Zero entry is just a dummy for the zero clock\<close>
       (* XXX Make this an abbreviation? *)
       assumes k_ceiling:
         "\<forall> l < n. \<forall> (c, d) \<in> clkp_set' l. k ! l ! c \<ge> nat d" "\<forall> l < n. \<forall> c \<in> {1..m}. k ! l ! c \<ge> 0"
@@ -4467,7 +4467,7 @@ locale Reachability_Problem_precompiled = Reachability_Problem_precompiled_defs 
       assumes consts_nats: "\<forall> l < n. snd ` clkp_set' l \<subseteq> \<nat>"
       assumes clock_set: "clk_set' = {1..m}"
       and m_gt_0: "m > 0"
-      and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
+      and n_gt_0: "n > 0" and start_has_trans: "trans ! 0 \<noteq> []" \<comment> \<open>Necessary for refinement\<close>
 begin
 
   lemma consts_nats':

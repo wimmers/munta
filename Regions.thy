@@ -2684,8 +2684,7 @@ lemma region_set_subs:
   shows "[[cs \<rightarrow> c]v]\<^sub>\<R>' \<supseteq> region_set' R cs c" "[[cs \<rightarrow> c]v]\<^sub>\<R>' \<in> \<R>'" "[cs \<rightarrow> c]v \<in> [[cs \<rightarrow> c]v]\<^sub>\<R>'"
 proof -
   from assms obtain I r where R: "R = region X I r" "valid_region X k I r" "v \<in> region X I r" by auto
-  --
-  "The set of movers, that is all intervals that now are unbounded due to changing from \<open>k\<close> to \<open>k'\<close>"
+  \<comment> \<open>The set of movers, that is all intervals that now are unbounded due to changing from \<open>k\<close> to \<open>k'\<close>\<close>
   let ?M = "{x \<in> X. isIntv (I x) \<and> intv_const (I x) \<ge> k' x \<or> intv_const (I x) > k' x}"
   let ?I = "\<lambda> y.
     if y \<in> set cs then (if c \<le> k' y then Const c else Greater (k' y))

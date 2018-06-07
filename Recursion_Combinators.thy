@@ -1,5 +1,5 @@
 theory Recursion_Combinators
-  imports "IICF/IICF"
+  imports Refine_Imperative_HOL.IICF
 begin
 
 context

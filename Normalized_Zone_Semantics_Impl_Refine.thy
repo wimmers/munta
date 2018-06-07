@@ -33,7 +33,7 @@ begin
     "transition_rel X = {(f, r). \<forall> l \<in> X. \<forall> x. (l, x) \<in> r \<longleftrightarrow> x \<in> set (f l)}"
 
   (* XXX Rename *)
-  definition inv_rel where -- "Invariant assignments for a restricted state set"
+  definition inv_rel where \<comment> \<open>Invariant assignments for a restricted state set\<close>
     (* XXX Or use "inv_rel X = Id_on X \<rightarrow> Id" ? *)
     "inv_rel X = b_rel Id (\<lambda> x. x \<in> X) \<rightarrow> Id"
 
@@ -127,7 +127,7 @@ context Search_Space_finite
 begin
 
 sublocale liveness_search_space_pre:
-  Liveness_Search_Space_pre "\<lambda> x y. E x y \<and> F x \<and> F y \<and> \<not> empty y" a\<^sub>0 F "op \<preceq>"
+  Liveness_Search_Space_pre "\<lambda> x y. E x y \<and> F x \<and> F y \<and> \<not> empty y" a\<^sub>0 F "(\<preceq>)"
   "\<lambda> v. reachable v \<and> \<not> empty v \<and> F v"
   using finite_reachable apply -
   apply (standard)
@@ -355,7 +355,7 @@ begin
   definition
   "subsumes' =
     (\<lambda> (l, M :: ('c :: {zero,linorder}) DBM') (l', M').
-      l = l' \<and> pointwise_cmp (op \<le>) n (curry M) (curry M'))"
+      l = l' \<and> pointwise_cmp (\<le>) n (curry M) (curry M'))"
 
   context
   begin
@@ -363,7 +363,7 @@ begin
   notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
   lemma [sepref_import_param]:
-    "(op =, op =) \<in> location_rel \<rightarrow> location_rel \<rightarrow> Id"
+    "((=), (=)) \<in> location_rel \<rightarrow> location_rel \<rightarrow> Id"
     by auto
 
   sepref_definition subsumes_impl is

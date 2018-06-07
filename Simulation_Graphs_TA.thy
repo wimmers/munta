@@ -621,13 +621,13 @@ lemma step_z_beta'_state_set1:
   using that unfolding step_z_beta'_def by (force simp: state_set_def trans_of_def)
 
 sublocale sim: Double_Simulation_paired
-  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"  -- "Concrete step relation"
+  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"  \<comment> \<open>Concrete step relation\<close>
   "\<lambda> (l, Z) (l', Z'). \<exists> a. A,\<R> \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>a \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  -- "Step relation for the first abstraction layer"
-  "\<lambda> (l, R). l \<in> state_set A \<and> R \<in> \<R> l" -- "Valid states of the first abstraction layer"
+  \<comment> \<open>Step relation for the first abstraction layer\<close>
+  "\<lambda> (l, R). l \<in> state_set A \<and> R \<in> \<R> l" \<comment> \<open>Valid states of the first abstraction layer\<close>
   "\<lambda> (l, Z) (l', Z'). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  -- "Step relation for the second abstraction layer"
-  "\<lambda> (l, Z). l \<in> state_set A \<and> Z \<in> V' \<and> Z \<noteq> {}" -- "Valid states of the second abstraction layer"
+  \<comment> \<open>Step relation for the second abstraction layer\<close>
+  "\<lambda> (l, Z). l \<in> state_set A \<and> Z \<in> V' \<and> Z \<noteq> {}" \<comment> \<open>Valid states of the second abstraction layer\<close>
 proof (standard, goal_cases)
   case (1 S T)
   then show ?case
@@ -662,8 +662,8 @@ next
     done
 qed
 
-sublocale Graph_Start_Defs
-  "\<lambda> (l, Z) (l', Z'). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}" "(l\<^sub>0, Z\<^sub>0)" .
+sublocale Graph_Defs
+  "\<lambda> (l, Z) (l', Z'). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}" .
 
 lemmas step_z_beta'_V' = step_z_beta'_V'[OF valid_abstraction]
 
@@ -685,22 +685,22 @@ begin
 definition "a\<^sub>0 = from_R l\<^sub>0 Z\<^sub>0"
 
 sublocale sim_complete': Double_Simulation_Finite_Complete_paired
-  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"  -- "Concrete step relation"
+  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"  \<comment> \<open>Concrete step relation\<close>
   "\<lambda> (l, Z) (l', Z'). \<exists> a. A,\<R> \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>a \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  -- "Step relation for the first abstraction layer"
-  "\<lambda> (l, R). l \<in> state_set A \<and> R \<in> \<R> l" -- "Valid states of the first abstraction layer"
+  \<comment> \<open>Step relation for the first abstraction layer\<close>
+  "\<lambda> (l, R). l \<in> state_set A \<and> R \<in> \<R> l" \<comment> \<open>Valid states of the first abstraction layer\<close>
   "\<lambda> (l, Z) (l', Z'). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  -- "Step relation for the second abstraction layer"
-  "\<lambda> (l, Z). l \<in> state_set A \<and> Z \<in> V' \<and> Z \<noteq> {}" -- "Valid states of the second abstraction layer"
+  \<comment> \<open>Step relation for the second abstraction layer\<close>
+  "\<lambda> (l, Z). l \<in> state_set A \<and> Z \<in> V' \<and> Z \<noteq> {}" \<comment> \<open>Valid states of the second abstraction layer\<close>
   l\<^sub>0 Z\<^sub>0
 proof (standard, goal_cases)
   case (1 x y S)
-  -- Completeness
+  \<comment> \<open>Completeness\<close>
   then show ?case
     by (force dest: step_z_beta'_complete[rotated 2, OF V'_V])
 next
   case 4
-  -- Finiteness
+  \<comment> \<open>Finiteness\<close>
   (* XXX *)
   have *: "Z \<in> V'" if "A \<turnstile> \<langle>l\<^sub>0, Z\<^sub>0\<rangle> \<leadsto>\<^sub>\<beta>* \<langle>l, Z\<rangle>" for l Z
     using that start_state step_z_beta'_V' by (induction rule: rtranclp_induct2) blast+
@@ -742,13 +742,13 @@ next
 qed
 
 sublocale sim_complete_bisim': Double_Simulation_Finite_Complete_Bisim_Cover_paired
-  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"  -- "Concrete step relation"
+  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"  \<comment> \<open>Concrete step relation\<close>
   "\<lambda> (l, Z) (l', Z'). \<exists> a. A,\<R> \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>a \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  -- "Step relation for the first abstraction layer"
-  "\<lambda> (l, R). l \<in> state_set A \<and> R \<in> \<R> l" -- "Valid states of the first abstraction layer"
+  \<comment> \<open>Step relation for the first abstraction layer\<close>
+  "\<lambda> (l, R). l \<in> state_set A \<and> R \<in> \<R> l" \<comment> \<open>Valid states of the first abstraction layer\<close>
   "\<lambda> (l, Z) (l', Z'). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^sub>\<beta> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  -- "Step relation for the second abstraction layer"
-  "\<lambda> (l, Z). l \<in> state_set A \<and> Z \<in> V' \<and> Z \<noteq> {}" -- "Valid states of the second abstraction layer"
+  \<comment> \<open>Step relation for the second abstraction layer\<close>
+  "\<lambda> (l, Z). l \<in> state_set A \<and> Z \<in> V' \<and> Z \<noteq> {}" \<comment> \<open>Valid states of the second abstraction layer\<close>
   l\<^sub>0 Z\<^sub>0
 proof (standard, goal_cases)
   case (1 l x l' y S)
@@ -769,7 +769,7 @@ qed
 subsection \<open>State Formulas\<close>
 
 context
-  fixes P :: "'s \<Rightarrow> bool" -- "The state property we want to check"
+  fixes P :: "'s \<Rightarrow> bool" \<comment> \<open>The state property we want to check\<close>
 begin
 
 definition "\<phi> = P o fst"
@@ -792,7 +792,7 @@ end (* Context for State Formula *)
 subsection \<open>Leads-To Properties\<close>
 
 context
-  fixes P Q :: "'s \<Rightarrow> bool" -- "The state properties we want to check"
+  fixes P Q :: "'s \<Rightarrow> bool" \<comment> \<open>The state properties we want to check\<close>
 begin
 
 definition "\<psi> = Q o fst"

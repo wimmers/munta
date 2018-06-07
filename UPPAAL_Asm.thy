@@ -14,23 +14,23 @@ datatype instr =
   LT |
   LE |
   EQ |
-  PUSH int -- "Push value on stack" |
+  PUSH int \<comment> \<open>Push value on stack\<close> |
   POP |
-  LID reg -- "Push register value on stack" |
-  STORE -- "Store stack value in register" |
-  STOREI reg val -- "Store value in register" |
+  LID reg \<comment> \<open>Push register value on stack\<close> |
+  STORE \<comment> \<open>Store stack value in register\<close> |
+  STOREI reg val \<comment> \<open>Store value in register\<close> |
   COPY |
   CALL |
   RETURN |
   HALT |
-  STOREC nat int -- "Special instruction, signals a clock reset" |
-  SETF bool -- "Meta instruction"
+  STOREC nat int \<comment> \<open>Special instruction, signals a clock reset\<close> |
+  SETF bool \<comment> \<open>Meta instruction\<close>
 
 type_synonym stack = "int list"
 type_synonym flag = bool
-type_synonym rstate = "int list" -- "Partial map from registers to values"
+type_synonym rstate = "int list" \<comment> \<open>Partial map from registers to values\<close>
 type_synonym state = "addr * stack * rstate * flag * nat list"
--- "Instruction pointer, stack, register state, comparison flag, reset clocks"
+\<comment> \<open>Instruction pointer, stack, register state, comparison flag, reset clocks\<close>
 
 definition int_of :: "bool \<Rightarrow> int" where
   "int_of x \<equiv> if x then 1 else 0"

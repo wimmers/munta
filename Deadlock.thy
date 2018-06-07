@@ -425,7 +425,7 @@ proof -
   \<union> {(i, j). 0 = i \<and> 0 < j \<and> i \<le> n \<and> j \<le> n}"
     by auto
   show ?thesis
-    by (simp only: B UN_Un *) (intro arg_cong2[where f = "op \<union>"] UNION_cong; force)
+    by (simp only: B UN_Un *) (intro arg_cong2[where f = "(\<union>)"] UNION_cong; force)
 qed
 
 private lemma UNION_remove:
@@ -466,9 +466,9 @@ proof -
     done
 qed
 
-end -- \<open>Context for fixed DBM\<close>
+end \<comment> \<open>Context for fixed DBM\<close>
 
-end -- \<open>Simplifier setup\<close>
+end \<comment> \<open>Simplifier setup\<close>
 
 lemma dbm_list_empty_check:
   "dbm_list xs = {} \<longleftrightarrow> list_all (\<lambda>m. [m]\<^bsub>v,n\<^esub> = {}) xs"
@@ -792,9 +792,9 @@ proof -
     by (auto simp: down_def neutral)
   note * = in_DBM_D[OF \<open>u \<in> _\<close>]
   define l where "l = Min ({M 0 c + Le (u c)   | c. 0 < c \<and> c \<le> n} \<union> {Le 0})"
-    -- \<open>maximum current violation of the future bounds\<close>
+    \<comment> \<open>maximum current violation of the future bounds\<close>
   define r where "r = Min ({M c 0 + Le (- u c) | c. 0 < c \<and> c \<le> n} \<union> {\<infinity>})"
-    -- \<open>slack for shifting upwards\<close>
+    \<comment> \<open>slack for shifting upwards\<close>
   have "0 \<le> l + r" "l \<le> 0"
   proof -
     have

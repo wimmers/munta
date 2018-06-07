@@ -86,11 +86,11 @@ locale Simulation_Graph_Prestable = Simulation_Graph_Defs +
   assumes prestable: "A S T \<Longrightarrow> \<forall> s \<in> S. \<exists> s' \<in> T. C s s'"
 
 locale Double_Simulation_Defs =
-  fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- "Concrete step relation"
-    and A1 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" -- "Step relation for the first abstraction layer"
-    and P1 :: "'a set \<Rightarrow> bool" -- "Valid states of the first abstraction layer"
-    and A2 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" -- "Step relation for the second abstraction layer"
-    and P2 :: "'a set \<Rightarrow> bool" -- "Valid states of the second abstraction layer"
+  fixes C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>Concrete step relation\<close>
+    and A1 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" \<comment> \<open>Step relation for the first abstraction layer\<close>
+    and P1 :: "'a set \<Rightarrow> bool" \<comment> \<open>Valid states of the first abstraction layer\<close>
+    and A2 :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" \<comment> \<open>Step relation for the second abstraction layer\<close>
+    and P2 :: "'a set \<Rightarrow> bool" \<comment> \<open>Valid states of the second abstraction layer\<close>
 begin
 
 sublocale Simulation_Graph_Defs C A2 .
@@ -135,10 +135,10 @@ locale Finite_Graph = Graph_Defs +
 
 locale Simulation_Graph_Complete_Defs =
   Simulation_Graph_Defs C A for C :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" +
-  fixes P :: "'a set \<Rightarrow> bool" -- "well-formed abstractions"
+  fixes P :: "'a set \<Rightarrow> bool" \<comment> \<open>well-formed abstractions\<close>
 
 locale Simulation_Graph_Complete = Simulation_Graph_Complete_Defs +
-  simulation: Simulation_Invariant C A "op \<in>" "\<lambda> _. True" P
+  simulation: Simulation_Invariant C A "(\<in>)" "\<lambda> _. True" P
 begin
 
 lemmas complete = simulation.A_B_step
@@ -208,7 +208,7 @@ locale Double_Simulation_Finite_Complete_Bisim_Cover =
 
 locale Double_Simulation_Complete_Abstraction_Prop =
   Double_Simulation_Complete +
-  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  fixes \<phi> :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
   assumes \<phi>_A1_compatible: "A1 a b \<Longrightarrow> b \<subseteq> {x. \<phi> x} \<or> b \<inter> {x. \<phi> x} = {}"
       and \<phi>_P2_compatible: "P2 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> P2 (a \<inter> {x. \<phi> x})"
       and \<phi>_A2_compatible: "A2\<^sup>*\<^sup>* a\<^sub>0 a \<Longrightarrow> a \<inter> {x. \<phi> x} \<noteq> {} \<Longrightarrow> A2\<^sup>*\<^sup>* a\<^sub>0 (a \<inter> {x. \<phi> x})"
@@ -229,7 +229,7 @@ context Simulation_Graph_Poststable
 begin
 
 lemma Steps_poststable:
-  "\<exists> xs. steps xs \<and> list_all2 (op \<in>) xs as \<and> last xs = x" if "Steps as" "x \<in> last as"
+  "\<exists> xs. steps xs \<and> list_all2 (\<in>) xs as \<and> last xs = x" if "Steps as" "x \<in> last as"
   using that
 proof induction
   case (Single a)
@@ -304,7 +304,7 @@ context Simulation_Graph_Prestable
 begin
 
 lemma Steps_prestable:
-  "\<exists> xs. steps (x # xs) \<and> list_all2 (op \<in>) (x # xs) as" if "Steps as" "x \<in> hd as"
+  "\<exists> xs. steps (x # xs) \<and> list_all2 (\<in>) (x # xs) as" if "Steps as" "x \<in> hd as"
   using that
 proof (induction arbitrary: x)
   case (Single a)
@@ -323,14 +323,14 @@ lemma reaches_prestable:
 
 text \<open>Abstract cycles lead to concrete infinite runs.\<close>
 lemma Steps_run_cycle_buechi:
-  "\<exists> xs. run (x ## xs) \<and> stream_all2 op \<in> xs (cycle (as @ [a]))"
+  "\<exists> xs. run (x ## xs) \<and> stream_all2 (\<in>) xs (cycle (as @ [a]))"
   if assms: "Steps (a # as @ [a])" "x \<in> a"
 proof -
   note C = Steps_prestable[OF assms(1), simplified]
-  define P where "P \<equiv> \<lambda> x xs. steps (last x # xs) \<and> list_all2 (op \<in>) xs (as @ [a])"
+  define P where "P \<equiv> \<lambda> x xs. steps (last x # xs) \<and> list_all2 (\<in>) xs (as @ [a])"
   define f where "f \<equiv> \<lambda> x. SOME xs. P x xs"
   from Steps_prestable[OF assms(1)] \<open>x \<in> a\<close> obtain ys where ys:
-    "steps (x # ys)" "list_all2 op \<in> (x # ys) (a # as @ [a])"
+    "steps (x # ys)" "list_all2 (\<in>) (x # ys) (a # as @ [a])"
     by auto
   define xs where "xs = flat (siterate f ys)"
   from ys have "P [x] ys" unfolding P_def by auto
@@ -338,7 +338,7 @@ proof -
   have P_1[intro]:"ys \<noteq> []" if "P xs ys" for xs ys using that unfolding P_def by (cases ys) auto
   have P_2[intro]: "last ys \<in> a" if "P xs ys" for xs ys
     using that P_1[OF that] unfolding P_def by (auto dest:  list_all2_last)
-  from * have "stream_all2 op \<in> xs (cycle (as @ [a]))"
+  from * have "stream_all2 (\<in>) xs (cycle (as @ [a]))"
     unfolding xs_def proof (coinduction arbitrary: ys rule: stream_rel_coinduct_shift)
     case prems: stream_rel
     then have "ys \<noteq> []" "last ys \<in> a" by (blast dest: P_1 P_2)+
@@ -551,13 +551,13 @@ proof -
   with post.poststable[OF *(3)] obtain a2 where "a2 \<in> last (closure a\<^sub>0 # as)" "A1 a2 a1"
     by auto
   with post.Steps_poststable[OF *(1), of a2] obtain as2 where as2:
-    "pre_defs.Steps as2" "list_all2 op \<in> as2 (closure a\<^sub>0 # as)" "last as2 = a2"
+    "pre_defs.Steps as2" "list_all2 (\<in>) as2 (closure a\<^sub>0 # as)" "last as2 = a2"
     by (auto split: if_split_asm simp: last_map)
   from as2(2) have "hd as2 \<in> closure a\<^sub>0" by (cases as2) auto
   then have "hd as2 \<noteq> {}" unfolding closure_def by auto
   then obtain x\<^sub>0 where "x\<^sub>0 \<in> hd as2" by auto
   from pre.Steps_prestable[OF as2(1) \<open>x\<^sub>0 \<in> _\<close>] obtain xs where xs:
-    "steps (x\<^sub>0 # xs)" "list_all2 op \<in> (x\<^sub>0 # xs) as2"
+    "steps (x\<^sub>0 # xs)" "list_all2 (\<in>) (x\<^sub>0 # xs) as2"
     by auto
   with \<open>last as2 = a2\<close> have "last (x\<^sub>0 # xs) \<in> a2"
     unfolding list_all2_Cons1 by (auto intro: list_all2_last)
@@ -607,7 +607,7 @@ next
 qed
 
 lemma strong_compatibility_impl_weak:
-  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  fixes \<phi> :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
   assumes \<phi>_closure_compatible: "\<And> x a. x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
   shows "\<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
   by (auto simp: closure_def dest: \<phi>_closure_compatible)
@@ -807,7 +807,7 @@ context Simulation_Graph_Complete
 begin
 
 lemma steps_complete:
-  "\<exists> as. Steps (a # as) \<and> list_all2 (op \<in>) xs as" if "steps (x # xs)" "x \<in> a" "P a"
+  "\<exists> as. Steps (a # as) \<and> list_all2 (\<in>) xs as" if "steps (x # xs)" "x \<in> a" "P a"
   using that
   by (induction xs arbitrary: x a) (erule steps.cases; fastforce dest!: complete intro: P_invariant)+
 
@@ -828,7 +828,7 @@ proof (coinduction arbitrary: a x xs)
 qed
 
 lemma abstract_run_abstract:
-  "stream_all2 (op \<in>) (x ## xs) (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
+  "stream_all2 (\<in>) (x ## xs) (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
 using that proof (coinduction arbitrary: a x xs)
   case run: (stream_rel x' u b' v a x xs)
   obtain y ys where "xs = y ## ys" by (metis stream.collapse)
@@ -840,7 +840,7 @@ using that proof (coinduction arbitrary: a x xs)
 qed
 
 lemma run_complete:
-  "\<exists> as. Run (a ## as) \<and> stream_all2 (op \<in>) xs as" if "run (x ## xs)" "x \<in> a" "P a"
+  "\<exists> as. Run (a ## as) \<and> stream_all2 (\<in>) xs as" if "run (x ## xs)" "x \<in> a" "P a"
   using abstract_run_Run[OF that] abstract_run_abstract[OF that]
   apply (subst (asm) abstract_run_ctr)
   apply (subst (asm) (2) abstract_run_ctr)
@@ -947,7 +947,7 @@ proof (safe, goal_cases)
   case prems: (1 x\<^sub>0 X xs)
   from assms[OF prems(1)] prems(2,3) obtain y ys where "y \<in> a\<^sub>0" "run (y ## ys)"
     by auto
-  from run_complete[OF this(2,1) P2_a\<^sub>0] obtain as where "Run (a\<^sub>0 ## as)" "stream_all2 op \<in> ys as"
+  from run_complete[OF this(2,1) P2_a\<^sub>0] obtain as where "Run (a\<^sub>0 ## as)" "stream_all2 (\<in>) ys as"
     by auto
   from P2_invariant.invariant_run[OF \<open>Run _\<close>] have *: "\<forall> a \<in> sset (a\<^sub>0 ## as). P2 a"
     unfolding stream.pred_set by auto
@@ -969,7 +969,7 @@ corollary infinite_run_cycle_iff:
   by (subst \<open>_ = a\<^sub>0\<close>[symmetric]) (rule infinite_run_cycle_iff', auto simp: that)
 
 context
-  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  fixes \<phi> :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
   assumes \<phi>_closure_compatible: "P2 a \<Longrightarrow> x \<in> \<Union> closure a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
 begin
 
@@ -997,7 +997,7 @@ proof (safe, goal_cases)
   from assms(1)[OF prems(3)] prems(1,2,4) obtain y ys where
     "y \<in> a\<^sub>0" "run (y ## ys)" "alw (ev (holds \<phi>)) ys"
     by auto
-  from run_complete[OF this(2,1) P2_a\<^sub>0] obtain as where "Run (a\<^sub>0 ## as)" "stream_all2 op \<in> ys as"
+  from run_complete[OF this(2,1) P2_a\<^sub>0] obtain as where "Run (a\<^sub>0 ## as)" "stream_all2 (\<in>) ys as"
     by auto
   from P2_invariant.invariant_run[OF \<open>Run _\<close>] have "pred_stream P2 (a\<^sub>0 ## as)"
     by auto
@@ -1097,7 +1097,7 @@ corollary infinite_run_cycle_iff:
   by (rule infinite_run_cycle_iff', auto simp: that)
 
 context
-  fixes \<phi> :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  fixes \<phi> :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
   assumes \<phi>_closure_compatible: "x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
 begin
 
@@ -1285,7 +1285,7 @@ proof (coinduction arbitrary: a x as)
 qed
 
 lemma represent_run_represent:
-  "stream_all2 (op \<in>) (represent_run x as) (a ## as)" if "Run (a ## as)" "x \<in> a"
+  "stream_all2 (\<in>) (represent_run x as) (a ## as)" if "Run (a ## as)" "x \<in> a"
 using that
 proof (coinduction arbitrary: a x as)
   case (stream_rel x' xs a' as' a x as)
@@ -1437,7 +1437,7 @@ end (* Double Simulation Finite Complete Abstraction Prop *)
 context Graph_Start_Defs
 begin
 
-interpretation Bisimulation_Invariant E E "op =" reachable reachable
+interpretation Bisimulation_Invariant E E "(=)" reachable reachable
   including graph_automation by standard auto
 
 lemma Alw_alw_iff_default:
@@ -1503,20 +1503,20 @@ proof -
     using \<open>y \<in> _\<close> P2_closure_subs[OF \<open>P2 (last as)\<close>]
     by (auto simp: last_map)
   with post.Steps_poststable[OF \<open>post_defs.Steps _\<close>, of b2] obtain as' where as':
-    "pre_defs.Steps as'" "list_all2 op \<in> as' (closure a\<^sub>0 # map closure bs)" "last as' = b2"
+    "pre_defs.Steps as'" "list_all2 (\<in>) as' (closure a\<^sub>0 # map closure bs)" "last as' = b2"
     by auto
   then obtain x\<^sub>0 where "x\<^sub>0 \<in> hd as'"
     by (cases as') (auto split: if_split_asm simp: closure_def)
   from pre.Steps_prestable[OF \<open>pre_defs.Steps _\<close> \<open>x\<^sub>0 \<in> _\<close>] obtain xs where
-    "steps (x\<^sub>0 # xs)" "list_all2 op \<in> (x\<^sub>0 # xs) as'"
+    "steps (x\<^sub>0 # xs)" "list_all2 (\<in>) (x\<^sub>0 # xs) as'"
     by auto
-  from \<open>x\<^sub>0 \<in> _\<close> \<open>list_all2 op \<in> as' _\<close> have "x\<^sub>0 \<in> \<Union> closure a\<^sub>0"
+  from \<open>x\<^sub>0 \<in> _\<close> \<open>list_all2 (\<in>) as' _\<close> have "x\<^sub>0 \<in> \<Union> closure a\<^sub>0"
     by (cases as') auto
   with A \<open>steps _\<close> have "P (last (x\<^sub>0 # xs))"
     by fastforce
   from as' have "P1 b2"
     using b2 by (auto simp: closure_def last_map split: if_split_asm)
-  from \<open>list_all2 op \<in> as' _\<close> \<open>list_all2 op \<in> _ as'\<close> \<open>_ = b2\<close> have "last (x\<^sub>0 # xs) \<in> b2"
+  from \<open>list_all2 (\<in>) as' _\<close> \<open>list_all2 (\<in>) _ as'\<close> \<open>_ = b2\<close> have "last (x\<^sub>0 # xs) \<in> b2"
      by (fastforce dest!: list_all2_last)
   from P1_P[OF this \<open>y \<in> b2\<close> \<open>P1 b2\<close>] \<open>P _\<close> show "P y" ..
 qed
@@ -1532,7 +1532,7 @@ proof -
     assume "hd xs \<in> a\<^sub>0" and "steps xs"
     then obtain x ys where [simp]: "xs = x # ys" "x \<in> a\<^sub>0" by (cases xs) auto
     from steps_complete[of x ys a\<^sub>0] \<open>steps xs\<close> P2_a\<^sub>0 obtain as where
-      "Steps (a\<^sub>0 # as)" "list_all2 op \<in> ys as"
+      "Steps (a\<^sub>0 # as)" "list_all2 (\<in>) ys as"
       by auto
     then have "last xs \<in> last (a\<^sub>0 # as)"
       by (fastforce dest: list_all2_last)
@@ -1707,7 +1707,7 @@ lemma closure_compatible_Steps_all_ex_iff:
   "Steps.Alw_ev (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0 \<longleftrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
   if closure_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
 proof -
-  interpret Bisimulation_Invariant A2 A2 "op =" P2 P2
+  interpret Bisimulation_Invariant A2 A2 "(=)" P2 P2
     by standard auto
   show ?thesis
     using P2_a\<^sub>0
@@ -1883,7 +1883,7 @@ lemma Leadsto_iff':
   done
 
 context
-  fixes P :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  fixes P :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
   assumes closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   and P1_P: "\<And> a x y. P x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P y"
 begin
@@ -1921,7 +1921,7 @@ begin
 definition "E_inv x y \<equiv> E x y \<and> P x \<and> P y"
 
 lemma bisim_E_inv:
-  "Bisimulation_Invariant E E_inv op = P P"
+  "Bisimulation_Invariant E E_inv (=) P P"
   by standard (auto intro: invariant simp: E_inv_def)
 
 interpretation G_inv: Graph_Defs E_inv .
@@ -1929,12 +1929,12 @@ interpretation G_inv: Graph_Defs E_inv .
 lemma steps_G_inv_steps:
   "steps (x # xs) \<longleftrightarrow> G_inv.steps (x # xs)" if "P x"
 proof -
-  interpret Bisimulation_Invariant E E_inv "op =" P P
+  interpret Bisimulation_Invariant E E_inv "(=)" P P
     by (rule bisim_E_inv)
   from \<open>P x\<close> show ?thesis
     by (auto 4 3 simp: equiv'_def list.rel_eq
         dest: bisim.A_B.simulation_steps bisim.B_A.simulation_steps
-          list_all2_mono[of _ _ _ "op ="]
+          list_all2_mono[of _ _ _ "(=)"]
        )
 qed
 
@@ -1991,13 +1991,13 @@ lemma from_R_D:
   using that unfolding from_R_def by auto
 
 locale Double_Simulation_paired_Defs =
-  fixes C :: "('a \<times> 'b) \<Rightarrow> ('a \<times> 'b) \<Rightarrow> bool" -- "Concrete step relation"
+  fixes C :: "('a \<times> 'b) \<Rightarrow> ('a \<times> 'b) \<Rightarrow> bool" \<comment> \<open>Concrete step relation\<close>
     and A1 :: "('a \<times> 'b set) \<Rightarrow> ('a \<times> 'b set) \<Rightarrow> bool"
-    -- "Step relation for the first abstraction layer"
-    and P1 :: "('a \<times> 'b set) \<Rightarrow> bool" -- "Valid states of the first abstraction layer"
+    \<comment> \<open>Step relation for the first abstraction layer\<close>
+    and P1 :: "('a \<times> 'b set) \<Rightarrow> bool" \<comment> \<open>Valid states of the first abstraction layer\<close>
     and A2 :: "('a \<times> 'b set) \<Rightarrow> ('a \<times> 'b set) \<Rightarrow> bool"
-    -- "Step relation for the second abstraction layer"
-    and P2 :: "('a \<times> 'b set) \<Rightarrow> bool" -- "Valid states of the second abstraction layer"
+    \<comment> \<open>Step relation for the second abstraction layer\<close>
+    and P2 :: "('a \<times> 'b set) \<Rightarrow> bool" \<comment> \<open>Valid states of the second abstraction layer\<close>
 begin
 
 definition
@@ -2136,16 +2136,16 @@ interpretation Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = from_R l Z
 
 sublocale Double_Simulation_Complete C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0"
 proof (standard, goal_cases)
-  case prems: (1 x y S) -- complete
+  case prems: (1 x y S) \<comment> \<open>complete\<close>
   then show ?case
     unfolding A2'_def P2'_def using from_R_fst
     by (clarify; cases x; cases y; simp; fastforce dest!: complete[of _ _ _ _ "R_of S"])
 next
-  case prems: (2 a a') -- \<open>P2 invariant\<close>
+  case prems: (2 a a') \<comment> \<open>P2 invariant\<close>
   then show ?case
     by (meson A2'_def P2'_def P2_invariant)
 next
-  case prems: 3 -- \<open>P2 start\<close>
+  case prems: 3 \<comment> \<open>P2 start\<close>
   then show ?case
     using P2'_def P2_a\<^sub>0' from_R_fst by fastforce
 qed
@@ -2164,7 +2164,7 @@ interpretation Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = from_R l Z
 
 sublocale Double_Simulation_Finite_Complete C A1' P1' A2' P2' "from_R l\<^sub>0 a\<^sub>0"
 proof (standard, goal_cases)
-  case prems: 1 -- \<open>The set of abstract reachable states is finite.\<close>
+  case prems: 1 \<comment> \<open>The set of abstract reachable states is finite.\<close>
   have *: "\<exists> l. x = from_R l (R_of x) \<and> A2\<^sup>*\<^sup>* (l\<^sub>0, a\<^sub>0) (l, R_of x)"
     if "sim.Steps.reaches (from_R l\<^sub>0 a\<^sub>0) x" for x
     using bisim.B_A_reaches[OF that, of "(l\<^sub>0, a\<^sub>0)"] P2_a\<^sub>0' P2'_def equiv'_def from_R_fst by fastforce 
@@ -2239,7 +2239,7 @@ end (* Double Simulation Finite Complete Bisim Cover paired *)
 
 locale Double_Simulation_Complete_Abstraction_Prop_paired =
   Double_Simulation_Complete_paired +
-  fixes P :: "'a \<Rightarrow> bool" -- "The property we want to check"
+  fixes P :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
   assumes P2_non_empty: "P2 (l, a) \<Longrightarrow> a \<noteq> {}"
 begin
 
@@ -2438,7 +2438,7 @@ interpretation bisim: Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = fro
   by (rule A2_A2'_bisim[OF P2_invariant])
 
 interpretation Start: Double_Simulation_Complete_Abstraction_Prop_Bisim_paired
-  C A1 P1 A2 P2 l\<^sub>0 a\<^sub>0 PP
+  C A1 P1 A2 P2 l\<^sub>0 a\<^sub>0 "\<lambda> _. True"
   using P2_cover by - (standard, blast)
 
 lemma sim_reaches_equiv:
@@ -2502,7 +2502,7 @@ proof -
 qed
 
 context
-  fixes P Q :: "'a \<Rightarrow> bool" -- "The state properties we want to check"
+  fixes P Q :: "'a \<Rightarrow> bool" \<comment> \<open>The state properties we want to check\<close>
 begin
 
 definition "\<phi>' = P o fst"
@@ -2545,7 +2545,7 @@ interpretation bisim: Bisimulation_Invariant A2 A2' "\<lambda> (l, Z) b. b = fro
   by (rule A2_A2'_bisim[OF P2_invariant])
 
 context
-  fixes P Q :: "'a \<Rightarrow> bool" -- "The state properties we want to check"
+  fixes P Q :: "'a \<Rightarrow> bool" \<comment> \<open>The state properties we want to check\<close>
 begin
 
 interpretation Graph_Start_Defs A2 "(l\<^sub>0, a\<^sub>0)" .

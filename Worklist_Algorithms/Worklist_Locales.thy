@@ -8,10 +8,10 @@ text \<open>
   a final state predicate, and a subsumption preorder.
 \<close>
 locale Search_Space_Defs =
-  fixes E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" -- \<open>Step relation\<close>
-    and a\<^sub>0 :: 'a                -- \<open>Start state\<close>
-    and F :: "'a \<Rightarrow> bool"      -- \<open>Final states\<close>
-    and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) -- \<open>Subsumption preorder\<close>
+  fixes E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" \<comment> \<open>Step relation\<close>
+    and a\<^sub>0 :: 'a                \<comment> \<open>Start state\<close>
+    and F :: "'a \<Rightarrow> bool"      \<comment> \<open>Final states\<close>
+    and subsumes :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) \<comment> \<open>Subsumption preorder\<close>
 begin
 
   sublocale Graph_Start_Defs E a\<^sub>0 .
@@ -42,7 +42,7 @@ locale Search_Space_Nodes = Search_Space_Nodes_Defs +
       and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
 begin
 
-  sublocale preorder "op \<preceq>" "op \<prec>"
+  sublocale preorder "(\<preceq>)" "(\<prec>)"
     by standard (auto simp: subsumes_strictly_def intro: trans)
 
 end (* Search Space Nodes *)
@@ -61,11 +61,11 @@ locale Search_Space_Nodes_Empty = Search_Space_Nodes_Empty_Defs +
       and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
 begin
 
-  sublocale preorder "op \<preceq>" "op \<prec>"
+  sublocale preorder "(\<preceq>)" "(\<prec>)"
     by standard (auto simp: subsumes_strictly_def intro: trans)
 
   sublocale search_space:
-    Search_Space_Nodes "\<lambda> x y. E x y \<and> \<not> empty y" a\<^sub>0 F "op \<preceq>" "\<lambda> v. V v \<and> \<not> empty v"
+    Search_Space_Nodes "\<lambda> x y. E x y \<and> \<not> empty y" a\<^sub>0 F "(\<preceq>)" "\<lambda> v. V v \<and> \<not> empty v"
     apply standard
        apply blast
       apply (blast intro: trans)
@@ -89,10 +89,10 @@ locale Search_Space = Search_Space_Defs_Empty +
       and F_mono: "a \<preceq> a' \<Longrightarrow> F a \<Longrightarrow> F a'"
 begin
 
-  sublocale preorder "op \<preceq>" "op \<prec>"
+  sublocale preorder "(\<preceq>)" "(\<prec>)"
     by standard (auto simp: subsumes_strictly_def intro: trans)
 
-  sublocale Search_Space_Nodes_Empty E a\<^sub>0 F "op \<preceq>" reachable empty
+  sublocale Search_Space_Nodes_Empty E a\<^sub>0 F "(\<preceq>)" reachable empty
     including graph_automation
     by standard
       (auto intro: trans empty_subsumes dest: empty_mono empty_E F_mono, auto 4 4 dest: mono)
@@ -114,7 +114,7 @@ locale Search_Space' = Search_Space +
 locale Search_Space'_finite = Search_Space' + Search_Space_finite
 
 locale Search_Space''_Defs = Search_Space_Defs_Empty +
-  fixes subsumes' :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<unlhd>" 50) -- \<open>Subsumption preorder\<close>
+  fixes subsumes' :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<unlhd>" 50) \<comment> \<open>Subsumption preorder\<close>
 
 locale Search_Space''_pre = Search_Space''_Defs +
   assumes empty_subsumes': "\<not> empty a \<Longrightarrow> a \<preceq> b \<longleftrightarrow> a \<unlhd> b"
@@ -185,7 +185,7 @@ locale Worklist4_Impl = Worklist4_Impl_Defs + Worklist4 +
   (* TODO: This is the easy variant: Operations cannot depend on additional heap. *)
   assumes [sepref_fr_rules]: "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
   assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  assumes [sepref_fr_rules]: "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  assumes [sepref_fr_rules]: "(uncurry Lei,uncurry (RETURN oo PR_CONST (\<unlhd>))) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]: "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
   assumes [sepref_fr_rules]: "(emptyi,RETURN o PR_CONST empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
 

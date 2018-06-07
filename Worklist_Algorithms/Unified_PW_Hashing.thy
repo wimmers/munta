@@ -30,7 +30,7 @@ definition "add_pw passed wait a \<equiv>
       (passed, wait, False)
 "
 
-end -- \<open>Worklist1 Defs\<close>
+end \<comment> \<open>Worklist1 Defs\<close>
 
 context Worklist1
 begin
@@ -87,7 +87,7 @@ lemma add_pw_ref:
     using prems(4,9,11,12,14) by (blast intro: trans)
   by (auto simp: subset_mset.le_iff_add)
 
-end -- \<open>Worklist 1\<close>
+end \<comment> \<open>Worklist 1\<close>
 
 context Worklist2_Defs
 begin
@@ -127,7 +127,7 @@ definition pw_algo_unified where
       }
     "
 
-end -- \<open>Worklist 2 Defs\<close>
+end \<comment> \<open>Worklist 2 Defs\<close>
 
 context Worklist2
 begin
@@ -203,7 +203,7 @@ lemma pw_algo_unified_ref:
   unfolding pw_algo_unified_def pw_algo_def
   by refine_rcg (auto simp: init_pw_spec_def)
 
-end -- \<open>Worklist 2\<close>
+end \<comment> \<open>Worklist 2\<close>
 
 subsubsection \<open>Utilities\<close>
 
@@ -276,7 +276,7 @@ definition pw_algo_map where
     }
   "
 
-end -- \<open>Worklist Map Defs\<close>
+end \<comment> \<open>Worklist Map Defs\<close>
 
 lemma ran_upd_cases:
   "(x \<in> ran m) \<or> (x = y)" if "x \<in> ran (m(a \<mapsto> y))"
@@ -363,7 +363,7 @@ lemma pw_algo_map_ref:
   unfolding pw_map_inv_def list_mset_rel_def br_def map_set_rel_def by auto
 
 
-end -- \<open>Worklist Map\<close>
+end \<comment> \<open>Worklist Map\<close>
 
 context Worklist_Map2_Defs
 begin
@@ -415,7 +415,7 @@ definition pw_algo_map2 where
     }
   "
 
-end -- \<open>Worklist Map 2 Defs\<close>
+end \<comment> \<open>Worklist Map 2 Defs\<close>
 
 context Worklist_Map2
 begin
@@ -436,7 +436,7 @@ lemma pw_algo_map2_ref[refine]:
            apply refine_dref_type
   by auto
 
-end -- \<open>Worklist Map 2\<close>
+end \<comment> \<open>Worklist Map 2\<close>
 
 lemma (in Worklist_Map2_finite) pw_algo_map2_correct:
   "pw_algo_map2 \<le> SPEC (\<lambda> (brk, passed).
@@ -456,4 +456,4 @@ proof -
     unfolding conc_fun_def Image_def by (fastforce intro: order.trans) (* Slow *)
 qed
 
-end -- \<open>End of Theory\<close>
+end \<comment> \<open>End of Theory\<close>

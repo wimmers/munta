@@ -511,22 +511,22 @@ lemma bisim:
   (\<lambda> (l, Z) (l', D). l = l' \<and> Z = [D]\<^bsub>v,n\<^esub>)
   (\<lambda> _. True) (\<lambda> (l, D). valid_dbm D)"
 proof (standard, goal_cases)
-  -- \<open>\<open>\<beta> \<Rightarrow> \<N>\<close>\<close>
+  \<comment> \<open>\<open>\<beta> \<Rightarrow> \<N>\<close>\<close>
   case (1 a b a')
   then show ?case
     by (blast elim: norm_beta_complete1)
 next
-  -- \<open>\<open>\<N> \<Rightarrow> \<beta>\<close>\<close>
+  \<comment> \<open>\<open>\<N> \<Rightarrow> \<beta>\<close>\<close>
   case (2 a a' b')
   then show ?case
     by (blast intro: norm_beta_sound'')
 next
-  -- \<open>\<open>\<beta>\<close> invariant\<close>
+  \<comment> \<open>\<open>\<beta>\<close> invariant\<close>
   case (3 a b)
   then show ?case
     by simp
 next
-  -- \<open>\<open>\<N>\<close> invariant\<close>
+  \<comment> \<open>\<open>\<N>\<close> invariant\<close>
   case (4 a b)
   then show ?case
     unfolding step_z_norm''_def
@@ -563,7 +563,7 @@ lemma norm_steps_empty:
   by (auto dest!: step_z_norm''_non_empty intro: steps_z_norm'_valid_dbm_invariant)
 
 context
-  fixes P Q :: "'s \<Rightarrow> bool" -- "The state property we want to check"
+  fixes P Q :: "'s \<Rightarrow> bool" \<comment> \<open>The state property we want to check\<close>
 begin
 
 interpretation bisim_\<psi>: Bisimulation_Invariant

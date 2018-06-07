@@ -202,7 +202,7 @@ lemma Bisimulation_Invariant_I:
   "Bisimulation_Invariant
   (\<lambda> (L, s, u) (L', s', u'). defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>)
   (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
-  (op =)
+  (=)
   (\<lambda> (L, s, u). all_prop L s)
   (\<lambda> (L, s, u). all_prop L s)"
   proof ((standard; clarsimp), goal_cases)
@@ -234,7 +234,7 @@ lemma Bisimulation_Invariant_I:
 interpretation Bisimulation_Invariant
   "\<lambda> (L, s, u) (L', s', u'). defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
   "\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>"
-  "op ="
+  "(=)"
   "\<lambda> (L, s, u). all_prop L s"
   "\<lambda> (L, s, u). all_prop L s"
   by (rule Bisimulation_Invariant_I)
@@ -437,7 +437,7 @@ context UPPAAL_Reachability_Problem_precompiled'
 begin
 
 lemma F_reachable_correct'_new:
-  "impl.op.F_reachable
+  "impl.(.F_reachable)
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
       \<and>  check_bexp \<phi> L' s')
@@ -447,7 +447,7 @@ lemma F_reachable_correct'_new:
   unfolding F_def by auto
 
 lemma F_reachable_correct'_new':
-  "impl.op.F_reachable
+  "impl.(.F_reachable)
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
       \<and>  \<not> check_bexp \<phi> L' s')
@@ -457,7 +457,7 @@ lemma F_reachable_correct'_new':
   unfolding F_def by auto
 
 lemma F_reachable_correct_new:
-  "impl.op.F_reachable
+  "impl.(.F_reachable)
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv N \<turnstile>\<^sup>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
        \<and> check_bexp \<phi> L' s')
@@ -467,7 +467,7 @@ lemma F_reachable_correct_new:
     using prod_conv p_p p_gt_0 by simp+
 
 lemma F_reachable_correct_new':
-  "impl.op.F_reachable
+  "impl.(.F_reachable)
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv N \<turnstile>\<^sup>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
        \<and> \<not> check_bexp \<phi> L' s')
@@ -522,7 +522,7 @@ interpretation Bisim_A: Bisimulation_Invariant
        defs'.defs.prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>)"
    "(\<lambda>(L, s, u) (L', s', u').
        conv N \<turnstile>\<^sup>max_steps \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)"
-   "op =" "(\<lambda>(L, s, u). product'.all_prop L s)"
+   "(=)" "(\<lambda>(L, s, u). product'.all_prop L s)"
    "(\<lambda>(L, s, u). product'.all_prop L s)"
   by (rule product'.Bisimulation_Invariant_I) (rule p'_gt_0)
 
@@ -783,7 +783,7 @@ proof -
     unfolding model_checker_def reachability_checker'_def Alw_ev_checker_def leadsto_checker_def
     apply (cases formula; simp)
 
-      -- \<open>\<open>EX\<close>\<close>
+      \<comment> \<open>\<open>EX\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
       apply (subst (asm) (2) F_reachable_correct'_new)
@@ -795,7 +795,7 @@ proof -
       apply (sep_auto simp: pure_def)
       done
 
-        -- \<open>\<open>EG\<close>\<close>
+        \<comment> \<open>\<open>EG\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.Alw_ev_impl_hnr[
           to_hnr, unfolded hn_refine_def
@@ -822,7 +822,7 @@ proof -
         done
       done
 
-        -- \<open>\<open>AX\<close>\<close>
+        \<comment> \<open>\<open>AX\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.Alw_ev_impl_hnr[to_hnr, unfolded hn_refine_def]
       unfolding final_fun_def F_def
@@ -845,7 +845,7 @@ proof -
         done
       done
 
-        -- \<open>\<open>AG\<close>\<close>
+        \<comment> \<open>\<open>AG\<close>\<close>
     subgoal premises prems for \<phi>
       using impl.pw_impl_hnr_F_reachable[to_hnr, unfolded hn_refine_def]
       apply (subst (asm) (2) F_reachable_correct'_new')
@@ -855,7 +855,7 @@ proof -
       apply (sep_auto simp: pure_def)
       done
 
-        -- \<open>\<open>Leadsto\<close>\<close>
+        \<comment> \<open>\<open>Leadsto\<close>\<close>
     subgoal premises prems for \<phi> \<psi>
       using impl.leadsto_impl_hnr'[
           OF final_fun_final, of "Not oo check_bexp \<psi>",

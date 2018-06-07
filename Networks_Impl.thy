@@ -7,14 +7,14 @@ abbreviation "repeat x n \<equiv> map (\<lambda> _. x) [0..<n]"
 
 subsection \<open>Pre-compiled networks with states and clocks as natural numbers\<close>
   locale Network_Reachability_Problem_precompiled_defs =
-      fixes p :: nat -- "Number of processes"
-      and n :: nat -- "Number of states. States are 0 through n - 1"
-      and m :: nat -- "Number of clocks"
-      and k :: "nat list" -- "Clock ceiling. Maximal constant appearing in automaton for each state"
-      and inv :: "(nat, int) cconstraint list list" -- "Clock invariants on states per process"
+      fixes p :: nat \<comment> \<open>Number of processes\<close>
+      and n :: nat \<comment> \<open>Number of states. States are 0 through n - 1\<close>
+      and m :: nat \<comment> \<open>Number of clocks\<close>
+      and k :: "nat list" \<comment> \<open>Clock ceiling. Maximal constant appearing in automaton for each state\<close>
+      and inv :: "(nat, int) cconstraint list list" \<comment> \<open>Clock invariants on states per process\<close>
       and trans :: "((nat, int) cconstraint * (nat act * 'b) * nat list * nat) list list list"
-          -- "Transitions between states per process"
-      and final :: "nat list list" -- "Final states per process. Initial location is 0"
+          \<comment> \<open>Transitions between states per process\<close>
+      and final :: "nat list list" \<comment> \<open>Final states per process. Initial location is 0\<close>
   begin
     definition "clkp_set' \<equiv> \<Union>
       (collect_clock_pairs ` set (concat inv)
@@ -43,7 +43,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
         and inv_length: "\<forall> I \<in> set inv. length I = n"
         and trans_length: "\<forall> T \<in> set trans. length T = n"
         and state_set: "\<forall> T \<in> set trans. \<forall> xs \<in> set T. \<forall> (_, _, _, l) \<in> set xs. l < n"
-        and k_length: "length k = m + 1" -- "Zero entry is just a dummy for the zero clock"
+        and k_length: "length k = m + 1" \<comment> \<open>Zero entry is just a dummy for the zero clock\<close>
         (* XXX Make this an abbreviation? *)
         assumes k_ceiling:
           "\<forall> c \<in> {1..m}. int (k ! c) = Max ({d. (c, d) \<in> clkp_set'} \<union> {0})" "k ! 0 = 0"
@@ -51,7 +51,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
         assumes clock_set: "clk_set' = {1..m}"
         and p_gt_0: "p > 0"
         and m_gt_0: "m > 0"
-        and n_gt_0: "n > 0" and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" -- \<open>Necessary for refinement\<close>
+        and n_gt_0: "n > 0" and start_has_trans: "\<forall> q < p. trans ! q ! 0 \<noteq> []" \<comment> \<open>Necessary for refinement\<close>
         and trans_complete:
           "\<forall> q1 < p. \<forall> t1 \<in> T q1. case t1 of (l1, g1, (In a, b1), r1, l1') \<Rightarrow> \<exists> q2 < p. \<exists> l2 g2 b2 r2 l2'.
             q1 \<noteq> q2 \<and> (l2, g2, (Out a, b2), r2, l2') \<in> T q2 | _ \<Rightarrow> True"
@@ -209,7 +209,7 @@ subsection \<open>Pre-compiled networks with states and clocks as natural number
     by force
   
   lemma map_trans_of:
-    "map trans_of (map conv_A N) = map (op ` conv_t) (map trans_of N)"
+    "map trans_of (map conv_A N) = map ((`) conv_t) (map trans_of N)"
     by (simp add: trans_of_def split: prod.split)
   
   lemma [simp]:

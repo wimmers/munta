@@ -16,7 +16,7 @@ locale Liveness_Search_Space_Key_Impl =
   Liveness_Search_Space_Key +
   assumes refinements[sepref_fr_rules]:
     "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
-    "(uncurry Lei,uncurry (RETURN oo PR_CONST op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    "(uncurry Lei,uncurry (RETURN oo PR_CONST (\<unlhd>))) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
     "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a id_assn"
     "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
@@ -204,10 +204,10 @@ context Liveness_Search_Space_Key_Impl
 begin
 
 sepref_register
-  "PR_CONST a\<^sub>0" "PR_CONST op \<unlhd>" "PR_CONST succs" "PR_CONST key"
+  "PR_CONST a\<^sub>0" "PR_CONST (\<unlhd>)" "PR_CONST succs" "PR_CONST key"
 
 lemma [def_pat_rules]:
-  "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "op \<unlhd> \<equiv> UNPROTECT op \<unlhd>" "succs \<equiv> UNPROTECT succs" "key \<equiv> UNPROTECT key"
+  "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "(\<unlhd>) \<equiv> UNPROTECT (\<unlhd>)" "succs \<equiv> UNPROTECT succs" "key \<equiv> UNPROTECT key"
   by simp_all
 
 abbreviation "passed_assn \<equiv> hm.hms_assn' id_assn (lso_assn A)"

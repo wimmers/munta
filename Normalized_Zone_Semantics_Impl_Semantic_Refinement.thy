@@ -165,7 +165,7 @@ lemma E_E\<^sub>1_steps_empty:
   by (auto 4 4 simp: state_equiv_def dbm_equiv_def dest: E_E\<^sub>1_steps E\<^sub>1_E_steps)
 
 lemma E_E\<^sub>1_bisim:
-  "Bisimulation_Invariant E E\<^sub>1 op \<sim> wf_state wf_state"
+  "Bisimulation_Invariant E E\<^sub>1 (\<sim>) wf_state wf_state"
   by standard (blast intro: state_equiv_sym dest: E\<^sub>1_E_step' intro: E_E\<^sub>1_step')+
 
 context
@@ -750,7 +750,7 @@ lemma E_from_op_mono':
   using assms by - (rule E\<^sub>1_mono'[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state]; blast)
 
 lemma E_from_op_bisim:
-  "Bisimulation_Invariant E E_from_op op \<sim> wf_state wf_state"
+  "Bisimulation_Invariant E E_from_op (\<sim>) wf_state wf_state"
   by (rule E_E\<^sub>1_bisim[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
 
 end (* End of context for bisimilarity *)
@@ -1573,7 +1573,7 @@ interpretation bisim:
   by (rule beta_final_bisim_empty_strong)
 
 context
-  fixes P Q :: "'s \<Rightarrow> bool" -- "The state property we want to check"
+  fixes P Q :: "'s \<Rightarrow> bool" \<comment> \<open>The state property we want to check\<close>
 begin
 
 lemma beta_final_bisim_empty_Q:

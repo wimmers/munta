@@ -989,7 +989,7 @@ lemma subset_eq_pointwise_le:
   fixes M :: "real DBM"
   assumes "canonical M n" "\<forall> i \<le> n. M i i = 0" "\<forall> i \<le> n. M' i i = 0"
       and prems: "clock_numbering' v n" "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
-  shows "[M]\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub> \<longleftrightarrow> pointwise_cmp (op \<le>) n M M'"
+  shows "[M]\<^bsub>v,n\<^esub> \<subseteq> [M']\<^bsub>v,n\<^esub> \<longleftrightarrow> pointwise_cmp (\<le>) n M M'"
 unfolding pointwise_cmp_def
 apply safe
  subgoal for i j
@@ -1014,7 +1014,7 @@ lemma check_diag_alt_def:
 unfolding check_diag_def list_ex_iff by fastforce
 
 definition dbm_subset :: "nat \<Rightarrow> ('t :: {linorder, zero}) DBM' \<Rightarrow> 't DBM' \<Rightarrow> bool" where
-  "dbm_subset n M M' \<equiv> check_diag n M \<or> pointwise_cmp (op \<le>) n (curry M) (curry M')"
+  "dbm_subset n M M' \<equiv> check_diag n M \<or> pointwise_cmp (\<le>) n (curry M) (curry M')"
 
 lemma dbm_subset_refl:
   "dbm_subset n M M"

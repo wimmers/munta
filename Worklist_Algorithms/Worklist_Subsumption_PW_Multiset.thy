@@ -178,7 +178,7 @@ begin
       by (simp add: Multiset.diff_union_cancelR; fail)
     done
 
-end -- \<open>Private context\<close>
+end \<comment> \<open>Private context\<close>
 
 lemma add_succs_ref[refine]:
   "(if (\<exists> a' \<in> passed. a \<preceq> a') then RETURN (passed, wait, brk) else
@@ -229,7 +229,7 @@ proof -
   finally show ?thesis .
 qed
 
-end -- \<open>Search Space'\<close>
+end \<comment> \<open>Search Space'\<close>
 
 
 context Search_Space''_Defs
@@ -281,7 +281,7 @@ begin
       }
     "
 
-end -- \<open>Search Space' Defs\<close>
+end \<comment> \<open>Search Space' Defs\<close>
 
 context Search_Space''_start
 begin
@@ -325,7 +325,7 @@ begin
                   apply refine_dref_type
     by (auto simp: empty_subsumes')
 
-end -- \<open>Search Space' Start\<close>
+end \<comment> \<open>Search Space' Start\<close>
 
 
 context Search_Space''_Defs
@@ -336,7 +336,7 @@ begin
       if empty a\<^sub>0 then RETURN False else worklist_algo'
     "
 
-end -- \<open>Search Space' Defs\<close>
+end \<comment> \<open>Search Space' Defs\<close>
 
 
 context Search_Space''
@@ -359,6 +359,6 @@ begin
       using False unfolding worklist_algo''_def by simp
   qed
 
-end -- \<open>Search Space''\<close>
+end \<comment> \<open>Search Space''\<close>
 
-end -- \<open>End of Theory\<close>
+end \<comment> \<open>End of Theory\<close>

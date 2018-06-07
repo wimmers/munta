@@ -140,7 +140,7 @@ definition "striptp p \<equiv> map_option stript o p"
 
 locale Equiv_TA_Defs =
   fixes A :: "('a, 't, 's) unta"
-    and n :: nat -- "Fuel"
+    and n :: nat \<comment> \<open>Fuel\<close>
 begin
 
 abbreviation "N \<equiv> fst (snd A)"

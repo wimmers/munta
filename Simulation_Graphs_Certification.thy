@@ -18,11 +18,11 @@ interpretation preorder less_eq less
   by (rule preorder)
 
 interpretation Simulation_Invariant
-  E "\<lambda> x y. \<exists> z. z \<preceq> y \<and> E x z \<and> P z" "op \<preceq>" P P
+  E "\<lambda> x y. \<exists> z. z \<preceq> y \<and> E x z \<and> P z" "(\<preceq>)" P P
   by standard (auto 0 4 intro: invariant dest: mono)
 
 context
-  fixes F :: "'a \<Rightarrow> bool" -- \<open>Final states\<close>
+  fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> F b"
 begin
 
@@ -39,7 +39,7 @@ context Simulation_Invariant
 begin
 
 context
-  fixes F :: "'a \<Rightarrow> bool" and F' :: "'b \<Rightarrow> bool" -- \<open>Final states\<close>
+  fixes F :: "'a \<Rightarrow> bool" and F' :: "'b \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F a \<Longrightarrow> a \<sim> b \<Longrightarrow> F' b"
 begin
 
@@ -73,7 +73,7 @@ lemma reachable_S_subsumed:
   using S_E_subsumed by blast+
 
 context
-  fixes F :: "'a \<Rightarrow> bool" -- \<open>Final states\<close>
+  fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> F b"
 begin
 
@@ -148,10 +148,10 @@ locale Reachability_Invariant_paired = Reachability_Invariant_paired_defs + preo
     "finite L" "\<forall> l \<in> L. finite (M l)"
 begin
 
-interpretation Bisimulation E E' "op ="
+interpretation Bisimulation E E' "(=)"
   using E_T closed by - (standard, auto simp: E'_def)
 
-interpretation Bisimulation_Invariant E E' "op =" "\<lambda> (l, s). l \<in> L" "\<lambda> (l, s). l \<in> L"
+interpretation Bisimulation_Invariant E E' "(=)" "\<lambda> (l, s). l \<in> L" "\<lambda> (l, s). l \<in> L"
   using E_T closed by - (standard, auto 4 3 simp: E'_def)
 
 lemma invariant:
@@ -212,7 +212,7 @@ interpretation Reachability_Compatible_Subsumption_Graph_View
 
 context
   assumes no_subsumption_cycle: "G'.reachable x \<Longrightarrow> x \<rightarrow>\<^sub>G\<^sup>+' x \<Longrightarrow> x \<rightarrow>\<^sub>G\<^sup>+ x"
-  fixes F :: "'b \<times> 'a \<Rightarrow> bool" -- \<open>Final states\<close>
+  fixes F :: "'b \<times> 'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F (l, a) \<Longrightarrow> a \<preceq> b \<Longrightarrow> F (l, b)"
 begin
 
@@ -277,7 +277,7 @@ interpretation E2_invariant: Graph_Invariant E2 "\<lambda> x. \<exists> a \<in> 
 interpretation C_invariant: Graph_Invariant C "\<lambda> a. a \<in> S \<and> a \<noteq> {}"
   unfolding C_def by standard auto
 
-interpretation Simulation_Invariant E C "op \<in>" "\<lambda> x. \<exists> a \<in> S. x \<in> a" "\<lambda> a. a \<in> S \<and> a \<noteq> {}"
+interpretation Simulation_Invariant E C "(\<in>)" "\<lambda> x. \<exists> a \<in> S. x \<in> a" "\<lambda> a. a \<in> S \<and> a \<noteq> {}"
   unfolding C_def by (standard; blast dest: E_invariant.invariant[rotated])+
 
 interpretation Subgraph E E1
@@ -384,7 +384,7 @@ proof (rule ccontr, simp)
         by auto
     next
       case (2 y)
-      interpret sim: Simulation E1 E "op ="
+      interpret sim: Simulation E1 E "(=)"
         by (rule Subgraph_Simulation)
       from \<open>E1.reaches1 y x\<close> have "E.reaches1 y x"
         by (auto dest: sim.simulation_reaches1)

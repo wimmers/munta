@@ -47,7 +47,7 @@ begin
     ) \<and> (\<forall> s \<in> set wait'. \<not> empty s)
   )"
 
-end -- \<open>Search Space Empty Defs\<close>
+end \<comment> \<open>Search Space Empty Defs\<close>
 
 context Search_Space''_Defs
 begin
@@ -78,7 +78,7 @@ begin
       }
     "
 
-end -- \<open>Search Space'' Defs\<close>
+end \<comment> \<open>Search Space'' Defs\<close>
 
 context Search_Space''_pre
 begin
@@ -116,7 +116,7 @@ begin
               apply (rule worklist_algo_list_inv_ref; assumption)
     by auto
 
-end -- \<open>Search Space''\<close>
+end \<comment> \<open>Search Space''\<close>
 
 
 subsection \<open>Towards an Implementation\<close>
@@ -276,7 +276,7 @@ begin
     finally show "worklist_algo1' \<le> worklist_algo'" by simp
   qed
 
-end -- \<open>Worklist2\<close>
+end \<comment> \<open>Worklist2\<close>
 
 context Worklist3_Defs
 begin
@@ -387,6 +387,6 @@ begin
     also note worklist_algo1_ref
     finally show ?thesis .
   qed
-end -- \<open>Worklist3\<close>
+end \<comment> \<open>Worklist3\<close>
 
-end -- \<open>Theory\<close>
+end \<comment> \<open>Theory\<close>

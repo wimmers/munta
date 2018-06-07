@@ -827,12 +827,12 @@ lemma simulation_steps:
   done
 
 lemma simulation_run:
-  "\<exists> ys. B.run (y ## ys) \<and> stream_all2 op \<sim> xs ys" if "A.run (x ## xs)" "x \<sim> y"
+  "\<exists> ys. B.run (y ## ys) \<and> stream_all2 (\<sim>) xs ys" if "A.run (x ## xs)" "x \<sim> y"
 proof -
   let ?ys = "sscan (\<lambda> a' b. SOME b'. B b b' \<and> a' \<sim> b') xs y"
   have "B.run (y ## ?ys)"
     using that by (coinduction arbitrary: x y xs) (force dest!: someI_ex A_B_step elim: A.run.cases)
-  moreover have "stream_all2 op \<sim> xs ?ys"
+  moreover have "stream_all2 (\<sim>) xs ?ys"
     using that by (coinduction arbitrary: x y xs) (force dest!: someI_ex A_B_step elim: A.run.cases)
   ultimately show ?thesis by blast
 qed
@@ -840,7 +840,7 @@ qed
 end (* Simulation *)
 
 lemma (in Subgraph) Subgraph_Simulation:
-  "Simulation E' E op ="
+  "Simulation E' E (=)"
   by standard auto
 
 locale Simulation_Invariant = Simulation_Defs +
@@ -903,10 +903,10 @@ locale Simulation_Invariants = Simulation_Defs +
   assumes PA_QA[intro]: "\<And> a. QA a \<Longrightarrow> PA a" and PB_QB[intro]: "\<And> a. QB a \<Longrightarrow> PB a"
 begin
 
-sublocale Pre: Simulation_Invariant A B "op \<sim>" PA PB
+sublocale Pre: Simulation_Invariant A B "(\<sim>)" PA PB
   by standard (auto intro: A_B_step)
 
-sublocale Post: Simulation_Invariant A B "op \<sim>" QA QB
+sublocale Post: Simulation_Invariant A B "(\<sim>)" QA QB
   by standard (auto intro: A_B_step)
 
 sublocale A_invs: Graph_Invariants A PA QA
@@ -933,7 +933,7 @@ locale Bisimulation = Simulation_Defs +
   assumes B_A_step: "\<And> a a' b'. B a' b' \<Longrightarrow> a \<sim> a' \<Longrightarrow> (\<exists> b. A a b \<and> b \<sim> b')"
 begin
 
-sublocale A_B: Simulation A B "op \<sim>" by standard (rule A_B_step)
+sublocale A_B: Simulation A B "(\<sim>)" by standard (rule A_B_step)
 
 sublocale B_A: Simulation B A "\<lambda> x y. y \<sim> x" by standard (rule B_A_step)
 
@@ -966,7 +966,7 @@ definition "equiv' \<equiv> \<lambda> a b. a \<sim> b \<and> PA a \<and> PB b"
 sublocale bisim: Bisimulation A B equiv'
   by standard (clarsimp simp add: equiv'_def, frule A_B_step B_A_step, assumption; auto)+
 
-sublocale A_B: Simulation_Invariant A B "op \<sim>" PA PB
+sublocale A_B: Simulation_Invariant A B "(\<sim>)" PA PB
   by (standard; blast intro: A_B_step B_A_step)
 
 sublocale B_A: Simulation_Invariant B A "\<lambda> x y. y \<sim> x" PB PA
@@ -1021,11 +1021,11 @@ lemma equiv'_rotate_2:
   using that by (auto simp: B_A.equiv'_def A_B.equiv'_def)
 
 lemma stream_all2_equiv'_D:
-  "stream_all2 op \<sim> xs ys" if "stream_all2 A_B.equiv' xs ys"
+  "stream_all2 (\<sim>) xs ys" if "stream_all2 A_B.equiv' xs ys"
   using stream_all2_weaken[OF that equiv'_D] by fast
 
 lemma stream_all2_equiv'_D2:
-  "stream_all2 B_A.equiv' ys xs \<Longrightarrow> stream_all2 op \<sim>\<inverse>\<inverse> ys xs"
+  "stream_all2 B_A.equiv' ys xs \<Longrightarrow> stream_all2 ((\<sim>)\<inverse>\<inverse>) ys xs"
   by (coinduction arbitrary: xs ys) (auto simp: B_A.equiv'_def)
 
 lemma stream_all2_rotate_1:
@@ -1055,13 +1055,13 @@ sublocale QA_invariant: Graph_Invariant A QA by standard blast
 
 sublocale QB_invariant: Graph_Invariant B QB by standard blast
 
-sublocale Pre_Bisim: Bisimulation_Invariant A B "op \<sim>" PA PB
+sublocale Pre_Bisim: Bisimulation_Invariant A B "(\<sim>)" PA PB
   by standard (auto intro: A_B_step B_A_step)
 
-sublocale Post_Bisim: Bisimulation_Invariant A B "op \<sim>" QA QB
+sublocale Post_Bisim: Bisimulation_Invariant A B "(\<sim>)" QA QB
   by standard (auto intro: A_B_step B_A_step)
 
-sublocale A_B: Simulation_Invariants A B "op \<sim>" PA QA PB QB
+sublocale A_B: Simulation_Invariants A B "(\<sim>)" PA QA PB QB
   by standard (blast intro: A_B_step)+
 
 sublocale B_A: Simulation_Invariants B A "\<lambda> x y. y \<sim> x" PB QB PA QA

@@ -128,11 +128,11 @@ term hn_ctxt
     by simp
 
   text \<open>This determines an evaluation order for the first-order operands\<close>  
-  lemma [sepref_monadify_comb]: "case_acconstraint$f1$f2$f3$f4$f5$x \<equiv> op \<bind>$(EVAL$x)$(\<lambda>\<^sub>2x. SP case_acconstraint$f1$f2$f3$f4$f5$x)" by simp
+  lemma [sepref_monadify_comb]: "case_acconstraint$f1$f2$f3$f4$f5$x \<equiv> (\<bind>)$(EVAL$x)$(\<lambda>\<^sub>2x. SP case_acconstraint$f1$f2$f3$f4$f5$x)" by simp
 
   text \<open>This enables translation of the case-distinction in a non-monadic context.\<close>  
   lemma [sepref_monadify_comb]: "EVAL$(case_acconstraint$(\<lambda>\<^sub>2x y. f1 x y)$(\<lambda>\<^sub>2x y. f2 x y)$(\<lambda>\<^sub>2x y. f3 x y)$(\<lambda>\<^sub>2x y. f4 x y)$(\<lambda>\<^sub>2x y. f5 x y)$x) 
-    \<equiv> op \<bind>$(EVAL$x)$(\<lambda>\<^sub>2x. SP case_acconstraint$(\<lambda>\<^sub>2x y. EVAL $ f1 x y)$(\<lambda>\<^sub>2x y. EVAL $ f2 x y)$(\<lambda>\<^sub>2x y. EVAL $ f3 x y)$(\<lambda>\<^sub>2x y. EVAL $ f4 x y)$(\<lambda>\<^sub>2x y. EVAL $ f5 x y)$x)"
+    \<equiv> (\<bind>)$(EVAL$x)$(\<lambda>\<^sub>2x. SP case_acconstraint$(\<lambda>\<^sub>2x y. EVAL $ f1 x y)$(\<lambda>\<^sub>2x y. EVAL $ f2 x y)$(\<lambda>\<^sub>2x y. EVAL $ f3 x y)$(\<lambda>\<^sub>2x y. EVAL $ f4 x y)$(\<lambda>\<^sub>2x y. EVAL $ f5 x y)$x)"
     apply (rule eq_reflection)
     by (simp split: acconstraint.splits)
 

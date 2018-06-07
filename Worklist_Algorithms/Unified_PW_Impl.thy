@@ -54,11 +54,11 @@ begin
     assumes [sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   begin
     sepref_register
-      "PR_CONST a\<^sub>0" "PR_CONST F'" "PR_CONST op \<unlhd>" "PR_CONST succs" "PR_CONST empty" "PR_CONST key"
+      "PR_CONST a\<^sub>0" "PR_CONST F'" "PR_CONST (\<unlhd>)" "PR_CONST succs" "PR_CONST empty" "PR_CONST key"
       "PR_CONST F"
 
     lemma [def_pat_rules]:
-      "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "F' \<equiv> UNPROTECT F'" "op \<unlhd> \<equiv> UNPROTECT op \<unlhd>" "succs \<equiv> UNPROTECT succs"
+      "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "F' \<equiv> UNPROTECT F'" "(\<unlhd>) \<equiv> UNPROTECT (\<unlhd>)" "succs \<equiv> UNPROTECT succs"
       "empty \<equiv> UNPROTECT empty" "keyi \<equiv> UNPROTECT keyi" "F \<equiv> UNPROTECT F" "key \<equiv> UNPROTECT key"
       by simp_all
 
@@ -88,7 +88,7 @@ begin
     for Lei a\<^sub>0i Fi succsi emptyi
     uses Worklist_Map2_Impl.pw_algo_map2_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 
-  end -- \<open>Worklist Map2 Impl\<close>
+  end \<comment> \<open>Worklist Map2 Impl\<close>
 
   locale Worklist_Map2_Impl_finite = Worklist_Map2_Impl + Worklist_Map2_finite
   begin
@@ -142,7 +142,7 @@ begin
     lemma hnr_op_F_reachable:
       assumes "GEN_ALGO a\<^sub>0i (\<lambda>a\<^sub>0i. (uncurry0 a\<^sub>0i, uncurry0 (RETURN a\<^sub>0)) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A)"
       assumes "GEN_ALGO Fi (\<lambda>Fi. (Fi,RETURN o F') \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
-      assumes "GEN_ALGO Lei (\<lambda>Lei. (uncurry Lei,uncurry (RETURN oo op \<unlhd>)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
+      assumes "GEN_ALGO Lei (\<lambda>Lei. (uncurry Lei,uncurry (RETURN oo (\<unlhd>))) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
       assumes "GEN_ALGO succsi (\<lambda>succsi. (succsi,RETURN o succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A)"
       assumes "GEN_ALGO emptyi (\<lambda>Fi. (Fi,RETURN o empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
       assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a id_assn"
@@ -153,7 +153,7 @@ begin
     proof -
       from assms interpret
         Worklist_Map2_Impl
-          E a\<^sub>0 F "op \<preceq>" succs empty "op \<unlhd>" F' A succsi a\<^sub>0i Fi Lei emptyi key keyi copyi
+          E a\<^sub>0 F "(\<preceq>)" succs empty "(\<unlhd>)" F' A succsi a\<^sub>0i Fi Lei emptyi key keyi copyi
         by (unfold_locales; simp add: GEN_ALGO_def)
 
       from pw_impl_hnr_F_reachable show ?thesis by simp
@@ -161,6 +161,6 @@ begin
 
     sepref_decl_impl hnr_op_F_reachable .
 
-  end -- \<open>Worklist Map 2\<close>
+  end \<comment> \<open>Worklist Map 2\<close>
 
-end -- \<open>End of Theory\<close>
+end \<comment> \<open>End of Theory\<close>

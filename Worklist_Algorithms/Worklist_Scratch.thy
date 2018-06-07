@@ -426,4 +426,4 @@ locale Search_Space_Pair =
   Search_Space_Pair_Defs + Search_Space' +
   assumes "(a1, b1) \<preceq> (a2, b2) \<Longrightarrow> a1 = a2"
 
-end --\<open>End of Theory\<close>
+end \<comment> \<open>End of Theory\<close>

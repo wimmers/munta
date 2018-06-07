@@ -92,7 +92,6 @@ begin
     where "subsumed_elem a M \<equiv> \<exists> a'. a' \<in> M \<and> a \<preceq> a'"
 
   notation
-    subsumed_elem  ("op \<in>'") and
     subsumed_elem  ("(_/ \<in>' _)" [51, 51] 50)
 
     definition "pw_inv_frontier' passed wait =
@@ -177,7 +176,7 @@ context Search_Space_finite begin
       "a \<preceq> a'"
       "start_subsumed passed wait"
       "\<forall>s\<in>passed. \<exists>x\<in>passed'. s \<preceq> x"
-      "\<forall>s\<in>#wait - {#a#}. Multiset.Bex wait' (op \<preceq> s)"
+      "\<forall>s\<in>#wait - {#a#}. Multiset.Bex wait' ((\<preceq>) s)"
     shows "start_subsumed passed' wait'"
       using assms unfolding start_subsumed_def apply clarsimp
       by (metis Un_iff insert_DiffM2 local.trans mset_right_cancel_elem)
@@ -449,9 +448,9 @@ context Search_Space_finite begin
     rule aux3 aux5 aux7 aux10 aux11 pw_inv_frontier_empty_elem; assumption; fail |
     rule aux3; auto; fail | auto intro: aux9; fail | auto dest: in_diffD; fail
 
-  end -- \<open>Context\<close>
+  end \<comment> \<open>Context\<close>
 
-end -- \<open>Search Space\<close>
+end \<comment> \<open>Search Space\<close>
 
 theorem (in Search_Space'_finite) pw_algo_correct:
   "pw_algo \<le> SPEC (\<lambda> (brk, passed).
@@ -505,4 +504,4 @@ qed
 
 lemmas (in Search_Space'_finite) [refine_vcg] = pw_algo_correct[THEN order.trans]
 
-end -- \<open>End of Theory\<close>
+end \<comment> \<open>End of Theory\<close>
