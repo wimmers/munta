@@ -28,7 +28,7 @@ lemma clk_set_extend_ta:
 
 lemma extend_cc_iff:
   "u \<turnstile> extend_cc cc cs \<longleftrightarrow> u \<turnstile> cc" if "\<forall> c. u c \<ge> 0"
-  using that by (induction cs) force+
+  using that by (induction cs) (force simp: clock_val_def)+
 
 lemma [simp]:
   "trans_of (extend_ta A cs) = trans_of A"
@@ -67,7 +67,7 @@ lemma extend_ta_iff:
   subgoal
     by (metis extend_cc_iff inv_of_def prod.sel(2) reset_V)
   subgoal
-    by (metis clock_val.intros delay_V extend_cc_iff inv_of_def prod.sel(2) step_t step_t.intros)
+    by (metis delay_V extend_cc_iff inv_of_def prod.sel(2) step_t step_t.intros)
   done
     (*  apply simp
 apply (force simp add: extend_cc_iff)
@@ -148,18 +148,12 @@ lemma ac_iff':
 lemma cc_iff:
   "u1 \<turnstile> cc \<longleftrightarrow> u2 \<turnstile> cc" if "\<forall> (c, d) \<in> collect_clock_pairs cc. u1 c = u2 c"
   using that
-  by (auto 4 4
-      simp: ac_iff[of u1 _ u2] list_all_iff collect_clock_pairs_def
-      intro!: clock_val.intros
-      )
+  by (auto 4 3 simp: ac_iff[of u1 _ u2] list_all_iff collect_clock_pairs_def clock_val_def)
 
 lemma cc_iff':
   "u1 \<turnstile> cc \<longleftrightarrow> u2 \<turnstile> cc" if "\<forall> c \<in> collect_clks cc. u1 c = u2 c"
   using that
-  by (auto 4 4
-      simp: ac_iff'[of u1 _ u2] list_all_iff collect_clks_def
-      intro!: clock_val.intros
-      )
+  by (auto simp: ac_iff'[of u1 _ u2] list_all_iff collect_clks_def clock_val_def)
 
 lemma step_t_bisim:
   "\<exists> u2'. A \<turnstile> \<langle>l, u2\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>l', u2'\<rangle> \<and> (\<forall> c. c \<in> clk_set A \<longrightarrow> u1' c = u2' c)"

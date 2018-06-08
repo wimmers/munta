@@ -137,13 +137,9 @@ inductive_cases[elim!]: "u \<turnstile>\<^sub>a GT c d"
 
 declare clock_val_a.intros[intro]
 
-inductive clock_val :: "('c, 't) cval \<Rightarrow> ('c, 't::time) cconstraint \<Rightarrow> bool" ("_ \<turnstile> _" [62, 62] 62)
+definition clock_val :: "('c, 't) cval \<Rightarrow> ('c, 't::time) cconstraint \<Rightarrow> bool" ("_ \<turnstile> _" [62, 62] 62)
 where
-  "list_all (clock_val_a u) cc \<Longrightarrow> u \<turnstile> cc"
-
-inductive_cases[elim!]: "u \<turnstile> cc"
-
-declare clock_val.intros[intro]
+  "u \<turnstile> cc = list_all (clock_val_a u) cc"
 
 fun clock_set :: "'c list \<Rightarrow> 't::time \<Rightarrow> ('c,'t) cval \<Rightarrow> ('c,'t) cval"
 where

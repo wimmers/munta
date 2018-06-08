@@ -2060,14 +2060,15 @@ lemma ccompatible:
   shows "ccompatible \<R> cc" using assms
 proof (induction cc)
   case Nil
-  then show ?case by (auto simp: ccompatible_def ccval_def)
+  then show ?case by (auto simp: ccompatible_def ccval_def clock_val_def)
 next
   case (Cons ac cc)
   then have "ccompatible \<R> cc" by (auto simp: collect_clock_pairs_def)
   moreover have
     "acompatible \<R> ac"
   using Cons.prems by (auto intro: acompatible simp: collect_clock_pairs_def \<R>_def)
-  ultimately show ?case unfolding ccompatible_def acompatible_def ccval_def by fastforce
+  ultimately show ?case
+    unfolding ccompatible_def acompatible_def ccval_def by (fastforce simp: clock_val_def)
 qed
 
 section \<open>Compability with Resets\<close>

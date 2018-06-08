@@ -729,10 +729,7 @@ unfolding DBM_val_bounded_def by (auto simp: dbm_le_def)
 lemma dbm_abstr_soundness':
   "\<lbrakk>u \<turnstile> cc; u \<turnstile>\<^bsub>v,n\<^esub> M; clock_numbering' v n; \<forall> c \<in> collect_clks cc. v c \<le> n\<rbrakk>
     \<Longrightarrow> DBM_val_bounded v u (abstr cc M v) n"
-apply (induction cc arbitrary: M)
- apply simp
-apply auto
-by (drule dbm_abstra_soundness) auto
+  by (induction cc arbitrary: M) (auto simp: clock_val_def dest: dbm_abstra_soundness)
 
 lemmas dbm_abstr_soundness = dbm_abstr_soundness'[OF _ DBM_triv]
 
@@ -811,16 +808,16 @@ lemma dbm_abstra_zone_eq:
 (* XXX Move *)
 lemma [simp]:
   "u \<turnstile> []"
-by force
+  by (force simp: clock_val_def)
 
 lemma clock_val_Cons:
   assumes "u \<turnstile>\<^sub>a ac" "u \<turnstile> cc"
   shows "u \<turnstile> (ac # cc)"
-using assms by (induction cc) auto
+  using assms by (induction cc) (auto simp: clock_val_def)
 
 lemma abstra_commute:
   "abstra ac1 (abstra ac2 M v) v = abstra ac2 (abstra ac1 M v) v"
-by (cases ac1; cases ac2; fastforce simp add: min.commute min.left_commute)
+  by (cases ac1; cases ac2; fastforce simp: min.commute min.left_commute clock_val_def)
 
 lemma dbm_abstr_completeness_aux:
   "\<lbrakk>DBM_val_bounded v u (abstr cc (abstra ac M v) v) n; \<forall>c. v c > 0; v (constraint_clk ac) \<le> n\<rbrakk>
