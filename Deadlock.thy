@@ -1124,14 +1124,6 @@ proof -
     by auto
 qed
 
-lemma free_canonical:
-  "canonical (free n M x) n" if "canonical M n" "x \<le> n" "M x x \<ge> 0"
-  unfolding free_def using that by (auto simp: add_increasing2 any_le_inf)
-
-lemma free_diag:
-  "free n M x i i = M i i"
-  unfolding free_def by auto
-
 lemma free_correct:
   "\<lbrakk>free n M x\<rbrakk> = {u(x := d) | u d. u \<in> \<lbrakk>M\<rbrakk> \<and> d \<ge> 0}"
   if "x > 0" "x \<le> n" "\<forall>c \<le> n. M c c \<ge> 0" "\<forall> u \<in> \<lbrakk>M\<rbrakk>. u x \<ge> 0" "canonical M n"
@@ -1159,6 +1151,24 @@ lemma
   done
 
 end (* Fixed DBM *)
+
+subsection \<open>Structural Properties\<close>
+
+lemma free_canonical:
+  "canonical (free n M x) n" if "canonical M n" "M x x \<ge> 0"
+  unfolding free_def using that by (auto simp: add_increasing2 any_le_inf)
+
+lemma free_diag:
+  "free n M x i i = M i i"
+  unfolding free_def by auto
+
+lemma
+  "check_diag n (uncurry (free n M x))" if "check_diag n (uncurry M)"
+  using that unfolding check_diag_def by (auto simp: free_diag)
+
+lemma
+  "\<forall>i\<le>n. (free n M x) i i \<le> 0" if "\<forall>i\<le>n. M i i \<le> 0"
+  using that by (auto simp: free_diag)
 
 lemma canonical_nonneg_diag_non_empty:
   assumes "canonical M n" "\<forall>i\<le>n. 0 \<le> M i i"
@@ -1197,6 +1207,91 @@ next
     by simp
 qed
 
+lemma
+  assumes "(\<forall> i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0) \<and> (\<forall> i \<le> n. M i i \<ge> 0)" "M 0 0 \<le> 0" "x > 0"
+  shows "(\<forall> i \<le> n. i > 0 \<longrightarrow> free n M x 0 i \<le> 0) \<and> (\<forall> i \<le> n. free n M x i i \<ge> 0)"
+  using assms by (auto simp: free_def)
+
+lemma
+  assumes "(\<forall> i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0) \<and> (\<forall> i \<le> n. M i i \<ge> 0) \<Longrightarrow>
+           (\<forall> i \<le> n. i > 0 \<longrightarrow> f M 0 i \<le> 0) \<and> (\<forall> i \<le> n. f M i i \<ge> 0)"
+  assumes "canonical M n" "canonical (f M) n"
+  assumes "M 0 0 \<le> 0" "f M 0 0 \<le> 0"
+  assumes check_diag: "check_diag n (uncurry M) \<Longrightarrow> check_diag n (uncurry (f M))"
+  assumes "\<lbrakk>M\<rbrakk> \<subseteq> V"
+  shows "\<lbrakk>f M\<rbrakk> \<subseteq> V"
+proof (cases "\<lbrakk>M\<rbrakk> = {}")
+  case True
+  then have "check_diag n (uncurry M)"
+  using canonical_nonneg_diag_non_empty[OF \<open>canonical M n\<close>] by (force simp: neutral check_diag_def)
+  then have "check_diag n (uncurry (f M))"
+    by (rule check_diag)
+  then have "\<lbrakk>f M\<rbrakk> = {}"
+    by (auto dest: neg_diag_empty_spec simp: check_diag_def neutral)
+  then show ?thesis
+    by auto
+next
+  case False
+  with \<open>\<lbrakk>M\<rbrakk> \<subseteq> V\<close> canonical_V_non_empty_iff[OF \<open>canonical M n\<close> \<open>M 0 0 \<le> 0\<close>] have
+    "(\<forall>i\<le>n. 0 < i \<longrightarrow> M 0 i \<le> 0) \<and> (\<forall>i\<le>n. 0 \<le> M i i)"
+    by auto
+  then have "(\<forall> i \<le> n. i > 0 \<longrightarrow> f M 0 i \<le> 0) \<and> (\<forall> i \<le> n. f M i i \<ge> 0)"
+    by (rule assms(1))
+  with \<open>canonical (f M) n\<close> have "\<lbrakk>f M\<rbrakk> \<subseteq> V \<and> \<lbrakk>f M\<rbrakk> \<noteq> {}"
+    using \<open>f M 0 0 \<le> 0\<close> by (subst canonical_V_non_empty_iff) (auto simp: free_diag)
+  then show ?thesis ..
+qed
+
+lemma
+  "\<lbrakk>free n M x\<rbrakk> \<subseteq> V" if assms: "x > 0" "canonical M n" "M 0 0 \<le> 0" "0 \<le> M x x" "\<lbrakk>M\<rbrakk> \<subseteq> V"
+proof (cases "\<lbrakk>M\<rbrakk> = {}")
+  case True
+  then obtain i where "M i i < 0" "i \<le> n"
+    using canonical_nonneg_diag_non_empty[OF \<open>canonical M n\<close>] by atomize_elim force
+  then have "free n M x i i < 0"
+    by (auto simp: free_diag)
+  with \<open>i \<le> n\<close> have "\<lbrakk>free n M x\<rbrakk> = {}"
+    by (intro neg_diag_empty_spec)
+  then show ?thesis
+    by auto
+next
+  case False
+  with \<open>\<lbrakk>M\<rbrakk> \<subseteq> V\<close> canonical_V_non_empty_iff[OF that(2,3)] have
+    "(\<forall>i\<le>n. 0 < i \<longrightarrow> M 0 i \<le> 0) \<and> (\<forall>i\<le>n. 0 \<le> M i i)"
+    by auto
+  with that have "(\<forall> i \<le> n. i > 0 \<longrightarrow> free n M x 0 i \<le> 0) \<and> (\<forall> i \<le> n. free n M x i i \<ge> 0)"
+    by (auto simp: free_def)
+  moreover have "canonical (free n M x) n"
+    apply (rule free_canonical)
+     apply fact
+    apply fact
+    done
+  ultimately have "\<lbrakk>free n M x\<rbrakk> \<subseteq> V \<and> \<lbrakk>free n M x\<rbrakk> \<noteq> {}"
+    using \<open>M 0 0 \<le> 0\<close> by (subst canonical_V_non_empty_iff) (auto simp: free_diag)
+  then show ?thesis ..
+qed
+
+lemma
+  "down n M i i = M i i"
+  unfolding down_def by auto
+
+lemma
+  assumes "(\<forall> i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0) \<and> (\<forall> i \<le> n. M i i \<ge> 0)" "M 0 0 \<le> 0" "x > 0"
+  shows "(\<forall> i \<le> n. i > 0 \<longrightarrow> down n M 0 i \<le> 0) \<and> (\<forall> i \<le> n. down n M i i \<ge> 0)"
+  using assms by (auto simp: down_def neutral)
+
+lemma
+  "\<forall>k\<le>n. 0 < k \<longrightarrow> (\<exists>c. v c = k)"
+  using v_is_id(1) by blast
+
+lemma check_diag_empty:
+  "\<lbrakk>M\<rbrakk> = {}" if "check_diag n (uncurry M)"
+  using check_diag_empty[of n v "uncurry M"] that v_is_id by auto
+
+lemma
+  "\<lbrakk>and_entry i j e M\<rbrakk> \<subseteq> V" if "i \<le> n" "j \<le> n" "i > 0 \<or> j > 0" "\<lbrakk>M\<rbrakk> \<subseteq> V"
+  using and_entry_correct[OF that(1-3)] that(4) by auto
+
 end (* Default Clock Numbering *)
 
-end
+
