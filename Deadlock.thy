@@ -2,9 +2,13 @@ theory Deadlock
   imports
     TA.Timed_Automata TA.CTL TA.DBM_Operations TA.Normalized_Zone_Semantics
     TA_Impl.Normalized_Zone_Semantics_Impl
+    TA_Impl.FW_More
 begin
 
 no_notation Ref.update ("_ := _" 62)
+hide_const D (* XXX *)
+no_notation Relators.fun_rel_syn (infixr "\<rightarrow>" 60)
+no_notation Extended_Nat.infinity ("\<infinity>")
 
 section \<open>Deadlock Checking\<close>
 
@@ -37,6 +41,9 @@ definition zone_pre :: "('c, 't::time) zone \<Rightarrow> 'c list \<Rightarrow> 
   where
   "zone_pre Z r = (zone_set_pre Z r)\<^sup>\<down>"
 
+lemma zone_time_pre_mono:
+  "A\<^sup>\<down> \<subseteq> B\<^sup>\<down>" if "A \<subseteq> B"
+  using that unfolding zone_time_pre_def by auto
 
 context Regions_TA
 begin
@@ -45,6 +52,57 @@ definition
   "check_deadlock l Z \<equiv> Z \<subseteq>
     \<Union> {(zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<down> | g a r l'.
         A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'}"
+
+lemma V_zone_time_pre:
+  "x \<in> (Z \<inter> V)\<^sup>\<down>" if "x \<in> Z\<^sup>\<down>" "x \<in> V"
+  using that unfolding zone_time_pre_def by (auto simp: V_def cval_add_def)
+
+lemma check_deadlock_alt_def:
+  "check_deadlock l Z = (Z \<subseteq> \<Union> {
+    (zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
+       \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<down>
+    | g a r l'. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'})" (is "_ = (?L \<subseteq> ?R)") if "Z \<subseteq> V"
+proof -
+  { fix g a r l' x
+    assume t: "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+    assume x: "x \<in> (zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<down>"
+    assume "x \<in> V"
+    let ?A = "zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l}"
+    let ?B = "zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
+              \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l}"
+    from valid_abstraction have "collect_clkvt (trans_of A) \<subseteq> X"
+      by (auto elim: valid_abstraction.cases)
+    have *: "0 \<le> u c" if "c \<in> set r" "u \<in> V" for c u
+    proof -
+      from t \<open>c \<in> set r\<close> have "c \<in> collect_clkvt (trans_of A)"
+        unfolding collect_clkvt_def by force
+      with \<open>_ \<subseteq> X\<close> have "c \<in> X"
+        by auto
+      with \<open>u \<in> V\<close> show ?thesis
+        by (auto simp: V_def)
+    qed
+    from x \<open>x \<in> V\<close> have "x \<in> (?A \<inter> V)\<^sup>\<down>"
+      by (rule V_zone_time_pre)
+    moreover have "y \<in> ?B" if "y \<in> ?A \<inter> V" for y
+      using that by (auto intro: *)
+    ultimately have "x \<in> ?B\<^sup>\<down>"
+      unfolding zone_time_pre_def by auto
+  } note * = this
+  from \<open>Z \<subseteq> V\<close> show ?thesis
+    unfolding check_deadlock_def
+    apply safe
+    subgoal for x
+      by (force dest: * dest!: subsetD)
+    apply (drule subsetD, assumption)+
+    apply safe
+    subgoal for x X g a r l'
+      by (drule
+          subsetD[OF zone_time_pre_mono,
+            where B1 = "zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l}",
+              rotated];
+            force)
+    done
+qed
 
 lemma step_trans1:
   assumes "A \<turnstile>\<^sub>t \<langle>l, u\<rangle> \<rightarrow>\<^bsub>(g,a,r)\<^esub> \<langle>l', u'\<rangle>"
@@ -170,6 +228,24 @@ using that
     | simp add: DBM.less_eq dbm_entry_val.simps dbm_le_def
   )+
 
+fun neg_dbm_entry where
+  "neg_dbm_entry (Le a) = Lt (-a)" |
+  "neg_dbm_entry (Lt a) = Le (-a)"
+
+lemma neg_entry:
+  "{u. \<not> dbm_entry_val u a b e} = {u. dbm_entry_val u b a (neg_dbm_entry e)}"
+  if "e \<noteq> (\<infinity> :: _ DBMEntry)" "a \<noteq> None \<or> b \<noteq> None"
+  using that by (cases e; cases a; cases b; auto 4 3 simp: le_minus_iff less_minus_iff)
+
+definition and_entry ::
+  "nat \<Rightarrow> nat \<Rightarrow> ('t::{linordered_cancel_ab_monoid_add,uminus}) DBMEntry \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
+  "and_entry a b e M = (\<lambda>i j. if i = a \<and> j = b then min (M i j) e else M i j)"
+
+abbreviation "clock_to_option a \<equiv> (if a > 0 then Some a else None)"
+
+definition
+  "dbm_entry_val' u a b e \<equiv> dbm_entry_val u (clock_to_option a) (clock_to_option b) e"
+
 locale Default_Nat_Clock_Numbering =
   fixes n :: nat and v :: "nat \<Rightarrow> nat"
   assumes v_is_id: "\<forall> c. c > 0 \<and> c \<le> n \<longrightarrow> v c = c" "\<forall> c. c > n \<longrightarrow> v c = n + 1" "v 0 = n + 1"
@@ -198,6 +274,9 @@ lemma le_n_iff:
 lemma v_0:
   "v c = 0 \<longleftrightarrow> False"
   using v_is_id by (cases "c > 0"; simp; cases "c > n"; simp)
+
+lemma surj_on: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
+  using v_is_id by blast
 
 abbreviation zone_of ("\<lbrakk>_\<rbrakk>") where "zone_of M \<equiv> [M]\<^bsub>v,n\<^esub>"
 
@@ -277,24 +356,6 @@ lemma neg_inf:
   "{u. \<not> dbm_entry_val u a b e} = {}" if "e = (\<infinity> :: _ DBMEntry)"
   using that by auto
 
-fun neg_dbm_entry where
-  "neg_dbm_entry (Le a) = Lt (-a)" |
-  "neg_dbm_entry (Lt a) = Le (-a)"
-
-lemma neg_entry:
-  "{u. \<not> dbm_entry_val u a b e} = {u. dbm_entry_val u b a (neg_dbm_entry e)}"
-  if "e \<noteq> (\<infinity> :: _ DBMEntry)" "a \<noteq> None \<or> b \<noteq> None"
-  using that by (cases e; cases a; cases b; auto 4 3 simp: le_minus_iff less_minus_iff)
-
-definition and_entry ::
-  "nat \<Rightarrow> nat \<Rightarrow> ('t::{linordered_cancel_ab_monoid_add,uminus}) DBMEntry \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
-  "and_entry a b e M = (\<lambda>i j. if i = a \<and> j = b then min (M i j) e else M i j)"
-
-abbreviation "clock_to_option a \<equiv> (if a > 0 then Some a else None)"
-
-definition
-  "dbm_entry_val' u a b e \<equiv> dbm_entry_val u (clock_to_option a) (clock_to_option b) e"
-
 lemma dbm_entry_val'_diff_shift:
   "dbm_entry_val' (u \<oplus> d) c1 c2 (M c1 c2)" if "dbm_entry_val' u c1 c2 (M c1 c2)" "0 < c1" "0 < c2"
   using that unfolding dbm_entry_val'_def cval_add_def
@@ -335,8 +396,8 @@ lemma neg_unbounded:
   using that by auto
 
 lemma and_entry_sound:
-  "\<lbrakk>dbm_entry_val' u a b e; u \<turnstile>\<^bsub>v,n\<^esub> M\<rbrakk> \<Longrightarrow> u \<turnstile>\<^bsub>v,n\<^esub> and_entry a b e M"
-  unfolding DBM_val_bounded_def
+  "u \<turnstile>\<^bsub>v,n\<^esub> and_entry a b e M" if "dbm_entry_val' u a b e" "u \<turnstile>\<^bsub>v,n\<^esub> M"
+  using that unfolding DBM_val_bounded_def
   by (cases a; cases b; auto simp: le_n_iff v_is_id(1) min_def v_0 and_entry_def)
 
 lemma and_entry_mono:
@@ -938,10 +999,71 @@ where
   "free n M x \<equiv>
     \<lambda> i j. if i = x \<and> j \<noteq> x then \<infinity> else if i \<noteq> x \<and> j = x then M i 0 else M i j"
 
+definition
+  "repair_pair n M a b = FWI (FWI M n b) n a"
+
+definition
+  "and_entry_repair n a b e M \<equiv> repair_pair n (and_entry a b e M) a b"
+
+definition
+  "restrict_zero n M x \<equiv>
+    let
+      M1 = and_entry x 0 (Le 0) M;
+      M2 = and_entry 0 x (Le 0) M1
+    in repair_pair n M2 x 0"
+
+definition
+  "pre_reset n M x \<equiv> free n (restrict_zero n M x) x"
+
+definition
+  "pre_reset_list n M r \<equiv> fold (\<lambda> x M. pre_reset n M x) r M"
+
 paragraph \<open>Auxiliary\<close>
+
+lemma repair_pair_characteristic:
+  assumes "canonical_subs n I M"
+    and "I \<subseteq> {0..n}"
+    and "a \<le> n" "b \<le> n"
+  shows "canonical_subs n (I \<union> {a,b}) (repair_pair n M a b) \<or> (\<exists>i\<le>n. repair_pair n M a b i i < 0)"
+proof -
+  from fwi_characteristic[OF assms(1,2,4)] have
+    "canonical_subs n (I \<union> {b}) (FWI M n b) \<or> (\<exists>i\<le>n. FWI M n b i i < 0)"
+    by auto
+  then show ?thesis
+  proof
+    assume "canonical_subs n (I \<union> {b}) (FWI M n b)"
+    from fwi_characteristic[OF this _ \<open>a \<le> n\<close>] assms(2) \<open>b \<le> n\<close> show ?thesis
+      unfolding repair_pair_def by simp
+  next
+    assume "\<exists>i\<le>n. FWI M n b i i < 0"
+    then have "\<exists>i\<le>n. repair_pair n M a b i i < 0"
+      unfolding repair_pair_def
+      apply safe
+      subgoal for i
+        apply (inst_existentials i)
+         apply assumption
+        apply (frule FWI_mono[where M = "FWI M n b" and k = a])
+         apply auto
+        done
+      done
+    then show ?thesis ..
+  qed
+qed
+
+lemma repair_pair_mono:
+  assumes "i \<le> n"
+      and "j \<le> n"
+    shows "repair_pair n M a b i j \<le> M i j"
+  unfolding repair_pair_def by (auto intro: FWI_mono assms order.trans)
 
 context Default_Nat_Clock_Numbering
 begin
+
+lemmas FWI_zone_equiv = FWI_zone_equiv[OF surj_on, symmetric]
+
+lemma repair_pair_zone_equiv:
+  "\<lbrakk>repair_pair n M a b\<rbrakk> = \<lbrakk>M\<rbrakk>" if "a \<le> n" "b \<le> n"
+  using that unfolding repair_pair_def by (simp add: FWI_zone_equiv)
 
 context
   fixes c1 c2 c x :: nat
@@ -1141,7 +1263,7 @@ lemma free_correct:
     by (auto intro: free_complete)
   done
 
-lemma
+lemma pre_reset_correct_aux:
   "{u. (u(x := (0::'t))) \<in> \<lbrakk>M\<rbrakk>} \<inter> {u. u x \<ge> 0} = {u(x := d) | u d. u \<in> \<lbrakk>M\<rbrakk> \<and> u x = 0 \<and> d \<ge> 0}"
   apply auto
   subgoal for u
@@ -1149,6 +1271,29 @@ lemma
   subgoal for u d
     by (subgoal_tac "u = u(x := 0)") auto
   done
+
+lemma restrict_zero_correct:
+  "\<lbrakk>restrict_zero n M x\<rbrakk> = {u. u \<in> \<lbrakk>M\<rbrakk> \<and> u x = 0}" if "0 < x" "x \<le> n"
+  using that unfolding restrict_zero_def
+  by (auto simp: repair_pair_zone_equiv and_entry_correct dbm_entry_val'_iff_bounded dbm_entry_simps)
+
+lemma restrict_zero_canonical:
+  "canonical (restrict_zero n M x) n \<or> check_diag n (uncurry (restrict_zero n M x))"
+  if "canonical M n" "x \<le> n"
+proof -
+  from \<open>x \<le> n\<close> have *: "{0..n} - {0, x} \<union> {x, 0} = {0..n}"
+    by auto
+  define M1 and M2 where "M1 = and_entry x 0 (Le 0) M" "M2 = and_entry 0 x (Le 0) M1"
+  from \<open>canonical M n\<close> have "canonical_subs n {0..n} M"
+    unfolding canonical_alt_def .
+  with * have "canonical_subs n ({0..n} - {0, x}) M2"
+    unfolding and_entry_def M1_M2_def canonical_subs_def by (auto simp: min.coboundedI1)
+  from repair_pair_characteristic[OF this, of x 0] \<open>x \<le> n\<close> have
+    "canonical (repair_pair n M2 x 0) n \<or> check_diag n (uncurry (repair_pair n M2 x 0))"
+    unfolding canonical_alt_def check_diag_def * neutral by auto
+  then show ?thesis
+    unfolding restrict_zero_def M1_M2_def Let_def .
+qed
 
 end (* Fixed DBM *)
 
@@ -1162,7 +1307,7 @@ lemma free_diag:
   "free n M x i i = M i i"
   unfolding free_def by auto
 
-lemma
+lemma check_diag_free:
   "check_diag n (uncurry (free n M x))" if "check_diag n (uncurry M)"
   using that unfolding check_diag_def by (auto simp: free_diag)
 
@@ -1292,6 +1437,134 @@ lemma
   "\<lbrakk>and_entry i j e M\<rbrakk> \<subseteq> V" if "i \<le> n" "j \<le> n" "i > 0 \<or> j > 0" "\<lbrakk>M\<rbrakk> \<subseteq> V"
   using and_entry_correct[OF that(1-3)] that(4) by auto
 
+lemma restrict_zero_mono:
+  "restrict_zero n M x i j \<le> M i j" if "i \<le> n" "j \<le> n"
+  unfolding restrict_zero_def
+  by simp (rule \<open>i \<le> n\<close> \<open>j \<le> n\<close> repair_pair_mono and_entry_mono order.trans)+
+
+lemma restrict_zero_diag:
+  "check_diag n (uncurry (restrict_zero n M x))" if "check_diag n (uncurry M)"
+  using that unfolding check_diag_def neutral[symmetric]
+  by (elim exE conjE) (frule restrict_zero_mono[where M = M and x = x], auto)
+
+lemma pre_reset_correct:
+  "\<lbrakk>pre_reset n M x\<rbrakk> = {u. (u(x := (0::'t::time))) \<in> \<lbrakk>M\<rbrakk>} \<inter> {u. u x \<ge> 0}"
+  if "x > 0" "x \<le> n" "canonical M n \<or> check_diag n (uncurry M)" "M 0 x \<le> 0" "M 0 0 \<le> 0"
+proof -
+  have check_diag: ?thesis if A: "check_diag n (uncurry (restrict_zero n M x))"
+  proof -
+    from A have "check_diag n (uncurry (pre_reset n M x))"
+      unfolding pre_reset_def by (rule check_diag_free)
+    then have "\<lbrakk>pre_reset n M x\<rbrakk> = {}"
+      by (rule check_diag_empty)
+    from A have "\<lbrakk>restrict_zero n M x\<rbrakk> = {}"
+      by (rule check_diag_empty)
+    then have "{u. (u(x := (0::'t::time))) \<in> \<lbrakk>M\<rbrakk>} \<inter> {u. u x \<ge> 0} = {}"
+      using \<open>0 < x\<close> \<open>x \<le> n\<close> by (auto simp: restrict_zero_correct)
+    with \<open>\<lbrakk>pre_reset n M x\<rbrakk> = {}\<close> show ?thesis
+      by simp
+  qed
+  from that(3) show ?thesis
+  proof
+    assume "canonical M n"
+    from restrict_zero_canonical[OF \<open>canonical M n\<close> \<open>x \<le> n\<close>] have
+      "canonical (restrict_zero n M x) n \<or> check_diag n (uncurry (restrict_zero n M x))"
+      (is "?A \<or> ?B") .
+    then consider ?A "\<not> ?B" | ?B
+      by blast
+    then show ?thesis
+    proof cases
+      case 1
+      assume ?A "\<not> ?B"
+      moreover from \<open>\<not> ?B\<close> have "\<forall>c\<le>n. 0 \<le> restrict_zero n M x c c"
+        unfolding check_diag_def by (auto simp: DBM.neutral)
+      moreover have "\<forall>u\<in>\<lbrakk>restrict_zero n M x\<rbrakk>. 0 \<le> u x"
+        by (simp add: restrict_zero_correct that)
+      moreover from \<open>x \<le> n\<close> \<open>M 0 x \<le> 0\<close> have "restrict_zero n M x 0 x \<le> 0"
+        by (blast intro: order.trans restrict_zero_mono)
+      moreover from \<open>x \<le> n\<close> \<open>M 0 0 \<le> 0\<close> have "restrict_zero n M x 0 0 \<le> 0"
+        by (blast intro: order.trans restrict_zero_mono)
+      ultimately show ?thesis
+        using that
+        by (auto simp: pre_reset_correct_aux restrict_zero_correct free_correct pre_reset_def)
+    next
+      assume ?B then show ?thesis
+        by (rule check_diag)
+    qed
+  next
+    assume "check_diag n (uncurry M)"
+    then have "check_diag n (uncurry (restrict_zero n M x))"
+      by (rule restrict_zero_diag)
+    then show ?thesis
+      by (rule check_diag)
+  qed
+qed
+
+lemma zone_set_pre_Cons:
+  "zone_set_pre \<lbrakk>M\<rbrakk> (x # r) = zone_set_pre {u. (u(x := (0::'t::time))) \<in> \<lbrakk>M\<rbrakk>} r"
+  unfolding zone_set_pre_def by auto
+
+lemma pre_reset_list_Cons:
+  "pre_reset_list n M (x # r) = pre_reset_list n (pre_reset n M x) r"
+  unfolding pre_reset_list_def by simp
+
+lemma pre_reset_diag:
+  "check_diag n (uncurry (pre_reset n M x))" if "check_diag n (uncurry M)"
+  using that unfolding pre_reset_def by (intro check_diag_free restrict_zero_diag)
+
+lemma free_canonical':
+  "canonical (free n (M :: (_ :: time) DBM) x) n \<or> check_diag n (uncurry (free n M x))"
+  if "canonical M n \<or> check_diag n (uncurry M)" "x \<le> n"
+  by (smt check_diag_def check_diag_free dbm_entry_le_iff(5) free_canonical leI
+          order_mono_setup.refl order_trans that uncurry_apply
+     )
+
+lemma pre_reset_canonical':
+  "canonical (pre_reset n (M :: (_ :: time) DBM) x) n \<or> check_diag n (uncurry (pre_reset n M x))"
+  if "canonical M n \<or> check_diag n (uncurry M)" "x \<le> n"
+  using that(1)
+proof standard
+  assume "canonical M n"
+  with \<open>x \<le> n\<close> have
+    "canonical (restrict_zero n M x) n \<or> check_diag n (uncurry (restrict_zero n M x))"
+    by (intro restrict_zero_canonical)
+  with \<open>x \<le> n\<close> show ?thesis
+    unfolding pre_reset_def by (intro free_canonical')
+next
+  assume "check_diag n (uncurry M)"
+  from pre_reset_diag[OF this] show ?thesis ..
+qed
+
+lemma pre_reset_list_correct:
+  "\<lbrakk>pre_reset_list n M r\<rbrakk> = zone_set_pre \<lbrakk>M\<rbrakk> r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}"
+  if "\<forall> x \<in> set r. x > 0 \<and> x \<le> n"
+    "canonical M n \<or> check_diag n (uncurry M)" "\<forall> x \<in> set r. M 0 x \<le> 0" "M 0 0 \<le> 0"
+  using that
+  apply (induction r arbitrary: M)
+   apply (simp add: zone_set_pre_def pre_reset_list_def)
+  subgoal premises prems for x r M
+    apply (subst zone_set_pre_Cons)
+    apply (subst pre_reset_list_Cons)
+    apply (subst prems)
+        prefer 5
+        apply (subst pre_reset_correct)
+             prefer 6
+    subgoal
+      unfolding zone_set_pre_def by (cases "x \<in> set r") auto
+    using prems(2-) apply (auto; fail)+
+    subgoal
+      using prems(2-) by (intro pre_reset_canonical'; auto)
+    subgoal
+      unfolding pre_reset_def free_def using prems(2-)
+      by (auto 4 3 intro: order.trans restrict_zero_mono)
+    subgoal
+      unfolding pre_reset_def free_def using prems(2-)
+      by (auto 4 3 intro: order.trans restrict_zero_mono)
+    done
+  done
+
+
 end (* Default Clock Numbering *)
+
 
 
