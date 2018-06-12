@@ -2,11 +2,12 @@ theory Deadlock
   imports
     TA.Timed_Automata TA.CTL TA.DBM_Operations TA.Normalized_Zone_Semantics
     TA_Impl.Normalized_Zone_Semantics_Impl
+    TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     TA_Impl.FW_More
 begin
 
 no_notation Ref.update ("_ := _" 62)
-hide_const D (* XXX *)
+(* hide_const D *) (* XXX *)
 no_notation Relators.fun_rel_syn (infixr "\<rightarrow>" 60)
 no_notation Extended_Nat.infinity ("\<infinity>")
 
@@ -241,10 +242,18 @@ definition and_entry ::
   "nat \<Rightarrow> nat \<Rightarrow> ('t::{linordered_cancel_ab_monoid_add,uminus}) DBMEntry \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
   "and_entry a b e M = (\<lambda>i j. if i = a \<and> j = b then min (M i j) e else M i j)"
 
+lemma and_entry_mono:
+  "and_entry a b e M i j \<le> M i j"
+  by (auto simp: and_entry_def)
+
 abbreviation "clock_to_option a \<equiv> (if a > 0 then Some a else None)"
 
 definition
   "dbm_entry_val' u a b e \<equiv> dbm_entry_val u (clock_to_option a) (clock_to_option b) e"
+
+definition
+  "dbm_minus n xs m = concat (map (\<lambda>(i, j). map (\<lambda> M. and_entry j i (neg_dbm_entry (m i j)) M) xs)
+  [(i, j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m i j \<noteq> \<infinity>])"
 
 locale Default_Nat_Clock_Numbering =
   fixes n :: nat and v :: "nat \<Rightarrow> nat"
@@ -400,10 +409,6 @@ lemma and_entry_sound:
   using that unfolding DBM_val_bounded_def
   by (cases a; cases b; auto simp: le_n_iff v_is_id(1) min_def v_0 and_entry_def)
 
-lemma and_entry_mono:
-  "and_entry a b e M i j \<le> M i j"
-  by (auto simp: and_entry_def)
-
 (* XXX Move *)
 lemma DBM_val_bounded_mono:
   "u \<turnstile>\<^bsub>v,n\<^esub> M" if "u \<turnstile>\<^bsub>v,n\<^esub> M'" "\<forall> i \<le> n. \<forall> j \<le> n. M' i j \<le> M i j"
@@ -505,15 +510,14 @@ private lemma 2:
   by auto
 
 lemma dbm_list_subtract:
-  "dbm_list xs \<inter> - ([m]\<^bsub>v,n\<^esub>) =
-  dbm_list (concat (map (\<lambda>(i, j). map (\<lambda> M. and_entry j i (neg_dbm_entry (m i j)) M) xs)
-  [(i, j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m i j \<noteq> \<infinity>]))"
+  "dbm_list xs \<inter> - ([m]\<^bsub>v,n\<^esub>) = dbm_list (dbm_minus n xs m)"
 proof -
   have *:
     "set [(i, j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m i j \<noteq> \<infinity>]
   = {(i, j).(i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m i j \<noteq> \<infinity>}"
     by (auto simp del: upt.upt_Suc)
   show ?thesis
+    unfolding dbm_minus_def
     apply (subst set_concat)
     apply (subst set_map)
     apply (subst *)
@@ -539,6 +543,15 @@ lemmas dbm_list_superset_op =
   dbm_fed_superset_fold''[OF dbm_list_subtract[symmetric], unfolded dbm_list_empty_check]
 
 end (* Trivial clock numbering *)
+
+context Reachability_Problem_no_ceiling
+begin
+
+sublocale dbm: Default_Nat_Clock_Numbering n v
+  by unfold_locales (auto simp: v_def)
+
+end
+
 
 subsubsection \<open>Down\<close>
 
@@ -999,7 +1012,7 @@ where
   "free n M x \<equiv>
     \<lambda> i j. if i = x \<and> j \<noteq> x then \<infinity> else if i \<noteq> x \<and> j = x then M i 0 else M i j"
 
-definition
+definition repair_pair where
   "repair_pair n M a b = FWI (FWI M n b) n a"
 
 definition
@@ -1563,8 +1576,248 @@ lemma pre_reset_list_correct:
     done
   done
 
-
 end (* Default Clock Numbering *)
 
+definition
+  "dbm_minus_canonical n xs m =
+  concat (map (\<lambda>(i, j). map (\<lambda> M. and_entry_repair n j i (neg_dbm_entry (m i j)) M) xs)
+    [(i, j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m i j \<noteq> \<infinity>])"
 
+definition
+  "dbm_subset_fed n M xs =
+    list_all (\<lambda> M. check_diag n (uncurry M)) (fold (\<lambda>m S. dbm_minus_canonical n S m) xs [M])"
 
+definition "canonical' n M \<equiv> canonical M n \<or> check_diag n (uncurry M)"
+
+lemma canonical'I:
+  "canonical' n (f M)" if
+  "canonical' n M"
+  "canonical M n \<Longrightarrow> canonical' n (f M)" "check_diag n (uncurry M) \<Longrightarrow> check_diag n (uncurry (f M))"
+  using that unfolding canonical'_def by metis
+
+lemma check_diag_repair_pair:
+  assumes "check_diag n (uncurry M)"
+  shows "check_diag n (uncurry (repair_pair n M i j))"
+  using assms repair_pair_mono[where M = M and a = i and b = j] unfolding check_diag_def by force
+
+lemma check_diag_and_entry:
+  assumes "check_diag n (uncurry M)"
+  shows "check_diag n (uncurry (and_entry a b e M))"
+  using assms unfolding check_diag_def
+  apply (elim exE)
+  subgoal for i
+    using and_entry_mono[where M = M and a = a and b = b and e = e, of i i] by auto
+  done
+
+lemma canonical'_and_entry_repair:
+  "canonical' n (and_entry_repair n i j e M)" if "canonical' n M" "i \<le> n" "j \<le> n"
+  using that(1)
+proof (rule canonical'I)
+  assume "canonical M n"
+  from \<open>i \<le> n\<close> \<open>j \<le> n\<close> have *: "{0..n} - {i, j} \<union> {i, j} = {0..n}"
+    by auto
+  define M1 where "M1 = and_entry i j e M"
+  from \<open>canonical M n\<close> have "canonical_subs n {0..n} M"
+    unfolding canonical_alt_def .
+  with * have "canonical_subs n ({0..n} - {i, j}) M1"
+    unfolding and_entry_def M1_def canonical_subs_def by (auto simp: min.coboundedI1)
+  from repair_pair_characteristic[OF this, of i j] \<open>i \<le> n\<close> \<open>j \<le> n\<close> have
+    "canonical' n (repair_pair n M1 i j)"
+    unfolding canonical'_def
+    unfolding canonical_alt_def check_diag_def * neutral by auto
+  then show ?thesis
+    unfolding and_entry_repair_def M1_def Let_def .
+next
+  assume "check_diag n (uncurry M)"
+  then show "check_diag n (uncurry (and_entry_repair n i j e M))"
+    unfolding and_entry_repair_def by (intro check_diag_repair_pair check_diag_and_entry)
+qed
+
+lemma dbm_minus_canonical_canonical':
+  "\<forall>M \<in> set (dbm_minus_canonical n xs m). canonical' n M" if "\<forall>M \<in> set xs. canonical' n M"
+  using that unfolding dbm_minus_canonical_def
+  by (auto split: if_split_asm intro: canonical'_and_entry_repair)
+
+thm Default_Nat_Clock_Numbering.dbm_list_empty_check Default_Nat_Clock_Numbering.dbm_list_superset_op
+
+paragraph \<open>Misc\<close>
+
+lemma list_all_iffI:
+  assumes "\<forall> x \<in> set xs. \<exists> y \<in> set ys. P x \<longleftrightarrow> Q y"
+      and "\<forall> y \<in> set ys. \<exists> x \<in> set xs. P x \<longleftrightarrow> Q y"
+    shows "list_all P xs \<longleftrightarrow> list_all Q ys"
+  using assms unfolding list_all_def by blast
+
+lemma list_all_iff_list_all2I:
+  assumes "list_all2 (\<lambda> x y. P x \<longleftrightarrow> Q y) xs ys"
+  shows "list_all P xs \<longleftrightarrow> list_all Q ys"
+  using assms by (intro list_all_iffI list_all2_set1 list_all2_set2)
+
+lemma list_all2_mapI:
+  assumes "list_all2 (\<lambda> x y. P (f x) (g y)) xs ys"
+  shows "list_all2 P (map f xs) (map g ys)"
+  using assms by (simp only: list.rel_map)
+
+context Default_Nat_Clock_Numbering
+begin
+
+lemma canonical_empty_zone:
+  "[M]\<^bsub>v,n\<^esub> = {} \<longleftrightarrow> (\<exists>i\<le>n. M i i < 0)" if "canonical M n"
+  using v_0 that surj_on by (intro canonical_empty_zone) auto
+
+lemma check_diag_iff_empty:
+  "check_diag n (uncurry M) \<longleftrightarrow> \<lbrakk>M\<rbrakk> = {}" if "canonical' n M"
+proof (auto dest: check_diag_empty, goal_cases)
+  case 1
+  show ?case
+  proof -
+    from that
+    show ?thesis
+      unfolding canonical'_def
+    proof
+      assume "canonical M n"
+      from canonical_empty_zone[OF this] \<open>\<lbrakk>M\<rbrakk> = {}\<close> have
+        "\<exists>i\<le>n. M i i < 0"
+        by auto
+      then show ?thesis unfolding check_diag_def neutral
+        by auto
+    next
+      assume "check_diag n (uncurry M)"
+      then show ?thesis unfolding check_diag_def neutral by auto
+    qed
+  qed
+qed
+
+lemma and_entry_repair_zone_equiv:
+  "\<lbrakk>and_entry_repair n a b e M\<rbrakk> = \<lbrakk>and_entry a b e M\<rbrakk>" if "a \<le> n" "b \<le> n"
+  unfolding and_entry_repair_def using that by (rule repair_pair_zone_equiv)
+
+lemma dbm_minus_rel:
+  assumes "list_all2 (\<lambda>x y. \<lbrakk>x\<rbrakk> = \<lbrakk>y\<rbrakk>) ms ms'"
+  shows "list_all2 (\<lambda>x y. \<lbrakk>x\<rbrakk> = \<lbrakk>y\<rbrakk>) (dbm_minus n ms m) (dbm_minus_canonical n ms' m)"
+  unfolding dbm_minus_def dbm_minus_canonical_def
+  apply (rule concat_transfer[unfolded rel_fun_def, rule_format])
+  apply (rule list_all2_mapI)
+  apply (rule list.rel_refl_strong)
+  apply (auto 4 3
+      intro: list_all2_mapI list_all2_mono[OF assms]
+      simp: and_entry_repair_zone_equiv and_entry_correct split: if_split_asm
+      )
+  done
+
+theorem dbm_subset_fed_correct:
+  fixes xs :: "(nat \<Rightarrow> nat \<Rightarrow> ('t ::time) DBMEntry) list"
+    and S :: "(nat \<Rightarrow> nat \<Rightarrow> 't DBMEntry) list"
+  assumes "\<forall>M \<in> set xs. M 0 0 \<ge> 0" "canonical' n M"
+  shows "\<lbrakk>M\<rbrakk> \<subseteq> (\<Union>m\<in>set xs. \<lbrakk>m\<rbrakk>) \<longleftrightarrow> dbm_subset_fed n M xs"
+proof -
+  have canonical: "\<forall>M \<in> set (fold (\<lambda>m S. dbm_minus_canonical n S m) xs ms). canonical' n M"
+    if "\<forall>M \<in> set ms. canonical' n M" for ms
+    using that by (induction xs arbitrary: ms) (auto dest: dbm_minus_canonical_canonical')
+  have *: "list_all2 (\<lambda>x y. \<lbrakk>x\<rbrakk> = \<lbrakk>y\<rbrakk>)
+     (fold (\<lambda>m S. dbm_minus n S m) xs ms)
+     (fold (\<lambda>m S. dbm_minus_canonical n S m) xs ms')"
+    if "list_all2 (\<lambda>x y. \<lbrakk>x\<rbrakk> = \<lbrakk>y\<rbrakk>) ms ms'" for ms ms'
+    using that
+  proof (induction xs arbitrary: ms ms')
+    case Nil
+    then show ?case
+      by simp
+  next
+    case prems: (Cons a xs)
+    from this(2) show ?case
+      by simp (intro prems(1) dbm_minus_rel)
+  qed
+  have *: "list_all2 (\<lambda>x y. \<lbrakk>x\<rbrakk> = \<lbrakk>y\<rbrakk>)
+     (fold (\<lambda>m S. dbm_minus n S m) xs [M])
+     (fold (\<lambda>m S. dbm_minus_canonical n S m) xs [M])"
+    by (rule *) simp
+  show ?thesis
+    apply (subst dbm_list_superset_op[where S = "[M]", simplified])
+    subgoal
+      using assms(1) by (auto simp: neutral DBM.less_eq)
+    subgoal
+      unfolding dbm_subset_fed_def
+      using canonical[of "[M]"] \<open>canonical' n M\<close>
+      by - (rule list_all_iff_list_all2I,
+          auto 4 4 dest: check_diag_iff_empty intro: list.rel_mono_strong[OF *]
+          )
+    done
+qed
+
+definition (in -)
+  "empty_dbm = (\<lambda> i j. if i = j then 0 else if i = 0 \<and> j > 0 then 0 else \<infinity>)"
+
+lemma empty_dbm_correct:
+  "\<lbrakk>empty_dbm\<rbrakk> = V"
+  unfolding V_def DBM_zone_repr_def DBM_val_bounded_alt_def2 
+  by (auto simp: dbm_entry_val'_iff_bounded empty_dbm_def dbm_entry_simps neutral)
+
+end
+
+context Reachability_Problem_Impl
+begin
+
+term trans_fun
+
+term "[f x. x \<leftarrow> xs]"
+
+term V
+
+term TA.check_deadlock
+
+definition
+  "check_deadlock_dbm l M \<equiv> dbm_subset_fed n M (
+   [And
+      (abstr g (pre_reset_list n (abstr (inv_fun l') empty_dbm v) r) v)
+      (down n (abstr (inv_fun l) empty_dbm v)).
+    (g, a, r, l') \<leftarrow> trans_fun l
+   ]
+  )"
+print_interps Regions_TA
+print_locales
+
+term check_deadlock
+term conv_M
+
+abbreviation zone_of ("\<lbrakk>_\<rbrakk>") where "zone_of M \<equiv> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
+
+lemma
+  "TA.check_deadlock l \<lbrakk>M\<rbrakk> = check_deadlock_dbm l (curry M)"
+proof -
+  have *: "check_deadlock_dbm l (curry M) \<longleftrightarrow>
+  dbm_subset_fed n (curry (conv_M M)) (map (curry o conv_M o uncurry)
+     (map (\<lambda>(g, a, r, l').
+              And (abstr g (pre_reset_list n (abstr (inv_fun l') empty_dbm v) r) v)
+               (down n (abstr (inv_fun l) empty_dbm v)))
+       (trans_fun l)))
+  "
+    sorry
+  show ?thesis
+  unfolding TA.check_deadlock_def *
+  thm dbm.dbm_subset_fed_correct[of _ "curry (conv_M M)"]
+  apply (subst dbm.dbm_subset_fed_correct[symmetric])
+  
+
+thm check_deadlock_dbm_def
+
+end
+
+definition
+  "check_deadlock_dbm l M \<equiv> dbm_subset_fed n M (
+   [(zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<down> | g a r l'.
+        True]
+  )"
+
+  oops
+cont ext Regions_TA
+begin
+
+thm dbm_list_superset_op
+
+definition
+  "check_deadlock_dbm l M \<equiv> M \<subseteq>
+    \<Union> {(zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<down> | g a r l'.
+        A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'}"
+
+end
