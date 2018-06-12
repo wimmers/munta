@@ -1646,8 +1646,7 @@ proof -
       "\<forall>c\<in>set r. v c = c \<and> 0 < c \<and> v c \<le> n"
       by fastforce+
     from prems action_step_impl_correct[OF canonical *(1) ** diag *(2)] have
-      "[curry M']\<^bsub>v,n\<^esub> =
-       [And (reset' (And (curry M) (abstr g (\<lambda>i j. \<infinity>) v)) n r v 0) (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)]\<^bsub>v,n\<^esub>"
+      "[curry M']\<^bsub>v,n\<^esub> = [?M]\<^bsub>v,n\<^esub>"
       by (simp add: FW'_FW FW_zone_equiv[OF *(2), symmetric])
     moreover have
       "A \<turnstile> \<langle>l,curry M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',?M\<rangle>" unfolding \<open>a = _\<close> by - (intro step_z_norm step_a_z_dbm prems)
@@ -2320,6 +2319,10 @@ begin
     "finite (collect_clkvt (trans_of A))"
   unfolding collect_clkvt_def using [[simproc add: finite_Collect]] by auto
 
+  (* Tailored towards the needs of the specific implementation semantics *)
+  definition "v i \<equiv> if i > 0 \<and> i \<le> n then i else (Suc n)"
+  definition "x \<equiv> SOME x. x \<notin> X"
+
 end
 
 locale Reachability_Problem_Defs =
@@ -2359,10 +2362,6 @@ begin
   lemma consts_ints:
     "\<forall>(_, d) \<in> Timed_Automata.clkp_set A. d \<in> \<int>"
   using consts_nats unfolding Nats_def by auto
-
-  (* Tailored towards the needs of the specific implementation semantics *)
-  definition "v i \<equiv> if i > 0 \<and> i \<le> n then i else (Suc n)"
-  definition "x \<equiv> SOME x. x \<notin> X"
 
   lemma k_bound:
     assumes "i > n"
