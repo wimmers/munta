@@ -61,7 +61,7 @@ lemma V_zone_time_pre:
 lemma check_deadlock_alt_def:
   "check_deadlock l Z = (Z \<subseteq> \<Union> {
     (zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
-       \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<down>
+       \<inter> {u. u \<turnstile> g} \<inter> {u. u \<turnstile> inv_of A l})\<^sup>\<down> \<inter> V
     | g a r l'. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'})" (is "_ = (?L \<subseteq> ?R)") if "Z \<subseteq> V"
 proof -
   { fix g a r l' x
@@ -93,7 +93,17 @@ proof -
     unfolding check_deadlock_def
     apply safe
     subgoal for x
-      by (force dest: * dest!: subsetD)
+      apply rotate_tac
+      apply (drule subsetD, assumption)
+      apply (drule subsetD, assumption)
+      apply auto
+      apply (frule *, assumption+)
+      subgoal for g a r l'
+        apply (inst_existentials "(zone_set_pre {u. u \<turnstile> inv_of A l'} r \<inter> {u. \<forall>x\<in>set r. 0 \<le> u x} \<inter> {u. u \<turnstile> g} \<inter>
+             {u. u \<turnstile> inv_of A l})\<^sup>\<down> \<inter> V" g a r l')
+          apply auto
+        done
+      done
     apply (drule subsetD, assumption)+
     apply safe
     subgoal for x X g a r l'
@@ -231,7 +241,9 @@ using that
 
 fun neg_dbm_entry where
   "neg_dbm_entry (Le a) = Lt (-a)" |
-  "neg_dbm_entry (Lt a) = Le (-a)"
+  "neg_dbm_entry (Lt a) = Le (-a)" |
+  "neg_dbm_entry \<infinity> = \<infinity>"
+  \<comment> \<open>This case doesn't make sense but we make this definition for technical convenience\<close>
 
 lemma neg_entry:
   "{u. \<not> dbm_entry_val u a b e} = {u. dbm_entry_val u b a (neg_dbm_entry e)}"
@@ -830,7 +842,7 @@ context
   fixes M :: "('t::time) DBM"
 begin
 
-lemma down_complete: "u \<in> \<lbrakk>down n M\<rbrakk>" if "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" "\<forall> c \<le> n. u c \<ge> 0"
+lemma down_complete: "u \<in> \<lbrakk>down n M\<rbrakk>" if "u \<in> \<lbrakk>M\<rbrakk>\<^sup>\<down>" "\<forall> c \<le> n. c > 0 \<longrightarrow> u c \<ge> 0"
 proof (rule DBM_val_bounded_altI, goal_cases)
   case 1
   with \<open>u \<in> _\<close> show ?case
@@ -1746,14 +1758,250 @@ proof -
 qed
 
 definition (in -)
-  "empty_dbm = (\<lambda> i j. if i = j then 0 else if i = 0 \<and> j > 0 then 0 else \<infinity>)"
+  "V_dbm = (\<lambda> i j. if i = j then 0 else if i = 0 \<and> j > 0 then 0 else \<infinity>)"
 
-lemma empty_dbm_correct:
-  "\<lbrakk>empty_dbm\<rbrakk> = V"
+lemma V_dbm_correct:
+  "\<lbrakk>V_dbm\<rbrakk> = V"
   unfolding V_def DBM_zone_repr_def DBM_val_bounded_alt_def2 
-  by (auto simp: dbm_entry_val'_iff_bounded empty_dbm_def dbm_entry_simps neutral)
+  by (auto simp: dbm_entry_val'_iff_bounded V_dbm_def dbm_entry_simps neutral)
 
 end
+
+definition and_entry_upd ::
+  "nat \<Rightarrow> nat \<Rightarrow> int DBMEntry \<Rightarrow> int DBM' \<Rightarrow> int DBM'" where
+  "and_entry_upd a b e M = M((a,b) := min (M (a, b)) e)"
+
+definition
+  "and_entry_repair_upd n a b e M \<equiv>
+   Normalized_Zone_Semantics_Impl_Semantic_Refinement.repair_pair n (and_entry_upd a b e M) a b"
+
+definition
+  "dbm_minus_canonical_upd n xs m =
+  concat (map (\<lambda>(i, j). map (\<lambda> M. and_entry_repair_upd n j i (neg_dbm_entry (m (i, j))) M) xs)
+    [(i, j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m (i, j) \<noteq> \<infinity>])"
+
+definition
+  "dbm_subset_fed_upd n M xs =
+    list_all (\<lambda> M. check_diag n M) (fold (\<lambda>m S. dbm_minus_canonical_upd n S m) xs [M])"
+
+context
+  fixes n :: nat
+begin
+
+context
+  includes lifting_syntax
+begin
+
+definition
+  "RI2 M D \<equiv> RI n (uncurry M) D"
+
+lemma
+  "RI2 (and_entry a b e M) (and_entry_upd a b e' M')"
+  if "RI2 M M'" "rel_DBMEntry ri e e'"
+  using that
+  unfolding and_entry_def and_entry_upd_def
+  unfolding rel_fun_def eq_onp_def RI2_def
+  apply auto
+  apply (rule min_ri_transfer[unfolded rel_fun_def, rule_format])
+   apply auto
+  done
+
+lemma and_entry_transfer[transfer_rule]:
+  "((=) ===> (=) ===> rel_DBMEntry ri ===> RI2 ===> RI2) and_entry and_entry_upd"
+  unfolding and_entry_def and_entry_upd_def
+  unfolding rel_fun_def eq_onp_def RI2_def
+  by (auto intro: min_ri_transfer[unfolded rel_fun_def, rule_format])
+
+lemma FWI_transfer[transfer_rule]:
+  "(RI2 ===> (=) ===> (=) ===> RI2) FWI FWI'"
+  unfolding FWI'_def
+  unfolding rel_fun_def
+  apply auto
+  sorry
+
+lemma repair_pair_transfer[transfer_rule]:
+  "((=) ===> RI2 ===> (=) ===> (=) ===> RI2)
+    repair_pair Normalized_Zone_Semantics_Impl_Semantic_Refinement.repair_pair"
+  unfolding repair_pair_def Normalized_Zone_Semantics_Impl_Semantic_Refinement.repair_pair_def
+  by transfer_prover
+
+lemma and_entry_repair_transfer[transfer_rule]:
+  "((=) ===> (=) ===> (=) ===> rel_DBMEntry ri ===> RI2 ===> RI2)
+    and_entry_repair and_entry_repair_upd
+  "
+  unfolding and_entry_repair_def and_entry_repair_upd_def by transfer_prover
+
+lemma neg_dbm_entry_transfer[transfer_rule]:
+  "(rel_DBMEntry ri ===> rel_DBMEntry ri) neg_dbm_entry neg_dbm_entry"
+  by (auto elim!: DBMEntry.rel_cases intro!: rel_funI)
+
+lemma dbm_minus_canonical_transfer[transfer_rule]:
+  "((=) ===> list_all2 RI2 ===> RI2 ===> list_all2 RI2)
+    dbm_minus_canonical dbm_minus_canonical_upd
+  "
+  unfolding dbm_minus_canonical_def dbm_minus_canonical_upd_def
+  apply (rule rel_funI)
+  apply (rule rel_funI)
+  apply (rule rel_funI)
+  apply (rule concat_transfer[unfolded rel_fun_def, rule_format])
+  thm list.map_transfer[unfolded rel_fun_def, rule_format]
+  apply (rule list.map_transfer[unfolded rel_fun_def, rule_format, where Rb = "rel_prod (eq_onp (\<lambda>x. x < Suc n)) (eq_onp (\<lambda>x. x < Suc n))"])
+  apply clarsimp
+   apply (rule list_all2_mapI)
+   apply (erule list_all2_mono)
+  thm and_entry_repair_transfer[unfolded rel_fun_def, rule_format]
+   apply (rule and_entry_repair_transfer[unfolded rel_fun_def, rule_format])
+       apply (rule HOL.refl)
+  subgoal
+    unfolding RI2_def by (auto simp: rel_fun_def eq_onp_def)
+  subgoal
+    unfolding RI2_def by (auto simp: rel_fun_def eq_onp_def)
+subgoal
+  unfolding RI2_def apply (auto simp: rel_fun_def)
+  apply (elim allE impE)
+     apply (rule conjI, assumption, rotate_tac, assumption)
+    apply (rule conjI, assumption, rotate_tac, assumption)
+   apply simp
+  apply (rule neg_dbm_entry_transfer[unfolded rel_fun_def, rule_format])
+  apply simp
+  done
+  apply assumption
+  sorry
+
+lemma dbm_minus_canonical_transfer'[transfer_rule]:
+  "(eq_onp (\<lambda>x. x < Suc n) ===> list_all2 RI2 ===> RI2 ===> list_all2 RI2)
+    dbm_minus_canonical dbm_minus_canonical_upd
+  "
+  using dbm_minus_canonical_transfer unfolding rel_fun_def eq_onp_def by blast
+
+lemma [transfer_rule]:
+  "(eq_onp (\<lambda>x. x < Suc n) ===> RI2 ===> (=)) (\<lambda>n M. check_diag n (uncurry M)) check_diag"
+  unfolding RI2_def rel_fun_def
+  apply auto
+  unfolding check_diag_def
+   apply (auto simp: eq_onp_def)
+  sorry
+
+lemma dbm_subset_fed_transfer:
+  "(eq_onp (\<lambda>x. x < Suc n) ===> RI2 ===> list_all2 RI2 ===> (=)) dbm_subset_fed dbm_subset_fed_upd"
+  unfolding dbm_subset_fed_def dbm_subset_fed_upd_def by transfer_prover
+
+term fold
+definition
+  "And_upd M1 M2 \<equiv>
+    fold (\<lambda>(i, j) M. M((i,j) := min (M1 (i, j)) (M2 (i, j))))
+      [(i,j). i \<leftarrow> [0..<Suc n], j \<leftarrow> [0..<Suc n]] M1"
+
+lemma And_transfer[transfer_rule]:
+  "(RI2 ===> RI2 ===> RI2) And And_upd"
+  sorry
+
+definition "V_dbm' = (\<lambda> (i, j). (if i = j \<or> i = 0 \<and> j > 0 \<or> i > n \<or> j > n then 0 else \<infinity>))"
+
+lemma V_dbm_transfer[transfer_rule]:
+  "RI2 V_dbm V_dbm'"
+  unfolding V_dbm_def V_dbm'_def RI2_def by (auto simp: rel_fun_def neutral eq_onp_def zero_RI)
+
+definition
+  down_upd :: "_ DBM' \<Rightarrow> _ DBM'"
+where
+  "down_upd M \<equiv> \<lambda>(i, j).
+  if i = 0 \<and> j > 0 \<and> i \<le> n \<and> j \<le> n then Min ({Le 0} \<union> {M (k, j) | k. 1 \<le> k \<and> k \<le> n}) else M (i, j)"
+
+lemma down_transfer[transfer_rule]:
+  "(RI2 ===> RI2) (down n) down_upd"
+  sorry
+
+definition
+  "restrict_zero_upd M x \<equiv>
+    let
+      M1 = and_entry_upd x 0 (Le 0) M;
+      M2 = and_entry_upd 0 x (Le 0) M1
+    in Normalized_Zone_Semantics_Impl_Semantic_Refinement.repair_pair n M2 x 0"
+
+definition
+  free_upd :: "_ DBM' \<Rightarrow> nat \<Rightarrow> _ DBM'"
+where
+  "free_upd M x \<equiv>
+   \<lambda> (i, j). if i = x \<and> j \<noteq> x \<and> i \<le> n \<and> j \<le> n
+    then \<infinity> else if i \<noteq> x \<and> j = x \<and> i \<le> n \<and> j \<le> n then M (i, 0) else M (i, j)"
+
+lemma free_upd[transfer_rule]:
+  "(RI2 ===> (=) ===> RI2) (free n) free_upd"
+  sorry
+
+definition
+  "pre_reset_upd M x \<equiv> free_upd (restrict_zero_upd M x) x"
+
+definition
+  "pre_reset_list_upd M r \<equiv> fold (\<lambda> x M. pre_reset_upd M x) r M"
+
+lemma pre_reset_list_transfer[transfer_rule]:
+  "(RI2 ===> list_all2 (=) ===> RI2) (pre_reset_list n) pre_reset_list_upd"
+  sorry
+
+end (* Lifting Syntax *)
+end (* Fixed n *)
+
+
+context Default_Nat_Clock_Numbering
+begin
+
+lemma
+  "\<lbrakk>And A B\<rbrakk> = \<lbrakk>A\<rbrakk> \<inter> \<lbrakk>B\<rbrakk>"
+  by (rule And_correct[symmetric])
+
+lemma clock_numbering:
+  "\<forall> c. v c > 0 \<and> (\<forall>x. \<forall>y. v x \<le> n \<and> v y \<le> n \<and> v x = v y \<longrightarrow> x = y)"
+  sorry
+  
+lemma abstr_correct:
+  "\<lbrakk>abstr cc M v\<rbrakk> = \<lbrakk>M\<rbrakk> \<inter> {u. u \<turnstile> cc}" if "\<forall>c\<in>collect_clks cc. 0 < c \<and> c \<le> n"
+  apply (rule dbm_abstr_zone_eq2)
+  subgoal
+    by (rule clock_numbering)
+  subgoal
+    using that by (auto simp: v_is_id)
+  done
+
+lemma abstr_correct':
+  "\<lbrakk>abstr cc (\<lambda>i j. \<infinity>) v\<rbrakk> = {u. u \<turnstile> cc}" if "\<forall>c\<in>collect_clks cc. 0 < c \<and> c \<le> n"
+  apply (rule dbm_abstr_zone_eq)
+  subgoal
+    by (rule clock_numbering)
+  subgoal
+    using that by (auto simp: v_is_id)
+  done
+
+lemma down_correct':
+  "\<lbrakk>down n M\<rbrakk> = \<lbrakk>M\<rbrakk>\<^sup>\<down> \<inter> V" if "canonical M n"
+  apply safe
+  subgoal for u
+    by (erule down_sound, rule that)
+  subgoal for u
+    using canonical_V_non_empty_iff
+    sorry
+  subgoal for u
+    unfolding V_def by (erule down_complete) simp
+  done
+
+lemma down_check_diag:
+  "check_diag n (uncurry (down n M))" if "check_diag n (uncurry M)"
+  using that unfolding check_diag_def down_def by force
+
+lemma down_correct:
+  "\<lbrakk>down n M\<rbrakk> = \<lbrakk>M\<rbrakk>\<^sup>\<down> \<inter> V" if "canonical' n M"
+  sorry
+
+lemma
+  "canonical (\<lambda> i j. if i = j then 0 else \<infinity>) n"
+  by (auto simp: any_le_inf)
+
+
+end
+
+
+
 
 context Reachability_Problem_Impl
 begin
@@ -1766,24 +2014,289 @@ term V
 
 term TA.check_deadlock
 
+(*
 definition
-  "check_deadlock_dbm l M \<equiv> dbm_subset_fed n M (
-   [And
-      (abstr g (pre_reset_list n (abstr (inv_fun l') empty_dbm v) r) v)
-      (down n (abstr (inv_fun l) empty_dbm v)).
+  "check_deadlock_dbm l M \<equiv> dbm_subset_fed_upd n M (
+   [And_upd n
+      (abstr_upd g (pre_reset_list_upd n (abstr_upd (inv_fun l') (V_dbm' n)) r))
+      (down_upd n (abstr_upd (inv_fun l) (V_dbm' n))).
+    (g, a, r, l') \<leftarrow> trans_fun l
+   ]
+  )"
+*)
+
+definition
+  "check_deadlock_dbm l M \<equiv> dbm_subset_fed_upd n M (
+   [down_upd n
+      (abstr_upd (inv_fun l)
+        (abstr_upd g (pre_reset_list_upd n (abstr_upd (inv_fun l') (\<lambda>_. \<infinity>)) r)))
+      .
     (g, a, r, l') \<leftarrow> trans_fun l
    ]
   )"
 print_interps Regions_TA
 print_locales
 
-term check_deadlock
+thm TA.check_deadlock_alt_def
 term conv_M
 
 abbreviation zone_of ("\<lbrakk>_\<rbrakk>") where "zone_of M \<equiv> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
 
+
 lemma
-  "TA.check_deadlock l \<lbrakk>M\<rbrakk> = check_deadlock_dbm l (curry M)"
+  "TA.check_deadlock l \<lbrakk>M\<rbrakk> = check_deadlock_dbm l M" if "\<lbrakk>M\<rbrakk> \<subseteq> V" "l \<in> states"
+proof -
+  note [simp del] = And.simps abstr.simps
+  have "inv_of (conv_A A) l = conv_cc (inv_fun l)"
+    sorry
+  have *: "
+(dbm_subset_fed n (curry (conv_M M))
+     (map (\<lambda>(g, a, r, l').
+              And
+               (abstr (conv_cc g)
+                 (pre_reset_list n (abstr (conv_cc (inv_fun l')) V_dbm v) r) v)
+               (down n (abstr (conv_cc (inv_fun l)) V_dbm v)))
+       (trans_fun l))) =
+(dbm_subset_fed_upd n M
+     (map (\<lambda>(g, a, r, l').
+              And_upd n
+               (abstr_upd g
+                 (pre_reset_list_upd n (abstr_upd (inv_fun l') (V_dbm' n)) r))
+               (down_upd n (abstr_upd (inv_fun l) (V_dbm' n))))
+       (trans_fun l)))
+"
+    apply transfer_prover_start
+    sorry
+  have **: "[down n
+      (abstr (conv_cc (inv_fun l))
+        (abstr (conv_cc g)
+          (pre_reset_list n (abstr (conv_cc (inv_fun l')) (\<lambda> i j. \<infinity>) v) r) v) v)]\<^bsub>v,n\<^esub>
+= (zone_set_pre {u. u \<turnstile> inv_of (conv_A A) l'} r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
+       \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down>
+" if "(g, a, r, l') \<in> set(trans_fun l)" for g a r l'
+  proof -
+    have "inv_of (conv_A A) l' = conv_cc (inv_fun l')"
+      sorry
+    have clock_conditions:
+      "\<forall>c\<in>collect_clks (conv_cc (inv_fun l)). 0 < c \<and> c \<le> n"
+      "\<forall>c\<in>collect_clks (conv_cc (inv_fun l')). 0 < c \<and> c \<le> n"
+      "\<forall>c\<in>collect_clks (conv_cc g). 0 < c \<and> c \<le> n"
+      "\<forall>c\<in>set r. 0 < c \<and> c \<le> n"
+      subgoal sorry
+      subgoal sorry
+      subgoal sorry
+      subgoal sorry
+      sorry
+    have structural_conditions:
+      "abstr (map conv_ac (inv_fun l')) (\<lambda>i j. \<infinity>) v 0 0 \<le> 0"
+      "\<forall>x\<in>set r. abstr (map conv_ac (inv_fun l')) (\<lambda>i j. \<infinity>) v 0 x \<le> 0"
+      subgoal
+        sorry
+      subgoal
+        thm abstr_canonical_diag_preservation cn_weak inf_not_le_Le neutral
+  by (metis \<open>abstr (map conv_ac (inv_fun l')) (\<lambda>i j. \<infinity>) v 0 0 \<le> 0\<close> abstr_canonical_diag_preservation cn_weak inf_not_le_Le neutral)
+  done
+    show ?thesis
+      apply (subst dbm.down_correct)
+        subgoal
+          sorry
+        apply (subst dbm.abstr_correct)
+        subgoal
+          by fact
+          apply (subst dbm.abstr_correct)
+          subgoal
+            by fact
+            apply (subst dbm.pre_reset_list_correct)
+            subgoal
+              by fact
+subgoal
+  sorry
+subgoal
+  by fact
+  subgoal
+    by fact
+  apply (subst dbm.abstr_correct')
+  subgoal
+    by fact
+  apply (simp add: dbm.V_dbm_correct \<open>inv_of _ l = _\<close> \<open>inv_of _ l' = _\<close>)
+  sorry
+qed
+  have **:
+  "(\<Union>x\<in>set (trans_fun l).
+            dbm.zone_of
+             (case x of
+              (g, a, r, l') \<Rightarrow>
+                And (abstr (map conv_ac g)
+                      (pre_reset_list n (abstr (map conv_ac (inv_fun l')) V_dbm v)
+                        r)
+                      v)
+                 (down n (abstr (map conv_ac (inv_fun l)) V_dbm v))))
+= (\<Union>(g,a,r,l')\<in>set (trans_fun l).
+((zone_set_pre {u. u \<turnstile> inv_of (conv_A A) l'} r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
+       \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down>)
+)
+"
+    by (auto simp: **)
+  have transD: "\<exists> g'. (g', a, r, l') \<in> set (trans_fun l) \<and> g = conv_cc g'"
+    if "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" for g a r l'
+    using trans_of_trans_fun that \<open>l \<in> states\<close>
+    unfolding trans_of_def by (auto 6 0 split: prod.split_asm)
+  have transD2:
+    "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>conv_cc g,a,r\<^esup> l'" if "(g, a, r, l') \<in> set (trans_fun l)" for g a r l'
+    using trans_fun_trans_of[OF that \<open>l \<in> states\<close>]
+    unfolding trans_of_def by (auto 4 3 split: prod.split)
+  thm transD[elim_format]
+show ?thesis
+  unfolding TA.check_deadlock_alt_def[OF \<open>\<lbrakk>M\<rbrakk> \<subseteq> V\<close>] check_deadlock_dbm_def *[symmetric]
+  thm dbm.dbm_subset_fed_correct[of _ "curry (conv_M M)"]
+  apply (subst dbm.dbm_subset_fed_correct[symmetric])
+    subgoal
+      sorry
+    subgoal
+    sorry
+  apply (simp add: **)
+  apply auto
+  subgoal for x
+    apply (drule subsetD, assumption)
+    apply auto
+    apply (erule transD[elim_format], elim exE conjE)
+    apply auto
+    done
+subgoal for x
+    apply (drule subsetD, assumption)
+  apply auto
+  apply (drule transD2)
+  subgoal for g a r l'
+  apply (inst_existentials "
+(zone_set_pre {u. u \<turnstile> inv_of (conv_A A) l'}
+              r \<inter> {u. \<forall>x\<in>set r. 0 \<le> u x} \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down>
+" "conv_cc g" a r l')
+      apply auto
+    done
+  done
+  done
+qed
+
+
+lemma
+  "TA.check_deadlock l \<lbrakk>M\<rbrakk> = check_deadlock_dbm l M" if "\<lbrakk>M\<rbrakk> \<subseteq> V" "l \<in> states"
+proof -
+  note [simp del] = And.simps abstr.simps
+  have "inv_of (conv_A A) l = conv_cc (inv_fun l)"
+    sorry
+  have *: "
+(dbm_subset_fed n (curry (conv_M M))
+     (map (\<lambda>(g, a, r, l').
+              And
+               (abstr (conv_cc g)
+                 (pre_reset_list n (abstr (conv_cc (inv_fun l')) V_dbm v) r) v)
+               (down n (abstr (conv_cc (inv_fun l)) V_dbm v)))
+       (trans_fun l))) =
+(dbm_subset_fed_upd n M
+     (map (\<lambda>(g, a, r, l').
+              And_upd n
+               (abstr_upd g
+                 (pre_reset_list_upd n (abstr_upd (inv_fun l') (V_dbm' n)) r))
+               (down_upd n (abstr_upd (inv_fun l) (V_dbm' n))))
+       (trans_fun l)))
+"
+    apply transfer_prover_start
+    sorry
+  have **: "[And (abstr (map conv_ac g)
+          (pre_reset_list n
+            (abstr (map conv_ac (inv_fun l')) V_dbm v) r)
+          v)
+         (down n (abstr (map conv_ac (inv_fun l)) V_dbm v))]\<^bsub>v,n\<^esub>
+= (zone_set_pre {u. u \<turnstile> inv_of (conv_A A) l'} r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
+       \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down>
+" if "(g, a, r, l') \<in> set(trans_fun l)" for g a r l'
+  proof -
+    have "inv_of (conv_A A) l' = conv_cc (inv_fun l')"
+      sorry
+    show ?thesis
+    apply (subst And_correct[symmetric])
+    apply (subst dbm.abstr_correct)
+    subgoal
+      sorry
+    apply (subst dbm.pre_reset_list_correct)
+      subgoal
+        sorry
+subgoal
+  sorry
+subgoal
+  sorry
+subgoal
+  sorry
+  apply (subst dbm.abstr_correct)
+  subgoal
+    sorry
+  apply (subst dbm.down_correct)
+  subgoal sorry
+  apply (subst dbm.abstr_correct)
+  subgoal
+    sorry
+  apply (simp add: dbm.V_dbm_correct \<open>inv_of _ l = _\<close> \<open>inv_of _ l' = _\<close>)
+  sorry
+qed
+  have **:
+  "(\<Union>x\<in>set (trans_fun l).
+            dbm.zone_of
+             (case x of
+              (g, a, r, l') \<Rightarrow>
+                And (abstr (map conv_ac g)
+                      (pre_reset_list n (abstr (map conv_ac (inv_fun l')) V_dbm v)
+                        r)
+                      v)
+                 (down n (abstr (map conv_ac (inv_fun l)) V_dbm v))))
+= (\<Union>(g,a,r,l')\<in>set (trans_fun l).
+((zone_set_pre {u. u \<turnstile> inv_of (conv_A A) l'} r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
+       \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down>)
+)
+"
+    by (auto simp: **)
+  have transD: "\<exists> g'. (g', a, r, l') \<in> set (trans_fun l) \<and> g = conv_cc g'"
+    if "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" for g a r l'
+    using trans_of_trans_fun that \<open>l \<in> states\<close>
+    unfolding trans_of_def by (auto 6 0 split: prod.split_asm)
+  have transD2:
+    "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>conv_cc g,a,r\<^esup> l'" if "(g, a, r, l') \<in> set (trans_fun l)" for g a r l'
+    using trans_fun_trans_of[OF that \<open>l \<in> states\<close>]
+    unfolding trans_of_def by (auto 4 3 split: prod.split)
+  thm transD[elim_format]
+show ?thesis
+  unfolding TA.check_deadlock_alt_def[OF \<open>\<lbrakk>M\<rbrakk> \<subseteq> V\<close>] check_deadlock_dbm_def *[symmetric]
+  thm dbm.dbm_subset_fed_correct[of _ "curry (conv_M M)"]
+  apply (subst dbm.dbm_subset_fed_correct[symmetric])
+    subgoal
+      sorry
+    subgoal
+    sorry
+  apply (simp add: **)
+  apply auto
+  subgoal for x
+    apply (drule subsetD, assumption)
+    apply auto
+    apply (erule transD[elim_format], elim exE conjE)
+    apply auto
+    done
+subgoal for x
+    apply (drule subsetD, assumption)
+  apply auto
+  apply (drule transD2)
+  subgoal for g a r l'
+  apply (inst_existentials "
+(zone_set_pre {u. u \<turnstile> inv_of (conv_A A) l'}
+              r \<inter> {u. \<forall>x\<in>set r. 0 \<le> u x} \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down>
+" "conv_cc g" a r l')
+      apply auto
+    done
+  done
+  done
+qed
+
+unfolding TA.check_deadlock_def check_deadlock_dbm_def
+thm dbm.dbm_subset_fed_correct[of _ "curry (conv_M M)"]
+
 proof -
   have *: "check_deadlock_dbm l (curry M) \<longleftrightarrow>
   dbm_subset_fed n (curry (conv_M M)) (map (curry o conv_M o uncurry)
