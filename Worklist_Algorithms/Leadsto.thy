@@ -1,5 +1,5 @@
 theory Leadsto
-  imports Liveness_Subsumption Unified_PW "../library/CTL"
+  imports Liveness_Subsumption Unified_PW TA.CTL
 begin
 
 context Subsumption_Graph_Pre_Nodes

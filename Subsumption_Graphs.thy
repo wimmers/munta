@@ -1,7 +1,7 @@
 theory Subsumption_Graphs
   imports
-    "library/Graphs"
-    "library/More_List"
+    TA.Graphs
+    TA.More_List
 begin
 
 chapter \<open>Subsumption Graphs\<close>

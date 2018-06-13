@@ -1,8 +1,8 @@
 theory Infinite_TA_Runs
   imports
     TA.Normalized_Zone_Semantics
-    "library/Stream_More"
-    "library/Instantiate_Existentials"
+    TA.Stream_More
+    TA.Instantiate_Existentials
 begin
 
 type_synonym ('s, 'c, 't) run = "('s * ('c, 't) cval) stream"

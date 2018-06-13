@@ -1,5 +1,5 @@
 theory Worklist_Locales
-  imports Refine_Imperative_HOL.Sepref Collections.HashCode "../library/Graphs"
+  imports Refine_Imperative_HOL.Sepref Collections.HashCode TA.Graphs
 begin
 
 subsection \<open>Search Spaces\<close>
