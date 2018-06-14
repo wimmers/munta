@@ -1,16 +1,20 @@
 (* Use this to get document output for the abstract formalization of Reachability Checking *)
 session "TA" = "Refine_Imperative_HOL" +
+(*
   options
     [document = pdf, document_output = "output",
      document_variants = "abstract_reachability_proofs:abstract_reachability=/proof,/ML"]
+*)
   theories [document = false]
     Main "HOL.Real" Floyd_Warshall FW_Code
   theories
     Normalized_Zone_Semantics
+(*
   document_files
     "root.bib" "wasysym.sty"
   document_files (in "document/abstract_reachability")
     "root.tex"
+*)
 
 session "TA_Impl" = "TA" +
   theories [document = false]
