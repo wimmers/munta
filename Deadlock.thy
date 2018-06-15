@@ -1357,6 +1357,22 @@ lemma canonical_nonneg_diag_non_empty:
   shows "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
   using v_0 by (intro canonical_nonneg_diag_non_empty[OF assms]) force
 
+lemma V_structuralI:
+  "\<lbrakk>M\<rbrakk> \<subseteq> V" if "\<forall> i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0"
+  using that
+  unfolding V_def
+proof clarsimp
+  fix u i assume "u \<in> \<lbrakk>M\<rbrakk>" "Suc 0 \<le> i" "i \<le> n"
+  from in_DBM_D[OF \<open>u \<in> _\<close>, of 0 i] \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "dbm_entry_val' u 0 i (M 0 i)"
+    by auto
+  with \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "Le (- u i) \<le> M 0 i"
+    by (auto simp: dbm_entry_val'_iff_bounded)
+  also from that \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "\<dots> \<le> 0"
+    by simp
+  finally show "0 \<le> u i"
+    by (auto simp: dbm_entry_simps)
+qed
+
 lemma canonical_V_non_empty_iff:
   assumes "canonical M n" "M 0 0 \<le> 0"
   shows "\<lbrakk>M\<rbrakk> \<subseteq> V \<and> \<lbrakk>M\<rbrakk> \<noteq> {} \<longleftrightarrow> (\<forall> i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0) \<and> (\<forall> i \<le> n. M i i \<ge> 0)"
@@ -1370,19 +1386,8 @@ next
     using neg_diag_empty_spec[of i M] by fastforce
 next
   case prems: (3 u)
-  show ?case
-    unfolding V_def
-  proof clarsimp
-    fix i assume "Suc 0 \<le> i" "i \<le> n"
-    from in_DBM_D[OF \<open>u \<in> _\<close>, of 0 i] \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "dbm_entry_val' u 0 i (M 0 i)"
-      by auto
-    with \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "Le (- u i) \<le> M 0 i"
-      by (auto simp: dbm_entry_val'_iff_bounded)
-    also from prems \<open>_ \<le> i\<close> \<open>i \<le> n\<close> have "\<dots> \<le> 0"
-      by simp
-    finally show "0 \<le> u i"
-      by (auto simp: dbm_entry_simps)
-  qed
+  then show ?case
+    by (auto dest: subsetD[OF V_structuralI])
 next
   case 4
   with canonical_nonneg_diag_non_empty[OF \<open>canonical M n\<close>] show ?case
@@ -1829,29 +1834,67 @@ lemma and_entry_transfer[transfer_rule]:
   by (auto intro: min_ri_transfer[unfolded rel_fun_def, rule_format])
 
 lemma FWI_transfer[transfer_rule]:
-  "(RI2 ===> (=) ===> (=) ===> RI2) FWI FWI'"
-  unfolding FWI'_def
-  unfolding rel_fun_def
-  apply auto
-  sorry
-
-lemma FW_transfer[transfer_rule]:
-  "(RI2 ===> (=) ===> RI2) FW FW'"
-  unfolding FWI'_def
-  unfolding rel_fun_def
-  apply auto
-  sorry
+  "(RI2 ===> eq_onp (\<lambda>x. x = n) ===> eq_onp (\<lambda>x. x < Suc n) ===> RI2) FWI FWI'" (is "?A")
+and FW_transfer[transfer_rule]:
+  "(RI2 ===> eq_onp (\<lambda>x. x = n) ===> RI2) FW FW'" (is "?B")
+proof -
+  define RI' where
+    "RI' = (eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n) ===> rel_DBMEntry ri)"
+  have RI_iff: "RI' M M' \<longleftrightarrow> RI n (uncurry M) (uncurry M')" for M M'
+    unfolding RI'_def rel_fun_def by auto
+  { fix M D k assume "RI n (uncurry M) D" "k < Suc n"
+    then have "RI' M (curry D)"
+      by (simp add: RI_iff)
+    with \<open>k < Suc n\<close> have "RI' (FWI M n k) (FWI (curry D) n k)"
+      unfolding FWI_def
+      by (intro fwi_RI_transfer[of n, folded RI'_def, unfolded rel_fun_def, rule_format])
+        (auto simp: eq_onp_def)
+    then have "RI n (uncurry (FWI M n k)) (uncurry (FWI (curry D) n k))"
+      by (simp add: RI_iff)
+  } note * = this
+  show ?A
+    unfolding FWI'_def
+    unfolding rel_fun_def
+    unfolding RI2_def
+    apply clarsimp
+    apply (subst (asm) (3) eq_onp_def)
+    apply (subst (asm) (3) eq_onp_def)
+    apply clarsimp
+    by (intro *)
+  { fix M D assume "RI n (uncurry M) D"
+    then have "RI' M (curry D)"
+      by (simp add: RI_iff)
+    then have "RI' (FW M n) (FW (curry D) n)"
+      by (intro FW_RI_transfer[of n, folded RI'_def, unfolded rel_fun_def, rule_format])
+         (auto simp: eq_onp_def)
+    then have "RI n (uncurry (FW M n)) (FW' D n)"
+      by (simp add: RI_iff FW'_def)
+  } note * = this
+  show ?B
+    unfolding rel_fun_def
+    unfolding RI2_def
+    apply clarsimp
+    apply (subst (asm) (3) eq_onp_def)
+    apply clarsimp
+    by (intro *)
+qed
 
 lemma repair_pair_transfer[transfer_rule]:
-  "((=) ===> RI2 ===> (=) ===> (=) ===> RI2)
+  "(eq_onp (\<lambda>x. x = n) ===> RI2 ===> eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> RI2)
     repair_pair Normalized_Zone_Semantics_Impl_Semantic_Refinement.repair_pair"
   unfolding repair_pair_def Normalized_Zone_Semantics_Impl_Semantic_Refinement.repair_pair_def
   by transfer_prover
 
+lemma and_entry_transfer_weak:
+  "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri ===> RI2 ===> RI2)
+    and_entry and_entry_upd"
+  using and_entry_transfer unfolding rel_fun_def eq_onp_def by auto
+
 lemma and_entry_repair_transfer[transfer_rule]:
-  "((=) ===> (=) ===> (=) ===> rel_DBMEntry ri ===> RI2 ===> RI2)
-    and_entry_repair and_entry_repair_upd
+  "(eq_onp (\<lambda>x. x = n) ===> eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri
+    ===> RI2 ===> RI2) and_entry_repair and_entry_repair_upd
   "
+  supply [transfer_rule] = and_entry_transfer_weak
   unfolding and_entry_repair_def and_entry_repair_upd_def by transfer_prover
 
 lemma neg_dbm_entry_transfer[transfer_rule]:
@@ -1859,65 +1902,67 @@ lemma neg_dbm_entry_transfer[transfer_rule]:
   by (auto elim!: DBMEntry.rel_cases intro!: rel_funI)
 
 lemma dbm_minus_canonical_transfer[transfer_rule]:
-  "((=) ===> list_all2 RI2 ===> RI2 ===> list_all2 RI2)
+  "(eq_onp (\<lambda>x. x = n) ===> list_all2 RI2 ===> RI2 ===> list_all2 RI2)
     dbm_minus_canonical dbm_minus_canonical_upd
   "
   unfolding dbm_minus_canonical_def dbm_minus_canonical_upd_def
-  apply (rule rel_funI)
-  apply (rule rel_funI)
-  apply (rule rel_funI)
+  apply (intro rel_funI)
   apply (rule concat_transfer[unfolded rel_fun_def, rule_format])
-  thm list.map_transfer[unfolded rel_fun_def, rule_format]
-  apply (rule list.map_transfer[unfolded rel_fun_def, rule_format, where Rb = "rel_prod (eq_onp (\<lambda>x. x < Suc n)) (eq_onp (\<lambda>x. x < Suc n))"])
-  apply clarsimp
-   apply (rule list_all2_mapI)
-   apply (erule list_all2_mono)
-  thm and_entry_repair_transfer[unfolded rel_fun_def, rule_format]
-   apply (rule and_entry_repair_transfer[unfolded rel_fun_def, rule_format])
-       apply (rule HOL.refl)
+  apply (rule list.map_transfer[unfolded rel_fun_def, rule_format,
+        where Rb = "rel_prod (eq_onp (\<lambda>x. x < Suc n)) (eq_onp (\<lambda>x. x < Suc n))"])
+   apply clarsimp
   subgoal
-    unfolding RI2_def by (auto simp: rel_fun_def eq_onp_def)
-  subgoal
-    unfolding RI2_def by (auto simp: rel_fun_def eq_onp_def)
-subgoal
-  unfolding RI2_def apply (auto simp: rel_fun_def)
-  apply (elim allE impE)
-     apply (rule conjI, assumption, rotate_tac, assumption)
-    apply (rule conjI, assumption, rotate_tac, assumption)
-   apply simp
-  apply (rule neg_dbm_entry_transfer[unfolded rel_fun_def, rule_format])
-  apply simp
+    apply (rule list_all2_mapI)
+    apply (erule list_all2_mono)
+    apply (rule and_entry_repair_transfer[unfolded rel_fun_def, rule_format])
+        apply assumption+
+    subgoal
+      unfolding RI2_def rel_fun_def
+      by (auto intro: neg_dbm_entry_transfer[unfolded rel_fun_def, rule_format])
+    apply assumption
+    done
+  subgoal premises prems for n1 n2 xs ys M D
+  proof -
+    have [simp]: "D (i, j) \<noteq> \<infinity> \<longleftrightarrow> M i j \<noteq> \<infinity>" if "i < Suc n" "j < Suc n" for i j
+      using prems that by (auto 4 3 simp: eq_onp_def rel_fun_def RI2_def elim!: DBMEntry.rel_cases)
+    from prems have [simp]: "n1 = n" "n2 = n"
+      by (auto simp: eq_onp_def)
+    let ?a = "(concat
+       (map (\<lambda>i. concat
+                   (map (\<lambda>j. if (0 < i \<or> 0 < j) \<and>
+                                 i \<le> n \<and> j \<le> n \<and> M i j \<noteq> \<infinity>
+                              then [(i, j)] else [])
+                     [0..<Suc n]))
+         [0..<Suc n]))"
+    let ?b = "(concat
+       (map (\<lambda>i. concat
+                   (map (\<lambda>j. if (0 < i \<or> 0 < j) \<and>
+                                 i \<le> n \<and> j \<le> n \<and> D (i, j) \<noteq> \<infinity>
+                              then [(i, j)] else [])
+                     [0..<Suc n]))
+         [0..<Suc n]))"
+    have "?b = ?a"
+      by (auto intro!: arg_cong[where f = concat] simp del: upt_Suc)
+    then show ?thesis
+      by (simp del: upt_Suc add: list_all2_same eq_onp_def)
+  qed
   done
-  apply assumption
-  sorry
 
 lemma dbm_minus_canonical_transfer'[transfer_rule]:
   "(eq_onp (\<lambda>x. x < Suc n) ===> list_all2 RI2 ===> RI2 ===> list_all2 RI2)
     dbm_minus_canonical dbm_minus_canonical_upd
   "
-  using dbm_minus_canonical_transfer unfolding rel_fun_def eq_onp_def by blast
+  using dbm_minus_canonical_transfer unfolding rel_fun_def eq_onp_def
+  oops
 
 lemma [transfer_rule]:
-  "(eq_onp (\<lambda>x. x < Suc n) ===> RI2 ===> (=)) (\<lambda>n M. check_diag n (uncurry M)) check_diag"
-  unfolding RI2_def rel_fun_def
-  apply auto
-  unfolding check_diag_def
-   apply (auto simp: eq_onp_def)
-  sorry
+  "(eq_onp (\<lambda>x. x = n) ===> RI2 ===> (=)) (\<lambda>n M. check_diag n (uncurry M)) check_diag"
+  unfolding RI2_def rel_fun_def check_diag_def
+  by (auto 0 5 dest: neutral_RI simp: eq_onp_def less_Suc_eq_le neutral[symmetric])
 
 lemma dbm_subset_fed_transfer:
-  "(eq_onp (\<lambda>x. x < Suc n) ===> RI2 ===> list_all2 RI2 ===> (=)) dbm_subset_fed dbm_subset_fed_upd"
+  "(eq_onp (\<lambda>x. x = n) ===> RI2 ===> list_all2 RI2 ===> (=)) dbm_subset_fed dbm_subset_fed_upd"
   unfolding dbm_subset_fed_def dbm_subset_fed_upd_def by transfer_prover
-
-term fold
-definition
-  "And_upd M1 M2 \<equiv>
-    fold (\<lambda>(i, j) M. M((i,j) := min (M1 (i, j)) (M2 (i, j))))
-      [(i,j). i \<leftarrow> [0..<Suc n], j \<leftarrow> [0..<Suc n]] M1"
-
-lemma And_transfer[transfer_rule]:
-  "(RI2 ===> RI2 ===> RI2) And And_upd"
-  sorry
 
 definition "V_dbm' = (\<lambda> (i, j). (if i = j \<or> i = 0 \<and> j > 0 \<or> i > n \<or> j > n then 0 else \<infinity>))"
 
@@ -1931,9 +1976,26 @@ where
   "down_upd M \<equiv> \<lambda>(i, j).
   if i = 0 \<and> j > 0 \<and> i \<le> n \<and> j \<le> n then Min ({Le 0} \<union> {M (k, j) | k. 1 \<le> k \<and> k \<le> n}) else M (i, j)"
 
+lemma fold_min_transfer:
+  "((list_all2 (rel_DBMEntry ri)) ===> rel_DBMEntry ri ===> rel_DBMEntry ri) (fold min) (fold min)"
+  by transfer_prover
+
 lemma down_transfer[transfer_rule]:
   "(RI2 ===> RI2) (down n) down_upd"
-  sorry
+  unfolding down_def down_upd_def
+proof (clarsimp simp: rel_fun_def RI2_def eq_onp_def, goal_cases)
+  case prems: (1 M D x)
+  have A: "(insert (Le 0) {M k x |k. Suc 0 \<le> k \<and> k \<le> n})
+      = (set (Le 0 # [M k x. k \<leftarrow> [1..<Suc n]]))"
+    by auto
+  have B: "insert (Le 0) {D (k, x) |k. Suc 0 \<le> k \<and> k \<le> n} 
+      = (set (Le 0 # [D (k, x). k \<leftarrow> [1..<Suc n]]))"
+    by auto
+  show ?case
+    unfolding A B Min.set_eq_fold
+    apply (rule fold_min_transfer[unfolded rel_fun_def, rule_format])
+    unfolding list.rel_map list_all2_same using prems by (auto simp: zero_RI)
+qed
 
 definition
   "restrict_zero_upd M x \<equiv>
@@ -1951,7 +2013,7 @@ where
 
 lemma free_upd[transfer_rule]:
   "(RI2 ===> (=) ===> RI2) (free n) free_upd"
-  sorry
+  unfolding free_def free_upd_def by (auto simp: RI2_def rel_fun_def eq_onp_def)
 
 definition
   "pre_reset_upd M x \<equiv> free_upd (restrict_zero_upd M x) x"
@@ -1959,9 +2021,23 @@ definition
 definition
   "pre_reset_list_upd M r \<equiv> fold (\<lambda> x M. pre_reset_upd M x) r M"
 
+lemma pre_reset_transfer[transfer_rule]:
+  "(RI2 ===> eq_onp (\<lambda>x. x < Suc n) ===> RI2) (pre_reset n) pre_reset_upd"
+proof -
+  have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n"
+    by (simp add: eq_onp_def)
+  note [transfer_rule] = and_entry_transfer_weak
+  have [transfer_rule]: "(RI2 ===> eq_onp (\<lambda>x. x < Suc n) ===> RI2) (free n) free_upd"
+    using free_upd unfolding rel_fun_def eq_onp_def by blast
+  show ?thesis
+    unfolding pre_reset_def pre_reset_upd_def
+    unfolding restrict_zero_def restrict_zero_upd_def
+    by transfer_prover
+qed
+
 lemma pre_reset_list_transfer[transfer_rule]:
-  "(RI2 ===> list_all2 (=) ===> RI2) (pre_reset_list n) pre_reset_list_upd"
-  sorry
+  "(RI2 ===> list_all2 (eq_onp (\<lambda>x. x < Suc n)) ===> RI2) (pre_reset_list n) pre_reset_list_upd"
+  unfolding pre_reset_list_def pre_reset_list_upd_def by transfer_prover
 
 end (* Lifting Syntax *)
 end (* Fixed n *)
@@ -1981,10 +2057,6 @@ lemma diag_unbounded_dbm:
   "unbounded_dbm i i = 0"
   unfolding unbounded_dbm_def by simp
 
-lemma abstr_FW_diag_preservation:
-  assumes "\<forall>k\<le>n. M k k \<le> 0" shows "\<forall>k\<le>n. abstr_FW n cc M v k k \<le> 0"
-  sorry
-
 lemma down_diag:
   "down n M i i = M i i"
   unfolding down_def by auto
@@ -1997,6 +2069,10 @@ lemma abstr_FW_mono:
   "abstr_FW n cc M v i j \<le> M i j" if "i \<le> n" "j \<le> n"
   unfolding abstr_FW_def by (blast intro: that abstr_mono fw_mono order.trans)
 
+lemma abstr_FW_diag_preservation:
+  "\<forall>k\<le>n. abstr_FW n cc M v k k \<le> 0" if "\<forall>k\<le>n. M k k \<le> 0"
+  using that by (blast intro: abstr_FW_mono order.trans)
+
 context Default_Nat_Clock_Numbering
 begin
 
@@ -2006,8 +2082,8 @@ lemma
 
 lemma clock_numbering:
   "\<forall> c. v c > 0 \<and> (\<forall>x. \<forall>y. v x \<le> n \<and> v y \<le> n \<and> v x = v y \<longrightarrow> x = y)"
-  sorry
-  
+  by (metis neq0_conv v_0 v_id)
+
 lemma abstr_correct:
   "\<lbrakk>abstr cc M v\<rbrakk> = \<lbrakk>M\<rbrakk> \<inter> {u. u \<turnstile> cc}" if "\<forall>c\<in>collect_clks cc. 0 < c \<and> c \<le> n"
   apply (rule dbm_abstr_zone_eq2)
@@ -2034,14 +2110,17 @@ lemma abstr_FW_correct':
   "\<lbrakk>abstr_FW n cc unbounded_dbm v\<rbrakk> = {u. u \<turnstile> cc}" if "\<forall>c\<in>collect_clks cc. 0 < c \<and> c \<le> n"
   by (simp add: unbounded_dbm_correct abstr_FW_correct[OF that])
 
+lemma down_V:
+  "\<lbrakk>down n M\<rbrakk> \<subseteq> V"
+  by (rule V_structuralI) (auto simp: down_def neutral intro: Min_le)
+
 lemma down_correct':
   "\<lbrakk>down n M\<rbrakk> = \<lbrakk>M\<rbrakk>\<^sup>\<down> \<inter> V" if "canonical M n"
   apply safe
   subgoal for u
     by (erule down_sound, rule that)
   subgoal for u
-    using canonical_V_non_empty_iff
-    sorry
+    using down_V by blast
   subgoal for u
     unfolding V_def by (erule down_complete) simp
   done
@@ -2052,7 +2131,11 @@ lemma down_check_diag:
 
 lemma down_correct:
   "\<lbrakk>down n M\<rbrakk> = \<lbrakk>M\<rbrakk>\<^sup>\<down> \<inter> V" if "canonical' n M"
-  sorry
+  using that unfolding canonical'_def
+  apply standard
+  subgoal
+    by (rule down_correct')
+  by (frule down_check_diag) (simp add: check_diag_empty zone_time_pre_def)
 
 lemma FW_canonical:
   "canonical' n (FW M n)"
@@ -2106,14 +2189,24 @@ lemma abstr_transfer[transfer_rule]:
 lemma abstr_FW_transfer[transfer_rule]:
   "(list_all2 (rel_acconstraint (eq_onp (\<lambda> x. 0 < x \<and> x < Suc n)) ri) ===> RI2 n ===> RI2 n)
     (\<lambda> cc M. abstr_FW n cc M v) abstr_FW_upd"
-  unfolding abstr_FW_def abstr_FW_upd_def by transfer_prover
+proof -
+  have [transfer_rule]: "eq_onp (\<lambda>x. x = n) n n"
+    by (simp add: eq_onp_def)
+  show ?thesis
+    unfolding abstr_FW_def abstr_FW_upd_def by transfer_prover
+qed
 
 end
 
 end
 
+lemma constraint_clk_conv_ac:
+  "constraint_clk (conv_ac ac) = constraint_clk ac"
+  by (cases ac; auto)
 
-
+lemma constraint_clk_conv_cc:
+  "collect_clks (conv_cc cc) = collect_clks cc"
+  by (auto simp: collect_clks_def constraint_clk_conv_ac image_def)
 
 context Reachability_Problem_Impl
 begin
@@ -2129,14 +2222,6 @@ definition
   )"
 
 abbreviation zone_of ("\<lbrakk>_\<rbrakk>") where "zone_of M \<equiv> [curry (conv_M M)]\<^bsub>v,n\<^esub>"
-
-lemma constraint_clk_conv_ac:
-  "constraint_clk (conv_ac ac) = constraint_clk ac"
-  by (cases ac; auto)
-
-lemma constraint_clk_conv_cc:
-  "collect_clks (conv_cc cc) = collect_clks cc"
-  by (auto simp: collect_clks_def constraint_clk_conv_ac image_def)
 
 lemma check_deadlock_dbm_correct:
   "TA.check_deadlock l \<lbrakk>M\<rbrakk> = check_deadlock_dbm l M" if
@@ -2193,6 +2278,10 @@ proof -
       "list_all2 (rel_acconstraint (eq_onp (\<lambda>x. 0 < x \<and> x < Suc n)) ri)
         (conv_cc (inv_fun l')) (inv_fun l')"
       by (intro * trans_funD[OF \<open>(g, a, r, l') \<in> set (trans_fun l)\<close>])+
+    have [transfer_rule]:
+      "list_all2 (eq_onp (\<lambda>x. x < Suc n)) r r"
+      using trans_funD(5)[OF \<open>(g, a, r, l') \<in> set (trans_fun l)\<close>] clock_range
+      by (auto 4 3 dest: bspec subsetD simp: eq_onp_def list_all2_same)
     show "RI2 n (?f g a r l') (?g g a r l')"
       by transfer_prover
   qed
@@ -2220,8 +2309,9 @@ proof -
          (map (\<lambda>(g, a, r, l').
                   down_upd n
           (dbm.abstr_FW_upd (inv_fun l)
-            (dbm.abstr_FW_upd g (pre_reset_list_upd n (dbm.abstr_FW_upd (inv_fun l') (V_dbm' n)) r))))
-           (trans_fun l)))
+            (dbm.abstr_FW_upd g (pre_reset_list_upd n (dbm.abstr_FW_upd (inv_fun l') (V_dbm' n)) r))
+          ))
+         (trans_fun l)))
     "
     by transfer_prover
   have **: "[down n
