@@ -54,16 +54,16 @@ lemma [sepref_import_param]: "(uminus,uminus) \<in> (Id::(_*_)set)\<rightarrow>I
 sepref_definition reset_canonical_upd_impl' is
   "uncurry2 (uncurry (\<lambda>x. RETURN ooo reset_canonical_upd x))" ::
   "[\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding reset_canonical_upd_alt_def[abs_def] op_mtx_set_def[symmetric] by sepref
+unfolding reset_canonical_upd_alt_def op_mtx_set_def[symmetric] by sepref
 
 sepref_definition reset_canonical_upd_impl is
   "uncurry2 (uncurry (\<lambda>x. RETURN ooo reset_canonical_upd x))" ::
   "[\<lambda>(((_,i),j),_). i\<le>n \<and> j\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k  *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding reset_canonical_upd_alt_def[abs_def] op_mtx_set_def[symmetric] by sepref
+unfolding reset_canonical_upd_alt_def op_mtx_set_def[symmetric] by sepref
 
 sepref_definition up_canonical_upd_impl is
   "uncurry (RETURN oo up_canonical_upd)" :: "[\<lambda>(_,i). i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding up_canonical_upd_def[abs_def] op_mtx_set_def[symmetric] by sepref
+unfolding up_canonical_upd_def op_mtx_set_def[symmetric] by sepref
 
 lemma [sepref_import_param]:
   "(Le 0, 0) \<in> Id"
@@ -75,7 +75,7 @@ sepref_register 0
 sepref_definition check_diag_impl' is
   "uncurry (RETURN oo check_diag)" ::
   "[\<lambda>(i, _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-  unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] by sepref
+  unfolding check_diag_alt_def list_ex_foldli neutral[symmetric] by sepref
 
 lemma [sepref_opt_simps]:
   "(x = True) = x"
@@ -84,7 +84,7 @@ by simp
 sepref_definition dbm_subset'_impl' is
   "uncurry2 (RETURN ooo dbm_subset')" ::
   "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-unfolding dbm_subset'_alt_def[abs_def] list_all_foldli by sepref
+unfolding dbm_subset'_alt_def list_all_foldli by sepref
 
 sepref_register check_diag ::
   "nat \<Rightarrow> _ :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> bool"
@@ -97,7 +97,7 @@ lemmas [sepref_fr_rules] = dbm_subset'_impl'.refine check_diag_impl'.refine
 sepref_definition dbm_subset_impl' is
   "uncurry2 (RETURN ooo dbm_subset)" ::
   "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
-unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv by sepref
+unfolding dbm_subset_def dbm_subset'_def[symmetric] short_circuit_conv by sepref
 
 context
   notes [id_rules] = itypeI[of n "TYPE (nat)"]
@@ -106,17 +106,17 @@ begin
 
 sepref_definition dbm_subset_impl is
   "uncurry (RETURN oo PR_CONST (dbm_subset n))" :: "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding dbm_subset_def[abs_def] dbm_subset'_def[symmetric] short_circuit_conv PR_CONST_def
+  unfolding dbm_subset_def dbm_subset'_def[symmetric] short_circuit_conv PR_CONST_def
   by sepref
 
 sepref_definition check_diag_impl is
   "RETURN o PR_CONST (check_diag n)" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding check_diag_alt_def[abs_def] list_ex_foldli neutral[symmetric] PR_CONST_def
+  unfolding check_diag_alt_def list_ex_foldli neutral[symmetric] PR_CONST_def
   by sepref
 
 sepref_definition dbm_subset'_impl is
   "uncurry (RETURN oo PR_CONST (dbm_subset' n))" :: "mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding dbm_subset'_alt_def[abs_def] list_all_foldli PR_CONST_def
+  unfolding dbm_subset'_alt_def list_all_foldli PR_CONST_def
   by sepref
 
 end
@@ -145,7 +145,7 @@ lemmas [sepref_opt_simps] = zero_clock_def
 sepref_definition abstra_upd_impl is
   "uncurry (RETURN oo abstra_upd)" ::
   "(acconstraint_assn clock_assn id_assn)\<^sup>k *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
-unfolding abstra_upd_alt_def[abs_def] zero_clock_def[symmetric] by sepref
+unfolding abstra_upd_alt_def zero_clock_def[symmetric] by sepref
 
 sepref_register abstra_upd ::
   "(nat, ('a :: {linordered_cancel_ab_monoid_add,uminus,heap})) acconstraint \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx"
@@ -180,13 +180,13 @@ lemmas [sepref_opt_simps] = zero_clock2_def
 sepref_definition norm_upd_impl is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a iarray_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding norm_upd_def[abs_def] norm_upd_line_def zero_clock2_def[symmetric]
+unfolding norm_upd_def norm_upd_line_def zero_clock2_def[symmetric]
 by sepref
 
 sepref_definition norm_upd_impl' is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a (list_assn id_assn)\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding norm_upd_def[abs_def] norm_upd_line_def zero_clock2_def[symmetric] by sepref
+unfolding norm_upd_def norm_upd_line_def zero_clock2_def[symmetric] by sepref
 
 export_code abstr_upd_impl in SML_imp
 
