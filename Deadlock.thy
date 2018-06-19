@@ -2157,7 +2157,7 @@ lemma abstra_transfer[transfer_rule]:
   apply (subst RI2_def)
   apply (intro rel_funI)
   apply (elim rel_prod.cases)
-  apply (simp only: )
+  apply (simp only:)
   apply (subst abstra_upd_abstra)
   by (auto 4 3 simp: eq_onp_def RI2_def rel_fun_def
        intro!: min_ri_transfer[unfolded rel_fun_def, rule_format]
@@ -2195,8 +2195,254 @@ lemma constraint_clk_conv_cc:
   by (auto simp: collect_clks_def constraint_clk_conv_ac image_def)
 
 
+subsection \<open>Functional Refinement\<close>
+
+definition
+  "free_upd1 n M c =
+  (let
+    M1 = fold (\<lambda>i M. if i \<noteq> c then (M((i, c) := op_mtx_get M (i, 0))) else M) [0..<Suc n] M;
+    M2 = fold (\<lambda>i M. if i \<noteq> c then M((c,i) := \<infinity>)         else M) [0..<Suc n] M1
+  in
+    M2
+  )
+  "
+
+definition
+  "pre_reset_upd1 n M x \<equiv> free_upd1 n (restrict_zero_upd n M x) x"
+
+definition
+  "pre_reset_list_upd1 n M r \<equiv> fold (\<lambda> x M. pre_reset_upd1 n M x) r M"
+
+definition
+  "upd_pairs xs = fold (\<lambda>(p,q) f. f(p:=q)) xs"
+
+lemma upd_pairs_Nil:
+  "upd_pairs [] f = f"
+  unfolding upd_pairs_def by simp
+
+lemma upd_pairs_Cons:
+  "upd_pairs ((p, q) # xs) f = upd_pairs xs (f(p:=q))"
+  unfolding upd_pairs_def by simp
+
+lemma upd_pairs_no_upd:
+  assumes "p \<notin> fst ` set xs"
+  shows "upd_pairs xs f p = f p"
+  using assms by (induction xs arbitrary: f) (auto simp: upd_pairs_Nil upd_pairs_Cons)
+
+lemma upd_pairs_upd:
+  assumes "(p, y) \<in> set xs" "distinct (map fst xs)"
+  shows "upd_pairs xs f p = y"
+  using assms proof (induction xs arbitrary: f)
+  case Nil
+  then show ?case
+    by (simp add: upd_pairs_Nil)
+next
+  case (Cons x xs)
+  then show ?case
+    by (cases x) (auto simp add: upd_pairs_Cons upd_pairs_no_upd)
+qed
+
+lemma upd_pairs_append:
+  "upd_pairs (xs @ ys) = upd_pairs ys o upd_pairs xs"
+  unfolding upd_pairs_def fold_append ..
+
+lemma upd_pairs_commute_single:
+  "upd_pairs xs (f(a := b)) = (upd_pairs xs f)(a := b)" if "a \<notin> fst ` set xs"
+  using that by (induction xs arbitrary: f) (auto simp: upd_pairs_Nil upd_pairs_Cons fun_upd_twist)
+
+lemma upd_pairs_append':
+  "upd_pairs (xs @ ys) = upd_pairs xs o upd_pairs ys" if "fst ` set xs \<inter> fst ` set ys = {}"
+  using that
+proof (induction xs)
+  case Nil
+  then show ?case
+    by (simp add: upd_pairs_Nil)
+next
+  case (Cons a xs)
+  then show ?case
+    by (cases a) (auto simp add: upd_pairs_Nil upd_pairs_Cons upd_pairs_commute_single)
+qed
+
+definition
+  "upd_pairs' xs = fold (\<lambda>(p,q) f. f(p:=f q)) xs"
+
+lemma upd_pairs'_Nil:
+  "upd_pairs' [] f = f"
+  unfolding upd_pairs'_def by simp
+
+lemma upd_pairs'_Cons:
+  "upd_pairs' ((p, q) # xs) f = upd_pairs' xs (f(p:=f q))"
+  unfolding upd_pairs'_def by simp
+
+lemma upd_pairs'_upd_pairs:
+  assumes "fst ` set xs \<inter> snd ` set xs = {}"
+  shows   "upd_pairs' xs f = upd_pairs (map (\<lambda>(p, q). (p, f q)) xs) f"
+  using assms
+proof (induction xs arbitrary: f)
+  case Nil
+  then show ?case
+    by (simp add: upd_pairs_Nil upd_pairs'_Nil)
+next
+  case (Cons x xs)
+  obtain a b where [simp]: "x = (a, b)"
+    by (cases x)
+  from Cons.prems have *:
+    "map (\<lambda>(p, q). (p, if q = a then f b else f q)) xs = map (\<lambda>(p, q). (p, f q)) xs"
+    by auto
+  from Cons show ?case
+    by (auto simp add: upd_pairs_Cons upd_pairs'_Cons *)
+qed
+
+lemma
+  "down_upd n M = (\<lambda>(i, j).
+  if i = 0 \<and> j > 0 \<and> i \<le> n \<and> j \<le> n then Min ({Le 0} \<union> {M (k, j) | k. 1 \<le> k \<and> k \<le> n}) else M (i, j))"
+  oops
+
+lemma atLeastLessThan_alt_def:
+  "{a..<b} = {k. a \<le> k \<and> k < b}"
+  by auto
+
+lemma atLeastLessThan_Suc_alt_def:
+  "{a..<Suc b} = {k. a \<le> k \<and> k \<le> b}"
+  by auto
+
+lemma upd_pairs_map:
+  "upd_pairs (map f xs) = fold (\<lambda>pq g. let (p,q) = f pq in g(p:=q)) xs"
+  unfolding upd_pairs_def fold_map
+  by (intro arg_cong2[where f = fold] ext) (auto simp: comp_def split: prod.split)
+
+lemma down_upd_alt_def:
+  "down_upd n M =
+  upd_pairs ([((0, j), fold min [M (k, j). k \<leftarrow> [1..<Suc n]] (Le 0)). j \<leftarrow> [1..<Suc n]]) M"
+proof -
+  define xs where
+    "xs = [((0::nat, j), Min ({Le 0} \<union> {M (k, j) | k. 1 \<le> k \<and> k \<le> n})). j \<leftarrow> [1..<Suc n]]"
+  have "distinct (map fst xs)"
+    unfolding xs_def by (auto simp add: map_concat comp_def distinct_map)
+  have *: "fold min [M (k, j). k\<leftarrow>[1..<Suc n]] (Le 0) = Min ({Le 0} \<union> {M (k, j) |k. 1 \<le> k \<and> k \<le> n})"
+    for j
+    by (subst Min.set_eq_fold[symmetric])
+       (auto simp: atLeastLessThan_Suc_alt_def simp del: upt_Suc intro: arg_cong[where f = Min])
+  show ?thesis
+    unfolding * xs_def[symmetric]
+  by (intro ext, auto simp add: down_upd_def)
+     (subst upd_pairs_upd[OF _ \<open>distinct _\<close>] upd_pairs_no_upd, auto simp: image_def xs_def; fail)+
+qed
+
+lemma down_upd_alt_def1:
+  "down_upd n M =
+  fold (\<lambda>j M. let (p,q) = ((0, j), fold min [M (k, j). k \<leftarrow> [1..<Suc n]] (Le 0)) in M(p:=q))
+  [1..<Suc n] M"
+proof -
+  have *: "
+    fold (\<lambda>j M.  let (p,q) = ((0,j), fold min [M (k, j). k \<leftarrow> [1..<Suc n]] (Le 0)) in M(p:=q))  xs M
+  = fold (\<lambda>j M'. let (p,q) = ((0,j), fold min [M (k, j). k \<leftarrow> [1..<Suc n]] (Le 0)) in M'(p:=q)) xs M
+  " for xs
+  proof (induction xs arbitrary: M)
+    case Nil
+    then show ?case
+      by simp
+  next
+    case (Cons x xs)
+    then show ?case
+      by (auto 4 7 intro: arg_cong2[where f = min] fold_cong)
+  qed
+  then show ?thesis
+    unfolding down_upd_alt_def upd_pairs_map ..
+qed
+
+lemma
+  "free_upd n M c =
+  upd_pairs ([((c,i), \<infinity>). i \<leftarrow> [0..<Suc n], i \<noteq> c] @ [((i,c), M(i,0)). i \<leftarrow> [0..<Suc n], i \<noteq> c]) M"
+  if "c \<le> n"
+proof -
+  let ?xs1 = "\<lambda>n. [((c,i), \<infinity>). i \<leftarrow> [0..<Suc n], i \<noteq> c]"
+  let ?xs2 = "\<lambda>n. [((i,c), M(i,0)). i \<leftarrow> [0..<Suc n], i \<noteq> c]"
+  define xs where "xs = ?xs1 n @ ?xs2 n"
+  have "distinct (map fst xs)"
+    unfolding xs_def
+    apply (auto simp del: upt_Suc simp add: map_concat comp_def if_distrib split: if_split)
+     apply (auto split: if_split_asm simp: distinct_map inj_on_def intro!: distinct_concat)
+    done
+  from \<open>c \<le> n\<close> show ?thesis
+    unfolding xs_def[symmetric]
+  by (intro ext, auto simp: free_upd_def)
+     (subst upd_pairs_upd[OF _ \<open>distinct (map fst xs)\<close>] upd_pairs_no_upd, auto simp: xs_def; fail)+
+qed
+
+lemma free_upd_alt_def1:
+  "free_upd n M c = (let
+    M1 = upd_pairs' ([((i,c), (i,0)). i \<leftarrow> [0..<Suc n], i \<noteq> c]) M;
+    M2 = upd_pairs ([((c,i), \<infinity>). i \<leftarrow> [0..<Suc n], i \<noteq> c]) M1
+  in
+    M2
+  )" (is "_ = ?r")
+  if "0 < c" "c \<le> n"
+proof -
+  let ?xs1 = "\<lambda>n. [((c,i), \<infinity>). i \<leftarrow> [0..<Suc n], i \<noteq> c]"
+  let ?xs2 = "\<lambda>n. [((i,c), M(i,0)). i \<leftarrow> [0..<Suc n], i \<noteq> c]"
+  define xs where "xs = ?xs1 n @ ?xs2 n"
+  let ?t = "upd_pairs xs M"
+  have "distinct (map fst xs)"
+    unfolding xs_def
+    apply (auto simp del: upt_Suc simp add: map_concat comp_def if_distrib split: if_split)
+     apply (auto split: if_split_asm simp: distinct_map inj_on_def intro!: distinct_concat)
+    done
+  from \<open>c \<le> n\<close> have "free_upd n M c = ?t"
+    by (intro ext, auto simp: free_upd_def)
+      (subst upd_pairs_upd[OF _ \<open>distinct _\<close>] upd_pairs_no_upd, auto simp: xs_def; fail)+
+  also have "\<dots> = ?r"
+    unfolding xs_def
+    apply (subst upd_pairs_append')
+    subgoal
+      by auto
+    apply (subst upd_pairs'_upd_pairs)
+    subgoal
+      using \<open>c > 0\<close> by auto
+    apply (simp del: upt_Suc add: map_concat)
+    apply (intro arg_cong2[where f = upd_pairs] arg_cong[where f = concat])
+    by (simp del: upt_Suc)+
+  finally show ?thesis .
+qed
+
+lemma free_upd_free_upd1:
+  "free_upd n M c = free_upd1 n M c" if "c > 0" "c \<le> n"
+proof -
+  let ?x1 = "\<lambda>xs. upd_pairs' ([((i,c), (i,0)). i \<leftarrow> xs, i \<noteq> c]) M"
+  let ?x2 = "\<lambda>xs. fold (\<lambda>i M. if i \<noteq> c then (M((i, c) := M(i, 0))) else M) xs M"
+  have *: "?x1 xs = ?x2 xs" for xs
+    by (induction xs arbitrary: M) (auto simp: upd_pairs'_Nil upd_pairs'_Cons)
+  let ?y1 = "\<lambda>xs. upd_pairs ([((c,i), \<infinity>). i \<leftarrow> xs, i \<noteq> c])"
+  let ?y2 = "fold (\<lambda>i M. if i \<noteq> c then M((c,i) := \<infinity>) else M)"
+  have **: "?y1 xs M = ?y2 xs M" for xs M
+    by (induction xs arbitrary: M) (auto simp: upd_pairs_Nil upd_pairs_Cons)
+  show ?thesis
+    unfolding free_upd_alt_def1[OF that] free_upd1_def op_mtx_get_def * ** ..
+qed
+
+lemma free_upd_alt_def:
+  "free_upd n M c =
+    fold (\<lambda>i M. if i \<noteq> c then (M((c,i) := \<infinity>, (i, c) := M(i, 0))) else M) [0..<Suc n] M"
+  if "c \<le> n"
+  oops
+
+lemma pre_reset_upd_pre_reset_upd1:
+  "pre_reset_upd n M c = pre_reset_upd1 n M c" if "c > 0" "c \<le> n"
+  unfolding pre_reset_upd_def pre_reset_upd1_def free_upd_free_upd1[OF that] ..
+
+lemma pre_reset_list_upd_pre_reset_list_upd1:
+  "pre_reset_list_upd n M cs = pre_reset_list_upd1 n M cs" if "\<forall>c \<in> set cs. 0 < c \<and> c \<le> n"
+  unfolding pre_reset_list_upd_def pre_reset_list_upd1_def
+  using that by (intro fold_cong; simp add: pre_reset_upd_pre_reset_upd1)
 
 
+
+
+
+
+
+
+subsection \<open>Abstract Implementation\<close>
 
 context Reachability_Problem_Impl
 begin
@@ -2381,6 +2627,134 @@ proof -
     done
 qed
 
-end
 
-end
+
+
+
+
+
+
+subsection \<open>Imperative Refinement\<close>
+
+paragraph \<open>Implementation of the invariant precondition check\<close>
+
+  definition
+    "V_dbm'' = V_dbm' n"
+
+  lemma V_dbm'_alt_def:
+    "V_dbm' n = op_amtx_new (Suc n) (Suc n) (V_dbm'')"
+    unfolding V_dbm''_def by simp
+
+  text \<open>We need the custom rule here because V\_dbm is a higher-order constant\<close>
+  lemma [sepref_fr_rules]:
+    "(uncurry0 (return V_dbm''), uncurry0 (RETURN (PR_CONST (V_dbm''))))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a pure (nat_rel \<times>\<^sub>r nat_rel \<rightarrow> Id)"
+    by sepref_to_hoare sep_auto
+
+  (* sepref_register "V_dbm' :: nat \<times> nat \<Rightarrow> int DBMEntry" :: "'b DBMEntry i_mtx" *)
+  sepref_register "V_dbm'' :: nat \<times> nat \<Rightarrow> _ DBMEntry"
+
+  text \<open>Necessary to solve side conditions of @{term op_amtx_new}\<close>
+  lemma V_dbm''_bounded:
+    "mtx_nonzero V_dbm'' \<subseteq> {0..<Suc n} \<times> {0..<Suc n}"
+    unfolding mtx_nonzero_def V_dbm''_def V_dbm'_def neutral by auto
+
+  text \<open>We need to pre-process the lemmas due to a failure of \<open>TRADE\<close>\<close>
+  lemma V_dbm''_bounded_1:
+    "(a, b) \<in> mtx_nonzero V_dbm'' \<Longrightarrow> a < Suc n"
+    using V_dbm''_bounded by auto
+
+  lemma V_dbm''_bounded_2:
+    "(a, b) \<in> mtx_nonzero V_dbm'' \<Longrightarrow> b < Suc n"
+    using V_dbm''_bounded by auto
+
+  context
+    notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
+      and [sepref_import_param] = IdI[of n]
+  begin
+
+  sepref_definition V_dbm_impl is
+    "uncurry0 (RETURN (PR_CONST (V_dbm' n)))" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a mtx_assn n"
+    supply V_dbm''_bounded_1[simp] V_dbm''_bounded_2[simp]
+    using V_dbm''_bounded
+    apply (subst V_dbm'_alt_def)
+    unfolding PR_CONST_def by sepref
+
+  end (* End sepref setup *)
+
+(*
+context
+    notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
+      and [sepref_import_param] = IdI[of n]
+  begin
+*)
+
+context
+    notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
+begin
+
+sepref_definition abstr_FW_impl is
+  "uncurry (RETURN oo (abstr_FW_upd n))" ::
+  "(list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
+  unfolding abstr_FW_upd_def FW''_def[symmetric] by sepref
+
+sepref_definition free_impl is
+  "uncurry (RETURN oo PR_CONST (free_upd1 n))" ::
+  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding free_upd1_def op_mtx_set_def[symmetric] PR_CONST_def by sepref
+
+sepref_definition and_entry_impl is
+  "uncurry2 (uncurry (\<lambda>x. RETURN ooo and_entry_upd x))" ::
+  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow> mtx_assn n"
+  unfolding and_entry_upd_def by sepref
+
+sepref_register and_entry_upd
+
+lemmas [sepref_fr_rules] = and_entry_impl.refine
+
+sepref_definition restrict_zero_impl is
+  "uncurry (RETURN oo PR_CONST (restrict_zero_upd n))" ::
+  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding restrict_zero_upd_def PR_CONST_def by sepref
+
+sepref_register "restrict_zero_upd n" "free_upd1 n"
+
+lemmas [sepref_fr_rules] = free_impl.refine restrict_zero_impl.refine
+
+sepref_definition pre_reset_impl is
+  "uncurry (RETURN oo PR_CONST (pre_reset_upd1 n))" ::
+  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding pre_reset_upd1_def PR_CONST_def by sepref
+
+sepref_register "pre_reset_upd1 n"
+
+lemmas [sepref_fr_rules] = pre_reset_impl.refine
+
+sepref_definition pre_reset_list_impl is
+  "uncurry (RETURN oo (pre_reset_list_upd1 n))" ::
+  "[\<lambda>(_, cs). \<forall>c\<in>set cs. c\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a (list_assn nat_assn)\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding pre_reset_list_upd1_def by sepref
+
+definition "inner_loop M i = fold min (map (\<lambda>k. M (k, i :: nat)) [1..<Suc n]) (Le 0)"
+
+sepref_register inner_loop :: "('e :: {zero,linorder}) DBMEntry i_mtx \<Rightarrow> nat \<Rightarrow> 'e DBMEntry"
+
+lemma inner_loop_alt_def:
+  "inner_loop M i = fold (\<lambda>k a. min (M (k, i)) a) [1..<Suc n] (Le 0)"
+  unfolding inner_loop_def fold_map comp_def ..
+
+sepref_thm inner_loop is
+  "uncurry (RETURN oo PR_CONST inner_loop)" ::
+  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> id_assn"
+  unfolding inner_loop_alt_def PR_CONST_def by sepref
+
+lemmas [sepref_fr_rules] = inner_loop.refine_raw
+
+sepref_definition down_impl is
+  "RETURN o (down_upd n)" ::
+  "(mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
+  unfolding down_upd_alt_def1 upd_pairs_map
+  unfolding Let_def prod.case
+  unfolding fold_map comp_def
+  (* unfolding inner_loop_def[symmetric] *)
+  by sepref
