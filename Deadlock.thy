@@ -2186,12 +2186,4 @@ end
 lemma RI2_trivial_transfer[transfer_rule]: "(RI2 n) (curry (conv_M M)) M"
   unfolding RI2_def rel_fun_def by (auto simp: eq_onp_def)
 
-lemma constraint_clk_conv_ac:
-  "constraint_clk (conv_ac ac) = constraint_clk ac"
-  by (cases ac; auto)
-
-lemma constraint_clk_conv_cc:
-  "collect_clks (conv_cc cc) = collect_clks cc"
-  by (auto simp: collect_clks_def constraint_clk_conv_ac image_def)
-
 end

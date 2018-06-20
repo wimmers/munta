@@ -2,7 +2,65 @@ theory Deadlock_Impl
   imports Deadlock
 begin
 
+paragraph \<open>Misc\<close>
+
+lemma constraint_clk_conv_ac:
+  "constraint_clk (conv_ac ac) = constraint_clk ac"
+  by (cases ac; auto)
+
+lemma constraint_clk_conv_cc:
+  "collect_clks (conv_cc cc) = collect_clks cc"
+  by (auto simp: collect_clks_def constraint_clk_conv_ac image_def)
+
+lemma atLeastLessThan_alt_def:
+  "{a..<b} = {k. a \<le> k \<and> k < b}"
+  by auto
+
+lemma atLeastLessThan_Suc_alt_def:
+  "{a..<Suc b} = {k. a \<le> k \<and> k \<le> b}"
+  by auto
+
+
 subsection \<open>Functional Refinement\<close>
+
+paragraph \<open>Elementary list operations\<close>
+
+lemma map_conv_rev_fold:
+  "map f xs = rev (fold (\<lambda> a xs. f a # xs) xs [])"
+proof -
+  have "fold (\<lambda> a xs. f a # xs) xs ys = rev (map f xs) @ ys" for ys
+    by (induction xs arbitrary: ys) auto
+  then show ?thesis
+    by simp
+qed
+
+lemma rev_map_conv_fold:
+  "rev (map f xs) = fold (\<lambda> a xs. f a # xs) xs []"
+  using map_conv_rev_fold[of f xs] by simp
+
+lemma concat_map_conv_rev_fold:
+  "concat (map f xs) = rev (fold (\<lambda> xs ys. rev (f xs) @ ys) xs [])"
+proof -
+  have "rev (fold (\<lambda> xs ys. rev (f xs) @ ys) xs ys) = rev ys @ List.maps f xs" for ys
+    by (induction xs arbitrary: ys) (auto simp: maps_simps)
+  then show ?thesis
+    by (simp add: concat_map_maps)
+qed
+
+lemma concat_conv_fold_rev:
+  "concat xss = fold (@) (rev xss) []"
+  using fold_append_concat_rev[of "rev xss"] by simp
+
+lemma filter_conv_rev_fold:
+  "filter P xs = rev (fold (\<lambda>x xs. if P x then x # xs else xs) xs [])"
+proof -
+  have "rev ys @ filter P xs = rev (fold (\<lambda>x xs. if P x then x # xs else xs) xs ys)" for ys
+    by (induction xs arbitrary: ys) (auto, metis revg.simps(2) revg_fun)
+  from this[symmetric] show ?thesis
+    by simp
+qed
+
+paragraph \<open>DBM operations\<close>
 
 definition
   "free_upd1 n M c =
@@ -99,14 +157,6 @@ next
   from Cons show ?case
     by (auto simp add: upd_pairs_Cons upd_pairs'_Cons *)
 qed
-
-lemma atLeastLessThan_alt_def:
-  "{a..<b} = {k. a \<le> k \<and> k < b}"
-  by auto
-
-lemma atLeastLessThan_Suc_alt_def:
-  "{a..<Suc b} = {k. a \<le> k \<and> k \<le> b}"
-  by auto
 
 lemma upd_pairs_map:
   "upd_pairs (map f xs) = fold (\<lambda>pq g. let (p,q) = f pq in g(p:=q)) xs"
@@ -251,19 +301,226 @@ lemma pre_reset_list_transfer'[transfer_rule]:
 
 
 
+subsection \<open>Imperative Refinement\<close>
+
+context
+  fixes n :: nat
+  notes [id_rules] = itypeI[of n "TYPE (nat)"]
+    and [sepref_import_param] = IdI[of n]
+begin
+
+sepref_definition down_impl is
+  "RETURN o PR_CONST (down_upd n)" ::
+  "(mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
+  unfolding down_upd_alt_def1 upd_pairs_map PR_CONST_def
+  unfolding Let_def prod.case
+  unfolding fold_map comp_def
+  unfolding neutral[symmetric]
+  by sepref
+
+context
+  notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
+begin
+
+sepref_register
+  abstr_upd "FW'' n" "Normalized_Zone_Semantics_Impl_Semantic_Refinement.repair_pair n"
+  and_entry_upd "free_upd1 n" "restrict_zero_upd n" "pre_reset_upd1 n"
+
+end
+
+lemmas [sepref_fr_rules] = abstr_upd_impl.refine fw_impl_refine_FW''
+
+sepref_definition abstr_FW_impl is
+  "uncurry (RETURN oo PR_CONST (abstr_FW_upd n))" ::
+  "(list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
+  unfolding abstr_FW_upd_def FW''_def[symmetric] PR_CONST_def by sepref
+
+sepref_definition free_impl is
+  "uncurry (RETURN oo PR_CONST (free_upd1 n))" ::
+  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding free_upd1_def op_mtx_set_def[symmetric] PR_CONST_def by sepref
+
+sepref_definition and_entry_impl is
+  "uncurry2 (uncurry (\<lambda>x. RETURN ooo and_entry_upd x))" ::
+  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow> mtx_assn n"
+  unfolding and_entry_upd_def by sepref
+
+lemmas [sepref_fr_rules] = and_entry_impl.refine
+
+sepref_definition restrict_zero_impl is
+  "uncurry (RETURN oo PR_CONST (restrict_zero_upd n))" ::
+  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding restrict_zero_upd_def PR_CONST_def by sepref
+
+lemmas [sepref_fr_rules] = free_impl.refine restrict_zero_impl.refine
+
+sepref_definition pre_reset_impl is
+  "uncurry (RETURN oo PR_CONST (pre_reset_upd1 n))" ::
+  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a (clock_assn n)\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding pre_reset_upd1_def PR_CONST_def by sepref
+
+lemmas [sepref_fr_rules] = pre_reset_impl.refine
+
+sepref_definition pre_reset_list_impl is
+  "uncurry (RETURN oo PR_CONST (pre_reset_list_upd1 n))" ::
+  "(mtx_assn n)\<^sup>d *\<^sub>a (list_assn (clock_assn n))\<^sup>k \<rightarrow>\<^sub>a mtx_assn n"
+  unfolding pre_reset_list_upd1_def PR_CONST_def by sepref
+
+sepref_definition and_entry_repair_impl is
+  "uncurry2 (uncurry (\<lambda>x. RETURN ooo PR_CONST (and_entry_repair_upd n) x))" ::
+  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow> mtx_assn n"
+  unfolding and_entry_repair_upd_def PR_CONST_def by sepref
+
+private definition
+  "V_dbm'' = V_dbm' n"
+
+text \<open>We use @{term V_dbm''} because we cannot register @{term V_dbm'} twice with the refinement
+  framework: we view it as a function first, and as a DBM later.\<close>
+
+lemma V_dbm'_alt_def:
+  "V_dbm' n = op_amtx_new (Suc n) (Suc n) (V_dbm'')"
+  unfolding V_dbm''_def by simp
+
+notation fun_rel_syn (infixr "\<rightarrow>" 60)
+
+text \<open>We need the custom rule here because @{term V_dbm'} is a higher-order constant\<close>
+lemma [sepref_fr_rules]:
+  "(uncurry0 (return V_dbm''), uncurry0 (RETURN (PR_CONST (V_dbm''))))
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a pure (nat_rel \<times>\<^sub>r nat_rel \<rightarrow> Id)"
+  by sepref_to_hoare sep_auto
+
+sepref_register "V_dbm'' :: nat \<times> nat \<Rightarrow> _ DBMEntry"
+
+text \<open>Necessary to solve side conditions of @{term op_amtx_new}\<close>
+lemma V_dbm''_bounded:
+  "mtx_nonzero V_dbm'' \<subseteq> {0..<Suc n} \<times> {0..<Suc n}"
+  unfolding mtx_nonzero_def V_dbm''_def V_dbm'_def neutral by auto
+
+text \<open>We need to pre-process the lemmas due to a failure of \<open>TRADE\<close>\<close>
+lemma V_dbm''_bounded_1:
+  "(a, b) \<in> mtx_nonzero V_dbm'' \<Longrightarrow> a < Suc n"
+  using V_dbm''_bounded by auto
+
+lemma V_dbm''_bounded_2:
+  "(a, b) \<in> mtx_nonzero V_dbm'' \<Longrightarrow> b < Suc n"
+  using V_dbm''_bounded by auto
+
+lemmas [sepref_opt_simps] = V_dbm''_def
+
+sepref_definition V_dbm_impl is
+  "uncurry0 (RETURN (PR_CONST (V_dbm' n)))" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a mtx_assn n"
+  supply V_dbm''_bounded_1[simp] V_dbm''_bounded_2[simp]
+  using V_dbm''_bounded
+  apply (subst V_dbm'_alt_def)
+  unfolding PR_CONST_def by sepref
+
+text \<open>This form of 'type casting' is used to assert a bound on the natural number.\<close>
+private definition make_clock :: "nat \<Rightarrow> nat" where [sepref_opt_simps]:
+  "make_clock x = x"
+
+lemma make_clock[sepref_import_param]:
+  "(make_clock, make_clock) \<in> [\<lambda>i. i \<le> n]\<^sub>f nat_rel \<rightarrow> nbn_rel (Suc n)"
+  unfolding make_clock_def by (rule frefI) simp
+
+private definition "get_entries m =
+  [(make_clock i, make_clock j).
+    i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m (i, j) \<noteq> \<infinity>]"
+
+private definition
+  "upd_entry i j M m = and_entry_repair_upd n j i (neg_dbm_entry (m (i, j))) (op_mtx_copy M)"
+
+private definition
+  "upd_entries i j m = map (\<lambda> M. upd_entry i j M m)"
+
+context
+  notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
+begin
+
+sepref_register
+  "dbm_minus_canonical_upd n"
+  "dbm_subset_fed_upd n" "abstr_FW_upd n" "pre_reset_list_upd1 n" "V_dbm' n" "down_upd n"
+  upd_entry upd_entries get_entries "and_entry_repair_upd n"
+
+end
+
+lemma [sepref_import_param]: "(neg_dbm_entry,neg_dbm_entry) \<in> Id\<rightarrow>Id" by simp
+
+lemmas [sepref_fr_rules] = and_entry_repair_impl.refine
+
+sepref_definition upd_entry_impl is
+  "uncurry2 (uncurry (\<lambda>x. RETURN ooo PR_CONST upd_entry x))" ::
+  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a
+    nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k \<rightarrow> mtx_assn n"
+  unfolding upd_entry_def PR_CONST_def by sepref
+
+text \<open>This is to ensure that the refinement initially infers the right 'type' for list arguments.\<close>
+lemma [intf_of_assn]:
+  "intf_of_assn AA TYPE('aa) \<Longrightarrow> intf_of_assn (list_assn(AA)) TYPE('aa list)"
+  by (rule intf_of_assnI)
+
+lemmas [sepref_fr_rules] = upd_entry_impl.refine
+
+sepref_definition upd_entries_impl is
+  "uncurry2 (uncurry (\<lambda>x. RETURN ooo PR_CONST upd_entries x))" ::
+  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a
+    nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k *\<^sub>a (list_assn (mtx_assn n))\<^sup>k \<rightarrow> list_assn (mtx_assn n)"
+  unfolding upd_entries_def PR_CONST_def
+  unfolding map_conv_rev_fold rev_conv_fold
+  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
+  by sepref
+
+lemma [sepref_import_param]: "((=), (=)) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
+
+sepref_definition get_entries_impl is
+  "RETURN o PR_CONST get_entries" ::
+  "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a list_assn ((clock_assn n) \<times>\<^sub>a (clock_assn n))"
+  unfolding get_entries_def PR_CONST_def
+  unfolding map_conv_rev_fold
+  unfolding concat_conv_fold_rev
+  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
+  by sepref
+
+lemmas [sepref_fr_rules] = upd_entries_impl.refine get_entries_impl.refine
+
+private lemma dbm_minus_canonical_upd_alt_def:
+  "dbm_minus_canonical_upd n xs m =
+  concat (map (\<lambda>ij. map (\<lambda> M.
+      and_entry_repair_upd n (snd ij) (fst ij) (neg_dbm_entry (m (fst ij, snd ij))) (op_mtx_copy M))
+    xs) (get_entries m))"
+  unfolding dbm_minus_canonical_upd_def op_mtx_copy_def get_entries_def split_beta make_clock_def
+  by simp
+
+sepref_definition dbm_minus_canonical_impl is
+  "uncurry (RETURN oo PR_CONST (dbm_minus_canonical_upd n))" ::
+  "(list_assn (mtx_assn n))\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a list_assn (mtx_assn n)"
+  unfolding dbm_minus_canonical_upd_alt_def PR_CONST_def
+  unfolding upd_entry_def[symmetric] upd_entries_def[symmetric]
+  unfolding concat_map_conv_rev_fold rev_conv_fold
+  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
+  by sepref
+
+lemmas [sepref_fr_rules] = dbm_minus_canonical_impl.refine
+
+sepref_definition dbm_subset_fed_impl is
+  "uncurry (RETURN oo PR_CONST (dbm_subset_fed_upd n))" ::
+  "(mtx_assn n)\<^sup>d *\<^sub>a (list_assn (mtx_assn n))\<^sup>d \<rightarrow>\<^sub>a bool_assn"
+  unfolding dbm_subset_fed_upd_def PR_CONST_def
+  unfolding list_all_foldli filter_conv_rev_fold
+  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
+  by sepref
+
+end (* Fixed n *)
 
 
-
-
-subsection \<open>Abstract Implementation\<close>
+subsection \<open>Implementation for a Concrete Automaton\<close>
 
 context Reachability_Problem_Impl
 begin
 
 definition
   "check_deadlock_dbm l M = dbm_subset_fed_upd n M (
-   [down_upd n (abstr_FW_upd n (inv_fun l) (abstr_FW_upd n g
-      (pre_reset_list_upd1 n (abstr_FW_upd n (inv_fun l') (V_dbm' n)) r)
+   [down_upd n (abstr_FW_upd n (inv_of_A l) (abstr_FW_upd n g
+      (pre_reset_list_upd1 n (abstr_FW_upd n (inv_of_A l') (V_dbm' n)) r)
     )). (g, a, r, l') \<leftarrow> trans_fun l
    ]
   )"
@@ -277,22 +534,22 @@ proof -
   text \<open>0. Setup \<open>&\<close> auxiliary facts\<close>
   include lifting_syntax
   note [simp del] = And.simps abstr.simps (* TODO: make definitions *)
-  have inv_of_simp: "inv_of (conv_A A) l = conv_cc (inv_fun l)" if \<open>l \<in> states\<close> for l
+  have inv_of_simp: "inv_of (conv_A A) l = conv_cc (inv_of A l)" if \<open>l \<in> states\<close> for l
     using inv_fun \<open>l \<in> states\<close> unfolding inv_rel_def b_rel_def fun_rel_def
     by (force split: prod.split simp: inv_of_def)
   have inv_of_simp2: "inv_of A l = inv_fun l" if \<open>l \<in> states\<close> for l
     using inv_fun \<open>l \<in> states\<close> unfolding inv_rel_def b_rel_def fun_rel_def by force
 
   have trans_funD: "l' \<in> states"
-    "collect_clks (inv_fun l) \<subseteq> clk_set A" "collect_clks (inv_fun l') \<subseteq> clk_set A"
+    "collect_clks (inv_of A l) \<subseteq> clk_set A" "collect_clks (inv_of A l') \<subseteq> clk_set A"
     "collect_clks g \<subseteq> clk_set A" "set r \<subseteq> clk_set A"
     if "(g, a, r, l') \<in> set(trans_fun l)" for g a r l'
     subgoal
       using \<open>l \<in> states\<close> \<open>(g, a, r, l') \<in> _\<close> trans_fun_states by auto
     subgoal
-      by (metis \<open>l \<in> states\<close> collect_clks_inv_clk_set inv_of_simp2)
+      by (metis collect_clks_inv_clk_set)
     subgoal
-      by (metis \<open>l' \<in> states\<close> collect_clks_inv_clk_set inv_of_simp2)
+      by (metis collect_clks_inv_clk_set)
     subgoal
       using trans_fun_trans_of[OF that \<open>l \<in> _\<close>] by (rule collect_clocks_clk_set)
     subgoal
@@ -303,12 +560,12 @@ proof -
   have [transfer_rule]:
     "(eq_onp (\<lambda> (g, a, r, l'). (g, a, r, l') \<in> set (trans_fun l)) ===> RI2 n)
       (\<lambda>(g, a, r, l'). down n
-          (abstr_FW n (conv_cc (inv_fun l))
+          (abstr_FW n (conv_cc (inv_of A l))
             (abstr_FW n (conv_cc g)
-              (pre_reset_list n (abstr_FW n (conv_cc (inv_fun l')) V_dbm v) r) v) v))
+              (pre_reset_list n (abstr_FW n (conv_cc (inv_of A l')) V_dbm v) r) v) v))
       (\<lambda>(g, a, r, l'). down_upd n
-          (abstr_FW_upd n (inv_fun l)
-            (abstr_FW_upd n g (pre_reset_list_upd1 n (abstr_FW_upd n (inv_fun l') (V_dbm' n)) r))
+          (abstr_FW_upd n (inv_of A l)
+            (abstr_FW_upd n g (pre_reset_list_upd1 n (abstr_FW_upd n (inv_of A l') (V_dbm' n)) r))
           ))
     " (is "(_ ===> RI2 n) (\<lambda> (g, a, r, l'). ?f g a r l') (\<lambda> (g, a, r, l'). ?g g a r l')")
   proof (intro rel_funI, clarsimp simp: eq_onp_def)
@@ -323,9 +580,9 @@ proof -
     have [transfer_rule]:
       "list_all2 (rel_acconstraint (eq_onp (\<lambda>x. 0 < x \<and> x < Suc n)) ri) (conv_cc g) g"
       "list_all2 (rel_acconstraint (eq_onp (\<lambda>x. 0 < x \<and> x < Suc n)) ri)
-        (conv_cc (inv_fun l)) (inv_fun l)"
+        (conv_cc (inv_of A l)) (inv_of A l)"
       "list_all2 (rel_acconstraint (eq_onp (\<lambda>x. 0 < x \<and> x < Suc n)) ri)
-        (conv_cc (inv_fun l')) (inv_fun l')"
+        (conv_cc (inv_of A l')) (inv_of A l')"
       by (intro * trans_funD[OF \<open>(g, a, r, l') \<in> set (trans_fun l)\<close>])+
     have [transfer_rule]:
       "list_all2 (eq_onp (\<lambda>x. 0 < x \<and> x < Suc n)) r r"
@@ -346,15 +603,15 @@ proof -
     (dbm_subset_fed n (curry (conv_M M))
          (map (\<lambda>(g, a, r, l').
                   down n
-          (abstr_FW n (conv_cc (inv_fun l))
+          (abstr_FW n (conv_cc (inv_of A l))
             (abstr_FW n (conv_cc g)
-              (pre_reset_list n (abstr_FW n (conv_cc (inv_fun l')) V_dbm v) r) v) v))
+              (pre_reset_list n (abstr_FW n (conv_cc (inv_of A l')) V_dbm v) r) v) v))
            (trans_fun l))) =
     (dbm_subset_fed_upd n M
          (map (\<lambda>(g, a, r, l').
                   down_upd n
-          (abstr_FW_upd n (inv_fun l)
-            (abstr_FW_upd n g (pre_reset_list_upd1 n (abstr_FW_upd n (inv_fun l') (V_dbm' n)) r))
+          (abstr_FW_upd n (inv_of A l)
+            (abstr_FW_upd n g (pre_reset_list_upd1 n (abstr_FW_upd n (inv_of A l') (V_dbm' n)) r))
           ))
          (trans_fun l)))
     "
@@ -362,24 +619,24 @@ proof -
 
   text \<open>2. Semantic argument establishing equivalences between zones and DBMs\<close>
   have **:
-    "[down n (abstr_FW n (conv_cc (inv_fun l)) (abstr_FW n (conv_cc g)
-          (pre_reset_list n (abstr_FW n (conv_cc (inv_fun l')) V_dbm v) r) v) v)]\<^bsub>v,n\<^esub>
+    "[down n (abstr_FW n (conv_cc (inv_of A l)) (abstr_FW n (conv_cc g)
+          (pre_reset_list n (abstr_FW n (conv_cc (inv_of A l')) V_dbm v) r) v) v)]\<^bsub>v,n\<^esub>
   = (zone_set_pre ({u. u \<turnstile> inv_of (conv_A A) l'} \<inter> V) r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
        \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down> \<inter> V"
     if "(g, a, r, l') \<in> set(trans_fun l)" for g a r l'
   proof -
     from trans_funD[OF \<open>(g, a, r, l') \<in> set (trans_fun l)\<close>] have clock_conditions:
-      "\<forall>c\<in>collect_clks (conv_cc (inv_fun l)). 0 < c \<and> c \<le> n"
-      "\<forall>c\<in>collect_clks (conv_cc (inv_fun l')). 0 < c \<and> c \<le> n"
+      "\<forall>c\<in>collect_clks (conv_cc (inv_of A l)). 0 < c \<and> c \<le> n"
+      "\<forall>c\<in>collect_clks (conv_cc (inv_of A l')). 0 < c \<and> c \<le> n"
       "\<forall>c\<in>collect_clks (conv_cc g). 0 < c \<and> c \<le> n"
       "\<forall>c\<in>set r. 0 < c \<and> c \<le> n"
       using \<open>l \<in> states\<close> clock_range
       by (auto simp: constraint_clk_conv_cc inv_of_simp2[symmetric])
     have structural_conditions:
-      "abstr_FW n (conv_cc (inv_fun l')) V_dbm v 0 0 \<le> 0"
-      "\<forall>x\<in>set r. abstr_FW n (map conv_ac (inv_fun l')) V_dbm v 0 x \<le> 0"
+      "abstr_FW n (conv_cc (inv_of A l')) V_dbm v 0 0 \<le> 0"
+      "\<forall>x\<in>set r. abstr_FW n (map conv_ac (inv_of A l')) V_dbm v 0 x \<le> 0"
       subgoal
-        using abstr_FW_diag_preservation[of n V_dbm "conv_cc (inv_fun l')" v]
+        using abstr_FW_diag_preservation[of n V_dbm "conv_cc (inv_of A l')" v]
         by (simp add: V_dbm_def)
       subgoal
         using \<open>\<forall>c\<in>set r. 0 < c \<and> c \<le> n\<close>
@@ -401,9 +658,9 @@ proof -
               dbm.zone_of
                (case x of (g, a, r, l') \<Rightarrow>
                   down n
-        (abstr_FW n (conv_cc (inv_fun l))
+        (abstr_FW n (conv_cc (inv_of A l))
           (abstr_FW n (conv_cc g)
-            (pre_reset_list n (abstr_FW n (conv_cc (inv_fun l')) V_dbm v) r) v) v)))
+            (pre_reset_list n (abstr_FW n (conv_cc (inv_of A l')) V_dbm v) r) v) v)))
     = (\<Union>(g,a,r,l')\<in>set (trans_fun l).
     ((zone_set_pre ({u. u \<turnstile> inv_of (conv_A A) l'} \<inter> V) r \<inter> {u. \<forall> x \<in> set r. u x \<ge> 0}
            \<inter> {u. u \<turnstile> conv_cc g} \<inter> {u. u \<turnstile> inv_of (conv_A A) l})\<^sup>\<down> \<inter> V)
@@ -421,7 +678,7 @@ proof -
     using trans_fun_trans_of[OF that \<open>l \<in> states\<close>]
     unfolding trans_of_def by (auto 4 3 split: prod.split)
   show ?thesis
-    unfolding TA.check_deadlock_alt_def[OF \<open>\<lbrakk>M\<rbrakk> \<subseteq> V\<close>] check_deadlock_dbm_def *[symmetric]
+    unfolding TA.check_deadlock_alt_def[OF \<open>_ \<subseteq> V\<close>] check_deadlock_dbm_def inv_of_A_def *[symmetric]
     apply (subst dbm.dbm_subset_fed_correct[symmetric, OF that(3)])
     apply (simp add: **)
     apply safe
@@ -440,266 +697,6 @@ proof -
     done
 qed
 
-subsection \<open>Imperative Refinement\<close>
-
-paragraph \<open>Implementation of the invariant precondition check\<close>
-
-  definition
-    "V_dbm'' = V_dbm' n"
-
-  lemma V_dbm'_alt_def:
-    "V_dbm' n = op_amtx_new (Suc n) (Suc n) (V_dbm'')"
-    unfolding V_dbm''_def by simp
-
-  text \<open>We need the custom rule here because V\_dbm is a higher-order constant\<close>
-  lemma [sepref_fr_rules]:
-    "(uncurry0 (return V_dbm''), uncurry0 (RETURN (PR_CONST (V_dbm''))))
-    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a pure (nat_rel \<times>\<^sub>r nat_rel \<rightarrow> Id)"
-    by sepref_to_hoare sep_auto
-
-  (* sepref_register "V_dbm' :: nat \<times> nat \<Rightarrow> int DBMEntry" :: "'b DBMEntry i_mtx" *)
-  sepref_register "V_dbm'' :: nat \<times> nat \<Rightarrow> _ DBMEntry"
-
-  text \<open>Necessary to solve side conditions of @{term op_amtx_new}\<close>
-  lemma V_dbm''_bounded:
-    "mtx_nonzero V_dbm'' \<subseteq> {0..<Suc n} \<times> {0..<Suc n}"
-    unfolding mtx_nonzero_def V_dbm''_def V_dbm'_def neutral by auto
-
-  text \<open>We need to pre-process the lemmas due to a failure of \<open>TRADE\<close>\<close>
-  lemma V_dbm''_bounded_1:
-    "(a, b) \<in> mtx_nonzero V_dbm'' \<Longrightarrow> a < Suc n"
-    using V_dbm''_bounded by auto
-
-  lemma V_dbm''_bounded_2:
-    "(a, b) \<in> mtx_nonzero V_dbm'' \<Longrightarrow> b < Suc n"
-    using V_dbm''_bounded by auto
-
-  context
-    notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
-      and [sepref_import_param] = IdI[of n]
-  begin
-
-  sepref_definition V_dbm_impl is
-    "uncurry0 (RETURN (PR_CONST (V_dbm' n)))" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a mtx_assn n"
-    supply V_dbm''_bounded_1[simp] V_dbm''_bounded_2[simp]
-    using V_dbm''_bounded
-    apply (subst V_dbm'_alt_def)
-    unfolding PR_CONST_def by sepref
-
-  end (* End sepref setup *)
-
-context
-  notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
-  notes [map_type_eqs] = map_type_eqI[of "TYPE((nat * nat \<Rightarrow> 'e) list)" "TYPE(('e i_mtx) list)"]
-begin
-
-sepref_definition abstr_FW_impl is
-  "uncurry (RETURN oo PR_CONST (abstr_FW_upd n))" ::
-  "(list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
-  unfolding abstr_FW_upd_def FW''_def[symmetric] PR_CONST_def by sepref
-
-sepref_definition free_impl is
-  "uncurry (RETURN oo PR_CONST (free_upd1 n))" ::
-  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
-  unfolding free_upd1_def op_mtx_set_def[symmetric] PR_CONST_def by sepref
-
-sepref_definition and_entry_impl is
-  "uncurry2 (uncurry (\<lambda>x. RETURN ooo and_entry_upd x))" ::
-  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow> mtx_assn n"
-  unfolding and_entry_upd_def by sepref
-
-sepref_register and_entry_upd
-
-lemmas [sepref_fr_rules] = and_entry_impl.refine
-
-sepref_definition restrict_zero_impl is
-  "uncurry (RETURN oo PR_CONST (restrict_zero_upd n))" ::
-  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn n"
-  unfolding restrict_zero_upd_def PR_CONST_def by sepref
-
-sepref_register "restrict_zero_upd n" "free_upd1 n"
-
-lemmas [sepref_fr_rules] = free_impl.refine restrict_zero_impl.refine
-
-sepref_definition pre_reset_impl is
-  "uncurry (RETURN oo PR_CONST (pre_reset_upd1 n))" ::
-  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>d *\<^sub>a (clock_assn n)\<^sup>k \<rightarrow> mtx_assn n"
-  unfolding pre_reset_upd1_def PR_CONST_def by sepref
-
-sepref_register "pre_reset_upd1 n"
-
-lemmas [sepref_fr_rules] = pre_reset_impl.refine
-
-sepref_definition pre_reset_list_impl is
-  "uncurry (RETURN oo PR_CONST (pre_reset_list_upd1 n))" ::
-  "(mtx_assn n)\<^sup>d *\<^sub>a (list_assn (clock_assn n))\<^sup>k \<rightarrow>\<^sub>a mtx_assn n"
-  unfolding pre_reset_list_upd1_def PR_CONST_def by sepref
-
-definition "inner_loop M i = fold min (map (\<lambda>k. M (k, i :: nat)) [1..<Suc n]) (Le 0)"
-
-sepref_register inner_loop :: "('e :: {zero,linorder}) DBMEntry i_mtx \<Rightarrow> nat \<Rightarrow> 'e DBMEntry"
-
-lemma inner_loop_alt_def:
-  "inner_loop M i = fold (\<lambda>k a. min (M (k, i)) a) [1..<Suc n] (Le 0)"
-  unfolding inner_loop_def fold_map comp_def ..
-
-sepref_thm inner_loop is
-  "uncurry (RETURN oo PR_CONST inner_loop)" ::
-  "[\<lambda>(_, i). i\<le>n]\<^sub>a (mtx_assn n)\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> id_assn"
-  unfolding inner_loop_alt_def PR_CONST_def by sepref
-
-lemmas [sepref_fr_rules] = inner_loop.refine_raw
-
-sepref_definition down_impl is
-  "RETURN o PR_CONST (down_upd n)" ::
-  "(mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
-  unfolding down_upd_alt_def1 upd_pairs_map PR_CONST_def
-  unfolding Let_def prod.case
-  unfolding fold_map comp_def
-  (* unfolding inner_loop_def[symmetric] *)
-  by sepref
-
-sepref_definition and_entry_repair_impl is
-  "uncurry2 (uncurry (\<lambda>x. RETURN ooo PR_CONST (and_entry_repair_upd n) x))" ::
-  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a id_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow> mtx_assn n"
-  unfolding and_entry_repair_upd_def PR_CONST_def by sepref
-
-definition make_clock :: "nat \<Rightarrow> nat" where [code_unfold]:
-  "make_clock = (\<lambda> x. x)"
-
-lemma make_clock[sepref_import_param]:
-  "(make_clock, make_clock) \<in> [\<lambda>i. i \<le> n]\<^sub>f nat_rel \<rightarrow> clock_rel"
-  unfolding make_clock_def
-  apply (rule frefI)
-  apply auto
-  done
-
-definition "get_entries m =
-  [(make_clock i, make_clock j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m (i, j) \<noteq> \<infinity>]"
-
-lemma dbm_minus_canonical_upd_alt_def:
-  "dbm_minus_canonical_upd n xs m =
-  concat (map (\<lambda>ij. map (\<lambda> M. and_entry_repair_upd n (snd ij) (fst ij) (neg_dbm_entry (m (fst ij, snd ij))) (op_mtx_copy M)) (xs))
-    (get_entries m))"
-  unfolding dbm_minus_canonical_upd_def op_mtx_copy_def COPY_def get_entries_def split_beta make_clock_def
-  by simp
-
-definition
-  "upd_entry i j M m = and_entry_repair_upd n j i (neg_dbm_entry (m (i, j))) (op_mtx_copy M)"
-
-definition
-  "upd_entries i j m = map (\<lambda> M. upd_entry i j M m)"
-
-sepref_register "and_entry_repair_upd n"
-
-lemma [sepref_import_param]: "(neg_dbm_entry,neg_dbm_entry) \<in> Id\<rightarrow>Id" by simp
-
-lemmas [sepref_fr_rules] = and_entry_repair_impl.refine
-
-sepref_definition upd_entry_impl is
-  "uncurry2 (uncurry (\<lambda>x. RETURN ooo PR_CONST upd_entry x))" ::
-  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k \<rightarrow> mtx_assn n"
-  unfolding upd_entry_def PR_CONST_def by sepref
-
-sepref_register upd_entry upd_entries get_entries
-
-lemma [intf_of_assn]:
-  "intf_of_assn AA TYPE('aa) \<Longrightarrow> intf_of_assn (list_assn(AA)) TYPE('aa list)"
-  by simp
-
-lemma map_conv_rev_fold:
-  "map f xs = rev (fold (\<lambda> a xs. f a # xs) xs [])"
-proof -
-  have "fold (\<lambda> a xs. f a # xs) xs ys = rev (map f xs) @ ys" for ys
-    by (induction xs arbitrary: ys) auto
-  then show ?thesis
-    by simp
-qed
-
-lemma rev_map_conv_fold:
-  "rev (map f xs) = fold (\<lambda> a xs. f a # xs) xs []"
-  using map_conv_rev_fold[of f xs] by simp
-
-lemmas [sepref_fr_rules] = upd_entry_impl.refine
-
-sepref_definition upd_entries_impl is
-  "uncurry2 (uncurry (\<lambda>x. RETURN ooo PR_CONST upd_entries x))" ::
-  "[\<lambda>(((i, j),_),_). i\<le>n \<and> j \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k *\<^sub>a (list_assn (mtx_assn n))\<^sup>k \<rightarrow> list_assn (mtx_assn n)"
-  unfolding upd_entries_def PR_CONST_def
-  unfolding map_conv_rev_fold rev_conv_fold
-  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
-  by sepref
-
-lemma [sepref_import_param]: "((=), (=)) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
-
-lemma concat_map_conv_rev_fold:
-  "concat (map f xs) = rev (fold (\<lambda> xs ys. rev (f xs) @ ys) xs [])"
-proof -
-  have "rev (fold (\<lambda> xs ys. rev (f xs) @ ys) xs ys) = rev ys @ List.maps f xs" for ys
-    by (induction xs arbitrary: ys) (auto simp: maps_simps)
-  then show ?thesis
-    by (simp add: concat_map_maps)
-qed
-
-lemma concat_conv_fold_rev:
-  "concat xss = fold (@) (rev xss) []"
-  using fold_append_concat_rev[of "rev xss"] by simp
-
-sepref_definition get_entries_impl is
-  "RETURN o PR_CONST get_entries" ::
-  "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a list_assn ((clock_assn n) \<times>\<^sub>a (clock_assn n))"
-  unfolding get_entries_def PR_CONST_def
-  unfolding map_conv_rev_fold
-  unfolding concat_conv_fold_rev
-  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
-  by sepref
-
-lemmas [sepref_fr_rules] = upd_entries_impl.refine get_entries_impl.refine
-
-sepref_definition dbm_minus_canonical_impl is
-  "uncurry (RETURN oo PR_CONST (dbm_minus_canonical_upd n))" ::
-  "(list_assn (mtx_assn n))\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a list_assn (mtx_assn n)"
-  unfolding dbm_minus_canonical_upd_alt_def PR_CONST_def
-  unfolding upd_entry_def[symmetric] upd_entries_def[symmetric]
-  unfolding concat_map_conv_rev_fold rev_conv_fold
-  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
-  by sepref
-
-sepref_register "dbm_minus_canonical_upd n"
-
-lemmas [sepref_fr_rules] = dbm_minus_canonical_impl.refine
-
-lemma filter_conv_rev_fold:
-  "filter P xs = rev (fold (\<lambda>x xs. if P x then x # xs else xs) xs [])"
-proof -
-  have "rev ys @ filter P xs = rev (fold (\<lambda>x xs. if P x then x # xs else xs) xs ys)" for ys
-    by (induction xs arbitrary: ys) (auto, metis revg.simps(2) revg_fun)
-  from this[symmetric] show ?thesis
-    by simp
-qed
-
-sepref_definition dbm_subset_fed_impl is
-  "uncurry (RETURN oo PR_CONST (dbm_subset_fed_upd n))" ::
-  "(mtx_assn n)\<^sup>d *\<^sub>a (list_assn (mtx_assn n))\<^sup>d \<rightarrow>\<^sub>a bool_assn"
-  unfolding dbm_subset_fed_upd_def PR_CONST_def
-  unfolding list_all_foldli filter_conv_rev_fold
-  supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
-  by sepref
-
-sepref_register
-  "dbm_subset_fed_upd n" "abstr_FW_upd n" "pre_reset_list_upd1 n" "V_dbm' n" "down_upd n"
-
-sepref_register inv_fun
-
-lemma check_deadlock_dbm_alt_def:
-  "check_deadlock_dbm l M = dbm_subset_fed_upd n M (
-   [down_upd n (abstr_FW_upd n (inv_of_A l) (abstr_FW_upd n g
-      (pre_reset_list_upd1 n (abstr_FW_upd n (inv_of_A l') (V_dbm' n)) r)
-    )). (g, a, r, l') \<leftarrow> trans_fun l
-   ]
-  )"
-  sorry
-
 lemmas [sepref_fr_rules] =
   V_dbm_impl.refine abstr_FW_impl.refine pre_reset_list_impl.refine
   down_impl.refine dbm_subset_fed_impl.refine
@@ -707,13 +704,12 @@ lemmas [sepref_fr_rules] =
 sepref_definition check_deadlock_impl is
   "uncurry (RETURN oo check_deadlock_dbm)" ::
   "location_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a bool_assn"
-  unfolding check_deadlock_dbm_alt_def
+  unfolding check_deadlock_dbm_def
   unfolding case_prod_beta
   unfolding map_conv_rev_fold
-apply (rewrite "HOL_list.fold_custom_empty")
+  apply (rewrite "HOL_list.fold_custom_empty")
   by sepref
 
-end
-end
+end (* Reachability Problem Impl *)
 
-end
+end (* Theory *)
