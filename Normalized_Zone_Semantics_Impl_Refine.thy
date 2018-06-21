@@ -10,19 +10,72 @@ begin
 
   chapter \<open>Imperative Implementation of Reachability Checking\<close>
 
+  section \<open>Misc\<close>
+
+    (* XXX Move *)
+  lemma (in -) rtranclp_equiv:
+    "R\<^sup>*\<^sup>* x y \<longleftrightarrow> S\<^sup>*\<^sup>* x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
+  proof
+    assume A: "R\<^sup>*\<^sup>* x y"
+    note that(1)[iff] that(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> S\<^sup>*\<^sup>* x y"
+      by induction auto
+    then show "S\<^sup>*\<^sup>* x y" ..
+  next
+    assume A: "S\<^sup>*\<^sup>* x y"
+    note that(1)[iff] that(2)[intro] rtranclp.intros(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> R\<^sup>*\<^sup>* x y"
+      by (induction; blast)
+    then show "R\<^sup>*\<^sup>* x y" ..
+  qed
+
+  (* XXX Move *)
+  lemma (in -) tranclp_equiv:
+    "R\<^sup>+\<^sup>+ x y \<longleftrightarrow> S\<^sup>+\<^sup>+ x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
+  proof
+    assume A: "R\<^sup>+\<^sup>+ x y"
+    note that(1)[iff] that(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> S\<^sup>+\<^sup>+ x y"
+      by induction auto
+    then show "S\<^sup>+\<^sup>+ x y" ..
+  next
+    assume A: "S\<^sup>+\<^sup>+ x y"
+    note that(1)[iff] that(2)[intro] tranclp.intros(2)[intro]
+    from A \<open>P x\<close> have "P y \<and> R\<^sup>+\<^sup>+ x y"
+      by (induction; blast)
+    then show "R\<^sup>+\<^sup>+ x y" ..
+  qed
+
+  lemma (in -) rtranclp_tranclp_equiv:
+    "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z \<longleftrightarrow> S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z" if
+    "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
+  proof
+    assume A: "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z"
+    note that(1)[iff] that(2)[intro]
+    from A[THEN conjunct1] \<open>P x\<close> have "P y"
+      by induction auto
+    then show "S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z"
+      using rtranclp_equiv[of P R S x y, OF that] tranclp_equiv[of P R S y z, OF that(1,2)] A
+      by fastforce
+  next
+    assume A: "S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z"
+    note that(1)[iff] that(2)[intro]
+    from A[THEN conjunct1] \<open>P x\<close> have "P y"
+      by induction auto
+    then show "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z"
+      using rtranclp_equiv[of P R S x y, OF that] tranclp_equiv[of P R S y z, OF that(1,2)] A
+      by force
+  qed
+
   lemma rev_map_fold_append_aux:
     "fold (\<lambda> x xs. f x # xs) xs zs @ ys = fold (\<lambda> x xs. f x # xs) xs (zs@ys)"
-   apply (induction xs arbitrary: zs)
-  by auto
+   by (induction xs arbitrary: zs) auto
 
   lemma rev_map_fold:
   "rev (map f xs) = fold (\<lambda> x xs. f x # xs) xs []"
-   apply (induction xs)
-   apply simp
-   apply (simp add: rev_map_fold_append_aux)
-  done
+   by (induction xs; simp add: rev_map_fold_append_aux)
 
-  subsection \<open>Mapping Transitions and Invariants\<close>
+  section \<open>Mapping Transitions and Invariants\<close>
 
   type_synonym
     ('a, 'c, 'time, 's) transition_fun = "'s \<Rightarrow> (('c, 'time) cconstraint * 'a * 'c list * 's) list"
@@ -149,7 +202,10 @@ begin
 
 end (* Reachability Problem Impl Op *)
 
-text \<open>Shared Setup\<close>
+section \<open>Implementing of the Successor Function\<close>
+
+paragraph \<open>Shared Setup\<close>
+
 context Reachability_Problem_Impl
 begin
 
@@ -278,6 +334,7 @@ begin
 
 end (* End of Reachability Problem Impl *)
 
+paragraph \<open>Implementation for an Arbitrary DBM Successor Operation\<close>
 context Reachability_Problem_Impl_Op
 begin
 
@@ -497,8 +554,6 @@ begin
   qed
   done
 
-  sepref_register op_HOL_list_empty
-
   lemma b_rel_subtype[sepref_frame_match_rules]:
     "hn_val (b_rel R P) a b \<Longrightarrow>\<^sub>t hn_val R a b"
   by (rule enttI) (sep_auto simp: hn_ctxt_def pure_def)
@@ -597,6 +652,7 @@ begin
     by sepref
 
 
+  section \<open>Instantiation of Worklist Algorithms\<close>
 
   sublocale Worklist0 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M"
     apply standard
@@ -710,61 +766,6 @@ begin
     subgoal
       by sepref_to_hoare sep_auto
     by (rule state_copy_impl.refine)
-
-  (* XXX Move *)
-  lemma (in -) rtranclp_equiv:
-    "R\<^sup>*\<^sup>* x y \<longleftrightarrow> S\<^sup>*\<^sup>* x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
-  proof
-    assume A: "R\<^sup>*\<^sup>* x y"
-    note that(1)[iff] that(2)[intro]
-    from A \<open>P x\<close> have "P y \<and> S\<^sup>*\<^sup>* x y"
-      by induction auto
-    then show "S\<^sup>*\<^sup>* x y" ..
-  next
-    assume A: "S\<^sup>*\<^sup>* x y"
-    note that(1)[iff] that(2)[intro] rtranclp.intros(2)[intro]
-    from A \<open>P x\<close> have "P y \<and> R\<^sup>*\<^sup>* x y"
-      by (induction; blast)
-    then show "R\<^sup>*\<^sup>* x y" ..
-  qed
-
-  (* XXX Move *)
-  lemma (in -) tranclp_equiv:
-    "R\<^sup>+\<^sup>+ x y \<longleftrightarrow> S\<^sup>+\<^sup>+ x y" if "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
-  proof
-    assume A: "R\<^sup>+\<^sup>+ x y"
-    note that(1)[iff] that(2)[intro]
-    from A \<open>P x\<close> have "P y \<and> S\<^sup>+\<^sup>+ x y"
-      by induction auto
-    then show "S\<^sup>+\<^sup>+ x y" ..
-  next
-    assume A: "S\<^sup>+\<^sup>+ x y"
-    note that(1)[iff] that(2)[intro] tranclp.intros(2)[intro]
-    from A \<open>P x\<close> have "P y \<and> R\<^sup>+\<^sup>+ x y"
-      by (induction; blast)
-    then show "R\<^sup>+\<^sup>+ x y" ..
-  qed
-
-  lemma (in -) rtranclp_tranclp_equiv:
-    "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z \<longleftrightarrow> S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z" if
-    "\<And> x y. P x \<Longrightarrow> R x y \<longleftrightarrow> S x y" "\<And> x y. P x \<Longrightarrow> R x y \<Longrightarrow> P y" "P x"
-  proof
-    assume A: "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z"
-    note that(1)[iff] that(2)[intro]
-    from A[THEN conjunct1] \<open>P x\<close> have "P y"
-      by induction auto
-    then show "S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z"
-      using rtranclp_equiv[of P R S x y, OF that] tranclp_equiv[of P R S y z, OF that(1,2)] A
-      by fastforce
-  next
-    assume A: "S\<^sup>*\<^sup>* x y \<and> S\<^sup>+\<^sup>+ y z"
-    note that(1)[iff] that(2)[intro]
-    from A[THEN conjunct1] \<open>P x\<close> have "P y"
-      by induction auto
-    then show "R\<^sup>*\<^sup>* x y \<and> R\<^sup>+\<^sup>+ y z"
-      using rtranclp_equiv[of P R S x y, OF that] tranclp_equiv[of P R S y z, OF that(1,2)] A
-      by force
-  qed
 
   lemma liveness_step_equiv:
     fixes x y
@@ -946,7 +947,7 @@ begin
   end (* Context for second predicate *)
 
 
-  paragraph \<open>Implementation of the invariant precondition check\<close>
+  section \<open>Implementation of the Invariant Precondition Check\<close>
 
   definition
     "unbounded_dbm' = unbounded_dbm"
@@ -1012,6 +1013,9 @@ begin
 
 end (* End of locale *)
 
+
+section \<open>Instantiation for the Concrete DBM Successor Operations\<close>
+
 (* XXX Move *)
 lemma (in Graph_Defs) Alw_ev:
   "Alw_ev \<phi> x" if "\<phi> x"
@@ -1036,6 +1040,8 @@ begin
     by sepref
 
 end (* End sepref setup *)
+
+subsection \<open>Correctness Theorems\<close>
 
 sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op''" _ E_op''_impl
   unfolding PR_CONST_def by standard (rule E_op''_impl.refine)
@@ -1151,6 +1157,9 @@ end (* Context for leadsto predicate *)
 
 end (* End of Reachability Problem Impl *)
 
+
+section \<open>Instantiation for a Concrete Automaton\<close>
+
 datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
 
 context Reachability_Problem_precompiled
@@ -1236,6 +1245,8 @@ begin
     unfolding PR_CONST_def
     apply standard
     using iarray_k' by fastforce+
+
+  subsection \<open>Correctness Theorems\<close>
 
   lemma F_reachable_correct:
     "op.F_reachable
@@ -1517,6 +1528,8 @@ begin
   unfolding Reachability_Problem_precompiled_def check_pre_def check_nat_subs by auto
 
 end
+
+section \<open>Executable Checker\<close>
 
 lemmas Reachability_Problem_precompiled_defs.check_axioms[code]
 
