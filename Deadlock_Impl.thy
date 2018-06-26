@@ -1173,4 +1173,142 @@ thm check_passed_impl_hnr beta_final_bisim
 
 end (* Reachability Problem Impl *)
 
+
+context Reachability_Problem_precompiled
+begin
+
+lemma F_is_False_iff:
+  "PR_CONST F = (\<lambda>_. False) \<longleftrightarrow> final = []"
+  unfolding F_def by (cases final; simp; metis)
+
+lemma F_impl_False: "F_impl = (\<lambda>_. return False)" if "final = []"
+  using that unfolding F_impl_def unfolding final_fun_def List.member_def by auto
+
+definition deadlock_checker where
+  "deadlock_checker \<equiv>
+    let
+      key = return \<circ> fst;
+      sub = subsumes_impl;
+      copy = state_copy_impl;
+      start = a\<^sub>0_impl;
+      final = (\<lambda>_. return False);
+      succs = succs_impl;
+      empty = emptiness_check_impl;
+      P = check_deadlock_neg_impl
+    in check_passed_impl succs start final sub empty key copy P"
+
+theorem deadlock_checker_hnr:
+  assumes "final = []"
+  shows
+    "(uncurry0 deadlock_checker, uncurry0 (RETURN (\<exists>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<and> deadlock (0, u\<^sub>0))))
+     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  unfolding deadlock_checker_def Let_def
+  using check_passed_impl_hnr[
+      unfolded F_is_False_iff F_impl_False[OF assms],
+      OF start_in_state_set assms] .
+
+ML \<open>
+    fun pull_let ctxt u t =
+      let
+        val t1 = abstract_over (u, t);
+        val r1 = Const (@{const_name "HOL.Let"}, dummyT) $ u $ Abs ("I", dummyT, t1);
+        val ct1 = Syntax.check_term ctxt r1;
+        val g1 =
+          Goal.prove ctxt [] [] (Logic.mk_equals (t, ct1))
+          (fn {context, ...} => EqSubst.eqsubst_tac context [0] [@{thm Let_def}] 1
+          THEN resolve_tac context [@{thm Pure.reflexive}] 1)
+      in g1 end;
+
+    fun get_rhs thm =
+      let
+        val Const ("Pure.eq", _) $ _ $ r = Thm.full_prop_of thm
+      in r end;
+
+    fun get_lhs thm =
+      let
+        val Const ("Pure.imp", _) $ (Const ("Pure.eq", _) $ l $ _) $ _ = Thm.full_prop_of thm
+      in l end;
+
+    fun pull_tac' u ctxt thm =
+      let
+        val l = get_lhs thm;
+        val rewr = pull_let ctxt u l;
+      in Local_Defs.unfold_tac ctxt [rewr] thm end;
+
+    fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
+  \<close>
+
+schematic_goal deadlock_checker_alt_def:
+    "deadlock_checker \<equiv> ?impl"
+    unfolding deadlock_checker_def
+    unfolding succs_impl_def
+    unfolding E_op''_impl_def abstr_repair_impl_def abstra_repair_impl_def
+    unfolding
+      start_inv_check_impl_def unbounded_dbm_impl_def unbounded_dbm'_def
+      unbounded_dbm_def
+    unfolding check_deadlock_neg_impl_def check_deadlock_impl_def
+   apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
+   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
+   unfolding trans_map_def label_def
+   unfolding init_dbm_impl_def a\<^sub>0_impl_def
+   unfolding subsumes_impl_def
+   unfolding emptiness_check_impl_def
+   unfolding state_copy_impl_def
+  by (rule Pure.reflexive)
+
+end (* Reachability Problem Precompiled *)
+
+concrete_definition deadlock_checker_impl
+  uses Reachability_Problem_precompiled.deadlock_checker_alt_def
+
+export_code deadlock_checker_impl in SML_imp module_name TA
+
+definition [code]:
+  "check_deadlock n m k I T \<equiv>
+    if Reachability_Problem_precompiled n m k I T
+    then deadlock_checker_impl m k I T \<bind> (\<lambda>x. return (Some x))
+    else return None"
+
+theorem deadlock_check:
+  "(uncurry0 (check_deadlock n m k I T),
+    uncurry0 (
+       RETURN (
+        if (Reachability_Problem_precompiled n m k I T)
+        then Some (
+            if
+              \<exists> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<and>
+              Graph_Defs.deadlock
+                (\<lambda>(l, u) (l', u').
+                    (conv_A (Reachability_Problem_precompiled_defs.A n I T)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+                (0, u\<^sub>0)
+            then True
+            else False
+          )
+        else None
+       )
+    )
+   ) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+proof -
+  define reach_check where
+    "reach_check =
+    (\<exists> u\<^sub>0. (\<forall> c \<in> {1..m}. u\<^sub>0 c = 0) \<and>
+              Graph_Defs.deadlock
+            (\<lambda>(l, u) (l', u').
+                (conv_A (Reachability_Problem_precompiled_defs.A n I T)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
+            (0, u\<^sub>0))"
+  note [sep_heap_rules] = Reachability_Problem_precompiled.deadlock_checker_hnr[OF _ HOL.refl,
+      to_hnr, unfolded hn_refine_def, rule_format,
+      of n m k I T,
+      unfolded reach_check_def[symmetric]
+      ]
+  show ?thesis
+    unfolding reach_check_def[symmetric]
+    by sepref_to_hoare
+       (sep_auto simp: deadlock_checker_impl.refine[symmetric] mod_star_conv check_deadlock_def)
+qed
+
 end (* Theory *)
