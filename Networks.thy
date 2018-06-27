@@ -1,5 +1,5 @@
 theory Networks
-  imports TA.Timed_Automata Normalized_Zone_Semantics_Impl
+  imports TA.Timed_Automata TA_Impl.Normalized_Zone_Semantics_Impl
     "library/Reordering_Quantifiers"
 begin
 
@@ -78,12 +78,17 @@ abbreviation state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's s
 lemma guard_concat:
   assumes "\<forall> g \<in> set xs. u \<turnstile> g"
   shows "u \<turnstile> concat xs"
-using assms by (induction xs) auto
+  using assms by (induction xs) (auto simp: clock_val_def)
+
+lemma guard_append:
+  assumes "u \<turnstile> g1" "u \<turnstile> g2"
+  shows "u \<turnstile> g1 @ g2"
+  using assms by (auto simp: clock_val_def)
 
 lemma concat_guard:
   assumes "u \<turnstile> concat xs" "g \<in> set xs"
   shows "u \<turnstile> g"
-using assms by (auto simp: list_all_iff)
+using assms by (auto simp: list_all_iff clock_val_def)
 
 lemma lists_of_len_finite:
   assumes "finite S"
@@ -729,7 +734,10 @@ begin
         using \<open>p < _\<close> apply simp
         apply (erule allE[where x = q])
         using prems by (fastforce simp: trans_of_def)
-      by (fastforce simp: product_invariant_def product_ta_def inv_of_def intro: guard_concat)+
+      by (fastforce
+            simp: product_invariant_def product_ta_def inv_of_def
+            intro: guard_concat guard_append
+         )+
   qed
 
   lemma product_complete:
@@ -758,7 +766,7 @@ begin
     apply (erule disjE)
     unfolding product_trans_i_def product_trans_s_def
      apply (clarsimp; auto intro!: product_invariantD step_n_i; fail)
-    by (clarsimp; auto intro!: product_invariantD step_n_s)
+    by (auto intro!: product_invariantD step_n_s simp: clock_val_def)
 
   lemma product_sound:
     assumes step: "product_ta \<turnstile> \<langle>L, u\<rangle> \<rightarrow> \<langle>L', u'\<rangle>"

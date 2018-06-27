@@ -23,6 +23,7 @@ session "TA_Impl" = "TA" +
   theories
     Normalized_Zone_Semantics_Impl_Refine
 
+(*
 session "TA_Impl_Calc_Prereq" = "TA_Impl" +
   sessions
     Gabow_SCC
@@ -38,23 +39,24 @@ session "TA_All_Pre" = "TA_Impl_Refine_Calc_Prereq" +
     "library/ML_Util"
   theories
     UPPAAL_State_Networks_Impl_Refine
+*)
 
 (* Use this to get document output for the implementation of Reachability Checking *)
-session "TA_All" = "TA" +
+session "TA_All" = "TA_Impl" +
   options
     [document = pdf, document_output = "output",
      document_variants = "model_checking_proofs:model_checking=/proof,/ML"]
   theories [document = false]
     Refine_Imperative_HOL.IICF
-    "library/Instantiate_Existentials"
+    "TA.Instantiate_Existentials"
     "library/ML_Util"
     "library/Reordering_Quantifiers"
-    "library/Sequence"
-    "library/Stream_More"
+    "TA.Sequence"
+    "TA.Stream_More"
     "HOL-Library.IArray"
   theories
     UPPAAL_State_Networks_Impl_Refine
-    Simulation_Graphs
+    "TA.Simulation_Graphs"
     TA_More
     Infinite_TA_Runs
     "Worklist_Algorithms/Worklist_Subsumption_Impl1"
@@ -63,7 +65,7 @@ session "TA_All" = "TA" +
   document_files (in "document/model_checking")
     "root.tex"
 
-session "TA_Code" = "TA_Impl_Refine_Calc_Prereq" +
+session "TA_Code" = "TA_Impl" +
   sessions
     Gabow_SCC
   theories [document = false]

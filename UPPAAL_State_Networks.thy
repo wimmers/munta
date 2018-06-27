@@ -934,7 +934,7 @@ proof -
     "\<forall> pc\<in>set pcs. \<forall>ac. P pc = Some (CEXP ac) \<longrightarrow> u' \<turnstile>\<^sub>a ac"
     by fastforce
   then show ?A ?B unfolding make_c_def make_g_def
-    by (auto split: option.split instrc.split_asm simp: list_all_iff set_map_filter intro!: clock_val.intros)
+    by (auto split: option.split instrc.split_asm simp: list_all_iff set_map_filter clock_val_def)
 qed
 
 lemma P_steps_guard:
@@ -962,7 +962,7 @@ proof -
   ultimately have "u' \<turnstile>\<^sub>a ac"
     if "steps PT (length pcs) (pc_g, [], s', True, []) (pc, st, m, f, rs)" "P pc = Some (CEXP ac)"
     for pc st m f rs ac
-    using that by (force split: option.splits simp: list_all_iff set_map_filter)
+    using that by (auto 4 3 split: option.splits simp: list_all_iff set_map_filter clock_val_def)
   moreover from ** have
     "steps PT (length pcs) (pc_g, [], s', True, []) (pc, st, s'', True, rs)" "PT pc = Some HALT"
     by (auto dest: exec_steps)
@@ -1276,8 +1276,8 @@ next
                 apply (auto simp: inv_simp p_def Prod_TA_Defs.N_s_length intro!: P_bounded)
        apply (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
       subgoal premises prems for pc_g pc_u q
-        using prems(8) \<open>q < _\<close> unfolding state_ta_def state_pred_def
-        by (fastforce simp: p_def split: option.splits)
+        using prems(9) \<open>q < _\<close> unfolding state_ta_def state_pred_def
+        by (auto 4 3 simp: p_def split: option.splits)
       done
     done
 next
@@ -1330,8 +1330,8 @@ next
             (* XXX Slow *)
           apply (metis Prod_TA_Defs'.states'_simp Prod_TA_Defs'.states_step local.step states)
             subgoal premises prems for pc_g pc_ga pc_u pc_ua q'
-            using prems(12) \<open>q' < _\<close> unfolding state_ta_def state_pred_def
-            by (fastforce simp: p_def split: option.splits)
+            using prems(14) \<open>q' < _\<close> unfolding state_ta_def state_pred_def
+            by (auto 4 3 simp: p_def split: option.splits)
           done
     done
 qed

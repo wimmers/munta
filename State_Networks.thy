@@ -1,5 +1,5 @@
 theory State_Networks
-  imports Networks Normalized_Zone_Semantics_Impl
+  imports Networks TA_Impl.Normalized_Zone_Semantics_Impl
     "library/Reordering_Quantifiers"
 begin
 

@@ -1,8 +1,8 @@
 theory UPPAAL_Model_Checking
   imports
     UPPAAL_State_Networks_Impl_Refine
-    "~~/src/HOL/Library/BNF_Corec"
-    TA_More
+    "HOL-Library.BNF_Corec"
+    TA_Impl.TA_More
 begin
 
 hide_const models
@@ -437,7 +437,7 @@ context UPPAAL_Reachability_Problem_precompiled'
 begin
 
 lemma F_reachable_correct'_new:
-  "impl.(.F_reachable)
+  "impl.op.F_reachable
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
       \<and>  check_bexp \<phi> L' s')
@@ -447,7 +447,7 @@ lemma F_reachable_correct'_new:
   unfolding F_def by auto
 
 lemma F_reachable_correct'_new':
-  "impl.(.F_reachable)
+  "impl.op.F_reachable
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
       \<and>  \<not> check_bexp \<phi> L' s')
@@ -457,7 +457,7 @@ lemma F_reachable_correct'_new':
   unfolding F_def by auto
 
 lemma F_reachable_correct_new:
-  "impl.(.F_reachable)
+  "impl.op.F_reachable
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv N \<turnstile>\<^sup>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
        \<and> check_bexp \<phi> L' s')
@@ -467,7 +467,7 @@ lemma F_reachable_correct_new:
     using prod_conv p_p p_gt_0 by simp+
 
 lemma F_reachable_correct_new':
-  "impl.(.F_reachable)
+  "impl.op.F_reachable
   \<longleftrightarrow> (\<exists> L' s'. \<forall> u. (\<forall> c \<in> {1..m}. u c = 0) \<longrightarrow> (\<exists> u'.
       conv N \<turnstile>\<^sup>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
        \<and> \<not> check_bexp \<phi> L' s')

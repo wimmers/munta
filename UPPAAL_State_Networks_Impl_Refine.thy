@@ -1,6 +1,6 @@
 theory UPPAAL_State_Networks_Impl_Refine
   imports
-    UPPAAL_State_Networks_Impl Normalized_Zone_Semantics_Impl_Refine TA_Impl_Misc
+    "UPPAAL_State_Networks_Impl" TA_Impl.Normalized_Zone_Semantics_Impl_Refine TA_Impl.TA_Impl_Misc
     "library/ML_Util"
     "HOL-Library.Lattice_Syntax"
 begin
@@ -1228,6 +1228,7 @@ lemma resets_approx':
 *)
 
 lemma make_g_clkp_set'':
+  fixes x
   assumes
     "(l, pc_g, a, pc_u, l') \<in> fst (equiv.N ! q)" "x \<in> collect_clock_pairs (equiv.make_g pc_g s)"
     "q < p"
@@ -3558,7 +3559,7 @@ begin
   *)
 
   lemma F_reachable_correct':
-    "impl.F_reachable
+    "impl.op.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
@@ -3750,7 +3751,7 @@ begin
     by (simp add: prod_invariant_conv[symmetric] prod_trans_conv[symmetric])
 
   lemma F_reachable_correct:
-    "impl.F_reachable
+    "impl.op.F_reachable
     \<longleftrightarrow> (\<exists> L' s' u u'.
         conv N \<turnstile>\<^sub>max_steps \<langle>init, s\<^sub>0, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
@@ -3882,7 +3883,7 @@ begin
       apply (simp cong: list.map_cong_simp)
       unfolding equiv.state_inv_def
       unfolding N_def
-      by (force simp: map_concat list_all_concat cong: list.map_cong_simp)
+      by (force simp: map_concat list_all_concat clock_val_def cong: list.map_cong_simp)
     also have "(\<forall> i < p. u \<turnstile> conv_cc (I i 0)) \<longleftrightarrow> (\<forall> i < p. u \<turnstile> conv_cc (inv ! i ! 0))"
       unfolding I_def using lengths processes_have_trans by fastforce
     finally show ?thesis .

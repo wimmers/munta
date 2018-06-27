@@ -1,5 +1,5 @@
 theory UPPAAL_State_Networks_Impl
-  imports Normalized_Zone_Semantics_Impl UPPAAL_State_Networks
+  imports TA_Impl.Normalized_Zone_Semantics_Impl UPPAAL_State_Networks
 begin
 
 chapter \<open>Implementation of UPPAAL Style Networks\<close>
