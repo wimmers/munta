@@ -93,7 +93,7 @@ definition
     (\<forall>q<p. \<exists>pc st s'' rs pcs.
       exec PF n ((I ! q) (L' ! q), [], s', True, []) [] =
       Some ((pc, st, s'', True, rs), pcs)
-    ) \<and> bounded B s' \<and> L' \<in> defs.states' s' (* \<and> (\<forall>q<p. (defs.P ! q) (L' ! q) s') *)
+    ) \<and> bounded B s' \<and> L' \<in> defs.states' s' \<^cancel>\<open>\<and> (\<forall>q<p. (defs.P ! q) (L' ! q) s')\<close>
   "
 
 lemma step_u_inv:
@@ -268,6 +268,10 @@ definition models ("_,_ \<Turnstile>\<^sub>_ _" [61,61] 61) where
         (\<lambda> (L, s, _). check_bexp \<psi> L s)
   ) a\<^sub>0
   "
+
+definition
+  "has_deadlock A n a\<^sub>0 \<equiv>
+    Graph_Defs.deadlock (\<lambda> (L, s, u) (L', s', u'). A \<turnstile>\<^sup>n \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) a\<^sub>0"
 
 lemmas models_iff = models_def[unfolded Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff]
 
@@ -1140,46 +1144,24 @@ theorem model_check:
   "<emp> precond_mc p m k max_steps I T prog formula bounds P s\<^sub>0 na
     <\<lambda> Some r \<Rightarrow> \<up>(
         UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k \<and>
-        (\<not> Graph_Defs.deadlock
-          (\<lambda> (L, s, u) (L', s', u').
-            conv (N p I P T prog bounds) \<turnstile>\<^sup>max_steps \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>
-          )
-          (repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
+        (\<not> has_deadlock (conv (N p I P T prog bounds)) max_steps (repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
           r = conv (N p I P T prog bounds),(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula
         ))
      | None \<Rightarrow> \<up>(\<not> UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k)
     >\<^sub>t"
 proof -
   define A where "A \<equiv> conv (N p I P T prog bounds)"
-  define no_deadlock where
-    "no_deadlock \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> Graph_Defs.deadlock
-          (\<lambda>(l, u) (l', u').
-              (case Prod_TA_Defs.prod_ta
-                     (Equiv_TA_Defs.state_ta
-                       (N p I P T prog bounds) max_steps) of
-               (T, I) \<Rightarrow>
-                 ((\<lambda>(l, g, a, r, l').
-                      (l, map conv_ac g, a, r, l')) `
-                  T,
-                  map conv_ac \<circ> I)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
-          ((repeat 0 p,
-            s\<^sub>0),
-           u\<^sub>0))"
-  define check where
-    "check \<equiv>
-        A,(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula"
+  define check where "check \<equiv> A,(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula"
   note [sep_heap_rules] =
     UPPAAL_Reachability_Problem_precompiled'.model_check'_hoare[
       of p m max_steps I T prog bounds P s\<^sub>0 na k formula,
       unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
-      folded A_def check_def no_deadlock_def
+      folded A_def check_def has_deadlock_def
       ]
-  have *: "(no_deadlock \<longrightarrow> r = Some check) \<longleftrightarrow> (if no_deadlock then r = Some check else True)" for r
-    by auto
   show ?thesis
     unfolding UPPAAL_Reachability_Problem_precompiled_defs.init_def
-    unfolding A_def[symmetric] check_def[symmetric] no_deadlock_def[symmetric]
-    unfolding precond_mc_def * by (sep_auto simp: model_checker.refine[symmetric])
+    unfolding A_def[symmetric] check_def[symmetric]
+    unfolding precond_mc_def by (sep_auto simp: model_checker.refine[symmetric])
 qed
 
 theorem model_check_alt:
@@ -1187,11 +1169,7 @@ theorem model_check_alt:
     <\<lambda> r. \<up> (
     if UPPAAL_Reachability_Problem_precompiled' p m max_steps I T prog bounds P s\<^sub>0 na k
     then r \<noteq> None \<and>
-      (\<not> Graph_Defs.deadlock
-          (\<lambda> (L, s, u) (L', s', u').
-            conv (N p I P T prog bounds) \<turnstile>\<^sup>max_steps \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>
-          )
-          (repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
+      (\<not> has_deadlock (conv (N p I P T prog bounds)) max_steps (repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
       r = Some (
         conv (N p I P T prog bounds),(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula
       ))
@@ -1199,35 +1177,17 @@ theorem model_check_alt:
     )>\<^sub>t"
 proof -
   define A where "A \<equiv> conv (N p I P T prog bounds)"
-  define no_deadlock where
-    "no_deadlock \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..m}. u\<^sub>0 c = 0) \<longrightarrow> \<not> Graph_Defs.deadlock
-          (\<lambda>(l, u) (l', u').
-              (case Prod_TA_Defs.prod_ta
-                     (Equiv_TA_Defs.state_ta
-                       (N p I P T prog bounds) max_steps) of
-               (T, I) \<Rightarrow>
-                 ((\<lambda>(l, g, a, r, l').
-                      (l, map conv_ac g, a, r, l')) `
-                  T,
-                  map conv_ac \<circ> I)) \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)
-          ((repeat 0 p,
-            s\<^sub>0),
-           u\<^sub>0))"
-  define check where
-    "check \<equiv>
-        A,(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula"
+  define check where "check \<equiv> A,(repeat 0 p, s\<^sub>0, \<lambda>_ . 0) \<Turnstile>\<^sub>max_steps formula"
   note [sep_heap_rules] =
     UPPAAL_Reachability_Problem_precompiled'.model_check'_hoare[
       of p m max_steps I T prog bounds P s\<^sub>0 na k formula,
       unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
-      folded A_def check_def no_deadlock_def
+      folded A_def check_def has_deadlock_def
       ]
-  have *: "(no_deadlock \<longrightarrow> r = Some check) \<longleftrightarrow> (if no_deadlock then r = Some check else True)" for r
-    by auto
   show ?thesis
     unfolding UPPAAL_Reachability_Problem_precompiled_defs.init_def
-    unfolding A_def[symmetric] check_def[symmetric] no_deadlock_def[symmetric]
-    unfolding precond_mc_def * by (sep_auto simp: model_checker.refine[symmetric])
+    unfolding A_def[symmetric] check_def[symmetric]
+    unfolding precond_mc_def by (sep_auto simp: model_checker.refine[symmetric])
 qed
 
 prepare_code_thms dfs_map_impl'_def leadsto_impl_def
