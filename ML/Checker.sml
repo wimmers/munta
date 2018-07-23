@@ -22,7 +22,8 @@ datatype ('a, 'b) formula' =
   EG' of ('a, 'b) bexp' |
   AX' of ('a, 'b) bexp' |
   AG' of ('a, 'b) bexp' |
-  Leadsto' of ('a, 'b) bexp' * ('a, 'b) bexp'
+  Leadsto' of ('a, 'b) bexp' * ('a, 'b) bexp' |
+  Has_Deadlock
 
 
 infix 9 Lea' Lta' Ge' Gt' Eq'
@@ -142,6 +143,7 @@ fun scan_bexp xs =
   end
 
 val scan_formula = scan_parens "(" ")" (Scan.first [
+  scan_nullary "has_deadlock" op Has_Deadlock,
   scan_singlec scan_bexp "EX" op EX',
   scan_singlec scan_bexp "EG" op EG',
   scan_singlec scan_bexp "AX" op AX',
@@ -233,7 +235,7 @@ fun print_result NONE = println("Invalid input\n")
 
 
 (*** Wrapping up the checker ***)
-fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s na () =
+fun check_and_verify2 check_deadlock p m ignore_k max_steps inv trans prog query bounds pred s na () =
   let
     val debug_level: Int32.int Unsynchronized.ref = ref 0
     val _ = debug_level := 2
@@ -243,7 +245,6 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
     val trans =
       map (map (map (fn (g, a, r, l) => (to_nat g, (map_act to_nat a, (to_nat r, to_nat l)))))) trans;
     val prog = map (map_option (map_instrc to_nat to_int to_int)) prog
-    val query = map_formula to_nat to_int query
     val bounds = map (fn (a, b) => (to_int a, to_int b)) bounds
     val pred = map (map to_nat) pred
     val s = map to_int s
@@ -267,7 +268,7 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
     fun print_checks name tests =
         if List.all snd tests then () else
         "\n\nThe following checks failed (" ^ name ^ "):\n- " ^
-        String.concatWith "\n- " (tests |> List.filter (not o snd) |> List.map (String.implode o fst))
+        String.concatWith "\n- " (tests |> List.filter (not o snd) |> List.map fst)
         |> println
 
 
@@ -282,8 +283,12 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
         val _ = print_checks "Ceiling" ceiling_checks
         val _ = print_checks "Actions" more_checks
       in println "" end else ();
+    val is_deadlock_check = (check_deadlock orelse query = Has_Deadlock)
+    val _ = if is_deadlock_check then println "Checking for deadlocks\n" else ()
     val t = Time.now ()
-    val result = Model_Checker.precond_mc p m k max_steps inv trans prog query bounds pred s na ()
+    val result = if is_deadlock_check
+      then Model_Checker.precond_dc p m k max_steps inv trans prog bounds pred s na ()
+      else Model_Checker.precond_mc p m k max_steps inv trans prog (map_formula to_nat to_int query) bounds pred s na ()
     val t = Time.- (Time.now (), t)
     val _ = println("Internal time for precondition check + actual checking: " ^ Time.toString t)
     val _ = println("")
@@ -296,7 +301,7 @@ fun check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s 
     print_result result
   end;
 
-fun check_and_verify_parse input =
+fun check_and_verify_parse check_deadlock input =
   let
     val (result, _) = scan_all input
       handle x => (println "Parse error"; raise x)
@@ -313,7 +318,7 @@ fun check_and_verify_parse input =
     val (result, m) = result
     val p = result
   in
-    check_and_verify2 p m ignore_k max_steps inv trans prog query bounds pred s na
+    check_and_verify2 check_deadlock p m ignore_k max_steps inv trans prog query bounds pred s na
   end;
 
 fun read_lines stream =
@@ -328,10 +333,12 @@ fun read_lines stream =
 
 fun check_and_verify_from_stream stream =
   let
+    val args = CommandLine.arguments()
+    val check_deadlock = List.find (fn x => x = "-deadlock" orelse x = "-dc") args <> NONE
     val input = read_lines stream
   in
     if input = ""
     then (println "Failed to read line from input!"; fn () => ())
       (* We append a space to terminate the input for the parser *)
-    else input ^ " " |> explode_string |> check_and_verify_parse
+    else input ^ " " |> explode_string |> check_and_verify_parse check_deadlock
   end;
