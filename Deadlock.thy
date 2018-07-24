@@ -1929,6 +1929,20 @@ definition
    in is_direct_subset \<or>
      list_all (\<lambda> M. check_diag n M) (fold (\<lambda>m S. dbm_minus_canonical_check_upd n S m) xs [M])"
 
+(* XXX Move? *)
+lemma list_all_filter_neg:
+  "list_all P (filter (\<lambda>x. \<not> P x) xs) \<longleftrightarrow> (filter (\<lambda>x. \<not> P x) xs) = []"
+  by (metis Cons_eq_filterD list_all_simps(2) list_pred_cases)
+
+lemma dbm_subset_fed_upd_alt_def:
+  "dbm_subset_fed_upd n M xs \<equiv>
+   let xs = filter (\<lambda>M. \<not> check_diag n M) xs
+   in if xs = [] then check_diag n M
+      else if list_ex (\<lambda>M'. dbm_subset' n M M') xs then True
+      else fold (\<lambda>m S. dbm_minus_canonical_check_upd n S m) xs [M] = []"
+  unfolding dbm_subset_fed_upd_def short_circuit_conv using list_last
+  by (intro eq_reflection;force simp: list_all_filter_neg dbm_minus_canonical_check_upd_def Let_def)
+
 definition
   "V_dbm' n = (\<lambda>(i, j). (if i = j \<or> i = 0 \<and> j > 0 \<or> i > n \<or> j > n then 0 else \<infinity>))"
 

@@ -509,8 +509,8 @@ lemmas [sepref_fr_rules] = dbm_minus_canonical_impl.refine
 sepref_definition dbm_subset_fed_impl is
   "uncurry (RETURN oo PR_CONST (dbm_subset_fed_upd n))" ::
   "(mtx_assn n)\<^sup>d *\<^sub>a (list_assn (mtx_assn n))\<^sup>d \<rightarrow>\<^sub>a bool_assn"
-  unfolding dbm_subset_fed_upd_def PR_CONST_def
-  unfolding list_all_foldli list_ex_foldli filter_conv_rev_fold
+  unfolding dbm_subset_fed_upd_alt_def PR_CONST_def
+  unfolding list_ex_foldli filter_conv_rev_fold
   unfolding short_circuit_conv
   supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
   by sepref
