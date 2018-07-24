@@ -510,7 +510,8 @@ sepref_definition dbm_subset_fed_impl is
   "uncurry (RETURN oo PR_CONST (dbm_subset_fed_upd n))" ::
   "(mtx_assn n)\<^sup>d *\<^sub>a (list_assn (mtx_assn n))\<^sup>d \<rightarrow>\<^sub>a bool_assn"
   unfolding dbm_subset_fed_upd_def PR_CONST_def
-  unfolding list_all_foldli filter_conv_rev_fold
+  unfolding list_all_foldli list_ex_foldli filter_conv_rev_fold
+  unfolding short_circuit_conv
   supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
   by sepref
 
@@ -605,7 +606,7 @@ proof -
   have [transfer_rule]: "eq_onp (\<lambda>l'. l' = l) l l" "(eq_onp (\<lambda>x. x < Suc n)) n n"
     by (auto simp: eq_onp_def)
   have *: "
-    (dbm_subset_fed n (curry (conv_M M))
+    (dbm_subset_fed_check n (curry (conv_M M))
          (map (\<lambda>(g, a, r, l').
                   down n
           (abstr_FW n (conv_cc (inv_of A l))
@@ -684,7 +685,7 @@ proof -
     unfolding trans_of_def by (auto 4 3 split: prod.split)
   show ?thesis
     unfolding TA.check_deadlock_alt_def[OF \<open>_ \<subseteq> V\<close>] check_deadlock_dbm_def inv_of_A_def *[symmetric]
-    apply (subst dbm.dbm_subset_fed_correct[symmetric, OF that(3)])
+    apply (subst dbm.dbm_subset_fed_check_correct[symmetric, OF that(3)])
     apply (simp add: **)
     apply safe
     subgoal for x

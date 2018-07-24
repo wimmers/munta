@@ -1599,15 +1599,28 @@ lemma pre_reset_list_correct:
 
 end (* Default Clock Numbering *)
 
+text \<open>
+Computes \<open>dbm_list xs - \<lbrakk>M\<rbrakk> = dbm_list xs \<inter> (- \<lbrakk>M\<rbrakk>)\<close> by negating each entry of \<open>M\<close>
+and intersecting it with each member of \<open>xs\<close>.
+\<close>
 definition
-  "dbm_minus_canonical n xs m =
-  concat (map (\<lambda>(i, j). map (\<lambda> M. and_entry_repair n j i (neg_dbm_entry (m i j)) M) xs)
-    [(i, j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m i j \<noteq> \<infinity>])"
+  "dbm_minus_canonical n xs M =
+  concat (map (\<lambda>(i, j). map (\<lambda> M'. and_entry_repair n j i (neg_dbm_entry (M i j)) M') xs)
+    [(i, j). i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> M i j \<noteq> \<infinity>])"
 
+text \<open>Checks whether \<open>\<lbrakk>M\<rbrakk> - dbm_list xs = {}\<close>.\<close>
 definition
   "dbm_subset_fed n M xs \<equiv>
     let xs = filter (\<lambda>M. \<not> check_diag n (uncurry M)) xs in
     list_all (\<lambda> M. check_diag n (uncurry M)) (fold (\<lambda>m S. dbm_minus_canonical n S m) xs [M])"
+
+definition
+  "dbm_subset_fed_check n M xs \<equiv>
+    let
+      xs = filter (\<lambda>M. \<not> check_diag n (uncurry M)) xs;
+      is_direct_subset = list_ex (\<lambda> M'. dbm_subset' n (uncurry M) (uncurry M')) xs
+    in is_direct_subset \<or>
+       list_all (\<lambda> M. check_diag n (uncurry M)) (fold (\<lambda>m S. dbm_minus_canonical n S m) xs [M])"
 
 definition "canonical' n M \<equiv> canonical M n \<or> check_diag n (uncurry M)"
 
@@ -1770,6 +1783,39 @@ proof -
     done
 qed
 
+(* XXX Move *)
+lemma subset_if_pointwise_le:
+  "\<lbrakk>M\<rbrakk> \<subseteq> \<lbrakk>M'\<rbrakk>" if "pointwise_cmp (\<le>) n M M'"
+  using that by (simp add: DBM.less_eq DBM_le_subset pointwise_cmp_def subsetI)
+
+theorem dbm_subset_fed_check_correct:
+  fixes xs :: "(nat \<Rightarrow> nat \<Rightarrow> ('t ::time) DBMEntry) list"
+    and S :: "(nat \<Rightarrow> nat \<Rightarrow> 't DBMEntry) list"
+  assumes "canonical' n M"
+  shows "\<lbrakk>M\<rbrakk> \<subseteq> (\<Union>m\<in>set xs. \<lbrakk>m\<rbrakk>) \<longleftrightarrow> dbm_subset_fed_check n M xs"
+proof -
+  have **:"(\<Union>m\<in>set xs. \<lbrakk>m\<rbrakk>) = (\<Union>m\<in>set (filter (\<lambda>M. \<not> check_diag n (uncurry M)) xs). \<lbrakk>m\<rbrakk>)"
+    by (auto simp: check_diag_empty)
+  have "\<lbrakk>M\<rbrakk> \<subseteq> (\<Union>m\<in>set xs. \<lbrakk>m\<rbrakk>)" if "\<exists>m \<in> set xs. \<lbrakk>M\<rbrakk> \<subseteq> \<lbrakk>m\<rbrakk>"
+    using that by auto
+  define xs' where "xs' = filter (\<lambda>M. \<not> check_diag n (uncurry M)) xs"
+  define is_direct_subset where
+    "is_direct_subset = list_ex (\<lambda> M'. dbm_subset' n (uncurry M) (uncurry M')) xs'"
+  have "\<lbrakk>M\<rbrakk> \<subseteq> (\<Union>m\<in>set xs. \<lbrakk>m\<rbrakk>)" if is_direct_subset
+  proof -
+    from that have "\<exists>m \<in> set xs'. \<lbrakk>M\<rbrakk> \<subseteq> \<lbrakk>m\<rbrakk>"
+      unfolding is_direct_subset_def list_ex_iff dbm_subset'_def
+      by (auto intro!: subset_if_pointwise_le)
+    then show ?thesis
+      unfolding xs'_def by auto
+  qed
+  then show ?thesis
+    by (cases is_direct_subset; simp add:
+        dbm_subset_fed_check_def is_direct_subset_def dbm_subset_fed_correct[OF \<open>canonical' n M\<close>]
+        dbm_subset_fed_def xs'_def[symmetric]
+        )
+qed
+
 end (* Default Clock Numbering *)
 
 
@@ -1794,7 +1840,9 @@ definition
 
 definition
   "dbm_subset_fed_upd n M xs \<equiv>
-   let xs = filter (\<lambda>M. \<not> check_diag n M) xs in
+   let xs = filter (\<lambda>M. \<not> check_diag n M) xs;
+       is_direct_subset = list_ex (\<lambda>M'. dbm_subset' n M M') xs
+   in is_direct_subset \<or>
      list_all (\<lambda> M. check_diag n M) (fold (\<lambda>m S. dbm_minus_canonical_upd n S m) xs [M])"
 
 definition
@@ -1965,14 +2013,25 @@ lemma dbm_minus_canonical_transfer[transfer_rule]:
   qed
   done
 
-lemma [transfer_rule]:
+lemma check_diag_transfer[transfer_rule]:
   "(eq_onp (\<lambda>x. x = n) ===> RI2 ===> (=)) (\<lambda>n M. check_diag n (uncurry M)) check_diag"
   unfolding RI2_def rel_fun_def check_diag_def
   by (auto 0 5 dest: neutral_RI simp: eq_onp_def less_Suc_eq_le neutral[symmetric])
 
+(* XXX Move *)
+lemma le_rel_DBMEntry_iff:
+  "a \<le> b \<longleftrightarrow> x \<le> y" if "rel_DBMEntry ri a x" "rel_DBMEntry ri b y"
+  using that by (auto elim!: DBMEntry.rel_cases simp: dbm_entry_simps ri_def)
+
+lemma dbm_subset'_transfer[transfer_rule]:
+  "(eq_onp (\<lambda>x. x = n) ===> RI2 ===> RI2 ===> (=))
+    (\<lambda> n M M'. dbm_subset' n (uncurry M) (uncurry M')) dbm_subset'"
+  unfolding RI2_def rel_fun_def dbm_subset'_def
+  using le_rel_DBMEntry_iff by (clarsimp simp: eq_onp_def pointwise_cmp_def less_Suc_eq_le) meson
+
 lemma dbm_subset_fed_transfer:
-  "(eq_onp (\<lambda>x. x = n) ===> RI2 ===> list_all2 RI2 ===> (=)) dbm_subset_fed dbm_subset_fed_upd"
-  unfolding dbm_subset_fed_def dbm_subset_fed_upd_def by transfer_prover
+  "(eq_onp (\<lambda>x. x = n) ===> RI2 ===> list_all2 RI2 ===> (=)) dbm_subset_fed_check dbm_subset_fed_upd"
+  unfolding dbm_subset_fed_check_def dbm_subset_fed_upd_def by transfer_prover
 
 lemma V_dbm_transfer[transfer_rule]:
   "RI2 V_dbm (V_dbm' n)"
