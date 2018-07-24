@@ -442,7 +442,7 @@ context
 begin
 
 sepref_register
-  "dbm_minus_canonical_upd n"
+  "dbm_minus_canonical_check_upd n"
   "dbm_subset_fed_upd n" "abstr_FW_upd n" "pre_reset_list_upd1 n" "V_dbm' n" "down_upd n"
   upd_entry upd_entries get_entries "and_entry_repair_upd n"
 
@@ -496,11 +496,11 @@ private lemma dbm_minus_canonical_upd_alt_def:
   by simp
 
 sepref_definition dbm_minus_canonical_impl is
-  "uncurry (RETURN oo PR_CONST (dbm_minus_canonical_upd n))" ::
+  "uncurry (RETURN oo PR_CONST (dbm_minus_canonical_check_upd n))" ::
   "(list_assn (mtx_assn n))\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a list_assn (mtx_assn n)"
-  unfolding dbm_minus_canonical_upd_alt_def PR_CONST_def
+  unfolding dbm_minus_canonical_check_upd_def dbm_minus_canonical_upd_alt_def PR_CONST_def
   unfolding upd_entry_def[symmetric] upd_entries_def[symmetric]
-  unfolding concat_map_conv_rev_fold rev_conv_fold
+  unfolding filter_conv_rev_fold concat_map_conv_rev_fold rev_conv_fold
   supply [sepref_fr_rules] = HOL_list_empty_hnr_aux
   by sepref
 
