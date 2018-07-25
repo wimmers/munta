@@ -88,11 +88,11 @@ where
       stepst P n u (pc_g1, [], s, True, []) (_, _, _, True, _);
       stepst P n u (pc_g2, [], s, True, []) (_, _, _, True, _);
       stepst P n u (pc_u2, [], s, True, []) (_, _, s1, _, r2);
-      (* XXX UPPAAL semantics quirk *)
+      \<comment>\<open>XXX UPPAAL semantics quirk\<close>
       ((\<exists> pc st s' f. stepst P n u (pc_u1, [], s, True, []) (pc, st, s', f, r1))
         \<or> (\<not> (\<exists> pc st s' f r'. stepst P n u (pc_u1, [], s, True, []) (pc, st, s', f, r')) \<and> r1 = []));
       stepst P n u (pc_u1, [], s1, True, []) ( _, _, s', _, _);
-      (* stepst P n u (pc_u2, [], s1, True, []) ( _, _, s2, _, r2); *)
+      \<^cancel>\<open>stepst P n u (pc_u2, [], s1, True, []) ( _, _, s2, _, r2);\<close>
       \<forall> p < length N. \<exists> pc st s rs.
         stepst P n u' ((I ! p) (L' ! p), [], s', True, []) (pc, st, s, True, rs);
       (l1, pc_g1, In a, pc_u1, l1') \<in> fst (N ! p);
