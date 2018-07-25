@@ -1,19 +1,26 @@
 module Uint : sig
   type t = int
-  val dflt_size : Big_int_Z.big_int
+  val dflt_size : Big_int.big_int
   val less : t -> t -> bool
   val less_eq : t -> t -> bool
-  val set_bit : t -> Big_int_Z.big_int -> bool -> t
-  val shiftl : t -> Big_int_Z.big_int -> t
-  val shiftr : t -> Big_int_Z.big_int -> t
-  val shiftr_signed : t -> Big_int_Z.big_int -> t
-  val test_bit : t -> Big_int_Z.big_int -> bool
+  val set_bit : t -> Big_int.big_int -> bool -> t
+  val shiftl : t -> Big_int.big_int -> t
+  val shiftr : t -> Big_int.big_int -> t
+  val shiftr_signed : t -> Big_int.big_int -> t
+  val test_bit : t -> Big_int.big_int -> bool
+  val int_mask : int
+  val int32_mask : int32
+  val int64_mask : int64
 end = struct
 
 type t = int
 
-let dflt_size = Big_int_Z.big_int_of_int (
-  let rec f n = if n=0 then 0 else f (n / 2) + 1 in f min_int);;
+(* Can be replaced with Sys.int_size in OCaml 4.03.0 *)
+let dflt_size_int = 
+  let rec f n = if n=0 then 0 else f (n / 2) + 1 
+  in f min_int;;
+
+let dflt_size = Big_int.big_int_of_int dflt_size_int;;
 
 (* negative numbers have their highest bit set, 
    so they are greater than positive ones *)
@@ -28,28 +35,39 @@ let less_eq x y =
   else y < 0 || x <= y;;
 
 let set_bit x n b =
-  let mask = 1 lsl (Big_int_Z.int_of_big_int n)
+  let mask = 1 lsl (Big_int.int_of_big_int n)
   in if b then x lor mask
      else x land (lnot mask);;
 
-let shiftl x n = x lsl (Big_int_Z.int_of_big_int n);;
+let shiftl x n = x lsl (Big_int.int_of_big_int n);;
 
-let shiftr x n = x lsr (Big_int_Z.int_of_big_int n);;
+let shiftr x n = x lsr (Big_int.int_of_big_int n);;
 
-let shiftr_signed x n = x asr (Big_int_Z.int_of_big_int n);;
+let shiftr_signed x n = x asr (Big_int.int_of_big_int n);;
 
-let test_bit x n = x land (1 lsl (Big_int_Z.int_of_big_int n)) <> 0;;
+let test_bit x n = x land (1 lsl (Big_int.int_of_big_int n)) <> 0;;
+
+let int_mask =
+  if dflt_size_int < 32 then lnot 0 else 0xFFFFFFFF;;
+
+let int32_mask = 
+  if dflt_size_int < 32 then Int32.pred (Int32.shift_left Int32.one dflt_size_int) 
+  else Int32.of_string "0xFFFFFFFF";;
+
+let int64_mask = 
+  if dflt_size_int < 64 then Int64.pred (Int64.shift_left Int64.one dflt_size_int) 
+  else Int64.of_string "0xFFFFFFFFFFFFFFFF";;
 
 end;; (*struct Uint*)
 
 module Uint32 : sig
   val less : int32 -> int32 -> bool
   val less_eq : int32 -> int32 -> bool
-  val set_bit : int32 -> Big_int_Z.big_int -> bool -> int32
-  val shiftl : int32 -> Big_int_Z.big_int -> int32
-  val shiftr : int32 -> Big_int_Z.big_int -> int32
-  val shiftr_signed : int32 -> Big_int_Z.big_int -> int32
-  val test_bit : int32 -> Big_int_Z.big_int -> bool
+  val set_bit : int32 -> Big_int.big_int -> bool -> int32
+  val shiftl : int32 -> Big_int.big_int -> int32
+  val shiftr : int32 -> Big_int.big_int -> int32
+  val shiftr_signed : int32 -> Big_int.big_int -> int32
+  val test_bit : int32 -> Big_int.big_int -> bool
 end = struct
 
 (* negative numbers have their highest bit set, 
@@ -65,19 +83,19 @@ let less_eq x y =
   else Int32.compare y Int32.zero < 0 || Int32.compare x y <= 0;;
 
 let set_bit x n b =
-  let mask = Int32.shift_left Int32.one (Big_int_Z.int_of_big_int n)
+  let mask = Int32.shift_left Int32.one (Big_int.int_of_big_int n)
   in if b then Int32.logor x mask
      else Int32.logand x (Int32.lognot mask);;
 
-let shiftl x n = Int32.shift_left x (Big_int_Z.int_of_big_int n);;
+let shiftl x n = Int32.shift_left x (Big_int.int_of_big_int n);;
 
-let shiftr x n = Int32.shift_right_logical x (Big_int_Z.int_of_big_int n);;
+let shiftr x n = Int32.shift_right_logical x (Big_int.int_of_big_int n);;
 
-let shiftr_signed x n = Int32.shift_right x (Big_int_Z.int_of_big_int n);;
+let shiftr_signed x n = Int32.shift_right x (Big_int.int_of_big_int n);;
 
 let test_bit x n =
   Int32.compare 
-    (Int32.logand x (Int32.shift_left Int32.one (Big_int_Z.int_of_big_int n)))
+    (Int32.logand x (Int32.shift_left Int32.one (Big_int.int_of_big_int n)))
     Int32.zero
   <> 0;;
 
@@ -169,25 +187,25 @@ module IsabelleMapping = struct
 
 type 'a array_type = 'a array;;
 
-let new_array (a:'a) (n:Big_int_Z.big_int) = array (Big_int_Z.int_of_big_int n, a);;
+let new_array (a:'a) (n:Big_int.big_int) = array (Big_int.int_of_big_int n, a);;
 
-let array_length (a:'a array_type) = Big_int_Z.big_int_of_int (length a);;
+let array_length (a:'a array_type) = Big_int.big_int_of_int (length a);;
 
-let array_get (a:'a array_type) (i:Big_int_Z.big_int) = sub (a, Big_int_Z.int_of_big_int i);;
+let array_get (a:'a array_type) (i:Big_int.big_int) = sub (a, Big_int.int_of_big_int i);;
 
-let array_set (a:'a array_type) (i:Big_int_Z.big_int) (e:'a) = update (a, Big_int_Z.int_of_big_int i, e);;
+let array_set (a:'a array_type) (i:Big_int.big_int) (e:'a) = update (a, Big_int.int_of_big_int i, e);;
 
 let array_of_list (xs:'a list) = fromList xs;;
 
-let array_grow (a:'a array_type) (i:Big_int_Z.big_int) (x:'a) = grow (a, Big_int_Z.int_of_big_int i, x);;
+let array_grow (a:'a array_type) (i:Big_int.big_int) (x:'a) = grow (a, Big_int.int_of_big_int i, x);;
 
-let array_shrink (a:'a array_type) (sz:Big_int_Z.big_int) = shrink (a,Big_int_Z.int_of_big_int sz);;
+let array_shrink (a:'a array_type) (sz:Big_int.big_int) = shrink (a,Big_int.int_of_big_int sz);;
 
-let array_get_oo (d:'a) (a:'a array_type) (i:Big_int_Z.big_int) =
-  try sub (a,Big_int_Z.int_of_big_int i) with Invalid_argument _ -> d
+let array_get_oo (d:'a) (a:'a array_type) (i:Big_int.big_int) =
+  try sub (a,Big_int.int_of_big_int i) with Invalid_argument _ -> d
 
-let array_set_oo (d:(unit->'a array_type)) (a:'a array_type) (i:Big_int_Z.big_int) (e:'a) =
-  try update (a, Big_int_Z.int_of_big_int i, e) with Invalid_argument _ -> d ()
+let array_set_oo (d:(unit->'a array_type)) (a:'a array_type) (i:Big_int.big_int) (e:'a) =
+  try update (a, Big_int.int_of_big_int i, e) with Invalid_argument _ -> d ()
 
 end;;
 
@@ -206,54 +224,53 @@ end
 
 
 module Bits_Integer : sig
-  val and_pninteger : Big_int_Z.big_int -> Big_int_Z.big_int -> Big_int_Z.big_int
-  val or_pninteger : Big_int_Z.big_int -> Big_int_Z.big_int -> Big_int_Z.big_int
-  val shiftl : Big_int_Z.big_int -> Big_int_Z.big_int -> Big_int_Z.big_int
-  val shiftr : Big_int_Z.big_int -> Big_int_Z.big_int -> Big_int_Z.big_int
-  val test_bit : Big_int_Z.big_int -> Big_int_Z.big_int -> bool
+  val and_pninteger : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
+  val or_pninteger : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
+  val shiftl : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
+  val shiftr : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
+  val test_bit : Big_int.big_int -> Big_int.big_int -> bool
 end = struct
 
 let and_pninteger bi1 bi2 =
-  Big_int_Z.and_big_int bi1
-    (Big_int_Z.xor_big_int
-      (Big_int_Z.pred_big_int
-        (Big_int_Z.shift_left_big_int Big_int_Z.unit_big_int
-           (max (Big_int_Z.num_digits_big_int bi1 * Nat.length_of_digit)
-                (Big_int_Z.num_digits_big_int bi2 * Nat.length_of_digit))))
-      (Big_int_Z.pred_big_int (Big_int_Z.minus_big_int bi2)));;
+  Big_int.and_big_int bi1
+    (Big_int.xor_big_int
+      (Big_int.pred_big_int
+        (Big_int.shift_left_big_int Big_int.unit_big_int
+           (max (Big_int.num_digits_big_int bi1 * Nat.length_of_digit)
+                (Big_int.num_digits_big_int bi2 * Nat.length_of_digit))))
+      (Big_int.pred_big_int (Big_int.minus_big_int bi2)));;
 
 let or_pninteger bi1 bi2 =
-  Big_int_Z.pred_big_int (Big_int_Z.minus_big_int
-    (Big_int_Z.and_big_int
-      (Big_int_Z.xor_big_int
-         (Big_int_Z.pred_big_int
-           (Big_int_Z.shift_left_big_int Big_int_Z.unit_big_int
-              (max (Big_int_Z.num_digits_big_int bi1 * Nat.length_of_digit)
-                   (Big_int_Z.num_digits_big_int bi2 * Nat.length_of_digit))))
+  Big_int.pred_big_int (Big_int.minus_big_int
+    (Big_int.and_big_int
+      (Big_int.xor_big_int
+         (Big_int.pred_big_int
+           (Big_int.shift_left_big_int Big_int.unit_big_int
+              (max (Big_int.num_digits_big_int bi1 * Nat.length_of_digit)
+                   (Big_int.num_digits_big_int bi2 * Nat.length_of_digit))))
          bi1)
-      (Big_int_Z.pred_big_int (Big_int_Z.minus_big_int bi2))));;
+      (Big_int.pred_big_int (Big_int.minus_big_int bi2))));;
 
 (* We do not need an explicit range checks here,
-   because Big_int_Z.int_of_big_int raises Failure 
+   because Big_int.int_of_big_int raises Failure 
    if the argument does not fit into an int. *)
-let shiftl x n = Big_int_Z.shift_left_big_int x (Big_int_Z.int_of_big_int n);;
+let shiftl x n = Big_int.shift_left_big_int x (Big_int.int_of_big_int n);;
 
-let shiftr x n = Big_int_Z.shift_right_big_int x (Big_int_Z.int_of_big_int n);;
+let shiftr x n = Big_int.shift_right_big_int x (Big_int.int_of_big_int n);;
 
 let test_bit x n = 
-  Big_int_Z.eq_big_int 
-    (Big_int_Z.extract_big_int x (Big_int_Z.int_of_big_int n) 1) 
-    Big_int_Z.unit_big_int
+  Big_int.eq_big_int 
+    (Big_int.extract_big_int x (Big_int.int_of_big_int n) 1) 
+    Big_int.unit_big_int
 
 end;; (*struct Bits_Integer*)
 
 module Model_Checker : sig
-  type int = Int_of_integer of Big_int_Z.big_int
-  val integer_of_int : int -> Big_int_Z.big_int
-  type num
+  type int = Int_of_integer of Big_int.big_int
+  val integer_of_int : int -> Big_int.big_int
   type nat
-  val nat_of_integer : Big_int_Z.big_int -> nat
-  val integer_of_nat : nat -> Big_int_Z.big_int
+  val nat_of_integer : Big_int.big_int -> nat
+  val integer_of_nat : nat -> Big_int.big_int
   type instr = JMPZ of nat | ADD | NOT | AND | LT | LE | EQ | PUSH of int | POP
     | LID of nat | STORE | STOREI of nat * int | COPY | CALL | RETURN | HALT |
     STOREC of nat * int | SETF of bool
@@ -274,17 +291,28 @@ module Model_Checker : sig
         (((nat, int) acconstraint list) list) list ->
           ('a list) list ->
             ((('b * ('c * ('d * nat))) list) list) list ->
-              (int instrc option) list -> (char list * bool) list
+              (int instrc option) list -> (string * bool) list
   val more_checks :
     (((nat * (nat act * (nat * nat))) list) list) list ->
-      nat -> (char list * bool) list
+      nat -> (string * bool) list
   val start_checks :
     nat ->
       nat ->
         (((nat * ('a * (nat * 'b))) list) list) list ->
           (int instrc option) list ->
             (int * int) list ->
-              (nat list) list -> int list -> (char list * bool) list
+              (nat list) list -> int list -> (string * bool) list
+  val precond_dc :
+    nat ->
+      nat ->
+        ((nat list) list) list ->
+          nat ->
+            (((nat, int) acconstraint list) list) list ->
+              (((nat * (nat act * (nat * nat))) list) list) list ->
+                (int instrc option) list ->
+                  (int * int) list ->
+                    (nat list) list ->
+                      int list -> nat -> (unit -> (bool option))
   val ceiling_checks :
     nat ->
       nat ->
@@ -292,7 +320,7 @@ module Model_Checker : sig
           (((nat, int) acconstraint list) list) list ->
             (((nat * (nat act * (nat * nat))) list) list) list ->
               (int instrc option) list ->
-                ((nat list) list) list -> (char list * bool) list
+                ((nat list) list) list -> (string * bool) list
   val precond_mc :
     nat ->
       nat ->
@@ -314,12 +342,12 @@ module Model_Checker : sig
               (int instrc option) list -> ((int list) list) list
 end = struct
 
-type int = Int_of_integer of Big_int_Z.big_int;;
+type int = Int_of_integer of Big_int.big_int;;
 
 let rec integer_of_int (Int_of_integer k) = k;;
 
 let rec equal_inta
-  k l = Big_int_Z.eq_big_int (integer_of_int k) (integer_of_int l);;
+  k l = Big_int.eq_big_int (integer_of_int k) (integer_of_int l);;
 
 type 'a equal = {equal : 'a -> 'a -> bool};;
 let equal _A = _A.equal;;
@@ -327,8 +355,6 @@ let equal _A = _A.equal;;
 let equal_int = ({equal = equal_inta} : int equal);;
 
 type typerepa = Typerep of string * typerepa list;;
-
-type num = One | Bit0 of num | Bit1 of num;;
 
 type 'a itself = Type;;
 
@@ -350,14 +376,14 @@ let heap_int =
 
 let rec plus_inta
   k l = Int_of_integer
-          (Big_int_Z.add_big_int (integer_of_int k) (integer_of_int l));;
+          (Big_int.add_big_int (integer_of_int k) (integer_of_int l));;
 
 type 'a plus = {plus : 'a -> 'a -> 'a};;
 let plus _A = _A.plus;;
 
 let plus_int = ({plus = plus_inta} : int plus);;
 
-let zero_inta : int = Int_of_integer Big_int_Z.zero_big_int;;
+let zero_inta : int = Int_of_integer Big_int.zero_big_int;;
 
 type 'a zero = {zero : 'a};;
 let zero _A = _A.zero;;
@@ -366,7 +392,7 @@ let zero_int = ({zero = zero_inta} : int zero);;
 
 let rec minus_inta
   k l = Int_of_integer
-          (Big_int_Z.sub_big_int (integer_of_int k) (integer_of_int l));;
+          (Big_int.sub_big_int (integer_of_int k) (integer_of_int l));;
 
 type 'a minus = {minus : 'a -> 'a -> 'a};;
 let minus _A = _A.minus;;
@@ -374,7 +400,7 @@ let minus _A = _A.minus;;
 let minus_int = ({minus = minus_inta} : int minus);;
 
 let rec uminus_inta
-  k = Int_of_integer (Big_int_Z.minus_big_int (integer_of_int k));;
+  k = Int_of_integer (Big_int.minus_big_int (integer_of_int k));;
 
 type 'a uminus = {uminus : 'a -> 'a};;
 let uminus _A = _A.uminus;;
@@ -382,14 +408,14 @@ let uminus _A = _A.uminus;;
 let uminus_int = ({uminus = uminus_inta} : int uminus);;
 
 let rec less_eq_int
-  k l = Big_int_Z.le_big_int (integer_of_int k) (integer_of_int l);;
+  k l = Big_int.le_big_int (integer_of_int k) (integer_of_int l);;
 
 type 'a ord = {less_eq : 'a -> 'a -> bool; less : 'a -> 'a -> bool};;
 let less_eq _A = _A.less_eq;;
 let less _A = _A.less;;
 
 let rec less_int
-  k l = Big_int_Z.lt_big_int (integer_of_int k) (integer_of_int l);;
+  k l = Big_int.lt_big_int (integer_of_int k) (integer_of_int l);;
 
 let ord_int = ({less_eq = less_eq_int; less = less_int} : int ord);;
 
@@ -432,16 +458,18 @@ let group_add_int =
 
 let rec max _A a b = (if less_eq _A a b then b else a);;
 
-type nat = Nat of Big_int_Z.big_int;;
+type nat = Nat of Big_int.big_int;;
 
 let ord_integer =
-  ({less_eq = Big_int_Z.le_big_int; less = Big_int_Z.lt_big_int} :
-    Big_int_Z.big_int ord);;
+  ({less_eq = Big_int.le_big_int; less = Big_int.lt_big_int} :
+    Big_int.big_int ord);;
 
-let rec nat_of_integer k = Nat (max ord_integer Big_int_Z.zero_big_int k);;
+let rec nat_of_integer k = Nat (max ord_integer Big_int.zero_big_int k);;
+
+type num = One | Bit0 of num | Bit1 of num;;
 
 let rec def_hashmap_size_int
-  x = (fun _ -> nat_of_integer (Big_int_Z.big_int_of_int 16)) x;;
+  x = (fun _ -> nat_of_integer (Big_int.big_int_of_int 16)) x;;
 
 type 'a hashable =
   {hashcode : 'a -> int32; def_hashmap_size : 'a itself -> nat};;
@@ -453,26 +481,26 @@ let rec integer_of_nat (Nat x) = x;;
 let rec test_bit_integer x n = Bits_Integer.test_bit x (integer_of_nat n);;
 
 let rec bitNOT_integer
-  i = Big_int_Z.sub_big_int (Big_int_Z.minus_big_int i) (Big_int_Z.big_int_of_int 1);;
+  i = Big_int.sub_big_int (Big_int.minus_big_int i) (Big_int.big_int_of_int 1);;
 
 let rec bitAND_integer
-  i j = (if Big_int_Z.le_big_int Big_int_Z.zero_big_int i
-          then (if Big_int_Z.le_big_int Big_int_Z.zero_big_int j
-                 then Big_int_Z.and_big_int i j
+  i j = (if Big_int.le_big_int Big_int.zero_big_int i
+          then (if Big_int.le_big_int Big_int.zero_big_int j
+                 then Big_int.and_big_int i j
                  else Bits_Integer.and_pninteger i j)
-          else (if Big_int_Z.lt_big_int j Big_int_Z.zero_big_int
+          else (if Big_int.lt_big_int j Big_int.zero_big_int
                  then bitNOT_integer
-                        (Big_int_Z.or_big_int (bitNOT_integer i)
+                        (Big_int.or_big_int (bitNOT_integer i)
                           (bitNOT_integer j))
                  else Bits_Integer.and_pninteger j i));;
 
 let rec uint32
-  i = (let ia = bitAND_integer i (Big_int_Z.big_int_of_string "4294967295") in
-        (if test_bit_integer ia (nat_of_integer (Big_int_Z.big_int_of_int 31))
-          then Big_int_Z.int32_of_big_int
-                 (Big_int_Z.sub_big_int ia
-                   (Big_int_Z.big_int_of_string "4294967296"))
-          else Big_int_Z.int32_of_big_int ia));;
+  i = (let ia = bitAND_integer i (Big_int.big_int_of_string "4294967295") in
+        (if test_bit_integer ia (nat_of_integer (Big_int.big_int_of_int 31))
+          then Big_int.int32_of_big_int
+                 (Big_int.sub_big_int ia
+                   (Big_int.big_int_of_string "4294967296"))
+          else Big_int.int32_of_big_int ia));;
 
 let rec uint32_of_int i = uint32 (integer_of_int i);;
 
@@ -700,7 +728,7 @@ let linordered_ab_group_add_int =
     : int linordered_ab_group_add);;
 
 let rec equal_nata
-  m n = Big_int_Z.eq_big_int (integer_of_nat m) (integer_of_nat n);;
+  m n = Big_int.eq_big_int (integer_of_nat m) (integer_of_nat n);;
 
 let equal_nat = ({equal = equal_nata} : nat equal);;
 
@@ -713,22 +741,27 @@ let typerep_nat = ({typerep = typerep_nata} : nat typerep);;
 let heap_nat =
   ({countable_heap = countable_nat; typerep_heap = typerep_nat} : nat heap);;
 
-let one_nata : nat = Nat (Big_int_Z.big_int_of_int 1);;
+let one_nata : nat = Nat (Big_int.big_int_of_int 1);;
 
 type 'a one = {one : 'a};;
 let one _A = _A.one;;
 
 let one_nat = ({one = one_nata} : nat one);;
 
-let zero_nata : nat = Nat Big_int_Z.zero_big_int;;
+let rec plus_nata
+  m n = Nat (Big_int.add_big_int (integer_of_nat m) (integer_of_nat n));;
+
+let plus_nat = ({plus = plus_nata} : nat plus);;
+
+let zero_nata : nat = Nat Big_int.zero_big_int;;
 
 let zero_nat = ({zero = zero_nata} : nat zero);;
 
 let rec less_eq_nat
-  m n = Big_int_Z.le_big_int (integer_of_nat m) (integer_of_nat n);;
+  m n = Big_int.le_big_int (integer_of_nat m) (integer_of_nat n);;
 
 let rec less_nat
-  m n = Big_int_Z.lt_big_int (integer_of_nat m) (integer_of_nat n);;
+  m n = Big_int.lt_big_int (integer_of_nat m) (integer_of_nat n);;
 
 let ord_nat = ({less_eq = less_eq_nat; less = less_nat} : nat ord);;
 
@@ -744,7 +777,7 @@ let preorder_nat = ({ord_preorder = ord_nat} : nat preorder);;
 let order_nat = ({preorder_order = preorder_nat} : nat order);;
 
 let rec def_hashmap_size_nat
-  x = (fun _ -> nat_of_integer (Big_int_Z.big_int_of_int 16)) x;;
+  x = (fun _ -> nat_of_integer (Big_int.big_int_of_int 16)) x;;
 
 let rec int_of_nat n = Int_of_integer (integer_of_nat n);;
 
@@ -797,11 +830,11 @@ let rec heap_list _A =
     : ('a list) heap);;
 
 let rec times_nat
-  m n = Nat (Big_int_Z.mult_big_int (integer_of_nat m) (integer_of_nat n));;
+  m n = Nat (Big_int.mult_big_int (integer_of_nat m) (integer_of_nat n));;
 
 let rec def_hashmap_size_list _A
   = (fun _ ->
-      times_nat (nat_of_integer (Big_int_Z.big_int_of_int 2))
+      times_nat (nat_of_integer (Big_int.big_int_of_int 2))
         (def_hashmap_size _A Type));;
 
 let rec foldl f a x2 = match f, a, x2 with f, a, [] -> a
@@ -809,9 +842,9 @@ let rec foldl f a x2 = match f, a, x2 with f, a, [] -> a
 
 let rec hashcode_list _A
   = foldl (fun h x ->
-            Int32.add (Int32.mul h (uint32 (Big_int_Z.big_int_of_int 33)))
+            Int32.add (Int32.mul h (uint32 (Big_int.big_int_of_int 33)))
               (hashcode _A x))
-      (uint32 (Big_int_Z.big_int_of_int 5381));;
+      (uint32 (Big_int.big_int_of_int 5381));;
 
 let rec hashable_list _A =
   ({hashcode = hashcode_list _A; def_hashmap_size = def_hashmap_size_list _A} :
@@ -1317,11 +1350,8 @@ let rec heap_prod _A _B =
      typerep_heap = (typerep_prod _A.typerep_heap _B.typerep_heap)}
     : ('a * 'b) heap);;
 
-let rec plus_nat
-  m n = Nat (Big_int_Z.add_big_int (integer_of_nat m) (integer_of_nat n));;
-
 let rec def_hashmap_size_prod _A _B
-  = (fun _ -> plus_nat (def_hashmap_size _A Type) (def_hashmap_size _B Type));;
+  = (fun _ -> plus_nata (def_hashmap_size _A Type) (def_hashmap_size _B Type));;
 
 let rec snd (x1, x2) = x2;;
 
@@ -1329,7 +1359,7 @@ let rec fst (x1, x2) = x1;;
 
 let rec hashcode_prod _A _B
   x = Int32.add
-        (Int32.mul (hashcode _A (fst x)) (uint32 (Big_int_Z.big_int_of_int 33)))
+        (Int32.mul (hashcode _A (fst x)) (uint32 (Big_int.big_int_of_int 33)))
         (hashcode _B (snd x));;
 
 let rec hashable_prod _A _B =
@@ -1404,15 +1434,15 @@ type ('a, 'b, 'c, 'd) gen_g_impl_ext = Gen_g_impl_ext of 'a * 'b * 'c * 'd;;
 
 let rec id x = (fun xa -> xa) x;;
 
-let rec nat k = Nat (max ord_integer Big_int_Z.zero_big_int (integer_of_int k));;
+let rec nat k = Nat (max ord_integer Big_int.zero_big_int (integer_of_int k));;
 
-let rec suc n = plus_nat n one_nata;;
+let rec suc n = plus_nata n one_nata;;
 
 let rec comp f g = (fun x -> f (g x));;
 
 let rec minus_nat
-  m n = Nat (max ord_integer Big_int_Z.zero_big_int
-              (Big_int_Z.sub_big_int (integer_of_nat m) (integer_of_nat n)));;
+  m n = Nat (max ord_integer Big_int.zero_big_int
+              (Big_int.sub_big_int (integer_of_nat m) (integer_of_nat n)));;
 
 let rec nth
   (x :: xs) n =
@@ -1431,21 +1461,21 @@ let rec list_all p x1 = match p, x1 with p, [] -> true
 let rec ball (Set xs) p = list_all p xs;;
 
 let rec len _A
-  a = (fun f_ () -> f_ (((fun () -> Big_int_Z.big_int_of_int (Array.length a)))
+  a = (fun f_ () -> f_ (((fun () -> Big_int.big_int_of_int (Array.length a)))
         ()) ())
         (fun i -> (fun () -> (nat_of_integer i)));;
 
 let rec newa _A
-  = comp (fun a b -> (fun () -> Array.make (Big_int_Z.int_of_big_int a) b))
+  = comp (fun a b -> (fun () -> Array.make (Big_int.int_of_big_int a) b))
       integer_of_nat;;
 
 let rec ntha _A
-  a n = (fun () -> Array.get a (Big_int_Z.int_of_big_int (integer_of_nat n)));;
+  a n = (fun () -> Array.get a (Big_int.int_of_big_int (integer_of_nat n)));;
 
 let rec upd _A
   i x a =
     (fun f_ () -> f_
-      (((fun () -> Array.set a (Big_int_Z.int_of_big_int (integer_of_nat i)) x))
+      (((fun () -> Array.set a (Big_int.int_of_big_int (integer_of_nat i)) x))
       ()) ())
       (fun _ -> (fun () -> a));;
 
@@ -1461,8 +1491,8 @@ let rec map f x1 = match f, x1 with f, [] -> []
 let rec image f (Set xs) = Set (map f xs);;
 
 let rec make _A
-  n f = (fun () -> Array.init (Big_int_Z.int_of_big_int (integer_of_nat n))
-          (fun k_ -> (comp f nat_of_integer) (Big_int_Z.big_int_of_int k_)));;
+  n f = (fun () -> Array.init (Big_int.int_of_big_int (integer_of_nat n))
+          (fun k_ -> (comp f nat_of_integer) (Big_int.big_int_of_int k_)));;
 
 let rec suba (IArray asa, n) = nth asa (nat_of_integer n);;
 
@@ -1530,9 +1560,51 @@ let rec tracea x = trace ExploredState x;;
 let rec blit _A
   src si dst di len =
     (fun () -> 
-      Array.blit src (Big_int_Z.int_of_big_int (integer_of_nat
-                                       si)) dst (Big_int_Z.int_of_big_int (integer_of_nat
-                          di)) (Big_int_Z.int_of_big_int (integer_of_nat len)));;
+      Array.blit src (Big_int.to_int (integer_of_nat
+                                       si)) dst (Big_int.to_int (integer_of_nat
+                          di)) (Big_int.to_int (integer_of_nat len)));;
+
+let rec v_dbm (_A1, _A2, _A3) _B
+  n = (fun (i, j) ->
+        (if eq _A2 i j ||
+              (eq _A2 i (zero _A1) && less _A3 (zero _A1) j ||
+                (less _A3 n i || less _A3 n j))
+          then zero_DBMEntrya _B else INF));;
+
+let rec imp_fora
+  i u f s =
+    (if less_eq_nat u i then (fun () -> s)
+      else (fun f_ () -> f_ ((f i s) ()) ())
+             (imp_fora (plus_nata i one_nata) u f));;
+
+let rec mtx_set _A
+  m mtx e v = upd _A (plus_nata (times_nat (fst e) m) (snd e)) v mtx;;
+
+let rec mtx_get _A
+  m mtx e = ntha _A mtx (plus_nata (times_nat (fst e) m) (snd e));;
+
+let rec min _A a b = (if less_eq _A a b then a else b);;
+
+let rec fw_upd_impl (_A1, _A2)
+  n = (fun ai bib bia bi ->
+        (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bi)) ()) ())
+          (fun x ->
+            (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bib)) ()) ())
+              (fun xa ->
+                (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bib, bi)) ()) ())
+                  (fun xb ->
+                    mtx_set _A2 (suc n) ai (bia, bi)
+                      (min _A1.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add.order_linorder.preorder_order.ord_preorder
+                        x (plus _A1.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.semigroup_add_monoid_add.plus_semigroup_add
+                            xa xb))))));;
+
+let rec fw_impl (_A1, _A2)
+  n = imp_fora zero_nata (plus_nata n one_nata)
+        (fun xb ->
+          imp_fora zero_nata (plus_nata n one_nata)
+            (fun xd ->
+              imp_fora zero_nata (plus_nata n one_nata)
+                (fun xf sigma -> fw_upd_impl (_A1, _A2) n sigma xb xd xf)));;
 
 let rec gen_length n x1 = match n, x1 with n, x :: xs -> gen_length (suc n) xs
                      | n, [] -> n;;
@@ -1545,7 +1617,7 @@ let rec map_filter
 
 let cODE_ABORT _ = failwith "Misc.CODE_ABORT";;
 
-let one_int : int = Int_of_integer (Big_int_Z.big_int_of_int 1);;
+let one_int : int = Int_of_integer (Big_int.big_int_of_int 1);;
 
 let rec int_of x = (if x then one_int else zero_inta);;
 
@@ -1558,48 +1630,48 @@ let rec list_update
 let rec step
   x0 uv = match x0, uv with
     JMPZ q, (pc, (st, (m, (f, rs)))) ->
-      Some ((if f then plus_nat pc one_nata else q), (st, (m, (f, rs))))
+      Some ((if f then plus_nata pc one_nata else q), (st, (m, (f, rs))))
     | ADD, (pc, (a :: b :: st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (plus_inta a b :: st, (m, (f, rs))))
+        Some (plus_nata pc one_nata, (plus_inta a b :: st, (m, (f, rs))))
     | NOT, (pc, (b :: st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (st, (m, (not f, rs))))
+        Some (plus_nata pc one_nata, (st, (m, (not f, rs))))
     | AND, (pc, (b :: st, (m, (f, rs)))) ->
         (if equal_inta b zero_inta || equal_inta b one_int
-          then Some (plus_nat pc one_nata,
+          then Some (plus_nata pc one_nata,
                       (st, (m, (equal_inta b one_int && f, rs))))
           else None)
     | LT, (pc, (a :: b :: st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (st, (m, (less_int a b, rs))))
+        Some (plus_nata pc one_nata, (st, (m, (less_int a b, rs))))
     | LE, (pc, (a :: b :: st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (st, (m, (less_eq_int a b, rs))))
+        Some (plus_nata pc one_nata, (st, (m, (less_eq_int a b, rs))))
     | EQ, (pc, (a :: b :: st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (st, (m, (equal_inta a b, rs))))
+        Some (plus_nata pc one_nata, (st, (m, (equal_inta a b, rs))))
     | PUSH v, (pc, (st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (v :: st, (m, (f, rs))))
+        Some (plus_nata pc one_nata, (v :: st, (m, (f, rs))))
     | POP, (pc, (v :: st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (st, (m, (f, rs))))
+        Some (plus_nata pc one_nata, (st, (m, (f, rs))))
     | LID r, (pc, (st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (nth m r :: st, (m, (f, rs))))
+        Some (plus_nata pc one_nata, (nth m r :: st, (m, (f, rs))))
     | STORE, (pc, (v :: r :: st, (m, (f, rs)))) ->
         (if less_eq_int zero_inta r
-          then Some (plus_nat pc one_nata,
+          then Some (plus_nata pc one_nata,
                       (st, (list_update m (nat r) v, (f, rs))))
           else None)
     | STOREI (r, v), (pc, (st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (st, (list_update m r v, (f, rs))))
+        Some (plus_nata pc one_nata, (st, (list_update m r v, (f, rs))))
     | COPY, (pc, (st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (int_of f :: st, (m, (f, rs))))
+        Some (plus_nata pc one_nata, (int_of f :: st, (m, (f, rs))))
     | CALL, (pc, (q :: st, (m, (f, rs)))) ->
         (if less_eq_int zero_inta q
           then Some (nat q, (int_of_nat pc :: st, (m, (f, rs)))) else None)
     | RETURN, (pc, (q :: st, (m, (f, rs)))) ->
         (if less_eq_int zero_inta q
-          then Some (plus_nat (nat q) one_nata, (st, (m, (f, rs)))) else None)
+          then Some (plus_nata (nat q) one_nata, (st, (m, (f, rs)))) else None)
     | STOREC (c, d), (pc, (st, (m, (f, rs)))) ->
         (if equal_inta d zero_inta
-          then Some (plus_nat pc one_nata, (st, (m, (f, c :: rs)))) else None)
+          then Some (plus_nata pc one_nata, (st, (m, (f, c :: rs)))) else None)
     | SETF b, (pc, (st, (m, (f, rs)))) ->
-        Some (plus_nat pc one_nata, (st, (m, (b, rs))))
+        Some (plus_nata pc one_nata, (st, (m, (b, rs))))
     | ADD, (v, ([], vc)) -> None
     | ADD, (v, ([vd], vc)) -> None
     | NOT, (v, ([], vc)) -> None
@@ -1629,38 +1701,11 @@ let rec exec
                         | Some s ->
                           exec prog (minus_nat n one_nata) s (pc :: pcs)))));;
 
-let rec imp_fora
-  i u f s =
-    (if less_eq_nat u i then (fun () -> s)
-      else (fun f_ () -> f_ ((f i s) ()) ())
-             (imp_fora (plus_nat i one_nata) u f));;
-
-let rec mtx_set _A
-  m mtx e v = upd _A (plus_nat (times_nat (fst e) m) (snd e)) v mtx;;
-
-let rec mtx_get _A
-  m mtx e = ntha _A mtx (plus_nat (times_nat (fst e) m) (snd e));;
-
-let rec min _A a b = (if less_eq _A a b then a else b);;
-
-let rec fw_upd_impl (_A1, _A2)
-  n = (fun ai bib bia bi ->
-        (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bi)) ()) ())
-          (fun x ->
-            (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bib)) ()) ())
-              (fun xa ->
-                (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bib, bi)) ()) ())
-                  (fun xb ->
-                    mtx_set _A2 (suc n) ai (bia, bi)
-                      (min _A1.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add.order_linorder.preorder_order.ord_preorder
-                        x (plus _A1.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.semigroup_add_monoid_add.plus_semigroup_add
-                            xa xb))))));;
-
 let rec fwi_impl (_A1, _A2)
   n = (fun ai bi ->
-        imp_fora zero_nata (plus_nat n one_nata)
+        imp_fora zero_nata (plus_nata n one_nata)
           (fun xa ->
-            imp_fora zero_nata (plus_nat n one_nata)
+            imp_fora zero_nata (plus_nata n one_nata)
               (fun xc sigma -> fw_upd_impl (_A1, _A2) n sigma bi xa xc))
           ai);;
 
@@ -1691,32 +1736,32 @@ let rec ht_new (_A1, _A2) _B
   = ht_new_sz (_A1, _A2) _B (def_hashmap_size _A1 Type);;
 
 let rec sgn_integer
-  k = (if Big_int_Z.eq_big_int k Big_int_Z.zero_big_int then Big_int_Z.zero_big_int
-        else (if Big_int_Z.lt_big_int k Big_int_Z.zero_big_int
-               then (Big_int_Z.minus_big_int (Big_int_Z.big_int_of_int 1))
-               else (Big_int_Z.big_int_of_int 1)));;
+  k = (if Big_int.eq_big_int k Big_int.zero_big_int then Big_int.zero_big_int
+        else (if Big_int.lt_big_int k Big_int.zero_big_int
+               then (Big_int.minus_big_int (Big_int.big_int_of_int 1))
+               else (Big_int.big_int_of_int 1)));;
 
 let rec apsnd f (x, y) = (x, f y);;
 
 let rec divmod_integer
-  k l = (if Big_int_Z.eq_big_int k Big_int_Z.zero_big_int
-          then (Big_int_Z.zero_big_int, Big_int_Z.zero_big_int)
-          else (if Big_int_Z.eq_big_int l Big_int_Z.zero_big_int
-                 then (Big_int_Z.zero_big_int, k)
-                 else comp (comp apsnd Big_int_Z.mult_big_int) sgn_integer l
-                        (if Big_int_Z.eq_big_int (sgn_integer k) (sgn_integer l)
-                          then Big_int_Z.quomod_big_int (Big_int_Z.abs_big_int k)
-                                 (Big_int_Z.abs_big_int l)
+  k l = (if Big_int.eq_big_int k Big_int.zero_big_int
+          then (Big_int.zero_big_int, Big_int.zero_big_int)
+          else (if Big_int.eq_big_int l Big_int.zero_big_int
+                 then (Big_int.zero_big_int, k)
+                 else comp (comp apsnd Big_int.mult_big_int) sgn_integer l
+                        (if Big_int.eq_big_int (sgn_integer k) (sgn_integer l)
+                          then Big_int.quomod_big_int (Big_int.abs_big_int k)
+                                 (Big_int.abs_big_int l)
                           else (let (r, s) =
-                                  Big_int_Z.quomod_big_int (Big_int_Z.abs_big_int k)
-                                    (Big_int_Z.abs_big_int l)
+                                  Big_int.quomod_big_int (Big_int.abs_big_int k)
+                                    (Big_int.abs_big_int l)
                                   in
-                                 (if Big_int_Z.eq_big_int s Big_int_Z.zero_big_int
-                                   then (Big_int_Z.minus_big_int r,
-  Big_int_Z.zero_big_int)
-                                   else (Big_int_Z.sub_big_int
-   (Big_int_Z.minus_big_int r) (Big_int_Z.big_int_of_int 1),
-  Big_int_Z.sub_big_int (Big_int_Z.abs_big_int l) s))))));;
+                                 (if Big_int.eq_big_int s Big_int.zero_big_int
+                                   then (Big_int.minus_big_int r,
+  Big_int.zero_big_int)
+                                   else (Big_int.sub_big_int
+   (Big_int.minus_big_int r) (Big_int.big_int_of_int 1),
+  Big_int.sub_big_int (Big_int.abs_big_int l) s))))));;
 
 let rec modulo_integer k l = snd (divmod_integer k l);;
 
@@ -1724,27 +1769,27 @@ let rec modulo_nat
   m n = Nat (modulo_integer (integer_of_nat m) (integer_of_nat n));;
 
 let rec bitOR_integer
-  i j = (if Big_int_Z.le_big_int Big_int_Z.zero_big_int i
-          then (if Big_int_Z.le_big_int Big_int_Z.zero_big_int j
-                 then Big_int_Z.or_big_int i j else Bits_Integer.or_pninteger i j)
-          else (if Big_int_Z.lt_big_int j Big_int_Z.zero_big_int
+  i j = (if Big_int.le_big_int Big_int.zero_big_int i
+          then (if Big_int.le_big_int Big_int.zero_big_int j
+                 then Big_int.or_big_int i j else Bits_Integer.or_pninteger i j)
+          else (if Big_int.lt_big_int j Big_int.zero_big_int
                  then bitNOT_integer
-                        (Big_int_Z.and_big_int (bitNOT_integer i)
+                        (Big_int.and_big_int (bitNOT_integer i)
                           (bitNOT_integer j))
                  else Bits_Integer.or_pninteger j i));;
 
 let rec test_bit_uint32
-  x n = less_nat n (nat_of_integer (Big_int_Z.big_int_of_int 32)) &&
+  x n = less_nat n (nat_of_integer (Big_int.big_int_of_int 32)) &&
           Uint32.test_bit x (integer_of_nat n);;
 
 let rec integer_of_uint32
-  n = (if test_bit_uint32 n (nat_of_integer (Big_int_Z.big_int_of_int 31))
+  n = (if test_bit_uint32 n (nat_of_integer (Big_int.big_int_of_int 31))
         then bitOR_integer
-               (Big_int_Z.big_int_of_int32
+               (Big_int.big_int_of_int32
                  (Int32.logand n
-                   (uint32 (Big_int_Z.big_int_of_string "2147483647"))))
-               (Big_int_Z.big_int_of_string "2147483648")
-        else Big_int_Z.big_int_of_int32 n);;
+                   (uint32 (Big_int.big_int_of_string "2147483647"))))
+               (Big_int.big_int_of_string "2147483648")
+        else Big_int.big_int_of_int32 n);;
 
 let rec nat_of_uint32 x = nat_of_integer (integer_of_uint32 x);;
 
@@ -1795,7 +1840,7 @@ let rec eq_set (_A1, _A2)
           (if equal_nata n zero_nata then false
             else (let xsa = remdups _A2 xs in
                   let ysa = remdups _A2 ys in
-                   equal_nata (plus_nat (size_list xsa) (size_list ysa)) n &&
+                   equal_nata (plus_nata (size_list xsa) (size_list ysa)) n &&
                      (list_all (fun x -> not (membera _A2 ysa x)) xsa &&
                        list_all (fun y -> not (membera _A2 xsa y)) ysa))))
     | Coset xs, Set ys ->
@@ -1803,7 +1848,7 @@ let rec eq_set (_A1, _A2)
           (if equal_nata n zero_nata then false
             else (let xsa = remdups _A2 xs in
                   let ysa = remdups _A2 ys in
-                   equal_nata (plus_nat (size_list xsa) (size_list ysa)) n &&
+                   equal_nata (plus_nata (size_list xsa) (size_list ysa)) n &&
                      (list_all (fun x -> not (membera _A2 ysa x)) xsa &&
                        list_all (fun y -> not (membera _A2 xsa y)) ysa))));;
 
@@ -1883,11 +1928,11 @@ let rec ht_rehash (_A1, _A2, _A3) _B
          (fun n ->
            (fun f_ () -> f_
              ((ht_new_sz (_A2, _A3) _B
-                (times_nat (nat_of_integer (Big_int_Z.big_int_of_int 2)) n))
+                (times_nat (nat_of_integer (Big_int.big_int_of_int 2)) n))
              ()) ())
              (ht_copy (_A1, _A2, _A3) _B n ht));;
 
-let load_factor : nat = nat_of_integer (Big_int_Z.big_int_of_int 75);;
+let load_factor : nat = nat_of_integer (Big_int.big_int_of_int 75);;
 
 let rec ht_update (_A1, _A2, _A3) _B
   k v ht =
@@ -1897,7 +1942,7 @@ let rec ht_update (_A1, _A2, _A3) _B
         (fun f_ () -> f_
           ((if less_eq_nat (times_nat m load_factor)
                  (times_nat (the_size ht)
-                   (nat_of_integer (Big_int_Z.big_int_of_int 100)))
+                   (nat_of_integer (Big_int.big_int_of_int 100)))
              then ht_rehash (_A1, _A2, _A3) _B ht else (fun () -> ht))
           ()) ())
           (ht_upd (_A1, _A2, _A3) _B k v));;
@@ -1946,6 +1991,10 @@ let rec all_interval_nat
 
 let rec pred_act _A = (fun p x -> ball (set_act _A x) p);;
 
+let rec neg_dbm_entry _A = function Le a -> Lt (uminus _A a)
+                           | Lt a -> Le (uminus _A a)
+                           | INF -> INF;;
+
 let rec imp_for
   i u c f s =
     (if less_eq_nat u i then (fun () -> s)
@@ -1953,16 +2002,55 @@ let rec imp_for
              (fun ctn ->
                (if ctn
                  then (fun f_ () -> f_ ((f i s) ()) ())
-                        (imp_for (plus_nat i one_nata) u c f)
+                        (imp_for (plus_nata i one_nata) u c f)
                  else (fun () -> s))));;
 
 let rec whilea b c s = (if b s then whilea b c (c s) else s);;
+
+let rec down_impl (_A1, _A2, _A3)
+  n = imp_fora one_nata (suc n)
+        (fun xb sigma ->
+          (fun f_ () -> f_
+            ((imp_fora one_nata (suc n)
+               (fun xe sigmaa ->
+                 (fun f_ () -> f_
+                   ((mtx_get (heap_DBMEntry _A3) (suc n) sigma (xe, xb)) ()) ())
+                   (fun x_f ->
+                     (fun () ->
+                       (min (ord_DBMEntry
+                              (_A2, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
+                         x_f sigmaa))))
+               (Le (zero _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.zero_monoid_add)))
+            ()) ())
+            (mtx_set (heap_DBMEntry _A3) (suc n) sigma (zero_nata, xb)));;
+
+let rec free_impl (_A1, _A2)
+  n = (fun ai bi ->
+        (fun f_ () -> f_
+          ((imp_fora zero_nata (suc n)
+             (fun xa sigma ->
+               (if not (equal_nata xa bi)
+                 then (fun f_ () -> f_
+                        ((mtx_get (heap_DBMEntry _A2) (suc n) sigma
+                           (xa, zero_nata))
+                        ()) ())
+                        (mtx_set (heap_DBMEntry _A2) (suc n) sigma (xa, bi))
+                 else (fun () -> sigma)))
+             ai)
+          ()) ())
+          (imp_fora zero_nata (suc n)
+            (fun xb sigma ->
+              (if not (equal_nata xb bi)
+                then mtx_set (heap_DBMEntry _A2) (suc n) sigma (bi, xb) INF
+                else (fun () -> sigma)))));;
 
 let rec array_length
   x = comp nat_of_integer FArray.IsabelleMapping.array_length x;;
 
 let rec array_shrink
   a = comp (FArray.IsabelleMapping.array_shrink a) integer_of_nat;;
+
+let op_list_empty : 'a list = [];;
 
 let rec as_get s i = (let a = s in
                       let (aa, _) = a in
@@ -1973,9 +2061,9 @@ let rec as_shrink
        let (aa, n) = a in
        let ab =
          (if less_eq_nat
-               (times_nat (nat_of_integer (Big_int_Z.big_int_of_int 128)) n)
+               (times_nat (nat_of_integer (Big_int.big_int_of_int 128)) n)
                (array_length aa) &&
-               less_nat (nat_of_integer (Big_int_Z.big_int_of_int 4)) n
+               less_nat (nat_of_integer (Big_int.big_int_of_int 4)) n
            then array_shrink aa n else aa)
          in
         (ab, n));;
@@ -2148,6 +2236,33 @@ else (fun f_ () -> f_ ((keyi xk) ()) ())
                       ()) ())
                       (fun (a1, _) -> (fun () -> a1))))));;
 
+let rec mtx_tabulate (_A1, _A2, _A3) (_B1, _B2)
+  n m c =
+    (fun f_ () -> f_ ((newa _B2 (times_nat n m) (zero _B1)) ()) ())
+      (fun ma ->
+        (fun f_ () -> f_
+          ((imp_fora zero_nata (times_nat n m)
+             (fun k (i, (j, maa)) ->
+               (fun f_ () -> f_ ((upd _B2 k (c (i, j)) maa) ()) ())
+                 (fun _ ->
+                   (let ja = plus_nata j one_nata in
+                     (if less_nat ja m then (fun () -> (i, (ja, maa)))
+                       else (fun () ->
+                              (plus _A2 i (one _A1), (zero_nata, maa)))))))
+             (zero _A3, (zero_nata, ma)))
+          ()) ())
+          (fun (_, a) -> (let (_, aa) = a in (fun () -> aa))));;
+
+let rec v_dbm_impl (_A1, _A2)
+  n = mtx_tabulate (one_nat, plus_nat, zero_nat)
+        ((zero_DBMEntry
+           _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.zero_monoid_add),
+          (heap_DBMEntry _A2))
+        (suc n) (suc n)
+        (v_dbm (zero_nat, equal_nat, ord_nat)
+          _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.zero_monoid_add
+          n);;
+
 let rec stat_stop x = (fun _ -> ()) x;;
 
 let rec as_push
@@ -2156,13 +2271,13 @@ let rec as_push
          let ab =
            (if equal_nata n (array_length aa)
              then array_grow aa
-                    (max ord_nat (nat_of_integer (Big_int_Z.big_int_of_int 4))
-                      (times_nat (nat_of_integer (Big_int_Z.big_int_of_int 2)) n))
+                    (max ord_nat (nat_of_integer (Big_int.big_int_of_int 4))
+                      (times_nat (nat_of_integer (Big_int.big_int_of_int 2)) n))
                     x
              else aa)
            in
          let ac = array_set ab n x in
-          (ac, plus_nat n one_nata));;
+          (ac, plus_nata n one_nata));;
 
 let rec as_take
   m s = (let a = s in
@@ -2259,60 +2374,39 @@ let rec clk_set
 
 let rec pre_checks
   x = (fun p m inv pred trans prog ->
-        [(['L'; 'e'; 'n'; 'g'; 't'; 'h'; ' '; 'o'; 'f'; ' '; 'i'; 'n'; 'v'; 'a';
-            'r'; 'i'; 'a'; 'n'; 't'; ' '; 'i'; 's'; ' '; 'p'],
-           equal_nata (size_list inv) p);
-          (['L'; 'e'; 'n'; 'g'; 't'; 'h'; ' '; 'o'; 'f'; ' '; 't'; 'r'; 'a';
-             'n'; 's'; 'i'; 't'; 'i'; 'o'; 'n'; 's'; ' '; 'i'; 's'; ' '; 'p'],
-            equal_nata (size_list trans) p);
-          (['L'; 'e'; 'n'; 'g'; 't'; 'h'; ' '; 'o'; 'f'; ' '; 'p'; 'r'; 'e';
-             'd'; 'i'; 'c'; 'a'; 't'; 'e'; ' '; 'i'; 's'; ' '; 'p'],
+        [("Length of invariant is p", equal_nata (size_list inv) p);
+          ("Length of transitions is p", equal_nata (size_list trans) p);
+          ("Length of predicate is p",
             all_interval_nat
               (fun i ->
                 equal_nata (size_list (nth pred i)) (size_list (nth trans i)) &&
                   equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
               zero_nata p);
-          (['T'; 'r'; 'a'; 'n'; 's'; 'i'; 't'; 'i'; 'o'; 'n'; 's'; ','; ' ';
-             'p'; 'r'; 'e'; 'd'; 'i'; 'c'; 'a'; 't'; 'e'; 's'; ','; ' '; 'a';
-             'n'; 'd'; ' '; 'i'; 'n'; 'v'; 'a'; 'r'; 'i'; 'a'; 'n'; 't'; 's';
-             ' '; 'a'; 'r'; 'e'; ' '; 'o'; 'f'; ' '; 't'; 'h'; 'e'; ' '; 'r';
-             'i'; 'g'; 'h'; 't'; ' '; 'l'; 'e'; 'n'; 'g'; 't'; 'h'; ' '; 'p';
-             'e'; 'r'; ' '; 'p'; 'r'; 'o'; 'c'; 'e'; 's'; 's'],
+          ("Transitions, predicates, and invariants are of the right length per process",
             all_interval_nat
               (fun i ->
                 equal_nata (size_list (nth pred i)) (size_list (nth trans i)) &&
                   equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
               zero_nata p);
-          (['E'; 'd'; 'g'; 'e'; ' '; 't'; 'a'; 'r'; 'g'; 'e'; 't'; 's'; ' ';
-             'a'; 'r'; 'e'; ' '; 'i'; 'n'; ' '; 'b'; 'o'; 'u'; 'n'; 'd'; 's'],
+          ("Edge targets are in bounds",
             list_all
               (fun t ->
                 list_all
                   (list_all (fun (_, (_, (_, l))) -> less_nat l (size_list t)))
                   t)
               trans);
-          (['p'; ' '; '>'; ' '; '0'], less_nat zero_nata p);
-          (['m'; ' '; '>'; ' '; '0'], less_nat zero_nata m);
-          (['E'; 'v'; 'e'; 'r'; 'y'; ' '; 'p'; 'r'; 'o'; 'c'; 'e'; 's'; 's';
-             ' '; 'h'; 'a'; 's'; ' '; 'a'; 't'; ' '; 'l'; 'e'; 'a'; 's'; 't';
-             ' '; 'o'; 'n'; 'e'; ' '; 't'; 'r'; 'a'; 'n'; 's'; 'i'; 't'; 'i';
-             'o'; 'n'],
+          ("p > 0", less_nat zero_nata p); ("m > 0", less_nat zero_nata m);
+          ("Every process has at least one transition",
             all_interval_nat (fun i -> not (null (nth trans i))) zero_nata p);
-          (['T'; 'h'; 'e'; ' '; 'i'; 'n'; 'i'; 't'; 'i'; 'a'; 'l'; ' '; 's';
-             't'; 'a'; 't'; 'e'; ' '; 'o'; 'f'; ' '; 'e'; 'a'; 'c'; 'h'; ' ';
-             'p'; 'r'; 'o'; 'c'; 'e'; 's'; 's'; ' '; 'h'; 'a'; 's'; ' '; 'a';
-             ' '; 't'; 'r'; 'a'; 'n'; 's'; 'i'; 't'; 'i'; 'o'; 'n'],
+          ("The initial state of each process has a transition",
             all_interval_nat (fun q -> not (null (nth (nth trans q) zero_nata)))
               zero_nata p);
-          (['C'; 'l'; 'o'; 'c'; 'k'; 's'; ' '; '>'; '='; ' '; '0'],
+          ("Clocks >= 0",
             ball (clkp_set inv prog) (fun (_, a) -> less_eq_int zero_inta a));
-          (['S'; 'e'; 't'; ' '; 'o'; 'f'; ' '; 'c'; 'l'; 'o'; 'c'; 'k'; 's';
-             ' '; 'i'; 's'; ' '; '{'; '1'; '.'; '.'; 'm'; '}'],
+          ("Set of clocks is {1..m}",
             eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
               (Set (upt one_nata (suc m))));
-          (['R'; 'e'; 's'; 'e'; 't'; 's'; ' '; 'c'; 'o'; 'r'; 'r'; 'e'; 'c';
-             't'],
-            check_resets prog)])
+          ("Resets correct", check_resets prog)])
         x;;
 
 let rec stat_start x = (fun _ -> ()) x;;
@@ -2606,7 +2700,7 @@ else (fun f_ () -> f_ (tRACE_impl ()) ())
 
 let rec more_checks
   x = (fun trans na ->
-        [(['L'; 'e'; 'g'; 'a'; 'l'; ' '; 'a'; 'c'; 't'; 'i'; 'o'; 'n'; 's'],
+        [("Legal actions",
            list_all
              (list_all
                (list_all
@@ -2625,11 +2719,11 @@ let rec last_seg_tr _A
            (fun (xe, _) ->
              less_nat xe
                (if equal_nata
-                     (plus_nat (minus_nat (as_length aa) one_nata) one_nata)
+                     (plus_nata (minus_nat (as_length aa) one_nata) one_nata)
                      (as_length aa)
                  then as_length a
                  else as_get aa
-                        (plus_nat (minus_nat (as_length aa) one_nata)
+                        (plus_nata (minus_nat (as_length aa) one_nata)
                           one_nata)))
            (fun (ac, bc) -> (let xa = as_get a ac in (suc ac, xa :: bc)))
            (as_get aa (minus_nat (as_length aa) one_nata), [])
@@ -2657,7 +2751,7 @@ let rec ahm_update_aux
      let insert = is_none (list_map_lookup eq k m) in
       HashMap
         (array_set a h (list_map_update eq k v m),
-          (if insert then plus_nat n one_nata else n)));;
+          (if insert then plus_nata n one_nata else n)));;
 
 let rec ahm_iteratei_aux
   a c f sigma =
@@ -2674,18 +2768,18 @@ let rec ahm_rehash_aux
 let rec ahm_rehash
   bhc (HashMap (a, n)) sz = HashMap (ahm_rehash_aux bhc a sz, n);;
 
-let load_factora : nat = nat_of_integer (Big_int_Z.big_int_of_int 75);;
+let load_factora : nat = nat_of_integer (Big_int.big_int_of_int 75);;
 
 let rec ahm_filled
   (HashMap (a, n)) =
     less_eq_nat (times_nat (array_length a) load_factora)
-      (times_nat n (nat_of_integer (Big_int_Z.big_int_of_int 100)));;
+      (times_nat n (nat_of_integer (Big_int.big_int_of_int 100)));;
 
 let rec hm_grow
   (HashMap (a, n)) =
-    plus_nat
-      (times_nat (nat_of_integer (Big_int_Z.big_int_of_int 2)) (array_length a))
-      (nat_of_integer (Big_int_Z.big_int_of_int 3));;
+    plus_nata
+      (times_nat (nat_of_integer (Big_int.big_int_of_int 2)) (array_length a))
+      (nat_of_integer (Big_int.big_int_of_int 3));;
 
 let rec ahm_update
   eq bhc k v hm =
@@ -2698,10 +2792,10 @@ let rec pop_tr (_A1, _A2)
        let xa =
          (let (_, bc) =
             whilea
-              (fun (xf, _) ->
-                less_nat xf
-                  (if equal_nata (plus_nat x one_nata) (as_length aa)
-                    then as_length a else as_get aa (plus_nat x one_nata)))
+              (fun (xe, _) ->
+                less_nat xe
+                  (if equal_nata (plus_nata x one_nata) (as_length aa)
+                    then as_length a else as_get aa (plus_nata x one_nata)))
               (fun (ac, bc) ->
                 (suc ac,
                   ahm_update (eq _A1) (bounded_hashcode_nat _A2) (as_get a ac)
@@ -2724,6 +2818,80 @@ let rec glist_delete eq x l = glist_delete_aux eq x l [];;
 
 let rec is_Nil a = (match a with [] -> true | _ :: _ -> false);;
 
+let rec abstra_upd_impl (_A1, _A2, _A3, _A4)
+  n = (fun ai bi ->
+        (match ai
+          with LTa (x41a, x42a) ->
+            (fun f_ () -> f_
+              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)) ())
+              ())
+              (fun x ->
+                mtx_set (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)
+                  (min (ord_DBMEntry
+                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
+                    x (Lt x42a)))
+          | LEa (x41a, x42a) ->
+            (fun f_ () -> f_
+              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)) ())
+              ())
+              (fun x ->
+                mtx_set (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)
+                  (min (ord_DBMEntry
+                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
+                    x (Le x42a)))
+          | EQa (x41a, x42a) ->
+            (fun f_ () -> f_
+              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)) ())
+              ())
+              (fun x ->
+                (fun f_ () -> f_
+                  ((mtx_get (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata))
+                  ()) ())
+                  (fun x_a ->
+                    (fun f_ () -> f_
+                      ((mtx_set (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)
+                         (min (ord_DBMEntry
+                                (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
+                           x (Le (uminus _A2 x42a))))
+                      ()) ())
+                      (fun x_b ->
+                        mtx_set (heap_DBMEntry _A4) (suc n) x_b
+                          (x41a, zero_nata)
+                          (min (ord_DBMEntry
+                                 (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
+                            x_a (Le x42a)))))
+          | GT (x41a, x42a) ->
+            (fun f_ () -> f_
+              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)) ())
+              ())
+              (fun x ->
+                mtx_set (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)
+                  (min (ord_DBMEntry
+                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
+                    x (Lt (uminus _A2 x42a))))
+          | GE (x41a, x42a) ->
+            (fun f_ () -> f_
+              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)) ())
+              ())
+              (fun x ->
+                mtx_set (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)
+                  (min (ord_DBMEntry
+                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
+                    x (Le (uminus _A2 x42a))))));;
+
+let rec abstr_upd_impl (_A1, _A2, _A3, _A4)
+  n = (fun ai ->
+        imp_nfoldli ai (fun _ -> (fun () -> true))
+          (abstra_upd_impl (_A1, _A2, _A3, _A4) n));;
+
+let rec abstr_FW_impl (_A1, _A2, _A3, _A4)
+  n = (fun ai bi ->
+        (fun f_ () -> f_ ((abstr_upd_impl (_A1, _A2, _A3, _A4) n ai bi) ()) ())
+          (fw_impl
+            ((linordered_ab_monoid_add_DBMEntry (_A1, _A3)),
+              (heap_DBMEntry _A4))
+            n));;
+
 let rec check_conj_blocka _A
   prog pc =
     (if less_eq_nat (size_list prog) pc then None
@@ -2731,32 +2899,32 @@ let rec check_conj_blocka _A
              then Some pc
              else (if equal_optiona (equal_instrc _A) (nth prog pc)
                         (Some (INSTR COPY)) &&
-                        ((match nth prog (plus_nat pc one_nata)
+                        ((match nth prog (plus_nata pc one_nata)
                            with None -> false | Some (INSTR _) -> false
                            | Some (CEXP _) -> true) &&
                           equal_optiona (equal_instrc _A)
                             (nth prog
-                              (plus_nat pc
-                                (nat_of_integer (Big_int_Z.big_int_of_int 2))))
+                              (plus_nata pc
+                                (nat_of_integer (Big_int.big_int_of_int 2))))
                             (Some (INSTR AND)))
                     then check_conj_blocka _A prog
-                           (plus_nat pc
-                             (nat_of_integer (Big_int_Z.big_int_of_int 3)))
+                           (plus_nata pc
+                             (nat_of_integer (Big_int.big_int_of_int 3)))
                     else (if equal_optiona (equal_instrc _A) (nth prog pc)
                                (Some (INSTR COPY)) &&
                                ((match
                                   nth prog
-                                    (plus_nat pc
+                                    (plus_nata pc
                                       (nat_of_integer
-(Big_int_Z.big_int_of_int 2)))
+(Big_int.big_int_of_int 2)))
                                   with None -> false | Some (INSTR _) -> false
                                   | Some (CEXP _) -> true) &&
                                  (equal_optiona (equal_instrc _A)
                                     (nth prog
-                                      (plus_nat pc
-(nat_of_integer (Big_int_Z.big_int_of_int 3))))
+                                      (plus_nata pc
+(nat_of_integer (Big_int.big_int_of_int 3))))
                                     (Some (INSTR AND)) &&
-                                   (match nth prog (plus_nat pc one_nata)
+                                   (match nth prog (plus_nata pc one_nata)
                                      with None -> false
                                      | Some (INSTR (JMPZ _)) -> true
                                      | Some (INSTR ADD) -> false
@@ -2778,10 +2946,10 @@ let rec check_conj_blocka _A
                                      | Some (INSTR (SETF _)) -> false
                                      | Some (CEXP _) -> false)))
                            then (match
-                                  (nth prog (plus_nat pc one_nata),
+                                  (nth prog (plus_nata pc one_nata),
                                     check_conj_blocka _A prog
-                                      (plus_nat pc
-(nat_of_integer (Big_int_Z.big_int_of_int 4))))
+                                      (plus_nata pc
+(nat_of_integer (Big_int.big_int_of_int 4))))
                                   with (None, _) -> None
                                   | (Some (INSTR (JMPZ _)), None) -> None
                                   | (Some (INSTR (JMPZ pcb)), Some pca) ->
@@ -2812,14 +2980,14 @@ let rec check_conj_block
     (match nth p pca with None -> false | Some (INSTR _) -> false
       | Some (CEXP _) -> true) &&
       equal_optiona equal_nat
-        (check_conj_blocka equal_int p (plus_nat pca one_nata)) (Some pc) ||
+        (check_conj_blocka equal_int p (plus_nata pca one_nata)) (Some pc) ||
       (match nth p pca with None -> false | Some (INSTR _) -> false
         | Some (CEXP _) -> true) &&
-        (equal_optiona (equal_instrc equal_int) (nth p (plus_nat pca one_nata))
+        (equal_optiona (equal_instrc equal_int) (nth p (plus_nata pca one_nata))
            (Some (INSTR AND)) &&
           equal_optiona equal_nat
             (check_conj_blocka equal_int p
-              (plus_nat pca (nat_of_integer (Big_int_Z.big_int_of_int 2))))
+              (plus_nata pca (nat_of_integer (Big_int.big_int_of_int 2))))
             (Some pc));;
 
 let rec steps_approx
@@ -2833,42 +3001,42 @@ let rec steps_approx
                       (let succs =
                          (match cmd
                            with INSTR (JMPZ pca) ->
-                             insert equal_nat (plus_nat pc one_nata)
+                             insert equal_nat (plus_nata pc one_nata)
                                (insert equal_nat pca bot_set)
                            | INSTR ADD ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR NOT ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR AND ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR LT ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR LE ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR EQ ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR (PUSH _) ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR POP ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR (LID _) ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR STORE ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR (STOREI (_, _)) ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR COPY ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR CALL -> Set (upt zero_nata (size_list prog))
                            | INSTR RETURN ->
                              Set (upt zero_nata (size_list prog))
                            | INSTR HALT -> bot_set
                            | INSTR (STOREC (_, _)) ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | INSTR (SETF _) ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set
+                             insert equal_nat (plus_nata pc one_nata) bot_set
                            | CEXP _ ->
-                             insert equal_nat (plus_nat pc one_nata) bot_set)
+                             insert equal_nat (plus_nata pc one_nata) bot_set)
                          in
                         sup_set equal_nat (insert equal_nat pc bot_set)
                           (sup_seta equal_nat
@@ -2962,22 +3130,14 @@ let rec bounded _A
 
 let rec start_checks
   x = (fun p max_steps trans prog bounds pred s_0 ->
-        [(['T'; 'e'; 'r'; 'm'; 'i'; 'n'; 'a'; 't'; 'i'; 'o'; 'n'; ' '; 'o'; 'f';
-            ' '; 'p'; 'r'; 'e'; 'd'; 'i'; 'c'; 'a'; 't'; 'e'; 's'],
+        [("Termination of predicates",
            init_pred_check p prog max_steps pred s_0);
-          (['B'; 'o'; 'u'; 'n'; 'd'; 'e'; 'd'; 'n'; 'e'; 's'; 's'],
-            bounded ord_int bounds s_0);
-          (['P'; 'r'; 'e'; 'd'; 'i'; 'c'; 'a'; 't'; 'e'; 's'; ' '; 'a'; 'r';
-             'e'; ' '; 'i'; 'n'; 'd'; 'e'; 'p'; 'e'; 'n'; 'd'; 'e'; 'n'; 't';
-             ' '; 'o'; 'f'; ' '; 't'; 'i'; 'm'; 'e'],
+          ("Boundedness", bounded ord_int bounds s_0);
+          ("Predicates are independent of time",
             time_indep_check1 pred prog max_steps);
-          (['U'; 'p'; 'd'; 'a'; 't'; 'e'; 's'; ' '; 'a'; 'r'; 'e'; ' '; 'i';
-             'n'; 'd'; 'e'; 'p'; 'e'; 'n'; 'd'; 'e'; 'n'; 't'; ' '; 'o'; 'f';
-             ' '; 't'; 'i'; 'm'; 'e'],
+          ("Updates are independent of time",
             time_indep_check2 trans prog max_steps);
-          (['C'; 'o'; 'n'; 'j'; 'u'; 'n'; 'c'; 't'; 'i'; 'o'; 'n'; ' '; 'c';
-             'h'; 'e'; 'c'; 'k'],
-            conjunction_check2 trans prog max_steps)])
+          ("Conjunction check", conjunction_check2 trans prog max_steps)])
         x;;
 
 let rec find_max_nat
@@ -2996,18 +3156,52 @@ let rec norm_lower _A e t = (if dbm_lt _A e (Lt t) then Lt t else e);;
 
 let rec norm_upper _A e t = (if dbm_lt _A (Le t) e then INF else e);;
 
-let rec gi_E (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_E;;
+let rec uPPAAL_Reachability_Problem_precompiled_start_state_axioms
+  x = (fun p max_steps trans prog bounds pred s_0 ->
+        init_pred_check p prog max_steps pred s_0 &&
+          (bounded ord_int bounds s_0 &&
+            (time_indep_check1 pred prog max_steps &&
+              (time_indep_check2 trans prog max_steps &&
+                conjunction_check2 trans prog max_steps))))
+        x;;
 
-let rec more (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = more;;
+let rec check_pre
+  p m inv pred trans prog =
+    equal_nata (size_list inv) p &&
+      (equal_nata (size_list trans) p &&
+        (equal_nata (size_list pred) p &&
+          (all_interval_nat
+             (fun i ->
+               equal_nata (size_list (nth pred i)) (size_list (nth trans i)) &&
+                 equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
+             zero_nata p &&
+            (list_all
+               (fun t ->
+                 list_all
+                   (list_all (fun (_, (_, (_, l))) -> less_nat l (size_list t)))
+                   t)
+               trans &&
+              (less_nat zero_nata p &&
+                (less_nat zero_nata m &&
+                  (all_interval_nat (fun i -> not (null (nth trans i)))
+                     zero_nata p &&
+                    (all_interval_nat
+                       (fun q -> not (null (nth (nth trans q) zero_nata)))
+                       zero_nata p &&
+                      (ball (clkp_set inv prog)
+                         (fun (_, a) -> less_eq_int zero_inta a) &&
+                        (eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
+                           (Set (upt one_nata (suc m))) &&
+                          check_resets prog))))))))));;
 
-let rec as_is_empty s = equal_nata (snd s) zero_nata;;
+let rec uPPAAL_Reachability_Problem_precompiled
+  p m inv pred trans prog = check_pre p m inv pred trans prog;;
 
-let rec minus_set _A
-  a x1 = match a, x1 with
-    a, Coset xs -> Set (filtera (fun x -> member _A x a) xs)
-    | a, Set xs -> fold (remove _A) xs a;;
-
-let rec gi_V0 (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_V0;;
+let rec uPPAAL_Reachability_Problem_precompiled_start_state
+  p m max_steps inv trans prog bounds pred s_0 =
+    uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog &&
+      uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps
+        trans prog bounds pred s_0;;
 
 let rec sup_option _A
   x y = match x, y with Some x, Some y -> Some (sup _A x y)
@@ -3028,7 +3222,7 @@ let rec find_resets_start
              | Some (INSTR HALT) -> None
              | Some (INSTR (STOREC (_, _))) ->
                sup_option sup_nat (Some pc)
-                 (find_resets_start prog (plus_nat pc one_nata))
+                 (find_resets_start prog (plus_nata pc one_nata))
              | Some (INSTR (SETF _)) -> None | Some (CEXP _) -> None)
       else None);;
 
@@ -3077,32 +3271,33 @@ let rec find_next_halt
   prog pc =
     (if less_nat pc (size_list prog)
       then (match nth prog pc
-             with None -> find_next_halt prog (plus_nat pc one_nata)
+             with None -> find_next_halt prog (plus_nata pc one_nata)
              | Some (INSTR (JMPZ _)) ->
-               find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR ADD) -> find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR NOT) -> find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR AND) -> find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR LT) -> find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR LE) -> find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR EQ) -> find_next_halt prog (plus_nat pc one_nata)
+               find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR ADD) -> find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR NOT) -> find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR AND) -> find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR LT) -> find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR LE) -> find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR EQ) -> find_next_halt prog (plus_nata pc one_nata)
              | Some (INSTR (PUSH _)) ->
-               find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR POP) -> find_next_halt prog (plus_nat pc one_nata)
+               find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR POP) -> find_next_halt prog (plus_nata pc one_nata)
              | Some (INSTR (LID _)) ->
-               find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR STORE) -> find_next_halt prog (plus_nat pc one_nata)
+               find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR STORE) -> find_next_halt prog (plus_nata pc one_nata)
              | Some (INSTR (STOREI (_, _))) ->
-               find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR COPY) -> find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR CALL) -> find_next_halt prog (plus_nat pc one_nata)
-             | Some (INSTR RETURN) -> find_next_halt prog (plus_nat pc one_nata)
+               find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR COPY) -> find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR CALL) -> find_next_halt prog (plus_nata pc one_nata)
+             | Some (INSTR RETURN) ->
+               find_next_halt prog (plus_nata pc one_nata)
              | Some (INSTR HALT) -> Some pc
              | Some (INSTR (STOREC (_, _))) ->
-               find_next_halt prog (plus_nat pc one_nata)
+               find_next_halt prog (plus_nata pc one_nata)
              | Some (INSTR (SETF _)) ->
-               find_next_halt prog (plus_nat pc one_nata)
-             | Some (CEXP _) -> find_next_halt prog (plus_nat pc one_nata))
+               find_next_halt prog (plus_nata pc one_nata)
+             | Some (CEXP _) -> find_next_halt prog (plus_nata pc one_nata))
       else None);;
 
 let rec guaranteed_execution_cond _A
@@ -3156,247 +3351,10 @@ let rec guaranteed_execution_cond _A
              pc_s pc_t &&
             less_nat (minus_nat pc_t pc_s) n));;
 
-let rec ceiling_checks
-  x = (fun p m max_steps inv trans prog k ->
-        [(['L'; 'e'; 'n'; 'g'; 't'; 'h'; ' '; 'o'; 'f'; ' '; 'c'; 'e'; 'i'; 'l';
-            'i'; 'g'],
-           equal_nata (size_list k) p);
-          (['1'],
-            all_interval_nat
-              (fun i ->
-                all_interval_nat
-                  (fun l ->
-                    ball (clkp_seta max_steps inv trans prog i l)
-                      (fun (xa, ma) ->
-                        less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
-                  zero_nata (size_list (nth trans i)))
-              zero_nata p);
-          (['2'],
-            all_interval_nat
-              (fun i ->
-                all_interval_nat
-                  (fun l ->
-                    ball (collect_clock_pairs (nth (nth inv i) l))
-                      (fun (xa, ma) ->
-                        less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
-                  zero_nata (size_list (nth trans i)))
-              zero_nata p);
-          (['3'],
-            all_interval_nat
-              (fun i ->
-                all_interval_nat
-                  (fun l ->
-                    list_all
-                      (fun (_, (_, (r, la))) ->
-                        ball (minus_set equal_nat
-                               (Set (upt zero_nata (plus_nat m one_nata)))
-                               (image fst (collect_storea prog r)))
-                          (fun c ->
-                            less_eq_nat (nth (nth (nth k i) la) c)
-                              (nth (nth (nth k i) l) c)))
-                      (nth (nth trans i) l))
-                  zero_nata (size_list (nth trans i)))
-              zero_nata p);
-          (['4'],
-            all_interval_nat
-              (fun i ->
-                equal_nata (size_list (nth k i)) (size_list (nth trans i)))
-              zero_nata p);
-          (['5'],
-            list_all
-              (list_all
-                (fun xxs -> equal_nata (size_list xxs) (plus_nat m one_nata)))
-              k);
-          (['6'],
-            all_interval_nat
-              (fun i ->
-                all_interval_nat
-                  (fun l ->
-                    equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
-                  zero_nata (size_list (nth trans i)))
-              zero_nata p);
-          (['7'],
-            all_interval_nat
-              (fun i ->
-                all_interval_nat
-                  (fun l ->
-                    list_all
-                      (fun (_, (_, (r, _))) ->
-                        guaranteed_execution_cond equal_int prog r max_steps)
-                      (nth (nth trans i) l))
-                  zero_nata (size_list (nth trans i)))
-              zero_nata p)])
-        x;;
-
-let rec select_edge_tr (_A1, _A2)
-  s = (let (a, (aa, (ab, bb))) = s in
-        (if as_is_empty bb then (None, (a, (aa, (ab, bb))))
-          else (let (ac, bc) = as_top bb in
-                 (if less_eq_nat (as_get aa (minus_nat (as_length aa) one_nata))
-                       ac
-                   then (let xa = gen_pick (fun x -> foldli (id x)) bc in
-                         let xb = glist_delete (eq _A1) xa bc in
-                         let xc =
-                           (if is_Nil xb then as_pop bb
-                             else as_set bb (minus_nat (as_length bb) one_nata)
-                                    (ac, xb))
-                           in
-                          (Some xa, (a, (aa, (ab, xc)))))
-                   else (None, (a, (aa, (ab, bb))))))));;
-
-let rec ahm_lookup_aux
-  eq bhc k a = list_map_lookup eq k (array_get a (bhc (array_length a) k));;
-
-let rec ahm_lookup eq bhc k (HashMap (a, uu)) = ahm_lookup_aux eq bhc k a;;
-
-let rec idx_of_tr (_A1, _A2)
-  s v = (let (_, (aa, (ab, _))) = v in
-         let x =
-           (let Some i = ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) s ab in
-            let true = less_eq_int zero_inta i in
-             nat i)
-           in
-         let xa =
-           find_max_nat (as_length aa) (fun j -> less_eq_nat (as_get aa j) x) in
-          xa);;
-
-let rec collapse_tr (_A1, _A2)
-  v s = (let (a, (aa, (ab, bb))) = s in
-         let x = idx_of_tr (_A1, _A2) v (a, (aa, (ab, bb))) in
-         let xa = as_take (plus_nat x one_nata) aa in
-          (a, (xa, (ab, bb))));;
-
-let rec as_singleton _B x = (FArray.IsabelleMapping.array_of_list [x], one _B);;
-
-let rec new_hashmap_with size = HashMap (new_array [] size, zero_nata);;
-
-let rec ahm_empty def_size = new_hashmap_with def_size;;
-
-let rec push_code (_A1, _A2)
-  g_impl =
-    (fun x (xa, (xb, (xc, xd))) ->
-      (let _ = stat_newnode () in
-       let xf = as_length xa in
-       let xg = as_push xa x in
-       let xh = as_push xb xf in
-       let xi =
-         ahm_update (eq _A1) (bounded_hashcode_nat _A2) x (int_of_nat xf) xc in
-       let xj =
-         (if is_Nil (gi_E g_impl x) then xd else as_push xd (xf, gi_E g_impl x))
-         in
-        (xg, (xh, (xi, xj)))));;
-
-let rec compute_SCC_tr (_A1, _A2)
-  g = (let _ = stat_start () in
-       let xa = ([], ahm_empty (def_hashmap_size _A2 Type)) in
-       let a =
-         foldli (id (gi_V0 g)) (fun _ -> true)
-           (fun xb (a, b) ->
-             (if not (match ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) xb b
-                       with None -> false
-                       | Some i ->
-                         (if less_eq_int zero_inta i then false else true))
-               then (let xc =
-                       (a, (as_singleton one_nat xb,
-                             (as_singleton one_nat zero_nata,
-                               (ahm_update (eq _A1) (bounded_hashcode_nat _A2)
-                                  xb (int_of_nat zero_nata) b,
-                                 (if is_Nil (gi_E g xb)
-                                   then as_empty zero_nat ()
-                                   else as_singleton one_nat
-  (zero_nata, gi_E g xb))))))
-                       in
-                     let (aa, (_, (_, (ad, _)))) =
-                       whilea
-                         (fun (_, xh) ->
-                           not (as_is_empty (let (xi, (_, (_, _))) = xh in xi)))
-                         (fun (aa, ba) ->
-                           (match select_edge_tr (_A1, _A2) ba
-                             with (None, bb) ->
-                               (let xf = last_seg_tr _A2 bb in
-                                let xg = pop_tr (_A1, _A2) bb in
-                                let xh = xf :: aa in
-                                 (xh, xg))
-                             | (Some xf, bb) ->
-                               (if (match
-                                     ahm_lookup (eq _A1)
-                                       (bounded_hashcode_nat _A2) xf
-                                       (let (_, (_, (xn, _))) = bb in xn)
-                                     with None -> false
-                                     | Some i ->
-                                       (if less_eq_int zero_inta i then true
- else false))
-                                 then (let ab = collapse_tr (_A1, _A2) xf bb in
-(aa, ab))
-                                 else (if not
-    (match
-      ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) xf
-        (let (_, (_, (xn, _))) = bb in xn)
-      with None -> false
-      | Some i -> (if less_eq_int zero_inta i then false else true))
-then (aa, push_code (_A1, _A2) g xf bb) else (aa, bb)))))
-                         xc
-                       in
-                      (aa, ad))
-               else (a, b)))
-           xa
-         in
-       let (aa, _) = a in
-       let _ = stat_stop () in
-        aa);;
-
-let rec constraint_clk = function LTa (c, uu) -> c
-                         | LEa (c, uv) -> c
-                         | EQa (c, uw) -> c
-                         | GE (c, ux) -> c
-                         | GT (c, uy) -> c;;
-
-let rec uPPAAL_Reachability_Problem_precompiled_start_state_axioms
-  x = (fun p max_steps trans prog bounds pred s_0 ->
-        init_pred_check p prog max_steps pred s_0 &&
-          (bounded ord_int bounds s_0 &&
-            (time_indep_check1 pred prog max_steps &&
-              (time_indep_check2 trans prog max_steps &&
-                conjunction_check2 trans prog max_steps))))
-        x;;
-
-let rec check_pre
-  p m inv pred trans prog =
-    equal_nata (size_list inv) p &&
-      (equal_nata (size_list trans) p &&
-        (equal_nata (size_list pred) p &&
-          (all_interval_nat
-             (fun i ->
-               equal_nata (size_list (nth pred i)) (size_list (nth trans i)) &&
-                 equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
-             zero_nata p &&
-            (list_all
-               (fun t ->
-                 list_all
-                   (list_all (fun (_, (_, (_, l))) -> less_nat l (size_list t)))
-                   t)
-               trans &&
-              (less_nat zero_nata p &&
-                (less_nat zero_nata m &&
-                  (all_interval_nat (fun i -> not (null (nth trans i)))
-                     zero_nata p &&
-                    (all_interval_nat
-                       (fun q -> not (null (nth (nth trans q) zero_nata)))
-                       zero_nata p &&
-                      (ball (clkp_set inv prog)
-                         (fun (_, a) -> less_eq_int zero_inta a) &&
-                        (eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
-                           (Set (upt one_nata (suc m))) &&
-                          check_resets prog))))))))));;
-
-let rec uPPAAL_Reachability_Problem_precompiled
-  p m inv pred trans prog = check_pre p m inv pred trans prog;;
-
-let rec uPPAAL_Reachability_Problem_precompiled_start_state
-  p m max_steps inv trans prog bounds pred s_0 =
-    uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog &&
-      uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps
-        trans prog bounds pred s_0;;
+let rec minus_set _A
+  a x1 = match a, x1 with
+    a, Coset xs -> Set (filtera (fun x -> member _A x a) xs)
+    | a, Set xs -> fold (remove _A) xs a;;
 
 let rec uPPAAL_Reachability_Problem_precompiled_ceiling_axioms
   p m max_steps inv trans prog k =
@@ -3425,7 +3383,7 @@ let rec uPPAAL_Reachability_Problem_precompiled_ceiling_axioms
                list_all
                  (fun (_, (_, (r, la))) ->
                    ball (minus_set equal_nat
-                          (Set (upt zero_nata (plus_nat m one_nata)))
+                          (Set (upt zero_nata (plus_nata m one_nata)))
                           (image fst (collect_storea prog r)))
                      (fun c ->
                        less_eq_nat (nth (nth (nth k i) la) c)
@@ -3439,7 +3397,7 @@ let rec uPPAAL_Reachability_Problem_precompiled_ceiling_axioms
          zero_nata p &&
          list_all
            (list_all
-             (fun xxs -> equal_nata (size_list xxs) (plus_nat m one_nata)))
+             (fun xxs -> equal_nata (size_list xxs) (plus_nata m one_nata)))
            k &&
         (all_interval_nat
            (fun i ->
@@ -3628,7 +3586,7 @@ let rec reset_canonical_upd_impl (_A1, _A2, _A3)
               ((mtx_set (heap_DBMEntry _A3) (suc n) x (zero_nata, bia)
                  (Le (uminus _A2 bi)))
               ()) ())
-              (imp_fora one_nata (plus_nat bib one_nata)
+              (imp_fora one_nata (plus_nata bib one_nata)
                 (fun xb sigma ->
                   (if equal_nata xb bia then (fun () -> sigma)
                     else (fun f_ () -> f_
@@ -3654,7 +3612,7 @@ let rec reset_canonical_upd_impl (_A1, _A2, _A3)
 
 let rec up_canonical_upd_impl (_A1, _A2)
   n = (fun ai bi ->
-        imp_fora one_nata (plus_nat bi one_nata)
+        imp_fora one_nata (plus_nata bi one_nata)
           (fun xa sigma ->
             mtx_set (heap_DBMEntry _A2) (suc n) sigma (xa, zero_nata) INF)
           ai);;
@@ -3684,11 +3642,11 @@ let rec fw_upd_impl_int
                         (dbm_add_int xa xb))))));;
 
 let rec fw_impl_int
-  n = imp_fora zero_nata (plus_nat n one_nata)
+  n = imp_fora zero_nata (plus_nata n one_nata)
         (fun xb ->
-          imp_fora zero_nata (plus_nat n one_nata)
+          imp_fora zero_nata (plus_nata n one_nata)
             (fun xd ->
-              imp_fora zero_nata (plus_nat n one_nata)
+              imp_fora zero_nata (plus_nata n one_nata)
                 (fun xf sigma -> fw_upd_impl_int n sigma xb xd xf)));;
 
 let rec dbm_subset_impl (_A1, _A2, _A3)
@@ -3737,86 +3695,6 @@ let rec check_diag_impl (_A1, _A2)
                      x (Le (zero _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.zero_monoid_add)) ||
                     sigma))))
           false);;
-
-let rec abstra_upd_impl (_A1, _A2, _A3, _A4)
-  n = (fun ai bi ->
-        (match ai
-          with LTa (x41a, x42a) ->
-            (fun f_ () -> f_
-              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)) ())
-              ())
-              (fun x ->
-                mtx_set (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)
-                  (min (ord_DBMEntry
-                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
-                    x (Lt x42a)))
-          | LEa (x41a, x42a) ->
-            (fun f_ () -> f_
-              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)) ())
-              ())
-              (fun x ->
-                mtx_set (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata)
-                  (min (ord_DBMEntry
-                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
-                    x (Le x42a)))
-          | EQa (x41a, x42a) ->
-            (fun f_ () -> f_
-              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)) ())
-              ())
-              (fun x ->
-                (fun f_ () -> f_
-                  ((mtx_get (heap_DBMEntry _A4) (suc n) bi (x41a, zero_nata))
-                  ()) ())
-                  (fun x_a ->
-                    (fun f_ () -> f_
-                      ((mtx_set (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)
-                         (min (ord_DBMEntry
-                                (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
-                           x (Le (uminus _A2 x42a))))
-                      ()) ())
-                      (fun x_b ->
-                        mtx_set (heap_DBMEntry _A4) (suc n) x_b
-                          (x41a, zero_nata)
-                          (min (ord_DBMEntry
-                                 (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
-                            x_a (Le x42a)))))
-          | GT (x41a, x42a) ->
-            (fun f_ () -> f_
-              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)) ())
-              ())
-              (fun x ->
-                mtx_set (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)
-                  (min (ord_DBMEntry
-                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
-                    x (Lt (uminus _A2 x42a))))
-          | GE (x41a, x42a) ->
-            (fun f_ () -> f_
-              ((mtx_get (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)) ())
-              ())
-              (fun x ->
-                mtx_set (heap_DBMEntry _A4) (suc n) bi (zero_nata, x41a)
-                  (min (ord_DBMEntry
-                         (_A3, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add))
-                    x (Le (uminus _A2 x42a))))));;
-
-let rec check_bexp
-  x0 l s = match x0, l, s with Not a, l, s -> not (check_bexp a l s)
-    | And (a, b), l, s -> check_bexp a l s && check_bexp b l s
-    | Or (a, b), l, s -> check_bexp a l s || check_bexp b l s
-    | Imply (a, b), l, s ->
-        (if check_bexp a l s then check_bexp b l s else true)
-    | Loc (p, la), l, uu -> equal_nata (nth l p) la
-    | Eq (i, x), uv, s -> equal_inta (nth s i) x
-    | Lea (i, x), uw, s -> less_eq_int (nth s i) x
-    | Lta (i, x), ux, s -> less_int (nth s i) x
-    | Ge (i, x), uy, s -> less_eq_int x (nth s i)
-    | Gt (i, x), uz, s -> less_int x (nth s i);;
-
-let rec hd_of_formula = function EX phi -> check_bexp phi
-                        | EG phi -> check_bexp phi
-                        | AX phi -> (fun x -> comp not (check_bexp phi x))
-                        | AG phi -> (fun x -> comp not (check_bexp phi x))
-                        | Leadsto (phi, uu) -> check_bexp phi;;
 
 let rec norm_upd_impl (_A1, _A2)
   n = (fun ai bia bi ->
@@ -3889,9 +3767,817 @@ _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid
   _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.uminus_group_add
   (sub bia xe))))))))))));;
 
+let rec and_entry_impl
+  n = (fun ai bib bia bi ->
+        (fun f_ () -> f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (ai, bib)) ()) ())
+          (fun x ->
+            mtx_set (heap_DBMEntry heap_int) (suc n) bi (ai, bib)
+              (min (ord_DBMEntry (equal_int, linorder_int)) x bia)));;
+
+let rec restrict_zero_impl
+  n = (fun ai bi ->
+        (fun f_ () -> f_ ((and_entry_impl n bi zero_nata (Le zero_inta) ai) ())
+          ())
+          (fun x ->
+            (fun f_ () -> f_ ((and_entry_impl n zero_nata bi (Le zero_inta) x)
+              ()) ())
+              (fun x_a ->
+                repair_pair_impl
+                  ((linordered_ab_monoid_add_DBMEntry
+                     (linordered_cancel_ab_monoid_add_int, equal_int)),
+                    (heap_DBMEntry heap_int))
+                  n x_a bi zero_nata)));;
+
+let rec pre_reset_impl
+  n = (fun ai bi ->
+        (fun f_ () -> f_ ((restrict_zero_impl n ai bi) ()) ())
+          (fun x ->
+            free_impl (linordered_cancel_ab_monoid_add_int, heap_int) n x bi));;
+
+let rec pre_reset_list_impl
+  n = (fun ai bi ->
+        imp_nfoldli bi (fun _ -> (fun () -> true))
+          (fun x sigma -> pre_reset_impl n sigma x) ai);;
+
+let rec dbm_subset_impla (_A1, _A2, _A3)
+  n = (fun ai bia bi ->
+        imp_for zero_nata (suc ai) (fun a -> (fun () -> a))
+          (fun xb _ ->
+            imp_for zero_nata (suc ai) (fun a -> (fun () -> a))
+              (fun xe _ ->
+                (fun f_ () -> f_
+                  ((mtx_get (heap_DBMEntry _A3) (suc n) bia (xb, xe)) ()) ())
+                  (fun x_f ->
+                    (fun f_ () -> f_
+                      ((mtx_get (heap_DBMEntry _A3) (suc n) bi (xb, xe)) ()) ())
+                      (fun x_g ->
+                        (fun () ->
+                          (less_eq_DBMEntry
+                            (_A2, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add)
+                            x_f x_g)))))
+              true)
+          true);;
+
+let rec and_entry_repair_impl
+  n = (fun ai bib bia bi ->
+        (fun f_ () -> f_ ((and_entry_impl n ai bib bia bi) ()) ())
+          (fun x ->
+            repair_pair_impl
+              ((linordered_ab_monoid_add_DBMEntry
+                 (linordered_cancel_ab_monoid_add_int, equal_int)),
+                (heap_DBMEntry heap_int))
+              n x ai bib));;
+
+let rec upd_entry_impl
+  n = (fun ai bib bia bi ->
+        (fun f_ () -> f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (ai, bib)) ()) ())
+          (fun x ->
+            (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) bia) ()) ())
+              (and_entry_repair_impl n bib ai (neg_dbm_entry uminus_int x))));;
+
+let rec upd_entries_impl
+  n = (fun ai bib bia bi ->
+        (fun f_ () -> f_
+          ((imp_nfoldli bi (fun _ -> (fun () -> true))
+             (fun xa sigma ->
+               (fun f_ () -> f_ ((upd_entry_impl n ai bib xa bia) ()) ())
+                 (fun x_b -> (fun () -> (x_b :: sigma))))
+             op_list_empty)
+          ()) ())
+          (fun x ->
+            imp_nfoldli x (fun _ -> (fun () -> true))
+              (fun xb sigma -> (fun () -> (xb :: sigma))) op_list_empty));;
+
+let rec get_entries_impl (_A1, _A2, _A3)
+  n = (fun xi ->
+        (fun f_ () -> f_
+          ((imp_fora zero_nata (suc n)
+             (fun xc sigma ->
+               (fun f_ () -> f_
+                 ((imp_fora zero_nata (suc n)
+                    (fun xf sigmaa ->
+                      (fun f_ () -> f_
+                        ((mtx_get (heap_DBMEntry _A3) (suc n) xi (xc, xf)) ())
+                        ())
+                        (fun x ->
+                          (fun () ->
+                            ((if (less_nat zero_nata xc ||
+                                   less_nat zero_nata xf) &&
+                                   (less_eq_nat xc n &&
+                                     (less_eq_nat xf n &&
+                                       not (equal_DBMEntry _A2 x INF)))
+                               then op_list_prepend (xc, xf) op_list_empty
+                               else op_list_empty) ::
+                              sigmaa))))
+                    op_list_empty)
+                 ()) ())
+                 (fun x ->
+                   (fun f_ () -> f_
+                     ((imp_nfoldli (op_list_rev (op_list_rev x))
+                        (fun _ -> (fun () -> true))
+                        (fun xf sigmaa -> (fun () -> (xf @ sigmaa)))
+                        op_list_empty)
+                     ()) ())
+                     (fun x_c -> (fun () -> (x_c :: sigma)))))
+             op_list_empty)
+          ()) ())
+          (fun x ->
+            imp_nfoldli (op_list_rev (op_list_rev x))
+              (fun _ -> (fun () -> true))
+              (fun xc sigma -> (fun () -> (xc @ sigma))) op_list_empty));;
+
+let rec dbm_minus_canonical_impl
+  n = (fun ai bi ->
+        (fun f_ () -> f_
+          ((get_entries_impl
+             (linordered_cancel_ab_monoid_add_int, equal_int, heap_int) n bi)
+          ()) ())
+          (fun x ->
+            (fun f_ () -> f_
+              ((imp_nfoldli x (fun _ -> (fun () -> true))
+                 (fun xb sigma ->
+                   (fun f_ () -> f_
+                     ((upd_entries_impl n (fst xb) (snd xb) bi ai) ()) ())
+                     (fun xa ->
+                       (fun f_ () -> f_
+                         ((imp_nfoldli xa (fun _ -> (fun () -> true))
+                            (fun xe sigmaa -> (fun () -> (xe :: sigmaa)))
+                            op_list_empty)
+                         ()) ())
+                         (fun x_c -> (fun () -> (x_c @ sigma)))))
+                 op_list_empty)
+              ()) ())
+              (fun xa ->
+                (fun f_ () -> f_
+                  ((imp_nfoldli xa (fun _ -> (fun () -> true))
+                     (fun xb sigma -> (fun () -> (xb :: sigma))) op_list_empty)
+                  ()) ())
+                  (fun xb ->
+                    (fun f_ () -> f_
+                      ((imp_nfoldli xb (fun _ -> (fun () -> true))
+                         (fun xba sigma ->
+                           (fun f_ () -> f_
+                             ((check_diag_impla
+                                (linordered_cancel_ab_monoid_add_int, heap_int)
+                                n n xba)
+                             ()) ())
+                             (fun xc ->
+                               (fun () ->
+                                 (if not xc then op_list_prepend xba sigma
+                                   else sigma))))
+                         op_list_empty)
+                      ()) ())
+                      (fun xc ->
+                        imp_nfoldli xc (fun _ -> (fun () -> true))
+                          (fun xba sigma -> (fun () -> (xba :: sigma)))
+                          op_list_empty)))));;
+
+let rec dbm_subset_fed_impl
+  n = (fun ai bi ->
+        (fun f_ () -> f_
+          ((imp_nfoldli bi (fun _ -> (fun () -> true))
+             (fun xa sigma ->
+               (fun f_ () -> f_
+                 ((check_diag_impla
+                    (linordered_cancel_ab_monoid_add_int, heap_int) n n xa)
+                 ()) ())
+                 (fun x ->
+                   (fun () ->
+                     (if not x then op_list_prepend xa sigma else sigma))))
+             op_list_empty)
+          ()) ())
+          (fun x ->
+            (let xa = op_list_rev x in
+              (if op_list_is_empty xa
+                then check_diag_impla
+                       (linordered_cancel_ab_monoid_add_int, heap_int) n n ai
+                else (fun f_ () -> f_
+                       ((imp_nfoldli xa (fun sigma -> (fun () -> (not sigma)))
+                          (fun xc sigma ->
+                            (fun f_ () -> f_
+                              ((dbm_subset_impla
+                                 (linordered_cancel_ab_monoid_add_int,
+                                   equal_int, heap_int)
+                                 n n ai xc)
+                              ()) ())
+                              (fun x_d ->
+                                (fun () -> (if x_d then true else sigma))))
+                          false)
+                       ()) ())
+                       (fun x_b ->
+                         (if x_b then (fun () -> true)
+                           else (fun f_ () -> f_
+                                  ((imp_nfoldli xa (fun _ -> (fun () -> true))
+                                     (fun xd sigma ->
+                                       dbm_minus_canonical_impl n sigma xd)
+                                     (op_list_prepend ai op_list_empty))
+                                  ()) ())
+                                  (fun x_c ->
+                                    (fun () -> (op_list_is_empty x_c)))))))));;
+
+let rec check_passed_impl _A (_B1, _B2, _B3)
+  succsi a_0i fi lei emptyi keyi copyi qi =
+    (fun f_ () -> f_ (a_0i ()) ())
+      (fun x ->
+        (fun f_ () -> f_ ((emptyi x) ()) ())
+          (fun xa ->
+            (fun f_ () -> f_ (a_0i ()) ())
+              (fun xaa ->
+                (fun f_ () -> f_ ((fi xaa) ()) ())
+                  (fun xab ->
+                    (fun f_ () -> f_
+                      ((if not xa && xab
+                         then (fun f_ () -> f_
+                                ((ht_new (_B2, _B3) (heap_list _A)) ()) ())
+                                (fun x_b -> (fun () -> (true, x_b)))
+                         else (fun f_ () -> f_ (a_0i ()) ())
+                                (fun xb ->
+                                  (fun f_ () -> f_ ((emptyi xb) ()) ())
+                                    (fun x_a ->
+                                      (if x_a
+then (fun f_ () -> f_ ((ht_new (_B2, _B3) (heap_list _A)) ()) ())
+       (fun x_c -> (fun () -> (false, x_c)))
+else (fun f_ () -> f_ (a_0i ()) ())
+       (fun xc ->
+         (fun f_ () -> f_ ((keyi xc) ()) ())
+           (fun xd ->
+             (fun f_ () -> f_ (a_0i ()) ())
+               (fun xac ->
+                 (fun f_ () -> f_ ((ht_new (_B2, _B3) (heap_list _A)) ()) ())
+                   (fun xba ->
+                     (fun f_ () -> f_
+                       ((ht_update (_B1, _B2, _B3) (heap_list _A) xd [xac] xba)
+                       ()) ())
+                       (fun xe ->
+                         (fun f_ () -> f_ (a_0i ()) ())
+                           (fun xad ->
+                             (fun f_ () -> f_
+                               ((heap_WHILET
+                                  (fun (_, (a1b, a2b)) ->
+                                    (fun () ->
+                                      (not a2b && not (op_list_is_empty a1b))))
+                                  (fun (a1a, (a1b, a2b)) ->
+                                    (let (a1c, a2c) =
+                                       (match a1b
+ with [] -> cODE_ABORT (fun _ -> (hd a1b, tl a1b)) | a :: b -> (a, b))
+                                       in
+                                      (fun f_ () -> f_ ((emptyi a1c) ()) ())
+(fun x_e ->
+  (if x_e then (fun () -> (a1a, (a2c, a2b)))
+    else (fun f_ () -> f_ (tRACE_impl ()) ())
+           (fun _ ->
+             (fun f_ () -> f_ ((succsi a1c) ()) ())
+               (fun x_g ->
+                 imp_nfoldli x_g (fun (_, (_, b)) -> (fun () -> (not b)))
+                   (fun xk (a1d, (a1e, _)) ->
+                     (fun f_ () -> f_ ((emptyi xk) ()) ())
+                       (fun x_j ->
+                         (if x_j then (fun () -> (a1d, (a1e, false)))
+                           else (fun f_ () -> f_ ((fi xk) ()) ())
+                                  (fun x_k ->
+                                    (if x_k then (fun () -> (a1d, (a1e, true)))
+                                      else (fun f_ () -> f_ ((keyi xk) ()) ())
+     (fun x_l ->
+       (fun f_ () -> f_
+         ((hms_extract (ht_lookup (_B1, _B2, _B3) (heap_list _A))
+            (ht_delete (_B1, _B2, _B3) (heap_list _A)) x_l a1d)
+         ()) ())
+         (fun a ->
+           (match a
+             with (None, a2f) ->
+               (fun f_ () -> f_ ((copyi xk) ()) ())
+                 (fun xf ->
+                   (fun f_ () -> f_
+                     ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l [xf] a2f)
+                     ()) ())
+                     (fun x_n ->
+                       (fun () -> (x_n, (op_list_prepend xk a1e, false)))))
+             | (Some x_n, a2f) ->
+               (fun f_ () -> f_ ((lso_bex_impl (lei xk) x_n) ()) ())
+                 (fun x_o ->
+                   (if x_o
+                     then (fun f_ () -> f_
+                            ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l x_n
+                               a2f)
+                            ()) ())
+                            (fun x_p -> (fun () -> (x_p, (a1e, false))))
+                     else (fun f_ () -> f_ ((copyi xk) ()) ())
+                            (fun xf ->
+                              (fun f_ () -> f_
+                                ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l
+                                   (xf :: x_n) a2f)
+                                ()) ())
+                                (fun x_p ->
+                                  (fun () ->
+                                    (x_p, (op_list_prepend xk a1e,
+    false)))))))))))))))
+                   (a1a, (a2c, false))))))))
+                                  (xe, (op_list_prepend xad [], false)))
+                               ()) ())
+                               (fun (a1a, (_, a2b)) ->
+                                 (fun () -> (a2b, a1a)))))))))))))
+                      ()) ())
+                      (fun (_, a2) ->
+                        (fun f_ () -> f_
+                          ((ran_of_map_impl (_B1, _B2, _B3) (heap_list _A) a2)
+                          ()) ())
+                          (fun x_a ->
+                            imp_nfoldli x_a
+                              (fun sigma -> (fun () -> (not sigma)))
+                              (fun xd _ ->
+                                imp_nfoldli xd
+                                  (fun sigma -> (fun () -> (not sigma)))
+                                  (fun xg _ ->
+                                    (fun f_ () -> f_ ((qi xg) ()) ())
+                                      (fun x_g ->
+(fun () -> (if x_g then true else false))))
+                                  false)
+                              false))))));;
+
+let rec constraint_clk = function LTa (c, uu) -> c
+                         | LEa (c, uv) -> c
+                         | EQa (c, uw) -> c
+                         | GE (c, ux) -> c
+                         | GT (c, uy) -> c;;
+
+let rec deadlock_checker
+  p m max_steps inv trans prog bounds pred s_0 na k =
+    (let i = upt zero_nata (plus_nata m one_nata) in
+     let ia = Set (upt zero_nata p) in
+     let ib = upt zero_nata na in
+     let ic = upt zero_nata p in
+     let id = IArray prog in
+     let ie = IArray (map (map_option stript) prog) in
+     let ifa = IArray (map (map_option stripf) prog) in
+     let ig = size_list prog in
+     let ida = (fun pc -> (if less_nat pc ig then sub id pc else None)) in
+     let iea = (fun pc -> (if less_nat pc ig then sub ie pc else None)) in
+     let ifb = (fun pc -> (if less_nat pc ig then sub ifa pc else None)) in
+     let iga = IArray bounds in
+     let ih = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
+     let ii = IArray (map (fun a -> IArray a) (trans_in_map trans)) in
+     let ij = IArray (map (fun a -> IArray a) (trans_out_map trans)) in
+     let ik = IArray (map (fun a -> IArray a) inv) in
+     let iba =
+       (fun l ->
+         (let (la, s) = l in
+          let ina = all_actions_by_state_impl ic (map (fun _ -> []) ib) ii la in
+          let out = all_actions_by_state_impl ic (map (fun _ -> []) ib) ij la in
+           maps (fun a ->
+                  pairs_by_action_impl p max_steps pred ifb iea ida iga (la, s)
+                    (nth out a) (nth ina a))
+             ib) @
+           maps (trans_i_from_impl p max_steps pred bounds ifb iea ida iga ih l)
+             ic)
+       in
+     let idb =
+       IArray
+         (map (comp (fun a -> IArray a)
+                (map (comp (fun a -> IArray a) (map int_of_nat))))
+           k)
+       in
+     let key = comp (fun a -> (fun () -> a)) fst in
+     let suba =
+       (fun ai bi ->
+         (let (a1, a2) = ai in
+          let (a1a, a2a) = bi in
+           (if equal_proda (equal_list equal_nat) (equal_list equal_int) a1 a1a
+             then dbm_subset_impl
+                    (linordered_cancel_ab_monoid_add_int, equal_int, heap_int) m
+                    a2 a2a
+             else (fun () -> false))))
+       in
+     let copy =
+       (fun (a1, a2) ->
+         (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ()) ())
+           (fun x -> (fun () -> (a1, x))))
+       in
+     let start =
+       (fun f_ () -> f_
+         ((amtx_dflt (heap_DBMEntry heap_int) (suc m) (suc m) (Le zero_inta))
+         ()) ())
+         (fun x_a -> (fun () -> ((init p, s_0), x_a)))
+       in
+     let final = (fun _ -> (fun () -> false)) in
+     let succs =
+       (fun (a1, a2) ->
+         imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
+           (fun xc sigma ->
+             (let (a1a, (_, (a1c, a2c))) = xc in
+               (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ()) ())
+                 (fun x ->
+                   (fun f_ () -> f_
+                     (((fun f_ () -> f_
+                         ((up_canonical_upd_impl
+                            (linordered_cancel_ab_monoid_add_int, heap_int) m x
+                            m)
+                         ()) ())
+                        (fun xa ->
+                          (fun f_ () -> f_
+                            ((imp_nfoldli
+                               (let (l, _) = a1 in
+                                 maps (fun il -> sub (sub ik il) (nth l il)) ic)
+                               (fun _ -> (fun () -> true))
+                               (fun ai bi ->
+                                 (fun f_ () -> f_
+                                   ((abstra_upd_impl
+                                      (linordered_cancel_ab_monoid_add_int,
+uminus_int, equal_int, heap_int)
+                                      m ai bi)
+                                   ()) ())
+                                   (fun xb ->
+                                     repair_pair_impl
+                                       ((linordered_ab_monoid_add_DBMEntry
+  (linordered_cancel_ab_monoid_add_int, equal_int)),
+ (heap_DBMEntry heap_int))
+                                       m xb zero_nata (constraint_clk ai)))
+                               xa)
+                            ()) ())
+                            (fun xb ->
+                              (fun f_ () -> f_
+                                ((check_diag_impla
+                                   (linordered_cancel_ab_monoid_add_int,
+                                     heap_int)
+                                   m m xb)
+                                ()) ())
+                                (fun xaa ->
+                                  (fun f_ () -> f_
+                                    ((if xaa then (fun () -> xb)
+                                       else imp_nfoldli a1a
+      (fun _ -> (fun () -> true))
+      (fun ai bi ->
+        (fun f_ () -> f_
+          ((abstra_upd_impl
+             (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int,
+               heap_int)
+             m ai bi)
+          ()) ())
+          (fun xd ->
+            repair_pair_impl
+              ((linordered_ab_monoid_add_DBMEntry
+                 (linordered_cancel_ab_monoid_add_int, equal_int)),
+                (heap_DBMEntry heap_int))
+              m xd zero_nata (constraint_clk ai)))
+      xb)
+                                    ()) ())
+                                    (fun x_a ->
+                                      (fun f_ () -> f_
+((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m x_a) ())
+())
+(fun xd ->
+  (fun f_ () -> f_
+    ((if xd then (fun () -> x_a)
+       else (fun f_ () -> f_
+              ((imp_nfoldli a1c (fun _ -> (fun () -> true))
+                 (fun xca sigmaa ->
+                   reset_canonical_upd_impl
+                     (linordered_cancel_ab_monoid_add_int, uminus_int, heap_int)
+                     m sigmaa m xca zero_inta)
+                 x_a)
+              ()) ())
+              (imp_nfoldli
+                (let (l, _) = a2c in
+                  maps (fun il -> sub (sub ik il) (nth l il)) ic)
+                (fun _ -> (fun () -> true))
+                (fun ai bi ->
+                  (fun f_ () -> f_
+                    ((abstra_upd_impl
+                       (linordered_cancel_ab_monoid_add_int, uminus_int,
+                         equal_int, heap_int)
+                       m ai bi)
+                    ()) ())
+                    (fun xe ->
+                      repair_pair_impl
+                        ((linordered_ab_monoid_add_DBMEntry
+                           (linordered_cancel_ab_monoid_add_int, equal_int)),
+                          (heap_DBMEntry heap_int))
+                        m xe zero_nata (constraint_clk ai)))))
+    ()) ())
+    (fun x_b ->
+      (fun f_ () -> f_
+        ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m
+           x_b)
+        ()) ())
+        (fun x_c ->
+          (if x_c then (fun () -> x_b)
+            else (fun f_ () -> f_
+                   ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
+                      (let (l, _) = a2c in
+                        IArray
+                          (map (fun c ->
+                                 maxa linorder_int
+                                   (image
+                                     (fun il ->
+                                       sub (sub (sub idb il) (nth l il)) c)
+                                     ia))
+                            i))
+                      m)
+                   ()) ())
+                   (fw_impl_int m))))))))))
+                     ()) ())
+                     (fun xa ->
+                       (fun () -> (op_list_prepend (a2c, xa) sigma))))))
+           [])
+       in
+     let empty =
+       (fun (_, a) ->
+         check_diag_impl (linordered_cancel_ab_monoid_add_int, heap_int) m a)
+       in
+     let pa =
+       (fun (a1, a2) ->
+         (fun f_ () -> f_
+           (((fun f_ () -> f_
+               ((imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
+                  (fun xb sigma ->
+                    (fun f_ () -> f_
+                      ((v_dbm_impl
+                         (linordered_cancel_ab_monoid_add_int, heap_int) m)
+                      ()) ())
+                      (fun x ->
+                        (fun f_ () -> f_
+                          ((abstr_FW_impl
+                             (linordered_cancel_ab_monoid_add_int, uminus_int,
+                               equal_int, heap_int)
+                             m (let (l, _) = snd (snd (snd xb)) in
+                                 maps (fun il -> sub (sub ik il) (nth l il)) ic)
+                             x)
+                          ()) ())
+                          (fun xa ->
+                            (fun f_ () -> f_
+                              ((pre_reset_list_impl m xa (fst (snd (snd xb))))
+                              ()) ())
+                              (fun xc ->
+                                (fun f_ () -> f_
+                                  ((abstr_FW_impl
+                                     (linordered_cancel_ab_monoid_add_int,
+                                       uminus_int, equal_int, heap_int)
+                                     m (fst xb) xc)
+                                  ()) ())
+                                  (fun xd ->
+                                    (fun f_ () -> f_
+                                      ((abstr_FW_impl
+ (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
+ (let (l, _) = a1 in maps (fun il -> sub (sub ik il) (nth l il)) ic) xd)
+                                      ()) ())
+                                      (fun xe ->
+(fun f_ () -> f_
+  ((down_impl (linordered_cancel_ab_monoid_add_int, equal_int, heap_int) m xe)
+  ()) ())
+  (fun x_c -> (fun () -> (x_c :: sigma)))))))))
+                  [])
+               ()) ())
+              (fun x -> dbm_subset_fed_impl m a2 (op_list_rev x)))
+           ()) ())
+           (fun x -> (fun () -> (not x))))
+       in
+      (fun f_ () -> f_ ((fun () -> (not (op_list_is_empty (iba (init p, s_0)))))
+        ()) ())
+        (fun r1 ->
+          (if r1
+            then (fun f_ () -> f_
+                   ((check_passed_impl
+                      (heap_prod
+                        (heap_prod (heap_list heap_nat) (heap_list heap_int))
+                        (heap_array (typerep_DBMEntry typerep_int)))
+                      ((equal_prod (equal_list equal_nat)
+                         (equal_list equal_int)),
+                        (hashable_prod (hashable_list hashable_nat)
+                          (hashable_list hashable_int)),
+                        (heap_prod (heap_list heap_nat) (heap_list heap_int)))
+                      succs start final suba empty key copy pa)
+                   ()) ())
+                   (fun a -> (fun () -> a))
+            else (fun () -> true))));;
+
+let rec precond_dc
+  num_processes num_clocks clock_ceiling max_steps i t prog bounds program s_0
+    num_actions =
+    (if uPPAAL_Reachability_Problem_precompileda num_processes num_clocks
+          max_steps i t prog bounds program s_0 num_actions clock_ceiling
+      then (fun f_ () -> f_
+             ((deadlock_checker num_processes num_clocks max_steps i t prog
+                bounds program s_0 num_actions clock_ceiling)
+             ()) ())
+             (fun x -> (fun () -> (Some x)))
+      else (fun () -> None));;
+
+let rec gi_E (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_E;;
+
+let rec more (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = more;;
+
+let rec as_is_empty s = equal_nata (snd s) zero_nata;;
+
+let rec gi_V0 (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_V0;;
+
+let rec ceiling_checks
+  x = (fun p m max_steps inv trans prog k ->
+        [("Length of ceilig", equal_nata (size_list k) p);
+          ("1", all_interval_nat
+                  (fun i ->
+                    all_interval_nat
+                      (fun l ->
+                        ball (clkp_seta max_steps inv trans prog i l)
+                          (fun (xa, ma) ->
+                            less_eq_int ma
+                              (int_of_nat (nth (nth (nth k i) l) xa))))
+                      zero_nata (size_list (nth trans i)))
+                  zero_nata p);
+          ("2", all_interval_nat
+                  (fun i ->
+                    all_interval_nat
+                      (fun l ->
+                        ball (collect_clock_pairs (nth (nth inv i) l))
+                          (fun (xa, ma) ->
+                            less_eq_int ma
+                              (int_of_nat (nth (nth (nth k i) l) xa))))
+                      zero_nata (size_list (nth trans i)))
+                  zero_nata p);
+          ("3", all_interval_nat
+                  (fun i ->
+                    all_interval_nat
+                      (fun l ->
+                        list_all
+                          (fun (_, (_, (r, la))) ->
+                            ball (minus_set equal_nat
+                                   (Set (upt zero_nata (plus_nata m one_nata)))
+                                   (image fst (collect_storea prog r)))
+                              (fun c ->
+                                less_eq_nat (nth (nth (nth k i) la) c)
+                                  (nth (nth (nth k i) l) c)))
+                          (nth (nth trans i) l))
+                      zero_nata (size_list (nth trans i)))
+                  zero_nata p);
+          ("4", all_interval_nat
+                  (fun i ->
+                    equal_nata (size_list (nth k i)) (size_list (nth trans i)))
+                  zero_nata p);
+          ("5", list_all
+                  (list_all
+                    (fun xxs ->
+                      equal_nata (size_list xxs) (plus_nata m one_nata)))
+                  k);
+          ("6", all_interval_nat
+                  (fun i ->
+                    all_interval_nat
+                      (fun l ->
+                        equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
+                      zero_nata (size_list (nth trans i)))
+                  zero_nata p);
+          ("7", all_interval_nat
+                  (fun i ->
+                    all_interval_nat
+                      (fun l ->
+                        list_all
+                          (fun (_, (_, (r, _))) ->
+                            guaranteed_execution_cond equal_int prog r
+                              max_steps)
+                          (nth (nth trans i) l))
+                      zero_nata (size_list (nth trans i)))
+                  zero_nata p)])
+        x;;
+
+let rec select_edge_tr (_A1, _A2)
+  s = (let (a, (aa, (ab, bb))) = s in
+        (if as_is_empty bb then (None, (a, (aa, (ab, bb))))
+          else (let (ac, bc) = as_top bb in
+                 (if less_eq_nat (as_get aa (minus_nat (as_length aa) one_nata))
+                       ac
+                   then (let xa = gen_pick (fun x -> foldli (id x)) bc in
+                         let xb = glist_delete (eq _A1) xa bc in
+                         let xc =
+                           (if is_Nil xb then as_pop bb
+                             else as_set bb (minus_nat (as_length bb) one_nata)
+                                    (ac, xb))
+                           in
+                          (Some xa, (a, (aa, (ab, xc)))))
+                   else (None, (a, (aa, (ab, bb))))))));;
+
+let rec ahm_lookup_aux
+  eq bhc k a = list_map_lookup eq k (array_get a (bhc (array_length a) k));;
+
+let rec ahm_lookup eq bhc k (HashMap (a, uu)) = ahm_lookup_aux eq bhc k a;;
+
+let rec idx_of_tr (_A1, _A2)
+  s v = (let (_, (aa, (ab, _))) = v in
+         let x =
+           (let Some i = ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) s ab in
+            let true = less_eq_int zero_inta i in
+             nat i)
+           in
+         let xa =
+           find_max_nat (as_length aa) (fun j -> less_eq_nat (as_get aa j) x) in
+          xa);;
+
+let rec collapse_tr (_A1, _A2)
+  v s = (let (a, (aa, (ab, bb))) = s in
+         let x = idx_of_tr (_A1, _A2) v (a, (aa, (ab, bb))) in
+         let xa = as_take (plus_nata x one_nata) aa in
+          (a, (xa, (ab, bb))));;
+
+let rec as_singleton _B x = (FArray.IsabelleMapping.array_of_list [x], one _B);;
+
+let rec new_hashmap_with size = HashMap (new_array [] size, zero_nata);;
+
+let rec ahm_empty def_size = new_hashmap_with def_size;;
+
+let rec push_code (_A1, _A2)
+  g_impl =
+    (fun x (xa, (xb, (xc, xd))) ->
+      (let _ = stat_newnode () in
+       let y_a = as_length xa in
+       let y_b = as_push xa x in
+       let y_c = as_push xb y_a in
+       let y_d =
+         ahm_update (eq _A1) (bounded_hashcode_nat _A2) x (int_of_nat y_a) xc in
+       let y_e =
+         (if is_Nil (gi_E g_impl x) then xd
+           else as_push xd (y_a, gi_E g_impl x))
+         in
+        (y_b, (y_c, (y_d, y_e)))));;
+
+let rec compute_SCC_tr (_A1, _A2)
+  g = (let _ = stat_start () in
+       let xa = ([], ahm_empty (def_hashmap_size _A2 Type)) in
+       let a =
+         foldli (id (gi_V0 g)) (fun _ -> true)
+           (fun xb (a, b) ->
+             (if not (match ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) xb b
+                       with None -> false
+                       | Some i ->
+                         (if less_eq_int zero_inta i then false else true))
+               then (let xc =
+                       (a, (as_singleton one_nat xb,
+                             (as_singleton one_nat zero_nata,
+                               (ahm_update (eq _A1) (bounded_hashcode_nat _A2)
+                                  xb (int_of_nat zero_nata) b,
+                                 (if is_Nil (gi_E g xb)
+                                   then as_empty zero_nat ()
+                                   else as_singleton one_nat
+  (zero_nata, gi_E g xb))))))
+                       in
+                     let (aa, (_, (_, (ad, _)))) =
+                       whilea
+                         (fun (_, xf) ->
+                           not (as_is_empty (let (xg, (_, (_, _))) = xf in xg)))
+                         (fun (aa, ba) ->
+                           (match select_edge_tr (_A1, _A2) ba
+                             with (None, bb) ->
+                               (let xf = last_seg_tr _A2 bb in
+                                let xg = pop_tr (_A1, _A2) bb in
+                                let xh = xf :: aa in
+                                 (xh, xg))
+                             | (Some xf, bb) ->
+                               (if (match
+                                     ahm_lookup (eq _A1)
+                                       (bounded_hashcode_nat _A2) xf
+                                       (let (_, (_, (xl, _))) = bb in xl)
+                                     with None -> false
+                                     | Some i ->
+                                       (if less_eq_int zero_inta i then true
+ else false))
+                                 then (let ab = collapse_tr (_A1, _A2) xf bb in
+(aa, ab))
+                                 else (if not
+    (match
+      ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) xf
+        (let (_, (_, (xl, _))) = bb in xl)
+      with None -> false
+      | Some i -> (if less_eq_int zero_inta i then false else true))
+then (aa, push_code (_A1, _A2) g xf bb) else (aa, bb)))))
+                         xc
+                       in
+                      (aa, ad))
+               else (a, b)))
+           xa
+         in
+       let (aa, _) = a in
+       let _ = stat_stop () in
+        aa);;
+
+let rec check_bexp
+  x0 l s = match x0, l, s with Not a, l, s -> not (check_bexp a l s)
+    | And (a, b), l, s -> check_bexp a l s && check_bexp b l s
+    | Or (a, b), l, s -> check_bexp a l s || check_bexp b l s
+    | Imply (a, b), l, s ->
+        (if check_bexp a l s then check_bexp b l s else true)
+    | Loc (p, la), l, uu -> equal_nata (nth l p) la
+    | Eq (i, x), uv, s -> equal_inta (nth s i) x
+    | Lea (i, x), uw, s -> less_eq_int (nth s i) x
+    | Lta (i, x), ux, s -> less_int (nth s i) x
+    | Ge (i, x), uy, s -> less_eq_int x (nth s i)
+    | Gt (i, x), uz, s -> less_int x (nth s i);;
+
+let rec hd_of_formula = function EX phi -> check_bexp phi
+                        | EG phi -> check_bexp phi
+                        | AX phi -> (fun x -> comp not (check_bexp phi x))
+                        | AG phi -> (fun x -> comp not (check_bexp phi x))
+                        | Leadsto (phi, uu) -> check_bexp phi;;
+
 let rec reachability_checker
   p m max_steps inv trans prog bounds pred s_0 na k formula =
-    (let i = upt zero_nata (plus_nat m one_nata) in
+    (let i = upt zero_nata (plus_nata m one_nata) in
      let ia = Set (upt zero_nata p) in
      let ib = upt zero_nata na in
      let ic = upt zero_nata p in
@@ -4092,7 +4778,7 @@ let rec reachability_checker
 
 let rec leadsto_checker
   p m max_steps inv trans prog bounds pred s_0 na k formula =
-    (let i = upt zero_nata (plus_nat m one_nata) in
+    (let i = upt zero_nata (plus_nata m one_nata) in
      let ia = Set (upt zero_nata p) in
      let ib = upt zero_nata na in
      let ic = upt zero_nata p in
@@ -4629,7 +5315,7 @@ let rec dfs_map_impl _A (_B1, _B2, _B3)
 
 let rec alw_ev_checker
   p m max_steps inv trans prog bounds pred s_0 na k formula =
-    (let i = upt zero_nata (plus_nat m one_nata) in
+    (let i = upt zero_nata (plus_nata m one_nata) in
      let ia = Set (upt zero_nata p) in
      let ib = upt zero_nata na in
      let ic = upt zero_nata p in

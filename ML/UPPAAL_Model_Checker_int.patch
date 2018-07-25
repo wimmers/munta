@@ -1,462 +1,1047 @@
-3,7c3,7
-<   val set_bit : Word.word -> IntInf.int -> bool -> Word.word
-<   val shiftl : Word.word -> IntInf.int -> Word.word
-<   val shiftr : Word.word -> IntInf.int -> Word.word
-<   val shiftr_signed : Word.word -> IntInf.int -> Word.word
-<   val test_bit : Word.word -> IntInf.int -> bool
----
->   val set_bit : Word.word -> Int.int -> bool -> Word.word
->   val shiftl : Word.word -> Int.int -> Word.word
->   val shiftr : Word.word -> Int.int -> Word.word
->   val shiftr_signed : Word.word -> Int.int -> Word.word
->   val test_bit : Word.word -> Int.int -> bool
-11c11
-<   let val mask = Word.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))
----
->   let val mask = Word.<< (0wx1, Word.fromLargeInt (Int.toLarge n))
-17c17
-<   Word.<< (x, Word.fromLargeInt (IntInf.toLarge n))
----
->   Word.<< (x, Word.fromLargeInt (Int.toLarge n))
-20c20
-<   Word.>> (x, Word.fromLargeInt (IntInf.toLarge n))
----
->   Word.>> (x, Word.fromLargeInt (Int.toLarge n))
-23c23
-<   Word.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
----
->   Word.~>> (x, Word.fromLargeInt (Int.toLarge n))
-26c26
-<   Word.andb (x, Word.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))) <> Word.fromInt 0
----
->   Word.andb (x, Word.<< (0wx1, Word.fromLargeInt (Int.toLarge n))) <> Word.fromInt 0
-34,38c34,38
-<   val set_bit : Word32.word -> IntInf.int -> bool -> Word32.word
-<   val shiftl : Word32.word -> IntInf.int -> Word32.word
-<   val shiftr : Word32.word -> IntInf.int -> Word32.word
-<   val shiftr_signed : Word32.word -> IntInf.int -> Word32.word
-<   val test_bit : Word32.word -> IntInf.int -> bool
----
->   val set_bit : Word32.word -> Int.int -> bool -> Word32.word
->   val shiftl : Word32.word -> Int.int -> Word32.word
->   val shiftr : Word32.word -> Int.int -> Word32.word
->   val shiftr_signed : Word32.word -> Int.int -> Word32.word
->   val test_bit : Word32.word -> Int.int -> bool
-42c42
-<   let val mask = Word32.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))
----
->   let val mask = Word32.<< (0wx1, Word.fromLargeInt (Int.toLarge n))
-48c48
-<   Word32.<< (x, Word.fromLargeInt (IntInf.toLarge n))
----
->   Word32.<< (x, Word.fromLargeInt (Int.toLarge n))
-51c51
-<   Word32.>> (x, Word.fromLargeInt (IntInf.toLarge n))
----
->   Word32.>> (x, Word.fromLargeInt (Int.toLarge n))
-54c54
-<   Word32.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
----
->   Word32.~>> (x, Word.fromLargeInt (Int.toLarge n))
-57c57
-<   Word32.andb (x, Word32.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))) <> Word32.fromInt 0
----
->   Word32.andb (x, Word32.<< (0wx1, Word.fromLargeInt (Int.toLarge n))) <> Word32.fromInt 0
-113c113
-< fun new_array (a:'a) (n:IntInf.int) = array (IntInf.toInt n, a);
----
-> fun new_array (a:'a) (n:Int.int) = array (Int.toInt n, a);
-115c115
-< fun array_length (a:'a ArrayType) = IntInf.fromInt (length a);
----
-> fun array_length (a:'a ArrayType) = Int.fromInt (length a);
-117c117
-< fun array_get (a:'a ArrayType) (i:IntInf.int) = sub (a, IntInf.toInt i);
----
-> fun array_get (a:'a ArrayType) (i:Int.int) = sub (a, Int.toInt i);
-119c119
-< fun array_set (a:'a ArrayType) (i:IntInf.int) (e:'a) = update (a, IntInf.toInt i, e);
----
-> fun array_set (a:'a ArrayType) (i:Int.int) (e:'a) = update (a, Int.toInt i, e);
-123c123
-< fun array_grow (a:'a ArrayType) (i:IntInf.int) (x:'a) = grow (a, IntInf.toInt i, x);
----
-> fun array_grow (a:'a ArrayType) (i:Int.int) (x:'a) = grow (a, Int.toInt i, x);
-125c125
-< fun array_shrink (a:'a ArrayType) (sz:IntInf.int) = shrink (a,IntInf.toInt sz);
----
-> fun array_shrink (a:'a ArrayType) (sz:Int.int) = shrink (a,Int.toInt sz);
-216c216
-< fun new_array (a:'a) (n:IntInf.int) = array (IntInf.toInt n, a);
----
-> fun new_array (a:'a) (n:Int.int) = array (Int.toInt n, a);
-218c218
-< fun array_length (a:'a ArrayType) = IntInf.fromInt (length a);
----
-> fun array_length (a:'a ArrayType) = Int.fromInt (length a);
-220c220
-< fun array_get (a:'a ArrayType) (i:IntInf.int) = sub (a, IntInf.toInt i);
----
-> fun array_get (a:'a ArrayType) (i:Int.int) = sub (a, Int.toInt i);
-222c222
-< fun array_set (a:'a ArrayType) (i:IntInf.int) (e:'a) = update (a, IntInf.toInt i, e);
----
-> fun array_set (a:'a ArrayType) (i:Int.int) (e:'a) = update (a, Int.toInt i, e);
-226c226
-< fun array_grow (a:'a ArrayType) (i:IntInf.int) (x:'a) = grow (a, IntInf.toInt i, x);
----
-> fun array_grow (a:'a ArrayType) (i:Int.int) (x:'a) = grow (a, Int.toInt i, x);
-228c228
-< fun array_shrink (a:'a ArrayType) (sz:IntInf.int) = shrink (a,IntInf.toInt sz);
----
-> fun array_shrink (a:'a ArrayType) (sz:Int.int) = shrink (a,Int.toInt sz);
-230,231c230,231
-< fun array_get_oo (d:'a) (a:'a ArrayType) (i:IntInf.int) =
-<   sub (a,IntInf.toInt i) handle Subscript => d
----
-> fun array_get_oo (d:'a) (a:'a ArrayType) (i:Int.int) =
->   sub (a,Int.toInt i) handle Subscript => d
-233,234c233,234
-< fun array_set_oo (d:(unit->'a ArrayType)) (a:'a ArrayType) (i:IntInf.int) (e:'a) =
-<   update (a, IntInf.toInt i, e) handle Subscript => d ()
----
-> fun array_set_oo (d:(unit->'a ArrayType)) (a:'a ArrayType) (i:Int.int) (e:'a) =
->   update (a, Int.toInt i, e) handle Subscript => d ()
-257,258c257,258
-<         di = IntInf.toInt di,
-<         src = ArraySlice.slice (src,IntInf.toInt si,SOME (IntInf.toInt len)),
----
->         di = Int.toInt di,
->         src = ArraySlice.slice (src,Int.toInt si,SOME (Int.toInt len)),
-261c261
-<     fun array_nth_oo v a i () = Array.sub(a,IntInf.toInt i) handle Subscript => v | Overflow => v
----
->     fun array_nth_oo v a i () = Array.sub(a,Int.toInt i) handle Subscript => v | Overflow => v
-263c263
-<       (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
----
->       (Array.update(a,Int.toInt i,x); a) handle Subscript => f () | Overflow => f ()
-343,346c343,346
-<   val set_bit : IntInf.int -> IntInf.int -> bool -> IntInf.int
-<   val shiftl : IntInf.int -> IntInf.int -> IntInf.int
-<   val shiftr : IntInf.int -> IntInf.int -> IntInf.int
-<   val test_bit : IntInf.int -> IntInf.int -> bool
----
->   val set_bit : Int.int -> Int.int -> bool -> Int.int
->   val shiftl : Int.int -> Int.int -> Int.int
->   val shiftr : Int.int -> Int.int -> Int.int
->   val test_bit : Int.int -> Int.int -> bool
-348a349,352
-> infix 1 |>
-> 
-> fun x |> f = f x
-> 
-351a356,359
->   let
->     val x = Int.toLarge x
->     val n = Int.toLarge n
->   in
-353,355c361,363
-<     if b then IntInf.orb (x, IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n)))
-<     else IntInf.andb (x, IntInf.notb (IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n))))
-<   else raise (Fail ("Bit index too large: " ^ IntInf.toString n));
----
->     if b then IntInf.orb (x, IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n))) |> IntInf.toInt
->     else IntInf.andb (x, IntInf.notb (IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n)))) |> IntInf.toInt
->   else raise (Fail ("Bit index too large: " ^ IntInf.toString n)) end;
-358,359c366,371
-<   if n < maxWord then IntInf.<< (x, Word.fromLargeInt (IntInf.toLarge n))
-<   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n));
----
->   let
->     val x = Int.toLarge x
->     val n = Int.toLarge n
->   in
->   if n < maxWord then IntInf.<< (x, Word.fromLargeInt (IntInf.toLarge n)) |> IntInf.toInt
->   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n)) end;
-362,363c374,379
-<   if n < maxWord then IntInf.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
-<   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n));
----
->   let
->     val x = Int.toLarge x
->     val n = Int.toLarge n
->   in
->   if n < maxWord then IntInf.~>> (x, Word.fromLargeInt (IntInf.toLarge n)) |> IntInf.toInt
->   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n)) end;
-365a382,385
->   let
->     val x = Int.toLarge x
->     val n = Int.toLarge n
->   in
-367c387
-<   else raise (Fail ("Bit index too large: " ^ IntInf.toString n));
----
->   else raise (Fail ("Bit index too large: " ^ IntInf.toString n)) end;
-374,375c394,395
-<   datatype int = Int_of_integer of IntInf.int
-<   val integer_of_int : int -> IntInf.int
----
->   datatype int = Int_of_integer of Int.int
->   val integer_of_int : int -> Int.int
-378,379c398,399
-<   val nat_of_integer : IntInf.int -> nat
-<   val integer_of_nat : nat -> IntInf.int
----
->   val nat_of_integer : Int.int -> nat
->   val integer_of_nat : nat -> Int.int
-442c462
-< datatype int = Int_of_integer of IntInf.int;
----
-> datatype int = Int_of_integer of Int.int;
-446c466
-< fun equal_inta k l = (((integer_of_int k) : IntInf.int) = (integer_of_int l));
----
-> fun equal_inta k l = (((integer_of_int k) : Int.int) = (integer_of_int l));
-478c498
-<   Int_of_integer (IntInf.+ (integer_of_int k, integer_of_int l));
----
->   Int_of_integer (Int.+ (integer_of_int k, integer_of_int l));
-485c505
-< val zero_inta : int = Int_of_integer (0 : IntInf.int);
----
-> val zero_inta : int = Int_of_integer (0 : Int.int);
-493c513
-<   Int_of_integer (IntInf.- (integer_of_int k, integer_of_int l));
----
->   Int_of_integer (Int.- (integer_of_int k, integer_of_int l));
-500c520
-< fun uminus_inta k = Int_of_integer (IntInf.~ (integer_of_int k));
----
-> fun uminus_inta k = Int_of_integer (Int.~ (integer_of_int k));
-507c527
-< fun less_eq_int k l = IntInf.<= (integer_of_int k, integer_of_int l);
----
-> fun less_eq_int k l = Int.<= (integer_of_int k, integer_of_int l);
-513c533
-< fun less_int k l = IntInf.< (integer_of_int k, integer_of_int l);
----
-> fun less_int k l = Int.< (integer_of_int k, integer_of_int l);
-570c590
-< datatype nat = Nat of IntInf.int;
----
-> datatype nat = Nat of Int.int;
-573,575c593,595
-<   {less_eq = (fn a => fn b => IntInf.<= (a, b)),
-<     less = (fn a => fn b => IntInf.< (a, b))}
-<   : IntInf.int ord;
----
->   {less_eq = (fn a => fn b => Int.<= (a, b)),
->     less = (fn a => fn b => Int.< (a, b))}
->   : Int.int ord;
-577c597
-< fun nat_of_integer k = Nat (max ord_integer (0 : IntInf.int) k);
----
-> fun nat_of_integer k = Nat (max ord_integer (0 : Int.int) k);
-579c599
-< fun def_hashmap_size_int x = (fn _ => nat_of_integer (16 : IntInf.int)) x;
----
-> fun def_hashmap_size_int x = (fn _ => nat_of_integer (16 : Int.int)) x;
-586c606
-< fun uint32_of_int i = Word32.fromLargeInt (IntInf.toLarge (integer_of_int i));
----
-> fun uint32_of_int i = Word32.fromLargeInt (Int.toLarge (integer_of_int i));
-919c939
-< fun equal_nata m n = (((integer_of_nat m) : IntInf.int) = (integer_of_nat n));
----
-> fun equal_nata m n = (((integer_of_nat m) : Int.int) = (integer_of_nat n));
-932c952
-< val one_nata : nat = Nat (1 : IntInf.int);
----
-> val one_nata : nat = Nat (1 : Int.int);
-939c959
-< val zero_nata : nat = Nat (0 : IntInf.int);
----
-> val zero_nata : nat = Nat (0 : Int.int);
-943c963
-< fun less_eq_nat m n = IntInf.<= (integer_of_nat m, integer_of_nat n);
----
-> fun less_eq_nat m n = Int.<= (integer_of_nat m, integer_of_nat n);
-945c965
-< fun less_nat m n = IntInf.< (integer_of_nat m, integer_of_nat n);
----
-> fun less_nat m n = Int.< (integer_of_nat m, integer_of_nat n);
-960c980
-< fun def_hashmap_size_nat x = (fn _ => nat_of_integer (16 : IntInf.int)) x;
----
-> fun def_hashmap_size_nat x = (fn _ => nat_of_integer (16 : Int.int)) x;
-1014c1034
-< fun times_nat m n = Nat (IntInf.* (integer_of_nat m, integer_of_nat n));
----
-> fun times_nat m n = Nat (Int.* (integer_of_nat m, integer_of_nat n));
-1018c1038
-<     times_nat (nat_of_integer (2 : IntInf.int)) (def_hashmap_size A_ Type));
----
->     times_nat (nat_of_integer (2 : Int.int)) (def_hashmap_size A_ Type));
-1025c1045
-<           Word32.+ (Word32.* (h, Word32.fromLargeInt (IntInf.toLarge (33 : IntInf.int))), hashcode
----
->           Word32.+ (Word32.* (h, Word32.fromLargeInt (Int.toLarge (33 : Int.int))), hashcode
-1027c1047
-<     (Word32.fromLargeInt (IntInf.toLarge (5381 : IntInf.int)));
----
->     (Word32.fromLargeInt (Int.toLarge (5381 : Int.int)));
-1562c1582
-< fun plus_nat m n = Nat (IntInf.+ (integer_of_nat m, integer_of_nat n));
----
-> fun plus_nat m n = Nat (Int.+ (integer_of_nat m, integer_of_nat n));
-1573c1593
-<                         (fst x), Word32.fromLargeInt (IntInf.toLarge (33 : IntInf.int))), hashcode
----
->                         (fst x), Word32.fromLargeInt (Int.toLarge (33 : Int.int))), hashcode
-1650c1670
-< fun nat k = Nat (max ord_integer (0 : IntInf.int) (integer_of_int k));
----
-> fun nat k = Nat (max ord_integer (0 : Int.int) (integer_of_int k));
-1655,1656c1675,1676
-<   Nat (max ord_integer (0 : IntInf.int)
-<         (IntInf.- (integer_of_nat m, integer_of_nat n)));
----
->   Nat (max ord_integer (0 : Int.int)
->         (Int.- (integer_of_nat m, integer_of_nat n)));
-1674c1694
-<   (fn f_ => fn () => f_ (((fn () => IntInf.fromInt (Array.length a))) ()) ())
----
->   (fn f_ => fn () => f_ (((fn () => Int.fromInt (Array.length a))) ()) ())
-1678c1698
-<   (fn a => fn b => (fn () => Array.array (IntInf.toInt a, b))) o integer_of_nat;
----
->   (fn a => fn b => (fn () => Array.array (Int.toInt a, b))) o integer_of_nat;
-1680c1700
-< fun ntha A_ a n = (fn () => Array.sub (a, IntInf.toInt (integer_of_nat n)));
----
-> fun ntha A_ a n = (fn () => Array.sub (a, Int.toInt (integer_of_nat n)));
-1684c1704
-<     (((fn () => Array.update (a, IntInf.toInt (integer_of_nat i), x))) ()) ())
----
->     (((fn () => Array.update (a, Int.toInt (integer_of_nat i), x))) ()) ())
-1699,1700c1719,1720
-<   (fn () => Array.tabulate (IntInf.toInt (integer_of_nat n),
-<     (f o nat_of_integer) o IntInf.fromInt));
----
->   (fn () => Array.tabulate (Int.toInt (integer_of_nat n),
->     (f o nat_of_integer) o Int.fromInt));
-1703c1723
-<   (Vector.sub o (fn (a, b) => (a, IntInf.toInt b))) (asa, integer_of_nat n);
----
->   (Vector.sub o (fn (a, b) => (a, Int.toInt b))) (asa, integer_of_nat n);
-1775c1795
-< val one_int : int = Int_of_integer (1 : IntInf.int);
----
-> val one_int : int = Int_of_integer (1 : Int.int);
-1919,1921c1939,1941
-<   (if ((k : IntInf.int) = (0 : IntInf.int)) then (0 : IntInf.int)
-<     else (if IntInf.< (k, (0 : IntInf.int)) then (~1 : IntInf.int)
-<            else (1 : IntInf.int)));
----
->   (if ((k : Int.int) = (0 : Int.int)) then (0 : Int.int)
->     else (if Int.< (k, (0 : Int.int)) then (~1 : Int.int)
->            else (1 : Int.int)));
-1926,1931c1946,1955
-<   (if ((k : IntInf.int) = (0 : IntInf.int))
-<     then ((0 : IntInf.int), (0 : IntInf.int))
-<     else (if ((l : IntInf.int) = (0 : IntInf.int)) then ((0 : IntInf.int), k)
-<            else (apsnd o (fn a => fn b => IntInf.* (a, b)) o sgn_integer) l
-<                   (if (((sgn_integer k) : IntInf.int) = (sgn_integer l))
-<                     then IntInf.divMod (IntInf.abs k, IntInf.abs l)
----
->   let
->     fun divMod (a, b) =
->       (fn (a, b) => (IntInf.toInt a, IntInf.toInt b)) (IntInf.divMod (Int.toLarge a, Int.toLarge b))
->   in
->   (if ((k : Int.int) = (0 : Int.int))
->     then ((0 : Int.int), (0 : Int.int))
->     else (if ((l : Int.int) = (0 : Int.int)) then ((0 : Int.int), k)
->            else (apsnd o (fn a => fn b => Int.* (a, b)) o sgn_integer) l
->                   (if (((sgn_integer k) : Int.int) = (sgn_integer l))
->                     then divMod (Int.abs k, Int.abs l)
-1934c1958
-<                              IntInf.divMod (IntInf.abs k, IntInf.abs l);
----
->                              divMod (Int.abs k, Int.abs l);
-1936,1940c1960,1964
-<                            (if ((s : IntInf.int) = (0 : IntInf.int))
-<                              then (IntInf.~ r, (0 : IntInf.int))
-<                              else (IntInf.- (IntInf.~ r, (1 : IntInf.int)),
-<                                     IntInf.- (IntInf.abs l, s)))
-<                          end)));
----
->                            (if ((s : Int.int) = (0 : Int.int))
->                              then (Int.~ r, (0 : Int.int))
->                              else (Int.- (Int.~ r, (1 : Int.int)),
->                                     Int.- (Int.abs l, s)))
->                          end))) end;
-1947c1971,1972
-<   nat_of_integer (IntInf.fromLarge (Word32.toLargeInt x) : IntInf.int);
----
->   (* nat_of_integer (Int.fromLarge (Word32.toLargeInt x) : Int.int); *)
->   nat_of_integer (Word32.toInt (Word32.>> (x, Word32.fromInt 1)) : Int.int);
-2111c2136
-<            (times_nat (nat_of_integer (2 : IntInf.int)) n))
----
->            (times_nat (nat_of_integer (2 : Int.int)) n))
-2115c2140
-< val load_factor : nat = nat_of_integer (75 : IntInf.int);
----
-> val load_factor : nat = nat_of_integer (75 : Int.int);
-2123c2148
-<                (times_nat (the_size ht) (nat_of_integer (100 : IntInf.int)))
----
->                (times_nat (the_size ht) (nat_of_integer (100 : Int.int)))
-2197c2222
-<       (if less_eq_nat (times_nat (nat_of_integer (128 : IntInf.int)) n)
----
->       (if less_eq_nat (times_nat (nat_of_integer (128 : Int.int)) n)
-2199c2224
-<             less_nat (nat_of_integer (4 : IntInf.int)) n
----
->             less_nat (nat_of_integer (4 : Int.int)) n
-2388,2389c2413,2414
-<                (max ord_nat (nat_of_integer (4 : IntInf.int))
-<                  (times_nat (nat_of_integer (2 : IntInf.int)) n))
----
->                (max ord_nat (nat_of_integer (4 : Int.int))
->                  (times_nat (nat_of_integer (2 : Int.int)) n))
-2914c2939
-< val load_factora : nat = nat_of_integer (75 : IntInf.int);
----
-> val load_factora : nat = nat_of_integer (75 : Int.int);
-2918c2943
-<     (times_nat n (nat_of_integer (100 : IntInf.int)));
----
->     (times_nat n (nat_of_integer (100 : Int.int)));
-2921,2922c2946,2947
-<   plus_nat (times_nat (nat_of_integer (2 : IntInf.int)) (array_length a))
-<     (nat_of_integer (3 : IntInf.int));
----
->   plus_nat (times_nat (nat_of_integer (2 : Int.int)) (array_length a))
->     (nat_of_integer (3 : Int.int));
-2976c3001
-<                             (plus_nat pc (nat_of_integer (2 : IntInf.int))))
----
->                             (plus_nat pc (nat_of_integer (2 : Int.int))))
-2979c3004
-<                          (plus_nat pc (nat_of_integer (3 : IntInf.int)))
----
->                          (plus_nat pc (nat_of_integer (3 : Int.int)))
-2984c3009
-< (nat_of_integer (2 : IntInf.int)))
----
-> (nat_of_integer (2 : Int.int)))
-2990c3015
-<                                       (nat_of_integer (3 : IntInf.int))))
----
->                                       (nat_of_integer (3 : Int.int))))
-3015c3040
-< (plus_nat pc (nat_of_integer (4 : IntInf.int))))
----
-> (plus_nat pc (nat_of_integer (4 : Int.int))))
-3052c3077
-<             (plus_nat pca (nat_of_integer (2 : IntInf.int))))
----
->             (plus_nat pca (nat_of_integer (2 : Int.int))))
+*** UPPAAL_Model_Checker_patched.sml	Tue Jul 24 20:59:17 2018
+--- UPPAAL_Model_Checker_int.sml	Wed Jul 25 09:50:10 2018
+***************
+*** 1,29 ****
+  
+  structure Uint : sig
+!   val set_bit : Word.word -> IntInf.int -> bool -> Word.word
+!   val shiftl : Word.word -> IntInf.int -> Word.word
+!   val shiftr : Word.word -> IntInf.int -> Word.word
+!   val shiftr_signed : Word.word -> IntInf.int -> Word.word
+!   val test_bit : Word.word -> IntInf.int -> bool
+  end = struct
+  
+  fun set_bit x n b =
+!   let val mask = Word.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))
+    in if b then Word.orb (x, mask)
+       else Word.andb (x, Word.notb mask)
+    end
+  
+  fun shiftl x n =
+!   Word.<< (x, Word.fromLargeInt (IntInf.toLarge n))
+  
+  fun shiftr x n =
+!   Word.>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  
+  fun shiftr_signed x n =
+!   Word.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  
+  fun test_bit x n =
+!   Word.andb (x, Word.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))) <> Word.fromInt 0
+  
+  end; (* struct Uint *)
+  
+--- 1,29 ----
+  
+  structure Uint : sig
+!   val set_bit : Word.word -> Int.int -> bool -> Word.word
+!   val shiftl : Word.word -> Int.int -> Word.word
+!   val shiftr : Word.word -> Int.int -> Word.word
+!   val shiftr_signed : Word.word -> Int.int -> Word.word
+!   val test_bit : Word.word -> Int.int -> bool
+  end = struct
+  
+  fun set_bit x n b =
+!   let val mask = Word.<< (0wx1, Word.fromLargeInt (Int.toLarge n))
+    in if b then Word.orb (x, mask)
+       else Word.andb (x, Word.notb mask)
+    end
+  
+  fun shiftl x n =
+!   Word.<< (x, Word.fromLargeInt (Int.toLarge n))
+  
+  fun shiftr x n =
+!   Word.>> (x, Word.fromLargeInt (Int.toLarge n))
+  
+  fun shiftr_signed x n =
+!   Word.~>> (x, Word.fromLargeInt (Int.toLarge n))
+  
+  fun test_bit x n =
+!   Word.andb (x, Word.<< (0wx1, Word.fromLargeInt (Int.toLarge n))) <> Word.fromInt 0
+  
+  end; (* struct Uint *)
+  
+***************
+*** 31,60 ****
+  val _ = if 5 <= Word.wordSize then () else raise (Fail ("wordSize less than 5"));
+  
+  structure Uint32 : sig
+!   val set_bit : Word32.word -> IntInf.int -> bool -> Word32.word
+!   val shiftl : Word32.word -> IntInf.int -> Word32.word
+!   val shiftr : Word32.word -> IntInf.int -> Word32.word
+!   val shiftr_signed : Word32.word -> IntInf.int -> Word32.word
+!   val test_bit : Word32.word -> IntInf.int -> bool
+  end = struct
+  
+  fun set_bit x n b =
+!   let val mask = Word32.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))
+    in if b then Word32.orb (x, mask)
+       else Word32.andb (x, Word32.notb mask)
+    end
+  
+  fun shiftl x n =
+!   Word32.<< (x, Word.fromLargeInt (IntInf.toLarge n))
+  
+  fun shiftr x n =
+!   Word32.>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  
+  fun shiftr_signed x n =
+!   Word32.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  
+  fun test_bit x n =
+!   Word32.andb (x, Word32.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))) <> Word32.fromInt 0
+  
+  end; (* struct Uint32 *)
+  
+--- 31,60 ----
+  val _ = if 5 <= Word.wordSize then () else raise (Fail ("wordSize less than 5"));
+  
+  structure Uint32 : sig
+!   val set_bit : Word32.word -> Int.int -> bool -> Word32.word
+!   val shiftl : Word32.word -> Int.int -> Word32.word
+!   val shiftr : Word32.word -> Int.int -> Word32.word
+!   val shiftr_signed : Word32.word -> Int.int -> Word32.word
+!   val test_bit : Word32.word -> Int.int -> bool
+  end = struct
+  
+  fun set_bit x n b =
+!   let val mask = Word32.<< (0wx1, Word.fromLargeInt (Int.toLarge n))
+    in if b then Word32.orb (x, mask)
+       else Word32.andb (x, Word32.notb mask)
+    end
+  
+  fun shiftl x n =
+!   Word32.<< (x, Word.fromLargeInt (Int.toLarge n))
+  
+  fun shiftr x n =
+!   Word32.>> (x, Word.fromLargeInt (Int.toLarge n))
+  
+  fun shiftr_signed x n =
+!   Word32.~>> (x, Word.fromLargeInt (Int.toLarge n))
+  
+  fun test_bit x n =
+!   Word32.andb (x, Word32.<< (0wx1, Word.fromLargeInt (Int.toLarge n))) <> Word32.fromInt 0
+  
+  end; (* struct Uint32 *)
+  
+***************
+*** 110,128 ****
+  structure IsabelleMapping = struct
+  type 'a ArrayType = 'a array;
+  
+! fun new_array (a:'a) (n:IntInf.int) = array (IntInf.toInt n, a);
+  
+! fun array_length (a:'a ArrayType) = IntInf.fromInt (length a);
+  
+! fun array_get (a:'a ArrayType) (i:IntInf.int) = sub (a, IntInf.toInt i);
+  
+! fun array_set (a:'a ArrayType) (i:IntInf.int) (e:'a) = update (a, IntInf.toInt i, e);
+  
+  fun array_of_list (xs:'a list) = fromList xs;
+  
+! fun array_grow (a:'a ArrayType) (i:IntInf.int) (x:'a) = grow (a, IntInf.toInt i, x);
+  
+! fun array_shrink (a:'a ArrayType) (sz:IntInf.int) = shrink (a,IntInf.toInt sz);
+  
+  end;
+  
+--- 110,128 ----
+  structure IsabelleMapping = struct
+  type 'a ArrayType = 'a array;
+  
+! fun new_array (a:'a) (n:Int.int) = array (Int.toInt n, a);
+  
+! fun array_length (a:'a ArrayType) = Int.fromInt (length a);
+  
+! fun array_get (a:'a ArrayType) (i:Int.int) = sub (a, Int.toInt i);
+  
+! fun array_set (a:'a ArrayType) (i:Int.int) (e:'a) = update (a, Int.toInt i, e);
+  
+  fun array_of_list (xs:'a list) = fromList xs;
+  
+! fun array_grow (a:'a ArrayType) (i:Int.int) (x:'a) = grow (a, Int.toInt i, x);
+  
+! fun array_shrink (a:'a ArrayType) (sz:Int.int) = shrink (a,Int.toInt sz);
+  
+  end;
+  
+***************
+*** 213,237 ****
+  structure IsabelleMapping = struct
+  type 'a ArrayType = 'a array;
+  
+! fun new_array (a:'a) (n:IntInf.int) = array (IntInf.toInt n, a);
+  
+! fun array_length (a:'a ArrayType) = IntInf.fromInt (length a);
+  
+! fun array_get (a:'a ArrayType) (i:IntInf.int) = sub (a, IntInf.toInt i);
+  
+! fun array_set (a:'a ArrayType) (i:IntInf.int) (e:'a) = update (a, IntInf.toInt i, e);
+  
+  fun array_of_list (xs:'a list) = fromList xs;
+  
+! fun array_grow (a:'a ArrayType) (i:IntInf.int) (x:'a) = grow (a, IntInf.toInt i, x);
+  
+! fun array_shrink (a:'a ArrayType) (sz:IntInf.int) = shrink (a,IntInf.toInt sz);
+  
+! fun array_get_oo (d:'a) (a:'a ArrayType) (i:IntInf.int) =
+!   sub (a,IntInf.toInt i) handle Subscript => d
+  
+! fun array_set_oo (d:(unit->'a ArrayType)) (a:'a ArrayType) (i:IntInf.int) (e:'a) =
+!   update (a, IntInf.toInt i, e) handle Subscript => d ()
+  
+  end;
+  end;
+--- 213,237 ----
+  structure IsabelleMapping = struct
+  type 'a ArrayType = 'a array;
+  
+! fun new_array (a:'a) (n:Int.int) = array (Int.toInt n, a);
+  
+! fun array_length (a:'a ArrayType) = Int.fromInt (length a);
+  
+! fun array_get (a:'a ArrayType) (i:Int.int) = sub (a, Int.toInt i);
+  
+! fun array_set (a:'a ArrayType) (i:Int.int) (e:'a) = update (a, Int.toInt i, e);
+  
+  fun array_of_list (xs:'a list) = fromList xs;
+  
+! fun array_grow (a:'a ArrayType) (i:Int.int) (x:'a) = grow (a, Int.toInt i, x);
+  
+! fun array_shrink (a:'a ArrayType) (sz:Int.int) = shrink (a,Int.toInt sz);
+  
+! fun array_get_oo (d:'a) (a:'a ArrayType) (i:Int.int) =
+!   sub (a,Int.toInt i) handle Subscript => d
+  
+! fun array_set_oo (d:(unit->'a ArrayType)) (a:'a ArrayType) (i:Int.int) (e:'a) =
+!   update (a, Int.toInt i, e) handle Subscript => d ()
+  
+  end;
+  end;
+***************
+*** 254,266 ****
+     fun array_blit src si dst di len = (
+        src=dst andalso raise Fail ("array_blit: Same arrays");
+        ArraySlice.copy {
+!         di = IntInf.toInt di,
+!         src = ArraySlice.slice (src,IntInf.toInt si,SOME (IntInf.toInt len)),
+          dst = dst})
+  
+!     fun array_nth_oo v a i () = Array.sub(a,IntInf.toInt i) handle Subscript => v | Overflow => v
+      fun array_upd_oo f i x a () = 
+!       (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
+  
+      
+  
+--- 254,266 ----
+     fun array_blit src si dst di len = (
+        src=dst andalso raise Fail ("array_blit: Same arrays");
+        ArraySlice.copy {
+!         di = Int.toInt di,
+!         src = ArraySlice.slice (src,Int.toInt si,SOME (Int.toInt len)),
+          dst = dst})
+  
+!     fun array_nth_oo v a i () = Array.sub(a,Int.toInt i) handle Subscript => v | Overflow => v
+      fun array_upd_oo f i x a () = 
+!       (Array.update(a,Int.toInt i,x); a) handle Subscript => f () | Overflow => f ()
+  
+      
+  
+***************
+*** 340,381 ****
+  
+  
+  structure Bits_Integer : sig
+!   val set_bit : IntInf.int -> IntInf.int -> bool -> IntInf.int
+!   val shiftl : IntInf.int -> IntInf.int -> IntInf.int
+!   val shiftr : IntInf.int -> IntInf.int -> IntInf.int
+!   val test_bit : IntInf.int -> IntInf.int -> bool
+  end = struct
+  
+  val maxWord = IntInf.pow (2, Word.wordSize);
+  
+  fun set_bit x n b =
+    if n < maxWord then
+!     if b then IntInf.orb (x, IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n)))
+!     else IntInf.andb (x, IntInf.notb (IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n))))
+!   else raise (Fail ("Bit index too large: " ^ IntInf.toString n));
+  
+  fun shiftl x n =
+!   if n < maxWord then IntInf.<< (x, Word.fromLargeInt (IntInf.toLarge n))
+!   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n));
+  
+  fun shiftr x n =
+!   if n < maxWord then IntInf.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
+!   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n));
+  
+  fun test_bit x n =
+    if n < maxWord then IntInf.andb (x, IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n))) <> 0
+!   else raise (Fail ("Bit index too large: " ^ IntInf.toString n));
+  
+  end; (*struct Bits_Integer*)
+  
+  
+  structure Model_Checker : sig
+    val debug_level: int Unsynchronized.ref
+!   datatype int = Int_of_integer of IntInf.int
+!   val integer_of_int : int -> IntInf.int
+    type nat
+!   val nat_of_integer : IntInf.int -> nat
+!   val integer_of_nat : nat -> IntInf.int
+    datatype instr = JMPZ of nat | ADD | NOT | AND | LT | LE | EQ | PUSH of int |
+      POP | LID of nat | STORE | STOREI of nat * int | COPY | CALL | RETURN | HALT
+      | STOREC of nat * int | SETF of bool
+--- 340,401 ----
+  
+  
+  structure Bits_Integer : sig
+!   val set_bit : Int.int -> Int.int -> bool -> Int.int
+!   val shiftl : Int.int -> Int.int -> Int.int
+!   val shiftr : Int.int -> Int.int -> Int.int
+!   val test_bit : Int.int -> Int.int -> bool
+  end = struct
+  
++ infix 1 |>
++ 
++ fun x |> f = f x
++ 
+  val maxWord = IntInf.pow (2, Word.wordSize);
+  
+  fun set_bit x n b =
++   let
++     val x = Int.toLarge x
++     val n = Int.toLarge n
++   in
+    if n < maxWord then
+!     if b then IntInf.orb (x, IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n))) |> IntInf.toInt
+!     else IntInf.andb (x, IntInf.notb (IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n)))) |> IntInf.toInt
+!   else raise (Fail ("Bit index too large: " ^ IntInf.toString n)) end;
+  
+  fun shiftl x n =
+!   let
+!     val x = Int.toLarge x
+!     val n = Int.toLarge n
+!   in
+!   if n < maxWord then IntInf.<< (x, Word.fromLargeInt (IntInf.toLarge n)) |> IntInf.toInt
+!   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n)) end;
+  
+  fun shiftr x n =
+!   let
+!     val x = Int.toLarge x
+!     val n = Int.toLarge n
+!   in
+!   if n < maxWord then IntInf.~>> (x, Word.fromLargeInt (IntInf.toLarge n)) |> IntInf.toInt
+!   else raise (Fail ("Shift operand too large: " ^ IntInf.toString n)) end;
+  
+  fun test_bit x n =
++   let
++     val x = Int.toLarge x
++     val n = Int.toLarge n
++   in
+    if n < maxWord then IntInf.andb (x, IntInf.<< (1, Word.fromLargeInt (IntInf.toLarge n))) <> 0
+!   else raise (Fail ("Bit index too large: " ^ IntInf.toString n)) end;
+  
+  end; (*struct Bits_Integer*)
+  
+  
+  structure Model_Checker : sig
+    val debug_level: int Unsynchronized.ref
+!   datatype int = Int_of_integer of Int.int
+!   val integer_of_int : int -> Int.int
+    type nat
+!   val nat_of_integer : Int.int -> nat
+!   val integer_of_nat : nat -> Int.int
+    datatype instr = JMPZ of nat | ADD | NOT | AND | LT | LE | EQ | PUSH of int |
+      POP | LID of nat | STORE | STOREI of nat * int | COPY | CALL | RETURN | HALT
+      | STOREC of nat * int | SETF of bool
+***************
+*** 449,459 ****
+  
+  val debug_level = Unsynchronized.ref 0;
+  
+! datatype int = Int_of_integer of IntInf.int;
+  
+  fun integer_of_int (Int_of_integer k) = k;
+  
+! fun equal_inta k l = (((integer_of_int k) : IntInf.int) = (integer_of_int l));
+  
+  type 'a equal = {equal : 'a -> 'a -> bool};
+  val equal = #equal : 'a equal -> 'a -> 'a -> bool;
+--- 469,479 ----
+  
+  val debug_level = Unsynchronized.ref 0;
+  
+! datatype int = Int_of_integer of Int.int;
+  
+  fun integer_of_int (Int_of_integer k) = k;
+  
+! fun equal_inta k l = (((integer_of_int k) : Int.int) = (integer_of_int l));
+  
+  type 'a equal = {equal : 'a -> 'a -> bool};
+  val equal = #equal : 'a equal -> 'a -> 'a -> bool;
+***************
+*** 483,496 ****
+    int heap;
+  
+  fun plus_inta k l =
+!   Int_of_integer (IntInf.+ (integer_of_int k, integer_of_int l));
+  
+  type 'a plus = {plus : 'a -> 'a -> 'a};
+  val plus = #plus : 'a plus -> 'a -> 'a -> 'a;
+  
+  val plus_int = {plus = plus_inta} : int plus;
+  
+! val zero_inta : int = Int_of_integer (0 : IntInf.int);
+  
+  type 'a zero = {zero : 'a};
+  val zero = #zero : 'a zero -> 'a;
+--- 503,516 ----
+    int heap;
+  
+  fun plus_inta k l =
+!   Int_of_integer (Int.+ (integer_of_int k, integer_of_int l));
+  
+  type 'a plus = {plus : 'a -> 'a -> 'a};
+  val plus = #plus : 'a plus -> 'a -> 'a -> 'a;
+  
+  val plus_int = {plus = plus_inta} : int plus;
+  
+! val zero_inta : int = Int_of_integer (0 : Int.int);
+  
+  type 'a zero = {zero : 'a};
+  val zero = #zero : 'a zero -> 'a;
+***************
+*** 498,524 ****
+  val zero_int = {zero = zero_inta} : int zero;
+  
+  fun minus_inta k l =
+!   Int_of_integer (IntInf.- (integer_of_int k, integer_of_int l));
+  
+  type 'a minus = {minus : 'a -> 'a -> 'a};
+  val minus = #minus : 'a minus -> 'a -> 'a -> 'a;
+  
+  val minus_int = {minus = minus_inta} : int minus;
+  
+! fun uminus_inta k = Int_of_integer (IntInf.~ (integer_of_int k));
+  
+  type 'a uminus = {uminus : 'a -> 'a};
+  val uminus = #uminus : 'a uminus -> 'a -> 'a;
+  
+  val uminus_int = {uminus = uminus_inta} : int uminus;
+  
+! fun less_eq_int k l = IntInf.<= (integer_of_int k, integer_of_int l);
+  
+  type 'a ord = {less_eq : 'a -> 'a -> bool, less : 'a -> 'a -> bool};
+  val less_eq = #less_eq : 'a ord -> 'a -> 'a -> bool;
+  val less = #less : 'a ord -> 'a -> 'a -> bool;
+  
+! fun less_int k l = IntInf.< (integer_of_int k, integer_of_int l);
+  
+  val ord_int = {less_eq = less_eq_int, less = less_int} : int ord;
+  
+--- 518,544 ----
+  val zero_int = {zero = zero_inta} : int zero;
+  
+  fun minus_inta k l =
+!   Int_of_integer (Int.- (integer_of_int k, integer_of_int l));
+  
+  type 'a minus = {minus : 'a -> 'a -> 'a};
+  val minus = #minus : 'a minus -> 'a -> 'a -> 'a;
+  
+  val minus_int = {minus = minus_inta} : int minus;
+  
+! fun uminus_inta k = Int_of_integer (Int.~ (integer_of_int k));
+  
+  type 'a uminus = {uminus : 'a -> 'a};
+  val uminus = #uminus : 'a uminus -> 'a -> 'a;
+  
+  val uminus_int = {uminus = uminus_inta} : int uminus;
+  
+! fun less_eq_int k l = Int.<= (integer_of_int k, integer_of_int l);
+  
+  type 'a ord = {less_eq : 'a -> 'a -> bool, less : 'a -> 'a -> bool};
+  val less_eq = #less_eq : 'a ord -> 'a -> 'a -> bool;
+  val less = #less : 'a ord -> 'a -> 'a -> bool;
+  
+! fun less_int k l = Int.< (integer_of_int k, integer_of_int l);
+  
+  val ord_int = {less_eq = less_eq_int, less = less_int} : int ord;
+  
+***************
+*** 575,599 ****
+  
+  fun max A_ a b = (if less_eq A_ a b then b else a);
+  
+! datatype nat = Nat of IntInf.int;
+  
+  val ord_integer =
+!   {less_eq = (fn a => fn b => IntInf.<= (a, b)),
+!     less = (fn a => fn b => IntInf.< (a, b))}
+!   : IntInf.int ord;
+  
+! fun nat_of_integer k = Nat (max ord_integer (0 : IntInf.int) k);
+  
+  datatype num = One | Bit0 of num | Bit1 of num;
+  
+! fun def_hashmap_size_int x = (fn _ => nat_of_integer (16 : IntInf.int)) x;
+  
+  type 'a hashable =
+    {hashcode : 'a -> Word32.word, def_hashmap_size : 'a itself -> nat};
+  val hashcode = #hashcode : 'a hashable -> 'a -> Word32.word;
+  val def_hashmap_size = #def_hashmap_size : 'a hashable -> 'a itself -> nat;
+  
+! fun uint32_of_int i = Word32.fromLargeInt (IntInf.toLarge (integer_of_int i));
+  
+  fun hashcode_int i = uint32_of_int i;
+  
+--- 595,619 ----
+  
+  fun max A_ a b = (if less_eq A_ a b then b else a);
+  
+! datatype nat = Nat of Int.int;
+  
+  val ord_integer =
+!   {less_eq = (fn a => fn b => Int.<= (a, b)),
+!     less = (fn a => fn b => Int.< (a, b))}
+!   : Int.int ord;
+  
+! fun nat_of_integer k = Nat (max ord_integer (0 : Int.int) k);
+  
+  datatype num = One | Bit0 of num | Bit1 of num;
+  
+! fun def_hashmap_size_int x = (fn _ => nat_of_integer (16 : Int.int)) x;
+  
+  type 'a hashable =
+    {hashcode : 'a -> Word32.word, def_hashmap_size : 'a itself -> nat};
+  val hashcode = #hashcode : 'a hashable -> 'a -> Word32.word;
+  val def_hashmap_size = #def_hashmap_size : 'a hashable -> 'a itself -> nat;
+  
+! fun uint32_of_int i = Word32.fromLargeInt (Int.toLarge (integer_of_int i));
+  
+  fun hashcode_int i = uint32_of_int i;
+  
+***************
+*** 926,932 ****
+  
+  fun integer_of_nat (Nat x) = x;
+  
+! fun equal_nata m n = (((integer_of_nat m) : IntInf.int) = (integer_of_nat n));
+  
+  val equal_nat = {equal = equal_nata} : nat equal;
+  
+--- 946,952 ----
+  
+  fun integer_of_nat (Nat x) = x;
+  
+! fun equal_nata m n = (((integer_of_nat m) : Int.int) = (integer_of_nat n));
+  
+  val equal_nat = {equal = equal_nata} : nat equal;
+  
+***************
+*** 939,962 ****
+  val heap_nat = {countable_heap = countable_nat, typerep_heap = typerep_nat} :
+    nat heap;
+  
+! val one_nata : nat = Nat (1 : IntInf.int);
+  
+  type 'a one = {one : 'a};
+  val one = #one : 'a one -> 'a;
+  
+  val one_nat = {one = one_nata} : nat one;
+  
+! fun plus_nata m n = Nat (IntInf.+ (integer_of_nat m, integer_of_nat n));
+  
+  val plus_nat = {plus = plus_nata} : nat plus;
+  
+! val zero_nata : nat = Nat (0 : IntInf.int);
+  
+  val zero_nat = {zero = zero_nata} : nat zero;
+  
+! fun less_eq_nat m n = IntInf.<= (integer_of_nat m, integer_of_nat n);
+  
+! fun less_nat m n = IntInf.< (integer_of_nat m, integer_of_nat n);
+  
+  val ord_nat = {less_eq = less_eq_nat, less = less_nat} : nat ord;
+  
+--- 959,982 ----
+  val heap_nat = {countable_heap = countable_nat, typerep_heap = typerep_nat} :
+    nat heap;
+  
+! val one_nata : nat = Nat (1 : Int.int);
+  
+  type 'a one = {one : 'a};
+  val one = #one : 'a one -> 'a;
+  
+  val one_nat = {one = one_nata} : nat one;
+  
+! fun plus_nata m n = Nat (Int.+ (integer_of_nat m, integer_of_nat n));
+  
+  val plus_nat = {plus = plus_nata} : nat plus;
+  
+! val zero_nata : nat = Nat (0 : Int.int);
+  
+  val zero_nat = {zero = zero_nata} : nat zero;
+  
+! fun less_eq_nat m n = Int.<= (integer_of_nat m, integer_of_nat n);
+  
+! fun less_nat m n = Int.< (integer_of_nat m, integer_of_nat n);
+  
+  val ord_nat = {less_eq = less_eq_nat, less = less_nat} : nat ord;
+  
+***************
+*** 971,977 ****
+  
+  val order_nat = {preorder_order = preorder_nat} : nat order;
+  
+! fun def_hashmap_size_nat x = (fn _ => nat_of_integer (16 : IntInf.int)) x;
+  
+  fun int_of_nat n = Int_of_integer (integer_of_nat n);
+  
+--- 991,997 ----
+  
+  val order_nat = {preorder_order = preorder_nat} : nat order;
+  
+! fun def_hashmap_size_nat x = (fn _ => nat_of_integer (16 : Int.int)) x;
+  
+  fun int_of_nat n = Int_of_integer (integer_of_nat n);
+  
+***************
+*** 1025,1044 ****
+      typerep_heap = typerep_list (typerep_heap A_)}
+    : ('a list) heap;
+  
+! fun times_nat m n = Nat (IntInf.* (integer_of_nat m, integer_of_nat n));
+  
+  fun def_hashmap_size_list A_ =
+    (fn _ =>
+!     times_nat (nat_of_integer (2 : IntInf.int)) (def_hashmap_size A_ Type));
+  
+  fun foldl f a [] = a
+    | foldl f a (x :: xs) = foldl f (f a x) xs;
+  
+  fun hashcode_list A_ =
+    foldl (fn h => fn x =>
+!           Word32.+ (Word32.* (h, Word32.fromLargeInt (IntInf.toLarge (33 : IntInf.int))), hashcode
+              A_ x))
+!     (Word32.fromLargeInt (IntInf.toLarge (5381 : IntInf.int)));
+  
+  fun hashable_list A_ =
+    {hashcode = hashcode_list A_, def_hashmap_size = def_hashmap_size_list A_} :
+--- 1045,1064 ----
+      typerep_heap = typerep_list (typerep_heap A_)}
+    : ('a list) heap;
+  
+! fun times_nat m n = Nat (Int.* (integer_of_nat m, integer_of_nat n));
+  
+  fun def_hashmap_size_list A_ =
+    (fn _ =>
+!     times_nat (nat_of_integer (2 : Int.int)) (def_hashmap_size A_ Type));
+  
+  fun foldl f a [] = a
+    | foldl f a (x :: xs) = foldl f (f a x) xs;
+  
+  fun hashcode_list A_ =
+    foldl (fn h => fn x =>
+!           Word32.+ (Word32.* (h, Word32.fromLargeInt (Int.toLarge (33 : Int.int))), hashcode
+              A_ x))
+!     (Word32.fromLargeInt (Int.toLarge (5381 : Int.int)));
+  
+  fun hashable_list A_ =
+    {hashcode = hashcode_list A_, def_hashmap_size = def_hashmap_size_list A_} :
+***************
+*** 1582,1588 ****
+  
+  fun hashcode_prod A_ B_ x =
+    Word32.+ (Word32.* (hashcode A_
+!                         (fst x), Word32.fromLargeInt (IntInf.toLarge (33 : IntInf.int))), hashcode
+              B_ (snd x));
+  
+  fun hashable_prod A_ B_ =
+--- 1602,1608 ----
+  
+  fun hashcode_prod A_ B_ x =
+    Word32.+ (Word32.* (hashcode A_
+!                         (fst x), Word32.fromLargeInt (Int.toLarge (33 : Int.int))), hashcode
+              B_ (snd x));
+  
+  fun hashable_prod A_ B_ =
+***************
+*** 1659,1671 ****
+  
+  fun id x = (fn xa => xa) x;
+  
+! fun nat k = Nat (max ord_integer (0 : IntInf.int) (integer_of_int k));
+  
+  fun suc n = plus_nata n one_nata;
+  
+  fun minus_nat m n =
+!   Nat (max ord_integer (0 : IntInf.int)
+!         (IntInf.- (integer_of_nat m, integer_of_nat n)));
+  
+  fun nth (x :: xs) n =
+    (if equal_nata n zero_nata then x else nth xs (minus_nat n one_nata));
+--- 1679,1691 ----
+  
+  fun id x = (fn xa => xa) x;
+  
+! fun nat k = Nat (max ord_integer (0 : Int.int) (integer_of_int k));
+  
+  fun suc n = plus_nata n one_nata;
+  
+  fun minus_nat m n =
+!   Nat (max ord_integer (0 : Int.int)
+!         (Int.- (integer_of_nat m, integer_of_nat n)));
+  
+  fun nth (x :: xs) n =
+    (if equal_nata n zero_nata then x else nth xs (minus_nat n one_nata));
+***************
+*** 1683,1699 ****
+  fun ball (Set xs) p = list_all p xs;
+  
+  fun len A_ a =
+!   (fn f_ => fn () => f_ (((fn () => IntInf.fromInt (Array.length a))) ()) ())
+      (fn i => (fn () => (nat_of_integer i)));
+  
+  fun new A_ =
+!   (fn a => fn b => (fn () => Array.array (IntInf.toInt a, b))) o integer_of_nat;
+  
+! fun ntha A_ a n = (fn () => Array.sub (a, IntInf.toInt (integer_of_nat n)));
+  
+  fun upd A_ i x a =
+    (fn f_ => fn () => f_
+!     (((fn () => Array.update (a, IntInf.toInt (integer_of_nat i), x))) ()) ())
+      (fn _ => (fn () => a));
+  
+  fun maps f [] = []
+--- 1703,1719 ----
+  fun ball (Set xs) p = list_all p xs;
+  
+  fun len A_ a =
+!   (fn f_ => fn () => f_ (((fn () => Int.fromInt (Array.length a))) ()) ())
+      (fn i => (fn () => (nat_of_integer i)));
+  
+  fun new A_ =
+!   (fn a => fn b => (fn () => Array.array (Int.toInt a, b))) o integer_of_nat;
+  
+! fun ntha A_ a n = (fn () => Array.sub (a, Int.toInt (integer_of_nat n)));
+  
+  fun upd A_ i x a =
+    (fn f_ => fn () => f_
+!     (((fn () => Array.update (a, Int.toInt (integer_of_nat i), x))) ()) ())
+      (fn _ => (fn () => a));
+  
+  fun maps f [] = []
+***************
+*** 1708,1718 ****
+  fun image f (Set xs) = Set (map f xs);
+  
+  fun make A_ n f =
+!   (fn () => Array.tabulate (IntInf.toInt (integer_of_nat n),
+!     (f o nat_of_integer) o IntInf.fromInt));
+  
+  fun sub asa n =
+!   (Vector.sub o (fn (a, b) => (a, IntInf.toInt b))) (asa, integer_of_nat n);
+  
+  fun foldr f [] = id
+    | foldr f (x :: xs) = f x o foldr f xs;
+--- 1728,1738 ----
+  fun image f (Set xs) = Set (map f xs);
+  
+  fun make A_ n f =
+!   (fn () => Array.tabulate (Int.toInt (integer_of_nat n),
+!     (f o nat_of_integer) o Int.fromInt));
+  
+  fun sub asa n =
+!   (Vector.sub o (fn (a, b) => (a, Int.toInt b))) (asa, integer_of_nat n);
+  
+  fun foldr f [] = id
+    | foldr f (x :: xs) = f x o foldr f xs;
+***************
+*** 1831,1837 ****
+  
+  fun cODE_ABORT _ = raise Fail "Misc.CODE_ABORT";
+  
+! val one_int : int = Int_of_integer (1 : IntInf.int);
+  
+  fun int_of x = (if x then one_int else zero_inta);
+  
+--- 1851,1857 ----
+  
+  fun cODE_ABORT _ = raise Fail "Misc.CODE_ABORT";
+  
+! val one_int : int = Int_of_integer (1 : Int.int);
+  
+  fun int_of x = (if x then one_int else zero_inta);
+  
+***************
+*** 1944,1978 ****
+  fun ht_new (A1_, A2_) B_ = ht_new_sz (A1_, A2_) B_ (def_hashmap_size A1_ Type);
+  
+  fun sgn_integer k =
+!   (if ((k : IntInf.int) = (0 : IntInf.int)) then (0 : IntInf.int)
+!     else (if IntInf.< (k, (0 : IntInf.int)) then (~1 : IntInf.int)
+!            else (1 : IntInf.int)));
+  
+  fun apsnd f (x, y) = (x, f y);
+  
+  fun divmod_integer k l =
+!   (if ((k : IntInf.int) = (0 : IntInf.int))
+!     then ((0 : IntInf.int), (0 : IntInf.int))
+!     else (if ((l : IntInf.int) = (0 : IntInf.int)) then ((0 : IntInf.int), k)
+!            else (apsnd o (fn a => fn b => IntInf.* (a, b)) o sgn_integer) l
+!                   (if (((sgn_integer k) : IntInf.int) = (sgn_integer l))
+!                     then IntInf.divMod (IntInf.abs k, IntInf.abs l)
+                      else let
+                             val (r, s) =
+!                              IntInf.divMod (IntInf.abs k, IntInf.abs l);
+                           in
+!                            (if ((s : IntInf.int) = (0 : IntInf.int))
+!                              then (IntInf.~ r, (0 : IntInf.int))
+!                              else (IntInf.- (IntInf.~ r, (1 : IntInf.int)),
+!                                     IntInf.- (IntInf.abs l, s)))
+!                          end)));
+  
+  fun modulo_integer k l = snd (divmod_integer k l);
+  
+  fun modulo_nat m n = Nat (modulo_integer (integer_of_nat m) (integer_of_nat n));
+  
+  fun nat_of_uint32 x =
+!   nat_of_integer (IntInf.fromLarge (Word32.toLargeInt x) : IntInf.int);
+  
+  fun nat_of_hashcode x = nat_of_uint32 x;
+  
+--- 1964,2003 ----
+  fun ht_new (A1_, A2_) B_ = ht_new_sz (A1_, A2_) B_ (def_hashmap_size A1_ Type);
+  
+  fun sgn_integer k =
+!   (if ((k : Int.int) = (0 : Int.int)) then (0 : Int.int)
+!     else (if Int.< (k, (0 : Int.int)) then (~1 : Int.int)
+!            else (1 : Int.int)));
+  
+  fun apsnd f (x, y) = (x, f y);
+  
+  fun divmod_integer k l =
+!   let
+!     fun divMod (a, b) =
+!       (fn (a, b) => (IntInf.toInt a, IntInf.toInt b)) (IntInf.divMod (Int.toLarge a, Int.toLarge b))
+!   in
+!   (if ((k : Int.int) = (0 : Int.int))
+!     then ((0 : Int.int), (0 : Int.int))
+!     else (if ((l : Int.int) = (0 : Int.int)) then ((0 : Int.int), k)
+!            else (apsnd o (fn a => fn b => Int.* (a, b)) o sgn_integer) l
+!                   (if (((sgn_integer k) : Int.int) = (sgn_integer l))
+!                     then divMod (Int.abs k, Int.abs l)
+                      else let
+                             val (r, s) =
+!                              divMod (Int.abs k, Int.abs l);
+                           in
+!                            (if ((s : Int.int) = (0 : Int.int))
+!                              then (Int.~ r, (0 : Int.int))
+!                              else (Int.- (Int.~ r, (1 : Int.int)),
+!                                     Int.- (Int.abs l, s)))
+!                          end))) end;
+  
+  fun modulo_integer k l = snd (divmod_integer k l);
+  
+  fun modulo_nat m n = Nat (modulo_integer (integer_of_nat m) (integer_of_nat n));
+  
+  fun nat_of_uint32 x =
+!   (* nat_of_integer (Int.fromLarge (Word32.toLargeInt x) : Int.int); *)
+!   nat_of_integer (Word32.toInt (Word32.>> (x, Word32.fromInt 1)) : Int.int);
+  
+  fun nat_of_hashcode x = nat_of_uint32 x;
+  
+***************
+*** 2136,2146 ****
+      (fn n =>
+        (fn f_ => fn () => f_
+          ((ht_new_sz (A2_, A3_) B_
+!            (times_nat (nat_of_integer (2 : IntInf.int)) n))
+          ()) ())
+          (ht_copy (A1_, A2_, A3_) B_ n ht));
+  
+! val load_factor : nat = nat_of_integer (75 : IntInf.int);
+  
+  fun ht_update (A1_, A2_, A3_) B_ k v ht =
+    (fn f_ => fn () => f_ ((len (heap_list (heap_prod A3_ B_)) (the_array ht)) ())
+--- 2161,2171 ----
+      (fn n =>
+        (fn f_ => fn () => f_
+          ((ht_new_sz (A2_, A3_) B_
+!            (times_nat (nat_of_integer (2 : Int.int)) n))
+          ()) ())
+          (ht_copy (A1_, A2_, A3_) B_ n ht));
+  
+! val load_factor : nat = nat_of_integer (75 : Int.int);
+  
+  fun ht_update (A1_, A2_, A3_) B_ k v ht =
+    (fn f_ => fn () => f_ ((len (heap_list (heap_prod A3_ B_)) (the_array ht)) ())
+***************
+*** 2148,2154 ****
+      (fn m =>
+        (fn f_ => fn () => f_
+          ((if less_eq_nat (times_nat m load_factor)
+!                (times_nat (the_size ht) (nat_of_integer (100 : IntInf.int)))
+             then ht_rehash (A1_, A2_, A3_) B_ ht else (fn () => ht))
+          ()) ())
+          (ht_upd (A1_, A2_, A3_) B_ k v));
+--- 2173,2179 ----
+      (fn m =>
+        (fn f_ => fn () => f_
+          ((if less_eq_nat (times_nat m load_factor)
+!                (times_nat (the_size ht) (nat_of_integer (100 : Int.int)))
+             then ht_rehash (A1_, A2_, A3_) B_ ht else (fn () => ht))
+          ()) ())
+          (ht_upd (A1_, A2_, A3_) B_ k v));
+***************
+*** 2271,2279 ****
+      val a = s;
+      val (aa, n) = a;
+      val ab =
+!       (if less_eq_nat (times_nat (nat_of_integer (128 : IntInf.int)) n)
+              (array_length aa) andalso
+!             less_nat (nat_of_integer (4 : IntInf.int)) n
+          then array_shrink aa n else aa);
+    in
+      (ab, n)
+--- 2296,2304 ----
+      val a = s;
+      val (aa, n) = a;
+      val ab =
+!       (if less_eq_nat (times_nat (nat_of_integer (128 : Int.int)) n)
+              (array_length aa) andalso
+!             less_nat (nat_of_integer (4 : Int.int)) n
+          then array_shrink aa n else aa);
+    in
+      (ab, n)
+***************
+*** 2502,2509 ****
+      val ab =
+        (if equal_nata n (array_length aa)
+          then array_grow aa
+!                (max ord_nat (nat_of_integer (4 : IntInf.int))
+!                  (times_nat (nat_of_integer (2 : IntInf.int)) n))
+                 x
+          else aa);
+      val ac = array_set ab n x;
+--- 2527,2534 ----
+      val ab =
+        (if equal_nata n (array_length aa)
+          then array_grow aa
+!                (max ord_nat (nat_of_integer (4 : Int.int))
+!                  (times_nat (nat_of_integer (2 : Int.int)) n))
+                 x
+          else aa);
+      val ac = array_set ab n x;
+***************
+*** 3001,3015 ****
+  
+  fun ahm_rehash bhc (HashMap (a, n)) sz = HashMap (ahm_rehash_aux bhc a sz, n);
+  
+! val load_factora : nat = nat_of_integer (75 : IntInf.int);
+  
+  fun ahm_filled (HashMap (a, n)) =
+    less_eq_nat (times_nat (array_length a) load_factora)
+!     (times_nat n (nat_of_integer (100 : IntInf.int)));
+  
+  fun hm_grow (HashMap (a, n)) =
+!   plus_nata (times_nat (nat_of_integer (2 : IntInf.int)) (array_length a))
+!     (nat_of_integer (3 : IntInf.int));
+  
+  fun ahm_update eq bhc k v hm =
+    let
+--- 3026,3040 ----
+  
+  fun ahm_rehash bhc (HashMap (a, n)) sz = HashMap (ahm_rehash_aux bhc a sz, n);
+  
+! val load_factora : nat = nat_of_integer (75 : Int.int);
+  
+  fun ahm_filled (HashMap (a, n)) =
+    less_eq_nat (times_nat (array_length a) load_factora)
+!     (times_nat n (nat_of_integer (100 : Int.int)));
+  
+  fun hm_grow (HashMap (a, n)) =
+!   plus_nata (times_nat (nat_of_integer (2 : Int.int)) (array_length a))
+!     (nat_of_integer (3 : Int.int));
+  
+  fun ahm_update eq bhc k v hm =
+    let
+***************
+*** 3147,3167 ****
+                           | SOME (CEXP _) => true) andalso
+                          equal_optiona (equal_instrc A_)
+                            (nth prog
+!                             (plus_nata pc (nat_of_integer (2 : IntInf.int))))
+                            (SOME (INSTR AND)))
+                    then check_conj_blocka A_ prog
+!                          (plus_nata pc (nat_of_integer (3 : IntInf.int)))
+                    else (if equal_optiona (equal_instrc A_) (nth prog pc)
+                               (SOME (INSTR COPY)) andalso
+                               ((case nth prog
+                                        (plus_nata pc
+! (nat_of_integer (2 : IntInf.int)))
+                                  of NONE => false | SOME (INSTR _) => false
+                                  | SOME (CEXP _) => true) andalso
+                                 (equal_optiona (equal_instrc A_)
+                                    (nth prog
+                                      (plus_nata pc
+!                                       (nat_of_integer (3 : IntInf.int))))
+                                    (SOME (INSTR AND)) andalso
+                                   (case nth prog (plus_nata pc one_nata)
+                                     of NONE => false
+--- 3172,3192 ----
+                           | SOME (CEXP _) => true) andalso
+                          equal_optiona (equal_instrc A_)
+                            (nth prog
+!                             (plus_nata pc (nat_of_integer (2 : Int.int))))
+                            (SOME (INSTR AND)))
+                    then check_conj_blocka A_ prog
+!                          (plus_nata pc (nat_of_integer (3 : Int.int)))
+                    else (if equal_optiona (equal_instrc A_) (nth prog pc)
+                               (SOME (INSTR COPY)) andalso
+                               ((case nth prog
+                                        (plus_nata pc
+! (nat_of_integer (2 : Int.int)))
+                                  of NONE => false | SOME (INSTR _) => false
+                                  | SOME (CEXP _) => true) andalso
+                                 (equal_optiona (equal_instrc A_)
+                                    (nth prog
+                                      (plus_nata pc
+!                                       (nat_of_integer (3 : Int.int))))
+                                    (SOME (INSTR AND)) andalso
+                                   (case nth prog (plus_nata pc one_nata)
+                                     of NONE => false
+***************
+*** 3186,3192 ****
+                                     | SOME (CEXP _) => false)))
+                           then (case (nth prog (plus_nata pc one_nata),
+                                        check_conj_blocka A_ prog
+! (plus_nata pc (nat_of_integer (4 : IntInf.int))))
+                                  of (NONE, _) => NONE
+                                  | (SOME (INSTR (JMPZ _)), NONE) => NONE
+                                  | (SOME (INSTR (JMPZ pcb)), SOME pca) =>
+--- 3211,3217 ----
+                                     | SOME (CEXP _) => false)))
+                           then (case (nth prog (plus_nata pc one_nata),
+                                        check_conj_blocka A_ prog
+! (plus_nata pc (nat_of_integer (4 : Int.int))))
+                                  of (NONE, _) => NONE
+                                  | (SOME (INSTR (JMPZ _)), NONE) => NONE
+                                  | (SOME (INSTR (JMPZ pcb)), SOME pca) =>
+***************
+*** 3223,3229 ****
+           (SOME (INSTR AND)) andalso
+          equal_optiona equal_nat
+            (check_conj_blocka equal_int p
+!             (plus_nata pca (nat_of_integer (2 : IntInf.int))))
+            (SOME pc));
+  
+  fun steps_approx n prog pc =
+--- 3248,3254 ----
+           (SOME (INSTR AND)) andalso
+          equal_optiona equal_nat
+            (check_conj_blocka equal_int p
+!             (plus_nata pca (nat_of_integer (2 : Int.int))))
+            (SOME pc));
+  
+  fun steps_approx n prog pc =

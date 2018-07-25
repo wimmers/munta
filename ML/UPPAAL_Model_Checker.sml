@@ -403,7 +403,6 @@ end; (*struct Bits_Integer*)
 structure Model_Checker : sig
   datatype int = Int_of_integer of IntInf.int
   val integer_of_int : int -> IntInf.int
-  type num
   type nat
   val nat_of_integer : IntInf.int -> nat
   val integer_of_nat : nat -> IntInf.int
@@ -427,17 +426,28 @@ structure Model_Checker : sig
         (((nat, int) acconstraint list) list) list ->
           ('a list) list ->
             ((('b * ('c * ('d * nat))) list) list) list ->
-              (int instrc option) list -> (char list * bool) list
+              (int instrc option) list -> (string * bool) list
   val more_checks :
     (((nat * (nat act * (nat * nat))) list) list) list ->
-      nat -> (char list * bool) list
+      nat -> (string * bool) list
   val start_checks :
     nat ->
       nat ->
         (((nat * ('a * (nat * 'b))) list) list) list ->
           (int instrc option) list ->
             (int * int) list ->
-              (nat list) list -> int list -> (char list * bool) list
+              (nat list) list -> int list -> (string * bool) list
+  val precond_dc :
+    nat ->
+      nat ->
+        ((nat list) list) list ->
+          nat ->
+            (((nat, int) acconstraint list) list) list ->
+              (((nat * (nat act * (nat * nat))) list) list) list ->
+                (int instrc option) list ->
+                  (int * int) list ->
+                    (nat list) list ->
+                      int list -> nat -> (unit -> (bool option))
   val ceiling_checks :
     nat ->
       nat ->
@@ -445,7 +455,7 @@ structure Model_Checker : sig
           (((nat, int) acconstraint list) list) list ->
             (((nat * (nat act * (nat * nat))) list) list) list ->
               (int instrc option) list ->
-                ((nat list) list) list -> (char list * bool) list
+                ((nat list) list) list -> (string * bool) list
   val precond_mc :
     nat ->
       nat ->
@@ -479,8 +489,6 @@ val equal = #equal : 'a equal -> 'a -> 'a -> bool;
 val equal_int = {equal = equal_inta} : int equal;
 
 datatype typerepa = Typerep of string * typerepa list;
-
-datatype num = One | Bit0 of num | Bit1 of num;
 
 datatype 'a itself = Type;
 
@@ -603,6 +611,8 @@ val ord_integer =
   : IntInf.int ord;
 
 fun nat_of_integer k = Nat (max ord_integer (0 : IntInf.int) k);
+
+datatype num = One | Bit0 of num | Bit1 of num;
 
 fun def_hashmap_size_int x = (fn _ => nat_of_integer (16 : IntInf.int)) x;
 
@@ -963,6 +973,10 @@ type 'a one = {one : 'a};
 val one = #one : 'a one -> 'a;
 
 val one_nat = {one = one_nata} : nat one;
+
+fun plus_nata m n = Nat (IntInf.+ (integer_of_nat m, integer_of_nat n));
+
+val plus_nat = {plus = plus_nata} : nat plus;
 
 val zero_nata : nat = Nat (0 : IntInf.int);
 
@@ -1587,10 +1601,8 @@ fun heap_prod A_ B_ =
     typerep_heap = typerep_prod (typerep_heap A_) (typerep_heap B_)}
   : ('a * 'b) heap;
 
-fun plus_nat m n = Nat (IntInf.+ (integer_of_nat m, integer_of_nat n));
-
 fun def_hashmap_size_prod A_ B_ =
-  (fn _ => plus_nat (def_hashmap_size A_ Type) (def_hashmap_size B_ Type));
+  (fn _ => plus_nata (def_hashmap_size A_ Type) (def_hashmap_size B_ Type));
 
 fun snd (x1, x2) = x2;
 
@@ -1677,7 +1689,7 @@ fun id x = (fn xa => xa) x;
 
 fun nat k = Nat (max ord_integer (0 : IntInf.int) (integer_of_int k));
 
-fun suc n = plus_nat n one_nata;
+fun suc n = plus_nata n one_nata;
 
 fun minus_nat m n =
   Nat (max ord_integer (0 : IntInf.int)
@@ -1791,6 +1803,53 @@ fun blit A_ src si dst di len =
     array_blit src (integer_of_nat
                      si) dst (integer_of_nat di) (integer_of_nat len));
 
+fun v_dbm (A1_, A2_, A3_) B_ n =
+  (fn (i, j) =>
+    (if eq A2_ i j orelse
+          (eq A2_ i (zero A1_) andalso less A3_ (zero A1_) j orelse
+            (less A3_ n i orelse less A3_ n j))
+      then zero_DBMEntrya B_ else INF));
+
+fun imp_fora i u f s =
+  (if less_eq_nat u i then (fn () => s)
+    else (fn f_ => fn () => f_ ((f i s) ()) ())
+           (imp_fora (plus_nata i one_nata) u f));
+
+fun mtx_set A_ m mtx e v =
+  upd A_ (plus_nata (times_nat (fst e) m) (snd e)) v mtx;
+
+fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nat (fst e) m) (snd e));
+
+fun min A_ a b = (if less_eq A_ a b then a else b);
+
+fun fw_upd_impl (A1_, A2_) n =
+  (fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bi)) ()) ())
+      (fn x =>
+        (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bib)) ()) ())
+          (fn xa =>
+            (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bib, bi)) ()) ())
+              (fn xb =>
+                mtx_set A2_ (suc n) ai (bia, bi)
+                  (min ((ord_preorder o preorder_order o order_linorder o
+                          linorder_linordered_ab_semigroup_add o
+                          linordered_ab_semigroup_add_linordered_ab_monoid_add)
+                         A1_)
+                    x (plus ((plus_semigroup_add o semigroup_add_monoid_add o
+                               monoid_add_comm_monoid_add o
+                               comm_monoid_add_ordered_comm_monoid_add o
+                               ordered_comm_monoid_add_linordered_ab_monoid_add)
+                              A1_)
+                        xa xb))))));
+
+fun fw_impl (A1_, A2_) n =
+  imp_fora zero_nata (plus_nata n one_nata)
+    (fn xb =>
+      imp_fora zero_nata (plus_nata n one_nata)
+        (fn xd =>
+          imp_fora zero_nata (plus_nata n one_nata)
+            (fn xf => fn sigma => fw_upd_impl (A1_, A2_) n sigma xb xd xf)));
+
 fun gen_length n (x :: xs) = gen_length (suc n) xs
   | gen_length n [] = n;
 
@@ -1810,47 +1869,48 @@ fun list_update [] i y = []
       else x :: list_update xs (minus_nat i one_nata) y);
 
 fun step (JMPZ q) (pc, (st, (m, (f, rs)))) =
-  SOME ((if f then plus_nat pc one_nata else q), (st, (m, (f, rs))))
+  SOME ((if f then plus_nata pc one_nata else q), (st, (m, (f, rs))))
   | step ADD (pc, (a :: b :: st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (plus_inta a b :: st, (m, (f, rs))))
+    SOME (plus_nata pc one_nata, (plus_inta a b :: st, (m, (f, rs))))
   | step NOT (pc, (b :: st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (st, (m, (not f, rs))))
+    SOME (plus_nata pc one_nata, (st, (m, (not f, rs))))
   | step AND (pc, (b :: st, (m, (f, rs)))) =
     (if equal_inta b zero_inta orelse equal_inta b one_int
-      then SOME (plus_nat pc one_nata,
+      then SOME (plus_nata pc one_nata,
                   (st, (m, (equal_inta b one_int andalso f, rs))))
       else NONE)
   | step LT (pc, (a :: b :: st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (st, (m, (less_int a b, rs))))
+    SOME (plus_nata pc one_nata, (st, (m, (less_int a b, rs))))
   | step LE (pc, (a :: b :: st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (st, (m, (less_eq_int a b, rs))))
+    SOME (plus_nata pc one_nata, (st, (m, (less_eq_int a b, rs))))
   | step EQ (pc, (a :: b :: st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (st, (m, (equal_inta a b, rs))))
+    SOME (plus_nata pc one_nata, (st, (m, (equal_inta a b, rs))))
   | step (PUSH v) (pc, (st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (v :: st, (m, (f, rs))))
+    SOME (plus_nata pc one_nata, (v :: st, (m, (f, rs))))
   | step POP (pc, (v :: st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (st, (m, (f, rs))))
+    SOME (plus_nata pc one_nata, (st, (m, (f, rs))))
   | step (LID r) (pc, (st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (nth m r :: st, (m, (f, rs))))
+    SOME (plus_nata pc one_nata, (nth m r :: st, (m, (f, rs))))
   | step STORE (pc, (v :: r :: st, (m, (f, rs)))) =
     (if less_eq_int zero_inta r
-      then SOME (plus_nat pc one_nata, (st, (list_update m (nat r) v, (f, rs))))
+      then SOME (plus_nata pc one_nata,
+                  (st, (list_update m (nat r) v, (f, rs))))
       else NONE)
   | step (STOREI (r, v)) (pc, (st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (st, (list_update m r v, (f, rs))))
+    SOME (plus_nata pc one_nata, (st, (list_update m r v, (f, rs))))
   | step COPY (pc, (st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (int_of f :: st, (m, (f, rs))))
+    SOME (plus_nata pc one_nata, (int_of f :: st, (m, (f, rs))))
   | step CALL (pc, (q :: st, (m, (f, rs)))) =
     (if less_eq_int zero_inta q
       then SOME (nat q, (int_of_nat pc :: st, (m, (f, rs)))) else NONE)
   | step RETURN (pc, (q :: st, (m, (f, rs)))) =
     (if less_eq_int zero_inta q
-      then SOME (plus_nat (nat q) one_nata, (st, (m, (f, rs)))) else NONE)
+      then SOME (plus_nata (nat q) one_nata, (st, (m, (f, rs)))) else NONE)
   | step (STOREC (c, d)) (pc, (st, (m, (f, rs)))) =
     (if equal_inta d zero_inta
-      then SOME (plus_nat pc one_nata, (st, (m, (f, c :: rs)))) else NONE)
+      then SOME (plus_nata pc one_nata, (st, (m, (f, c :: rs)))) else NONE)
   | step (SETF b) (pc, (st, (m, (f, rs)))) =
-    SOME (plus_nat pc one_nata, (st, (m, (b, rs))))
+    SOME (plus_nata pc one_nata, (st, (m, (b, rs))))
   | step ADD (v, ([], vc)) = NONE
   | step ADD (v, ([vd], vc)) = NONE
   | step NOT (v, ([], vc)) = NONE
@@ -1878,43 +1938,11 @@ fun exec prog n (pc, (st, (m, (f, rs)))) pcs =
                       | SOME s =>
                         exec prog (minus_nat n one_nata) s (pc :: pcs)))));
 
-fun imp_fora i u f s =
-  (if less_eq_nat u i then (fn () => s)
-    else (fn f_ => fn () => f_ ((f i s) ()) ())
-           (imp_fora (plus_nat i one_nata) u f));
-
-fun mtx_set A_ m mtx e v =
-  upd A_ (plus_nat (times_nat (fst e) m) (snd e)) v mtx;
-
-fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nat (times_nat (fst e) m) (snd e));
-
-fun min A_ a b = (if less_eq A_ a b then a else b);
-
-fun fw_upd_impl (A1_, A2_) n =
-  (fn ai => fn bib => fn bia => fn bi =>
-    (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bi)) ()) ())
-      (fn x =>
-        (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bib)) ()) ())
-          (fn xa =>
-            (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bib, bi)) ()) ())
-              (fn xb =>
-                mtx_set A2_ (suc n) ai (bia, bi)
-                  (min ((ord_preorder o preorder_order o order_linorder o
-                          linorder_linordered_ab_semigroup_add o
-                          linordered_ab_semigroup_add_linordered_ab_monoid_add)
-                         A1_)
-                    x (plus ((plus_semigroup_add o semigroup_add_monoid_add o
-                               monoid_add_comm_monoid_add o
-                               comm_monoid_add_ordered_comm_monoid_add o
-                               ordered_comm_monoid_add_linordered_ab_monoid_add)
-                              A1_)
-                        xa xb))))));
-
 fun fwi_impl (A1_, A2_) n =
   (fn ai => fn bi =>
-    imp_fora zero_nata (plus_nat n one_nata)
+    imp_fora zero_nata (plus_nata n one_nata)
       (fn xa =>
-        imp_fora zero_nata (plus_nat n one_nata)
+        imp_fora zero_nata (plus_nata n one_nata)
           (fn xc => fn sigma => fw_upd_impl (A1_, A2_) n sigma bi xa xc))
       ai);
 
@@ -2032,7 +2060,7 @@ fun eq_set (A1_, A2_) (Coset xs) (Coset ys) =
                val xsa = remdups A2_ xs;
                val ysa = remdups A2_ ys;
              in
-               equal_nata (plus_nat (size_list xsa) (size_list ysa)) n andalso
+               equal_nata (plus_nata (size_list xsa) (size_list ysa)) n andalso
                  (list_all (fn x => not (membera A2_ ysa x)) xsa andalso
                    list_all (fn y => not (membera A2_ xsa y)) ysa)
              end)
@@ -2046,7 +2074,7 @@ fun eq_set (A1_, A2_) (Coset xs) (Coset ys) =
                val xsa = remdups A2_ xs;
                val ysa = remdups A2_ ys;
              in
-               equal_nata (plus_nat (size_list xsa) (size_list ysa)) n andalso
+               equal_nata (plus_nata (size_list xsa) (size_list ysa)) n andalso
                  (list_all (fn x => not (membera A2_ ysa x)) xsa andalso
                    list_all (fn y => not (membera A2_ xsa y)) ysa)
              end)
@@ -2195,20 +2223,69 @@ fun all_interval_nat p i j =
 
 fun pred_act A_ = (fn p => fn x => ball (set_act A_ x) p);
 
+fun neg_dbm_entry A_ (Le a) = Lt (uminus A_ a)
+  | neg_dbm_entry A_ (Lt a) = Le (uminus A_ a)
+  | neg_dbm_entry A_ INF = INF;
+
 fun imp_for i u c f s =
   (if less_eq_nat u i then (fn () => s)
     else (fn f_ => fn () => f_ ((c s) ()) ())
            (fn ctn =>
              (if ctn
                then (fn f_ => fn () => f_ ((f i s) ()) ())
-                      (imp_for (plus_nat i one_nata) u c f)
+                      (imp_for (plus_nata i one_nata) u c f)
                else (fn () => s))));
 
 fun whilea b c s = (if b s then whilea b c (c s) else s);
 
+fun down_impl (A1_, A2_, A3_) n =
+  imp_fora one_nata (suc n)
+    (fn xb => fn sigma =>
+      (fn f_ => fn () => f_
+        ((imp_fora one_nata (suc n)
+           (fn xe => fn sigmaa =>
+             (fn f_ => fn () => f_
+               ((mtx_get (heap_DBMEntry A3_) (suc n) sigma (xe, xb)) ()) ())
+               (fn x_f =>
+                 (fn () =>
+                   (min (ord_DBMEntry
+                          (A2_, (linorder_linordered_ab_semigroup_add o
+                                  linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                                  linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                                  A1_))
+                     x_f sigmaa))))
+           (Le (zero ((zero_monoid_add o monoid_add_comm_monoid_add o
+                        comm_monoid_add_ordered_comm_monoid_add o
+                        ordered_comm_monoid_add_linordered_ab_monoid_add o
+                        linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                       A1_))))
+        ()) ())
+        (mtx_set (heap_DBMEntry A3_) (suc n) sigma (zero_nata, xb)));
+
+fun free_impl (A1_, A2_) n =
+  (fn ai => fn bi =>
+    (fn f_ => fn () => f_
+      ((imp_fora zero_nata (suc n)
+         (fn xa => fn sigma =>
+           (if not (equal_nata xa bi)
+             then (fn f_ => fn () => f_
+                    ((mtx_get (heap_DBMEntry A2_) (suc n) sigma (xa, zero_nata))
+                    ()) ())
+                    (mtx_set (heap_DBMEntry A2_) (suc n) sigma (xa, bi))
+             else (fn () => sigma)))
+         ai)
+      ()) ())
+      (imp_fora zero_nata (suc n)
+        (fn xb => fn sigma =>
+          (if not (equal_nata xb bi)
+            then mtx_set (heap_DBMEntry A2_) (suc n) sigma (bi, xb) INF
+            else (fn () => sigma)))));
+
 fun array_length x = (nat_of_integer o FArray.IsabelleMapping.array_length) x;
 
 fun array_shrink a = FArray.IsabelleMapping.array_shrink a o integer_of_nat;
+
+val op_list_empty : 'a list = [];
 
 fun as_get s i = let
                    val a = s;
@@ -2406,6 +2483,46 @@ not (op_list_is_empty a1b))))
                     ()) ())
                     (fn (a1, _) => (fn () => a1))))));
 
+fun mtx_tabulate (A1_, A2_, A3_) (B1_, B2_) n m c =
+  (fn f_ => fn () => f_ ((new B2_ (times_nat n m) (zero B1_)) ()) ())
+    (fn ma =>
+      (fn f_ => fn () => f_
+        ((imp_fora zero_nata (times_nat n m)
+           (fn k => fn (i, (j, maa)) =>
+             (fn f_ => fn () => f_ ((upd B2_ k (c (i, j)) maa) ()) ())
+               (fn _ =>
+                 let
+                   val ja = plus_nata j one_nata;
+                 in
+                   (if less_nat ja m then (fn () => (i, (ja, maa)))
+                     else (fn () => (plus A2_ i (one A1_), (zero_nata, maa))))
+                 end))
+           (zero A3_, (zero_nata, ma)))
+        ()) ())
+        (fn (_, a) => let
+                        val (_, aa) = a;
+                      in
+                        (fn () => aa)
+                      end));
+
+fun v_dbm_impl (A1_, A2_) n =
+  mtx_tabulate (one_nat, plus_nat, zero_nat)
+    (zero_DBMEntry
+       ((zero_monoid_add o monoid_add_comm_monoid_add o
+          comm_monoid_add_ordered_comm_monoid_add o
+          ordered_comm_monoid_add_linordered_ab_monoid_add o
+          linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+         A1_),
+      heap_DBMEntry A2_)
+    (suc n) (suc n)
+    (v_dbm (zero_nat, equal_nat, ord_nat)
+      ((zero_monoid_add o monoid_add_comm_monoid_add o
+         comm_monoid_add_ordered_comm_monoid_add o
+         ordered_comm_monoid_add_linordered_ab_monoid_add o
+         linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+        A1_)
+      n);
+
 fun as_push s x =
   let
     val a = s;
@@ -2419,7 +2536,7 @@ fun as_push s x =
         else aa);
     val ac = array_set ab n x;
   in
-    (ac, plus_nat n one_nata)
+    (ac, plus_nata n one_nata)
   end;
 
 fun as_take m s = let
@@ -2511,66 +2628,40 @@ fun clk_set inv prog =
 
 fun pre_checks x =
   (fn p => fn m => fn inv => fn pred => fn trans => fn prog =>
-    [([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"i", #"n",
-        #"v", #"a", #"r", #"i", #"a", #"n", #"t", #" ", #"i", #"s", #" ", #"p"],
-       equal_nata (size_list inv) p),
-      ([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"t", #"r",
-         #"a", #"n", #"s", #"i", #"t", #"i", #"o", #"n", #"s", #" ", #"i", #"s",
-         #" ", #"p"],
-        equal_nata (size_list trans) p),
-      ([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"p", #"r",
-         #"e", #"d", #"i", #"c", #"a", #"t", #"e", #" ", #"i", #"s", #" ",
-         #"p"],
+    [("Length of invariant is p", equal_nata (size_list inv) p),
+      ("Length of transitions is p", equal_nata (size_list trans) p),
+      ("Length of predicate is p",
         all_interval_nat
           (fn i =>
             equal_nata (size_list (nth pred i))
               (size_list (nth trans i)) andalso
               equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
           zero_nata p),
-      ([#"T", #"r", #"a", #"n", #"s", #"i", #"t", #"i", #"o", #"n", #"s", #",",
-         #" ", #"p", #"r", #"e", #"d", #"i", #"c", #"a", #"t", #"e", #"s", #",",
-         #" ", #"a", #"n", #"d", #" ", #"i", #"n", #"v", #"a", #"r", #"i", #"a",
-         #"n", #"t", #"s", #" ", #"a", #"r", #"e", #" ", #"o", #"f", #" ", #"t",
-         #"h", #"e", #" ", #"r", #"i", #"g", #"h", #"t", #" ", #"l", #"e", #"n",
-         #"g", #"t", #"h", #" ", #"p", #"e", #"r", #" ", #"p", #"r", #"o", #"c",
-         #"e", #"s", #"s"],
+      ("Transitions, predicates, and invariants are of the right length per process",
         all_interval_nat
           (fn i =>
             equal_nata (size_list (nth pred i))
               (size_list (nth trans i)) andalso
               equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
           zero_nata p),
-      ([#"E", #"d", #"g", #"e", #" ", #"t", #"a", #"r", #"g", #"e", #"t", #"s",
-         #" ", #"a", #"r", #"e", #" ", #"i", #"n", #" ", #"b", #"o", #"u", #"n",
-         #"d", #"s"],
+      ("Edge targets are in bounds",
         list_all
           (fn t =>
             list_all
               (list_all (fn (_, (_, (_, l))) => less_nat l (size_list t))) t)
           trans),
-      ([#"p", #" ", #">", #" ", #"0"], less_nat zero_nata p),
-      ([#"m", #" ", #">", #" ", #"0"], less_nat zero_nata m),
-      ([#"E", #"v", #"e", #"r", #"y", #" ", #"p", #"r", #"o", #"c", #"e", #"s",
-         #"s", #" ", #"h", #"a", #"s", #" ", #"a", #"t", #" ", #"l", #"e", #"a",
-         #"s", #"t", #" ", #"o", #"n", #"e", #" ", #"t", #"r", #"a", #"n", #"s",
-         #"i", #"t", #"i", #"o", #"n"],
+      ("p > 0", less_nat zero_nata p), ("m > 0", less_nat zero_nata m),
+      ("Every process has at least one transition",
         all_interval_nat (fn i => not (null (nth trans i))) zero_nata p),
-      ([#"T", #"h", #"e", #" ", #"i", #"n", #"i", #"t", #"i", #"a", #"l", #" ",
-         #"s", #"t", #"a", #"t", #"e", #" ", #"o", #"f", #" ", #"e", #"a", #"c",
-         #"h", #" ", #"p", #"r", #"o", #"c", #"e", #"s", #"s", #" ", #"h", #"a",
-         #"s", #" ", #"a", #" ", #"t", #"r", #"a", #"n", #"s", #"i", #"t", #"i",
-         #"o", #"n"],
+      ("The initial state of each process has a transition",
         all_interval_nat (fn q => not (null (nth (nth trans q) zero_nata)))
           zero_nata p),
-      ([#"C", #"l", #"o", #"c", #"k", #"s", #" ", #">", #"=", #" ", #"0"],
+      ("Clocks >= 0",
         ball (clkp_set inv prog) (fn (_, a) => less_eq_int zero_inta a)),
-      ([#"S", #"e", #"t", #" ", #"o", #"f", #" ", #"c", #"l", #"o", #"c", #"k",
-         #"s", #" ", #"i", #"s", #" ", #"{", #"1", #".", #".", #"m", #"}"],
+      ("Set of clocks is {1..m}",
         eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
           (Set (upt one_nata (suc m)))),
-      ([#"R", #"e", #"s", #"e", #"t", #"s", #" ", #"c", #"o", #"r", #"r", #"e",
-         #"c", #"t"],
-        check_resets prog)])
+      ("Resets correct", check_resets prog)])
     x;
 
 fun idx_iteratei_aux get sz i l c f sigma =
@@ -2865,8 +2956,7 @@ fun leadsto_impl A_ (B1_, B2_, B3_) copyia succsia a_0ia leia keyia succs1i
 
 fun more_checks x =
   (fn trans => fn na =>
-    [([#"L", #"e", #"g", #"a", #"l", #" ", #"a", #"c", #"t", #"i", #"o", #"n",
-        #"s"],
+    [("Legal actions",
        list_all
          (list_all
            (list_all
@@ -2888,11 +2978,11 @@ fun last_seg_tr A_ s =
         (fn (xe, _) =>
           less_nat xe
             (if equal_nata
-                  (plus_nat (minus_nat (as_length aa) one_nata) one_nata)
+                  (plus_nata (minus_nat (as_length aa) one_nata) one_nata)
                   (as_length aa)
               then as_length a
               else as_get aa
-                     (plus_nat (minus_nat (as_length aa) one_nata) one_nata)))
+                     (plus_nata (minus_nat (as_length aa) one_nata) one_nata)))
         (fn (ac, bc) => let
                           val xa = as_get a ac;
                         in
@@ -2922,7 +3012,7 @@ fun ahm_update_aux eq bhc (HashMap (a, n)) k v =
   in
     HashMap
       (array_set a h (list_map_update eq k v m),
-        (if insert then plus_nat n one_nata else n))
+        (if insert then plus_nata n one_nata else n))
   end;
 
 fun ahm_iteratei_aux a c f sigma =
@@ -2946,7 +3036,7 @@ fun ahm_filled (HashMap (a, n)) =
     (times_nat n (nat_of_integer (100 : IntInf.int)));
 
 fun hm_grow (HashMap (a, n)) =
-  plus_nat (times_nat (nat_of_integer (2 : IntInf.int)) (array_length a))
+  plus_nata (times_nat (nat_of_integer (2 : IntInf.int)) (array_length a))
     (nat_of_integer (3 : IntInf.int));
 
 fun ahm_update eq bhc k v hm =
@@ -2964,10 +3054,10 @@ fun pop_tr (A1_, A2_) s =
       let
         val (_, bc) =
           whilea
-            (fn (xf, _) =>
-              less_nat xf
-                (if equal_nata (plus_nat x one_nata) (as_length aa)
-                  then as_length a else as_get aa (plus_nat x one_nata)))
+            (fn (xe, _) =>
+              less_nat xe
+                (if equal_nata (plus_nata x one_nata) (as_length aa)
+                  then as_length a else as_get aa (plus_nata x one_nata)))
             (fn (ac, bc) =>
               (suc ac,
                 ahm_update (eq A1_) (bounded_hashcode_nat A2_) (as_get a ac)
@@ -2990,34 +3080,118 @@ fun glist_delete eq x l = glist_delete_aux eq x l [];
 
 fun is_Nil a = (case a of [] => true | _ :: _ => false);
 
+fun abstra_upd_impl (A1_, A2_, A3_, A4_) n =
+  (fn ai => fn bi =>
+    (case ai
+      of LTa (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ()) ())
+          (fn x =>
+            mtx_set (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)
+              (min (ord_DBMEntry
+                     (A3_, (linorder_linordered_ab_semigroup_add o
+                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                             A1_))
+                x (Lt x42a)))
+      | LEa (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ()) ())
+          (fn x =>
+            mtx_set (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)
+              (min (ord_DBMEntry
+                     (A3_, (linorder_linordered_ab_semigroup_add o
+                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                             A1_))
+                x (Le x42a)))
+      | EQa (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
+          (fn x =>
+            (fn f_ => fn () => f_
+              ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ())
+              ())
+              (fn x_a =>
+                (fn f_ => fn () => f_
+                  ((mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
+                     (min (ord_DBMEntry
+                            (A3_, (linorder_linordered_ab_semigroup_add o
+                                    linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                                    linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                                    A1_))
+                       x (Le (uminus A2_ x42a))))
+                  ()) ())
+                  (fn x_b =>
+                    mtx_set (heap_DBMEntry A4_) (suc n) x_b (x41a, zero_nata)
+                      (min (ord_DBMEntry
+                             (A3_, (linorder_linordered_ab_semigroup_add o
+                                     linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                                     linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                                     A1_))
+                        x_a (Le x42a)))))
+      | GT (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
+          (fn x =>
+            mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
+              (min (ord_DBMEntry
+                     (A3_, (linorder_linordered_ab_semigroup_add o
+                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                             A1_))
+                x (Lt (uminus A2_ x42a))))
+      | GE (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
+          (fn x =>
+            mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
+              (min (ord_DBMEntry
+                     (A3_, (linorder_linordered_ab_semigroup_add o
+                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                             A1_))
+                x (Le (uminus A2_ x42a))))));
+
+fun abstr_upd_impl (A1_, A2_, A3_, A4_) n =
+  (fn ai =>
+    imp_nfoldli ai (fn _ => (fn () => true))
+      (abstra_upd_impl (A1_, A2_, A3_, A4_) n));
+
+fun abstr_FW_impl (A1_, A2_, A3_, A4_) n =
+  (fn ai => fn bi =>
+    (fn f_ => fn () => f_ ((abstr_upd_impl (A1_, A2_, A3_, A4_) n ai bi) ()) ())
+      (fw_impl (linordered_ab_monoid_add_DBMEntry (A1_, A3_), heap_DBMEntry A4_)
+        n));
+
 fun check_conj_blocka A_ prog pc =
   (if less_eq_nat (size_list prog) pc then NONE
     else (if equal_optiona (equal_instrc A_) (nth prog pc) (SOME (INSTR HALT))
            then SOME pc
            else (if equal_optiona (equal_instrc A_) (nth prog pc)
                       (SOME (INSTR COPY)) andalso
-                      ((case nth prog (plus_nat pc one_nata) of NONE => false
+                      ((case nth prog (plus_nata pc one_nata) of NONE => false
                          | SOME (INSTR _) => false
                          | SOME (CEXP _) => true) andalso
                         equal_optiona (equal_instrc A_)
                           (nth prog
-                            (plus_nat pc (nat_of_integer (2 : IntInf.int))))
+                            (plus_nata pc (nat_of_integer (2 : IntInf.int))))
                           (SOME (INSTR AND)))
                   then check_conj_blocka A_ prog
-                         (plus_nat pc (nat_of_integer (3 : IntInf.int)))
+                         (plus_nata pc (nat_of_integer (3 : IntInf.int)))
                   else (if equal_optiona (equal_instrc A_) (nth prog pc)
                              (SOME (INSTR COPY)) andalso
                              ((case nth prog
-                                      (plus_nat pc
+                                      (plus_nata pc
 (nat_of_integer (2 : IntInf.int)))
                                 of NONE => false | SOME (INSTR _) => false
                                 | SOME (CEXP _) => true) andalso
                                (equal_optiona (equal_instrc A_)
                                   (nth prog
-                                    (plus_nat pc
+                                    (plus_nata pc
                                       (nat_of_integer (3 : IntInf.int))))
                                   (SOME (INSTR AND)) andalso
-                                 (case nth prog (plus_nat pc one_nata)
+                                 (case nth prog (plus_nata pc one_nata)
                                    of NONE => false
                                    | SOME (INSTR (JMPZ _)) => true
                                    | SOME (INSTR ADD) => false
@@ -3038,9 +3212,9 @@ fun check_conj_blocka A_ prog pc =
                                    | SOME (INSTR (STOREC (_, _))) => false
                                    | SOME (INSTR (SETF _)) => false
                                    | SOME (CEXP _) => false)))
-                         then (case (nth prog (plus_nat pc one_nata),
+                         then (case (nth prog (plus_nata pc one_nata),
                                       check_conj_blocka A_ prog
-(plus_nat pc (nat_of_integer (4 : IntInf.int))))
+(plus_nata pc (nat_of_integer (4 : IntInf.int))))
                                 of (NONE, _) => NONE
                                 | (SOME (INSTR (JMPZ _)), NONE) => NONE
                                 | (SOME (INSTR (JMPZ pcb)), SOME pca) =>
@@ -3070,14 +3244,14 @@ fun check_conj_block p pca pc =
   (case nth p pca of NONE => false | SOME (INSTR _) => false
     | SOME (CEXP _) => true) andalso
     equal_optiona equal_nat
-      (check_conj_blocka equal_int p (plus_nat pca one_nata)) (SOME pc) orelse
+      (check_conj_blocka equal_int p (plus_nata pca one_nata)) (SOME pc) orelse
     (case nth p pca of NONE => false | SOME (INSTR _) => false
       | SOME (CEXP _) => true) andalso
-      (equal_optiona (equal_instrc equal_int) (nth p (plus_nat pca one_nata))
+      (equal_optiona (equal_instrc equal_int) (nth p (plus_nata pca one_nata))
          (SOME (INSTR AND)) andalso
         equal_optiona equal_nat
           (check_conj_blocka equal_int p
-            (plus_nat pca (nat_of_integer (2 : IntInf.int))))
+            (plus_nata pca (nat_of_integer (2 : IntInf.int))))
           (SOME pc));
 
 fun steps_approx n prog pc =
@@ -3091,41 +3265,41 @@ fun steps_approx n prog pc =
                       val succs =
                         (case cmd
                           of INSTR (JMPZ pca) =>
-                            insert equal_nat (plus_nat pc one_nata)
+                            insert equal_nat (plus_nata pc one_nata)
                               (insert equal_nat pca bot_set)
                           | INSTR ADD =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR NOT =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR AND =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR LT =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR LE =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR EQ =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR (PUSH _) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR POP =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR (LID _) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR STORE =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR (STOREI (_, _)) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR COPY =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR CALL => Set (upt zero_nata (size_list prog))
                           | INSTR RETURN => Set (upt zero_nata (size_list prog))
                           | INSTR HALT => bot_set
                           | INSTR (STOREC (_, _)) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | INSTR (SETF _) =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set
+                            insert equal_nat (plus_nata pc one_nata) bot_set
                           | CEXP _ =>
-                            insert equal_nat (plus_nat pc one_nata) bot_set);
+                            insert equal_nat (plus_nata pc one_nata) bot_set);
                     in
                       sup_set equal_nat (insert equal_nat pc bot_set)
                         (sup_seta equal_nat
@@ -3214,23 +3388,13 @@ fun bounded A_ bounds s =
 fun start_checks x =
   (fn p => fn max_steps => fn trans => fn prog => fn bounds => fn pred =>
     fn s_0 =>
-    [([#"T", #"e", #"r", #"m", #"i", #"n", #"a", #"t", #"i", #"o", #"n", #" ",
-        #"o", #"f", #" ", #"p", #"r", #"e", #"d", #"i", #"c", #"a", #"t", #"e",
-        #"s"],
-       init_pred_check p prog max_steps pred s_0),
-      ([#"B", #"o", #"u", #"n", #"d", #"e", #"d", #"n", #"e", #"s", #"s"],
-        bounded ord_int bounds s_0),
-      ([#"P", #"r", #"e", #"d", #"i", #"c", #"a", #"t", #"e", #"s", #" ", #"a",
-         #"r", #"e", #" ", #"i", #"n", #"d", #"e", #"p", #"e", #"n", #"d", #"e",
-         #"n", #"t", #" ", #"o", #"f", #" ", #"t", #"i", #"m", #"e"],
+    [("Termination of predicates", init_pred_check p prog max_steps pred s_0),
+      ("Boundedness", bounded ord_int bounds s_0),
+      ("Predicates are independent of time",
         time_indep_check1 pred prog max_steps),
-      ([#"U", #"p", #"d", #"a", #"t", #"e", #"s", #" ", #"a", #"r", #"e", #" ",
-         #"i", #"n", #"d", #"e", #"p", #"e", #"n", #"d", #"e", #"n", #"t", #" ",
-         #"o", #"f", #" ", #"t", #"i", #"m", #"e"],
+      ("Updates are independent of time",
         time_indep_check2 trans prog max_steps),
-      ([#"C", #"o", #"n", #"j", #"u", #"n", #"c", #"t", #"i", #"o", #"n", #" ",
-         #"c", #"h", #"e", #"c", #"k"],
-        conjunction_check2 trans prog max_steps)])
+      ("Conjunction check", conjunction_check2 trans prog max_steps)])
     x;
 
 fun find_max_nat n uu =
@@ -3246,16 +3410,52 @@ fun norm_lower A_ e t = (if dbm_lt A_ e (Lt t) then Lt t else e);
 
 fun norm_upper A_ e t = (if dbm_lt A_ (Le t) e then INF else e);
 
-fun gi_E (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_E;
+fun uPPAAL_Reachability_Problem_precompiled_start_state_axioms x =
+  (fn p => fn max_steps => fn trans => fn prog => fn bounds => fn pred =>
+    fn s_0 =>
+    init_pred_check p prog max_steps pred s_0 andalso
+      (bounded ord_int bounds s_0 andalso
+        (time_indep_check1 pred prog max_steps andalso
+          (time_indep_check2 trans prog max_steps andalso
+            conjunction_check2 trans prog max_steps))))
+    x;
 
-fun more (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = more;
+fun check_pre p m inv pred trans prog =
+  equal_nata (size_list inv) p andalso
+    (equal_nata (size_list trans) p andalso
+      (equal_nata (size_list pred) p andalso
+        (all_interval_nat
+           (fn i =>
+             equal_nata (size_list (nth pred i))
+               (size_list (nth trans i)) andalso
+               equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
+           zero_nata p andalso
+          (list_all
+             (fn t =>
+               list_all
+                 (list_all (fn (_, (_, (_, l))) => less_nat l (size_list t))) t)
+             trans andalso
+            (less_nat zero_nata p andalso
+              (less_nat zero_nata m andalso
+                (all_interval_nat (fn i => not (null (nth trans i))) zero_nata
+                   p andalso
+                  (all_interval_nat
+                     (fn q => not (null (nth (nth trans q) zero_nata)))
+                     zero_nata p andalso
+                    (ball (clkp_set inv prog)
+                       (fn (_, a) => less_eq_int zero_inta a) andalso
+                      (eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
+                         (Set (upt one_nata (suc m))) andalso
+                        check_resets prog))))))))));
 
-fun as_is_empty s = equal_nata (snd s) zero_nata;
+fun uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog =
+  check_pre p m inv pred trans prog;
 
-fun minus_set A_ a (Coset xs) = Set (filtera (fn x => member A_ x a) xs)
-  | minus_set A_ a (Set xs) = fold (remove A_) xs a;
-
-fun gi_V0 (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_V0;
+fun uPPAAL_Reachability_Problem_precompiled_start_state p m max_steps inv trans
+  prog bounds pred s_0 =
+  uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog andalso
+    uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps trans
+      prog bounds pred s_0;
 
 fun sup_option A_ (SOME x) (SOME y) = SOME (sup A_ x y)
   | sup_option A_ x NONE = x
@@ -3274,7 +3474,7 @@ fun find_resets_start prog pc =
            | SOME (INSTR HALT) => NONE
            | SOME (INSTR (STOREC (_, _))) =>
              sup_option sup_nat (SOME pc)
-               (find_resets_start prog (plus_nat pc one_nata))
+               (find_resets_start prog (plus_nata pc one_nata))
            | SOME (INSTR (SETF _)) => NONE | SOME (CEXP _) => NONE)
     else NONE);
 
@@ -3317,28 +3517,32 @@ fun clkp_seta max_steps inv trans prog i l =
 
 fun find_next_halt prog pc =
   (if less_nat pc (size_list prog)
-    then (case nth prog pc of NONE => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (JMPZ _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR ADD) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR NOT) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR AND) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR LT) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR LE) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR EQ) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (PUSH _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR POP) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (LID _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR STORE) => find_next_halt prog (plus_nat pc one_nata)
+    then (case nth prog pc
+           of NONE => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR (JMPZ _)) =>
+             find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR ADD) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR NOT) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR AND) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR LT) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR LE) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR EQ) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR (PUSH _)) =>
+             find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR POP) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR (LID _)) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR STORE) => find_next_halt prog (plus_nata pc one_nata)
            | SOME (INSTR (STOREI (_, _))) =>
-             find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR COPY) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR CALL) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR RETURN) => find_next_halt prog (plus_nat pc one_nata)
+             find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR COPY) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR CALL) => find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR RETURN) => find_next_halt prog (plus_nata pc one_nata)
            | SOME (INSTR HALT) => SOME pc
            | SOME (INSTR (STOREC (_, _))) =>
-             find_next_halt prog (plus_nat pc one_nata)
-           | SOME (INSTR (SETF _)) => find_next_halt prog (plus_nat pc one_nata)
-           | SOME (CEXP _) => find_next_halt prog (plus_nat pc one_nata))
+             find_next_halt prog (plus_nata pc one_nata)
+           | SOME (INSTR (SETF _)) =>
+             find_next_halt prog (plus_nata pc one_nata)
+           | SOME (CEXP _) => find_next_halt prog (plus_nata pc one_nata))
     else NONE);
 
 fun guaranteed_execution_cond A_ prog pc_s n =
@@ -3390,276 +3594,8 @@ fun guaranteed_execution_cond A_ prog pc_s n =
            pc_s pc_t andalso
           less_nat (minus_nat pc_t pc_s) n));
 
-fun ceiling_checks x =
-  (fn p => fn m => fn max_steps => fn inv => fn trans => fn prog => fn k =>
-    [([#"L", #"e", #"n", #"g", #"t", #"h", #" ", #"o", #"f", #" ", #"c", #"e",
-        #"i", #"l", #"i", #"g"],
-       equal_nata (size_list k) p),
-      ([#"1"],
-        all_interval_nat
-          (fn i =>
-            all_interval_nat
-              (fn l =>
-                ball (clkp_seta max_steps inv trans prog i l)
-                  (fn (xa, ma) =>
-                    less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
-              zero_nata (size_list (nth trans i)))
-          zero_nata p),
-      ([#"2"],
-        all_interval_nat
-          (fn i =>
-            all_interval_nat
-              (fn l =>
-                ball (collect_clock_pairs (nth (nth inv i) l))
-                  (fn (xa, ma) =>
-                    less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
-              zero_nata (size_list (nth trans i)))
-          zero_nata p),
-      ([#"3"],
-        all_interval_nat
-          (fn i =>
-            all_interval_nat
-              (fn l =>
-                list_all
-                  (fn (_, (_, (r, la))) =>
-                    ball (minus_set equal_nat
-                           (Set (upt zero_nata (plus_nat m one_nata)))
-                           (image fst (collect_storea prog r)))
-                      (fn c =>
-                        less_eq_nat (nth (nth (nth k i) la) c)
-                          (nth (nth (nth k i) l) c)))
-                  (nth (nth trans i) l))
-              zero_nata (size_list (nth trans i)))
-          zero_nata p),
-      ([#"4"],
-        all_interval_nat
-          (fn i => equal_nata (size_list (nth k i)) (size_list (nth trans i)))
-          zero_nata p),
-      ([#"5"],
-        list_all
-          (list_all
-            (fn xxs => equal_nata (size_list xxs) (plus_nat m one_nata)))
-          k),
-      ([#"6"],
-        all_interval_nat
-          (fn i =>
-            all_interval_nat
-              (fn l => equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
-              zero_nata (size_list (nth trans i)))
-          zero_nata p),
-      ([#"7"],
-        all_interval_nat
-          (fn i =>
-            all_interval_nat
-              (fn l =>
-                list_all
-                  (fn (_, (_, (r, _))) =>
-                    guaranteed_execution_cond equal_int prog r max_steps)
-                  (nth (nth trans i) l))
-              zero_nata (size_list (nth trans i)))
-          zero_nata p)])
-    x;
-
-fun select_edge_tr (A1_, A2_) s =
-  let
-    val (a, (aa, (ab, bb))) = s;
-  in
-    (if as_is_empty bb then (NONE, (a, (aa, (ab, bb))))
-      else let
-             val (ac, bc) = as_top bb;
-           in
-             (if less_eq_nat (as_get aa (minus_nat (as_length aa) one_nata)) ac
-               then let
-                      val xa = gen_pick (fn x => foldli (id x)) bc;
-                      val xb = glist_delete (eq A1_) xa bc;
-                      val xc =
-                        (if is_Nil xb then as_pop bb
-                          else as_set bb (minus_nat (as_length bb) one_nata)
-                                 (ac, xb));
-                    in
-                      (SOME xa, (a, (aa, (ab, xc))))
-                    end
-               else (NONE, (a, (aa, (ab, bb)))))
-           end)
-  end;
-
-fun ahm_lookup_aux eq bhc k a =
-  list_map_lookup eq k (array_get a (bhc (array_length a) k));
-
-fun ahm_lookup eq bhc k (HashMap (a, uu)) = ahm_lookup_aux eq bhc k a;
-
-fun idx_of_tr (A1_, A2_) s v =
-  let
-    val (_, (aa, (ab, _))) = v;
-    val x = let
-              val SOME i = ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) s ab;
-              val true = less_eq_int zero_inta i;
-            in
-              nat i
-            end;
-    val xa = find_max_nat (as_length aa) (fn j => less_eq_nat (as_get aa j) x);
-  in
-    xa
-  end;
-
-fun collapse_tr (A1_, A2_) v s =
-  let
-    val (a, (aa, (ab, bb))) = s;
-    val x = idx_of_tr (A1_, A2_) v (a, (aa, (ab, bb)));
-    val xa = as_take (plus_nat x one_nata) aa;
-  in
-    (a, (xa, (ab, bb)))
-  end;
-
-fun as_singleton B_ x = (FArray.IsabelleMapping.array_of_list [x], one B_);
-
-fun new_hashmap_with size = HashMap (new_array [] size, zero_nata);
-
-fun ahm_empty def_size = new_hashmap_with def_size;
-
-fun push_code (A1_, A2_) g_impl =
-  (fn x => fn (xa, (xb, (xc, xd))) =>
-    let
-      val _ = Gabow_Skeleton_Statistics.newnode ();
-      val xf = as_length xa;
-      val xg = as_push xa x;
-      val xh = as_push xb xf;
-      val xi =
-        ahm_update (eq A1_) (bounded_hashcode_nat A2_) x (int_of_nat xf) xc;
-      val xj =
-        (if is_Nil (gi_E g_impl x) then xd else as_push xd (xf, gi_E g_impl x));
-    in
-      (xg, (xh, (xi, xj)))
-    end);
-
-fun compute_SCC_tr (A1_, A2_) g =
-  let
-    val _ = Gabow_Skeleton_Statistics.start ();
-    val xa = ([], ahm_empty (def_hashmap_size A2_ Type));
-    val a =
-      foldli (id (gi_V0 g)) (fn _ => true)
-        (fn xb => fn (a, b) =>
-          (if not (case ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) xb b
-                    of NONE => false
-                    | SOME i =>
-                      (if less_eq_int zero_inta i then false else true))
-            then let
-                   val xc =
-                     (a, (as_singleton one_nat xb,
-                           (as_singleton one_nat zero_nata,
-                             (ahm_update (eq A1_) (bounded_hashcode_nat A2_) xb
-                                (int_of_nat zero_nata) b,
-                               (if is_Nil (gi_E g xb) then as_empty zero_nat ()
-                                 else as_singleton one_nat
-(zero_nata, gi_E g xb))))));
-                   val (aa, (_, (_, (ad, _)))) =
-                     whilea
-                       (fn (_, xh) =>
-                         not (as_is_empty let
-    val (xi, (_, (_, _))) = xh;
-  in
-    xi
-  end))
-                       (fn (aa, ba) =>
-                         (case select_edge_tr (A1_, A2_) ba
-                           of (NONE, bb) => let
-      val xf = last_seg_tr A2_ bb;
-      val xg = pop_tr (A1_, A2_) bb;
-      val xh = xf :: aa;
-    in
-      (xh, xg)
-    end
-                           | (SOME xf, bb) =>
-                             (if (case ahm_lookup (eq A1_)
- (bounded_hashcode_nat A2_) xf let
-                                 val (_, (_, (xn, _))) = bb;
-                               in
-                                 xn
-                               end
-                                   of NONE => false
-                                   | SOME i =>
-                                     (if less_eq_int zero_inta i then true
-                                       else false))
-                               then let
-                                      val ab = collapse_tr (A1_, A2_) xf bb;
-                                    in
-                                      (aa, ab)
-                                    end
-                               else (if not
-  (case ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) xf
-          let
-            val (_, (_, (xn, _))) = bb;
-          in
-            xn
-          end
-    of NONE => false
-    | SOME i => (if less_eq_int zero_inta i then false else true))
-                                      then (aa, push_code (A1_, A2_) g xf bb)
-                                      else (aa, bb)))))
-                       xc;
-                 in
-                   (aa, ad)
-                 end
-            else (a, b)))
-        xa;
-    val (aa, _) = a;
-    val _ = Gabow_Skeleton_Statistics.stop ();
-  in
-    aa
-  end;
-
-fun constraint_clk (LTa (c, uu)) = c
-  | constraint_clk (LEa (c, uv)) = c
-  | constraint_clk (EQa (c, uw)) = c
-  | constraint_clk (GE (c, ux)) = c
-  | constraint_clk (GT (c, uy)) = c;
-
-fun uPPAAL_Reachability_Problem_precompiled_start_state_axioms x =
-  (fn p => fn max_steps => fn trans => fn prog => fn bounds => fn pred =>
-    fn s_0 =>
-    init_pred_check p prog max_steps pred s_0 andalso
-      (bounded ord_int bounds s_0 andalso
-        (time_indep_check1 pred prog max_steps andalso
-          (time_indep_check2 trans prog max_steps andalso
-            conjunction_check2 trans prog max_steps))))
-    x;
-
-fun check_pre p m inv pred trans prog =
-  equal_nata (size_list inv) p andalso
-    (equal_nata (size_list trans) p andalso
-      (equal_nata (size_list pred) p andalso
-        (all_interval_nat
-           (fn i =>
-             equal_nata (size_list (nth pred i))
-               (size_list (nth trans i)) andalso
-               equal_nata (size_list (nth inv i)) (size_list (nth trans i)))
-           zero_nata p andalso
-          (list_all
-             (fn t =>
-               list_all
-                 (list_all (fn (_, (_, (_, l))) => less_nat l (size_list t))) t)
-             trans andalso
-            (less_nat zero_nata p andalso
-              (less_nat zero_nata m andalso
-                (all_interval_nat (fn i => not (null (nth trans i))) zero_nata
-                   p andalso
-                  (all_interval_nat
-                     (fn q => not (null (nth (nth trans q) zero_nata)))
-                     zero_nata p andalso
-                    (ball (clkp_set inv prog)
-                       (fn (_, a) => less_eq_int zero_inta a) andalso
-                      (eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
-                         (Set (upt one_nata (suc m))) andalso
-                        check_resets prog))))))))));
-
-fun uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog =
-  check_pre p m inv pred trans prog;
-
-fun uPPAAL_Reachability_Problem_precompiled_start_state p m max_steps inv trans
-  prog bounds pred s_0 =
-  uPPAAL_Reachability_Problem_precompiled p m inv pred trans prog andalso
-    uPPAAL_Reachability_Problem_precompiled_start_state_axioms p max_steps trans
-      prog bounds pred s_0;
+fun minus_set A_ a (Coset xs) = Set (filtera (fn x => member A_ x a) xs)
+  | minus_set A_ a (Set xs) = fold (remove A_) xs a;
 
 fun uPPAAL_Reachability_Problem_precompiled_ceiling_axioms p m max_steps inv
   trans prog k =
@@ -3688,7 +3624,7 @@ fun uPPAAL_Reachability_Problem_precompiled_ceiling_axioms p m max_steps inv
              list_all
                (fn (_, (_, (r, la))) =>
                  ball (minus_set equal_nat
-                        (Set (upt zero_nata (plus_nat m one_nata)))
+                        (Set (upt zero_nata (plus_nata m one_nata)))
                         (image fst (collect_storea prog r)))
                    (fn c =>
                      less_eq_nat (nth (nth (nth k i) la) c)
@@ -3701,7 +3637,8 @@ fun uPPAAL_Reachability_Problem_precompiled_ceiling_axioms p m max_steps inv
        (fn i => equal_nata (size_list (nth k i)) (size_list (nth trans i)))
        zero_nata p andalso
        list_all
-         (list_all (fn xxs => equal_nata (size_list xxs) (plus_nat m one_nata)))
+         (list_all
+           (fn xxs => equal_nata (size_list xxs) (plus_nata m one_nata)))
          k andalso
       (all_interval_nat
          (fn i =>
@@ -3892,7 +3829,7 @@ fun reset_canonical_upd_impl (A1_, A2_, A3_) n =
           ((mtx_set (heap_DBMEntry A3_) (suc n) x (zero_nata, bia)
              (Le (uminus A2_ bi)))
           ()) ())
-          (imp_fora one_nata (plus_nat bib one_nata)
+          (imp_fora one_nata (plus_nata bib one_nata)
             (fn xb => fn sigma =>
               (if equal_nata xb bia then (fn () => sigma)
                 else (fn f_ => fn () => f_
@@ -3917,7 +3854,7 @@ fun reset_canonical_upd_impl (A1_, A2_, A3_) n =
 
 fun up_canonical_upd_impl (A1_, A2_) n =
   (fn ai => fn bi =>
-    imp_fora one_nata (plus_nat bi one_nata)
+    imp_fora one_nata (plus_nata bi one_nata)
       (fn xa => fn sigma =>
         mtx_set (heap_DBMEntry A2_) (suc n) sigma (xa, zero_nata) INF)
       ai);
@@ -3946,11 +3883,11 @@ fun fw_upd_impl_int n =
                     (dbm_add_int xa xb))))));
 
 fun fw_impl_int n =
-  imp_fora zero_nata (plus_nat n one_nata)
+  imp_fora zero_nata (plus_nata n one_nata)
     (fn xb =>
-      imp_fora zero_nata (plus_nat n one_nata)
+      imp_fora zero_nata (plus_nata n one_nata)
         (fn xd =>
-          imp_fora zero_nata (plus_nat n one_nata)
+          imp_fora zero_nata (plus_nata n one_nata)
             (fn xf => fn sigma => fw_upd_impl_int n sigma xb xd xf)));
 
 fun dbm_subset_impl (A1_, A2_, A3_) n =
@@ -4016,97 +3953,6 @@ fun check_diag_impl (A1_, A2_) n =
                                A1_))) orelse
                 sigma))))
       false);
-
-fun abstra_upd_impl (A1_, A2_, A3_, A4_) n =
-  (fn ai => fn bi =>
-    (case ai
-      of LTa (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Lt x42a)))
-      | LEa (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Le x42a)))
-      | EQa (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
-          (fn x =>
-            (fn f_ => fn () => f_
-              ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ())
-              ())
-              (fn x_a =>
-                (fn f_ => fn () => f_
-                  ((mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
-                     (min (ord_DBMEntry
-                            (A3_, (linorder_linordered_ab_semigroup_add o
-                                    linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                                    linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                                    A1_))
-                       x (Le (uminus A2_ x42a))))
-                  ()) ())
-                  (fn x_b =>
-                    mtx_set (heap_DBMEntry A4_) (suc n) x_b (x41a, zero_nata)
-                      (min (ord_DBMEntry
-                             (A3_, (linorder_linordered_ab_semigroup_add o
-                                     linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                                     linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                                     A1_))
-                        x_a (Le x42a)))))
-      | GT (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Lt (uminus A2_ x42a))))
-      | GE (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Le (uminus A2_ x42a))))));
-
-fun check_bexp (Not a) l s = not (check_bexp a l s)
-  | check_bexp (And (a, b)) l s = check_bexp a l s andalso check_bexp b l s
-  | check_bexp (Or (a, b)) l s = check_bexp a l s orelse check_bexp b l s
-  | check_bexp (Imply (a, b)) l s =
-    (if check_bexp a l s then check_bexp b l s else true)
-  | check_bexp (Loc (p, la)) l uu = equal_nata (nth l p) la
-  | check_bexp (Eq (i, x)) uv s = equal_inta (nth s i) x
-  | check_bexp (Lea (i, x)) uw s = less_eq_int (nth s i) x
-  | check_bexp (Lta (i, x)) ux s = less_int (nth s i) x
-  | check_bexp (Ge (i, x)) uy s = less_eq_int x (nth s i)
-  | check_bexp (Gt (i, x)) uz s = less_int x (nth s i);
-
-fun hd_of_formula (EX phi) = check_bexp phi
-  | hd_of_formula (EG phi) = check_bexp phi
-  | hd_of_formula (AX phi) = (fn x => not o check_bexp phi x)
-  | hd_of_formula (AG phi) = (fn x => not o check_bexp phi x)
-  | hd_of_formula (Leadsto (phi, uu)) = check_bexp phi;
 
 fun norm_upd_impl (A1_, A2_) n =
   (fn ai => fn bia => fn bi =>
@@ -4229,10 +4075,864 @@ A1_)
 A1_)
                                       (sub bia xe))))))))))));
 
+fun and_entry_impl n =
+  (fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (ai, bib)) ()) ())
+      (fn x =>
+        mtx_set (heap_DBMEntry heap_int) (suc n) bi (ai, bib)
+          (min (ord_DBMEntry (equal_int, linorder_int)) x bia)));
+
+fun restrict_zero_impl n =
+  (fn ai => fn bi =>
+    (fn f_ => fn () => f_ ((and_entry_impl n bi zero_nata (Le zero_inta) ai) ())
+      ())
+      (fn x =>
+        (fn f_ => fn () => f_ ((and_entry_impl n zero_nata bi (Le zero_inta) x)
+          ()) ())
+          (fn x_a =>
+            repair_pair_impl
+              (linordered_ab_monoid_add_DBMEntry
+                 (linordered_cancel_ab_monoid_add_int, equal_int),
+                heap_DBMEntry heap_int)
+              n x_a bi zero_nata)));
+
+fun pre_reset_impl n =
+  (fn ai => fn bi =>
+    (fn f_ => fn () => f_ ((restrict_zero_impl n ai bi) ()) ())
+      (fn x =>
+        free_impl (linordered_cancel_ab_monoid_add_int, heap_int) n x bi));
+
+fun pre_reset_list_impl n =
+  (fn ai => fn bi =>
+    imp_nfoldli bi (fn _ => (fn () => true))
+      (fn x => fn sigma => pre_reset_impl n sigma x) ai);
+
+fun dbm_subset_impla (A1_, A2_, A3_) n =
+  (fn ai => fn bia => fn bi =>
+    imp_for zero_nata (suc ai) (fn a => (fn () => a))
+      (fn xb => fn _ =>
+        imp_for zero_nata (suc ai) (fn a => (fn () => a))
+          (fn xe => fn _ =>
+            (fn f_ => fn () => f_
+              ((mtx_get (heap_DBMEntry A3_) (suc n) bia (xb, xe)) ()) ())
+              (fn x_f =>
+                (fn f_ => fn () => f_
+                  ((mtx_get (heap_DBMEntry A3_) (suc n) bi (xb, xe)) ()) ())
+                  (fn x_g =>
+                    (fn () =>
+                      (less_eq_DBMEntry
+                        (A2_, (linorder_linordered_ab_semigroup_add o
+                                linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                                linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
+                                A1_)
+                        x_f x_g)))))
+          true)
+      true);
+
+fun and_entry_repair_impl n =
+  (fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_ ((and_entry_impl n ai bib bia bi) ()) ())
+      (fn x =>
+        repair_pair_impl
+          (linordered_ab_monoid_add_DBMEntry
+             (linordered_cancel_ab_monoid_add_int, equal_int),
+            heap_DBMEntry heap_int)
+          n x ai bib));
+
+fun upd_entry_impl n =
+  (fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (ai, bib)) ()) ())
+      (fn x =>
+        (fn f_ => fn () => f_ ((amtx_copy (heap_DBMEntry heap_int) bia) ()) ())
+          (and_entry_repair_impl n bib ai (neg_dbm_entry uminus_int x))));
+
+fun upd_entries_impl n =
+  (fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_
+      ((imp_nfoldli bi (fn _ => (fn () => true))
+         (fn xa => fn sigma =>
+           (fn f_ => fn () => f_ ((upd_entry_impl n ai bib xa bia) ()) ())
+             (fn x_b => (fn () => (x_b :: sigma))))
+         op_list_empty)
+      ()) ())
+      (fn x =>
+        imp_nfoldli x (fn _ => (fn () => true))
+          (fn xb => fn sigma => (fn () => (xb :: sigma))) op_list_empty));
+
+fun get_entries_impl (A1_, A2_, A3_) n =
+  (fn xi =>
+    (fn f_ => fn () => f_
+      ((imp_fora zero_nata (suc n)
+         (fn xc => fn sigma =>
+           (fn f_ => fn () => f_
+             ((imp_fora zero_nata (suc n)
+                (fn xf => fn sigmaa =>
+                  (fn f_ => fn () => f_
+                    ((mtx_get (heap_DBMEntry A3_) (suc n) xi (xc, xf)) ()) ())
+                    (fn x =>
+                      (fn () =>
+                        ((if (less_nat zero_nata xc orelse
+                               less_nat zero_nata xf) andalso
+                               (less_eq_nat xc n andalso
+                                 (less_eq_nat xf n andalso
+                                   not (equal_DBMEntry A2_ x INF)))
+                           then op_list_prepend (xc, xf) op_list_empty
+                           else op_list_empty) ::
+                          sigmaa))))
+                op_list_empty)
+             ()) ())
+             (fn x =>
+               (fn f_ => fn () => f_
+                 ((imp_nfoldli (op_list_rev (op_list_rev x))
+                    (fn _ => (fn () => true))
+                    (fn xf => fn sigmaa => (fn () => (xf @ sigmaa)))
+                    op_list_empty)
+                 ()) ())
+                 (fn x_c => (fn () => (x_c :: sigma)))))
+         op_list_empty)
+      ()) ())
+      (fn x =>
+        imp_nfoldli (op_list_rev (op_list_rev x)) (fn _ => (fn () => true))
+          (fn xc => fn sigma => (fn () => (xc @ sigma))) op_list_empty));
+
+fun dbm_minus_canonical_impl n =
+  (fn ai => fn bi =>
+    (fn f_ => fn () => f_
+      ((get_entries_impl
+         (linordered_cancel_ab_monoid_add_int, equal_int, heap_int) n bi)
+      ()) ())
+      (fn x =>
+        (fn f_ => fn () => f_
+          ((imp_nfoldli x (fn _ => (fn () => true))
+             (fn xb => fn sigma =>
+               (fn f_ => fn () => f_
+                 ((upd_entries_impl n (fst xb) (snd xb) bi ai) ()) ())
+                 (fn xa =>
+                   (fn f_ => fn () => f_
+                     ((imp_nfoldli xa (fn _ => (fn () => true))
+                        (fn xe => fn sigmaa => (fn () => (xe :: sigmaa)))
+                        op_list_empty)
+                     ()) ())
+                     (fn x_c => (fn () => (x_c @ sigma)))))
+             op_list_empty)
+          ()) ())
+          (fn xa =>
+            (fn f_ => fn () => f_
+              ((imp_nfoldli xa (fn _ => (fn () => true))
+                 (fn xb => fn sigma => (fn () => (xb :: sigma))) op_list_empty)
+              ()) ())
+              (fn xb =>
+                (fn f_ => fn () => f_
+                  ((imp_nfoldli xb (fn _ => (fn () => true))
+                     (fn xba => fn sigma =>
+                       (fn f_ => fn () => f_
+                         ((check_diag_impla
+                            (linordered_cancel_ab_monoid_add_int, heap_int) n n
+                            xba)
+                         ()) ())
+                         (fn xc =>
+                           (fn () =>
+                             (if not xc then op_list_prepend xba sigma
+                               else sigma))))
+                     op_list_empty)
+                  ()) ())
+                  (fn xc =>
+                    imp_nfoldli xc (fn _ => (fn () => true))
+                      (fn xba => fn sigma => (fn () => (xba :: sigma)))
+                      op_list_empty)))));
+
+fun dbm_subset_fed_impl n =
+  (fn ai => fn bi =>
+    (fn f_ => fn () => f_
+      ((imp_nfoldli bi (fn _ => (fn () => true))
+         (fn xa => fn sigma =>
+           (fn f_ => fn () => f_
+             ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int)
+                n n xa)
+             ()) ())
+             (fn x =>
+               (fn () => (if not x then op_list_prepend xa sigma else sigma))))
+         op_list_empty)
+      ()) ())
+      (fn x =>
+        let
+          val xa = op_list_rev x;
+        in
+          (if op_list_is_empty xa
+            then check_diag_impla
+                   (linordered_cancel_ab_monoid_add_int, heap_int) n n ai
+            else (fn f_ => fn () => f_
+                   ((imp_nfoldli xa (fn sigma => (fn () => (not sigma)))
+                      (fn xc => fn sigma =>
+                        (fn f_ => fn () => f_
+                          ((dbm_subset_impla
+                             (linordered_cancel_ab_monoid_add_int, equal_int,
+                               heap_int)
+                             n n ai xc)
+                          ()) ())
+                          (fn x_d => (fn () => (if x_d then true else sigma))))
+                      false)
+                   ()) ())
+                   (fn x_b =>
+                     (if x_b then (fn () => true)
+                       else (fn f_ => fn () => f_
+                              ((imp_nfoldli xa (fn _ => (fn () => true))
+                                 (fn xd => fn sigma =>
+                                   dbm_minus_canonical_impl n sigma xd)
+                                 (op_list_prepend ai op_list_empty))
+                              ()) ())
+                              (fn x_c => (fn () => (op_list_is_empty x_c))))))
+        end));
+
+fun check_passed_impl A_ (B1_, B2_, B3_) succsi a_0i fi lei emptyi keyi copyi qi
+  = (fn f_ => fn () => f_ (a_0i ()) ())
+      (fn x =>
+        (fn f_ => fn () => f_ ((emptyi x) ()) ())
+          (fn xa =>
+            (fn f_ => fn () => f_ (a_0i ()) ())
+              (fn xaa =>
+                (fn f_ => fn () => f_ ((fi xaa) ()) ())
+                  (fn xab =>
+                    (fn f_ => fn () => f_
+                      ((if not xa andalso xab
+                         then (fn f_ => fn () => f_
+                                ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
+                                (fn x_b => (fn () => (true, x_b)))
+                         else (fn f_ => fn () => f_ (a_0i ()) ())
+                                (fn xb =>
+                                  (fn f_ => fn () => f_ ((emptyi xb) ()) ())
+                                    (fn x_a =>
+                                      (if x_a
+then (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
+       (fn x_c => (fn () => (false, x_c)))
+else (fn f_ => fn () => f_ (a_0i ()) ())
+       (fn xc =>
+         (fn f_ => fn () => f_ ((keyi xc) ()) ())
+           (fn xd =>
+             (fn f_ => fn () => f_ (a_0i ()) ())
+               (fn xac =>
+                 (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_)) ())
+                   ())
+                   (fn xba =>
+                     (fn f_ => fn () => f_
+                       ((ht_update (B1_, B2_, B3_) (heap_list A_) xd [xac] xba)
+                       ()) ())
+                       (fn xe =>
+                         (fn f_ => fn () => f_ (a_0i ()) ())
+                           (fn xad =>
+                             (fn f_ => fn () => f_
+                               ((heap_WHILET
+                                  (fn (_, (a1b, a2b)) =>
+                                    (fn () =>
+                                      (not a2b andalso
+not (op_list_is_empty a1b))))
+                                  (fn (a1a, (a1b, a2b)) =>
+                                    let
+                                      val (a1c, a2c) =
+(case a1b of [] => cODE_ABORT (fn _ => (hd a1b, tl a1b)) | a :: b => (a, b));
+                                    in
+                                      (fn f_ => fn () => f_ ((emptyi a1c) ())
+())
+(fn x_e =>
+  (if x_e then (fn () => (a1a, (a2c, a2b)))
+    else (fn f_ => fn () => f_ (tRACE_impl ()) ())
+           (fn _ =>
+             (fn f_ => fn () => f_ ((succsi a1c) ()) ())
+               (fn x_g =>
+                 imp_nfoldli x_g (fn (_, (_, b)) => (fn () => (not b)))
+                   (fn xk => fn (a1d, (a1e, _)) =>
+                     (fn f_ => fn () => f_ ((emptyi xk) ()) ())
+                       (fn x_j =>
+                         (if x_j then (fn () => (a1d, (a1e, false)))
+                           else (fn f_ => fn () => f_ ((fi xk) ()) ())
+                                  (fn x_k =>
+                                    (if x_k then (fn () => (a1d, (a1e, true)))
+                                      else (fn f_ => fn () => f_ ((keyi xk) ())
+     ())
+     (fn x_l =>
+       (fn f_ => fn () => f_
+         ((hms_extract (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+            (ht_delete (B1_, B2_, B3_) (heap_list A_)) x_l a1d)
+         ()) ())
+         (fn a =>
+           (case a
+             of (NONE, a2f) =>
+               (fn f_ => fn () => f_ ((copyi xk) ()) ())
+                 (fn xf =>
+                   (fn f_ => fn () => f_
+                     ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l [xf] a2f)
+                     ()) ())
+                     (fn x_n =>
+                       (fn () => (x_n, (op_list_prepend xk a1e, false)))))
+             | (SOME x_n, a2f) =>
+               (fn f_ => fn () => f_ ((lso_bex_impl (lei xk) x_n) ()) ())
+                 (fn x_o =>
+                   (if x_o
+                     then (fn f_ => fn () => f_
+                            ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l x_n
+                               a2f)
+                            ()) ())
+                            (fn x_p => (fn () => (x_p, (a1e, false))))
+                     else (fn f_ => fn () => f_ ((copyi xk) ()) ())
+                            (fn xf =>
+                              (fn f_ => fn () => f_
+                                ((ht_update (B1_, B2_, B3_) (heap_list A_) x_l
+                                   (xf :: x_n) a2f)
+                                ()) ())
+                                (fn x_p =>
+                                  (fn () =>
+                                    (x_p, (op_list_prepend xk a1e,
+    false)))))))))))))))
+                   (a1a, (a2c, false))))))
+                                    end)
+                                  (xe, (op_list_prepend xad [], false)))
+                               ()) ())
+                               (fn (a1a, (_, a2b)) =>
+                                 (fn () => (a2b, a1a)))))))))))))
+                      ()) ())
+                      (fn (_, a2) =>
+                        (fn f_ => fn () => f_
+                          ((ran_of_map_impl (B1_, B2_, B3_) (heap_list A_) a2)
+                          ()) ())
+                          (fn x_a =>
+                            imp_nfoldli x_a (fn sigma => (fn () => (not sigma)))
+                              (fn xd => fn _ =>
+                                imp_nfoldli xd
+                                  (fn sigma => (fn () => (not sigma)))
+                                  (fn xg => fn _ =>
+                                    (fn f_ => fn () => f_ ((qi xg) ()) ())
+                                      (fn x_g =>
+(fn () => (if x_g then true else false))))
+                                  false)
+                              false))))));
+
+fun constraint_clk (LTa (c, uu)) = c
+  | constraint_clk (LEa (c, uv)) = c
+  | constraint_clk (EQa (c, uw)) = c
+  | constraint_clk (GE (c, ux)) = c
+  | constraint_clk (GT (c, uy)) = c;
+
+fun deadlock_checker p m max_steps inv trans prog bounds pred s_0 na k =
+  let
+    val i = upt zero_nata (plus_nata m one_nata);
+    val ia = Set (upt zero_nata p);
+    val ib = upt zero_nata na;
+    val ic = upt zero_nata p;
+    val id = Vector.fromList prog;
+    val ie = Vector.fromList (map (map_option stript) prog);
+    val ifa = Vector.fromList (map (map_option stripf) prog);
+    val ig = size_list prog;
+    val ida = (fn pc => (if less_nat pc ig then sub id pc else NONE));
+    val iea = (fn pc => (if less_nat pc ig then sub ie pc else NONE));
+    val ifb = (fn pc => (if less_nat pc ig then sub ifa pc else NONE));
+    val iga = Vector.fromList bounds;
+    val ih = Vector.fromList (map Vector.fromList (trans_i_map trans));
+    val ii = Vector.fromList (map Vector.fromList (trans_in_map trans));
+    val ij = Vector.fromList (map Vector.fromList (trans_out_map trans));
+    val ik = Vector.fromList (map Vector.fromList inv);
+    val iba =
+      (fn l =>
+        let
+          val (la, s) = l;
+          val ina = all_actions_by_state_impl ic (map (fn _ => []) ib) ii la;
+          val out = all_actions_by_state_impl ic (map (fn _ => []) ib) ij la;
+        in
+          maps (fn a =>
+                 pairs_by_action_impl p max_steps pred ifb iea ida iga (la, s)
+                   (nth out a) (nth ina a))
+            ib
+        end @
+          maps (trans_i_from_impl p max_steps pred bounds ifb iea ida iga ih l)
+            ic);
+    val idb =
+      Vector.fromList
+        (map (Vector.fromList o map (Vector.fromList o map int_of_nat)) k);
+    val key = (fn a => (fn () => a)) o fst;
+    val suba =
+      (fn ai => fn bi =>
+        let
+          val (a1, a2) = ai;
+          val (a1a, a2a) = bi;
+        in
+          (if equal_proda (equal_list equal_nat) (equal_list equal_int) a1 a1a
+            then dbm_subset_impl
+                   (linordered_cancel_ab_monoid_add_int, equal_int, heap_int) m
+                   a2 a2a
+            else (fn () => false))
+        end);
+    val copy =
+      (fn (a1, a2) =>
+        (fn f_ => fn () => f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ()) ())
+          (fn x => (fn () => (a1, x))));
+    val start =
+      (fn f_ => fn () => f_
+        ((amtx_dflt (heap_DBMEntry heap_int) (suc m) (suc m) (Le zero_inta)) ())
+        ())
+        (fn x_a => (fn () => ((init p, s_0), x_a)));
+    val final = (fn _ => (fn () => false));
+    val succs =
+      (fn (a1, a2) =>
+        imp_nfoldli (iba a1) (fn _ => (fn () => true))
+          (fn xc => fn sigma =>
+            let
+              val (a1a, (_, (a1c, a2c))) = xc;
+            in
+              (fn f_ => fn () => f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ())
+                ())
+                (fn x =>
+                  (fn f_ => fn () => f_
+                    (((fn f_ => fn () => f_
+                        ((up_canonical_upd_impl
+                           (linordered_cancel_ab_monoid_add_int, heap_int) m x
+                           m)
+                        ()) ())
+                       (fn xa =>
+                         (fn f_ => fn () => f_
+                           ((imp_nfoldli
+                              let
+                                val (l, _) = a1;
+                              in
+                                maps (fn il => sub (sub ik il) (nth l il)) ic
+                              end
+                              (fn _ => (fn () => true))
+                              (fn ai => fn bi =>
+                                (fn f_ => fn () => f_
+                                  ((abstra_upd_impl
+                                     (linordered_cancel_ab_monoid_add_int,
+                                       uminus_int, equal_int, heap_int)
+                                     m ai bi)
+                                  ()) ())
+                                  (fn xb =>
+                                    repair_pair_impl
+                                      (linordered_ab_monoid_add_DBMEntry
+ (linordered_cancel_ab_monoid_add_int, equal_int),
+heap_DBMEntry heap_int)
+                                      m xb zero_nata (constraint_clk ai)))
+                              xa)
+                           ()) ())
+                           (fn xb =>
+                             (fn f_ => fn () => f_
+                               ((check_diag_impla
+                                  (linordered_cancel_ab_monoid_add_int,
+                                    heap_int)
+                                  m m xb)
+                               ()) ())
+                               (fn xaa =>
+                                 (fn f_ => fn () => f_
+                                   ((if xaa then (fn () => xb)
+                                      else imp_nfoldli a1a
+     (fn _ => (fn () => true))
+     (fn ai => fn bi =>
+       (fn f_ => fn () => f_
+         ((abstra_upd_impl
+            (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int,
+              heap_int)
+            m ai bi)
+         ()) ())
+         (fn xd =>
+           repair_pair_impl
+             (linordered_ab_monoid_add_DBMEntry
+                (linordered_cancel_ab_monoid_add_int, equal_int),
+               heap_DBMEntry heap_int)
+             m xd zero_nata (constraint_clk ai)))
+     xb)
+                                   ()) ())
+                                   (fn x_a =>
+                                     (fn f_ => fn () => f_
+                                       ((check_diag_impla
+  (linordered_cancel_ab_monoid_add_int, heap_int) m m x_a)
+                                       ()) ())
+                                       (fn xd =>
+ (fn f_ => fn () => f_
+   ((if xd then (fn () => x_a)
+      else (fn f_ => fn () => f_
+             ((imp_nfoldli a1c (fn _ => (fn () => true))
+                (fn xca => fn sigmaa =>
+                  reset_canonical_upd_impl
+                    (linordered_cancel_ab_monoid_add_int, uminus_int, heap_int)
+                    m sigmaa m xca zero_inta)
+                x_a)
+             ()) ())
+             (imp_nfoldli let
+                            val (l, _) = a2c;
+                          in
+                            maps (fn il => sub (sub ik il) (nth l il)) ic
+                          end
+               (fn _ => (fn () => true))
+               (fn ai => fn bi =>
+                 (fn f_ => fn () => f_
+                   ((abstra_upd_impl
+                      (linordered_cancel_ab_monoid_add_int, uminus_int,
+                        equal_int, heap_int)
+                      m ai bi)
+                   ()) ())
+                   (fn xe =>
+                     repair_pair_impl
+                       (linordered_ab_monoid_add_DBMEntry
+                          (linordered_cancel_ab_monoid_add_int, equal_int),
+                         heap_DBMEntry heap_int)
+                       m xe zero_nata (constraint_clk ai)))))
+   ()) ())
+   (fn x_b =>
+     (fn f_ => fn () => f_
+       ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m
+          x_b)
+       ()) ())
+       (fn x_c =>
+         (if x_c then (fn () => x_b)
+           else (fn f_ => fn () => f_
+                  ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
+                     let
+                       val (l, _) = a2c;
+                     in
+                       Vector.fromList
+                         (map (fn c =>
+                                maxa linorder_int
+                                  (image
+                                    (fn il =>
+                                      sub (sub (sub idb il) (nth l il)) c)
+                                    ia))
+                           i)
+                     end
+                     m)
+                  ()) ())
+                  (fw_impl_int m))))))))))
+                    ()) ())
+                    (fn xa => (fn () => (op_list_prepend (a2c, xa) sigma))))
+            end)
+          []);
+    val empty =
+      (fn (_, a) =>
+        check_diag_impl (linordered_cancel_ab_monoid_add_int, heap_int) m a);
+    val pa =
+      (fn (a1, a2) =>
+        (fn f_ => fn () => f_
+          (((fn f_ => fn () => f_
+              ((imp_nfoldli (iba a1) (fn _ => (fn () => true))
+                 (fn xb => fn sigma =>
+                   (fn f_ => fn () => f_
+                     ((v_dbm_impl
+                        (linordered_cancel_ab_monoid_add_int, heap_int) m)
+                     ()) ())
+                     (fn x =>
+                       (fn f_ => fn () => f_
+                         ((abstr_FW_impl
+                            (linordered_cancel_ab_monoid_add_int, uminus_int,
+                              equal_int, heap_int)
+                            m let
+                                val (l, _) = snd (snd (snd xb));
+                              in
+                                maps (fn il => sub (sub ik il) (nth l il)) ic
+                              end
+                            x)
+                         ()) ())
+                         (fn xa =>
+                           (fn f_ => fn () => f_
+                             ((pre_reset_list_impl m xa (fst (snd (snd xb))))
+                             ()) ())
+                             (fn xc =>
+                               (fn f_ => fn () => f_
+                                 ((abstr_FW_impl
+                                    (linordered_cancel_ab_monoid_add_int,
+                                      uminus_int, equal_int, heap_int)
+                                    m (fst xb) xc)
+                                 ()) ())
+                                 (fn xd =>
+                                   (fn f_ => fn () => f_
+                                     ((abstr_FW_impl
+(linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
+let
+  val (l, _) = a1;
+in
+  maps (fn il => sub (sub ik il) (nth l il)) ic
+end
+xd)
+                                     ()) ())
+                                     (fn xe =>
+                                       (fn f_ => fn () => f_
+ ((down_impl (linordered_cancel_ab_monoid_add_int, equal_int, heap_int) m xe)
+ ()) ())
+ (fn x_c => (fn () => (x_c :: sigma)))))))))
+                 [])
+              ()) ())
+             (fn x => dbm_subset_fed_impl m a2 (op_list_rev x)))
+          ()) ())
+          (fn x => (fn () => (not x))));
+  in
+    (fn f_ => fn () => f_
+      ((fn () => (not (op_list_is_empty (iba (init p, s_0))))) ()) ())
+      (fn r1 =>
+        (if r1
+          then (fn f_ => fn () => f_
+                 ((check_passed_impl
+                    (heap_prod
+                      (heap_prod (heap_list heap_nat) (heap_list heap_int))
+                      (heap_array (typerep_DBMEntry typerep_int)))
+                    (equal_prod (equal_list equal_nat) (equal_list equal_int),
+                      hashable_prod (hashable_list hashable_nat)
+                        (hashable_list hashable_int),
+                      heap_prod (heap_list heap_nat) (heap_list heap_int))
+                    succs start final suba empty key copy pa)
+                 ()) ())
+                 (fn a => (fn () => a))
+          else (fn () => true)))
+  end;
+
+fun precond_dc num_processes num_clocks clock_ceiling max_steps i t prog bounds
+  program s_0 num_actions =
+  (if uPPAAL_Reachability_Problem_precompileda num_processes num_clocks
+        max_steps i t prog bounds program s_0 num_actions clock_ceiling
+    then (fn f_ => fn () => f_
+           ((deadlock_checker num_processes num_clocks max_steps i t prog bounds
+              program s_0 num_actions clock_ceiling)
+           ()) ())
+           (fn x => (fn () => (SOME x)))
+    else (fn () => NONE));
+
+fun gi_E (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_E;
+
+fun more (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = more;
+
+fun as_is_empty s = equal_nata (snd s) zero_nata;
+
+fun gi_V0 (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_V0;
+
+fun ceiling_checks x =
+  (fn p => fn m => fn max_steps => fn inv => fn trans => fn prog => fn k =>
+    [("Length of ceilig", equal_nata (size_list k) p),
+      ("1", all_interval_nat
+              (fn i =>
+                all_interval_nat
+                  (fn l =>
+                    ball (clkp_seta max_steps inv trans prog i l)
+                      (fn (xa, ma) =>
+                        less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
+                  zero_nata (size_list (nth trans i)))
+              zero_nata p),
+      ("2", all_interval_nat
+              (fn i =>
+                all_interval_nat
+                  (fn l =>
+                    ball (collect_clock_pairs (nth (nth inv i) l))
+                      (fn (xa, ma) =>
+                        less_eq_int ma (int_of_nat (nth (nth (nth k i) l) xa))))
+                  zero_nata (size_list (nth trans i)))
+              zero_nata p),
+      ("3", all_interval_nat
+              (fn i =>
+                all_interval_nat
+                  (fn l =>
+                    list_all
+                      (fn (_, (_, (r, la))) =>
+                        ball (minus_set equal_nat
+                               (Set (upt zero_nata (plus_nata m one_nata)))
+                               (image fst (collect_storea prog r)))
+                          (fn c =>
+                            less_eq_nat (nth (nth (nth k i) la) c)
+                              (nth (nth (nth k i) l) c)))
+                      (nth (nth trans i) l))
+                  zero_nata (size_list (nth trans i)))
+              zero_nata p),
+      ("4", all_interval_nat
+              (fn i =>
+                equal_nata (size_list (nth k i)) (size_list (nth trans i)))
+              zero_nata p),
+      ("5", list_all
+              (list_all
+                (fn xxs => equal_nata (size_list xxs) (plus_nata m one_nata)))
+              k),
+      ("6", all_interval_nat
+              (fn i =>
+                all_interval_nat
+                  (fn l =>
+                    equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
+                  zero_nata (size_list (nth trans i)))
+              zero_nata p),
+      ("7", all_interval_nat
+              (fn i =>
+                all_interval_nat
+                  (fn l =>
+                    list_all
+                      (fn (_, (_, (r, _))) =>
+                        guaranteed_execution_cond equal_int prog r max_steps)
+                      (nth (nth trans i) l))
+                  zero_nata (size_list (nth trans i)))
+              zero_nata p)])
+    x;
+
+fun select_edge_tr (A1_, A2_) s =
+  let
+    val (a, (aa, (ab, bb))) = s;
+  in
+    (if as_is_empty bb then (NONE, (a, (aa, (ab, bb))))
+      else let
+             val (ac, bc) = as_top bb;
+           in
+             (if less_eq_nat (as_get aa (minus_nat (as_length aa) one_nata)) ac
+               then let
+                      val xa = gen_pick (fn x => foldli (id x)) bc;
+                      val xb = glist_delete (eq A1_) xa bc;
+                      val xc =
+                        (if is_Nil xb then as_pop bb
+                          else as_set bb (minus_nat (as_length bb) one_nata)
+                                 (ac, xb));
+                    in
+                      (SOME xa, (a, (aa, (ab, xc))))
+                    end
+               else (NONE, (a, (aa, (ab, bb)))))
+           end)
+  end;
+
+fun ahm_lookup_aux eq bhc k a =
+  list_map_lookup eq k (array_get a (bhc (array_length a) k));
+
+fun ahm_lookup eq bhc k (HashMap (a, uu)) = ahm_lookup_aux eq bhc k a;
+
+fun idx_of_tr (A1_, A2_) s v =
+  let
+    val (_, (aa, (ab, _))) = v;
+    val x = let
+              val SOME i = ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) s ab;
+              val true = less_eq_int zero_inta i;
+            in
+              nat i
+            end;
+    val xa = find_max_nat (as_length aa) (fn j => less_eq_nat (as_get aa j) x);
+  in
+    xa
+  end;
+
+fun collapse_tr (A1_, A2_) v s =
+  let
+    val (a, (aa, (ab, bb))) = s;
+    val x = idx_of_tr (A1_, A2_) v (a, (aa, (ab, bb)));
+    val xa = as_take (plus_nata x one_nata) aa;
+  in
+    (a, (xa, (ab, bb)))
+  end;
+
+fun as_singleton B_ x = (FArray.IsabelleMapping.array_of_list [x], one B_);
+
+fun new_hashmap_with size = HashMap (new_array [] size, zero_nata);
+
+fun ahm_empty def_size = new_hashmap_with def_size;
+
+fun push_code (A1_, A2_) g_impl =
+  (fn x => fn (xa, (xb, (xc, xd))) =>
+    let
+      val _ = Gabow_Skeleton_Statistics.newnode ();
+      val y_a = as_length xa;
+      val y_b = as_push xa x;
+      val y_c = as_push xb y_a;
+      val y_d =
+        ahm_update (eq A1_) (bounded_hashcode_nat A2_) x (int_of_nat y_a) xc;
+      val y_e =
+        (if is_Nil (gi_E g_impl x) then xd
+          else as_push xd (y_a, gi_E g_impl x));
+    in
+      (y_b, (y_c, (y_d, y_e)))
+    end);
+
+fun compute_SCC_tr (A1_, A2_) g =
+  let
+    val _ = Gabow_Skeleton_Statistics.start ();
+    val xa = ([], ahm_empty (def_hashmap_size A2_ Type));
+    val a =
+      foldli (id (gi_V0 g)) (fn _ => true)
+        (fn xb => fn (a, b) =>
+          (if not (case ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) xb b
+                    of NONE => false
+                    | SOME i =>
+                      (if less_eq_int zero_inta i then false else true))
+            then let
+                   val xc =
+                     (a, (as_singleton one_nat xb,
+                           (as_singleton one_nat zero_nata,
+                             (ahm_update (eq A1_) (bounded_hashcode_nat A2_) xb
+                                (int_of_nat zero_nata) b,
+                               (if is_Nil (gi_E g xb) then as_empty zero_nat ()
+                                 else as_singleton one_nat
+(zero_nata, gi_E g xb))))));
+                   val (aa, (_, (_, (ad, _)))) =
+                     whilea
+                       (fn (_, xf) =>
+                         not (as_is_empty let
+    val (xg, (_, (_, _))) = xf;
+  in
+    xg
+  end))
+                       (fn (aa, ba) =>
+                         (case select_edge_tr (A1_, A2_) ba
+                           of (NONE, bb) => let
+      val xf = last_seg_tr A2_ bb;
+      val xg = pop_tr (A1_, A2_) bb;
+      val xh = xf :: aa;
+    in
+      (xh, xg)
+    end
+                           | (SOME xf, bb) =>
+                             (if (case ahm_lookup (eq A1_)
+ (bounded_hashcode_nat A2_) xf let
+                                 val (_, (_, (xl, _))) = bb;
+                               in
+                                 xl
+                               end
+                                   of NONE => false
+                                   | SOME i =>
+                                     (if less_eq_int zero_inta i then true
+                                       else false))
+                               then let
+                                      val ab = collapse_tr (A1_, A2_) xf bb;
+                                    in
+                                      (aa, ab)
+                                    end
+                               else (if not
+  (case ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) xf
+          let
+            val (_, (_, (xl, _))) = bb;
+          in
+            xl
+          end
+    of NONE => false
+    | SOME i => (if less_eq_int zero_inta i then false else true))
+                                      then (aa, push_code (A1_, A2_) g xf bb)
+                                      else (aa, bb)))))
+                       xc;
+                 in
+                   (aa, ad)
+                 end
+            else (a, b)))
+        xa;
+    val (aa, _) = a;
+    val _ = Gabow_Skeleton_Statistics.stop ();
+  in
+    aa
+  end;
+
+fun check_bexp (Not a) l s = not (check_bexp a l s)
+  | check_bexp (And (a, b)) l s = check_bexp a l s andalso check_bexp b l s
+  | check_bexp (Or (a, b)) l s = check_bexp a l s orelse check_bexp b l s
+  | check_bexp (Imply (a, b)) l s =
+    (if check_bexp a l s then check_bexp b l s else true)
+  | check_bexp (Loc (p, la)) l uu = equal_nata (nth l p) la
+  | check_bexp (Eq (i, x)) uv s = equal_inta (nth s i) x
+  | check_bexp (Lea (i, x)) uw s = less_eq_int (nth s i) x
+  | check_bexp (Lta (i, x)) ux s = less_int (nth s i) x
+  | check_bexp (Ge (i, x)) uy s = less_eq_int x (nth s i)
+  | check_bexp (Gt (i, x)) uz s = less_int x (nth s i);
+
+fun hd_of_formula (EX phi) = check_bexp phi
+  | hd_of_formula (EG phi) = check_bexp phi
+  | hd_of_formula (AX phi) = (fn x => not o check_bexp phi x)
+  | hd_of_formula (AG phi) = (fn x => not o check_bexp phi x)
+  | hd_of_formula (Leadsto (phi, uu)) = check_bexp phi;
+
 fun reachability_checker p m max_steps inv trans prog bounds pred s_0 na k
   formula =
   let
-    val i = upt zero_nata (plus_nat m one_nata);
+    val i = upt zero_nata (plus_nata m one_nata);
     val ia = Set (upt zero_nata p);
     val ib = upt zero_nata na;
     val ic = upt zero_nata p;
@@ -4447,7 +5147,7 @@ fun reachability_checker p m max_steps inv trans prog bounds pred s_0 na k
 
 fun leadsto_checker p m max_steps inv trans prog bounds pred s_0 na k formula =
   let
-    val i = upt zero_nata (plus_nat m one_nata);
+    val i = upt zero_nata (plus_nata m one_nata);
     val ia = Set (upt zero_nata p);
     val ib = upt zero_nata na;
     val ic = upt zero_nata p;
@@ -5033,7 +5733,7 @@ fun dfs_map_impl A_ (B1_, B2_, B3_) succsi a_0i lei keyi copyi =
 
 fun alw_ev_checker p m max_steps inv trans prog bounds pred s_0 na k formula =
   let
-    val i = upt zero_nata (plus_nat m one_nata);
+    val i = upt zero_nata (plus_nata m one_nata);
     val ia = Set (upt zero_nata p);
     val ib = upt zero_nata na;
     val ic = upt zero_nata p;

@@ -1,7 +1,7 @@
-*** UPPAAL_Model_Checker.sml	2017-10-23 16:39:44.643351300 +0200
---- UPPAAL_Model_Checker_patched.sml	2017-10-23 16:39:28.372164600 +0200
+*** UPPAAL_Model_Checker.sml	Tue Jul 24 20:55:42 2018
+--- UPPAAL_Model_Checker_patched.sml	Tue Jul 24 20:59:17 2018
 ***************
-*** 357,394 ****
+*** 369,406 ****
   end; (*struct Bits_Integer*)
   
   
@@ -39,8 +39,8 @@
   structure Model_Checker : sig
     datatype int = Int_of_integer of IntInf.int
     val integer_of_int : int -> IntInf.int
-    datatype 'a itself = Type
---- 357,364 ----
+    type nat
+--- 369,376 ----
   end; (*struct Bits_Integer*)
   
   
@@ -48,10 +48,10 @@
 +   val debug_level: int Unsynchronized.ref
     datatype int = Int_of_integer of IntInf.int
     val integer_of_int : int -> IntInf.int
-    datatype 'a itself = Type
+    type nat
 ***************
-*** 481,486 ****
---- 451,458 ----
+*** 477,482 ****
+--- 447,454 ----
                 (int instrc option) list -> ((int list) list) list
   end = struct
   
@@ -61,17 +61,17 @@
   
   fun integer_of_int (Int_of_integer k) = k;
 ***************
-*** 3037,3043 ****
+*** 4822,4828 ****
   fun push_code (A1_, A2_) g_impl =
     (fn x => fn (xa, (xb, (xc, xd))) =>
       let
 -       val _ = Gabow_Skeleton_Statistics.newnode ();
-        val xf = as_length xa;
-        val xg = as_push xa x;
-        val xh = as_push xb xf;
---- 3009,3014 ----
+        val y_a = as_length xa;
+        val y_b = as_push xa x;
+        val y_c = as_push xb y_a;
+--- 4794,4799 ----
 ***************
-*** 3051,3057 ****
+*** 4837,4843 ****
   
   fun compute_SCC_tr (A1_, A2_) g =
     let
@@ -79,9 +79,9 @@
       val xa = ([], ahm_empty (def_hashmap_size A2_ Type));
       val a =
         foldli (id (gi_V0 g)) (fn _ => true)
---- 3022,3027 ----
+--- 4808,4813 ----
 ***************
-*** 3120,3126 ****
+*** 4906,4912 ****
               else (a, b)))
           xa;
       val (aa, _) = a;
@@ -89,4 +89,4 @@
     in
       aa
     end;
---- 3090,3095 ----
+--- 4876,4881 ----
