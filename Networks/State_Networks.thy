@@ -1,6 +1,6 @@
 theory State_Networks
   imports Networks TA_Impl.Normalized_Zone_Semantics_Impl
-    "library/Reordering_Quantifiers"
+    "../library/Reordering_Quantifiers"
 begin
 
 chapter \<open>Networks of Timed Automata with Discrete State\<close>

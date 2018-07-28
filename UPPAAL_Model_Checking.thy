@@ -1,7 +1,7 @@
 theory UPPAAL_Model_Checking
   imports
-    UPPAAL_State_Networks_Impl_Refine
-    "HOL-Library.BNF_Corec"
+    "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
+    (* "HOL-Library.BNF_Corec" *)
     TA_Impl.TA_More
 begin
 
