@@ -1,5 +1,5 @@
 theory UPPAAL_State_Networks_Impl_Refine_Calc
-  imports UPPAAL_State_Networks_Impl_Refine Gabow_SCC.Gabow_SCC_Code
+  imports "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine" Gabow_SCC.Gabow_SCC_Code
 begin
 
 term "compute_SCC_code \<lparr> gi_V = (\<lambda> x. True), gi_E = (\<lambda> x. [3]), gi_V0 = [1], \<dots> = 3 \<rparr>"

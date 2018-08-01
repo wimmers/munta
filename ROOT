@@ -38,7 +38,7 @@ session "TA_All_Pre" = "TA_Impl_Refine_Calc_Prereq" +
   theories [document = false]
     "library/ML_Util"
   theories
-    UPPAAL_State_Networks_Impl_Refine
+    "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
 *)
 
 (* Use this to get document output for the implementation of Reachability Checking *)
@@ -55,7 +55,7 @@ session "TA_All" = "TA_Impl" +
     "TA.Stream_More"
     "HOL-Library.IArray"
   theories
-    UPPAAL_State_Networks_Impl_Refine
+    "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
     "TA.Simulation_Graphs"
     TA_More
     Infinite_TA_Runs
