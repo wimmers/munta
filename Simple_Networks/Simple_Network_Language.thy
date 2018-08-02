@@ -110,11 +110,13 @@ where
       \<forall>p \<in> set ps. (ls p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p);
       l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p)) \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
       u \<turnstile> g; \<forall>p \<in> set ps. u \<turnstile> gs p;
+      \<forall>p < length N. p \<notin> set ps \<longrightarrow> (\<forall> g f r l'. (L!p, g, In a, f, r, l') \<in> trans (N ! p) \<longrightarrow> \<not> u \<turnstile> g);
       \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       L!p = l;
-      p < length L; set ps \<subseteq> {0..length N}; p \<notin> set ps;
-      distinct ps; sorted ps;
-      L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l']; u' = [r@concat (map rs ps)\<rightarrow>0]u; is_upd s f s'; is_upds s' (map fs ps) s'';
+      p < length L; set ps \<subseteq> {0..length N}; p \<notin> set ps; ps \<noteq> []; distinct ps; sorted ps;
+      L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'];
+      u' = [r@concat (map rs ps)\<rightarrow>0]u;
+      is_upd s f s'; is_upds s' (map fs ps) s'';
       bounded B s''
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Broad a\<^esub> \<langle>L', s'', u'\<rangle>"
@@ -207,9 +209,9 @@ definition
       (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
       (\<forall>p \<in> set ps. (ls p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
       (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p)) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
+      (\<forall>p < n_ps. p \<notin> set ps \<longrightarrow> \<not> (\<exists>g f r l'. (L ! p, g, In a, f, r, l') \<in> trans (N p))) \<and>
       L!p = l \<and>
-      p < length L \<and> set ps \<subseteq> {0..n_ps} \<and> p \<notin> set ps \<and>
-      distinct ps \<and> sorted ps \<and>
+      p < length L \<and> set ps \<subseteq> {0..n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       bounded bounds s'' \<and> L \<in> states
     }"
@@ -254,7 +256,9 @@ lemma state_preservation_fold_updI:
 end (* Prod TA Defs *)
 
 locale Prod_TA=
-  Prod_TA_Defs A for A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta"
+  Prod_TA_Defs A for A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta" +
+  assumes broadcast_receivers_unguarded:
+    "\<forall>p < n_ps. \<forall> l g a f r l'. (l, g, In a, f, r, l') \<in> trans (N p) \<and> a \<in> broadcast \<longrightarrow> g = []"
 begin
 
 lemma prod_invI[intro]:
@@ -332,9 +336,21 @@ next
   let ?r = "r @ concat (map rs ps)" and ?g = "g @ concat (map gs ps)"
   have "prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>?g,Broad a',?r\<^esup> (L', s')"
   proof -
+    have *: "\<not> u \<turnstile> g \<longleftrightarrow> False" if
+      "p < n_ps" "(l, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
+      "a' \<in> broadcast"
+      for l g a' f r l' p
+    proof -
+      from that broadcast_receivers_unguarded have \<open>g = []\<close>
+        by blast
+      then show ?thesis
+        by auto
+    qed
     from prems \<open>L \<in> states\<close> have "((L, s),?g,Broad a',?r,(L', s')) \<in> trans_broad"
-      unfolding trans_broad_def by (auto intro!: exI)
-    then show ?thesis
+      unfolding trans_broad_def
+      by clarsimp
+         (intro exI conjI HOL.refl; (rule HOL.refl | assumption | fastforce simp: *))
+   then show ?thesis
       unfolding prod_ta_def trans_of_def trans_prod_def by simp
   qed
   moreover have "u \<turnstile> ?g"
