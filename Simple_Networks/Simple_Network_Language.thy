@@ -107,13 +107,14 @@ where
     "\<lbrakk>
       a \<in> broadcast;
       (l, g, Out a, f, r, l') \<in> trans (N ! p);
-      \<forall>p \<in> set ps. (ls p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p);
-      l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p)) \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
+      \<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p);
+      l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p))
+      \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
       u \<turnstile> g; \<forall>p \<in> set ps. u \<turnstile> gs p;
       \<forall>p < length N. p \<notin> set ps \<longrightarrow> (\<forall> g f r l'. (L!p, g, In a, f, r, l') \<in> trans (N ! p) \<longrightarrow> \<not> u \<turnstile> g);
       \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       L!p = l;
-      p < length L; set ps \<subseteq> {0..length N}; p \<notin> set ps; ps \<noteq> []; distinct ps; sorted ps;
+      p < length L; set ps \<subseteq> {0..<length N}; p \<notin> set ps; ps \<noteq> []; distinct ps; sorted ps;
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'];
       u' = [r@concat (map rs ps)\<rightarrow>0]u;
       is_upd s f s'; is_upds s' (map fs ps) s'';
@@ -204,14 +205,14 @@ definition
 definition
   "trans_broad =
     {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
-    L s L' s' s'' a p l g f r l' ls gs fs rs ls' ps.
+    L s L' s' s'' a p l g f r l' gs fs rs ls' ps.
       a \<in> broadcast  \<and>
       (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
-      (\<forall>p \<in> set ps. (ls p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
+      (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
       (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p)) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
       (\<forall>p < n_ps. p \<notin> set ps \<longrightarrow> \<not> (\<exists>g f r l'. (L ! p, g, In a, f, r, l') \<in> trans (N p))) \<and>
       L!p = l \<and>
-      p < length L \<and> set ps \<subseteq> {0..n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+      p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       bounded bounds s'' \<and> L \<in> states
     }"
@@ -326,7 +327,7 @@ next
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_broad a' broadcast' l g f r l' N' p ps ls gs fs rs ls' s'' B)
+  case prems: (step_broad a' broadcast' l g f r l' N' p ps gs fs rs ls' s'' B)
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
@@ -456,7 +457,7 @@ next
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems: (step_broad a broadcast l g f r l' N' p ps ls gs fs rs ls' s' B)
+  case prems: (step_broad a broadcast l g f r l' N' p ps gs fs rs ls' s' B)
   from \<open>A = _\<close> prems(4, 5) have
     "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
     "\<forall> q \<in> set ps. ls' q \<in> UNION (trans (N q)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
