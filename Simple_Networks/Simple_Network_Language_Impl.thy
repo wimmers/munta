@@ -715,7 +715,7 @@ definition make_combs where
           else Some (map (\<lambda>t. (i, t)) (xs ! i ! a))
         )
         [0..<n_ps]
-    in product_lists ys
+    in if ys = [] then [] else product_lists ys
   "
 
 definition
@@ -1688,10 +1688,11 @@ lemma make_combs_alt_def:
         (filter
           (\<lambda>i. xs ! i ! a \<noteq> [] \<and> i \<noteq> p)
           [0..<n_ps])
-    in product_lists ys"
+    in if ys = [] then [] else product_lists ys"
   apply (rule eq_reflection)
   unfolding make_combs_def
   apply (simp add: map_filter_def comp_def if_distrib[where f = the])
+  apply intros
   apply (fo_rule arg_cong)
   apply auto
   done
@@ -1812,7 +1813,8 @@ proof -
         a \<in> set broadcast \<and>
         (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
         (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
-        (\<forall>p < n_ps. p \<notin> set ps \<longrightarrow> \<not> (\<exists>g f r l'. (L ! p, g, In a, f, r, l') \<in> trans (N p))) \<and>
+        (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+          \<not> (\<exists>g f r l'. (L ! q, g, In a, f, r, l') \<in> trans (N q))) \<and>
         L!p = l \<and>
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
         L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
@@ -1858,8 +1860,8 @@ proof -
       if
       "\<forall>p\<in>set ps.
        (L ! p, gs p, In a', fs p, rs p, ls' p) \<in> Simple_Network_Language.trans (N p)"
-      "\<forall>p<n_ps. p \<notin> set ps \<longrightarrow>
-       (\<forall>g f r l'. (L ! p, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N p))"
+      "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+       (\<forall>g f r l'. (L ! q, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N q))"
       "p < n_ps"
       "set ps \<subseteq> {0..<n_ps}" "p \<notin> set ps" "distinct ps" "sorted ps" "ps \<noteq> []"
       "a' < num_actions" "a' \<in> set broadcast"
@@ -1891,6 +1893,8 @@ proof -
         by auto
       then have "length ys = length ps"
         unfolding ys_def map_filter_def by simp
+      from \<open>_ = ps\<close> \<open>ps \<noteq> []\<close> have "ys \<noteq> []"
+        unfolding ys_def map_filter_def by simp
       have "\<forall>i<length ps. let p = ps ! i in (p, gs p, a', fs p, rs p, ls' p) \<in> set (ys ! i)"
         unfolding ys_def Let_def map_filter_def
         apply (simp add: comp_def)
@@ -1905,23 +1909,21 @@ proof -
          apply (rule HOL.refl)
         apply (rule IN_I)
         by (auto simp: subset_code(1))
-      then show ?thesis
-        unfolding make_combs_def ys_def[symmetric] Let_def product_lists_set
-        by (auto simp: \<open>length ys = _\<close> intro:list_all2_all_nthI)
+      with \<open>ys \<noteq> []\<close> show ?thesis
+        unfolding make_combs_def ys_def[symmetric] Let_def
+        by (auto simp: \<open>length ys = _\<close> product_lists_set intro:list_all2_all_nthI)
     qed
     have make_combsI:
-      "\<forall>p\<in>set ps.
-       (L ! p, gs p, In a', fs p, rs p, ls' p) \<in> Simple_Network_Language.trans (N p)"
-      "\<forall>p<n_ps. p \<notin> set ps \<longrightarrow>
-       (\<forall>g f r l'. (L ! p, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N p))"
-      "set ps \<subseteq> {0..<n_ps}" "p \<notin> set ps" "distinct ps" "sorted ps" "ps \<noteq> []"
-      "a' \<in> set broadcast"
-      if
-      "xs \<in> set (make_combs p a' IN)"
-      "p < n_ps" "a' < num_actions"
+      "\<exists> ps gs fs rs ls'.
+      (\<forall>p\<in>set ps.
+       (L ! p, gs p, In a', fs p, rs p, ls' p) \<in> Simple_Network_Language.trans (N p)) \<and>
+      (\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+       (\<forall>g f r l'. (L ! q, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N q))) \<and>
+      set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and> a' \<in> set broadcast
+      \<and> xs = map (\<lambda> p. (p, gs p, a', fs p, rs p, ls' p)) ps"
+      if "xs \<in> set (make_combs p a' IN)" "p < n_ps" "a' < num_actions"
     for xs p a'
     proof -
-      term "map_of xs"
       define ps gs fs rs ls'
         where defs:
         "ps = map fst xs"
@@ -1935,27 +1937,25 @@ proof -
           using that
           unfolding defs make_combs_alt_def Let_def
           by (auto simp: set_map_filter product_lists_set list_all2_map2 list.rel_eq
-              dest: list_all2_map_fst_aux)
+              dest: list_all2_map_fst_aux split: if_split_asm)
         subgoal
           using that unfolding defs make_combs_alt_def Let_def
-          by (auto simp: set_map_filter product_lists_set dest!: list_all2_set1)
+          by (auto simp: set_map_filter product_lists_set dest!: list_all2_set1 split: if_split_asm)
         subgoal
           using that
           unfolding defs make_combs_alt_def Let_def
           by (auto
               simp: set_map_filter product_lists_set list_all2_map2 list.rel_eq
-              dest!: map_eq_imageD list_all2_map_fst_aux)
+              dest!: map_eq_imageD list_all2_map_fst_aux split: if_split_asm)
         subgoal
           by simp
         done
       then have "set ps \<subseteq> {0..<n_ps}" "p \<notin> set ps" "distinct ps" "sorted ps"
         by (auto intro: sorted_filter')
-      have "ps \<noteq> []"
-        sorry
       have to_map: "a' = a" "the (map_of xs q) = (g, a, r, f, l')" if
         "(q, g, a, r, f, l') \<in> set xs" for q g a r f l'
         using that \<open>xs \<in> _\<close> \<open>p < n_ps\<close>
-         apply (auto simp: make_combs_alt_def product_lists_set \<open>_ = ps\<close>)
+         apply (auto simp: make_combs_alt_def product_lists_set \<open>_ = ps\<close> split: if_split_asm)
          apply (auto simp: list_all2_map2)
          apply (drule list_all2_set1)
          apply (drule bspec, assumption)
@@ -1972,46 +1972,27 @@ proof -
       from that have "\<forall>p\<in>set ps.
        (L ! p, gs p, In a', fs p, rs p, ls' p) \<in> Simple_Network_Language.trans (N p)"
         unfolding make_combs_alt_def \<open>_ = ps\<close>
-        apply (auto simp: set_map_filter product_lists_set)
+        apply (auto simp: set_map_filter product_lists_set split: if_split_asm)
         apply (erule IN_D[THEN conjunct1, rotated])
         subgoal
           using \<open>set ps \<subseteq> _\<close> by auto
         subgoal for q
-          unfolding defs
-          apply (auto simp: comp_def list_all2_map2 list_all2_same to_map)
-          done
+          unfolding defs by (auto simp: comp_def list_all2_map2 list_all2_same to_map)
         done
-      from that have "\<forall>p<n_ps. p \<notin> set ps \<longrightarrow>
-       (\<forall>g f r l'. (L ! p, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N p))"
-unfolding make_combs_alt_def \<open>_ = ps\<close>
-        apply (auto simp: set_map_filter product_lists_set)
-        apply (erule IN_D[THEN conjunct1, rotated])
-        subgoal
-          using \<open>set ps \<subseteq> _\<close> by auto
-        subgoal for q
-          unfolding defs
-          apply (auto simp: comp_def list_all2_map2 list_all2_same to_map)
-          done
-        done
-          apply (cases "xs ! q")
-          apply auto
-          apply (auto simp: comp_def list_all2_map2 list_all2_same)
-
-        thm IN_D[THEN conjunct1]
-        oops
-        apply (subst (asm) (2) in_set_conv_nth)
-        apply elims
-        thm list_all2_all_nthI list_all2_nthD2
-        apply (frule list_all2_nthD)
-         apply (simp add: defs)
-        unfolding set_map_filter
-        thm set_map_filter
-apply (auto simp: set_map_filter)
-        thm in_set_conv_nth
-
-
+      from that have "ps \<noteq> []" "a' \<in> set broadcast"
+        unfolding make_combs_alt_def
+        apply (auto simp: set_map_filter product_lists_set split: if_split_asm)
+        using \<open>_ = ps\<close> \<open>set ps \<subseteq> {0..<n_ps}\<close> by (cases xs; auto dest: IN_D simp: list_all2_Cons1)+
+      with that have "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+       (\<forall>g f r l'. (L ! q, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N q))"
+        unfolding make_combs_alt_def
+        by (auto 4 3 dest!: list_all2_set2 IN_I
+            simp: defs set_map_filter product_lists_set split: if_split_asm)
+      show ?thesis
+        by (inst_existentials ps gs fs rs ls'; fact)
     qed
-      sorry
+    have "[] \<notin> set (product_lists xs)" if "xs \<noteq> []" for xs
+      using that by (auto dest: in_set_product_lists_length)
     let ?f = "\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, L, s).
                   (g1 @ g2, a, r1 @ r2, L[q := l2], mk_upds s f2)"
     (* have initsI: "(g, Broad a, r, L[p := l'], mk_upds s f) \<in> set (inits (xs ! p ! a) p L s)"
@@ -2057,9 +2038,12 @@ apply (auto simp: set_map_filter)
     done
     subgoal for a' p comb g1 a1 r1 f1 l1' xs
       apply mini_ex
-      apply (drule IN_D, assumption)
+      apply (drule make_combsI)
+        apply assumption+
+      apply elims
       apply (drule OUT_D, assumption+)
       apply elims
+      apply (simp add: ***)
       apply intros
       apply solve_triv+
       apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+

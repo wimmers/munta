@@ -111,7 +111,8 @@ where
       l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p))
       \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
       u \<turnstile> g; \<forall>p \<in> set ps. u \<turnstile> gs p;
-      \<forall>p < length N. p \<notin> set ps \<longrightarrow> (\<forall> g f r l'. (L!p, g, In a, f, r, l') \<in> trans (N ! p) \<longrightarrow> \<not> u \<turnstile> g);
+      \<forall>q < length N. q \<notin> set ps \<and> p \<noteq> q
+        \<longrightarrow> (\<forall> g f r l'. (L!q, g, In a, f, r, l') \<in> trans (N ! q) \<longrightarrow> \<not> u \<turnstile> g);
       \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       L!p = l;
       p < length L; set ps \<subseteq> {0..<length N}; p \<notin> set ps; ps \<noteq> []; distinct ps; sorted ps;
@@ -210,7 +211,7 @@ definition
       (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
       (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
       (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p)) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
-      (\<forall>p < n_ps. p \<notin> set ps \<longrightarrow> \<not> (\<exists>g f r l'. (L ! p, g, In a, f, r, l') \<in> trans (N p))) \<and>
+      (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> \<not> (\<exists>g f r l'. (L ! q, g, In a, f, r, l') \<in> trans (N q))) \<and>
       L!p = l \<and>
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
