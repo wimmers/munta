@@ -739,13 +739,15 @@ definition
                 combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
                 init = ([], Broad a, [], (L, s))
               in
-              map (\<lambda>comb.
-                fold
-                  (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
-                    (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
-                  )
-                  comb
-                  init
+              List.map_filter (\<lambda>comb.
+                let (g, a, r, L', s) =
+                  fold
+                    (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+                      (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+                    )
+                    comb
+                    init
+                in if check_bounded s then Some (g, a, r, L', s) else None
               ) combs
           )
           [0..<n_ps])
@@ -755,6 +757,59 @@ definition
     else
       undefined
     "
+
+thm List.map_filter_def
+
+lemma
+  "List.map_filter f xs = map the (List.filter (\<lambda> x. x \<noteq> None) (map f xs))"
+  oops
+
+lemma filter_map_map_filter:
+  "filter P (map f xs) = List.map_filter (\<lambda> x. let y = f x in if P y then Some y else None) xs"
+  by (induction xs; simp add: Let_def List.map_filter_simps)
+
+lemma broad_trans_from_alt_def:
+  "broad_trans_from \<equiv> \<lambda>(L, s).
+    let
+      pairs = get_commited L;
+      In =  map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
+      Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
+    in
+    if pairs = [] then
+      concat (
+        map (\<lambda>a.
+          concat (map (\<lambda>p.
+            let
+              outs = Out ! p ! a
+            in if outs = [] then []
+            else
+              let
+                combs = make_combs p a In;
+                outs = map (\<lambda>t. (p, t)) outs;
+                combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
+                init = ([], Broad a, [], (L, s))
+              in
+              filter (\<lambda> (g, a, r, L, s). check_bounded s) (
+                map (\<lambda>comb.
+                    fold
+                      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+                        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+                      )
+                      comb
+                      init
+                ) combs)
+          )
+          [0..<n_ps])
+        )
+      [0..<num_actions])
+      (* concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) [0..<num_actions]) *)
+    else
+      undefined
+    "
+  apply (rule eq_reflection)
+  unfolding broad_trans_from_def
+  unfolding filter_map_map_filter
+  by (fo_rule arg_cong2 arg_cong | rule if_cong ext HOL.refl)+ force+
 
 lemma bounds_bounds_map:
   "bounds = bounds_map"
@@ -1373,7 +1428,6 @@ proof -
     subgoal
       apply (frule IN_I)
       apply solve_triv+
-      thm bexI[rotated]
       apply (drule action_setD; simp)
       apply (rule bexI[rotated], assumption)
       apply (frule (3) is_upd_dom2)
@@ -1841,20 +1895,21 @@ proof -
                 combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
                 init = ([], Broad a, [], (L, s))
               in
-              map (\<lambda>comb.
-                fold
-                  (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
-                    (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
-                  )
-                  comb
-                  init
-              ) combs
+              filter (\<lambda> (g, a, r, L, s). check_bounded s) (
+                map (\<lambda>comb.
+                    fold
+                      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+                        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+                      )
+                      comb
+                      init
+                ) combs)
           )
           [0..<n_ps])
         )
       [0..<num_actions])
       "
-      unfolding broad_trans_from_def IN_def OUT_def by simp
+      unfolding broad_trans_from_alt_def IN_def OUT_def by simp
     have make_combsD:
       "map (\<lambda>p. (p, gs p, a', fs p, rs p, ls' p)) ps \<in> set (make_combs p a' IN)"
       if
@@ -1988,6 +2043,13 @@ proof -
         unfolding make_combs_alt_def
         by (auto 4 3 dest!: list_all2_set2 IN_I
             simp: defs set_map_filter product_lists_set split: if_split_asm)
+      from that have "xs = map (\<lambda> p. (p, gs p, a', fs p, rs p, ls' p)) ps"
+        apply (intro nth_equalityI)
+         apply (simp add: defs; fail)
+        apply intros
+        subgoal for i
+          by (cases "xs ! i") (auto 4 4 simp: defs dest: to_map nth_mem)
+        done
       show ?thesis
         by (inst_existentials ps gs fs rs ls'; fact)
     qed
@@ -2007,7 +2069,7 @@ proof -
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
       unfolding * **
       apply clarsimp
-      apply (clarsimp simp: set_map_filter Let_def)
+      apply (clarsimp simp: set_map_filter Let_def split: prod.split)
       apply safe
   subgoal for s'' a' p g1 f1 r1 l' gs fs rs ls' ps
       apply (inst_existentials a')
@@ -2017,21 +2079,22 @@ proof -
       apply solve_triv+
       apply (frule make_combsD, assumption+)
       apply (inst_existentials p)
-      apply (auto; fail)
+        apply (auto; fail)
       apply (rule image_eqI)
       prefer 2
       apply force
-      apply (simp add: ***)
+             apply (simp add: ***)+
       apply intros
       subgoal
         by (simp add: upd_swap)
       apply (rule is_updsD)
       subgoal
         using is_upd_dom2 is_updD by auto
-      apply assumption
       apply assumption+
       subgoal
         using is_updD by blast
+      subgoal
+        unfolding check_bounded_iff .
       by simp
     subgoal
       by (drule action_setD; simp)
@@ -2045,11 +2108,32 @@ proof -
       apply elims
       apply (simp add: ***)
       apply intros
-      apply solve_triv+
-      apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-      unfolding check_bounded_iff
-      apply simp
-    done
+                    apply solve_triv+
+                  defer
+                  apply solve_triv+
+                 apply blast
+                apply blast
+               apply solve_triv+
+         apply (rule is_upd_make_updI2)
+           apply solve_triv+
+      subgoal for ps gs fs rs ls'
+        apply (rule is_upds_make_updsI2[where upds = "map fs ps", simplified fold_map comp_def])
+         apply simp
+        subgoal
+          apply intros
+          prefer 2
+           apply (drule bspec, assumption)
+           apply assumption
+          apply auto
+          done
+        subgoal
+          by (rule is_upd_dom2 is_upd_make_updI2)+
+        done
+      subgoal
+        unfolding check_bounded_iff .
+  subgoal
+    by (simp add: upd_swap)
+  done
   done
   next
     case False
