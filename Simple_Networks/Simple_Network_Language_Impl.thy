@@ -162,10 +162,11 @@ lemma
   "A \<Longrightarrow> (A \<Longrightarrow> C) \<Longrightarrow> (A \<Longrightarrow> B) \<Longrightarrow> B"
   by rprem
 
-(* XXX Move *)
-lemma filter_distinct_eqI:
+
+lemma filter_eqI:
   assumes
-    "subseq ys xs" "\<forall>x \<in> set ys. P x" "\<forall>x \<in> set xs. x \<notin> set ys \<longrightarrow> \<not> P x" "distinct xs"
+    "subseq ys xs" "\<forall>x \<in> set ys. P x"
+    "\<forall>zs. subseq zs xs \<and> length zs > length ys \<longrightarrow> (\<exists> x \<in> set zs. \<not> P x)"
   shows "filter P xs = ys"
   using assms
 proof (induction xs arbitrary: ys rule: list.induct)
@@ -174,39 +175,95 @@ proof (induction xs arbitrary: ys rule: list.induct)
     by - (cases ys; simp)
 next
   case (Cons x xs)
-  from Cons.prems show ?case
-    apply auto
-    subgoal premises prems
-    proof -
-      from \<open>_ \<in> set ys\<close> obtain y ys' where "ys = y # ys'"
-        by (cases ys) auto
-      from \<open>subseq ys _\<close>[unfolded this] have "y = x"
-        unfolding subseq_Cons2_iff
-        apply (auto split: if_split_asm)
-        using \<open>x \<in> _\<close>[unfolded \<open>ys = _\<close>] \<open>x \<notin> _\<close> apply auto
-        by (meson \<open>x \<in> set (y # ys')\<close> subseq_order.order.trans subseq_singleton_left)
-      with Cons.prems show ?thesis
-        by (auto simp: \<open>ys = _\<close> \<open>y = _\<close> intro: Cons.IH)
+  show ?case
+  proof (cases "P x")
+    case True
+    show ?thesis
+    proof (cases ys)
+      case Nil
+      have "subseq [x] (x # xs)"
+        by auto
+      with Cons.prems Nil \<open>P x\<close> show ?thesis
+        by fastforce
+    next
+      case (Cons y ys')
+      have "x = y"
+      proof (rule ccontr)
+        assume "x \<noteq> y"
+        with \<open>subseq ys (x # xs)\<close> \<open>ys = _\<close> have "subseq (x # ys) (x # xs)"
+          by simp
+        with Cons.prems(2-) \<open>P x\<close> show False
+          by fastforce
+      qed
+      have "\<exists>x\<in>set zs. \<not> P x" if "subseq zs xs" and "length ys' < length zs" for zs
+      proof -
+        from \<open>subseq zs xs\<close> have "subseq (x # zs) (x # xs)"
+          by simp
+        with \<open>length ys' < length zs\<close> Cons.prems(3) \<open>ys = _\<close> have "\<exists>x\<in>set (x # zs). \<not> P x"
+          by (intro Cons.prems(3)[rule_format]; simp)
+        with \<open>P x\<close> show ?thesis
+          by auto
+      qed
+      with Cons.prems \<open>P x\<close> \<open>ys = _\<close> \<open>x = y\<close> show ?thesis
+        by (auto intro!: Cons.IH)
     qed
-    subgoal
-      using Cons.prems by (cases ys) (auto split: if_split_asm intro!: Cons.IH)
-    done
+  next
+    case False
+    with Cons.prems show ?thesis
+      by (cases ys) (auto split: if_split_asm intro!: Cons.IH)
+  qed
 qed
 
-lemma subseq_distinct:
-  "distinct xs" if "distinct ys" "subseq xs ys"
-  using subseqs_distinctD that by simp
+lemma filter_greatest_subseqD:
+  "\<exists> x \<in> set zs. \<not> P x" if "subseq zs xs" "length zs > length (filter P xs)"
+  using that by (metis filter_id_conv not_subseq_length subseq_filter)
+
+lemma filter_eq_iff_greatest_subseq:
+  "filter P xs = ys \<longleftrightarrow>
+  subseq ys xs \<and> (\<forall>x \<in> set ys. P x) \<and>
+  (\<forall>zs. subseq zs xs \<and> length zs > length ys \<longrightarrow> (\<exists> x \<in> set zs. \<not> P x))"
+  using filter_greatest_subseqD filter_eqI by auto
 
 lemma subseq_subsetD:
   "set xs \<subseteq> set ys" if "subseq xs ys"
   using that
   by (intro subsetI) (unfold subseq_singleton_left[symmetric], erule subseq_order.order.trans)
 
-lemma subseq_sorted:
-  "sorted xs" if "sorted ys" "subseq xs ys"
+lemma subseq_distinct:
+  "distinct xs" if "distinct ys" "subseq xs ys"
+  using subseqs_distinctD that by simp
+
+(* XXX Move *)
+lemma filter_distinct_eqI:
+  assumes
+    "subseq ys xs" "\<forall>x \<in> set ys. P x" "\<forall>x \<in> set xs. x \<notin> set ys \<longrightarrow> \<not> P x" "distinct xs"
+  shows "filter P xs = ys"
+proof (intro filter_eqI, safe)
+  fix zs assume prems: "subseq zs xs" "length ys < length zs"
+  obtain x where "x \<in> set zs" "x \<notin> set ys"
+  proof (atomize_elim, rule ccontr)
+    assume "\<nexists>x. x \<in> set zs \<and> x \<notin> set ys"
+    then have "set zs \<subseteq> set ys"
+      by auto
+    moreover from prems assms have "distinct zs" "distinct ys"
+      by (blast intro: subseq_distinct)+
+    ultimately show False
+      using \<open>length ys < length zs\<close>
+      by (auto dest: card_mono[rotated] simp: distinct_card[symmetric])
+  qed
+  with prems assms show "\<exists>x\<in>set zs. \<not> P x"
+    by (auto 4 3 dest: subseq_subsetD)
+qed (use assms in blast)+
+
+lemma subseq_sorted_wrt:
+  "sorted_wrt R xs" if "sorted_wrt R ys" "subseq xs ys"
   using that
   by (induction xs arbitrary: ys)
-     (auto 0 4 dest: subseq_subsetD list_emb_ConsD subseq_Cons' simp: sorted_append)
+     (auto 0 4 dest: subseq_subsetD list_emb_ConsD subseq_Cons' simp: sorted_wrt_append)
+
+lemma subseq_sorted:
+  "sorted xs" if "sorted ys" "subseq xs ys"
+  using that unfolding sorted_sorted_wrt by (rule subseq_sorted_wrt)
 
 lemma sorted_distinct_subset_subseqI:
   assumes "sorted xs" "distinct xs" "sorted ys" "set xs \<subseteq> set ys"
@@ -222,7 +279,6 @@ next
     by (cases xs; simp) (safe; rule Cons.IH; auto 4 4)
 qed
 
-(* XXX Generalize *)
 lemma sorted_distinct_subseq_iff:
   assumes "sorted ys" "distinct ys"
   shows "subseq xs ys \<longleftrightarrow> (sorted xs \<and> distinct xs \<and> set xs \<subseteq> set ys)"
@@ -244,7 +300,34 @@ lemma map_eq_imageD:
 
 lemma if_contract:
   "(if a then x else if b then x else y) = (if a \<or> b then x else y)" for a x b y
-  by simp
+  by (rule SMT.z3_rule)
+
+
+paragraph \<open>Misc\<close>
+
+lemma fold_evD2:
+  assumes
+    "P y (fold f xs acc)" "\<not> P y acc"
+    "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> x \<in> set xs \<Longrightarrow> x = y"
+    "Q acc" "\<And> acc x. Q acc \<Longrightarrow> Q (f x acc)" "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> R y"
+  shows "\<exists> ys zs. xs = ys @ y # zs \<and> \<not> P y (fold f ys acc) \<and> P y (f y (fold f ys acc)) \<and> R y"
+proof -
+  from fold_evD'[OF assms(2,1)] obtain x ys zs where *:
+    "xs = ys @ x # zs" "\<not> P y (fold f ys acc)" "P y (f x (fold f ys acc))"
+    by auto
+  moreover from assms(4-) have "Q (fold f ys acc)" by (auto intro: fold_acc_preserv)
+  moreover from \<open>xs = _\<close> have "x \<in> set xs"
+    by auto
+  ultimately show ?thesis using assms(3,6) by auto
+qed
+
+lemmas fold_evD2' = fold_evD2[where R = "\<lambda> _. True", simplified]
+
+lemma distinct_map_filterI:
+  "distinct (List.map_filter f xs)"
+  if "\<forall>x \<in> set xs. \<forall>y \<in> set xs. \<forall>a. f x = Some a \<and> f y = Some a \<longrightarrow> x = y" "distinct xs"
+  using that by (induction xs) (auto simp: map_filter_simps set_map_filter split: option.split)
+
 
 paragraph \<open>Implementation auxiliaries\<close>
 
@@ -278,48 +361,6 @@ lemma in_union_map_ofD:
   "(x, y) \<in> set xs" if "union_map_of xs x = Some ys" "y \<in> set ys"
   using that unfolding union_map_of_alt_def by (auto split: if_split_asm)
 
-(* fun span where
-  "span P [] = []"
-| "span P (x # xs) = (if P x then x # span P xs else [])"
-
-lemma Cons_eq_conv:
-  "a # xs = ys \<longleftrightarrow> (ys \<noteq> [] \<and> hd ys = a \<and> tl ys = xs)"
-  by auto
-
-lemma span_eq_conv:
-  \<open>span P xs = ys \<longleftrightarrow> list_all P ys \<and> (xs = ys \<or> (\<exists> x zs. \<not> P x \<and> xs = ys @ x # zs))\<close>
-proof (induction xs arbitrary: ys)
-   case Nil
-  then show ?case
-    by auto
-next
-  case (Cons a xs)
-  show ?case
-  proof (cases "P a")
-    case True
-    then show ?thesis
-      apply simp
-      apply (subst Cons_eq_conv)
-      apply (subst (3) eq_commute)
-      apply (subst Cons.IH)
-      apply auto
-      sorry
-  next
-    case False
-    then show ?thesis
-      by (auto simp: Cons_eq_append_conv)
-  qed
-qed
-
-fun group_by where
-  "group_by P [] = []"
-| "group_by P (x :: xs) = span (P x) xs"
-
-definition "group_by R = "
-
-find_theorems quicksort_by_rel
-
-find_consts "_ list \<Rightarrow> _ \<Rightarrow> _ list list" *)
 
 
 paragraph \<open>Expression evaluation\<close>
@@ -452,7 +493,6 @@ lemma is_upds_make_updsI:
   prefer 2
   apply rprem
   prefer 3
-  thm is_upd_make_updI
   apply (rule is_upd_make_updI)
   apply force
   subgoal for a upds s
@@ -461,31 +501,6 @@ lemma is_upds_make_updsI:
   apply force+
   done
   by (subst is_upd_dom) (auto intro: is_upd_make_updI)
-
-paragraph \<open>Misc\<close>
-
-lemma fold_evD2:
-  assumes
-    "P y (fold f xs acc)" "\<not> P y acc"
-    "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> x \<in> set xs \<Longrightarrow> x = y"
-    "Q acc" "\<And> acc x. Q acc \<Longrightarrow> Q (f x acc)" "\<And> acc x. \<not> P y acc \<Longrightarrow> Q acc \<Longrightarrow> P y (f x acc) \<Longrightarrow> R y"
-  shows "\<exists> ys zs. xs = ys @ y # zs \<and> \<not> P y (fold f ys acc) \<and> P y (f y (fold f ys acc)) \<and> R y"
-proof -
-  from fold_evD'[OF assms(2,1)] obtain x ys zs where *:
-    "xs = ys @ x # zs" "\<not> P y (fold f ys acc)" "P y (f x (fold f ys acc))"
-    by auto
-  moreover from assms(4-) have "Q (fold f ys acc)" by (auto intro: fold_acc_preserv)
-  moreover from \<open>xs = _\<close> have "x \<in> set xs"
-    by auto
-  ultimately show ?thesis using assms(3,6) by auto
-qed
-
-lemmas fold_evD2' = fold_evD2[where R = "\<lambda> _. True", simplified]
-
-lemma distinct_map_filterI:
-  "distinct (List.map_filter f xs)"
-  if "\<forall>x \<in> set xs. \<forall>y \<in> set xs. \<forall>a. f x = Some a \<and> f y = Some a \<longrightarrow> x = y" "distinct xs"
-  using that by (induction xs) (auto simp: map_filter_simps set_map_filter split: option.split)
 
 
 locale Simple_Network_Impl_nat =
