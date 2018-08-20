@@ -709,7 +709,7 @@ definition make_combs where
   "make_combs p a xs \<equiv>
     let
       ys = List.map_filter
-        (\<lambda> i.
+        (\<lambda>i.
           if i = p then None
           else if xs ! i ! a = [] then None
           else Some (map (\<lambda>t. (i, t)) (xs ! i ! a))
@@ -718,11 +718,29 @@ definition make_combs where
     in if ys = [] then [] else product_lists ys
   "
 
+definition make_combs_from_pairs where
+  "make_combs_from_pairs p a pairs xs \<equiv>
+    let
+      ys = List.map_filter
+        (\<lambda>i.
+          if i = p then None
+          else if xs ! i ! a = [] then None
+          else Some (map (\<lambda>t. (i, t)) (xs ! i ! a))
+        )
+        [0..<n_ps]
+    in if ys = [] then [] else product_lists ys
+  "
+
+term List.find
+term list_ex
+
+term "a \<and> b"
+
 definition
   "broad_trans_from \<equiv> \<lambda>(L, s).
     let
       pairs = get_commited L;
-      In =  map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
+      In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
       Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
     in
     if pairs = [] then
@@ -736,7 +754,7 @@ definition
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
+                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
                 init = ([], Broad a, [], (L, s))
               in
               List.map_filter (\<lambda>comb.
@@ -755,10 +773,42 @@ definition
       [0..<num_actions])
       (* concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) [0..<num_actions]) *)
     else
-      undefined
+      concat (
+        map (\<lambda>a.
+          let
+            ins_commited = List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
+            always_commited = (length ins_commited > 1)
+          in
+          concat (map (\<lambda>p.
+            let
+              outs = Out ! p ! a
+            in if outs = [] then []
+            else if
+              \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
+              \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
+            then []
+            else
+              let
+                combs = make_combs p a In;
+                outs = map (\<lambda>t. (p, t)) outs;
+                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                init = ([], Broad a, [], (L, s))
+              in
+              List.map_filter (\<lambda>comb.
+                let (g, a, r, L', s) =
+                  fold
+                    (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+                      (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+                    )
+                    comb
+                    init
+                in if check_bounded s then Some (g, a, r, L', s) else None
+              ) combs
+          )
+          [0..<n_ps])
+        )
+      [0..<num_actions])
     "
-
-thm List.map_filter_def
 
 lemma
   "List.map_filter f xs = map the (List.filter (\<lambda> x. x \<noteq> None) (map f xs))"
@@ -772,7 +822,7 @@ lemma broad_trans_from_alt_def:
   "broad_trans_from \<equiv> \<lambda>(L, s).
     let
       pairs = get_commited L;
-      In =  map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
+      In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
       Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
     in
     if pairs = [] then
@@ -804,12 +854,46 @@ lemma broad_trans_from_alt_def:
       [0..<num_actions])
       (* concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) [0..<num_actions]) *)
     else
-      undefined
+      concat (
+        map (\<lambda>a.
+          let
+            ins_commited = List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs
+          in
+          concat (map (\<lambda>p.
+            let
+              outs = Out ! p ! a
+            in if outs = [] then []
+            else if
+              (ins_commited = [p] \<or> ins_commited = []) \<and> \<not> list_ex (\<lambda>(q, _). q = p) pairs
+            then []
+            else
+              let
+                combs = make_combs p a In;
+                outs = map (\<lambda>t. (p, t)) outs;
+                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                init = ([], Broad a, [], (L, s))
+              in
+              filter (\<lambda> (g, a, r, L, s). check_bounded s) (
+                map (\<lambda>comb.
+                    fold
+                      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+                        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+                      )
+                      comb
+                      init
+                ) combs)
+          )
+          [0..<n_ps])
+        )
+      [0..<num_actions])
     "
   apply (rule eq_reflection)
   unfolding broad_trans_from_def
   unfolding filter_map_map_filter
-  by (fo_rule arg_cong2 arg_cong | rule if_cong ext HOL.refl)+ force+
+  unfolding Let_def
+  by (fo_rule
+      arg_cong2[where f = map] arg_cong2[where f = List.map_filter] arg_cong HOL.refl |
+      rule if_cong ext | auto split: if_split_asm)+
 
 lemma bounds_bounds_map:
   "bounds = bounds_map"
@@ -966,7 +1050,8 @@ lemma trans_map_iff:
   assumes
     "p < n_ps"
   shows
-    "(g, a, f, r, l') \<in> set (trans_map p l) \<longleftrightarrow> (l, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    "(g, a, f, r, l') \<in> set (trans_map p l)
+ \<longleftrightarrow> (l, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
     using trans_mapD trans_mapI' \<open>p < n_ps\<close> by auto
 
 lemma trans_i_mapD:
@@ -1732,8 +1817,6 @@ lemma
   using that by (simp add: in_set_conv_nth)
   (* by (simp add: aux) *)
 
-thm make_combs_def
-
 lemma make_combs_alt_def:
   "make_combs p a xs \<equiv>
     let
@@ -1764,6 +1847,13 @@ lemma list_all2_map_fst_aux:
 lemma map_eq_imageD:
   "f ` set xs = set ys" if "map f xs = ys"
   using that by auto
+
+lemma if_contract:
+  "(if a then x else if b then x else y) = (if a \<or> b then x else y)" for a x b y
+  by simp
+
+lemma get_commited_distinct: "distinct (get_commited L)"
+  unfolding get_commited_def by (rule distinct_map_filterI) (auto simp: Let_def)
 
 lemma broad_trans_from_correct:
   "(broad_trans_from, trans_broad) \<in> transition_rel states'"
@@ -1813,23 +1903,6 @@ proof -
     if "(g, a', f, r, l') \<in> set (IN ! p ! a1)" "a1 < num_actions" "p < n_ps"
     for p g a' f r l' a1
     using that
-    thm mem_trans_N_iff
-    (* unfolding mem_trans_N_iff[OF \<open>p < n_ps\<close>] *)
-    unfolding IN_def
-    unfolding trans_in_broad_grouped_def
-    apply -
-    apply clarsimp
-    apply (drule in_actions_by_state'D)
-    (* Can be a theorem from here *)
-    unfolding trans_in_broad_map_def set_map_filter
-    apply (auto split: option.split_asm simp: trans_map_iff[OF \<open>p < n_ps\<close>])
-    apply (auto split: act.split_asm if_split_asm dest: trans_mapD)
-    done
-  have IN_D:
-    "(L ! p, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p) \<and> a' = a1 \<and> a1 \<in> set broadcast"
-    if "(g, a', f, r, l') \<in> set (IN ! p ! a1)" "a1 < num_actions" "p < n_ps"
-    for p g a' f r l' a1
-    using that
     unfolding IN_def
     unfolding trans_in_broad_grouped_def
     apply -
@@ -1855,62 +1928,31 @@ proof -
     apply (auto split: option.split_asm)
     apply (auto split: act.split_asm if_split_asm dest: trans_mapD)
     done
-  show "(((L, s), g, a, r, L', s') \<in> trans_broad) =
-        ((g, a, r, L', s') \<in> set (broad_trans_from (L, s)))"
-  proof (cases "get_commited L = []")
-    case True
-    with get_commited_empty_iff[of L] have "\<forall>p<n_ps. L ! p \<notin> commited (N p)"
-      by simp
-    then have *: "((L, s), g, a, r, L', s') \<in> trans_broad \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
-      {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
-        L s L' s' s'' a p l g f r l' gs fs rs ls' ps.
-        a \<in> set broadcast \<and>
-        (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
-        (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
-        (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
-          \<not> (\<exists>g f r l'. (L ! q, g, In a, f, r, l') \<in> trans (N q))) \<and>
-        L!p = l \<and>
-        p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
-        L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
-        bounded bounds s'' \<and> L \<in> states
-      }
-    "
-      unfolding trans_broad_def broadcast_def[simplified] by blast
-    have upd_swap:
-      "fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] = fold (\<lambda>p L . L[p := ls' p]) ps (L[p := l'])"
-      if "p \<notin> set ps" for ps ls' p l'
-      using that by (induction ps arbitrary: L) (auto simp: list_update_swap)
-    from True have **:
-      "broad_trans_from (L, s)
-      = concat (
-        map (\<lambda>a.
-          concat (map (\<lambda>p.
-            let
-              outs = OUT ! p ! a
-            in if outs = [] then []
-            else
-              let
-                combs = make_combs p a IN;
-                outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
-                init = ([], Broad a, [], (L, s))
-              in
-              filter (\<lambda> (g, a, r, L, s). check_bounded s) (
-                map (\<lambda>comb.
-                    fold
-                      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
-                        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
-                      )
-                      comb
-                      init
-                ) combs)
-          )
-          [0..<n_ps])
-        )
-      [0..<num_actions])
-      "
-      unfolding broad_trans_from_alt_def IN_def OUT_def by simp
-    have make_combsD:
+  have upd_swap:
+    "fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] = fold (\<lambda>p L . L[p := ls' p]) ps (L[p := l'])"
+    if "p \<notin> set ps" for ps ls' p l'
+    using that by (induction ps arbitrary: L) (auto simp: list_update_swap)
+  define make_trans where "make_trans a p \<equiv>
+    let
+      outs = OUT ! p ! a
+    in if outs = [] then []
+    else
+      let
+        combs = make_combs p a IN;
+        outs = map (\<lambda>t. (p, t)) outs;
+        combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
+        init = ([], Broad a, [], (L, s))
+      in
+      filter (\<lambda> (g, a, r, L, s). check_bounded s) (
+        map (\<lambda>comb.
+            fold
+              (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+                (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+              )
+              comb
+              init
+        ) combs)" for a p
+  have make_combsD:
       "map (\<lambda>p. (p, gs p, a', fs p, rs p, ls' p)) ps \<in> set (make_combs p a' IN)"
       if
       "\<forall>p\<in>set ps.
@@ -1975,7 +2017,8 @@ proof -
       (\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
        (\<forall>g f r l'. (L ! q, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N q))) \<and>
       set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and> a' \<in> set broadcast
-      \<and> xs = map (\<lambda> p. (p, gs p, a', fs p, rs p, ls' p)) ps"
+      \<and> xs = map (\<lambda> p. (p, gs p, a', fs p, rs p, ls' p)) ps
+      \<and> filter (\<lambda>i. IN ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = ps"
       if "xs \<in> set (make_combs p a' IN)" "p < n_ps" "a' < num_actions"
     for xs p a'
     proof -
@@ -2007,8 +2050,8 @@ proof -
         done
       then have "set ps \<subseteq> {0..<n_ps}" "p \<notin> set ps" "distinct ps" "sorted ps"
         by (auto intro: sorted_filter')
-      have to_map: "a' = a" "the (map_of xs q) = (g, a, r, f, l')" if
-        "(q, g, a, r, f, l') \<in> set xs" for q g a r f l'
+      have to_map: "a' = a" "the (map_of xs q) = (g, a, r, f, l')"
+        if "(q, g, a, r, f, l') \<in> set xs" for q g a r f l'
         using that \<open>xs \<in> _\<close> \<open>p < n_ps\<close>
          apply (auto simp: make_combs_alt_def product_lists_set \<open>_ = ps\<close> split: if_split_asm)
          apply (auto simp: list_all2_map2)
@@ -2057,23 +2100,41 @@ proof -
       using that by (auto dest: in_set_product_lists_length)
     let ?f = "\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, L, s).
                   (g1 @ g2, a, r1 @ r2, L[q := l2], mk_upds s f2)"
-    (* have initsI: "(g, Broad a, r, L[p := l'], mk_upds s f) \<in> set (inits (xs ! p ! a) p L s)"
-      if "(g, a, f, r, l') \<in> set (xs ! p ! a)" for xs g a r p l' f
-      unfolding inits_def using that by (force intro: imageI) *)
     have ***: "
     fold ?f (map (\<lambda>p. (p, gs p, a', fs p, rs p, ls' p)) ps) (g, a, r, L, s)
     = (g @ concat (map gs ps), a, r @ concat (map rs ps),
         fold (\<lambda>p L. L[p := ls' p]) ps L, fold (\<lambda>p s. mk_upds s (fs p)) ps s)
     " for ps gs a' fs rs ls' g a r L s
       by (induction ps arbitrary: g a r L s; simp)
-    from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
-      unfolding * **
-      apply clarsimp
+    have make_transI:
+      "a' < num_actions \<and> p < n_ps \<and>
+       (g1 @ concat (map gs ps), Broad a', r1 @ concat (map rs ps),
+        fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'], s') \<in> set (make_trans a' p)"
+    if 
+      "dom s = {0..<n_vs}" and
+      "L \<in> states" and
+      "g = g1 @ concat (map gs ps)" and
+      "a = Broad a'" and
+      "r = r1 @ concat (map rs ps)" and
+      "L' = fold (\<lambda>p L. L[p := ls' p]) ps L[p := l']" and
+      "a' \<in> set broadcast" and
+      "(L ! p, g1, Out a', f1, r1, l') \<in> Simple_Network_Language.trans (N p)" and
+      "\<forall>p\<in>set ps. (L ! p, gs p, In a', fs p, rs p, ls' p) \<in> Simple_Network_Language.trans (N p)" and
+      "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q
+        \<longrightarrow> (\<forall>g f r l'. (L ! q, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N q))" and
+      "p < n_ps" and
+      "set ps \<subseteq> {0..<n_ps}" and
+      "p \<notin> set ps" and
+      "distinct ps" and
+      "sorted ps" and
+      "ps \<noteq> []" and
+      "is_upd s f1 s''" and
+      "is_upds s'' (map fs ps) s'" and
+      "Simple_Network_Language.bounded bounds s'"
+    for a' p g1 gs ps r1 rs ls' l' f1 s'' fs
+      using that
+      unfolding make_trans_def
       apply (clarsimp simp: set_map_filter Let_def split: prod.split)
-      apply safe
-  subgoal for s'' a' p g1 f1 r1 l' gs fs rs ls' ps
-      apply (inst_existentials a')
-    subgoal
       apply (frule action_setD; simp)
       apply (frule OUT_I)
       apply solve_triv+
@@ -2092,249 +2153,275 @@ proof -
         using is_upd_dom2 is_updD by auto
       apply assumption+
       subgoal
-        using is_updD by blast
+        by (drule is_updD; solve_triv)
       subgoal
         unfolding check_bounded_iff .
-      by simp
-    subgoal
-      by (drule action_setD; simp)
-    done
-    subgoal for a' p comb g1 a1 r1 f1 l1' xs
-      apply mini_ex
-      apply (drule make_combsI)
-        apply assumption+
-      apply elims
-      apply (drule OUT_D, assumption+)
-      apply elims
-      apply (simp add: ***)
-      apply intros
-                    apply solve_triv+
-                  defer
-                  apply solve_triv+
-                 apply blast
-                apply blast
+      done
+    have make_transD:
+      "\<exists>s'' ga f ra l' gs fs rs ls' ps.
+         g = ga @ concat (map gs ps) \<and>
+         a = Broad a' \<and>
+         r = ra @ concat (map rs ps) \<and>
+         L' = fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] \<and>
+         a' \<in> set broadcast \<and>
+         (L ! p, ga, Out a', f, ra, l') \<in> Simple_Network_Language.trans (N p) \<and>
+         (\<forall>p\<in>set ps. (L ! p, gs p, In a', fs p, rs p, ls' p) \<in> Simple_Network_Language.trans (N p)) \<and>
+         (\<forall>q<n_ps.
+             q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+             (\<forall>g f r l'. (L ! q, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N q))) \<and>
+         p < n_ps \<and>
+         set ps \<subseteq> {0..<n_ps} \<and>
+         p \<notin> set ps \<and>
+         distinct ps \<and>
+         sorted ps \<and>
+         ps \<noteq> [] \<and> is_upd s f s'' \<and> is_upds s'' (map fs ps) s' \<and>
+         Simple_Network_Language.bounded bounds s' \<and>
+         filter (\<lambda>i. IN ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = ps"
+    if 
+      "dom s = {0..<n_vs}" and
+      "L \<in> states" and
+      "a' < num_actions" and
+      "p < n_ps" and
+      "(g, a, r, L', s') \<in> set (make_trans a' p)"
+    for a' p
+      using that
+      unfolding make_trans_def
+        apply mini_ex
+        apply (clarsimp simp: set_map_filter Let_def split: prod.split if_split_asm)
+      subgoal for g1 a1 r1 f1 l1' xs
+          apply (drule make_combsI)
+            apply assumption+
+          apply elims
+          apply (drule OUT_D, assumption+)
+          apply elims
+          apply (simp add: ***)
+        apply intros
+                        apply solve_triv+
+                      defer
+                      apply solve_triv+
+                     apply blast
+                    apply blast
+                   apply solve_triv+
+             apply (rule is_upd_make_updI2)
                apply solve_triv+
-         apply (rule is_upd_make_updI2)
-           apply solve_triv+
-      subgoal for ps gs fs rs ls'
-        apply (rule is_upds_make_updsI2[where upds = "map fs ps", simplified fold_map comp_def])
-         apply simp
-        subgoal
-          apply intros
-          prefer 2
-           apply (drule bspec, assumption)
-           apply assumption
-          apply auto
-          done
-        subgoal
-          by (rule is_upd_dom2 is_upd_make_updI2)+
-        done
+          subgoal for ps gs fs rs ls'
+            apply (rule is_upds_make_updsI2[where upds = "map fs ps", simplified fold_map comp_def])
+             apply simp
+            subgoal
+              apply intros
+              prefer 2
+               apply (drule bspec, assumption)
+               apply assumption
+              apply (clarsimp; fail)
+              done
+            subgoal
+              by (rule is_upd_dom2 is_upd_make_updI2)+
+            done
+          subgoal
+            unfolding check_bounded_iff .
+          apply (rule HOL.refl)
       subgoal
-        unfolding check_bounded_iff .
-  subgoal
-    by (simp add: upd_swap)
-  done
-  done
+        by (simp add: upd_swap)
+      done
+      done
+    have make_trans_iff: "
+      (\<exists>s'' aa p ga f ra l' gs fs rs ls' ps.
+          g = ga @ concat (map gs ps) \<and>
+          a = Broad aa \<and>
+          r = ra @ concat (map rs ps) \<and>
+          L' = fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] \<and>
+          aa \<in> set broadcast \<and>
+          (L ! p, ga, Out aa, f, ra, l') \<in> Simple_Network_Language.trans (N p) \<and>
+          (\<forall>p\<in>set ps.
+              (L ! p, gs p, In aa, fs p, rs p, ls' p)
+              \<in> Simple_Network_Language.trans (N p)) \<and>
+          (\<forall>q<n_ps.
+              q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+              (\<forall>g f r l'.
+                  (L ! q, g, In aa, f, r, l')
+                  \<notin> Simple_Network_Language.trans (N q))) \<and>
+          p < n_ps \<and>
+          set ps \<subseteq> {0..<n_ps} \<and>
+          p \<notin> set ps \<and>
+          distinct ps \<and>
+          sorted ps \<and>
+          ps \<noteq> [] \<and>
+          is_upd s f s'' \<and>
+          is_upds s'' (map fs ps) s' \<and> Simple_Network_Language.bounded bounds s') =
+      (\<exists>a'\<in>{0..<num_actions}.
+          \<exists>p\<in>{0..<n_ps}. (g, a, r, L', s') \<in> set (make_trans a' p))"
+      if "dom s = {0..<n_vs}" "L \<in> states"
+        using that
+        apply safe
+        subgoal for s'' a' p g1 f1 r1 l' gs fs rs ls' ps
+          apply (drule make_transI)
+                            apply solve_triv+
+          apply elims
+          apply intros
+            apply solve_triv+
+          done
+        subgoal for a' p
+          apply simp
+          apply (drule make_transD)
+              apply assumption+
+          apply elims
+          apply intros
+                          apply solve_triv+
+                    apply blast
+                   apply blast
+          apply solve_triv+
+          done
+        done
+  show "(((L, s), g, a, r, L', s') \<in> trans_broad) =
+        ((g, a, r, L', s') \<in> set (broad_trans_from (L, s)))"
+  proof (cases "get_commited L = []")
+    case True
+    with get_commited_empty_iff[of L] have "\<forall>p<n_ps. L ! p \<notin> commited (N p)"
+      by simp
+    then have *: "((L, s), g, a, r, L', s') \<in> trans_broad \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
+      {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
+        L s L' s' s'' a p l g f r l' gs fs rs ls' ps.
+        a \<in> set broadcast \<and>
+        (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
+        (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
+        (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+          \<not> (\<exists>g f r l'. (L ! q, g, In a, f, r, l') \<in> trans (N q))) \<and>
+        L!p = l \<and>
+        p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+        L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and>
+        is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+        bounded bounds s'' \<and> L \<in> states
+      }
+    "
+      unfolding trans_broad_def broadcast_def[simplified] by blast
+    from True have **:
+      "broad_trans_from (L, s)
+      = concat (
+        map (\<lambda>a.
+          concat (map (\<lambda>p.
+            make_trans a p
+          )
+          [0..<n_ps])
+        )
+      [0..<num_actions])
+      "
+      unfolding broad_trans_from_alt_def IN_def OUT_def make_trans_def by simp
+    from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
+      unfolding * ** by (simp add: make_trans_iff)
   next
     case False
-    with get_commited_empty_iff[of L] have "\<exists>p<n_ps. L ! p \<in> commited (N p)"
+    with get_commited_empty_iff[of L] have "\<not> (\<forall>p<n_ps. L ! p \<notin> commited (N p))"
       by simp
-    then have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
-      {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
-        L s L' s' s'' a p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'.
-        (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
-        (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
-        (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q)) \<and>
-        L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-        L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-        \<and> L \<in> states
+    then have *: "((L, s), g, a, r, L', s') \<in> trans_broad \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
+      {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
+        L s L' s' s'' a p l g f r l' gs fs rs ls' ps.
+        a \<in> set broadcast \<and>
+        (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
+        (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
+        (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))) \<and>
+        (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+          \<not> (\<exists>g f r l'. (L ! q, g, In a, f, r, l') \<in> trans (N q))) \<and>
+        L!p = l \<and>
+        p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+        L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+        bounded bounds s'' \<and> L \<in> states
       }"
-      unfolding trans_bin_def by blast
-    let ?S1 =
-      "{((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
-        L s L' s' s'' a p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'.
-          (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
-          (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
-          l1 \<in> commited (N p) \<and>
-          L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-          L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-          \<and> L \<in> states
-      }"
-    let ?S2 =
-      "{((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
-        L s L' s' s'' a p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'.
-          (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
-          (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
-          l2 \<in> commited (N q) \<and>
-          L!p = l1 \<and> L!q = l2 \<and>
-          p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-          L' = L[p := l1', q := l2'] \<and>
-          is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-          \<and> L \<in> states
-      }"
-    have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow>
-      ((L, s), g, a, r, L', s') \<in> ?S1 \<or> ((L, s), g, a, r, L', s') \<in> ?S2"
-      unfolding * by clarsimp (rule iffI; elims add: disjE; intros add: disjI1 disjI2 HOL.refl)
-    define pairs where "pairs = get_commited L"
-    define In2 where "In2  = all_actions_from_vec trans_in_map pairs"
-    define Out2 where "Out2 = all_actions_from_vec trans_out_map pairs"
-    have In2_I:
-      "(p, g, a', f, r, l') \<in> set (In2 ! a')"
-      if "(L ! p, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
-      "p < n_ps" "a' < num_actions" "L ! p \<in> commited (N p)"
-      for p g a' f r l'
+      unfolding trans_broad_def broadcast_def[simplified] by blast
+    have commited_1: "
+      List.map_filter (\<lambda>(p, _). if IN ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> [p] \<and>
+      List.map_filter (\<lambda>(p, _). if IN ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> []
+    \<longleftrightarrow> (\<exists>q<n_ps. IN ! q ! a' \<noteq> [] \<and> q \<noteq> p \<and> L ! q \<in> commited (N q))"
+    for p a'
     proof -
-      from \<open>L ! p \<in> commited (N p)\<close> \<open>p < n_ps\<close> have "(p, L ! p) \<in> set pairs"
-        unfolding pairs_def get_commited_mem_iff by blast
-      from trans_mapI[OF that(1,2)] have "(g, In a', f, r, l') \<in> set (trans_map p (L ! p))"
-        by auto
-      then have "(g, a', f, r, l') \<in> set (trans_in_map p (L ! p))"
-        unfolding trans_in_map_def set_map_filter by (auto 4 6)
-      with \<open>p < _\<close> \<open>a' < _\<close> \<open>_ \<in> set pairs\<close> show ?thesis
-        unfolding In2_def by (intro in_all_actions_from_vecI)
+      have *: "xs \<noteq> [p] \<and> xs \<noteq> [] \<longleftrightarrow> (\<exists>x \<in> set xs. x \<noteq> p)" if "distinct xs" for xs
+        using that by auto (metis distinct.simps(2) distinct_length_2_or_more revg.elims)
+      show ?thesis
+        by (subst *)
+           (auto
+             intro: distinct_map_filterI get_commited_distinct
+             simp: set_map_filter get_commited_mem_iff split: if_split_asm
+           )
     qed
-    have Out2_I:
-      "(p, g, a', f, r, l') \<in> set (Out2 ! a')"
-      if "(L ! p, g, Out a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
-      "p < n_ps" "a' < num_actions" "L ! p \<in> commited (N p)"
-      for p g a' f r l'
-    proof -
-      from \<open>L ! p \<in> commited (N p)\<close> \<open>p < n_ps\<close> have "(p, L ! p) \<in> set pairs"
-        unfolding pairs_def get_commited_mem_iff by blast
-      from trans_mapI[OF that(1,2)] have "(g, Out a', f, r, l') \<in> set (trans_map p (L ! p))"
-        by auto
-      then have "(g, a', f, r, l') \<in> set (trans_out_map p (L ! p))"
-        unfolding trans_out_map_def set_map_filter by (auto 4 6)
-      with \<open>p < _\<close> \<open>a' < _\<close> \<open>_ \<in> set pairs\<close> show ?thesis
-        unfolding Out2_def by (intro in_all_actions_from_vecI)
-    qed
-    have "distinct (map fst pairs)"
-      unfolding pairs_def get_commited_def distinct_map inj_on_def Let_def
-      by (auto simp: set_map_filter intro!: distinct_map_filterI split: if_split_asm)
-    have in_pairsD: "p < n_ps" "l = L ! p" "L ! p \<in> commited (N p)"
-      if "(p, l) \<in> set pairs" for p l
-      using that using get_commited_mem_iff pairs_def by auto
-    have In2_D:
-      "(L ! p, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p) \<and>
-      p < n_ps \<and> a' = a1 \<and> L ! p \<in> commited (N p)"
-      if "(p, g, a', f, r, l') \<in> set (In2 ! a1)" "a1 < num_actions"
-      for p g a' f r l' a1
-      using that
-      unfolding In2_def
-      apply -
-      apply (drule all_actions_from_vecD)
-      apply assumption
-      apply (rule \<open>distinct _\<close>)
-      unfolding trans_in_map_def set_map_filter
-      apply (auto split: option.split_asm)
-      apply (auto dest: in_pairsD trans_mapD split: act.split_asm)
-      done
-    have Out2_D:
-      "(L ! p, g, Out a', f, r, l') \<in> Simple_Network_Language.trans (N p)
-      \<and> p < n_ps \<and> a' = a1 \<and> L ! p \<in> commited (N p)"
-      if "(p, g, a', f, r, l') \<in> set (Out2 ! a1)" "a1 < num_actions"
-      for p g a' f r l' a1
-      using that
-      unfolding Out2_def
-      apply -
-      apply (drule all_actions_from_vecD)
-      apply assumption
-      apply (rule \<open>distinct _\<close>)
-      unfolding trans_out_map_def set_map_filter
-      apply (auto split: option.split_asm)
-      apply (auto dest: in_pairsD trans_mapD split: act.split_asm)
-      done
-    from False have **: "bin_trans_from (L, s) =
-        concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) [0..<num_actions])
-      @ concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions])"
-        unfolding bin_trans_from_def IN_def OUT_def In2_def Out2_def pairs_def
-        by (simp add: Let_def)
-    from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
-      ((L, s), g, a, r, L', s') \<in> ?S1 \<longleftrightarrow> (g, a, r, L', s') \<in>
-      set (concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) [0..<num_actions]))"
-      apply clarsimp
-      unfolding pairs_by_action_def
-      apply (clarsimp simp: set_map_filter Let_def)
-      apply safe
-    subgoal for _ s'' _ a' p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'
-      apply clarsimp
-      apply (inst_existentials a')
-      subgoal
-        apply (frule In2_I)
-        apply solve_triv+
-        apply (drule action_setD; simp)
-        apply assumption
-        apply (rule bexI[rotated], assumption)
-        apply (frule (3) is_upd_dom2)
-        apply (drule (3) is_updD)
-        apply (drule (3) is_updD)
-        unfolding check_bounded_iff
-        apply intros
-        apply solve_triv+
-        apply (erule OUT_I)
-        apply solve_triv+
-        apply (drule action_setD; simp)
-        apply solve_triv+
-        done
-      subgoal
-        by (auto dest: action_setD)
-      done
-    subgoal
-      apply mini_ex
-      apply (drule In2_D, assumption)
-      apply (drule OUT_D, assumption)
-      apply elims
-      apply intros
-      apply solve_triv+
-      apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-      unfolding check_bounded_iff
+    from False have **:
+      "broad_trans_from (L, s)
+      = concat (
+        map (\<lambda>a.
+          let
+            ins_commited =
+              List.map_filter (\<lambda>(p, _). if IN ! p ! a \<noteq> [] then Some p else None) (get_commited L)
+          in
+          concat (map (\<lambda>p.
+            if
+              (ins_commited = [p] \<or> ins_commited = [])
+              \<and> \<not> list_ex (\<lambda> (q, _). q = p) (get_commited L)
+            then []
+            else
+              make_trans a p
+          )
+          [0..<n_ps])
+        )
+      [0..<num_actions])
+      "
+      unfolding broad_trans_from_alt_def IN_def OUT_def make_trans_def
+      unfolding Let_def if_contract
       apply simp
+        apply (fo_rule if_cong arg_cong2[where f = map] arg_cong[where f = concat] | rule ext)+
+        apply blast+
       done
-    done
-    moreover from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
-      ((L, s), g, a, r, L', s') \<in> ?S2 \<longleftrightarrow> (g, a, r, L', s')
-      \<in> set (concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions]))"
-      apply clarsimp
-      unfolding pairs_by_action_def
-      apply (clarsimp simp: set_map_filter Let_def)
+    from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
+      unfolding * **
+      apply (simp add: make_trans_iff)
       apply safe
-      subgoal for _ s'' _ a' p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'
-      apply clarsimp
-      apply (inst_existentials a')
-      subgoal
-        apply (frule action_setD; simp)
-        apply (frule IN_I)
-        apply solve_triv+
-        apply (frule Out2_I)
-        apply solve_triv+
-        apply (rule bexI[rotated], assumption)
-        apply (frule (3) is_upd_dom2)
-        apply (drule (3) is_updD)
-        apply (drule (3) is_updD)
-        unfolding check_bounded_iff
+      subgoal for s'a aa p ga f ra l' gs fs rs ls' ps
+        apply (frule make_transI)
+                          apply solve_triv+
         apply intros
-        apply solve_triv+
-        done
-      subgoal
-        by (auto dest: action_setD)
-      done
-    subgoal
-      apply mini_ex
-      apply (drule Out2_D, assumption)
-      apply (drule IN_D, assumption)
-      apply elims
-      apply intros
-      apply solve_triv+
-      apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-      unfolding check_bounded_iff
+         apply simp
+         apply (elims; assumption)
+        apply (simp add: Let_def)
+        apply (inst_existentials p)
+         apply solve_triv+
+        using get_commited_mem_iff[of p "L ! p" L, simplified, symmetric]
+        by (auto simp add: list_ex_iff)
+subgoal for s'a aa p ga f ra l' gs fs rs ls' ps q
+        apply (frule make_transI)
+                          apply solve_triv+
+        apply intros
+         apply simp
+         apply (elims; assumption)
+        apply (simp add: Let_def)
+        apply (inst_existentials p)
+   apply solve_triv+
+  apply (intros add: IntI)
+  apply simp
+  apply simp
+  apply (rule disjI1)
+  apply (simp add: commited_1)
+  apply (inst_existentials q; force dest!: IN_I)
+  done
+  subgoal for a'
+    apply (clarsimp split: if_split_asm simp: Let_def)
+    apply (drule make_transD[rotated 4])
+        apply assumption+
+    apply elims
+    apply intros
+                     apply solve_triv+
+               apply blast
+    subgoal premises prems for p s'' g' f r' l' gs fs rs ls' ps
+      using prems
       apply simp
-      done
+      apply (rotate_tac -1)
+      apply (drule HOL.sym)
+      thm get_commited_mem_iff commited_1
+      apply (simp add: list_ex_iff get_commited_mem_iff Bex_def commited_1)
+      by (elims add: disjE; intros add: disjI1 disjI2; assumption)
+    apply blast
+            apply solve_triv+
     done
-    ultimately show ?thesis
-      unfolding * ** by simp
-  qed
- qed
-done
+  done
+qed
+qed
+  done
 
 end (* Simple Network Impl *)
 
