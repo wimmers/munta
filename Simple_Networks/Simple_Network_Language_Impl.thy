@@ -723,8 +723,9 @@ lemma finite_prodI4:
   if "finite {a. P a}" "finite {a. Q a}" "finite {a. Q1 a}" "finite {a. Q2 a}"
   using that by simp
 
-sublocale Reachability_Problem_no_ceiling prod_ta init "\<lambda>_. False" m
-proof standard
+lemma trans_prod_finite:
+  "finite trans_prod"
+proof -
   have "finite trans_int"
   proof -
     have "trans_int \<subseteq>
@@ -735,14 +736,14 @@ proof standard
         \<and> L' = L[p := l']
       }"
       unfolding trans_int_def by (force simp: L_len)
-  also have "finite \<dots>"
-  proof -
-    have "finite {(a, b, c, d, e, f). (a, b, Sil c, d, e, f) \<in> trans (N p)}"
-      if "p < n_ps" for p
-      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
-    with states_finite bounded_finite show ?thesis
-      by defer_ex
-  qed
+    also have "finite \<dots>"
+    proof -
+      have "finite {(a, b, c, d, e, f). (a, b, Sil c, d, e, f) \<in> trans (N p)}"
+        if "p < n_ps" for p
+        using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+      with states_finite bounded_finite show ?thesis
+        by defer_ex
+    qed
     finally show ?thesis .
   qed
   moreover have "finite trans_bin"
@@ -758,25 +759,30 @@ proof standard
           L' = L[p := l1', q := l2']
     }"
       unfolding trans_bin_def by (fastforce simp: L_len)
-  also have "finite \<dots>"
-  proof -
-    have "finite {(a, b, c, d, e, f). (a, b, In c, d, e, f) \<in> trans (N p)}"
-      if "p < n_ps" for p
-      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
-    moreover have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
-      if "p < n_ps" for p c
-      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
-    ultimately show ?thesis
-      using states_finite bounded_finite by defer_ex
-  qed
+    also have "finite \<dots>"
+    proof -
+      have "finite {(a, b, c, d, e, f). (a, b, In c, d, e, f) \<in> trans (N p)}"
+        if "p < n_ps" for p
+        using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+      moreover have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
+        if "p < n_ps" for p c
+        using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+      ultimately show ?thesis
+        using states_finite bounded_finite by defer_ex
+    qed
     finally show ?thesis .
   qed
   moreover have "finite trans_broad"
   proof -
     define P where "P ps \<equiv> set ps \<subseteq> {0..<n_ps} \<and> distinct ps" for ps
-    define Q where "Q L a n gs fs rs \<equiv>
-      (\<forall>p < n. \<exists> q < n_ps. \<exists> l'. (L ! p, gs ! p, In a, fs ! p, rs ! p, l') \<in> trans (N q)) \<and>
-              length gs = n \<and> length fs = n \<and> length rs = n" for L a n gs fs rs
+    define Q where "Q a n gs fs rs \<equiv>
+      (\<forall>p < n. \<exists> q < n_ps. \<exists> l l'. (l, gs ! p, In a, fs ! p, rs ! p, l') \<in> trans (N q)) \<and>
+              length gs = n \<and> length fs = n \<and> length rs = n" for a n gs fs rs
+    define tag where "tag x = True" for x :: nat
+    have Q_I: "Q a (length ps) (map gs ps) (map fs ps) (map rs ps)"
+      if "set ps \<subseteq> {0..<n_ps}" "\<forall>p\<in>set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)"
+      for ps :: "nat list" and L a gs fs rs ls'
+      using that unfolding Q_def by (auto 4 4 dest!: nth_mem)
     have "trans_broad \<subseteq>
       {((L, s), g @ concat gs, Broad a, r @ concat rs, (L', s'')) |
       L s a p l g f r l' ps gs fs rs L' s''.
@@ -784,51 +790,59 @@ proof standard
         p < n_ps \<and>
         (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
         P ps \<and>
-        Q L a (length ps) gs fs rs \<and>
+        Q a (length ps) gs fs rs \<and>
         L' \<in> states \<and>
         bounded bounds s'' \<and>
-        L' ! p = l'
+        tag l'
     }"
-      unfolding trans_broad_def broadcast_def P_def Q_def
+      unfolding trans_broad_def broadcast_def
       apply (rule subsetI)
       apply (elims add: more_elims)
       apply (intros add: more_intros)
-               apply solve_triv+
-           (* apply (auto simp: L_len) *)
-      sorry
-  also have "finite \<dots>"
-  proof -
-    have "finite {(a, b, c, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
-      if "p < n_ps" for p
-      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
-    moreover have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
-      if "p < n_ps" for p c
-      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
-    moreover have "finite {ps. P ps}"
-      unfolding P_def by (simp add: finite_intros)
-    moreover have "finite {(gs, fs, rs). Q L a n gs fs rs}" (is "finite ?S") for L a n
+                apply solve_triv+
+            apply (simp add: L_len; fail)
+           apply assumption
+          apply (unfold P_def; intros; assumption)
+         apply (rule Q_I; assumption)
+      subgoal
+        by (blast intro: state_preservation_updI state_preservation_fold_updI)
+       apply assumption
+      unfolding tag_def ..
+    also have "finite \<dots>"
     proof -
-      let ?T = "\<Union> (trans ` N ` {0..<n_ps})"
-      have "?S \<subseteq> {(gs, fs, rs).
-        (set gs \<subseteq> (\<lambda>(_,g,_). g) ` ?T \<and> length gs = n) \<and>
-        (set fs \<subseteq> (\<lambda>(_,_,_,f,_). f) ` ?T \<and> length fs = n) \<and>
-        (set rs \<subseteq> (\<lambda>(_,_,_,_,r,_). r) ` ?T \<and> length rs = n)
-      }"
-        unfolding Q_def
-        by safe (drule set_mem_nthD; elims; drule spec; elims; force)+
-      also have "finite \<dots>"
-        using trans_N_finite by (intro finite_prodI3 finite_intros) auto
-      finally show ?thesis .
+      have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
+        if "p < n_ps" for p c
+        using [[simproc add: finite_Collect]] that
+        by (auto intro: trans_N_finite finite_vimageI injI)
+      moreover have "finite {ps. P ps}"
+        unfolding P_def by (simp add: finite_intros)
+      moreover have "finite {(gs, fs, rs). Q a n gs fs rs}" (is "finite ?S") for a n
+      proof -
+        let ?T = "\<Union> (trans ` N ` {0..<n_ps})"
+        have "?S \<subseteq> {(gs, fs, rs).
+          (set gs \<subseteq> (\<lambda>(_,g,_). g) ` ?T \<and> length gs = n) \<and>
+          (set fs \<subseteq> (\<lambda>(_,_,_,f,_). f) ` ?T \<and> length fs = n) \<and>
+          (set rs \<subseteq> (\<lambda>(_,_,_,_,r,_). r) ` ?T \<and> length rs = n)
+        }"
+          unfolding Q_def
+          by safe (drule set_mem_nthD; elims; drule spec; elims; force)+
+        also have "finite \<dots>"
+          using trans_N_finite by (intro finite_prodI3 finite_intros) auto
+        finally show ?thesis .
+      qed
+      ultimately show ?thesis
+        using states_finite bounded_finite by defer_ex
     qed
-    ultimately show ?thesis
-      using states_finite bounded_finite
-      apply defer_ex
-      done
-  qed
     finally show ?thesis .
   qed
-  ultimately show "finite (trans_of prod_ta)"
+  ultimately show ?thesis
     by (simp add: trans_prod_def)
+qed
+
+sublocale Reachability_Problem_no_ceiling prod_ta init "\<lambda>_. False" m
+proof standard
+  show "finite (trans_of prod_ta)"
+    using trans_prod_finite by simp
 next
   show "finite (range (inv_of prod_ta))"
     apply simp
