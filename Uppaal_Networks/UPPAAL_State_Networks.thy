@@ -7,18 +7,13 @@ chapter \<open>Networks of Timed Automata -- UPPAAL Style\<close>
 no_notation Ref.update ("_ := _" 62)
 no_notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
-(* XXX Move *)
-lemma finite_lists_length_eq:
-  "finite {s. length s = r \<and> set s \<subseteq> S}" if "finite S"
-  by (rule finite_lists_length_le[OF that, THEN finite_subset[rotated], where n1 = r]) auto
-
  (* XXX Move *)
 lemma finite_lists_boundedI:
   assumes "\<forall> i < r. finite (S i)"
     shows "finite {s. length s = r \<and> (\<forall>i<r. s ! i \<in> S i)}" (is "finite ?R")
 proof -
   let ?S = "\<Union> {S i | i. i < r}"
-  have "?R \<subseteq> {s. length s = r \<and> set s \<subseteq> ?S}"
+  have "?R \<subseteq> {s. set s \<subseteq> ?S \<and> length s = r}"
     by (auto dest!: aux)
   moreover have "finite \<dots>" by (rule finite_lists_length_eq) (use assms in auto)
   ultimately show ?thesis by (rule finite_subset)

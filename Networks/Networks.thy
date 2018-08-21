@@ -90,10 +90,10 @@ lemma concat_guard:
   shows "u \<turnstile> g"
 using assms by (auto simp: list_all_iff clock_val_def)
 
-lemma lists_of_len_finite:
-  assumes "finite S"
-  shows "finite {xs. set xs \<subseteq> S \<and> length xs = n}"
-  using assms by (rule finite_lists_length_eq)
+lemma collect_clock_pairs_append_cases:
+  assumes "x \<in> collect_clock_pairs (g1 @ g2)"
+  shows "x \<in> collect_clock_pairs g1 \<or> x \<in> collect_clock_pairs g2"
+    using assms unfolding collect_clock_pairs_def by auto
 
 (* XXX Move? *)
 lemma list_update_nth_split:
@@ -124,10 +124,6 @@ begin
 
   definition
     "product_trans \<equiv> product_trans_i \<union> product_trans_s"
-
-lemma *:
-  "length T = length N"
-  by simp
 
 lemma product_state_set_subs:
   assumes "q < length N" "l \<in> state_set product_trans"
@@ -183,11 +179,6 @@ lemma product_state_set_subs:
     assumes "L \<in> states"
     shows "length L = length N"
     using assms unfolding states_def by auto
-
-  lemma collect_clock_pairs_append_cases:
-    assumes "x \<in> collect_clock_pairs (g1 @ g2)"
-    shows "x \<in> collect_clock_pairs g1 \<or> x \<in> collect_clock_pairs g2"
-      using assms unfolding collect_clock_pairs_def by auto
 
   lemma collect_clkt_product_trans_subs:
     "Timed_Automata.collect_clkt product_trans \<subseteq> \<Union> (Timed_Automata.collect_clkt ` set T)"
@@ -371,9 +362,9 @@ lemma product_state_set_subs:
   lemma finite_states:
     "finite states"
   proof -
-    have "states \<subseteq> {L.
-        set L \<subseteq>
-          (\<Union> {fst ` trans_of (N ! p) | p. p < length N} \<union> \<Union> {(snd \<circ> snd \<circ> snd \<circ> snd) ` trans_of (N ! p) | p. p < length N})
+    have "states \<subseteq> {L. set L \<subseteq>
+          (\<Union> {fst ` trans_of (N ! p) | p. p < length N} \<union>
+            \<Union> {(snd \<circ> snd \<circ> snd \<circ> snd) ` trans_of (N ! p) | p. p < length N})
           \<and> length L = length N}"
       unfolding states_def
       apply clarsimp
