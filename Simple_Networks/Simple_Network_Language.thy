@@ -189,7 +189,7 @@ definition
       (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
       (l \<in> commited (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
       L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
-      bounded bounds s' \<and> L \<in> states
+      bounded bounds s' \<and> L \<in> states \<and> bounded bounds s
     }"
 
 definition
@@ -200,7 +200,7 @@ definition
       (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
       L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
       L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-      \<and> L \<in> states
+      \<and> L \<in> states \<and> bounded bounds s
     }"
 
 definition
@@ -215,7 +215,7 @@ definition
       L!p = l \<and>
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
-      bounded bounds s'' \<and> L \<in> states
+      bounded bounds s'' \<and> L \<in> states \<and> bounded bounds s
     }"
 
 definition
@@ -273,7 +273,7 @@ lemma prod_invD[dest]:
 
 lemma action_complete:
   "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
-  if "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" "a \<noteq> Del" "L \<in> states"
+  if "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" "a \<noteq> Del" "L \<in> states" "bounded bounds s"
 using that(1) proof cases
   case (step_t N d B broadcast)
   then show ?thesis
@@ -288,7 +288,7 @@ next
     unfolding N_def unfolding prems(1) by simp
   have "prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,Internal a',r\<^esup> (L', s')"
   proof -
-    from prems \<open>L \<in> states\<close> have "((L, s),g,Internal a',r,(L', s')) \<in> trans_int"
+    from prems \<open>L \<in> states\<close> \<open>bounded _ s\<close> have "((L, s),g,Internal a',r,(L', s')) \<in> trans_int"
       unfolding trans_int_def
       by simp (rule exI conjI HOL.refl | assumption | (simp; fail))+
     then show ?thesis
@@ -312,7 +312,8 @@ next
     unfolding N_def unfolding prems(1) by simp
   have "prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g1 @ g2,Bin a',r1 @ r2\<^esup> (L', s')"
   proof -
-    from prems \<open>L \<in> states\<close> have "((L, s),g1 @ g2,Bin a',r1 @ r2,(L', s')) \<in> trans_bin"
+    from prems \<open>L \<in> states\<close> \<open>bounded bounds s\<close> have
+      "((L, s),g1 @ g2,Bin a',r1 @ r2,(L', s')) \<in> trans_bin"
       unfolding trans_bin_def
       using [[simproc add: ex_reorder4]]
       by simp (rule exI conjI HOL.refl | assumption | fast)+
@@ -348,7 +349,7 @@ next
       then show ?thesis
         by auto
     qed
-    from prems \<open>L \<in> states\<close> have "((L, s),?g,Broad a',?r,(L', s')) \<in> trans_broad"
+    from prems \<open>L \<in> states\<close> \<open>bounded bounds s\<close> have "((L, s),?g,Broad a',?r,(L', s')) \<in> trans_broad"
       unfolding trans_broad_def
       by clarsimp
          (intro exI conjI HOL.refl; (rule HOL.refl | assumption | fastforce simp: *))

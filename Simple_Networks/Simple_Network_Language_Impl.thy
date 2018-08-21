@@ -108,16 +108,26 @@ proof -
     by auto
 qed
 
+lemma mem_trans_N_iff:
+  "t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (automata ! i)))" if "i < n_ps"
+  unfolding N_eq[OF that] by (auto split: prod.splits simp: automaton_of_def)
+
+paragraph \<open>Fundamentals\<close>
+
+lemma length_automata_eq_n_ps:
+  "length automata = n_ps"
+  unfolding n_ps_def by simp
+
+lemma L_len[intro, dest]:
+  "length L = n_ps" if "L \<in> states"
+  using that unfolding states_def by simp
+
 lemma clkp_set'_subs:
   "Timed_Automata.clkp_set prod_ta \<subseteq> clkp_set'"
-  unfolding Timed_Automata.clkp_set_def
-  unfolding clkp_set'_def
+  unfolding Timed_Automata.clkp_set_def clkp_set'_def
   apply (rule union_subsetI)
   subgoal
-    unfolding
-      Timed_Automata.collect_clki_def
-    unfolding inv_of_prod
-    unfolding prod_inv_def
+    unfolding Timed_Automata.collect_clki_def inv_of_prod prod_inv_def
     apply (auto simp: collect_clock_pairs_concat)
     apply (subst (asm) N_eq)
      apply assumption
@@ -128,7 +138,62 @@ lemma clkp_set'_subs:
         by (force dest!: collect_clock_pairs_invsI split: prod.split_asm)
       unfolding n_ps_def by auto
     done
-  sorry
+  subgoal
+    apply simp
+    unfolding trans_prod_def Timed_Automata.collect_clkt_def
+    apply safe
+    subgoal
+      unfolding trans_int_def
+      by (auto 4 4 simp: length_automata_eq_n_ps mem_trans_N_iff)
+    subgoal
+      unfolding trans_bin_def
+      by (fastforce
+          simp: length_automata_eq_n_ps mem_trans_N_iff
+          dest!: collect_clock_pairs_append_cases)
+    subgoal
+      unfolding trans_broad_def
+      apply (clarsimp simp: length_automata_eq_n_ps mem_trans_N_iff)
+      apply (drule collect_clock_pairs_append_cases)
+      unfolding collect_clock_pairs_concat
+      apply auto
+           apply (fastforce simp: length_automata_eq_n_ps mem_trans_N_iff)+
+      done
+    done
+  done
+
+lemma collect_clkvt_subs:
+  "collect_clkvt (trans_of prod_ta) \<subseteq>
+    (\<Union> A \<in> set automata. \<Union> (_, _, _, _, r, _) \<in> set (fst (snd A)). set r)"
+  apply simp
+  unfolding collect_clkvt_def
+  apply auto
+  unfolding trans_prod_def
+  subgoal
+    apply simp
+    unfolding trans_prod_def Timed_Automata.collect_clkt_def
+    apply safe
+    subgoal
+      unfolding trans_int_def
+      by (fastforce
+          simp: length_automata_eq_n_ps mem_trans_N_iff
+          dest!: collect_clock_pairs_append_cases)
+    subgoal
+      unfolding trans_bin_def
+      by (fastforce
+          simp: length_automata_eq_n_ps mem_trans_N_iff
+          dest!: collect_clock_pairs_append_cases)
+    subgoal
+      unfolding trans_broad_def
+      apply (clarsimp simp: length_automata_eq_n_ps mem_trans_N_iff)
+      unfolding collect_clock_pairs_concat
+      apply safe
+           apply (fastforce simp: length_automata_eq_n_ps mem_trans_N_iff)+
+      done
+    done
+  done
+
+lemma clk_set'_subs: "clk_set prod_ta \<subseteq> clk_set'"
+  using collect_clkvt_subs clkp_set'_subs unfolding clk_set'_def by auto
 
 end (* Simple Network Impl *)
 
@@ -147,12 +212,20 @@ lemmas [intros] =
 and [elims] =
   bexE exE bexE conjE impE
 
-method intros uses add = (intro add intros)
+method intros uses add  = (intro add intros)
 method elims  uses add  = (elim  add elims)
 
 lemma all_mp:
   "\<forall> x. P x \<longrightarrow> R x" if "\<forall> x. P x \<longrightarrow> Q x" "\<And> x. P x \<Longrightarrow> Q x \<Longrightarrow> R x"
   using that by (intros; elims add: allE)
+
+named_theorems more_intros
+named_theorems more_elims
+lemmas [more_intros] =
+  image_eqI[rotated] CollectI subsetI
+
+lemmas [more_elims] =
+  CollectE
 
 method (in -) rprem =
   (match premises in R: _ \<Rightarrow> \<open>rule R\<close>)
@@ -502,6 +575,79 @@ lemma is_upds_make_updsI:
   done
   by (subst is_upd_dom) (auto intro: is_upd_make_updI)
 
+lemma (in Prod_TA_Defs) finite_range_invI:
+  "finite (range prod_inv)" if assms: "\<forall> i < n_ps. finite (range (inv (N i)))"
+proof -
+  let ?N = "\<Union> (range ` inv ` N ` {0..<n_ps})"
+  let ?X = "{I. set I \<subseteq> ?N \<and> length I \<le> n_ps}"
+  have "finite ?N"
+    using assms by auto
+  then have "finite ?X"
+    by (rule finite_lists_length_le)
+  moreover have "range prod_inv \<subseteq> concat ` ?X"
+  proof
+    fix x assume "x \<in> range prod_inv"
+    then obtain L where L:
+      "x = concat (map (\<lambda>p. (inv (N p)) (L ! p)) [0..<n_ps])"
+      unfolding prod_inv_def by auto
+    then show "x \<in> concat ` ?X"
+      by force
+  qed
+  ultimately show ?thesis by - (drule finite_subset; auto)
+qed
+
+lemma finite_range_default_map_of:
+  "finite (range (default_map_of x m))"
+proof -
+  have "range (default_map_of x m) \<subseteq> the ` range (map_of m) \<union> {x}"
+    unfolding default_map_of_def FinFun.map_default_def
+    by (auto split: option.splits) (metis image_eqI option.sel rangeI)
+  also have "finite \<dots>"
+    by (blast intro: finite_range_map_of)
+  finally show ?thesis .
+qed
+
+(* XXX *)
+lemmas set_mem_nthD = aux
+
+lemma (in Prod_TA_Defs)
+  fixes p :: "nat"
+  assumes "p < n_ps"
+  shows "finite (Simple_Network_Language.trans (N p))"
+  unfolding N_def
+  using assms
+  unfolding n_ps_def
+  oops
+
+named_theorems finite_intros
+
+lemmas [finite_intros] =
+  finite_UnI finite_Union finite_imageI
+  finite_lists_length_eq finite_lists_length_le
+  distinct_finite_subset distinct_finite_set
+
+lemma (in Prod_TA_Defs) finite_states:
+  assumes finite_trans: "\<forall>p < n_ps. finite (Simple_Network_Language.trans (N p))"
+  shows "finite states"
+proof -
+  have "states \<subseteq> {L.
+      set L \<subseteq>
+        (\<Union> {fst ` trans (N p) | p. p < n_ps} \<union>
+        \<Union> {(snd o snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps})
+        \<and> length L = n_ps}"
+    unfolding states_def
+    apply (intros add: more_intros)
+    apply (elims add: more_elims)
+     apply (drule set_mem_nthD)
+     apply simp
+     apply (elims add: allE, assumption)
+     apply (simp split: prod.split_asm)
+     apply (erule disjE; (intros add: disjI1 disjI2 more_intros, solve_triv+); fail)
+    by (elims add: more_elims)
+  also from finite_trans have "finite \<dots>"
+    by (intro finite_intros) auto
+  finally show ?thesis .
+qed
 
 locale Simple_Network_Impl_nat =
   Simple_Network_Impl automata
@@ -521,43 +667,193 @@ locale Simple_Network_Impl_nat =
   assumes action_set:
     "\<forall>a \<in> set broadcast. a < num_actions"
     "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, a, _, _, _) \<in> set trans. pred_act (\<lambda>a. a < num_actions) a"
+  assumes clock_set:
+    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, g, _, _, r, _) \<in> set trans.
+      (\<forall>c \<in> set r. 0 < c \<and> c < m) \<and>
+      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
+      "
+    "\<forall>(_, _, inv) \<in> set automata. \<forall>(l, g) \<in> set inv.
+      (\<forall>c \<in> set r. 0 < c \<and> c < m) \<and>
+      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
+      "
 begin
+
+lemma trans_N_finite:
+  assumes "p < n_ps"
+  shows "finite (Simple_Network_Language.trans (N p))"
+  using assms by (subst N_eq) (auto simp: automaton_of_def split: prod.split)
+
+lemma states_finite:
+  "finite states"
+  by (intros add: finite_states trans_N_finite)
+
+lemma bounded_finite:
+  "finite {s. bounded bounds s}"
+  sorry
+
+lemma finite_Collect_bounded_ex_3 [simp]:
+  assumes "finite {(a,b,c) . P a b c}"
+  shows
+    "finite {x. \<exists>a b c. P a b c \<and> Q x a b c}
+    \<longleftrightarrow> (\<forall> a b c. P a b c \<longrightarrow> finite {x. Q x a b c})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c). Q x a b c"]
+  by clarsimp
+
+lemma finite_Collect_bounded_ex_4 [simp]:
+  assumes "finite {(a,b,c,d) . P a b c d}"
+  shows
+    "finite {x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
+    \<longleftrightarrow> (\<forall> a b c d. P a b c d \<longrightarrow> finite {x. Q x a b c d})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d). Q x a b c d"]
+  by clarsimp
+
+lemma finite_prodI:
+  "finite {(a,b). P a \<and> Q b}" if "finite {a. P a}" "finite {a. Q a}"
+  using that by simp
+
+lemma finite_prodI3:
+  "finite {(a,b,c). P a \<and> Q b \<and> Q1 c}"
+  if "finite {a. P a}" "finite {a. Q a}" "finite {a. Q1 a}"
+  using that by simp
+
+lemma finite_prodI4:
+  "finite {(a,b,c,d). P a \<and> Q b \<and> Q1 c \<and> Q2 d}"
+  if "finite {a. P a}" "finite {a. Q a}" "finite {a. Q1 a}" "finite {a. Q2 a}"
+  using that by simp
 
 sublocale Reachability_Problem_no_ceiling prod_ta init "\<lambda>_. False" m
 proof standard
-  show "finite (trans_of prod_ta)"
-    apply simp
-    unfolding trans_prod_def
-    apply safe
-    subgoal
-      unfolding trans_int_def
-      apply auto
+  have "finite trans_int"
+  proof -
+    have "trans_int \<subseteq>
+      {((L, s), g, Internal a, r, (L', s')) | L s p l g a f r l' s' L'.
+        L \<in> states \<and> bounded bounds s \<and> p < n_ps \<and>
+        (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
+        bounded bounds s'
+        \<and> L' = L[p := l']
+      }"
+      unfolding trans_int_def by (force simp: L_len)
+  also have "finite \<dots>"
+  proof -
+    have "finite {(a, b, c, d, e, f). (a, b, Sil c, d, e, f) \<in> trans (N p)}"
+      if "p < n_ps" for p
+      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+    with states_finite bounded_finite show ?thesis
+      by defer_ex
+  qed
+    finally show ?thesis .
+  qed
+  moreover have "finite trans_bin"
+  proof -
+    have "trans_bin \<subseteq>
+      {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
+        L s p q l1 g1 a f1 r1 l1' l2 g2 f2 r2 l2' s'' L'.
+          L \<in> states \<and> bounded bounds s \<and>
+          p < n_ps \<and> q < n_ps \<and>
+          (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
+          (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
+          bounded bounds s'' \<and>
+          L' = L[p := l1', q := l2']
+    }"
+      unfolding trans_bin_def by (fastforce simp: L_len)
+  also have "finite \<dots>"
+  proof -
+    have "finite {(a, b, c, d, e, f). (a, b, In c, d, e, f) \<in> trans (N p)}"
+      if "p < n_ps" for p
+      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+    moreover have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
+      if "p < n_ps" for p c
+      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+    ultimately show ?thesis
+      using states_finite bounded_finite by defer_ex
+  qed
+    finally show ?thesis .
+  qed
+  moreover have "finite trans_broad"
+  proof -
+    define P where "P ps \<equiv> set ps \<subseteq> {0..<n_ps} \<and> distinct ps" for ps
+    define Q where "Q L a n gs fs rs \<equiv>
+      (\<forall>p < n. \<exists> q < n_ps. \<exists> l'. (L ! p, gs ! p, In a, fs ! p, rs ! p, l') \<in> trans (N q)) \<and>
+              length gs = n \<and> length fs = n \<and> length rs = n" for L a n gs fs rs
+    have "trans_broad \<subseteq>
+      {((L, s), g @ concat gs, Broad a, r @ concat rs, (L', s'')) |
+      L s a p l g f r l' ps gs fs rs L' s''.
+        L \<in> states \<and> bounded bounds s \<and> a \<in> set broadcast \<and>
+        p < n_ps \<and>
+        (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
+        P ps \<and>
+        Q L a (length ps) gs fs rs \<and>
+        L' \<in> states \<and>
+        bounded bounds s'' \<and>
+        L' ! p = l'
+    }"
+      unfolding trans_broad_def broadcast_def P_def Q_def
+      apply (rule subsetI)
+      apply (elims add: more_elims)
+      apply (intros add: more_intros)
+               apply solve_triv+
+           (* apply (auto simp: L_len) *)
       sorry
-    sorry
+  also have "finite \<dots>"
+  proof -
+    have "finite {(a, b, c, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
+      if "p < n_ps" for p
+      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+    moreover have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
+      if "p < n_ps" for p c
+      using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+    moreover have "finite {ps. P ps}"
+      unfolding P_def by (simp add: finite_intros)
+    moreover have "finite {(gs, fs, rs). Q L a n gs fs rs}" (is "finite ?S") for L a n
+    proof -
+      let ?T = "\<Union> (trans ` N ` {0..<n_ps})"
+      have "?S \<subseteq> {(gs, fs, rs).
+        (set gs \<subseteq> (\<lambda>(_,g,_). g) ` ?T \<and> length gs = n) \<and>
+        (set fs \<subseteq> (\<lambda>(_,_,_,f,_). f) ` ?T \<and> length fs = n) \<and>
+        (set rs \<subseteq> (\<lambda>(_,_,_,_,r,_). r) ` ?T \<and> length rs = n)
+      }"
+        unfolding Q_def
+        by safe (drule set_mem_nthD; elims; drule spec; elims; force)+
+      also have "finite \<dots>"
+        using trans_N_finite by (intro finite_prodI3 finite_intros) auto
+      finally show ?thesis .
+    qed
+    ultimately show ?thesis
+      using states_finite bounded_finite
+      apply defer_ex
+      done
+  qed
+    finally show ?thesis .
+  qed
+  ultimately show "finite (trans_of prod_ta)"
+    by (simp add: trans_prod_def)
 next
   show "finite (range (inv_of prod_ta))"
     apply simp
-    unfolding prod_inv_def
-    find_theorems Simple_Network_Language.inv map
-    unfolding N_def n_ps_def
-    apply simp
-    sorry
+    apply (rule finite_range_invI)
+    apply intros
+    unfolding length_automata_eq_n_ps[symmetric]
+    unfolding N_def
+    unfolding automaton_of_def
+    by (auto intro: finite_range_default_map_of split: prod.split)
 next
-  show "clk_set prod_ta \<subseteq> {1..m}"
-    sorry
+  from clk_set'_subs have "clk_set prod_ta \<subseteq> clk_set'" .
+  also have "\<dots> \<subseteq> {1..m}"
+    using clock_set unfolding clk_set'_def clkp_set'_def by force
+  finally show "clk_set prod_ta \<subseteq> {1..m}" .
 next
-  show "\<forall>(_, d)\<in>Timed_Automata.clkp_set prod_ta. d \<in> \<nat>"
-    sorry
+  from clock_set have "\<forall>(_, d)\<in>clkp_set'. d \<in> \<nat>"
+    unfolding clkp_set'_def by force
+  then show "\<forall>(_, d)\<in>Timed_Automata.clkp_set prod_ta. d \<in> \<nat>"
+    by (auto dest!: subsetD[OF clkp_set'_subs])
 next
   show "0 < m"
     by (rule has_clock)
 qed
 
 paragraph \<open>Fundamentals\<close>
-
-lemma length_automata_eq_n_ps:
-  "length automata = n_ps"
-  unfolding n_ps_def by simp
 
 lemma mem_trans_N_iff:
   \<open>t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (automata ! i)))\<close> if "i < n_ps"
@@ -574,10 +870,6 @@ lemma L_i_simp:
   \<open>[0..<num_states i] ! (L ! i) = L ! i\<close>
   if "i < n_ps" "L \<in> states"
   using L_i_len[OF that] by simp
-
-lemma L_len[intro, dest]:
-  "length L = n_ps" if "L \<in> states"
-  using that unfolding states_def by simp
 
 lemma action_setD:
   \<open>pred_act (\<lambda>a'. a' < num_actions) a\<close>
