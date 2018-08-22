@@ -43,15 +43,17 @@ type_synonym
   ('a, 's, 'c, 't, 'x, 'v) sta = "'s set \<times> ('a, 's, 'c, 't, 'x, 'v) transition set \<times> ('c, 't, 's) invassn"
 
 type_synonym
-  ('a, 's, 'c, 't, 'x, 'v) nta = "'a set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<Rightarrow> 'v * 'v)"
+  ('a, 's, 'c, 't, 'x, 'v) nta = "'a set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
 
 datatype 'b label = Del | Internal 'b | Bin 'b | Broad 'b
 
 definition bounded where
-  "bounded bounds s \<equiv> \<forall>x \<in> dom s. fst (bounds x) < the (s x) \<and> the (s x) < snd (bounds x)"
+  "bounded bounds s \<equiv> dom s = dom bounds \<and>
+    (\<forall>x \<in> dom s. fst (the (bounds x)) < the (s x) \<and> the (s x) < snd (the (bounds x)))"
 
 definition is_upd where
-  "is_upd s upds s' \<equiv> \<exists>xs. list_all2 (\<lambda> (l1, r1) (l2, r2). l1 = l2 \<and> is_val s r1 r2) upds xs \<and> s' = fold (\<lambda> (l, r) s. s(l := Some r)) xs s"
+  "is_upd s upds s' \<equiv> \<exists>xs. list_all2 (\<lambda> (l1, r1) (l2, r2). l1 = l2 \<and> is_val s r1 r2) upds xs
+    \<and> s' = fold (\<lambda> (l, r) s. s(l := Some r)) xs s"
 
 inductive is_upds where
   "is_upds s [] s" |
@@ -60,7 +62,8 @@ inductive is_upds where
 abbreviation commited :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
   "commited A \<equiv> fst A"
 
-abbreviation trans :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('a, 's, 'c, 't, 'x, 'v) transition set" where
+abbreviation trans :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('a, 's, 'c, 't, 'x, 'v) transition set"
+  where
   "trans A \<equiv> fst (snd A)"
 
 abbreviation inv :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('c, 't, 's) invassn" where
@@ -70,8 +73,8 @@ no_notation step_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^b
 no_notation steps_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61, 61, 61,61,61] 61)
 
 inductive step_u ::
-  "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta \<Rightarrow> 's list \<Rightarrow> ('x \<rightharpoonup> 'v) \<Rightarrow> ('c, 't) cval \<Rightarrow> 'a label
-  \<Rightarrow> 's list \<Rightarrow> ('x \<rightharpoonup> 'v) \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
+  "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta \<Rightarrow> 's list \<Rightarrow> ('x \<rightharpoonup> 'v) \<Rightarrow> ('c, 't) cval
+  \<Rightarrow> 'a label \<Rightarrow> 's list \<Rightarrow> ('x \<rightharpoonup> 'v) \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 where
   step_t:
@@ -135,9 +138,8 @@ definition steps_u ::
   \<Rightarrow> 's list \<Rightarrow> ('x \<rightharpoonup> 'v) \<Rightarrow> ('c, 't) cval \<Rightarrow> bool"
 ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 where
-  "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<equiv> (\<lambda> (L, s, u) (L', s', u'). \<exists>a. A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>)\<^sup>*\<^sup>* (L, s, u) (L', s', u')"
-
-setup Explorer_Lib.switch_to_quotes
+  "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>* \<langle>L', s', u'\<rangle> \<equiv>
+    (\<lambda> (L, s, u) (L', s', u'). \<exists>a. A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>)\<^sup>*\<^sup>* (L, s, u) (L', s', u')"
 
 paragraph \<open>Misc\<close>
 
@@ -174,11 +176,9 @@ definition
 definition \<comment>\<open>Number of processes\<close>
   "n_ps = length (fst (snd A))"
 
-definition states  :: \<open>'s list set\<close> where
-  \<open>states \<equiv> {L. length L = n_ps \<and> (\<forall> i. i < n_ps --> L ! i \<in> UNION (trans (N i)) (\<lambda>(l, g, a, r, u, l'). {l, l'}))} \<close>
-
-(* definition states  :: \<open>'s set\<close> where
-  \<open>states \<equiv> \<Union>{UNION (trans (N i)) (\<lambda>(l, g, a, r, u, l'). {l, l'}) | i. i < n_ps} \<close> *)
+definition states  :: "'s list set" where
+  "states \<equiv> {L. length L = n_ps \<and>
+    (\<forall> i. i < n_ps --> L ! i \<in> UNION (trans (N i)) (\<lambda>(l, g, a, r, u, l'). {l, l'}))}"
 
 definition
   "prod_inv \<equiv> \<lambda>(L, s). concat (map (\<lambda>i. inv (N i) (L ! i)) [0..<n_ps])"
@@ -189,18 +189,19 @@ definition
       (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
       (l \<in> commited (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
       L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
-      bounded bounds s' \<and> L \<in> states \<and> bounded bounds s
+      L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
     }"
 
 definition
   "trans_bin =
-    {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) | L s L' s' s'' a p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'.
+    {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
+      L s L' s' s'' a p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'.
       (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
       (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
       (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
       L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-      L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-      \<and> L \<in> states \<and> bounded bounds s
+      L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+      L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
     }"
 
 definition
@@ -210,12 +211,13 @@ definition
       a \<in> broadcast  \<and>
       (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
       (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
-      (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p)) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
-      (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> \<not> (\<exists>g f r l'. (L ! q, g, In a, f, r, l') \<in> trans (N q))) \<and>
+      (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))
+      \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
+      (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> \<not> (\<exists>g f r l'. (L!q, g, In a, f, r, l') \<in> trans (N q))) \<and>
       L!p = l \<and>
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
-      bounded bounds s'' \<and> L \<in> states \<and> bounded bounds s
+      L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
     }"
 
 definition
@@ -426,7 +428,8 @@ qed
 qed
 
 lemma step_iff:
-  "(\<exists> a. A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>) \<longleftrightarrow> prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>" if "bounded bounds s" "L \<in> states"
+  "(\<exists> a. A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>) \<longleftrightarrow> prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
+  if "bounded bounds s" "L \<in> states"
   using that
   apply (auto intro: action_sound delay_sound)
   subgoal for a

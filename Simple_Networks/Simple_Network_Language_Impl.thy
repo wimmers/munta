@@ -57,7 +57,7 @@ definition
 *)
 
 sublocale Prod_TA_Defs
-  "(set broadcast, map automaton_of automata, default_map_of (0,0) bounds')" .
+  "(set broadcast, map automaton_of automata, map_of bounds')" .
 
 definition "clkp_set' \<equiv>
     (\<Union> A \<in> set automata. UNION (set (snd (snd A))) (collect_clock_pairs o snd))
@@ -97,7 +97,8 @@ proof -
     have "[] \<noteq> default_map_of [] invs l"
       using that by force
     then have "default_map_of [] invs l \<in> snd ` set invs"
-      by (metis (no_types) UNIV_I Un_insert_right range_default_map_of[of "[]" "invs"] image_eqI insertE subsetCE sup_bot.right_neutral)
+      by (metis (no_types) UNIV_I Un_insert_right range_default_map_of[of "[]" "invs"]
+            image_eqI insertE subsetCE sup_bot.right_neutral)
     then show ?thesis
       using \<open>x \<in> set (default_map_of [] invs l)\<close> by blast
   qed
@@ -664,6 +665,8 @@ locale Simple_Network_Impl_nat =
   assumes var_set:
     "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, f, _, _) \<in> set trans.
       \<forall>(x, upd) \<in> set f. x < n_vs \<and> (\<forall> i \<in> vars_of_exp upd. i < n_vs)"
+  assumes bounds:
+    "\<forall> i < n_vs. fst (bounds' ! i) = i"
   assumes action_set:
     "\<forall>a \<in> set broadcast. a < num_actions"
     "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, a, _, _, _) \<in> set trans. pred_act (\<lambda>a. a < num_actions) a"
@@ -689,7 +692,32 @@ lemma states_finite:
 
 lemma bounded_finite:
   "finite {s. bounded bounds s}"
-  sorry
+proof -
+  let ?l = "Min {fst (the (bounds x)) | x. x \<in> dom bounds}"
+  let ?u = "Max {snd (the (bounds x)) | x. x \<in> dom bounds}"
+  have "finite (dom bounds)"
+    unfolding bounds_def by simp
+  then have "{s. bounded bounds s} \<subseteq> {s. dom s = dom bounds \<and> ran s \<subseteq> {?l..?u}}"
+    unfolding bounded_def
+    apply clarsimp
+    apply (rule conjI)
+    subgoal for s v
+      unfolding ran_is_image
+      apply clarsimp
+      subgoal for x l u
+        by (rule order.trans[where b = "fst (the (bounds x))"]; (rule Min_le)?; force)
+      done
+    subgoal for s v
+      unfolding ran_is_image
+      apply clarsimp
+      subgoal for x l u
+        by (rule order.trans[where b = "snd (the (bounds x))"]; (rule Max_ge)?; force)
+      done
+    done
+  also from \<open>finite (dom bounds)\<close> have "finite \<dots>"
+    by (rule finite_set_of_finite_maps) rule
+  finally show ?thesis .
+qed
 
 lemma finite_Collect_bounded_ex_3 [simp]:
   assumes "finite {(a,b,c) . P a b c}"
@@ -740,7 +768,8 @@ proof -
     proof -
       have "finite {(a, b, c, d, e, f). (a, b, Sil c, d, e, f) \<in> trans (N p)}"
         if "p < n_ps" for p
-        using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+        using [[simproc add: finite_Collect]] that
+        by (auto intro: trans_N_finite finite_vimageI injI)
       with states_finite bounded_finite show ?thesis
         by defer_ex
     qed
@@ -763,10 +792,12 @@ proof -
     proof -
       have "finite {(a, b, c, d, e, f). (a, b, In c, d, e, f) \<in> trans (N p)}"
         if "p < n_ps" for p
-        using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+        using [[simproc add: finite_Collect]] that
+        by (auto intro: trans_N_finite finite_vimageI injI)
       moreover have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
         if "p < n_ps" for p c
-        using [[simproc add: finite_Collect]] that by (auto intro: trans_N_finite finite_vimageI injI)
+        using [[simproc add: finite_Collect]] that
+        by (auto intro: trans_N_finite finite_vimageI injI)
       ultimately show ?thesis
         using states_finite bounded_finite by defer_ex
     qed
@@ -895,7 +926,7 @@ by (cases "automata ! p")
 paragraph \<open>More precise state sets\<close>
 
 definition
-  "states' \<equiv> {(L, s). L \<in> states \<and> dom s = {0..<n_vs}}"
+  "states' \<equiv> {(L, s). L \<in> states \<and> dom s = {0..<n_vs} \<and> bounded bounds s}"
 
 lemma states'_states[intro, dest]:
   "L \<in> states" if "(L, s) \<in> states'"
@@ -903,6 +934,10 @@ lemma states'_states[intro, dest]:
 
 lemma states'_dom[intro, dest]:
   "dom s = {0..<n_vs}" if "(L, s) \<in> states'"
+  using that unfolding states'_def by auto
+
+lemma states'_bounded[intro, dest]:
+  "bounded bounds s" if "(L, s) \<in> states'"
   using that unfolding states'_def by auto
 
 paragraph \<open>Implementation of invariants\<close>
@@ -964,10 +999,11 @@ lemma inv_fun_alt_def:
 paragraph \<open>Implementation of transitions\<close>
 
 definition
-  "bounds_map \<equiv> default_map_of (0, 0) bounds'"
+  "bounds_map \<equiv> the o map_of bounds'"
 
 definition
-  "check_bounded s = bounded bounds_map s"
+  "check_bounded s =
+    (\<forall>x \<in> dom s. fst (bounds_map x) < the (s x) \<and> the (s x) < snd (bounds_map x))"
 
 definition
   "get_commited L =
@@ -1129,11 +1165,6 @@ definition make_combs_from_pairs where
     in if ys = [] then [] else product_lists ys
   "
 
-term List.find
-term list_ex
-
-term "a \<and> b"
-
 definition
   "broad_trans_from \<equiv> \<lambda>(L, s).
     let
@@ -1207,10 +1238,6 @@ definition
         )
       [0..<num_actions])
     "
-
-lemma
-  "List.map_filter f xs = map the (List.filter (\<lambda> x. x \<noteq> None) (map f xs))"
-  oops
 
 lemma filter_map_map_filter:
   "filter P (map f xs) = List.map_filter (\<lambda> x. let y = f x in if P y then Some y else None) xs"
@@ -1293,13 +1320,22 @@ lemma broad_trans_from_alt_def:
       arg_cong2[where f = map] arg_cong2[where f = List.map_filter] arg_cong HOL.refl |
       rule if_cong ext | auto split: if_split_asm)+
 
-lemma bounds_bounds_map:
-  "bounds = bounds_map"
-  unfolding bounds_def bounds_map_def by simp
+lemma dom_bounds_eq:
+  "dom bounds = {0..<n_vs}"
+  using bounds unfolding bounds_def
+  apply simp
+  unfolding n_vs_def dom_map_of_conv_image_fst
+  apply safe
+   apply (auto dest!: set_mem_nthD; fail)
+  apply (force dest: nth_mem; fail)
+  done
 
 lemma check_bounded_iff:
-  "Simple_Network_Language.bounded bounds s \<longleftrightarrow> check_bounded s"
-  unfolding check_bounded_def Simple_Network_Language.bounded_def bounds_bounds_map ..
+  "Simple_Network_Language.bounded bounds s \<longleftrightarrow> check_bounded s" if "dom s = {0..<n_vs}"
+  using that
+  unfolding dom_bounds_eq[symmetric]
+  unfolding check_bounded_def Simple_Network_Language.bounded_def bounds_map_def bounds_def
+  by auto
 
 lemma get_commited_mem_iff:
   "(p, l) \<in> set (get_commited L) \<longleftrightarrow> (l = L ! p \<and> l \<in> commited (N p) \<and> p < n_ps)"
@@ -1340,19 +1376,17 @@ lemma is_upd_make_updI2:
   using that using var_set
   by (subst (asm) mem_trans_N_iff) (auto 4 5 simp flip: length_automata_eq_n_ps dest!: nth_mem)
 
+lemma var_setD:
+  "\<forall>(x, upd)\<in>set f. x < n_vs \<and> (\<forall>i\<in>vars_of_exp upd. i < n_vs)"
+  if "(l, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  using var_set that
+  by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)+
+
 lemma is_upd_dom2:
   "dom s' = {0..<n_vs}" if "is_upd s f s'"
   "(l, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
-unfolding that(4)[symmetric]
-using that(2,3,4) var_set
-apply (cases "automata ! p")
-apply (rule is_upd_dom, rule that)
-apply (subst (asm) mem_trans_N_iff)
-apply (auto simp flip: length_automata_eq_n_ps)
-apply (drule nth_mem)
-apply (auto 0 5)
-done
+  unfolding that(4)[symmetric] using that by - (drule (1) var_setD, erule is_upd_dom, auto)
 
 lemma is_updD:
   "s' = mk_upds s f" if "is_upd s f s'"
@@ -1365,8 +1399,9 @@ qed
 
 lemma is_upds_make_updsI2:
   "is_upds s upds (fold (\<lambda>upd s. mk_upds s upd) upds s)"
-  if "\<forall>upd \<in> set upds. \<exists>p < n_ps. \<exists>l g a r l'. (l, g, a, upd, r, l') \<in> Simple_Network_Language.trans (N p)"
-  "dom s = {0..<n_vs}"
+  if "dom s = {0..<n_vs}" 
+      "\<forall>upd \<in> set upds. \<exists>p < n_ps. \<exists>l g a r l'.
+        (l, g, a, upd, r, l') \<in> Simple_Network_Language.trans (N p)"
   apply (rule is_upds_make_updsI)
   subgoal
   using that using var_set
@@ -1461,6 +1496,15 @@ lemma trans_i_mapD:
   using assms unfolding trans_i_map_def set_map_filter
   by (force split: act.split_asm intro: trans_mapD)
 
+notepad begin
+  fix a b c :: bool
+  assume eq: "a = c" if b
+  have "c = a" if b
+    using that
+    apply -
+    unfolding eq ..
+end
+
 lemma int_trans_from_correct:
   "(int_trans_from, trans_int) \<in> transition_rel states'"
   unfolding transition_rel_def
@@ -1468,10 +1512,10 @@ lemma int_trans_from_correct:
   subgoal for L s g a r L' s'
   proof -
     assume "(L, s) \<in> states'"
-    then have "L \<in> states" "dom s = {0..<n_vs}"
-      by auto
-    then have [simp]: "length L = n_ps"
-      by auto
+    then have "L \<in> states" "dom s = {0..<n_vs}" "bounded bounds s"
+      by auto thm check_bounded_iff
+    then have [simp]: "length L = n_ps" "check_bounded s"
+      by (auto simp: check_bounded_iff)
     show "(((L, s), g, a, r, L', s') \<in> trans_int) = ((g, a, r, L', s') \<in> set (int_trans_from (L, s)))"
     proof (cases "get_commited L = []")
       case True
@@ -1480,11 +1524,9 @@ lemma int_trans_from_correct:
         (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         (\<forall>p < n_ps. L ! p \<notin> commited (N p)) \<and>
         L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
-        bounded bounds s' \<and> L \<in> states
+        L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
-        unfolding get_commited_empty_iff[symmetric]
-        unfolding trans_int_def
-        by blast
+        unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
       from True have **: "int_trans_from (L, s) = int_trans_from_all L s"
         unfolding int_trans_from_def by simp
       from \<open>dom s = _\<close> show ?thesis
@@ -1496,20 +1538,15 @@ lemma int_trans_from_correct:
         apply clarsimp
         apply safe
         subgoal for f p a' l'
-          by (fastforce intro: trans_i_mapI simp: check_bounded_iff dest!: is_updD)
+          by (frule is_upd_dom2, assumption+)
+             (fastforce simp: check_bounded_iff intro: trans_i_mapI dest!: is_updD)
         subgoal for p _ a' upds l'
           apply mini_ex
-          apply (intros)
-                apply solve_triv
-               defer
-               defer
-               apply solve_triv
+          apply (drule trans_i_mapD, assumption)
+          apply (frule is_upd_make_updI2, assumption+)
+            apply (frule is_upd_dom2, assumption+)
           unfolding check_bounded_iff
-              apply (rule is_upd_make_updI2[OF trans_i_mapD])
-                 apply solve_triv+
-            apply (rule \<open>L \<in> states\<close>)
-           apply (erule trans_i_mapD, assumption)
-          using True[folded get_commited_empty_iff]
+          using \<open>L \<in> states\<close> \<open>check_bounded s\<close> True[folded get_commited_empty_iff]
           by auto
         done
     next
@@ -1519,11 +1556,9 @@ lemma int_trans_from_correct:
         (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         l \<in> commited (N p) \<and>
         L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
-        bounded bounds s' \<and> L \<in> states
+        L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
-        unfolding get_commited_empty_iff[symmetric]
-        unfolding trans_int_def
-        by blast
+        unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
       from False have **: "int_trans_from (L, s) = int_trans_from_vec (get_commited L) L s"
         unfolding int_trans_from_def by simp
       from \<open>dom s = _\<close> \<open>L \<in> states\<close> show ?thesis
@@ -1535,6 +1570,7 @@ lemma int_trans_from_correct:
         apply clarsimp
         apply safe
         subgoal for f p a' l'
+          apply (frule (3) is_upd_dom2)
           unfolding check_bounded_iff
           apply mini_ex
           apply (intros add: bexI)
@@ -1550,17 +1586,12 @@ lemma int_trans_from_correct:
           done
         subgoal for p _ a' upds l'
           apply mini_ex
-          apply (intros)
-               apply solve_triv
-              apply (rule trans_i_mapD)
           unfolding get_commited_mem_iff
-               apply simp
-              apply solve_triv+
-             apply blast
-            apply solve_triv+
-           apply (rule is_upd_make_updI2[OF trans_i_mapD])
-              apply solve_triv+
-          unfolding check_bounded_iff .
+          apply (elims; simp)
+          apply (drule (1) trans_i_mapD)
+          apply (frule (2) is_upd_make_updI2)
+          apply (frule (3) is_upd_dom2)
+          unfolding check_bounded_iff by (intros; solve_triv)
         done
     qed
   qed
@@ -1789,7 +1820,7 @@ lemma bin_trans_from_correct:
   subgoal for L s g a r L' s'
   proof -
     assume "(L, s) \<in> states'"
-    then have "L \<in> states" "dom s = {0..<n_vs}"
+    then have "L \<in> states" "dom s = {0..<n_vs}" "bounded bounds s"
       by auto
     then have [simp]: "length L = n_ps"
       by auto
@@ -1890,8 +1921,8 @@ lemma bin_trans_from_correct:
         (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
         (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
         L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-        L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-        \<and> L \<in> states
+        L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s''
+        \<and> L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }
     "
         unfolding trans_bin_def by blast
@@ -1915,6 +1946,7 @@ lemma bin_trans_from_correct:
             apply (rule bexI[rotated], assumption)
             apply (frule (3) is_upd_dom2)
             apply (drule (3) is_updD)
+            apply (frule (3) is_upd_dom2)
             apply (drule (3) is_updD)
             unfolding check_bounded_iff
             apply intros
@@ -1935,9 +1967,8 @@ lemma bin_trans_from_correct:
           apply intros
                        apply solve_triv+
             apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-          unfolding check_bounded_iff
-          apply simp
-          done
+          apply (rule \<open>bounded bounds s\<close>)
+          by (subst check_bounded_iff; (assumption | rule is_upd_dom2 is_upd_make_updI2)+)
         done
     next
       case False
@@ -1950,8 +1981,8 @@ lemma bin_trans_from_correct:
         (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
         (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q)) \<and>
         L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-        L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-        \<and> L \<in> states
+        L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+        L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
         unfolding trans_bin_def by blast
       let ?S1 =
@@ -1961,8 +1992,8 @@ lemma bin_trans_from_correct:
           (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
           l1 \<in> commited (N p) \<and>
           L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
-          L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-          \<and> L \<in> states
+          L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+          L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
       let ?S2 =
         "{((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
@@ -1973,8 +2004,8 @@ lemma bin_trans_from_correct:
           L!p = l1 \<and> L!q = l2 \<and>
           p < length L \<and> q < length L \<and> p \<noteq> q \<and>
           L' = L[p := l1', q := l2'] \<and>
-          is_upd s f1 s' \<and> is_upd s' f2 s'' \<and> bounded bounds s''
-          \<and> L \<in> states
+          is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+          L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
       have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow>
       ((L, s), g, a, r, L', s') \<in> ?S1 \<or> ((L, s), g, a, r, L', s') \<in> ?S2"
@@ -2071,6 +2102,7 @@ lemma bin_trans_from_correct:
             apply (rule bexI[rotated], assumption)
             apply (frule (3) is_upd_dom2)
             apply (drule (3) is_updD)
+            apply (frule (3) is_upd_dom2)
             apply (drule (3) is_updD)
             unfolding check_bounded_iff
             apply intros
@@ -2090,10 +2122,9 @@ lemma bin_trans_from_correct:
           apply elims
           apply intros
                         apply solve_triv+
-            apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-          unfolding check_bounded_iff
-          apply simp
-          done
+             apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
+          apply (rule \<open>bounded bounds s\<close>)
+          by (subst check_bounded_iff; (assumption | rule is_upd_dom2 is_upd_make_updI2)+)
         done
       moreover from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
       ((L, s), g, a, r, L', s') \<in> ?S2 \<longleftrightarrow> (g, a, r, L', s')
@@ -2114,6 +2145,7 @@ lemma bin_trans_from_correct:
             apply (rule bexI[rotated], assumption)
             apply (frule (3) is_upd_dom2)
             apply (drule (3) is_updD)
+            apply (frule (3) is_upd_dom2)
             apply (drule (3) is_updD)
             unfolding check_bounded_iff
             apply intros
@@ -2130,9 +2162,8 @@ lemma bin_trans_from_correct:
           apply intros
                         apply solve_triv+
             apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-          unfolding check_bounded_iff
-          apply simp
-          done
+          apply (rule \<open>bounded bounds s\<close>)
+          by (subst check_bounded_iff; (assumption | rule is_upd_dom2 is_upd_make_updI2)+)
         done
       ultimately show ?thesis
         unfolding * ** by simp
@@ -2167,7 +2198,7 @@ lemma broad_trans_from_correct:
   subgoal for L s g a r L' s'
   proof -
     assume "(L, s) \<in> states'"
-    then have "L \<in> states" "dom s = {0..<n_vs}"
+    then have "L \<in> states" "dom s = {0..<n_vs}" "bounded bounds s"
       by auto
     then have [simp]: "length L = n_ps"
       by auto
@@ -2353,10 +2384,10 @@ lemma broad_trans_from_correct:
         apply (auto simp: set_map_filter product_lists_set split: if_split_asm)
         using \<open>set ps \<subseteq> _\<close> unfolding defs
         by (auto simp: comp_def list_all2_map2 list_all2_same to_map
-                 elim!: IN_D[THEN conjunct1, rotated]
-           )
+            elim!: IN_D[THEN conjunct1, rotated]
+            )
       from that have "ps \<noteq> []" "a' \<in> set broadcast"
-        apply (auto simp: make_combs_alt_def set_map_filter product_lists_set split: if_split_asm)
+         apply (auto simp: make_combs_alt_def set_map_filter product_lists_set split: if_split_asm)
         using \<open>_ = ps\<close> \<open>set ps \<subseteq> {0..<n_ps}\<close> by (cases xs; auto dest: IN_D simp: list_all2_Cons1)+
       with that have "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
        (\<forall>g f r l'. (L ! q, g, In a', f, r, l') \<notin> Simple_Network_Language.trans (N q))"
@@ -2434,7 +2465,14 @@ lemma broad_trans_from_correct:
       subgoal
         by (drule is_updD; solve_triv)
       subgoal
-        unfolding check_bounded_iff .
+        apply (subst (asm) check_bounded_iff)
+         apply (drule is_upd_dom2, assumption+)
+         apply (drule is_upds_dom)
+          apply simp
+        subgoal
+          by (force dest: var_setD)
+         apply (simp; fail)+
+        done
       done
     have make_transD:
       "\<exists>s'' ga f ra l' gs fs rs ls' ps.
@@ -2484,20 +2522,44 @@ lemma broad_trans_from_correct:
              apply solve_triv+
         subgoal for ps gs fs rs ls'
           apply (rule is_upds_make_updsI2[where upds = "map fs ps", simplified fold_map comp_def])
+           apply ((assumption | rule is_upd_dom2 is_upd_make_updI2)+; fail)
           subgoal
             apply simp
             apply intros
-            prefer 2
+             prefer 2
+             apply (erule bspec, assumption)
+            apply (drule subsetD, assumption)
+            apply (clarsimp; fail)
+            done
+          done
+        subgoal for ps gs fs rs ls'
+          apply (subst check_bounded_iff)
+           apply (subst is_upds_dom)
+             apply (rule is_upds_make_updsI2[where upds = "map fs ps", simplified fold_map comp_def])
+              apply ((assumption | rule is_upd_dom2 is_upd_make_updI2)+; fail)
+          subgoal
+            apply simp
+            apply intros
+             prefer 2
              apply (erule bspec, assumption)
             apply (drule subsetD, assumption)
             apply (clarsimp; fail)
             done
           subgoal
-            by (rule is_upd_dom2 is_upd_make_updI2)+
+            apply simp
+            apply intros
+            apply (drule (1) bspec)
+            apply (subst is_upd_dom2)
+                apply (rule is_upd_make_updI2; assumption)
+               apply assumption+
+            apply (drule (1) var_setD)
+            apply (drule var_setD)
+             apply (drule (1) subsetD, simp; fail)
+            by auto
+           apply ((assumption | rule is_upd_dom2 is_upd_make_updI2)+; fail)
+          apply assumption
           done
-        unfolding check_bounded_iff
-         apply solve_triv+
-        done
+        ..
       done
     have make_trans_iff: "
       (\<exists>s'' aa p ga f ra l' gs fs rs ls' ps.
@@ -2522,7 +2584,8 @@ lemma broad_trans_from_correct:
           sorted ps \<and>
           ps \<noteq> [] \<and>
           is_upd s f s'' \<and>
-          is_upds s'' (map fs ps) s' \<and> Simple_Network_Language.bounded bounds s') =
+          is_upds s'' (map fs ps) s' \<and>
+          bounded bounds s') =
       (\<exists>a'\<in>{0..<num_actions}.
           \<exists>p\<in>{0..<n_ps}. (g, a, r, L', s') \<in> set (make_trans a' p))" (is "?l \<longleftrightarrow> ?r")
       if "dom s = {0..<n_vs}" "L \<in> states"
@@ -2565,7 +2628,7 @@ lemma broad_trans_from_correct:
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
         L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and>
         is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
-        bounded bounds s'' \<and> L \<in> states
+        L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }
     "
         unfolding trans_broad_def broadcast_def[simplified] by blast
@@ -2578,7 +2641,7 @@ lemma broad_trans_from_correct:
            [0..<num_actions]
          )"
         unfolding broad_trans_from_alt_def IN_def OUT_def make_trans_def by simp
-      from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
+      from \<open>dom s = _\<close> \<open>L \<in> _\<close> \<open>bounded bounds s\<close> show ?thesis
         unfolding * ** by (simp add: make_trans_iff)
     next
       case False
@@ -2596,7 +2659,7 @@ lemma broad_trans_from_correct:
         L!p = l \<and>
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
         L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
-        bounded bounds s'' \<and> L \<in> states
+        L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
         unfolding trans_broad_def broadcast_def[simplified] by blast
       have commited_iff: "
@@ -2640,7 +2703,7 @@ lemma broad_trans_from_correct:
         apply (fo_rule if_cong arg_cong2[where f = map] arg_cong[where f = concat] | rule ext)+
             apply blast+
         done
-      from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
+      from \<open>dom s = _\<close> \<open>L \<in> _\<close> \<open>bounded bounds s\<close> show ?thesis
         unfolding * **
         apply (simp add: make_trans_iff)
         apply (intro iffI; elims)
