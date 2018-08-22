@@ -525,7 +525,7 @@ proof -
       apply (erule N_s_state_trans, assumption)
       unfolding equiv.state_trans_t_def
       apply clarsimp
-      apply (drule Product_TA_Defs.collect_clock_pairs_append_cases)
+      apply (drule collect_clock_pairs_append_cases)
       apply (erule disjE)
       subgoal for s1 p' q l'' l'aa pc_g pc_ga pc_u pc_ua
         unfolding equiv.make_c_def

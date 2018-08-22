@@ -838,12 +838,6 @@ ML \<open>
 
 ML_val Object_Logic.judgment_conv
 
-thm TrueI
-
-ML_val \<open>0-1\<close>
-
-ML_val "the_default Thm.reflexive"
-
 ML_val \<open>defer_conv @{context} @{cterm "\<exists> a b c d. a < 1 \<and> b < 2 \<and> c < 3 \<and> d < 4"}\<close>
 ML_val \<open>assoc_conv @{cterm "(a < 1 \<and> b < 2) \<and> c < 3 \<and> d < 4"}\<close>
 ML_val \<open>Conv.binder_conv (K assoc_conv) @{context} @{cterm "\<exists> a. (a < 1 \<and> b < 2) \<and> c < 3 \<and> d < 4"}\<close>
@@ -995,15 +989,7 @@ lemma
   apply (simp del: ex_simps)
   oops
 
-lemma finite_Collect_bounded_ex_4' [simp]:
-  assumes "finite {(a,b,c,d) . P a b c d}"
-  shows
-    "finite {x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
-    \<longleftrightarrow> (\<forall> a b c d. P a b c d \<longrightarrow> finite {x. Q x a b c d})"
-  using assms finite_Collect_bounded_ex[OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d). Q x a b c d"]
-  by clarsimp (* force, simp *)
-
-lemma finite_Collect_bounded_ex_4' [simp]:
+lemma finite_Collect_bounded_ex_4:
   assumes "finite {(a,b,c,d) . P a b c d}"
   shows
     "finite {x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
@@ -1018,7 +1004,7 @@ proof -
     using assms by simp+
 oops
   
-lemma finite_Collect_bounded_ex_4:
+lemma finite_Collect_bounded_ex_4':
   assumes "finite {(a,b,c,d) | a b c d. P a b c d}"
   shows
     "finite {x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
@@ -1032,5 +1018,84 @@ proof -
     apply (subst finite_Collect_bounded_ex)
     using assms by simp+
 qed
+
+lemma finite_Collect_bounded_ex_2 [simp]:
+  assumes "finite {(a,b). P a b}"
+  shows
+    "finite {x. \<exists>a b. P a b \<and> Q x a b}
+    \<longleftrightarrow> (\<forall> a b. P a b \<longrightarrow> finite {x. Q x a b})"
+  using assms finite_Collect_bounded_ex[OF assms, where Q = "\<lambda> x. \<lambda> (a, b). Q x a b"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_3 [simp]:
+  assumes "finite {(a,b,c) . P a b c}"
+  shows
+    "finite {x. \<exists>a b c. P a b c \<and> Q x a b c}
+    \<longleftrightarrow> (\<forall> a b c. P a b c \<longrightarrow> finite {x. Q x a b c})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c). Q x a b c"]
+  by clarsimp
+
+lemma finite_Collect_bounded_ex_4 [simp]:
+  assumes "finite {(a,b,c,d) . P a b c d}"
+  shows
+    "finite {x. \<exists>a b c d. P a b c d \<and> Q x a b c d}
+    \<longleftrightarrow> (\<forall> a b c d. P a b c d \<longrightarrow> finite {x. Q x a b c d})"
+  using assms finite_Collect_bounded_ex[OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d). Q x a b c d"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_5 [simp]:
+  assumes "finite {(a,b,c,d,e) . P a b c d e}"
+  shows
+    "finite {x. \<exists>a b c d e. P a b c d e \<and> Q x a b c d e}
+    \<longleftrightarrow> (\<forall> a b c d e. P a b c d e \<longrightarrow> finite {x. Q x a b c d e})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e). Q x a b c d e"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_6 [simp]:
+  assumes "finite {(a,b,c,d,e,f) . P a b c d e f}"
+  shows
+    "finite {x. \<exists>a b c d e f. P a b c d e f \<and> Q x a b c d e f}
+    \<longleftrightarrow> (\<forall> a b c d e f. P a b c d e f \<longrightarrow> finite {x. Q x a b c d e f})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f). Q x a b c d e f"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_7 [simp]:
+  assumes "finite {(a,b,c,d,e,f,g) . P a b c d e f g}"
+  shows
+    "finite {x. \<exists>a b c d e f g. P a b c d e f g \<and> Q x a b c d e f g}
+    \<longleftrightarrow> (\<forall> a b c d e f g. P a b c d e f g \<longrightarrow> finite {x. Q x a b c d e f g})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g). Q x a b c d e f g"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_8 [simp]:
+  assumes "finite {(a,b,c,d,e,f,g,h) . P a b c d e f g h}"
+  shows
+    "finite {x. \<exists>a b c d e f g h. P a b c d e f g h \<and> Q x a b c d e f g h}
+    \<longleftrightarrow> (\<forall> a b c d e f g h. P a b c d e f g h \<longrightarrow> finite {x. Q x a b c d e f g h})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g, h). Q x a b c d e f g h"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_9 [simp]:
+  assumes "finite {(a,b,c,d,e,f,g,h,i) . P a b c d e f g h i}"
+  shows
+    "finite {x. \<exists>a b c d e f g h i. P a b c d e f g h i \<and> Q x a b c d e f g h i}
+    \<longleftrightarrow> (\<forall> a b c d e f g h i. P a b c d e f g h i \<longrightarrow> finite {x. Q x a b c d e f g h i})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g, h, i). Q x a b c d e f g h i"]
+  by clarsimp (* force, simp *)
+
+lemma finite_Collect_bounded_ex_10 [simp]:
+  assumes "finite {(a,b,c,d,e,f,g,h,i,j) . P a b c d e f g h i j}"
+  shows
+    "finite {x. \<exists>a b c d e f g h i j. P a b c d e f g h i j \<and> Q x a b c d e f g h i j}
+    \<longleftrightarrow> (\<forall> a b c d e f g h i j. P a b c d e f g h i j \<longrightarrow> finite {x. Q x a b c d e f g h i j})"
+  using assms finite_Collect_bounded_ex
+    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g, h, i, j). Q x a b c d e f g h i j"]
+  by clarsimp (* force, simp *)
 
 end

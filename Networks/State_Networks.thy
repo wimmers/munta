@@ -5,69 +5,6 @@ begin
 
 chapter \<open>Networks of Timed Automata with Discrete State\<close>
 
-(* XXX Move *)
-lemma finite_Collect_bounded_ex_2 [simp]:
-  assumes "finite {(a,b). P a b}"
-  shows
-    "finite {x. \<exists>a b. P a b \<and> Q x a b}
-    \<longleftrightarrow> (\<forall> a b. P a b \<longrightarrow> finite {x. Q x a b})"
-  using assms finite_Collect_bounded_ex[OF assms, where Q = "\<lambda> x. \<lambda> (a, b). Q x a b"]
-  by clarsimp (* force, simp *)
-
-lemma finite_Collect_bounded_ex_5 [simp]:
-  assumes "finite {(a,b,c,d,e) . P a b c d e}"
-  shows
-    "finite {x. \<exists>a b c d e. P a b c d e \<and> Q x a b c d e}
-    \<longleftrightarrow> (\<forall> a b c d e. P a b c d e \<longrightarrow> finite {x. Q x a b c d e})"
-  using assms finite_Collect_bounded_ex
-    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e). Q x a b c d e"]
-  by clarsimp (* force, simp *)
-
-lemma finite_Collect_bounded_ex_6 [simp]:
-  assumes "finite {(a,b,c,d,e,f) . P a b c d e f}"
-  shows
-    "finite {x. \<exists>a b c d e f. P a b c d e f \<and> Q x a b c d e f}
-    \<longleftrightarrow> (\<forall> a b c d e f. P a b c d e f \<longrightarrow> finite {x. Q x a b c d e f})"
-  using assms finite_Collect_bounded_ex
-    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f). Q x a b c d e f"]
-  by clarsimp (* force, simp *)
-
-lemma finite_Collect_bounded_ex_7 [simp]:
-  assumes "finite {(a,b,c,d,e,f,g) . P a b c d e f g}"
-  shows
-    "finite {x. \<exists>a b c d e f g. P a b c d e f g \<and> Q x a b c d e f g}
-    \<longleftrightarrow> (\<forall> a b c d e f g. P a b c d e f g \<longrightarrow> finite {x. Q x a b c d e f g})"
-  using assms finite_Collect_bounded_ex
-    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g). Q x a b c d e f g"]
-  by clarsimp (* force, simp *)
-
-lemma finite_Collect_bounded_ex_8 [simp]:
-  assumes "finite {(a,b,c,d,e,f,g,h) . P a b c d e f g h}"
-  shows
-    "finite {x. \<exists>a b c d e f g h. P a b c d e f g h \<and> Q x a b c d e f g h}
-    \<longleftrightarrow> (\<forall> a b c d e f g h. P a b c d e f g h \<longrightarrow> finite {x. Q x a b c d e f g h})"
-  using assms finite_Collect_bounded_ex
-    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g, h). Q x a b c d e f g h"]
-  by clarsimp (* force, simp *)
-
-lemma finite_Collect_bounded_ex_9 [simp]:
-  assumes "finite {(a,b,c,d,e,f,g,h,i) . P a b c d e f g h i}"
-  shows
-    "finite {x. \<exists>a b c d e f g h i. P a b c d e f g h i \<and> Q x a b c d e f g h i}
-    \<longleftrightarrow> (\<forall> a b c d e f g h i. P a b c d e f g h i \<longrightarrow> finite {x. Q x a b c d e f g h i})"
-  using assms finite_Collect_bounded_ex
-    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g, h, i). Q x a b c d e f g h i"]
-  by clarsimp (* force, simp *)
-
-lemma finite_Collect_bounded_ex_10 [simp]:
-  assumes "finite {(a,b,c,d,e,f,g,h,i,j) . P a b c d e f g h i j}"
-  shows
-    "finite {x. \<exists>a b c d e f g h i j. P a b c d e f g h i j \<and> Q x a b c d e f g h i j}
-    \<longleftrightarrow> (\<forall> a b c d e f g h i j. P a b c d e f g h i j \<longrightarrow> finite {x. Q x a b c d e f g h i j})"
-  using assms finite_Collect_bounded_ex
-    [OF assms, where Q = "\<lambda> x. \<lambda> (a, b, c, d, e, f, g, h, i, j). Q x a b c d e f g h i j"]
-  by clarsimp (* force, simp *)
-
 no_notation Ref.update ("_ := _" 62)
 
 section \<open>Networks of Timed Automata with Shared State\<close>

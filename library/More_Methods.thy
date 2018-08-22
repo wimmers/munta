@@ -28,4 +28,28 @@ method solve_conj_triv2 =
 
 method solve_ex_triv = (((rule exI)+)?, solve_conj_triv)
 
+named_theorems intros
+named_theorems elims
+
+lemmas [intros] =
+  allI ballI exI bexI[rotated] conjI impI
+and [elims] =
+  bexE exE bexE conjE impE
+
+method intros uses add  = (intro add intros)
+method elims  uses add  = (elim  add elims)
+
+text \<open>Test case\<close>
+lemma all_mp:
+  "\<forall> x. P x \<longrightarrow> R x" if "\<forall> x. P x \<longrightarrow> Q x" "\<And> x. P x \<Longrightarrow> Q x \<Longrightarrow> R x"
+  using that by (intros; elims add: allE)
+
+method rprem =
+  (match premises in R: _ \<Rightarrow> \<open>rule R\<close>)
+
+text \<open>Test case for @{method rprem}.\<close>
+lemma
+  "A \<Longrightarrow> (A \<Longrightarrow> C) \<Longrightarrow> (A \<Longrightarrow> B) \<Longrightarrow> B"
+  by rprem
+
 end (* Theory *)
