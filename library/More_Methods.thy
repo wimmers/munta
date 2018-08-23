@@ -52,4 +52,69 @@ lemma
   "A \<Longrightarrow> (A \<Longrightarrow> C) \<Longrightarrow> (A \<Longrightarrow> B) \<Longrightarrow> B"
   by rprem
 
+ML \<open>
+fun all_forward_tac ctxt n thms nsubgoal =
+  let
+    val assumes = replicate n (assume_tac ctxt nsubgoal)
+    fun forward thm = forward_tac ctxt [thm] nsubgoal :: assumes |> EVERY |> TRY
+  in EVERY (map forward thms) end;
+\<close>
+
+ML \<open>
+fun xrule_meth tac =
+  Scan.lift (Scan.optional (Args.parens Parse.nat) 0) -- Attrib.thms >>
+  (fn (n, ths) => fn ctxt => SIMPLE_METHOD (tac ctxt n ths 1));
+val all_forward_meth = xrule_meth all_forward_tac
+\<close>
+
+method_setup all_forward = \<open>all_forward_meth\<close> "Apply each rule exactly once in forward manner"
+
+named_theorems forward1
+named_theorems forward2
+named_theorems forward3
+named_theorems forward4
+
+method frule1 = changed \<open>all_forward forward1\<close>
+method frule2 = changed \<open>all_forward (1) forward2\<close>
+method frule3 = changed \<open>all_forward (2) forward3\<close>
+method frule4 = changed \<open>all_forward (3) forward4\<close>
+
+method frules = changed \<open>
+  all_forward (0) forward1,
+  all_forward (1) forward2,
+  all_forward (2) forward3,
+  all_forward (3) forward4
+\<close>
+
+ML \<open>
+fun dedup_prems_tac ctxt =
+  let
+    fun Then NONE tac = SOME tac
+      | Then (SOME tac) tac' = SOME (tac THEN' tac');
+    fun thins H (tac, n) =
+      if H then (tac, n + 1)
+      else (Then tac (rotate_tac n THEN' eresolve_tac ctxt [thin_rl]), 0);
+    fun member x = List.exists (fn y => x = y)
+    fun mark_dups _ [] = []
+    |   mark_dups passed (x :: xs) =
+        if member x passed
+        then false :: mark_dups passed xs
+        else true :: mark_dups (x :: passed) xs
+  in
+    SUBGOAL (fn (goal, i) =>
+      let
+        val Hs = Logic.strip_assums_hyp goal
+        val marked = mark_dups [] Hs
+      in
+        (case fst (fold thins marked (NONE, 0)) of
+          NONE => no_tac
+        | SOME tac => tac i)
+      end)
+  end;
+\<close>
+
+method_setup dedup_prems =
+  \<open>Scan.succeed (fn ctxt => SIMPLE_METHOD' (fn i => CHANGED (dedup_prems_tac ctxt i)))\<close>
+  "Remove duplicate premises"
+
 end (* Theory *)

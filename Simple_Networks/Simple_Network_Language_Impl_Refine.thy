@@ -699,6 +699,30 @@ lemma is_upds_make_updsI2:
     done
   done
 
+lemma is_upds_dom2:
+  assumes "is_upds s upds s'"
+    and "\<forall>f \<in> set upds. \<exists> p < n_ps. \<exists> l g a r l'.
+      (l, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    and "dom s = {0..<n_vs}"
+  shows "dom s' = dom s"
+  using assms by (elim is_upds_dom) (auto dest!: var_setD)
+
+lemma is_upds_dom3:
+  assumes "is_upds s (map fs ps) s'"
+    and "\<forall>p\<in>set ps. (L ! p, gs p, a, fs p, rs p, ls' p) \<in> trans (N p)"
+    and "set ps \<subseteq> {0..<n_ps}"
+    and "dom s = {0..<n_vs}"
+  shows "dom s' = dom s"
+  using assms by (elim is_upds_dom2; force)
+
+lemma is_upds_make_updsI3:
+  "is_upds s (map fs ps) (fold (\<lambda>upd s. mk_upds s upd) (map fs ps) s)"
+  if "dom s = {0..<n_vs}" 
+    and "\<forall>p\<in>set ps. (L ! p, gs p, a, fs p, rs p, ls' p) \<in> trans (N p)"
+    and "set ps \<subseteq> {0..<n_ps}"
+  for s :: "nat \<Rightarrow> int option"
+  using that by (elim is_upds_make_updsI2) force
+
 lemma is_updsD:
   assumes 
     "dom s = {0..<n_vs}" and
@@ -774,18 +798,58 @@ lemma trans_i_mapD:
   using assms unfolding trans_i_map_def set_map_filter
   by (force split: act.split_asm intro: trans_mapD)
 
+paragraph \<open>An additional brute force method for forward-chaining of facts\<close>
+
+method frules_all =
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  frules, rotate_tac,
+  dedup_prems
+
 paragraph \<open>Internal transitions\<close>
 
-lemmas [more_elims] =
-  allE
+lemma get_commited_memI:
+  "(p, L ! p) \<in> set (get_commited L)" if "L ! p  \<in> commited (N p)" "p < n_ps"
+  using that unfolding get_commited_mem_iff by simp
+
+lemmas [forward2] =
+  trans_i_mapD
+  trans_i_mapI
+  get_commited_memI
+lemmas [forward3] =
+  is_upd_make_updI2
+lemmas [forward4] =
+  is_updD
+  is_upd_dom2
 
 lemma int_trans_from_correct:
   "(int_trans_from, trans_int) \<in> transition_rel states'"
   unfolding transition_rel_def
 proof clarsimp
+  note [more_elims] = allE
   fix L s g a r L' s' assume "(L, s) \<in> states'"
   then have "L \<in> states" "dom s = {0..<n_vs}" "bounded bounds s"
-    by auto thm check_bounded_iff
+    by auto
   then have [simp]: "length L = n_ps" "check_bounded s"
     by (auto simp: check_bounded_iff)
   show "(((L, s), g, a, r, L', s') \<in> trans_int)
@@ -809,24 +873,13 @@ proof clarsimp
       apply clarsimp
       apply safe
       subgoal for f p a' l'
-        by (frule (3) is_upd_dom2)
-           (fastforce simp: check_bounded_iff intro: trans_i_mapI dest!: is_updD)
+        apply frules
+        unfolding check_bounded_iff by (intros; solve_triv)
       subgoal for p _ a' upds l'
-        apply mini_ex
-        apply (drule (1) trans_i_mapD)
-        apply (frule (2) is_upd_make_updI2)
-        apply (frule (3) is_upd_dom2)
-        unfolding check_bounded_iff
+        apply simp
+        apply frules
         using \<open>L \<in> states\<close> \<open>check_bounded s\<close> True[folded get_commited_empty_iff]
-        apply -
-        apply intros
-          (* apply simp+ *)
-               apply refl_match
-              apply assumption
-          (* apply refl_match *) (* This is the culprit method *)
-             apply (elims add: more_elims; assumption)
-            apply assumption+
-        done
+        unfolding check_bounded_iff by (intros; simp)
       done
   next
     case False
@@ -847,22 +900,12 @@ proof clarsimp
       apply clarsimp
       apply safe
       subgoal for f p a' l'
-        apply (frule (3) is_upd_dom2)
-        unfolding check_bounded_iff
-        apply (drule (3) is_updD)
-        apply (intros add: bexI)
-               apply refl_match
-        unfolding get_commited_mem_iff
-              apply solve_triv
-             apply (frule (2) trans_i_mapI)
-            apply solve_triv+
-        done
+        apply frules
+        unfolding check_bounded_iff by (intros; solve_triv)
       subgoal for p _ a' upds l'
         unfolding get_commited_mem_iff
         apply (elims; simp)
-        apply (drule (1) trans_i_mapD)
-        apply (frule (2) is_upd_make_updI2)
-        apply (frule (3) is_upd_dom2)
+        apply frules
         unfolding check_bounded_iff by (intros; solve_triv)
       done
   qed
@@ -1096,8 +1139,8 @@ proof clarsimp
     by auto
   then have [simp]: "length L = n_ps"
     by auto
-  define IN where "IN =  all_actions_by_state trans_in_map L"
-  define OUT where "OUT =  all_actions_by_state trans_out_map L"
+  define IN where  "IN  = all_actions_by_state trans_in_map L"
+  define OUT where "OUT = all_actions_by_state trans_out_map L"
   have IN_I:
     "(p, g, a', f, r, l') \<in> set (IN ! a')"
     if "(L ! p, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
@@ -1166,6 +1209,10 @@ proof clarsimp
     for p g a' f r l' a1
     using that unfolding IN_def trans_in_map_def set_map_filter
     by (auto dest: in_all_actions_by_stateD split: option.split_asm)
+(*
+  note [forward3] = OUT_I IN_I
+  note [forward2] = action_setD IN_D OUT_D
+*)
   show "(((L, s), g, a, r, L', s') \<in> trans_bin) =
         ((g, a, r, L', s') \<in> set (bin_trans_from (L, s)))"
   proof (cases "get_commited L = []")
@@ -1187,6 +1234,8 @@ proof clarsimp
       "bin_trans_from (L, s)
       = concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (IN ! a)) [0..<num_actions])"
       unfolding bin_trans_from_def IN_def OUT_def by simp
+    note [forward3] = OUT_I IN_I
+    note [forward2] = action_setD IN_D OUT_D
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
       unfolding * **
       apply clarsimp
@@ -1197,35 +1246,22 @@ proof clarsimp
         apply clarsimp
         apply (inst_existentials a')
         subgoal
-          apply (frule IN_I)
-            apply solve_triv+
-           apply (drule action_setD; simp)
-          apply (rule bexI[rotated], assumption)
-          apply (frule (3) is_upd_dom2)
-          apply (drule (3) is_updD)
-          apply (frule (3) is_upd_dom2)
-          apply (drule (3) is_updD)
-          unfolding check_bounded_iff
-          apply intros
-                  apply solve_triv+
-               apply (erule OUT_I)
-                apply solve_triv+
-               apply (drule action_setD; simp)
-              apply solve_triv+
-          done
+          apply frules
+          apply simp
+          apply frules_all
+          unfolding check_bounded_iff by (intros; solve_triv)
         subgoal
-          by (auto dest: action_setD)
+          by (simp; frules; simp)
         done
       subgoal
-        apply mini_ex
-        apply (drule IN_D, assumption)
-        apply (drule OUT_D, assumption)
+        apply simp
+        apply frules
+        apply elims
+        apply frules_all
+        apply frules_all
         apply elims
         apply intros
-                      apply solve_triv+
-           apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-         apply (rule \<open>bounded bounds s\<close>)
-        by (subst check_bounded_iff; (assumption | rule is_upd_dom2 is_upd_make_updI2)+)
+        using \<open>bounded bounds s\<close> unfolding check_bounded_iff[symmetric] by solve_triv+
       done
   next
     case False
@@ -1341,6 +1377,7 @@ proof clarsimp
       @ concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions])"
       unfolding bin_trans_from_def IN_def OUT_def In2_def Out2_def pairs_def
       by (simp add: Let_def)
+    note [forward2] = action_setD
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
       ((L, s), g, a, r, L', s') \<in> ?S1 \<longleftrightarrow> (g, a, r, L', s') \<in>
       set (concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) [0..<num_actions]))"
@@ -1352,40 +1389,32 @@ proof clarsimp
         apply clarsimp
         apply (inst_existentials a')
         subgoal
-          apply (frule In2_I)
-             apply solve_triv+
-            apply (drule action_setD; simp)
-           apply assumption
-          apply (rule bexI[rotated], assumption)
-          apply (frule (3) is_upd_dom2)
-          apply (drule (3) is_updD)
-          apply (frule (3) is_upd_dom2)
-          apply (drule (3) is_updD)
-          unfolding check_bounded_iff
-          apply intros
-                  apply solve_triv+
-               apply (erule OUT_I)
-                apply solve_triv+
-               apply (drule action_setD; simp)
-              apply solve_triv+
-          done
+          supply [forward4] = In2_I
+          supply [forward3] = OUT_I
+          apply frules_all
+          apply simp
+          apply frules_all
+          unfolding check_bounded_iff by (intros; solve_triv)
         subgoal
-          by (auto dest: action_setD)
+          by (simp; frules; simp)
         done
       subgoal
-        apply mini_ex
-        apply (drule In2_D, assumption)
-        apply (drule OUT_D, assumption)
+        supply [forward2] = In2_D
+        supply [forward2] = OUT_D
+        apply simp
+        apply frules_all
         apply elims
-        apply intros
-                       apply solve_triv+
-           apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-         apply (rule \<open>bounded bounds s\<close>)
-        by (subst check_bounded_iff; (assumption | rule is_upd_dom2 is_upd_make_updI2)+)
+        apply frules_all
+        apply elims
+        apply simp
+        apply frules_all
+        using \<open>bounded bounds s\<close> unfolding check_bounded_iff[symmetric] by (intros; solve_triv)
       done
     moreover from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
       ((L, s), g, a, r, L', s') \<in> ?S2 \<longleftrightarrow> (g, a, r, L', s')
       \<in> set (concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions]))"
+      supply [forward3] = OUT_I IN_I
+      supply [forward2] = action_setD IN_D OUT_D
       apply clarsimp
       unfolding pairs_by_action_def
       apply (clarsimp simp: set_map_filter Let_def)
@@ -1394,33 +1423,24 @@ proof clarsimp
         apply clarsimp
         apply (inst_existentials a')
         subgoal
-          apply (frule action_setD; simp)
-          apply (frule IN_I)
-            apply solve_triv+
-          apply (frule Out2_I)
-             apply solve_triv+
-          apply (rule bexI[rotated], assumption)
-          apply (frule (3) is_upd_dom2)
-          apply (drule (3) is_updD)
-          apply (frule (3) is_upd_dom2)
-          apply (drule (3) is_updD)
-          unfolding check_bounded_iff
-          apply intros
-                  apply solve_triv+
-          done
+          supply [forward4] = Out2_I
+          apply frules_all
+          apply simp
+          apply frules_all
+          unfolding check_bounded_iff by (intros; solve_triv)
         subgoal
           by (auto dest: action_setD)
         done
       subgoal
-        apply mini_ex
-        apply (drule Out2_D, assumption)
-        apply (drule IN_D, assumption)
+        supply [forward2] = Out2_D
+        apply simp
+        apply frules_all
         apply elims
-        apply intros
-                       apply solve_triv+
-           apply (rule is_upd_dom2 is_upd_make_updI2, (assumption+)?)+
-         apply (rule \<open>bounded bounds s\<close>)
-        by (subst check_bounded_iff; (assumption | rule is_upd_dom2 is_upd_make_updI2)+)
+        apply frules_all
+        apply elims
+        apply simp
+        apply frules_all
+        using \<open>bounded bounds s\<close> unfolding check_bounded_iff[symmetric] by (intros; solve_triv)
       done
     ultimately show ?thesis
       unfolding * ** by simp
@@ -1699,34 +1719,19 @@ proof clarsimp
     using that
     unfolding make_trans_def
     apply (clarsimp simp: set_map_filter Let_def split: prod.split)
-    apply (frule action_setD; simp)
-    apply (frule OUT_I)
-       apply solve_triv+
+    supply [forward2] = action_setD
+    supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I
+    apply frule2
+    apply simp
     apply (frule make_combsD, assumption+)
+    apply frules_all
+    apply simp
     apply (inst_existentials p)
       apply (auto; fail)
-     apply (rule image_eqI[rotated])
-      apply (solve_triv | rule UN_I image_eqI[rotated])+
-     apply (simp add: ***)
-     apply intros
-    subgoal
-      by (simp add: upd_swap)
-     apply (rule is_updsD)
-    subgoal
-      using is_upd_dom2 is_updD by auto
-       apply assumption+
-    subgoal
-      by (drule is_updD; solve_triv)
-    subgoal
-      apply (subst (asm) check_bounded_iff)
-       apply (drule is_upd_dom2, assumption+)
-       apply (drule is_upds_dom)
-        apply simp
-      subgoal
-        by (force dest: var_setD)
-       apply (simp; fail)+
-      done
-    done
+     apply (intros add: more_intros)
+      apply (solve_triv | intros add: more_intros UN_I)+
+     apply (simp add: *** upd_swap; fail)
+    unfolding check_bounded_iff[symmetric] .
   have make_transD:
     "\<exists>s'' ga f ra l' gs fs rs ls' ps.
          g = ga @ concat (map gs ps) \<and>
@@ -1754,65 +1759,41 @@ proof clarsimp
       "p < n_ps" and
       "(g, a, r, L', s') \<in> set (make_trans a' p)"
     for a' p
+    supply [forward2] = action_setD
+    supply [forward3] = is_upds_make_updsI3[rotated] OUT_D
+    supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I
     using that
     unfolding make_trans_def
     apply mini_ex
     apply (clarsimp simp: set_map_filter Let_def split: prod.split if_split_asm)
     subgoal for g1 a1 r1 f1 l1' xs
       apply (drule make_combsI, assumption+)
+      apply frules
       apply elims
-      apply (drule OUT_D, assumption+)
-      apply elims
+      apply dedup_prems
+      apply frules_all
       apply (simp add: ***)
       apply intros
                     apply solve_triv+
-                  apply (rule upd_swap[symmetric])
-                  apply solve_triv+
+                  apply (erule upd_swap[symmetric]; fail)
+                 apply solve_triv+
                 apply (erule bspec; assumption)
                apply (elims add: allE; intros?; assumption)
               apply solve_triv+
-         apply (rule is_upd_make_updI2)
-           apply solve_triv+
       subgoal for ps gs fs rs ls'
-        apply (rule is_upds_make_updsI2[where upds = "map fs ps", simplified fold_map comp_def])
-         apply ((assumption | rule is_upd_dom2 is_upd_make_updI2)+; fail)
-        subgoal
-          apply simp
-          apply intros
-           prefer 2
-           apply (erule bspec, assumption)
-          apply (drule subsetD, assumption)
-          apply (clarsimp; fail)
-          done
-        done
+        by frules_all simp
       subgoal for ps gs fs rs ls'
         apply (subst check_bounded_iff)
-         apply (subst is_upds_dom)
-           apply (rule is_upds_make_updsI2[where upds = "map fs ps", simplified fold_map comp_def])
-            apply ((assumption | rule is_upd_dom2 is_upd_make_updI2)+; fail)
         subgoal
-          apply simp
-          apply intros
-           prefer 2
-           apply (erule bspec, assumption)
-          apply (drule subsetD, assumption)
-          apply (clarsimp; fail)
+          apply (subst is_upds_dom3)
+             apply (simp add: fold_map comp_def; fail)
+            apply assumption+
           done
         subgoal
-          apply simp
-          apply intros
-          apply (drule (1) bspec)
-          apply (subst is_upd_dom2)
-              apply (rule is_upd_make_updI2; assumption)
-             apply assumption+
-          apply (drule (1) var_setD)
-          apply (drule var_setD)
-           apply (drule (1) subsetD, simp; fail)
-          by auto
-         apply ((assumption | rule is_upd_dom2 is_upd_make_updI2)+; fail)
-        apply assumption
+          by simp
         done
-      ..
+      apply solve_triv
+      done
     done
   have make_trans_iff: "
       (\<exists>s'' aa p ga f ra l' gs fs rs ls' ps.
