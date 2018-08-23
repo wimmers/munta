@@ -275,28 +275,34 @@ definition
   "check_bounded s =
     (\<forall>x \<in> dom s. fst (bounds_map x) < the (s x) \<and> the (s x) < snd (bounds_map x))"
 
+text \<open>Compute pairs of processes with committed initial locations from location vector.\<close>
 definition
   "get_commited L =
     List.map_filter (\<lambda>p.
     let l = L ! p in
     if l \<in> set (fst (automata ! p)) then Some (p, l) else None) [0..<n_ps]"
 
+text \<open>Given a process and a location, return the corresponding transitions.\<close>
 definition
   "trans_map \<equiv>
   let f = (\<lambda>i.
     let m = union_map_of (fst (snd (automata ! i))) in (\<lambda>j.
-      case m j of
-        None \<Rightarrow> []
-      | Some xs \<Rightarrow> xs
-    ))
+      case m j of None \<Rightarrow> [] | Some xs \<Rightarrow> xs))
   in f"
 
+text \<open>Filter for internal transitions.\<close>
 definition
   "trans_i_map i j \<equiv>
     List.map_filter
       (\<lambda> (g, a, m, l'). case a of Sil a \<Rightarrow> Some (g, a, m, l') | _ \<Rightarrow> None)
     (trans_map i j)"
 
+text \<open>Compute valid internal successors given:
+  \<^item> a process \<open>p\<close>,
+  \<^item> initial location \<open>l\<close>,
+  \<^item> location vector \<open>L\<close>,
+  \<^item> and initial state \<open>s\<close>.
+\<close>
 definition
   "int_trans_from_loc p l L s \<equiv>
     let trans = trans_i_map p l
@@ -306,6 +312,7 @@ definition
         if check_bounded s' then Some (g, Internal a, r, (L[p := l'], s'))
         else None
     ) trans"
+
 
 definition
   "int_trans_from_vec pairs L s \<equiv>
@@ -622,8 +629,7 @@ lemma get_commited_empty_iff:
   "(\<forall>p < n_ps. L ! p \<notin> commited (N p)) \<longleftrightarrow> get_commited L = []"
   apply safe
   subgoal
-    apply (rule ccontr)
-  proof -
+  proof (rule ccontr)
     assume prems:
       "\<forall>p<n_ps. L ! p \<notin> commited (N p)" and
       "get_commited L \<noteq> []"
@@ -634,8 +640,7 @@ lemma get_commited_empty_iff:
       by auto
   qed
   subgoal for p
-    using get_commited_mem_iff[of p "L ! p" L]
-    by auto
+    using get_commited_mem_iff[of p "L ! p" L] by auto
   done
 
 lemma get_commited_distinct: "distinct (get_commited L)"
@@ -647,7 +652,7 @@ lemma is_upd_make_updI2:
     "dom s = {0..<n_vs}"
   using that var_set
   by (intro is_upd_make_updI, subst (asm) mem_trans_N_iff)
-    (auto 4 5 simp flip: length_automata_eq_n_ps dest!: nth_mem)
+     (auto 4 5 simp flip: length_automata_eq_n_ps dest!: nth_mem)
 
 lemma var_setD:
   "\<forall>(x, upd)\<in>set f. x < n_vs \<and> (\<forall>i\<in>vars_of_exp upd. i < n_vs)"
@@ -771,98 +776,97 @@ lemma trans_i_mapD:
 
 paragraph \<open>Internal transitions\<close>
 
+lemmas [more_elims] =
+  allE
+
 lemma int_trans_from_correct:
   "(int_trans_from, trans_int) \<in> transition_rel states'"
   unfolding transition_rel_def
-  apply clarsimp
-  subgoal for L s g a r L' s'
-  proof -
-    assume "(L, s) \<in> states'"
-    then have "L \<in> states" "dom s = {0..<n_vs}" "bounded bounds s"
-      by auto thm check_bounded_iff
-    then have [simp]: "length L = n_ps" "check_bounded s"
-      by (auto simp: check_bounded_iff)
-    show "(((L, s), g, a, r, L', s') \<in> trans_int)
+proof clarsimp
+  fix L s g a r L' s' assume "(L, s) \<in> states'"
+  then have "L \<in> states" "dom s = {0..<n_vs}" "bounded bounds s"
+    by auto thm check_bounded_iff
+  then have [simp]: "length L = n_ps" "check_bounded s"
+    by (auto simp: check_bounded_iff)
+  show "(((L, s), g, a, r, L', s') \<in> trans_int)
     \<longleftrightarrow> ((g, a, r, L', s') \<in> set (int_trans_from (L, s)))"
-    proof (cases "get_commited L = []")
-      case True
-      then have *: "((L, s), g, a, r, L', s') \<in> trans_int \<longleftrightarrow>
+  proof (cases "get_commited L = []")
+    case True
+    then have *: "((L, s), g, a, r, L', s') \<in> trans_int \<longleftrightarrow>
       ((L, s), g, a, r, L', s') \<in> {((L, s), g, Internal a, r, (L', s')) | L s l g f p a r l' L' s'.
         (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         (\<forall>p < n_ps. L ! p \<notin> commited (N p)) \<and>
         L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
-        unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
-      from True have **: "int_trans_from (L, s) = int_trans_from_all L s"
-        unfolding int_trans_from_def by simp
-      from \<open>dom s = _\<close> show ?thesis
-        unfolding * **
-        apply clarsimp
-        unfolding int_trans_from_all_def
-        apply clarsimp
-        unfolding int_trans_from_loc_def Let_def set_map_filter
-        apply clarsimp
-        apply safe
-        subgoal for f p a' l'
-          by (frule is_upd_dom2, assumption+)
-            (fastforce simp: check_bounded_iff intro: trans_i_mapI dest!: is_updD)
-        subgoal for p _ a' upds l'
-          apply mini_ex
-          apply (drule trans_i_mapD, assumption)
-          apply (frule is_upd_make_updI2, assumption+)
-          apply (frule is_upd_dom2, assumption+)
-          unfolding check_bounded_iff
-          using \<open>L \<in> states\<close> \<open>check_bounded s\<close> True[folded get_commited_empty_iff]
-          by auto
+      unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
+    from True have **: "int_trans_from (L, s) = int_trans_from_all L s"
+      unfolding int_trans_from_def by simp
+    from \<open>dom s = _\<close> show ?thesis
+      unfolding * ** int_trans_from_all_def
+      apply clarsimp
+      unfolding int_trans_from_loc_def Let_def set_map_filter
+      apply clarsimp
+      apply safe
+      subgoal for f p a' l'
+        by (frule (3) is_upd_dom2)
+           (fastforce simp: check_bounded_iff intro: trans_i_mapI dest!: is_updD)
+      subgoal for p _ a' upds l'
+        apply mini_ex
+        apply (drule (1) trans_i_mapD)
+        apply (frule (2) is_upd_make_updI2)
+        apply (frule (3) is_upd_dom2)
+        unfolding check_bounded_iff
+        using \<open>L \<in> states\<close> \<open>check_bounded s\<close> True[folded get_commited_empty_iff]
+        apply -
+        apply intros
+          (* apply simp+ *)
+               apply refl_match
+              apply assumption
+          (* apply refl_match *) (* This is the culprit method *)
+             apply (elims add: more_elims; assumption)
+            apply assumption+
         done
-    next
-      case False
-      then have *: "((L, s), g, a, r, L', s') \<in> trans_int \<longleftrightarrow>
+      done
+  next
+    case False
+    then have *: "((L, s), g, a, r, L', s') \<in> trans_int \<longleftrightarrow>
       ((L, s), g, a, r, L', s') \<in> {((L, s), g, Internal a, r, (L', s')) | L s l g f p a r l' L' s'.
         (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         l \<in> commited (N p) \<and>
         L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
-        unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
-      from False have **: "int_trans_from (L, s) = int_trans_from_vec (get_commited L) L s"
-        unfolding int_trans_from_def by simp
-      from \<open>dom s = _\<close> \<open>L \<in> states\<close> show ?thesis
-        unfolding * **
-        apply clarsimp
-        unfolding int_trans_from_vec_def
-        apply clarsimp
-        unfolding int_trans_from_loc_def Let_def set_map_filter
-        apply clarsimp
-        apply safe
-        subgoal for f p a' l'
-          apply (frule (3) is_upd_dom2)
-          unfolding check_bounded_iff
-          apply mini_ex
-          apply (intros add: bexI)
-          unfolding get_commited_mem_iff
-                 apply (drule is_updD)
-                    apply simp
-                   apply solve_triv+
-               apply (rule trans_i_mapI, assumption)
-               apply solve_triv+
-           apply (drule is_updD, simp, solve_triv+)
-          unfolding get_commited_mem_iff
-          apply simp
-          done
-        subgoal for p _ a' upds l'
-          apply mini_ex
-          unfolding get_commited_mem_iff
-          apply (elims; simp)
-          apply (drule (1) trans_i_mapD)
-          apply (frule (2) is_upd_make_updI2)
-          apply (frule (3) is_upd_dom2)
-          unfolding check_bounded_iff by (intros; solve_triv)
+      unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
+    from False have **: "int_trans_from (L, s) = int_trans_from_vec (get_commited L) L s"
+      unfolding int_trans_from_def by simp
+    from \<open>dom s = _\<close> \<open>L \<in> states\<close> show ?thesis
+      unfolding * ** int_trans_from_vec_def
+      apply clarsimp
+      unfolding int_trans_from_loc_def Let_def set_map_filter
+      apply clarsimp
+      apply safe
+      subgoal for f p a' l'
+        apply (frule (3) is_upd_dom2)
+        unfolding check_bounded_iff
+        apply (drule (3) is_updD)
+        apply (intros add: bexI)
+               apply refl_match
+        unfolding get_commited_mem_iff
+              apply solve_triv
+             apply (frule (2) trans_i_mapI)
+            apply solve_triv+
         done
-    qed
+      subgoal for p _ a' upds l'
+        unfolding get_commited_mem_iff
+        apply (elims; simp)
+        apply (drule (1) trans_i_mapD)
+        apply (frule (2) is_upd_make_updI2)
+        apply (frule (3) is_upd_dom2)
+        unfolding check_bounded_iff by (intros; solve_triv)
+      done
   qed
-  done
+qed
 
 
 paragraph \<open>Mostly copied\<close>
