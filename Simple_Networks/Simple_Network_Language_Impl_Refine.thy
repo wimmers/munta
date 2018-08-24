@@ -801,30 +801,7 @@ lemma trans_i_mapD:
 paragraph \<open>An additional brute force method for forward-chaining of facts\<close>
 
 method frules_all =
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  frules, rotate_tac,
-  dedup_prems
+  repeat_rotate \<open>frules\<close>, dedup_prems
 
 paragraph \<open>Internal transitions\<close>
 
@@ -1130,6 +1107,9 @@ lemma all_actions_from_vecD2:
 
 paragraph \<open>Binary transitions\<close>
 
+method frules_force =
+  repeat_rotate \<open>frules; elims?; simp?; dedup_prems?\<close>
+
 lemma bin_trans_from_correct:
   "(bin_trans_from, trans_bin) \<in> transition_rel states'"
   unfolding transition_rel_def
@@ -1209,10 +1189,8 @@ proof clarsimp
     for p g a' f r l' a1
     using that unfolding IN_def trans_in_map_def set_map_filter
     by (auto dest: in_all_actions_by_stateD split: option.split_asm)
-(*
   note [forward3] = OUT_I IN_I
   note [forward2] = action_setD IN_D OUT_D
-*)
   show "(((L, s), g, a, r, L', s') \<in> trans_bin) =
         ((g, a, r, L', s') \<in> set (bin_trans_from (L, s)))"
   proof (cases "get_commited L = []")
@@ -1234,8 +1212,6 @@ proof clarsimp
       "bin_trans_from (L, s)
       = concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (IN ! a)) [0..<num_actions])"
       unfolding bin_trans_from_def IN_def OUT_def by simp
-    note [forward3] = OUT_I IN_I
-    note [forward2] = action_setD IN_D OUT_D
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
       unfolding * **
       apply clarsimp
@@ -1377,7 +1353,6 @@ proof clarsimp
       @ concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions])"
       unfolding bin_trans_from_def IN_def OUT_def In2_def Out2_def pairs_def
       by (simp add: Let_def)
-    note [forward2] = action_setD
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
       ((L, s), g, a, r, L', s') \<in> ?S1 \<longleftrightarrow> (g, a, r, L', s') \<in>
       set (concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) [0..<num_actions]))"
@@ -1390,7 +1365,6 @@ proof clarsimp
         apply (inst_existentials a')
         subgoal
           supply [forward4] = In2_I
-          supply [forward3] = OUT_I
           apply frules_all
           apply simp
           apply frules_all
@@ -1399,8 +1373,7 @@ proof clarsimp
           by (simp; frules; simp)
         done
       subgoal
-        supply [forward2] = In2_D
-        supply [forward2] = OUT_D
+        supply [forward2] = In2_D OUT_D
         apply simp
         apply frules_all
         apply elims
@@ -1413,8 +1386,8 @@ proof clarsimp
     moreover from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
       ((L, s), g, a, r, L', s') \<in> ?S2 \<longleftrightarrow> (g, a, r, L', s')
       \<in> set (concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions]))"
-      supply [forward3] = OUT_I IN_I
-      supply [forward2] = action_setD IN_D OUT_D
+      supply [forward2] = Out2_D In2_D
+      supply [forward4] = Out2_I
       apply clarsimp
       unfolding pairs_by_action_def
       apply (clarsimp simp: set_map_filter Let_def)
@@ -1423,16 +1396,14 @@ proof clarsimp
         apply clarsimp
         apply (inst_existentials a')
         subgoal
-          supply [forward4] = Out2_I
           apply frules_all
           apply simp
           apply frules_all
           unfolding check_bounded_iff by (intros; solve_triv)
         subgoal
-          by (auto dest: action_setD)
+          by frules_all simp
         done
       subgoal
-        supply [forward2] = Out2_D
         apply simp
         apply frules_all
         apply elims

@@ -117,4 +117,25 @@ method_setup dedup_prems =
   \<open>Scan.succeed (fn ctxt => SIMPLE_METHOD' (fn i => CHANGED (dedup_prems_tac ctxt i)))\<close>
   "Remove duplicate premises"
 
+method repeat methods m =
+  determ \<open>(changed m, repeat m)?\<close>
+
+ML \<open>
+fun REPEAT_ROTATE tac =
+  let
+    fun repeat (trm, i) = let
+      val num_prems = Logic.strip_assums_hyp trm |> length
+      val tac2 = TRY (tac i) THEN rotate_tac 1 i
+      val tacs = replicate num_prems tac2
+    in DETERM (EVERY tacs) end
+in SUBGOAL repeat end
+\<close>
+
+method_setup repeat_rotate =
+ \<open>Method.text_closure >> (fn m => fn ctxt => fn facts =>
+   let
+     fun tac st' = method_evaluate m ctxt facts st'
+   in SIMPLE_METHOD (REPEAT_ROTATE (K tac) 1) facts end)
+\<close>
+
 end (* Theory *)
