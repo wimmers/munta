@@ -1107,9 +1107,6 @@ lemma all_actions_from_vecD2:
 
 paragraph \<open>Binary transitions\<close>
 
-method frules_force =
-  repeat_rotate \<open>frules; elims?; simp?; dedup_prems?\<close>
-
 lemma bin_trans_from_correct:
   "(bin_trans_from, trans_bin) \<in> transition_rel states'"
   unfolding transition_rel_def
