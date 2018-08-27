@@ -64,7 +64,8 @@ val refl_match_tac = Subgoal.FOCUS_PREMS (
     in
       Seq.single o Drule.instantiate_normalize insts THEN
       resolve_tac ctxt [@{thm HOL.refl}] 1
-    end handle Pattern.MATCH => no_tac
+    end
+    handle CTERM _ => no_tac | Pattern.MATCH => no_tac
   )
 \<close>
 
