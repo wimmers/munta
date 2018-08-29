@@ -45,6 +45,17 @@ type_synonym
 type_synonym
   ('a, 's, 'c, 't, 'x, 'v) nta = "'a set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
 
+context begin
+
+qualified definition conv_t where "conv_t \<equiv> \<lambda> (l,g,a,f,r,l'). (l,conv_cc g,a,f,r,l')"
+
+qualified definition conv_A where "conv_A \<equiv> \<lambda> (C, T, I). (C, conv_t ` T, conv_cc o I)"
+
+definition conv where
+  "conv \<equiv> \<lambda>(broadcast, automata, bounds). (broadcast, map conv_A automata, bounds)"
+
+end
+
 datatype 'b label = Del | Internal 'b | Bin 'b | Broad 'b
 
 definition bounded where
@@ -59,14 +70,14 @@ inductive is_upds where
   "is_upds s [] s" |
   "is_upds s (x # xs) s''" if "is_upd s x s'" "is_upds s' xs s''"
 
-abbreviation commited :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
+definition commited :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
   "commited A \<equiv> fst A"
 
-abbreviation trans :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('a, 's, 'c, 't, 'x, 'v) transition set"
+definition trans :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('a, 's, 'c, 't, 'x, 'v) transition set"
   where
   "trans A \<equiv> fst (snd A)"
 
-abbreviation inv :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('c, 't, 's) invassn" where
+definition inv :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('c, 't, 's) invassn" where
   "inv A \<equiv> snd (snd A)"
 
 no_notation step_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
