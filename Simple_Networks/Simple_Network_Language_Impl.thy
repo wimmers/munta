@@ -79,16 +79,17 @@ lemma (in Prod_TA_Defs) trans_broad_alt_def:
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'' \<and>
-      (\<forall>p. p\<notin>set ps \<longrightarrow> gs p = [])
+      (\<forall>p. p\<notin>set ps \<longrightarrow> gs p = []) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> fs p = []) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> rs p = [])
     }"
   unfolding trans_broad_def
 proof ((intro Collect_eqI iffI; elims add: more_elims), goal_cases)
   case prems: (1 x L s L' s' s'' a p l g f r l' gs fs rs ls' ps)
-  let ?gs = "\<lambda>p. if p \<in> set ps then gs p else []"
-  have *[simp]: "concat (map gs ps) = concat (map ?gs ps)"
-    by (simp cong: map_cong)
+  let ?f = "\<lambda>gs p. if p \<in> set ps then gs p else []"
+  let ?gs = "?f gs" let ?fs = "?f fs" let ?rs = "?f rs"
+  have [simp]: "map gs ps = map ?gs ps" "map rs ps = map ?rs ps" "map fs ps = map ?fs ps"
+    by (simp cong: map_cong)+
   with prems show ?case
-    by (inst_existentials L s L' s' s'' a p l g f r l' ?gs fs rs ls' ps; (assumption | simp))
+    by (inst_existentials L s L' s' s'' a p l g f r l' ?gs ?fs ?rs ls' ps; (assumption | simp))
 next
   case (2 x L s L' s' s'' a p l g f r l' gs fs rs ls' ps)
   then show ?case
@@ -739,10 +740,13 @@ private lemma 711:
 lemma is_upds_mapI:
   assumes "is_upds s' (map fs ps) s''"
   shows
-  "is_upds (\<lambda>x. if x \<in> map_var ` dom s' then s' (the_inv map_var x) else None)
-        (map (\<lambda>a. map_expr (fs a)) ps)
-        (\<lambda>x. if x \<in> map_var ` dom s'' then s'' (the_inv map_var x) else None)"
-  sorry
+  "is_upds
+    (\<lambda>x. if x \<in> map_var ` dom s' then s' (the_inv map_var x) else None)
+    (map (\<lambda>a. map_expr (fs a)) ps)
+    (\<lambda>x. if x \<in> map_var ` dom s'' then s'' (the_inv map_var x) else None)"
+  using assms
+  by (induction ps arbitrary: s')
+     (auto 4 4 intro: is_upds.intros dest: is_upd_mapI elim: is_upds.cases)
 
 lemma map_trans_broad_aux1:
   "map_index map_loc (fold (\<lambda>p L. L[p := ls' p]) ps L) =
@@ -754,12 +758,197 @@ lemma InD2:
   shows "a' = In a"
   using assms by (cases a')  (auto simp: injD[OF map_action_inj])
 
+lemma OutD2:
+  assumes "Out (map_action a) = map_act map_action a'"
+  shows "a' = Out a"
+  using assms by (cases a') (auto simp: injD[OF map_action_inj])
+
+thm is_upd_mapD is_upd_mapI
+
+lemma is_upds_mapD:
+  assumes "is_upds s (map map_expr ac) s'"
+  shows "is_upds (s o map_var) ac (s' o map_var)"
+  sorry
+
+lemma map_trans_broad_aux2:
+  "dom (\<lambda>a. s (map_var a)) = dom bounds" if "dom s = map_var ` dom bounds"
+  unfolding dom_def
+  apply safe
+  subgoal for x y
+    using that by (auto 4 4 dest: injD[OF map_var_inj])
+  using that unfolding dom_def by auto
+
+lemma map_trans_broad_aux3:
+  "fold (\<lambda>p L. L[p := ls' p]) ps (map_index map_loc x)[p := map_loc p l1'] =
+    map_index map_loc (fold (\<lambda>p L. L[p := the_inv (map_loc p) (ls' p)]) ps xa[p := l1'])"
+  sorry
+
+lemma map_cc_inj':
+  "inj map_cc"
+  unfolding map_cc_def by (intro inj_mapI acconstraint.inj_map; fact)
+
+lemma map_expr_inj:
+  "inj map_expr"
+  unfolding map_expr_def using map_var_inj exp.inj_map[of map_var id]
+  by (auto 4 3 dest: injD intro: injI elim: map_injective)
+
 lemma map_trans_broad:
   "map.trans_broad = map_t ` trans_broad"
   unfolding map.trans_broad_alt_def trans_broad_alt_def
   apply standard
    supply [simp] = L_len
-  subgoal sorry
+  subgoal
+    subgoal
+    proof -
+      have **:
+        "\<exists> gs' fs' rs' ls1. gs = map_cc o gs' \<and> ls1 = (\<lambda> p. the_inv (map_loc p) (ls' p)) \<and>
+      fs = map_expr o fs' \<and> rs = map map_clock o rs' \<and>
+          (\<forall>p\<in>set ps.(L ! p, gs' p, In a, fs' p, rs' p, ls1 p) \<in> trans (N p))"
+        if
+          assms: "\<forall>p\<in>set ps.
+          (map_index map_loc L ! p, gs p, In (map_action a), fs p, rs p, ls' p)
+          \<in> Simple_Network_Language.trans (map.N p)"
+          "set ps \<subseteq> {0..<n_ps}" "\<forall>p. p \<notin> set ps \<longrightarrow> gs p = []" "\<forall>p. p \<notin> set ps \<longrightarrow> fs p = []"
+          "\<forall>p. p \<notin> set ps \<longrightarrow> rs p = []" "length L = n_ps"
+        for L ps gs a fs rs ls'
+      proof -
+        let ?gs' = "the_inv map_cc o gs"
+        let ?fs' = "Hilbert_Choice.inv map_expr o fs"
+        let ?ls1 = "\<lambda> p. the_inv (map_loc p) (ls' p)"
+        let ?rs' = "Hilbert_Choice.inv (map map_clock) o rs"
+        have gs: "gs p = map_cc (the_inv map_cc (gs p))" if "p \<in> set ps" for p
+          using that assms by (subst f_the_inv_f[OF map_cc_inj']; force dest: 73)
+        have fs: "fs p = map_expr (?fs' p)" if "p \<in> set ps" for p
+          using that assms by (force dest: 73 simp: f_inv_into_f[where f = map_expr])
+        have rs: "rs p = map map_clock (?rs' p)" if "p \<in> set ps" for p
+          using that assms by (force dest!: 73 simp: f_inv_into_f[where f = "map map_clock"])
+        show ?thesis
+          apply (inst_existentials ?gs' ?fs' ?rs' ?ls1)
+          subgoal
+            using assms
+            apply (intro ext)
+            subgoal for p
+              apply (cases "p \<in> set ps")
+               apply (subst gs; force)
+              unfolding comp_def
+              apply (subst f_the_inv_f[OF map_cc_inj']; simp add: map_cc_def)
+              done
+            done
+             apply solve_triv
+          subgoal
+            using assms
+            apply (intro ext)
+            subgoal for p
+              apply (cases "p \<in> set ps")
+               apply (subst fs; force)
+              unfolding comp_def
+              apply (subst f_inv_into_f[where f = map_expr]; simp add: map_expr_def)
+              done
+            done
+          subgoal
+            using assms
+            apply (intro ext)
+            subgoal for p
+              apply (cases "p \<in> set ps")
+               apply (subst rs; force)
+              unfolding comp_def
+              apply (subst f_inv_into_f[where f = "map map_clock"]; simp add: map_expr_def)
+              done
+            done
+          using assms
+          apply intros
+          apply (drule (1) bspec)
+          apply (drule 73)
+           apply force
+          using map_loc_inj map_cc_inj' map_expr_inj
+          apply (auto simp: the_inv_f_f inv_f_f[OF map_expr_inj])
+          apply (subst inv_f_f)
+          using map_clock_inj
+           apply (auto dest: map_loc_injD[THEN sym])
+          apply (subst (asm) nth_map_index)
+           apply (auto dest: map_loc_injD InD2)
+          done
+      qed
+      have *: "set ps \<subseteq> {0..<n_ps} \<longleftrightarrow> (\<forall>p \<in> set ps. p < n_ps)" for ps
+        by auto
+      show ?thesis
+        apply (rule subsetI)
+        apply (clarsimp simp add: 3 9 10 broadcast_def split: prod.split_asm)
+        apply (drule (4) **, simp)
+        apply (drule (1) 73)+
+        apply elims
+        apply (frule OutD2)
+        apply (drule map_loc_injD[THEN sym])
+        apply (frule bounded_mapD, drule bounded_map_domD)
+        apply (frule bounded_mapD, drule bounded_map_domD)
+        apply simp
+        apply (drule is_upd_mapD)
+        using [[goals_limit = 1]]
+        apply (intro image_eqI[rotated] CollectI exI conjI)
+                            apply solve_triv+
+        subgoal premises prems for s s' s'' p g f r l' gs fs rs ls' ps x L gs' l1 fs' g' rs' a' ls1 u' r' l1'
+          \<comment>\<open>Commited\<close>
+          using prems(2) \<open>p < n_ps\<close> \<open>set ps \<subseteq> _\<close> \<open>L \<in> states\<close> by (force dest: map_loc_injD simp: 9)
+                       apply intros
+        subgoal premises prems for s s' s'' p g f r l' gs fs rs ls' ps x L gs' l1 fs' g' rs' a' ls1 u' r' l1' q g''
+          \<comment>\<open>Maximal set\<close>
+          using prems(3) \<open>q < n_ps\<close> \<open>q \<notin> set ps \<and> p \<noteq> q\<close> \<open>L \<in> states\<close>
+          by (fastforce dest!: 71 map_loc_injD InD2 simp: map_t_single_def)
+                      apply solve_triv+
+               apply (rule is_upds_mapD, simp add: map_map)
+              apply solve_triv+
+           apply (simp add: map_cc_def; fail)
+          apply (simp add: map_expr_def; fail)
+         apply (simp; fail)
+        unfolding map_t_def
+        apply clarsimp
+        apply intros
+        subgoal
+          unfolding map_st_def
+          apply clarsimp
+          thm the_inv_f_f[OF map_var_inj] map_index_update[symmetric] 
+          apply (rule ext)
+          thm f_the_inv_f
+          apply (clarsimp split: if_split)
+          apply safe
+               apply (simp add: the_inv_f_f[OF map_var_inj]; fail)
+              apply (simp add: map_trans_broad_aux2, blast)
+             apply (simp add: the_inv_f_f[OF map_var_inj]; fail)
+            apply (simp add: map_trans_broad_aux2, blast)
+           apply (simp add: the_inv_f_f[OF map_var_inj]; fail)
+          apply (simp add: map_trans_broad_aux2, blast)
+          done
+
+          apply (simp add: map_cc_concat map_cc_append; fail)
+         apply (simp add: map_map map_concat; fail)
+        subgoal for s s' s'' p ls'
+          unfolding map_st_def
+          apply clarsimp
+          apply safe
+          subgoal
+            apply (rule map_trans_broad_aux3)
+            done
+              apply (rule ext)
+              apply (clarsimp split: if_split)
+              apply safe
+               apply (simp add: the_inv_f_f[OF map_var_inj]; fail)
+              apply (simp add: map_trans_broad_aux2, blast)
+             apply (rule map_trans_broad_aux3; fail)
+            apply (rule ext)
+            apply (clarsimp split: if_split)
+            apply safe
+             apply (simp add: the_inv_f_f[OF map_var_inj]; fail)
+            apply (simp add: map_trans_broad_aux2, blast)
+           apply (rule map_trans_broad_aux3; fail)
+          apply (rule ext)
+          apply (clarsimp split: if_split)
+          apply safe
+           apply (simp add: the_inv_f_f[OF map_var_inj]; fail)
+          apply (simp add: map_trans_broad_aux2, blast)
+          done
+        done
+    qed
+    done
   subgoal
     apply (rule subsetI)
     apply (clarsimp simp:
@@ -769,20 +958,21 @@ lemma map_trans_broad:
     apply (drule is_upd_mapI is_upds_mapI bounded_map_boundsI)+
     apply (simp add: map_st_def map_index_update map_cc_append map_cc_concat map_trans_broad_aux1)
     apply (intros add: more_intros)
+                     apply solve_triv+
+                    apply (simp add: map_concat; fail)
                    apply solve_triv+
-                  apply (simp add: map_concat; fail)
-                 apply solve_triv+
-               apply (drule(1) bspec, drule 711, force, simp, simp)
+                 apply (drule(1) bspec, drule 711, force, simp, simp)
     subgoal premises prems for a b aa ab ac ad ba L s s' s'' aj p g f r l' gs fs rs ls' ps
       using prems(4) \<open>p < n_ps\<close> \<open>set ps \<subseteq> _\<close> \<open>L \<in> states\<close> by (force dest: map_loc_injD simp: 9)
     subgoal premises prems for a b aa ab ac ad ba L s s' s'' aj p g f r l' gs fs rs ls' ps q
       using prems(5) \<open>q < n_ps\<close> \<open>q \<notin> set ps \<and> p \<noteq> q\<close> \<open>L \<in> states\<close>
       by (auto dest!: map_loc_injD InD2 simp: map_t_single_def)
+              apply solve_triv+
+             apply force
             apply solve_triv+
-           apply force
-          apply solve_triv+
-    apply (simp add: map_cc_def)
+      apply (simp add: map_cc_def map_expr_def)+
     done
+  done
 
 lemma map_prod_ta:
   "map.prod_ta = map_A prod_ta"
