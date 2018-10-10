@@ -174,6 +174,7 @@ lemma mem_trans_N_iff:
   \<open>t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (automata ! i)))\<close> if "i < n_ps"
   unfolding N_def fst_conv snd_conv
   unfolding automaton_of_def
+  unfolding trans_def
   using that by (cases "automata ! i") (auto simp: length_automata_eq_n_ps)
 
 lemma L_i_len:
@@ -243,6 +244,7 @@ lemma invs_simp:
   "invs1 ! i ! (L ! i) = Simple_Network_Language.inv (N i) (L ! i)"
   if "i < n_ps" "L \<in> states"
   using that unfolding refine_invs1[OF \<open>i < _\<close>] invs_def N_def fst_conv snd_conv
+  unfolding inv_def
   by (subst nth_map;
       clarsimp split: prod.split simp: automaton_of_def length_automata_eq_n_ps L_i_len)
 
@@ -620,6 +622,7 @@ lemma get_commited_mem_iff:
   unfolding set_map_filter Let_def
   apply clarsimp
   unfolding N_def fst_conv snd_conv
+  unfolding commited_def
   by safe
     ((subst nth_map | subst (asm) nth_map);
       auto split: prod.splits simp: automaton_of_def length_automata_eq_n_ps
@@ -752,7 +755,7 @@ lemma trans_mapI:
     "p < n_ps"
   shows
     "(g, a, f, r, l') \<in> set (trans_map p (L ! p))"
-  using assms unfolding trans_map_def N_def fst_conv snd_conv
+  using assms unfolding trans_map_def N_def fst_conv snd_conv trans_def
   by (subst (asm) nth_map) (auto dest: in_union_map_ofI split: prod.split_asm simp: automaton_of_def)
 
 lemma trans_i_mapI:
@@ -769,7 +772,7 @@ lemma trans_mapI':
     "p < n_ps"
   shows
     "(g, a, f, r, l') \<in> set (trans_map p l)"
-  using assms unfolding trans_map_def N_def fst_conv snd_conv
+  using assms unfolding trans_map_def N_def fst_conv snd_conv trans_def
   by (subst (asm) nth_map) (auto dest: in_union_map_ofI split: prod.split_asm simp: automaton_of_def)
 
 lemma trans_mapD:
@@ -778,7 +781,7 @@ lemma trans_mapD:
     "p < n_ps"
   shows
     "(l, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
-  using assms unfolding trans_map_def N_def fst_conv snd_conv
+  using assms unfolding trans_map_def N_def fst_conv snd_conv trans_def
   by (subst nth_map) (auto split: prod.split elim: in_union_map_ofD[rotated] simp: automaton_of_def)
 
 lemma trans_map_iff:
