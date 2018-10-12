@@ -274,6 +274,9 @@ sepref_definition ran_of_map_impl is
 
 end (* Anonymous context for setup *)
 
+lemmas ran_of_map_impl_code[code] =
+  ran_of_map_impl_def[of "pure Id", simplified, OF Sepref_Constraints.safe_constraint_rules(41)]
+
 context
   notes [sepref_fr_rules] = hm_it_next_key_next_key'[folded hm.hms_assn'_id_hms_assn]
 begin
