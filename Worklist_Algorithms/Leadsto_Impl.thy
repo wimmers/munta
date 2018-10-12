@@ -18,7 +18,7 @@ begin
 
 sepref_thm pw_algo_map2_impl is
   "uncurry0 (pw_algo_map2)" ::
-  "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a (hm.hms_assn' id_assn (lso_assn A))"
+  "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a (hm.hms_assn' K (lso_assn A))"
   unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def TRACE'_def[symmetric]
   supply [[goals_limit = 1]]
   supply conv_to_is_Nil[simp]
@@ -33,11 +33,12 @@ sepref_thm pw_algo_map2_impl is
 
 end (* Worklist Map 2 Impl *)
 
+
 locale Leadsto_Search_Space_Key_Impl =
   Leadsto_Search_Space_Key a\<^sub>0 F _ empty _ E key F' P Q succs_Q succs1 +
   liveness: Liveness_Search_Space_Key_Impl a\<^sub>0 F _ V succs_Q "\<lambda> x y. E x y \<and> \<not> empty y \<and> Q y"
     _ key A succsi a\<^sub>0i Lei keyi copyi
-  for key :: "'v \<Rightarrow> 'k :: {hashable,heap}"
+  for key :: "'v \<Rightarrow> 'k"
   and a\<^sub>0 F F' copyi P Q V empty succs_Q succs1 E A succsi a\<^sub>0i Lei keyi +
   fixes succs1i and emptyi and Pi Qi
   assumes  succs1_impl: "(succs1i, (RETURN \<circ>\<circ> PR_CONST) succs1) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
@@ -50,15 +51,18 @@ begin
 sublocale Worklist_Map2_Impl _ _ "\<lambda> _. False" _ succs1 _ _ "\<lambda>_. False" _ succs1i _
   "\<lambda>_. return False" Lei
   apply (standard)
-        apply (rule liveness.refinements succs1_impl)
+           apply (rule liveness.refinements succs1_impl)
   subgoal
     by sepref_to_hoare sep_auto
-  by (rule liveness.refinements succs1_impl empty_impl)+
+  by (rule liveness.refinements succs1_impl empty_impl
+      liveness.pure_K liveness.left_unique_K liveness.right_unique_K)+
 
 sepref_register pw_algo_map2_copy
 sepref_register "PR_CONST P" "PR_CONST Q"
 
-lemmas [sepref_fr_rules] = lso_id_hnr ran_of_map_impl.refine[folded hm.hms_assn'_id_hms_assn]
+lemmas [sepref_fr_rules] =
+  lso_id_hnr
+  ran_of_map_impl.refine[OF pure_K left_unique_K right_unique_K]
 
 lemma pw_algo_map2_copy_fold:
   "PR_CONST pw_algo_map2_copy = A'.pw_algo_map2"

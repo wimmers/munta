@@ -50,8 +50,12 @@ begin
 
   locale Worklist_Map2_Impl =
      Worklist4_Impl + Worklist_Map2_Impl_Defs + Worklist_Map2 +
-    assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a id_assn"
+    fixes K
+    assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a K"
     assumes [sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
+    assumes pure_K: "is_pure K"
+    assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
+    assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
   begin
     sepref_register
       "PR_CONST a\<^sub>0" "PR_CONST F'" "PR_CONST (\<unlhd>)" "PR_CONST succs" "PR_CONST empty" "PR_CONST key"
@@ -69,6 +73,8 @@ begin
     lemma [safe_constraint_rules]: "CN_FALSE is_pure A \<Longrightarrow> is_pure A" by simp
 
     lemmas [sepref_fr_rules] = hd_tl_hnr
+
+    lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
 
     sepref_thm pw_algo_map2_impl is
       "uncurry0 (do {(r, p) \<leftarrow> pw_algo_map2; RETURN r})" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -131,8 +137,7 @@ begin
   end
 
   locale Worklist_Map2_Hashable =
-    Worklist_Map2_Impl_finite  _ _ _ _ _ _ _ _ _ _ _ _ _ _ key
-    for key :: "'a \<Rightarrow> 'ki :: {hashable, heap}"
+    Worklist_Map2_Impl_finite
   begin
 
     sepref_decl_op F_reachable :: "bool_rel" .
@@ -145,7 +150,7 @@ begin
       assumes "GEN_ALGO Lei (\<lambda>Lei. (uncurry Lei,uncurry (RETURN oo (\<unlhd>))) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
       assumes "GEN_ALGO succsi (\<lambda>succsi. (succsi,RETURN o succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A)"
       assumes "GEN_ALGO emptyi (\<lambda>Fi. (Fi,RETURN o empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn)"
-      assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a id_assn"
+      assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a K"
       assumes [sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
       shows
         "(uncurry0 (pw_impl keyi copyi Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN (PR_CONST op_F_reachable)))

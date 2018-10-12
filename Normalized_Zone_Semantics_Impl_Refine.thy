@@ -87,7 +87,7 @@ begin
   (* XXX Rename *)
   definition inv_rel where \<comment> \<open>Invariant assignments for a restricted state set\<close>
     (* XXX Or use "inv_rel X = Id_on X \<rightarrow> Id" ? *)
-    "inv_rel X = b_rel Id (\<lambda> x. x \<in> X) \<rightarrow> Id"
+    "inv_rel R X = b_rel R (\<lambda> x. x \<in> X) \<rightarrow> Id"
 
   (* XXX Map from automaton? *)
   definition state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
@@ -98,9 +98,11 @@ locale Reachability_Problem_Impl_Defs =
   for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat +
 
   fixes trans_fun :: "('a, nat, int, 's) transition_fun"
-    and inv_fun :: "(nat, int, 's) invassn"
-    and F_fun :: "'s \<Rightarrow> bool"
-    and ceiling :: "'s \<Rightarrow> int iarray"
+    and inv_fun :: "(nat, int, 'si :: {hashable, heap}) invassn"
+    and F_fun :: "'si \<Rightarrow> bool"
+    and ceiling :: "'si \<Rightarrow> int iarray"
+    and trans_impl :: "('a, nat, int, 'si) transition_fun"
+    and l\<^sub>0i :: 'si
 begin
 
   (* XXX Should this be something different? *)
@@ -146,20 +148,29 @@ end
 
 
 locale Reachability_Problem_Impl =
-  Reachability_Problem_Impl_Defs A l\<^sub>0 F n +
+  Reachability_Problem_Impl_Defs A l\<^sub>0 F n _ _ _ _trans_impl +
   Reachability_Problem l\<^sub>0 F n A k
-  for A :: "('a, nat, int, 's :: {hashable, heap}) ta"
+  for A :: "('a, nat, int, 's) ta"
   and l\<^sub>0 :: 's
   and F :: "'s \<Rightarrow> bool"
   and n :: nat
-  and k +
+  and k
+  and trans_impl :: "('a, nat, int, 'si :: {hashable, heap}) transition_fun" +
+  fixes loc_rel :: "('si \<times> 's) set"
   assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states"
-      and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel states"
-      and F_fun: "(F_fun, F) \<in> inv_rel states"
-      and ceiling: "(ceiling, IArray o k') \<in> inv_rel states"
+      and trans_impl:
+        "(trans_impl, trans_fun) \<in> fun_rel_syn loc_rel (list_rel (Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel))"
+      and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel loc_rel states"
+      and F_fun: "(F_fun, F) \<in> inv_rel loc_rel states"
+      and ceiling: "(ceiling, IArray o k') \<in> inv_rel loc_rel states"
+      and init_impl: "(l\<^sub>0i, l\<^sub>0) \<in> loc_rel"
+      and loc_rel_left_unique:
+        "\<And>l li li'. l \<in> states \<Longrightarrow> (li, l) \<in> loc_rel \<Longrightarrow> (li', l) \<in> loc_rel \<Longrightarrow> li' = li"
+      and loc_rel_right_unique:
+        "\<And>l l' li. l \<in> states \<Longrightarrow> l' \<in> states \<Longrightarrow> (li,l) \<in> loc_rel \<Longrightarrow> (li,l') \<in> loc_rel \<Longrightarrow> l' = l"
 begin
 
-  abbreviation "location_rel \<equiv> b_rel Id (\<lambda> x. x \<in> states)"
+  abbreviation "location_rel \<equiv> b_rel loc_rel (\<lambda> x. x \<in> states)"
 
   abbreviation "location_assn \<equiv> pure location_rel"
 
@@ -193,9 +204,10 @@ sublocale liveness_search_space_pre:
 
 end
 
+
 locale Reachability_Problem_Impl_Op =
-  Reachability_Problem_Impl _ _ _ _ _ l\<^sub>0
-  + op: E_From_Op_Bisim_Finite l\<^sub>0 for l\<^sub>0 :: "'s :: {hashable, heap}" +
+  Reachability_Problem_Impl _ _ _ _ l\<^sub>0i _ l\<^sub>0
+  + op: E_From_Op_Bisim_Finite l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
   fixes op_impl
   assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
 begin
@@ -215,7 +227,7 @@ begin
     notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
   begin
 
-  sepref_register trans_fun
+  sepref_register trans_impl
 
   sepref_register abstr_upd up_canonical_upd norm_upd reset'_upd reset_canonical_upd
 
@@ -229,13 +241,13 @@ begin
 
   lemma [def_pat_rules]: "FW'' $ n \<equiv> UNPROTECT (FW'' n)" by simp
 
-  lemma trans_fun_clock_bounds3:
+  lemma trans_impl_clock_bounds3:
     "\<forall> c \<in> collect_clks (inv_of A l). c \<le> n"
   using collect_clks_inv_clk_set[of A l] clocks_n by force
 
   lemma inv_fun_rel:
-    assumes "l \<in> states"
-    shows "(inv_fun l, inv_of A l) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
+    assumes "l \<in> states" "(l1, l) \<in> loc_rel"
+    shows "(inv_fun l1, inv_of A l) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
   proof -
     have "(xs, xs) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
       if "\<forall> c \<in> collect_clks xs. c \<le> n" for xs
@@ -248,9 +260,9 @@ begin
       by (auto simp: acconstraint_rel_def p2rel_def rel2p_def)
     done
     moreover have
-      "inv_fun l = inv_of A l"
+      "inv_fun l1 = inv_of A l"
     using inv_fun assms unfolding inv_rel_def b_rel_def fun_rel_def by auto
-    ultimately show ?thesis using trans_fun_clock_bounds3 by auto
+    ultimately show ?thesis using trans_impl_clock_bounds3 by auto
   qed
 
   lemma [sepref_fr_rules]:
@@ -410,7 +422,7 @@ begin
 
   definition
   "subsumes' =
-    (\<lambda> (l, M :: ('c :: {zero,linorder}) DBM') (l', M').
+    (\<lambda> (l, M :: ('tt :: {zero,linorder}) DBM') (l', M').
       l = l' \<and> pointwise_cmp (\<le>) n (curry M) (curry M'))"
 
   context
@@ -418,9 +430,19 @@ begin
 
   notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
+  lemma left_unique_location_rel:
+    "IS_LEFT_UNIQUE location_rel"
+    unfolding IS_LEFT_UNIQUE_def
+    by (rule single_valuedI) (auto intro: loc_rel_left_unique single_valuedI)
+
+  lemma right_unique_location_rel:
+    "IS_RIGHT_UNIQUE location_rel"
+    by (rule single_valuedI) (auto intro: loc_rel_right_unique)
+
   lemma [sepref_import_param]:
     "((=), (=)) \<in> location_rel \<rightarrow> location_rel \<rightarrow> Id"
-    by auto
+    using left_unique_location_rel right_unique_location_rel
+    by (blast dest: IS_LEFT_UNIQUED IS_RIGHT_UNIQUED)
 
   sepref_definition subsumes_impl is
     "uncurry (RETURN oo subsumes')" :: "state_assn'\<^sup>k *\<^sub>a state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -449,12 +471,12 @@ begin
   sepref_register l\<^sub>0
 
   lemma [sepref_import_param]:
-    "(l\<^sub>0, l\<^sub>0) \<in> location_rel"
-  by auto
+    "(l\<^sub>0i, l\<^sub>0) \<in> location_rel"
+    using init_impl by auto
 
   sepref_definition a\<^sub>0_impl is
     "uncurry0 (RETURN a\<^sub>0)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a state_assn'"
-  unfolding a\<^sub>0_def by sepref
+    unfolding a\<^sub>0_def by sepref
 
   (* XXX Better implementation? *)
   lemma F_rel_alt_def:
@@ -467,92 +489,104 @@ begin
     "(return o F_fun, RETURN o F) \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   using F_fun by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def)
 
-  (* XXX Better implementation? *)
-  lemma [sepref_import_param]: "(List.member, List.member) \<in> Id \<rightarrow> location_rel \<rightarrow> Id" by auto
-
   sepref_definition F_impl is
     "RETURN o (\<lambda> (l, M). F l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  by sepref
+    by sepref
 
-  lemma trans_fun_trans_of[intro]:
+  lemma trans_impl_trans_of[intro]:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-  using trans_fun unfolding transition_rel_def by auto
+    using trans_fun unfolding transition_rel_def by auto
 
-  lemma trans_of_trans_fun[intro]:
+  lemma trans_of_trans_impl[intro]:
     "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> l \<in> states \<Longrightarrow> (g, a, r, l') \<in> set (trans_fun l)"
-  using trans_fun unfolding transition_rel_def by auto
+    using trans_fun unfolding transition_rel_def by auto
 
-  lemma trans_fun_clock_bounds1:
+  lemma trans_impl_clock_bounds1:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> set r. c \<le> n"
-  using clocks_n reset_clk_set[OF trans_fun_trans_of] by fastforce
+    using clocks_n reset_clk_set[OF trans_impl_trans_of] by fastforce
 
-  lemma trans_fun_clock_bounds2:
+  lemma trans_impl_clock_bounds2:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> collect_clks g. c \<le> n"
-  using clocks_n collect_clocks_clk_set[OF trans_fun_trans_of] by fastforce
+    using clocks_n collect_clocks_clk_set[OF trans_impl_trans_of] by fastforce
 
-  lemma trans_fun_states:
+  lemma trans_impl_states:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> l' \<in> state_set (trans_of A)"
-   apply (drule trans_fun_trans_of)
-   apply auto[]
-   unfolding state_set_def
-   apply (rule UnI2)
-  by force
+     apply (drule trans_impl_trans_of)
+     apply assumption
+     unfolding state_set_def
+     apply (rule UnI2)
+     by force
 
   lemma trans_of_states[intro]:
     "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> l \<in> states \<Longrightarrow> l' \<in> states"
-  by (auto intro: trans_fun_states)
+    by (auto intro: trans_impl_states)
 
   abbreviation "clock_rel \<equiv> nbn_rel (Suc n)"
 
   lemma [sepref_import_param]:
-    "(trans_fun, trans_fun)
-    \<in> location_rel \<rightarrow>
-      \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle> acconstraint_rel\<rangle> list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle> list_rel \<times>\<^sub>r location_rel\<rangle>
-      list_rel"
-  apply (rule fun_relI)
-  apply simp
-  subgoal premises prems for x x'
-  proof -
-    { fix l :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
-      assume
-        "\<forall> g a r l'. (g, a, r, l') \<in> set l
-        \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> states"
+    "(trans_impl, trans_fun)
+      \<in> location_rel \<rightarrow>
+        \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle> acconstraint_rel\<rangle> list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle> list_rel \<times>\<^sub>r location_rel\<rangle>
+        list_rel"
+  proof (rule fun_relI)
+    fix li l
+    assume "(li, l) \<in> b_rel loc_rel (\<lambda>x. x \<in> states)"
+    { fix xs  :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
+        and xs' :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 'si) list"
+      assume A:
+        "\<forall> g a r l'. (g, a, r, l') \<in> set xs
+          \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> states"
+      assume "(xs', xs) \<in> \<langle>Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel\<rangle>list_rel"
       then have
-        "(l, l) \<in>
-        \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel
-            \<times>\<^sub>r Id
-            \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel
-            \<times>\<^sub>r location_rel
-        \<rangle>list_rel"
-      proof (induction l)
-        case Nil then show ?case by simp
+        "(xs', xs) \<in>
+          \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle>acconstraint_rel\<rangle>list_rel
+              \<times>\<^sub>r Id
+              \<times>\<^sub>r \<langle>clock_rel\<rangle>list_rel
+              \<times>\<^sub>r location_rel
+          \<rangle>list_rel"
+        using A
+      proof (induction xs' xs)
+        case 1 then show ?case
+          by simp
       next
-        case (Cons x xs)
-        then obtain g a r l' where [simp]: "x = (g, a, r, l')" by (cases x)
-        from Cons.prems have r_bounds: "\<forall> c \<in> set r. c \<le> n" by auto
-        from Cons.prems have "\<forall> c \<in> collect_clks g. c \<le> n" by auto
+        case (2 x' x xs' xs)
+        obtain g a r l' where [simp]: "x = (g, a, r, l')"
+          by (cases x)
+        obtain gi ai ri l'i where [simp]: "x' = (gi, ai, ri, l'i)"
+          by (cases x')
+        from 2 have r_bounds: "\<forall> c \<in> set r. c \<le> n"
+          by auto
+        from 2 have "\<forall> c \<in> collect_clks g. c \<le> n"
+          by auto
         then have "(g, g) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
-          apply (induction g)
-          apply simp
-          apply simp
+          apply (induction g; simp)
           subgoal for a
-          apply (cases a)
-          by (auto simp: acconstraint_rel_def p2rel_def rel2p_def)
-        done
-        moreover from r_bounds have "(r, r) \<in> \<langle>nbn_rel (Suc n)\<rangle>list_rel" by (induction r) auto
-        moreover from Cons.prems have "(l', l') \<in> location_rel" by auto
+            by (cases a)
+               (auto simp: acconstraint_rel_def p2rel_def rel2p_def split: acconstraint.split)
+          done
+        moreover from r_bounds have "(r, r) \<in> \<langle>nbn_rel (Suc n)\<rangle>list_rel"
+          by (induction r) auto
+        moreover from 2(1,4) have "(l'i, l') \<in> location_rel"
+          by auto
         ultimately have
-          "(x, x) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r location_rel"
-        by simp
-        moreover from Cons have
-          "(xs, xs) \<in> \<langle>\<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>nbn_rel (Suc n)\<rangle>list_rel \<times>\<^sub>r location_rel\<rangle>list_rel"
-        by force
+          "(x', x) \<in>
+            \<langle>\<langle>clock_rel, int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id \<times>\<^sub>r \<langle>clock_rel\<rangle>list_rel \<times>\<^sub>r location_rel"
+          using 2(1) by simp
+        moreover from 2 have
+          "(xs', xs)
+            \<in> \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r Id
+                \<times>\<^sub>r \<langle>clock_rel\<rangle>list_rel \<times>\<^sub>r location_rel\<rangle>list_rel"
+          by force
         ultimately show ?case by simp
       qed
-    }
-    with prems trans_fun_clock_bounds1 trans_fun_clock_bounds2 trans_fun_states show ?thesis by auto
+    } note * = this
+    from
+      \<open>(li, l) \<in> _\<close> trans_impl_clock_bounds1 trans_impl_clock_bounds2 trans_impl_states trans_impl
+    show "(trans_impl li, trans_fun l)
+        \<in> \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r
+           Id \<times>\<^sub>r \<langle>clock_rel\<rangle>list_rel \<times>\<^sub>r b_rel loc_rel (\<lambda>x. x \<in> states)\<rangle>list_rel"
+      by - (rule *, auto, (drule fun_relD, assumption, simp add: relAPP_def)+)
   qed
-  done
 
   lemma b_rel_subtype[sepref_frame_match_rules]:
     "hn_val (b_rel R P) a b \<Longrightarrow>\<^sub>t hn_val R a b"
@@ -574,6 +608,8 @@ begin
     notes [id_rules] = itypeI[of "PR_CONST n" "TYPE (nat)"]
       and [sepref_import_param] = IdI[of n]
   begin
+
+sepref_register trans_fun
 
   sepref_definition succs_impl is
     "RETURN o PR_CONST succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
@@ -599,7 +635,7 @@ begin
 
   context
     fixes P :: "'s \<Rightarrow> bool" and P_fun
-    assumes P_fun: "(P_fun, P) \<in> inv_rel states"
+    assumes P_fun: "(P_fun, P) \<in> inv_rel loc_rel states"
   begin
 
   context
@@ -707,21 +743,32 @@ begin
     unfolding state_copy
     by sepref
 
+  lemma location_assn_constraints:
+    "is_pure location_assn"
+    "IS_LEFT_UNIQUE (the_pure location_assn)"
+    "IS_RIGHT_UNIQUE (the_pure location_assn)"
+    using left_unique_location_rel right_unique_location_rel
+    by (auto elim: single_valued_subset[rotated] simp: b_rel_def IS_LEFT_UNIQUE_def)
 
   sublocale Worklist_Map2_Impl
     op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
     "\<lambda> (l, M). F l" state_assn'
     succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
+    location_assn
     apply standard
+    subgoal
     unfolding PR_CONST_def
      apply sepref_to_hoare
-     apply sep_auto
+    apply sep_auto
+    done
+  subgoal
     by (rule state_copy_impl.refine)
+  by (rule location_assn_constraints)+
 
   sublocale Worklist_Map2_Hashable
     op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
     state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl
-    "return o fst" state_copy_impl fst by standard
+    fst "return o fst" state_copy_impl location_assn by standard
 
   sublocale liveness: Liveness_Search_Space_Key
     "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M'" a\<^sub>0
@@ -759,7 +806,9 @@ begin
     "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M'"
     subsumes' fst
     state_assn' "succs_P_impl' F_fun" a\<^sub>0_impl subsumes_impl "return o fst" state_copy_impl
+    location_assn
     apply standard
+    apply (rule location_assn_constraints)+
         apply (unfold PR_CONST_def, rule a\<^sub>0_impl.refine; fail)
        apply (unfold PR_CONST_def, rule subsumes_impl.refine; fail)
       apply (unfold PR_CONST_def, rule succs_P_impl'.refine[OF F_fun])
@@ -820,7 +869,7 @@ begin
 
   context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
-    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states"
   begin
 
   interpretation leadsto: Leadsto_Search_Space_Key
@@ -880,7 +929,7 @@ begin
     by (rewrite in Q PR_CONST_def[symmetric]) sepref
 
   interpretation leadsto: Leadsto_Search_Space_Key_Impl
-    "subsumes n" subsumes' fst a\<^sub>0 "\<lambda> _. False" "\<lambda> _. False" state_copy_impl
+    "subsumes n" subsumes' location_assn fst a\<^sub>0 "\<lambda> _. False" "\<lambda> _. False" state_copy_impl
     "\<lambda> (l, M). F l" "\<lambda> (l, M). Q l"
     "\<lambda> (l, M). op.reachable (l, M) \<and> \<not> check_diag n M"
     "\<lambda> (l, M). check_diag n M"
@@ -890,34 +939,35 @@ begin
     "succs_P_impl' Q_fun" a\<^sub>0_impl subsumes_impl "return o fst" succs_impl'
     emptiness_check_impl F_impl Q_impl
     apply standard
-                    apply blast
-                   apply (blast intro: op.trans)
+                       apply blast
+                      apply (blast intro: op.trans)
     subgoal for a b a'
       apply (drule op.mono[where a' = a'], auto dest: op.empty_mono[rotated])
       apply (intro exI conjI)
            apply (auto dest: op.empty_mono[rotated])
       by (auto simp: empty_subsumes' dest: subsumes_key)
-                 apply blast
+                    apply blast
     subgoal
       using op.finite_reachable by (auto elim!: finite_subset[rotated])
     subgoal premises prems for a
     proof -
       have
         "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
-          = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
+            = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
         unfolding op.E_from_op_def succs_P_def using prems by (force dest!: reachable_states)
       also have "\<dots> =
-          {x. Subgraph_Node_Defs.E'
-           (\<lambda>x y.
-            (case x of (l, M) \<Rightarrow> \<lambda>(l', M'). op.E_from_op (l, M) (l', M') \<and> \<not> check_diag n M') y
-              \<and> \<not> (case y of (l, M) \<Rightarrow> check_diag n M) \<and> (case y of (l, M) \<Rightarrow> Q l)
-            )
-           (\<lambda>(l, M). op.reachable (l, M) \<and> \<not> check_diag n M) a x}"
+            {x. Subgraph_Node_Defs.E'
+             (\<lambda>x y.
+              (case x of (l, M) \<Rightarrow> \<lambda>(l', M'). op.E_from_op (l, M) (l', M') \<and> \<not> check_diag n M') y
+                \<and> \<not> (case y of (l, M) \<Rightarrow> check_diag n M) \<and> (case y of (l, M) \<Rightarrow> Q l)
+              )
+             (\<lambda>(l, M). op.reachable (l, M) \<and> \<not> check_diag n M) a x}"
         unfolding Subgraph_Node_Defs.E'_def using prems by auto
       finally show ?thesis .
     qed
-              apply blast
-             apply (clarsimp simp: empty_subsumes'; fail)
+                 apply blast
+                apply (clarsimp simp: empty_subsumes'; fail)
+               apply (rule location_assn_constraints)+
             apply (rule liveness.refinements)
            apply (rule liveness.refinements)
           apply (unfold PR_CONST_def, rule succs_P_impl'.refine[OF Q_fun])
@@ -1043,7 +1093,7 @@ end (* End sepref setup *)
 
 subsection \<open>Correctness Theorems\<close>
 
-sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ "PR_CONST E_op''" _ E_op''_impl
+sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ _ loc_rel "PR_CONST E_op''" _ _ E_op''_impl
   unfolding PR_CONST_def by standard (rule E_op''_impl.refine)
 
 lemma E_op_F_reachable:
@@ -1093,7 +1143,7 @@ lemma Alw_ev_impl_hnr:
 
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
-    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states"
     assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
 begin
 
@@ -1174,41 +1224,41 @@ begin
   text \<open>Definition of implementation auxiliaries (later connected to the automaton via proof)\<close>
   (*
   definition
-    "trans_fun l \<equiv> map (\<lambda> i. label i ((IArray trans) !! l ! i)) [0..<length (trans ! l)]"
+    "trans_impl l \<equiv> map (\<lambda> i. label i ((IArray trans) !! l ! i)) [0..<length (trans ! l)]"
   *)
 
   definition
     "trans_map \<equiv> map (\<lambda> xs. map (\<lambda> i. label i (xs ! i)) [0..<length xs]) trans"
 
   definition
-    "trans_fun l \<equiv> (IArray trans_map) !! l"
+    "trans_impl l \<equiv> (IArray trans_map) !! l"
 
-  lemma trans_fun_alt_def:
+  lemma trans_impl_alt_def:
     "l < n
-    \<Longrightarrow> trans_fun l = map (\<lambda> i. label i ((IArray trans) !! l ! i)) [0..<length (trans ! l)]"
-  unfolding trans_fun_def trans_map_def by (auto simp: trans_length)
+    \<Longrightarrow> trans_impl l = map (\<lambda> i. label i ((IArray trans) !! l ! i)) [0..<length (trans ! l)]"
+  unfolding trans_impl_def trans_map_def by (auto simp: trans_length)
 
   lemma state_set_n[intro, simp]:
     "state_set (trans_of A) \<subseteq> {0..<n}"
   unfolding state_set_def trans_of_def A_def T_def label_def using state_set trans_length
   by (force dest: nth_mem)
 
-  lemma trans_fun_trans_of[intro, simp]:
-    "(trans_fun, trans_of A) \<in> transition_rel Defs.states"
-  using state_set_n n_gt_0 unfolding transition_rel_def trans_of_def A_def T_def
-  by (fastforce simp: trans_fun_alt_def)
+  lemma trans_impl_trans_of[intro, simp]:
+    "(trans_impl, trans_of A) \<in> transition_rel Defs.states"
+    using state_set_n n_gt_0 unfolding transition_rel_def trans_of_def A_def T_def
+    by (fastforce simp: trans_impl_alt_def)
 
   definition "inv_fun l \<equiv> (IArray inv) !! l"
 
   lemma inv_fun_inv_of[intro, simp]:
-    "(inv_fun, inv_of A) \<in> inv_rel Defs.states"
+    "(inv_fun, inv_of A) \<in> inv_rel Id Defs.states"
   using state_set_n n_gt_0 unfolding inv_rel_def inv_fun_def inv_of_def A_def I_def
   by auto
 
   definition "final_fun = List.member final"
 
   lemma final_fun_final[intro, simp]:
-    "(final_fun, F) \<in> inv_rel Defs.states"
+    "(final_fun, F) \<in> inv_rel Id Defs.states"
   using state_set_n unfolding F_def final_fun_def inv_rel_def by (auto simp: in_set_member)
 
   lemma start_states[intro, simp]:
@@ -1220,7 +1270,7 @@ begin
   qed
 
   lemma iarray_k':
-    "(IArray.sub (IArray (map (IArray o map int) k)), IArray o k') \<in> inv_rel Defs.states"
+    "(IArray.sub (IArray (map (IArray o map int) k)), IArray o k') \<in> inv_rel Id Defs.states"
     unfolding inv_rel_def k'_def
     apply (clarsimp simp del: upt_Suc)
     subgoal premises prems for j
@@ -1238,13 +1288,27 @@ begin
     qed
     done
 
+  lemma trans_impl_refine_self:
+    "(trans_impl, trans_impl)
+      \<in> fun_rel_syn nat_rel (list_rel (Id \<times>\<^sub>r nat_rel \<times>\<^sub>r Id \<times>\<^sub>r nat_rel))"
+    by auto (metis IdI list_rel_id_simp relAPP_def)
+
   (* XXX Room for optimization *)
   sublocale Reachability_Problem_Impl
-    trans_fun inv_fun final_fun "IArray.sub (IArray (map (IArray o map int) k))" A 0 "PR_CONST F" m
-    "\<lambda> l i. if l < n \<and> i \<le> m then k ! l ! i else 0"
+    where A = A
+    and inv_fun = inv_fun
+    and F = "PR_CONST F"
+    and F_fun = final_fun
+    and trans_fun = trans_impl
+    and trans_impl = trans_impl
+    and ceiling = "IArray.sub (IArray (map (IArray o map int) k))"
+    and k = "\<lambda> l i. if l < n \<and> i \<le> m then k ! l ! i else 0"
+    and n = m
+    and loc_rel = Id
+    and l\<^sub>0 = "0::nat"
+    and l\<^sub>0i = 0
     unfolding PR_CONST_def
-    apply standard
-    using iarray_k' by fastforce+
+    using iarray_k' trans_impl_refine_self by - (standard, fastforce+)
 
   subsection \<open>Correctness Theorems\<close>
 
@@ -1277,7 +1341,9 @@ begin
 
   corollary reachability_checker'_hoare:
     "<emp> reachability_checker'
-    <\<lambda> r. \<up>(r \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final))>\<^sub>t"
+    <\<lambda> r. \<up>(r \<longleftrightarrow>
+      (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final))
+    >\<^sub>t"
    apply (rule cons_post_rule)
    using reachability_check'[to_hnr] apply (simp add: hn_refine_def)
    by (sep_auto simp: pure_def)
@@ -1311,9 +1377,9 @@ begin
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   proof -
     define check_A where
-      "check_A \<equiv> \<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final"
+      "check_A \<equiv> \<exists>l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall>c \<in> {1..m}. u c = 0) \<and> l' \<in> set final"
     define check_B where
-      "check_B \<equiv> \<exists> l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final"
+      "check_B \<equiv> \<exists>l' u u'. conv_A A \<turnstile> \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall>c \<in> {1..m}. u c = 0) \<and> l' \<in> set final"
     note F_reachable_equiv' =
       F_reachable_equiv
       [unfolded F_def PR_CONST_def check_A_def[symmetric] check_B_def[symmetric]]
@@ -1323,7 +1389,8 @@ begin
       using F_reachable_equiv'
       supply reachability_check'
         [unfolded check_A_def[symmetric], to_hnr, unfolded hn_refine_def, rule_format, sep_heap_rules]
-      supply start_inv_check_impl.refine[to_hnr, unfolded hn_refine_def, rule_format, sep_heap_rules]
+      supply start_inv_check_impl.refine
+        [to_hnr, unfolded hn_refine_def, rule_format, sep_heap_rules]
       apply sepref_to_hoare
       by (sep_auto simp: pure_def)
   qed
@@ -1404,7 +1471,7 @@ begin
     val u2 = @{term "inv_fun"};
     val rewr2 = pull_let u2 r2;
     val r3 = get_rhs rewr2;
-    val u3 = @{term "trans_fun"};
+    val u3 = @{term "trans_impl"};
     val rewr3 = pull_let u3 r3;
     val mytac = fn ctxt => SELECT_GOAL (Local_Defs.unfold_tac ctxt [rewr1, rewr2, rewr3]) 1;
   \<close>
@@ -1414,8 +1481,8 @@ begin
   unfolding inv_fun_def by simp
 
   lemma inv_fun_rewr:
-    "(let I0 = trans_fun; I = inv_fun; I1 = y in xx I0 I I1) \<equiv>
-     (let I0 = trans_fun; I = (IArray inv); I' = \<lambda> i. I !! i; I1 = y in xx I0 I' I1)"
+    "(let I0 = trans_impl; I = inv_fun; I1 = y in xx I0 I I1) \<equiv>
+     (let I0 = trans_impl; I = (IArray inv); I' = \<lambda> i. I !! i; I1 = y in xx I0 I' I1)"
   unfolding inv_fun_def[abs_def] by simp
 
   lemma inv_fun_rewr':
@@ -1427,7 +1494,7 @@ begin
     "succs_impl \<equiv> ?impl"
   unfolding succs_impl_def
    apply (tactic \<open>mytac @{context}\<close>)
-   unfolding inv_fun_rewr' trans_fun_def[abs_def]
+   unfolding inv_fun_rewr' trans_impl_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
   by (rule Pure.reflexive)
 
@@ -1436,8 +1503,8 @@ begin
   unfolding succs_impl_def
    apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "trans_impl"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_impl_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
   by (rule Pure.reflexive)
@@ -1465,8 +1532,8 @@ begin
       unbounded_dbm_def
    apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "trans_impl"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_impl_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
    unfolding trans_map_def label_def
@@ -1483,8 +1550,8 @@ begin
   unfolding succs_impl_def reachability_checker_def reachability_checker'_def
    apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "trans_impl"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_impl_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
   oops

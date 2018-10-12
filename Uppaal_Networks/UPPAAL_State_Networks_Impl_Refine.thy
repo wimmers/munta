@@ -1983,7 +1983,7 @@ begin
     unfolding I_def using that states'_states'[OF that(2)] lengths by (auto dest!: states_len)
 
   lemma inv_fun_inv_of':
-    "(inv_fun, inv_of A) \<in> inv_rel states'"
+    "(inv_fun, inv_of A) \<in> inv_rel Id states'"
     unfolding inv_rel_def
     apply (clarsimp simp: equiv.defs.inv_of_simp Product_TA_Defs.inv_of_product)
     using process_length(1)
@@ -1996,22 +1996,22 @@ begin
     by (auto simp: inv_simp)
 
   lemma inv_rel_mono:
-    "(a, b) \<in> inv_rel B" if "(a, b) \<in> inv_rel C" "B \<subseteq> C"
+    "(a, b) \<in> inv_rel Id B" if "(a, b) \<in> inv_rel Id C" "B \<subseteq> C"
     using that unfolding inv_rel_def b_rel_def fun_rel_def by auto
 
   lemma inv_fun_inv_of[intro, simp]:
-    "(inv_fun, inv_of A) \<in> inv_rel states"
+    "(inv_fun, inv_of A) \<in> inv_rel Id states"
     using inv_fun_inv_of' states_states' by (rule inv_rel_mono)
 
   definition "final_fun \<equiv> \<lambda> (L, s). hd_of_formula formula L s"
 
   lemma final_fun_final':
-    "(final_fun, (\<lambda> (l, s). F l s)) \<in> inv_rel states'"
+    "(final_fun, (\<lambda> (l, s). F l s)) \<in> inv_rel Id states'"
     unfolding F_def final_fun_def inv_rel_def in_set_member[symmetric] list_ex_iff
      by (force dest!: states'_states')
 
   lemma final_fun_final[intro, simp]:
-    "(final_fun, (\<lambda> (l, s). F l s)) \<in> inv_rel states"
+    "(final_fun, (\<lambda> (l, s). F l s)) \<in> inv_rel Id states"
     using final_fun_final' states_states' by (rule inv_rel_mono)
 
   lemma fst_clkp_setD:
@@ -2151,10 +2151,24 @@ begin
 
   sublocale impl:
     Reachability_Problem_Impl
-      trans_fun inv_fun final_fun k_impl A "(init, s\<^sub>0)"
-      "PR_CONST ((\<lambda> (l, s). F l s))" m k_fun
+    where trans_fun = trans_fun
+    and trans_impl = trans_fun
+    and inv_fun = inv_fun
+    and F_fun = final_fun
+    and ceiling = k_impl
+    and A = A
+    and l\<^sub>0 = "(init, s\<^sub>0)"
+    and l\<^sub>0i = "(init, s\<^sub>0)"
+    and F = "PR_CONST ((\<lambda> (l, s). F l s))"
+    and n = m
+    and k = k_fun
+    and loc_rel = Id
     unfolding PR_CONST_def
-    by (standard; fastforce simp: inv_rel_def b_rel_def)
+    apply standard
+           apply (fastforce simp: inv_rel_def b_rel_def)
+    subgoal
+      by auto (metis IdI list_rel_id_simp relAPP_def)
+         by (fastforce simp: inv_rel_def b_rel_def)+
 
   (*
   (* XXX Unused *)
@@ -2188,7 +2202,7 @@ begin
     apply clarsimp
     subgoal for x
       apply (cases "PROG x")
-       apply simp
+       apply (simp; fail)
       subgoal for a
         by (cases a) auto
       done
@@ -2204,7 +2218,6 @@ begin
   lemma map_map_filter:
     "map f (List.map_filter g xs) = List.map_filter (map_option f o g) xs"
     by (induction xs; simp add: List.map_filter_simps split: option.split)
-
 
   lemma make_g_conv:
     "defs'.make_g = conv_cc oo equiv.make_g"

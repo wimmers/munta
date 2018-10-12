@@ -195,8 +195,8 @@ sublocale Worklist4_Impl_finite_strict \<subseteq> Search_Space''_finite_strict 
 
 locale Worklist_Map2_Impl_Defs =
   Worklist4_Impl_Defs _ _ _ _ _ _ _ _ A + Worklist_Map2_Defs a\<^sub>0 _ _ _ _ _ key
-  for A :: "'a \<Rightarrow> 'ai :: {heap} \<Rightarrow> _" and key :: "'a \<Rightarrow> 'ki :: {hashable, heap}" +
-  fixes keyi :: "'ai \<Rightarrow> 'ki Heap"
+  for A :: "'a \<Rightarrow> 'ai :: {heap} \<Rightarrow> _" and key :: "'a \<Rightarrow> 'k" +
+  fixes keyi :: "'ai \<Rightarrow> 'ki :: {hashable, heap} Heap"
   fixes copyi :: "'ai \<Rightarrow> 'ai Heap"
 
 end (* Theory *)

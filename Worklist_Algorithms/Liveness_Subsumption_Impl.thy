@@ -3,22 +3,26 @@ theory Liveness_Subsumption_Impl
 begin
 
 locale Liveness_Search_Space_Key_Impl_Defs =
-  Liveness_Search_Space_Key_Defs _ _ _ _ _ _ key for key :: "'a \<Rightarrow> 'ki :: {hashable, heap}" +
+  Liveness_Search_Space_Key_Defs _ _ _ _ _ _ key for key :: "'a \<Rightarrow> 'k" +
   fixes A :: "'a \<Rightarrow> ('ai :: heap) \<Rightarrow> assn"
   fixes succsi :: "'ai \<Rightarrow> 'ai list Heap"
   fixes a\<^sub>0i :: "'ai Heap"
   fixes Lei :: "'ai \<Rightarrow> 'ai \<Rightarrow> bool Heap"
-  fixes keyi :: "'ai \<Rightarrow> 'ki Heap"
+  fixes keyi :: "'ai \<Rightarrow> 'ki :: {hashable, heap} Heap"
   fixes copyi :: "'ai \<Rightarrow> 'ai Heap"
 
 locale Liveness_Search_Space_Key_Impl =
   Liveness_Search_Space_Key_Impl_Defs +
   Liveness_Search_Space_Key +
+  fixes K
+  assumes pure_K[safe_constraint_rules]: "is_pure K"
+    assumes left_unique_K[safe_constraint_rules]: "IS_LEFT_UNIQUE (the_pure K)"
+    assumes right_unique_K[safe_constraint_rules]: "IS_RIGHT_UNIQUE (the_pure K)"
   assumes refinements[sepref_fr_rules]:
     "(uncurry0 a\<^sub>0i, uncurry0 (RETURN (PR_CONST a\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
     "(uncurry Lei,uncurry (RETURN oo PR_CONST (\<unlhd>))) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     "(succsi,RETURN o PR_CONST succs) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
-    "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a id_assn"
+    "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a K"
     "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
 
 context Liveness_Search_Space_Key_Defs
@@ -210,7 +214,7 @@ lemma [def_pat_rules]:
   "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "(\<unlhd>) \<equiv> UNPROTECT (\<unlhd>)" "succs \<equiv> UNPROTECT succs" "key \<equiv> UNPROTECT key"
   by simp_all
 
-abbreviation "passed_assn \<equiv> hm.hms_assn' id_assn (lso_assn A)"
+abbreviation "passed_assn \<equiv> hm.hms_assn' K (lso_assn A)"
 
 (* This is to make the pre-processing phase pick the right type for the input *)
 lemma [intf_of_assn]:
@@ -235,7 +239,7 @@ lemmas [sepref_fr_rules] = dfs_map_impl.refine_raw
 lemma passed_empty_refine[sepref_fr_rules]:
   "(uncurry0 hm.hms_empty, uncurry0 (RETURN (PR_CONST hm.op_hms_empty))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a passed_assn"
 proof -
-  have "hn_refine emp hm.hms_empty emp (hm.hms_assn' id_assn (lso_assn A)) (RETURN hm.op_hms_empty)"
+  have "hn_refine emp hm.hms_empty emp (hm.hms_assn' K (lso_assn A)) (RETURN hm.op_hms_empty)"
     using sepref_fr_rules(17)[simplified] .
   then show ?thesis
     by - (rule hfrefI, auto simp: pure_unit_rel_eq_empty)
@@ -249,7 +253,7 @@ sepref_thm dfs_map_impl' is
 
 sepref_definition dfs_map'_impl is
   "uncurry dfs_map'"
-  :: "A\<^sup>d *\<^sub>a (hm.hms_assn' id_assn (lso_assn A))\<^sup>d \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a hm.hms_assn' id_assn (lso_assn A)"
+  :: "A\<^sup>d *\<^sub>a (hm.hms_assn' K (lso_assn A))\<^sup>d \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a hm.hms_assn' K (lso_assn A)"
   unfolding dfs_map'_def
   unfolding PR_CONST_def TRACE'_def[symmetric]
   unfolding alt_defs

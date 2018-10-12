@@ -363,7 +363,7 @@ begin
 
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
-    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel states"
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states"
 begin
 
 (* XXX Put in place of for leadsto_spec_refine *)
@@ -661,12 +661,12 @@ qed
 
 (* XXX Remove less general versions *)
 lemma final_fun_final':
-  "((\<lambda> (L, s). P L s), (\<lambda> (L, s). P L s)) \<in> inv_rel states'" for P
+  "((\<lambda> (L, s). P L s), (\<lambda> (L, s). P L s)) \<in> inv_rel Id states'" for P
   unfolding F_def final_fun_def inv_rel_def in_set_member[symmetric] list_ex_iff
   by (force dest!: states'_states')
 
 lemma final_fun_final[intro, simp]:
-  "((\<lambda> (L, s). P L s), (\<lambda> (L, s). P L s)) \<in> inv_rel states" for P
+  "((\<lambda> (L, s). P L s), (\<lambda> (L, s). P L s)) \<in> inv_rel Id states" for P
   using final_fun_final' states_states' by (rule inv_rel_mono)
 
 abbreviation "u\<^sub>0 \<equiv> (\<lambda> _. 0 :: real)"
