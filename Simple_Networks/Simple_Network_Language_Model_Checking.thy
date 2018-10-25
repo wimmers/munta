@@ -176,9 +176,6 @@ text \<open>
 The ceiling \<open>k\<close> is correct for each individual automaton in the network.
 We now construct a ceiling for the product automaton:
 \<close>
-(*
-definition "k_fun l c \<equiv> if c > 0 \<and> c \<le> m then Max {k ! i ! (fst l ! i) ! c | i . i < n_ps} else 0"
-*)
 definition "k_fun l c \<equiv> Max {k ! i ! (fst l ! i) ! c | i . i < n_ps}"
 
 lemma inv_unambiguous:
@@ -279,12 +276,24 @@ lemma k_fun_mono:
     using that by - (rule order.trans[where b = "k ! i ! (L' ! i) ! c"], auto intro: Max_ge)
   done
 
+lemma (in -) fold_upds_aux1:
+  "fold (\<lambda>p L. L[p := g p]) ps xs ! i = xs ! i" if \<open>i \<notin> set ps\<close>
+  using that by (induction ps arbitrary: xs) auto
+
+lemma (in -) fold_upds_aux2:
+  "fold (\<lambda>p L. L[p := g p]) ps xs ! i = g i" if \<open>distinct ps\<close> \<open>i \<in> set ps\<close> \<open>i < length xs\<close>
+  using that by (induction ps arbitrary: xs) (auto simp: fold_upds_aux1)
+
+lemma (in -) fold_upds_aux_length:
+  "length (fold (\<lambda>p L. L[p := g p]) ps xs) = length xs"
+  by (induction ps arbitrary: xs) auto
+
 lemma k_ceiling_2:
   "\<forall>l g a r l'. \<forall> c \<le> m. prod_ta \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> c \<notin> set r \<longrightarrow> k_fun l' c \<le> k_fun l c"
 proof safe
   fix L s g a r L' s' c
-  assume A: \<open>c \<le> m\<close> \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close> \<open>c \<notin> set r\<close>
-  from A show \<open>k_fun (L', s') c \<le> k_fun (L, s) c\<close>
+  assume \<open>c \<le> m\<close> \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close> \<open>c \<notin> set r\<close>
+  then show \<open>k_fun (L', s') c \<le> k_fun (L, s) c\<close>
     apply simp
     unfolding trans_prod_def
     apply auto
@@ -292,38 +301,59 @@ proof safe
       using k_resets
       unfolding trans_int_def
       apply clarsimp
-       apply (rule k_fun_mono)
+      apply (rule k_fun_mono)
       apply (clarsimp simp: mem_trans_N_iff L_len subset_nat_0_atLeastLessThan_conv)
-subgoal for f p aa l' i
-  by (cases "p = i"; force simp add: L_len)
-  done
-  oops
-
-
-term clkp_set
-term clkp_set'
-thm clkp_set'_def
-
-term "(fst o snd) (automata ! i)"
-
-term "\<Union> ((\<lambda>(_, g, _). constraint_pair ` set g) ` set ((fst o snd) (automata ! i)))"
-
-definition "clkp_set'' i \<equiv>
-    \<Union> ((\<lambda>(_, g, _). constraint_pair ` set g) ` set ((fst o snd) (automata ! i)))"
-
-definition
-    "collect_cexp' pc = {ac. Some (CEXP ac) \<in> ((!) prog) ` steps_approx max_steps prog pc}"
-
-  definition "clkp_set'' i l \<equiv>
-    collect_clock_pairs (inv ! i ! l) \<union>
-    \<Union> ((\<lambda> (g, _). constraint_pair ` collect_cexp' g) ` set (trans ! i ! l))"
-
-  definition
-    "collect_cexp = {ac. Some (CEXP ac) \<in> set prog}"
-
-  definition
-    "collect_store' pc =
-    {(c, x). Some (INSTR (STOREC c x)) \<in> ((!) prog) ` steps_approx max_steps prog pc}"
+      subgoal for f p aa l' i
+        by (cases "p = i"; force simp add: L_len)
+      done
+    subgoal
+      using k_resets
+      unfolding trans_bin_def
+      apply clarsimp
+      apply (rule k_fun_mono)
+      apply (clarsimp simp: mem_trans_N_iff L_len subset_nat_0_atLeastLessThan_conv)
+      subgoal for _ _ p q g1 f1 r1 l1' g2 f2 r2 l2' i
+        by (cases "p = i"; cases "q = i"; force simp add: L_len)
+      done
+    subgoal
+      using k_resets
+      unfolding trans_broad_def
+      apply clarsimp
+      apply (rule k_fun_mono)
+      apply (clarsimp simp: mem_trans_N_iff L_len subset_nat_0_atLeastLessThan_conv)
+      subgoal premises prems for s'a aa p ga f ra l' gs fs rs ls' ps i
+      proof (cases "p = i")
+        case True
+        with \<open>p \<notin> _\<close> \<open>i < _\<close> \<open>L \<in> states\<close> have "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] ! i = l'"
+          by (simp add: L_len fold_upds_aux_length)
+        with prems \<open>p = i\<close> show ?thesis
+          by (fastforce simp add: L_len)
+      next
+        case False
+        then have *: "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] ! i
+          = fold (\<lambda>p L. L[p := ls' p]) ps L ! i"
+          by simp
+        show ?thesis
+        proof (cases "i \<in> set ps")
+          case True
+          then have **: "fold (\<lambda>p L. L[p := ls' p]) ps L ! i = ls' i"
+            using \<open>distinct ps\<close> \<open>i < n_ps\<close> \<open>L \<in> states\<close> by (auto simp: fold_upds_aux2)
+          moreover have
+            "(L ! i, gs i, In aa, fs i, rs i, ls' i) \<in> set (fst (snd (automata ! i)))"
+            using \<open>p \<noteq> i\<close> True prems by fast
+          moreover have "c\<in>{0..<Suc m} - set (rs i)"
+            using \<open>p \<noteq> i\<close> True prems by force
+          ultimately show ?thesis
+            using prems(2) \<open>i < n_ps\<close> by (auto 4 3 simp add: *)
+        next
+          case False
+          with \<open>p \<noteq> i\<close> show ?thesis
+            by (simp add: fold_upds_aux1)
+        qed
+      qed
+      done
+    done
+qed
 
 
 
