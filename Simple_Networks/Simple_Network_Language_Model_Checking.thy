@@ -170,17 +170,17 @@ locale Simple_Network_Impl_nat_ceiling =
     "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
   and k_0:
     "\<forall> i < n_ps. \<forall> l < length ((fst o snd) (automata ! i)). k ! i ! l ! 0 = 0"
+  and inv_unambiguous:
+    "\<forall>(_, _, inv) \<in> set automata. distinct (map fst inv)"
 begin
 
 text \<open>
 The ceiling \<open>k\<close> is correct for each individual automaton in the network.
 We now construct a ceiling for the product automaton:
 \<close>
-definition "k_fun l c \<equiv> Max {k ! i ! (fst l ! i) ! c | i . i < n_ps}"
-
-lemma inv_unambiguous:
-  "\<forall>(_, _, inv) \<in> set automata. distinct (map fst inv)"
-  sorry
+definition
+  "k_fun l c \<equiv>
+    if (c > 0 \<and> c \<le> m) \<and> fst l \<in> states then Max {k ! i ! (fst l ! i) ! c | i . i < n_ps} else 0"
 
 lemma (in -) default_map_of_distinct:
   "(k, default_map_of x xs k) \<in> set xs \<union> {(k, x)}" if "distinct (map fst xs)"
@@ -203,20 +203,26 @@ lemma (in -) subset_nat_0_atLeastLessThan_conv:
   "S \<subseteq> {0..<n::nat} \<longleftrightarrow> (\<forall> x \<in> S. x < n)"
   by auto
 
+lemma k_ceiling_rule:
+  "m \<le> int (k ! i ! l ! x)"
+  if "i < n_ps" "(l, g, xx) \<in> set ((fst o snd) (automata ! i))" "(x, m) \<in> collect_clock_pairs g"
+  for i l x g xx
+  using that k_ceiling(2) by fastforce
+
 lemma k_ceiling_1:
-  "\<forall>l \<in> states'. \<forall>(x,m) \<in> clkp_set prod_ta l. m \<le> k_fun l x"
+  "\<forall>s. \<forall>L \<in> states. \<forall>(x,m) \<in> clkp_set prod_ta (L, s). m \<le> k_fun (L, s) x"
 proof safe
   fix L s c x
-  assume \<open>(L, s) \<in> states'\<close> \<open>(c, x) \<in> Closure.clkp_set prod_ta (L, s)\<close>
-   have "0 < c" "c \<le> m"
+  assume \<open>L \<in> states\<close> \<open>(c, x) \<in> Closure.clkp_set prod_ta (L, s)\<close>
+  have "0 < c" "c \<le> m"
   proof -
     from \<open>(c, x) \<in> _\<close> have "(c, x) \<in> Timed_Automata.clkp_set prod_ta"
       unfolding TA_clkp_set_unfold by auto
     with clock_range show "0 < c" "c \<le> m"
       by auto
   qed
-  from \<open>_ \<in> states'\<close> have \<open>L \<in> states\<close>
-    by auto
+  with \<open>L \<in> _\<close> have "k_fun (L, s) c = Max {k ! i ! (L ! i) ! c | i . i < n_ps}"
+    unfolding k_fun_def by auto
   have Max_aux: "x \<le> int (Max {k ! i ! (L ! i) ! c |i. i < n_ps})"
     if "x \<le> int (k ! p ! (L ! p) ! c)" "p < n_ps" for p
   proof -
@@ -230,14 +236,14 @@ proof safe
   proof safe
     assume \<open>(c, x) \<in> Closure.collect_clki (inv_of prod_ta) (L, s)\<close>
     then show \<open>x \<le> k_fun (L, s) c\<close>
-      using k_ceiling(1) unfolding collect_clki_def
+      using k_ceiling(1) unfolding collect_clki_def \<open>k_fun (L, s) c = _\<close>
       by (force intro: Max_aux dest: N_inv[OF _ \<open>_ \<in> states\<close>]
           simp: prod_inv_def collect_clock_pairs_def k_fun_def
           )
   next
     assume \<open>(c, x) \<in> Closure.collect_clkt (trans_of prod_ta) (L, s)\<close>
     then show \<open>x \<le> k_fun (L, s) c\<close>
-      unfolding collect_clkt_def
+      unfolding collect_clkt_def \<open>k_fun (L, s) c = _\<close>
       apply (clarsimp simp: trans_prod_def collect_clock_pairs_def k_fun_def)
       apply safe
       subgoal
@@ -263,9 +269,24 @@ proof safe
   qed
 qed
 
+lemma k_fun_mono':
+  "k_fun (L, s) c \<le> k_fun (L', s') c" if
+  "\<forall>i < n_ps. k ! i ! (L ! i) ! c \<le> k ! i ! (L' ! i) ! c" "L \<in> states" "L' \<in> states"
+  using that unfolding k_fun_def
+  apply clarsimp
+  apply (cases "n_ps = 0")
+   apply (simp; fail)
+  apply (rule Max.boundedI)
+    apply (simp; fail)
+   apply blast
+  apply safe
+  subgoal for _ i
+    by - (rule order.trans[where b = "k ! i ! (L' ! i) ! c"], auto intro: Max_ge)
+  done
+
 lemma k_fun_mono:
-  "k_fun (L, s) c \<le> k_fun (L', s') c" if "\<forall>i < n_ps. k ! i ! (L ! i) ! c \<le> k ! i ! (L' ! i) ! c"
-  unfolding k_fun_def
+  \<open>Max {k ! i ! (L ! i) ! c | i . i < n_ps} \<le> Max {k ! i ! (L' ! i) ! c | i . i < n_ps}\<close>
+  if \<open>\<forall>i < n_ps. k ! i ! (L ! i) ! c \<le> k ! i ! (L' ! i) ! c\<close>
   apply (cases "n_ps = 0")
    apply (simp; fail)
   apply (rule Max.boundedI)
@@ -288,12 +309,22 @@ lemma (in -) fold_upds_aux_length:
   "length (fold (\<lambda>p L. L[p := g p]) ps xs) = length xs"
   by (induction ps arbitrary: xs) auto
 
+lemma prod_ta_step_statesD:
+  assumes "prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')"
+  shows "L \<in> states" "L' \<in> states"
+   apply-
+  subgoal
+    sorry
+  sorry
+
 lemma k_ceiling_2:
   "\<forall>l g a r l'. \<forall> c \<le> m. prod_ta \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> c \<notin> set r \<longrightarrow> k_fun l' c \<le> k_fun l c"
 proof safe
   fix L s g a r L' s' c
-  assume \<open>c \<le> m\<close> \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close> \<open>c \<notin> set r\<close>
-  then show \<open>k_fun (L', s') c \<le> k_fun (L, s) c\<close>
+  assume A: \<open>c \<le> m\<close> \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close> \<open>c \<notin> set r\<close>
+  then have "L \<in> states" "L' \<in> states"
+    by - (rule prod_ta_step_statesD, assumption)+
+  from A have \<open>Max {k ! i ! (L' ! i) ! c | i . i < n_ps} \<le> Max {k ! i ! (L ! i) ! c | i . i < n_ps}\<close>
     apply simp
     unfolding trans_prod_def
     apply auto
@@ -353,6 +384,8 @@ proof safe
       qed
       done
     done
+  with \<open>L \<in> states\<close> \<open>L' \<in> states\<close> \<open>c \<le> m\<close> show "k_fun (L', s') c \<le> k_fun (L, s) c"
+    by (auto simp: k_fun_def)
 qed
 
 
@@ -367,28 +400,51 @@ sublocale reach: Reachability_Problem_Defs
   F
   m
   prod_ta
-  k
+  k_fun
   by standard
 
 print_locale Reachability_Problem
+
+lemma clkp_set_states'D:
+  fixes x d l
+  assumes "(x, d)\<in>Closure.clkp_set prod_ta l"
+  shows "l \<in> states'"
+  using assms
+  unfolding clkp_set_def collect_clki_def
+  apply auto
+  unfolding prod_inv_def
+  sorry
 
 sublocale reach1: Reachability_Problem
   l\<^sub>0
   F
   m
   prod_ta
-  k
+  k_fun
   apply standard
   subgoal
-    sorry
-subgoal
-    sorry
-subgoal
-    sorry
-subgoal
-    sorry
+    apply safe
+    using k_ceiling_1
+    subgoal for L s x m
+      apply (cases "L \<in> states")
+       apply blast
+      apply (auto dest: clkp_set_states'D simp: k_fun_def)
+      done
+    done
+  subgoal
+    apply safe
+    subgoal for L s g a r L' s' c
+      apply (cases "c \<le> m")
+      using k_ceiling_2
+       apply force
+      apply (auto simp: k_fun_def)
+      done
+    done
+  subgoal
+    by (simp add: k_fun_def)
+  subgoal
+    by (simp add: k_fun_def)
   done
-
 
 lemma transition_rel_anti_mono:
   "transition_rel S \<subseteq> transition_rel R" if "R \<subseteq> S"
@@ -429,10 +485,60 @@ qed
 
 
 
+definition "k_i \<equiv> IArray (map (IArray o (map (IArray o map int))) k)"
 
+definition
+  "k_impl \<equiv> \<lambda>(l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i < n_ps}) [0..<m+1])"
 
+(* XXX Duplication with UPPAAL_State_Networks_Impl_Refine *)
+lemma Max_int_commute:
+  "int (Max S) = Max (int ` S)" if "finite S" "S \<noteq> {}"
+  apply (rule mono_Max_commute)
+    apply rule
+  using that by auto
 
-
+lemma k_impl_k_fun:
+  "k_impl (L, s) = IArray (map (k_fun (L, s)) [0..<m+1])" if "L \<in> states"
+proof -
+  define k_i2 where "k_i2 i c = k_i !! i !! (L ! i) !! c" for i c
+  have k_i2_k: "k_i2 i c = k ! i ! (L ! i) ! c" if "i < n_ps" "c \<le> m" for i c
+  proof -
+    have "i < length k"
+      sorry
+    moreover have "L ! i < length (k ! i)"
+      sorry
+    moreover have "c < length (k ! i ! (L ! i))"
+      sorry
+    ultimately show ?thesis
+    unfolding k_i2_def
+    unfolding k_i_def
+    unfolding comp_def
+    by simp
+qed
+  have k_impl_alt_def: "k_impl (L, s) = IArray (map (\<lambda> c. Max {k_i2 i c | i. i < n_ps}) [0..<m+1])"
+    unfolding k_impl_def k_i2_def by auto
+  have *: "L ! i < length ((fst \<circ> snd) (automata ! i))"
+    if "i < n_ps" for i
+    sorry
+  (* XXX more general pattern? *)
+  have Max_cong: "Max {f i | i. i < n_ps} = Max {g i | i. i < n_ps}"
+    if "\<And> i. i < n_ps \<Longrightarrow> f i = g i" for f g :: "nat \<Rightarrow> int"
+    by (rule arg_cong[where f = Max]) (force simp: that)
+  have "n_ps > 0"
+    sorry
+  then show ?thesis
+    using that
+    unfolding k_impl_alt_def
+    unfolding k_i2_def[symmetric]
+    apply (auto simp: k_fun_def k_i2_k cong: Max_cong)
+    subgoal
+      by (subst Max_int_commute; force simp: setcompr_eq_image image_comp comp_def)
+    subgoal
+      using k_0 * by (intro linorder_class.Max_eqI) auto
+    subgoal
+      by (subst Max_int_commute; force simp: setcompr_eq_image image_comp comp_def)
+    done
+qed
 
 
 
@@ -440,13 +546,13 @@ sublocale impl: Reachability_Problem_Impl
   trans_from
   inv_fun
   "\<lambda>_. True"
-  some_ceiling
+  k_impl
   l\<^sub>0i
   prod_ta
   l\<^sub>0
   F
   m
-  k
+  k_fun
   trans_impl loc_rel
   apply standard
 
@@ -478,9 +584,21 @@ sublocale impl: Reachability_Problem_Impl
 
 (* ceiling *)
   subgoal
-    sorry
+    unfolding inv_rel_def
+    apply auto
+    (* l\<^sub>0 *)
+    subgoal
+     apply (subst k_impl_k_fun)
+       apply (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def)
+      sorry
+    (* state set *)
+    subgoal
+      using state_set_states
+      by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
+    done
 
-(* loc_rel *)
+
+(* loc_rel l\<^sub>0 l\<^sub>0i*)
   subgoal
     sorry
 
