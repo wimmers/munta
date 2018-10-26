@@ -1,5 +1,5 @@
 theory Simple_Network_Language_Model_Checking
-  imports Simple_Network_Language_Impl_Refine
+  imports Simple_Network_Language_Impl_Refine "Proof_Strategy_Language.PSL"
 begin
 
 section \<open>Product Bisimulation\<close>
@@ -121,6 +121,47 @@ fun check_sexp :: "'s list \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> ('s
   "check_sexp L s (gt i x) \<longleftrightarrow> s i > x" |
   "check_sexp L s (loc i x) \<longleftrightarrow> L ! i = x"
 
+fun locs_of_sexp :: "('s, 'a, 'b) sexp \<Rightarrow> nat set" where
+  "locs_of_sexp (not e) = locs_of_sexp e" |
+  "locs_of_sexp (and e1 e2) = locs_of_sexp e1 \<union> locs_of_sexp e2" |
+  "locs_of_sexp (sexp.or e1 e2) = locs_of_sexp e1 \<union> locs_of_sexp e2" |
+  "locs_of_sexp (imply e1 e2) = locs_of_sexp e1 \<union> locs_of_sexp e2" |
+  "locs_of_sexp (loc i x) = {i}" |
+  "locs_of_sexp _ = {}"
+
+fun vars_of_sexp :: "('s, 'a, 'b) sexp \<Rightarrow> 'a set" where
+  "vars_of_sexp (not e) = vars_of_sexp e" |
+  "vars_of_sexp (and e1 e2) = vars_of_sexp e1 \<union> vars_of_sexp e2" |
+  "vars_of_sexp (sexp.or e1 e2) = vars_of_sexp e1 \<union> vars_of_sexp e2" |
+  "vars_of_sexp (imply e1 e2) = vars_of_sexp e1 \<union> vars_of_sexp e2" |
+  "vars_of_sexp (eq i x) = {i}" |
+  "vars_of_sexp (lt i x) = {i}" |
+  "vars_of_sexp (le i x) = {i}" |
+  "vars_of_sexp (ge i x) = {i}" |
+  "vars_of_sexp (gt i x) = {i}" |
+  "vars_of_sexp (loc i x) = {}"
+
+fun locs_of_formula :: "('s, 'a, 'b) formula \<Rightarrow> nat set" where
+  "locs_of_formula (formula.EX \<phi>) = locs_of_sexp \<phi>" |
+  "locs_of_formula (EG \<phi>) = locs_of_sexp \<phi>" |
+  "locs_of_formula (AX \<phi>) = locs_of_sexp \<phi>" |
+  "locs_of_formula (AG \<phi>) = locs_of_sexp \<phi>" |
+  "locs_of_formula (Leadsto \<phi> \<psi>) = locs_of_sexp \<phi> \<union> locs_of_sexp \<psi>"
+
+fun vars_of_formula :: "('s, 'a, 'b) formula \<Rightarrow> 'a set" where
+  "vars_of_formula (formula.EX \<phi>) = vars_of_sexp \<phi>" |
+  "vars_of_formula (EG \<phi>) = vars_of_sexp \<phi>" |
+  "vars_of_formula (AX \<phi>) = vars_of_sexp \<phi>" |
+  "vars_of_formula (AG \<phi>) = vars_of_sexp \<phi>" |
+  "vars_of_formula (Leadsto \<phi> \<psi>) = vars_of_sexp \<phi> \<union> vars_of_sexp \<psi>"
+
+fun hd_of_formula :: "('s, 'a, 'b) formula \<Rightarrow> 's list \<Rightarrow> ('a \<Rightarrow> 'b :: linorder) \<Rightarrow> bool" where
+  "hd_of_formula (formula.EX \<phi>) L s = check_sexp L s \<phi>" |
+  "hd_of_formula (EG \<phi>) L s = check_sexp L s \<phi>" |
+  "hd_of_formula (AX \<phi>) L s = Not (check_sexp L s \<phi>)" |
+  "hd_of_formula (AG \<phi>) L s = Not (check_sexp L s \<phi>)" |
+  "hd_of_formula (Leadsto \<phi> _) L s = check_sexp L s \<phi>"
+
 definition models ("_,_ \<Turnstile>\<^sub>_ _" [61,61] 61) where
   "A,a\<^sub>0 \<Turnstile>\<^sub>n \<Phi> \<equiv> (case \<Phi> of
     formula.EX \<phi> \<Rightarrow>
@@ -149,7 +190,25 @@ definition models ("_,_ \<Turnstile>\<^sub>_ _" [61,61] 61) where
 
 lemmas models_iff = models_def[unfolded Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff]
 
-print_locale Reachability_Problem_Impl
+fun check_sexpi :: "'s list \<Rightarrow> int list \<Rightarrow> ('s, nat, int) sexp \<Rightarrow> bool" where
+  "check_sexpi L s (not e) \<longleftrightarrow> \<not> check_sexpi L s e" |
+  "check_sexpi L s (and e1 e2) \<longleftrightarrow> check_sexpi L s e1 \<and> check_sexpi L s e2" |
+  "check_sexpi L s (sexp.or e1 e2) \<longleftrightarrow> check_sexpi L s e1 \<or> check_sexpi L s e2" |
+  "check_sexpi L s (imply e1 e2) \<longleftrightarrow> check_sexpi L s e1 \<longrightarrow> check_sexpi L s e2" |
+  "check_sexpi L s (eq i x) \<longleftrightarrow> s ! i = x" |
+  "check_sexpi L s (le i x) \<longleftrightarrow> s ! i \<le> x" |
+  "check_sexpi L s (lt i x) \<longleftrightarrow> s ! i < x" |
+  "check_sexpi L s (ge i x) \<longleftrightarrow> s ! i \<ge> x" |
+  "check_sexpi L s (gt i x) \<longleftrightarrow> s ! i > x" |
+  "check_sexpi L s (loc i x) \<longleftrightarrow> L ! i = x"
+
+fun hd_of_formulai :: "('s, nat, int) formula \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> bool" where
+  "hd_of_formulai (formula.EX \<phi>) L s = check_sexpi L s \<phi>" |
+  "hd_of_formulai (EG \<phi>) L s = check_sexpi L s \<phi>" |
+  "hd_of_formulai (AX \<phi>) L s = Not (check_sexpi L s \<phi>)" |
+  "hd_of_formulai (AG \<phi>) L s = Not (check_sexpi L s \<phi>)" |
+  "hd_of_formulai (Leadsto \<phi> _) L s = check_sexpi L s \<phi>"
+
 
 section \<open>Instantiating the Model Checking Locale\<close>
 
@@ -163,6 +222,7 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
   fixes k :: "nat list list list"
     and L\<^sub>0 :: "nat list"
     and s\<^sub>0 :: "nat \<rightharpoonup> int"
+    and formula :: "(nat, nat, int) formula"
   assumes k_ceiling:
     "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
       \<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x)"
@@ -181,6 +241,7 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
   and s\<^sub>0_bounded: "bounded bounds s\<^sub>0"
   and L\<^sub>0_len: "length L\<^sub>0 = n_ps"
   and L\<^sub>0_has_trans: "\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd) (automata ! i))"
+  and vars_of_formula: "vars_of_formula formula \<subseteq> {0..<n_vs}"
 begin
 
 text \<open>
@@ -399,6 +460,23 @@ qed
 
 
 
+abbreviation "F \<equiv> \<lambda>(L, s). hd_of_formula formula L (the o s)"
+abbreviation "Fi \<equiv> \<lambda>(L, s). hd_of_formulai formula L s"
+
+lemma (in Simple_Network_Impl_nat) check_sexp_check_sexpi:
+  "check_sexp L (the o s) e \<longleftrightarrow> check_sexpi L s' e"
+  if "state_rel s s'" "vars_of_sexp e \<subseteq> {0..<n_vs}"
+  using that unfolding state_rel_def by (induction e) auto
+
+lemma (in Simple_Network_Impl_nat) hd_of_formula_hd_of_formulai:
+  "hd_of_formula \<phi> L (the o s) \<longleftrightarrow> hd_of_formulai \<phi> L s'"
+  if "state_rel s s'" "vars_of_formula \<phi> \<subseteq> {0..<n_vs}"
+  using that by (induction \<phi>) (auto simp: check_sexp_check_sexpi)
+
+lemma F_Fi:
+  "F l \<longleftrightarrow> Fi l'" if "(l', l) \<in> loc_rel"
+  using vars_of_formula that unfolding loc_rel_def by clarsimp (erule hd_of_formula_hd_of_formulai)
+
 
 abbreviation "l\<^sub>0 \<equiv> (L\<^sub>0, s\<^sub>0)"
 abbreviation "s\<^sub>0i \<equiv> map (the o s\<^sub>0) [0..<n_vs]"
@@ -420,8 +498,6 @@ lemma l\<^sub>0_states'[simp, intro]:
   "l\<^sub>0 \<in> states'"
   using state_rel_start s\<^sub>0_bounded unfolding states'_def state_rel_def by auto
 
-print_locale Reachability_Problem_Defs
-
 sublocale reach: Reachability_Problem_Defs
   l\<^sub>0
   F
@@ -429,8 +505,6 @@ sublocale reach: Reachability_Problem_Defs
   prod_ta
   k_fun
   by standard
-
-print_locale Reachability_Problem
 
 lemma clkp_set_states'D:
   fixes x d l
@@ -573,12 +647,12 @@ qed
 sublocale impl: Reachability_Problem_Impl
   trans_from
   inv_fun
-  "\<lambda>_. True"
+  Fi
   k_impl
   l\<^sub>0i
   prod_ta
   l\<^sub>0
-  F
+  "PR_CONST F"
   m
   k_fun
   trans_impl loc_rel
@@ -600,15 +674,13 @@ sublocale impl: Reachability_Problem_Impl
 (* inv_fun *)
   subgoal
     unfolding trans_of_prod
-    thm set_mp[OF _ inv_fun_inv_of']
-    term inv_fun
     apply (rule set_mp[OF _ inv_fun_inv_of'[where R = loc_rel and S = "{(s, s'). state_rel s' s}"]])
      apply (rule inv_rel_anti_mono[OF states'_superset])
     unfolding loc_rel_def by auto
 
 (* F_fun *)
   subgoal
-    sorry
+    unfolding inv_rel_def by (clarsimp dest!: F_Fi)
 
 (* ceiling *)
   subgoal

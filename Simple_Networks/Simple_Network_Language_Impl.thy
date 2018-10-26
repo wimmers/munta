@@ -138,7 +138,6 @@ locale Simple_Network_Impl =
       \<times> ('s \<times> ('c, int) cconstraint) list) list"
     and broadcast :: "'a list"
     and bounds' :: "('x \<times> (int \<times> int)) list"
-    and formula :: formula \<comment> \<open>Model checking formula\<close>
 begin
 
 definition \<comment>\<open>Number of state variables\<close>
@@ -2122,7 +2121,7 @@ interpretation renum: Simple_Network_Impl
   "map_index renum_automaton automata"
   "map renum_acts broadcast"
   "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds'"
-  "formula" .
+  .
 
 definition
   "vars_inv \<equiv> the_inv (extend_inj renum_vars var_set)"
