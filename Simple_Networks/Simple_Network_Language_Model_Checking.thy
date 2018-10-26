@@ -153,25 +153,34 @@ print_locale Reachability_Problem_Impl
 
 section \<open>Instantiating the Model Checking Locale\<close>
 
-text \<open>This locale certifies that a given local clock ceiling is correct.\<close>
-locale Simple_Network_Impl_nat_ceiling =
+text \<open>
+  This locale certifies that a given local clock ceiling is correct.
+  Moreover, we certify that the vector of initial locations has outgoing transitions for
+  each automaton, and that all variables of the initial state are in bounds.
+\<close>
+locale Simple_Network_Impl_nat_ceiling_start_state =
   Simple_Network_Impl_nat +
   fixes k :: "nat list list list"
+    and L\<^sub>0 :: "nat list"
+    and s\<^sub>0 :: "nat \<rightharpoonup> int"
   assumes k_ceiling:
     "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
       \<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x)"
     "\<forall>i < n_ps. \<forall>(l, g, _) \<in> set ((fst o snd) (automata ! i)).
       (\<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x))"
   and k_resets:
-    "\<forall> i < n_ps. \<forall> (l, g, a, upd, r, l') \<in> set ((fst o snd) (automata ! i)).
-       \<forall> c \<in> {0..<m+1} - set r. k ! i ! l' ! c \<le> k ! i ! l ! c"
+    "\<forall>i < n_ps. \<forall> (l, g, a, upd, r, l') \<in> set ((fst o snd) (automata ! i)).
+       \<forall>c \<in> {0..<m+1} - set r. k ! i ! l' ! c \<le> k ! i ! l ! c"
   and k_length:
     "length k = n_ps" "\<forall> i < n_ps. length (k ! i) = length ((fst o snd) (automata ! i))"
     "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
   and k_0:
-    "\<forall> i < n_ps. \<forall> l < length ((fst o snd) (automata ! i)). k ! i ! l ! 0 = 0"
+    "\<forall>i < n_ps. \<forall>l < length ((fst o snd) (automata ! i)). k ! i ! l ! 0 = 0"
   and inv_unambiguous:
     "\<forall>(_, _, inv) \<in> set automata. distinct (map fst inv)"
+  and s\<^sub>0_bounded: "bounded bounds s\<^sub>0"
+  and L\<^sub>0_len: "length L\<^sub>0 = n_ps"
+  and L\<^sub>0_has_trans: "\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd) (automata ! i))"
 begin
 
 text \<open>
@@ -391,7 +400,25 @@ qed
 
 
 
+abbreviation "l\<^sub>0 \<equiv> (L\<^sub>0, s\<^sub>0)"
+abbreviation "s\<^sub>0i \<equiv> map (the o s\<^sub>0) [0..<n_vs]"
+abbreviation "l\<^sub>0i \<equiv> (L\<^sub>0, s\<^sub>0i)"
 
+lemma state_rel_start:
+  "state_rel s\<^sub>0 s\<^sub>0i"
+  using s\<^sub>0_bounded unfolding state_rel_def bounded_def dom_bounds_eq by auto
+
+lemma statesI:
+  "L \<in> states" if "length L = n_ps" "\<forall>i<n_ps. L ! i \<in> fst ` set (fst (snd (automata ! i)))"
+  using that unfolding states_def by (auto 4 3 simp: mem_trans_N_iff[symmetric])
+
+lemma L\<^sub>0_states[simp, intro]:
+  "L\<^sub>0 \<in> states"
+  using L\<^sub>0_has_trans L\<^sub>0_len by (auto intro: statesI)
+
+lemma l\<^sub>0_states'[simp, intro]:
+  "l\<^sub>0 \<in> states'"
+  using state_rel_start s\<^sub>0_bounded unfolding states'_def state_rel_def by auto
 
 print_locale Reachability_Problem_Defs
 
@@ -410,9 +437,11 @@ lemma clkp_set_states'D:
   assumes "(x, d)\<in>Closure.clkp_set prod_ta l"
   shows "l \<in> states'"
   using assms
+(*
   unfolding clkp_set_def collect_clki_def
   apply auto
   unfolding prod_inv_def
+*)
   sorry
 
 sublocale reach1: Reachability_Problem
@@ -477,9 +506,7 @@ proof -
     ultimately show "(L, s) \<in> states'"
       by (auto simp: states'_alt_def)
   qed
-  moreover have "l\<^sub>0 \<in> states'"
-    sorry
-  ultimately show ?thesis
+  then show ?thesis
     by simp
 qed
 
@@ -514,7 +541,7 @@ proof -
     unfolding k_i_def
     unfolding comp_def
     by simp
-qed
+  qed
   have k_impl_alt_def: "k_impl (L, s) = IArray (map (\<lambda> c. Max {k_i2 i c | i. i < n_ps}) [0..<m+1])"
     unfolding k_impl_def k_i2_def by auto
   have *: "L ! i < length ((fst \<circ> snd) (automata ! i))"
@@ -530,7 +557,8 @@ qed
     using that
     unfolding k_impl_alt_def
     unfolding k_i2_def[symmetric]
-    apply (auto simp: k_fun_def k_i2_k cong: Max_cong)
+    apply (clarsimp simp: k_fun_def k_i2_k cong: Max_cong)
+    apply safe
     subgoal
       by (subst Max_int_commute; force simp: setcompr_eq_image image_comp comp_def)
     subgoal
@@ -588,19 +616,16 @@ sublocale impl: Reachability_Problem_Impl
     apply auto
     (* l\<^sub>0 *)
     subgoal
-     apply (subst k_impl_k_fun)
-       apply (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def)
-      sorry
+      using L\<^sub>0_states by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
     (* state set *)
     subgoal
       using state_set_states
       by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
     done
 
-
 (* loc_rel l\<^sub>0 l\<^sub>0i*)
   subgoal
-    sorry
+    using state_rel_start unfolding loc_rel_def by auto
 
   subgoal for l li li'
     unfolding trans_of_prod
