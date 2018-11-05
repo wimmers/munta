@@ -1,6 +1,6 @@
 theory Simple_Network_Language_Model_Checking
   imports Simple_Network_Language_Impl_Refine "Proof_Strategy_Language.PSL"
-    "../UPPAAL_Model_Checking"
+    "../UPPAAL_Model_Checking" "../library/Abstract_Term"
 begin
 
 section \<open>Product Bisimulation\<close>

@@ -3,6 +3,7 @@ theory UPPAAL_Model_Checking
     "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
     (* "HOL-Library.BNF_Corec" *)
     TA_Impl.TA_More
+    "library/Abstract_Term"
 begin
 
 hide_const models
@@ -921,21 +922,18 @@ schematic_goal succs_P_impl_alt_def:
   "impl.succs_P_impl (\<lambda>(L, s). P L s) \<equiv> ?impl" for P
   unfolding impl.succs_P_impl_def[OF final_fun_final]
   unfolding k_impl_alt_def
-  apply (tactic
-      \<open>pull_tac
-      @{term
-        "\<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i \<in> {0..<p}}) [0..<m+1])"
-      }
-      @{context}
-     \<close>
+(* XXX Not pulling anything! *)
+  apply (abstract_let
+    "\<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i \<in> {0..<p}}) [0..<m+1])"
+    k_i
       )
-  apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+  apply (abstract_let "inv_fun" inv_fun)
+  apply (abstract_let "trans_fun" trans_fun)
   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def] trans_s_fun_def trans_i_fun_def trans_i_from_def
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
+  apply (abstract_let "IArray (map IArray inv)" inv_a)
+  apply (abstract_let "IArray (map IArray trans_out_map)" trans_out_map)
+  apply (abstract_let "IArray (map IArray trans_in_map)" trans_in_map)
+  apply (abstract_let "IArray (map IArray trans_i_map)" trans_i_map)
   by (rule Pure.reflexive)
 
 (* XXX These implementations contain unnecessary list reversals *)
@@ -971,9 +969,9 @@ schematic_goal reachability_checker'_alt_def:
     impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
     impl.unbounded_dbm'_def unbounded_dbm_def
   unfolding k_impl_alt_def
-  apply (tactic \<open>pull_tac @{term k_i} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>) (* XXX This is not pulling anything *)
-  apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+  apply (abstract_let k_i k_i)
+  apply (abstract_let "inv_fun" inv_fun) (* XXX This is not pulling anything *)
+  apply (abstract_let "trans_fun" trans_fun)
   unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
   unfolding impl.F_impl_def
   unfolding final_fun_def[abs_def]
@@ -991,9 +989,9 @@ schematic_goal Alw_ev_checker_alt_def:
     impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
     impl.unbounded_dbm'_def unbounded_dbm_def
   unfolding k_impl_alt_def
-  apply (tactic \<open>pull_tac @{term k_i} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>) (* XXX This is not pulling anything *)
-  apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+  apply (abstract_let k_i k_i)
+  apply (abstract_let "inv_fun" inv_fun) (* XXX This is not pulling anything *)
+  apply (abstract_let "trans_fun" trans_fun)
   unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
   unfolding impl.F_impl_def
   unfolding final_fun_def[abs_def]
@@ -1013,9 +1011,9 @@ schematic_goal leadsto_checker_alt_def:
     impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
     impl.unbounded_dbm'_def unbounded_dbm_def
   unfolding k_impl_alt_def
-  apply (tactic \<open>pull_tac @{term k_i} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>) (* XXX This is not pulling anything *)
-  apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+  apply (abstract_let k_i k_i)
+  apply (abstract_let "inv_fun" inv_fun) (* XXX This is not pulling anything *)
+  apply (abstract_let "trans_fun" trans_fun)
   unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
   unfolding final_fun_def
   unfolding impl.subsumes_impl_def
@@ -1030,25 +1028,25 @@ schematic_goal reachability_checker'_alt_def_refined:
   unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
   unfolding trans_i_from_impl
   unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl check_pred_impl
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray bounds"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PF} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PT} @{context}\<close>)
+  apply (abstract_let "IArray (map IArray inv)" inv_ia)
+  apply (abstract_let "IArray (map IArray trans_out_map)" trans_out_map)
+  apply (abstract_let "IArray (map IArray trans_in_map)" trans_in_map)
+  apply (abstract_let "IArray (map IArray trans_i_map)" trans_i_map)
+  apply (abstract_let "IArray bounds" bounds_ia)
+  apply (abstract_let PF PF)
+  apply (abstract_let PT PT)
   unfolding PF_alt_def PT_alt_def
-  apply (tactic \<open>pull_tac @{term PROG'} @{context}\<close>)
+  apply (abstract_let PROG' PROG')
   unfolding PROG'_def
-  apply (tactic \<open>pull_tac @{term "length prog"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stripf) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stript) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray prog"} @{context}\<close>)
+  apply (abstract_let "length prog" len_prog)
+  apply (abstract_let "IArray (map (map_option stripf) prog)" progf_ia)
+  apply (abstract_let "IArray (map (map_option stript) prog)" progt_ia)
+  apply (abstract_let "IArray prog" prog_ia)
   unfolding all_actions_by_state_impl
-  apply (tactic \<open>pull_tac @{term "[0..<p]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<na]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "{0..<p}"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<m+1]"} @{context}\<close>)
+  apply (abstract_let "[0..<p]")
+  apply (abstract_let "[0..<na]")
+  apply (abstract_let "{0..<p}")
+  apply (abstract_let "[0..<m+1]")
   by (rule Pure.reflexive)
 
 schematic_goal Alw_ev_checker_alt_def_refined:
@@ -1058,25 +1056,25 @@ schematic_goal Alw_ev_checker_alt_def_refined:
   unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
   unfolding trans_i_from_impl
   unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl check_pred_impl
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray bounds"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PF} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PT} @{context}\<close>)
+  apply (abstract_let "IArray (map IArray inv)" inv_ia)
+  apply (abstract_let "IArray (map IArray trans_out_map)" trans_out_map)
+  apply (abstract_let "IArray (map IArray trans_in_map)" trans_in_map)
+  apply (abstract_let "IArray (map IArray trans_i_map)" trans_i_map)
+  apply (abstract_let "IArray bounds" bounds)
+  apply (abstract_let PF PF)
+  apply (abstract_let PT PT)
   unfolding PF_alt_def PT_alt_def
-  apply (tactic \<open>pull_tac @{term PROG'} @{context}\<close>)
+  apply (abstract_let PROG' PROG')
   unfolding PROG'_def
-  apply (tactic \<open>pull_tac @{term "length prog"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stripf) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stript) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray prog"} @{context}\<close>)
+  apply (abstract_let "length prog" len_prog)
+  apply (abstract_let "IArray (map (map_option stripf) prog)" progf_ia)
+  apply (abstract_let "IArray (map (map_option stript) prog)" progt_ia)
+  apply (abstract_let "IArray prog" prog)
   unfolding all_actions_by_state_impl
-  apply (tactic \<open>pull_tac @{term "[0..<p]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<na]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "{0..<p}"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<m+1]"} @{context}\<close>)
+  apply (abstract_let "[0..<p]")
+  apply (abstract_let "[0..<na]")
+  apply (abstract_let "{0..<p}")
+  apply (abstract_let "[0..<m+1]")
   by (rule Pure.reflexive)
 
 schematic_goal leadsto_checker_alt_def_refined:
@@ -1086,25 +1084,25 @@ schematic_goal leadsto_checker_alt_def_refined:
   unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
   unfolding trans_i_from_impl
   unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl check_pred_impl
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray bounds"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PF} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PT} @{context}\<close>)
+  apply (abstract_let "IArray (map IArray inv)" inv_ia)
+  apply (abstract_let "IArray (map IArray trans_out_map)" trans_out_map)
+  apply (abstract_let "IArray (map IArray trans_in_map)" trans_in_map)
+  apply (abstract_let "IArray (map IArray trans_i_map)" trans_i_map)
+  apply (abstract_let "IArray bounds" bounds_ia)
+  apply (abstract_let PF PF)
+  apply (abstract_let PT PT)
   unfolding PF_alt_def PT_alt_def
-  apply (tactic \<open>pull_tac @{term PROG'} @{context}\<close>)
+  apply (abstract_let PROG' PROG')
   unfolding PROG'_def
-  apply (tactic \<open>pull_tac @{term "length prog"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stripf) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stript) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray prog"} @{context}\<close>)
+  apply (abstract_let "length prog" len_prog)
+  apply (abstract_let "IArray (map (map_option stripf) prog)" progf_ia)
+  apply (abstract_let "IArray (map (map_option stript) prog)" progt_ia)
+  apply (abstract_let "IArray prog" prog_ia)
   unfolding all_actions_by_state_impl
-  apply (tactic \<open>pull_tac @{term "[0..<p]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<na]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "{0..<p}"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<m+1]"} @{context}\<close>)
+  apply (abstract_let "[0..<p]")
+  apply (abstract_let "[0..<na]")
+  apply (abstract_let "{0..<p}")
+  apply (abstract_let "[0..<m+1]")
   by (rule Pure.reflexive)
 
 end

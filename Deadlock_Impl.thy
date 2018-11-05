@@ -1,5 +1,5 @@
 theory Deadlock_Impl
-  imports Deadlock
+  imports Deadlock "library/Abstract_Term"
 begin
 
 paragraph \<open>Misc\<close>
@@ -1376,12 +1376,12 @@ schematic_goal deadlock_checker_alt_def:
     unbounded_dbm_def
   unfolding check_deadlock_neg_impl_def check_deadlock_impl_def
   unfolding is_start_in_states_impl_def
-   apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_impl"} @{context}\<close>)
+   apply (abstract_let "IArray.sub (IArray (map (IArray o map int) k))" k)
+   apply (abstract_let "inv_fun" inv_fun)
+   apply (abstract_let "trans_impl" trans)
    unfolding inv_fun_def[abs_def] trans_impl_def[abs_def]
-   apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
+   apply (abstract_let "IArray inv" inv_ia)
+   apply (abstract_let "IArray trans_map" trans_map)
    unfolding trans_map_def label_def
    unfolding init_dbm_impl_def a\<^sub>0_impl_def
    unfolding subsumes_impl_def
