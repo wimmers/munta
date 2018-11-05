@@ -543,23 +543,21 @@ proof -
   have inv_of_simp: "inv_of (conv_A A) l = conv_cc (inv_of A l)" if \<open>l \<in> states\<close> for l
     using inv_fun \<open>l \<in> states\<close> unfolding inv_rel_def b_rel_def fun_rel_def
     by (force split: prod.split simp: inv_of_def)
-  have inv_of_simp2: "inv_of A l = inv_fun l" if \<open>l \<in> states\<close> for l
-    using inv_fun \<open>l \<in> states\<close> unfolding inv_rel_def b_rel_def fun_rel_def by force
 
   have trans_funD: "l' \<in> states"
     "collect_clks (inv_of A l) \<subseteq> clk_set A" "collect_clks (inv_of A l') \<subseteq> clk_set A"
     "collect_clks g \<subseteq> clk_set A" "set r \<subseteq> clk_set A"
     if "(g, a, r, l') \<in> set(trans_fun l)" for g a r l'
     subgoal
-      using \<open>l \<in> states\<close> \<open>(g, a, r, l') \<in> _\<close> trans_fun_states by auto
+      using \<open>l \<in> states\<close> that trans_impl_states by auto
     subgoal
       by (metis collect_clks_inv_clk_set)
     subgoal
       by (metis collect_clks_inv_clk_set)
     subgoal
-      using trans_fun_trans_of[OF that \<open>l \<in> _\<close>] by (rule collect_clocks_clk_set)
+      using that \<open>l \<in> _\<close> by (intro collect_clocks_clk_set trans_impl_trans_of)
     subgoal
-      using trans_fun_trans_of[OF that \<open>l \<in> _\<close>] by (rule reset_clk_set)
+      using that \<open>l \<in> _\<close> by (intro reset_clk_set trans_impl_trans_of)
     done
 
   text \<open>1. Transfer to most abstract DBM operations\<close>
@@ -636,8 +634,7 @@ proof -
       "\<forall>c\<in>collect_clks (conv_cc (inv_of A l')). 0 < c \<and> c \<le> n"
       "\<forall>c\<in>collect_clks (conv_cc g). 0 < c \<and> c \<le> n"
       "\<forall>c\<in>set r. 0 < c \<and> c \<le> n"
-      using \<open>l \<in> states\<close> clock_range
-      by (auto simp: constraint_clk_conv_cc inv_of_simp2[symmetric])
+      using \<open>l \<in> states\<close> clock_range by (auto simp: constraint_clk_conv_cc)
     have structural_conditions:
       "abstr_FW n (conv_cc (inv_of A l')) V_dbm v 0 0 \<le> 0"
       "\<forall>x\<in>set r. abstr_FW n (map conv_ac (inv_of A l')) V_dbm v 0 x \<le> 0"
@@ -677,11 +674,11 @@ proof -
   text \<open>3. Putting it all together\<close>
   have transD: "\<exists> g'. (g', a, r, l') \<in> set (trans_fun l) \<and> g = conv_cc g'"
     if "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" for g a r l'
-    using trans_of_trans_fun that \<open>l \<in> states\<close>
-    unfolding trans_of_def by (auto 6 0 split: prod.split_asm)
+    using trans_of_trans_impl[OF _ \<open>l \<in> states\<close>] that
+    unfolding trans_of_def by (auto 5 0 split: prod.split_asm)
   have transD2:
     "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>conv_cc g,a,r\<^esup> l'" if "(g, a, r, l') \<in> set (trans_fun l)" for g a r l'
-    using trans_fun_trans_of[OF that \<open>l \<in> states\<close>]
+    using trans_impl_trans_of[OF that \<open>l \<in> states\<close>]
     unfolding trans_of_def by (auto 4 3 split: prod.split)
   show ?thesis
     unfolding TA.check_deadlock_alt_def[OF \<open>_ \<subseteq> V\<close>] check_deadlock_dbm_def inv_of_A_def *[symmetric]
@@ -841,7 +838,7 @@ thm pw_algo_map2_impl.refine_raw
 
 schematic_goal pw_algo_map2_refine:
   "(?x, uncurry0 (PR_CONST pw_algo_map2)) \<in>
-  unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a hm.hms_assn (lso_assn A)"
+  unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn \<times>\<^sub>a hm.hms_assn' K (lso_assn A)"
   unfolding PR_CONST_def hm.hms_assn'_id_hms_assn[symmetric] by (rule pw_algo_map2_impl.refine_raw)
 
 sepref_register pw_algo_map2
@@ -851,6 +848,7 @@ sepref_register "PR_CONST Q"
 sepref_thm check_passed_impl is
   "uncurry0 check_passed" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   supply [sepref_fr_rules] = pw_algo_map2_refine ran_of_map_impl.refine lso_id_hnr Q_refine
+  using pure_K left_unique_K right_unique_K
   unfolding check_passed_def
   apply (rewrite in Q PR_CONST_def[symmetric])
   unfolding hm.hms_fold_custom_empty
@@ -1166,11 +1164,14 @@ context
   assumes "F = (\<lambda> _. False)"
 begin
 
+print_locale Worklist_Map2_Impl_check
+term K
+
 interpretation Worklist_Map2_Impl_check
   op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
   "\<lambda> (l, M). F l" state_assn'
   succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
-  "\<lambda>(l, M). \<not> check_deadlock_dbm l M" check_deadlock_neg_impl
+  location_assn "\<lambda>(l, M). \<not> check_deadlock_dbm l M" check_deadlock_neg_impl
   apply standard
   subgoal
     using check_deadlock_neg_impl.refine unfolding PR_CONST_def .
@@ -1202,7 +1203,7 @@ proof -
   from that obtain g a r l' where "(g, a, r, l') \<in> set (trans_fun l\<^sub>0)"
     by (cases "hd (trans_fun l\<^sub>0)" rule: prod_cases4)
        (auto dest: hd_in_set simp: is_start_in_states_def)
-  from trans_fun_trans_of[OF this] have "A \<turnstile> l\<^sub>0 \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  from trans_impl_trans_of[OF this] have "A \<turnstile> l\<^sub>0 \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
     by simp
   then show ?thesis
     unfolding Simulation_Graphs_TA.state_set_def trans_of_def by auto
@@ -1212,7 +1213,7 @@ lemma deadlocked_if_not_is_start_in_states:
   "deadlocked (l\<^sub>0, Z\<^sub>0)" if "\<not> is_start_in_states"
 proof -
   have *: False if "A \<turnstile> l\<^sub>0 \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" for g a r l'
-    using trans_of_trans_fun[OF that] \<open>\<not> _\<close> unfolding is_start_in_states_def by auto
+    using trans_of_trans_impl[OF that] \<open>\<not> _\<close> unfolding is_start_in_states_def by auto
   { fix l g2 a2 r2 l' assume A: "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g2,a2,r2\<^esup> l'"
     obtain g1 a1 r1 where **: "A \<turnstile> l \<longrightarrow>\<^bsup>g1,a1,r1\<^esup> l'"
       using A unfolding trans_of_def by (cases A) force
@@ -1377,8 +1378,8 @@ schematic_goal deadlock_checker_alt_def:
   unfolding is_start_in_states_impl_def
    apply (tactic \<open>pull_tac @{term "IArray.sub (IArray (map (IArray o map int) k))"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
-   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def]
+   apply (tactic \<open>pull_tac @{term "trans_impl"} @{context}\<close>)
+   unfolding inv_fun_def[abs_def] trans_impl_def[abs_def]
    apply (tactic \<open>pull_tac @{term "IArray inv"} @{context}\<close>)
    apply (tactic \<open>pull_tac @{term "IArray trans_map"} @{context}\<close>)
    unfolding trans_map_def label_def
