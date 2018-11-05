@@ -254,9 +254,9 @@ lemma inv_fun_inv_of':
   unfolding inv_rel_def
   unfolding inv_fun_def
   unfolding inv_of_prod prod_inv_def
-  apply clarsimp
+  apply (clarsimp simp: states'_def)
   apply (rule arg_cong[where f = concat])
-  apply (auto simp add: invs_simp states'_def cong: map_cong)
+  apply (auto simp add: invs_simp cong: map_cong)
   done
 
 lemma inv_fun_alt_def:

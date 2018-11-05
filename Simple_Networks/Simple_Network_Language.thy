@@ -192,7 +192,7 @@ definition states  :: "'s list set" where
     (\<forall> i. i < n_ps --> L ! i \<in> UNION (trans (N i)) (\<lambda>(l, g, a, r, u, l'). {l, l'}))}"
 
 definition
-  "prod_inv \<equiv> \<lambda>(L, s). concat (map (\<lambda>i. inv (N i) (L ! i)) [0..<n_ps])"
+  "prod_inv \<equiv> \<lambda>(L, s). if L \<in> states then concat (map (\<lambda>i. inv (N i) (L ! i)) [0..<n_ps]) else []"
 
 definition
   "trans_int =
@@ -268,6 +268,13 @@ lemma state_preservation_fold_updI:
   shows "fold (\<lambda>p L. L[p := ls' p]) ps L \<in> states"
   using assms by (induction ps arbitrary: L) (auto intro: state_preservation_updI)
 
+lemma state_set_states:
+  "Simulation_Graphs_TA.state_set prod_ta \<subseteq> {(l, s). l \<in> states}"
+  unfolding prod_ta_def state_set_def
+  unfolding trans_of_def trans_prod_def
+  unfolding trans_int_def trans_bin_def trans_broad_def
+  by auto (auto intro: state_preservation_updI state_preservation_fold_updI)
+
 end (* Prod TA Defs *)
 
 locale Prod_TA=
@@ -281,7 +288,7 @@ lemma prod_invI[intro]:
   using that unfolding prod_inv_def by (auto intro!: guard_concat)
 
 lemma prod_invD[dest]:
-  \<open>\<forall>p<n_ps. u \<turnstile> Simple_Network_Language.inv (N p) (L ! p)\<close> if \<open>u \<turnstile> prod_inv (L, s)\<close>
+  \<open>\<forall>p<n_ps. u \<turnstile> Simple_Network_Language.inv (N p) (L ! p)\<close> if \<open>u \<turnstile> prod_inv (L, s)\<close> \<open>L \<in> states\<close>
   using that unfolding prod_inv_def by (auto elim: concat_guard)
 
 lemma action_complete:
@@ -397,45 +404,47 @@ proof cases
 qed
 
 lemma delay_sound:
-  assumes "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>" "bounded bounds s"
+  assumes "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>" "L \<in> states" "bounded bounds s"
     shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
   apply (subst A_split) using assms by cases (auto intro!: step_t)
 
 lemma action_sound:
   "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
-using that
+  using that
 proof cases
   case prems: (1 g r)
   note [simp add] = map_N_n_ps_simp clock_val_append_iff clock_val_concat_iff
+  from \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close>[THEN state_setI2] have "L' \<in> states"
+    using state_set_states that by fast
   from \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close> show ?thesis
-  unfolding trans_of_prod trans_prod_def
+    unfolding trans_of_prod trans_prod_def
   proof safe
-  assume "((L, s), g, a, r, L', s') \<in> trans_int"
-  then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
-    unfolding trans_int_def
-    apply clarsimp
-    using prems
-    by (subst A_split) (intro step_int; simp; elim prod_invD; fail)+
-next
-  assume "((L, s), g, a, r, L', s') \<in> trans_bin"
-  then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
-  unfolding trans_bin_def
-  using prems
-    apply clarsimp
-    apply (subst A_split, standard)
-    apply (assumption | simp; elim prod_invD; fail)+
-    done
-next
-  assume "((L, s), g, a, r, L', s') \<in> trans_broad"
-  then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
-  using prems
-  unfolding trans_broad_def inv_of_prod
-  apply clarsimp
-  apply (subst A_split)
-  apply standard
-  apply (assumption | simp; elim prod_invD; fail)+
-  done  
-qed
+    assume "((L, s), g, a, r, L', s') \<in> trans_int"
+    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+      unfolding trans_int_def
+      apply clarsimp
+      using prems \<open>L' \<in> _\<close>
+      by (subst A_split) (intro step_int; simp; elim prod_invD; assumption)
+  next
+    assume "((L, s), g, a, r, L', s') \<in> trans_bin"
+    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+      unfolding trans_bin_def
+      using prems \<open>L' \<in> _\<close>
+      apply clarsimp
+      apply (subst A_split, standard)
+                     apply (assumption | simp; elim prod_invD; assumption)+
+      done
+  next
+    assume "((L, s), g, a, r, L', s') \<in> trans_broad"
+    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+      using prems \<open>L' \<in> _\<close>
+      unfolding trans_broad_def inv_of_prod
+      apply clarsimp
+      apply (subst A_split)
+      apply standard
+                         apply (assumption | simp; elim prod_invD; assumption)+
+      done  
+  qed
 qed
 
 lemma step_iff:

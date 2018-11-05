@@ -167,18 +167,6 @@ end
 
 paragraph \<open>Mapping through the product construction\<close>
 
-context Prod_TA_Defs
-begin
-
-lemma state_set_states:
-  "state_set (trans_of prod_ta) \<subseteq> {(l, s). l \<in> states}"
-  unfolding prod_ta_def state_set_def
-  unfolding trans_of_def trans_prod_def
-  unfolding trans_int_def trans_bin_def trans_broad_def
-  by auto (auto intro: state_preservation_updI state_preservation_fold_updI)
-
-end (* Prod TA Defs *)
-
 lemma f_the_inv_f:
   "f (the_inv f x) = x" if "inj f" "x \<in> range f"
   using that by (auto simp: the_inv_f_f)
@@ -1064,6 +1052,10 @@ lemma map_trans_prod:
   unfolding image_Un
   by ((fo_rule arg_cong2)+; rule map_trans_int map_trans_bin map_trans_broad)
 
+lemma state_set_states:
+  "state_set (trans_of prod_ta) \<subseteq> {(l, s). l \<in> states}"
+  using state_set_states unfolding state_set_def Simulation_Graphs_TA.state_set_def trans_of_def .
+
 lemma state_set_states':
   "state_set map.trans_prod \<subseteq> {map_st (l, s) | l s. l \<in> states}"
   using state_set_states
@@ -1173,7 +1165,7 @@ unfolding comp_def
   unfolding case_prod_conv
   unfolding map_concat
   apply (subst map_st_def)
-  apply simp
+  apply (simp add: \<open>L \<in> _\<close> map_concat)
       apply (rule arg_cong[where f = concat])
       unfolding map_map
       apply (rule map_cong, solve_triv)
@@ -1478,8 +1470,9 @@ lemma clkp_set'_subs:
       apply (inst_existentials "automata ! i")
       subgoal
         unfolding automaton_of_def
-        by (force dest!: collect_clock_pairs_invsI split: prod.split_asm simp: inv_def)
-      unfolding n_ps_def by auto
+        by (force dest!: nth_mem collect_clock_pairs_invsI
+            split: prod.split_asm simp: inv_def Prod_TA_Defs.n_ps_def)
+      done
     done
   subgoal
     apply simp
@@ -1550,14 +1543,13 @@ proof -
     using assms by auto
   then have "finite ?X"
     by (rule finite_lists_length_le)
-  moreover have "range prod_inv \<subseteq> concat ` ?X"
+  moreover have "range prod_inv \<subseteq> concat ` ?X \<union> {[]}"
   proof
     fix x assume "x \<in> range prod_inv"
-    then obtain L where L:
-      "x = concat (map (\<lambda>p. (inv (N p)) (L ! p)) [0..<n_ps])"
-      unfolding prod_inv_def by auto
-    then show "x \<in> concat ` ?X"
-      by force
+    then consider L where "x = concat (map (\<lambda>p. (inv (N p)) (L ! p)) [0..<n_ps])" | "x = []"
+      unfolding prod_inv_def by (auto split: if_split_asm)
+    then show "x \<in> concat ` ?X \<union> {[]}"
+      by (cases; force)
   qed
   ultimately show ?thesis by - (drule finite_subset; auto)
 qed

@@ -88,7 +88,7 @@ interpretation prod_bisim:
   "(\<lambda> (L, s, u). all_prop L s)"
   apply (rule Bisimulation_Invariant_strong_intro; clarsimp)
   subgoal
-    by (auto intro: step_u'.intros
+    by (auto intro: step_u'.intros simp: all_prop_def
              dest: action_sound prod_action_step_not_eq_delay delay_sound elim!: step'_elims)
   subgoal
     by (auto 4 4 dest: prod_all_prop_inv action_complete elim: delay_complete elim!: step_u'_elims)
@@ -254,6 +254,7 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
   and L\<^sub>0_len: "length L\<^sub>0 = n_ps"
   and L\<^sub>0_has_trans: "\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd) (automata ! i))"
   and vars_of_formula: "vars_of_formula formula \<subseteq> {0..<n_vs}"
+  and num_states_length: "\<forall>i<n_ps. num_states i = length (fst (snd (automata ! i)))"
 begin
 
 text \<open>
@@ -269,15 +270,14 @@ lemma (in -) default_map_of_distinct:
   unfolding default_map_of_alt_def by clarsimp (simp add: map_of_eq_Some_iff[OF that])
 
 lemma N_inv:
-  "(L ! i, inv (N i) (L ! i)) \<in> set ((snd o snd) (automata ! i)) \<union> {(L ! i, [])}"
-  if "i < n_ps" "L \<in> states"
+  "(L ! i, inv (N i) (L ! i)) \<in> set ((snd o snd) (automata ! i)) \<union> {(L ! i, [])}" if "i < n_ps"
   unfolding N_def comp_def fst_conv snd_conv inv_def
   using that
   apply (subst nth_map)
-   apply (simp add: n_ps_def)
+   apply (simp add: n_ps_def; fail)
   apply (clarsimp split: prod.split simp: automaton_of_def)
   subgoal for _ _ xs
-    using default_map_of_distinct[of xs "L ! i" "[]"] inv_unambiguous that(1)
+    using default_map_of_distinct[of xs "L ! i" "[]"] inv_unambiguous that
     by (auto dest!: nth_mem simp: n_ps_def)
   done
 
@@ -319,9 +319,7 @@ proof safe
     assume \<open>(c, x) \<in> Closure.collect_clki (inv_of prod_ta) (L, s)\<close>
     then show \<open>x \<le> k_fun (L, s) c\<close>
       using k_ceiling(1) unfolding collect_clki_def \<open>k_fun (L, s) c = _\<close>
-      by (force intro: Max_aux dest: N_inv[OF _ \<open>_ \<in> states\<close>]
-          simp: prod_inv_def collect_clock_pairs_def k_fun_def
-          )
+      by (force intro: Max_aux dest: N_inv simp: prod_inv_def collect_clock_pairs_def k_fun_def)
   next
     assume \<open>(c, x) \<in> Closure.collect_clkt (trans_of prod_ta) (L, s)\<close>
     then show \<open>x \<le> k_fun (L, s) c\<close>
@@ -520,17 +518,26 @@ sublocale reach: Reachability_Problem_Defs
   k_fun
   by standard
 
-lemma clkp_set_states'D:
-  fixes x d l
-  assumes "(x, d)\<in>Closure.clkp_set prod_ta l"
-  shows "l \<in> states'"
+lemma (in -) collect_clkt_state_setI:
+  assumes "(x, d) \<in> Closure.collect_clkt (trans_of A) l"
+  shows "l \<in> state_set (trans_of A)" "l \<in> Simulation_Graphs_TA.state_set A"
+  using assms unfolding collect_clkt_def by (auto simp: state_set_def)
+
+lemma clkp_set_statesD:
+  fixes x d
+  assumes "(x, d)\<in>Closure.clkp_set prod_ta (L, s)"
+  shows "L \<in> states"
   using assms
-(*
   unfolding clkp_set_def collect_clki_def
-  apply auto
-  unfolding prod_inv_def
-*)
-  sorry
+  apply safe
+  subgoal
+    apply simp
+    unfolding prod_inv_def
+    unfolding collect_clock_pairs_def
+    apply auto
+    done
+  apply (drule collect_clkt_state_setI)
+  using state_set_states by auto
 
 sublocale reach1: Reachability_Problem
   l\<^sub>0
@@ -545,7 +552,7 @@ sublocale reach1: Reachability_Problem
     subgoal for L s x m
       apply (cases "L \<in> states")
        apply blast
-      apply (auto dest: clkp_set_states'D simp: k_fun_def)
+      apply (auto dest: clkp_set_statesD simp: k_fun_def)
       done
     done
   subgoal
@@ -584,7 +591,7 @@ proof -
     fix L s
     assume "(L, s) \<in> ?S"
     then have "L \<in> states"
-      using state_set_states[unfolded trans_of_prod] by blast
+      using state_set_states[unfolded trans_of_prod state_set_eq] by blast
     moreover have "bounded bounds s"
       using \<open>(L, s) \<in> _\<close>
       unfolding state_set_def
@@ -615,29 +622,36 @@ lemma Max_int_commute:
 lemma (in Simple_Network_Impl_nat) n_ps_gt_0: "n_ps > 0"
   using length_automata_eq_n_ps non_empty by auto
 
+lemma statesD:
+  "L ! i \<in> fst ` set (fst (snd (automata ! i))) \<or> L ! i \<in> (snd o snd o snd o snd o snd) ` set (fst (snd (automata ! i)))"
+  if "L \<in> states" "length L = n_ps" "i < n_ps"
+  using that unfolding states_def
+  apply auto
+  apply -
+  apply (elim allE impE, assumption)
+  apply auto
+   apply (force simp: mem_trans_N_iff)+
+  done
+
 lemma k_impl_k_fun:
   "k_impl (L, s) = IArray (map (k_fun (L, s)) [0..<m+1])" if "L \<in> states"
 proof -
   define k_i2 where "k_i2 i c = k_i !! i !! (L ! i) !! c" for i c
+  have *: "L ! i < length ((fst \<circ> snd) (automata ! i))" if "i < n_ps" for i
+    using L_i_len[OF _ \<open>_ \<in> states\<close>] num_states_length \<open>i < _\<close> by simp
   have k_i2_k: "k_i2 i c = k ! i ! (L ! i) ! c" if "i < n_ps" "c \<le> m" for i c
   proof -
     have "i < length k"
       by (simp add: k_length(1) that(1))
     moreover have "L ! i < length (k ! i)"
-      sorry
+      using * k_length(2) \<open>i < n_ps\<close> by auto
     moreover have "c < length (k ! i ! (L ! i))"
-      sorry
+      using k_length(3) \<open>c \<le> m\<close> \<open>i < length k\<close> \<open>L ! i < length (k ! i)\<close> by (auto dest: nth_mem)
     ultimately show ?thesis
-    unfolding k_i2_def
-    unfolding k_i_def
-    unfolding comp_def
-    by simp
+      unfolding k_i2_def k_i_def by simp
   qed
   have k_impl_alt_def: "k_impl (L, s) = IArray (map (\<lambda> c. Max {k_i2 i c | i. i < n_ps}) [0..<m+1])"
     unfolding k_impl_def k_i2_def by auto
-  have *: "L ! i < length ((fst \<circ> snd) (automata ! i))"
-    if "i < n_ps" for i
-    sorry
   (* XXX more general pattern? *)
   have Max_cong: "Max {f i | i. i < n_ps} = Max {g i | i. i < n_ps}"
     if "\<And> i. i < n_ps \<Longrightarrow> f i = g i" for f g :: "nat \<Rightarrow> int"
