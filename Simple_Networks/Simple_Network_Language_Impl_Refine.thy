@@ -44,8 +44,8 @@ lemma is_upd_determ:
   apply (fo_rule fun_cong)
   apply (fo_rule arg_cong)
   by (smt
-      case_prodE case_prodE' case_prod_conv is_val_determ
-      list.rel_eq list_all2_swap list_all2_trans)
+      case_prodE case_prodE' case_prod_conv is_val_determ list.rel_eq list_all2_swap list_all2_trans
+     )
 
 lemma is_upds_determ:
   "s1 = s2" if "is_upds s fs s1" "is_upds s fs s2"

@@ -1234,7 +1234,7 @@ lemma (in -) conv_cc_inj:
 context
 begin
 
-private lemma 1:
+lemma conv_alt_def:
   "conv (set broadcast, map automaton_of automata, map_of bounds') =
     (set broadcast, map (Simple_Network_Language.conv_A o automaton_of) automata, map_of bounds')"
   unfolding conv_def by simp
@@ -1255,7 +1255,7 @@ private lemma 2:
     by (induction xs) auto
   done
 
-private lemma 3:
+lemma conv_n_ps_eq:
   "conv.n_ps = n_ps"
   by (simp add: Prod_TA_Defs.n_ps_def)
 
@@ -1268,11 +1268,7 @@ private lemma 5:
   unfolding 4[OF that] unfolding Simple_Network_Language.conv_A_def
   by (simp split: prod.split add: inv_def)
 
-private lemma 6[simp]:
-  "conv.bounds = bounds"
-  unfolding conv.bounds_def bounds_def by simp
-
-private lemma 7:
+lemma trans_conv_N_eq:
   "trans (conv.N i) = Simple_Network_Language.conv_t ` (trans (N i))"  if "i < n_ps"
   unfolding 4[OF that] unfolding Simple_Network_Language.conv_A_def
   by (simp split: prod.split add: trans_def)
@@ -1280,29 +1276,27 @@ private lemma 7:
 private lemma 71:
   "(l, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)"
   if "(l, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" "i < n_ps"
-  using that by (force simp add: 7 Simple_Network_Language.conv_t_def)
+  using that by (force simp add: trans_conv_N_eq Simple_Network_Language.conv_t_def)
 
 private lemma 72:
   "(l, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)
-\<longleftrightarrow> (l, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)
-" if "i < n_ps"
-  apply (auto simp add: 7[OF that] Simple_Network_Language.conv_t_def dest: conv_cc_inj)
-  subgoal
-    apply (intros add: more_intros)
-     apply assumption
-    apply simp
-    done
-  done
+\<longleftrightarrow> (l, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" if "i < n_ps"
+  by (auto simp: trans_conv_N_eq[OF that] Simple_Network_Language.conv_t_def
+           dest: conv_cc_inj intro: image_eqI[rotated])
 
 private lemma 73:
   "\<exists>g'. g = conv_cc g' \<and> (l, g', a, r, u, l')\<in>Simple_Network_Language.trans (N i)"
   if "(l, g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)" "i < n_ps"
-  using that by (force simp add: 7 Simple_Network_Language.conv_t_def)
+  using that by (force simp: trans_conv_N_eq Simple_Network_Language.conv_t_def)
 
-lemma 8[simp]:
+lemma conv_bounds[simp]:
+  "conv.bounds = bounds"
+  unfolding conv.bounds_def bounds_def by simp
+
+lemma conv_states[simp]:
   "conv.states = states"
-  unfolding conv.states_def states_def 3
-  by (auto simp add: 7 Simple_Network_Language.conv_t_def) (fastforce, force)
+  unfolding conv.states_def states_def conv_n_ps_eq
+  by (auto simp add: trans_conv_N_eq Simple_Network_Language.conv_t_def) (fastforce, force)
 
 private lemma 9:
   "commited (conv.N p) = commited (N p)" if \<open>p < n_ps\<close>
@@ -1319,10 +1313,11 @@ lemma conv_trans_int:
   supply [simp] = L_len
   apply standard
   subgoal
-    by (clarsimp simp: Simple_Network_Language.conv_t_def 3 7 9)
+    by (clarsimp simp: Simple_Network_Language.conv_t_def conv_n_ps_eq trans_conv_N_eq 9)
       (intros add: more_intros, solve_triv+)
   subgoal
-    by (rule subsetI, clarsimp simp: Simple_Network_Language.conv_t_def 3 7 9[symmetric])
+    by (rule subsetI,
+        clarsimp simp: Simple_Network_Language.conv_t_def conv_n_ps_eq trans_conv_N_eq 9[symmetric])
       ((drule (1) 71)+, intros add: more_intros, solve_triv+)
   done
 
@@ -1332,10 +1327,11 @@ lemma conv_trans_bin:
   supply [simp] = L_len
   apply standard
   subgoal
-    by (clarsimp simp add: Simple_Network_Language.conv_t_def 3 7 9)
+    by (clarsimp simp add: Simple_Network_Language.conv_t_def conv_n_ps_eq trans_conv_N_eq 9)
       (intros add: more_intros, solve_triv+)
   subgoal
-    by (rule subsetI, clarsimp simp add: Simple_Network_Language.conv_t_def 3 7 9[symmetric])
+    by (rule subsetI,
+        clarsimp simp: Simple_Network_Language.conv_t_def conv_n_ps_eq trans_conv_N_eq 9[symmetric])
       ((drule (1) 71)+, intros add: more_intros, solve_triv+)
   done
 
@@ -1379,7 +1375,7 @@ lemma conv_trans_broad:
       by auto
     show ?thesis
       apply (rule subsetI)
-      apply (clarsimp simp add: 3 9 10 broadcast_def split: prod.split_asm)
+      apply (clarsimp simp add: conv_n_ps_eq 9 10 broadcast_def split: prod.split_asm)
       apply (drule (2) **)
       apply (drule (1) 73)+
       apply elims
@@ -1394,7 +1390,8 @@ lemma conv_trans_broad:
   subgoal
     apply (rule subsetI)
     apply (clarsimp simp:
-        Simple_Network_Language.conv_t_def 3 7 9[symmetric] 10 broadcast_def map_concat)
+        Simple_Network_Language.conv_t_def
+        conv_n_ps_eq trans_conv_N_eq 9[symmetric] 10 broadcast_def map_concat)
     apply (drule (1) 71)
     apply (intros add: more_intros)
                    apply solve_triv+
@@ -1411,7 +1408,7 @@ lemma conv_prod_ta:
   unfolding conv.prod_ta_def prod_ta_def
   unfolding conv.trans_prod_def trans_prod_def
   unfolding conv.prod_inv_def prod_inv_def
-  unfolding conv.N_def N_def 3
+  unfolding conv.N_def N_def conv_n_ps_eq
   apply simp
   apply (rule conjI)
   subgoal
@@ -1817,7 +1814,21 @@ locale Simple_Network_Impl_nat =
       (\<forall>c \<in> set r. 0 < c \<and> c < m) \<and>
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
       "
+  assumes broadcast_receivers:
+  "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, g, a, _, _, _) \<in> set trans.
+      case a of In a \<Rightarrow> a \<in> set broadcast \<longrightarrow> g = [] | _ \<Rightarrow> True"
 begin
+
+lemma broadcast_receivers_unguarded:
+  "\<forall>p<n_ps. \<forall>l g a f r l'.
+    (l, g, In a, f, r, l') \<in> Simple_Network_Language.trans (N p) \<and> a \<in> set broadcast \<longrightarrow> g = []"
+  using broadcast_receivers by (fastforce dest: nth_mem simp: n_ps_def mem_trans_N_iff)
+
+sublocale conv: Prod_TA
+  "(set broadcast, map (Simple_Network_Language.conv_A o automaton_of) automata, map_of bounds')"
+  using broadcast_receivers_unguarded
+  by - (standard,
+ fastforce simp: conv.broadcast_def Simple_Network_Language.conv_t_def conv_n_ps_eq trans_conv_N_eq)
 
 sublocale Reachability_Problem_no_ceiling prod_ta init "\<lambda>_. False" m
 proof standard

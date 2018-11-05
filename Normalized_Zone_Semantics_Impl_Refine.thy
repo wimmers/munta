@@ -1099,7 +1099,7 @@ sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ _ loc_rel "PR_CONST E_op'
 lemma E_op_F_reachable:
   "op.F_reachable = E_op''.F_reachable" unfolding PR_CONST_def ..
 
-lemma state_set_eq[simp]:
+lemma (in -) state_set_eq[simp]:
   "Simulation_Graphs_TA.state_set A = state_set (trans_of A)"
   unfolding Simulation_Graphs_TA.state_set_def state_set_def trans_of_def ..
 
