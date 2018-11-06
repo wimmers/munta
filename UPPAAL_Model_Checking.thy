@@ -923,11 +923,12 @@ schematic_goal succs_P_impl_alt_def:
   unfolding impl.succs_P_impl_def[OF final_fun_final]
   unfolding k_impl_alt_def
 (* XXX Not pulling anything! *)
+(*
   apply (abstract_let
     "\<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i \<in> {0..<p}}) [0..<m+1])"
     k_i
       )
-  apply (abstract_let "inv_fun" inv_fun)
+  apply (abstract_let "inv_fun" inv_fun) *)
   apply (abstract_let "trans_fun" trans_fun)
   unfolding inv_fun_def[abs_def] trans_fun_def[abs_def] trans_s_fun_def trans_i_fun_def trans_i_from_def
   apply (abstract_let "IArray (map IArray inv)" inv_a)
@@ -970,7 +971,7 @@ schematic_goal reachability_checker'_alt_def:
     impl.unbounded_dbm'_def unbounded_dbm_def
   unfolding k_impl_alt_def
   apply (abstract_let k_i k_i)
-  apply (abstract_let "inv_fun" inv_fun) (* XXX This is not pulling anything *)
+  (* apply (abstract_let "inv_fun" inv_fun) *) (* XXX This is not pulling anything *)
   apply (abstract_let "trans_fun" trans_fun)
   unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
   unfolding impl.F_impl_def
@@ -990,7 +991,7 @@ schematic_goal Alw_ev_checker_alt_def:
     impl.unbounded_dbm'_def unbounded_dbm_def
   unfolding k_impl_alt_def
   apply (abstract_let k_i k_i)
-  apply (abstract_let "inv_fun" inv_fun) (* XXX This is not pulling anything *)
+  (* apply (abstract_let "inv_fun" inv_fun) *) (* XXX This is not pulling anything *)
   apply (abstract_let "trans_fun" trans_fun)
   unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
   unfolding impl.F_impl_def
@@ -1012,7 +1013,7 @@ schematic_goal leadsto_checker_alt_def:
     impl.unbounded_dbm'_def unbounded_dbm_def
   unfolding k_impl_alt_def
   apply (abstract_let k_i k_i)
-  apply (abstract_let "inv_fun" inv_fun) (* XXX This is not pulling anything *)
+  (* apply (abstract_let "inv_fun" inv_fun) *) (* XXX This is not pulling anything *)
   apply (abstract_let "trans_fun" trans_fun)
   unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
   unfolding final_fun_def

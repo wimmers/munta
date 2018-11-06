@@ -30,7 +30,7 @@ ML \<open>
       val rewr = pull_let ctxt u name l;
     in Local_Defs.unfold_tac ctxt [rewr] thm end;
 
-  fun pull_tac ctxt u name = SELECT_GOAL (pull_tac' ctxt u name) 1;
+  fun pull_tac ctxt u name = CHANGED (SELECT_GOAL (pull_tac' ctxt u name) 1);
 \<close>
 
 ML \<open>
