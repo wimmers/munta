@@ -1282,11 +1282,11 @@ schematic_goal succs_impl_alt_def:
   unfolding impl.succs_impl_def
   apply (abstract_let impl.E_op''_impl E_op''_impl)
   unfolding impl.E_op''_impl_def fw_impl'_int
-  apply (abstract_let "trans_impl" trans_impl)
-  unfolding inv_fun_alt_def trans_impl_def
-  apply (abstract_let "int_trans_impl" int_trans_impl)
-  apply (abstract_let "bin_trans_from_impl" bin_trans_impl)
-  apply (abstract_let "broad_trans_from_impl" broad_trans_impl)
+  apply (abstract_let trans_impl trans_impl)
+  unfolding trans_impl_def
+  apply (abstract_let int_trans_impl int_trans_impl)
+  apply (abstract_let bin_trans_from_impl bin_trans_impl)
+  apply (abstract_let broad_trans_from_impl broad_trans_impl)
   unfolding int_trans_impl_def bin_trans_from_impl_def broad_trans_from_impl_def
   apply (abstract_let trans_in_broad_grouped trans_in_broad_grouped)
   apply (abstract_let trans_out_broad_grouped trans_out_broad_grouped)
@@ -1304,10 +1304,13 @@ schematic_goal succs_impl_alt_def:
   unfolding trans_in_map_def trans_out_map_def
   unfolding trans_i_map_def
   apply (abstract_let trans_map trans_map)
+  apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> _" inv_fun)
+  unfolding inv_fun_alt_def
   apply (abstract_let invs2 invs)
   unfolding invs2_def
   unfolding k_impl_alt_def
   apply (abstract_let k_i k_i) (* Could be killed *)
+  apply (abstract_let n_ps n_ps)
   by (rule Pure.reflexive)
 
 schematic_goal succs_P_impl_alt_def:
@@ -1319,7 +1322,7 @@ schematic_goal succs_P_impl_alt_def:
   apply (abstract_let impl.E_op''_impl E_op''_impl)
   unfolding impl.E_op''_impl_def fw_impl'_int
   apply (abstract_let "trans_impl" trans_impl)
-  unfolding inv_fun_alt_def trans_impl_def
+  unfolding trans_impl_def
   apply (abstract_let "int_trans_impl" int_trans_impl)
   apply (abstract_let "bin_trans_from_impl" bin_trans_impl)
   apply (abstract_let "broad_trans_from_impl" broad_trans_impl)
@@ -1340,10 +1343,13 @@ schematic_goal succs_P_impl_alt_def:
   unfolding trans_in_map_def trans_out_map_def
   unfolding trans_i_map_def
   apply (abstract_let trans_map trans_map)
+  apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> _" inv_fun)
+  unfolding inv_fun_alt_def
   apply (abstract_let invs2 invs)
   unfolding invs2_def
   unfolding k_impl_alt_def
   apply (abstract_let k_i k_i) (* Could be killed *)
+  apply (abstract_let n_ps n_ps)
   by (rule Pure.reflexive)
 
 
