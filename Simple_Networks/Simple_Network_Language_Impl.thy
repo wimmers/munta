@@ -1775,12 +1775,15 @@ definition (in Prod_TA_Defs)
   (\<Union>S \<in> {(fst \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps}.
     \<Union>f \<in> S. \<Union> (x, e) \<in> set f. {x} \<union> vars_of_exp e)"
 
-locale Simple_Network_Impl_nat =
+locale Simple_Network_Impl_nat_defs =
   Simple_Network_Impl automata
   for automata ::
     "(nat list \<times> (nat act, nat, nat, int, nat, int) transition list
       \<times> (nat \<times> (nat, int) cconstraint) list) list" +
   fixes m :: nat and num_states :: "nat \<Rightarrow> nat" and num_actions :: nat
+
+locale Simple_Network_Impl_nat =
+  Simple_Network_Impl_nat_defs +
   assumes has_clock: "m > 0"
   assumes non_empty: "0 < length automata"
     (* assumes "length automata = length state_nums" *)

@@ -213,17 +213,17 @@ lemma states'_bounded[intro, dest]:
 
 paragraph \<open>Implementation of invariants\<close>
 
-definition
+definition (in Simple_Network_Impl_nat_defs)
   "invs i \<equiv> let m = default_map_of [] (snd (snd (automata ! i)));
     m' = map (\<lambda> j. m j) [0..<num_states i]
   in m'"
 
-definition
+definition (in Simple_Network_Impl_nat_defs)
   "invs1 \<equiv> map (\<lambda> i. let m = default_map_of [] (snd (snd (automata ! i)));
     m' = map (\<lambda> j. m j) [0..<num_states i]
   in m') [0..<n_ps]"
 
-definition
+definition (in Simple_Network_Impl_nat_defs)
   "invs2 \<equiv> IArray (map (\<lambda> i. let m = default_map_of [] (snd (snd (automata ! i)));
     m' = IArray (map (\<lambda> j. m j) [0..<num_states i])
   in m') [0..<n_ps])"
@@ -232,7 +232,7 @@ lemma refine_invs2:
   "invs2 !! i !! j = invs1 ! i ! j" if "i < n_ps"
   using that unfolding invs2_def invs1_def by simp
 
-definition
+definition (in Simple_Network_Impl_nat_defs)
   "inv_fun \<equiv> \<lambda>(L, _).
     concat (map (\<lambda>i. invs1 ! i ! (L ! i)) [0..<n_ps])"
 
@@ -268,8 +268,12 @@ lemma inv_fun_alt_def:
   apply (simp add: refine_invs2 del: IArray.sub_def)
   done
 
+end (* Simple Network Impl nat *)
 
 paragraph \<open>Implementation of transitions\<close>
+
+context Simple_Network_Impl_nat_defs
+begin
 
 definition
   "bounds_map \<equiv> the o map_of bounds'"
@@ -517,6 +521,11 @@ definition
         )
       [0..<num_actions])
     "
+
+end (* Simple Network Impl nat defs *)
+
+context Simple_Network_Impl_nat
+begin
 
 lemma broad_trans_from_alt_def:
   "broad_trans_from \<equiv> \<lambda>(L, s).
@@ -1990,7 +1999,9 @@ lemma state_rel_right_unique:
 
 end (* Anonymous context for simp setup *)
 
-fun (in -) bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bool" where
+end (* Simple Network Impl nat *)
+
+fun bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bool" where
   "bvali s (not e) \<longleftrightarrow> \<not> bvali s e" |
   "bvali s (and e1 e2) \<longleftrightarrow> bvali s e1 \<and> bvali s e2" |
   "bvali s (bexp.or e1 e2) \<longleftrightarrow> bvali s e1 \<or> bvali s e2" |
@@ -2001,7 +2012,7 @@ fun (in -) bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bo
   "bvali s (ge i x) \<longleftrightarrow> s ! i \<ge> x" |
   "bvali s (gt i x) \<longleftrightarrow> s ! i > x"
 
-fun (in -) evali where
+fun evali where
   "evali s (const c) = c"
 | "evali s (var x)   = s ! x"
 | "evali s (if_then_else b e1 e2) = (if bvali s b then evali s e1 else evali s e2)"
@@ -2010,55 +2021,12 @@ definition mk_updsi ::
   "int list \<Rightarrow> (nat \<times> (nat, int) exp) list \<Rightarrow> int list" where
   "mk_updsi s upds = fold (\<lambda>(x, upd) s'. s'[x := evali s upd]) upds s"
 
-lemma bval_bvali:
-  "bval (the o s) e = bvali si e" if "state_rel s si" "\<forall>x \<in> vars_of_bexp e. x \<in> dom s"
-  using that by (induction e) (auto simp: state_rel_def)
-
-lemma eval_evali:
-  "eval (the o s) e = evali si e" if "state_rel s si" "\<forall>x \<in> vars_of_exp e. x \<in> dom s"
-  using that by (induction e) (auto simp: state_rel_def bval_bvali)
-
-lemma mk_upds_mk_updsi:
-  "state_rel (mk_upds s upds) (mk_updsi si upds)"
-  if assms: "state_rel s si" "\<forall> (_, e) \<in> set upds. \<forall>x \<in> vars_of_exp e. x < n_vs"
-    "\<forall> (x, e) \<in> set upds. x < n_vs"
-proof -
-  have upd_stepI: "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
-    if "state_rel s' si'" "\<forall>x \<in> vars_of_exp e. x < n_vs" "x < n_vs"
-    for s' si' x e
-    using that assms unfolding state_rel_def by (auto simp: state_rel_def eval_evali)
-  have "state_rel
-        (fold (\<lambda>(x, upd) s'. s'(x \<mapsto> eval (the o s) upd)) upds s')
-        (fold (\<lambda>(x, upd) s'. s'[x := evali si upd]) upds si')"
-    if "state_rel s' si'" for s' si'
-    using assms that
-  proof (induction upds arbitrary: s' si')
-    case Nil
-    then show ?case
-      by simp
-  next
-    case (Cons upd upds)
-    obtain x e where "upd = (x, e)"
-      by (cases upd) auto
-    from Cons.prems have "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
-      unfolding \<open>upd = _\<close> by (intro upd_stepI) auto
-    from Cons.IH[OF _ _ _ this] Cons.prems show ?case
-      unfolding \<open>upd = _\<close> by (auto simp: fun_upd_def comp_def)
-  qed
-  from this[OF \<open>state_rel s si\<close>] show ?thesis
-    unfolding mk_upds_def mk_updsi_def .
-qed
+context Simple_Network_Impl_nat_defs
+begin
 
 definition
   "check_boundedi s =
     (\<forall>x < length s. fst (bounds_map x) < s ! x \<and> s ! x < snd (bounds_map x))"
-
-lemma check_bounded_check_boundedi:
-  "check_bounded s = check_boundedi si" if "state_rel s si"
-  using that unfolding check_bounded_def check_boundedi_def state_rel_def by auto
-
-definition
-  "valid_upd \<equiv> \<lambda>(x, e). x < n_vs \<and> (\<forall>x \<in> vars_of_exp e. x < n_vs)"
 
 definition
   "int_trans_from_loc_impl p l L s \<equiv>
@@ -2115,6 +2083,144 @@ definition
         concat (map (\<lambda>a. pairs_by_action_impl L s (Out ! a) (In2 ! a)) [0..<num_actions])
       @ concat (map (\<lambda>a. pairs_by_action_impl L s (Out2 ! a) (In ! a)) [0..<num_actions])
     "
+
+definition
+  "compute_upds init \<equiv> List.map_filter (\<lambda>comb.
+  let (g, a, r, L', s) =
+    fold
+      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+      )
+      comb
+      init
+  in if check_bounded s then Some (g, a, r, L', s) else None
+)"
+
+definition
+  "compute_upds_impl init \<equiv> List.map_filter (\<lambda>comb.
+  let (g, a, r, L', s) =
+    fold
+      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_updsi s f2))
+      )
+      comb
+      init
+  in if check_boundedi s then Some (g, a, r, L', s) else None
+)"
+
+definition trans_from where
+  "trans_from st = int_trans_from st @ bin_trans_from st @ broad_trans_from st"
+
+definition
+  "broad_trans_from_impl \<equiv> \<lambda>(L, s).
+    let
+      pairs = get_commited L;
+      In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
+      Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
+    in
+    if pairs = [] then
+      concat (
+        map (\<lambda>a.
+          concat (map (\<lambda>p.
+            let
+              outs = Out ! p ! a
+            in if outs = [] then []
+            else
+              let
+                combs = make_combs p a In;
+                outs = map (\<lambda>t. (p, t)) outs;
+                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                init = ([], Broad a, [], (L, s))
+              in
+                compute_upds_impl init combs
+          )
+          [0..<n_ps])
+        )
+      [0..<num_actions])
+    else
+      concat (
+        map (\<lambda>a.
+          let
+            ins_commited =
+              List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
+            always_commited = (length ins_commited > 1)
+          in
+          concat (map (\<lambda>p.
+            let
+              outs = Out ! p ! a
+            in if outs = [] then []
+            else if
+              \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
+              \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
+            then []
+            else
+              let
+                combs = make_combs p a In;
+                outs = map (\<lambda>t. (p, t)) outs;
+                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                init = ([], Broad a, [], (L, s))
+              in
+                compute_upds_impl init combs
+          )
+          [0..<n_ps])
+        )
+      [0..<num_actions])
+    "
+
+definition trans_impl where
+  "trans_impl st = int_trans_impl st @ bin_trans_from_impl st @ broad_trans_from_impl st"
+
+end (* Simple Network Impl nat defs *)
+
+
+context Simple_Network_Impl_nat
+begin
+
+lemma bval_bvali:
+  "bval (the o s) e = bvali si e" if "state_rel s si" "\<forall>x \<in> vars_of_bexp e. x \<in> dom s"
+  using that by (induction e) (auto simp: state_rel_def)
+
+lemma eval_evali:
+  "eval (the o s) e = evali si e" if "state_rel s si" "\<forall>x \<in> vars_of_exp e. x \<in> dom s"
+  using that by (induction e) (auto simp: state_rel_def bval_bvali)
+
+lemma mk_upds_mk_updsi:
+  "state_rel (mk_upds s upds) (mk_updsi si upds)"
+  if assms: "state_rel s si" "\<forall> (_, e) \<in> set upds. \<forall>x \<in> vars_of_exp e. x < n_vs"
+    "\<forall> (x, e) \<in> set upds. x < n_vs"
+proof -
+  have upd_stepI: "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
+    if "state_rel s' si'" "\<forall>x \<in> vars_of_exp e. x < n_vs" "x < n_vs"
+    for s' si' x e
+    using that assms unfolding state_rel_def by (auto simp: state_rel_def eval_evali)
+  have "state_rel
+        (fold (\<lambda>(x, upd) s'. s'(x \<mapsto> eval (the o s) upd)) upds s')
+        (fold (\<lambda>(x, upd) s'. s'[x := evali si upd]) upds si')"
+    if "state_rel s' si'" for s' si'
+    using assms that
+  proof (induction upds arbitrary: s' si')
+    case Nil
+    then show ?case
+      by simp
+  next
+    case (Cons upd upds)
+    obtain x e where "upd = (x, e)"
+      by (cases upd) auto
+    from Cons.prems have "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
+      unfolding \<open>upd = _\<close> by (intro upd_stepI) auto
+    from Cons.IH[OF _ _ _ this] Cons.prems show ?case
+      unfolding \<open>upd = _\<close> by (auto simp: fun_upd_def comp_def)
+  qed
+  from this[OF \<open>state_rel s si\<close>] show ?thesis
+    unfolding mk_upds_def mk_updsi_def .
+qed
+
+lemma check_bounded_check_boundedi:
+  "check_bounded s = check_boundedi si" if "state_rel s si"
+  using that unfolding check_bounded_def check_boundedi_def state_rel_def by auto
+
+definition
+  "valid_upd \<equiv> \<lambda>(x, e). x < n_vs \<and> (\<forall>x \<in> vars_of_exp e. x < n_vs)"
 
 context includes lifting_syntax begin
 notation rel_prod (infixr "\<times>\<^sub>R" 56)
@@ -2546,30 +2652,6 @@ lemma trans_map_transfer'':
   apply (auto 4 4 dest!: trans_mapD dest: action_setD var_setD intro: list.rel_refl_strong simp: valid_upd_def)
   oops
 
-definition
-  "compute_upds init \<equiv> List.map_filter (\<lambda>comb.
-  let (g, a, r, L', s) =
-    fold
-      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
-        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
-      )
-      comb
-      init
-  in if check_bounded s then Some (g, a, r, L', s) else None
-)"
-
-definition
-  "compute_upds_impl init \<equiv> List.map_filter (\<lambda>comb.
-  let (g, a, r, L', s) =
-    fold
-      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
-        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_updsi s f2))
-      )
-      comb
-      init
-  in if check_boundedi s then Some (g, a, r, L', s) else None
-)"
-
 lemma compute_upds_transfer:
   "(
   (list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel)
@@ -2715,62 +2797,6 @@ lemma broad_trans_from_alt_def2:
   unfolding broad_trans_from_def compute_upds_def
   apply (rule HOL.refl)
   done
-
-definition
-  "broad_trans_from_impl \<equiv> \<lambda>(L, s).
-    let
-      pairs = get_commited L;
-      In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
-      Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
-    in
-    if pairs = [] then
-      concat (
-        map (\<lambda>a.
-          concat (map (\<lambda>p.
-            let
-              outs = Out ! p ! a
-            in if outs = [] then []
-            else
-              let
-                combs = make_combs p a In;
-                outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
-                init = ([], Broad a, [], (L, s))
-              in
-                compute_upds_impl init combs
-          )
-          [0..<n_ps])
-        )
-      [0..<num_actions])
-    else
-      concat (
-        map (\<lambda>a.
-          let
-            ins_commited =
-              List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
-            always_commited = (length ins_commited > 1)
-          in
-          concat (map (\<lambda>p.
-            let
-              outs = Out ! p ! a
-            in if outs = [] then []
-            else if
-              \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
-              \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
-            then []
-            else
-              let
-                combs = make_combs p a In;
-                outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
-                init = ([], Broad a, [], (L, s))
-              in
-                compute_upds_impl init combs
-          )
-          [0..<n_ps])
-        )
-      [0..<num_actions])
-    "
 
 lemma concat_length_transfer:
   "((\<lambda> x y. list_all2 (list_all2 A) x y \<and> length x = n) ===> list_all2 A) concat concat" for A n
@@ -3044,12 +3070,6 @@ proof -
       eq_transfer4
     unfolding broad_trans_from_alt_def2 broad_trans_from_impl_def Let_def by transfer_prover
 qed
-
-definition trans_from where
-  "trans_from st = int_trans_from st @ bin_trans_from st @ broad_trans_from st"
-
-definition trans_impl where
-  "trans_impl st = int_trans_impl st @ bin_trans_from_impl st @ broad_trans_from_impl st"
 
 lemma trans_from_transfer:
   "((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel
