@@ -1199,6 +1199,299 @@ proof -
     done
 qed
 
+
+subsection \<open>Extracting an efficient implementation\<close>
+
+lemma reachability_checker_alt_def':
+  "reachability_checker \<equiv>
+    do {
+      x \<leftarrow> do {
+        let key = return \<circ> fst;
+        let sub = impl.subsumes_impl;
+        let copy = impl.state_copy_impl;
+        let start = impl.a\<^sub>0_impl;
+        let final = impl.F_impl;
+        let succs =  impl.succs_impl;
+        let empty = impl.emptiness_check_impl;
+        pw_impl key copy sub start final succs empty
+      };
+      _ \<leftarrow> return ();
+      return x
+    }"
+  unfolding reachability_checker_def by simp
+
+lemma Alw_ev_checker_alt_def':
+  "Alw_ev_checker \<equiv>
+    do {
+      x \<leftarrow> let
+        key = return \<circ> fst;
+        sub = impl.subsumes_impl;
+        copy = impl.state_copy_impl;
+        start = impl.a\<^sub>0_impl;
+        succs =  impl.succs_P_impl' Fi
+      in dfs_map_impl' succs start sub key copy;
+      _ \<leftarrow> return ();
+      return x
+    }"
+  unfolding Alw_ev_checker_def by simp
+
+lemma leadsto_checker_alt_def':
+  "leadsto_checker \<psi> \<equiv>
+    do {
+      r \<leftarrow> let
+        key = return \<circ> fst;
+        sub = impl.subsumes_impl;
+        copy = impl.state_copy_impl;
+        start = impl.a\<^sub>0_impl;
+        final = impl.F_impl;
+        final' = (impl.Q_impl (\<lambda>(L, s). \<not> check_sexpi \<psi> L s));
+        succs =  impl.succs_P_impl' (\<lambda>(L, s). \<not> check_sexpi \<psi> L s);
+        succs' =  impl.succs_impl';
+        empty = impl.emptiness_check_impl
+      in
+        leadsto_impl copy succs start sub key succs' empty final final';
+      return (\<not> r)
+    }"
+  unfolding leadsto_checker_def by simp
+
+theorem k_impl_alt_def:
+  "k_impl = (\<lambda>(l, s). IArray (map (\<lambda>c. MAX i \<in> {0..<n_ps}. k_i !! i !! (l ! i) !! c) [0..<m + 1]))"
+proof -
+  have "{i. i < p} = {0..<p}" for p :: nat
+    by auto
+  then show ?thesis
+    unfolding k_impl_def setcompr_eq_image by simp
+qed
+
+definition
+  "trans_map_inner \<equiv> map (\<lambda>i. union_map_of (fst (snd (automata ! i)))) [0..<n_ps]"
+
+lemma trans_map_alt_def:
+  "trans_map = (\<lambda>i j. case (IArray trans_map_inner !! i) j of None \<Rightarrow> [] | Some xs \<Rightarrow> xs)"
+  unfolding trans_map_inner_def trans_map_def
+  apply auto
+  apply (intro ext)
+  subgoal for i j
+    apply (cases "i < n_ps")
+     apply (auto simp: n_ps_def)
+    sorry
+  done
+
+schematic_goal succs_impl_alt_def:
+  "impl.succs_impl \<equiv> ?impl"
+  unfolding impl.succs_impl_def
+  apply (abstract_let impl.E_op''_impl E_op''_impl)
+  unfolding impl.E_op''_impl_def fw_impl'_int
+  apply (abstract_let "trans_impl" trans_impl)
+  unfolding inv_fun_alt_def trans_impl_def
+  apply (abstract_let "int_trans_impl" int_trans_impl)
+  apply (abstract_let "bin_trans_from_impl" bin_trans_impl)
+  apply (abstract_let "broad_trans_from_impl" broad_trans_impl)
+  unfolding int_trans_impl_def bin_trans_from_impl_def broad_trans_from_impl_def
+  apply (abstract_let trans_in_broad_grouped trans_in_broad_grouped)
+  apply (abstract_let trans_out_broad_grouped trans_out_broad_grouped)
+  apply (abstract_let trans_in_map trans_in_map)
+  apply (abstract_let trans_out_map trans_out_map)
+  apply (abstract_let int_trans_from_all_impl int_trans_from_all_impl)
+  unfolding int_trans_from_all_impl_def
+  apply (abstract_let int_trans_from_vec_impl int_trans_from_vec_impl)
+  unfolding int_trans_from_vec_impl_def
+  apply (abstract_let int_trans_from_loc_impl int_trans_from_loc_impl)
+  unfolding int_trans_from_loc_impl_def
+  apply (abstract_let trans_i_map trans_i_map)
+  unfolding trans_out_broad_grouped_def trans_out_broad_map_def
+  unfolding trans_in_broad_grouped_def trans_in_broad_map_def
+  unfolding trans_in_map_def trans_out_map_def
+  unfolding trans_i_map_def
+  apply (abstract_let trans_map trans_map)
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  unfolding k_impl_alt_def
+  apply (abstract_let k_i k_i) (* Could be killed *)
+  by (rule Pure.reflexive)
+
+schematic_goal succs_P_impl_alt_def:
+  "impl.succs_P_impl Pi \<equiv> ?impl"
+  if "(Pi, P)
+    \<in> inv_rel loc_rel ({l\<^sub>0} \<union> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of prod_ta))"
+  for P Pi
+  unfolding impl.succs_P_impl_def[OF that]
+  apply (abstract_let impl.E_op''_impl E_op''_impl)
+  unfolding impl.E_op''_impl_def fw_impl'_int
+  apply (abstract_let "trans_impl" trans_impl)
+  unfolding inv_fun_alt_def trans_impl_def
+  apply (abstract_let "int_trans_impl" int_trans_impl)
+  apply (abstract_let "bin_trans_from_impl" bin_trans_impl)
+  apply (abstract_let "broad_trans_from_impl" broad_trans_impl)
+  unfolding int_trans_impl_def bin_trans_from_impl_def broad_trans_from_impl_def
+  apply (abstract_let trans_in_broad_grouped trans_in_broad_grouped)
+  apply (abstract_let trans_out_broad_grouped trans_out_broad_grouped)
+  apply (abstract_let trans_in_map trans_in_map)
+  apply (abstract_let trans_out_map trans_out_map)
+  apply (abstract_let int_trans_from_all_impl int_trans_from_all_impl)
+  unfolding int_trans_from_all_impl_def
+  apply (abstract_let int_trans_from_vec_impl int_trans_from_vec_impl)
+  unfolding int_trans_from_vec_impl_def
+  apply (abstract_let int_trans_from_loc_impl int_trans_from_loc_impl)
+  unfolding int_trans_from_loc_impl_def
+  apply (abstract_let trans_i_map trans_i_map)
+  unfolding trans_out_broad_grouped_def trans_out_broad_map_def
+  unfolding trans_in_broad_grouped_def trans_in_broad_map_def
+  unfolding trans_in_map_def trans_out_map_def
+  unfolding trans_i_map_def
+  apply (abstract_let trans_map trans_map)
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  unfolding k_impl_alt_def
+  apply (abstract_let k_i k_i) (* Could be killed *)
+  by (rule Pure.reflexive)
+
+
+(* XXX These implementations contain unnecessary list reversals *)
+lemmas succs_P'_impl_alt_def =
+  impl.succs_P_impl'_def[OF impl.F_fun, unfolded succs_P_impl_alt_def[OF impl.F_fun]]
+
+schematic_goal Alw_ev_checker_alt_def:
+  "Alw_ev_checker \<equiv> ?impl"
+  unfolding Alw_ev_checker_alt_def'
+  unfolding succs_P'_impl_alt_def
+  unfolding k_impl_alt_def k_i_def
+  (* The following are just to unfold things that should have been defined in a defs locale *)
+  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+  unfolding
+    impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
+    impl.unbounded_dbm'_def
+  unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
+  unfolding impl.F_impl_def
+  unfolding impl.subsumes_impl_def
+  unfolding impl.emptiness_check_impl_def
+  unfolding impl.state_copy_impl_def
+  by (rule Pure.reflexive)
+
+lemma \<psi>_compatibleI:
+  "(\<lambda>(L, s). \<not> check_sexpi \<psi> L s,
+     \<lambda>(L, s). \<not> check_sexp \<psi> L (the \<circ> s))
+    \<in> inv_rel loc_rel ({l\<^sub>0} \<union> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of prod_ta))"
+  if "formula = Leadsto \<phi> \<psi>"
+  using F_Fi'[OF _ that] unfolding inv_rel_def by auto
+
+lemma Q_impl_alt_def:
+  "impl.Q_impl (\<lambda>(L, s). \<not> check_sexpi \<psi> L s) \<equiv>
+  \<lambda>xi. return (case xi of (a1, a2) \<Rightarrow> (\<lambda>(L, s). \<not> check_sexpi \<psi> L s) a1)"
+  if "formula = Leadsto \<phi> \<psi>"
+  by (intro impl.Q_impl_def[where Q = "\<lambda>(L, s). \<not> check_sexp \<psi> L (the o s)"] \<psi>_compatibleI[OF that])
+
+schematic_goal leadsto_checker_alt_def:
+  "leadsto_checker \<psi> \<equiv> ?impl" if "formula = Leadsto \<phi> \<psi>"
+  unfolding leadsto_checker_alt_def'
+  unfolding Q_impl_alt_def[OF that] impl.F_impl_def
+  unfolding impl.succs_P_impl'_def[OF \<psi>_compatibleI[OF that]]
+  unfolding succs_P_impl_alt_def[OF \<psi>_compatibleI[OF that]]
+  unfolding impl.succs_impl'_def succs_impl_alt_def
+  unfolding k_impl_alt_def k_i_def
+  (* The following are just to unfold things that should have been defined in a defs locale *)
+  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+  unfolding
+    impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
+    impl.unbounded_dbm'_def
+  unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
+  unfolding impl.F_impl_def
+  unfolding impl.subsumes_impl_def
+  unfolding impl.emptiness_check_impl_def
+  unfolding impl.state_copy_impl_def
+  by (rule Pure.reflexive)
+
+schematic_goal reachability_checker_alt_def:
+  "reachability_checker \<equiv> ?impl"
+  unfolding reachability_checker_alt_def'
+  unfolding succs_impl_alt_def
+  unfolding k_impl_alt_def k_i_def
+  (* The following are just to unfold things that should have been defined in a defs locale *)
+  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+  unfolding
+    impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
+    impl.unbounded_dbm'_def
+  unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
+  unfolding impl.F_impl_def
+  unfolding impl.subsumes_impl_def
+  unfolding impl.emptiness_check_impl_def
+  unfolding impl.state_copy_impl_def
+  by (rule Pure.reflexive)
+
 end (* Simple_Network_Impl_nat_ceiling_start_state *)
+
+concrete_definition reachability_checker
+  uses Simple_Network_Impl_nat_ceiling_start_state.reachability_checker_alt_def
+
+concrete_definition Alw_ev_checker
+  uses Simple_Network_Impl_nat_ceiling_start_state.Alw_ev_checker_alt_def
+
+concrete_definition leadsto_checker
+  uses Simple_Network_Impl_nat_ceiling_start_state.leadsto_checker_alt_def
+
+context Simple_Network_Impl_nat_ceiling_start_state
+begin
+
+lemma model_checker_unfold_leadsto:
+  "model_checker = (
+  case formula of Simple_Network_Language_Model_Checking.formula.EX xa \<Rightarrow> reachability_checker
+    | Simple_Network_Language_Model_Checking.formula.EG xa \<Rightarrow>
+      if PR_CONST F l\<^sub>0 then Alw_ev_checker else return False
+    | Simple_Network_Language_Model_Checking.formula.AX xa \<Rightarrow>
+      (if PR_CONST F l\<^sub>0 then local.Alw_ev_checker else return False) \<bind> (\<lambda>r. return (\<not> r))
+    | Simple_Network_Language_Model_Checking.formula.AG xa \<Rightarrow>
+      reachability_checker \<bind> (\<lambda>r. return (\<not> r))
+    | Simple_Network_Language_Model_Checking.formula.Leadsto \<phi> \<psi> \<Rightarrow>
+      Simple_Network_Language_Model_Checking.leadsto_checker
+        broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<psi>)
+"
+  unfolding model_checker_def
+  using leadsto_checker.refine[OF Simple_Network_Impl_nat_ceiling_start_state_axioms]
+  by (simp split: formula.split)
+
+lemmas model_checker_def_refined = model_checker_unfold_leadsto[unfolded
+    reachability_checker.refine[OF Simple_Network_Impl_nat_ceiling_start_state_axioms]
+    Alw_ev_checker.refine[OF Simple_Network_Impl_nat_ceiling_start_state_axioms]
+  ]
+
+end (* Simple_Network_Impl_nat_ceiling_start_state *)
+
+concrete_definition model_checker uses
+  Simple_Network_Impl_nat_ceiling_start_state.model_checker_def_refined
+
+definition precond_mc where [code]:
+  "precond_mc broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<equiv>
+    if Simple_Network_Impl_nat_ceiling_start_state
+      broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+    then
+      model_checker broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+      \<bind> (\<lambda> x. return (Some x))
+    else return None"
+
+lemmas [code] =
+  reachability_checker_def
+  Alw_ev_checker_def
+  leadsto_checker_def
+  model_checker_def[unfolded PR_CONST_def]
+
+lemmas [code] =
+  Prod_TA_Defs.n_ps_def
+  Simple_Network_Impl.n_vs_def
+  Simple_Network_Impl.automaton_of_def
+  Simple_Network_Impl_nat_defs.pairs_by_action_impl_def
+  Simple_Network_Impl_nat_defs.all_actions_from_vec_def
+  Simple_Network_Impl_nat_defs.all_actions_by_state_def
+  Simple_Network_Impl_nat_defs.compute_upds_impl_def
+  Simple_Network_Impl_nat_defs.actions_by_state_def
+  Simple_Network_Impl_nat_defs.check_boundedi_def
+  Simple_Network_Impl_nat_defs.get_commited_def
+  Simple_Network_Impl_nat_defs.make_combs_def
+  Simple_Network_Impl_nat_defs.trans_map_def
+  Simple_Network_Impl_nat_defs.actions_by_state'_def
+  Simple_Network_Impl_nat_defs.bounds_map_def
+  mk_updsi_def
+
+export_code
+  model_checker checking SML_imp
 
 end (* Theory *)
