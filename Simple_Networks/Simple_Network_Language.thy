@@ -277,10 +277,9 @@ lemma state_set_states:
 
 end (* Prod TA Defs *)
 
-locale Prod_TA=
-  Prod_TA_Defs A for A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta" +
-  assumes broadcast_receivers_unguarded:
-    "\<forall>p < n_ps. \<forall> l g a f r l'. (l, g, In a, f, r, l') \<in> trans (N p) \<and> a \<in> broadcast \<longrightarrow> g = []"
+
+locale Prod_TA_sem =
+  Prod_TA_Defs A for A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta"
 begin
 
 lemma prod_invI[intro]:
@@ -290,6 +289,94 @@ lemma prod_invI[intro]:
 lemma prod_invD[dest]:
   \<open>\<forall>p<n_ps. u \<turnstile> Simple_Network_Language.inv (N p) (L ! p)\<close> if \<open>u \<turnstile> prod_inv (L, s)\<close> \<open>L \<in> states\<close>
   using that unfolding prod_inv_def by (auto elim: concat_guard)
+
+lemma delay_sound:
+  assumes "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>" "L \<in> states" "bounded bounds s"
+    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
+  apply (subst A_split) using assms by cases (auto intro!: step_t)
+
+lemma action_sound:
+  "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
+  using that
+proof cases
+  case prems: (1 g r)
+  note [simp add] = map_N_n_ps_simp clock_val_append_iff clock_val_concat_iff
+  from \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close>[THEN state_setI2] have "L' \<in> states"
+    using state_set_states that by fast
+  from \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close> show ?thesis
+    unfolding trans_of_prod trans_prod_def
+  proof safe
+    assume "((L, s), g, a, r, L', s') \<in> trans_int"
+    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+      unfolding trans_int_def
+      apply clarsimp
+      using prems \<open>L' \<in> _\<close>
+      by (subst A_split) (intro step_int; simp; elim prod_invD; assumption)
+  next
+    assume "((L, s), g, a, r, L', s') \<in> trans_bin"
+    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+      unfolding trans_bin_def
+      using prems \<open>L' \<in> _\<close>
+      apply clarsimp
+      apply (subst A_split, standard)
+                     apply (assumption | simp; elim prod_invD; assumption)+
+      done
+  next
+    assume "((L, s), g, a, r, L', s') \<in> trans_broad"
+    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
+      using prems \<open>L' \<in> _\<close>
+      unfolding trans_broad_def inv_of_prod
+      apply clarsimp
+      apply (subst A_split)
+      apply standard
+                         apply (assumption | simp; elim prod_invD; assumption)+
+      done  
+  qed
+qed
+
+lemma bounded_inv:
+  \<open>bounded bounds s'\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close>
+  using that unfolding bounds_def by cases simp+
+
+lemma states_inv:
+  \<open>L' \<in> states\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close> \<open>L \<in> states\<close>
+  using that unfolding bounds_def
+proof cases
+  case (step_t N d B broadcast)
+  with \<open>L \<in> states\<close> show ?thesis
+    by simp
+next
+  case prems: (step_int l g a f r l' N' p B broadcast)
+  from \<open>A = _\<close> prems(3) have "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+    by force
+  with \<open>L \<in> states\<close> show ?thesis
+    unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
+next
+  case prems: (step_bin l1 g1 a f1 r1 l1' N' p l2 g2 f2 r2 l2' q s' B broadcast)
+  from \<open>A = _\<close> prems(3, 4) have
+    "l1' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+    "l2' \<in> UNION (trans (N q)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+    by force+
+  with \<open>L \<in> states\<close> show ?thesis
+    unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
+next
+  case prems: (step_broad a broadcast l g f r l' N' p ps gs fs rs ls' s' B)
+  from \<open>A = _\<close> prems(4, 5) have
+    "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+    "\<forall> q \<in> set ps. ls' q \<in> UNION (trans (N q)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+    by force+
+  with \<open>L \<in> states\<close> show ?thesis
+    unfolding \<open>L' = _\<close> by (intro state_preservation_updI state_preservation_fold_updI)
+qed
+
+end (* Prod TA Defs on a time domain *)
+
+
+locale Prod_TA =
+  Prod_TA_sem A for A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta" +
+  assumes broadcast_receivers_unguarded:
+    "\<forall>p < n_ps. \<forall> l g a f r l'. (l, g, In a, f, r, l') \<in> trans (N p) \<and> a \<in> broadcast \<longrightarrow> g = []"
+begin
 
 lemma action_complete:
   "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
@@ -403,50 +490,6 @@ proof cases
      (rule step_t.intros; (unfold inv_of_prod; rule prod_invI)?; simp)
 qed
 
-lemma delay_sound:
-  assumes "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>" "L \<in> states" "bounded bounds s"
-    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
-  apply (subst A_split) using assms by cases (auto intro!: step_t)
-
-lemma action_sound:
-  "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
-  using that
-proof cases
-  case prems: (1 g r)
-  note [simp add] = map_N_n_ps_simp clock_val_append_iff clock_val_concat_iff
-  from \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close>[THEN state_setI2] have "L' \<in> states"
-    using state_set_states that by fast
-  from \<open>prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,a,r\<^esup> (L', s')\<close> show ?thesis
-    unfolding trans_of_prod trans_prod_def
-  proof safe
-    assume "((L, s), g, a, r, L', s') \<in> trans_int"
-    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
-      unfolding trans_int_def
-      apply clarsimp
-      using prems \<open>L' \<in> _\<close>
-      by (subst A_split) (intro step_int; simp; elim prod_invD; assumption)
-  next
-    assume "((L, s), g, a, r, L', s') \<in> trans_bin"
-    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
-      unfolding trans_bin_def
-      using prems \<open>L' \<in> _\<close>
-      apply clarsimp
-      apply (subst A_split, standard)
-                     apply (assumption | simp; elim prod_invD; assumption)+
-      done
-  next
-    assume "((L, s), g, a, r, L', s') \<in> trans_broad"
-    then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
-      using prems \<open>L' \<in> _\<close>
-      unfolding trans_broad_def inv_of_prod
-      apply clarsimp
-      apply (subst A_split)
-      apply standard
-                         apply (assumption | simp; elim prod_invD; assumption)+
-      done  
-  qed
-qed
-
 lemma step_iff:
   "(\<exists> a. A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>) \<longleftrightarrow> prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
   if "bounded bounds s" "L \<in> states"
@@ -455,41 +498,6 @@ lemma step_iff:
   subgoal for a
     by (cases a; blast dest: action_complete elim: delay_complete)
   done
-
-lemma bounded_inv:
-  \<open>bounded bounds s'\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close>
-  using that unfolding bounds_def by cases simp+
-
-lemma states_inv:
-  \<open>L' \<in> states\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close> \<open>L \<in> states\<close>
-  using that unfolding bounds_def
-proof cases
-  case (step_t N d B broadcast)
-  with \<open>L \<in> states\<close> show ?thesis
-    by simp
-next
-  case prems: (step_int l g a f r l' N' p B broadcast)
-  from \<open>A = _\<close> prems(3) have "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
-    by force
-  with \<open>L \<in> states\<close> show ?thesis
-    unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
-next
-  case prems: (step_bin l1 g1 a f1 r1 l1' N' p l2 g2 f2 r2 l2' q s' B broadcast)
-  from \<open>A = _\<close> prems(3, 4) have
-    "l1' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
-    "l2' \<in> UNION (trans (N q)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
-    by force+
-  with \<open>L \<in> states\<close> show ?thesis
-    unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
-next
-  case prems: (step_broad a broadcast l g f r l' N' p ps gs fs rs ls' s' B)
-  from \<open>A = _\<close> prems(4, 5) have
-    "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
-    "\<forall> q \<in> set ps. ls' q \<in> UNION (trans (N q)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
-    by force+
-  with \<open>L \<in> states\<close> show ?thesis
-    unfolding \<open>L' = _\<close> by (intro state_preservation_updI state_preservation_fold_updI)
-qed
 
 end (* Prod TA *)
 
