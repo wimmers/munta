@@ -402,17 +402,18 @@ end
 definition extend_bij :: "('a :: countable \<Rightarrow> 'b :: countable) \<Rightarrow> 'a set \<Rightarrow> _" where
   "extend_bij f S \<equiv> SOME h. bij h \<and> (\<forall>x \<in> S. h x = f x)"
 
-lemma extend_bij:
+lemma
   fixes f :: "'a  :: countable \<Rightarrow> 'b :: countable" and S :: "'a set"
   assumes "infinite (UNIV :: 'a set)" and "infinite (UNIV :: 'b set)"
       and "inj_on f S" and "finite S"
-    shows "bij (extend_bij f S) \<and> (\<forall>x \<in> S. extend_bij f S x = f x)"
+    shows extend_bij_bij: "bij (extend_bij f S)"
+      and extend_bij_extends: "\<forall>x \<in> S. extend_bij f S x = f x"
 proof -
   from bijective_embedding[OF assms(3) _ _ assms(4) _ _ assms(1,2)] obtain h where
     "bij h \<and> (\<forall>x\<in>S. h x = f x)"
     by auto
-  then show ?thesis
-    unfolding extend_bij_def by (rule someI[where x = h])
+  then show "bij (extend_bij f S)" "\<forall>x \<in> S. extend_bij f S x = f x"
+    unfolding atomize_conj extend_bij_def by (rule someI[where x = h])
 qed
 
 end
