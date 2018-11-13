@@ -163,21 +163,14 @@ lemma inj_image_eqI:
 lemmas [finite_intros] = finite_set
 
 locale Simple_Network_Rename' =
-  Simple_Network_Impl automata for automata ::
+  Simple_Network_Rename_Defs where automata = automata for automata ::
     "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
       \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
-  fixes renum_acts   :: "'a \<Rightarrow> nat"
-    and renum_vars   :: "'x \<Rightarrow> nat"
-    and renum_clocks :: "'c \<Rightarrow> nat"
-    and renum_states :: "nat \<Rightarrow> 's \<Rightarrow> nat"
   assumes inj_extend_renum_clocks: "inj renum_clocks"
       and renum_states_inj: "\<forall>p<n_ps. inj (renum_states p)"
       and bij_renum_vars: "bij renum_vars"
       and bounds'_var_set: "fst ` set bounds' \<subseteq> var_set"
 begin
-
-sublocale Simple_Network_Rename_Defs
-  broadcast bounds' automata renum_acts renum_vars renum_clocks renum_states .
 
 lemma aux_1:
   "(\<lambda>x. case case x of
@@ -558,11 +551,12 @@ lemma renum_states_extend:
   by (intro extend_bij_extends[rule_format]) (auto intro!: inj_onI)
 
 sublocale rename: Simple_Network_Rename'
-  broadcast bounds' automata
+  broadcast bounds'
   renum_acts
   "extend_bij renum_vars var_set"
   "extend_bij renum_clocks clk_set'"
   "\<lambda>p. extend_bij (renum_states p) loc_set"
+  automata
   by (standard;
       intro allI impI inj_extend_bij_renum_clocks inj_extend_bij_renum_states
            bij_extend_bij_renum_states bounds'_var_set)
