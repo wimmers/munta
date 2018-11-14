@@ -1,5 +1,5 @@
 theory Simple_Network_Language_Renaming
-  imports Simple_Network_Language_Impl
+  imports Simple_Network_Language_Model_Checking
 begin
 
 context Simple_Network_Impl
@@ -123,6 +123,13 @@ lemma sem_loc_set_eq:
             simp:  renum.conv_automaton_def trans_def renum.automaton_of_def n_ps_def)+
   done
 
+lemma sem_states_eq:
+  "sem.states = states"
+  unfolding sem.states_def states_def n_ps_eq setcompr_eq_image
+  by (auto simp: sem_N_eq N_eq;
+      force simp:  renum.conv_automaton_def trans_def renum.automaton_of_def n_ps_def
+            split: prod.splits)+
+
 end (* Simple Network Rename Defs *)
 
 lemma
@@ -161,6 +168,38 @@ lemma inj_image_eqI:
 
 (* XXX Add this *)
 lemmas [finite_intros] = finite_set
+
+lemma map_of_NoneI:
+  "map_of xs x = None" if "x \<notin> fst ` set xs"
+  by (simp add: map_of_eq_None_iff that)
+
+
+fun map_sexp ::
+  "(nat \<Rightarrow> 's \<Rightarrow> 's1) \<Rightarrow> ('a \<Rightarrow> 'a1) \<Rightarrow> ('b \<Rightarrow> 'b1) \<Rightarrow> ('s, 'a, 'b) sexp \<Rightarrow>('s1, 'a1, 'b1) sexp"
+where
+  "map_sexp f g h (not e) = not (map_sexp f g h e)" |
+  "map_sexp f g h (and e1 e2) = and (map_sexp f g h e1) (map_sexp f g h e2)" |
+  "map_sexp f g h (sexp.or e1 e2) = sexp.or (map_sexp f g h e1) (map_sexp f g h e2)" |
+  "map_sexp f g h (imply e1 e2) = imply (map_sexp f g h e1) (map_sexp f g h e2)" |
+  "map_sexp f g h (eq i x) = eq (g i) (h x)" |
+  "map_sexp f g h (lt i x) = lt (g i) (h x)" |
+  "map_sexp f g h (le i x) = le (g i) (h x)" |
+  "map_sexp f g h (ge i x) = ge (g i) (h x)" |
+  "map_sexp f g h (gt i x) = gt (g i) (h x)" |
+  "map_sexp f g h (loc i x) = loc i (f i x)"
+
+fun map_formula ::
+  "(nat \<Rightarrow> 's \<Rightarrow> 's1) \<Rightarrow> ('a \<Rightarrow> 'a1) \<Rightarrow> ('b \<Rightarrow> 'b1)
+  \<Rightarrow> ('s, 'a, 'b) formula \<Rightarrow> ('s1, 'a1, 'b1) formula"
+where
+  "map_formula f g h (formula.EX \<phi>) = formula.EX (map_sexp f g h \<phi>)" |
+  "map_formula f g h (EG \<phi>) = EG (map_sexp f g h \<phi>)" |
+  "map_formula f g h (AX \<phi>) = AX (map_sexp f g h \<phi>)" |
+  "map_formula f g h (AG \<phi>) = AG (map_sexp f g h \<phi>)" |
+  "map_formula f g h (Leadsto \<phi> \<psi>) = Leadsto (map_sexp f g h \<phi>) (map_sexp f g h \<psi>)"
+
+
+
 
 locale Simple_Network_Rename' =
   Simple_Network_Rename_Defs where automata = automata for automata ::
@@ -420,7 +459,7 @@ qed
 lemma dom_bounds_var_set: "dom sem.bounds \<subseteq> var_set"
   unfolding dom_bounds sem_bounds_eq using bounds'_var_set .
 
-interpretation Bisimulation_Invariant
+interpretation single: Bisimulation_Invariant
   "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u sem L s u a L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u renum.sem L s u a L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
@@ -482,11 +521,139 @@ proof (-, goal_cases)
     done
 qed
 
+interpretation Bisimulation_Invariant
+  "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
+  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set" "\<lambda>_. True"
+  sorry
+
 lemmas renum_bisim = Bisimulation_Invariant_axioms
 
-end (* Simple Network Rename' *)
+context
+  fixes \<Phi> :: "('s, 'x, int) formula"
+    and s\<^sub>0 :: "('x \<times> int) list"
+    and L\<^sub>0 :: "'s list"
+begin
 
-print_locale Simple_Network_Rename'
+definition \<Phi>' where
+  "\<Phi>' = map_formula renum_states renum_vars id \<Phi>"
+
+definition a\<^sub>0 where
+  "a\<^sub>0 = (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+
+definition a\<^sub>0' where
+  "a\<^sub>0' = (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_. 0)"
+
+context
+  assumes L\<^sub>0_states: "L\<^sub>0 \<in> states"
+  assumes s\<^sub>0_dom: "fst ` set s\<^sub>0 = var_set" and s\<^sub>0_distinct: "distinct (map fst s\<^sub>0)"
+begin
+
+(* Refine to subset of var_set? *)
+lemma state_eq_aux:
+  assumes "x \<notin> renum_vars ` var_set"
+  shows "vars_inv x \<notin> var_set"
+  unfolding vars_inv_def
+proof clarsimp
+  assume "the_inv renum_vars x \<in> var_set"
+  then have "renum_vars (the_inv renum_vars x) = x"
+    by (intro f_the_inv_f inj_renum_vars) (simp add: surj_renum_vars)
+  with assms \<open>_ \<in> var_set\<close> show False
+    by force
+qed
+
+lemma state_eq:
+  assumes "fst ` set s\<^sub>0 = var_set" "distinct (map fst s\<^sub>0)"
+  shows "map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0) = (map_of s\<^sub>0 \<circ>\<circ>\<circ> the_inv_into) UNIV renum_vars"
+    (is "?l = ?r")
+proof (rule ext)
+  fix x
+  show "?l x = ?r x"
+  proof (cases "x \<in> renum_vars ` fst ` set s\<^sub>0")
+    case True
+    then show ?thesis
+      apply clarsimp
+      apply (subst map_of_mapk_SomeI')
+      subgoal
+        using inj_renum_vars by (auto intro: inj_on_subset)
+       apply (rule map_of_is_SomeI, rule assms, assumption)
+      apply (simp add: the_inv_f_f[OF inj_renum_vars] s\<^sub>0_distinct)
+      done
+  next
+    case False
+    then have "vars_inv x \<notin> fst ` set s\<^sub>0"
+      using state_eq_aux assms(1) unfolding vars_inv_def by auto
+    with False show ?thesis
+      apply -
+      apply (frule map_of_NoneI)
+      apply (simp add: vars_inv_def)
+      apply (auto simp: map_of_eq_None_iff)
+      done
+  qed
+qed
+
+lemma start_equiv:
+  "A_B.equiv' a\<^sub>0 a\<^sub>0'"
+  unfolding A_B.equiv'_def a\<^sub>0_def a\<^sub>0'_def
+  apply (clarsimp simp: vars_inv_def, intro conjI)
+  subgoal
+    by (intro state_eq s\<^sub>0_dom s\<^sub>0_distinct)
+  subgoal
+    unfolding map_u_def by auto
+  subgoal
+    unfolding sem_states_eq by (rule L\<^sub>0_states)
+  subgoal
+    using s\<^sub>0_dom dom_map_of_conv_image_fst[of s\<^sub>0] by fastforce
+  done
+
+lemma check_sexp_equiv:
+  assumes "A_B.equiv' (L, s, u) (L', s', u')" "locs_of_sexp e \<subseteq> {0..<n_ps}"
+  shows
+  "check_sexp e L (the \<circ> s) \<longleftrightarrow>
+   check_sexp (map_sexp renum_states renum_vars id e) L' (the \<circ> s')"
+  using assms unfolding A_B.equiv'_def
+  by (induction e)
+     (simp add:
+       inj_eq sem.states_lengthD renum_states_inj vars_inv_def the_inv_f_f[OF inj_renum_vars])+
+
+lemma models_iff:
+  "sem,a\<^sub>0 \<Turnstile> \<Phi> = renum.sem,a\<^sub>0' \<Turnstile> \<Phi>'" if "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
+proof (cases \<Phi>)
+  case (EX x1)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps EX formula.case) (rule Ex_ev_iff, auto)
+next
+  case (EG x2)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps EG formula.case Graph_Defs.Ex_alw_iff Not_eq_iff)
+       (rule Alw_ev_iff, auto)
+next
+  case (AX x3)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps AX formula.case) (rule Alw_ev_iff, auto)
+next
+  case (AG x4)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps AG formula.case Graph_Defs.Alw_alw_iff Not_eq_iff)
+       (rule Ex_ev_iff, auto)
+next
+  case (Leadsto x51 x52)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps Leadsto formula.case) (rule Leadsto_iff, auto)
+qed
+
+
+end (* Context for assumptions *)
+
+end (* Context for formula *)
+
+end (* Simple Network Rename' *)
 
 locale Simple_Network_Rename =
   Simple_Network_Rename_Defs where automata = automata for automata ::
@@ -682,52 +849,73 @@ lemma rename_sem_eq:
     using bounds'_var_set by - (fo_rule arg_cong, auto)
   done
 
-thm rename.renum_bisim[unfolded rename_sem_eq]
+context
+  fixes \<Phi> :: "('s, 'x, int) formula"
+    and s\<^sub>0 :: "('x \<times> int) list"
+    and L\<^sub>0 :: "'s list"
+  assumes L\<^sub>0_states: "L\<^sub>0 \<in> states"
+      and s\<^sub>0_dom: "fst ` set s\<^sub>0 = var_set" and s\<^sub>0_distinct: "distinct (map fst s\<^sub>0)"
+  assumes formula_dom:
+    "set1_formula \<Phi> \<subseteq> loc_set"
+    "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
+    "vars_of_formula \<Phi> \<subseteq> var_set"
+begin
 
-lemma
-  assumes "L \<in> sem.states" "dom s \<subseteq> var_set"
-  shows "map_index (\<lambda>p. extend_bij (renum_states p) loc_set) L = map_index renum_states L"
-    and "(s oo Simple_Network_Rename_Defs.vars_inv) (extend_bij renum_vars var_set) = s o (the_inv_into var_set renum_vars)"
-    and "rename.map_u u = map_u u"
+definition \<Phi>' where
+  "\<Phi>' = map_formula renum_states renum_vars id \<Phi>"
+
+definition a\<^sub>0 where
+  "a\<^sub>0 = (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+
+definition a\<^sub>0' where
+  "a\<^sub>0' = (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_. 0)"
+
+lemma sexp_eq:
+  assumes
+    \<open>vars_of_sexp e \<subseteq> var_set\<close>
+    \<open>set1_sexp e \<subseteq> loc_set\<close>
+    \<open>locs_of_sexp e \<subseteq> {0..<n_ps}\<close>
+  shows \<open>map_sexp (\<lambda>p. extend_bij (renum_states p) loc_set) (extend_bij renum_vars var_set) id e =
+         map_sexp renum_states renum_vars id e\<close>
+  using assms by (induction e; clarsimp simp: renum_states_extend)
+
+lemma formula_eq:
+  "rename.\<Phi>' \<Phi> = \<Phi>'"
+  using formula_dom unfolding rename.\<Phi>'_def \<Phi>'_def by (induction \<Phi>; clarsimp simp: sexp_eq)
+
+lemma a\<^sub>0_eq:
+  "rename.a\<^sub>0 s\<^sub>0 L\<^sub>0 = a\<^sub>0"
+  unfolding a\<^sub>0_def rename.a\<^sub>0_def ..
+
+lemma state_eq:
+  "map_of (map (\<lambda>(x, y). (extend_bij renum_vars var_set x, y)) s\<^sub>0) =
+    map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0)"
+  using s\<^sub>0_dom by - (rule arg_cong, auto intro: renum_vars_bij_extends)
+
+lemma L\<^sub>0_dom:
+  "length L\<^sub>0 = n_ps" "set L\<^sub>0 \<subseteq> loc_set"
+  using L\<^sub>0_states by (auto intro!: states_loc_setD)
+
+lemma rename_a\<^sub>0'_eq:
+  "rename.a\<^sub>0' s\<^sub>0 L\<^sub>0 = a\<^sub>0'"
+  unfolding a\<^sub>0'_def rename.a\<^sub>0'_def
+  apply (clarsimp, rule conjI)
   subgoal
-    apply (intros add: map_index_cong)
-    apply (rule renum_states_extend)
-    using assms unfolding sem.states_def
-    sorry
+    using L\<^sub>0_dom by (auto intro!: map_index_cong renum_states_extend)
   subgoal
-    apply (intro ext)
-    apply (simp add: rename.vars_inv_def vars_inv_def)
-    subgoal for x
-      apply (cases "x \<in> renum_vars ` var_set")
-      subgoal
-        apply (fo_rule arg_cong)
-        apply auto
-        apply (subst the_inv_into_f_f)
-          prefer 3
-          apply (subst renum_vars_bij_extends[symmetric])
-          defer
-          apply (subst the_inv_f_f)
-        sorry
-      subgoal
-        sorry
-      done
-    done
-  subgoal
-    unfolding rename.map_u_def map_u_def
-    apply (simp add: Simple_Network_Rename_Defs.clocks_inv_def)
-    apply (rule ext)
-    apply (auto simp: comp_def)
-    oops
+    unfolding vars_inv_def using s\<^sub>0_dom s\<^sub>0_distinct
+    by (auto simp: state_eq Simple_Network_Rename_Defs.vars_inv_def)
+  done
 
+lemma models_iff:
+  "renum.sem,a\<^sub>0' \<Turnstile> \<Phi>' \<longleftrightarrow> sem,a\<^sub>0 \<Turnstile> \<Phi>"
+  by (rule sym)
+     (intro
+      rename.models_iff[of L\<^sub>0 s\<^sub>0 \<Phi>, unfolded rename_sem_eq formula_eq a\<^sub>0_eq rename_a\<^sub>0'_eq]
+      formula_dom L\<^sub>0_states s\<^sub>0_distinct, simp add: s\<^sub>0_dom
+      )
 
-
-interpretation Bisimulation_Invariant
-  "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u sem L s u a L' s' u'"
-  "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u renum.sem L s u a L' s' u'"
-  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
-  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set" "\<lambda>_. True"
-  thm Bisimulation_Invariant_simulation_strengthen rename.renum_bisim[unfolded rename_sem_eq]
-  oops
+end (* Context for formula *)
 
 end (* Simple_Network_Rename *)
 
