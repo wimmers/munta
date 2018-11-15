@@ -1252,18 +1252,18 @@ lemma conv_n_ps_eq:
   "conv.n_ps = n_ps"
   by (simp add: Prod_TA_Defs.n_ps_def)
 
-private lemma 4:
+lemma conv_N_eq:
   "conv.N i = Simple_Network_Language.conv_A (N i)" if "i < n_ps"
   using that unfolding n_ps_def Prod_TA_Defs.N_def fst_conv snd_conv by (subst nth_map | simp)+
 
 private lemma 5:
   "inv (conv.N i) = conv_cc o (inv (N i))" if "i < n_ps"
-  unfolding 4[OF that] unfolding Simple_Network_Language.conv_A_def
+  unfolding conv_N_eq[OF that] unfolding Simple_Network_Language.conv_A_def
   by (simp split: prod.split add: inv_def)
 
 lemma trans_conv_N_eq:
   "trans (conv.N i) = Simple_Network_Language.conv_t ` (trans (N i))"  if "i < n_ps"
-  unfolding 4[OF that] unfolding Simple_Network_Language.conv_A_def
+  unfolding conv_N_eq[OF that] unfolding Simple_Network_Language.conv_A_def
   by (simp split: prod.split add: trans_def)
 
 private lemma 71:
@@ -1293,7 +1293,7 @@ lemma conv_states[simp]:
 
 private lemma 9:
   "commited (conv.N p) = commited (N p)" if \<open>p < n_ps\<close>
-  unfolding 4[OF that] unfolding Simple_Network_Language.conv_A_def
+  unfolding conv_N_eq[OF that] unfolding Simple_Network_Language.conv_A_def
   by (simp split: prod.split add: commited_def)
 
 private lemma 10:

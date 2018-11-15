@@ -648,6 +648,9 @@ next
     by (simp only: map_formula.simps Leadsto formula.case) (rule Leadsto_iff, auto)
 qed
 
+lemma has_deadlock_iff:
+  "has_deadlock sem a\<^sub>0 \<longleftrightarrow> has_deadlock renum.sem a\<^sub>0'"
+  unfolding has_deadlock_def using start_equiv by (intro deadlock_iff, unfold A_B.equiv'_def) auto
 
 end (* Context for assumptions *)
 
@@ -849,7 +852,12 @@ lemma rename_sem_eq:
     using bounds'_var_set by - (fo_rule arg_cong, auto)
   done
 
-context
+end (* Simple_Network_Rename *)
+
+locale Simple_Network_Rename_Formula =
+  Simple_Network_Rename where automata = automata for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
   fixes \<Phi> :: "('s, 'x, int) formula"
     and s\<^sub>0 :: "('x \<times> int) list"
     and L\<^sub>0 :: "'s list"
@@ -915,39 +923,42 @@ lemma models_iff:
       formula_dom L\<^sub>0_states s\<^sub>0_distinct, simp add: s\<^sub>0_dom
       )
 
-end (* Context for formula *)
+lemma has_deadlock_iff:
+  "has_deadlock renum.sem a\<^sub>0' \<longleftrightarrow> has_deadlock sem a\<^sub>0"
+  by (rule sym)
+     (intro
+      rename.has_deadlock_iff[of L\<^sub>0 s\<^sub>0, unfolded rename_sem_eq formula_eq a\<^sub>0_eq rename_a\<^sub>0'_eq]
+      formula_dom L\<^sub>0_states s\<^sub>0_distinct, simp add: s\<^sub>0_dom
+     )
 
-end (* Simple_Network_Rename *)
+lemma (in Simple_Network_Rename_Defs) conv_automaton_of:
+  "Simple_Network_Language.conv_A (renum.automaton_of A) =
+   renum.automaton_of (renum.conv_automaton A)"
+  unfolding renum.automaton_of_def renum.conv_automaton_def
+    Simple_Network_Language.conv_A_def
+  by (force
+      simp: default_map_of_alt_def map_of_map Simple_Network_Language.conv_t_def split: prod.splits
+     )
 
+lemma N_eq_sem:
+  "Simple_Network_Language_Model_Checking.N broadcast automata bounds' = sem"
+  unfolding conv_alt_def
+  by safe (rule nth_equalityI; simp add: conv_N_eq N_eq sem_N_eq conv_automaton_of n_ps_def)
 
-lemmas [code] =
-  Simple_Network_Rename_def
-  [unfolded
-    Simple_Network_Impl.var_set_compute
-    Simple_Network_Impl.loc_set_compute
-    Simple_Network_Impl.length_automata_eq_n_ps[symmetric]
-  ]
- Simple_Network_Impl.clk_set'_def
- Simple_Network_Impl.clkp_set'_def
- Simple_Network_Rename.renum_automaton'_def
+lemma rename_N_eq_sem:
+  "Simple_Network_Language_Model_Checking.N
+  (map renum_acts broadcast)
+  (map_index renum_automaton automata)
+  (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds')
+  = renum.sem"
+  unfolding renum.conv_alt_def
+  by safe (rule nth_equalityI; simp add: conv_N_eq N_eq sem_N_eq conv_automaton_of n_ps_def)
 
-export_code Simple_Network_Rename in SML
+lemmas models_iff' = models_iff[folded rename_N_eq_sem N_eq_sem,unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
 
-concrete_definition renum_automaton' uses Simple_Network_Rename.renum_automaton'_alt_def
+lemmas has_deadlock_iff' =
+  has_deadlock_iff[folded rename_N_eq_sem N_eq_sem,unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
 
-export_code renum_automaton' in SML
-
-lemmas [code] =
-  Simple_Network_Rename_Defs.renum_automaton_def
-  Simple_Network_Rename_Defs.renum_cconstraint_def
-  Simple_Network_Rename_Defs.map_cconstraint_def
-  Simple_Network_Rename_Defs.renum_reset_def
-  Simple_Network_Rename_Defs.renum_upd_def
-  Simple_Network_Rename_Defs.renum_act_def
-  Simple_Network_Rename_Defs.renum_exp_def
-
-export_code Simple_Network_Rename_Defs.renum_automaton in SML
-
-concrete_definition renum_automaton uses Simple_Network_Rename_Defs.renum_automaton_def
+end (* Simple_Network_Rename_Formula *)
 
 end (* Theory *)

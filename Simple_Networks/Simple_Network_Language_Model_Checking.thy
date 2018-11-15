@@ -1474,27 +1474,42 @@ definition precond_mc where
       \<bind> (\<lambda> x. return (Some x))
     else return None"
 
-lemmas [code] =
-  reachability_checker_def
-  Alw_ev_checker_def
-  leadsto_checker_def
-  model_checker_def[unfolded PR_CONST_def]
 
-lemmas [code] =
-  Prod_TA_Defs.n_ps_def
-  Simple_Network_Impl.n_vs_def
-  Simple_Network_Impl.automaton_of_def
-  Simple_Network_Impl_nat_defs.pairs_by_action_impl_def
-  Simple_Network_Impl_nat_defs.all_actions_from_vec_def
-  Simple_Network_Impl_nat_defs.all_actions_by_state_def
-  Simple_Network_Impl_nat_defs.compute_upds_impl_def
-  Simple_Network_Impl_nat_defs.actions_by_state_def
-  Simple_Network_Impl_nat_defs.check_boundedi_def
-  Simple_Network_Impl_nat_defs.get_commited_def
-  Simple_Network_Impl_nat_defs.make_combs_def
-  Simple_Network_Impl_nat_defs.trans_map_def
-  Simple_Network_Impl_nat_defs.actions_by_state'_def
-  Simple_Network_Impl_nat_defs.bounds_map_def
-  mk_updsi_def
+abbreviation N where
+  "N broadcast automata bounds \<equiv>
+  Simple_Network_Language.conv
+    (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds)"
+
+definition has_deadlock where
+  "has_deadlock A a\<^sub>0 \<equiv>
+    Graph_Defs.deadlock (\<lambda> (L, s, u) (L', s', u'). A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) a\<^sub>0"
+
+theorem model_check:
+  "<emp> precond_mc broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+    <\<lambda> Some r \<Rightarrow> \<up>(
+        Simple_Network_Impl_nat_ceiling_start_state
+          broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<and>
+        (\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
+          r = N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
+        ))
+     | None \<Rightarrow> \<up>(\<not> Simple_Network_Impl_nat_ceiling_start_state
+        broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula)
+    >\<^sub>t"
+proof -
+  define A where "A \<equiv> N broadcast automata bounds"
+  define check where "check \<equiv> A,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula"
+  note [sep_heap_rules] =
+    Simple_Network_Impl_nat_ceiling_start_state.model_check'[
+      to_hnr, unfolded hn_refine_def,
+      of broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula,
+      unfolded UPPAAL_Reachability_Problem_precompiled_defs.init_def,
+      folded A_def check_def has_deadlock_def,
+      simplified
+      ]
+  show ?thesis
+    unfolding A_def[symmetric] check_def[symmetric]
+    unfolding precond_mc_def
+    by (sep_auto simp: model_checker.refine[symmetric] pure_def)
+qed
 
 end (* Theory *)
