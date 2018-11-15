@@ -1807,7 +1807,6 @@ locale Simple_Network_Impl_nat =
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
       "
     "\<forall>(_, _, inv) \<in> set automata. \<forall>(l, g) \<in> set inv.
-      (\<forall>c \<in> set r. 0 < c \<and> c < m) \<and>
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
       "
   assumes broadcast_receivers:

@@ -233,7 +233,7 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
   Simple_Network_Impl_nat +
   fixes k :: "nat list list list"
     and L\<^sub>0 :: "nat list"
-    and s\<^sub>0 :: "nat \<rightharpoonup> int"
+    and s\<^sub>0 :: "(nat \<times> int) list"
     and formula :: "(nat, nat, int) formula"
   assumes k_ceiling:
     "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
@@ -250,7 +250,7 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
     "\<forall>i < n_ps. \<forall>l < length ((fst o snd) (automata ! i)). k ! i ! l ! 0 = 0"
   and inv_unambiguous:
     "\<forall>(_, _, inv) \<in> set automata. distinct (map fst inv)"
-  and s\<^sub>0_bounded: "bounded bounds s\<^sub>0"
+  and s\<^sub>0_bounded: "bounded bounds (map_of s\<^sub>0)"
   and L\<^sub>0_len: "length L\<^sub>0 = n_ps"
   and L\<^sub>0_has_trans: "\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd) (automata ! i))"
   and vars_of_formula: "vars_of_formula formula \<subseteq> {0..<n_vs}"
@@ -490,12 +490,12 @@ lemma F_Fi:
   using vars_of_formula that unfolding loc_rel_def by clarsimp (erule hd_of_formula_hd_of_formulai)
 
 
-abbreviation "l\<^sub>0 \<equiv> (L\<^sub>0, s\<^sub>0)"
-abbreviation "s\<^sub>0i \<equiv> map (the o s\<^sub>0) [0..<n_vs]"
+abbreviation "l\<^sub>0 \<equiv> (L\<^sub>0, map_of s\<^sub>0)"
+abbreviation "s\<^sub>0i \<equiv> map (the o map_of s\<^sub>0) [0..<n_vs]"
 abbreviation "l\<^sub>0i \<equiv> (L\<^sub>0, s\<^sub>0i)"
 
 lemma state_rel_start:
-  "state_rel s\<^sub>0 s\<^sub>0i"
+  "state_rel (map_of s\<^sub>0) s\<^sub>0i"
   using s\<^sub>0_bounded unfolding state_rel_def bounded_def dom_bounds_eq by auto
 
 lemma statesI:
@@ -1014,12 +1014,12 @@ definition model_checker where
 abbreviation "u\<^sub>0 \<equiv> (\<lambda> _. 0 :: real)"
 
 lemma all_prop_start:
-  "all_prop L\<^sub>0 s\<^sub>0"
+  "all_prop L\<^sub>0 (map_of s\<^sub>0)"
   using L\<^sub>0_states s\<^sub>0_bounded unfolding all_prop_def ..
 
 lemma deadlock_start_iff:
   "Graph_Defs.deadlock
-   (\<lambda>(L, s, u) (L', s', u'). Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) (L\<^sub>0, s\<^sub>0, u\<^sub>0)
+   (\<lambda>(L, s, u) (L', s', u'). Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) (L\<^sub>0, (map_of s\<^sub>0), u\<^sub>0)
   \<longleftrightarrow> reach.deadlock (l\<^sub>0, u\<^sub>0)"
   using all_prop_start by (subst deadlock_iff[symmetric]) (auto simp: conv_all_prop)
 
@@ -1033,8 +1033,8 @@ theorem model_check':
     uncurry0 (
       SPEC (\<lambda>r.
   \<not> Graph_Defs.deadlock
-    (\<lambda>(L, s, u) (L', s', u'). Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) (L\<^sub>0, s\<^sub>0, u\<^sub>0)
-      \<longrightarrow> r = (Simple_Network_Language.conv A,(L\<^sub>0, s\<^sub>0, u\<^sub>0) \<Turnstile> formula)
+    (\<lambda>(L, s, u) (L', s', u'). Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) (L\<^sub>0, (map_of s\<^sub>0), u\<^sub>0)
+      \<longrightarrow> r = (Simple_Network_Language.conv A,(L\<^sub>0, (map_of s\<^sub>0), u\<^sub>0) \<Turnstile> formula)
       )
     )
    )
@@ -1465,7 +1465,7 @@ end (* Simple_Network_Impl_nat_ceiling_start_state *)
 concrete_definition model_checker uses
   Simple_Network_Impl_nat_ceiling_start_state.model_checker_def_refined
 
-definition precond_mc where [code]:
+definition precond_mc where
   "precond_mc broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<equiv>
     if Simple_Network_Impl_nat_ceiling_start_state
       broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
@@ -1496,8 +1496,5 @@ lemmas [code] =
   Simple_Network_Impl_nat_defs.actions_by_state'_def
   Simple_Network_Impl_nat_defs.bounds_map_def
   mk_updsi_def
-
-export_code
-  model_checker checking SML_imp
 
 end (* Theory *)
