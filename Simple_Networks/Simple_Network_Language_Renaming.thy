@@ -175,7 +175,8 @@ lemma map_of_NoneI:
 
 
 fun map_sexp ::
-  "(nat \<Rightarrow> 's \<Rightarrow> 's1) \<Rightarrow> ('a \<Rightarrow> 'a1) \<Rightarrow> ('b \<Rightarrow> 'b1) \<Rightarrow> ('s, 'a, 'b) sexp \<Rightarrow>('s1, 'a1, 'b1) sexp"
+  "(nat \<Rightarrow> 's \<Rightarrow> 's1) \<Rightarrow> ('a \<Rightarrow> 'a1) \<Rightarrow> ('b \<Rightarrow> 'b1) \<Rightarrow> (nat, 's, 'a, 'b) sexp
+    \<Rightarrow> (nat, 's1, 'a1, 'b1) sexp"
 where
   "map_sexp f g h (not e) = not (map_sexp f g h e)" |
   "map_sexp f g h (and e1 e2) = and (map_sexp f g h e1) (map_sexp f g h e2)" |
@@ -190,7 +191,7 @@ where
 
 fun map_formula ::
   "(nat \<Rightarrow> 's \<Rightarrow> 's1) \<Rightarrow> ('a \<Rightarrow> 'a1) \<Rightarrow> ('b \<Rightarrow> 'b1)
-  \<Rightarrow> ('s, 'a, 'b) formula \<Rightarrow> ('s1, 'a1, 'b1) formula"
+  \<Rightarrow> (nat, 's, 'a, 'b) formula \<Rightarrow> (nat, 's1, 'a1, 'b1) formula"
 where
   "map_formula f g h (formula.EX \<phi>) = formula.EX (map_sexp f g h \<phi>)" |
   "map_formula f g h (EG \<phi>) = EG (map_sexp f g h \<phi>)" |
@@ -531,7 +532,7 @@ interpretation Bisimulation_Invariant
 lemmas renum_bisim = Bisimulation_Invariant_axioms
 
 context
-  fixes \<Phi> :: "('s, 'x, int) formula"
+  fixes \<Phi> :: "(nat, 's, 'x, int) formula"
     and s\<^sub>0 :: "('x \<times> int) list"
     and L\<^sub>0 :: "'s list"
 begin
@@ -858,13 +859,13 @@ locale Simple_Network_Rename_Formula =
   Simple_Network_Rename where automata = automata for automata ::
     "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
       \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
-  fixes \<Phi> :: "('s, 'x, int) formula"
+  fixes \<Phi> :: "(nat, 's, 'x, int) formula"
     and s\<^sub>0 :: "('x \<times> int) list"
     and L\<^sub>0 :: "'s list"
   assumes L\<^sub>0_states: "L\<^sub>0 \<in> states"
       and s\<^sub>0_dom: "fst ` set s\<^sub>0 = var_set" and s\<^sub>0_distinct: "distinct (map fst s\<^sub>0)"
   assumes formula_dom:
-    "set1_formula \<Phi> \<subseteq> loc_set"
+    "set2_formula \<Phi> \<subseteq> loc_set"
     "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
     "vars_of_formula \<Phi> \<subseteq> var_set"
 begin
@@ -881,7 +882,7 @@ definition a\<^sub>0' where
 lemma sexp_eq:
   assumes
     \<open>vars_of_sexp e \<subseteq> var_set\<close>
-    \<open>set1_sexp e \<subseteq> loc_set\<close>
+    \<open>set2_sexp e \<subseteq> loc_set\<close>
     \<open>locs_of_sexp e \<subseteq> {0..<n_ps}\<close>
   shows \<open>map_sexp (\<lambda>p. extend_bij (renum_states p) loc_set) (extend_bij renum_vars var_set) id e =
          map_sexp renum_states renum_vars id e\<close>

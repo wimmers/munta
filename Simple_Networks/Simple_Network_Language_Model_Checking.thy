@@ -104,10 +104,10 @@ end (* Prod TA *)
 section \<open>The final semantics\<close>
 
 text \<open>State formulas\<close>
-datatype ('s, 'a, 'b) sexp =
+datatype ('n, 's, 'a, 'b) sexp =
   \<comment> \<open>Boolean connectives\<close>
-  not "('s, 'a, 'b) sexp" | "and" "('s, 'a, 'b) sexp" "('s, 'a, 'b) sexp" |
-  or "('s, 'a, 'b) sexp" "('s, 'a, 'b) sexp" | imply "('s, 'a, 'b) sexp" "('s, 'a, 'b) sexp" |
+  not "('n, 's, 'a, 'b) sexp" | "and" "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp" |
+  or "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp" | imply "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp" |
   \<comment> \<open>Does var \<open>a\<close> equal \<open>x\<close>?\<close>
   eq 'a 'b |
   le 'a 'b |
@@ -115,13 +115,13 @@ datatype ('s, 'a, 'b) sexp =
   ge 'a 'b |
   gt 'a 'b |
   \<comment> \<open>Is procces \<open>i\<close> in location \<open>l\<close>?\<close>
-  loc nat 's
+  loc 'n 's
 
-datatype ('s, 'a, 'b) formula =
-  EX "('s, 'a, 'b) sexp" | EG "('s, 'a, 'b) sexp" | AX "('s, 'a, 'b) sexp" | AG "('s, 'a, 'b) sexp"
-| Leadsto "('s, 'a, 'b) sexp" "('s, 'a, 'b) sexp"
+datatype ('n, 's, 'a, 'b) formula =
+  EX "('n, 's, 'a, 'b) sexp" | EG "('n, 's, 'a, 'b) sexp" | AX "('n, 's, 'a, 'b) sexp" | AG "('n, 's, 'a, 'b) sexp"
+| Leadsto "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp"
 
-fun check_sexp :: "('s, 'a, 'b :: linorder) sexp \<Rightarrow> 's list \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+fun check_sexp :: "(nat, 's, 'a, 'b :: linorder) sexp \<Rightarrow> 's list \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "check_sexp (not e) L s \<longleftrightarrow> \<not> check_sexp e L s" |
   "check_sexp (and e1 e2) L s \<longleftrightarrow> check_sexp e1 L s \<and> check_sexp e2 L s" |
   "check_sexp (sexp.or e1 e2) L s \<longleftrightarrow> check_sexp e1 L s \<or> check_sexp e2 L s" |
@@ -133,7 +133,7 @@ fun check_sexp :: "('s, 'a, 'b :: linorder) sexp \<Rightarrow> 's list \<Rightar
   "check_sexp (gt i x) L s \<longleftrightarrow> s i > x" |
   "check_sexp (loc i x) L s \<longleftrightarrow> L ! i = x"
 
-fun locs_of_sexp :: "('s, 'a, 'b) sexp \<Rightarrow> nat set" where
+fun locs_of_sexp :: "('n, 's, 'a, 'b) sexp \<Rightarrow> 'n set" where
   "locs_of_sexp (not e) = locs_of_sexp e" |
   "locs_of_sexp (and e1 e2) = locs_of_sexp e1 \<union> locs_of_sexp e2" |
   "locs_of_sexp (sexp.or e1 e2) = locs_of_sexp e1 \<union> locs_of_sexp e2" |
@@ -141,7 +141,7 @@ fun locs_of_sexp :: "('s, 'a, 'b) sexp \<Rightarrow> nat set" where
   "locs_of_sexp (loc i x) = {i}" |
   "locs_of_sexp _ = {}"
 
-fun vars_of_sexp :: "('s, 'a, 'b) sexp \<Rightarrow> 'a set" where
+fun vars_of_sexp :: "('n, 's, 'a, 'b) sexp \<Rightarrow> 'a set" where
   "vars_of_sexp (not e) = vars_of_sexp e" |
   "vars_of_sexp (and e1 e2) = vars_of_sexp e1 \<union> vars_of_sexp e2" |
   "vars_of_sexp (sexp.or e1 e2) = vars_of_sexp e1 \<union> vars_of_sexp e2" |
@@ -153,21 +153,21 @@ fun vars_of_sexp :: "('s, 'a, 'b) sexp \<Rightarrow> 'a set" where
   "vars_of_sexp (gt i x) = {i}" |
   "vars_of_sexp (loc i x) = {}"
 
-fun locs_of_formula :: "('s, 'a, 'b) formula \<Rightarrow> nat set" where
+fun locs_of_formula :: "('n, 's, 'a, 'b) formula \<Rightarrow> 'n set" where
   "locs_of_formula (formula.EX \<phi>) = locs_of_sexp \<phi>" |
   "locs_of_formula (EG \<phi>) = locs_of_sexp \<phi>" |
   "locs_of_formula (AX \<phi>) = locs_of_sexp \<phi>" |
   "locs_of_formula (AG \<phi>) = locs_of_sexp \<phi>" |
   "locs_of_formula (Leadsto \<phi> \<psi>) = locs_of_sexp \<phi> \<union> locs_of_sexp \<psi>"
 
-fun vars_of_formula :: "('s, 'a, 'b) formula \<Rightarrow> 'a set" where
+fun vars_of_formula :: "('n, 's, 'a, 'b) formula \<Rightarrow> 'a set" where
   "vars_of_formula (formula.EX \<phi>) = vars_of_sexp \<phi>" |
   "vars_of_formula (EG \<phi>) = vars_of_sexp \<phi>" |
   "vars_of_formula (AX \<phi>) = vars_of_sexp \<phi>" |
   "vars_of_formula (AG \<phi>) = vars_of_sexp \<phi>" |
   "vars_of_formula (Leadsto \<phi> \<psi>) = vars_of_sexp \<phi> \<union> vars_of_sexp \<psi>"
 
-fun hd_of_formula :: "('s, 'a, 'b) formula \<Rightarrow> 's list \<Rightarrow> ('a \<Rightarrow> 'b :: linorder) \<Rightarrow> bool" where
+fun hd_of_formula :: "(nat, 's, 'a, 'b) formula \<Rightarrow> 's list \<Rightarrow> ('a \<Rightarrow> 'b :: linorder) \<Rightarrow> bool" where
   "hd_of_formula (formula.EX \<phi>) L s = check_sexp \<phi> L s" |
   "hd_of_formula (EG \<phi>) L s = check_sexp \<phi> L s" |
   "hd_of_formula (AX \<phi>) L s = Not (check_sexp \<phi> L s)" |
@@ -202,7 +202,7 @@ definition models ("_,_ \<Turnstile> _" [61,61] 61) where
 
 lemmas models_iff = models_def[unfolded Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff]
 
-fun check_sexpi :: "('s, nat, int) sexp \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> bool" where
+fun check_sexpi :: "(nat, 's, nat, int) sexp \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> bool" where
   "check_sexpi (not e) L s \<longleftrightarrow> \<not> check_sexpi e L s" |
   "check_sexpi (and e1 e2) L s \<longleftrightarrow> check_sexpi e1 L s \<and> check_sexpi e2 L s" |
   "check_sexpi (sexp.or e1 e2) L s \<longleftrightarrow> check_sexpi e1 L s \<or> check_sexpi e2 L s" |
@@ -214,7 +214,7 @@ fun check_sexpi :: "('s, nat, int) sexp \<Rightarrow> 's list \<Rightarrow> int 
   "check_sexpi (gt i x) L s \<longleftrightarrow> s ! i > x" |
   "check_sexpi (loc i x) L s \<longleftrightarrow> L ! i = x"
 
-fun hd_of_formulai :: "('s, nat, int) formula \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> bool" where
+fun hd_of_formulai :: "(nat, 's, nat, int) formula \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> bool" where
   "hd_of_formulai (formula.EX \<phi>) L s = check_sexpi \<phi> L s" |
   "hd_of_formulai (EG \<phi>) L s = check_sexpi \<phi> L s" |
   "hd_of_formulai (AX \<phi>) L s = Not (check_sexpi \<phi> L s)" |
@@ -234,7 +234,7 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
   fixes k :: "nat list list list"
     and L\<^sub>0 :: "nat list"
     and s\<^sub>0 :: "(nat \<times> int) list"
-    and formula :: "(nat, nat, int) formula"
+    and formula :: "(nat, nat, nat, int) formula"
   assumes k_ceiling:
     "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
       \<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x)"
