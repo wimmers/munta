@@ -1506,7 +1506,6 @@ proof clarsimp
   define OUT where "OUT = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]"
   define IN' where "IN' = map (map (filter (\<lambda> (b, _). bval (the o s) b))) IN"
   define OUT' where "OUT' = map (map (filter (\<lambda> (b, _). bval (the o s) b))) OUT"
-  term make_combs
   have IN'_I:
     "(b, g, a', f, r, l') \<in> set (IN' ! p ! a')"
     if "(b, g, a', f, r, l') \<in> set (IN ! p ! a')" "p < n_ps" "a' < num_actions"
@@ -1573,6 +1572,12 @@ proof clarsimp
     apply (drule in_actions_by_state'D)
     unfolding trans_out_broad_map_def set_map_filter
     by (auto split: option.split_asm) (auto split: act.split_asm if_split_asm dest: trans_mapD)
+  have OUT'_D:
+    "(L ! p, b, g, Out a', f, r, l') \<in> Simple_Network_Language.trans (N p)
+     \<and> a' = a1 \<and> a1 \<in> set broadcast \<and> check_bexp s b True"
+    if "(b, g, a', f, r, l') \<in> set (OUT' ! p ! a1)" "a1 < num_actions" "p < n_ps"
+    for p b g a' f r l' a1
+    sorry
   define make_trans where "make_trans a p \<equiv>
       let
         outs = OUT' ! p ! a
@@ -1789,7 +1794,6 @@ proof clarsimp
       "is_upds s'' (map fs ps) s'" and
       "Simple_Network_Language.bounded bounds s'"
     for a' p b1 g1 bs gs ps r1 rs ls' l' f1 s'' fs
-(*
     using that
     unfolding make_trans_def
     apply (clarsimp simp: set_map_filter Let_def split: prod.split)
@@ -1801,24 +1805,11 @@ proof clarsimp
     apply frules_all
     apply simp
     apply (intro conjI)
-    subgoal
-      apply (drule (3) OUT'_I)
-      apply auto
-      done
-    thm image_eqI
-     apply (rule image_eqI[where x = "map (\<lambda>p. (p, bs p, gs p, a', fs p, rs p, ls' p)) ps"])
-    apply (subst upd_swap, assumption)
-    apply (subst ***[symmetric])
-    apply intros
-    oops
-    apply (inst_existentials p)
       apply (auto; fail)
      apply (intros add: more_intros)
       apply (solve_triv | intros add: more_intros UN_I)+
      apply (simp add: *** upd_swap; fail)
     unfolding check_bounded_iff[symmetric] .
-*)
-    sorry
   have make_transD:
     "\<exists>s'' b ga f ra l' bs gs fs rs ls' ps.
          g = ga @ concat (map gs ps) \<and>
@@ -1830,15 +1821,17 @@ proof clarsimp
          (\<forall>p\<in>set ps. (L ! p, bs p, gs p, In a', fs p, rs p, ls' p) \<in> trans (N p)) \<and>
          (\<forall>q<n_ps.
              q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
-             (\<forall>b g f r l'. (L ! q, b, g, In a', f, r, l') \<notin> trans (N q))) \<and>
+             (\<forall>b g f r l'. (L ! q, b, g, In a', f, r, l') \<notin> trans (N q) \<or> \<not> check_bexp s b True)) \<and>
          p < n_ps \<and>
          set ps \<subseteq> {0..<n_ps} \<and>
          p \<notin> set ps \<and>
          distinct ps \<and>
          sorted ps \<and>
-         ps \<noteq> [] \<and> is_upd s f s'' \<and> is_upds s'' (map fs ps) s' \<and>
-         Simple_Network_Language.bounded bounds s' \<and>
-         filter (\<lambda>i. IN ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = ps"
+         ps \<noteq> [] \<and>
+         check_bexp s b True \<and> (\<forall>p\<in>set ps. check_bexp s (bs p) True) \<and>
+         is_upd s f s'' \<and> is_upds s'' (map fs ps) s' \<and>
+         bounded bounds s' \<and>
+         filter (\<lambda>i. IN' ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = ps"
     if
       "dom s = {0..<n_vs}" and
       "L \<in> states" and
@@ -1847,14 +1840,13 @@ proof clarsimp
       "(g, a, r, L', s') \<in> set (make_trans a' p)"
     for a' p
     supply [forward2] = action_setD
-    supply [forward3] = is_upds_make_updsI3[rotated] OUT_D
-    supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I
+    supply [forward3] = is_upds_make_updsI3[rotated] OUT'_D
+    supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I OUT'_I
     using that
     unfolding make_trans_def
     apply mini_ex
     apply (clarsimp simp: set_map_filter Let_def split: prod.split if_split_asm)
-    subgoal for g1 a1 r1 f1 l1' xs
-(*
+    subgoal for b1 g1 a1 r1 f1 l1' xs
       apply (drule make_combsI, assumption+)
       apply frules
       apply elims
@@ -1883,9 +1875,6 @@ proof clarsimp
       apply solve_triv
       done
     done
-*)
-      sorry
-    done
   have make_trans_iff: "
       (\<exists>s'' aa p b ga f ra l' bs gs fs rs ls' ps.
           g = ga @ concat (map gs ps) \<and>
@@ -1900,14 +1889,14 @@ proof clarsimp
           (\<forall>q<n_ps.
               q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
               (\<forall>b g f r l'.
-                  (L ! q, b, g, In aa, f, r, l')
-                  \<notin> Simple_Network_Language.trans (N q))) \<and>
+                  (L ! q, b, g, In aa, f, r, l') \<notin> trans (N q) \<or> \<not> check_bexp s b True)) \<and>
           p < n_ps \<and>
           set ps \<subseteq> {0..<n_ps} \<and>
           p \<notin> set ps \<and>
           distinct ps \<and>
           sorted ps \<and>
           ps \<noteq> [] \<and>
+          check_bexp s b True \<and> (\<forall>p\<in>set ps. check_bexp s (bs p) True) \<and>
           is_upd s f s'' \<and>
           is_upds s'' (map fs ps) s' \<and>
           bounded bounds s') =
@@ -1929,9 +1918,7 @@ proof clarsimp
         apply elims
         apply intros
                         apply assumption+
-                  apply (erule bspec; assumption) (* or blast *)
-                 apply (elims add: allE; intros?; assumption) (* or blast *)
-                apply assumption+
+        apply blast+
         done
       done
   qed
@@ -1948,7 +1935,7 @@ proof clarsimp
         (l, b, g, Out a, f, r, l') \<in> trans (N p) \<and>
         (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
         (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
-          \<not> (\<exists>b g f r l'. (L ! q, b, g, In a, f, r, l') \<in> trans (N q))) \<and>
+          \<not> (\<exists>b g f r l'. (L ! q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
         L!p = l \<and>
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
@@ -1957,7 +1944,8 @@ proof clarsimp
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }
     "
-      unfolding trans_broad_def broadcast_def[simplified] by blast
+      unfolding trans_broad_def broadcast_def[simplified]
+      by (intro iffI; elims add: CollectE; intros add: CollectI) blast+
     from True have **:
       "broad_trans_from (L, s)
       =  concat (
@@ -1966,9 +1954,16 @@ proof clarsimp
            )
            [0..<num_actions]
          )"
-      unfolding broad_trans_from_alt_def IN_def OUT_def make_trans_def by simp
+      unfolding broad_trans_from_alt_def IN_def OUT_def IN'_def OUT'_def Let_def make_trans_def
+      by simp
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> \<open>bounded bounds s\<close> show ?thesis
-      unfolding * ** by (simp add: make_trans_iff)
+      unfolding * **
+      apply simp
+      apply (subst make_trans_iff[symmetric])
+        apply simp+
+      apply (intro iffI; elims; intros)
+                          apply (solve_triv | blast)+
+      done
   next
     case False
     with get_commited_empty_iff[of L] have "\<not> (\<forall>p<n_ps. L ! p \<notin> commited (N p))"
@@ -1981,7 +1976,7 @@ proof clarsimp
         (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
         (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))) \<and>
         (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
-          \<not> (\<exists>b g f r l'. (L ! q, b, g, In a, f, r, l') \<in> trans (N q))) \<and>
+          \<not> (\<exists>b g f r l'. (L ! q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
         L!p = l \<and>
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
@@ -1989,12 +1984,11 @@ proof clarsimp
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
       unfolding trans_broad_def broadcast_def[simplified]
-      oops
       by (intro iffI; elims add: CollectE; intros add: CollectI) blast+
     have commited_iff: "
-      List.map_filter (\<lambda>(p, _). if IN ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> [p] \<and>
-      List.map_filter (\<lambda>(p, _). if IN ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> []
-    \<longleftrightarrow> (\<exists>q<n_ps. IN ! q ! a' \<noteq> [] \<and> q \<noteq> p \<and> L ! q \<in> commited (N q))"
+      List.map_filter (\<lambda>(p, _). if IN' ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> [p] \<and>
+      List.map_filter (\<lambda>(p, _). if IN' ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> []
+    \<longleftrightarrow> (\<exists>q<n_ps. IN' ! q ! a' \<noteq> [] \<and> q \<noteq> p \<and> L ! q \<in> commited (N q))"
       for p a'
     proof -
       have *: "xs \<noteq> [p] \<and> xs \<noteq> [] \<longleftrightarrow> (\<exists>x \<in> set xs. x \<noteq> p)" if "distinct xs" for xs
@@ -2012,7 +2006,7 @@ proof clarsimp
         map (\<lambda>a.
           let
             ins_commited =
-              List.map_filter (\<lambda>(p, _). if IN ! p ! a \<noteq> [] then Some p else None) (get_commited L)
+              List.map_filter (\<lambda>(p, _). if IN' ! p ! a \<noteq> [] then Some p else None) (get_commited L)
           in
           concat (map (\<lambda>p.
             if
@@ -2026,15 +2020,11 @@ proof clarsimp
         )
       [0..<num_actions])
       "
-      unfolding broad_trans_from_alt_def IN_def OUT_def make_trans_def
+      unfolding broad_trans_from_alt_def IN_def OUT_def IN'_def OUT'_def make_trans_def
       unfolding Let_def if_contract
       apply simp
       apply (fo_rule if_cong arg_cong2[where f = map] arg_cong[where f = concat] | rule ext)+
-      defer
           apply blast+
-         defer
-apply blast+
-      oops
       done
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> \<open>bounded bounds s\<close> show ?thesis
       unfolding * **
@@ -2042,7 +2032,7 @@ apply blast+
       apply (intro iffI; elims)
       subgoal for s'a aa p ga f ra l' gs fs rs ls' ps \<comment> \<open>?l \<open>\<longrightarrow>\<close> ?r\<close>
         apply (frule make_transI)
-                          apply assumption+
+                            apply (assumption | blast)+
         apply elims
         apply intros
          apply (simp; fail)
@@ -2059,7 +2049,7 @@ apply blast+
            apply (simp; fail)
           apply simp
           unfolding commited_iff
-          apply (rule disjI1; inst_existentials q; force dest!: IN_I)
+          apply (rule disjI1; inst_existentials q; force dest!: IN_I IN'_I)
           done
         done
       subgoal for a' \<comment> \<open>?r \<open>\<longrightarrow>\<close> ?l\<close>
@@ -2072,8 +2062,7 @@ apply blast+
                    apply (erule bspec; assumption)
         subgoal for p s'' g' f r' l' gs fs rs ls' ps
           unfolding commited_iff by (auto simp: get_commited_mem_iff list_ex_iff)
-                 apply (elims add: allE; intros?; assumption) (* or blast *)
-                apply assumption+
+        apply blast+
         done
       done
   qed
