@@ -87,30 +87,34 @@ qed
 lemma (in Prod_TA_Defs) trans_broad_alt_def:
   "trans_broad =
     {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
-    L s L' s' s'' a p l g f r l' gs fs rs ls' ps.
+    L s L' s' s'' a p l b g f r l' bs gs fs rs ls' ps.
       a \<in> broadcast  \<and>
-      (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
-      (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
+      (l, b, g, Out a, f, r, l') \<in> trans (N p) \<and>
+      (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
       (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))
       \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
-      (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> \<not> (\<exists>g f r l'. (L!q, g, In a, f, r, l') \<in> trans (N q))) \<and>
+      (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+        \<not> (\<exists>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
       L!p = l \<and>
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+      check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'' \<and>
-      (\<forall>p. p\<notin>set ps \<longrightarrow> gs p = []) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> fs p = []) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> rs p = [])
+      (\<forall>p. p\<notin>set ps \<longrightarrow> bs p = bexp.true) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> gs p = []) \<and>
+      (\<forall>p. p\<notin>set ps \<longrightarrow> fs p = []) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> rs p = [])
     }"
   unfolding trans_broad_def
 proof ((intro Collect_eqI iffI; elims add: more_elims), goal_cases)
-  case prems: (1 x L s L' s' s'' a p l g f r l' gs fs rs ls' ps)
+  case prems: (1 x L s L' s' s'' a p l b g f r l' bs gs fs rs ls' ps)
   let ?f = "\<lambda>gs p. if p \<in> set ps then gs p else []"
+  let ?bs = "\<lambda>p. if p \<in> set ps then bs p else bexp.true"
   let ?gs = "?f gs" let ?fs = "?f fs" let ?rs = "?f rs"
   have [simp]: "map gs ps = map ?gs ps" "map rs ps = map ?rs ps" "map fs ps = map ?fs ps"
     by (simp cong: map_cong)+
   with prems show ?case
-    by (inst_existentials L s L' s' s'' a p l g f r l' ?gs ?fs ?rs ls' ps; (assumption | simp))
+    by (inst_existentials L s L' s' s'' a p l b g f r l' ?bs ?gs ?fs ?rs ls' ps; (assumption | simp))
 next
-  case (2 x L s L' s' s'' a p l g f r l' gs fs rs ls' ps)
+  case (2 x L s L' s' s'' a p l b g f r l' bs gs fs rs ls' ps)
   then show ?case
     by blast
 qed
@@ -147,7 +151,7 @@ definition \<comment>\<open>Number of state variables\<close>
 definition
   "conv_automaton \<equiv> \<lambda>(commited, trans, inv).
     (commited,
-     map (\<lambda>(l, g, a, f, r, l'). (l, conv_cc g, a, f, r, l')) trans,
+     map (\<lambda>(l, b, g, a, f, r, l'). (l, b, conv_cc g, a, f, r, l')) trans,
      map (\<lambda>(s, cc). (s, conv_cc cc)) inv)"
 
 definition
@@ -211,13 +215,15 @@ definition map_automaton :: "nat \<Rightarrow> ('s list \<times> ('a act, 's, 'c
       \<times> ('s \<times> ('c, int) cconstraint) list) \<Rightarrow> _" where
   "map_automaton i \<equiv> \<lambda>(commited, trans, inv).
     (map (map_loc i) commited,
-     map (\<lambda>(l, g, a, f, r, l').
-      (map_loc i l, map_cc g, map_act map_action a, map_expr f, map map_clock r, map_loc i l')) trans,
+     map (\<lambda>(l, b, g, a, f, r, l').
+      (map_loc i l, map_bexp map_var id b, map_cc g, map_act map_action a, map_expr f,
+        map map_clock r, map_loc i l')) trans,
      map (\<lambda>(s, cc). (map_loc i s, map_cc cc)) inv)"
 
 definition
-  "map_t_single i = (\<lambda>(l, g, a, f, r, l').
-      (map_loc i l, map_cc g, map_act map_action a, map_expr f, map map_clock r, map_loc i l'))"
+  "map_t_single i = (\<lambda>(l, b, g, a, f, r, l').
+    (map_loc i l, map_bexp map_var id b, map_cc g, map_act map_action a, map_expr f,
+      map map_clock r, map_loc i l'))"
 
 definition map_single :: "nat \<Rightarrow> ('s set \<times> ('a act, 's, 'c, int, 'x, int) transition set
       \<times> ('s \<Rightarrow> ('c, int) cconstraint)) \<Rightarrow> _" where
@@ -390,9 +396,10 @@ private lemma 7:
   unfolding 4[OF that] unfolding map_single_def trans_def by (simp split: prod.split)
 
 private lemma 71:
-  "(map_loc i l, map_cc g, map_act map_action a, map_expr u, map map_clock r, map_loc i l')
+  "(map_loc i l, map_bexp map_var id b, map_cc g, map_act map_action a, map_expr u,
+      map map_clock r, map_loc i l')
   \<in> trans (map.N i)"
-  if "(l, g, a, u, r, l') \<in> trans (N i)" "i < n_ps"
+  if "(l, b, g, a, u, r, l') \<in> trans (N i)" "i < n_ps"
   using that(1) by (subst 7[OF \<open>i < n_ps\<close>]) (force simp: map_t_single_def)
 
 lemma map_ac_inj:
@@ -421,11 +428,11 @@ private lemma 72:
 *)
 
 private lemma 73:
-  "\<exists>l1 g' a' u' r' l1'.
-    l = map_loc i l1 \<and> g = map_cc g' \<and> a = map_act map_action a' \<and>
+  "\<exists>l1 b' g' a' u' r' l1'.
+    l = map_loc i l1 \<and> b = map_bexp map_var id b' \<and> g = map_cc g' \<and> a = map_act map_action a' \<and>
     u = map_expr u' \<and> r = map map_clock r' \<and> l' = map_loc i l1' \<and>
-    (l1, g', a', u', r', l1') \<in> trans (N i)"
-  if "(l, g, a, u, r, l')\<in>trans (map.N i)" "i < n_ps"
+    (l1, b', g', a', u', r', l1') \<in> trans (N i)"
+  if "(l, b, g, a, u, r, l' )\<in> trans (map.N i)" "i < n_ps"
   using that(1) by (subst (asm) 7[OF \<open>i < n_ps\<close>]) (force simp: map_t_single_def)
 
 lemma 8[simp]:
@@ -524,6 +531,7 @@ lemma bounded_mapD:
   done
 
 inductive_cases check_bexp_elims:
+  "check_bexp s bexp.true bv"
   "check_bexp s (bexp.not b) bv"
   "check_bexp s (bexp.and b1 b2) bv"
   "check_bexp s (bexp.or b1 b2) bv"
@@ -709,13 +717,14 @@ lemma map_trans_int:
     apply (rule SilD, assumption)
     apply (drule map_loc_injD[THEN sym])
     apply simp
+    apply (drule map_var_check_bexp)
     apply (drule is_upd_mapD)
     apply (frule bounded_mapD, drule bounded_map_domD)
     apply (frule bounded_mapD, drule bounded_map_domD)
     apply (intros add: more_intros)
             apply solve_triv+
           apply (auto dest: map_loc_injD; fail)
-         apply solve_triv+
+          apply solve_triv+
     subgoal
       unfolding map_st_def
       by (auto 4 4 simp: the_inv_f_f[OF map_var_inj] map_index_update[symmetric] intro!: ext)
@@ -725,6 +734,7 @@ lemma map_trans_int:
     unfolding map_t_def
     apply (simp add: map_st_def map_index_update)
     apply (drule (1) 71)
+    apply (drule check_bexp_map_var)
     apply (drule is_upd_mapI)
     apply (drule bounded_map_boundsI)+
     apply (intros add: more_intros)
@@ -761,10 +771,13 @@ unfolding map.trans_bin_def trans_bin_def
     apply (drule map_loc_injD[THEN sym])
     apply (simp add: injD[OF map_action_inj])
     apply (drule injD[OF map_action_inj])
+    apply (drule map_var_check_bexp)
+    apply (drule map_var_check_bexp)
     apply (drule is_upd_mapD)
     apply (drule is_upd_mapD)
     apply (frule bounded_mapD, drule bounded_map_domD)
     apply (frule bounded_mapD, drule bounded_map_domD)
+    unfolding comp_def
     apply (intros add: more_intros)
                   apply solve_triv+
                 apply (auto dest: map_loc_injD; fail)
@@ -779,6 +792,7 @@ unfolding map.trans_bin_def trans_bin_def
     unfolding map_t_def
     apply (simp add: map_st_def map_index_update map_cc_append)
     apply (drule (1) 71)+
+    apply (drule check_bexp_map_var)+
     apply (drule is_upd_mapI)+
     apply (drule bounded_map_boundsI)+
     apply (intros add: more_intros)
@@ -797,9 +811,10 @@ lemma map_cc_concat:
   unfolding map_cc_def by (simp add: map_concat)
 
 private lemma 711:
-  "(map_index map_loc L ! i, map_cc g, map_act map_action a, map_expr u, map map_clock r, map_loc i l')
+  "(map_index map_loc L ! i, map_bexp map_var id b, map_cc g, map_act map_action a,
+    map_expr u, map map_clock r, map_loc i l')
   \<in> trans (map.N i)"
-  if "(L ! i, g, a, u, r, l') \<in> trans (N i)" "i < n_ps" "length L = n_ps"
+  if "(L ! i, b, g, a, u, r, l') \<in> trans (N i)" "i < n_ps" "length L = n_ps"
   using 71[OF that(1,2)] that(2,3) by simp
 
 lemma is_upds_mapI:
@@ -861,6 +876,14 @@ lemma map_expr_inj:
   unfolding map_expr_def using map_var_inj exp.inj_map[of map_var id]
   by (auto 4 3 dest: injD intro: injI elim: map_injective)
 
+lemma map_bexp_inj:
+  "inj (map_bexp map_var id)"
+  using map_var_inj bexp.inj_map[of map_var id] by auto
+
+lemma map_bexp_eq_true_iff:
+  "map_bexp f g x = bexp.true \<longleftrightarrow> x = bexp.true"
+  by (cases x) auto
+
 lemma map_trans_broad:
   "map.trans_broad = map_t ` trans_broad"
   unfolding map.trans_broad_alt_def trans_broad_alt_def
@@ -870,22 +893,28 @@ lemma map_trans_broad:
     subgoal
     proof -
       have **:
-        "\<exists> gs' fs' rs' ls1. gs = map_cc o gs' \<and> ls1 = (\<lambda> p. the_inv (map_loc p) (ls' p)) \<and>
+        "\<exists> bs' gs' fs' rs' ls1. gs = map_cc o gs' \<and> bs = map_bexp map_var id o bs' \<and>
+          ls1 = (\<lambda> p. the_inv (map_loc p) (ls' p)) \<and>
           fs = map_expr o fs' \<and> rs = map map_clock o rs' \<and>
           (\<forall>p\<in>set ps. ls' p \<in> range (map_loc p)) \<and>
-          (\<forall>p\<in>set ps.(L ! p, gs' p, In a, fs' p, rs' p, ls1 p) \<in> trans (N p))"
+          (\<forall>p\<in>set ps.(L ! p, bs' p, gs' p, In a, fs' p, rs' p, ls1 p) \<in> trans (N p))"
         if
           assms: "\<forall>p\<in>set ps.
-          (map_index map_loc L ! p, gs p, In (map_action a), fs p, rs p, ls' p)
+          (map_index map_loc L ! p, bs p, gs p, In (map_action a), fs p, rs p, ls' p)
           \<in> Simple_Network_Language.trans (map.N p)"
-          "set ps \<subseteq> {0..<n_ps}" "\<forall>p. p \<notin> set ps \<longrightarrow> gs p = []" "\<forall>p. p \<notin> set ps \<longrightarrow> fs p = []"
+          "set ps \<subseteq> {0..<n_ps}" "\<forall>p. p \<notin> set ps \<longrightarrow> bs p = bexp.true"
+          "\<forall>p. p \<notin> set ps \<longrightarrow> gs p = []" "\<forall>p. p \<notin> set ps \<longrightarrow> fs p = []"
           "\<forall>p. p \<notin> set ps \<longrightarrow> rs p = []" "length L = n_ps"
-        for L ps gs a fs rs ls'
+        for L ps bs gs a fs rs ls'
       proof -
+        let ?bs' = "the_inv (map_bexp map_var id) o bs"
         let ?gs' = "the_inv map_cc o gs"
         let ?fs' = "Hilbert_Choice.inv map_expr o fs"
         let ?ls1 = "\<lambda> p. the_inv (map_loc p) (ls' p)"
         let ?rs' = "Hilbert_Choice.inv (map map_clock) o rs"
+        have bs: "bs p = map_bexp map_var id (the_inv (map_bexp map_var id) (bs p))"
+          if "p \<in> set ps" for p
+          using that assms by (subst f_the_inv_f[OF map_bexp_inj]; force dest: 73)
         have gs: "gs p = map_cc (the_inv map_cc (gs p))" if "p \<in> set ps" for p
           using that assms by (subst f_the_inv_f[OF map_cc_inj']; force dest: 73)
         have fs: "fs p = map_expr (?fs' p)" if "p \<in> set ps" for p
@@ -893,7 +922,7 @@ lemma map_trans_broad:
         have rs: "rs p = map map_clock (?rs' p)" if "p \<in> set ps" for p
           using that assms by (force dest!: 73 simp: f_inv_into_f[where f = "map map_clock"])
         show ?thesis
-          apply (inst_existentials ?gs' ?fs' ?rs' ?ls1)
+          apply (inst_existentials ?bs' ?gs' ?fs' ?rs' ?ls1)
           subgoal
             using assms
             apply (intro ext)
@@ -902,6 +931,16 @@ lemma map_trans_broad:
                apply (subst gs; force)
               unfolding comp_def
               apply (subst f_the_inv_f[OF map_cc_inj']; simp add: map_cc_def)
+              done
+            done
+          subgoal
+            using assms
+            apply (intro ext)
+            subgoal for p
+              apply (cases "p \<in> set ps")
+               apply (subst bs; simp)
+              apply (simp, subst f_the_inv_f[OF map_bexp_inj],
+                     auto intro!: image_eqI[where x = bexp.true])
               done
             done
              apply solve_triv
@@ -934,6 +973,7 @@ lemma map_trans_broad:
            apply force
           using map_loc_inj map_cc_inj' map_expr_inj
           apply (auto simp: the_inv_f_f inv_f_f[OF map_expr_inj])
+          apply (subst the_inv_f_f[OF map_bexp_inj])
           apply (subst inv_f_f)
           using map_clock_inj
            apply (auto dest: map_loc_injD[THEN sym])
@@ -944,9 +984,11 @@ lemma map_trans_broad:
       have *: "set ps \<subseteq> {0..<n_ps} \<longleftrightarrow> (\<forall>p \<in> set ps. p < n_ps)" for ps
         by auto
       show ?thesis
+        sorry
+(*
         apply (rule subsetI)
         apply (clarsimp simp add: 3 9 10 broadcast_def split: prod.split_asm)
-        apply (drule (4) **, simp)
+        apply (drule (5) **, simp)
         apply (drule (1) 73)+
         apply elims
         apply (frule OutD2)
@@ -958,17 +1000,25 @@ lemma map_trans_broad:
         using [[goals_limit = 1]]
         apply (intro image_eqI[rotated] CollectI exI conjI)
                             apply solve_triv+
-        subgoal premises prems for s s' s'' p g f r l' gs fs rs ls' ps x L gs' l1 fs' g' rs' a' ls1 u' r' l1'
+        subgoal premises prems for s s' s'' p b g f r l' bs gs fs rs ls' ps x L gs' l1 fs' g' rs' a' ls1 u' r' l1'
           \<comment>\<open>Commited\<close>
           using prems(2) \<open>p < n_ps\<close> \<open>set ps \<subseteq> _\<close> \<open>L \<in> states\<close> by (force dest: map_loc_injD simp: 9)
-                       apply intros
-        subgoal premises prems for s s' s'' p g f r l' gs fs rs ls' ps x L gs' l1 fs' g' rs' a' ls1 u' r' l1' q g''
+                          apply intros
+                          apply (erule allE, erule impE, assumption, erule impE, assumption)
+        apply (force dest!: 71 map_loc_injD InD2 simp: map_t_single_def)
+        oops
+        
+        subgoal premises prems for s s' s'' p fs g f r l' bs gs b1 rs ls' ps x L bs' l1 gs' fs' g' rs' a' ls1 u' r' l1' b q g''
           \<comment>\<open>Maximal set\<close>
           using prems(3) \<open>q < n_ps\<close> \<open>q \<notin> set ps \<and> p \<noteq> q\<close> \<open>L \<in> states\<close>
           by (fastforce dest!: 71 map_loc_injD InD2 simp: map_t_single_def)
-                      apply solve_triv+
+                        apply solve_triv+
+                  defer
+        defer
+apply solve_triv+
                apply (rule is_upds_mapD, simp add: map_map)
-              apply solve_triv+
+                 apply solve_triv+
+          apply (simp add: map_bexp_eq_true_iff; fail)
            apply (simp add: map_cc_def; fail)
           apply (simp add: map_expr_def; fail)
          apply (simp; fail)
@@ -1017,6 +1067,7 @@ lemma map_trans_broad:
            apply (simp add: the_inv_f_f[OF map_var_inj]; fail)
           apply (simp add: map_trans_broad_aux2, blast)
           done
+         apply (simp add: map_var_check_bexp)+
         done
     qed
     done
@@ -1033,17 +1084,23 @@ lemma map_trans_broad:
                     apply (simp add: map_concat; fail)
                    apply solve_triv+
                  apply (drule(1) bspec, drule 711, force, simp, simp)
-    subgoal premises prems for a b aa ab ac ad ba L s s' s'' aj p g f r l' gs fs rs ls' ps
+    subgoal premises prems for a bb aa ab ac ad ba L s s' s'' aj p b g f r l' bs gs fs rs ls' ps
       using prems(4) \<open>p < n_ps\<close> \<open>set ps \<subseteq> _\<close> \<open>L \<in> states\<close> by (force dest: map_loc_injD simp: 9)
-    subgoal premises prems for a b aa ab ac ad ba L s s' s'' aj p g f r l' gs fs rs ls' ps q
+    subgoal premises prems for a bb aa ab ac ad ba L s s' s'' aj p b g f r l' bs gs fs rs ls' ps q
       using prems(5) \<open>q < n_ps\<close> \<open>q \<notin> set ps \<and> p \<noteq> q\<close> \<open>L \<in> states\<close>
       by (auto dest!: map_loc_injD InD2 simp: map_t_single_def)
-              apply solve_triv+
+                apply solve_triv+
              apply force
-            apply solve_triv+
-      apply (simp add: map_cc_def map_expr_def)+
+               apply solve_triv+
+           apply (erule check_bexp_map_var; fail)
+          apply (rule check_bexp_map_var; simp; fail)
+         apply (simp add: map_cc_def map_expr_def)+
     done
   done
+*)
+    qed
+    done
+  sorry
 
 lemma map_trans_prod:
   "map.trans_prod = map_t ` trans_prod"
@@ -1081,10 +1138,7 @@ lemma
 
 context
   assumes trans_inv_closed':
-  "\<forall>i<n_ps.
-          (\<Union>(l, g, a, r, u,
-                 l')\<in>Simple_Network_Language.trans (N i).
-                 {l, l'})
+  "\<forall>i<n_ps. (\<Union>(l, b, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i). {l, l'})
   \<subseteq> fst ` set (snd (snd (automata ! i)))
   "
 begin
@@ -1093,7 +1147,7 @@ lemma map_locD:
   assumes "p < n_ps" "L \<in> states"
   shows   "L ! p \<in> fst ` set (snd (snd (automata ! p)))"
 proof -
-  from assms have "L ! p \<in> (\<Union>(l, g, a, r, u, l') \<in> trans (N p). {l, l'})"
+  from assms have "L ! p \<in> (\<Union>(l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})"
     unfolding states_def by auto
   with trans_inv_closed' \<open>p < n_ps\<close> show ?thesis
     by auto
@@ -1267,19 +1321,19 @@ lemma trans_conv_N_eq:
   by (simp split: prod.split add: trans_def)
 
 private lemma 71:
-  "(l, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)"
-  if "(l, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" "i < n_ps"
+  "(l, b, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)"
+  if "(l, b, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" "i < n_ps"
   using that by (force simp add: trans_conv_N_eq Simple_Network_Language.conv_t_def)
 
 private lemma 72:
-  "(l, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)
-\<longleftrightarrow> (l, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" if "i < n_ps"
+  "(l, b, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)
+\<longleftrightarrow> (l, b, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" if "i < n_ps"
   by (auto simp: trans_conv_N_eq[OF that] Simple_Network_Language.conv_t_def
            dest: conv_cc_inj intro: image_eqI[rotated])
 
 private lemma 73:
-  "\<exists>g'. g = conv_cc g' \<and> (l, g', a, r, u, l')\<in>Simple_Network_Language.trans (N i)"
-  if "(l, g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)" "i < n_ps"
+  "\<exists>g'. g = conv_cc g' \<and> (l, b, g', a, r, u, l')\<in>Simple_Network_Language.trans (N i)"
+  if "(l, b, g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)" "i < n_ps"
   using that by (force simp: trans_conv_N_eq Simple_Network_Language.conv_t_def)
 
 lemma conv_bounds[simp]:
@@ -1340,11 +1394,11 @@ lemma conv_trans_broad:
   subgoal
   proof -
     have **: "\<exists> gs'. gs = conv_cc o gs' \<and>
-          (\<forall>p\<in>set ps.(L ! p, gs' p, In a, fs p, rs p, ls' p) \<in> trans (N p))"
+          (\<forall>p\<in>set ps.(L ! p, bs p, gs' p, In a, fs p, rs p, ls' p) \<in> trans (N p))"
       if assms:
-        "\<forall>p\<in>set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (conv.N p)"
+        "\<forall>p\<in>set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (conv.N p)"
         "set ps \<subseteq> {0..<n_ps}" "\<forall>p. p \<notin> set ps \<longrightarrow> gs p = []"
-      for L ps gs a fs rs ls'
+      for L ps bs gs a fs rs ls'
     proof -
       have *: "gs p = conv_cc (Hilbert_Choice.inv conv_cc (gs p))" if "p \<in> set ps" for p
         using that assms by (auto 4 3 simp: f_inv_into_f dest!: 73)
@@ -1376,8 +1430,8 @@ lemma conv_trans_broad:
                         apply solve_triv+
       subgoal premises prems \<comment>\<open>Commited\<close>
         using prems(2) \<open>set _ \<subseteq> {0..<n_ps}\<close> by (auto dest: n_ps_rangeD simp: 9)
-      subgoal premises prems for L s s' s'' ae p g f r l' gs fs rs ls' ps gs' g' \<comment>\<open>Maximal set\<close>
-        using prems(3,17-) 71 by blast
+      subgoal premises prems for L s s' s'' ae p b g f r l' bs gs fs rs ls' ps gs' g' \<comment>\<open>Maximal set\<close>
+        using prems(3) 71 by fast
       by solve_triv+ (simp split: prod.split add: map_concat)
   qed
   subgoal
@@ -1392,9 +1446,10 @@ lemma conv_trans_broad:
     subgoal premises prems for L s s' s'' aj p g f r l' gs fs rs ls' ps
       using prems(3,6) 9 by fastforce
     subgoal premises prems for L s s' s'' aj p g f r l' gs fs rs ls' ps q ga fa ra l'a
-      using prems(4,9-) 9 by auto
+      using prems(4,9-) 9 (* by autox *) sorry
+    done
     by (solve_triv | blast)+
-  done
+  sorry
 
 lemma conv_prod_ta:
   "conv.prod_ta = Normalized_Zone_Semantics_Impl.conv_A prod_ta"
@@ -1418,12 +1473,12 @@ paragraph \<open>Fundamentals\<close>
 
 definition "clkp_set' \<equiv>
     (\<Union> A \<in> set automata. UNION (set (snd (snd A))) (collect_clock_pairs o snd))
-  \<union> (\<Union> A \<in> set automata. \<Union> (l, g, _) \<in> set (fst (snd A)). collect_clock_pairs g)"
+  \<union> (\<Union> A \<in> set automata. \<Union> (l, b, g, _) \<in> set (fst (snd A)). collect_clock_pairs g)"
 
 definition clk_set'  where
   \<open>clk_set'  =
   fst ` clkp_set' \<union>
-  (\<Union> A \<in> set automata. \<Union> (_, _, _, _, r, _) \<in> set (fst (snd A)). set r)\<close>
+  (\<Union> A \<in> set automata. \<Union> (_, _, _, _, _, r, _) \<in> set (fst (snd A)). set r)\<close>
 
 lemma collect_clock_pairs_invsI:
   "(a, b) \<in> \<Union> ((collect_clock_pairs o snd) ` set invs)"
@@ -1480,8 +1535,7 @@ lemma clkp_set'_subs:
     unfolding trans_prod_def Timed_Automata.collect_clkt_def
     apply safe
     subgoal
-      unfolding trans_int_def
-      by (auto 4 4 simp: length_automata_eq_n_ps mem_trans_N_iff)
+      unfolding trans_int_def by (fastforce simp: length_automata_eq_n_ps mem_trans_N_iff)
     subgoal
       unfolding trans_bin_def
       by (fastforce
@@ -1500,7 +1554,7 @@ lemma clkp_set'_subs:
 
 lemma collect_clkvt_subs:
   "collect_clkvt (trans_of prod_ta) \<subseteq>
-    (\<Union> A \<in> set automata. \<Union> (_, _, _, _, r, _) \<in> set (fst (snd A)). set r)"
+    (\<Union> A \<in> set automata. \<Union> (_, _, _, _, _, r, _) \<in> set (fst (snd A)). set r)"
   apply simp
   unfolding collect_clkvt_def
   apply auto
@@ -1558,7 +1612,7 @@ qed
 definition (in Prod_TA_Defs)
   "loc_set =
   (\<Union> {fst ` trans (N p) | p. p < n_ps} \<union>
-        \<Union> {(snd o snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps})"
+        \<Union> {(snd o snd o snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps})"
 
 lemma (in Prod_TA_Defs) states_loc_set:
   "states \<subseteq> {L. set L \<subseteq> loc_set \<and> length L = n_ps}"
@@ -1630,16 +1684,16 @@ proof -
   have "finite trans_int"
   proof -
     have "trans_int \<subseteq>
-      {((L, s), g, Internal a, r, (L', s')) | L s p l g a f r l' s' L'.
+      {((L, s), g, Internal a, r, (L', s')) | L s p l b g a f r l' s' L'.
         L \<in> states \<and> bounded bounds s \<and> p < n_ps \<and>
-        (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
+        (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         bounded bounds s'
         \<and> L' = L[p := l']
       }"
       unfolding trans_int_def by (force simp: L_len)
     also have "finite \<dots>"
     proof -
-      have "finite {(a, b, c, d, e, f). (a, b, Sil c, d, e, f) \<in> trans (N p)}"
+      have "finite {(a, b, c, d, e, f, g). (a, b, c, Sil d, e, f, g) \<in> trans (N p)}"
         if "p < n_ps" for p
         using [[simproc add: finite_Collect]] that
         by (auto intro: trans_N_finite finite_vimageI injI)
@@ -1652,23 +1706,23 @@ proof -
   proof -
     have "trans_bin \<subseteq>
       {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
-        L s p q l1 g1 a f1 r1 l1' l2 g2 f2 r2 l2' s'' L'.
+        L s p q l1 b1 g1 a f1 r1 l1' l2 b2 g2 f2 r2 l2' s'' L'.
           L \<in> states \<and> bounded bounds s \<and>
           p < n_ps \<and> q < n_ps \<and>
-          (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
-          (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
+          (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
+          (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
           bounded bounds s'' \<and>
           L' = L[p := l1', q := l2']
     }"
       unfolding trans_bin_def by (fastforce simp: L_len) (* slow *)
     also have "finite \<dots>"
     proof -
-      have "finite {(a, b, c, d, e, f). (a, b, In c, d, e, f) \<in> trans (N p)}"
+      have "finite {(a, b, c, d, e, f, g). (a, b, c, In d, e, f, g) \<in> trans (N p)}"
         if "p < n_ps" for p
         using [[simproc add: finite_Collect]] that
         by (auto intro: trans_N_finite finite_vimageI injI)
-      moreover have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
-        if "p < n_ps" for p c
+      moreover have "finite {(a, b, c, e, f, g). (a, b, c, Out d, e, f, g) \<in> trans (N p)}"
+        if "p < n_ps" for p d
         using [[simproc add: finite_Collect]] that
         by (auto intro: trans_N_finite finite_vimageI injI)
       ultimately show ?thesis
@@ -1679,22 +1733,23 @@ proof -
   moreover have "finite trans_broad"
   proof -
     define P where "P ps \<equiv> set ps \<subseteq> {0..<n_ps} \<and> distinct ps" for ps
-    define Q where "Q a n gs fs rs \<equiv>
-      (\<forall>p < n. \<exists> q < n_ps. \<exists> l l'. (l, gs ! p, In a, fs ! p, rs ! p, l') \<in> trans (N q)) \<and>
-              length gs = n \<and> length fs = n \<and> length rs = n" for a n gs fs rs
+    define Q where "Q a n bs gs fs rs \<equiv>
+      (\<forall>p < n. \<exists> q < n_ps. \<exists> l l'. (l, bs ! p, gs ! p, In a, fs ! p, rs ! p, l') \<in> trans (N q)) \<and>
+              length bs = n \<and> length gs = n \<and> length fs = n \<and> length rs = n" for a n bs gs fs rs
     define tag where "tag x = True" for x :: 's
-    have Q_I: "Q a (length ps) (map gs ps) (map fs ps) (map rs ps)"
-      if "set ps \<subseteq> {0..<n_ps}" "\<forall>p\<in>set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)"
-      for ps :: "nat list" and L a gs fs rs ls'
+    have Q_I: "Q a (length ps) (map bs ps) (map gs ps) (map fs ps) (map rs ps)"
+      if "set ps \<subseteq> {0..<n_ps}"
+         "\<forall>p\<in>set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)"
+      for ps :: "nat list" and L a bs gs fs rs ls'
       using that unfolding Q_def by (auto 4 4 dest!: nth_mem)
     have "trans_broad \<subseteq>
       {((L, s), g @ concat gs, Broad a, r @ concat rs, (L', s'')) |
-      L s a p l g f r l' ps gs fs rs L' s''.
+      L s a p l b g f r l' ps bs gs fs rs L' s''.
         L \<in> states \<and> bounded bounds s \<and> a \<in> set broadcast \<and>
         p < n_ps \<and>
-        (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
+        (l, b, g, Out a, f, r, l') \<in> trans (N p) \<and>
         P ps \<and>
-        Q a (length ps) gs fs rs \<and>
+        Q a (length ps) bs gs fs rs \<and>
         L' \<in> states \<and>
         bounded bounds s'' \<and>
         tag l'
@@ -1714,19 +1769,20 @@ proof -
       unfolding tag_def ..
     also have "finite \<dots>"
     proof -
-      have "finite {(a, b, d, e, f). (a, b, Out c, d, e, f) \<in> trans (N p)}"
-        if "p < n_ps" for p c
+      have "finite {(a, b, c, e, f, g). (a, b, c, Out d, e, f, g) \<in> trans (N p)}"
+        if "p < n_ps" for p d
         using [[simproc add: finite_Collect]] that
         by (auto intro: trans_N_finite finite_vimageI injI)
       moreover have "finite {ps. P ps}"
         unfolding P_def by (simp add: finite_intros)
-      moreover have "finite {(gs, fs, rs). Q a n gs fs rs}" (is "finite ?S") for a n
+      moreover have "finite {(bs, gs, fs, rs). Q a n bs gs fs rs}" (is "finite ?S") for a n
       proof -
         let ?T = "\<Union> (trans ` N ` {0..<n_ps})"
-        have "?S \<subseteq> {(gs, fs, rs).
-          (set gs \<subseteq> (\<lambda>(_,g,_). g) ` ?T \<and> length gs = n) \<and>
-          (set fs \<subseteq> (\<lambda>(_,_,_,f,_). f) ` ?T \<and> length fs = n) \<and>
-          (set rs \<subseteq> (\<lambda>(_,_,_,_,r,_). r) ` ?T \<and> length rs = n)
+        have "?S \<subseteq> {(bs, gs, fs, rs).
+          (set bs \<subseteq> (\<lambda>(_,b,_). b) ` ?T \<and> length bs = n) \<and>
+          (set gs \<subseteq> (\<lambda>(_,_,g,_). g) ` ?T \<and> length gs = n) \<and>
+          (set fs \<subseteq> (\<lambda>(_,_,_,_,f,_). f) ` ?T \<and> length fs = n) \<and>
+          (set rs \<subseteq> (\<lambda>(_,_,_,_,_,r,_). r) ` ?T \<and> length rs = n)
         }"
           unfolding Q_def
           by safe (drule mem_nth; elims; drule spec; elims; force)+
@@ -1773,7 +1829,7 @@ fun vars_of_exp where
 
 definition (in Prod_TA_Defs)
   "var_set =
-  (\<Union>S \<in> {(fst \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps}.
+  (\<Union>S \<in> {(fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps}.
     \<Union>f \<in> S. \<Union> (x, e) \<in> set f. {x} \<union> vars_of_exp e)"
 
 locale Simple_Network_Impl_nat_defs =
@@ -1789,20 +1845,23 @@ locale Simple_Network_Impl_nat =
   assumes non_empty: "0 < length automata"
     (* assumes "length automata = length state_nums" *)
   assumes trans_num_states:
-    "\<forall>i < n_ps. let (_, trans, _) = (automata ! i) in \<forall> (l, _, _, _, _, l') \<in> set trans.
+    "\<forall>i < n_ps. let (_, trans, _) = (automata ! i) in \<forall> (l, _, _, _, _, _, l') \<in> set trans.
       l < num_states i \<and> l' < num_states i"
     and inv_num_states:
     "\<forall>i < n_ps. let (_, _, inv) = (automata ! i) in \<forall> (x, _) \<in> set inv. x < num_states i"
   assumes var_set:
-    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, f, _, _) \<in> set trans.
+    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, _, f, _, _) \<in> set trans.
       \<forall>(x, upd) \<in> set f. x < n_vs \<and> (\<forall>i \<in> vars_of_exp upd. i < n_vs)"
+    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, b, _, _, _, _, _) \<in> set trans.
+      \<forall>i \<in> vars_of_bexp b. i < n_vs"
   assumes bounds:
     "\<forall> i < n_vs. fst (bounds' ! i) = i"
   assumes action_set:
     "\<forall>a \<in> set broadcast. a < num_actions"
-    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, a, _, _, _) \<in> set trans. pred_act (\<lambda>a. a < num_actions) a"
+    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, a, _, _, _) \<in> set trans.
+        pred_act (\<lambda>a. a < num_actions) a"
   assumes clock_set:
-    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, g, _, _, r, _) \<in> set trans.
+    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, _, _, r, _) \<in> set trans.
       (\<forall>c \<in> set r. 0 < c \<and> c < m) \<and>
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
       "
@@ -1810,13 +1869,13 @@ locale Simple_Network_Impl_nat =
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
       "
   assumes broadcast_receivers:
-  "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, g, a, _, _, _) \<in> set trans.
+  "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, a, _, _, _) \<in> set trans.
       case a of In a \<Rightarrow> a \<in> set broadcast \<longrightarrow> g = [] | _ \<Rightarrow> True"
 begin
 
 lemma broadcast_receivers_unguarded:
-  "\<forall>p<n_ps. \<forall>l g a f r l'.
-    (l, g, In a, f, r, l') \<in> Simple_Network_Language.trans (N p) \<and> a \<in> set broadcast \<longrightarrow> g = []"
+  "\<forall>p<n_ps. \<forall>l b g a f r l'.
+    (l, b, g, In a, f, r, l') \<in> Simple_Network_Language.trans (N p) \<and> a \<in> set broadcast \<longrightarrow> g = []"
   using broadcast_receivers by (fastforce dest: nth_mem simp: n_ps_def mem_trans_N_iff)
 
 sublocale conv: Prod_TA

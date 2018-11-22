@@ -4,8 +4,14 @@ begin
 
 section \<open>Simple networks of automata with broadcast channels and commited locations\<close>
 
+no_notation top_assn ("true")
+
 datatype ('a, 'b) bexp =
-  not "('a, 'b) bexp" | "and" "('a, 'b) bexp" "('a, 'b) bexp" | or "('a, 'b) bexp" "('a, 'b) bexp" | imply "('a, 'b) bexp" "('a, 'b) bexp" | \<comment> \<open>Boolean connectives\<close>
+  true |
+  not "('a, 'b) bexp" |
+  "and" "('a, 'b) bexp" "('a, 'b) bexp" |
+  or "('a, 'b) bexp" "('a, 'b) bexp" |
+  imply "('a, 'b) bexp" "('a, 'b) bexp" | \<comment> \<open>Boolean connectives\<close>
   eq 'a 'b | \<comment> \<open>Does var i equal x?\<close>
   le 'a 'b |
   lt 'a 'b |
@@ -13,6 +19,7 @@ datatype ('a, 'b) bexp =
   gt 'a 'b
 
 inductive check_bexp :: "('a \<rightharpoonup> 'b) \<Rightarrow> ('a, 'b :: linorder) bexp \<Rightarrow> bool \<Rightarrow> bool" where
+  "check_bexp s true True" |
   "check_bexp s (not e) (\<not> b)" if "check_bexp s e b" |
   "check_bexp s (and e1 e2) (a \<and> b)" if "check_bexp s e1 a" "check_bexp s e2 b" |
   "check_bexp s (or e1 e2) (a \<or> b)" if "check_bexp s e1 a" "check_bexp s e2 b" |
@@ -23,12 +30,14 @@ inductive check_bexp :: "('a \<rightharpoonup> 'b) \<Rightarrow> ('a, 'b :: lino
   "check_bexp s (ge i x) (v \<ge> x)" if "s i = Some v" |
   "check_bexp s (gt i x) (v > x)" if "s i = Some v"
 
-datatype ('a, 'b) exp = if_then_else "('a, 'b) bexp" "('a, 'b) exp" "('a, 'b) exp" | const 'b | var 'a
+datatype ('a, 'b) exp =
+  if_then_else "('a, 'b) bexp" "('a, 'b) exp" "('a, 'b) exp" | const 'b | var 'a
 
 inductive is_val where
   "is_val s (const c) c"
 | "is_val s (var x)   v" if "s x = Some v"
-| "is_val s (if_then_else b e1 e2) (if bv then v1 else v2)" if "is_val s e1 v1" "is_val s e2 v2" "check_bexp s b bv"
+| "is_val s (if_then_else b e1 e2) (if bv then v1 else v2)"
+  if "is_val s e1 v1" "is_val s e2 v2" "check_bexp s b bv"
 
 type_synonym
   ('c, 't, 's) invassn = "'s \<Rightarrow> ('c, 't) cconstraint"
@@ -37,17 +46,19 @@ type_synonym
   ('a, 'b) upd = "('a * ('a, 'b) exp) list"
 
 type_synonym
-  ('a, 's, 'c, 't, 'x, 'v) transition = "'s \<times> ('c, 't) cconstraint \<times> 'a \<times> ('x, 'v) upd \<times> 'c list \<times> 's"
+  ('a, 's, 'c, 't, 'x, 'v) transition =
+  "'s \<times> ('x, 'v) bexp \<times> ('c, 't) cconstraint \<times> 'a \<times> ('x, 'v) upd \<times> 'c list \<times> 's"
 
 type_synonym
-  ('a, 's, 'c, 't, 'x, 'v) sta = "'s set \<times> ('a, 's, 'c, 't, 'x, 'v) transition set \<times> ('c, 't, 's) invassn"
+  ('a, 's, 'c, 't, 'x, 'v) sta =
+  "'s set \<times> ('a, 's, 'c, 't, 'x, 'v) transition set \<times> ('c, 't, 's) invassn"
 
 type_synonym
   ('a, 's, 'c, 't, 'x, 'v) nta = "'a set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
 
 context begin
 
-qualified definition conv_t where "conv_t \<equiv> \<lambda> (l,g,a,f,r,l'). (l,conv_cc g,a,f,r,l')"
+qualified definition conv_t where "conv_t \<equiv> \<lambda> (l,b,g,a,f,r,l'). (l,b,conv_cc g,a,f,r,l')"
 
 qualified definition conv_A where "conv_A \<equiv> \<lambda> (C, T, I). (C, conv_t ` T, conv_cc o I)"
 
@@ -97,8 +108,9 @@ where
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L, s, u \<oplus> d\<rangle>" |
   step_int:
     "\<lbrakk>
-      (l, g, Sil a, f, r, l') \<in> trans (N ! p);
+      (l, b, g, Sil a, f, r, l') \<in> trans (N ! p);
       l \<in> commited (N ! p) \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
+      check_bexp s b True;
       u \<turnstile> g;
       \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       L!p = l; p < length L; L' = L[p := l']; u' = [r\<rightarrow>0]u; is_upd s f s';
@@ -107,10 +119,10 @@ where
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Internal a\<^esub> \<langle>L', s', u'\<rangle>" |
   step_bin:
     "\<lbrakk>
-      (l1, g1, In a,  f1, r1, l1') \<in> trans (N ! p);
-      (l2, g2, Out a, f2, r2, l2') \<in> trans (N ! q);
+      (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N ! p);
+      (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N ! q);
       l1 \<in> commited (N ! p) \<or> l2 \<in> commited (N ! q) \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
-      u \<turnstile> g1; u \<turnstile> g2;
+      check_bexp s b1 True; check_bexp s b2 True; u \<turnstile> g1; u \<turnstile> g2;
       \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       L!p = l1; L!q = l2; p < length L; q < length L; p \<noteq> q;
       L' = L[p := l1', q := l2']; u' = [r1@r2\<rightarrow>0]u; is_upd s f1 s'; is_upd s' f2 s'';
@@ -120,13 +132,14 @@ where
   step_broad:
     "\<lbrakk>
       a \<in> broadcast;
-      (l, g, Out a, f, r, l') \<in> trans (N ! p);
-      \<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p);
+      (l, b, g, Out a, f, r, l') \<in> trans (N ! p);
+      \<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p);
       l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p))
       \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
-      u \<turnstile> g; \<forall>p \<in> set ps. u \<turnstile> gs p;
+      check_bexp s b True; \<forall>p \<in> set ps. check_bexp s (bs p) True; u \<turnstile> g; \<forall>p \<in> set ps. u \<turnstile> gs p;
       \<forall>q < length N. q \<notin> set ps \<and> p \<noteq> q
-        \<longrightarrow> (\<forall> g f r l'. (L!q, g, In a, f, r, l') \<in> trans (N ! q) \<longrightarrow> \<not> u \<turnstile> g);
+        \<longrightarrow> (\<forall>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N ! q)
+        \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g);
       \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       L!p = l;
       p < length L; set ps \<subseteq> {0..<length N}; p \<notin> set ps; ps \<noteq> []; distinct ps; sorted ps;
@@ -189,28 +202,29 @@ definition \<comment>\<open>Number of processes\<close>
 
 definition states  :: "'s list set" where
   "states \<equiv> {L. length L = n_ps \<and>
-    (\<forall> i. i < n_ps --> L ! i \<in> UNION (trans (N i)) (\<lambda>(l, g, a, r, u, l'). {l, l'}))}"
+    (\<forall> i. i < n_ps --> L ! i \<in> UNION (trans (N i)) (\<lambda>(l, e, g, a, r, u, l'). {l, l'}))}"
 
 definition
   "prod_inv \<equiv> \<lambda>(L, s). if L \<in> states then concat (map (\<lambda>i. inv (N i) (L ! i)) [0..<n_ps]) else []"
 
 definition
   "trans_int =
-    {((L, s), g, Internal a, r, (L', s')) | L s l g f p a r l' L' s'.
-      (l, g, Sil a, f, r, l') \<in> trans (N p) \<and>
+    {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
+      (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
       (l \<in> commited (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
-      L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
+      L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and> check_bexp s b True \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
     }"
 
 definition
   "trans_bin =
     {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
-      L s L' s' s'' a p q l1 g1 f1 r1 l1' l2 g2 f2 r2 l2'.
-      (l1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
-      (l2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
+      L s L' s' s'' a p q l1 b1 g1 f1 r1 l1' l2 b2 g2 f2 r2 l2'.
+      (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
+      (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
       (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
       L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
+      check_bexp s b1 True \<and> check_bexp s b2 True \<and>
       L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
     }"
@@ -218,15 +232,17 @@ definition
 definition
   "trans_broad =
     {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
-    L s L' s' s'' a p l g f r l' gs fs rs ls' ps.
+    L s L' s' s'' a p l b g f r l' bs gs fs rs ls' ps.
       a \<in> broadcast  \<and>
-      (l, g, Out a, f, r, l') \<in> trans (N p) \<and>
-      (\<forall>p \<in> set ps. (L ! p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
+      (l, b, g, Out a, f, r, l') \<in> trans (N p) \<and>
+      (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
       (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))
       \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
-      (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> \<not> (\<exists>g f r l'. (L!q, g, In a, f, r, l') \<in> trans (N q))) \<and>
+      (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
+        \<not> (\<exists>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
       L!p = l \<and>
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+      check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
     }"
@@ -259,12 +275,12 @@ lemma N_split_simp[simp]:
   unfolding N_def unfolding assms by simp
 
 lemma state_preservation_updI:
-  assumes "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})" "L \<in> states"
+  assumes "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})" "L \<in> states"
   shows "L[p := l'] \<in> states"
   using assms unfolding states_def by (fastforce simp: nth_list_update')
 
 lemma state_preservation_fold_updI:
-  assumes "\<forall> p \<in> set ps. ls' p \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})" "L \<in> states"
+  assumes "\<forall>p \<in> set ps. ls' p \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})" "L \<in> states"
   shows "fold (\<lambda>p L. L[p := ls' p]) ps L \<in> states"
   using assms by (induction ps arbitrary: L) (auto intro: state_preservation_updI)
 
@@ -329,8 +345,8 @@ proof cases
       apply clarsimp
       apply (subst A_split)
       apply standard
-                         apply (assumption | simp; elim prod_invD; assumption)+
-      done  
+                          apply (assumption | simp; elim prod_invD; assumption | fastforce)+
+      done
   qed
 qed
 
@@ -346,24 +362,24 @@ proof cases
   with \<open>L \<in> states\<close> show ?thesis
     by simp
 next
-  case prems: (step_int l g a f r l' N' p B broadcast)
-  from \<open>A = _\<close> prems(3) have "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+  case prems: (step_int l b g a f r l' N' p B broadcast)
+  from \<open>A = _\<close> prems(3) have "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     by force
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems: (step_bin l1 g1 a f1 r1 l1' N' p l2 g2 f2 r2 l2' q s' B broadcast)
+  case prems: (step_bin l1 b1 g1 a f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s' B broadcast)
   from \<open>A = _\<close> prems(3, 4) have
-    "l1' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
-    "l2' \<in> UNION (trans (N q)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+    "l1' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
+    "l2' \<in> UNION (trans (N q)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     by force+
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems: (step_broad a broadcast l g f r l' N' p ps gs fs rs ls' s' B)
+  case prems: (step_broad a broadcast l b g f r l' N' p ps bs gs fs rs ls' s' B)
   from \<open>A = _\<close> prems(4, 5) have
-    "l' \<in> UNION (trans (N p)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
-    "\<forall> q \<in> set ps. ls' q \<in> UNION (trans (N q)) (\<lambda>(l, g, a, r, u, l'). {l, l'})"
+    "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
+    "\<forall> q \<in> set ps. ls' q \<in> UNION (trans (N q)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     by force+
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI state_preservation_fold_updI)
@@ -375,7 +391,7 @@ end (* Prod TA Defs on a time domain *)
 locale Prod_TA =
   Prod_TA_sem A for A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta" +
   assumes broadcast_receivers_unguarded:
-    "\<forall>p < n_ps. \<forall> l g a f r l'. (l, g, In a, f, r, l') \<in> trans (N p) \<and> a \<in> broadcast \<longrightarrow> g = []"
+    "\<forall>p < n_ps. \<forall>l b g a f r l'. (l, b, g, In a, f, r, l') \<in> trans (N p) \<and> a \<in> broadcast \<longrightarrow> g = []"
 begin
 
 lemma action_complete:
@@ -386,7 +402,7 @@ using that(1) proof cases
   then show ?thesis
     using that(2) by auto
 next
-  case prems: (step_int l g a' f r l' N' p B broadcast')
+  case prems: (step_int l b g a' f r l' N' p B broadcast')
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
@@ -404,13 +420,13 @@ next
   moreover have "u \<turnstile> g"
     by (rule prems)
   moreover have "u' \<turnstile> inv_of prod_ta (L', s')"
-    using prems(6) by auto
+    using prems(7) by auto
   moreover have "u' = [r\<rightarrow>0]u"
     by (rule prems)
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_bin l1 g1 a' f1 r1 l1' N' p l2 g2 f2 r2 l2' q s'' B broadcast')
+  case prems: (step_bin l1 b1 g1 a' f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B broadcast')
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
@@ -436,7 +452,7 @@ next
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_broad a' broadcast' l g f r l' N' p ps gs fs rs ls' s'' B)
+  case prems: (step_broad a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s'' B)
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
@@ -447,9 +463,9 @@ next
   have "prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>?g,Broad a',?r\<^esup> (L', s')"
   proof -
     have *: "\<not> u \<turnstile> g \<longleftrightarrow> False" if
-      "p < n_ps" "(l, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
+      "p < n_ps" "(l, b, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
       "a' \<in> broadcast"
-      for l g a' f r l' p
+      for l b g a' f r l' p
     proof -
       from that broadcast_receivers_unguarded have \<open>g = []\<close>
         by blast
