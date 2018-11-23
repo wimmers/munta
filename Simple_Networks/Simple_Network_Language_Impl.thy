@@ -1386,6 +1386,16 @@ lemma n_ps_rangeD:
   "p < n_ps" if "p \<in> set ps" "set ps \<subseteq> {0..<n_ps}"
   using that by auto
 
+lemma maximalD:
+  "(\<forall>g f r l'.
+       (L ! q, b, g, In a', f, r, l')
+       \<notin> (\<lambda>(l, b, g, a, f, r, l').
+              (l, b, map conv_ac g, a, f, r, l')) ` trans (N q)) \<or> \<not> check_bexp s b True" if
+  "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> (\<forall>b. (\<forall>g f r l'.
+     (L ! q, b, g, In a', f, r, l') \<notin> trans (N q)) \<or> \<not> check_bexp s b True)"
+  "q<n_ps" "q \<notin> set ps" "p \<noteq> q"
+  for b ps p q L a' s using that by fastforce
+
 lemma conv_trans_broad:
   "conv.trans_broad = (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` trans_broad"
   unfolding conv.trans_broad_alt_def trans_broad_alt_def
@@ -1420,6 +1430,13 @@ lemma conv_trans_broad:
     qed
     have *: "set ps \<subseteq> {0..<n_ps} \<longleftrightarrow> (\<forall>p \<in> set ps. p < n_ps)" for ps
       by auto
+    have maximalI:
+      "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> (\<forall>b. (\<forall>g f r l'.
+         (L ! q, b, g, In a', f, r, l') \<notin> trans (N q)) \<or> \<not> check_bexp s b True)" if
+      "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow> (\<forall>b. (\<forall>g f r l'.
+         (L ! q, b, g, In a', f, r, l') \<notin> trans (conv.N q)) \<or> \<not> check_bexp s b True)"
+    for ps p L a' s
+      using that by (blast dest!: 71)
     show ?thesis
       apply (rule subsetI)
       apply (clarsimp simp add: conv_n_ps_eq 9 10 broadcast_def split: prod.split_asm)
@@ -1427,11 +1444,10 @@ lemma conv_trans_broad:
       apply (drule (1) 73)+
       apply elims
       apply (intro image_eqI[rotated] CollectI exI conjI)
-                        apply solve_triv+
+                          apply solve_triv+
       subgoal premises prems \<comment>\<open>Commited\<close>
         using prems(2) \<open>set _ \<subseteq> {0..<n_ps}\<close> by (auto dest: n_ps_rangeD simp: 9)
-      subgoal premises prems for L s s' s'' ae p b g f r l' bs gs fs rs ls' ps gs' g' \<comment>\<open>Maximal set\<close>
-        using prems(3) 71 by fast
+                        apply (erule maximalI; fail) \<comment>\<open>Maximal set\<close>
       by solve_triv+ (simp split: prod.split add: map_concat)
   qed
   subgoal
@@ -1441,15 +1457,14 @@ lemma conv_trans_broad:
         conv_n_ps_eq trans_conv_N_eq 9[symmetric] 10 broadcast_def map_concat)
     apply (drule (1) 71)
     apply (intros add: more_intros)
-                   apply solve_triv+
-               apply (subst comp_def; rule 71; fast elim: n_ps_rangeD; fail)
+                        apply solve_triv+
+                    apply (subst comp_def; rule 71; fast elim: n_ps_rangeD; fail)
     subgoal premises prems for L s s' s'' aj p g f r l' gs fs rs ls' ps
       using prems(3,6) 9 by fastforce
-    subgoal premises prems for L s s' s'' aj p g f r l' gs fs rs ls' ps q ga fa ra l'a
-      using prems(4,9-) 9 (* by autox *) sorry
+                  apply (erule maximalD)
+                    apply (solve_triv | blast)+
     done
-    by (solve_triv | blast)+
-  sorry
+  done
 
 lemma conv_prod_ta:
   "conv.prod_ta = Normalized_Zone_Semantics_Impl.conv_A prod_ta"
