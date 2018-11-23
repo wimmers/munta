@@ -1110,6 +1110,10 @@ lemma length_all_actions_by_state_preserv:
   "length (all_actions_by_state M L) = num_actions"
   unfolding all_actions_by_state_def by (auto intro: fold_acc_preserv)
 
+lemma length_actions_by_state'_preserv:
+  "length (actions_by_state' xs) = num_actions"
+  unfolding actions_by_state'_def by (rule fold_acc_preserv; simp)
+
 lemma all_actions_from_vecD:
   assumes
     "(q, b1, g1, a, r1) \<in> set (all_actions_from_vec M pairs ! a')" "a' < num_actions"
@@ -1506,18 +1510,6 @@ proof clarsimp
   define OUT where "OUT = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]"
   define IN' where "IN' = map (map (filter (\<lambda> (b, _). bval (the o s) b))) IN"
   define OUT' where "OUT' = map (map (filter (\<lambda> (b, _). bval (the o s) b))) OUT"
-  have IN'_I:
-    "(b, g, a', f, r, l') \<in> set (IN' ! p ! a')"
-    if "(b, g, a', f, r, l') \<in> set (IN ! p ! a')" "p < n_ps" "a' < num_actions"
-       "check_bexp s b True"
-     for p b g a' f r l'
-    sorry
-  have OUT'_I:
-    "(b, g, a', f, r, l') \<in> set (OUT' ! p ! a')"
-    if "(b, g, a', f, r, l') \<in> set (OUT ! p ! a')" "p < n_ps" "a' < num_actions"
-       "check_bexp s b True"
-     for p b g a' f r l'
-    sorry
   have IN_I:
     "(b, g, a', f, r, l') \<in> set (IN ! p ! a')"
     if "(L ! p, b, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
@@ -1556,12 +1548,12 @@ proof clarsimp
     apply (drule in_actions_by_state'D)
     unfolding trans_in_broad_map_def set_map_filter
     by (auto split: option.split_asm) (auto split: act.split_asm if_split_asm dest: trans_mapD)
-  have IN'_D:
-    "(L ! p, b, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)
-     \<and> a' = a1 \<and> a1 \<in> set broadcast \<and> check_bexp s b True"
-    if "(b, g, a', f, r, l') \<in> set (IN' ! p ! a1)" "a1 < num_actions" "p < n_ps"
-    for p b g a' f r l' a1
-    sorry
+  have [simp]: "length IN = n_ps" "length OUT = n_ps"
+    unfolding IN_def OUT_def by simp+
+  have [simp]: "length (IN ! p) = num_actions" "length (OUT ! p) = num_actions" if "p < n_ps" for p
+    using that by (simp add:
+      length_actions_by_state'_preserv trans_in_broad_grouped_def trans_out_broad_grouped_def
+      IN_def OUT_def)+
   have OUT_D:
     "(L ! p, b, g, Out a', f, r, l') \<in> Simple_Network_Language.trans (N p)
      \<and> a' = a1 \<and> a1 \<in> set broadcast"
@@ -1572,12 +1564,30 @@ proof clarsimp
     apply (drule in_actions_by_state'D)
     unfolding trans_out_broad_map_def set_map_filter
     by (auto split: option.split_asm) (auto split: act.split_asm if_split_asm dest: trans_mapD)
+  have IN'_I:
+    "(b, g, a', f, r, l') \<in> set (IN' ! p ! a')"
+    if "(b, g, a', f, r, l') \<in> set (IN ! p ! a')" "p < n_ps" "a' < num_actions"
+       "check_bexp s b True" for p b g a' f r l'
+    using that \<open>dom s = {0..<n_vs}\<close> unfolding IN'_def
+    by (auto dest!: IN_D[THEN conjunct1] elim: check_bexp_bvalI)
+  have IN'_D:
+    "(L ! p, b, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)
+     \<and> a' = a1 \<and> a1 \<in> set broadcast \<and> check_bexp s b True"
+    if "(b, g, a', f, r, l') \<in> set (IN' ! p ! a1)" "a1 < num_actions" "p < n_ps"
+    for p b g a' f r l' a1
+    using that \<open>dom s = {0..<n_vs}\<close> unfolding IN'_def by (auto dest!: IN_D elim: check_bexp_bvalD)
+  have OUT'_I:
+    "(b, g, a', f, r, l') \<in> set (OUT' ! p ! a')"
+    if "(b, g, a', f, r, l') \<in> set (OUT ! p ! a')" "p < n_ps" "a' < num_actions"
+       "check_bexp s b True" for p b g a' f r l'
+    using that \<open>dom s = {0..<n_vs}\<close> unfolding OUT'_def
+    by (auto dest!: OUT_D[THEN conjunct1] elim: check_bexp_bvalI)
   have OUT'_D:
     "(L ! p, b, g, Out a', f, r, l') \<in> Simple_Network_Language.trans (N p)
      \<and> a' = a1 \<and> a1 \<in> set broadcast \<and> check_bexp s b True"
     if "(b, g, a', f, r, l') \<in> set (OUT' ! p ! a1)" "a1 < num_actions" "p < n_ps"
     for p b g a' f r l' a1
-    sorry
+    using that \<open>dom s = {0..<n_vs}\<close> unfolding OUT'_def by (auto dest!: OUT_D elim: check_bexp_bvalD)
   define make_trans where "make_trans a p \<equiv>
       let
         outs = OUT' ! p ! a
@@ -1770,7 +1780,6 @@ proof clarsimp
        (g1 @ concat (map gs ps), Broad a', r1 @ concat (map rs ps),
         fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'], s') \<in> set (make_trans a' p)"
     if 
-      "dom s = {0..<n_vs}" and
       "L \<in> states" and
       "g = g1 @ concat (map gs ps)" and
       "a = Broad a'" and
@@ -1794,7 +1803,7 @@ proof clarsimp
       "is_upds s'' (map fs ps) s'" and
       "Simple_Network_Language.bounded bounds s'"
     for a' p b1 g1 bs gs ps r1 rs ls' l' f1 s'' fs
-    using that
+    using that \<open>dom s = {0..<n_vs}\<close>
     unfolding make_trans_def
     apply (clarsimp simp: set_map_filter Let_def split: prod.split)
     supply [forward2] = action_setD
@@ -1833,7 +1842,6 @@ proof clarsimp
          bounded bounds s' \<and>
          filter (\<lambda>i. IN' ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = ps"
     if
-      "dom s = {0..<n_vs}" and
       "L \<in> states" and
       "a' < num_actions" and
       "p < n_ps" and
@@ -1842,7 +1850,7 @@ proof clarsimp
     supply [forward2] = action_setD
     supply [forward3] = is_upds_make_updsI3[rotated] OUT'_D
     supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I OUT'_I
-    using that
+    using that \<open>dom s = {0..<n_vs}\<close>
     unfolding make_trans_def
     apply mini_ex
     apply (clarsimp simp: set_map_filter Let_def split: prod.split if_split_asm)
@@ -2111,6 +2119,7 @@ end (* Anonymous context for simp setup *)
 end (* Simple Network Impl nat *)
 
 fun bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bool" where
+  "bvali s bexp.true = True" |
   "bvali s (not e) \<longleftrightarrow> \<not> bvali s e" |
   "bvali s (and e1 e2) \<longleftrightarrow> bvali s e1 \<and> bvali s e2" |
   "bvali s (bexp.or e1 e2) \<longleftrightarrow> bvali s e1 \<or> bvali s e2" |
@@ -2141,9 +2150,9 @@ definition
   "int_trans_from_loc_impl p l L s \<equiv>
     let trans = trans_i_map p l
     in
-    List.map_filter (\<lambda> (g, a, f, r, l').
+    List.map_filter (\<lambda> (b, g, a, f, r, l').
       let s' = mk_updsi s f in
-        if check_boundedi s' then Some (g, Internal a, r, (L[p := l'], s'))
+        if bvali s b \<and> check_boundedi s' then Some (g, Internal a, r, (L[p := l'], s'))
         else None
     ) trans"
 
@@ -2166,11 +2175,12 @@ definition
 definition
   "pairs_by_action_impl L s OUT IN \<equiv>
   concat (
-    map (\<lambda> (p, g1, a1, f1, r1, l1).
-      List.map_filter (\<lambda> (q, g2, a2, f2, r2, l2).
+    map (\<lambda> (p, b1, g1, a1, f1, r1, l1).
+      List.map_filter (\<lambda> (q, b2, g2, a2, f2, r2, l2).
         if p = q then None else
           let s' = mk_updsi (mk_updsi s f1) f2 in
-          if check_boundedi s' then Some (g1 @ g2, Bin a1, r1 @ r2, (L[p := l1, q := l2], s'))
+          if bvali s b1 \<and> bvali s b2 \<and> check_boundedi s'
+          then Some (g1 @ g2, Bin a1, r1 @ r2, (L[p := l1, q := l2], s'))
           else None
     ) OUT) IN)
   "
@@ -2197,7 +2207,7 @@ definition
   "compute_upds init \<equiv> List.map_filter (\<lambda>comb.
   let (g, a, r, L', s) =
     fold
-      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+      (\<lambda>(q, b2, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
         (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
       )
       comb
@@ -2209,7 +2219,7 @@ definition
   "compute_upds_impl init \<equiv> List.map_filter (\<lambda>comb.
   let (g, a, r, L', s) =
     fold
-      (\<lambda>(q, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
+      (\<lambda>(q, b2, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
         (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_updsi s f2))
       )
       comb
@@ -2225,7 +2235,9 @@ definition
     let
       pairs = get_commited L;
       In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
-      Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
+      Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps];
+      In  = map (map (filter (\<lambda>(b, _). bvali s b))) In;
+      Out = map (map (filter (\<lambda>(b, _). bvali s b))) Out
     in
     if pairs = [] then
       concat (
@@ -2330,6 +2342,9 @@ lemma check_bounded_check_boundedi:
 
 definition
   "valid_upd \<equiv> \<lambda>(x, e). x < n_vs \<and> (\<forall>x \<in> vars_of_exp e. x < n_vs)"
+
+definition
+  "valid_check b \<equiv> (\<forall>x \<in> vars_of_bexp b. x < n_vs)"
 
 context includes lifting_syntax begin
 notation rel_prod (infixr "\<times>\<^sub>R" 56)
@@ -2437,6 +2452,10 @@ lemma fold_transfer_strong:
    apply assumption+
   done
 
+lemma bval_bvali_transfer[transfer_rule]:
+  "(state_rel ===> eq_onp valid_check ===> (=)) (\<lambda> s. bval (the o s)) bvali"
+  by (intro rel_funI) (auto simp: eq_onp_def valid_check_def state_rel_def intro!: bval_bvali)
+
 lemma mk_upds_mk_updsi_transfer[transfer_rule]:
   "(state_rel ===> list_all2 (eq_onp valid_upd) ===> state_rel) mk_upds mk_updsi"
   apply (intro rel_funI)
@@ -2459,20 +2478,26 @@ lemma check_bounded_transfer[transfer_rule]:
   by (simp add: check_bounded_check_boundedi rel_funI)
 
 lemma trans_map_transfer:
-  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R eq_onp (pred_act (\<lambda>x. x < num_actions)) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
-  trans_map trans_map"
+  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===>
+    list_all2 (
+      eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (pred_act (\<lambda>x. x < num_actions))
+      \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)
+   )) trans_map trans_map"
   apply (intro rel_funI, simp add: eq_onp_def, intro list.rel_refl_strong)
   apply clarsimp
-  apply (auto 4 4 dest!: trans_mapD dest: action_setD var_setD intro: list.rel_refl_strong simp: valid_upd_def)
+  apply (auto 4 4 dest!: trans_mapD dest: action_setD var_setD var_setD2 intro: list.rel_refl_strong
+                  simp: valid_upd_def valid_check_def
+        )
   done
 
 lemma trans_map_transfer':
-  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
-  trans_map trans_map"
+  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===>
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+  ) trans_map trans_map"
   apply (intro rel_funI, simp add: eq_onp_def, intro list.rel_refl_strong)
   apply clarsimp
-  apply (intro list.rel_refl_strong)
-  apply (auto dest!: var_setD trans_mapD simp: valid_upd_def)
+  apply (intro conjI list.rel_refl_strong)
+    apply (auto 4 4 dest: var_setD trans_mapD var_setD2 simp: valid_upd_def valid_check_def)
   done
 
 lemma map_filter_transfer[transfer_rule]:
@@ -2495,8 +2520,9 @@ lemma map_filter_transfer[transfer_rule]:
   done
 
 lemma trans_i_map_transfer[transfer_rule]:
-  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
-  trans_i_map trans_i_map"
+  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===>
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+   ) trans_i_map trans_i_map"
   supply [transfer_rule] = trans_map_transfer'
   unfolding trans_i_map_def by transfer_prover
 
@@ -2534,7 +2560,8 @@ lemma int_trans_from_vec_transfer[transfer_rule]:
 private definition R where "R \<equiv> (\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps)"
 
 lemma get_commited_transfer[transfer_rule]:
-  "((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) ===> list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R (=))) get_commited get_commited"
+  "((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) ===> list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R (=)))
+    get_commited get_commited"
 proof -
   have [transfer_rule]:
     "R automata automata"
@@ -2572,8 +2599,10 @@ lemma int_trans_from_transfer:
 
 lemma pairs_by_action_transfer[transfer_rule]:
   "((\<lambda>x y. list_all2 (=) x y \<and> length x = n) ===> state_rel ===>
-    list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=) \<times>\<^sub>R (=)) ===>
-    list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=) \<times>\<^sub>R (=)) ===>
+    list_all2 ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=) \<times>\<^sub>R (=))
+    ===>
+    list_all2 ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=) \<times>\<^sub>R (=))
+    ===>
     list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel))
    pairs_by_action pairs_by_action_impl"
   supply [transfer_rule] = list_update_transfer'''
@@ -2588,8 +2617,8 @@ lemmas rel_intros =
 
 lemma pairs_by_action_transfer':
   "((\<lambda>x y. list_all2 (=) x y \<and> length x = n) ===> state_rel ===>
-    list_all2 (B \<times>\<^sub>R C \<times>\<^sub>R D \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R E \<times>\<^sub>R F) ===>
-    list_all2 (B \<times>\<^sub>R C \<times>\<^sub>R D \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R E \<times>\<^sub>R F) ===>
+    list_all2 (B \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R C \<times>\<^sub>R D \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R E \<times>\<^sub>R F) ===>
+    list_all2 (B \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R C \<times>\<^sub>R D \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R E \<times>\<^sub>R F) ===>
     list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel))
    pairs_by_action pairs_by_action_impl"
   if "\<And>x y. B x y \<Longrightarrow> x = y"
@@ -2603,33 +2632,37 @@ lemma pairs_by_action_transfer':
 
 lemma trans_in_map_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=)
-    ===> list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>a. a < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+    ===> list_all2 (
+    eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>a. a < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
    ) trans_in_map trans_in_map"
   supply [transfer_rule] = trans_map_transfer[folded act.rel_eq_onp]
   unfolding trans_in_map_def by transfer_prover
 
 lemma trans_in_map_transfer[transfer_rule]:
-  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+  "(eq_onp (\<lambda>i. i<n_ps) ===> (=)
+    ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
    ) trans_in_map trans_in_map"
   unfolding trans_in_map_def oops
 
 lemma trans_out_map_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=)
-    ===> list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>a. a < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
-  trans_out_map trans_out_map"
+    ===> list_all2 (
+    eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>a. a < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)
+   )) trans_out_map trans_out_map"
   supply [transfer_rule] = trans_map_transfer[folded act.rel_eq_onp]
   unfolding trans_out_map_def by transfer_prover
 
 lemma trans_out_map_transfer[transfer_rule]:
-  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (
+    eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
   trans_out_map trans_out_map"
   unfolding trans_out_map_def oops
 
 lemma actions_by_state_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i < n_ps) ===>
-    list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>i. i < n) \<times>\<^sub>R (=)) ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n) ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n)
+    list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < n) \<times>\<^sub>R (=)) ===>
+    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n) ===>
+    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n)
   )
   actions_by_state actions_by_state" for n
   supply [transfer_rule] = list_update_transfer''
@@ -2638,9 +2671,13 @@ lemma actions_by_state_transfer[transfer_rule]:
 lemma actions_by_state_transfer'[transfer_rule]:
   "(
     eq_onp (\<lambda>i. i < n_ps) ===>
-    list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>i. i < n) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)) ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = n) ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = n)
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < n) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)) ===>
+    (\<lambda> x y. list_all2 (list_all2 (
+        eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n)
+        \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = n) ===>
+    (\<lambda> x y. list_all2 (list_all2 (
+        eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n)
+        \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = n)
   )
   actions_by_state actions_by_state"
   for n
@@ -2655,11 +2692,11 @@ lemma transfer_consts:
 lemma all_actions_by_state_transfer[transfer_rule]:
   "
   (
-    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
     ===>
     (\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps)
     ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = num_actions)
+    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = num_actions)
   )
   all_actions_by_state all_actions_by_state"
   supply [transfer_rule] = map_transfer_length upt_0_transfer upt_length_transfer transfer_consts
@@ -2669,11 +2706,11 @@ lemma all_actions_by_state_transfer[transfer_rule]:
 lemma all_actions_from_vec_transfer[transfer_rule]:
   "
   (
-    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
     ===>
     list_all2 (eq_onp (\<lambda>i. i < n_ps) \<times>\<^sub>R (=))
     ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = num_actions)
+    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = num_actions)
   )
   all_actions_from_vec all_actions_from_vec"
   supply [transfer_rule] = map_transfer_length upt_length_transfer transfer_consts
@@ -2753,7 +2790,7 @@ definition
 
 lemma trans_map_transfer'':
   "((=) ===> (=) ===>
-  list_all2 ((=) \<times>\<^sub>R eq_onp (pred_act (\<lambda>x. x < num_actions)) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+  list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (pred_act (\<lambda>x. x < num_actions)) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
   trans_map trans_map"
   apply (intro rel_funI, simp add: eq_onp_def, intro list.rel_refl_strong)
   apply clarsimp
@@ -2765,7 +2802,8 @@ lemma compute_upds_transfer:
   "(
   (list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel)
   ===> list_all2 (list_all2
-        ((=) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) ===>
+        ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd)
+        \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) ===>
   list_all2 (
     list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel
   )) compute_upds compute_upds_impl"
@@ -2778,22 +2816,22 @@ lemma in_transfer:
      (auto simp: eq_onp_def rel_set_eq intro: bi_unique_eq)
 
 lemma trans_in_broad_map_transfer[transfer_rule]:
-  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
   trans_in_broad_map trans_in_broad_map"
   supply [transfer_rule] = trans_map_transfer[folded act.rel_eq_onp] in_transfer
   unfolding trans_in_broad_map_def by transfer_prover
 
 lemma trans_out_broad_map_transfer[transfer_rule]:
-  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+  "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
   trans_out_broad_map trans_out_broad_map"
   supply [transfer_rule] = trans_map_transfer[folded act.rel_eq_onp] in_transfer
   unfolding trans_out_broad_map_def by transfer_prover
 
 text \<open>We are using the ``equality version'' of parametricty for @{term "(!)"} here.\<close>
 lemma actions_by_state'_transfer[transfer_rule]:
-  "(list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+  "(list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
   ===> (\<lambda> x y. list_all2 (
-    list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
     \<and> length x = num_actions
   ))
   actions_by_state' actions_by_state'"
@@ -2806,7 +2844,7 @@ lemma actions_by_state'_transfer[transfer_rule]:
 lemma trans_in_broad_grouped_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=)
   ===> (\<lambda> x y. list_all2 (
-    list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
     \<and> length x = num_actions
   )) trans_in_broad_grouped trans_in_broad_grouped"
   unfolding trans_in_broad_grouped_def by transfer_prover
@@ -2814,7 +2852,7 @@ lemma trans_in_broad_grouped_transfer[transfer_rule]:
 lemma trans_out_broad_grouped_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=)
   ===> (\<lambda> x y. list_all2 (
-    list_all2 ((=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
     \<and> length x = num_actions
   )) trans_out_broad_grouped trans_out_broad_grouped"
   unfolding trans_out_broad_grouped_def by transfer_prover
@@ -2851,7 +2889,9 @@ lemma broad_trans_from_alt_def2:
     let
       pairs = get_commited L;
       In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
-      Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
+      Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps];
+      In = map (map (filter (\<lambda>(b, _). bval (the \<circ> s) b))) In;
+      Out = map (map (filter (\<lambda>(b, _). bval (the \<circ> s) b))) Out
     in
     if pairs = [] then
       concat (
@@ -2925,6 +2965,7 @@ proof -
       list_all2
        (list_all2
          (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R
+          eq_onp valid_check \<times>\<^sub>R
           list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R
           eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
           list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) ===>
@@ -2945,15 +2986,15 @@ proof -
     apply (elim list_all2_mono rel_prod.cases)
     apply (simp only:)
     apply (intro rel_prod.intros)
-         apply (simp add: eq_onp_def acconstraint.rel_eq)+
+          apply (assumption | simp add: eq_onp_def acconstraint.rel_eq)+
     done
 
   have eq_transfer1:
     "(list_all2
-      (list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
+      (eq_onp valid_check \<times>\<^sub>R  list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
          list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)) ===>
     list_all2
-      (list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
+      (eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
          list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))
     ===> (=)) (=) (=)
     "
@@ -2986,11 +3027,11 @@ proof -
     (eq_onp (\<lambda>x. x < n_ps) ===>
         eq_onp (\<lambda>x. x < num_actions) ===>
         (\<lambda>x y. list_all2 (\<lambda>x y. list_all2 (list_all2
-          (list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
+          (eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
            list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)))
           x y \<and> length x = num_actions) x y \<and> length x = n_ps) ===>
         list_all2 (list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R
-          list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
+          eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
           list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))
         )
     ) make_combs make_combs"
@@ -2998,16 +3039,18 @@ proof -
     apply (rule make_combs_transfer[THEN rel_funD, THEN rel_funD, THEN rel_funD])
     subgoal
       apply (simp add: acconstraint.rel_eq list.rel_eq prod.rel_eq)
-      apply (drule (1) prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"])
-       apply (drule prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"], erule eq_onp_to_eq)
-        apply (drule prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"])
-          apply (drule list_all2_mono[of _ _ _ "(=)"], erule eq_onp_to_eq, simp only: list.rel_eq)
-      apply assumption
-        apply (simp add: prod.rel_eq)+
+      apply (drule prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"], erule eq_onp_to_eq)
+       apply (drule prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"])
+         apply assumption
+        apply (drule prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"], erule eq_onp_to_eq)
+         apply (drule prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"])
+           apply (drule list_all2_mono[of _ _ _ "(=)"], erule eq_onp_to_eq, simp only: list.rel_eq)
+          apply assumption
+         apply (drule (2) prod.rel_mono_strong[of _ _ _ _ "(=)" "(=)"];
+                simp add: acconstraint.rel_eq list.rel_eq prod.rel_eq)+
       done
-      apply assumption+
+      apply (simp add: prod.rel_eq)+
     done
-
   have "
   ((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel
     ===> list_all2 (
@@ -3074,8 +3117,7 @@ proof -
       eq_transfer1
       eq_transfer2
       eq_transfer3
-    unfolding Let_def
-    by transfer_prover
+    unfolding Let_def by transfer_prover
 
   have "
   ((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel
