@@ -224,10 +224,11 @@ lemmas [code] =
   Simple_Network_Rename_Defs.renum_upd_def
   Simple_Network_Rename_Defs.renum_act_def
   Simple_Network_Rename_Defs.renum_exp_def
+  Simple_Network_Rename_Defs.renum_bexp_def
 
 lemma (in Prod_TA_Defs) states_mem_iff:
   "L \<in> states \<longleftrightarrow> length L = n_ps \<and>
-  (\<forall> i. i < n_ps \<longrightarrow> (\<exists> (l, g, a, r, u, l') \<in> fst (snd (fst (snd A) ! i)). L ! i = l \<or> L ! i = l'))"
+  (\<forall> i. i < n_ps \<longrightarrow> (\<exists> (l, b, g, a, r, u, l') \<in> fst (snd (fst (snd A) ! i)). L ! i = l \<or> L ! i = l'))"
   unfolding states_def trans_def N_def by (auto split: prod.split)
 
 lemmas [code_unfold] =
@@ -250,10 +251,10 @@ definition "clkp_inv i l \<equiv>
   (UNION (set (filter (\<lambda> (a, b). a = l) (snd (snd (automata ! i))))) (collect_clock_pairs o snd))"
 
 definition "clkp_set'' i l \<equiv>
-    clkp_inv i l \<union> (\<Union> (l, g, _) \<in> set (fst (snd (automata ! i))). collect_clock_pairs g)"
+    clkp_inv i l \<union> (\<Union> (l, b, g, _) \<in> set (fst (snd (automata ! i))). collect_clock_pairs g)"
 
 definition
-  "collect_resets i l = (\<Union> (l, g, a, f, r, _) \<in> set (fst (snd (automata ! i))). set r)"
+  "collect_resets i l = (\<Union> (l, b, g, a, f, r, _) \<in> set (fst (snd (automata ! i))). set r)"
 
 context
   fixes q c :: nat
@@ -281,7 +282,7 @@ definition "
   resets l \<equiv>
     let reset = collect_resets q l in
     fold
-    (\<lambda> (l1, g, a, f, r, l') xs. if l1 \<noteq> l \<or> l' \<in> set xs \<or> c \<in> reset then xs else (l' # xs))
+    (\<lambda> (l1, b, g, a, f, r, l') xs. if l1 \<noteq> l \<or> l' \<in> set xs \<or> c \<in> reset then xs else (l' # xs))
     (fst (snd (automata ! q)))
     []
 "
@@ -401,10 +402,10 @@ begin
 
 definition action_set where
   "action_set \<equiv>
-    (\<Union>(_, trans, _) \<in> set automata. \<Union>(_, _, a, _, _, _) \<in> set trans. set_act a) \<union> set broadcast"
+    (\<Union>(_, trans, _) \<in> set automata. \<Union>(_, _, _, a, _, _, _) \<in> set trans. set_act a) \<union> set broadcast"
 
 definition loc_set' where
-  "loc_set' p = (\<Union>(l, _, _, _, _, l')\<in>set (fst (snd (automata ! p))). {l, l'})" for p
+  "loc_set' p = (\<Union>(l, _, _, _, _, _, l')\<in>set (fst (snd (automata ! p))). {l, l'})" for p
 
 end
 
@@ -714,9 +715,9 @@ fun sexp_to_bexp :: "(String.literal, String.literal, String.literal, int) sexp 
     do {a \<leftarrow> sexp_to_bexp a; b \<leftarrow> sexp_to_bexp b; bexp.imply a b |> Result}" |
   "sexp_to_bexp x        = Error [STR ''Illegal construct in binary operation'']"
 
+(*
 definition true where "true \<equiv> sexp.or (gt (STR ''a'') 1) (le (STR ''a'') 1)"
-
-definition true_bexp where "true_bexp \<equiv> bexp.or (bexp.gt (STR ''a'') 1) (bexp.le (STR ''a'') 1)"
+*)
 
 derive "show" bexp
 
@@ -734,14 +735,26 @@ definition compile_invariant where
   "compile_invariant clocks vars inv \<equiv>
     let
       (cs, es) = chop_sexp clocks inv ([], []);
-      g = map sexp_to_acconstraint cs;
-      e = (if es = [] then true else fold (and) (tl es) (hd es))
-    in do {
-      b \<leftarrow> sexp_to_bexp e;
-      assert (set1_bexp b \<subseteq> set vars) (String.implode (''Unknown variable in bexp: '' @ show b));
-      Result (g, b)
-    }
-  " for inv
+      g = map sexp_to_acconstraint cs
+    in
+      if es = []
+      then Result (g, bexp.true)
+      else do {
+        let e = fold (and) (tl es) (hd es);
+        b \<leftarrow> sexp_to_bexp e;
+        assert (set1_bexp b \<subseteq> set vars) (String.implode (''Unknown variable in bexp: '' @ show b));
+        Result (g, b)
+      }" for inv
+
+definition compile_invariant' where
+  "compile_invariant' clocks vars inv \<equiv>
+  if inv = STR '''' then
+    Result ([], bexp.true)
+  else do {
+    inv \<leftarrow> parse scan_bexp inv |> err_msg (STR ''Failed to parse guard in '' + inv);
+    compile_invariant clocks vars inv
+  }
+" for inv
 
 definition convert_node where
   "convert_node clocks vars n \<equiv> do {
@@ -749,14 +762,9 @@ definition convert_node where
     ID \<leftarrow> get n ''id'' \<bind> of_nat;
     name \<leftarrow> get n ''name'' \<bind> of_string;
     inv \<leftarrow> get n ''invariant'' \<bind> of_string;
-    (inv, inv_vars) \<leftarrow> (
-      if inv = STR ''''
-      then Result ([], true_bexp)
-      else do {
-        inv \<leftarrow> parse scan_bexp inv |> err_msg (STR ''Failed to parse invariant in '' + inv);
-        compile_invariant clocks vars inv
-    });
-    assert (inv_vars = true_bexp) (STR ''State invariants on nodes are not supported'');
+    (inv, inv_vars) \<leftarrow>
+      compile_invariant' clocks vars inv |> err_msg (STR ''Failed to parse invariant!'');
+    assert (inv_vars = bexp.true) (STR ''State invariants on nodes are not supported'');
     Result ((name, ID), inv)
   }"
 
@@ -768,9 +776,9 @@ definition convert_edge where
     guard  \<leftarrow> get e ''guard''  \<bind> of_string;
     label  \<leftarrow> get e ''label''  \<bind> of_string;
     update \<leftarrow> get e ''update'' \<bind> of_string;
-    label  \<leftarrow> parse scan_action label |> err_msg (STR ''Failed to parse label in '' + label);
-    guard  \<leftarrow> parse scan_bexp guard |> err_msg (STR ''Failed to parse guard in '' + guard);
-    (g, _) \<leftarrow> compile_invariant clocks vars guard;
+    label  \<leftarrow> if label = STR '''' then STR '''' |> Sil |> Result else
+      parse scan_action label |> err_msg (STR ''Failed to parse label in '' + label);
+    (g, check)  \<leftarrow> compile_invariant' clocks vars guard |> err_msg (STR ''Failed to parse guard!'');
     update \<leftarrow> parse scan_updates update |> err_msg (STR ''Failed to parse update in '' + update);
     let resets = filter (\<lambda>x. fst x \<in> set clocks) update;
     assert
@@ -782,7 +790,7 @@ definition convert_edge where
       (list_all (\<lambda>(x, _). x \<in> set vars) upds)
       (STR ''Unknown variable in update'');
     let upds = map (\<lambda>(x, d). (x, (exp.const (int d) :: (String.literal, int) exp))) upds;
-    Result (source, g, label, upds, resets, target)
+    Result (source, check, g, label, upds, resets, target)
   }"
 
 definition convert_automaton where
@@ -792,11 +800,14 @@ definition convert_automaton where
     nodes \<leftarrow> combine_map (convert_node clocks vars) nodes;
     let invs = map (\<lambda> ((_, n), g). (n, g)) nodes;
     let names_to_ids = map fst nodes;
-    assert (distinct (map fst names_to_ids)) (STR ''Node names are ambiguous'');
-    assert (distinct (map snd names_to_ids)) (STR ''Duplicate node id'');
+    assert (map fst names_to_ids |> filter (\<lambda>s. s \<noteq> STR '''') |> distinct)
+      (STR ''Node names are ambiguous'' + (show (map fst names_to_ids) |> String.implode));
+    assert (map snd names_to_ids |> distinct) (STR ''Duplicate node id'');
     let names_to_ids = map_of names_to_ids;
     let commited = default (STR '''') (get a ''commited'' \<bind> of_string);
-    commited \<leftarrow> parse (parse_list (token ta_var_ident with String.implode)) commited;
+    commited \<leftarrow> if commited = STR '''' then Result [] else
+      parse (parse_list (token ta_var_ident with String.implode)) commited
+      |> err_msg (STR ''Failed to parse commited locations'');
     commited \<leftarrow> combine_map (get names_to_ids) commited;
     edges \<leftarrow> combine_map (convert_edge clocks vars) edges;
     Result (names_to_ids, (commited, edges, invs))
@@ -844,13 +855,14 @@ definition convert :: "JSON \<Rightarrow>
     let bounds = default (STR '''') (do {
       x \<leftarrow> get all ''vars''; of_string x}
     );
-    bounds \<leftarrow> parse parse_bounds bounds;
+    bounds \<leftarrow> parse parse_bounds bounds |> err_msg (STR ''Failed to parse bounds'');
     clocks \<leftarrow> get all ''clocks'';
     clocks \<leftarrow> of_string clocks;
-    clocks \<leftarrow> parse (parse_list (lx_ws *-- ta_var_ident with String.implode)) clocks;
+    clocks \<leftarrow> parse (parse_list (lx_ws *-- ta_var_ident with String.implode)) clocks
+       |> err_msg (STR ''Failed to parse clocks'');
     formula \<leftarrow> get all ''formula'';
     formula \<leftarrow> of_string formula;
-    formula \<leftarrow> parse scan_formula formula;
+    formula \<leftarrow> parse scan_formula formula |> err_msg (STR ''Failed to parse formula'');
     automata \<leftarrow> combine_map of_object automata;
     process_names \<leftarrow> combine_map (\<lambda>a. get a ''name'' \<bind> of_string) automata;
     assert (distinct process_names) (STR ''Process names are ambiguous'');
@@ -895,7 +907,7 @@ definition parse_convert_run_print where
       | Result s \<Rightarrow> do {let _ = println s; return ()}
   }"
 
-export_code do_preproc_mc checking SML
+(* export_code do_preproc_mc checking SML *)
 
 export_code parse_convert_run_print in SML_imp module_name Test
 
@@ -906,10 +918,11 @@ ML \<open>
   fun test file =
   let
     val s = file_to_string file;
+    val _ = writeln s;
   in
     @{code parse_convert_run} s end
 \<close>
 
-ML_val \<open>test "../benchmarks/HDDI_02.muntax"\<close>
+ML_val \<open>test "benchmarks/HDDI_02.muntax"\<close>
 
 end

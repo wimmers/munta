@@ -1,5 +1,5 @@
 theory Simple_Network_Language_Model_Checking
-  imports Simple_Network_Language_Impl_Refine "Proof_Strategy_Language.PSL"
+  imports Simple_Network_Language_Impl_Refine
     "../UPPAAL_Model_Checking" "../library/Abstract_Term"
 begin
 
@@ -238,10 +238,10 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
   assumes k_ceiling:
     "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
       \<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x)"
-    "\<forall>i < n_ps. \<forall>(l, g, _) \<in> set ((fst o snd) (automata ! i)).
+    "\<forall>i < n_ps. \<forall>(l, _, g, _) \<in> set ((fst o snd) (automata ! i)).
       (\<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x))"
   and k_resets:
-    "\<forall>i < n_ps. \<forall> (l, g, a, upd, r, l') \<in> set ((fst o snd) (automata ! i)).
+    "\<forall>i < n_ps. \<forall> (l, b, g, a, upd, r, l') \<in> set ((fst o snd) (automata ! i)).
        \<forall>c \<in> {0..<m+1} - set r. k ! i ! l' ! c \<le> k ! i ! l ! c"
   and k_length:
     "length k = n_ps" "\<forall> i < n_ps. length (k ! i) = length ((fst o snd) (automata ! i))"
@@ -287,7 +287,7 @@ lemma (in -) subset_nat_0_atLeastLessThan_conv:
 
 lemma k_ceiling_rule:
   "m \<le> int (k ! i ! l ! x)"
-  if "i < n_ps" "(l, g, xx) \<in> set ((fst o snd) (automata ! i))" "(x, m) \<in> collect_clock_pairs g"
+  if "i < n_ps" "(l, b, g, xx) \<in> set ((fst o snd) (automata ! i))" "(x, m) \<in> collect_clock_pairs g"
   for i l x g xx
   using that k_ceiling(2) by fastforce
 
@@ -416,7 +416,7 @@ proof safe
       apply clarsimp
       apply (rule k_fun_mono)
       apply (clarsimp simp: mem_trans_N_iff L_len subset_nat_0_atLeastLessThan_conv)
-      subgoal for f p aa l' i
+      subgoal for b f p aa l' i
         by (cases "p = i"; force simp add: L_len)
       done
     subgoal
@@ -425,7 +425,7 @@ proof safe
       apply clarsimp
       apply (rule k_fun_mono)
       apply (clarsimp simp: mem_trans_N_iff L_len subset_nat_0_atLeastLessThan_conv)
-      subgoal for _ _ p q g1 f1 r1 l1' g2 f2 r2 l2' i
+      subgoal for _ _ p q b1 g1 f1 r1 l1' b2 g2 f2 r2 l2' i
         by (cases "p = i"; cases "q = i"; force simp add: L_len)
       done
     subgoal
@@ -434,7 +434,7 @@ proof safe
       apply clarsimp
       apply (rule k_fun_mono)
       apply (clarsimp simp: mem_trans_N_iff L_len subset_nat_0_atLeastLessThan_conv)
-      subgoal premises prems for s'a aa p ga f ra l' gs fs rs ls' ps i
+      subgoal premises prems for s'a aa p b ga f ra l' bs gs fs rs ls' ps i
       proof (cases "p = i")
         case True
         with \<open>p \<notin> _\<close> \<open>i < _\<close> \<open>L \<in> states\<close> have "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] ! i = l'"
@@ -452,7 +452,7 @@ proof safe
           then have **: "fold (\<lambda>p L. L[p := ls' p]) ps L ! i = ls' i"
             using \<open>distinct ps\<close> \<open>i < n_ps\<close> \<open>L \<in> states\<close> by (auto simp: fold_upds_aux2)
           moreover have
-            "(L ! i, gs i, In aa, fs i, rs i, ls' i) \<in> set (fst (snd (automata ! i)))"
+            "(L ! i, bs i, gs i, In aa, fs i, rs i, ls' i) \<in> set (fst (snd (automata ! i)))"
             using \<open>p \<noteq> i\<close> True prems by fast
           moreover have "c\<in>{0..<Suc m} - set (rs i)"
             using \<open>p \<noteq> i\<close> True prems by force
@@ -623,7 +623,8 @@ lemma (in Simple_Network_Impl_nat) n_ps_gt_0: "n_ps > 0"
   using length_automata_eq_n_ps non_empty by auto
 
 lemma statesD:
-  "L ! i \<in> fst ` set (fst (snd (automata ! i))) \<or> L ! i \<in> (snd o snd o snd o snd o snd) ` set (fst (snd (automata ! i)))"
+  "L ! i \<in> fst ` set (fst (snd (automata ! i)))
+ \<or> L ! i \<in> (snd o snd o snd o snd o snd o snd) ` set (fst (snd (automata ! i)))"
   if "L \<in> states" "length L = n_ps" "i < n_ps"
   using that unfolding states_def
   apply auto

@@ -10,7 +10,7 @@ lemma N_p_trans_eq:
   using mem_trans_N_iff[OF that] by auto
 
 lemma loc_set_compute:
-  "loc_set = \<Union> ((\<lambda>(_, t, _). \<Union> ((\<lambda>(l, _, _, _, _, l'). {l, l'}) ` set t)) ` set automata)"
+  "loc_set = \<Union> ((\<lambda>(_, t, _). \<Union> ((\<lambda>(l, _, _, _, _, _, l'). {l, l'}) ` set t)) ` set automata)"
   unfolding loc_set_def setcompr_eq_image
   apply (auto simp: N_p_trans_eq n_ps_def)
      apply (drule nth_mem, erule bexI[rotated], force)+
@@ -19,14 +19,14 @@ lemma loc_set_compute:
 
 lemma var_set_compute:
   "var_set =
-  (\<Union>S \<in> (\<lambda>t. (fst \<circ> snd \<circ> snd \<circ> snd) ` set t) ` ((\<lambda>(_, t, _). t) `  set automata).
+  (\<Union>S \<in> (\<lambda>t. (fst \<circ> snd) ` set t) ` ((\<lambda>(_, t, _). t) `  set automata). \<Union>b \<in> S. vars_of_bexp b) \<union>
+  (\<Union>S \<in> (\<lambda>t. (fst \<circ> snd o snd \<circ> snd \<circ> snd) ` set t) ` ((\<lambda>(_, t, _). t) `  set automata).
     \<Union>f \<in> S. \<Union> (x, e) \<in> set f. {x} \<union> vars_of_exp e)"
   unfolding var_set_def setcompr_eq_image
-  apply (auto simp: N_p_trans_eq n_ps_def)
-  apply (drule nth_mem, erule bexI[rotated],
-      metis (no_types, lifting) insert_iff mem_case_prodI prod.collapse)+
-   apply (drule mem_nth, force)+
-  done
+  by (rule arg_cong2[where f = "(\<union>)"]; auto simp: N_p_trans_eq n_ps_def,
+     (drule nth_mem, erule bexI[rotated],
+      metis (no_types, lifting) insert_iff mem_case_prodI prod.collapse)+,
+      (drule mem_nth, force)+)
 
 lemma states_loc_setD:
   "set L \<subseteq> loc_set" if "L \<in> states"
@@ -55,6 +55,9 @@ definition
   "renum_act = map_act renum_acts"
 
 definition
+  "renum_bexp = map_bexp renum_vars id"
+
+definition
   "renum_exp = map_exp renum_vars id"
 
 definition
@@ -66,9 +69,9 @@ definition
 definition renum_automaton where
   "renum_automaton i \<equiv> \<lambda>(commited, trans, inv). let
     commited' = map (renum_states i) commited;
-    trans' = map (\<lambda>(l, g, a, upd, r, l').
-      (renum_states i l, renum_cconstraint g, renum_act a, renum_upd upd, renum_reset r, 
-      renum_states i l')
+    trans' = map (\<lambda>(l, b, g, a, upd, r, l').
+      (renum_states i l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd upd,
+       renum_reset r,  renum_states i l')
     ) trans;
     inv' = map (\<lambda>(l, g). (renum_states i l, renum_cconstraint g)) inv
   in (commited', trans', inv')
@@ -795,7 +798,13 @@ proof -
       by (subst renum_states_extend; (simp add: n_ps_def)?) (fastforce dest: nth_mem)
     subgoal start_locs
       by (subst renum_states_extend; (simp add: n_ps_def)?)
-         (fastforce dest: nth_mem simp: loc_set_compute)
+        (fastforce dest: nth_mem simp: loc_set_compute)
+    subgoal state
+      unfolding rename.renum_bexp_def renum_bexp_def
+      apply (rule bexp.map_cong_pred, rule HOL.refl, clarsimp simp: pred_bexp_def)
+      apply (subst renum_vars_bij_extends)
+       apply (fastforce dest: nth_mem simp: var_set_compute set1_bexp_vars_of_bexp)+
+      done
     subgoal guards
       apply (rule renum_cconstraint)
       unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
@@ -822,7 +831,7 @@ proof -
       done
     subgoal dest_locs
       by (subst renum_states_extend; (simp add: n_ps_def)?)
-         (fastforce dest: nth_mem simp: loc_set_compute)
+        (fastforce dest: nth_mem simp: loc_set_compute)
     subgoal inv_locs
       using loc_set_invs
       by (subst renum_states_extend; (simp add: n_ps_def)?) (force dest: nth_mem)

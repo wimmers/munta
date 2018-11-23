@@ -1836,6 +1836,7 @@ fun vars_of_bexp where
 | "vars_of_bexp (lt i x) = {i}"
 | "vars_of_bexp (ge i x) = {i}"
 | "vars_of_bexp (gt i x) = {i}"
+| "vars_of_bexp bexp.true = {}"
 
 fun vars_of_exp where
   "vars_of_exp (const c) = {}"
@@ -1844,6 +1845,7 @@ fun vars_of_exp where
 
 definition (in Prod_TA_Defs)
   "var_set =
+  (\<Union>S \<in> {(fst \<circ> snd) ` trans (N p) | p. p < n_ps}. \<Union>b \<in> S. vars_of_bexp b) \<union>
   (\<Union>S \<in> {(fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps}.
     \<Union>f \<in> S. \<Union> (x, e) \<in> set f. {x} \<union> vars_of_exp e)"
 
