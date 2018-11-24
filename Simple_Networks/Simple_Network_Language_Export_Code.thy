@@ -659,9 +659,15 @@ definition [consuming]: "scan_formula \<equiv>
   scan_infix_pair scan_bexp scan_bexp ''-->'' with uncurry Leadsto"
 
 definition [consuming]:
-  "scan_update \<equiv> scan_infix_pair scan_var lx_nat ''='' with (\<lambda>(s, x). (String.implode s, x))"
+  "scan_update \<equiv>
+   scan_var --- (exactly ''='' \<parallel> exactly '':='') **-- token lx_nat with (\<lambda>(s, x). (String.implode s, x))"
 
 abbreviation "scan_updates \<equiv> parse_list scan_update"
+
+value [code] "parse scan_updates (STR '' y2  := 0'') = Result [(STR ''y2'', 0)]"
+
+value [code]
+  "parse scan_updates (STR ''y2 := 0, x2 := 0'') = Result [(STR ''y2'', 0), (STR ''x2'', 0)]"
 
 definition [consuming]: "scan_action \<equiv>
   (scan_var --* exactly ''?'') with In o String.implode \<parallel>
@@ -779,7 +785,8 @@ definition convert_edge where
     label  \<leftarrow> if label = STR '''' then STR '''' |> Sil |> Result else
       parse scan_action label |> err_msg (STR ''Failed to parse label in '' + label);
     (g, check)  \<leftarrow> compile_invariant' clocks vars guard |> err_msg (STR ''Failed to parse guard!'');
-    update \<leftarrow> parse scan_updates update |> err_msg (STR ''Failed to parse update in '' + update);
+    update \<leftarrow> if update = STR '''' then Result [] else
+      parse scan_updates update |> err_msg (STR ''Failed to parse update in '' + update);
     let resets = filter (\<lambda>x. fst x \<in> set clocks) update;
     assert
       (list_all (\<lambda>(_, d). d = 0) resets)
@@ -918,7 +925,6 @@ ML \<open>
   fun test file =
   let
     val s = file_to_string file;
-    val _ = writeln s;
   in
     @{code parse_convert_run} s end
 \<close>
