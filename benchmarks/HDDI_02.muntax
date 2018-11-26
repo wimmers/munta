@@ -1,0 +1,283 @@
+{
+    "automata": [
+        {
+            "name": "ST2",
+            "initial": 9,
+            "nodes": [
+                {
+                    "id": 14,
+                    "name": "y_idle",
+                    "x": 458.2894592285156,
+                    "y": 442.4790954589844,
+                    "invariant": ""
+                },
+                {
+                    "id": 13,
+                    "name": "z_async",
+                    "x": 775.9099731445312,
+                    "y": 638.4403076171875,
+                    "invariant": "z2 <= 120"
+                },
+                {
+                    "id": 12,
+                    "name": "z_sync",
+                    "x": 143.12933349609375,
+                    "y": 591.5946655273438,
+                    "invariant": "x2 <= 20"
+                },
+                {
+                    "id": 11,
+                    "name": "y_sync",
+                    "x": 755.757568359375,
+                    "y": 249.6969757080078,
+                    "invariant": "x2 <= 20"
+                },
+                {
+                    "id": 10,
+                    "name": "y_async",
+                    "x": 552.727294921875,
+                    "y": 72.7272720336914,
+                    "invariant": "y2 <= 120"
+                },
+                {
+                    "id": 9,
+                    "name": "z_idle",
+                    "x": 165.4545440673828,
+                    "y": 226.6666717529297,
+                    "invariant": ""
+                }
+            ],
+            "edges": [
+                {
+                    "source": 9,
+                    "target": 12,
+                    "guard": "",
+                    "label": "tt1?",
+                    "update": "y2 := 0, x2 := 0"
+                },
+                {
+                    "source": 12,
+                    "target": 14,
+                    "guard": "x2 >= 20 && z2 >= 120",
+                    "label": "rt1!",
+                    "update": ""
+                },
+                {
+                    "source": 12,
+                    "target": 13,
+                    "guard": "x2 >= 20 && y2 < 120",
+                    "label": "",
+                    "update": ""
+                },
+                {
+                    "source": 13,
+                    "target": 14,
+                    "guard": "",
+                    "label": "rt1!",
+                    "update": ""
+                },
+                {
+                    "source": 14,
+                    "target": 11,
+                    "guard": "",
+                    "label": "tt1?",
+                    "update": "z2 := 0, x2 := 0"
+                },
+                {
+                    "source": 10,
+                    "target": 9,
+                    "guard": "",
+                    "label": "rt1!",
+                    "update": ""
+                },
+                {
+                    "source": 11,
+                    "target": 10,
+                    "guard": "x2 >= 20 && y2 < 120",
+                    "label": "",
+                    "update": ""
+                },
+                {
+                    "source": 9,
+                    "target": 11,
+                    "guard": "x2 >= 20 && y2 >= 120",
+                    "label": "rt1!",
+                    "update": ""
+                }
+            ]
+        },
+        {
+            "name": "ST1",
+            "initial": 9,
+            "nodes": [
+                {
+                    "id": 14,
+                    "name": "y_idle",
+                    "x": 458.2894592285156,
+                    "y": 442.4790954589844,
+                    "invariant": ""
+                },
+                {
+                    "id": 13,
+                    "name": "z_async",
+                    "x": 775.9099731445312,
+                    "y": 638.4403076171875,
+                    "invariant": "z1 <= 120"
+                },
+                {
+                    "id": 12,
+                    "name": "z_sync",
+                    "x": 143.12933349609375,
+                    "y": 591.5946655273438,
+                    "invariant": "x1 <= 20"
+                },
+                {
+                    "id": 11,
+                    "name": "y_sync",
+                    "x": 755.757568359375,
+                    "y": 249.6969757080078,
+                    "invariant": "x1 <= 20"
+                },
+                {
+                    "id": 10,
+                    "name": "y_async",
+                    "x": 552.727294921875,
+                    "y": 72.7272720336914,
+                    "invariant": "y1 <= 120"
+                },
+                {
+                    "id": 9,
+                    "name": "z_idle",
+                    "x": 165.4545440673828,
+                    "y": 226.6666717529297,
+                    "invariant": ""
+                }
+            ],
+            "edges": [
+                {
+                    "source": 9,
+                    "target": 12,
+                    "guard": "",
+                    "label": "tt1?",
+                    "update": "y1 := 0, x1 := 0"
+                },
+                {
+                    "source": 12,
+                    "target": 14,
+                    "guard": "x1 >= 20 && z1 >= 120",
+                    "label": "rt1!",
+                    "update": ""
+                },
+                {
+                    "source": 12,
+                    "target": 13,
+                    "guard": "x1 >= 20 && y1 < 120",
+                    "label": "",
+                    "update": ""
+                },
+                {
+                    "source": 13,
+                    "target": 14,
+                    "guard": "",
+                    "label": "rt1!",
+                    "update": ""
+                },
+                {
+                    "source": 14,
+                    "target": 11,
+                    "guard": "",
+                    "label": "tt1?",
+                    "update": "z1 := 0, x1 := 0"
+                },
+                {
+                    "source": 10,
+                    "target": 9,
+                    "guard": "",
+                    "label": "rt1!",
+                    "update": ""
+                },
+                {
+                    "source": 11,
+                    "target": 10,
+                    "guard": "x1 >= 20 && y1 < 120",
+                    "label": "",
+                    "update": ""
+                },
+                {
+                    "source": 9,
+                    "target": 11,
+                    "guard": "x1 >= 20 && y1 >= 120",
+                    "label": "rt1!",
+                    "update": ""
+                }
+            ]
+        },
+        {
+            "name": "RING",
+            "initial": 5,
+            "nodes": [
+                {
+                    "id": 8,
+                    "name": "ring_to_2",
+                    "x": 712.5,
+                    "y": 411.8484802246094,
+                    "invariant": "x0 <= 0"
+                },
+                {
+                    "id": 7,
+                    "name": "ring_2",
+                    "x": 136.49999237060547,
+                    "y": 409.3613586425781,
+                    "invariant": ""
+                },
+                {
+                    "id": 6,
+                    "name": "ring_2a",
+                    "x": 714.5,
+                    "y": 118,
+                    "invariant": ""
+                },
+                {
+                    "id": 5,
+                    "name": "ring_to_1",
+                    "x": 137.5,
+                    "y": 116,
+                    "invariant": ""
+                }
+            ],
+            "edges": [
+                {
+                    "source": 7,
+                    "target": 5,
+                    "guard": "",
+                    "label": "rt2?",
+                    "update": "x0 := 0"
+                },
+                {
+                    "source": 8,
+                    "target": 7,
+                    "guard": "x0 <= 0",
+                    "label": "tt2!",
+                    "update": ""
+                },
+                {
+                    "source": 6,
+                    "target": 8,
+                    "guard": "",
+                    "label": "rt1?",
+                    "update": "x0 := 0"
+                },
+                {
+                    "source": 5,
+                    "target": 6,
+                    "guard": "x0 <= 0",
+                    "label": "tt1!",
+                    "update": ""
+                }
+            ]
+        }
+    ],
+    "clocks": "x0, x1, y1, z1, x2, y2, z2",
+    "vars": "",
+    "formula": "E<> ((ST1.z_sync || ST1.z_async || ST1.y_sync || ST1.y_async)  && (ST2.z_sync || ST2.z_async || ST2.y_sync || ST2.y_async)  )"
+}

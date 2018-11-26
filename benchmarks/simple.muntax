@@ -1,0 +1,93 @@
+{
+    "automata": [
+        {
+            "name": "TA2",
+            "initial": 8,
+            "nodes": [
+                {
+                    "id": 9,
+                    "name": "N",
+                    "x": 831.51513671875,
+                    "y": 294.54547119140625,
+                    "invariant": ""
+                },
+                {
+                    "id": 8,
+                    "name": "M",
+                    "x": 569.697021484375,
+                    "y": 290.9090881347656,
+                    "invariant": ""
+                }
+            ],
+            "edges": [
+                {
+                    "source": 8,
+                    "target": 9,
+                    "guard": "",
+                    "label": "",
+                    "update": ""
+                },
+                {
+                    "source": 9,
+                    "target": 9,
+                    "guard": "",
+                    "label": "",
+                    "update": ""
+                }
+            ]
+        },
+        {
+            "name": "TA1",
+            "initial": 5,
+            "nodes": [
+                {
+                    "id": 7,
+                    "name": "C",
+                    "x": 831.51513671875,
+                    "y": 269.0909118652344,
+                    "invariant": ""
+                },
+                {
+                    "id": 6,
+                    "name": "B",
+                    "x": 602,
+                    "y": 82,
+                    "invariant": ""
+                },
+                {
+                    "id": 5,
+                    "name": "A",
+                    "x": 392,
+                    "y": 268.69696044921875,
+                    "invariant": "x <= 3"
+                }
+            ],
+            "edges": [
+                {
+                    "source": 5,
+                    "target": 7,
+                    "guard": "(x > 0) && y < 2",
+                    "label": "",
+                    "update": "x := 0"
+                },
+                {
+                    "source": 7,
+                    "target": 6,
+                    "guard": "",
+                    "label": "",
+                    "update": ""
+                },
+                {
+                    "source": 6,
+                    "target": 5,
+                    "guard": "",
+                    "label": "",
+                    "update": "y := 0, x := 0"
+                }
+            ]
+        }
+    ],
+    "clocks": "x, y",
+    "vars": "",
+    "formula": "E<> TA1.C"
+}

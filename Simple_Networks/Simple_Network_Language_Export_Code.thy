@@ -592,7 +592,7 @@ definition "mk_renaming str xs \<equiv>
 do {
   mapping \<leftarrow> fold_error
     (\<lambda>x m.
-      if mem_assoc x m then Error [STR ''Duplicate name:'' + str x] else (x, length m) # m |> Result
+      if mem_assoc x m then Error [STR ''Duplicate name: '' + str x] else (x,length m) # m |> Result
     ) xs [];
   Result (let m = map_of mapping in (\<lambda>x.
   case m x of
@@ -644,11 +644,14 @@ definition
 
 
 paragraph \<open>Unsafe Glue Code\<close>
+definition list_of_set' :: "'a set \<Rightarrow> 'a list" where
+  "list_of_set' xs = undefined"
+
 definition list_of_set :: "'a set \<Rightarrow> 'a list" where
-  "list_of_set xs = undefined"
+  "list_of_set xs = list_of_set' xs |> remdups"
 
 code_printing
-  constant list_of_set \<rightharpoonup> (SML) "(fn Set xs => xs) _"
+  constant list_of_set' \<rightharpoonup> (SML) "(fn Set xs => xs) _"
        and              (OCaml) "(fun x -> match x with Set xs -> xs) _"
 
 
@@ -659,7 +662,7 @@ definition
 definition "make_renaming \<equiv> \<lambda> broadcast automata bounds.
   let
     action_set = Simple_Network_Impl.action_set automata broadcast |> list_of_set;
-    clk_set = fst ` Simple_Network_Impl.clkp_set' automata |> list_of_set;
+    clk_set = Simple_Network_Impl.clk_set' automata |> list_of_set;
     loc_set' = (\<lambda>i. Simple_Network_Impl.loc_set' automata i |> list_of_set);
     loc_set = Prod_TA_Defs.loc_set
       (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds);
@@ -668,7 +671,7 @@ definition "make_renaming \<equiv> \<lambda> broadcast automata bounds.
     var_set = Prod_TA_Defs.var_set
       (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds) |> list_of_set;
     n_ps = length automata;
-    num_actions = length (remdups action_set);
+    num_actions = length action_set;
     m = length (remdups clk_set);
     num_states_list = map (\<lambda>i. loc_set' i |> remdups |> length) [0..<n_ps];
     num_states = (\<lambda>i. num_states_list ! i);
@@ -681,10 +684,6 @@ definition "make_renaming \<equiv> \<lambda> broadcast automata bounds.
     let renum_states_list = map_index
       (\<lambda>i m. extend_domain m (loc_set_diff i) (length (loc_set' i))) renum_states_list;
     let renum_states = (\<lambda>i. renum_states_list ! i);
-    (*
-    renum_states \<leftarrow> mk_renaming' loc_set;
-    let renum_states = (\<lambda>i. renum_states);
-    *)
     Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states)
   }"
 
@@ -904,7 +903,8 @@ definition [consuming]: "scan_formula \<equiv>
 
 definition [consuming]:
   "scan_update \<equiv>
-   scan_var --- (exactly ''='' \<parallel> exactly '':='') **-- token lx_nat with (\<lambda>(s, x). (String.implode s, x))"
+   scan_var --- (exactly ''='' \<parallel> exactly '':='') **-- token lx_nat
+   with (\<lambda>(s, x). (String.implode s, x))"
 
 abbreviation "scan_updates \<equiv> parse_list scan_update"
 
@@ -930,13 +930,13 @@ fun chop_sexp where
   "chop_sexp clocks (eq a b) (cs, es) =
     (if a \<in> set clocks then (eq a b # cs, es) else (cs, eq a b # es))" |
   "chop_sexp clocks (le a b) (cs, es) =
-    (if a \<in> set clocks then (lt a b # cs, es) else (cs, eq a b # es))" |
+    (if a \<in> set clocks then (le a b # cs, es) else (cs, le a b # es))" |
   "chop_sexp clocks (lt a b) (cs, es) =
-    (if a \<in> set clocks then (eq a b # cs, es) else (cs, eq a b # es))" |
+    (if a \<in> set clocks then (lt a b # cs, es) else (cs, lt a b # es))" |
   "chop_sexp clocks (ge a b) (cs, es) =
-    (if a \<in> set clocks then (eq a b # cs, es) else (cs, eq a b # es))" |
+    (if a \<in> set clocks then (ge a b # cs, es) else (cs, ge a b # es))" |
   "chop_sexp clocks (gt a b) (cs, es) =
-    (if a \<in> set clocks then (eq a b # cs, es) else (cs, eq a b # es))" |
+    (if a \<in> set clocks then (gt a b # cs, es) else (cs, gt a b # es))" |
   "chop_sexp clocks a (cs, es) = (cs, a # es)"
 
 fun sexp_to_acconstraint :: "(String.literal, String.literal, String.literal, int) sexp \<Rightarrow> _" where
@@ -1158,7 +1158,7 @@ ML \<open>
     @{code parse_convert} s end
 \<close>
 
-ML_val \<open>test_preproc "../benchmarks/HDDI_02.muntax"\<close>
+ML_val \<open>test_preproc "benchmarks/HDDI_02.muntax"\<close>
 
 ML \<open>
   fun test file =
@@ -1168,6 +1168,8 @@ ML \<open>
     @{code parse_convert_run} s end
 \<close>
 
-ML_val \<open>test "../benchmarks/HDDI_02.muntax" ()\<close>
+ML_val \<open>test "benchmarks/HDDI_02.muntax" ()\<close>
+ML_val \<open>test "benchmarks/simple.muntax" ()\<close>
+ML_val \<open>test "benchmarks/light_switch.muntax" ()\<close>
 
 end
