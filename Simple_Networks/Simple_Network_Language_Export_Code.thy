@@ -798,11 +798,13 @@ definition [consuming]:
 
 definition "parse_bounds \<equiv> parse_list' (lx_ws *-- parse_bound with (\<lambda>(s,p). (String.implode s, p)))"
 
-value [code]
+lemma
   "parse parse_bounds (STR ''id[-1:2], id[-1:0]'')
- = Result [(STR ''id'', - 1, 2), (STR ''id'', - 1, 0)]"
+ = Result [(STR ''id'', -1, 2), (STR ''id'', -1, 0)]"
+  by eval
 
-value [code] "parse parse_bounds (STR '''') = Result []"
+lemma "parse parse_bounds (STR '''') = Result []"
+  by eval
 
 definition [consuming]:
   "scan_var = ta_var_ident"
@@ -870,7 +872,9 @@ fun scan_7 and scan_6 and scan_0 where
 
 abbreviation "scan_bexp \<equiv> scan_7"
 
-value [code] "parse scan_bexp (STR ''a < 3 && b>=2 || ~ (c <= 4)'')"
+lemma "parse scan_bexp (STR ''a < 3 && b>=2 || ~ (c <= 4)'')
+= Result (sexp.or (and (lt STR ''a'' 3) (ge STR ''b'' 2)) (not (sexp.le STR ''c'' 4)))"
+  by eval
 
 definition [consuming]: "scan_prefix p head = exactly head **-- p" for p
 
@@ -908,10 +912,12 @@ definition [consuming]:
 
 abbreviation "scan_updates \<equiv> parse_list scan_update"
 
-value [code] "parse scan_updates (STR '' y2  := 0'') = Result [(STR ''y2'', 0)]"
+lemma "parse scan_updates (STR '' y2  := 0'') = Result [(STR ''y2'', 0)]"
+  by eval
 
-value [code]
+lemma
   "parse scan_updates (STR ''y2 := 0, x2 := 0'') = Result [(STR ''y2'', 0), (STR ''x2'', 0)]"
+  by eval
 
 definition [consuming]: "scan_action \<equiv>
   (scan_var --* exactly ''?'') with In o String.implode \<parallel>
@@ -1143,33 +1149,21 @@ definition parse_convert_run where
       do_preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
 "
 
-(*
-export_code parse_convert_run_print in SML_imp module_name Tes
-*)
-
-text \<open>A small test of parsing + conversion:\<close>
-definition "parse_convert s \<equiv> parse json s \<bind> convert"
+definition parse_convert_run_test where
+  "parse_convert_run_test s \<equiv> do {x \<leftarrow> parse_convert_run s; return (the_result x)}"
 
 ML \<open>
-  fun test_preproc file =
-  let
-    val s = file_to_string file;
-  in
-    @{code parse_convert} s end
-\<close>
-
-ML_val \<open>test_preproc "benchmarks/HDDI_02.muntax"\<close>
-
-ML \<open>
+  fun assert comp exp =
+    if comp = exp then () else error "Assertion failed!"
   fun test file =
   let
     val s = file_to_string file;
   in
-    @{code parse_convert_run} s end
+    @{code parse_convert_run_test} s end
 \<close>
 
-ML_val \<open>test "benchmarks/HDDI_02.muntax" ()\<close>
-ML_val \<open>test "benchmarks/simple.muntax" ()\<close>
-ML_val \<open>test "benchmarks/light_switch.muntax" ()\<close>
+ML_val \<open>assert (test "benchmarks/HDDI_02.muntax" ())      "Property is not satisfied!"\<close>
+ML_val \<open>assert (test "benchmarks/simple.muntax" ())       "Property is satisfied!"\<close>
+ML_val \<open>assert (test "benchmarks/light_switch.muntax" ()) "Property is satisfied!"\<close>
 
 end
