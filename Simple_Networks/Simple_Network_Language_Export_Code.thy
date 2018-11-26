@@ -13,11 +13,47 @@ abbreviation "renum_automaton \<equiv> Simple_Network_Rename_Defs.renum_automato
 
 hide_const m
 
-locale Simple_Network_Rename_Formula_String =
+definition assert where "assert b m = (if b then Result () else Error [m])"
+
+locale Simple_Network_Rename_Formula_String_Defs =
   Simple_Network_Rename_Defs where automata = automata for automata ::
     "(nat list \<times>
      (String.literal act, nat, String.literal, int, String.literal, int) transition list
-      \<times> (nat \<times> (String.literal, int) cconstraint) list) list" +
+      \<times> (nat \<times> (String.literal, int) cconstraint) list) list"
+begin
+
+definition check_renaming where "check_renaming \<Phi> L\<^sub>0 s\<^sub>0 \<equiv> combine [
+    assert (\<forall>i<n_ps. \<forall>x\<in>loc_set. \<forall>y\<in>loc_set. renum_states i x = renum_states i y \<longrightarrow> x = y)
+      (STR ''Location renamings are injective''),
+    assert (inj_on renum_clocks clk_set')
+      (STR ''Clock renaming is injective''),
+    assert (inj_on renum_vars var_set)
+      (STR ''Variable renaming is injective''),
+    assert (fst ` set bounds' \<subseteq> var_set)
+      (STR ''Bound set is a subset of the variable set''),
+    assert (\<Union> ((\<lambda>g. fst ` set g) ` set (map (snd o snd) automata)) \<subseteq> loc_set)
+      (STR ''Invariant locations are contained in the location set''),
+    assert (\<Union> ((set o fst) ` set automata) \<subseteq> loc_set)
+      (STR ''Broadcast locations are containted in the location set''),
+    assert (L\<^sub>0 \<in> states)
+      (STR ''Initial location is in the state set''),
+    assert (fst ` set s\<^sub>0 = var_set)
+      (STR ''Initial state has the correct domain''),
+    assert (distinct (map fst s\<^sub>0))
+      (STR ''Initial state is unambiguous''),
+    assert (set2_formula \<Phi> \<subseteq> loc_set)
+      (STR ''Formula locations are contained in the location set''),
+    assert (locs_of_formula \<Phi> \<subseteq> {0..<n_ps})
+      (STR ''Formula automata are contained in the automata set''),
+    assert (vars_of_formula \<Phi> \<subseteq> var_set)
+      (STR ''Variables of the formula are contained in the variable set'')
+  ]
+"
+
+end (* Simple_Network_Rename_Formula_String_Defs *)
+
+locale Simple_Network_Rename_Formula_String =
+  Simple_Network_Rename_Formula_String_Defs +
   assumes renum_states_inj:
     "\<forall>i<n_ps. \<forall>x\<in>loc_set. \<forall>y\<in>loc_set. renum_states i x = renum_states i y \<longrightarrow> x = y"
   and renum_clocks_inj: "inj_on renum_clocks clk_set'"
@@ -46,6 +82,165 @@ lemmas Simple_Network_Rename_intro = Simple_Network_Rename_Formula_axioms
 
 end
 
+term Simple_Network_Rename_Formula_String
+
+print_statement Simple_Network_Rename_Formula_String_def
+
+lemma is_result_assert_iff:
+  "is_result (assert b m) \<longleftrightarrow> b"
+  unfolding assert_def by auto
+
+lemma is_result_combine_Cons_iff:
+  "is_result (combine (x # xs)) \<longleftrightarrow> is_result x \<and> is_result (combine xs)"
+  by (cases x; cases "combine xs") auto
+
+lemma is_result_combine_iff:
+  "is_result (a <|> b) \<longleftrightarrow> is_result a \<and> is_result b"
+  by (cases a; cases b) (auto simp: combine2_def)
+
+context Simple_Network_Rename_Formula_String_Defs
+begin
+
+lemma check_renaming:
+  "Simple_Network_Rename_Formula_String broadcast bounds' renum_vars renum_clocks renum_states
+      automata \<Phi> s\<^sub>0 L\<^sub>0 \<longleftrightarrow>
+  is_result (check_renaming \<Phi> L\<^sub>0 s\<^sub>0)
+  "
+  unfolding check_renaming_def Simple_Network_Rename_Formula_String_def
+  by (simp add: is_result_combine_Cons_iff is_result_assert_iff del: combine.simps(2))
+
+end
+
+definition print :: "String.literal \<Rightarrow> unit" where
+  "print x = ()"
+
+definition println :: "String.literal \<Rightarrow> unit" where
+  "println x = print (x + STR ''\<newline>'')"
+
+context Simple_Network_Impl_nat_defs
+begin
+
+definition check_precond1 where
+"check_precond1 =
+  combine [
+    assert (m > 0)
+      (STR ''At least one clock''),
+    assert (0 < length automata)
+      (STR ''At least one automaton''),
+    assert (\<forall>i < n_ps. let (_, trans, _) = (automata ! i) in \<forall> (l, _, _, _, _, _, l') \<in> set trans.
+      l < num_states i \<and> l' < num_states i)
+      (STR ''Number of states is correct (transitions)''),
+    assert (\<forall>i < n_ps. let (_, _, inv) = (automata ! i) in \<forall> (x, _) \<in> set inv. x < num_states i)
+      (STR ''Number of states is correct (invariants)''),
+    assert (\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, _, f, _, _) \<in> set trans.
+      \<forall>(x, upd) \<in> set f. x < n_vs \<and> (\<forall>i \<in> vars_of_exp upd. i < n_vs))
+      (STR ''Variable set bounded (updates)''),
+    assert (\<forall>(_, trans, _) \<in> set automata. \<forall>(_, b, _, _, _, _, _) \<in> set trans.
+      \<forall>i \<in> vars_of_bexp b. i < n_vs)
+      (STR ''Variable set bounded (guards)''),
+    assert (\<forall> i < n_vs. fst (bounds' ! i) = i)
+      (STR ''Bounds first index''),
+    assert (\<forall>a \<in> set broadcast. a < num_actions)
+      (STR ''Broadcast actions bounded''),
+    assert (\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, a, _, _, _) \<in> set trans.
+        pred_act (\<lambda>a. a < num_actions) a)
+      (STR ''Actions bounded (transitions)''),
+    assert (\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, _, _, r, _) \<in> set trans.
+      (\<forall>c \<in> set r. 0 < c \<and> c \<le> m) \<and>
+      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c \<le> m \<and> x \<in> \<nat>))
+      (STR ''Clock set bounded (transitions)''),
+    assert (\<forall>(_, _, inv) \<in> set automata. \<forall>(l, g) \<in> set inv.
+      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c \<le> m \<and> x \<in> \<nat>))
+      (STR ''Clock set bounded (invariants)''),
+    assert (\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, a, _, _, _) \<in> set trans.
+      case a of In a \<Rightarrow> a \<in> set broadcast \<longrightarrow> g = [] | _ \<Rightarrow> True)
+      (STR ''Broadcast receivers are unguarded'')
+  ]
+"
+
+lemma check_precond1:
+  "is_result check_precond1
+  \<longleftrightarrow> Simple_Network_Impl_nat broadcast bounds' automata m num_states num_actions"
+  unfolding check_precond1_def Simple_Network_Impl_nat_def
+  by (simp add: is_result_combine_Cons_iff is_result_assert_iff del: combine.simps(2))
+
+context
+  fixes k :: "nat list list list"
+    and L\<^sub>0 :: "nat list"
+    and s\<^sub>0 :: "(nat \<times> int) list"
+    and formula :: "(nat, nat, nat, int) formula"
+begin
+
+definition check_precond2 where
+  "check_precond2 \<equiv> let _ = show k |> String.implode |> println in
+  combine [
+    assert (\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
+      \<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x))
+      (STR ''Ceiling invariants''),
+    assert (\<forall>i < n_ps. \<forall>(l, _, g, _) \<in> set ((fst o snd) (automata ! i)).
+      (\<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x)))
+      (STR ''Ceiling transitions''),
+    assert (\<forall>i < n_ps. \<forall> (l, b, g, a, upd, r, l') \<in> set ((fst o snd) (automata ! i)).
+       \<forall>c \<in> {0..<m+1} - set r. k ! i ! l' ! c \<le> k ! i ! l ! c)
+      (STR ''Ceiling resets''),
+    assert (length k = n_ps)
+      (STR ''Ceiling length''),
+    assert (\<forall> i < n_ps. length (k ! i) = num_states i)
+      (STR ''Ceiling length automata)''),
+    assert (\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1)
+      (STR ''Ceiling length clocks''),
+    assert (\<forall>i < n_ps. \<forall>l < num_states i. k ! i ! l ! 0 = 0)
+      (STR ''Ceiling zero clock''),
+    assert (\<forall>(_, _, inv) \<in> set automata. distinct (map fst inv))
+      (STR ''Unambiguous invariants''),
+    assert (bounded bounds (map_of s\<^sub>0))
+      (STR ''Initial state bounded''),
+    assert (length L\<^sub>0 = n_ps)
+      (STR ''Length of initial state''),
+    assert (\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd) (automata ! i)))
+      (STR ''Initial state has outgoing transitions''),
+    assert (vars_of_formula formula \<subseteq> {0..<n_vs})
+      (STR ''Variable set of formula'')
+]"
+
+lemma check_precond2:
+  "is_result check_precond2 \<longleftrightarrow>
+  Simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds' automata m num_states
+      k L\<^sub>0 s\<^sub>0 formula"
+  unfolding check_precond2_def Simple_Network_Impl_nat_ceiling_start_state_axioms_def
+  by (simp add: is_result_combine_Cons_iff is_result_assert_iff del: combine.simps(2))
+
+end
+
+definition
+  "check_precond k L\<^sub>0 s\<^sub>0 formula \<equiv> check_precond1 <|> check_precond2 k L\<^sub>0 s\<^sub>0 formula"
+
+lemma check_precond:
+  "Simple_Network_Impl_nat_ceiling_start_state broadcast bounds' automata m num_states
+      num_actions k L\<^sub>0 s\<^sub>0 formula \<longleftrightarrow> is_result (check_precond k L\<^sub>0 s\<^sub>0 formula)"
+  unfolding check_precond_def is_result_combine_iff check_precond1 check_precond2
+    Simple_Network_Impl_nat_ceiling_start_state_def ..
+
+end
+
+fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
+  "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
+  "intersperse _ xs = xs"
+
+derive "show" bexp acconstraint exp act
+
+instantiation String.literal :: "show"
+begin
+
+definition "shows_prec p (s::String.literal) rest = String.explode s @ rest" for p
+
+definition "shows_list (cs::String.literal list) s =
+  map String.explode cs |> intersperse '', '' |> (\<lambda>xs. ''['' @ concat xs @ '']'' @ s)"
+instance
+  by standard (simp_all add: shows_prec_literal_def shows_list_literal_def show_law_simps)
+
+end
+
 definition rename_network where
   "rename_network broadcast bounds' automata renum_acts renum_vars renum_clocks renum_states \<equiv>
   let
@@ -61,26 +256,39 @@ definition rename_mc where
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
 \<equiv>
 let
+   _ = println (STR ''Checking renaming'');
    renaming_valid =
-    Simple_Network_Rename_Formula_String
-      broadcast bounds' renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0;
+    Simple_Network_Rename_Formula_String_Defs.check_renaming
+      broadcast bounds' renum_vars renum_clocks renum_states automata formula L\<^sub>0 s\<^sub>0;
+   _ = println (STR ''Renaming network'');
    (broadcast, automata, bounds') = rename_network
       broadcast bounds' automata renum_acts renum_vars renum_clocks renum_states;
+   _ = println (STR ''Automata after renaming'');
+   _ = show automata |> String.implode |> println;
+   _ = println (STR ''Renaming formula'');
    formula = map_formula renum_states renum_vars id formula;
+    _ = println (STR ''Renaming state'');
    L\<^sub>0 = map_index renum_states L\<^sub>0;
    s\<^sub>0 = map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0
 in
-  if
-    renaming_valid
-  then
-    do {
+  if is_result renaming_valid then do {
+    let _ = println (STR ''Checking preconditions'');
+    let r = Simple_Network_Impl_nat_defs.check_precond
+      broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
+    let _ = (case r of Result _ \<Rightarrow> [()]
+      | Error es \<Rightarrow> let _ = println (STR ''The following pre-conditions were not satisified'') in
+          map println es);
+    let _ = println (STR ''Running precond_mc'');
     r \<leftarrow> precond_mc broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
     case r of
       None \<Rightarrow> return Preconds_Unsat
     | Some False \<Rightarrow> return Unsat
     | Some True \<Rightarrow> return Sat
-    } 
-  else return Renaming_Failed
+  } 
+  else do {
+    let _ = println (STR ''The following conditions on the renaming were not satisfied:'');
+    let _ = the_errors renaming_valid |> map println;
+    return Renaming_Failed}
 "
 
 theorem model_check_rename:
@@ -157,13 +365,12 @@ proof -
     simplified
     ]
   show ?thesis
-    unfolding rename_mc_def rename_network_def *
+    unfolding rename_mc_def rename_network_def
+    unfolding Simple_Network_Rename_Formula_String_Defs.check_renaming[symmetric] * Let_def
     unfolding
       A_def[symmetric] check_def[symmetric]
       preconds_sat_def[symmetric] renaming_valid_def[symmetric]
-    by (sep_auto
-          simp: model_checker.refine[symmetric] pure_def return_cons_rule split: bool.splits
-       )
+    by (sep_auto simp: model_checker.refine[symmetric] split: bool.splits)
 qed
 
 
@@ -196,11 +403,15 @@ lemma (in Simple_Network_Impl_nat_defs) bounded_s\<^sub>0_iff:
   "bounded bounds (map_of s\<^sub>0) \<longleftrightarrow> bounded (map_of bounds') (map_of s\<^sub>0)"
   unfolding bounds_def snd_conv ..
 
+lemma int_Nat_range_iff:
+  "(n :: int) \<in> \<nat> \<longleftrightarrow> n \<ge> 0" for n
+  using zero_le_imp_eq_int unfolding Nats_def by auto
+
 lemmas [code] =
   Simple_Network_Impl_nat_ceiling_start_state_def
   Simple_Network_Impl_nat_ceiling_start_state_axioms_def[
     unfolded Simple_Network_Impl_nat_defs.bounded_s\<^sub>0_iff]
-  Simple_Network_Impl_nat_def
+  Simple_Network_Impl_nat_def[unfolded int_Nat_range_iff]
 
 lemmas [code_unfold] = bounded_def dom_map_of_conv_image_fst
 
@@ -225,6 +436,11 @@ lemmas [code] =
   Simple_Network_Rename_Defs.renum_act_def
   Simple_Network_Rename_Defs.renum_exp_def
   Simple_Network_Rename_Defs.renum_bexp_def
+  Simple_Network_Rename_Formula_String_Defs.check_renaming_def
+  Simple_Network_Impl_nat_defs.check_precond_def
+  Simple_Network_Impl_nat_defs.check_precond1_def[unfolded int_Nat_range_iff]
+  Simple_Network_Impl_nat_defs.check_precond2_def[
+    unfolded Simple_Network_Impl_nat_defs.bounded_s\<^sub>0_iff]
 
 lemma (in Prod_TA_Defs) states_mem_iff:
   "L \<in> states \<longleftrightarrow> length L = n_ps \<and>
@@ -299,7 +515,7 @@ text \<open>
 \<close>
 (* XXX Tune for efficiency *)
 definition "
-  E l \<equiv> if l = n then [0..<n_ps] else filter (\<lambda> l'. l \<in> set (E' l')) [0..<n_ps]
+  E l \<equiv> if l = n then [0..<n] else filter (\<lambda> l'. l \<in> set (E' l')) [0..<n]
 "
 
 text \<open>
@@ -340,7 +556,7 @@ definition "
           [0..<n q]
           []
       )
-      [0..<p]
+      [0..<n_ps]
       []
 "
 
@@ -378,8 +594,21 @@ do {
     (\<lambda>x m.
       if mem_assoc x m then Error [STR ''Duplicate name:'' + str x] else (x, length m) # m |> Result
     ) xs [];
-  Result (the o map_of mapping)
+  Result (let m = map_of mapping in (\<lambda>x.
+  case m x of
+    None \<Rightarrow> let _ = println (STR ''Key error: '' + str x) in undefined
+  | Some v \<Rightarrow> v)
+  )
 }"
+
+definition
+  "extend_domain m d n \<equiv>
+    let
+      (i, xs) = fold
+        (\<lambda>x (i, xs). if x \<in> set d then (i + 1, (x, i + 1) # xs) else (i, xs)) d (n, []);
+      m' = map_of xs
+    in
+      (\<lambda>x. if x \<in> set d then the (m' x) else m x)"
 
 (* Unused *)
 lemma [simp]:
@@ -410,10 +639,6 @@ definition loc_set' where
 end
 
 
-fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
-  "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
-  "intersperse _ xs = xs"
-
 definition
   "concat_str = String.implode o concat o map String.explode"
 
@@ -435,30 +660,45 @@ definition "make_renaming \<equiv> \<lambda> broadcast automata bounds.
   let
     action_set = Simple_Network_Impl.action_set automata broadcast |> list_of_set;
     clk_set = fst ` Simple_Network_Impl.clkp_set' automata |> list_of_set;
-    loc_set = (\<lambda>i. Simple_Network_Impl.loc_set' automata i |> list_of_set);
+    loc_set' = (\<lambda>i. Simple_Network_Impl.loc_set' automata i |> list_of_set);
+    loc_set = Prod_TA_Defs.loc_set
+      (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds);
+    loc_set_diff = (\<lambda>i. loc_set - Simple_Network_Impl.loc_set' automata i |> list_of_set);
+    loc_set = list_of_set loc_set;
     var_set = Prod_TA_Defs.var_set
       (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds) |> list_of_set;
     n_ps = length automata;
     num_actions = length (remdups action_set);
     m = length (remdups clk_set);
-    num_states_list = map (\<lambda>i. loc_set i |> remdups |> length) [0..<n_ps];
+    num_states_list = map (\<lambda>i. loc_set' i |> remdups |> length) [0..<n_ps];
     num_states = (\<lambda>i. num_states_list ! i);
     mk_renaming = mk_renaming (\<lambda>x. x)
   in do {
     (renum_acts, renum_clocks, renum_vars) \<leftarrow>
       mk_renaming action_set <|> mk_renaming clk_set <|> mk_renaming var_set;
-    renum_states_list \<leftarrow> combine_map (\<lambda>i. mk_renaming' (loc_set i)) [0..<n_ps];
+    let renum_clocks = Suc o renum_clocks;
+    renum_states_list \<leftarrow> combine_map (\<lambda>i. mk_renaming' (loc_set' i)) [0..<n_ps];
+    let renum_states_list = map_index
+      (\<lambda>i m. extend_domain m (loc_set_diff i) (length (loc_set' i))) renum_states_list;
     let renum_states = (\<lambda>i. renum_states_list ! i);
+    (*
+    renum_states \<leftarrow> mk_renaming' loc_set;
+    let renum_states = (\<lambda>i. renum_states);
+    *)
     Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states)
   }"
 
 definition "preproc_mc \<equiv> \<lambda> (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula.
+  let _ = println (STR ''Make renaming'') in
   case make_renaming broadcast automata bounds of
     Error e \<Rightarrow> return (Error e)
   | Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states) \<Rightarrow> do {
+    let _ = println (STR ''Renaming'');
     let (broadcast', automata', bounds') = rename_network
       broadcast bounds automata renum_acts renum_vars renum_clocks renum_states;
+    let _ = println (STR ''Calculating ceiling'');
     let k = Simple_Network_Impl_nat_defs.k broadcast' bounds' automata' m num_states;
+    let _ = println (STR ''Running model checker'');
     r \<leftarrow> rename_mc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
       m num_states num_actions renum_acts renum_vars renum_clocks renum_states;
     return (Result r)
@@ -557,9 +797,13 @@ definition [consuming]:
   "parse_bound \<equiv> ta_var_ident --
     exactly ''['' *-- lx_int -- exactly '':'' *-- lx_int --* exactly '']''"
 
-definition "parse_bounds \<equiv> parse_list (lx_ws *-- parse_bound with (\<lambda>(s,p). (String.implode s, p)))"
+definition "parse_bounds \<equiv> parse_list' (lx_ws *-- parse_bound with (\<lambda>(s,p). (String.implode s, p)))"
 
-value [code] "parse parse_bounds (STR ''id[-1:2], id[-1:0]'')"
+value [code]
+  "parse parse_bounds (STR ''id[-1:2], id[-1:0]'')
+ = Result [(STR ''id'', - 1, 2), (STR ''id'', - 1, 0)]"
+
+value [code] "parse parse_bounds (STR '''') = Result []"
 
 definition [consuming]:
   "scan_var = ta_var_ident"
@@ -680,9 +924,6 @@ abbreviation orelse (infix "orelse" 58) where
 definition
   "parse_action s \<equiv> parse scan_action s orelse Sil (STR '''')"
 
-(* let scan_edge_label = scan_action <|> str "" ^^ fun _ -> Internal "" *)
-definition assert where "assert b m = (if b then Result () else Error [m])"
-
 fun chop_sexp where
   "chop_sexp clocks (and a b) (cs, es) =
     chop_sexp clocks a (cs, es) |> chop_sexp clocks b" |
@@ -720,22 +961,6 @@ fun sexp_to_bexp :: "(String.literal, String.literal, String.literal, int) sexp 
   "sexp_to_bexp (imply a b) =
     do {a \<leftarrow> sexp_to_bexp a; b \<leftarrow> sexp_to_bexp b; bexp.imply a b |> Result}" |
   "sexp_to_bexp x        = Error [STR ''Illegal construct in binary operation'']"
-
-(*
-definition true where "true \<equiv> sexp.or (gt (STR ''a'') 1) (le (STR ''a'') 1)"
-*)
-
-derive "show" bexp
-
-instantiation String.literal :: "show"
-begin
-
-definition "shows_prec p (s::String.literal) rest = String.explode s @ rest" for p
-definition "shows_list (cs::String.literal list) s = concat (map String.explode cs) @ s"
-instance
-  by standard (simp_all add: shows_prec_literal_def shows_list_literal_def show_law_simps)
-
-end
 
 definition compile_invariant where
   "compile_invariant clocks vars inv \<equiv>
@@ -849,7 +1074,8 @@ definition convert :: "JSON \<Rightarrow>
     (nat list \<times>
      (String.literal act, nat, String.literal, int, String.literal, int) transition list
       \<times> (nat \<times> (String.literal, int) cconstraint) list) list \<times>
-   (String.literal \<times> int \<times> int) list \<times> (nat, nat, String.literal, int) formula
+   (String.literal \<times> int \<times> int) list \<times>
+   (nat, nat, String.literal, int) formula \<times> nat list \<times> (String.literal \<times> int) list
   ) Error_List_Monad.result" where
   "convert json \<equiv> do {
     all \<leftarrow> of_object json;
@@ -875,30 +1101,25 @@ definition convert :: "JSON \<Rightarrow>
     assert (distinct process_names) (STR ''Process names are ambiguous'');
     let process_names_to_index = List_Index.index process_names;
     init_locs \<leftarrow> combine_map
-      (\<lambda>a. do {x \<leftarrow> get a ''initial''; x \<leftarrow> of_nat x; show x |> String.implode |> Result})
+      (\<lambda>a. do {x \<leftarrow> get a ''initial''; x \<leftarrow> of_nat x; x |> Result})
       automata;
     let formula = formula.map_formula process_names_to_index id id id formula;
     let vars = map fst bounds;
+    let init_vars = map (\<lambda>x. (x, 0::int)) vars;
     names_automata \<leftarrow> combine_map (convert_automaton clocks vars) automata;
     let automata = map snd names_automata;
     let names    = map fst names_automata;
     formula \<leftarrow> rename_locs_formula (\<lambda>i. get (names ! i)) formula;
-    Result (broadcast, automata, bounds, formula)
+    Result (broadcast, automata, bounds, formula, init_locs, init_vars)
 }" for json
 
 
 
 paragraph \<open>Unsafe Glue Code for Printing\<close>
 
-definition print :: "String.literal \<Rightarrow> unit" where
-  "print x = ()"
-
 code_printing
-  constant print \<rightharpoonup> (SML) "print _"
+  constant print \<rightharpoonup> (SML) (* "print _" *) "writeln _"
        and        (OCaml) "print'_string _"
-
-definition println :: "String.literal \<Rightarrow> unit" where
-  "println x = print (x + STR ''\<newline>'')"
 
 definition "print_err = print"
 definition "println_err x = print_err (x + STR ''\<newline>'')"
@@ -907,19 +1128,37 @@ definition parse_convert_run_print where
   "parse_convert_run_print s \<equiv>
    case parse json s \<bind> convert of
      Error es \<Rightarrow> do {let _ = map println es; return ()}
-   | Result (broadcast, automata, bounds, formula) \<Rightarrow> do {
-      r \<leftarrow> do_preproc_mc (broadcast, automata, bounds) [] [] formula;
+   | Result (broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
+      r \<leftarrow> do_preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
       case r of
         Error es \<Rightarrow> do {let _ = map println es; return ()}
       | Result s \<Rightarrow> do {let _ = println s; return ()}
   }"
 
-(* export_code do_preproc_mc checking SML *)
+definition parse_convert_run where
+  "parse_convert_run s \<equiv>
+   case parse json s \<bind> convert of
+     Error es \<Rightarrow> return (Error es)
+   | Result (broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
+      do_preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
+"
 
-export_code parse_convert_run_print in SML_imp module_name Test
+(*
+export_code parse_convert_run_print in SML_imp module_name Tes
+*)
 
 text \<open>A small test of parsing + conversion:\<close>
-definition "parse_convert_run s \<equiv> parse json s \<bind> convert"
+definition "parse_convert s \<equiv> parse json s \<bind> convert"
+
+ML \<open>
+  fun test_preproc file =
+  let
+    val s = file_to_string file;
+  in
+    @{code parse_convert} s end
+\<close>
+
+ML_val \<open>test_preproc "../benchmarks/HDDI_02.muntax"\<close>
 
 ML \<open>
   fun test file =
@@ -929,6 +1168,6 @@ ML \<open>
     @{code parse_convert_run} s end
 \<close>
 
-ML_val \<open>test "benchmarks/HDDI_02.muntax"\<close>
+ML_val \<open>test "../benchmarks/HDDI_02.muntax" ()\<close>
 
 end

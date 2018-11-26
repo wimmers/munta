@@ -1879,11 +1879,11 @@ locale Simple_Network_Impl_nat =
         pred_act (\<lambda>a. a < num_actions) a"
   assumes clock_set:
     "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, _, _, r, _) \<in> set trans.
-      (\<forall>c \<in> set r. 0 < c \<and> c < m) \<and>
-      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
+      (\<forall>c \<in> set r. 0 < c \<and> c \<le> m) \<and>
+      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c \<le> m \<and> x \<in> \<nat>)
       "
     "\<forall>(_, _, inv) \<in> set automata. \<forall>(l, g) \<in> set inv.
-      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c < m \<and> x \<in> \<nat>)
+      (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c \<le> m \<and> x \<in> \<nat>)
       "
   assumes broadcast_receivers:
   "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, a, _, _, _) \<in> set trans.

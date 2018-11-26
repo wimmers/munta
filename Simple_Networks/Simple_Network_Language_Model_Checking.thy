@@ -244,17 +244,17 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
     "\<forall>i < n_ps. \<forall> (l, b, g, a, upd, r, l') \<in> set ((fst o snd) (automata ! i)).
        \<forall>c \<in> {0..<m+1} - set r. k ! i ! l' ! c \<le> k ! i ! l ! c"
   and k_length:
-    "length k = n_ps" "\<forall> i < n_ps. length (k ! i) = length ((fst o snd) (automata ! i))"
+    "length k = n_ps" "\<forall> i < n_ps. length (k ! i) = num_states i"
     "\<forall> xs \<in> set k. \<forall> xxs \<in> set xs. length xxs = m + 1"
   and k_0:
-    "\<forall>i < n_ps. \<forall>l < length ((fst o snd) (automata ! i)). k ! i ! l ! 0 = 0"
+    "\<forall>i < n_ps. \<forall>l < num_states i. k ! i ! l ! 0 = 0"
   and inv_unambiguous:
     "\<forall>(_, _, inv) \<in> set automata. distinct (map fst inv)"
   and s\<^sub>0_bounded: "bounded bounds (map_of s\<^sub>0)"
   and L\<^sub>0_len: "length L\<^sub>0 = n_ps"
   and L\<^sub>0_has_trans: "\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd) (automata ! i))"
   and vars_of_formula: "vars_of_formula formula \<subseteq> {0..<n_vs}"
-  and num_states_length: "\<forall>i<n_ps. num_states i = length (fst (snd (automata ! i)))"
+  (* and num_states_length: "\<forall>i<n_ps. num_states i = length (fst (snd (automata ! i)))" *)
 begin
 
 text \<open>
@@ -638,14 +638,12 @@ lemma k_impl_k_fun:
   "k_impl (L, s) = IArray (map (k_fun (L, s)) [0..<m+1])" if "L \<in> states"
 proof -
   define k_i2 where "k_i2 i c = k_i !! i !! (L ! i) !! c" for i c
-  have *: "L ! i < length ((fst \<circ> snd) (automata ! i))" if "i < n_ps" for i
-    using L_i_len[OF _ \<open>_ \<in> states\<close>] num_states_length \<open>i < _\<close> by simp
   have k_i2_k: "k_i2 i c = k ! i ! (L ! i) ! c" if "i < n_ps" "c \<le> m" for i c
   proof -
     have "i < length k"
       by (simp add: k_length(1) that(1))
     moreover have "L ! i < length (k ! i)"
-      using * k_length(2) \<open>i < n_ps\<close> by auto
+      using L_i_len[OF _ \<open>L \<in> states\<close>] k_length(2) \<open>i < n_ps\<close> by auto
     moreover have "c < length (k ! i ! (L ! i))"
       using k_length(3) \<open>c \<le> m\<close> \<open>i < length k\<close> \<open>L ! i < length (k ! i)\<close> by (auto dest: nth_mem)
     ultimately show ?thesis
@@ -665,7 +663,7 @@ proof -
     subgoal
       by (subst Max_int_commute; force simp: setcompr_eq_image image_comp comp_def)
     subgoal
-      using k_0 * by (intro linorder_class.Max_eqI) auto
+      using k_0 L_i_len[OF _ \<open>L \<in> states\<close>] by (intro linorder_class.Max_eqI) auto
     subgoal
       by (subst Max_int_commute; force simp: setcompr_eq_image image_comp comp_def)
     done
