@@ -747,7 +747,9 @@ definition of_object :: "JSON \<Rightarrow> (string \<rightharpoonup> JSON) Erro
 " for json
 
 definition get where
-  "get m x \<equiv> case m x of None \<Rightarrow> Error [STR ''Get: key not found''] | Some a \<Rightarrow> Result a"
+  "get m x \<equiv> case m x of
+    None \<Rightarrow> Error [STR ''(Get) key not found: '' + String.implode (show x)]
+  | Some a \<Rightarrow> Result a"
 
 definition
   "get_default def m x \<equiv> case m x of None \<Rightarrow> def | Some a \<Rightarrow> a"
@@ -825,7 +827,7 @@ definition scan_acconstraint where [unfolded Let_def, consuming]:
   (
     scan ''<''  lt \<parallel>
     scan ''<='' le \<parallel>
-    scan ''=''  eq \<parallel>
+    scan ''==''  eq \<parallel>
     scan ''>='' ge \<parallel>
     scan ''>''  gt
   )
@@ -1016,17 +1018,17 @@ definition convert_edge where
     label  \<leftarrow> if label = STR '''' then STR '''' |> Sil |> Result else
       parse scan_action label |> err_msg (STR ''Failed to parse label in '' + label);
     (g, check)  \<leftarrow> compile_invariant' clocks vars guard |> err_msg (STR ''Failed to parse guard!'');
-    update \<leftarrow> if update = STR '''' then Result [] else
+    upd \<leftarrow> if update = STR '''' then Result [] else
       parse scan_updates update |> err_msg (STR ''Failed to parse update in '' + update);
-    let resets = filter (\<lambda>x. fst x \<in> set clocks) update;
+    let resets = filter (\<lambda>x. fst x \<in> set clocks) upd;
     assert
       (list_all (\<lambda>(_, d). d = 0) resets)
       (STR ''Clock resets to values different from zero are not supported'');
     let resets = map fst resets;
-    let upds = filter (\<lambda>x. fst x \<notin> set clocks) update;
+    let upds = filter (\<lambda>x. fst x \<notin> set clocks) upd;
     assert
       (list_all (\<lambda>(x, _). x \<in> set vars) upds)
-      (STR ''Unknown variable in update'');
+      (STR ''Unknown variable in update: '' + update);
     let upds = map (\<lambda>(x, d). (x, (exp.const (int d) :: (String.literal, int) exp))) upds;
     Result (source, check, g, label, upds, resets, target)
   }"
@@ -1150,11 +1152,16 @@ definition parse_convert_run where
 "
 
 definition parse_convert_run_test where
-  "parse_convert_run_test s \<equiv> do {x \<leftarrow> parse_convert_run s; return (the_result x)}"
+  "parse_convert_run_test s \<equiv> do {
+    x \<leftarrow> parse_convert_run s;
+    case x of
+      Error es \<Rightarrow> do {let _ = map println es; return (STR ''Fail'')}
+    | Result r \<Rightarrow> return r
+  }"
 
 ML \<open>
   fun assert comp exp =
-    if comp = exp then () else error "Assertion failed!"
+    if comp = exp then () else error ("Assertion failed! expected: " ^ exp ^ " but got: " ^ comp)
   fun test file =
   let
     val s = file_to_string file;
@@ -1162,8 +1169,23 @@ ML \<open>
     @{code parse_convert_run_test} s end
 \<close>
 
-ML_val \<open>assert (test "benchmarks/HDDI_02.muntax" ())      "Property is not satisfied!"\<close>
-ML_val \<open>assert (test "benchmarks/simple.muntax" ())       "Property is satisfied!"\<close>
-ML_val \<open>assert (test "benchmarks/light_switch.muntax" ()) "Property is satisfied!"\<close>
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02.muntax" ())      "Property is not satisfied!"\<close>
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/simple.muntax" ())       "Property is satisfied!"\<close>
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/light_switch.muntax" ()) "Property is satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ()) "Property is not satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_05.muntax" ()) "Property is not satisfied!"\<close>
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_06.muntax" ()) "Property is not satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer_05.muntax" ()) "Property is not satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/hddi_08.muntax" ()) "Property is not satisfied!"\<close>
+
+(*
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_one_clock.muntax" ()) "Property is not satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all.muntax" ()) "Property is satisfied!"\<close>
+*)
 
 end

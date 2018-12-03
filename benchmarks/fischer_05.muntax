@@ -1,0 +1,322 @@
+{
+    "automata": [
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 2, 
+                    "name": "c"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "cs"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "a"
+                }, 
+                {
+                    "invariant": "x1<=2", 
+                    "id": 1, 
+                    "name": "b"
+                }
+            ], 
+            "initial": 0, 
+            "name": "p1", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "id==0", 
+                    "update": "x1:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "x1<=2", 
+                    "update": "x1:=0,id:=1", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==0", 
+                    "update": "x1:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==1&& x1>2", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": ""
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "x1:=0,id:=0", 
+                    "target": 0, 
+                    "label": ""
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 2, 
+                    "name": "c"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "cs"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "a"
+                }, 
+                {
+                    "invariant": "x2<=2", 
+                    "id": 1, 
+                    "name": "b"
+                }
+            ], 
+            "initial": 0, 
+            "name": "p2", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "id==0", 
+                    "update": "x2:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "x2<=2", 
+                    "update": "x2:=0,id:=2", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==0", 
+                    "update": "x2:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==2&& x2>2", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": ""
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "x2:=0,id:=0", 
+                    "target": 0, 
+                    "label": ""
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "c"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 1, 
+                    "name": "cs"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 2, 
+                    "name": "a"
+                }, 
+                {
+                    "invariant": "x3<=2", 
+                    "id": 3, 
+                    "name": "b"
+                }
+            ], 
+            "initial": 2, 
+            "name": "p3", 
+            "edges": [
+                {
+                    "source": 2, 
+                    "guard": "id==0", 
+                    "update": "x3:=0", 
+                    "target": 3, 
+                    "label": ""
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "x3<=2", 
+                    "update": "x3:=0,id:=3", 
+                    "target": 0, 
+                    "label": ""
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "id==0", 
+                    "update": "x3:=0", 
+                    "target": 3, 
+                    "label": ""
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "id==3&& x3>2", 
+                    "update": "", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "x3:=0,id:=0", 
+                    "target": 2, 
+                    "label": ""
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "a"
+                }, 
+                {
+                    "invariant": "x4<=2", 
+                    "id": 1, 
+                    "name": "b"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 2, 
+                    "name": "c"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "cs"
+                }
+            ], 
+            "initial": 0, 
+            "name": "p4", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "id==0", 
+                    "update": "x4:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "x4<=2", 
+                    "update": "x4:=0,id:=4", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==0", 
+                    "update": "x4:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==4&& x4>2", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": ""
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "x4:=0,id:=0", 
+                    "target": 0, 
+                    "label": ""
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 2, 
+                    "name": "c"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "cs"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "a"
+                }, 
+                {
+                    "invariant": "x5<=2", 
+                    "id": 1, 
+                    "name": "b"
+                }
+            ], 
+            "initial": 0, 
+            "name": "p5", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "id==0", 
+                    "update": "x5:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "x5<=2", 
+                    "update": "x5:=0,id:=5", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==0", 
+                    "update": "x5:=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "id==5&& x5>2", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": ""
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "x5:=0,id:=0", 
+                    "target": 0, 
+                    "label": ""
+                }
+            ]
+        }
+    ], 
+    "clocks": "x1, x2, x3, x4, x5", 
+    "vars": "id[-1000:1000]",
+    "formula": "E<> ((p2.cs && (p1.cs)) || (p3.cs && (p1.cs || p2.cs)) || (p4.cs && (p1.cs || p2.cs || p3.cs)) || (p5.cs && (p1.cs || p2.cs || p3.cs || p4.cs)) )"
+}

@@ -1,0 +1,527 @@
+{
+    "automata": [
+        {
+            "nodes": [
+                {
+                    "invariant": "P0_x <= 0", 
+                    "id": 6, 
+                    "name": "bus_collision5"
+                }, 
+                {
+                    "invariant": "P0_x <= 0", 
+                    "id": 4, 
+                    "name": "bus_collision3"
+                }, 
+                {
+                    "invariant": "P0_x <= 0", 
+                    "id": 5, 
+                    "name": "bus_collision4"
+                }, 
+                {
+                    "invariant": "P0_x < 26", 
+                    "id": 2, 
+                    "name": "bus_collision1"
+                }, 
+                {
+                    "invariant": "P0_x <= 0", 
+                    "id": 3, 
+                    "name": "bus_collision2"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "bus_idle"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 1, 
+                    "name": "bus_active"
+                }
+            ], 
+            "initial": 0, 
+            "name": "P0", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P0_x:= 0", 
+                    "target": 1, 
+                    "label": "begin?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "P0_x:= 0", 
+                    "target": 0, 
+                    "label": "end?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P0_x >= 26", 
+                    "update": "", 
+                    "target": 1, 
+                    "label": "busy!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P0_x < 26", 
+                    "update": "P0_x:= 0", 
+                    "target": 2, 
+                    "label": "begin?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P0_x < 26", 
+                    "update": "P0_x:= 0", 
+                    "target": 3, 
+                    "label": "cd1!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "P0_x <= 0", 
+                    "update": "P0_x:= 0", 
+                    "target": 4, 
+                    "label": "cd2!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "P0_x <= 0", 
+                    "update": "P0_x:= 0", 
+                    "target": 5, 
+                    "label": "cd3!"
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "P0_x <= 0", 
+                    "update": "P0_x:= 0", 
+                    "target": 6, 
+                    "label": "cd4!"
+                }, 
+                {
+                    "source": 6, 
+                    "guard": "P0_x <= 0", 
+                    "update": "P0_x:= 0", 
+                    "target": 0, 
+                    "label": "cd5!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "P1_x < 52", 
+                    "id": 0, 
+                    "name": "sender_retry"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 1, 
+                    "name": "sender_wait"
+                }, 
+                {
+                    "invariant": "P1_x<= 808", 
+                    "id": 2, 
+                    "name": "sender_transm"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "sender_transm_check"
+                }
+            ], 
+            "initial": 1, 
+            "name": "P1", 
+            "edges": [
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "P1_x:= 0", 
+                    "target": 2, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "P1_x:= 0", 
+                    "target": 1, 
+                    "label": "cd1?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "P1_x:= 0", 
+                    "target": 0, 
+                    "label": "cd1?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "P1_x:= 0", 
+                    "target": 0, 
+                    "label": "busy?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P1_x <= 808 && P1_x >= 808", 
+                    "update": "P1_x:= 0", 
+                    "target": 1, 
+                    "label": "end!"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P1_x < 52", 
+                    "update": "P1_x:= 0", 
+                    "target": 0, 
+                    "label": "cd1?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P1_x >= 52", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": ""
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "P1_x < 52", 
+                    "update": "P1_x:= 0", 
+                    "target": 2, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "P1_x < 52", 
+                    "update": "P1_x:= 0", 
+                    "target": 0, 
+                    "label": "cd1?"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "sender_wait"
+                }, 
+                {
+                    "invariant": "P2_x<= 808", 
+                    "id": 1, 
+                    "name": "sender_transm"
+                }, 
+                {
+                    "invariant": "P2_x < 52", 
+                    "id": 2, 
+                    "name": "sender_retry"
+                }
+            ], 
+            "initial": 0, 
+            "name": "P2", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P2_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P2_x:= 0", 
+                    "target": 0, 
+                    "label": "cd2?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P2_x:= 0", 
+                    "target": 2, 
+                    "label": "cd2?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P2_x:= 0", 
+                    "target": 2, 
+                    "label": "busy?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P2_x <= 808 && P2_x >= 808", 
+                    "update": "P2_x:= 0", 
+                    "target": 0, 
+                    "label": "end!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P2_x < 52", 
+                    "update": "P2_x:= 0", 
+                    "target": 2, 
+                    "label": "cd2?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P2_x < 52", 
+                    "update": "P2_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P2_x < 52", 
+                    "update": "P2_x:= 0", 
+                    "target": 2, 
+                    "label": "cd2?"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "sender_wait"
+                }, 
+                {
+                    "invariant": "P3_x<= 808", 
+                    "id": 1, 
+                    "name": "sender_transm"
+                }, 
+                {
+                    "invariant": "P3_x < 52", 
+                    "id": 2, 
+                    "name": "sender_retry"
+                }
+            ], 
+            "initial": 0, 
+            "name": "P3", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P3_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P3_x:= 0", 
+                    "target": 0, 
+                    "label": "cd3?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P3_x:= 0", 
+                    "target": 2, 
+                    "label": "cd3?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P3_x:= 0", 
+                    "target": 2, 
+                    "label": "busy?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P3_x <= 808 && P3_x >= 808", 
+                    "update": "P3_x:= 0", 
+                    "target": 0, 
+                    "label": "end!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P3_x < 52", 
+                    "update": "P3_x:= 0", 
+                    "target": 2, 
+                    "label": "cd3?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P3_x < 52", 
+                    "update": "P3_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P3_x < 52", 
+                    "update": "P3_x:= 0", 
+                    "target": 2, 
+                    "label": "cd3?"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "P4_x<= 808", 
+                    "id": 1, 
+                    "name": "sender_transm"
+                }, 
+                {
+                    "invariant": "P4_x < 52", 
+                    "id": 2, 
+                    "name": "sender_retry"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "sender_wait"
+                }
+            ], 
+            "initial": 0, 
+            "name": "P4", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P4_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P4_x:= 0", 
+                    "target": 0, 
+                    "label": "cd4?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P4_x:= 0", 
+                    "target": 2, 
+                    "label": "cd4?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P4_x:= 0", 
+                    "target": 2, 
+                    "label": "busy?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P4_x <= 808 && P4_x >= 808", 
+                    "update": "P4_x:= 0", 
+                    "target": 0, 
+                    "label": "end!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P4_x < 52", 
+                    "update": "P4_x:= 0", 
+                    "target": 2, 
+                    "label": "cd4?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P4_x < 52", 
+                    "update": "P4_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P4_x < 52", 
+                    "update": "P4_x:= 0", 
+                    "target": 2, 
+                    "label": "cd4?"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "P5_x<= 808", 
+                    "id": 1, 
+                    "name": "sender_transm"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "sender_wait"
+                }, 
+                {
+                    "invariant": "P5_x < 52", 
+                    "id": 2, 
+                    "name": "sender_retry"
+                }
+            ], 
+            "initial": 0, 
+            "name": "P5", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P5_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P5_x:= 0", 
+                    "target": 0, 
+                    "label": "cd5?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P5_x:= 0", 
+                    "target": 2, 
+                    "label": "cd5?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "P5_x:= 0", 
+                    "target": 2, 
+                    "label": "busy?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P5_x <= 808 && P5_x >= 808", 
+                    "update": "P5_x:= 0", 
+                    "target": 0, 
+                    "label": "end!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "P5_x < 52", 
+                    "update": "P5_x:= 0", 
+                    "target": 2, 
+                    "label": "cd5?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P5_x < 52", 
+                    "update": "P5_x:= 0", 
+                    "target": 1, 
+                    "label": "begin!"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "P5_x < 52", 
+                    "update": "P5_x:= 0", 
+                    "target": 2, 
+                    "label": "cd5?"
+                }
+            ]
+        }
+    ], 
+    "clocks": "P0_x, P1_x, P2_x, P3_x, P4_x, P5_x",
+    "formula": "E<> ( P1.sender_transm_check && P2.sender_transm )",
+    "vars": ""
+}

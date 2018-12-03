@@ -1,0 +1,195 @@
+{
+    "broadcast": "AP, AS, VP, VS, Vget, Aget, AR, A_act, V_act, ABlock, VBlock, reset, VP_AS, Fast, Slow, du_beg, du_end, DDD, VDI", 
+    "automata": [ 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "ABl"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 1, 
+                    "name": "inter1"
+                }, 
+                {
+                    "invariant": "PPVARP_t<=100", 
+                    "id": 2, 
+                    "name": "PVARP"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "inter"
+                }, 
+                {
+                    "invariant": "PPVARP_t<=50", 
+                    "id": 4, 
+                    "name": "PVAB"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 5, 
+                    "name": "Idle"
+                }
+            ], 
+            "initial": 5, 
+            "name": "PPVARP", 
+            "edges": [
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 1, 
+                    "label": "A_act?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "A_act?"
+                }, 
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 4, 
+                    "label": "ABlock!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "Aget?"
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "A_act?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": "AR!"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 1, 
+                    "label": "Aget?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "PPVARP_t>=100", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "PPVARP_t>=50", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": "AS!"
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "Aget?"
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "PPVARP_t=0", 
+                    "target": 4, 
+                    "label": "VP?"
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "PPVARP_t=0", 
+                    "target": 4, 
+                    "label": "VS?"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "two_a"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 2, 
+                    "name": "wait_1st"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 1, 
+                    "name": "wait_2nd"
+                }
+            ], 
+            "initial": 2, 
+            "name": "Pvv", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "Pvv_t=0", 
+                    "target": 1, 
+                    "label": ""
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "VP?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "VS?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "Pvv_t=0", 
+                    "target": 1, 
+                    "label": "VP?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "Pvv_t=0", 
+                    "target": 1, 
+                    "label": "VS?"
+                }
+            ]
+        }
+    ], 
+    "clocks": "clk, PAVI_t, PLRI_t, PPVARP_t, PVRP_t, PAVI_MS_t, PLRI_MS_t, Pinterval_t, PVP_AS_t, PV_x, PA_x, Pcond_t, PURI_test_t, Pvv_t, Pvp_vp_t, PELT_det_t", 
+    "vars": "",
+    "formula": "E<> (Pvv.two_a)"
+}

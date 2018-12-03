@@ -1,0 +1,959 @@
+{
+    "automata": [
+        {
+            "nodes": [
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 14, 
+                    "name": "ring_to_5"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 15, 
+                    "name": "ring_5"
+                }, 
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 12, 
+                    "name": "ring_to_4"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 13, 
+                    "name": "ring_4"
+                }, 
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 10, 
+                    "name": "ring_to_3"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 11, 
+                    "name": "ring_3"
+                }, 
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 8, 
+                    "name": "ring_to_2"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 9, 
+                    "name": "ring_2"
+                }, 
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 0, 
+                    "name": "ring_to_1"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 1, 
+                    "name": "ring_1"
+                }, 
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 2, 
+                    "name": "ring_to_6"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "ring_6"
+                }, 
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 4, 
+                    "name": "ring_to_7"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 5, 
+                    "name": "ring_7"
+                }, 
+                {
+                    "invariant": "RING_x <= 0", 
+                    "id": 6, 
+                    "name": "ring_to_8"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 7, 
+                    "name": "ring_8"
+                }
+            ], 
+            "initial": 0, 
+            "name": "RING", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 1, 
+                    "label": "tt1!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 8, 
+                    "label": "rt1?"
+                }, 
+                {
+                    "source": 8, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 9, 
+                    "label": "tt2!"
+                }, 
+                {
+                    "source": 9, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 10, 
+                    "label": "rt2?"
+                }, 
+                {
+                    "source": 10, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 11, 
+                    "label": "tt3!"
+                }, 
+                {
+                    "source": 11, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 12, 
+                    "label": "rt3?"
+                }, 
+                {
+                    "source": 12, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 13, 
+                    "label": "tt4!"
+                }, 
+                {
+                    "source": 13, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 14, 
+                    "label": "rt4?"
+                }, 
+                {
+                    "source": 14, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 15, 
+                    "label": "tt5!"
+                }, 
+                {
+                    "source": 15, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 2, 
+                    "label": "rt5?"
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "tt6!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 4, 
+                    "label": "rt6?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": "tt7!"
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 6, 
+                    "label": "rt7?"
+                }, 
+                {
+                    "source": 6, 
+                    "guard": "RING_x <= 0", 
+                    "update": "", 
+                    "target": 7, 
+                    "label": "tt8!"
+                }, 
+                {
+                    "source": 7, 
+                    "guard": "", 
+                    "update": "RING_x:= 0", 
+                    "target": 0, 
+                    "label": "rt8?"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "ST1_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }, 
+                {
+                    "invariant": "ST1_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }, 
+                {
+                    "invariant": "ST1_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }, 
+                {
+                    "invariant": "ST1_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST1", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST1_y := 0, ST1_x:= 0", 
+                    "target": 1, 
+                    "label": "tt1?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST1_x >= 20 && ST1_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt1!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST1_x >= 20 && ST1_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt1!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST1_z := 0, ST1_x:= 0", 
+                    "target": 4, 
+                    "label": "tt1?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST1_x >= 20 && ST1_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt1!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST1_x >= 20 && ST1_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt1!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "ST2_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }, 
+                {
+                    "invariant": "ST2_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "ST2_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }, 
+                {
+                    "invariant": "ST2_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST2", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST2_y := 0, ST2_x:= 0", 
+                    "target": 1, 
+                    "label": "tt2?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST2_x >= 20 && ST2_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt2!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST2_x >= 20 && ST2_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt2!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST2_z := 0, ST2_x:= 0", 
+                    "target": 4, 
+                    "label": "tt2?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST2_x >= 20 && ST2_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt2!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST2_x >= 20 && ST2_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt2!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "ST3_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }, 
+                {
+                    "invariant": "ST3_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }, 
+                {
+                    "invariant": "ST3_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }, 
+                {
+                    "invariant": "ST3_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST3", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST3_y := 0, ST3_x:= 0", 
+                    "target": 1, 
+                    "label": "tt3?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST3_x >= 20 && ST3_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt3!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST3_x >= 20 && ST3_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt3!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST3_z := 0, ST3_x:= 0", 
+                    "target": 4, 
+                    "label": "tt3?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST3_x >= 20 && ST3_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt3!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST3_x >= 20 && ST3_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt3!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "ST4_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }, 
+                {
+                    "invariant": "ST4_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }, 
+                {
+                    "invariant": "ST4_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }, 
+                {
+                    "invariant": "ST4_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST4", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST4_y := 0, ST4_x:= 0", 
+                    "target": 1, 
+                    "label": "tt4?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST4_x >= 20 && ST4_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt4!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST4_x >= 20 && ST4_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt4!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST4_z := 0, ST4_x:= 0", 
+                    "target": 4, 
+                    "label": "tt4?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST4_x >= 20 && ST4_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt4!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST4_x >= 20 && ST4_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt4!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "ST5_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }, 
+                {
+                    "invariant": "ST5_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }, 
+                {
+                    "invariant": "ST5_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "ST5_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST5", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST5_y := 0, ST5_x:= 0", 
+                    "target": 1, 
+                    "label": "tt5?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST5_x >= 20 && ST5_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt5!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST5_x >= 20 && ST5_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt5!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST5_z := 0, ST5_x:= 0", 
+                    "target": 4, 
+                    "label": "tt5?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST5_x >= 20 && ST5_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt5!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST5_x >= 20 && ST5_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt5!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }, 
+                {
+                    "invariant": "ST6_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "ST6_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }, 
+                {
+                    "invariant": "ST6_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }, 
+                {
+                    "invariant": "ST6_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST6", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST6_y := 0, ST6_x:= 0", 
+                    "target": 1, 
+                    "label": "tt6?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST6_x >= 20 && ST6_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt6!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST6_x >= 20 && ST6_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt6!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST6_z := 0, ST6_x:= 0", 
+                    "target": 4, 
+                    "label": "tt6?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST6_x >= 20 && ST6_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt6!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST6_x >= 20 && ST6_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt6!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "ST7_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }, 
+                {
+                    "invariant": "ST7_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }, 
+                {
+                    "invariant": "ST7_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }, 
+                {
+                    "invariant": "ST7_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST7", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST7_y := 0, ST7_x:= 0", 
+                    "target": 1, 
+                    "label": "tt7?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST7_x >= 20 && ST7_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt7!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST7_x >= 20 && ST7_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt7!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST7_z := 0, ST7_x:= 0", 
+                    "target": 4, 
+                    "label": "tt7?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST7_x >= 20 && ST7_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt7!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST7_x >= 20 && ST7_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt7!"
+                }
+            ]
+        }, 
+        {
+            "nodes": [
+                {
+                    "invariant": "", 
+                    "id": 0, 
+                    "name": "station_z_idle"
+                }, 
+                {
+                    "invariant": "ST8_x<=20", 
+                    "id": 1, 
+                    "name": "station_z_sync"
+                }, 
+                {
+                    "invariant": "", 
+                    "id": 3, 
+                    "name": "station_y_idle"
+                }, 
+                {
+                    "invariant": "ST8_z<=420", 
+                    "id": 2, 
+                    "name": "station_z_async"
+                }, 
+                {
+                    "invariant": "ST8_y<=420", 
+                    "id": 5, 
+                    "name": "station_y_async"
+                }, 
+                {
+                    "invariant": "ST8_x<=20", 
+                    "id": 4, 
+                    "name": "station_y_sync"
+                }
+            ], 
+            "initial": 0, 
+            "name": "ST8", 
+            "edges": [
+                {
+                    "source": 0, 
+                    "guard": "", 
+                    "update": "ST8_y := 0, ST8_x:= 0", 
+                    "target": 1, 
+                    "label": "tt8?"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST8_x >= 20 && ST8_z >= 420", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt8!"
+                }, 
+                {
+                    "source": 1, 
+                    "guard": "ST8_x >= 20 && ST8_z < 420", 
+                    "update": "", 
+                    "target": 2, 
+                    "label": ""
+                }, 
+                {
+                    "source": 2, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 3, 
+                    "label": "rt8!"
+                }, 
+                {
+                    "source": 3, 
+                    "guard": "", 
+                    "update": "ST8_z := 0, ST8_x:= 0", 
+                    "target": 4, 
+                    "label": "tt8?"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST8_x >= 20 && ST8_y >= 420", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt8!"
+                }, 
+                {
+                    "source": 4, 
+                    "guard": "ST8_x >= 20 && ST8_y < 420", 
+                    "update": "", 
+                    "target": 5, 
+                    "label": ""
+                }, 
+                {
+                    "source": 5, 
+                    "guard": "", 
+                    "update": "", 
+                    "target": 0, 
+                    "label": "rt8!"
+                }
+            ]
+        }
+    ], 
+    "clocks": "RING_x, ST1_x, ST1_y, ST1_z, ST2_x, ST2_y, ST2_z, ST3_x, ST3_y, ST3_z, ST4_x, ST4_y, ST4_z, ST5_x, ST5_y, ST5_z, ST6_x, ST6_y, ST6_z, ST7_x, ST7_y, ST7_z, ST8_x, ST8_y, ST8_z", 
+    "vars": "",
+    "formula": "E<> ((ST1.station_z_sync || ST1.station_z_async || ST1.station_y_sync || ST1.station_y_async) && (ST2.station_z_sync || ST2.station_z_async || ST2.station_y_sync || ST2.station_y_async))"
+}
