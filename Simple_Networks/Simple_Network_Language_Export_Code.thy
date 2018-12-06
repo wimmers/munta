@@ -1090,10 +1090,9 @@ definition convert :: "JSON \<Rightarrow>
     all \<leftarrow> of_object json;
     automata \<leftarrow> get all ''automata'';
     automata \<leftarrow> of_array automata;
-    let broadcast = default [] (do {
-      x \<leftarrow> get all ''broadcast''; of_array x}
-    );
+    let broadcast = default [] (do {x \<leftarrow> get all ''broadcast''; of_array x});
     broadcast \<leftarrow> combine_map of_string broadcast;
+    let _ = println (STR ''Broadcast channels '' + String.implode (show broadcast));
     let bounds = default (STR '''') (do {
       x \<leftarrow> get all ''vars''; of_string x}
     );
@@ -1127,8 +1126,11 @@ definition convert :: "JSON \<Rightarrow>
 paragraph \<open>Unsafe Glue Code for Printing\<close>
 
 code_printing
-  constant print \<rightharpoonup> (SML) (* "print _" *) "writeln _"
+  constant print \<rightharpoonup> (SML) "writeln _"
        and        (OCaml) "print'_string _"
+code_printing
+  constant println \<rightharpoonup> (SML) "writeln _"
+       and          (OCaml) "print'_string _"
 
 definition "print_err = print"
 definition "println_err x = print_err (x + STR ''\<newline>'')"
@@ -1151,6 +1153,17 @@ definition parse_convert_run where
    | Result (broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
       do_preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
 "
+
+text \<open>Eliminate Gabow statistics\<close>
+code_printing
+  code_module Gabow_Skeleton_Statistics \<rightharpoonup> (SML)
+  \<open>structure Gabow_Skeleton_Statistics = struct end\<close>
+
+code_printing
+  constant stat_newnode \<rightharpoonup> (SML) "(fn x => ()) _"
+| constant stat_start   \<rightharpoonup> (SML) "(fn x => ()) _"
+| constant stat_stop    \<rightharpoonup> (SML) "(fn x => ()) _"
+
 
 (* XXX Add this fix to IArray theory *)
 code_printing
