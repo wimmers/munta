@@ -467,10 +467,12 @@ definition "clkp_inv i l \<equiv>
   (UNION (set (filter (\<lambda> (a, b). a = l) (snd (snd (automata ! i))))) (collect_clock_pairs o snd))"
 
 definition "clkp_set'' i l \<equiv>
-    clkp_inv i l \<union> (\<Union> (l, b, g, _) \<in> set (fst (snd (automata ! i))). collect_clock_pairs g)"
+    clkp_inv i l \<union> (\<Union> (l', b, g, _) \<in> set (fst (snd (automata ! i))).
+      if l' = l then collect_clock_pairs g else {})"
 
 definition
-  "collect_resets i l = (\<Union> (l, b, g, a, f, r, _) \<in> set (fst (snd (automata ! i))). set r)"
+  "collect_resets i l = (\<Union> (l', b, g, a, f, r, _) \<in> set (fst (snd (automata ! i))).
+    if l' = l then set r else {})"
 
 context
   fixes q c :: nat
@@ -478,7 +480,7 @@ begin
 
   definition "n \<equiv> num_states q"
 
-  definition "V \<equiv> \<lambda> v. v \<le> m"
+  definition "V \<equiv> \<lambda> v. v \<le> n"
 
   definition "
     bound_g l \<equiv>
@@ -496,9 +498,8 @@ begin
 
 definition "
   resets l \<equiv>
-    let reset = collect_resets q l in
     fold
-    (\<lambda> (l1, b, g, a, f, r, l') xs. if l1 \<noteq> l \<or> l' \<in> set xs \<or> c \<in> reset then xs else (l' # xs))
+    (\<lambda> (l1, b, g, a, f, r, l') xs. if l1 \<noteq> l \<or> l' \<in> set xs \<or> c \<in> set r then xs else (l' # xs))
     (fst (snd (automata ! q)))
     []
 "
@@ -1151,6 +1152,13 @@ definition parse_convert_run where
       do_preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
 "
 
+(* XXX Add this fix to IArray theory *)
+code_printing
+  constant IArray.sub' \<rightharpoonup> (SML) "(Vector.sub o (fn (a, b) => (a, IntInf.toInt b)))"
+
+export_code parse_convert_run Result Error
+in SML module_name Model_Checker file "../ML/Simple_Model_Checker.sml"
+
 definition parse_convert_run_test where
   "parse_convert_run_test s \<equiv> do {
     x \<leftarrow> parse_convert_run s;
@@ -1175,12 +1183,14 @@ ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchma
 
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ()) "Property is not satisfied!"\<close>
 
-ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_05.muntax" ()) "Property is not satisfied!"\<close>
-ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_06.muntax" ()) "Property is not satisfied!"\<close>
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/hddi_02.muntax" ()) "Property is not satisfied!"\<close>
 
-ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer_05.muntax" ()) "Property is not satisfied!"\<close>
+ML _val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_05.muntax" ()) "Property is not satisfied!"\<close>
+ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_06.muntax" ()) "Property is not satisfied!"\<close>
 
-ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/hddi_08.muntax" ()) "Property is not satisfied!"\<close>
+ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer_05.muntax" ()) "Property is not satisfied!"\<close>
+
+ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/hddi_08.muntax" ()) "Property is not satisfied!"\<close>
 
 (*
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_one_clock.muntax" ()) "Property is not satisfied!"\<close>
