@@ -264,7 +264,7 @@ let
    (broadcast, automata, bounds') = rename_network
       broadcast bounds' automata renum_acts renum_vars renum_clocks renum_states;
    _ = println (STR ''Automata after renaming'');
-   _ = show automata |> String.implode |> println;
+   _ = map (\<lambda>a. show a |> String.implode |> println) automata;
    _ = println (STR ''Renaming formula'');
    formula = map_formula renum_states renum_vars id formula;
     _ = println (STR ''Renaming state'');
@@ -861,29 +861,31 @@ lemma [fundef_cong]:
   using assms unfolding scan_parens_def gen_token_def
   by (intro Parser_Combinator.bind_cong repeat_cong assms) auto
 
+context
+  fixes elem :: "(char, 'bexp) parser"
+    and Imply Or And :: "'bexp \<Rightarrow> 'bexp \<Rightarrow> 'bexp"
+    and Not :: "'bexp \<Rightarrow> 'bexp"
+begin
+
 fun scan_7 and scan_6 and scan_0 where
   "scan_7 ::=
-    scan_infix_pair scan_6 scan_7 ''->'' with uncurry imply \<parallel>
-    scan_infix_pair scan_6 scan_7 ''||'' with uncurry sexp.or \<parallel>
+    scan_infix_pair scan_6 scan_7 ''->'' with uncurry Imply \<parallel>
+    (*scan_infix_pair scan_6 scan_7 ''imply'' with uncurry Imply \<parallel>*)
+    scan_infix_pair scan_6 scan_7 ''||'' with uncurry Or \<parallel>
+    (*scan_infix_pair scan_6 scan_7 ''or'' with uncurry Or \<parallel>*)
     scan_6" |
   "scan_6 ::=
-    scan_infix_pair scan_0 scan_6 ''&&'' with uncurry and \<parallel> scan_0" |
+    scan_infix_pair scan_0 scan_6 ''&&'' with uncurry And \<parallel>
+    (* scan_infix_pair scan_0 scan_6 ''and'' with uncurry And \<parallel> *)
+    scan_0" |
   "scan_0 ::=
-    exactly ''~'' **-- scan_parens' scan_7 with not \<parallel>
-    scan_bexp_elem \<parallel>
+    (exactly ''~'' \<parallel> exactly ''!'' (* \<parallel> exactly ''not'' *)) **-- scan_parens' scan_7 with Not \<parallel>
+    elem \<parallel>
     scan_parens' scan_7"
 
-abbreviation "scan_bexp \<equiv> scan_7"
-
-lemma "parse scan_bexp (STR ''a < 3 && b>=2 || ~ (c <= 4)'')
-= Result (sexp.or (and (lt STR ''a'' 3) (ge STR ''b'' 2)) (not (sexp.le STR ''c'' 4)))"
-  by eval
-
-definition [consuming]: "scan_prefix p head = exactly head **-- p" for p
-
-lemma is_cparser_token[parser_rules]:
-  "is_cparser (token a)" if "is_cparser a"
-  using that unfolding gen_token_def by simp
+context
+  assumes [parser_rules]: "is_cparser elem"
+begin
 
 lemma is_cparser_scan_parens'[parser_rules]:
   "is_cparser (scan_parens' a)"
@@ -897,9 +899,20 @@ lemma [parser_rules]:
   "is_cparser scan_6"
   by (subst scan_6.simps[abs_def]) simp
 
+end
+end
+
+abbreviation "scan_bexp \<equiv> scan_7 scan_bexp_elem sexp.imply sexp.or sexp.and sexp.not"
+
 lemma [parser_rules]:
   "is_cparser scan_bexp"
   by (subst scan_7.simps[abs_def]) simp
+
+lemma "parse scan_bexp (STR ''a < 3 && b>=2 || ~ (c <= 4)'')
+= Result (sexp.or (and (lt STR ''a'' 3) (ge STR ''b'' 2)) (not (sexp.le STR ''c'' 4)))"
+  by eval
+
+definition [consuming]: "scan_prefix p head = exactly head **-- p" for p
 
 definition [consuming]: "scan_formula \<equiv>
   scan_prefix scan_bexp ''E<>'' with formula.EX \<parallel>
@@ -908,23 +921,14 @@ definition [consuming]: "scan_formula \<equiv>
   scan_prefix scan_bexp ''A[]'' with AG \<parallel>
   scan_infix_pair scan_bexp scan_bexp ''-->'' with uncurry Leadsto"
 
-definition [consuming]:
-  "scan_update \<equiv>
-   scan_var --- (exactly ''='' \<parallel> exactly '':='') **-- token lx_nat
-   with (\<lambda>(s, x). (String.implode s, x))"
-
-abbreviation "scan_updates \<equiv> parse_list scan_update"
-
-lemma "parse scan_updates (STR '' y2  := 0'') = Result [(STR ''y2'', 0)]"
-  by eval
-
-lemma
-  "parse scan_updates (STR ''y2 := 0, x2 := 0'') = Result [(STR ''y2'', 0), (STR ''x2'', 0)]"
-  by eval
+(* unused *)
+lemma is_cparser_token[parser_rules]:
+  "is_cparser (token a)" if "is_cparser a"
+  using that unfolding gen_token_def by simp
 
 definition [consuming]: "scan_action \<equiv>
-  (scan_var --* exactly ''?'') with In o String.implode \<parallel>
-  (scan_var --* exactly ''!'') with Out o String.implode \<parallel>
+  (scan_var --* token (exactly ''?'')) with In o String.implode \<parallel>
+  (scan_var --* token (exactly ''!'')) with Out o String.implode \<parallel>
   scan_var with Sil o String.implode"
 
 abbreviation orelse (infix "orelse" 58) where
@@ -970,6 +974,49 @@ fun sexp_to_bexp :: "(String.literal, String.literal, String.literal, int) sexp 
   "sexp_to_bexp (imply a b) =
     do {a \<leftarrow> sexp_to_bexp a; b \<leftarrow> sexp_to_bexp b; bexp.imply a b |> Result}" |
   "sexp_to_bexp x        = Error [STR ''Illegal construct in binary operation'']"
+
+definition [consuming]: "scan_bexp_elem' \<equiv>
+  token (exactly ''true'') with (\<lambda>_. bexp.true) \<parallel>
+  scan_acconstraint with (\<lambda>b. case sexp_to_bexp b of Result b \<Rightarrow> b)"
+
+abbreviation "scan_bexp' \<equiv> scan_7 scan_bexp_elem' bexp.imply bexp.or bexp.and bexp.not"
+
+lemma [parser_rules]:
+  "is_cparser scan_bexp'"
+  by (subst scan_7.simps[abs_def]) simp
+
+lemma token_cong[fundef_cong]:
+  assumes "\<And>l2. ll_fuel l2 \<le> ll_fuel l \<Longrightarrow> A l2 = A' l2" "l = l'"
+  shows "token A l = token A' l'"
+  using assms unfolding scan_parens_def gen_token_def
+  by (intro Parser_Combinator.bind_cong repeat_cong assms) auto
+
+fun scan_exp where
+  "scan_exp ::=
+  token lx_int with exp.const \<parallel>
+  token scan_var with exp.var o String.implode \<parallel>
+  scan_parens' (scan_exp --- exactly ''?'' **-- scan_bexp' --- exactly '':'' **-- scan_exp)
+  with (\<lambda> (e1, b, e2). exp.if_then_else b e1 e2)"
+
+definition [consuming]:
+  "scan_update \<equiv>
+   scan_var --- (exactly ''='' \<parallel> exactly '':='') **-- scan_exp
+   with (\<lambda>(s, x). (String.implode s, x))"
+
+abbreviation "scan_updates \<equiv> parse_list scan_update"
+
+lemma "parse scan_updates (STR '' y2  := 0'') = Result [(STR ''y2'', exp.const (0 :: int))]"
+  by eval
+
+lemma
+  "parse scan_updates (STR ''y2 := 0, x2 := 0'')
+ = Result [(STR ''y2'', exp.const 0), (STR ''x2'', exp.const 0)]"
+  by eval
+
+lemma
+  "parse scan_exp (STR ''( 1 ? L == 0 : 0 )'')
+ = Result (if_then_else (bexp.eq STR ''L'' 0) (exp.const 1) (exp.const 0))"
+  by eval
 
 definition compile_invariant where
   "compile_invariant clocks vars inv \<equiv>
@@ -1023,14 +1070,13 @@ definition convert_edge where
       parse scan_updates update |> err_msg (STR ''Failed to parse update in '' + update);
     let resets = filter (\<lambda>x. fst x \<in> set clocks) upd;
     assert
-      (list_all (\<lambda>(_, d). d = 0) resets)
+      (list_all (\<lambda>(_, d). d = exp.const 0) resets)
       (STR ''Clock resets to values different from zero are not supported'');
     let resets = map fst resets;
     let upds = filter (\<lambda>x. fst x \<notin> set clocks) upd;
     assert
       (list_all (\<lambda>(x, _). x \<in> set vars) upds)
       (STR ''Unknown variable in update: '' + update);
-    let upds = map (\<lambda>(x, d). (x, (exp.const (int d) :: (String.literal, int) exp))) upds;
     Result (source, check, g, label, upds, resets, target)
   }"
 
@@ -1045,13 +1091,10 @@ definition convert_automaton where
       (STR ''Node names are ambiguous'' + (show (map fst names_to_ids) |> String.implode));
     assert (map snd names_to_ids |> distinct) (STR ''Duplicate node id'');
     let names_to_ids = map_of names_to_ids;
-    let commited = default (STR '''') (get a ''commited'' \<bind> of_string);
-    commited \<leftarrow> if commited = STR '''' then Result [] else
-      parse (parse_list (token ta_var_ident with String.implode)) commited
-      |> err_msg (STR ''Failed to parse commited locations'');
-    commited \<leftarrow> combine_map (get names_to_ids) commited;
+    let committed = default [] (get a ''committed'' \<bind> of_array);
+    committed \<leftarrow> combine_map of_nat committed;
     edges \<leftarrow> combine_map (convert_edge clocks vars) edges;
-    Result (names_to_ids, (commited, edges, invs))
+    Result (names_to_ids, (committed, edges, invs))
   }"
 
 fun rename_locs_sexp where
@@ -1197,6 +1240,8 @@ ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchma
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ()) "Property is not satisfied!"\<close>
 
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/hddi_02.muntax" ()) "Property is not satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ()) "Property is satisfied!"\<close>
 
 ML _val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_05.muntax" ()) "Property is not satisfied!"\<close>
 ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_06.muntax" ()) "Property is not satisfied!"\<close>
