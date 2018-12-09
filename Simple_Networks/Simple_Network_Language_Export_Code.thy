@@ -1010,12 +1010,31 @@ lemma token_cong[fundef_cong]:
   using assms unfolding scan_parens_def gen_token_def
   by (intro Parser_Combinator.bind_cong repeat_cong assms) auto
 
-fun scan_exp where
-  "scan_exp ::=
-  token lx_int with exp.const \<parallel>
-  token scan_var with exp.var o String.implode \<parallel>
+(*
+abbreviation additive_op where "additive_op \<equiv> 
+  tk_plus \<then> Parser_Combinator.return (+)
+\<parallel> tk_minus \<then> Parser_Combinator.return (-)"
+
+  abbreviation "multiplicative_op \<equiv> 
+    tk_times \<then> return ( * )
+  \<parallel> tk_div \<then> return (div)"  
+  abbreviation "power_op \<equiv> 
+    tk_power \<then> return (\<lambda>a b. a^nat b)" \<comment> \<open>Note: Negative powers are treated as \<open>x\<^sup>0\<close>\<close>
+*)
+
+term additive_op
+term multiplicative_op
+
+    
+text \<open>Mutually recursive functions just work with our parser combinators\<close>    
+fun aexp and mexp and scan_exp where
+  "aexp ::=
+  token lx_int with exp.const \<parallel> token scan_var with exp.var o String.implode \<parallel>
   scan_parens' (scan_exp --- exactly ''?'' **-- scan_bexp' --- exactly '':'' **-- scan_exp)
-  with (\<lambda> (e1, b, e2). exp.if_then_else b e1 e2)"
+  with (\<lambda> (e1, b, e2). exp.if_then_else b e1 e2) \<parallel>
+  tk_lparen **-- scan_exp --** tk_rparen"
+| "mexp ::= chainL1 aexp (multiplicative_op with (\<lambda>f a b. exp.binop f a b))"
+| "scan_exp ::= chainL1 mexp (additive_op with (\<lambda>f a b. exp.binop f a b))"
 
 definition [consuming]:
   "scan_update \<equiv>
@@ -1029,7 +1048,6 @@ value "parse scan_updates (STR '' y2  := 0'')"
 
 value "parse scan_updates (STR ''y2 := 0, x2 := 0'')"
 (* = Result [(STR ''y2'', exp.const 0), (STR ''x2'', exp.const 0)]" *)
-
 value "parse scan_exp (STR ''( 1 ? L == 0 : 0 )'')"
 (*  = Result (if_then_else (bexp.eq STR ''L'' 0) (exp.const 1) (exp.const 0)) *)
 
