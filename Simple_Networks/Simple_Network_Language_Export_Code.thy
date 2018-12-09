@@ -227,7 +227,26 @@ fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
   "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
   "intersperse _ xs = xs"
 
-derive "show" bexp acconstraint exp act
+derive "show" bexp acconstraint act
+
+instantiation exp :: ("show", "show") "show"
+begin
+
+fun shows_exp where
+  "shows_exp (const c) = show c" |
+  "shows_exp (var v) = show v" |
+  "shows_exp (if_then_else b e1 e2) = show b @ '' ? '' @ shows_exp e1 @ '' : '' @ shows_exp e2" |
+  "shows_exp (binop _ e1 e2) = ''binop '' @ shows_exp e1 @ '' '' @ shows_exp e2" |
+  "shows_exp (unop _ e) = ''unop '' @ shows_exp e"
+
+definition "shows_prec p (e :: (_, _) exp) rest = shows_exp e @ rest" for p
+
+definition "shows_list (es) s =
+  map shows_exp es |> intersperse '', '' |> (\<lambda>xs. ''['' @ concat xs @ '']'' @ s)"
+instance
+  by standard (simp_all add: shows_prec_exp_def shows_list_exp_def show_law_simps)
+
+end
 
 instantiation String.literal :: "show"
 begin
@@ -1005,18 +1024,14 @@ definition [consuming]:
 
 abbreviation "scan_updates \<equiv> parse_list scan_update"
 
-lemma "parse scan_updates (STR '' y2  := 0'') = Result [(STR ''y2'', exp.const (0 :: int))]"
-  by eval
+value "parse scan_updates (STR '' y2  := 0'')"
+(* = Result [(STR ''y2'', exp.const (0 :: int))] *)
 
-lemma
-  "parse scan_updates (STR ''y2 := 0, x2 := 0'')
- = Result [(STR ''y2'', exp.const 0), (STR ''x2'', exp.const 0)]"
-  by eval
+value "parse scan_updates (STR ''y2 := 0, x2 := 0'')"
+(* = Result [(STR ''y2'', exp.const 0), (STR ''x2'', exp.const 0)]" *)
 
-lemma
-  "parse scan_exp (STR ''( 1 ? L == 0 : 0 )'')
- = Result (if_then_else (bexp.eq STR ''L'' 0) (exp.const 1) (exp.const 0))"
-  by eval
+value "parse scan_exp (STR ''( 1 ? L == 0 : 0 )'')"
+(*  = Result (if_then_else (bexp.eq STR ''L'' 0) (exp.const 1) (exp.const 0)) *)
 
 definition compile_invariant where
   "compile_invariant clocks vars inv \<equiv>
@@ -1070,7 +1085,7 @@ definition convert_edge where
       parse scan_updates update |> err_msg (STR ''Failed to parse update in '' + update);
     let resets = filter (\<lambda>x. fst x \<in> set clocks) upd;
     assert
-      (list_all (\<lambda>(_, d). d = exp.const 0) resets)
+      (list_all (\<lambda>(_, d). case d of exp.const x \<Rightarrow> x = 0 | _ \<Rightarrow> undefined) resets)
       (STR ''Clock resets to values different from zero are not supported'');
     let resets = map fst resets;
     let upds = filter (\<lambda>x. fst x \<notin> set clocks) upd;
@@ -1242,6 +1257,8 @@ ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchma
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/hddi_02.muntax" ()) "Property is not satisfied!"\<close>
 
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ()) "Property is satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer.muntax" ()) "Property is satisfied!"\<close>
 
 ML _val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_05.muntax" ()) "Property is not satisfied!"\<close>
 ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_06.muntax" ()) "Property is not satisfied!"\<close>

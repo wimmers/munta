@@ -26,6 +26,8 @@ fun eval where
   "eval s (const c) = c"
 | "eval s (var x)   = s x"
 | "eval s (if_then_else b e1 e2) = (if bval s b then eval s e1 else eval s e2)"
+| "eval s (binop f e1 e2) = f (eval s e1) (eval s e2)"
+| "eval s (unop f e) = f (eval s e)"
 
 lemma check_bexp_determ:
   "b1 = b2" if "check_bexp s e b1" "check_bexp s e b2"
@@ -35,7 +37,7 @@ lemma check_bexp_determ:
 
 lemma is_val_determ:
   "v1 = v2" if "is_val s e v1" "is_val s e v2"
-  using that by (induction e arbitrary: v1 v2) (auto 4 4 dest: check_bexp_determ elim: is_val.cases)
+  using that by (induction e arbitrary: v1 v2) (auto dest: check_bexp_determ elim!: is_val_elims)
 
 lemma is_upd_determ:
   "s1 = s2" if "is_upd s f s1" "is_upd s f s2"
@@ -59,11 +61,7 @@ lemma check_bexp_bval:
 
 lemma is_val_eval:
   "is_val s e (eval (the o s) e)" if "\<forall>x \<in> vars_of_exp e. x \<in> dom s"
-  using that
-  apply (induction e)
-  subgoal
-    by (subst eval.simps, rule is_val.intros) (auto intro: check_bexp_bval)
-  by (auto intro: is_val.intros)
+  using that by (induction e) (subst eval.simps; rule is_val.intros; auto intro: check_bexp_bval)+
 
 lemma is_upd_dom:
   "dom s' = dom s" if "is_upd s upds s'" "\<forall> (x, _) \<in> set upds. x \<in> dom s"
@@ -280,7 +278,7 @@ definition
 
 definition
   "check_bounded s =
-    (\<forall>x \<in> dom s. fst (bounds_map x) < the (s x) \<and> the (s x) < snd (bounds_map x))"
+    (\<forall>x \<in> dom s. fst (bounds_map x) \<le> the (s x) \<and> the (s x) \<le> snd (bounds_map x))"
 
 text \<open>Compute pairs of processes with committed initial locations from location vector.\<close>
 definition
@@ -471,7 +469,9 @@ definition
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
               List.map_filter (\<lambda>comb.
@@ -509,7 +509,9 @@ definition
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
               List.map_filter (\<lambda>comb.
@@ -529,6 +531,10 @@ definition
     "
 
 end (* Simple Network Impl nat defs *)
+
+(* XXX Move *)
+lemma product_lists_empty: "product_lists xss = [] \<longleftrightarrow> (\<exists>xs \<in> set xss. xs = [])" for xss
+  by (induction xss) auto
 
 context Simple_Network_Impl_nat
 begin
@@ -553,7 +559,9 @@ lemma broad_trans_from_alt_def:
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
               filter (\<lambda> (g, a, r, L, s). check_bounded s) (
@@ -588,7 +596,9 @@ lemma broad_trans_from_alt_def:
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
               filter (\<lambda> (g, a, r, L, s). check_bounded s) (
@@ -1596,7 +1606,9 @@ proof clarsimp
         let
           combs = make_combs p a IN';
           outs = map (\<lambda>t. (p, t)) outs;
-          combs = concat (map (\<lambda>x. map (\<lambda> xs. x # xs) combs) outs);
+          combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
           init = ([], Broad a, [], (L, s))
         in
         filter (\<lambda> (g, a, r, L, s). check_bounded s) (
@@ -1608,17 +1620,15 @@ proof clarsimp
                 comb
                 init
           ) combs)" for a p
-  have make_combsD:
-    "map (\<lambda>p. (p, bs p, gs p, a', fs p, rs p, ls' p)) ps \<in> set (make_combs p a' IN')"
-    if
+  {
+    fix p ps bs gs a' fs rs ls'
+    assume assms:
       "\<forall>p\<in>set ps.
           (L ! p, bs p, gs p, In a', fs p, rs p, ls' p) \<in> trans (N p)"
       "\<forall>q<n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
           (\<forall>b g f r l'. (L ! q, b, g, In a', f, r, l') \<notin> trans (N q) \<or> \<not> check_bexp s b True)"
-      "p < n_ps" "set ps \<subseteq> {0..<n_ps}" "p \<notin> set ps" "distinct ps" "sorted ps" "ps \<noteq> []"
+      "p < n_ps" "set ps \<subseteq> {0..<n_ps}" "p \<notin> set ps" "distinct ps" "sorted ps"
       "a' < num_actions" "a' \<in> set broadcast" "\<forall>p \<in> set ps. check_bexp s (bs p) True"
-    for p ps bs gs a' fs rs ls'
-  proof -
     define ys where "ys = List.map_filter
         (\<lambda> i.
           if i = p then None
@@ -1629,11 +1639,11 @@ proof clarsimp
     have "filter (\<lambda>i. IN' ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = ps"
       apply (rule filter_distinct_eqI)
       subgoal
-        using that(4-) by (simp add: sorted_distinct_subseq_iff)
+        using assms(4-) by (simp add: sorted_distinct_subseq_iff)
       subgoal
-        using that(1,3-) by (auto 4 3 dest!: IN_I IN'_I)
+        using assms(1,3-) by (auto 4 3 dest!: IN_I IN'_I)
       subgoal
-        using that(1,2,4,9-)
+        using assms(1,2,4,8-)
         apply -
         apply (rule ccontr)
         apply simp
@@ -1645,21 +1655,51 @@ proof clarsimp
       by auto
     then have "length ys = length ps"
       unfolding ys_def map_filter_def by simp
-    from \<open>_ = ps\<close> \<open>ps \<noteq> []\<close> have "ys \<noteq> []"
-      unfolding ys_def map_filter_def by simp
-    from that(1,3-) have
-      "\<forall>i<length ps. let p = ps ! i in (p, bs p, gs p, a', fs p, rs p, ls' p) \<in> set (ys ! i)"
-      unfolding ys_def Let_def map_filter_def
-      apply (simp add: comp_def if_distrib[where f = the])
-      apply (subst (2) map_cong)
-        apply (rule HOL.refl)
-       apply (simp; fail)
-      apply (simp add: \<open>_ = ps\<close>)
-      by (intros add: image_eqI[OF HOL.refl] IN_I IN'_I; simp add: subset_code(1))
-    with \<open>ys \<noteq> []\<close> show ?thesis
-      unfolding make_combs_def ys_def[symmetric] Let_def
-      by (auto simp: \<open>length ys = _\<close> product_lists_set intro:list_all2_all_nthI)
-  qed
+    have non_empty: "ys \<noteq> []" if "ps \<noteq> []"
+      using \<open>_ = ps\<close> \<open>ps \<noteq> []\<close> unfolding ys_def map_filter_def by simp
+    have make_combsD:
+      "map (\<lambda>p. (p, bs p, gs p, a', fs p, rs p, ls' p)) ps \<in> set (make_combs p a' IN')"
+      if "ps \<noteq> []"
+    proof -
+      from assms(1,3-) have
+        "\<forall>i<length ps. let p = ps ! i in (p, bs p, gs p, a', fs p, rs p, ls' p) \<in> set (ys ! i)"
+        unfolding ys_def Let_def map_filter_def
+        apply (simp add: comp_def if_distrib[where f = the])
+        apply (subst (2) map_cong)
+          apply (rule HOL.refl)
+         apply (simp; fail)
+        apply (simp add: \<open>_ = ps\<close>)
+        by (intros add: image_eqI[OF HOL.refl] IN_I IN'_I; simp add: subset_code(1))
+      with non_empty[OF that] show ?thesis
+        unfolding make_combs_def ys_def[symmetric] Let_def
+        by (auto simp: \<open>length ys = _\<close> product_lists_set intro:list_all2_all_nthI)
+    qed
+    have make_combs_empty:
+      "make_combs p a' IN' = [] \<longleftrightarrow> ps = []"
+    proof (cases "ps = []")
+      case True
+      then show ?thesis
+        using \<open>length ys = length ps\<close> unfolding make_combs_def ys_def[symmetric] Let_def by auto
+    next
+      case False
+      then show ?thesis
+        using make_combsD by auto
+    qed
+    note make_combsD make_combs_empty
+  } note make_combsD = this(1) and make_combs_empty = this(2)
+  have make_combs_emptyD: "filter (\<lambda>i. IN' ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = []"
+    if "make_combs p a' IN' = []" for xs p a'
+    apply (rule filter_distinct_eqI)
+    subgoal
+      by auto
+      subgoal
+        by auto
+      subgoal
+        using that unfolding make_combs_alt_def
+        by (auto simp: filter_empty_conv product_lists_empty split: if_split_asm)
+      subgoal
+        by simp
+      done
   have make_combsI:
     "\<exists> ps bs gs fs rs ls'.
       (\<forall>p\<in>set ps.
@@ -1796,7 +1836,6 @@ proof clarsimp
       "p \<notin> set ps" and
       "distinct ps" and
       "sorted ps" and
-      "ps \<noteq> []" and
       "check_bexp s b1 True" and
       "\<forall>p\<in>set ps. check_bexp s (bs p) True" and
       "is_upd s f1 s''" and
@@ -1810,7 +1849,21 @@ proof clarsimp
     supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I OUT'_I
     apply frule2
     apply simp
+    apply (rule conjI, rule impI)
+    subgoal
+      apply (subst (asm) make_combs_empty, (assumption | simp)+)
+      apply frules_all
+      apply (intro conjI)
+        apply (auto; fail)
+       apply (intros add: more_intros)
+         apply (solve_triv | intros add: more_intros UN_I)+
+      subgoal
+        unfolding comp_def by (auto elim!: is_upds.cases)
+      by (auto elim!: is_upds.cases simp: check_bounded_iff[symmetric])
+    apply (rule impI)
     apply (frule make_combsD, simp, assumption+)
+    subgoal
+      by (subst (asm) make_combs_empty) (assumption | simp)+
     apply frules_all
     apply simp
     apply (intro conjI)
@@ -1836,7 +1889,6 @@ proof clarsimp
          p \<notin> set ps \<and>
          distinct ps \<and>
          sorted ps \<and>
-         ps \<noteq> [] \<and>
          check_bexp s b True \<and> (\<forall>p\<in>set ps. check_bexp s (bs p) True) \<and>
          is_upd s f s'' \<and> is_upds s'' (map fs ps) s' \<and>
          bounded bounds s' \<and>
@@ -1854,6 +1906,35 @@ proof clarsimp
     unfolding make_trans_def
     apply mini_ex
     apply (clarsimp simp: set_map_filter Let_def split: prod.split if_split_asm)
+    subgoal for b a1 f l'
+      apply (inst_existentials
+      "b :: (nat, int) bexp"
+      "g :: (nat, int) acconstraint list"
+      "f :: (nat \<times> (nat, int) exp) list"
+      "r :: nat list"
+      l'
+      "undefined :: nat \<Rightarrow> (nat, int) Simple_Network_Language.bexp"
+      "undefined :: nat \<Rightarrow> (nat, int) acconstraint list"
+      "undefined :: nat \<Rightarrow> (nat \<times> (nat, int) exp) list"
+      "undefined :: nat \<Rightarrow> nat list"
+      "undefined :: nat \<Rightarrow> nat"
+      "[] :: nat list")
+                   apply (auto dest: OUT'_D; fail)+
+      subgoal
+        by (auto 4 3 simp: filter_empty_conv dest: bspec dest!: make_combs_emptyD OUT'_D IN_I IN'_I)
+            apply (auto dest: OUT'_D; fail)+
+      subgoal
+        apply (inst_existentials s')
+        subgoal is_upd
+          by (auto intro: is_upd_make_updI2 dest: OUT'_D)
+        subgoal
+          by simp (rule is_upds.intros)
+        subgoal
+          by (subst check_bounded_iff) (metis OUT'_D is_upd_dom2 is_upd)+
+        subgoal
+          by (rule make_combs_emptyD)
+        done
+      done
     subgoal for b1 g1 a1 r1 f1 l1' xs
       apply (drule make_combsI, assumption+)
       apply frules
@@ -1903,7 +1984,6 @@ proof clarsimp
           p \<notin> set ps \<and>
           distinct ps \<and>
           sorted ps \<and>
-          ps \<noteq> [] \<and>
           check_bexp s b True \<and> (\<forall>p\<in>set ps. check_bexp s (bs p) True) \<and>
           is_upd s f s'' \<and>
           is_upds s'' (map fs ps) s' \<and>
@@ -1945,7 +2025,7 @@ proof clarsimp
         (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
           \<not> (\<exists>b g f r l'. (L ! q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
         L!p = l \<and>
-        p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+        p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
         L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and>
         is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
@@ -1986,7 +2066,7 @@ proof clarsimp
         (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
           \<not> (\<exists>b g f r l'. (L ! q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
         L!p = l \<and>
-        p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+        p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
         L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
@@ -2134,6 +2214,8 @@ fun evali where
   "evali s (const c) = c"
 | "evali s (var x)   = s ! x"
 | "evali s (if_then_else b e1 e2) = (if bvali s b then evali s e1 else evali s e2)"
+| "evali s (binop f e1 e2) = f (evali s e1) (evali s e2)"
+| "evali s (unop f e) = f (evali s e)"
 
 definition mk_updsi ::
   "int list \<Rightarrow> (nat \<times> (nat, int) exp) list \<Rightarrow> int list" where
@@ -2144,7 +2226,7 @@ begin
 
 definition
   "check_boundedi s =
-    (\<forall>x < length s. fst (bounds_map x) < s ! x \<and> s ! x < snd (bounds_map x))"
+    (\<forall>x < length s. fst (bounds_map x) \<le> s ! x \<and> s ! x \<le> snd (bounds_map x))"
 
 definition
   "int_trans_from_loc_impl p l L s \<equiv>
@@ -2250,7 +2332,9 @@ definition
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
                 compute_upds_impl init combs
@@ -2278,7 +2362,9 @@ definition
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
                 compute_upds_impl init combs
@@ -2904,7 +2990,9 @@ lemma broad_trans_from_alt_def2:
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
                 compute_upds init combs
@@ -2933,7 +3021,9 @@ lemma broad_trans_from_alt_def2:
               let
                 combs = make_combs p a In;
                 outs = map (\<lambda>t. (p, t)) outs;
-                combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                combs = (
+                  if combs = [] then [[x]. x \<leftarrow> outs]
+                  else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                 init = ([], Broad a, [], (L, s))
               in
                 compute_upds init combs
@@ -2950,6 +3040,47 @@ lemma broad_trans_from_alt_def2:
 lemma concat_length_transfer:
   "((\<lambda> x y. list_all2 (list_all2 A) x y \<and> length x = n) ===> list_all2 A) concat concat" for A n
   by (intro rel_funI concat_transfer[THEN rel_funD], elim conjunct1)
+
+(* XXX Move *)
+definition is_at_least_equality where
+  "is_at_least_equality R \<equiv> \<forall>x y. R x y \<longrightarrow> x = y" for R
+
+named_theorems is_at_least_equality
+
+lemma [is_at_least_equality]:
+  "is_at_least_equality (=)"
+  by (simp add: is_at_least_equality_def)
+
+lemma [is_at_least_equality]:
+  "is_at_least_equality R" if "is_equality R" for R
+  using that by (simp add: is_at_least_equality_def is_equality_def)
+
+lemma [is_at_least_equality]:
+  "is_at_least_equality (eq_onp P)"
+  by (simp add: is_at_least_equality_def eq_onp_def)
+
+lemma is_at_least_equality_list_all2[is_at_least_equality]:
+  "is_at_least_equality (list_all2 R)" if "is_at_least_equality R" for R
+  using that unfolding is_at_least_equality_def
+  by (auto simp: list.rel_eq dest: list_all2_mono[where Q = "(=)"])
+
+lemma is_at_least_equality_rel_prod[is_at_least_equality]:
+  "is_at_least_equality (R1 \<times>\<^sub>R R2)"
+  if "is_at_least_equality R1" "is_at_least_equality R2" for R1 R2
+  using that unfolding is_at_least_equality_def by auto
+
+lemma is_at_least_equality_cong1:
+  "(S1 ===> (=)) f f" if "is_at_least_equality S1" "is_at_least_equality S2" for S1 f
+  using that unfolding is_at_least_equality_def by (intro rel_funI) auto
+
+lemma is_at_least_equality_cong2:
+  "(S1 ===> S2 ===> (=)) f f" if "is_at_least_equality S1" "is_at_least_equality S2" for S1 S2 f
+  using that unfolding is_at_least_equality_def by (intro rel_funI) auto
+
+lemma is_at_least_equality_cong3:
+  "(S1 ===> S2 ===> S3 ===> (=)) f f"
+  if "is_at_least_equality S1" "is_at_least_equality S2" "is_at_least_equality S3" for S1 S2 S3 f
+  using that unfolding is_at_least_equality_def by (intro rel_funI) force
 
 lemma broad_trans_from_transfer:
   "((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel
@@ -2989,6 +3120,10 @@ proof -
           apply (assumption | simp add: eq_onp_def acconstraint.rel_eq)+
     done
 
+  have [is_at_least_equality]: "is_equality (rel_acconstraint (=) (=))"
+    by (tactic \<open>Transfer.eq_tac @{context} 1\<close>)
+    (* by (simp add: acconstraint.rel_eq list.rel_eq is_equality_def) *)
+
   have eq_transfer1:
     "(list_all2
       (eq_onp valid_check \<times>\<^sub>R  list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
@@ -2998,30 +3133,28 @@ proof -
          list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))
     ===> (=)) (=) (=)
     "
-    apply (intro rel_funI)
-    apply (drule list_all2_mono[where Q = "(=)"], elim rel_elims, simp add: acconstraint.rel_eq list.rel_eq)
-     apply (drule list_all2_mono[where Q = "(=)"]; simp add: acconstraint.rel_eq list.rel_eq eq_onp_def; fail)
-    apply (drule list_all2_mono[where Q = "(=)"], elim rel_elims, simp add: acconstraint.rel_eq list.rel_eq)
-     apply (drule list_all2_mono[where Q = "(=)"]; simp add: acconstraint.rel_eq list.rel_eq eq_onp_def; fail)
-    apply (simp add: acconstraint.rel_eq list.rel_eq eq_onp_def; fail)
-    done
+    by (intro is_at_least_equality_cong2 is_at_least_equality)
+
+  let ?R = "(eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R
+         list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R
+         eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))"
+
+  have eq_transfer5:
+    "(list_all2 (list_all2 ?R) ===> list_all2 (list_all2 ?R) ===> (=)) (=) (=)"
+    by (intro is_at_least_equality_cong2 is_at_least_equality)
 
   have eq_transfer2:
     "(list_all2 (eq_onp (\<lambda>x. x < n_ps)) ===> list_all2 (eq_onp (\<lambda>x. x < n_ps)) ===> (=)) (=) (=)"
-    by (smt eq_onp_to_eq list_all2_eq list_all2_mono rel_funI)
+    by (intro is_at_least_equality_cong2 is_at_least_equality)
 
   have eq_transfer3:
     "(eq_onp (\<lambda>x. x < n_ps) ===> eq_onp (\<lambda>x. x < n_ps) ===> (=)) (=) (=)"
-    by (auto simp: eq_onp_def)
+    by (intro is_at_least_equality_cong2 is_at_least_equality)
 
   have eq_transfer4:
     "(list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R (=)) ===>
       list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R (=)) ===> (=)) (=) (=)"
-    apply (intro rel_intros)
-    apply (drule list_all2_mono[where Q = "(=) \<times>\<^sub>R (=)"], elim rel_elims, simp add: eq_onp_def)
-    apply (drule list_all2_mono[where Q = "(=) \<times>\<^sub>R (=)"], elim rel_elims, simp add: eq_onp_def)
-    apply (simp add: list.rel_eq prod.rel_eq)
-    done
+    by (intro is_at_least_equality_cong2 is_at_least_equality)
 
   have make_combs_transfer: "
     (eq_onp (\<lambda>x. x < n_ps) ===>
@@ -3072,7 +3205,9 @@ proof -
                 let
                   combs = make_combs p a In;
                   outs = map (\<lambda>t. (p, t)) outs;
-                  combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                  combs = (
+                    if combs = [] then [[x]. x \<leftarrow> outs]
+                    else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                   init = ([], Broad a, [], (L, s))
                 in
                   compute_upds init combs
@@ -3097,7 +3232,9 @@ proof -
                 let
                   combs = make_combs p a In;
                   outs = map (\<lambda>t. (p, t)) outs;
-                  combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                  combs = (
+                    if combs = [] then [[x]. x \<leftarrow> outs]
+                    else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                   init = ([], Broad a, [], (L, s))
                 in
                   compute_upds_impl init combs
@@ -3117,8 +3254,8 @@ proof -
       eq_transfer1
       eq_transfer2
       eq_transfer3
+      eq_transfer5
     unfolding Let_def by transfer_prover
-
   have "
   ((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel
     ===> list_all2 (
@@ -3149,7 +3286,9 @@ proof -
                 let
                   combs = make_combs p a In;
                   outs = map (\<lambda>t. (p, t)) outs;
-                  combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                  combs = (
+                    if combs = [] then [[x]. x \<leftarrow> outs]
+                    else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                   init = ([], Broad a, [], (L, s))
                 in
                   compute_upds init combs
@@ -3184,7 +3323,9 @@ proof -
                 let
                   combs = make_combs p a In;
                   outs = map (\<lambda>t. (p, t)) outs;
-                  combs = concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs);
+                  combs = (
+                    if combs = [] then [[x]. x \<leftarrow> outs]
+                    else concat (map (\<lambda>x. map (\<lambda>xs. x # xs) combs) outs));
                   init = ([], Broad a, [], (L, s))
                 in
                   compute_upds_impl init combs
@@ -3204,6 +3345,7 @@ proof -
       eq_transfer1
       eq_transfer2
       eq_transfer3
+      eq_transfer5
     unfolding Let_def by transfer_prover
 
   show ?thesis
@@ -3219,6 +3361,7 @@ proof -
       eq_transfer2
       eq_transfer3
       eq_transfer4
+      eq_transfer5
     unfolding broad_trans_from_alt_def2 broad_trans_from_impl_def Let_def by transfer_prover
 qed
 

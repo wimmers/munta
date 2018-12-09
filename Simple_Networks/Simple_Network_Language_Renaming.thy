@@ -58,7 +58,7 @@ definition
   "renum_bexp = map_bexp renum_vars id"
 
 definition
-  "renum_exp = map_exp renum_vars id"
+  "renum_exp = map_exp renum_vars"
 
 definition
   "renum_upd = map (\<lambda>(x, upd). (renum_vars x, renum_exp upd))"
@@ -736,7 +736,7 @@ sublocale rename: Simple_Network_Rename'
            bij_extend_bij_renum_states bounds'_var_set)
 
 definition
-  "renum_upd' = map (\<lambda>(x, upd). (renum_vars x, map_exp renum_vars id upd))"
+  "renum_upd' = map (\<lambda>(x, upd). (renum_vars x, map_exp renum_vars upd))"
 
 definition
   "renum_reset' = map renum_clocks"
@@ -766,8 +766,8 @@ lemma set1_bexp_vars_of_bexp:
   "set1_bexp b = vars_of_bexp b"
   by (induction b) auto
 
-lemma set1_exp_vars_of_exp:
-  "set1_exp e = vars_of_exp e"
+lemma set_exp_vars_of_exp:
+  "set_exp e = vars_of_exp e"
   by (induction e) (auto simp: set1_bexp_vars_of_bexp)
 
 lemma renum_automaton_eq:
@@ -820,7 +820,7 @@ proof -
       apply (rule exp.map_cong_pred, rule HOL.refl)
       apply (clarsimp simp: pred_exp_def)
       apply (subst renum_vars_bij_extends)
-       apply (fastforce dest: nth_mem simp: set1_exp_vars_of_exp var_set_compute)+
+       apply (fastforce dest: nth_mem simp: set_exp_vars_of_exp var_set_compute)+
       done
     subgoal clock_resets
       unfolding rename.renum_reset_def renum_reset_def

@@ -31,13 +31,16 @@ inductive check_bexp :: "('a \<rightharpoonup> 'b) \<Rightarrow> ('a, 'b :: lino
   "check_bexp s (gt i x) (v > x)" if "s i = Some v"
 
 datatype ('a, 'b) exp =
-  if_then_else "('a, 'b) bexp" "('a, 'b) exp" "('a, 'b) exp" | const 'b | var 'a
+  const 'b | var 'a | if_then_else "('a, 'b) bexp" "('a, 'b) exp" "('a, 'b) exp" |
+  binop "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a, 'b) exp" "('a, 'b) exp" | unop "'b \<Rightarrow> 'b" "('a, 'b) exp"
 
 inductive is_val where
   "is_val s (const c) c"
 | "is_val s (var x)   v" if "s x = Some v"
 | "is_val s (if_then_else b e1 e2) (if bv then v1 else v2)"
   if "is_val s e1 v1" "is_val s e2 v2" "check_bexp s b bv"
+| "is_val s (binop f e1 e2) (f v1 v2)" if "is_val s e1 v1" "is_val s e2 v2"
+| "is_val s (unop f e) (f v)" if "is_val s e v"
 
 type_synonym
   ('c, 't, 's) invassn = "'s \<Rightarrow> ('c, 't) cconstraint"
@@ -71,7 +74,7 @@ datatype 'b label = Del | Internal 'b | Bin 'b | Broad 'b
 
 definition bounded where
   "bounded bounds s \<equiv> dom s = dom bounds \<and>
-    (\<forall>x \<in> dom s. fst (the (bounds x)) < the (s x) \<and> the (s x) < snd (the (bounds x)))"
+    (\<forall>x \<in> dom s. fst (the (bounds x)) \<le> the (s x) \<and> the (s x) \<le> snd (the (bounds x)))"
 
 definition is_upd where
   "is_upd s upds s' \<equiv> \<exists>xs. list_all2 (\<lambda> (l1, r1) (l2, r2). l1 = l2 \<and> is_val s r1 r2) upds xs
@@ -142,7 +145,7 @@ where
         \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g);
       \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       L!p = l;
-      p < length L; set ps \<subseteq> {0..<length N}; p \<notin> set ps; ps \<noteq> []; distinct ps; sorted ps;
+      p < length L; set ps \<subseteq> {0..<length N}; p \<notin> set ps; distinct ps; sorted ps;
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'];
       u' = [r@concat (map rs ps)\<rightarrow>0]u;
       is_upd s f s'; is_upds s' (map fs ps) s'';
@@ -241,7 +244,7 @@ definition
       (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
         \<not> (\<exists>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
       L!p = l \<and>
-      p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+      p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
       check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s''

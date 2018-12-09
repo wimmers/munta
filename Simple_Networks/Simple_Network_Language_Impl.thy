@@ -96,7 +96,7 @@ lemma (in Prod_TA_Defs) trans_broad_alt_def:
       (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
         \<not> (\<exists>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
       L!p = l \<and>
-      p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and> ps \<noteq> [] \<and>
+      p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
       check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'' \<and>
@@ -190,6 +190,28 @@ lemma covn_N_eq:
 
 end
 
+inductive_cases check_bexp_elims:
+  "check_bexp s bexp.true bv"
+  "check_bexp s (bexp.not b) bv"
+  "check_bexp s (bexp.and b1 b2) bv"
+  "check_bexp s (bexp.or b1 b2) bv"
+  "check_bexp s (bexp.imply b1 b2) bv"
+  "check_bexp s (le i x) bv"
+  "check_bexp s (lt i x) bv"
+  "check_bexp s (ge i x) bv"
+  "check_bexp s (eq i x) bv"
+  "check_bexp s (gt i x) bv"
+
+inductive_cases is_val_elims:
+  "is_val s (const c) d"
+  "is_val s (var x)   v"
+  "is_val s (if_then_else b e1 e2) v"
+  "is_val s (binop f e1 e2) v"
+  "is_val s (unop f e) v"
+
+method fprem =
+  (match premises in R: _ \<Rightarrow> \<open>rule R[elim_format]\<close>, assumption)
+
 locale Simple_Network_Impl_map =
   Simple_Network_Impl automata for
   automata ::
@@ -209,7 +231,7 @@ definition map_cc :: "('c, int) cconstraint \<Rightarrow> ('c1, real) cconstrain
   "map_cc \<equiv> map (map_acconstraint map_clock map_time)"
 
 definition
-  "map_expr \<equiv> map (\<lambda> (x, e). (map_var x, map_exp map_var id e))"
+  "map_expr \<equiv> map (\<lambda> (x, e). (map_var x, map_exp map_var e))"
 
 definition map_automaton :: "nat \<Rightarrow> ('s list \<times> ('a act, 's, 'c, int, 'x, int) transition list
       \<times> ('s \<times> ('c, int) cconstraint) list) \<Rightarrow> _" where
@@ -530,32 +552,12 @@ lemma bounded_mapD:
     done
   done
 
-inductive_cases check_bexp_elims:
-  "check_bexp s bexp.true bv"
-  "check_bexp s (bexp.not b) bv"
-  "check_bexp s (bexp.and b1 b2) bv"
-  "check_bexp s (bexp.or b1 b2) bv"
-  "check_bexp s (bexp.imply b1 b2) bv"
-  "check_bexp s (le i x) bv"
-  "check_bexp s (lt i x) bv"
-  "check_bexp s (ge i x) bv"
-  "check_bexp s (eq i x) bv"
-  "check_bexp s (gt i x) bv"
-
-method fprem =
-  (match premises in R: _ \<Rightarrow> \<open>rule R[elim_format]\<close>, assumption)
-
 lemma map_var_check_bexp:
   "check_bexp (\<lambda>x. s (map_var x)) b bv" if "check_bexp s (map_bexp map_var id b) bv"
   using that by (induction b arbitrary: bv) (auto intro: check_bexp.intros elim!: check_bexp_elims)
 
-inductive_cases is_val_elims:
-  "is_val s (const c) d"
-  "is_val s (var x)   v"
-  "is_val s (if_then_else b e1 e2) v"
-
 lemma map_var_is_val:
-  "is_val (\<lambda>x. s (map_var x)) e v" if "is_val s (map_exp map_var id e) v"
+  "is_val (\<lambda>x. s (map_var x)) e v" if "is_val s (map_exp map_var e) v"
   using that
   by (induction e arbitrary: v) (auto elim!: is_val_elims map_var_check_bexp intro: is_val.intros)
 
@@ -636,7 +638,7 @@ lemma is_val_map_var:
   assumes "is_val s e v"
   shows
     "is_val (\<lambda>x. if x \<in> map_var ` dom s then s (the_inv map_var x) else None)
-    (map_exp map_var id e) v"
+    (map_exp map_var e) v"
   supply [simp] = the_inv_f_f[OF map_var_inj]
   using assms
   apply induction
@@ -873,7 +875,7 @@ lemma map_cc_inj':
 
 lemma map_expr_inj:
   "inj map_expr"
-  unfolding map_expr_def using map_var_inj exp.inj_map[of map_var id]
+  unfolding map_expr_def using map_var_inj exp.inj_map[of map_var]
   by (auto 4 3 dest: injD intro: injI elim: map_injective)
 
 lemma map_bexp_inj:
@@ -1842,6 +1844,8 @@ fun vars_of_exp where
   "vars_of_exp (const c) = {}"
 | "vars_of_exp (var x) = {x}"
 | "vars_of_exp (if_then_else b e1 e2) = vars_of_bexp b \<union> vars_of_exp e1 \<union> vars_of_exp e2"
+| "vars_of_exp (binop _ e1 e2) = vars_of_exp e1 \<union> vars_of_exp e2"
+| "vars_of_exp (unop _ e) = vars_of_exp e"
 
 definition (in Prod_TA_Defs)
   "var_set =
