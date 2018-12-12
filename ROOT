@@ -17,6 +17,8 @@ session "TA" = "Refine_Imperative_HOL" +
 *)
 
 session "TA_Impl" = "TA" +
+  sessions
+    Show
   theories [document = false]
     "Refine_Imperative_HOL.IICF"
     "HOL-Library.IArray"

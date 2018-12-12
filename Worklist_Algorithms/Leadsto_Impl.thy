@@ -40,22 +40,25 @@ locale Leadsto_Search_Space_Key_Impl =
     _ key A succsi a\<^sub>0i Lei keyi copyi
   for key :: "'v \<Rightarrow> 'k"
   and a\<^sub>0 F F' copyi P Q V empty succs_Q succs1 E A succsi a\<^sub>0i Lei keyi +
-  fixes succs1i and emptyi and Pi Qi
+  fixes succs1i and emptyi and Pi Qi and tracei
   assumes  succs1_impl: "(succs1i, (RETURN \<circ>\<circ> PR_CONST) succs1) \<in> A\<^sup>k \<rightarrow>\<^sub>a list_assn A"
     and empty_impl:
       "(emptyi,RETURN o PR_CONST empty) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     assumes [sepref_fr_rules]:
       "(Pi,RETURN o PR_CONST P) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn" "(Qi,RETURN o PR_CONST Q) \<in> A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+    assumes trace_impl:
+      "(uncurry tracei,uncurry (\<lambda>(_ :: string) _. RETURN ())) \<in> id_assn\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a id_assn"
 begin
 
 sublocale Worklist_Map2_Impl _ _ "\<lambda> _. False" _ succs1 _ _ "\<lambda>_. False" _ succs1i _
   "\<lambda>_. return False" Lei
-  apply (standard)
+  apply standard
+  unfolding A'.trace_def
            apply (rule liveness.refinements succs1_impl)
   subgoal
     by sepref_to_hoare sep_auto
   by (rule liveness.refinements succs1_impl empty_impl
-      liveness.pure_K liveness.left_unique_K liveness.right_unique_K)+
+      liveness.pure_K liveness.left_unique_K liveness.right_unique_K trace_impl)+
 
 sepref_register pw_algo_map2_copy
 sepref_register "PR_CONST P" "PR_CONST Q"
@@ -102,7 +105,7 @@ concrete_definition (in -) leadsto_impl
 
 lemma leadsto_impl_hnr:
   "(uncurry0 (
-    leadsto_impl copyi succsi a\<^sub>0i Lei keyi succs1i emptyi Pi Qi
+    leadsto_impl copyi succsi a\<^sub>0i Lei keyi succs1i emptyi Pi Qi tracei
     ),
     uncurry0 leadsto_spec_alt
    ) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn" if "V a\<^sub>0"

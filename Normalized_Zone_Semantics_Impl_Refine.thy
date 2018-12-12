@@ -6,6 +6,7 @@ theory Normalized_Zone_Semantics_Impl_Refine
     "Worklist_Algorithms/Worklist_Subsumption_Impl1" "Worklist_Algorithms/Unified_PW_Impl"
     "Worklist_Algorithms/Liveness_Subsumption_Impl" "Worklist_Algorithms/Leadsto_Impl"
     Normalized_Zone_Semantics_Impl_Semantic_Refinement
+    "library/Printing" "Show.Show_Instances"
 begin
 
   chapter \<open>Imperative Implementation of Reachability Checking\<close>
@@ -93,9 +94,29 @@ begin
   definition state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
     "state_set T = fst ` T \<union> (snd o snd o snd o snd) ` T"
 
+locale Show_State_Defs =
+  fixes n :: nat and show_state :: "'si \<Rightarrow> string" and show_clock :: "nat \<Rightarrow> string"
+begin
+
+definition tracei where
+  "tracei type \<equiv>
+  \<lambda> (l, M). do {
+      let st = show_state l;
+      m \<leftarrow> show_dbm_impl n show_clock show M;
+      let s = type @ '': (''  @ st @ '', <'' @ m @ ''>)''; 
+      let s = String.implode s;
+      let _ = println s;
+      return ()
+  }
+"
+
+end
+
 locale Reachability_Problem_Impl_Defs =
+  Show_State_Defs n show_state +
   Reachability_Problem_no_ceiling A l\<^sub>0 F n
-  for A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat +
+  for show_state :: "'si :: {hashable, heap} \<Rightarrow> string"
+  and A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat +
 
   fixes trans_fun :: "('a, nat, int, 's) transition_fun"
     and inv_fun :: "(nat, int, 'si :: {hashable, heap}) invassn"
@@ -106,9 +127,9 @@ locale Reachability_Problem_Impl_Defs =
 begin
 
   (* XXX Should this be something different? *)
-  abbreviation "states \<equiv> {l\<^sub>0} \<union> (state_set (trans_of A))"
+abbreviation "states \<equiv> {l\<^sub>0} \<union> (state_set (trans_of A))"
 
-end
+end (* Reachability Problem Impl Defs *)
 
 definition "FWI'' n M = FWI' M n"
 
@@ -148,7 +169,7 @@ end
 
 
 locale Reachability_Problem_Impl =
-  Reachability_Problem_Impl_Defs A l\<^sub>0 F n _ _ _ _trans_impl +
+  Reachability_Problem_Impl_Defs _ _ A l\<^sub>0 F n _ _ _ _trans_impl +
   Reachability_Problem l\<^sub>0 F n A k
   for A :: "('a, nat, int, 's) ta"
   and l\<^sub>0 :: 's
@@ -184,6 +205,12 @@ begin
     (list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a location_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d
     \<rightarrow>\<^sub>a mtx_assn n"
 
+  lemma tracei_refine:
+  "(uncurry tracei, uncurry (\<lambda>_ _. RETURN ())) \<in> id_assn\<^sup>k *\<^sub>a state_assn'\<^sup>k \<rightarrow>\<^sub>a unit_assn"
+    unfolding tracei_def
+    using show_dbm_impl.refine[to_hnr, unfolded hn_refine_def, of n]
+    by sepref_to_hoare sep_auto
+
 end
 
 context Search_Space_finite
@@ -206,13 +233,10 @@ end
 
 
 locale Reachability_Problem_Impl_Op =
-  Reachability_Problem_Impl _ _ _ _ l\<^sub>0i _ l\<^sub>0
+  Reachability_Problem_Impl _ _ _ _ _ _ l\<^sub>0i _ l\<^sub>0
   + op: E_From_Op_Bisim_Finite l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
   fixes op_impl
   assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
-begin
-
-end (* Reachability Problem Impl Op *)
 
 section \<open>Implementing of the Successor Function\<close>
 
@@ -754,7 +778,7 @@ sepref_register trans_fun
     op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
     "\<lambda> (l, M). F l" state_assn'
     succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
-    location_assn
+    tracei location_assn
     apply standard
     subgoal
     unfolding PR_CONST_def
@@ -763,12 +787,14 @@ sepref_register trans_fun
     done
   subgoal
     by (rule state_copy_impl.refine)
+  subgoal
+    unfolding trace_def by (rule tracei_refine)
   by (rule location_assn_constraints)+
 
   sublocale Worklist_Map2_Hashable
     op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes' "\<lambda> (l, M). F l"
     state_assn' succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl
-    fst "return o fst" state_copy_impl location_assn by standard
+    fst "return o fst" state_copy_impl tracei location_assn by standard
 
   sublocale liveness: Liveness_Search_Space_Key
     "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M'" a\<^sub>0
@@ -937,7 +963,7 @@ sepref_register trans_fun
     "\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> \<not> check_diag n M'"
     state_assn'
     "succs_P_impl' Q_fun" a\<^sub>0_impl subsumes_impl "return o fst" succs_impl'
-    emptiness_check_impl F_impl Q_impl
+    emptiness_check_impl F_impl Q_impl tracei
     apply standard
                        apply blast
                       apply (blast intro: op.trans)
@@ -976,7 +1002,7 @@ sepref_register trans_fun
     by (rule
         succs_impl'.refine liveness.refinements
         emptiness_check_impl.refine[unfolded emptiness_check_def]
-        F_impl.refine Q_impl.refine
+        F_impl.refine Q_impl.refine tracei_refine
         )+
 
   definition
@@ -1093,7 +1119,7 @@ end (* End sepref setup *)
 
 subsection \<open>Correctness Theorems\<close>
 
-sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ _ loc_rel "PR_CONST E_op''" _ _ E_op''_impl
+sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ _ _ _ loc_rel "PR_CONST E_op''" _ _ E_op''_impl
   unfolding PR_CONST_def by standard (rule E_op''_impl.refine)
 
 lemma E_op_F_reachable:
@@ -1178,12 +1204,12 @@ proof -
     unfolding leadsto_spec_alt_def[OF Q_fun]
     unfolding PR_CONST_def a\<^sub>0_def[symmetric] by (auto dest: *** simp: * **)
   qed
-  
+
 lemma leadsto_impl_hnr:
   "(uncurry0
     (leadsto_impl state_copy_impl
       (succs_P_impl' Q_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst)
-      succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun)),
+      succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun) tracei),
    uncurry0
     (SPEC
       (\<lambda>r. l\<^sub>0 \<in> state_set (trans_of A) \<longrightarrow>
@@ -1215,7 +1241,7 @@ datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
 context Reachability_Problem_precompiled
 begin
 
-  sublocale Defs: Reachability_Problem_Impl_Defs A 0 "PR_CONST F" m by standard
+  sublocale Defs: Reachability_Problem_Impl_Defs _ _ A 0 "PR_CONST F" m by standard
 
   lemma
     "(IArray xs) !! i = xs ! i"
@@ -1307,6 +1333,8 @@ begin
     and loc_rel = Id
     and l\<^sub>0 = "0::nat"
     and l\<^sub>0i = 0
+    and show_state = "show"
+    and show_clock = "show"
     unfolding PR_CONST_def
     using iarray_k' trans_impl_refine_self by - (standard, fastforce+)
 
@@ -1326,7 +1354,8 @@ begin
   definition
     "reachability_checker' \<equiv>
       pw_impl
-        (return o fst) state_copy_impl subsumes_impl a\<^sub>0_impl F_impl succs_impl emptiness_check_impl"
+        (return o fst) state_copy_impl tracei
+        subsumes_impl a\<^sub>0_impl F_impl succs_impl emptiness_check_impl"
 
   theorem reachability_check':
     "(uncurry0 reachability_checker',
@@ -1518,8 +1547,9 @@ begin
         start = a\<^sub>0_impl;
         final = F_impl;
         succs = succs_impl;
-        empty = emptiness_check_impl
-      in pw_impl key copy sub start final succs empty"
+        empty = emptiness_check_impl;
+        trace = tracei
+      in pw_impl key copy trace sub start final succs empty"
   unfolding reachability_checker'_def by simp
 
   schematic_goal reachability_checker_alt_def:
@@ -1605,6 +1635,8 @@ lemmas Reachability_Problem_precompiled_defs.clkp_set'_def[code]
 lemmas Reachability_Problem_precompiled_defs.clk_set'_def[code]
 
 lemmas Reachability_Problem_precompiled_defs.check_pre_def[code]
+
+lemmas Show_State_Defs.tracei_def[code]
 
 export_code Reachability_Problem_precompiled in SML module_name Test
 

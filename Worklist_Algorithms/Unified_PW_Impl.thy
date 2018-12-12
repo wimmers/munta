@@ -13,8 +13,15 @@ begin
   context Worklist_Map2_Defs
   begin
 
+  definition trace where
+    "trace \<equiv> \<lambda>type a. RETURN ()"
+
+  definition
+    "explored_string = ''Explored''"
+
   lemma add_pw'_map2_alt_def:
-    "add_pw'_map2 passed wait a =
+    "add_pw'_map2 passed wait a = do {
+     trace explored_string a;
      nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
       (\<lambda>a (passed, wait, _).
         do {
@@ -38,9 +45,11 @@ begin
           )
         }
       )
-      (passed,wait,False)"
-    unfolding add_pw'_map2_def id_def op_map_extract_def
+      (passed,wait,False)
+    }"
+    unfolding add_pw'_map2_def id_def op_map_extract_def trace_def
     supply [simp del] = map_upd_eq_restrict
+    apply simp
     apply (fo_rule fun_cong)
     apply (fo_rule arg_cong)
     apply (rule ext)+
@@ -53,13 +62,14 @@ begin
     fixes K
     assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a K"
     assumes [sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
+    assumes [sepref_fr_rules]: "(uncurry tracei,uncurry trace) \<in> id_assn\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a id_assn"
     assumes pure_K: "is_pure K"
     assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
     assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
   begin
     sepref_register
       "PR_CONST a\<^sub>0" "PR_CONST F'" "PR_CONST (\<unlhd>)" "PR_CONST succs" "PR_CONST empty" "PR_CONST key"
-      "PR_CONST F"
+      "PR_CONST F" trace
 
     lemma [def_pat_rules]:
       "a\<^sub>0 \<equiv> UNPROTECT a\<^sub>0" "F' \<equiv> UNPROTECT F'" "(\<unlhd>) \<equiv> UNPROTECT (\<unlhd>)" "succs \<equiv> UNPROTECT succs"
@@ -75,6 +85,11 @@ begin
     lemmas [sepref_fr_rules] = hd_tl_hnr
 
     lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
+
+    lemma [sepref_import_param]: "(explored_string, explored_string) \<in> Id"
+      unfolding explored_string_def by simp
+    
+    lemmas [sepref_opt_simps] = explored_string_def
 
     sepref_thm pw_algo_map2_impl is
       "uncurry0 (do {(r, p) \<leftarrow> pw_algo_map2; RETURN r})" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -125,7 +140,7 @@ begin
       done
 
   lemma pw_impl_hnr_F_reachable:
-    "(uncurry0 (pw_impl keyi copyi Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
+    "(uncurry0 (pw_impl keyi copyi tracei Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN F_reachable))
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     using
       pw_impl.refine[
@@ -153,7 +168,7 @@ begin
       assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a K"
       assumes [sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
       shows
-        "(uncurry0 (pw_impl keyi copyi Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN (PR_CONST op_F_reachable)))
+        "(uncurry0 (pw_impl keyi copyi tracei Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN (PR_CONST op_F_reachable)))
         \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     proof -
       from assms interpret

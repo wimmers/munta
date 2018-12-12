@@ -5,6 +5,10 @@ theory DBM_Operations_Impl_Refine
     "HOL-Library.IArray"
 begin
 
+fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
+  "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
+  "intersperse _ xs = xs"
+
 no_notation infinity ("\<infinity>")
 
 section \<open>Refinement\<close>
@@ -194,7 +198,84 @@ export_code abstra_upd_impl in SML_imp
 
 export_code dbm_subset_impl in SML_imp
 
-end
+text \<open>DBM to List\<close>
+definition dbm_to_list :: "(nat \<times> nat \<Rightarrow> 'a) \<Rightarrow> 'a list" where
+  "dbm_to_list M \<equiv>
+  rev $ fold (\<lambda>i xs. fold (\<lambda>j xs. M (i, j) # xs) [0..<Suc n] xs) [0..<Suc n] []
+"
+
+context
+  notes [id_rules] = itypeI[of n "TYPE (nat)"]
+    and [sepref_import_param] = IdI[of n]
+begin
+
+sepref_definition dbm_to_list_impl is
+  "RETURN o PR_CONST dbm_to_list" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a list_assn id_assn"
+  unfolding dbm_to_list_def HOL_list.fold_custom_empty PR_CONST_def by sepref
+
+text \<open>DBM to String\<close>
+
+context
+  fixes show_clock :: "nat \<Rightarrow> string"
+    and show_num :: "'a :: {linordered_ab_group_add,heap} \<Rightarrow> string"
+begin
+
+definition
+  "make_string e i j \<equiv>
+    if i = j then if e < 0 then Some (''EMPTY'') else None
+    else
+    if i = 0 then
+    case e of
+      DBMEntry.Le a \<Rightarrow> if a = 0 then None else Some (show_clock j @ '' >= '' @ show_num (- a))
+    | DBMEntry.Lt a \<Rightarrow> Some (show_clock j @ '' > ''  @ show_num (- a))
+    | _ \<Rightarrow> None
+    else if j = 0 then
+    case e of
+      DBMEntry.Le a \<Rightarrow> Some (show_clock i @ '' <= '' @ show_num a)
+    | DBMEntry.Lt a \<Rightarrow> Some (show_clock i @ '' < ''  @ show_num a)
+    | _ \<Rightarrow> None
+    else
+    case e of
+      DBMEntry.Le a \<Rightarrow> Some (show_clock i @ '' - '' @ show_clock j @ '' <= '' @ show_num a)
+    | DBMEntry.Lt a \<Rightarrow> Some (show_clock i @ '' - '' @ show_clock j @ '' < '' @ show_num a)
+    | _ \<Rightarrow> None
+"
+
+definition
+  "dbm_list_to_string xs \<equiv>
+  (concat o intersperse '', '' o rev o snd o snd) $ fold (\<lambda>e (i, j, acc).
+    let
+      v = make_string e i j;
+      j = (j + 1) mod (n + 1);
+      i = (if j = 0 then i + 1 else i)
+    in
+    case v of
+      None \<Rightarrow> (i, j, acc)
+    | Some s \<Rightarrow> (i, j, s # acc)
+  ) xs (0, 0, [])
+"
+
+lemma [sepref_import_param]:
+  "(dbm_list_to_string, PR_CONST dbm_list_to_string) \<in> \<langle>Id\<rangle>list_rel \<rightarrow> \<langle>Id\<rangle>list_rel"
+  by simp
+
+definition show_dbm where
+  "show_dbm M \<equiv> PR_CONST dbm_list_to_string (dbm_to_list M)"
+
+sepref_register "PR_CONST local.dbm_list_to_string"
+sepref_register dbm_to_list :: "'b i_mtx \<Rightarrow> 'b list"
+
+lemmas [sepref_fr_rules] = dbm_to_list_impl.refine
+
+sepref_definition show_dbm_impl is
+  "RETURN o show_dbm" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a list_assn id_assn"
+  unfolding show_dbm_def by sepref
+
+end (* Context for show functions *)
+
+end (* Context for importing n *)
+
+end (* Context for n *)
 
 export_code norm_upd_impl checking SML
 

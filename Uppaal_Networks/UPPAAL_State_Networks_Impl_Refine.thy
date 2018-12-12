@@ -1127,7 +1127,7 @@ locale UPPAAL_Reachability_Problem_precompiled' =
 begin
 
   (* XXX Why are we re-doing this here? *)
-  sublocale Reachability_Problem_Impl_Defs A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m
+  sublocale Reachability_Problem_Impl_Defs _ _ A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m
     by standard
 
   definition
@@ -2163,6 +2163,8 @@ begin
     and n = m
     and k = k_fun
     and loc_rel = Id
+    and show_clock = "show"
+    and show_state = "show"
     unfolding PR_CONST_def
     apply standard
            apply (fastforce simp: inv_rel_def b_rel_def)
@@ -2396,7 +2398,7 @@ begin
   definition
     "reachability_checker' \<equiv>
        pw_impl
-        (return o fst) impl.state_copy_impl impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl
+        (return o fst) impl.state_copy_impl impl.tracei impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl
         impl.succs_impl impl.emptiness_check_impl"
 
   theorem reachability_check':
@@ -2565,9 +2567,10 @@ begin
         copy = impl.state_copy_impl;
         start = impl.a\<^sub>0_impl;
         final = impl.F_impl;
-        succs =  impl.succs_impl;
-        empty = impl.emptiness_check_impl
-      in pw_impl key copy sub start final succs empty"
+        succs = impl.succs_impl;
+        empty = impl.emptiness_check_impl;
+        trace = impl.tracei
+      in pw_impl key copy trace sub start final succs empty"
     unfolding reachability_checker'_def by simp
 
   (* XXX Re-inspect these *)

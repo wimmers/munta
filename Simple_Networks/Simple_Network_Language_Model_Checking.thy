@@ -235,6 +235,8 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
     and L\<^sub>0 :: "nat list"
     and s\<^sub>0 :: "(nat \<times> int) list"
     and formula :: "(nat, nat, nat, int) formula"
+    and show_clock :: "nat \<Rightarrow> string"
+    and show_state :: "nat list \<times> int list \<Rightarrow> string"
   assumes k_ceiling:
     "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
       \<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x)"
@@ -672,6 +674,7 @@ qed
 
 
 sublocale impl: Reachability_Problem_Impl
+  _ _
   trans_from
   inv_fun
   Fi
@@ -788,7 +791,7 @@ lemma Ex_ev_impl_hnr:
   shows
     "
   (uncurry0
-    (pw_impl (return \<circ> fst) state_copy_impl subsumes_impl a\<^sub>0_impl F_impl succs_impl
+    (pw_impl (return \<circ> fst) state_copy_impl tracei subsumes_impl a\<^sub>0_impl F_impl succs_impl
       emptiness_check_impl),
    uncurry0 (SPEC (\<lambda>r. (r \<longleftrightarrow> (\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> Ex_ev (\<lambda>(l, _). F l) (l\<^sub>0, u\<^sub>0))))))
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -971,21 +974,23 @@ definition Alw_ev_checker where
   "Alw_ev_checker = dfs_map_impl'
      (impl.succs_P_impl' Fi) impl.a\<^sub>0_impl impl.subsumes_impl (return \<circ> fst)
      impl.state_copy_impl"
-
+term impl.tracei
+thm impl.tracei_def
 definition leadsto_checker where
   "leadsto_checker \<psi> = do {
       r \<leftarrow> leadsto_impl
       impl.state_copy_impl (impl.succs_P_impl' (\<lambda> (L, s). \<not> check_sexpi \<psi> L s))
       impl.a\<^sub>0_impl impl.subsumes_impl (return \<circ> fst)
       impl.succs_impl' impl.emptiness_check_impl impl.F_impl
-      (impl.Q_impl (\<lambda> (L, s). \<not> check_sexpi \<psi> L s));
+      (impl.Q_impl (\<lambda> (L, s). \<not> check_sexpi \<psi> L s))
+      impl.tracei;
       return (\<not> r)
     }"
 
 definition
   "reachability_checker \<equiv>
      pw_impl
-      (return o fst) impl.state_copy_impl impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl
+      (return o fst) impl.state_copy_impl impl.tracei impl.subsumes_impl impl.a\<^sub>0_impl impl.F_impl
       impl.succs_impl impl.emptiness_check_impl"
 
 definition model_checker where
@@ -1212,7 +1217,8 @@ lemma reachability_checker_alt_def':
         let final = impl.F_impl;
         let succs =  impl.succs_impl;
         let empty = impl.emptiness_check_impl;
-        pw_impl key copy sub start final succs empty
+        let trace = impl.tracei;
+        pw_impl key copy trace sub start final succs empty
       };
       _ \<leftarrow> return ();
       return x
@@ -1246,9 +1252,10 @@ lemma leadsto_checker_alt_def':
         final' = (impl.Q_impl (\<lambda>(L, s). \<not> check_sexpi \<psi> L s));
         succs =  impl.succs_P_impl' (\<lambda>(L, s). \<not> check_sexpi \<psi> L s);
         succs' =  impl.succs_impl';
-        empty = impl.emptiness_check_impl
+        empty = impl.emptiness_check_impl;
+        trace = impl.tracei
       in
-        leadsto_impl copy succs start sub key succs' empty final final';
+        leadsto_impl copy succs start sub key succs' empty final final' trace;
       return (\<not> r)
     }"
   unfolding leadsto_checker_def by simp
@@ -1448,7 +1455,7 @@ lemma model_checker_unfold_leadsto:
       reachability_checker \<bind> (\<lambda>r. return (\<not> r))
     | Simple_Network_Language_Model_Checking.formula.Leadsto \<phi> \<psi> \<Rightarrow>
       Simple_Network_Language_Model_Checking.leadsto_checker
-        broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<psi>)
+        broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<psi> show_clock show_state)
 "
   unfolding model_checker_def
   using leadsto_checker.refine[OF Simple_Network_Impl_nat_ceiling_start_state_axioms]
@@ -1465,11 +1472,13 @@ concrete_definition model_checker uses
   Simple_Network_Impl_nat_ceiling_start_state.model_checker_def_refined
 
 definition precond_mc where
-  "precond_mc broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<equiv>
+  "precond_mc
+    show_clock show_state broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<equiv>
     if Simple_Network_Impl_nat_ceiling_start_state
       broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
     then
-      model_checker broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+      model_checker
+        broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula show_clock show_state
       \<bind> (\<lambda> x. return (Some x))
     else return None"
 
@@ -1484,7 +1493,8 @@ definition has_deadlock where
     Graph_Defs.deadlock (\<lambda> (L, s, u) (L', s', u'). A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) a\<^sub>0"
 
 theorem model_check:
-  "<emp> precond_mc broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+  "<emp> precond_mc
+    show_clock show_state broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
     <\<lambda> Some r \<Rightarrow> \<up>(
         Simple_Network_Impl_nat_ceiling_start_state
           broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<and>

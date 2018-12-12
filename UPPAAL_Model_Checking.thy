@@ -400,7 +400,7 @@ lemma leadsto_impl_hnr':
   "(uncurry0
     (leadsto_impl state_copy_impl
       (succs_P_impl' Q_fun) a\<^sub>0_impl subsumes_impl (return \<circ> fst)
-      succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun)),
+      succs_impl' emptiness_check_impl F_impl (Q_impl Q_fun) tracei),
    uncurry0
     (SPEC
       (\<lambda>r. (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)) \<longrightarrow>
@@ -417,11 +417,12 @@ proof -
   define p2 where "p2 \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0))"
   define p3 where
     "p3 \<equiv> (\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> leadsto (\<lambda>(l, u). F l) (\<lambda>(l, u). \<not> Q l) (l\<^sub>0, u\<^sub>0))"
-  show ?thesis
+  show ?thesis thm tracei_def
   unfolding state_set_eq[symmetric]
   using Reachability_Problem_Impl_Op.leadsto_impl_hnr[OF Reachability_Problem_Impl_Op_axioms,
     OF Q_fun precond_a\<^sub>0,
-    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI], to_hnr, unfolded hn_refine_def
+    FCOMP leadsto_spec_refine[THEN Id_SPEC_refine, THEN nres_relI], to_hnr, unfolded hn_refine_def,
+    of show_state show_clock
   ]
   using init_state_in_state_set'
   using leadsto_mc[of F Q]
@@ -490,9 +491,11 @@ definition
   "leadsto_checker \<psi> = do {
       r \<leftarrow> leadsto_impl
       impl.state_copy_impl (impl.succs_P_impl' (\<lambda> (L, s). \<not> check_bexp \<psi> L s))
+      
       impl.a\<^sub>0_impl impl.subsumes_impl (return \<circ> fst)
       impl.succs_impl' impl.emptiness_check_impl impl.F_impl
-      (impl.Q_impl (\<lambda> (L, s). \<not> check_bexp \<psi> L s));
+      (impl.Q_impl (\<lambda> (L, s). \<not> check_bexp \<psi> L s))
+      impl.tracei;
       return (\<not> r)
     }"
 
@@ -911,9 +914,10 @@ lemma leadsto_checker_alt_def':
         final' = (impl.Q_impl (\<lambda>(L, s). \<not> check_bexp \<psi> L s));
         succs =  impl.succs_P_impl' (\<lambda>(L, s). \<not> check_bexp \<psi> L s);
         succs' =  impl.succs_impl';
-        empty = impl.emptiness_check_impl
+        empty = impl.emptiness_check_impl;
+        trace = impl.tracei
       in
-        leadsto_impl copy succs start sub key succs' empty final final';
+        leadsto_impl copy succs start sub key succs' empty final final' trace;
       return (\<not> r)
     }"
   unfolding leadsto_checker_def by simp
@@ -955,7 +959,8 @@ lemma reachability_checker'_alt_def':
         let final = impl.F_impl;
         let succs =  impl.succs_impl;
         let empty = impl.emptiness_check_impl;
-        pw_impl key copy sub start final succs empty
+        let tracei = impl.tracei;
+        pw_impl key copy tracei sub start final succs empty
       };
       _ \<leftarrow> return ();
       return x

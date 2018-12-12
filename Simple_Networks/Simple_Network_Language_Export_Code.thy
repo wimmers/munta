@@ -111,12 +111,6 @@ lemma check_renaming:
 
 end
 
-definition print :: "String.literal \<Rightarrow> unit" where
-  "print x = ()"
-
-definition println :: "String.literal \<Rightarrow> unit" where
-  "println x = print (x + STR ''\<newline>'')"
-
 context Simple_Network_Impl_nat_defs
 begin
 
@@ -222,7 +216,7 @@ lemma check_precond:
     Simple_Network_Impl_nat_ceiling_start_state_def ..
 
 end
-
+term intersperse thm intersperse.simps
 fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
   "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
   "intersperse _ xs = xs"
@@ -270,9 +264,24 @@ definition rename_network where
     (broadcast, automata, bounds')
 "
 
+definition
+  "show_clock inv_renum_clocks = show o inv_renum_clocks"
+
+definition
+  "show_locs inv_renum_states = show o map_index inv_renum_states"
+
+definition
+  "show_vars inv_renum_vars = show o map_index (\<lambda>i v. show (inv_renum_vars i) @ ''='' @ show v)"
+
+definition
+  "show_state inv_renum_states inv_renum_vars \<equiv> \<lambda>(L, vs).
+  let L = show_locs inv_renum_states L; vs = show_vars inv_renum_vars vs in
+  ''<'' @ L @ ''>, <'' @ vs @ ''>''"
+
 definition rename_mc where
   "rename_mc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    inv_renum_states inv_renum_vars inv_renum_clocks
 \<equiv>
 let
    _ = println (STR ''Checking renaming'');
@@ -288,7 +297,9 @@ let
    formula = map_formula renum_states renum_vars id formula;
     _ = println (STR ''Renaming state'');
    L\<^sub>0 = map_index renum_states L\<^sub>0;
-   s\<^sub>0 = map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0
+   s\<^sub>0 = map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0;
+   show_clock = show o inv_renum_clocks;
+   show_state = show_state inv_renum_states inv_renum_vars
 in
   if is_result renaming_valid then do {
     let _ = println (STR ''Checking preconditions'');
@@ -298,7 +309,8 @@ in
       | Error es \<Rightarrow> let _ = println (STR ''The following pre-conditions were not satisified'') in
           map println es);
     let _ = println (STR ''Running precond_mc'');
-    r \<leftarrow> precond_mc broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
+    r \<leftarrow> precond_mc show_clock show_state
+      broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
     case r of
       None \<Rightarrow> return Preconds_Unsat
     | Some False \<Rightarrow> return Unsat
@@ -313,6 +325,7 @@ in
 theorem model_check_rename:
   "<emp> rename_mc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    inv_renum_states inv_renum_vars inv_renum_clocks
     <\<lambda> Sat \<Rightarrow> \<up>(
         (\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<longrightarrow>
           N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
@@ -376,7 +389,8 @@ proof -
     by (rule Simple_Network_Rename_Formula.has_deadlock_iff'[symmetric])
   note bla[sep_heap_rules] =
     model_check[
-    of "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+    of _ _
+    "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
     "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
     "map_formula renum_states renum_vars id formula",
@@ -614,10 +628,18 @@ do {
     (\<lambda>x m.
       if mem_assoc x m then Error [STR ''Duplicate name: '' + str x] else (x,length m) # m |> Result
     ) xs [];
-  Result (let m = map_of mapping in (\<lambda>x.
-  case m x of
-    None \<Rightarrow> let _ = println (STR ''Key error: '' + str x) in undefined
-  | Some v \<Rightarrow> v)
+  Result (let
+    m = map_of mapping;
+    f = (\<lambda>x.
+      case m x of
+        None \<Rightarrow> let _ = println (STR ''Key error: '' + str x) in undefined
+      | Some v \<Rightarrow> v);
+    m = map_of (map prod.swap mapping);
+    f_inv = (\<lambda>x.
+      case m x of
+        None \<Rightarrow> let _ = println (STR ''Key error: '' + String.implode (show x)) in undefined
+      | Some v \<Rightarrow> v)
+  in (f, f_inv)
   )
 }"
 
@@ -697,29 +719,36 @@ definition "make_renaming \<equiv> \<lambda> broadcast automata bounds.
     num_states = (\<lambda>i. num_states_list ! i);
     mk_renaming = mk_renaming (\<lambda>x. x)
   in do {
-    (renum_acts, renum_clocks, renum_vars) \<leftarrow>
+    ((renum_acts, _), (renum_clocks, inv_renum_clocks), (renum_vars, inv_renum_vars)) \<leftarrow>
       mk_renaming action_set <|> mk_renaming clk_set <|> mk_renaming var_set;
     let renum_clocks = Suc o renum_clocks;
-    renum_states_list \<leftarrow> combine_map (\<lambda>i. mk_renaming' (loc_set' i)) [0..<n_ps];
+    let inv_renum_clocks = (\<lambda>c. if c = 0 then STR ''0'' else inv_renum_clocks (c - 1));
+    renum_states_list' \<leftarrow> combine_map (\<lambda>i. mk_renaming' (loc_set' i)) [0..<n_ps];
+    let renum_states_list = map fst renum_states_list';
     let renum_states_list = map_index
       (\<lambda>i m. extend_domain m (loc_set_diff i) (length (loc_set' i))) renum_states_list;
     let renum_states = (\<lambda>i. renum_states_list ! i);
-    Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states)
+    let inv_renum_states = (\<lambda>i. map snd renum_states_list' ! i);
+    Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
+      inv_renum_states, inv_renum_vars, inv_renum_clocks)
   }"
 
-definition "preproc_mc \<equiv> \<lambda> (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula.
+definition "preproc_mc \<equiv> \<lambda>ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula.
   let _ = println (STR ''Make renaming'') in
   case make_renaming broadcast automata bounds of
     Error e \<Rightarrow> return (Error e)
-  | Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states) \<Rightarrow> do {
+  | Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
+      inv_renum_states, inv_renum_vars, inv_renum_clocks) \<Rightarrow> do {
     let _ = println (STR ''Renaming'');
     let (broadcast', automata', bounds') = rename_network
       broadcast bounds automata renum_acts renum_vars renum_clocks renum_states;
     let _ = println (STR ''Calculating ceiling'');
     let k = Simple_Network_Impl_nat_defs.k broadcast' bounds' automata' m num_states;
     let _ = println (STR ''Running model checker'');
+    let inv_renum_states = (\<lambda>i. ids_to_names i o inv_renum_states i);
     r \<leftarrow> rename_mc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
-      m num_states num_actions renum_acts renum_vars renum_clocks renum_states;
+      m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+      inv_renum_states inv_renum_vars inv_renum_clocks;
     return (Result r)
   }
 "
@@ -728,8 +757,8 @@ definition
   "err s = Error [s]"
 
 definition
-"do_preproc_mc \<equiv> \<lambda> (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula. do {
-  r \<leftarrow> preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
+"do_preproc_mc \<equiv> \<lambda>ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula. do {
+  r \<leftarrow> preproc_mc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
   return (case r of
     Error es \<Rightarrow>
       intersperse (STR ''\<newline>'') es
@@ -1123,11 +1152,12 @@ definition convert_automaton where
     assert (map fst names_to_ids |> filter (\<lambda>s. s \<noteq> STR '''') |> distinct)
       (STR ''Node names are ambiguous'' + (show (map fst names_to_ids) |> String.implode));
     assert (map snd names_to_ids |> distinct) (STR ''Duplicate node id'');
+    let ids_to_names = map_of (map prod.swap names_to_ids);
     let names_to_ids = map_of names_to_ids;
     let committed = default [] (get a ''committed'' \<bind> of_array);
     committed \<leftarrow> combine_map of_nat committed;
     edges \<leftarrow> combine_map (convert_edge clocks vars) edges;
-    Result (names_to_ids, (committed, edges, invs))
+    Result (names_to_ids, ids_to_names, (committed, edges, invs))
   }"
 
 fun rename_locs_sexp where
@@ -1155,7 +1185,7 @@ fun rename_locs_formula where
     do {\<phi> \<leftarrow> rename_locs_sexp f \<phi>; \<psi> \<leftarrow> rename_locs_sexp f \<psi>; Leadsto \<phi> \<psi> |> Result}"
 
 definition convert :: "JSON \<Rightarrow>
-  (String.literal list \<times>
+  ((nat \<Rightarrow> nat \<Rightarrow> String.literal) \<times> String.literal list \<times>
     (nat list \<times>
      (String.literal act, nat, String.literal, int, String.literal, int) transition list
       \<times> (nat \<times> (String.literal, int) cconstraint) list) list \<times>
@@ -1191,10 +1221,13 @@ definition convert :: "JSON \<Rightarrow>
     let vars = map fst bounds;
     let init_vars = map (\<lambda>x. (x, 0::int)) vars;
     names_automata \<leftarrow> combine_map (convert_automaton clocks vars) automata;
-    let automata = map snd names_automata;
+    let automata = map (snd o snd) names_automata;
     let names    = map fst names_automata;
+    let ids_to_names = map (fst o snd) names_automata;
+    let ids_to_names =
+      (\<lambda>p i. case (ids_to_names ! p) i of Some n \<Rightarrow> n | None \<Rightarrow> String.implode (show i));
     formula \<leftarrow> rename_locs_formula (\<lambda>i. get (names ! i)) formula;
-    Result (broadcast, automata, bounds, formula, init_locs, init_vars)
+    Result (ids_to_names, broadcast, automata, bounds, formula, init_locs, init_vars)
 }" for json
 
 
@@ -1208,15 +1241,12 @@ code_printing
   constant println \<rightharpoonup> (SML) "writeln _"
        and          (OCaml) "print'_string _"
 
-definition "print_err = print"
-definition "println_err x = print_err (x + STR ''\<newline>'')"
-
 definition parse_convert_run_print where
   "parse_convert_run_print s \<equiv>
    case parse json s \<bind> convert of
      Error es \<Rightarrow> do {let _ = map println es; return ()}
-   | Result (broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
-      r \<leftarrow> do_preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
+   | Result (ids_to_names, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
+      r \<leftarrow> do_preproc_mc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
       case r of
         Error es \<Rightarrow> do {let _ = map println es; return ()}
       | Result s \<Rightarrow> do {let _ = println s; return ()}
@@ -1226,8 +1256,8 @@ definition parse_convert_run where
   "parse_convert_run s \<equiv>
    case parse json s \<bind> convert of
      Error es \<Rightarrow> return (Error es)
-   | Result (broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
-      do_preproc_mc (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
+   | Result (ids_to_names, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
+      do_preproc_mc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
 "
 
 text \<open>Eliminate Gabow statistics\<close>
@@ -1245,8 +1275,10 @@ code_printing
 code_printing
   constant IArray.sub' \<rightharpoonup> (SML) "(Vector.sub o (fn (a, b) => (a, IntInf.toInt b)))"
 
+(*
 export_code parse_convert_run Result Error
 in SML module_name Model_Checker file "../ML/Simple_Model_Checker.sml"
+*)
 
 definition parse_convert_run_test where
   "parse_convert_run_test s \<equiv> do {
@@ -1255,6 +1287,14 @@ definition parse_convert_run_test where
       Error es \<Rightarrow> do {let _ = map println es; return (STR ''Fail'')}
     | Result r \<Rightarrow> return r
   }"
+
+text \<open>To disable state tracing:\<close>
+(*
+code_printing
+  constant "Show_State_Defs.tracei" \<rightharpoonup>
+      (SML)   "(fn n => fn show_state => fn show_clock => fn typ => fn x => ()) _ _ _"
+  and (OCaml) "(fun n show_state show_clock ty x -> -> ()) _ _ _"
+*)
 
 ML \<open>
   fun assert comp exp =
@@ -1265,6 +1305,7 @@ ML \<open>
   in
     @{code parse_convert_run_test} s end
 \<close>
+
 
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02.muntax" ())      "Property is not satisfied!"\<close>
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/simple.muntax" ())       "Property is satisfied!"\<close>
@@ -1277,6 +1318,8 @@ ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchma
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ()) "Property is satisfied!"\<close>
 
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer.muntax" ()) "Property is satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_3b.muntax" ()) "Property is not satisfied!"\<close>
 
 ML _val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_05.muntax" ()) "Property is not satisfied!"\<close>
 ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_06.muntax" ()) "Property is not satisfied!"\<close>

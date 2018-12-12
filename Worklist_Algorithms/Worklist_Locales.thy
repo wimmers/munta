@@ -198,5 +198,6 @@ locale Worklist_Map2_Impl_Defs =
   for A :: "'a \<Rightarrow> 'ai :: {heap} \<Rightarrow> _" and key :: "'a \<Rightarrow> 'k" +
   fixes keyi :: "'ai \<Rightarrow> 'ki :: {hashable, heap} Heap"
   fixes copyi :: "'ai \<Rightarrow> 'ai Heap"
+  fixes tracei :: "string \<Rightarrow> 'ai \<Rightarrow> unit Heap"
 
 end (* Theory *)
