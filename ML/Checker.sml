@@ -238,7 +238,7 @@ fun print_result NONE = println("Invalid input\n")
 fun check_and_verify2 check_deadlock p m ignore_k max_steps inv trans prog query bounds pred s na () =
   let
     val debug_level: Int32.int Unsynchronized.ref = ref 0
-    val _ = debug_level := 2
+    val _ = debug_level := 3
 
     val map_constraint = map (map_acconstraint to_nat to_int);
     val inv = map (map map_constraint) inv;
