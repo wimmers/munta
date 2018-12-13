@@ -372,6 +372,13 @@ definition
     (trans_map i j)"
 
 definition
+  "bin_actions = filter (\<lambda>a. a \<notin> set broadcast) [0..<num_actions]"
+
+lemma mem_bin_actions_iff:
+  "a \<in> set bin_actions \<longleftrightarrow> a \<notin> local.broadcast \<and> a < num_actions "
+  unfolding bin_actions_def broadcast_def by auto
+
+definition
   "bin_trans_from \<equiv> \<lambda>(L, s).
     let
       pairs = get_commited L;
@@ -379,14 +386,14 @@ definition
       Out = all_actions_by_state trans_out_map L
     in
     if pairs = [] then
-      concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) [0..<num_actions])
+      concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) bin_actions)
     else
       let
         In2  = all_actions_from_vec trans_in_map pairs;
         Out2 = all_actions_from_vec trans_out_map pairs
       in
-        concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In2 ! a)) [0..<num_actions])
-      @ concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (In ! a)) [0..<num_actions])
+        concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In2 ! a)) bin_actions)
+      @ concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (In ! a)) bin_actions)
     "
 
 definition
@@ -1261,6 +1268,7 @@ proof clarsimp
     then have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
       {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
         L s L' s' s'' a p q l1 b1 g1 f1 r1 l1' l2 b2 g2 f2 r2 l2'.
+        a \<notin> local.broadcast \<and>
         (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
         (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
         L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
@@ -1272,7 +1280,7 @@ proof clarsimp
       unfolding trans_bin_def by blast
     from True have **:
       "bin_trans_from (L, s)
-      = concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (IN ! a)) [0..<num_actions])"
+      = concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (IN ! a)) bin_actions)"
       unfolding bin_trans_from_def IN_def OUT_def by simp
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> show ?thesis
       unfolding * **
@@ -1289,10 +1297,12 @@ proof clarsimp
           apply frules_all
           unfolding check_bounded_iff by (intros; solve_triv)
         subgoal
-          by (simp; frules; simp)
+          by (simp add: mem_bin_actions_iff; frules; simp)
         done
       subgoal
+        unfolding mem_bin_actions_iff
         apply simp
+        apply (erule conjE)
         apply frules
         apply elims
         apply frules_all
@@ -1308,6 +1318,7 @@ proof clarsimp
     then have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
       {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
         L s L' s' s'' a p q l1 b1 g1 f1 r1 l1' l2 b2 g2 f2 r2 l2'.
+        a \<notin> local.broadcast \<and>
         (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
         (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
         (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q)) \<and>
@@ -1321,6 +1332,7 @@ proof clarsimp
     let ?S1 =
       "{((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
         L s L' s' s'' a p q l1 b1 g1 f1 r1 l1' l2 b2 g2 f2 r2 l2'.
+          a \<notin> local.broadcast \<and>
           (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
           (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
           l1 \<in> commited (N p) \<and>
@@ -1332,6 +1344,7 @@ proof clarsimp
     let ?S2 =
       "{((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
         L s L' s' s'' a p q l1 b1 g1 f1 r1 l1' l2 b2 g2 f2 r2 l2'.
+          a \<notin> local.broadcast \<and>
           (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
           (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
           l2 \<in> commited (N q) \<and>
@@ -1415,13 +1428,13 @@ proof clarsimp
         apply (auto dest: in_pairsD trans_mapD split: act.split_asm)
       done
     from False have **: "bin_trans_from (L, s) =
-        concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) [0..<num_actions])
-      @ concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions])"
+        concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) bin_actions)
+      @ concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) bin_actions)"
       unfolding bin_trans_from_def IN_def OUT_def In2_def Out2_def pairs_def
       by (simp add: Let_def)
     from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
       ((L, s), g, a, r, L', s') \<in> ?S1 \<longleftrightarrow> (g, a, r, L', s') \<in>
-      set (concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) [0..<num_actions]))"
+      set (concat (map (\<lambda>a. pairs_by_action L s (OUT ! a) (In2 ! a)) bin_actions))"
       apply clarsimp
       unfolding pairs_by_action_def
       apply (clarsimp simp: set_map_filter Let_def)
@@ -1436,11 +1449,13 @@ proof clarsimp
           apply frules_all
           unfolding check_bounded_iff by (intros; solve_triv)
         subgoal
-          by (simp; frules; simp)
+          by (simp add: mem_bin_actions_iff; frules; simp)
         done
       subgoal
         supply [forward2] = In2_D OUT_D
         apply simp
+        unfolding mem_bin_actions_iff
+        apply (erule conjE)
         apply frules_all
         apply elims
         apply frules_all
@@ -1451,7 +1466,7 @@ proof clarsimp
       done
     moreover from \<open>dom s = _\<close> \<open>L \<in> _\<close> have "
       ((L, s), g, a, r, L', s') \<in> ?S2 \<longleftrightarrow> (g, a, r, L', s')
-      \<in> set (concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) [0..<num_actions]))"
+      \<in> set (concat (map (\<lambda>a. pairs_by_action L s (Out2 ! a) (IN ! a)) bin_actions))"
       supply [forward2] = Out2_D In2_D
       supply [forward4] = Out2_I
       apply clarsimp
@@ -1467,10 +1482,12 @@ proof clarsimp
           apply frules_all
           unfolding check_bounded_iff by (intros; solve_triv)
         subgoal
-          by frules_all simp
+          unfolding mem_bin_actions_iff by frules_all simp
         done
       subgoal
         apply simp
+        unfolding mem_bin_actions_iff
+        apply (erule conjE)
         apply frules_all
         apply elims
         apply frules_all
@@ -2275,14 +2292,14 @@ definition
       Out = all_actions_by_state trans_out_map L
     in
     if pairs = [] then
-      concat (map (\<lambda>a. pairs_by_action_impl L s (Out ! a) (In ! a)) [0..<num_actions])
+      concat (map (\<lambda>a. pairs_by_action_impl L s (Out ! a) (In ! a)) bin_actions)
     else
       let
         In2  = all_actions_from_vec trans_in_map pairs;
         Out2 = all_actions_from_vec trans_out_map pairs
       in
-        concat (map (\<lambda>a. pairs_by_action_impl L s (Out ! a) (In2 ! a)) [0..<num_actions])
-      @ concat (map (\<lambda>a. pairs_by_action_impl L s (Out2 ! a) (In ! a)) [0..<num_actions])
+        concat (map (\<lambda>a. pairs_by_action_impl L s (Out ! a) (In2 ! a)) bin_actions)
+      @ concat (map (\<lambda>a. pairs_by_action_impl L s (Out2 ! a) (In ! a)) bin_actions)
     "
 
 definition
@@ -2434,6 +2451,52 @@ definition
 
 context includes lifting_syntax begin
 notation rel_prod (infixr "\<times>\<^sub>R" 56)
+
+(* XXX Move *)
+definition is_at_least_equality where
+  "is_at_least_equality R \<equiv> \<forall>x y. R x y \<longrightarrow> x = y" for R
+
+named_theorems is_at_least_equality
+
+lemma [is_at_least_equality]:
+  "is_at_least_equality (=)"
+  by (simp add: is_at_least_equality_def)
+
+lemma [is_at_least_equality]:
+  "is_at_least_equality R" if "is_equality R" for R
+  using that by (simp add: is_at_least_equality_def is_equality_def)
+
+lemma [is_at_least_equality]:
+  "is_at_least_equality (eq_onp P)"
+  by (simp add: is_at_least_equality_def eq_onp_def)
+
+lemma is_at_least_equality_list_all2[is_at_least_equality]:
+  "is_at_least_equality (list_all2 R)" if "is_at_least_equality R" for R
+  using that unfolding is_at_least_equality_def
+  by (auto simp: list.rel_eq dest: list_all2_mono[where Q = "(=)"])
+
+lemma is_at_least_equality_rel_prod[is_at_least_equality]:
+  "is_at_least_equality (R1 \<times>\<^sub>R R2)"
+  if "is_at_least_equality R1" "is_at_least_equality R2" for R1 R2
+  using that unfolding is_at_least_equality_def by auto
+
+lemma is_at_least_equality_cong1:
+  "(S1 ===> (=)) f f" if "is_at_least_equality S1" "is_at_least_equality S2" for S1 f
+  using that unfolding is_at_least_equality_def by (intro rel_funI) auto
+
+lemma is_at_least_equality_cong2:
+  "(S1 ===> S2 ===> (=)) f f" if "is_at_least_equality S1" "is_at_least_equality S2" for S1 S2 f
+  using that unfolding is_at_least_equality_def by (intro rel_funI) auto
+
+lemma is_at_least_equality_cong3:
+  "(S1 ===> S2 ===> S3 ===> (=)) f f"
+  if "is_at_least_equality S1" "is_at_least_equality S2" "is_at_least_equality S3" for S1 S2 S3 f
+  using that unfolding is_at_least_equality_def by (intro rel_funI) force
+
+lemma is_at_least_equality_Let:
+  "(S ===> ((=) ===> R) ===> R) Let Let" if "is_at_least_equality S" for R
+  using that unfolding is_at_least_equality_def
+  by (intro rel_funI) (erule Let_transfer[THEN rel_funD, THEN rel_funD, rotated], auto)
 
 lemma map_transfer_length:
   fixes R S n
@@ -2802,55 +2865,44 @@ lemma all_actions_from_vec_transfer[transfer_rule]:
   supply [transfer_rule] = map_transfer_length upt_length_transfer transfer_consts
   unfolding all_actions_from_vec_def all_actions_from_vec_def by transfer_prover
 
+lemma bin_actions_transfer[transfer_rule]:
+  "(list_all2 (eq_onp (\<lambda>x. x < num_actions))) bin_actions bin_actions"
+proof -
+  have *: "list_all2 (eq_onp (\<lambda>x. x < num_actions)) [0..<num_actions] [0..<num_actions]"
+    by (rule list.rel_refl_strong) (auto simp: eq_onp_def)
+  show ?thesis
+    unfolding bin_actions_def
+    by (rule filter_transfer[THEN rel_funD, THEN rel_funD, OF _ *]) (auto simp: eq_onp_def)
+qed
+
+lemma Let_transfer_bin_aux:
+  "((\<lambda>x y. list_all2 (list_all2
+    (eq_onp (\<lambda>i. i < n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R
+         eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) x y
+    \<and> length x = num_actions) ===>
+   ((\<lambda>x y. list_all2 (list_all2
+    ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R
+         (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) x y
+    \<and> length x = num_actions) ===>
+   list_all2
+    (list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R rel_label (=) \<times>\<^sub>R
+     list_all2 (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel)) ===>
+  list_all2
+    (list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R rel_label (=) \<times>\<^sub>R
+     list_all2 (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel))
+  Let Let"
+  unfolding Let_def
+  by (intro rel_funI, drule rel_funD)
+     (auto simp: eq_onp_def elim!: list_all2_mono prod.rel_mono_strong)
+
 lemma bin_trans_from_transfer:
   "((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel
   ===> list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R ((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel)))
   bin_trans_from bin_trans_from_impl"
   unfolding bin_trans_from_impl_def bin_trans_from_def
-  apply transfer_prover_start
-  supply [transfer_rule] = map_transfer_length upt_length_transfer transfer_consts eq_transfer
-  using [[goals_limit=50]]
-                      prefer 42
-                      apply transfer_step
-                      prefer 40
-                      apply transfer_step
-                      prefer 39
-                      apply transfer_step
-
-                      prefer 36
-                      apply transfer_step
-                      prefer 36
-                      apply transfer_step
-                      prefer 22
-                      apply transfer_step
-                      prefer 19
-                      apply transfer_step
-                      prefer 19
-                      apply transfer_step
-
-                      apply transfer_step+
-
-                      apply (subst Transfer.Rel_def)
-
-                      apply (rule pairs_by_action_transfer'; (simp add: list.rel_eq eq_onp_def acconstraint.rel_eq))
-                      apply transfer_step
-                      defer
-                      apply transfer_step+
-                      apply (subst Transfer.Rel_def)
-                      apply (rule pairs_by_action_transfer', (simp add: list.rel_eq eq_onp_def acconstraint.rel_eq)+)
-                      apply transfer_step+
-                      defer
-                      apply transfer_step+
-              defer
-              defer
-              apply transfer_step+
-      apply (rule HOL.refl)
-     prefer 3
-     apply (subst Transfer.Rel_def)
-    apply (rule pairs_by_action_transfer'; simp add: list.rel_eq eq_onp_def acconstraint.rel_eq)
-   apply (subst Transfer.Rel_def, rule concat_transfer_strong, assumption, simp add: list.rel_eq acconstraint.rel_eq label.rel_eq)+
-  apply (simp add: list.rel_eq eq_onp_def acconstraint.rel_eq label.rel_eq, subst Transfer.Rel_def, rule map_transfer_strong, erule conjunct1)
-  done
+  supply [transfer_rule] =
+    map_transfer_length upt_length_transfer transfer_consts eq_transfer Let_transfer_bin_aux
+  by transfer_prover
 
 (*
 definition
@@ -3040,47 +3092,6 @@ lemma broad_trans_from_alt_def2:
 lemma concat_length_transfer:
   "((\<lambda> x y. list_all2 (list_all2 A) x y \<and> length x = n) ===> list_all2 A) concat concat" for A n
   by (intro rel_funI concat_transfer[THEN rel_funD], elim conjunct1)
-
-(* XXX Move *)
-definition is_at_least_equality where
-  "is_at_least_equality R \<equiv> \<forall>x y. R x y \<longrightarrow> x = y" for R
-
-named_theorems is_at_least_equality
-
-lemma [is_at_least_equality]:
-  "is_at_least_equality (=)"
-  by (simp add: is_at_least_equality_def)
-
-lemma [is_at_least_equality]:
-  "is_at_least_equality R" if "is_equality R" for R
-  using that by (simp add: is_at_least_equality_def is_equality_def)
-
-lemma [is_at_least_equality]:
-  "is_at_least_equality (eq_onp P)"
-  by (simp add: is_at_least_equality_def eq_onp_def)
-
-lemma is_at_least_equality_list_all2[is_at_least_equality]:
-  "is_at_least_equality (list_all2 R)" if "is_at_least_equality R" for R
-  using that unfolding is_at_least_equality_def
-  by (auto simp: list.rel_eq dest: list_all2_mono[where Q = "(=)"])
-
-lemma is_at_least_equality_rel_prod[is_at_least_equality]:
-  "is_at_least_equality (R1 \<times>\<^sub>R R2)"
-  if "is_at_least_equality R1" "is_at_least_equality R2" for R1 R2
-  using that unfolding is_at_least_equality_def by auto
-
-lemma is_at_least_equality_cong1:
-  "(S1 ===> (=)) f f" if "is_at_least_equality S1" "is_at_least_equality S2" for S1 f
-  using that unfolding is_at_least_equality_def by (intro rel_funI) auto
-
-lemma is_at_least_equality_cong2:
-  "(S1 ===> S2 ===> (=)) f f" if "is_at_least_equality S1" "is_at_least_equality S2" for S1 S2 f
-  using that unfolding is_at_least_equality_def by (intro rel_funI) auto
-
-lemma is_at_least_equality_cong3:
-  "(S1 ===> S2 ===> S3 ===> (=)) f f"
-  if "is_at_least_equality S1" "is_at_least_equality S2" "is_at_least_equality S3" for S1 S2 S3 f
-  using that unfolding is_at_least_equality_def by (intro rel_funI) force
 
 lemma broad_trans_from_transfer:
   "((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel

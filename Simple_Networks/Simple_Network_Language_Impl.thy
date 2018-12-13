@@ -760,6 +760,10 @@ lemma map_cc_append:
   "map_cc (g1 @ g2) = map_cc g1 @ map_cc g2"
   unfolding map_cc_def by simp
 
+private lemma map_not_in_broadcast_iff:
+  "map_action a \<notin> map.broadcast \<longleftrightarrow> a \<notin> local.broadcast"
+  by (auto dest: injD[OF map_action_inj] simp: 10 broadcast_def)
+
 lemma map_trans_bin:
   "map.trans_bin = map_t ` trans_bin"
 unfolding map.trans_bin_def trans_bin_def
@@ -779,9 +783,9 @@ unfolding map.trans_bin_def trans_bin_def
     apply (drule is_upd_mapD)
     apply (frule bounded_mapD, drule bounded_map_domD)
     apply (frule bounded_mapD, drule bounded_map_domD)
-    unfolding comp_def
+    unfolding comp_def map_not_in_broadcast_iff
     apply (intros add: more_intros)
-                  apply solve_triv+
+                      apply solve_triv+
                 apply (auto dest: map_loc_injD; fail)
                 apply solve_triv+
     subgoal
@@ -791,7 +795,7 @@ unfolding map.trans_bin_def trans_bin_def
       done
   subgoal
     apply (rule subsetI, clarsimp simp: Simple_Network_Language.conv_t_def 3 7 9)
-    unfolding map_t_def
+    unfolding map_t_def map_not_in_broadcast_iff[symmetric]
     apply (simp add: map_st_def map_index_update map_cc_append)
     apply (drule (1) 71)+
     apply (drule check_bexp_map_var)+
@@ -1372,7 +1376,7 @@ lemma conv_trans_int:
 
 lemma conv_trans_bin:
   "conv.trans_bin = (\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` trans_bin"
-  unfolding conv.trans_bin_def trans_bin_def
+  unfolding conv.trans_bin_def trans_bin_def 10 broadcast_def
   supply [simp] = L_len
   apply standard
   subgoal

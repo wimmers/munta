@@ -122,6 +122,7 @@ where
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Internal a\<^esub> \<langle>L', s', u'\<rangle>" |
   step_bin:
     "\<lbrakk>
+      a \<notin> broadcast;
       (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N ! p);
       (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N ! q);
       l1 \<in> commited (N ! p) \<or> l2 \<in> commited (N ! q) \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
@@ -223,6 +224,7 @@ definition
   "trans_bin =
     {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
       L s L' s' s'' a p q l1 b1 g1 f1 r1 l1' l2 b2 g2 f2 r2 l2'.
+      a \<notin> broadcast \<and>
       (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
       (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
       (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
@@ -371,8 +373,8 @@ next
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems: (step_bin l1 b1 g1 a f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s' B broadcast)
-  from \<open>A = _\<close> prems(3, 4) have
+  case prems: (step_bin broadcast a l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s' B)
+  from \<open>A = _\<close> prems(4, 5) have
     "l1' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     "l2' \<in> UNION (trans (N q)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     by force+
@@ -429,7 +431,7 @@ next
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_bin l1 b1 g1 a' f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B broadcast')
+  case prems: (step_bin a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B)
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+

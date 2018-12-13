@@ -430,6 +430,7 @@ lemmas [code] =
   Simple_Network_Impl_nat_defs.trans_map_def
   Simple_Network_Impl_nat_defs.actions_by_state'_def
   Simple_Network_Impl_nat_defs.bounds_map_def
+  Simple_Network_Impl_nat_defs.bin_actions_def
   mk_updsi_def
 
 lemma (in Simple_Network_Impl_nat_defs) bounded_s\<^sub>0_iff:
