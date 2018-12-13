@@ -221,7 +221,7 @@ fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
   "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
   "intersperse _ xs = xs"
 
-derive "show" bexp acconstraint act
+derive "show" bexp acconstraint act sexp formula
 
 instantiation exp :: ("show", "show") "show"
 begin
@@ -1214,6 +1214,7 @@ definition convert :: "JSON \<Rightarrow>
     automata \<leftarrow> combine_map of_object automata;
     process_names \<leftarrow> combine_map (\<lambda>a. get a ''name'' \<bind> of_string) automata;
     assert (distinct process_names) (STR ''Process names are ambiguous'');
+    assert (locs_of_formula formula \<subseteq> set process_names) (STR ''Unknown process name in formula'');
     let process_names_to_index = List_Index.index process_names;
     init_locs \<leftarrow> combine_map
       (\<lambda>a. do {x \<leftarrow> get a ''initial''; x \<leftarrow> of_nat x; x |> Result})
@@ -1276,6 +1277,14 @@ code_printing
 code_printing
   constant IArray.sub' \<rightharpoonup> (SML) "(Vector.sub o (fn (a, b) => (a, IntInf.toInt b)))"
 
+text \<open>To disable state tracing:\<close>
+(*
+code_printing
+  constant "Show_State_Defs.tracei" \<rightharpoonup>
+      (SML)   "(fn n => fn show_state => fn show_clock => fn typ => fn x => ()) _ _ _"
+  and (OCaml) "(fun n show_state show_clock ty x -> -> ()) _ _ _"
+*)
+
 (*
 export_code parse_convert_run Result Error
 in SML module_name Model_Checker file "../ML/Simple_Model_Checker.sml"
@@ -1288,14 +1297,6 @@ definition parse_convert_run_test where
       Error es \<Rightarrow> do {let _ = map println es; return (STR ''Fail'')}
     | Result r \<Rightarrow> return r
   }"
-
-text \<open>To disable state tracing:\<close>
-(*
-code_printing
-  constant "Show_State_Defs.tracei" \<rightharpoonup>
-      (SML)   "(fn n => fn show_state => fn show_clock => fn typ => fn x => ()) _ _ _"
-  and (OCaml) "(fun n show_state show_clock ty x -> -> ()) _ _ _"
-*)
 
 ML \<open>
   fun assert comp exp =
@@ -1319,6 +1320,8 @@ ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchma
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ()) "Property is satisfied!"\<close>
 
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer.muntax" ()) "Property is satisfied!"\<close>
+
+ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all_4.muntax" ()) "Property is not satisfied!"\<close>
 
 ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_3b.muntax" ()) "Property is not satisfied!"\<close>
 
