@@ -431,7 +431,7 @@ next
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_bin a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B)
+  case prems: (step_bin broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B)
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
