@@ -12,35 +12,33 @@ datatype ('a, 'b) bexp =
   "and" "('a, 'b) bexp" "('a, 'b) bexp" |
   or "('a, 'b) bexp" "('a, 'b) bexp" |
   imply "('a, 'b) bexp" "('a, 'b) bexp" | \<comment> \<open>Boolean connectives\<close>
-  eq 'a 'b | \<comment> \<open>Does var i equal x?\<close>
-  le 'a 'b |
-  lt 'a 'b |
-  ge 'a 'b |
-  gt 'a 'b
+  eq "('a, 'b) exp" "('a, 'b) exp" |
+  le "('a, 'b) exp" "('a, 'b) exp" |
+  lt "('a, 'b) exp" "('a, 'b) exp" |
+  ge "('a, 'b) exp" "('a, 'b) exp" |
+  gt "('a, 'b) exp" "('a, 'b) exp"
+and ('a, 'b) exp =
+  const 'b | var 'a | if_then_else "('a, 'b) bexp" "('a, 'b) exp" "('a, 'b) exp" |
+  binop "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a, 'b) exp" "('a, 'b) exp" | unop "'b \<Rightarrow> 'b" "('a, 'b) exp"
 
-inductive check_bexp :: "('a \<rightharpoonup> 'b) \<Rightarrow> ('a, 'b :: linorder) bexp \<Rightarrow> bool \<Rightarrow> bool" where
+inductive check_bexp :: "('a \<rightharpoonup> 'b) \<Rightarrow> ('a, 'b :: linorder) bexp \<Rightarrow> bool \<Rightarrow> bool" and is_val
+  where
   "check_bexp s true True" |
   "check_bexp s (not e) (\<not> b)" if "check_bexp s e b" |
   "check_bexp s (and e1 e2) (a \<and> b)" if "check_bexp s e1 a" "check_bexp s e2 b" |
   "check_bexp s (or e1 e2) (a \<or> b)" if "check_bexp s e1 a" "check_bexp s e2 b" |
   "check_bexp s (imply e1 e2) (a \<longrightarrow> b)" if "check_bexp s e1 a" "check_bexp s e2 b" |
-  "check_bexp s (eq i x) (x = v)" if "s i = Some v" |
-  "check_bexp s (le i x) (v \<le> x)" if "s i = Some v" |
-  "check_bexp s (lt i x) (v < x)" if "s i = Some v" |
-  "check_bexp s (ge i x) (v \<ge> x)" if "s i = Some v" |
-  "check_bexp s (gt i x) (v > x)" if "s i = Some v"
-
-datatype ('a, 'b) exp =
-  const 'b | var 'a | if_then_else "('a, 'b) bexp" "('a, 'b) exp" "('a, 'b) exp" |
-  binop "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a, 'b) exp" "('a, 'b) exp" | unop "'b \<Rightarrow> 'b" "('a, 'b) exp"
-
-inductive is_val where
-  "is_val s (const c) c"
-| "is_val s (var x)   v" if "s x = Some v"
-| "is_val s (if_then_else b e1 e2) (if bv then v1 else v2)"
-  if "is_val s e1 v1" "is_val s e2 v2" "check_bexp s b bv"
-| "is_val s (binop f e1 e2) (f v1 v2)" if "is_val s e1 v1" "is_val s e2 v2"
-| "is_val s (unop f e) (f v)" if "is_val s e v"
+  "check_bexp s (eq a b) (x = v)" if "is_val s a v" "is_val s b x" |
+  "check_bexp s (le a b) (v \<le> x)" if "is_val s a v" "is_val s b x" |
+  "check_bexp s (lt a b) (v < x)" if "is_val s a v" "is_val s b x" |
+  "check_bexp s (ge a b) (v \<ge> x)" if "is_val s a v" "is_val s b x" |
+  "check_bexp s (gt a b) (v > x)" if "is_val s a v" "is_val s b x" |
+  "is_val s (const c) c" |
+  "is_val s (var x)   v" if "s x = Some v" |
+  "is_val s (if_then_else b e1 e2) (if bv then v1 else v2)"
+  if "is_val s e1 v1" "is_val s e2 v2" "check_bexp s b bv" |
+  "is_val s (binop f e1 e2) (f v1 v2)" if "is_val s e1 v1" "is_val s e2 v2" |
+  "is_val s (unop f e) (f v)" if "is_val s e v"
 
 type_synonym
   ('c, 't, 's) invassn = "'s \<Rightarrow> ('c, 't) cconstraint"
@@ -431,7 +429,7 @@ next
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_bin broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B)
+  case prems: (step_bin a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B)
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+

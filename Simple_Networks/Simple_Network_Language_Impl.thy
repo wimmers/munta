@@ -238,13 +238,13 @@ definition map_automaton :: "nat \<Rightarrow> ('s list \<times> ('a act, 's, 'c
   "map_automaton i \<equiv> \<lambda>(commited, trans, inv).
     (map (map_loc i) commited,
      map (\<lambda>(l, b, g, a, f, r, l').
-      (map_loc i l, map_bexp map_var id b, map_cc g, map_act map_action a, map_expr f,
+      (map_loc i l, map_bexp map_var b, map_cc g, map_act map_action a, map_expr f,
         map map_clock r, map_loc i l')) trans,
      map (\<lambda>(s, cc). (map_loc i s, map_cc cc)) inv)"
 
 definition
   "map_t_single i = (\<lambda>(l, b, g, a, f, r, l').
-    (map_loc i l, map_bexp map_var id b, map_cc g, map_act map_action a, map_expr f,
+    (map_loc i l, map_bexp map_var b, map_cc g, map_act map_action a, map_expr f,
       map map_clock r, map_loc i l'))"
 
 definition map_single :: "nat \<Rightarrow> ('s set \<times> ('a act, 's, 'c, int, 'x, int) transition set
@@ -418,7 +418,7 @@ private lemma 7:
   unfolding 4[OF that] unfolding map_single_def trans_def by (simp split: prod.split)
 
 private lemma 71:
-  "(map_loc i l, map_bexp map_var id b, map_cc g, map_act map_action a, map_expr u,
+  "(map_loc i l, map_bexp map_var b, map_cc g, map_act map_action a, map_expr u,
       map map_clock r, map_loc i l')
   \<in> trans (map.N i)"
   if "(l, b, g, a, u, r, l') \<in> trans (N i)" "i < n_ps"
@@ -451,7 +451,7 @@ private lemma 72:
 
 private lemma 73:
   "\<exists>l1 b' g' a' u' r' l1'.
-    l = map_loc i l1 \<and> b = map_bexp map_var id b' \<and> g = map_cc g' \<and> a = map_act map_action a' \<and>
+    l = map_loc i l1 \<and> b = map_bexp map_var b' \<and> g = map_cc g' \<and> a = map_act map_action a' \<and>
     u = map_expr u' \<and> r = map map_clock r' \<and> l' = map_loc i l1' \<and>
     (l1, b', g', a', u', r', l1') \<in> trans (N i)"
   if "(l, b, g, a, u, r, l' )\<in> trans (map.N i)" "i < n_ps"
@@ -552,14 +552,12 @@ lemma bounded_mapD:
     done
   done
 
-lemma map_var_check_bexp:
-  "check_bexp (\<lambda>x. s (map_var x)) b bv" if "check_bexp s (map_bexp map_var id b) bv"
-  using that by (induction b arbitrary: bv) (auto intro: check_bexp.intros elim!: check_bexp_elims)
-
-lemma map_var_is_val:
-  "is_val (\<lambda>x. s (map_var x)) e v" if "is_val s (map_exp map_var e) v"
-  using that
-  by (induction e arbitrary: v) (auto elim!: is_val_elims map_var_check_bexp intro: is_val.intros)
+lemma map_var_check_bexp[rule_format]:
+  "check_bexp s (map_bexp map_var b) bv \<longrightarrow>check_bexp (\<lambda>x. s (map_var x)) b bv"
+and map_var_is_val[rule_format]:
+  "is_val s (map_exp map_var e) v \<longrightarrow> is_val (\<lambda>x. s (map_var x)) e v"
+  by (induction b and e arbitrary: bv and v)
+     (auto intro: check_bexp_is_val.intros elim!: check_bexp_elims is_val_elims)
 
 lemma
   "(m(x\<mapsto>y) o f) = (m o f)(the_inv f x \<mapsto> y)" if "inj f" "x \<in> range f" for f :: "'a \<Rightarrow> 'b"
@@ -628,25 +626,15 @@ lemma map_index_update:
   by (rule nth_equalityI) (auto simp: nth_list_update')
 
 lemma check_bexp_map_var:
-  assumes "check_bexp s b bv"
-  shows
-   "check_bexp (\<lambda>x. if x \<in> map_var ` dom s then s (the_inv map_var x) else None)
-    (map_bexp map_var id b) bv"
-  using assms by induction (auto 4 4 intro: check_bexp.intros simp: the_inv_f_f[OF map_var_inj])
-
-lemma is_val_map_var:
-  assumes "is_val s e v"
-  shows
-    "is_val (\<lambda>x. if x \<in> map_var ` dom s then s (the_inv map_var x) else None)
+   "check_bexp s b bv \<Longrightarrow> check_bexp (\<lambda>x. if x \<in> map_var ` dom s then s (the_inv map_var x) else None)
+    (map_bexp map_var b) bv"
+  and is_val_map_var:
+    "is_val s e v \<Longrightarrow> is_val (\<lambda>x. if x \<in> map_var ` dom s then s (the_inv map_var x) else None)
     (map_exp map_var e) v"
-  supply [simp] = the_inv_f_f[OF map_var_inj]
-  using assms
-  apply induction
-  subgoal
-    by (auto intro!: is_val.intros)
-  subgoal
-    by (auto 4 3 intro!: is_val.intros)
-  by (auto intro!: is_val.intros simp: id_def split del: if_split dest!: check_bexp_map_var)
+   apply (induction rule: check_bexp_is_val.inducts)
+  apply (auto 4 4 intro: check_bexp_is_val.intros simp: the_inv_f_f[OF map_var_inj])
+  using is_val.simps apply fastforce+
+  done
 
 lemma map_bounds_bounds:
   "the (map.bounds x) = the (bounds (the_inv map_var x))" if "x \<in> map_var ` dom bounds"
@@ -817,7 +805,7 @@ lemma map_cc_concat:
   unfolding map_cc_def by (simp add: map_concat)
 
 private lemma 711:
-  "(map_index map_loc L ! i, map_bexp map_var id b, map_cc g, map_act map_action a,
+  "(map_index map_loc L ! i, map_bexp map_var b, map_cc g, map_act map_action a,
     map_expr u, map map_clock r, map_loc i l')
   \<in> trans (map.N i)"
   if "(L ! i, b, g, a, u, r, l') \<in> trans (N i)" "i < n_ps" "length L = n_ps"
@@ -883,11 +871,11 @@ lemma map_expr_inj:
   by (auto 4 3 dest: injD intro: injI elim: map_injective)
 
 lemma map_bexp_inj:
-  "inj (map_bexp map_var id)"
-  using map_var_inj bexp.inj_map[of map_var id] by auto
+  "inj (map_bexp map_var)"
+  using map_var_inj bexp.inj_map[of map_var] by auto
 
 lemma map_bexp_eq_true_iff:
-  "map_bexp f g x = bexp.true \<longleftrightarrow> x = bexp.true"
+  "map_bexp f x = bexp.true \<longleftrightarrow> x = bexp.true"
   by (cases x) auto
 
 lemma map_trans_broad:
@@ -899,7 +887,7 @@ lemma map_trans_broad:
     subgoal
     proof -
       have **:
-        "\<exists> bs' gs' fs' rs' ls1. gs = map_cc o gs' \<and> bs = map_bexp map_var id o bs' \<and>
+        "\<exists> bs' gs' fs' rs' ls1. gs = map_cc o gs' \<and> bs = map_bexp map_var o bs' \<and>
           ls1 = (\<lambda> p. the_inv (map_loc p) (ls' p)) \<and>
           fs = map_expr o fs' \<and> rs = map map_clock o rs' \<and>
           (\<forall>p\<in>set ps. ls' p \<in> range (map_loc p)) \<and>
@@ -913,12 +901,12 @@ lemma map_trans_broad:
           "\<forall>p. p \<notin> set ps \<longrightarrow> rs p = []" "length L = n_ps"
         for L ps bs gs a fs rs ls'
       proof -
-        let ?bs' = "the_inv (map_bexp map_var id) o bs"
+        let ?bs' = "the_inv (map_bexp map_var) o bs"
         let ?gs' = "the_inv map_cc o gs"
         let ?fs' = "Hilbert_Choice.inv map_expr o fs"
         let ?ls1 = "\<lambda> p. the_inv (map_loc p) (ls' p)"
         let ?rs' = "Hilbert_Choice.inv (map map_clock) o rs"
-        have bs: "bs p = map_bexp map_var id (the_inv (map_bexp map_var id) (bs p))"
+        have bs: "bs p = map_bexp map_var (the_inv (map_bexp map_var) (bs p))"
           if "p \<in> set ps" for p
           using that assms by (subst f_the_inv_f[OF map_bexp_inj]; force dest: 73)
         have gs: "gs p = map_cc (the_inv map_cc (gs p))" if "p \<in> set ps" for p
@@ -1832,20 +1820,18 @@ end (* Simple Network Impl *)
 
 paragraph \<open>Collecting variables from expressions.\<close>
 
-fun vars_of_bexp where
+fun vars_of_bexp and vars_of_exp where
   "vars_of_bexp (not e) = vars_of_bexp e"
 | "vars_of_bexp (and e1 e2) = (vars_of_bexp e1 \<union> vars_of_bexp e2)"
 | "vars_of_bexp (bexp.or e1 e2) = (vars_of_bexp e1 \<union> vars_of_bexp e2)"
 | "vars_of_bexp (imply e1 e2) = (vars_of_bexp e1 \<union> vars_of_bexp e2)"
-| "vars_of_bexp (eq i x) = {i}"
-| "vars_of_bexp (le i x) = {i}"
-| "vars_of_bexp (lt i x) = {i}"
-| "vars_of_bexp (ge i x) = {i}"
-| "vars_of_bexp (gt i x) = {i}"
+| "vars_of_bexp (eq i x) = vars_of_exp i \<union> vars_of_exp x"
+| "vars_of_bexp (le i x) = vars_of_exp i \<union> vars_of_exp x"
+| "vars_of_bexp (lt i x) = vars_of_exp i \<union> vars_of_exp x"
+| "vars_of_bexp (ge i x) = vars_of_exp i \<union> vars_of_exp x"
+| "vars_of_bexp (gt i x) = vars_of_exp i \<union> vars_of_exp x"
 | "vars_of_bexp bexp.true = {}"
-
-fun vars_of_exp where
-  "vars_of_exp (const c) = {}"
+| "vars_of_exp (const c) = {}"
 | "vars_of_exp (var x) = {x}"
 | "vars_of_exp (if_then_else b e1 e2) = vars_of_bexp b \<union> vars_of_exp e1 \<union> vars_of_exp e2"
 | "vars_of_exp (binop _ e1 e2) = vars_of_exp e1 \<union> vars_of_exp e2"

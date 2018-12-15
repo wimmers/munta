@@ -221,17 +221,40 @@ fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
   "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
   "intersperse _ xs = xs"
 
-derive "show" bexp acconstraint act sexp formula
+derive "show" acconstraint act sexp formula
+
+fun shows_exp and shows_bexp where
+  "shows_exp (const c) = show c" |
+  "shows_exp (var v) = show v" |
+  "shows_exp (if_then_else b e1 e2) =
+    shows_bexp b @ '' ? '' @ shows_exp e1 @ '' : '' @ shows_exp e2" |
+  "shows_exp (binop _ e1 e2) = ''binop '' @ shows_exp e1 @ '' '' @ shows_exp e2" |
+  "shows_exp (unop _ e) = ''unop '' @ shows_exp e" |
+  "shows_bexp (bexp.lt a b) = shows_exp a @ '' < '' @ shows_exp b" |
+  "shows_bexp (bexp.le a b) = shows_exp a @ '' <= '' @ shows_exp b" |
+  "shows_bexp (bexp.eq a b) = shows_exp a @ '' = '' @ shows_exp b" |
+  "shows_bexp (bexp.ge a b) = shows_exp a @ '' >= '' @ shows_exp b" |
+  "shows_bexp (bexp.gt a b) = shows_exp a @ '' > '' @ shows_exp b" |
+  "shows_bexp bexp.true = ''true''" |
+  "shows_bexp (bexp.not b) = ''! '' @ shows_bexp b" |
+  "shows_bexp (bexp.and a b) = shows_bexp a @ '' && '' @ shows_bexp b" |
+  "shows_bexp (bexp.or a b) = shows_bexp a @ '' || '' @ shows_bexp b" |
+  "shows_bexp (bexp.imply a b) = shows_bexp a @ '' --> '' @ shows_bexp b"
+
+instantiation bexp :: ("show", "show") "show"
+begin
+
+definition "shows_prec p (e :: (_, _) bexp) rest = shows_bexp e @ rest" for p
+
+definition "shows_list (es) s =
+  map shows_bexp es |> intersperse '', '' |> (\<lambda>xs. ''['' @ concat xs @ '']'' @ s)"
+instance
+  by standard (simp_all add: shows_prec_bexp_def shows_list_bexp_def show_law_simps)
+
+end
 
 instantiation exp :: ("show", "show") "show"
 begin
-
-fun shows_exp where
-  "shows_exp (const c) = show c" |
-  "shows_exp (var v) = show v" |
-  "shows_exp (if_then_else b e1 e2) = show b @ '' ? '' @ shows_exp e1 @ '' : '' @ shows_exp e2" |
-  "shows_exp (binop _ e1 e2) = ''binop '' @ shows_exp e1 @ '' '' @ shows_exp e2" |
-  "shows_exp (unop _ e) = ''unop '' @ shows_exp e"
 
 definition "shows_prec p (e :: (_, _) exp) rest = shows_exp e @ rest" for p
 
@@ -910,52 +933,86 @@ lemma [fundef_cong]:
   using assms unfolding scan_parens_def gen_token_def
   by (intro Parser_Combinator.bind_cong repeat_cong assms) auto
 
+lemma token_cong[fundef_cong]:
+  assumes "\<And>l2. ll_fuel l2 \<le> ll_fuel l \<Longrightarrow> A l2 = A' l2" "l = l'"
+  shows "token A l = token A' l'"
+  using assms unfolding scan_parens_def gen_token_def
+  by (intro Parser_Combinator.bind_cong repeat_cong assms) auto
+
+lemma is_cparser_scan_parens'[parser_rules]:
+  "is_cparser (scan_parens' a)"
+  unfolding scan_parens_def by simp
+
+fun aexp and mexp and scan_exp and scan_7 and scan_6 and scan_0 where
+  "aexp ::=
+  token lx_int with exp.const \<parallel> token scan_var with exp.var o String.implode \<parallel>
+  scan_parens' (scan_exp --- exactly ''?'' **-- scan_7 --- exactly '':'' **-- scan_exp)
+  with (\<lambda> (e1, b, e2). exp.if_then_else b e1 e2) \<parallel>
+  tk_lparen **-- scan_exp --** tk_rparen"
+| "mexp ::= chainL1 aexp (multiplicative_op with (\<lambda>f a b. exp.binop f a b))"
+| "scan_exp ::= chainL1 mexp (additive_op with (\<lambda>f a b. exp.binop f a b))"
+| "scan_7 ::=
+    scan_infix_pair scan_6 scan_7 ''->'' with uncurry bexp.imply \<parallel>
+    (*scan_infix_pair scan_6 scan_7 ''imply'' with uncurry Imply \<parallel>*)
+    scan_infix_pair scan_6 scan_7 ''||'' with uncurry bexp.or \<parallel>
+    (*scan_infix_pair scan_6 scan_7 ''or'' with uncurry Or \<parallel>*)
+    scan_6" |
+  "scan_6 ::=
+    scan_infix_pair scan_0 scan_6 ''&&'' with uncurry bexp.and \<parallel>
+    (* scan_infix_pair scan_0 scan_6 ''and'' with uncurry And \<parallel> *)
+    scan_0" |
+  "scan_0 ::=
+    (exactly ''~'' \<parallel> exactly ''!'' (* \<parallel> exactly ''not'' *)) **-- scan_parens' scan_7 with bexp.not \<parallel>
+    token (exactly ''true'') with (\<lambda>_. bexp.true) \<parallel>
+    scan_infix_pair aexp aexp ''<='' with uncurry bexp.le \<parallel>
+    scan_infix_pair aexp aexp ''<''  with uncurry bexp.lt \<parallel>
+    scan_infix_pair aexp aexp ''=='' with uncurry bexp.eq \<parallel>
+    scan_infix_pair aexp aexp ''>''  with uncurry bexp.gt \<parallel>
+    scan_infix_pair aexp aexp ''>='' with uncurry bexp.ge \<parallel>
+    scan_parens' scan_7"
+
 context
   fixes elem :: "(char, 'bexp) parser"
     and Imply Or And :: "'bexp \<Rightarrow> 'bexp \<Rightarrow> 'bexp"
     and Not :: "'bexp \<Rightarrow> 'bexp"
 begin
 
-fun scan_7 and scan_6 and scan_0 where
-  "scan_7 ::=
-    scan_infix_pair scan_6 scan_7 ''->'' with uncurry Imply \<parallel>
+fun scan_7' and scan_6' and scan_0' where
+  "scan_7' ::=
+    scan_infix_pair scan_6' scan_7' ''->'' with uncurry Imply \<parallel>
     (*scan_infix_pair scan_6 scan_7 ''imply'' with uncurry Imply \<parallel>*)
-    scan_infix_pair scan_6 scan_7 ''||'' with uncurry Or \<parallel>
+    scan_infix_pair scan_6' scan_7' ''||'' with uncurry Or \<parallel>
     (*scan_infix_pair scan_6 scan_7 ''or'' with uncurry Or \<parallel>*)
-    scan_6" |
-  "scan_6 ::=
-    scan_infix_pair scan_0 scan_6 ''&&'' with uncurry And \<parallel>
+    scan_6'" |
+  "scan_6' ::=
+    scan_infix_pair scan_0' scan_6' ''&&'' with uncurry And \<parallel>
     (* scan_infix_pair scan_0 scan_6 ''and'' with uncurry And \<parallel> *)
-    scan_0" |
-  "scan_0 ::=
-    (exactly ''~'' \<parallel> exactly ''!'' (* \<parallel> exactly ''not'' *)) **-- scan_parens' scan_7 with Not \<parallel>
+    scan_0'" |
+  "scan_0' ::=
+    (exactly ''~'' \<parallel> exactly ''!'' (* \<parallel> exactly ''not'' *)) **-- scan_parens' scan_7' with Not \<parallel>
     elem \<parallel>
-    scan_parens' scan_7"
+    scan_parens' scan_7'"
 
 context
   assumes [parser_rules]: "is_cparser elem"
 begin
 
-lemma is_cparser_scan_parens'[parser_rules]:
-  "is_cparser (scan_parens' a)"
-  unfolding scan_parens_def by simp
+lemma [parser_rules]:
+  "is_cparser scan_0'"
+  by (simp add: scan_0'.simps[abs_def])
 
 lemma [parser_rules]:
-  "is_cparser scan_0"
-  by (simp add: scan_0.simps[abs_def])
-
-lemma [parser_rules]:
-  "is_cparser scan_6"
-  by (subst scan_6.simps[abs_def]) simp
+  "is_cparser scan_6'"
+  by (subst scan_6'.simps[abs_def]) simp
 
 end
 end
 
-abbreviation "scan_bexp \<equiv> scan_7 scan_bexp_elem sexp.imply sexp.or sexp.and sexp.not"
+abbreviation "scan_bexp \<equiv> scan_7' scan_bexp_elem sexp.imply sexp.or sexp.and sexp.not"
 
 lemma [parser_rules]:
   "is_cparser scan_bexp"
-  by (subst scan_7.simps[abs_def]) simp
+  by (subst scan_7'.simps[abs_def]) simp
 
 lemma "parse scan_bexp (STR ''a < 3 && b>=2 || ~ (c <= 4)'')
 = Result (sexp.or (and (lt STR ''a'' 3) (ge STR ''b'' 2)) (not (sexp.le STR ''c'' 4)))"
@@ -1011,11 +1068,11 @@ fun sexp_to_acconstraint :: "(String.literal, String.literal, String.literal, in
 no_notation top_assn ("true")
 
 fun sexp_to_bexp :: "(String.literal, String.literal, String.literal, int) sexp \<Rightarrow> _" where
-  "sexp_to_bexp (lt a (b :: int)) = bexp.lt a b |> Result" |
-  "sexp_to_bexp (le a b) = bexp.le a b |> Result" |
-  "sexp_to_bexp (eq a b) = bexp.eq a b |> Result" |
-  "sexp_to_bexp (ge a b) = bexp.ge a b |> Result" |
-  "sexp_to_bexp (gt a b) = bexp.gt a b |> Result" |
+  "sexp_to_bexp (lt a (b :: int)) = bexp.lt (exp.var a) (exp.const b) |> Result" |
+  "sexp_to_bexp (le a b) = bexp.le (exp.var a) (exp.const b) |> Result" |
+  "sexp_to_bexp (eq a b) = bexp.eq (exp.var a) (exp.const b) |> Result" |
+  "sexp_to_bexp (ge a b) = bexp.ge (exp.var a) (exp.const b) |> Result" |
+  "sexp_to_bexp (gt a b) = bexp.gt (exp.var a) (exp.const b) |> Result" |
   "sexp_to_bexp (and a b) =
     do {a \<leftarrow> sexp_to_bexp a; b \<leftarrow> sexp_to_bexp b; bexp.and a b |> Result}" |
   "sexp_to_bexp (sexp.or a b) =
@@ -1024,6 +1081,7 @@ fun sexp_to_bexp :: "(String.literal, String.literal, String.literal, int) sexp 
     do {a \<leftarrow> sexp_to_bexp a; b \<leftarrow> sexp_to_bexp b; bexp.imply a b |> Result}" |
   "sexp_to_bexp x        = Error [STR ''Illegal construct in binary operation'']"
 
+(*
 definition [consuming]: "scan_bexp_elem' \<equiv>
   token (exactly ''true'') with (\<lambda>_. bexp.true) \<parallel>
   scan_acconstraint with (\<lambda>b. case sexp_to_bexp b of Result b \<Rightarrow> b)"
@@ -1039,6 +1097,7 @@ lemma token_cong[fundef_cong]:
   shows "token A l = token A' l'"
   using assms unfolding scan_parens_def gen_token_def
   by (intro Parser_Combinator.bind_cong repeat_cong assms) auto
+*)
 
 (*
 abbreviation additive_op where "additive_op \<equiv> 
@@ -1051,20 +1110,6 @@ abbreviation additive_op where "additive_op \<equiv>
   abbreviation "power_op \<equiv> 
     tk_power \<then> return (\<lambda>a b. a^nat b)" \<comment> \<open>Note: Negative powers are treated as \<open>x\<^sup>0\<close>\<close>
 *)
-
-term additive_op
-term multiplicative_op
-
-    
-text \<open>Mutually recursive functions just work with our parser combinators\<close>    
-fun aexp and mexp and scan_exp where
-  "aexp ::=
-  token lx_int with exp.const \<parallel> token scan_var with exp.var o String.implode \<parallel>
-  scan_parens' (scan_exp --- exactly ''?'' **-- scan_bexp' --- exactly '':'' **-- scan_exp)
-  with (\<lambda> (e1, b, e2). exp.if_then_else b e1 e2) \<parallel>
-  tk_lparen **-- scan_exp --** tk_rparen"
-| "mexp ::= chainL1 aexp (multiplicative_op with (\<lambda>f a b. exp.binop f a b))"
-| "scan_exp ::= chainL1 mexp (additive_op with (\<lambda>f a b. exp.binop f a b))"
 
 definition [consuming]:
   "scan_update \<equiv>
@@ -1092,7 +1137,7 @@ definition compile_invariant where
       else do {
         let e = fold (and) (tl es) (hd es);
         b \<leftarrow> sexp_to_bexp e;
-        assert (set1_bexp b \<subseteq> set vars) (String.implode (''Unknown variable in bexp: '' @ show b));
+        assert (set_bexp b \<subseteq> set vars) (String.implode (''Unknown variable in bexp: '' @ show b));
         Result (g, b)
       }" for inv
 
@@ -1114,7 +1159,8 @@ definition convert_node where
     inv \<leftarrow> get n ''invariant'' \<bind> of_string;
     (inv, inv_vars) \<leftarrow>
       compile_invariant' clocks vars inv |> err_msg (STR ''Failed to parse invariant!'');
-    assert (inv_vars = bexp.true) (STR ''State invariants on nodes are not supported'');
+    assert (case inv_vars of bexp.true \<Rightarrow> True | _ \<Rightarrow> False)
+      (STR ''State invariants on nodes are not supported'');
     Result ((name, ID), inv)
   }"
 
@@ -1285,10 +1331,9 @@ code_printing
   and (OCaml) "(fun n show_state show_clock ty x -> -> ()) _ _ _"
 *)
 
-(*
+
 export_code parse_convert_run Result Error
 in SML module_name Model_Checker file "../ML/Simple_Model_Checker.sml"
-*)
 
 definition parse_convert_run_test where
   "parse_convert_run_test s \<equiv> do {

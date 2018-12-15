@@ -10,34 +10,28 @@ no_notation Bits.bits_class.test_bit (infixl "!!" 100)
 
 paragraph \<open>Expression evaluation\<close>
 
-fun bval :: "('a \<Rightarrow> 'b) \<Rightarrow> ('a, 'b :: linorder) bexp \<Rightarrow> bool" where
+fun bval :: "('a \<Rightarrow> 'b) \<Rightarrow> ('a, 'b :: linorder) bexp \<Rightarrow> bool" and eval where
   "bval _ bexp.true \<longleftrightarrow> True" |
   "bval s (not e) \<longleftrightarrow> \<not> bval s e" |
   "bval s (and e1 e2) \<longleftrightarrow> bval s e1 \<and> bval s e2" |
   "bval s (bexp.or e1 e2) \<longleftrightarrow> bval s e1 \<or> bval s e2" |
   "bval s (imply e1 e2) \<longleftrightarrow> bval s e1 \<longrightarrow> bval s e2" |
-  "bval s (eq i x) \<longleftrightarrow> s i = x" |
-  "bval s (le i x) \<longleftrightarrow> s i \<le> x" |
-  "bval s (lt i x) \<longleftrightarrow> s i < x" |
-  "bval s (ge i x) \<longleftrightarrow> s i \<ge> x" |
-  "bval s (gt i x) \<longleftrightarrow> s i > x"
-
-fun eval where
-  "eval s (const c) = c"
+  "bval s (eq i x) \<longleftrightarrow> eval s i = eval s x" |
+  "bval s (le i x) \<longleftrightarrow> eval s i \<le> eval s x" |
+  "bval s (lt i x) \<longleftrightarrow> eval s i < eval s x" |
+  "bval s (ge i x) \<longleftrightarrow> eval s i \<ge> eval s x" |
+  "bval s (gt i x) \<longleftrightarrow> eval s i > eval s x"
+| "eval s (const c) = c"
 | "eval s (var x)   = s x"
 | "eval s (if_then_else b e1 e2) = (if bval s b then eval s e1 else eval s e2)"
 | "eval s (binop f e1 e2) = f (eval s e1) (eval s e2)"
 | "eval s (unop f e) = f (eval s e)"
 
 lemma check_bexp_determ:
-  "b1 = b2" if "check_bexp s e b1" "check_bexp s e b2"
-  using that
-  by (induction e arbitrary: b1 b2)
-    (erule check_bexp.cases; erule check_bexp.cases; simp; blast)+
-
-lemma is_val_determ:
-  "v1 = v2" if "is_val s e v1" "is_val s e v2"
-  using that by (induction e arbitrary: v1 v2) (auto dest: check_bexp_determ elim!: is_val_elims)
+  "check_bexp s b b1 \<Longrightarrow> check_bexp s b b2 \<Longrightarrow> b1 = b2"
+  and is_val_determ: "is_val s e v1 \<Longrightarrow> is_val s e v2 \<Longrightarrow> v1 = v2"
+  by (induction b and e arbitrary: b1 b2 and v1 v2)
+     (auto dest:  elim!: is_val_elims check_bexp_elims)+
 
 lemma is_upd_determ:
   "s1 = s2" if "is_upd s f s1" "is_upd s f s2"
@@ -56,12 +50,13 @@ lemma is_upds_determ:
   by (induction fs arbitrary: s) (auto 4 4 elim: is_upds.cases dest: is_upd_determ)
 
 lemma check_bexp_bval:
-  "check_bexp s e (bval (the o s) e)" if "\<forall>x \<in> vars_of_bexp e. x \<in> dom s"
-  using that by (induction e)(simp; (subst eq_commute)?; rule check_bexp.intros; simp add: dom_def)+
-
-lemma is_val_eval:
-  "is_val s e (eval (the o s) e)" if "\<forall>x \<in> vars_of_exp e. x \<in> dom s"
-  using that by (induction e) (subst eval.simps; rule is_val.intros; auto intro: check_bexp_bval)+
+  "\<forall>x \<in> vars_of_bexp b. x \<in> dom s \<Longrightarrow> check_bexp s b (bval (the o s) b)"
+and is_val_eval:
+  "\<forall>x \<in> vars_of_exp e. x \<in> dom s \<Longrightarrow> is_val s e (eval (the o s) e)"
+  apply (induction b and e)
+                apply (simp; (subst eq_commute)?; rule check_bexp_is_val.intros; simp add: dom_def)+
+    apply ((subst eq_commute eval.simps)?; rule check_bexp_is_val.intros; simp add: dom_def)+
+  done
 
 lemma is_upd_dom:
   "dom s' = dom s" if "is_upd s upds s'" "\<forall> (x, _) \<in> set upds. x \<in> dom s"
@@ -2215,20 +2210,18 @@ end (* Anonymous context for simp setup *)
 
 end (* Simple Network Impl nat *)
 
-fun bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bool" where
+fun bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bool" and evali where
   "bvali s bexp.true = True" |
   "bvali s (not e) \<longleftrightarrow> \<not> bvali s e" |
   "bvali s (and e1 e2) \<longleftrightarrow> bvali s e1 \<and> bvali s e2" |
   "bvali s (bexp.or e1 e2) \<longleftrightarrow> bvali s e1 \<or> bvali s e2" |
   "bvali s (imply e1 e2) \<longleftrightarrow> bvali s e1 \<longrightarrow> bvali s e2" |
-  "bvali s (eq i x) \<longleftrightarrow> s ! i = x" |
-  "bvali s (le i x) \<longleftrightarrow> s ! i \<le> x" |
-  "bvali s (lt i x) \<longleftrightarrow> s ! i < x" |
-  "bvali s (ge i x) \<longleftrightarrow> s ! i \<ge> x" |
-  "bvali s (gt i x) \<longleftrightarrow> s ! i > x"
-
-fun evali where
-  "evali s (const c) = c"
+  "bvali s (eq i x) \<longleftrightarrow> evali s i = evali s x" |
+  "bvali s (le i x) \<longleftrightarrow> evali s i \<le> evali s x" |
+  "bvali s (lt i x) \<longleftrightarrow> evali s i < evali s x" |
+  "bvali s (ge i x) \<longleftrightarrow> evali s i \<ge> evali s x" |
+  "bvali s (gt i x) \<longleftrightarrow> evali s i > evali s x"
+| "evali s (const c) = c"
 | "evali s (var x)   = s ! x"
 | "evali s (if_then_else b e1 e2) = (if bvali s b then evali s e1 else evali s e2)"
 | "evali s (binop f e1 e2) = f (evali s e1) (evali s e2)"
@@ -2401,12 +2394,10 @@ context Simple_Network_Impl_nat
 begin
 
 lemma bval_bvali:
-  "bval (the o s) e = bvali si e" if "state_rel s si" "\<forall>x \<in> vars_of_bexp e. x \<in> dom s"
-  using that by (induction e) (auto simp: state_rel_def)
-
-lemma eval_evali:
-  "eval (the o s) e = evali si e" if "state_rel s si" "\<forall>x \<in> vars_of_exp e. x \<in> dom s"
-  using that by (induction e) (auto simp: state_rel_def bval_bvali)
+  "state_rel s si \<Longrightarrow> \<forall>x \<in> vars_of_bexp b. x \<in> dom s \<Longrightarrow> bval (the o s) b = bvali si b"
+and eval_evali:
+  "state_rel s si \<Longrightarrow> \<forall>x \<in> vars_of_exp e. x \<in> dom s \<Longrightarrow> eval (the o s) e = evali si e"
+  by (induction b and e) (auto simp: state_rel_def)
 
 lemma mk_upds_mk_updsi:
   "state_rel (mk_upds s upds) (mk_updsi si upds)"

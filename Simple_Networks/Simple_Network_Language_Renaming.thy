@@ -55,7 +55,7 @@ definition
   "renum_act = map_act renum_acts"
 
 definition
-  "renum_bexp = map_bexp renum_vars id"
+  "renum_bexp = map_bexp renum_vars"
 
 definition
   "renum_exp = map_exp renum_vars"
@@ -662,6 +662,19 @@ end (* Context for formula *)
 
 end (* Simple Network Rename' *)
 
+(* XXX Move *)
+lemma vars_of_bexp_finite[finite_intros]:
+  "finite (vars_of_bexp (b::('a, 'b) bexp))"
+and vars_of_exp_finite[finite_intros]:
+  "finite (vars_of_exp (e::('a, 'b) exp))"
+  by (induction b and e) auto
+
+lemma set_bexp_vars_of_bexp:
+  "set_bexp (b::('a, 'b) bexp) = vars_of_bexp b"
+and set_exp_vars_of_exp:
+  "set_exp (e::('a, 'b) exp) = vars_of_exp e"
+  by (induction b and e) auto
+
 locale Simple_Network_Rename =
   Simple_Network_Rename_Defs where automata = automata for automata ::
     "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
@@ -680,16 +693,6 @@ begin
 lemma clk_set'_finite:
   "finite clk_set'"
   unfolding clk_set'_def unfolding clkp_set'_def by (intro finite_intros) auto
-
-(* XXX Move *)
-lemma vars_of_bexp_finite[finite_intros]:
-  "finite (vars_of_bexp b)"
-  by (induction b) auto
-
-(* XXX Move *)
-lemma vars_of_exp_finite[finite_intros]:
-  "finite (vars_of_exp e)"
-  by (induction e) (auto intro: vars_of_bexp_finite)
 
 (* XXX Move *)
 lemmas [finite_intros] = trans_N_finite
@@ -762,14 +765,6 @@ lemma set1_acconstraint_elim:
   obtains x where "(c, x) = constraint_pair ac"
   using assms by (cases ac) auto
 
-lemma set1_bexp_vars_of_bexp:
-  "set1_bexp b = vars_of_bexp b"
-  by (induction b) auto
-
-lemma set_exp_vars_of_exp:
-  "set_exp e = vars_of_exp e"
-  by (induction e) (auto simp: set1_bexp_vars_of_bexp)
-
 lemma renum_automaton_eq:
   "rename.renum_automaton p (automata ! p) = renum_automaton p (automata ! p)"
   if "p < n_ps"
@@ -803,7 +798,7 @@ proof -
       unfolding rename.renum_bexp_def renum_bexp_def
       apply (rule bexp.map_cong_pred, rule HOL.refl, clarsimp simp: pred_bexp_def)
       apply (subst renum_vars_bij_extends)
-       apply (fastforce dest: nth_mem simp: var_set_compute set1_bexp_vars_of_bexp)+
+       apply (fastforce dest: nth_mem simp: var_set_compute set_bexp_vars_of_bexp)+
       done
     subgoal guards
       apply (rule renum_cconstraint)
