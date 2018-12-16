@@ -1336,37 +1336,6 @@ theorem deadlock_checker_hnr:
       unfolded F_is_False_iff F_impl_False[OF assms] check_passed_impl_start_def,
       OF assms] .
 
-ML \<open>
-    fun pull_let ctxt u t =
-      let
-        val t1 = abstract_over (u, t);
-        val r1 = Const (@{const_name "HOL.Let"}, dummyT) $ u $ Abs ("I", dummyT, t1);
-        val ct1 = Syntax.check_term ctxt r1;
-        val g1 =
-          Goal.prove ctxt [] [] (Logic.mk_equals (t, ct1))
-          (fn {context, ...} => EqSubst.eqsubst_tac context [0] [@{thm Let_def}] 1
-          THEN resolve_tac context [@{thm Pure.reflexive}] 1)
-      in g1 end;
-
-    fun get_rhs thm =
-      let
-        val Const ("Pure.eq", _) $ _ $ r = Thm.full_prop_of thm
-      in r end;
-
-    fun get_lhs thm =
-      let
-        val Const ("Pure.imp", _) $ (Const ("Pure.eq", _) $ l $ _) $ _ = Thm.full_prop_of thm
-      in l end;
-
-    fun pull_tac' u ctxt thm =
-      let
-        val l = get_lhs thm;
-        val rewr = pull_let ctxt u l;
-      in Local_Defs.unfold_tac ctxt [rewr] thm end;
-
-    fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
-  \<close>
-
 schematic_goal deadlock_checker_alt_def:
   "deadlock_checker \<equiv> ?impl"
   unfolding deadlock_checker_def
