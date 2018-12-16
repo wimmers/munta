@@ -1,0 +1,23 @@
+$(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/basis/mlton.mlb
+
+local
+    Unsynchronized.sml
+
+    Writeln.sml
+
+    ann "nonexhaustiveMatch ignore" in
+      Simple_Model_Checker.sml
+    end
+in
+    structure Tracing
+    structure Model_Checker
+end
+
+basics.ML
+ann "nonexhaustiveMatch ignore" in
+    library.ML
+end
+Unsynchronized.sml
+Muntax.sml
+Mlton_Main.sml
