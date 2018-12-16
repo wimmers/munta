@@ -4525,35 +4525,48 @@ let rec constraint_clk = function LTa (c, uu) -> c
 
 let rec deadlock_checker
   p m max_steps inv trans prog bounds pred s_0 na k =
-    (let i = upt zero_nata (plus_nata m one_nata) in
-     let ia = Set (upt zero_nata p) in
-     let ib = upt zero_nata na in
-     let ic = upt zero_nata p in
-     let id = IArray prog in
-     let ie = IArray (map (map_option stript) prog) in
-     let ifa = IArray (map (map_option stripf) prog) in
-     let ig = size_list prog in
-     let ida = (fun pc -> (if less_nat pc ig then sub id pc else None)) in
-     let iea = (fun pc -> (if less_nat pc ig then sub ie pc else None)) in
-     let ifb = (fun pc -> (if less_nat pc ig then sub ifa pc else None)) in
-     let iga = IArray bounds in
-     let ih = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
-     let ii = IArray (map (fun a -> IArray a) (trans_in_map trans)) in
-     let ij = IArray (map (fun a -> IArray a) (trans_out_map trans)) in
-     let ik = IArray (map (fun a -> IArray a) inv) in
-     let iba =
+    (let num_clocks_ran = upt zero_nata (plus_nata m one_nata) in
+     let num_processes_ran = Set (upt zero_nata p) in
+     let num_actions_ran = upt zero_nata na in
+     let p_ran = upt zero_nata p in
+     let prog_array = IArray prog in
+     let prog_t = IArray (map (map_option stript) prog) in
+     let prog_f = IArray (map (map_option stripf) prog) in
+     let len_prog = size_list prog in
+     let proga =
+       (fun pc -> (if less_nat pc len_prog then sub prog_array pc else None)) in
+     let pt = (fun pc -> (if less_nat pc len_prog then sub prog_t pc else None))
+       in
+     let pf = (fun pc -> (if less_nat pc len_prog then sub prog_f pc else None))
+       in
+     let bounds_array = IArray bounds in
+     let trans_internal = IArray (map (fun a -> IArray a) (trans_i_map trans))
+       in
+     let trans_in = IArray (map (fun a -> IArray a) (trans_in_map trans)) in
+     let trans_out = IArray (map (fun a -> IArray a) (trans_out_map trans)) in
+     let inv_array = IArray (map (fun a -> IArray a) inv) in
+     let transa =
        (fun l ->
          (let (la, s) = l in
-          let ina = all_actions_by_state_impl ic (map (fun _ -> []) ib) ii la in
-          let out = all_actions_by_state_impl ic (map (fun _ -> []) ib) ij la in
+          let ina =
+            all_actions_by_state_impl p_ran (map (fun _ -> []) num_actions_ran)
+              trans_in la
+            in
+          let out =
+            all_actions_by_state_impl p_ran (map (fun _ -> []) num_actions_ran)
+              trans_out la
+            in
            maps (fun a ->
-                  pairs_by_action_impl p max_steps pred ifb iea ida iga (la, s)
-                    (nth out a) (nth ina a))
-             ib) @
-           maps (trans_i_from_impl p max_steps pred bounds ifb iea ida iga ih l)
-             ic)
+                  pairs_by_action_impl p max_steps pred pf pt proga bounds_array
+                    (la, s) (nth out a) (nth ina a))
+             num_actions_ran) @
+           maps (trans_i_from_impl p max_steps pred bounds pf pt proga
+                  bounds_array trans_internal l)
+             p_ran)
        in
-     let idb =
+     let inva =
+       (fun (l, _) -> maps (fun i -> sub (sub inv_array i) (nth l i)) p_ran) in
+     let ceiling =
        IArray
          (map (comp (fun a -> IArray a)
                 (map (comp (fun a -> IArray a) (map int_of_nat))))
@@ -4584,7 +4597,7 @@ let rec deadlock_checker
      let final = (fun _ -> (fun () -> false)) in
      let succs =
        (fun (a1, a2) ->
-         imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
+         imp_nfoldli (transa a1) (fun _ -> (fun () -> true))
            (fun xc sigma ->
              (let (a1a, (_, (a1c, a2c))) = xc in
                (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ()) ())
@@ -4597,10 +4610,7 @@ let rec deadlock_checker
                          ()) ())
                         (fun xa ->
                           (fun f_ () -> f_
-                            ((imp_nfoldli
-                               (let (l, _) = a1 in
-                                 maps (fun il -> sub (sub ik il) (nth l il)) ic)
-                               (fun _ -> (fun () -> true))
+                            ((imp_nfoldli (inva a1) (fun _ -> (fun () -> true))
                                (fun ai bi ->
                                  (fun f_ () -> f_
                                    ((abstra_upd_impl
@@ -4658,10 +4668,7 @@ uminus_int, equal_int, heap_int)
                      m sigmaa m xca zero_inta)
                  x_a)
               ()) ())
-              (imp_nfoldli
-                (let (l, _) = a2c in
-                  maps (fun il -> sub (sub ik il) (nth l il)) ic)
-                (fun _ -> (fun () -> true))
+              (imp_nfoldli (inva a2c) (fun _ -> (fun () -> true))
                 (fun ai bi ->
                   (fun f_ () -> f_
                     ((abstra_upd_impl
@@ -4690,10 +4697,10 @@ uminus_int, equal_int, heap_int)
                           (map (fun c ->
                                  maxa linorder_int
                                    (image
-                                     (fun il ->
-                                       sub (sub (sub idb il) (nth l il)) c)
-                                     ia))
-                            i))
+                                     (fun i ->
+                                       sub (sub (sub ceiling i) (nth l i)) c)
+                                     num_processes_ran))
+                            num_clocks_ran))
                       m)
                    ()) ())
                    (fw_impl_int m))))))))))
@@ -4710,7 +4717,7 @@ uminus_int, equal_int, heap_int)
        (fun (a1, a2) ->
          (fun f_ () -> f_
            (((fun f_ () -> f_
-               ((imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
+               ((imp_nfoldli (transa a1) (fun _ -> (fun () -> true))
                   (fun xb sigma ->
                     (fun f_ () -> f_
                       ((v_dbm_impl
@@ -4721,9 +4728,7 @@ uminus_int, equal_int, heap_int)
                           ((abstr_FW_impl
                              (linordered_cancel_ab_monoid_add_int, uminus_int,
                                equal_int, heap_int)
-                             m (let (l, _) = snd (snd (snd xb)) in
-                                 maps (fun il -> sub (sub ik il) (nth l il)) ic)
-                             x)
+                             m (inva (snd (snd (snd xb)))) x)
                           ()) ())
                           (fun xa ->
                             (fun f_ () -> f_
@@ -4740,7 +4745,7 @@ uminus_int, equal_int, heap_int)
                                     (fun f_ () -> f_
                                       ((abstr_FW_impl
  (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
- (let (l, _) = a1 in maps (fun il -> sub (sub ik il) (nth l il)) ic) xd)
+ (inva a1) xd)
                                       ()) ())
                                       (fun xe ->
 (fun f_ () -> f_
@@ -4760,8 +4765,8 @@ uminus_int, equal_int, heap_int)
              [])
          (fun x -> shows_prec_nat zero_nata x [])
        in
-      (fun f_ () -> f_ ((fun () -> (not (op_list_is_empty (iba (init p, s_0)))))
-        ()) ())
+      (fun f_ () -> f_
+        ((fun () -> (not (op_list_is_empty (transa (init p, s_0))))) ()) ())
         (fun r1 ->
           (if r1
             then (fun f_ () -> f_

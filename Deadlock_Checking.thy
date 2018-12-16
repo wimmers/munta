@@ -41,9 +41,9 @@ schematic_goal deadlock_checker_alt_def:
   unfolding k_impl_alt_def
   unfolding impl.check_deadlock_neg_impl_def impl.check_deadlock_impl_def
   unfolding impl.is_start_in_states_impl_def
-  apply (tactic \<open>pull_tac @{term k_i} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>) (* XXX This is not pulling anything *)
-  apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+  apply (abstract_let k_i ceiling)
+  apply (abstract_let "inv_fun :: (_ \<times> int list \<Rightarrow> _)" inv)
+  apply (abstract_let "trans_fun" trans)
   unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
   unfolding impl.F_impl_def
   unfolding impl.subsumes_impl_def
@@ -58,25 +58,25 @@ schematic_goal deadlock_checker_alt_def_refined:
   unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
   unfolding trans_i_from_impl
   unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl check_pred_impl
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray bounds"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PF} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term PT} @{context}\<close>)
+  apply (abstract_let "IArray (map IArray inv)" inv_array)
+  apply (abstract_let "IArray (map IArray trans_out_map)" trans_out)
+  apply (abstract_let "IArray (map IArray trans_in_map)" trans_in)
+  apply (abstract_let "IArray (map IArray trans_i_map)" trans_internal)
+  apply (abstract_let "IArray bounds" bounds_array)
+  apply (abstract_let PF PF)
+  apply (abstract_let PT PT)
   unfolding PF_alt_def PT_alt_def
-  apply (tactic \<open>pull_tac @{term PROG'} @{context}\<close>)
+  apply (abstract_let PROG' PROG')
   unfolding PROG'_def
-  apply (tactic \<open>pull_tac @{term "length prog"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stripf) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray (map (map_option stript) prog)"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "IArray prog"} @{context}\<close>)
+  apply (abstract_let "length prog" len_prog)
+  apply (abstract_let "IArray (map (map_option stripf) prog)" prog_f)
+  apply (abstract_let "IArray (map (map_option stript) prog)" prog_t)
+  apply (abstract_let "IArray prog" prog_array)
   unfolding all_actions_by_state_impl
-  apply (tactic \<open>pull_tac @{term "[0..<p]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<na]"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "{0..<p}"} @{context}\<close>)
-  apply (tactic \<open>pull_tac @{term "[0..<m+1]"} @{context}\<close>)
+  apply (abstract_let "[0..<p]" p_ran)
+  apply (abstract_let "[0..<na]" num_actions_ran)
+  apply (abstract_let "{0..<p}" num_processes_ran)
+  apply (abstract_let "[0..<m+1]" num_clocks_ran)
   by (rule Pure.reflexive)
 
 end

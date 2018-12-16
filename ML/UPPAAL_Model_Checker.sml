@@ -4812,37 +4812,46 @@ fun constraint_clk (LTa (c, uu)) = c
 
 fun deadlock_checker p m max_steps inv trans prog bounds pred s_0 na k =
   let
-    val i = upt zero_nata (plus_nata m one_nata);
-    val ia = Set (upt zero_nata p);
-    val ib = upt zero_nata na;
-    val ic = upt zero_nata p;
-    val id = Vector.fromList prog;
-    val ie = Vector.fromList (map (map_option stript) prog);
-    val ifa = Vector.fromList (map (map_option stripf) prog);
-    val ig = size_list prog;
-    val ida = (fn pc => (if less_nat pc ig then sub id pc else NONE));
-    val iea = (fn pc => (if less_nat pc ig then sub ie pc else NONE));
-    val ifb = (fn pc => (if less_nat pc ig then sub ifa pc else NONE));
-    val iga = Vector.fromList bounds;
-    val ih = Vector.fromList (map Vector.fromList (trans_i_map trans));
-    val ii = Vector.fromList (map Vector.fromList (trans_in_map trans));
-    val ij = Vector.fromList (map Vector.fromList (trans_out_map trans));
-    val ik = Vector.fromList (map Vector.fromList inv);
-    val iba =
+    val num_clocks_ran = upt zero_nata (plus_nata m one_nata);
+    val num_processes_ran = Set (upt zero_nata p);
+    val num_actions_ran = upt zero_nata na;
+    val p_ran = upt zero_nata p;
+    val prog_array = Vector.fromList prog;
+    val prog_t = Vector.fromList (map (map_option stript) prog);
+    val prog_f = Vector.fromList (map (map_option stripf) prog);
+    val len_prog = size_list prog;
+    val proga =
+      (fn pc => (if less_nat pc len_prog then sub prog_array pc else NONE));
+    val pt = (fn pc => (if less_nat pc len_prog then sub prog_t pc else NONE));
+    val pf = (fn pc => (if less_nat pc len_prog then sub prog_f pc else NONE));
+    val bounds_array = Vector.fromList bounds;
+    val trans_internal =
+      Vector.fromList (map Vector.fromList (trans_i_map trans));
+    val trans_in = Vector.fromList (map Vector.fromList (trans_in_map trans));
+    val trans_out = Vector.fromList (map Vector.fromList (trans_out_map trans));
+    val inv_array = Vector.fromList (map Vector.fromList inv);
+    val transa =
       (fn l =>
         let
           val (la, s) = l;
-          val ina = all_actions_by_state_impl ic (map (fn _ => []) ib) ii la;
-          val out = all_actions_by_state_impl ic (map (fn _ => []) ib) ij la;
+          val ina =
+            all_actions_by_state_impl p_ran (map (fn _ => []) num_actions_ran)
+              trans_in la;
+          val out =
+            all_actions_by_state_impl p_ran (map (fn _ => []) num_actions_ran)
+              trans_out la;
         in
           maps (fn a =>
-                 pairs_by_action_impl p max_steps pred ifb iea ida iga (la, s)
-                   (nth out a) (nth ina a))
-            ib
+                 pairs_by_action_impl p max_steps pred pf pt proga bounds_array
+                   (la, s) (nth out a) (nth ina a))
+            num_actions_ran
         end @
-          maps (trans_i_from_impl p max_steps pred bounds ifb iea ida iga ih l)
-            ic);
-    val idb =
+          maps (trans_i_from_impl p max_steps pred bounds pf pt proga
+                 bounds_array trans_internal l)
+            p_ran);
+    val inva =
+      (fn (l, _) => maps (fn i => sub (sub inv_array i) (nth l i)) p_ran);
+    val ceiling =
       Vector.fromList
         (map (Vector.fromList o map (Vector.fromList o map int_of_nat)) k);
     val key = (fn a => (fn () => a)) o fst;
@@ -4870,7 +4879,7 @@ fun deadlock_checker p m max_steps inv trans prog bounds pred s_0 na k =
     val final = (fn _ => (fn () => false));
     val succs =
       (fn (a1, a2) =>
-        imp_nfoldli (iba a1) (fn _ => (fn () => true))
+        imp_nfoldli (transa a1) (fn _ => (fn () => true))
           (fn xc => fn sigma =>
             let
               val (a1a, (_, (a1c, a2c))) = xc;
@@ -4886,13 +4895,7 @@ fun deadlock_checker p m max_steps inv trans prog bounds pred s_0 na k =
                         ()) ())
                        (fn xa =>
                          (fn f_ => fn () => f_
-                           ((imp_nfoldli
-                              let
-                                val (l, _) = a1;
-                              in
-                                maps (fn il => sub (sub ik il) (nth l il)) ic
-                              end
-                              (fn _ => (fn () => true))
+                           ((imp_nfoldli (inva a1) (fn _ => (fn () => true))
                               (fn ai => fn bi =>
                                 (fn f_ => fn () => f_
                                   ((abstra_upd_impl
@@ -4951,12 +4954,7 @@ heap_DBMEntry heap_int)
                     m sigmaa m xca zero_inta)
                 x_a)
              ()) ())
-             (imp_nfoldli let
-                            val (l, _) = a2c;
-                          in
-                            maps (fn il => sub (sub ik il) (nth l il)) ic
-                          end
-               (fn _ => (fn () => true))
+             (imp_nfoldli (inva a2c) (fn _ => (fn () => true))
                (fn ai => fn bi =>
                  (fn f_ => fn () => f_
                    ((abstra_upd_impl
@@ -4987,10 +4985,10 @@ heap_DBMEntry heap_int)
                          (map (fn c =>
                                 maxa linorder_int
                                   (image
-                                    (fn il =>
-                                      sub (sub (sub idb il) (nth l il)) c)
-                                    ia))
-                           i)
+                                    (fn i =>
+                                      sub (sub (sub ceiling i) (nth l i)) c)
+                                    num_processes_ran))
+                           num_clocks_ran)
                      end
                      m)
                   ()) ())
@@ -5006,7 +5004,7 @@ heap_DBMEntry heap_int)
       (fn (a1, a2) =>
         (fn f_ => fn () => f_
           (((fn f_ => fn () => f_
-              ((imp_nfoldli (iba a1) (fn _ => (fn () => true))
+              ((imp_nfoldli (transa a1) (fn _ => (fn () => true))
                  (fn xb => fn sigma =>
                    (fn f_ => fn () => f_
                      ((v_dbm_impl
@@ -5017,12 +5015,7 @@ heap_DBMEntry heap_int)
                          ((abstr_FW_impl
                             (linordered_cancel_ab_monoid_add_int, uminus_int,
                               equal_int, heap_int)
-                            m let
-                                val (l, _) = snd (snd (snd xb));
-                              in
-                                maps (fn il => sub (sub ik il) (nth l il)) ic
-                              end
-                            x)
+                            m (inva (snd (snd (snd xb)))) x)
                          ()) ())
                          (fn xa =>
                            (fn f_ => fn () => f_
@@ -5039,12 +5032,7 @@ heap_DBMEntry heap_int)
                                    (fn f_ => fn () => f_
                                      ((abstr_FW_impl
 (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
-let
-  val (l, _) = a1;
-in
-  maps (fn il => sub (sub ik il) (nth l il)) ic
-end
-xd)
+(inva a1) xd)
                                      ()) ())
                                      (fn xe =>
                                        (fn f_ => fn () => f_
@@ -5064,7 +5052,7 @@ xd)
         (fn x => shows_prec_nat zero_nata x []);
   in
     (fn f_ => fn () => f_
-      ((fn () => (not (op_list_is_empty (iba (init p, s_0))))) ()) ())
+      ((fn () => (not (op_list_is_empty (transa (init p, s_0))))) ()) ())
       (fn r1 =>
         (if r1
           then (fn f_ => fn () => f_
