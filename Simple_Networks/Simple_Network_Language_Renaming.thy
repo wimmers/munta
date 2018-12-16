@@ -180,7 +180,8 @@ lemma map_of_NoneI:
 fun map_sexp ::
   "(nat \<Rightarrow> 's \<Rightarrow> 's1) \<Rightarrow> ('a \<Rightarrow> 'a1) \<Rightarrow> ('b \<Rightarrow> 'b1) \<Rightarrow> (nat, 's, 'a, 'b) sexp
     \<Rightarrow> (nat, 's1, 'a1, 'b1) sexp"
-where
+  where
+  "map_sexp _ _ _ sexp.true = sexp.true" |
   "map_sexp f g h (not e) = not (map_sexp f g h e)" |
   "map_sexp f g h (and e1 e2) = and (map_sexp f g h e1) (map_sexp f g h e2)" |
   "map_sexp f g h (sexp.or e1 e2) = sexp.or (map_sexp f g h e1) (map_sexp f g h e2)" |

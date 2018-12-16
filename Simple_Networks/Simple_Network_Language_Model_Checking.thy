@@ -105,6 +105,7 @@ section \<open>The final semantics\<close>
 
 text \<open>State formulas\<close>
 datatype ('n, 's, 'a, 'b) sexp =
+  true |
   \<comment> \<open>Boolean connectives\<close>
   not "('n, 's, 'a, 'b) sexp" | "and" "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp" |
   or "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp" | imply "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp" |
@@ -118,10 +119,12 @@ datatype ('n, 's, 'a, 'b) sexp =
   loc 'n 's
 
 datatype ('n, 's, 'a, 'b) formula =
-  EX "('n, 's, 'a, 'b) sexp" | EG "('n, 's, 'a, 'b) sexp" | AX "('n, 's, 'a, 'b) sexp" | AG "('n, 's, 'a, 'b) sexp"
+  EX "('n, 's, 'a, 'b) sexp" | EG "('n, 's, 'a, 'b) sexp"
+| AX "('n, 's, 'a, 'b) sexp" | AG "('n, 's, 'a, 'b) sexp"
 | Leadsto "('n, 's, 'a, 'b) sexp" "('n, 's, 'a, 'b) sexp"
 
 fun check_sexp :: "(nat, 's, 'a, 'b :: linorder) sexp \<Rightarrow> 's list \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "check_sexp sexp.true _ _ \<longleftrightarrow> True" |
   "check_sexp (not e) L s \<longleftrightarrow> \<not> check_sexp e L s" |
   "check_sexp (and e1 e2) L s \<longleftrightarrow> check_sexp e1 L s \<and> check_sexp e2 L s" |
   "check_sexp (sexp.or e1 e2) L s \<longleftrightarrow> check_sexp e1 L s \<or> check_sexp e2 L s" |
@@ -151,7 +154,7 @@ fun vars_of_sexp :: "('n, 's, 'a, 'b) sexp \<Rightarrow> 'a set" where
   "vars_of_sexp (le i x) = {i}" |
   "vars_of_sexp (ge i x) = {i}" |
   "vars_of_sexp (gt i x) = {i}" |
-  "vars_of_sexp (loc i x) = {}"
+  "vars_of_sexp _ = {}"
 
 fun locs_of_formula :: "('n, 's, 'a, 'b) formula \<Rightarrow> 'n set" where
   "locs_of_formula (formula.EX \<phi>) = locs_of_sexp \<phi>" |
@@ -203,6 +206,7 @@ definition models ("_,_ \<Turnstile> _" [61,61] 61) where
 lemmas models_iff = models_def[unfolded Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff]
 
 fun check_sexpi :: "(nat, 's, nat, int) sexp \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> bool" where
+  "check_sexpi sexp.true _ _ \<longleftrightarrow> True" |
   "check_sexpi (not e) L s \<longleftrightarrow> \<not> check_sexpi e L s" |
   "check_sexpi (and e1 e2) L s \<longleftrightarrow> check_sexpi e1 L s \<and> check_sexpi e2 L s" |
   "check_sexpi (sexp.or e1 e2) L s \<longleftrightarrow> check_sexpi e1 L s \<or> check_sexpi e2 L s" |
@@ -974,8 +978,7 @@ definition Alw_ev_checker where
   "Alw_ev_checker = dfs_map_impl'
      (impl.succs_P_impl' Fi) impl.a\<^sub>0_impl impl.subsumes_impl (return \<circ> fst)
      impl.state_copy_impl"
-term impl.tracei
-thm impl.tracei_def
+
 definition leadsto_checker where
   "leadsto_checker \<psi> = do {
       r \<leftarrow> leadsto_impl
@@ -1037,7 +1040,8 @@ theorem model_check':
     uncurry0 (
       SPEC (\<lambda>r.
   \<not> Graph_Defs.deadlock
-    (\<lambda>(L, s, u) (L', s', u'). Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) (L\<^sub>0, (map_of s\<^sub>0), u\<^sub>0)
+    (\<lambda>(L, s, u) (L', s', u').
+      Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>) (L\<^sub>0, (map_of s\<^sub>0), u\<^sub>0)
       \<longrightarrow> r = (Simple_Network_Language.conv A,(L\<^sub>0, (map_of s\<^sub>0), u\<^sub>0) \<Turnstile> formula)
       )
     )
