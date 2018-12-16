@@ -210,8 +210,8 @@ lemma deadlock_check':
    (\<exists>l Z. reaches (l\<^sub>0, Z\<^sub>0) (l, Z) \<and> \<not> check_deadlock l Z)"
   apply (subst ta_reaches_ex_iff)
   subgoal for l u u' R
-    by (rule sim_complete_bisim'.P1_deadlocked_compatible[where a = "from_R l R"])
-       (auto intro: sim_complete_bisim'.P1_P1')
+    by (rule sim_complete_bisim'.P1_deadlocked_compatible[where a = "from_R l R"];
+       (rule sim_complete_bisim'.P1_P1')?) (auto intro: sim_complete_bisim'.P1_P1')
   using check_deadlock_deadlocked by auto
 
 lemma deadlock_check:

@@ -269,8 +269,8 @@ module Model_Checker : sig
   type int = Int_of_integer of Big_int.big_int
   val integer_of_int : int -> Big_int.big_int
   type nat
-  val nat_of_integer : Big_int.big_int -> nat
   val integer_of_nat : nat -> Big_int.big_int
+  val nat_of_integer : Big_int.big_int -> nat
   type instr = JMPZ of nat | ADD | NOT | AND | LT | LE | EQ | PUSH of int | POP
     | LID of nat | STORE | STOREI of nat * int | COPY | CALL | RETURN | HALT |
     STOREC of nat * int | SETF of bool
@@ -374,6 +374,181 @@ let typerep_int = ({typerep = typerep_inta} : int typerep);;
 let heap_int =
   ({countable_heap = countable_int; typerep_heap = typerep_int} : int heap);;
 
+let rec uminus_inta
+  k = Int_of_integer (Big_int.minus_big_int (integer_of_int k));;
+
+let zero_inta : int = Int_of_integer Big_int.zero_big_int;;
+
+type num = One | Bit0 of num | Bit1 of num;;
+
+let rec sgn_integer
+  k = (if Big_int.eq_big_int k Big_int.zero_big_int then Big_int.zero_big_int
+        else (if Big_int.lt_big_int k Big_int.zero_big_int
+               then (Big_int.minus_big_int (Big_int.big_int_of_int 1))
+               else (Big_int.big_int_of_int 1)));;
+
+let rec apsnd f (x, y) = (x, f y);;
+
+let rec comp f g = (fun x -> f (g x));;
+
+let rec divmod_integer
+  k l = (if Big_int.eq_big_int k Big_int.zero_big_int
+          then (Big_int.zero_big_int, Big_int.zero_big_int)
+          else (if Big_int.eq_big_int l Big_int.zero_big_int
+                 then (Big_int.zero_big_int, k)
+                 else comp (comp apsnd Big_int.mult_big_int) sgn_integer l
+                        (if Big_int.eq_big_int (sgn_integer k) (sgn_integer l)
+                          then Big_int.quomod_big_int (Big_int.abs_big_int k)
+                                 (Big_int.abs_big_int l)
+                          else (let (r, s) =
+                                  Big_int.quomod_big_int (Big_int.abs_big_int k)
+                                    (Big_int.abs_big_int l)
+                                  in
+                                 (if Big_int.eq_big_int s Big_int.zero_big_int
+                                   then (Big_int.minus_big_int r,
+  Big_int.zero_big_int)
+                                   else (Big_int.sub_big_int
+   (Big_int.minus_big_int r) (Big_int.big_int_of_int 1),
+  Big_int.sub_big_int (Big_int.abs_big_int l) s))))));;
+
+let rec snd (x1, x2) = x2;;
+
+let rec modulo_integer k l = snd (divmod_integer k l);;
+
+type nat = Nat of Big_int.big_int;;
+
+let rec integer_of_nat (Nat x) = x;;
+
+let rec modulo_nat
+  m n = Nat (modulo_integer (integer_of_nat m) (integer_of_nat n));;
+
+let rec fst (x1, x2) = x1;;
+
+let rec divide_integer k l = fst (divmod_integer k l);;
+
+let rec divide_nat
+  m n = Nat (divide_integer (integer_of_nat m) (integer_of_nat n));;
+
+let rec equal_nata
+  m n = Big_int.eq_big_int (integer_of_nat m) (integer_of_nat n);;
+
+type 'a ord = {less_eq : 'a -> 'a -> bool; less : 'a -> 'a -> bool};;
+let less_eq _A = _A.less_eq;;
+let less _A = _A.less;;
+
+let rec max _A a b = (if less_eq _A a b then b else a);;
+
+let ord_integer =
+  ({less_eq = Big_int.le_big_int; less = Big_int.lt_big_int} :
+    Big_int.big_int ord);;
+
+let rec nat_of_integer k = Nat (max ord_integer Big_int.zero_big_int k);;
+
+let zero_nata : nat = Nat Big_int.zero_big_int;;
+
+let one_nata : nat = Nat (Big_int.big_int_of_int 1);;
+
+type char = Chara of bool * bool * bool * bool * bool * bool * bool * bool;;
+
+let rec string_of_digit
+  n = (if equal_nata n zero_nata
+        then [Chara (false, false, false, false, true, true, false, false)]
+        else (if equal_nata n one_nata
+               then [Chara (true, false, false, false, true, true, false,
+                             false)]
+               else (if equal_nata n (nat_of_integer (Big_int.big_int_of_int 2))
+                      then [Chara (false, true, false, false, true, true, false,
+                                    false)]
+                      else (if equal_nata n
+                                 (nat_of_integer (Big_int.big_int_of_int 3))
+                             then [Chara (true, true, false, false, true, true,
+   false, false)]
+                             else (if equal_nata n
+(nat_of_integer (Big_int.big_int_of_int 4))
+                                    then [Chara
+    (false, false, true, false, true, true, false, false)]
+                                    else (if equal_nata n
+       (nat_of_integer (Big_int.big_int_of_int 5))
+   then [Chara (true, false, true, false, true, true, false, false)]
+   else (if equal_nata n (nat_of_integer (Big_int.big_int_of_int 6))
+          then [Chara (false, true, true, false, true, true, false, false)]
+          else (if equal_nata n (nat_of_integer (Big_int.big_int_of_int 7))
+                 then [Chara (true, true, true, false, true, true, false,
+                               false)]
+                 else (if equal_nata n
+                            (nat_of_integer (Big_int.big_int_of_int 8))
+                        then [Chara (false, false, false, true, true, true,
+                                      false, false)]
+                        else [Chara (true, false, false, true, true, true,
+                                      false, false)])))))))));;
+
+let rec less_nat
+  m n = Big_int.lt_big_int (integer_of_nat m) (integer_of_nat n);;
+
+let rec shows_string x = (fun a -> x @ a);;
+
+let rec showsp_nat
+  p n = (if less_nat n (nat_of_integer (Big_int.big_int_of_int 10))
+          then shows_string (string_of_digit n)
+          else comp (showsp_nat p
+                      (divide_nat n
+                        (nat_of_integer (Big_int.big_int_of_int 10))))
+                 (shows_string
+                   (string_of_digit
+                     (modulo_nat n
+                       (nat_of_integer (Big_int.big_int_of_int 10))))));;
+
+let rec less_int
+  k l = Big_int.lt_big_int (integer_of_int k) (integer_of_int l);;
+
+let rec nat k = Nat (max ord_integer Big_int.zero_big_int (integer_of_int k));;
+
+let rec showsp_int
+  p i = (if less_int i zero_inta
+          then comp (shows_string
+                      [Chara (true, false, true, true, false, true, false,
+                               false)])
+                 (showsp_nat p (nat (uminus_inta i)))
+          else showsp_nat p (nat i));;
+
+let rec shows_prec_int x = showsp_int x;;
+
+let rec shows_sep
+  s sep x2 = match s, sep, x2 with s, sep, [] -> shows_string []
+    | s, sep, [x] -> s x
+    | s, sep, x :: v :: va ->
+        comp (comp (s x) sep) (shows_sep s sep (v :: va));;
+
+let rec null = function [] -> true
+               | x :: xs -> false;;
+
+let rec shows_list_gen
+  showsx e l s r xs =
+    (if null xs then shows_string e
+      else comp (comp (shows_string l) (shows_sep showsx (shows_string s) xs))
+             (shows_string r));;
+
+let rec showsp_list
+  s p xs =
+    shows_list_gen (s zero_nata)
+      [Chara (true, true, false, true, true, false, true, false);
+        Chara (true, false, true, true, true, false, true, false)]
+      [Chara (true, true, false, true, true, false, true, false)]
+      [Chara (false, false, true, true, false, true, false, false);
+        Chara (false, false, false, false, false, true, false, false)]
+      [Chara (true, false, true, true, true, false, true, false)] xs;;
+
+let rec shows_list_int x = showsp_list shows_prec_int zero_nata x;;
+
+type 'a show =
+  {shows_prec : nat -> 'a -> char list -> char list;
+    shows_list : 'a list -> char list -> char list};;
+let shows_prec _A = _A.shows_prec;;
+let shows_list _A = _A.shows_list;;
+
+let show_int =
+  ({shows_prec = shows_prec_int; shows_list = shows_list_int} : int show);;
+
 let rec plus_inta
   k l = Int_of_integer
           (Big_int.add_big_int (integer_of_int k) (integer_of_int l));;
@@ -382,8 +557,6 @@ type 'a plus = {plus : 'a -> 'a -> 'a};;
 let plus _A = _A.plus;;
 
 let plus_int = ({plus = plus_inta} : int plus);;
-
-let zero_inta : int = Int_of_integer Big_int.zero_big_int;;
 
 type 'a zero = {zero : 'a};;
 let zero _A = _A.zero;;
@@ -399,9 +572,6 @@ let minus _A = _A.minus;;
 
 let minus_int = ({minus = minus_inta} : int minus);;
 
-let rec uminus_inta
-  k = Int_of_integer (Big_int.minus_big_int (integer_of_int k));;
-
 type 'a uminus = {uminus : 'a -> 'a};;
 let uminus _A = _A.uminus;;
 
@@ -409,13 +579,6 @@ let uminus_int = ({uminus = uminus_inta} : int uminus);;
 
 let rec less_eq_int
   k l = Big_int.le_big_int (integer_of_int k) (integer_of_int l);;
-
-type 'a ord = {less_eq : 'a -> 'a -> bool; less : 'a -> 'a -> bool};;
-let less_eq _A = _A.less_eq;;
-let less _A = _A.less;;
-
-let rec less_int
-  k l = Big_int.lt_big_int (integer_of_int k) (integer_of_int l);;
 
 let ord_int = ({less_eq = less_eq_int; less = less_int} : int ord);;
 
@@ -456,18 +619,6 @@ let group_add_int =
      uminus_group_add = uminus_int}
     : int group_add);;
 
-let rec max _A a b = (if less_eq _A a b then b else a);;
-
-type nat = Nat of Big_int.big_int;;
-
-let ord_integer =
-  ({less_eq = Big_int.le_big_int; less = Big_int.lt_big_int} :
-    Big_int.big_int ord);;
-
-let rec nat_of_integer k = Nat (max ord_integer Big_int.zero_big_int k);;
-
-type num = One | Bit0 of num | Bit1 of num;;
-
 let rec def_hashmap_size_int
   x = (fun _ -> nat_of_integer (Big_int.big_int_of_int 16)) x;;
 
@@ -475,8 +626,6 @@ type 'a hashable =
   {hashcode : 'a -> int32; def_hashmap_size : 'a itself -> nat};;
 let hashcode _A = _A.hashcode;;
 let def_hashmap_size _A = _A.def_hashmap_size;;
-
-let rec integer_of_nat (Nat x) = x;;
 
 let rec test_bit_integer x n = Bits_Integer.test_bit x (integer_of_nat n);;
 
@@ -727,9 +876,6 @@ let linordered_ab_group_add_int =
      ordered_ab_group_add_linordered_ab_group_add = ordered_ab_group_add_int}
     : int linordered_ab_group_add);;
 
-let rec equal_nata
-  m n = Big_int.eq_big_int (integer_of_nat m) (integer_of_nat n);;
-
 let equal_nat = ({equal = equal_nata} : nat equal);;
 
 let rec typerep_nata t = Typerep ("Nat.nat", []);;
@@ -741,7 +887,12 @@ let typerep_nat = ({typerep = typerep_nata} : nat typerep);;
 let heap_nat =
   ({countable_heap = countable_nat; typerep_heap = typerep_nat} : nat heap);;
 
-let one_nata : nat = Nat (Big_int.big_int_of_int 1);;
+let rec shows_prec_nat x = showsp_nat x;;
+
+let rec shows_list_nat x = showsp_list shows_prec_nat zero_nata x;;
+
+let show_nat =
+  ({shows_prec = shows_prec_nat; shows_list = shows_list_nat} : nat show);;
 
 type 'a one = {one : 'a};;
 let one _A = _A.one;;
@@ -753,15 +904,10 @@ let rec plus_nata
 
 let plus_nat = ({plus = plus_nata} : nat plus);;
 
-let zero_nata : nat = Nat Big_int.zero_big_int;;
-
 let zero_nat = ({zero = zero_nata} : nat zero);;
 
 let rec less_eq_nat
   m n = Big_int.le_big_int (integer_of_nat m) (integer_of_nat n);;
-
-let rec less_nat
-  m n = Big_int.lt_big_int (integer_of_nat m) (integer_of_nat n);;
 
 let ord_nat = ({less_eq = less_eq_nat; less = less_nat} : nat ord);;
 
@@ -828,6 +974,15 @@ let rec heap_list _A =
   ({countable_heap = (countable_list _A.countable_heap);
      typerep_heap = (typerep_list _A.typerep_heap)}
     : ('a list) heap);;
+
+let rec shows_prec_list _A p xs = shows_list _A xs;;
+
+let rec shows_list_list _A
+  xss = showsp_list (shows_prec_list _A) zero_nata xss;;
+
+let rec show_list _A =
+  ({shows_prec = shows_prec_list _A; shows_list = shows_list_list _A} :
+    ('a list) show);;
 
 let rec times_nat
   m n = Nat (Big_int.mult_big_int (integer_of_nat m) (integer_of_nat n));;
@@ -1353,10 +1508,6 @@ let rec heap_prod _A _B =
 let rec def_hashmap_size_prod _A _B
   = (fun _ -> plus_nata (def_hashmap_size _A Type) (def_hashmap_size _B Type));;
 
-let rec snd (x1, x2) = x2;;
-
-let rec fst (x1, x2) = x1;;
-
 let rec hashcode_prod _A _B
   x = Int32.add
         (Int32.mul (hashcode _A (fst x)) (uint32 (Big_int.big_int_of_int 33)))
@@ -1366,6 +1517,19 @@ let rec hashable_prod _A _B =
   ({hashcode = hashcode_prod _A _B;
      def_hashmap_size = def_hashmap_size_prod _A _B}
     : ('a * 'b) hashable);;
+
+let one_integera : Big_int.big_int = (Big_int.big_int_of_int 1);;
+
+let one_integer = ({one = one_integera} : Big_int.big_int one);;
+
+let zero_integer = ({zero = Big_int.zero_big_int} : Big_int.big_int zero);;
+
+type 'a zero_neq_one =
+  {one_zero_neq_one : 'a one; zero_zero_neq_one : 'a zero};;
+
+let zero_neq_one_integer =
+  ({one_zero_neq_one = one_integer; zero_zero_neq_one = zero_integer} :
+    Big_int.big_int zero_neq_one);;
 
 type ('a, 'b) acconstraint = LTa of 'a * 'b | LEa of 'a * 'b | EQa of 'a * 'b |
   GT of 'a * 'b | GE of 'a * 'b;;
@@ -1434,11 +1598,7 @@ type ('a, 'b, 'c, 'd) gen_g_impl_ext = Gen_g_impl_ext of 'a * 'b * 'c * 'd;;
 
 let rec id x = (fun xa -> xa) x;;
 
-let rec nat k = Nat (max ord_integer Big_int.zero_big_int (integer_of_int k));;
-
 let rec suc n = plus_nata n one_nata;;
-
-let rec comp f g = (fun x -> f (g x));;
 
 let rec minus_nat
   m n = Nat (max ord_integer Big_int.zero_big_int
@@ -1481,9 +1641,6 @@ let rec upd _A
 
 let rec maps f x1 = match f, x1 with f, [] -> []
                | f, x :: xs -> f x @ maps f xs;;
-
-let rec null = function [] -> true
-               | x :: xs -> false;;
 
 let rec map f x1 = match f, x1 with f, [] -> []
               | f, x21 :: x22 -> f x21 :: map f x22;;
@@ -1554,6 +1711,48 @@ let rec replicate
 
 let rec is_none = function Some x -> false
                   | None -> true;;
+
+let rec print x = ();;
+
+let rec of_bool _A = function true -> one _A.one_zero_neq_one
+                     | false -> zero _A.zero_zero_neq_one;;
+
+let rec integer_of_char
+  (Chara (b0, b1, b2, b3, b4, b5, b6, b7)) =
+    Big_int.add_big_int
+      (Big_int.mult_big_int
+        (Big_int.add_big_int
+          (Big_int.mult_big_int
+            (Big_int.add_big_int
+              (Big_int.mult_big_int
+                (Big_int.add_big_int
+                  (Big_int.mult_big_int
+                    (Big_int.add_big_int
+                      (Big_int.mult_big_int
+                        (Big_int.add_big_int
+                          (Big_int.mult_big_int
+                            (Big_int.add_big_int
+                              (Big_int.mult_big_int
+                                (of_bool zero_neq_one_integer b7)
+                                (Big_int.big_int_of_int 2))
+                              (of_bool zero_neq_one_integer b6))
+                            (Big_int.big_int_of_int 2))
+                          (of_bool zero_neq_one_integer b5))
+                        (Big_int.big_int_of_int 2))
+                      (of_bool zero_neq_one_integer b4))
+                    (Big_int.big_int_of_int 2))
+                  (of_bool zero_neq_one_integer b3))
+                (Big_int.big_int_of_int 2))
+              (of_bool zero_neq_one_integer b2))
+            (Big_int.big_int_of_int 2))
+          (of_bool zero_neq_one_integer b1))
+        (Big_int.big_int_of_int 2))
+      (of_bool zero_neq_one_integer b0);;
+
+let rec implode
+  cs = (let ks = (map integer_of_char
+                   cs) in let res = Bytes.create (List.length ks) in let rec imp i = function | [] -> res | k :: ks ->
+      let l = Big_int.int_of_big_int k in if 0 <= l && l < 128 then Bytes.set res i (Char.chr l) else failwith "Non-ASCII character in literal"; imp (i + 1) ks in imp 0 ks);;
 
 let rec tracea x = trace ExploredState x;;
 
@@ -1717,6 +1916,8 @@ let rec gen_pick
            (fun x _ -> Some x)
           None);;
 
+let rec println x = print (x ^ "\092");;
+
 let rec of_phantom (Phantom x) = x;;
 
 let rec size_list x = gen_length zero_nata x;;
@@ -1734,39 +1935,6 @@ let rec ht_new_sz (_A1, _A2) _B
 
 let rec ht_new (_A1, _A2) _B
   = ht_new_sz (_A1, _A2) _B (def_hashmap_size _A1 Type);;
-
-let rec sgn_integer
-  k = (if Big_int.eq_big_int k Big_int.zero_big_int then Big_int.zero_big_int
-        else (if Big_int.lt_big_int k Big_int.zero_big_int
-               then (Big_int.minus_big_int (Big_int.big_int_of_int 1))
-               else (Big_int.big_int_of_int 1)));;
-
-let rec apsnd f (x, y) = (x, f y);;
-
-let rec divmod_integer
-  k l = (if Big_int.eq_big_int k Big_int.zero_big_int
-          then (Big_int.zero_big_int, Big_int.zero_big_int)
-          else (if Big_int.eq_big_int l Big_int.zero_big_int
-                 then (Big_int.zero_big_int, k)
-                 else comp (comp apsnd Big_int.mult_big_int) sgn_integer l
-                        (if Big_int.eq_big_int (sgn_integer k) (sgn_integer l)
-                          then Big_int.quomod_big_int (Big_int.abs_big_int k)
-                                 (Big_int.abs_big_int l)
-                          else (let (r, s) =
-                                  Big_int.quomod_big_int (Big_int.abs_big_int k)
-                                    (Big_int.abs_big_int l)
-                                  in
-                                 (if Big_int.eq_big_int s Big_int.zero_big_int
-                                   then (Big_int.minus_big_int r,
-  Big_int.zero_big_int)
-                                   else (Big_int.sub_big_int
-   (Big_int.minus_big_int r) (Big_int.big_int_of_int 1),
-  Big_int.sub_big_int (Big_int.abs_big_int l) s))))));;
-
-let rec modulo_integer k l = snd (divmod_integer k l);;
-
-let rec modulo_nat
-  m n = Nat (modulo_integer (integer_of_nat m) (integer_of_nat n));;
 
 let rec bitOR_integer
   i j = (if Big_int.le_big_int Big_int.zero_big_int i
@@ -2131,7 +2299,7 @@ let rec hms_extract
               (fun ma -> (fun () -> (Some v, ma)))));;
 
 let rec pw_impl _A (_B1, _B2, _B3)
-  keyi copyi lei a_0i fi succsi emptyi =
+  keyi copyi tracei lei a_0i fi succsi emptyi =
     (fun f_ () -> f_ (a_0i ()) ())
       (fun x ->
         (fun f_ () -> f_ ((emptyi x) ()) ())
@@ -2182,53 +2350,72 @@ else (fun f_ () -> f_ (a_0i ()) ())
     (if x_e then (fun () -> (a1a, (a2c, a2b)))
       else (fun f_ () -> f_ (tRACE_impl ()) ())
              (fun _ ->
-               (fun f_ () -> f_ ((succsi a1c) ()) ())
-                 (fun x_g ->
-                   imp_nfoldli x_g (fun (_, (_, b)) -> (fun () -> (not b)))
-                     (fun xk (a1d, (a1e, _)) ->
-                       (fun f_ () -> f_ ((emptyi xk) ()) ())
-                         (fun x_j ->
-                           (if x_j then (fun () -> (a1d, (a1e, false)))
-                             else (fun f_ () -> f_ ((fi xk) ()) ())
-                                    (fun x_k ->
-                                      (if x_k
-then (fun () -> (a1d, (a1e, true)))
-else (fun f_ () -> f_ ((keyi xk) ()) ())
-       (fun x_l ->
-         (fun f_ () -> f_
-           ((hms_extract (ht_lookup (_B1, _B2, _B3) (heap_list _A))
-              (ht_delete (_B1, _B2, _B3) (heap_list _A)) x_l a1d)
-           ()) ())
-           (fun a ->
-             (match a
-               with (None, a2f) ->
-                 (fun f_ () -> f_ ((copyi xk) ()) ())
-                   (fun xf ->
-                     (fun f_ () -> f_
-                       ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l [xf] a2f)
-                       ()) ())
-                       (fun x_n ->
-                         (fun () -> (x_n, (op_list_prepend xk a1e, false)))))
-               | (Some x_n, a2f) ->
-                 (fun f_ () -> f_ ((lso_bex_impl (lei xk) x_n) ()) ())
-                   (fun x_o ->
-                     (if x_o
-                       then (fun f_ () -> f_
-                              ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l x_n
-                                 a2f)
-                              ()) ())
-                              (fun x_p -> (fun () -> (x_p, (a1e, false))))
-                       else (fun f_ () -> f_ ((copyi xk) ()) ())
-                              (fun xf ->
-                                (fun f_ () -> f_
-                                  ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l
-                                     (xf :: x_n) a2f)
+               (fun f_ () -> f_
+                 ((tracei
+                     [Chara (true, false, true, false, false, false, true,
+                              false);
+                       Chara (false, false, false, true, true, true, true,
+                               false);
+                       Chara (false, false, false, false, true, true, true,
+                               false);
+                       Chara (false, false, true, true, false, true, true,
+                               false);
+                       Chara (true, true, true, true, false, true, true, false);
+                       Chara (false, true, false, false, true, true, true,
+                               false);
+                       Chara (true, false, true, false, false, true, true,
+                               false);
+                       Chara (false, false, true, false, false, true, true,
+                               false)]
+                    a1c)
+                 ()) ())
+                 (fun _ ->
+                   (fun f_ () -> f_ ((succsi a1c) ()) ())
+                     (fun x_h ->
+                       imp_nfoldli x_h (fun (_, (_, b)) -> (fun () -> (not b)))
+                         (fun xl (a1d, (a1e, _)) ->
+                           (fun f_ () -> f_ ((emptyi xl) ()) ())
+                             (fun x_k ->
+                               (if x_k then (fun () -> (a1d, (a1e, false)))
+                                 else (fun f_ () -> f_ ((fi xl) ()) ())
+(fun x_l ->
+  (if x_l then (fun () -> (a1d, (a1e, true)))
+    else (fun f_ () -> f_ ((keyi xl) ()) ())
+           (fun x_m ->
+             (fun f_ () -> f_
+               ((hms_extract (ht_lookup (_B1, _B2, _B3) (heap_list _A))
+                  (ht_delete (_B1, _B2, _B3) (heap_list _A)) x_m a1d)
+               ()) ())
+               (fun a ->
+                 (match a
+                   with (None, a2f) ->
+                     (fun f_ () -> f_ ((copyi xl) ()) ())
+                       (fun xf ->
+                         (fun f_ () -> f_
+                           ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m [xf]
+                              a2f)
+                           ()) ())
+                           (fun x_o ->
+                             (fun () ->
+                               (x_o, (op_list_prepend xl a1e, false)))))
+                   | (Some x_o, a2f) ->
+                     (fun f_ () -> f_ ((lso_bex_impl (lei xl) x_o) ()) ())
+                       (fun x_p ->
+                         (if x_p
+                           then (fun f_ () -> f_
+                                  ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m
+                                     x_o a2f)
                                   ()) ())
-                                  (fun x_p ->
-                                    (fun () ->
-                                      (x_p,
-(op_list_prepend xk a1e, false)))))))))))))))
-                     (a1a, (a2c, false))))))))
+                                  (fun x_q -> (fun () -> (x_q, (a1e, false))))
+                           else (fun f_ () -> f_ ((copyi xl) ()) ())
+                                  (fun xf ->
+                                    (fun f_ () -> f_
+                                      ((ht_update (_B1, _B2, _B3) (heap_list _A)
+ x_m (xf :: x_o) a2f)
+                                      ()) ())
+                                      (fun x_q ->
+(fun () -> (x_q, (op_list_prepend xl a1e, false)))))))))))))))
+                         (a1a, (a2c, false)))))))))
                                     (a1, (a2, false)))
                                  ()) ())
                                  (fun (a1a, (_, a2b)) ->
@@ -2301,8 +2488,7 @@ let rec ran_of_map_impl (_A1, _A2, _A3) _B
                    ((hms_extract (ht_lookup (_A1, _A2, _A3) _B)
                       (ht_delete (_A1, _A2, _A3) _B) x_a a2)
                    ()) ())
-                   (fun (a1a, b) ->
-                     (fun () -> (op_list_prepend (the a1a) a1, b)))))
+                   (fun (a1a, b) -> (fun () -> (the a1a :: a1, b)))))
            ([], xi))
         ()) ())
         (fun (a1, _) -> (fun () -> a1)));;
@@ -2360,7 +2546,7 @@ let rec constraint_pair = function LTa (x, m) -> (x, m)
 
 let rec collect_clock_pairs cc = image constraint_pair (Set cc);;
 
-let rec clkp_set
+let rec clkp_seta
   inv prog =
     sup_set (equal_prod equal_nat equal_int)
       (sup_seta (equal_prod equal_nat equal_int)
@@ -2369,7 +2555,7 @@ let rec clkp_set
 
 let rec clk_set
   inv prog =
-    sup_set equal_nat (image fst (clkp_set inv prog))
+    sup_set equal_nat (image fst (clkp_seta inv prog))
       (image fst (collect_store prog));;
 
 let rec pre_checks
@@ -2402,7 +2588,7 @@ let rec pre_checks
             all_interval_nat (fun q -> not (null (nth (nth trans q) zero_nata)))
               zero_nata p);
           ("Clocks >= 0",
-            ball (clkp_set inv prog) (fun (_, a) -> less_eq_int zero_inta a));
+            ball (clkp_seta inv prog) (fun (_, a) -> less_eq_int zero_inta a));
           ("Set of clocks is {1..m}",
             eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
               (Set (upt one_nata (suc m))));
@@ -2571,7 +2757,7 @@ let rec leadsto_impl_0 _A (_B1, _B2, _B3)
                   (fun () -> (a2h, (a2g, a2f)))))))))))))))))))))))))));;
 
 let rec leadsto_impl _A (_B1, _B2, _B3)
-  copyia succsia a_0ia leia keyia succs1i emptyi pi qi =
+  copyia succsia a_0ia leia keyia succs1i emptyi pi qi tracei =
     (fun f_ () -> f_ (a_0ia ()) ())
       (fun x ->
         (fun f_ () -> f_ ((emptyi x) ()) ())
@@ -2622,44 +2808,58 @@ let rec leadsto_impl _A (_B1, _B2, _B3)
                                       (if x_e then (fun () -> (a1a, (a2c, a2b)))
 else (fun f_ () -> f_ (tRACE_impl ()) ())
        (fun _ ->
-         (fun f_ () -> f_ ((succs1i a1c) ()) ())
-           (fun x_g ->
-             imp_nfoldli x_g (fun (_, (_, b)) -> (fun () -> (not b)))
-               (fun xk (a1d, (a1e, _)) ->
-                 (fun f_ () -> f_ ((emptyi xk) ()) ())
-                   (fun x_j ->
-                     (if x_j then (fun () -> (a1d, (a1e, false)))
-                       else (fun f_ () -> f_ ((keyia xk) ()) ())
-                              (fun x_l ->
-                                (fun f_ () -> f_
-                                  ((hms_extract
-                                     (ht_lookup (_B1, _B2, _B3) (heap_list _A))
-                                     (ht_delete (_B1, _B2, _B3) (heap_list _A))
-                                     x_l a1d)
-                                  ()) ())
-                                  (fun a ->
-                                    (match a
-                                      with (None, a2f) ->
-(fun f_ () -> f_ ((copyia xk) ()) ())
-  (fun xf ->
-    (fun f_ () -> f_ ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l [xf] a2f)
-      ()) ())
-      (fun x_n -> (fun () -> (x_n, (op_list_prepend xk a1e, false)))))
-                                      | (Some x_n, a2f) ->
-(fun f_ () -> f_ ((lso_bex_impl (leia xk) x_n) ()) ())
-  (fun x_o ->
-    (if x_o
-      then (fun f_ () -> f_
-             ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l x_n a2f) ()) ())
-             (fun x_p -> (fun () -> (x_p, (a1e, false))))
-      else (fun f_ () -> f_ ((copyia xk) ()) ())
-             (fun xf ->
-               (fun f_ () -> f_
-                 ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l (xf :: x_n) a2f)
-                 ()) ())
-                 (fun x_p ->
-                   (fun () -> (x_p, (op_list_prepend xk a1e, false)))))))))))))
-               (a1a, (a2c, false))))))))
+         (fun f_ () -> f_
+           ((tracei
+               [Chara (true, false, true, false, false, false, true, false);
+                 Chara (false, false, false, true, true, true, true, false);
+                 Chara (false, false, false, false, true, true, true, false);
+                 Chara (false, false, true, true, false, true, true, false);
+                 Chara (true, true, true, true, false, true, true, false);
+                 Chara (false, true, false, false, true, true, true, false);
+                 Chara (true, false, true, false, false, true, true, false);
+                 Chara (false, false, true, false, false, true, true, false)]
+              a1c)
+           ()) ())
+           (fun _ ->
+             (fun f_ () -> f_ ((succs1i a1c) ()) ())
+               (fun x_h ->
+                 imp_nfoldli x_h (fun (_, (_, b)) -> (fun () -> (not b)))
+                   (fun xl (a1d, (a1e, _)) ->
+                     (fun f_ () -> f_ ((emptyi xl) ()) ())
+                       (fun x_k ->
+                         (if x_k then (fun () -> (a1d, (a1e, false)))
+                           else (fun f_ () -> f_ ((keyia xl) ()) ())
+                                  (fun x_m ->
+                                    (fun f_ () -> f_
+                                      ((hms_extract
+ (ht_lookup (_B1, _B2, _B3) (heap_list _A))
+ (ht_delete (_B1, _B2, _B3) (heap_list _A)) x_m a1d)
+                                      ()) ())
+                                      (fun a ->
+(match a
+  with (None, a2f) ->
+    (fun f_ () -> f_ ((copyia xl) ()) ())
+      (fun xf ->
+        (fun f_ () -> f_
+          ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m [xf] a2f) ()) ())
+          (fun x_o -> (fun () -> (x_o, (op_list_prepend xl a1e, false)))))
+  | (Some x_o, a2f) ->
+    (fun f_ () -> f_ ((lso_bex_impl (leia xl) x_o) ()) ())
+      (fun x_p ->
+        (if x_p
+          then (fun f_ () -> f_
+                 ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m x_o a2f) ()) ())
+                 (fun x_q -> (fun () -> (x_q, (a1e, false))))
+          else (fun f_ () -> f_ ((copyia xl) ()) ())
+                 (fun xf ->
+                   (fun f_ () -> f_
+                     ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m (xf :: x_o)
+                        a2f)
+                     ()) ())
+                     (fun x_q ->
+                       (fun () ->
+                         (x_q, (op_list_prepend xl a1e, false)))))))))))))
+                   (a1a, (a2c, false)))))))))
                               (xe, (op_list_prepend xab [], false)))
                            ()) ())
                            (fun (a1a, (_, a2b)) ->
@@ -2815,6 +3015,20 @@ let rec glist_delete_aux
           else glist_delete_aux eq x ys (y :: asa));;
 
 let rec glist_delete eq x l = glist_delete_aux eq x l [];;
+
+let rec showsp_prod
+  s1 s2 p (x, y) =
+    comp (comp (comp (comp (shows_string
+                             [Chara (false, false, false, true, false, true,
+                                      false, false)])
+                       (s1 one_nata x))
+                 (shows_string
+                   [Chara (false, false, true, true, false, true, false, false);
+                     Chara (false, false, false, false, false, true, false,
+                             false)]))
+           (s2 one_nata y))
+      (shows_string
+        [Chara (true, false, false, true, false, true, false, false)]);;
 
 let rec is_Nil a = (match a with [] -> true | _ :: _ -> false);;
 
@@ -2990,6 +3204,14 @@ let rec check_conj_block
               (plus_nata pca (nat_of_integer (Big_int.big_int_of_int 2))))
             (Some pc));;
 
+let rec mina _A
+  (Set (x :: xs)) =
+    fold (min _A.order_linorder.preorder_order.ord_preorder) xs x;;
+
+let rec maxa _A
+  (Set (x :: xs)) =
+    fold (max _A.order_linorder.preorder_order.ord_preorder) xs x;;
+
 let rec steps_approx
   n prog pc =
     (if equal_nata n zero_nata
@@ -3042,14 +3264,6 @@ let rec steps_approx
                           (sup_seta equal_nat
                             (image (steps_approx (minus_nat n one_nata) prog)
                               succs))))));;
-
-let rec mina _A
-  (Set (x :: xs)) =
-    fold (min _A.order_linorder.preorder_order.ord_preorder) xs x;;
-
-let rec maxa _A
-  (Set (x :: xs)) =
-    fold (max _A.order_linorder.preorder_order.ord_preorder) xs x;;
 
 let rec conjunction_check
   p pc_s n =
@@ -3188,7 +3402,7 @@ let rec check_pre
                     (all_interval_nat
                        (fun q -> not (null (nth (nth trans q) zero_nata)))
                        zero_nata p &&
-                      (ball (clkp_set inv prog)
+                      (ball (clkp_seta inv prog)
                          (fun (_, a) -> less_eq_int zero_inta a) &&
                         (eq_set (card_UNIV_nat, equal_nat) (clk_set inv prog)
                            (Set (upt one_nata (suc m))) &&
@@ -3258,7 +3472,7 @@ let rec collect_cexpa
               insert (equal_acconstraint equal_nat equal_int) ac bot_set))
         (image (nth prog) (steps_approx max_steps prog pc)));;
 
-let rec clkp_seta
+let rec clkp_set
   max_steps inv trans prog i l =
     sup_set (equal_prod equal_nat equal_int)
       (collect_clock_pairs (nth (nth inv i) l))
@@ -3362,7 +3576,7 @@ let rec uPPAAL_Reachability_Problem_precompiled_ceiling_axioms
       (fun i ->
         all_interval_nat
           (fun l ->
-            ball (clkp_seta max_steps inv trans prog i l)
+            ball (clkp_set max_steps inv trans prog i l)
               (fun (x, ma) ->
                 less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
           zero_nata (size_list (nth trans i)))
@@ -3571,6 +3785,196 @@ let rec trans_i_map
                      | Sil ab -> Some (g, (ab, (m, l))))))))
       trans;;
 
+let rec make_string (_A1, _A2, _A3)
+  show_clock show_num e i j =
+    (if equal_nata i j
+      then (if less_DBMEntry
+                 _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
+                 e (zero_DBMEntrya
+                     _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add)
+             then Some [Chara (true, false, true, false, false, false, true,
+                                false);
+                         Chara (true, false, true, true, false, false, true,
+                                 false);
+                         Chara (false, false, false, false, true, false, true,
+                                 false);
+                         Chara (false, false, true, false, true, false, true,
+                                 false);
+                         Chara (true, false, false, true, true, false, true,
+                                 false)]
+             else None)
+      else (if equal_nata i zero_nata
+             then (match e
+                    with Le a ->
+                      (if eq _A2 a
+                            (zero _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add)
+                        then None
+                        else Some (show_clock j @
+                                    [Chara (false, false, false, false, false,
+     true, false, false);
+                                      Chara
+(false, true, true, true, true, true, false, false);
+                                      Chara
+(true, false, true, true, true, true, false, false);
+                                      Chara
+(false, false, false, false, false, true, false, false)] @
+                                      show_num
+(uminus
+  _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.uminus_group_add
+  a)))
+                    | Lt a ->
+                      Some (show_clock j @
+                             [Chara (false, false, false, false, false, true,
+                                      false, false);
+                               Chara (false, true, true, true, true, true,
+                                       false, false);
+                               Chara (false, false, false, false, false, true,
+                                       false, false)] @
+                               show_num
+                                 (uminus
+                                   _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.uminus_group_add
+                                   a))
+                    | INF -> None)
+             else (if equal_nata j zero_nata
+                    then (match e
+                           with Le a ->
+                             Some (show_clock i @
+                                    [Chara (false, false, false, false, false,
+     true, false, false);
+                                      Chara
+(false, false, true, true, true, true, false, false);
+                                      Chara
+(true, false, true, true, true, true, false, false);
+                                      Chara
+(false, false, false, false, false, true, false, false)] @
+                                      show_num a)
+                           | Lt a ->
+                             Some (show_clock i @
+                                    [Chara (false, false, false, false, false,
+     true, false, false);
+                                      Chara
+(false, false, true, true, true, true, false, false);
+                                      Chara
+(false, false, false, false, false, true, false, false)] @
+                                      show_num a)
+                           | INF -> None)
+                    else (match e
+                           with Le a ->
+                             Some (show_clock i @
+                                    [Chara (false, false, false, false, false,
+     true, false, false);
+                                      Chara
+(true, false, true, true, false, true, false, false);
+                                      Chara
+(false, false, false, false, false, true, false, false)] @
+                                      show_clock j @
+[Chara (false, false, false, false, false, true, false, false);
+  Chara (false, false, true, true, true, true, false, false);
+  Chara (true, false, true, true, true, true, false, false);
+  Chara (false, false, false, false, false, true, false, false)] @
+  show_num a)
+                           | Lt a ->
+                             Some (show_clock i @
+                                    [Chara (false, false, false, false, false,
+     true, false, false);
+                                      Chara
+(true, false, true, true, false, true, false, false);
+                                      Chara
+(false, false, false, false, false, true, false, false)] @
+                                      show_clock j @
+[Chara (false, false, false, false, false, true, false, false);
+  Chara (false, false, true, true, true, true, false, false);
+  Chara (false, false, false, false, false, true, false, false)] @
+  show_num a)
+                           | INF -> None))));;
+
+let rec intersperse
+  sep x1 = match sep, x1 with
+    sep, x :: y :: xs -> x :: sep :: intersperse sep (y :: xs)
+    | uu, [] -> []
+    | uu, [v] -> [v];;
+
+let rec dbm_list_to_string (_A1, _A2, _A3)
+  n show_clock show_num xs =
+    app (comp (comp (comp (comp concat
+                            (intersperse
+                              [Chara (false, false, true, true, false, true,
+                                       false, false);
+                                Chara (false, false, false, false, false, true,
+false, false)]))
+                      rev)
+                snd)
+          snd)
+      (fold (fun e (i, (j, acc)) ->
+              (let v = make_string (_A1, _A2, _A3) show_clock show_num e i j in
+               let ja = modulo_nat (plus_nata j one_nata) (plus_nata n one_nata)
+                 in
+               let ia =
+                 (if equal_nata ja zero_nata then plus_nata i one_nata else i)
+                 in
+                (match v with None -> (ia, (ja, acc))
+                  | Some s -> (ia, (ja, s :: acc)))))
+        xs (zero_nata, (zero_nata, [])));;
+
+let rec dbm_to_list_impl (_A1, _A2)
+  n = (fun xi ->
+        (fun f_ () -> f_
+          ((imp_fora zero_nata (suc n)
+             (fun xc ->
+               imp_fora zero_nata (suc n)
+                 (fun xe sigma ->
+                   (fun f_ () -> f_ ((mtx_get _A2 (suc n) xi (xc, xe)) ()) ())
+                     (fun x_e -> (fun () -> (x_e :: sigma)))))
+             [])
+          ()) ())
+          (fun x -> (fun () -> (op_list_rev x))));;
+
+let rec show_dbm_impl (_A1, _A2, _A3)
+  n show_clock show_num =
+    (fun xi ->
+      (fun f_ () -> f_
+        ((dbm_to_list_impl
+           ((linordered_ab_monoid_add_DBMEntry
+              (_A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add,
+                _A2)),
+             (heap_DBMEntry _A3))
+           n xi)
+        ()) ())
+        (fun x ->
+          (fun () ->
+            (dbm_list_to_string (_A1, _A2, _A3) n show_clock show_num x))));;
+
+let rec tracei (_B1, _B2, _B3, _B4)
+  n show_state show_clock typea =
+    (fun (l, m) ->
+      (let st = show_state l in
+        (fun f_ () -> f_
+          ((show_dbm_impl (_B1, _B2, _B3) n show_clock
+             (fun x -> shows_prec _B4 zero_nata x []) m)
+          ()) ())
+          (fun ma ->
+            (let s =
+               typea @
+                 [Chara (false, true, false, true, true, true, false, false);
+                   Chara (false, false, false, false, false, true, false,
+                           false);
+                   Chara (false, false, false, true, false, true, false,
+                           false)] @
+                   st @ [Chara (false, false, true, true, false, true, false,
+                                 false);
+                          Chara (false, false, false, false, false, true, false,
+                                  false);
+                          Chara (false, false, true, true, true, true, false,
+                                  false)] @
+                          ma @ [Chara (false, true, true, true, true, true,
+false, false);
+                                 Chara (true, false, false, true, false, true,
+ false, false)]
+               in
+             let sa = implode s in
+             let _ = println sa in
+              (fun () -> ())))));;
+
 let rec repair_pair_impl (_A1, _A2)
   n = (fun ai bia bi ->
         (fun f_ () -> f_ ((fwi_impl (_A1, _A2) n ai bi) ()) ())
@@ -3648,6 +4052,8 @@ let rec fw_impl_int
             (fun xd ->
               imp_fora zero_nata (plus_nata n one_nata)
                 (fun xf sigma -> fw_upd_impl_int n sigma xb xd xf)));;
+
+let rec shows_prec_prod _A _B = showsp_prod (shows_prec _A) (shows_prec _B);;
 
 let rec dbm_subset_impl (_A1, _A2, _A3)
   n = (fun ai bi ->
@@ -3978,7 +4384,7 @@ let rec dbm_subset_fed_impl
                                     (fun () -> (op_list_is_empty x_c)))))))));;
 
 let rec check_passed_impl _A (_B1, _B2, _B3)
-  succsi a_0i fi lei emptyi keyi copyi qi =
+  succsi a_0i fi lei emptyi keyi copyi tracei qi =
     (fun f_ () -> f_ (a_0i ()) ())
       (fun x ->
         (fun f_ () -> f_ ((emptyi x) ()) ())
@@ -4028,52 +4434,67 @@ else (fun f_ () -> f_ (a_0i ()) ())
   (if x_e then (fun () -> (a1a, (a2c, a2b)))
     else (fun f_ () -> f_ (tRACE_impl ()) ())
            (fun _ ->
-             (fun f_ () -> f_ ((succsi a1c) ()) ())
-               (fun x_g ->
-                 imp_nfoldli x_g (fun (_, (_, b)) -> (fun () -> (not b)))
-                   (fun xk (a1d, (a1e, _)) ->
-                     (fun f_ () -> f_ ((emptyi xk) ()) ())
-                       (fun x_j ->
-                         (if x_j then (fun () -> (a1d, (a1e, false)))
-                           else (fun f_ () -> f_ ((fi xk) ()) ())
-                                  (fun x_k ->
-                                    (if x_k then (fun () -> (a1d, (a1e, true)))
-                                      else (fun f_ () -> f_ ((keyi xk) ()) ())
-     (fun x_l ->
-       (fun f_ () -> f_
-         ((hms_extract (ht_lookup (_B1, _B2, _B3) (heap_list _A))
-            (ht_delete (_B1, _B2, _B3) (heap_list _A)) x_l a1d)
-         ()) ())
-         (fun a ->
-           (match a
-             with (None, a2f) ->
-               (fun f_ () -> f_ ((copyi xk) ()) ())
-                 (fun xf ->
-                   (fun f_ () -> f_
-                     ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l [xf] a2f)
-                     ()) ())
-                     (fun x_n ->
-                       (fun () -> (x_n, (op_list_prepend xk a1e, false)))))
-             | (Some x_n, a2f) ->
-               (fun f_ () -> f_ ((lso_bex_impl (lei xk) x_n) ()) ())
-                 (fun x_o ->
-                   (if x_o
-                     then (fun f_ () -> f_
-                            ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l x_n
-                               a2f)
-                            ()) ())
-                            (fun x_p -> (fun () -> (x_p, (a1e, false))))
-                     else (fun f_ () -> f_ ((copyi xk) ()) ())
-                            (fun xf ->
-                              (fun f_ () -> f_
-                                ((ht_update (_B1, _B2, _B3) (heap_list _A) x_l
-                                   (xf :: x_n) a2f)
+             (fun f_ () -> f_
+               ((tracei
+                   [Chara (true, false, true, false, false, false, true, false);
+                     Chara (false, false, false, true, true, true, true, false);
+                     Chara (false, false, false, false, true, true, true,
+                             false);
+                     Chara (false, false, true, true, false, true, true, false);
+                     Chara (true, true, true, true, false, true, true, false);
+                     Chara (false, true, false, false, true, true, true, false);
+                     Chara (true, false, true, false, false, true, true, false);
+                     Chara (false, false, true, false, false, true, true,
+                             false)]
+                  a1c)
+               ()) ())
+               (fun _ ->
+                 (fun f_ () -> f_ ((succsi a1c) ()) ())
+                   (fun x_h ->
+                     imp_nfoldli x_h (fun (_, (_, b)) -> (fun () -> (not b)))
+                       (fun xl (a1d, (a1e, _)) ->
+                         (fun f_ () -> f_ ((emptyi xl) ()) ())
+                           (fun x_k ->
+                             (if x_k then (fun () -> (a1d, (a1e, false)))
+                               else (fun f_ () -> f_ ((fi xl) ()) ())
+                                      (fun x_l ->
+(if x_l then (fun () -> (a1d, (a1e, true)))
+  else (fun f_ () -> f_ ((keyi xl) ()) ())
+         (fun x_m ->
+           (fun f_ () -> f_
+             ((hms_extract (ht_lookup (_B1, _B2, _B3) (heap_list _A))
+                (ht_delete (_B1, _B2, _B3) (heap_list _A)) x_m a1d)
+             ()) ())
+             (fun a ->
+               (match a
+                 with (None, a2f) ->
+                   (fun f_ () -> f_ ((copyi xl) ()) ())
+                     (fun xf ->
+                       (fun f_ () -> f_
+                         ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m [xf]
+                            a2f)
+                         ()) ())
+                         (fun x_o ->
+                           (fun () -> (x_o, (op_list_prepend xl a1e, false)))))
+                 | (Some x_o, a2f) ->
+                   (fun f_ () -> f_ ((lso_bex_impl (lei xl) x_o) ()) ())
+                     (fun x_p ->
+                       (if x_p
+                         then (fun f_ () -> f_
+                                ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m
+                                   x_o a2f)
                                 ()) ())
-                                (fun x_p ->
-                                  (fun () ->
-                                    (x_p, (op_list_prepend xk a1e,
-    false)))))))))))))))
-                   (a1a, (a2c, false))))))))
+                                (fun x_q -> (fun () -> (x_q, (a1e, false))))
+                         else (fun f_ () -> f_ ((copyi xl) ()) ())
+                                (fun xf ->
+                                  (fun f_ () -> f_
+                                    ((ht_update (_B1, _B2, _B3) (heap_list _A)
+                                       x_m (xf :: x_o) a2f)
+                                    ()) ())
+                                    (fun x_q ->
+                                      (fun () ->
+(x_q, (op_list_prepend xl a1e, false)))))))))))))))
+                       (a1a, (a2c, false)))))))))
                                   (xe, (op_list_prepend xad [], false)))
                                ()) ())
                                (fun (a1a, (_, a2b)) ->
@@ -4332,6 +4753,13 @@ uminus_int, equal_int, heap_int)
            ()) ())
            (fun x -> (fun () -> (not x))))
        in
+     let trace =
+       tracei (linordered_ab_group_add_int, equal_int, heap_int, show_int) m
+         (fun x ->
+           shows_prec_prod (show_list show_nat) (show_list show_int) zero_nata x
+             [])
+         (fun x -> shows_prec_nat zero_nata x [])
+       in
       (fun f_ () -> f_ ((fun () -> (not (op_list_is_empty (iba (init p, s_0)))))
         ()) ())
         (fun r1 ->
@@ -4346,7 +4774,7 @@ uminus_int, equal_int, heap_int)
                         (hashable_prod (hashable_list hashable_nat)
                           (hashable_list hashable_int)),
                         (heap_prod (heap_list heap_nat) (heap_list heap_int)))
-                      succs start final suba empty key copy pa)
+                      succs start final suba empty key copy trace pa)
                    ()) ())
                    (fun a -> (fun () -> a))
             else (fun () -> true))));;
@@ -4378,7 +4806,7 @@ let rec ceiling_checks
                   (fun i ->
                     all_interval_nat
                       (fun l ->
-                        ball (clkp_seta max_steps inv trans prog i l)
+                        ball (clkp_set max_steps inv trans prog i l)
                           (fun (xa, ma) ->
                             less_eq_int ma
                               (int_of_nat (nth (nth (nth k i) l) xa))))
@@ -4577,35 +5005,46 @@ let rec hd_of_formula = function EX phi -> check_bexp phi
 
 let rec reachability_checker
   p m max_steps inv trans prog bounds pred s_0 na k formula =
-    (let i = upt zero_nata (plus_nata m one_nata) in
-     let ia = Set (upt zero_nata p) in
-     let ib = upt zero_nata na in
-     let ic = upt zero_nata p in
-     let id = IArray prog in
-     let ie = IArray (map (map_option stript) prog) in
-     let ifa = IArray (map (map_option stripf) prog) in
-     let ig = size_list prog in
-     let ida = (fun pc -> (if less_nat pc ig then sub id pc else None)) in
-     let iea = (fun pc -> (if less_nat pc ig then sub ie pc else None)) in
-     let ifb = (fun pc -> (if less_nat pc ig then sub ifa pc else None)) in
-     let iga = IArray bounds in
-     let ih = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
-     let ii = IArray (map (fun a -> IArray a) (trans_in_map trans)) in
-     let ij = IArray (map (fun a -> IArray a) (trans_out_map trans)) in
-     let ik = IArray (map (fun a -> IArray a) inv) in
-     let iba =
+    (let x = upt zero_nata (plus_nata m one_nata) in
+     let xa = Set (upt zero_nata p) in
+     let xb = upt zero_nata na in
+     let xc = upt zero_nata p in
+     let prog_ia = IArray prog in
+     let progt_ia = IArray (map (map_option stript) prog) in
+     let progf_ia = IArray (map (map_option stripf) prog) in
+     let len_prog = size_list prog in
+     let proga =
+       (fun pc -> (if less_nat pc len_prog then sub prog_ia pc else None)) in
+     let pt =
+       (fun pc -> (if less_nat pc len_prog then sub progt_ia pc else None)) in
+     let pf =
+       (fun pc -> (if less_nat pc len_prog then sub progf_ia pc else None)) in
+     let bounds_ia = IArray bounds in
+     let trans_i_mapa = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
+     let trans_in_mapa = IArray (map (fun a -> IArray a) (trans_in_map trans))
+       in
+     let trans_out_mapa = IArray (map (fun a -> IArray a) (trans_out_map trans))
+       in
+     let inv_ia = IArray (map (fun a -> IArray a) inv) in
+     let trans_fun =
        (fun l ->
          (let (la, s) = l in
-          let ina = all_actions_by_state_impl ic (map (fun _ -> []) ib) ii la in
-          let out = all_actions_by_state_impl ic (map (fun _ -> []) ib) ij la in
+          let ina =
+            all_actions_by_state_impl xc (map (fun _ -> []) xb) trans_in_mapa la
+            in
+          let out =
+            all_actions_by_state_impl xc (map (fun _ -> []) xb) trans_out_mapa
+              la
+            in
            maps (fun a ->
-                  pairs_by_action_impl p max_steps pred ifb iea ida iga (la, s)
-                    (nth out a) (nth ina a))
-             ib) @
-           maps (trans_i_from_impl p max_steps pred bounds ifb iea ida iga ih l)
-             ic)
+                  pairs_by_action_impl p max_steps pred pf pt proga bounds_ia
+                    (la, s) (nth out a) (nth ina a))
+             xb) @
+           maps (trans_i_from_impl p max_steps pred bounds pf pt proga bounds_ia
+                  trans_i_mapa l)
+             xc)
        in
-     let idb =
+     let k_i =
        IArray
          (map (comp (fun a -> IArray a)
                 (map (comp (fun a -> IArray a) (map int_of_nat))))
@@ -4628,7 +5067,7 @@ let rec reachability_checker
           let copy =
             (fun (a1, a2) ->
               (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ()) ())
-                (fun x -> (fun () -> (a1, x))))
+                (fun xd -> (fun () -> (a1, xd))))
             in
           let start =
             (fun f_ () -> f_
@@ -4643,24 +5082,24 @@ let rec reachability_checker
             in
           let succs =
             (fun (a1, a2) ->
-              imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
-                (fun xc sigma ->
-                  (let (a1a, (_, (a1c, a2c))) = xc in
+              imp_nfoldli (trans_fun a1) (fun _ -> (fun () -> true))
+                (fun xca sigma ->
+                  (let (a1a, (_, (a1c, a2c))) = xca in
                     (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) a2)
                       ()) ())
-                      (fun x ->
+                      (fun xba ->
                         (fun f_ () -> f_
                           (((fun f_ () -> f_
                               ((up_canonical_upd_impl
                                  (linordered_cancel_ab_monoid_add_int, heap_int)
-                                 m x m)
+                                 m xba m)
                               ()) ())
-                             (fun xa ->
+                             (fun xbb ->
                                (fun f_ () -> f_
                                  ((imp_nfoldli
                                     (let (l, _) = a1 in
                                       maps
-(fun il -> sub (sub ik il) (nth l il)) ic)
+(fun i -> sub (sub inv_ia i) (nth l i)) xc)
                                     (fun _ -> (fun () -> true))
                                     (fun ai bi ->
                                       (fun f_ () -> f_
@@ -4668,22 +5107,22 @@ let rec reachability_checker
    (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m ai
    bi)
 ()) ())
-(fun xb ->
+(fun xd ->
   repair_pair_impl
     ((linordered_ab_monoid_add_DBMEntry
        (linordered_cancel_ab_monoid_add_int, equal_int)),
       (heap_DBMEntry heap_int))
-    m xb zero_nata (constraint_clk ai)))
-                                    xa)
+    m xd zero_nata (constraint_clk ai)))
+                                    xbb)
                                  ()) ())
-                                 (fun xb ->
+                                 (fun xbc ->
                                    (fun f_ () -> f_
                                      ((check_diag_impla
-(linordered_cancel_ab_monoid_add_int, heap_int) m m xb)
+(linordered_cancel_ab_monoid_add_int, heap_int) m m xbc)
                                      ()) ())
-                                     (fun xaa ->
+                                     (fun xd ->
                                        (fun f_ () -> f_
- ((if xaa then (fun () -> xb)
+ ((if xd then (fun () -> xbc)
     else imp_nfoldli a1a (fun _ -> (fun () -> true))
            (fun ai bi ->
              (fun f_ () -> f_
@@ -4692,33 +5131,33 @@ let rec reachability_checker
                     heap_int)
                   m ai bi)
                ()) ())
-               (fun xd ->
+               (fun xe ->
                  repair_pair_impl
                    ((linordered_ab_monoid_add_DBMEntry
                       (linordered_cancel_ab_monoid_add_int, equal_int)),
                      (heap_DBMEntry heap_int))
-                   m xd zero_nata (constraint_clk ai)))
-           xb)
+                   m xe zero_nata (constraint_clk ai)))
+           xbc)
  ()) ())
  (fun x_a ->
    (fun f_ () -> f_
      ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m x_a)
      ()) ())
-     (fun xd ->
+     (fun xbd ->
        (fun f_ () -> f_
-         ((if xd then (fun () -> x_a)
+         ((if xbd then (fun () -> x_a)
             else (fun f_ () -> f_
                    ((imp_nfoldli a1c (fun _ -> (fun () -> true))
-                      (fun xca sigmaa ->
+                      (fun xcb sigmaa ->
                         reset_canonical_upd_impl
                           (linordered_cancel_ab_monoid_add_int, uminus_int,
                             heap_int)
-                          m sigmaa m xca zero_inta)
+                          m sigmaa m xcb zero_inta)
                       x_a)
                    ()) ())
                    (imp_nfoldli
                      (let (l, _) = a2c in
-                       maps (fun il -> sub (sub ik il) (nth l il)) ic)
+                       maps (fun i -> sub (sub inv_ia i) (nth l i)) xc)
                      (fun _ -> (fun () -> true))
                      (fun ai bi ->
                        (fun f_ () -> f_
@@ -4749,20 +5188,27 @@ let rec reachability_checker
                              IArray
                                (map (fun c ->
                                       maxa linorder_int
-(image (fun il -> sub (sub (sub idb il) (nth l il)) c) ia))
-                                 i))
+(image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
+                                 x))
                            m)
                         ()) ())
                         (fw_impl_int m))))))))))
                           ()) ())
-                          (fun xa ->
-                            (fun () -> (op_list_prepend (a2c, xa) sigma))))))
+                          (fun xd ->
+                            (fun () -> (op_list_prepend (a2c, xd) sigma))))))
                 [])
             in
-          let a =
+          let empty =
             (fun (_, a) ->
               check_diag_impl (linordered_cancel_ab_monoid_add_int, heap_int) m
                 a)
+            in
+          let traceia =
+            tracei (linordered_ab_group_add_int, equal_int, heap_int, show_int)
+              m (fun xd ->
+                  shows_prec_prod (show_list show_nat) (show_list show_int)
+                    zero_nata xd [])
+              (fun xd -> shows_prec_nat zero_nata xd [])
             in
            pw_impl
              (heap_prod (heap_prod (heap_list heap_nat) (heap_list heap_int))
@@ -4771,42 +5217,53 @@ let rec reachability_checker
                (hashable_prod (hashable_list hashable_nat)
                  (hashable_list hashable_int)),
                (heap_prod (heap_list heap_nat) (heap_list heap_int)))
-             key copy suba start final succs a)
+             key copy traceia suba start final succs empty)
         ()) ())
-        (fun x ->
-          (fun f_ () -> f_ ((fun () -> ()) ()) ()) (fun _ -> (fun () -> x))));;
+        (fun xd ->
+          (fun f_ () -> f_ ((fun () -> ()) ()) ()) (fun _ -> (fun () -> xd))));;
 
 let rec leadsto_checker
   p m max_steps inv trans prog bounds pred s_0 na k formula =
-    (let i = upt zero_nata (plus_nata m one_nata) in
-     let ia = Set (upt zero_nata p) in
-     let ib = upt zero_nata na in
-     let ic = upt zero_nata p in
-     let id = IArray prog in
-     let ie = IArray (map (map_option stript) prog) in
-     let ifa = IArray (map (map_option stripf) prog) in
-     let ig = size_list prog in
-     let ida = (fun pc -> (if less_nat pc ig then sub id pc else None)) in
-     let iea = (fun pc -> (if less_nat pc ig then sub ie pc else None)) in
-     let ifb = (fun pc -> (if less_nat pc ig then sub ifa pc else None)) in
-     let iga = IArray bounds in
-     let ih = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
-     let ii = IArray (map (fun a -> IArray a) (trans_in_map trans)) in
-     let ij = IArray (map (fun a -> IArray a) (trans_out_map trans)) in
-     let ik = IArray (map (fun a -> IArray a) inv) in
-     let iba =
+    (let x = upt zero_nata (plus_nata m one_nata) in
+     let xa = Set (upt zero_nata p) in
+     let xb = upt zero_nata na in
+     let xc = upt zero_nata p in
+     let prog_ia = IArray prog in
+     let progt_ia = IArray (map (map_option stript) prog) in
+     let progf_ia = IArray (map (map_option stripf) prog) in
+     let len_prog = size_list prog in
+     let proga =
+       (fun pc -> (if less_nat pc len_prog then sub prog_ia pc else None)) in
+     let pt =
+       (fun pc -> (if less_nat pc len_prog then sub progt_ia pc else None)) in
+     let pf =
+       (fun pc -> (if less_nat pc len_prog then sub progf_ia pc else None)) in
+     let bounds_ia = IArray bounds in
+     let trans_i_mapa = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
+     let trans_in_mapa = IArray (map (fun a -> IArray a) (trans_in_map trans))
+       in
+     let trans_out_mapa = IArray (map (fun a -> IArray a) (trans_out_map trans))
+       in
+     let inv_ia = IArray (map (fun a -> IArray a) inv) in
+     let trans_fun =
        (fun l ->
          (let (la, s) = l in
-          let ina = all_actions_by_state_impl ic (map (fun _ -> []) ib) ii la in
-          let out = all_actions_by_state_impl ic (map (fun _ -> []) ib) ij la in
+          let ina =
+            all_actions_by_state_impl xc (map (fun _ -> []) xb) trans_in_mapa la
+            in
+          let out =
+            all_actions_by_state_impl xc (map (fun _ -> []) xb) trans_out_mapa
+              la
+            in
            maps (fun a ->
-                  pairs_by_action_impl p max_steps pred ifb iea ida iga (la, s)
-                    (nth out a) (nth ina a))
-             ib) @
-           maps (trans_i_from_impl p max_steps pred bounds ifb iea ida iga ih l)
-             ic)
+                  pairs_by_action_impl p max_steps pred pf pt proga bounds_ia
+                    (la, s) (nth out a) (nth ina a))
+             xb) @
+           maps (trans_i_from_impl p max_steps pred bounds pf pt proga bounds_ia
+                  trans_i_mapa l)
+             xc)
        in
-     let idb =
+     let k_i =
        IArray
          (map (comp (fun a -> IArray a)
                 (map (comp (fun a -> IArray a) (map int_of_nat))))
@@ -4831,7 +5288,7 @@ let rec leadsto_checker
               (fun (a1, a2) ->
                 (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ())
                   ())
-                  (fun x -> (fun () -> (a1, x))))
+                  (fun xd -> (fun () -> (a1, xd))))
               in
             let start =
               (fun f_ () -> f_
@@ -4852,23 +5309,23 @@ let rec leadsto_checker
               (fun xi ->
                 (fun f_ () -> f_
                   ((let (a1, a2) = xi in
-                     imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
-                       (fun xc sigma ->
-                         (let (a1a, (_, (a1c, a2c))) = xc in
+                     imp_nfoldli (trans_fun a1) (fun _ -> (fun () -> true))
+                       (fun xca sigma ->
+                         (let (a1a, (_, (a1c, a2c))) = xca in
                            (if (let (l, s) = a2c in not (check_bexp psi l s))
                              then (fun f_ () -> f_
                                     ((amtx_copy (heap_DBMEntry heap_int) a2) ())
                                     ())
-                                    (fun x ->
+                                    (fun xba ->
                                       (fun f_ () -> f_
 (((fun f_ () -> f_
-    ((up_canonical_upd_impl (linordered_cancel_ab_monoid_add_int, heap_int) m x
-       m)
+    ((up_canonical_upd_impl (linordered_cancel_ab_monoid_add_int, heap_int) m
+       xba m)
     ()) ())
-   (fun xa ->
+   (fun xbb ->
      (fun f_ () -> f_
        ((imp_nfoldli
-          (let (l, _) = a1 in maps (fun il -> sub (sub ik il) (nth l il)) ic)
+          (let (l, _) = a1 in maps (fun i -> sub (sub inv_ia i) (nth l i)) xc)
           (fun _ -> (fun () -> true))
           (fun ai bi ->
             (fun f_ () -> f_
@@ -4877,22 +5334,22 @@ let rec leadsto_checker
                    heap_int)
                  m ai bi)
               ()) ())
-              (fun xb ->
+              (fun xd ->
                 repair_pair_impl
                   ((linordered_ab_monoid_add_DBMEntry
                      (linordered_cancel_ab_monoid_add_int, equal_int)),
                     (heap_DBMEntry heap_int))
-                  m xb zero_nata (constraint_clk ai)))
-          xa)
+                  m xd zero_nata (constraint_clk ai)))
+          xbb)
        ()) ())
-       (fun xb ->
+       (fun xbc ->
          (fun f_ () -> f_
            ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m
-              m xb)
+              m xbc)
            ()) ())
-           (fun xaa ->
+           (fun xd ->
              (fun f_ () -> f_
-               ((if xaa then (fun () -> xb)
+               ((if xd then (fun () -> xbc)
                   else imp_nfoldli a1a (fun _ -> (fun () -> true))
                          (fun ai bi ->
                            (fun f_ () -> f_
@@ -4901,35 +5358,36 @@ let rec leadsto_checker
                                   uminus_int, equal_int, heap_int)
                                 m ai bi)
                              ()) ())
-                             (fun xd ->
+                             (fun xe ->
                                repair_pair_impl
                                  ((linordered_ab_monoid_add_DBMEntry
                                     (linordered_cancel_ab_monoid_add_int,
                                       equal_int)),
                                    (heap_DBMEntry heap_int))
-                                 m xd zero_nata (constraint_clk ai)))
-                         xb)
+                                 m xe zero_nata (constraint_clk ai)))
+                         xbc)
                ()) ())
                (fun x_a ->
                  (fun f_ () -> f_
                    ((check_diag_impla
                       (linordered_cancel_ab_monoid_add_int, heap_int) m m x_a)
                    ()) ())
-                   (fun xd ->
+                   (fun xbd ->
                      (fun f_ () -> f_
-                       ((if xd then (fun () -> x_a)
+                       ((if xbd then (fun () -> x_a)
                           else (fun f_ () -> f_
                                  ((imp_nfoldli a1c (fun _ -> (fun () -> true))
-                                    (fun xca sigmaa ->
+                                    (fun xcb sigmaa ->
                                       reset_canonical_upd_impl
-(linordered_cancel_ab_monoid_add_int, uminus_int, heap_int) m sigmaa m xca
+(linordered_cancel_ab_monoid_add_int, uminus_int, heap_int) m sigmaa m xcb
 zero_inta)
                                     x_a)
                                  ()) ())
                                  (imp_nfoldli
                                    (let (l, _) = a2c in
-                                     maps (fun il -> sub (sub ik il) (nth l il))
-                                       ic)
+                                     maps (fun i ->
+    sub (sub inv_ia i) (nth l i))
+                                       xc)
                                    (fun _ -> (fun () -> true))
                                    (fun ai bi ->
                                      (fun f_ () -> f_
@@ -4959,22 +5417,22 @@ zero_inta)
    IArray
      (map (fun c ->
             maxa linorder_int
-              (image (fun il -> sub (sub (sub idb il) (nth l il)) c) ia))
-       i))
+              (image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
+       x))
  m)
                                       ()) ())
                                       (fw_impl_int m))))))))))
 ()) ())
-(fun xa -> (fun () -> (op_list_prepend (a2c, xa) sigma))))
+(fun xd -> (fun () -> (op_list_prepend (a2c, xd) sigma))))
                              else (fun () -> sigma))))
                        [])
                   ()) ())
-                  (fun x ->
+                  (fun xd ->
                     (fun f_ () -> f_
-                      ((imp_nfoldli x (fun _ -> (fun () -> true))
-                         (fun xc sigma ->
+                      ((imp_nfoldli xd (fun _ -> (fun () -> true))
+                         (fun xca sigma ->
                            (fun f_ () -> f_
-                             ((let (_, a2) = xc in
+                             ((let (_, a2) = xca in
                                 (fun f_ () -> f_
                                   ((check_diag_impl
                                      (linordered_cancel_ab_monoid_add_int,
@@ -4985,31 +5443,31 @@ zero_inta)
                              ()) ())
                              (fun x_c ->
                                (fun () ->
-                                 (if x_c then op_list_prepend xc sigma
+                                 (if x_c then op_list_prepend xca sigma
                                    else sigma))))
                          [])
                       ()) ())
-                      (fun xa -> (fun () -> (op_list_rev xa)))))
+                      (fun xe -> (fun () -> (op_list_rev xe)))))
               in
             let succsa =
               (fun xi ->
                 (fun f_ () -> f_
                   ((let (a1, a2) = xi in
-                     imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
-                       (fun xc sigma ->
-                         (let (a1a, (_, (a1c, a2c))) = xc in
+                     imp_nfoldli (trans_fun a1) (fun _ -> (fun () -> true))
+                       (fun xca sigma ->
+                         (let (a1a, (_, (a1c, a2c))) = xca in
                            (fun f_ () -> f_
                              ((amtx_copy (heap_DBMEntry heap_int) a2) ()) ())
-                             (fun x ->
+                             (fun xba ->
                                (fun f_ () -> f_
                                  (((fun f_ () -> f_
                                      ((up_canonical_upd_impl
-(linordered_cancel_ab_monoid_add_int, heap_int) m x m)
+(linordered_cancel_ab_monoid_add_int, heap_int) m xba m)
                                      ()) ())
-                                    (fun xa ->
+                                    (fun xbb ->
                                       (fun f_ () -> f_
 ((imp_nfoldli
-   (let (l, _) = a1 in maps (fun il -> sub (sub ik il) (nth l il)) ic)
+   (let (l, _) = a1 in maps (fun i -> sub (sub inv_ia i) (nth l i)) xc)
    (fun _ -> (fun () -> true))
    (fun ai bi ->
      (fun f_ () -> f_
@@ -5017,21 +5475,21 @@ zero_inta)
           (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int)
           m ai bi)
        ()) ())
-       (fun xb ->
+       (fun xd ->
          repair_pair_impl
            ((linordered_ab_monoid_add_DBMEntry
               (linordered_cancel_ab_monoid_add_int, equal_int)),
              (heap_DBMEntry heap_int))
-           m xb zero_nata (constraint_clk ai)))
-   xa)
+           m xd zero_nata (constraint_clk ai)))
+   xbb)
 ()) ())
-(fun xb ->
+(fun xbc ->
   (fun f_ () -> f_
-    ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m xb)
+    ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m xbc)
     ()) ())
-    (fun xaa ->
+    (fun xd ->
       (fun f_ () -> f_
-        ((if xaa then (fun () -> xb)
+        ((if xd then (fun () -> xbc)
            else imp_nfoldli a1a (fun _ -> (fun () -> true))
                   (fun ai bi ->
                     (fun f_ () -> f_
@@ -5040,34 +5498,34 @@ zero_inta)
                            equal_int, heap_int)
                          m ai bi)
                       ()) ())
-                      (fun xd ->
+                      (fun xe ->
                         repair_pair_impl
                           ((linordered_ab_monoid_add_DBMEntry
                              (linordered_cancel_ab_monoid_add_int, equal_int)),
                             (heap_DBMEntry heap_int))
-                          m xd zero_nata (constraint_clk ai)))
-                  xb)
+                          m xe zero_nata (constraint_clk ai)))
+                  xbc)
         ()) ())
         (fun x_a ->
           (fun f_ () -> f_
             ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m
                m x_a)
             ()) ())
-            (fun xd ->
+            (fun xbd ->
               (fun f_ () -> f_
-                ((if xd then (fun () -> x_a)
+                ((if xbd then (fun () -> x_a)
                    else (fun f_ () -> f_
                           ((imp_nfoldli a1c (fun _ -> (fun () -> true))
-                             (fun xca sigmaa ->
+                             (fun xcb sigmaa ->
                                reset_canonical_upd_impl
                                  (linordered_cancel_ab_monoid_add_int,
                                    uminus_int, heap_int)
-                                 m sigmaa m xca zero_inta)
+                                 m sigmaa m xcb zero_inta)
                              x_a)
                           ()) ())
                           (imp_nfoldli
                             (let (l, _) = a2c in
-                              maps (fun il -> sub (sub ik il) (nth l il)) ic)
+                              maps (fun i -> sub (sub inv_ia i) (nth l i)) xc)
                             (fun _ -> (fun () -> true))
                             (fun ai bi ->
                               (fun f_ () -> f_
@@ -5098,23 +5556,23 @@ zero_inta)
                                     IArray
                                       (map
 (fun c ->
-  maxa linorder_int (image (fun il -> sub (sub (sub idb il) (nth l il)) c) ia))
-i))
+  maxa linorder_int (image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
+x))
                                   m)
                                ()) ())
                                (fw_impl_int m))))))))))
                                  ()) ())
-                                 (fun xa ->
+                                 (fun xd ->
                                    (fun () ->
-                                     (op_list_prepend (a2c, xa) sigma))))))
+                                     (op_list_prepend (a2c, xd) sigma))))))
                        [])
                   ()) ())
-                  (fun x ->
+                  (fun xd ->
                     (fun f_ () -> f_
-                      ((imp_nfoldli x (fun _ -> (fun () -> true))
-                         (fun xc sigma ->
+                      ((imp_nfoldli xd (fun _ -> (fun () -> true))
+                         (fun xca sigma ->
                            (fun f_ () -> f_
-                             ((let (_, a2) = xc in
+                             ((let (_, a2) = xca in
                                 (fun f_ () -> f_
                                   ((check_diag_impl
                                      (linordered_cancel_ab_monoid_add_int,
@@ -5125,16 +5583,24 @@ i))
                              ()) ())
                              (fun x_c ->
                                (fun () ->
-                                 (if x_c then op_list_prepend xc sigma
+                                 (if x_c then op_list_prepend xca sigma
                                    else sigma))))
                          [])
                       ()) ())
-                      (fun xa -> (fun () -> (op_list_rev xa)))))
+                      (fun xe -> (fun () -> (op_list_rev xe)))))
               in
             let empty =
               (fun (_, a) ->
                 check_diag_impl (linordered_cancel_ab_monoid_add_int, heap_int)
                   m a)
+              in
+            let a =
+              tracei
+                (linordered_ab_group_add_int, equal_int, heap_int, show_int) m
+                (fun xd ->
+                  shows_prec_prod (show_list show_nat) (show_list show_int)
+                    zero_nata xd [])
+                (fun xd -> shows_prec_nat zero_nata xd [])
               in
              leadsto_impl
                (heap_prod (heap_prod (heap_list heap_nat) (heap_list heap_int))
@@ -5143,7 +5609,7 @@ i))
                  (hashable_prod (hashable_list hashable_nat)
                    (hashable_list hashable_int)),
                  (heap_prod (heap_list heap_nat) (heap_list heap_int)))
-               copy succs start suba key succsa empty final finala)
+               copy succs start suba key succsa empty final finala a)
           ()) ())
           (fun r -> (fun () -> (not r)))));;
 
@@ -5315,35 +5781,46 @@ let rec dfs_map_impl _A (_B1, _B2, _B3)
 
 let rec alw_ev_checker
   p m max_steps inv trans prog bounds pred s_0 na k formula =
-    (let i = upt zero_nata (plus_nata m one_nata) in
-     let ia = Set (upt zero_nata p) in
-     let ib = upt zero_nata na in
-     let ic = upt zero_nata p in
-     let id = IArray prog in
-     let ie = IArray (map (map_option stript) prog) in
-     let ifa = IArray (map (map_option stripf) prog) in
-     let ig = size_list prog in
-     let ida = (fun pc -> (if less_nat pc ig then sub id pc else None)) in
-     let iea = (fun pc -> (if less_nat pc ig then sub ie pc else None)) in
-     let ifb = (fun pc -> (if less_nat pc ig then sub ifa pc else None)) in
-     let iga = IArray bounds in
-     let ih = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
-     let ii = IArray (map (fun a -> IArray a) (trans_in_map trans)) in
-     let ij = IArray (map (fun a -> IArray a) (trans_out_map trans)) in
-     let ik = IArray (map (fun a -> IArray a) inv) in
-     let iba =
+    (let x = upt zero_nata (plus_nata m one_nata) in
+     let xa = Set (upt zero_nata p) in
+     let xb = upt zero_nata na in
+     let xc = upt zero_nata p in
+     let proga = IArray prog in
+     let progt_ia = IArray (map (map_option stript) prog) in
+     let progf_ia = IArray (map (map_option stripf) prog) in
+     let len_prog = size_list prog in
+     let progb =
+       (fun pc -> (if less_nat pc len_prog then sub proga pc else None)) in
+     let pt =
+       (fun pc -> (if less_nat pc len_prog then sub progt_ia pc else None)) in
+     let pf =
+       (fun pc -> (if less_nat pc len_prog then sub progf_ia pc else None)) in
+     let boundsa = IArray bounds in
+     let trans_i_mapa = IArray (map (fun a -> IArray a) (trans_i_map trans)) in
+     let trans_in_mapa = IArray (map (fun a -> IArray a) (trans_in_map trans))
+       in
+     let trans_out_mapa = IArray (map (fun a -> IArray a) (trans_out_map trans))
+       in
+     let inv_ia = IArray (map (fun a -> IArray a) inv) in
+     let trans_fun =
        (fun l ->
          (let (la, s) = l in
-          let ina = all_actions_by_state_impl ic (map (fun _ -> []) ib) ii la in
-          let out = all_actions_by_state_impl ic (map (fun _ -> []) ib) ij la in
+          let ina =
+            all_actions_by_state_impl xc (map (fun _ -> []) xb) trans_in_mapa la
+            in
+          let out =
+            all_actions_by_state_impl xc (map (fun _ -> []) xb) trans_out_mapa
+              la
+            in
            maps (fun a ->
-                  pairs_by_action_impl p max_steps pred ifb iea ida iga (la, s)
-                    (nth out a) (nth ina a))
-             ib) @
-           maps (trans_i_from_impl p max_steps pred bounds ifb iea ida iga ih l)
-             ic)
+                  pairs_by_action_impl p max_steps pred pf pt progb boundsa
+                    (la, s) (nth out a) (nth ina a))
+             xb) @
+           maps (trans_i_from_impl p max_steps pred bounds pf pt progb boundsa
+                  trans_i_mapa l)
+             xc)
        in
-     let idb =
+     let k_i =
        IArray
          (map (comp (fun a -> IArray a)
                 (map (comp (fun a -> IArray a) (map int_of_nat))))
@@ -5366,7 +5843,7 @@ let rec alw_ev_checker
           let copy =
             (fun (a1, a2) ->
               (fun f_ () -> f_ ((amtx_copy (heap_DBMEntry heap_int) a2) ()) ())
-                (fun x -> (fun () -> (a1, x))))
+                (fun xd -> (fun () -> (a1, xd))))
             in
           let start =
             (fun f_ () -> f_
@@ -5379,22 +5856,23 @@ let rec alw_ev_checker
             (fun xi ->
               (fun f_ () -> f_
                 ((let (a1, a2) = xi in
-                   imp_nfoldli (iba a1) (fun _ -> (fun () -> true))
-                     (fun xc sigma ->
-                       (let (a1a, (_, (a1c, a2c))) = xc in
+                   imp_nfoldli (trans_fun a1) (fun _ -> (fun () -> true))
+                     (fun xca sigma ->
+                       (let (a1a, (_, (a1c, a2c))) = xca in
                          (if (let (a, b) = a2c in hd_of_formula formula a b)
                            then (fun f_ () -> f_
                                   ((amtx_copy (heap_DBMEntry heap_int) a2) ())
                                   ())
-                                  (fun x ->
+                                  (fun xba ->
                                     (fun f_ () -> f_
                                       (((fun f_ () -> f_
-  ((up_canonical_upd_impl (linordered_cancel_ab_monoid_add_int, heap_int) m x m)
+  ((up_canonical_upd_impl (linordered_cancel_ab_monoid_add_int, heap_int) m xba
+     m)
   ()) ())
- (fun xa ->
+ (fun xbb ->
    (fun f_ () -> f_
      ((imp_nfoldli
-        (let (l, _) = a1 in maps (fun il -> sub (sub ik il) (nth l il)) ic)
+        (let (l, _) = a1 in maps (fun i -> sub (sub inv_ia i) (nth l i)) xc)
         (fun _ -> (fun () -> true))
         (fun ai bi ->
           (fun f_ () -> f_
@@ -5403,22 +5881,22 @@ let rec alw_ev_checker
                  heap_int)
                m ai bi)
             ()) ())
-            (fun xb ->
+            (fun xd ->
               repair_pair_impl
                 ((linordered_ab_monoid_add_DBMEntry
                    (linordered_cancel_ab_monoid_add_int, equal_int)),
                   (heap_DBMEntry heap_int))
-                m xb zero_nata (constraint_clk ai)))
-        xa)
+                m xd zero_nata (constraint_clk ai)))
+        xbb)
      ()) ())
-     (fun xb ->
+     (fun xbc ->
        (fun f_ () -> f_
          ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m
-            xb)
+            xbc)
          ()) ())
-         (fun xaa ->
+         (fun xd ->
            (fun f_ () -> f_
-             ((if xaa then (fun () -> xb)
+             ((if xd then (fun () -> xbc)
                 else imp_nfoldli a1a (fun _ -> (fun () -> true))
                        (fun ai bi ->
                          (fun f_ () -> f_
@@ -5427,36 +5905,36 @@ let rec alw_ev_checker
                                 equal_int, heap_int)
                               m ai bi)
                            ()) ())
-                           (fun xd ->
+                           (fun xe ->
                              repair_pair_impl
                                ((linordered_ab_monoid_add_DBMEntry
                                   (linordered_cancel_ab_monoid_add_int,
                                     equal_int)),
                                  (heap_DBMEntry heap_int))
-                               m xd zero_nata (constraint_clk ai)))
-                       xb)
+                               m xe zero_nata (constraint_clk ai)))
+                       xbc)
              ()) ())
              (fun x_a ->
                (fun f_ () -> f_
                  ((check_diag_impla
                     (linordered_cancel_ab_monoid_add_int, heap_int) m m x_a)
                  ()) ())
-                 (fun xd ->
+                 (fun xbd ->
                    (fun f_ () -> f_
-                     ((if xd then (fun () -> x_a)
+                     ((if xbd then (fun () -> x_a)
                         else (fun f_ () -> f_
                                ((imp_nfoldli a1c (fun _ -> (fun () -> true))
-                                  (fun xca sigmaa ->
+                                  (fun xcb sigmaa ->
                                     reset_canonical_upd_impl
                                       (linordered_cancel_ab_monoid_add_int,
 uminus_int, heap_int)
-                                      m sigmaa m xca zero_inta)
+                                      m sigmaa m xcb zero_inta)
                                   x_a)
                                ()) ())
                                (imp_nfoldli
                                  (let (l, _) = a2c in
-                                   maps (fun il -> sub (sub ik il) (nth l il))
-                                     ic)
+                                   maps (fun i -> sub (sub inv_ia i) (nth l i))
+                                     xc)
                                  (fun _ -> (fun () -> true))
                                  (fun ai bi ->
                                    (fun f_ () -> f_
@@ -5485,23 +5963,23 @@ uminus_int, heap_int)
      IArray
        (map (fun c ->
               maxa linorder_int
-                (image (fun il -> sub (sub (sub idb il) (nth l il)) c) ia))
-         i))
+                (image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
+         x))
                                        m)
                                     ()) ())
                                     (fw_impl_int m))))))))))
                                       ()) ())
-                                      (fun xa ->
-(fun () -> (op_list_prepend (a2c, xa) sigma))))
+                                      (fun xd ->
+(fun () -> (op_list_prepend (a2c, xd) sigma))))
                            else (fun () -> sigma))))
                      [])
                 ()) ())
-                (fun x ->
+                (fun xd ->
                   (fun f_ () -> f_
-                    ((imp_nfoldli x (fun _ -> (fun () -> true))
-                       (fun xc sigma ->
+                    ((imp_nfoldli xd (fun _ -> (fun () -> true))
+                       (fun xca sigma ->
                          (fun f_ () -> f_
-                           ((let (_, a2) = xc in
+                           ((let (_, a2) = xca in
                               (fun f_ () -> f_
                                 ((check_diag_impl
                                    (linordered_cancel_ab_monoid_add_int,
@@ -5512,11 +5990,11 @@ uminus_int, heap_int)
                            ()) ())
                            (fun x_c ->
                              (fun () ->
-                               (if x_c then op_list_prepend xc sigma
+                               (if x_c then op_list_prepend xca sigma
                                  else sigma))))
                        [])
                     ()) ())
-                    (fun xa -> (fun () -> (op_list_rev xa)))))
+                    (fun xe -> (fun () -> (op_list_rev xe)))))
             in
            dfs_map_impl
              (heap_prod (heap_prod (heap_list heap_nat) (heap_list heap_int))
@@ -5527,8 +6005,8 @@ uminus_int, heap_int)
                (heap_prod (heap_list heap_nat) (heap_list heap_int)))
              succs start suba key copy)
         ()) ())
-        (fun x ->
-          (fun f_ () -> f_ ((fun () -> ()) ()) ()) (fun _ -> (fun () -> x))));;
+        (fun xd ->
+          (fun f_ () -> f_ ((fun () -> ()) ()) ()) (fun _ -> (fun () -> xd))));;
 
 let rec model_checker
   p m max_steps inv trans prog bounds pred s_0 na k formula =
@@ -5639,7 +6117,7 @@ let rec bound_g
           (image
             (fun (x, d) ->
               (if equal_nata x c then insert equal_int d bot_set else bot_set))
-            (clkp_seta max_steps inv trans prog q l))));;
+            (clkp_set max_steps inv trans prog q l))));;
 
 let rec bound
   max_steps inv trans prog q c l =

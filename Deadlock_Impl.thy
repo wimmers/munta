@@ -863,7 +863,7 @@ concrete_definition (in -) check_passed_impl
 thm check_passed_impl.refine
 
 lemma check_passed_impl_hnr:
-    "(uncurry0 (check_passed_impl succsi a\<^sub>0i Fi Lei emptyi keyi copyi Qi),
+    "(uncurry0 (check_passed_impl succsi a\<^sub>0i Fi Lei emptyi keyi copyi tracei Qi),
       uncurry0 (RETURN (\<exists>a. reachable a \<and> \<not> empty a \<and> Q a)))
     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     using
@@ -1171,7 +1171,7 @@ interpretation Worklist_Map2_Impl_check
   op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
   "\<lambda> (l, M). F l" state_assn'
   succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
-  location_assn "\<lambda>(l, M). \<not> check_deadlock_dbm l M" check_deadlock_neg_impl
+  tracei location_assn "\<lambda>(l, M). \<not> check_deadlock_dbm l M" check_deadlock_neg_impl
   apply standard
   subgoal
     using check_deadlock_neg_impl.refine unfolding PR_CONST_def .
@@ -1272,7 +1272,7 @@ definition
     r1 \<leftarrow> is_start_in_states_impl;
     if r1 then do {
       r2 \<leftarrow> check_passed_impl succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl
-            (return \<circ> fst) state_copy_impl check_deadlock_neg_impl;
+            (return \<circ> fst) state_copy_impl tracei check_deadlock_neg_impl;
              return r2
     }
     else return True
@@ -1315,11 +1315,12 @@ definition deadlock_checker where
       final = (\<lambda>_. return False);
       succs = succs_impl;
       empty = emptiness_check_impl;
-      P = check_deadlock_neg_impl
+      P = check_deadlock_neg_impl;
+      trace = tracei
     in do {
       r1 \<leftarrow> is_start_in_states_impl;
       if r1 then do {
-        r2 \<leftarrow> check_passed_impl succs start final sub empty key copy P;
+        r2 \<leftarrow> check_passed_impl succs start final sub empty key copy trace P;
         return r2
       }
       else return True

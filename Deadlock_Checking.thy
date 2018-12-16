@@ -15,11 +15,12 @@ definition deadlock_checker where
       final = (\<lambda>_. return False);
       succs = impl.succs_impl;
       empty = impl.emptiness_check_impl;
-      P = impl.check_deadlock_neg_impl
+      P = impl.check_deadlock_neg_impl;
+      trace = impl.tracei
     in do {
       r1 \<leftarrow> impl.is_start_in_states_impl;
       if r1 then do {
-        r2 \<leftarrow> check_passed_impl succs start final sub empty key copy P;
+        r2 \<leftarrow> check_passed_impl succs start final sub empty key copy trace P;
         return r2
       }
       else return True
@@ -52,10 +53,10 @@ thm Normalized_Zone_Semantics_Impl_Refine.state_set_def product'.all_prop_start
 
 text \<open>
   \<^item> @{term equiv.defs.states'}
-    @{term EA} is @{term equiv.state_ta}
-    state automaton constructed from UPPAAL network (\<open>equiv\<close>/\<open>N\<close>)
-    @{term A} is @{term equiv.defs.prod_ta}
-    product automaton constructed from UPPAAL network (\<open>equiv\<close>/\<open>N\<close>)
+  \<^item> @{term EA} is @{term equiv.state_ta},
+    the state automaton constructed from UPPAAL network (\<open>equiv\<close>/\<open>N\<close>)
+  \<^item> @{term A} is @{term equiv.defs.prod_ta},
+    the product automaton constructed from UPPAAL network (\<open>equiv\<close>/\<open>N\<close>)
 \<close>
 
 context
