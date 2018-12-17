@@ -1,0 +1,303 @@
+{
+    "automata": [
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "A", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P1_x = 0"
+                }, 
+                {
+                    "guard": "P1_x<=2", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": "req", 
+                    "target": 0, 
+                    "target_name": "wait", 
+                    "update": "P1_x = 0, id = 1"
+                }, 
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P1_x = 0"
+                }, 
+                {
+                    "guard": "P1_x>2 && id==1", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 3, 
+                    "target_name": "cs", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 3, 
+                    "source_name": "cs", 
+                    "target": 2, 
+                    "target_name": "A", 
+                    "update": "id = 0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "P1", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "A"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "cs"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "wait"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "P1_x<=2", 
+                    "name": "req"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "A", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P2_x = 0"
+                }, 
+                {
+                    "guard": "P2_x<=2", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": "req", 
+                    "target": 0, 
+                    "target_name": "wait", 
+                    "update": "P2_x = 0, id = 2"
+                }, 
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P2_x = 0"
+                }, 
+                {
+                    "guard": "P2_x>2 && id==2", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 3, 
+                    "target_name": "cs", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 3, 
+                    "source_name": "cs", 
+                    "target": 2, 
+                    "target_name": "A", 
+                    "update": "id = 0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "P2", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "A"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "cs"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "wait"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "P2_x<=2", 
+                    "name": "req"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "A", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P3_x = 0"
+                }, 
+                {
+                    "guard": "P3_x<=2", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": "req", 
+                    "target": 0, 
+                    "target_name": "wait", 
+                    "update": "P3_x = 0, id = 3"
+                }, 
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P3_x = 0"
+                }, 
+                {
+                    "guard": "P3_x>2 && id==3", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 3, 
+                    "target_name": "cs", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 3, 
+                    "source_name": "cs", 
+                    "target": 2, 
+                    "target_name": "A", 
+                    "update": "id = 0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "P3", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "A"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "cs"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "wait"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "P3_x<=2", 
+                    "name": "req"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "A", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P4_x = 0"
+                }, 
+                {
+                    "guard": "P4_x<=2", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": "req", 
+                    "target": 0, 
+                    "target_name": "wait", 
+                    "update": "P4_x = 0, id = 4"
+                }, 
+                {
+                    "guard": "id== 0", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 1, 
+                    "target_name": "req", 
+                    "update": "P4_x = 0"
+                }, 
+                {
+                    "guard": "P4_x>2 && id==4", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "wait", 
+                    "target": 3, 
+                    "target_name": "cs", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 3, 
+                    "source_name": "cs", 
+                    "target": 2, 
+                    "target_name": "A", 
+                    "update": "id = 0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "P4", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "A"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "cs"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "wait"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "P4_x<=2", 
+                    "name": "req"
+                }
+            ]
+        }
+    ], 
+    "clocks": "P1_x, P2_x, P3_x, P4_x", 
+    "vars": "id[-32767:32767]",
+    "formula": "P1.req --> P1.wait"
+}

@@ -1,0 +1,343 @@
+{
+    "automata": [
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "Viking1_y >= 5", 
+                    "label": "release!", 
+                    "source": 2, 
+                    "source_name": null, 
+                    "target": 3, 
+                    "target_name": "unsafe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 1", 
+                    "label": "take !", 
+                    "source": 1, 
+                    "source_name": "safe", 
+                    "target": 2, 
+                    "target_name": null, 
+                    "update": "Viking1_y = 0"
+                }, 
+                {
+                    "guard": "Viking1_y >= 5", 
+                    "label": "release!", 
+                    "source": 0, 
+                    "source_name": null, 
+                    "target": 1, 
+                    "target_name": "safe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 0", 
+                    "label": "take !", 
+                    "source": 3, 
+                    "source_name": "unsafe", 
+                    "target": 0, 
+                    "target_name": null, 
+                    "update": "Viking1_y = 0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "Viking1", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "unsafe"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "safe"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "Viking2_y >= 10", 
+                    "label": "release!", 
+                    "source": 2, 
+                    "source_name": null, 
+                    "target": 3, 
+                    "target_name": "unsafe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 1", 
+                    "label": "take !", 
+                    "source": 1, 
+                    "source_name": "safe", 
+                    "target": 2, 
+                    "target_name": null, 
+                    "update": "Viking2_y = 0"
+                }, 
+                {
+                    "guard": "Viking2_y >= 10", 
+                    "label": "release!", 
+                    "source": 0, 
+                    "source_name": null, 
+                    "target": 1, 
+                    "target_name": "safe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 0", 
+                    "label": "take !", 
+                    "source": 3, 
+                    "source_name": "unsafe", 
+                    "target": 0, 
+                    "target_name": null, 
+                    "update": "Viking2_y = 0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "Viking2", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "unsafe"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "safe"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "Viking3_y >= 20", 
+                    "label": "release!", 
+                    "source": 2, 
+                    "source_name": null, 
+                    "target": 3, 
+                    "target_name": "unsafe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 1", 
+                    "label": "take !", 
+                    "source": 1, 
+                    "source_name": "safe", 
+                    "target": 2, 
+                    "target_name": null, 
+                    "update": "Viking3_y = 0"
+                }, 
+                {
+                    "guard": "Viking3_y >= 20", 
+                    "label": "release!", 
+                    "source": 0, 
+                    "source_name": null, 
+                    "target": 1, 
+                    "target_name": "safe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 0", 
+                    "label": "take !", 
+                    "source": 3, 
+                    "source_name": "unsafe", 
+                    "target": 0, 
+                    "target_name": null, 
+                    "update": "Viking3_y = 0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "Viking3", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "unsafe"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "safe"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "Viking4_y >= 25", 
+                    "label": "release!", 
+                    "source": 2, 
+                    "source_name": null, 
+                    "target": 3, 
+                    "target_name": "unsafe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 1", 
+                    "label": "take !", 
+                    "source": 1, 
+                    "source_name": "safe", 
+                    "target": 2, 
+                    "target_name": null, 
+                    "update": "Viking4_y = 0"
+                }, 
+                {
+                    "guard": "Viking4_y >= 25", 
+                    "label": "release!", 
+                    "source": 0, 
+                    "source_name": null, 
+                    "target": 1, 
+                    "target_name": "safe", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "L == 0", 
+                    "label": "take !", 
+                    "source": 3, 
+                    "source_name": "unsafe", 
+                    "target": 0, 
+                    "target_name": null, 
+                    "update": "Viking4_y = 0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "Viking4", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "unsafe"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": ""
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "safe"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                1
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "take?", 
+                    "source": 2, 
+                    "source_name": "free", 
+                    "target": 1, 
+                    "target_name": null, 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": null, 
+                    "target": 0, 
+                    "target_name": "one", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "take?", 
+                    "source": 1, 
+                    "source_name": null, 
+                    "target": 3, 
+                    "target_name": "two", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "release?", 
+                    "source": 0, 
+                    "source_name": "one", 
+                    "target": 2, 
+                    "target_name": "free", 
+                    "update": "L = (1 ? L == 0 : 0)"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "release?", 
+                    "source": 3, 
+                    "source_name": "two", 
+                    "target": 0, 
+                    "target_name": "one", 
+                    "update": ""
+                }
+            ], 
+            "initial": 2, 
+            "name": "Torch", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "free"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "two"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "one"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": ""
+                }
+            ]
+        }
+    ], 
+    "clocks": "time, Viking1_y, Viking2_y, Viking3_y, Viking4_y", 
+    "vars": "L[-1:2]",
+    "formula": "E<> Viking1.safe && Viking2.safe && Viking3.safe && Viking4.safe"
+}
