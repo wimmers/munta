@@ -240,7 +240,7 @@ fun shows_exp and shows_bexp where
   "shows_bexp (bexp.not b) = ''! '' @ shows_bexp b" |
   "shows_bexp (bexp.and a b) = shows_bexp a @ '' && '' @ shows_bexp b" |
   "shows_bexp (bexp.or a b) = shows_bexp a @ '' || '' @ shows_bexp b" |
-  "shows_bexp (bexp.imply a b) = shows_bexp a @ '' --> '' @ shows_bexp b"
+  "shows_bexp (bexp.imply a b) = shows_bexp a @ '' -> '' @ shows_bexp b"
 
 instantiation bexp :: ("show", "show") "show"
 begin
