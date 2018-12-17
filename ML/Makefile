@@ -26,3 +26,6 @@ UPPAAL_Model_Checker_int.sml: UPPAAL_Model_Checker_patched.sml
 
 munta_int.mlb: munta.mlb
 	patch -i munta_int.patch -o munta_int.mlb
+
+muntax: muntax.mlb Muntax.sml Simple_Model_Checker.sml
+	mlton muntax.mlb
