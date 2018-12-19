@@ -19,6 +19,18 @@ begin
   definition
     "explored_string = ''Explored''"
 
+  definition
+    "final_string = ''Final''"
+
+  definition
+    "added_string = ''Add''"
+
+  definition
+    "subsumed_string = ''Subsumed''"
+
+  definition
+    "empty_string = ''Empty''"
+
   lemma add_pw'_map2_alt_def:
     "add_pw'_map2 passed wait a = do {
      trace explored_string a;
@@ -55,6 +67,42 @@ begin
     apply (rule ext)+
     by (auto 4 3 simp: Let_def split: option.split)
 
+    lemma add_pw'_map2_full_trace_def:
+    "add_pw'_map2 passed wait a = do {
+     trace explored_string a;
+     nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
+      (\<lambda>a (passed, wait, _).
+        do {
+          if empty a then
+              do {trace empty_string a; RETURN (passed, wait, False)}
+          else if F' a then do {trace final_string a; RETURN (passed, wait, True)}
+          else
+            let
+              k = key a;
+              (v, passed) = op_map_extract k passed
+            in
+              case v of
+                None \<Rightarrow> do {trace added_string a; RETURN (passed(k \<mapsto> {COPY a}), a # wait, False)} |
+                Some passed' \<Rightarrow>
+                  if \<exists> x \<in> passed'. a \<unlhd> x then
+                    do {trace subsumed_string a; RETURN (passed(k \<mapsto> passed'), wait, False)}
+                  else do {
+                      trace added_string a;
+                      RETURN (passed(k \<mapsto> (insert (COPY a) passed')), a # wait, False)
+                    }
+        }
+      )
+      (passed,wait,False)
+    }"
+      unfolding add_pw'_map2_alt_def
+      unfolding trace_def
+      apply (simp add:)
+      apply (fo_rule fun_cong)
+      apply (fo_rule arg_cong)
+      apply (rule ext)+
+      apply (auto simp add: Let_def split: option.split)
+      done
+
   end
 
   locale Worklist_Map2_Impl =
@@ -86,14 +134,26 @@ begin
 
     lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
 
-    lemma [sepref_import_param]: "(explored_string, explored_string) \<in> Id"
-      unfolding explored_string_def by simp
+    lemma [sepref_import_param]:
+      "(explored_string, explored_string) \<in> Id"
+      "(subsumed_string, subsumed_string) \<in> Id"
+      "(added_string, added_string) \<in> Id"
+      "(final_string, final_string) \<in> Id"
+      "(empty_string, empty_string) \<in> Id"
+      unfolding
+        explored_string_def subsumed_string_def added_string_def final_string_def empty_string_def
+      by simp+
     
-    lemmas [sepref_opt_simps] = explored_string_def
+    lemmas [sepref_opt_simps] =
+      explored_string_def
+      subsumed_string_def
+      added_string_def
+      final_string_def
+      empty_string_def
 
     sepref_thm pw_algo_map2_impl is
       "uncurry0 (do {(r, p) \<leftarrow> pw_algo_map2; RETURN r})" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-      unfolding pw_algo_map2_def add_pw'_map2_alt_def PR_CONST_def TRACE'_def[symmetric]
+      unfolding pw_algo_map2_def add_pw'_map2_full_trace_def PR_CONST_def TRACE'_def[symmetric]
       supply [[goals_limit = 1]]
       supply conv_to_is_Nil[simp]
       unfolding fold_lso_bex
@@ -168,7 +228,8 @@ begin
       assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a K"
       assumes [sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
       shows
-        "(uncurry0 (pw_impl keyi copyi tracei Lei a\<^sub>0i Fi succsi emptyi), uncurry0 (RETURN (PR_CONST op_F_reachable)))
+        "(uncurry0 (pw_impl keyi copyi tracei Lei a\<^sub>0i Fi succsi emptyi),
+          uncurry0 (RETURN (PR_CONST op_F_reachable)))
         \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
     proof -
       from assms interpret
