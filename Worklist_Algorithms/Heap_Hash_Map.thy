@@ -21,6 +21,36 @@ lemma sep_big_star_union [simp]: "\<And>* (S + T) = (\<And>* S * \<And>* T)"
 lemma sep_big_star_empty [simp]: "\<And>* {#} = emp"
   by (simp add: big_star_def)
 
+(* Unused *)
+lemma big_star_entatilst_mono:
+  "\<And>* T \<Longrightarrow>\<^sub>t \<And>* S" if "S \<subseteq># T"
+  using that
+proof (induction T arbitrary: S)
+  case empty
+  then show ?case
+    by auto
+next
+  case (add x T)
+  then show ?case
+  proof (cases "x \<in># S")
+    case True
+    then obtain S' where "S' \<subseteq># T" "S = add_mset x S'"
+      by (metis add.prems mset_add mset_subset_eq_add_mset_cancel)
+    with add.IH[of S'] add.prems have "\<And>* T \<Longrightarrow>\<^sub>t \<And>* S'"
+      by auto
+    then show ?thesis
+      unfolding \<open>S = _\<close> by (sep_auto intro: entt_star_mono)
+  next
+    case False
+    with add.prems have "S \<subseteq># T"
+      by (metis add_mset_remove_trivial diff_single_trivial mset_le_subtract)
+    then have "\<And>* T \<Longrightarrow>\<^sub>t \<And>* S"
+      by (rule add.IH)
+    then show ?thesis
+      using entt_fr_drop star_aci(2) by fastforce
+  qed
+qed
+
 (* TODO: Move to Sepref-IICF *)
 definition "map_assn V m mi \<equiv>
   \<up> (dom mi = dom m \<and> finite (dom m)) *
@@ -83,7 +113,6 @@ lemma map_assn_update:
   by (sep_auto simp del: map_upd_eq_restrict)+
 
 
-
 (* TODO: Move to IICF, this is a generic pattern to enhance a map-implementation to
   heap-based values, a la Chargueraud *)
 
@@ -128,6 +157,19 @@ definition [code]:
     }
   "
 
+definition [code]:
+  "hms_lookup lookup copy k m =
+    do {
+      vo \<leftarrow> lookup k m;
+      case vo of
+        None \<Rightarrow> return None |
+        Some v \<Rightarrow> do {
+          v' \<leftarrow> copy v;
+          return (Some v')
+        }
+    }
+  "
+
 locale imp_map_extract_derived = imp_map_delete + imp_map_lookup
 begin
 
@@ -157,6 +199,58 @@ lemma hms_extract_rule [sep_heap_rules]:
     by (sep_auto simp add: map_upd_eq_restrict)+
   done
 
+lemma hms_lookup_rule [sep_heap_rules]:
+  assumes
+    "(copy, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
+  shows
+ "<hms_assn A m mi>
+    hms_lookup lookup copy k mi
+  <\<lambda> vi. hms_assn A m mi * option_assn A (m k) vi>\<^sub>t"
+proof -
+  have 0: "
+    <is_map mh mi * map_assn A (m(k := None)) (mh(k := None)) * option_assn A (m k) (mh k) * true>
+      copy x'
+    <\<lambda>r. \<exists>\<^sub>Ax.
+    is_map mh mi * map_assn A (m(k := None)) (mh(k := None)) * option_assn A (m k) (mh k)
+    * A x r * \<up>(m k = Some x)
+    * true>
+  " if "mh k = Some x'" for mh x'
+    supply [sep_heap_rules] = assms[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified]
+    by (sep_auto simp add: that option_assn_alt_def split: option.splits)
+  have 1: "
+    <is_map mh mi * map_assn A m mh * true>
+      copy x'
+    <\<lambda>r. \<exists>\<^sub>Ax. is_map mh mi * map_assn A m mh * A x r * \<up>(m k = Some x) * true>"
+    if "mh k = Some x'" for mh x'
+    apply (rule cons_rule[rotated 2], rule 0, rule that)
+     apply (rule ent_frame_fwd[OF map_assn_delete[where A = A]], frame_inference, frame_inference)
+    apply sep_auto
+    apply (fr_rot 4)
+    apply (fr_rot_rhs 3)
+    apply (rule fr_refl)
+    apply (fr_rot 1)
+    apply (fr_rot_rhs 1)
+    apply (rule fr_refl)
+    apply (fr_rot 2)
+    apply (fr_rot_rhs 1)
+    unfolding option_assn_alt_def
+    apply (sep_auto split: option.split)
+    subgoal for x x'
+      apply (subgoal_tac "m(k \<mapsto> x) = m")
+       apply (subgoal_tac "mh(k \<mapsto> x') = mh")
+      using map_assn_update[of A "m(k := None)" "mh(k := None)" x x' k]
+      by (auto simp add: ent_true_drop(1))
+    done
+  show ?thesis
+    unfolding hms_lookup_def hms_assn_def
+    apply (sep_auto eintros del: exI)
+    subgoal
+      unfolding map_assn_def by auto
+    subgoal for mh
+      by (rule exI[where x = mh]) sep_auto
+    by (sep_auto intro: 1)
+qed
+
 end
 
 context imp_map_update
@@ -179,21 +273,21 @@ lemma hms_empty_hnr:
   by sepref_to_hoare sep_auto
 
 sepref_decl_impl (no_register) empty: hms_empty_hnr uses op_map_empty.fref[where V = Id] .
-print_theorems
-  thm empty_hnr
+
 definition "op_hms_empty \<equiv> IICF_Map.op_map_empty"
 
-  sublocale hms: map_custom_empty op_hms_empty
-    by unfold_locales (simp add: op_hms_empty_def)
-  (* lemmas [sepref_fr_rules] = hms_empty_hnr[folded op_hms_empty_def] *)
+sublocale hms: map_custom_empty op_hms_empty
+  by unfold_locales (simp add: op_hms_empty_def)
+(* lemmas [sepref_fr_rules] = hms_empty_hnr[folded op_hms_empty_def] *)
 
-  lemmas [sepref_fr_rules] = empty_hnr[folded op_hms_empty_def]
+lemmas [sepref_fr_rules] = empty_hnr[folded op_hms_empty_def]
 
-  lemmas hms_fold_custom_empty = hms.fold_custom_empty
+lemmas hms_fold_custom_empty = hms.fold_custom_empty
 
 end
 
-sepref_decl_op map_extract: "\<lambda>k m. (m k, m(k := None))" :: "K \<rightarrow> \<langle>K,V\<rangle>map_rel \<rightarrow> \<langle>V\<rangle>option_rel \<times>\<^sub>r \<langle>K,V\<rangle>map_rel"
+sepref_decl_op map_extract:
+  "\<lambda>k m. (m k, m(k := None))" :: "K \<rightarrow> \<langle>K,V\<rangle>map_rel \<rightarrow> \<langle>V\<rangle>option_rel \<times>\<^sub>r \<langle>K,V\<rangle>map_rel"
   where "single_valued K" "single_valued (K\<inverse>)"
   apply (rule fref_ncI)
   apply parametricity
@@ -212,6 +306,11 @@ lemma hms_extract_hnr:
   "(uncurry (hms_extract lookup delete), uncurry (RETURN oo op_map_extract)) \<in>
   id_assn\<^sup>k *\<^sub>a (hms_assn A)\<^sup>d \<rightarrow>\<^sub>a prod_assn (option_assn A) (hms_assn A)"
   by sepref_to_hoare sep_auto
+
+lemma hms_lookup_hnr:
+  "(uncurry (hms_lookup lookup copy), uncurry (RETURN oo op_map_lookup)) \<in>
+  id_assn\<^sup>k *\<^sub>a (hms_assn A)\<^sup>k \<rightarrow>\<^sub>a option_assn A" if "(copy, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
+  using that by sepref_to_hoare sep_auto
 
 sepref_decl_impl "extract": hms_extract_hnr uses op_map_extract.fref[where V = Id] .
 

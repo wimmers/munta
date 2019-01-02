@@ -102,7 +102,7 @@ definition "RE = (\<lambda>(l, s) ab. s \<in> M l \<and> \<not> covered (l, s) \
 
 end (* Reachability Invariant paired defs *)
 
-locale Unreachability_Invariant_paired =
+locale Unreachability_Invariant_paired_pre =
   Reachability_Invariant_paired_defs _ _ E +
   preorder less_eq less for E :: "('l \<times> 's) \<Rightarrow> _" +
   fixes P :: "('l \<times> 's) \<Rightarrow> bool"
@@ -110,6 +110,9 @@ locale Unreachability_Invariant_paired =
   assumes mono:
     "s \<preceq> s' \<Longrightarrow> E (l, s) (l', t) \<Longrightarrow> P (l, s) \<Longrightarrow> P (l, s') \<Longrightarrow> \<exists> t'. t \<preceq> t' \<and> E (l, s') (l', t')"
   assumes P_invariant: "P (l, s) \<Longrightarrow> E (l, s) (l', s') \<Longrightarrow> P (l', s')"
+
+locale Unreachability_Invariant_paired =
+  Unreachability_Invariant_paired_pre +
   assumes M_invariant: "l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> P (l, s)"
   assumes start: "l\<^sub>0 \<in> L" "s\<^sub>0 \<in> M(l\<^sub>0)" "P (l\<^sub>0, s\<^sub>0)"
   assumes closed: "\<forall> l \<in> L. \<forall> (l', f) \<in> T l. l' \<in> L \<and> (\<forall> s \<in> M l. \<exists> s' \<in> M l'. f s \<preceq> s')"

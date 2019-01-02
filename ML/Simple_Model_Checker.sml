@@ -1444,9 +1444,9 @@ fun explode s =
 
 fun shows_prec_literal p s rest = explode s @ rest;
 
-fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
-  | intersperse uu [] = []
-  | intersperse uu [v] = [v];
+fun interspersea sep (x :: y :: xs) = x :: sep :: interspersea sep (y :: xs)
+  | interspersea uu [] = []
+  | interspersea uu [v] = [v];
 
 fun foldr f [] = id
   | foldr f (x :: xs) = f x o foldr f xs;
@@ -1456,7 +1456,7 @@ fun concat xss = foldr (fn a => fn b => a @ b) xss [];
 fun shows_list_literal cs s =
   [Chara (true, true, false, true, true, false, true, false)] @
     concat
-      (intersperse
+      (interspersea
         [Chara (false, false, true, true, false, true, false, false),
           Chara (false, false, false, false, false, true, false, false)]
         (map explode cs)) @
@@ -1632,7 +1632,7 @@ fun shows_prec_exp A_ B_ p e rest = shows_exp A_ B_ e @ rest;
 fun shows_list_exp A_ B_ es s =
   [Chara (true, true, false, true, true, false, true, false)] @
     concat
-      (intersperse
+      (interspersea
         [Chara (false, false, true, true, false, true, false, false),
           Chara (false, false, false, false, false, true, false, false)]
         (map (shows_exp A_ B_) es)) @
@@ -1712,7 +1712,7 @@ fun shows_prec_bexp A_ B_ p e rest = shows_bexp A_ B_ e @ rest;
 fun shows_list_bexp A_ B_ es s =
   [Chara (true, true, false, true, true, false, true, false)] @
     concat
-      (intersperse
+      (interspersea
         [Chara (false, false, true, true, false, true, false, false),
           Chara (false, false, false, false, false, true, false, false)]
         (map (shows_bexp A_ B_) es)) @
@@ -3206,10 +3206,30 @@ of [] => cODE_ABORT (fn _ => (hd a1b, tl a1b)) | a :: b => (a, b));
                      (fn xl => fn (a1d, (a1e, _)) =>
                        (fn f_ => fn () => f_ ((emptyi xl) ()) ())
                          (fn x_k =>
-                           (if x_k then (fn () => (a1d, (a1e, false)))
+                           (if x_k
+                             then (fn f_ => fn () => f_
+                                    ((tracei
+[Chara (true, false, true, false, false, false, true, false),
+  Chara (true, false, true, true, false, true, true, false),
+  Chara (false, false, false, false, true, true, true, false),
+  Chara (false, false, true, false, true, true, true, false),
+  Chara (true, false, false, true, true, true, true, false)]
+                                       xl)
+                                    ()) ())
+                                    (fn _ => (fn () => (a1d, (a1e, false))))
                              else (fn f_ => fn () => f_ ((fi xl) ()) ())
                                     (fn x_l =>
-                                      (if x_l then (fn () => (a1d, (a1e, true)))
+                                      (if x_l
+then (fn f_ => fn () => f_
+       ((tracei
+           [Chara (false, true, true, false, false, false, true, false),
+             Chara (true, false, false, true, false, true, true, false),
+             Chara (false, true, true, true, false, true, true, false),
+             Chara (true, false, false, false, false, true, true, false),
+             Chara (false, false, true, true, false, true, true, false)]
+          xl)
+       ()) ())
+       (fn _ => (fn () => (a1d, (a1e, true))))
 else (fn f_ => fn () => f_ ((keyi xl) ()) ())
        (fn x_m =>
          (fn f_ => fn () => f_
@@ -3219,32 +3239,75 @@ else (fn f_ => fn () => f_ ((keyi xl) ()) ())
            (fn a =>
              (case a
                of (NONE, a2f) =>
-                 (fn f_ => fn () => f_ ((copyi xl) ()) ())
-                   (fn xf =>
-                     (fn f_ => fn () => f_
-                       ((ht_update (B1_, B2_, B3_) (heap_list A_) x_m [xf] a2f)
-                       ()) ())
-                       (fn x_o =>
-                         (fn () => (x_o, (op_list_prepend xl a1e, false)))))
-               | (SOME x_o, a2f) =>
-                 (fn f_ => fn () => f_ ((lso_bex_impl (lei xl) x_o) ()) ())
-                   (fn x_p =>
-                     (if x_p
+                 (fn f_ => fn () => f_
+                   ((tracei
+                       [Chara (true, false, false, false, false, false, true,
+                                false),
+                         Chara (false, false, true, false, false, true, true,
+                                 false),
+                         Chara (false, false, true, false, false, true, true,
+                                 false)]
+                      xl)
+                   ()) ())
+                   (fn _ =>
+                     (fn f_ => fn () => f_ ((copyi xl) ()) ())
+                       (fn xf =>
+                         (fn f_ => fn () => f_
+                           ((ht_update (B1_, B2_, B3_) (heap_list A_) x_m [xf]
+                              a2f)
+                           ()) ())
+                           (fn x_r =>
+                             (fn () =>
+                               (x_r, (op_list_prepend xl a1e, false))))))
+               | (SOME x_q, a2f) =>
+                 (fn f_ => fn () => f_ ((lso_bex_impl (lei xl) x_q) ()) ())
+                   (fn x_r =>
+                     (if x_r
                        then (fn f_ => fn () => f_
-                              ((ht_update (B1_, B2_, B3_) (heap_list A_) x_m x_o
-                                 a2f)
+                              ((tracei
+                                  [Chara (true, true, false, false, true, false,
+   true, false),
+                                    Chara (true, false, true, false, true, true,
+    true, false),
+                                    Chara (false, true, false, false, false,
+    true, true, false),
+                                    Chara (true, true, false, false, true, true,
+    true, false),
+                                    Chara (true, false, true, false, true, true,
+    true, false),
+                                    Chara (true, false, true, true, false, true,
+    true, false),
+                                    Chara (true, false, true, false, false,
+    true, true, false),
+                                    Chara (false, false, true, false, false,
+    true, true, false)]
+                                 xl)
                               ()) ())
-                              (fn x_q => (fn () => (x_q, (a1e, false))))
-                       else (fn f_ => fn () => f_ ((copyi xl) ()) ())
-                              (fn xf =>
+                              (fn _ =>
                                 (fn f_ => fn () => f_
                                   ((ht_update (B1_, B2_, B3_) (heap_list A_) x_m
-                                     (xf :: x_o) a2f)
+                                     x_q a2f)
                                   ()) ())
-                                  (fn x_q =>
-                                    (fn () =>
-                                      (x_q,
-(op_list_prepend xl a1e, false)))))))))))))))
+                                  (fn x_t => (fn () => (x_t, (a1e, false)))))
+                       else (fn f_ => fn () => f_
+                              ((tracei
+                                  [Chara (true, false, false, false, false,
+   false, true, false),
+                                    Chara (false, false, true, false, false,
+    true, true, false),
+                                    Chara (false, false, true, false, false,
+    true, true, false)]
+                                 xl)
+                              ()) ())
+                              (fn _ =>
+                                (fn f_ => fn () => f_ ((copyi xl) ()) ())
+                                  (fn xf =>
+                                    (fn f_ => fn () => f_
+                                      ((ht_update (B1_, B2_, B3_) (heap_list A_)
+ x_m (xf :: x_q) a2f)
+                                      ()) ())
+                                      (fn x_t =>
+(fn () => (x_t, (op_list_prepend xl a1e, false))))))))))))))))
                      (a1a, (a2c, false)))))))
                                   end)
                                 (xe, (op_list_prepend xad [], false)))
@@ -4683,6 +4746,132 @@ fun dfs_map_impl_0 A_ (B1_, B2_, B3_) succsi lei keyi copyi x =
 
 fun sup_seta A_ (Set xs) = fold (sup_set A_) xs bot_set;
 
+fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
+  | intersperse uu [] = []
+  | intersperse uu [v] = [v];
+
+fun make_string (A1_, A2_, A3_) show_clock show_num e i j =
+  (if equal_nata i j
+    then (if less_DBMEntry
+               ((linorder_linordered_ab_semigroup_add o
+                  linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                  linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
+                  linordered_cancel_ab_monoid_add_linordered_ab_group_add)
+                 A1_)
+               e (zero_DBMEntrya
+                   ((zero_monoid_add o monoid_add_group_add o
+                      group_add_ab_group_add o
+                      ab_group_add_ordered_ab_group_add o
+                      ordered_ab_group_add_linordered_ab_group_add)
+                     A1_))
+           then SOME [Chara (true, false, true, false, false, false, true,
+                              false),
+                       Chara (true, false, true, true, false, false, true,
+                               false),
+                       Chara (false, false, false, false, true, false, true,
+                               false),
+                       Chara (false, false, true, false, true, false, true,
+                               false),
+                       Chara (true, false, false, true, true, false, true,
+                               false)]
+           else NONE)
+    else (if equal_nata i zero_nata
+           then (case e
+                  of Le a =>
+                    (if eq A2_ a
+                          (zero ((zero_monoid_add o monoid_add_group_add o
+                                   group_add_ab_group_add o
+                                   ab_group_add_ordered_ab_group_add o
+                                   ordered_ab_group_add_linordered_ab_group_add)
+                                  A1_))
+                      then NONE
+                      else SOME (show_clock j @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (false, true, true, true, true, true,
+    false, false),
+                                    Chara (true, false, true, true, true, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_num
+                                      (uminus
+((uminus_group_add o group_add_ab_group_add o
+   ab_group_add_ordered_ab_group_add o
+   ordered_ab_group_add_linordered_ab_group_add)
+  A1_)
+a)))
+                  | Lt a =>
+                    SOME (show_clock j @
+                           [Chara (false, false, false, false, false, true,
+                                    false, false),
+                             Chara (false, true, true, true, true, true, false,
+                                     false),
+                             Chara (false, false, false, false, false, true,
+                                     false, false)] @
+                             show_num
+                               (uminus
+                                 ((uminus_group_add o group_add_ab_group_add o
+                                    ab_group_add_ordered_ab_group_add o
+                                    ordered_ab_group_add_linordered_ab_group_add)
+                                   A1_)
+                                 a))
+                  | INF => NONE)
+           else (if equal_nata j zero_nata
+                  then (case e
+                         of Le a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (false, false, true, true, true, true,
+    false, false),
+                                    Chara (true, false, true, true, true, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_num a)
+                         | Lt a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (false, false, true, true, true, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_num a)
+                         | INF => NONE)
+                  else (case e
+                         of Le a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (true, false, true, true, false, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_clock j @
+                                      [Chara
+ (false, false, false, false, false, true, false, false),
+Chara (false, false, true, true, true, true, false, false),
+Chara (true, false, true, true, true, true, false, false),
+Chara (false, false, false, false, false, true, false, false)] @
+show_num a)
+                         | Lt a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (true, false, true, true, false, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_clock j @
+                                      [Chara
+ (false, false, false, false, false, true, false, false),
+Chara (false, false, true, true, true, true, false, false),
+Chara (false, false, false, false, false, true, false, false)] @
+show_num a)
+                         | INF => NONE))));
+
 fun dfs_map_impl A_ (B1_, B2_, B3_) succsi a_0i lei keyi copyi =
   (fn f_ => fn () => f_ ((ht_new (B2_, B3_) (heap_list A_)) ()) ())
     (fn x =>
@@ -4831,6 +5020,52 @@ A1_)
  ordered_ab_group_add_linordered_ab_group_add)
 A1_)
                                       (sub bia xe))))))))))));
+
+fun dbm_list_to_string (A1_, A2_, A3_) n show_clock show_num xs =
+  app (concat o
+         intersperse
+           [Chara (false, false, true, true, false, true, false, false),
+             Chara (false, false, false, false, false, true, false, false)] o
+         rev o
+         snd o
+        snd)
+    (fold (fn e => fn (i, (j, acc)) =>
+            let
+              val v = make_string (A1_, A2_, A3_) show_clock show_num e i j;
+              val ja = modulo_nat (plus_nata j one_nata) (plus_nata n one_nata);
+              val ia =
+                (if equal_nata ja zero_nata then plus_nata i one_nata else i);
+            in
+              (case v of NONE => (ia, (ja, acc))
+                | SOME s => (ia, (ja, s :: acc)))
+            end)
+      xs (zero_nata, (zero_nata, [])));
+
+fun dbm_to_list_impl (A1_, A2_) n =
+  (fn xi =>
+    (fn f_ => fn () => f_
+      ((imp_fora zero_nata (suc n)
+         (fn xc =>
+           imp_fora zero_nata (suc n)
+             (fn xe => fn sigma =>
+               (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) xi (xc, xe)) ()) ())
+                 (fn x_e => (fn () => (x_e :: sigma)))))
+         [])
+      ()) ())
+      (fn x => (fn () => (op_list_rev x))));
+
+fun show_dbm_impl (A1_, A2_, A3_) n show_clock show_num =
+  (fn xi =>
+    (fn f_ => fn () => f_
+      ((dbm_to_list_impl
+         (linordered_ab_monoid_add_DBMEntry
+            (linordered_cancel_ab_monoid_add_linordered_ab_group_add A1_, A2_),
+           heap_DBMEntry A3_)
+         n xi)
+      ()) ())
+      (fn x =>
+        (fn () =>
+          (dbm_list_to_string (A1_, A2_, A3_) n show_clock show_num x))));
 
 fun scan_parens lparen rparen inner =
   bindb (gen_token lx_ws (exactly (equal_char, show_char) lparen))
@@ -6133,58 +6368,6 @@ fun map_acconstraint f1 f2 (LT (x11, x12)) = LT (f1 x11, f2 x12)
 
 fun mem_assoc A_ x = list_ex (fn (y, _) => eq A_ x y);
 
-fun automaton_of C_ =
-  (fn (commited, (trans, inv)) =>
-    (Set commited, (Set trans, default_map_of C_ [] inv)));
-
-fun set2_sexp B_ Truea = bot_set
-  | set2_sexp B_ (Nota x2) = set2_sexp B_ x2
-  | set2_sexp B_ (Anda (x31, x32)) =
-    sup_set B_ (set2_sexp B_ x31) (set2_sexp B_ x32)
-  | set2_sexp B_ (Ora (x41, x42)) =
-    sup_set B_ (set2_sexp B_ x41) (set2_sexp B_ x42)
-  | set2_sexp B_ (Implya (x51, x52)) =
-    sup_set B_ (set2_sexp B_ x51) (set2_sexp B_ x52)
-  | set2_sexp B_ (Eqa (x61, x62)) = bot_set
-  | set2_sexp B_ (Leb (x71, x72)) = bot_set
-  | set2_sexp B_ (Ltb (x81, x82)) = bot_set
-  | set2_sexp B_ (Gea (x91, x92)) = bot_set
-  | set2_sexp B_ (Gta (x101, x102)) = bot_set
-  | set2_sexp B_ (Loc (x111, x112)) = insert B_ x112 bot_set;
-
-fun set2_formula B_ (EX x1) = set2_sexp B_ x1
-  | set2_formula B_ (EG x2) = set2_sexp B_ x2
-  | set2_formula B_ (AX x3) = set2_sexp B_ x3
-  | set2_formula B_ (AG x4) = set2_sexp B_ x4
-  | set2_formula B_ (Leadsto (x51, x52)) =
-    sup_set B_ (set2_sexp B_ x51) (set2_sexp B_ x52);
-
-fun clkp_set C_ automata =
-  sup_set (equal_prod C_ equal_int)
-    (sup_seta (equal_prod C_ equal_int)
-      (image
-        (fn a =>
-          sup_seta (equal_prod C_ equal_int)
-            (image (collect_clock_pairs o snd) (Set (snd (snd a)))))
-        (Set automata)))
-    (sup_seta (equal_prod C_ equal_int)
-      (image
-        (fn a =>
-          sup_seta (equal_prod C_ equal_int)
-            (image (fn (_, (_, (g, _))) => collect_clock_pairs g)
-              (Set (fst (snd a)))))
-        (Set automata)));
-
-fun clk_set C_ automata =
-  sup_set C_ (image fst (clkp_set C_ automata))
-    (sup_seta C_
-      (image
-        (fn a =>
-          sup_seta C_
-            (image (fn (_, (_, (_, (_, (_, (r, _)))))) => Set r)
-              (Set (fst (snd a)))))
-        (Set automata)));
-
 fun vars_of_sexp C_ (Nota e) = vars_of_sexp C_ e
   | vars_of_sexp C_ (Anda (e1, e2)) =
     sup_set C_ (vars_of_sexp C_ e1) (vars_of_sexp C_ e2)
@@ -6207,425 +6390,7 @@ fun vars_of_formula C_ (EX phi) = vars_of_sexp C_ phi
   | vars_of_formula C_ (Leadsto (phi, psi)) =
     sup_set C_ (vars_of_sexp C_ phi) (vars_of_sexp C_ psi);
 
-fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
-  automata phi l_0 s_0 =
-  combine
-    [assert
-       (all_interval_nat
-         (fn i =>
-           ball (sup_seta equal_nat
-                  (image
-                    (fn (_, (t, _)) =>
-                      sup_seta equal_nat
-                        (image
-                          (fn (l, (_, (_, (_, (_, (_, la)))))) =>
-                            insert equal_nat l (insert equal_nat la bot_set))
-                          (Set t)))
-                    (Set automata)))
-             (fn x =>
-               ball (sup_seta equal_nat
-                      (image
-                        (fn (_, (t, _)) =>
-                          sup_seta equal_nat
-                            (image
-                              (fn (l, (_, (_, (_, (_, (_, la)))))) =>
-                                insert equal_nat l
-                                  (insert equal_nat la bot_set))
-                              (Set t)))
-                        (Set automata)))
-                 (fn y =>
-                   (if equal_nata (renum_states i x) (renum_states i y)
-                     then equal_nata x y else true))))
-         zero_nata (size_list automata))
-       "Location renamings are injective",
-      assert
-        (inj_on equal_literal equal_nat renum_clocks
-          (clk_set equal_literal automata))
-        "Clock renaming is injective",
-      assert
-        (inj_on equal_literal equal_nat renum_vars
-          (sup_set equal_literal
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
-                (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal
-                    (image
-                      (fn f =>
-                        sup_seta equal_literal
-                          (image
-                            (fn (x, e) =>
-                              sup_set equal_literal
-                                (insert equal_literal x bot_set)
-                                (vars_of_exp equal_literal e))
-                            (Set f)))
-                      s))
-                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
-        "Variable renaming is injective",
-      assert
-        (subset (card_UNIV_literal, equal_literal) (image fst (Set bounds))
-          (sup_set equal_literal
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
-                (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal
-                    (image
-                      (fn f =>
-                        sup_seta equal_literal
-                          (image
-                            (fn (x, e) =>
-                              sup_set equal_literal
-                                (insert equal_literal x bot_set)
-                                (vars_of_exp equal_literal e))
-                            (Set f)))
-                      s))
-                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
-        "Bound set is a subset of the variable set",
-      assert
-        (subset (card_UNIV_nat, equal_nat)
-          (sup_seta equal_nat
-            (image (fn g => image fst (Set g))
-              (Set (map (snd o snd) automata))))
-          (sup_seta equal_nat
-            (image
-              (fn (_, (t, _)) =>
-                sup_seta equal_nat
-                  (image
-                    (fn (l, (_, (_, (_, (_, (_, la)))))) =>
-                      insert equal_nat l (insert equal_nat la bot_set))
-                    (Set t)))
-              (Set automata))))
-        "Invariant locations are contained in the location set",
-      assert
-        (subset (card_UNIV_nat, equal_nat)
-          (sup_seta equal_nat (image (Set o fst) (Set automata)))
-          (sup_seta equal_nat
-            (image
-              (fn (_, (t, _)) =>
-                sup_seta equal_nat
-                  (image
-                    (fn (l, (_, (_, (_, (_, (_, la)))))) =>
-                      insert equal_nat l (insert equal_nat la bot_set))
-                    (Set t)))
-              (Set automata))))
-        "Broadcast locations are containted in the location set",
-      assert
-        (equal_nata (size_list l_0) (size_list automata) andalso
-          all_interval_nat
-            (fn i =>
-              bex (fst (snd (nth (fst (snd
-(Set broadcast,
-  (map (automaton_of equal_nat) automata, map_of equal_literal bounds))))
-                              i)))
-                (fn (l, (_, (_, (_, (_, (_, la)))))) =>
-                  equal_nata (nth l_0 i) l orelse equal_nata (nth l_0 i) la))
-            zero_nata (size_list automata))
-        "Initial location is in the state set",
-      assert
-        (eq_set (card_UNIV_literal, equal_literal) (image fst (Set s_0))
-          (sup_set equal_literal
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
-                (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal
-                    (image
-                      (fn f =>
-                        sup_seta equal_literal
-                          (image
-                            (fn (x, e) =>
-                              sup_set equal_literal
-                                (insert equal_literal x bot_set)
-                                (vars_of_exp equal_literal e))
-                            (Set f)))
-                      s))
-                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
-        "Initial state has the correct domain",
-      assert (distinct equal_literal (map fst s_0))
-        "Initial state is unambiguous",
-      assert
-        (subset (card_UNIV_nat, equal_nat) (set2_formula equal_nat phi)
-          (sup_seta equal_nat
-            (image
-              (fn (_, (t, _)) =>
-                sup_seta equal_nat
-                  (image
-                    (fn (l, (_, (_, (_, (_, (_, la)))))) =>
-                      insert equal_nat l (insert equal_nat la bot_set))
-                    (Set t)))
-              (Set automata))))
-        "Formula locations are contained in the location set",
-      assert
-        (subset (card_UNIV_nat, equal_nat) (locs_of_formula equal_nat phi)
-          (Set (upt zero_nata (size_list automata))))
-        "Formula automata are contained in the automata set",
-      assert
-        (subset (card_UNIV_literal, equal_literal)
-          (vars_of_formula equal_literal phi)
-          (sup_set equal_literal
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
-                (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
-            (sup_seta equal_literal
-              (image
-                (fn s =>
-                  sup_seta equal_literal
-                    (image
-                      (fn f =>
-                        sup_seta equal_literal
-                          (image
-                            (fn (x, e) =>
-                              sup_set equal_literal
-                                (insert equal_literal x bot_set)
-                                (vars_of_exp equal_literal e))
-                            (Set f)))
-                      s))
-                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
-        "Variables of the formula are contained in the variable set"];
-
 fun n_vs bounds = size_list bounds;
-
-fun check_precond2 broadcast bounds automata m num_states k l_0 s_0 formula =
-  let
-    val _ =
-      writeln (implode
-                (shows_prec_list (show_list (show_list show_nat)) zero_nata k
-                  []));
-  in
-    combine
-      [assert
-         (all_interval_nat
-           (fn i =>
-             list_all
-               (fn (l, g) =>
-                 ball (collect_clock_pairs g)
-                   (fn (x, ma) =>
-                     less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
-               ((snd o snd) (nth automata i)))
-           zero_nata (size_list automata))
-         "Ceiling invariants",
-        assert
-          (all_interval_nat
-            (fn i =>
-              list_all
-                (fn (l, (_, (g, _))) =>
-                  ball (collect_clock_pairs g)
-                    (fn (x, ma) =>
-                      less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
-                ((fst o snd) (nth automata i)))
-            zero_nata (size_list automata))
-          "Ceiling transitions",
-        assert
-          (all_interval_nat
-            (fn i =>
-              list_all
-                (fn (l, (_, (_, (_, (_, (r, la)))))) =>
-                  ball (minus_set equal_nat
-                         (Set (upt zero_nata (plus_nata m one_nata))) (Set r))
-                    (fn c =>
-                      less_eq_nat (nth (nth (nth k i) la) c)
-                        (nth (nth (nth k i) l) c)))
-                ((fst o snd) (nth automata i)))
-            zero_nata (size_list automata))
-          "Ceiling resets",
-        assert (equal_nata (size_list k) (size_list automata)) "Ceiling length",
-        assert
-          (all_interval_nat
-            (fn i => equal_nata (size_list (nth k i)) (num_states i)) zero_nata
-            (size_list automata))
-          "Ceiling length automata)",
-        assert
-          (list_all
-            (list_all
-              (fn xxs => equal_nata (size_list xxs) (plus_nata m one_nata)))
-            k)
-          "Ceiling length clocks",
-        assert
-          (all_interval_nat
-            (fn i =>
-              all_interval_nat
-                (fn l => equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
-                zero_nata (num_states i))
-            zero_nata (size_list automata))
-          "Ceiling zero clock",
-        assert
-          (list_all (fn (_, (_, inv)) => distinct equal_nat (map fst inv))
-            automata)
-          "Unambiguous invariants",
-        assert
-          (eq_set (card_UNIV_nat, equal_nat) (image fst (Set s_0))
-             (image fst (Set bounds)) andalso
-            ball (image fst (Set s_0))
-              (fn x =>
-                less_eq_int (fst (the (map_of equal_nat bounds x)))
-                  (the (map_of equal_nat s_0 x)) andalso
-                  less_eq_int (the (map_of equal_nat s_0 x))
-                    (snd (the (map_of equal_nat bounds x)))))
-          "Initial state bounded",
-        assert (equal_nata (size_list l_0) (size_list automata))
-          "Length of initial state",
-        assert
-          (all_interval_nat
-            (fn i =>
-              member equal_nat (nth l_0 i)
-                (image fst (Set ((fst o snd) (nth automata i)))))
-            zero_nata (size_list automata))
-          "Initial state has outgoing transitions",
-        assert
-          (subset (card_UNIV_nat, equal_nat) (vars_of_formula equal_nat formula)
-            (Set (upt zero_nata (n_vs bounds))))
-          "Variable set of formula"]
-  end;
-
-fun check_precond1 broadcast bounds automata m num_states num_actions =
-  combine
-    [assert (less_nat zero_nata m) "At least one clock",
-      assert (less_nat zero_nata (size_list automata)) "At least one automaton",
-      assert
-        (all_interval_nat
-          (fn i =>
-            let
-              val (_, (trans, _)) = nth automata i;
-            in
-              list_all
-                (fn (l, (_, (_, (_, (_, (_, la)))))) =>
-                  less_nat l (num_states i) andalso less_nat la (num_states i))
-                trans
-            end)
-          zero_nata (size_list automata))
-        "Number of states is correct (transitions)",
-      assert
-        (all_interval_nat
-          (fn i => let
-                     val a = nth automata i;
-                     val (_, aa) = a;
-                     val (_, ab) = aa;
-                   in
-                     list_all (fn (x, _) => less_nat x (num_states i)) ab
-                   end)
-          zero_nata (size_list automata))
-        "Number of states is correct (invariants)",
-      assert
-        (list_all
-          (fn (_, (trans, _)) =>
-            list_all
-              (fn (_, (_, (_, (_, (f, (_, _)))))) =>
-                list_all
-                  (fn (x, upd) =>
-                    less_nat x (n_vs bounds) andalso
-                      ball (vars_of_exp equal_nat upd)
-                        (fn i => less_nat i (n_vs bounds)))
-                  f)
-              trans)
-          automata)
-        "Variable set bounded (updates)",
-      assert
-        (list_all
-          (fn (_, (trans, _)) =>
-            list_all
-              (fn (_, (b, (_, (_, (_, (_, _)))))) =>
-                ball (vars_of_bexp equal_nat b)
-                  (fn i => less_nat i (n_vs bounds)))
-              trans)
-          automata)
-        "Variable set bounded (guards)",
-      assert
-        (all_interval_nat (fn i => equal_nata (fst (nth bounds i)) i) zero_nata
-          (n_vs bounds))
-        "Bounds first index",
-      assert (list_all (fn a => less_nat a num_actions) broadcast)
-        "Broadcast actions bounded",
-      assert
-        (list_all
-          (fn (_, (trans, _)) =>
-            list_all
-              (fn (_, a) =>
-                let
-                  val (_, aa) = a;
-                  val (_, ab) = aa;
-                  val (ac, (_, (_, _))) = ab;
-                in
-                  pred_act equal_nat (fn ad => less_nat ad num_actions) ac
-                end)
-              trans)
-          automata)
-        "Actions bounded (transitions)",
-      assert
-        (list_all
-          (fn (_, (trans, _)) =>
-            list_all
-              (fn (_, (_, (g, (_, (_, (r, _)))))) =>
-                list_all (fn c => less_nat zero_nata c andalso less_eq_nat c m)
-                  r andalso
-                  ball (collect_clock_pairs g)
-                    (fn (c, x) =>
-                      less_nat zero_nata c andalso
-                        (less_eq_nat c m andalso less_eq_int zero_inta x)))
-              trans)
-          automata)
-        "Clock set bounded (transitions)",
-      assert
-        (list_all
-          (fn (_, a) =>
-            let
-              val (_, aa) = a;
-            in
-              list_all
-                (fn (_, g) =>
-                  ball (collect_clock_pairs g)
-                    (fn (c, x) =>
-                      less_nat zero_nata c andalso
-                        (less_eq_nat c m andalso less_eq_int zero_inta x)))
-                aa
-            end)
-          automata)
-        "Clock set bounded (invariants)",
-      assert
-        (list_all
-          (fn (_, (trans, _)) =>
-            list_all
-              (fn (_, a) =>
-                let
-                  val (_, aa) = a;
-                  val (g, ab) = aa;
-                  val (ac, (_, (_, _))) = ab;
-                in
-                  (case ac
-                    of In ad =>
-                      (if membera equal_nat broadcast ad then null g else true)
-                    | Out _ => true | Sil _ => true)
-                end)
-              trans)
-          automata)
-        "Broadcast receivers are unguarded"];
-
-fun check_precond broadcast bounds automata m num_states num_actions k l_0 s_0
-  formula =
-  combine2 (check_precond1 broadcast bounds automata m num_states num_actions)
-    (check_precond2 broadcast bounds automata m num_states k l_0 s_0 formula);
 
 fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
   m num_states k l_0 s_0 formula =
@@ -6908,6 +6673,40 @@ fun trans_map automata i =
   in
     (fn j => (case m j of NONE => [] | SOME xs => xs))
   end;
+
+fun tracei (B1_, B2_, B3_, B4_) n show_state show_clock typea =
+  (fn (l, m) =>
+    let
+      val st = show_state l;
+    in
+      (fn f_ => fn () => f_
+        ((show_dbm_impl (B1_, B2_, B3_) n show_clock
+           (fn x => shows_prec B4_ zero_nata x []) m)
+        ()) ())
+        (fn ma =>
+          let
+            val s =
+              typea @
+                [Chara (false, true, false, true, true, true, false, false),
+                  Chara (false, false, false, false, false, true, false, false),
+                  Chara (false, false, false, true, false, true, false,
+                          false)] @
+                  st @ [Chara (false, false, true, true, false, true, false,
+                                false),
+                         Chara (false, false, false, false, false, true, false,
+                                 false),
+                         Chara (false, false, true, true, true, true, false,
+                                 false)] @
+                         ma @ [Chara (false, true, true, true, true, true,
+                                       false, false),
+                                Chara (true, false, false, true, false, true,
+false, false)];
+            val sa = implode s;
+            val _ = writeln sa;
+          in
+            (fn () => ())
+          end)
+    end);
 
 fun reset_canonical_upd_impl (A1_, A2_, A3_) n =
   (fn ai => fn bib => fn bia => fn bi =>
@@ -7410,8 +7209,8 @@ m xb zero_nata (constraint_clk aia)))
           ()) ())
           (fn x => (fn () => (not x))));
     val trace =
-      (fn a => fn b =>
-        (fn n => fn showmstate => fn showshow_stateclock => fn typ => fn x => ()) show_clock a b);
+      tracei (linordered_ab_group_add_int, equal_int, heap_int, show_int) m
+        show_state show_clock;
   in
     (fn f_ => fn () => f_ (is_start ()) ())
       (fn r1 =>
@@ -7441,68 +7240,6 @@ fun precond_dc show_clock show_state broadcast bounds automata m num_states
            ()) ())
            (fn x => (fn () => (SOME x)))
     else (fn () => NONE));
-
-fun map_cconstraint f g xs = map (map_acconstraint f g) xs;
-
-fun renum_cconstraint A_ renum_clocks = map_cconstraint renum_clocks id;
-
-fun renum_reset A_ renum_clocks = map renum_clocks;
-
-fun renum_bexp A_ renum_vars = map_bexp renum_vars;
-
-fun renum_exp A_ renum_vars = map_exp renum_vars;
-
-fun renum_upd A_ renum_vars =
-  map (fn (x, upd) => (renum_vars x, renum_exp A_ renum_vars upd));
-
-fun renum_act A_ renum_acts = map_act renum_acts;
-
-fun renum_automaton A_ B_ C_ D_ renum_acts renum_vars renum_clocks renum_states
-  i = (fn (commited, (trans, inv)) =>
-        let
-          val commiteda = map (renum_states i) commited;
-          val transa =
-            map (fn (l, a) =>
-                  let
-                    val (b, aa) = a;
-                    val (g, ab) = aa;
-                    val (ac, (upd, (r, la))) = ab;
-                  in
-                    (renum_states i l,
-                      (renum_bexp B_ renum_vars b,
-                        (renum_cconstraint C_ renum_clocks g,
-                          (renum_act A_ renum_acts ac,
-                            (renum_upd B_ renum_vars upd,
-                              (renum_reset C_ renum_clocks r,
-                                renum_states i la))))))
-                  end)
-              trans;
-          val inva =
-            map (fn (l, g) =>
-                  (renum_states i l, renum_cconstraint C_ renum_clocks g))
-              inv;
-        in
-          (commiteda, (transa, inva))
-        end);
-
-fun rename_network A_ B_ E_ G_ broadcast bounds automata renum_acts renum_vars
-  renum_clocks renum_states =
-  let
-    val automataa =
-      map_index zero_nata
-        (renum_automaton A_ B_ G_ E_ renum_acts renum_vars renum_clocks
-          renum_states)
-        automata;
-    val broadcasta = map renum_acts broadcast;
-    val boundsa = map (fn (a, b) => let
-                                      val (ba, c) = b;
-                                    in
-                                      (renum_vars a, (ba, c))
-                                    end)
-                    bounds;
-  in
-    (broadcasta, (automataa, boundsa))
-  end;
 
 fun check_sexpi A_ Truea uu uv = true
   | check_sexpi A_ (Nota e) l s = not (check_sexpi A_ e l s)
@@ -7927,8 +7664,8 @@ else (fn f_ => fn () => f_
          (fn (_, a) =>
            check_diag_impl (linordered_cancel_ab_monoid_add_int, heap_int) m a);
        val trace =
-         (fn a => fn b =>
-           (fn n => fn showmstate => fn showshow_stateclock => fn typ => fn x => ()) show_clock a b);
+         tracei (linordered_ab_group_add_int, equal_int, heap_int, show_int) m
+           show_state show_clock;
      in
        pw_impl
          (heap_prod (heap_prod (heap_list heap_nat) (heap_list heap_int))
@@ -8786,8 +8523,8 @@ heap_DBMEntry heap_int)
          (fn (_, a) =>
            check_diag_impl (linordered_cancel_ab_monoid_add_int, heap_int) m a);
        val a =
-         (fn a => fn b =>
-           (fn n => fn showmstate => fn showshow_stateclock => fn typ => fn x => ()) show_clock a b);
+         tracei (linordered_ab_group_add_int, equal_int, heap_int, show_int) m
+           show_state show_clock;
      in
        leadsto_impl
          (heap_prod (heap_prod (heap_list heap_nat) (heap_list heap_int))
@@ -9320,6 +9057,538 @@ fun precond_mc show_clock show_state broadcast bounds automata m num_states
            (fn x => (fn () => (SOME x)))
     else (fn () => NONE));
 
+fun automaton_of C_ =
+  (fn (commited, (trans, inv)) =>
+    (Set commited, (Set trans, default_map_of C_ [] inv)));
+
+fun set2_sexp B_ Truea = bot_set
+  | set2_sexp B_ (Nota x2) = set2_sexp B_ x2
+  | set2_sexp B_ (Anda (x31, x32)) =
+    sup_set B_ (set2_sexp B_ x31) (set2_sexp B_ x32)
+  | set2_sexp B_ (Ora (x41, x42)) =
+    sup_set B_ (set2_sexp B_ x41) (set2_sexp B_ x42)
+  | set2_sexp B_ (Implya (x51, x52)) =
+    sup_set B_ (set2_sexp B_ x51) (set2_sexp B_ x52)
+  | set2_sexp B_ (Eqa (x61, x62)) = bot_set
+  | set2_sexp B_ (Leb (x71, x72)) = bot_set
+  | set2_sexp B_ (Ltb (x81, x82)) = bot_set
+  | set2_sexp B_ (Gea (x91, x92)) = bot_set
+  | set2_sexp B_ (Gta (x101, x102)) = bot_set
+  | set2_sexp B_ (Loc (x111, x112)) = insert B_ x112 bot_set;
+
+fun set2_formula B_ (EX x1) = set2_sexp B_ x1
+  | set2_formula B_ (EG x2) = set2_sexp B_ x2
+  | set2_formula B_ (AX x3) = set2_sexp B_ x3
+  | set2_formula B_ (AG x4) = set2_sexp B_ x4
+  | set2_formula B_ (Leadsto (x51, x52)) =
+    sup_set B_ (set2_sexp B_ x51) (set2_sexp B_ x52);
+
+fun clkp_set C_ automata =
+  sup_set (equal_prod C_ equal_int)
+    (sup_seta (equal_prod C_ equal_int)
+      (image
+        (fn a =>
+          sup_seta (equal_prod C_ equal_int)
+            (image (collect_clock_pairs o snd) (Set (snd (snd a)))))
+        (Set automata)))
+    (sup_seta (equal_prod C_ equal_int)
+      (image
+        (fn a =>
+          sup_seta (equal_prod C_ equal_int)
+            (image (fn (_, (_, (g, _))) => collect_clock_pairs g)
+              (Set (fst (snd a)))))
+        (Set automata)));
+
+fun clk_set C_ automata =
+  sup_set C_ (image fst (clkp_set C_ automata))
+    (sup_seta C_
+      (image
+        (fn a =>
+          sup_seta C_
+            (image (fn (_, (_, (_, (_, (_, (r, _)))))) => Set r)
+              (Set (fst (snd a)))))
+        (Set automata)));
+
+fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
+  automata phi l_0 s_0 =
+  combine
+    [assert
+       (all_interval_nat
+         (fn i =>
+           ball (sup_seta equal_nat
+                  (image
+                    (fn (_, (t, _)) =>
+                      sup_seta equal_nat
+                        (image
+                          (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                            insert equal_nat l (insert equal_nat la bot_set))
+                          (Set t)))
+                    (Set automata)))
+             (fn x =>
+               ball (sup_seta equal_nat
+                      (image
+                        (fn (_, (t, _)) =>
+                          sup_seta equal_nat
+                            (image
+                              (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                                insert equal_nat l
+                                  (insert equal_nat la bot_set))
+                              (Set t)))
+                        (Set automata)))
+                 (fn y =>
+                   (if equal_nata (renum_states i x) (renum_states i y)
+                     then equal_nata x y else true))))
+         zero_nata (size_list automata))
+       "Location renamings are injective",
+      assert
+        (inj_on equal_literal equal_nat renum_clocks
+          (clk_set equal_literal automata))
+        "Clock renaming is injective",
+      assert
+        (inj_on equal_literal equal_nat renum_vars
+          (sup_set equal_literal
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
+                (image (fn t => image (fst o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal
+                    (image
+                      (fn f =>
+                        sup_seta equal_literal
+                          (image
+                            (fn (x, e) =>
+                              sup_set equal_literal
+                                (insert equal_literal x bot_set)
+                                (vars_of_exp equal_literal e))
+                            (Set f)))
+                      s))
+                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+        "Variable renaming is injective",
+      assert
+        (subset (card_UNIV_literal, equal_literal) (image fst (Set bounds))
+          (sup_set equal_literal
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
+                (image (fn t => image (fst o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal
+                    (image
+                      (fn f =>
+                        sup_seta equal_literal
+                          (image
+                            (fn (x, e) =>
+                              sup_set equal_literal
+                                (insert equal_literal x bot_set)
+                                (vars_of_exp equal_literal e))
+                            (Set f)))
+                      s))
+                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+        "Bound set is a subset of the variable set",
+      assert
+        (subset (card_UNIV_nat, equal_nat)
+          (sup_seta equal_nat
+            (image (fn g => image fst (Set g))
+              (Set (map (snd o snd) automata))))
+          (sup_seta equal_nat
+            (image
+              (fn (_, (t, _)) =>
+                sup_seta equal_nat
+                  (image
+                    (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                      insert equal_nat l (insert equal_nat la bot_set))
+                    (Set t)))
+              (Set automata))))
+        "Invariant locations are contained in the location set",
+      assert
+        (subset (card_UNIV_nat, equal_nat)
+          (sup_seta equal_nat (image (Set o fst) (Set automata)))
+          (sup_seta equal_nat
+            (image
+              (fn (_, (t, _)) =>
+                sup_seta equal_nat
+                  (image
+                    (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                      insert equal_nat l (insert equal_nat la bot_set))
+                    (Set t)))
+              (Set automata))))
+        "Broadcast locations are containted in the location set",
+      assert
+        (equal_nata (size_list l_0) (size_list automata) andalso
+          all_interval_nat
+            (fn i =>
+              bex (fst (snd (nth (fst (snd
+(Set broadcast,
+  (map (automaton_of equal_nat) automata, map_of equal_literal bounds))))
+                              i)))
+                (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                  equal_nata (nth l_0 i) l orelse equal_nata (nth l_0 i) la))
+            zero_nata (size_list automata))
+        "Initial location is in the state set",
+      assert
+        (eq_set (card_UNIV_literal, equal_literal) (image fst (Set s_0))
+          (sup_set equal_literal
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
+                (image (fn t => image (fst o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal
+                    (image
+                      (fn f =>
+                        sup_seta equal_literal
+                          (image
+                            (fn (x, e) =>
+                              sup_set equal_literal
+                                (insert equal_literal x bot_set)
+                                (vars_of_exp equal_literal e))
+                            (Set f)))
+                      s))
+                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+        "Initial state has the correct domain",
+      assert (distinct equal_literal (map fst s_0))
+        "Initial state is unambiguous",
+      assert
+        (subset (card_UNIV_nat, equal_nat) (set2_formula equal_nat phi)
+          (sup_seta equal_nat
+            (image
+              (fn (_, (t, _)) =>
+                sup_seta equal_nat
+                  (image
+                    (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                      insert equal_nat l (insert equal_nat la bot_set))
+                    (Set t)))
+              (Set automata))))
+        "Formula locations are contained in the location set",
+      assert
+        (subset (card_UNIV_nat, equal_nat) (locs_of_formula equal_nat phi)
+          (Set (upt zero_nata (size_list automata))))
+        "Formula automata are contained in the automata set",
+      assert
+        (subset (card_UNIV_literal, equal_literal)
+          (vars_of_formula equal_literal phi)
+          (sup_set equal_literal
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
+                (image (fn t => image (fst o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))
+            (sup_seta equal_literal
+              (image
+                (fn s =>
+                  sup_seta equal_literal
+                    (image
+                      (fn f =>
+                        sup_seta equal_literal
+                          (image
+                            (fn (x, e) =>
+                              sup_set equal_literal
+                                (insert equal_literal x bot_set)
+                                (vars_of_exp equal_literal e))
+                            (Set f)))
+                      s))
+                (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
+                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+        "Variables of the formula are contained in the variable set"];
+
+fun check_precond2 broadcast bounds automata m num_states k l_0 s_0 formula =
+  let
+    val _ =
+      writeln (implode
+                (shows_prec_list (show_list (show_list show_nat)) zero_nata k
+                  []));
+  in
+    combine
+      [assert
+         (all_interval_nat
+           (fn i =>
+             list_all
+               (fn (l, g) =>
+                 ball (collect_clock_pairs g)
+                   (fn (x, ma) =>
+                     less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
+               ((snd o snd) (nth automata i)))
+           zero_nata (size_list automata))
+         "Ceiling invariants",
+        assert
+          (all_interval_nat
+            (fn i =>
+              list_all
+                (fn (l, (_, (g, _))) =>
+                  ball (collect_clock_pairs g)
+                    (fn (x, ma) =>
+                      less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
+                ((fst o snd) (nth automata i)))
+            zero_nata (size_list automata))
+          "Ceiling transitions",
+        assert
+          (all_interval_nat
+            (fn i =>
+              list_all
+                (fn (l, (_, (_, (_, (_, (r, la)))))) =>
+                  ball (minus_set equal_nat
+                         (Set (upt zero_nata (plus_nata m one_nata))) (Set r))
+                    (fn c =>
+                      less_eq_nat (nth (nth (nth k i) la) c)
+                        (nth (nth (nth k i) l) c)))
+                ((fst o snd) (nth automata i)))
+            zero_nata (size_list automata))
+          "Ceiling resets",
+        assert (equal_nata (size_list k) (size_list automata)) "Ceiling length",
+        assert
+          (all_interval_nat
+            (fn i => equal_nata (size_list (nth k i)) (num_states i)) zero_nata
+            (size_list automata))
+          "Ceiling length automata)",
+        assert
+          (list_all
+            (list_all
+              (fn xxs => equal_nata (size_list xxs) (plus_nata m one_nata)))
+            k)
+          "Ceiling length clocks",
+        assert
+          (all_interval_nat
+            (fn i =>
+              all_interval_nat
+                (fn l => equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
+                zero_nata (num_states i))
+            zero_nata (size_list automata))
+          "Ceiling zero clock",
+        assert
+          (list_all (fn (_, (_, inv)) => distinct equal_nat (map fst inv))
+            automata)
+          "Unambiguous invariants",
+        assert
+          (eq_set (card_UNIV_nat, equal_nat) (image fst (Set s_0))
+             (image fst (Set bounds)) andalso
+            ball (image fst (Set s_0))
+              (fn x =>
+                less_eq_int (fst (the (map_of equal_nat bounds x)))
+                  (the (map_of equal_nat s_0 x)) andalso
+                  less_eq_int (the (map_of equal_nat s_0 x))
+                    (snd (the (map_of equal_nat bounds x)))))
+          "Initial state bounded",
+        assert (equal_nata (size_list l_0) (size_list automata))
+          "Length of initial state",
+        assert
+          (all_interval_nat
+            (fn i =>
+              member equal_nat (nth l_0 i)
+                (image fst (Set ((fst o snd) (nth automata i)))))
+            zero_nata (size_list automata))
+          "Initial state has outgoing transitions",
+        assert
+          (subset (card_UNIV_nat, equal_nat) (vars_of_formula equal_nat formula)
+            (Set (upt zero_nata (n_vs bounds))))
+          "Variable set of formula"]
+  end;
+
+fun check_precond1 broadcast bounds automata m num_states num_actions =
+  combine
+    [assert (less_nat zero_nata m) "At least one clock",
+      assert (less_nat zero_nata (size_list automata)) "At least one automaton",
+      assert
+        (all_interval_nat
+          (fn i =>
+            let
+              val (_, (trans, _)) = nth automata i;
+            in
+              list_all
+                (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                  less_nat l (num_states i) andalso less_nat la (num_states i))
+                trans
+            end)
+          zero_nata (size_list automata))
+        "Number of states is correct (transitions)",
+      assert
+        (all_interval_nat
+          (fn i => let
+                     val a = nth automata i;
+                     val (_, aa) = a;
+                     val (_, ab) = aa;
+                   in
+                     list_all (fn (x, _) => less_nat x (num_states i)) ab
+                   end)
+          zero_nata (size_list automata))
+        "Number of states is correct (invariants)",
+      assert
+        (list_all
+          (fn (_, (trans, _)) =>
+            list_all
+              (fn (_, (_, (_, (_, (f, (_, _)))))) =>
+                list_all
+                  (fn (x, upd) =>
+                    less_nat x (n_vs bounds) andalso
+                      ball (vars_of_exp equal_nat upd)
+                        (fn i => less_nat i (n_vs bounds)))
+                  f)
+              trans)
+          automata)
+        "Variable set bounded (updates)",
+      assert
+        (list_all
+          (fn (_, (trans, _)) =>
+            list_all
+              (fn (_, (b, (_, (_, (_, (_, _)))))) =>
+                ball (vars_of_bexp equal_nat b)
+                  (fn i => less_nat i (n_vs bounds)))
+              trans)
+          automata)
+        "Variable set bounded (guards)",
+      assert
+        (all_interval_nat (fn i => equal_nata (fst (nth bounds i)) i) zero_nata
+          (n_vs bounds))
+        "Bounds first index",
+      assert (list_all (fn a => less_nat a num_actions) broadcast)
+        "Broadcast actions bounded",
+      assert
+        (list_all
+          (fn (_, (trans, _)) =>
+            list_all
+              (fn (_, a) =>
+                let
+                  val (_, aa) = a;
+                  val (_, ab) = aa;
+                  val (ac, (_, (_, _))) = ab;
+                in
+                  pred_act equal_nat (fn ad => less_nat ad num_actions) ac
+                end)
+              trans)
+          automata)
+        "Actions bounded (transitions)",
+      assert
+        (list_all
+          (fn (_, (trans, _)) =>
+            list_all
+              (fn (_, (_, (g, (_, (_, (r, _)))))) =>
+                list_all (fn c => less_nat zero_nata c andalso less_eq_nat c m)
+                  r andalso
+                  ball (collect_clock_pairs g)
+                    (fn (c, x) =>
+                      less_nat zero_nata c andalso
+                        (less_eq_nat c m andalso less_eq_int zero_inta x)))
+              trans)
+          automata)
+        "Clock set bounded (transitions)",
+      assert
+        (list_all
+          (fn (_, a) =>
+            let
+              val (_, aa) = a;
+            in
+              list_all
+                (fn (_, g) =>
+                  ball (collect_clock_pairs g)
+                    (fn (c, x) =>
+                      less_nat zero_nata c andalso
+                        (less_eq_nat c m andalso less_eq_int zero_inta x)))
+                aa
+            end)
+          automata)
+        "Clock set bounded (invariants)",
+      assert
+        (list_all
+          (fn (_, (trans, _)) =>
+            list_all
+              (fn (_, a) =>
+                let
+                  val (_, aa) = a;
+                  val (g, ab) = aa;
+                  val (ac, (_, (_, _))) = ab;
+                in
+                  (case ac
+                    of In ad =>
+                      (if membera equal_nat broadcast ad then null g else true)
+                    | Out _ => true | Sil _ => true)
+                end)
+              trans)
+          automata)
+        "Broadcast receivers are unguarded"];
+
+fun check_precond broadcast bounds automata m num_states num_actions k l_0 s_0
+  formula =
+  combine2 (check_precond1 broadcast bounds automata m num_states num_actions)
+    (check_precond2 broadcast bounds automata m num_states k l_0 s_0 formula);
+
+fun map_cconstraint f g xs = map (map_acconstraint f g) xs;
+
+fun renum_cconstraint A_ renum_clocks = map_cconstraint renum_clocks id;
+
+fun renum_reset A_ renum_clocks = map renum_clocks;
+
+fun renum_bexp A_ renum_vars = map_bexp renum_vars;
+
+fun renum_exp A_ renum_vars = map_exp renum_vars;
+
+fun renum_upd A_ renum_vars =
+  map (fn (x, upd) => (renum_vars x, renum_exp A_ renum_vars upd));
+
+fun renum_act A_ renum_acts = map_act renum_acts;
+
+fun renum_automaton A_ B_ C_ D_ renum_acts renum_vars renum_clocks renum_states
+  i = (fn (commited, (trans, inv)) =>
+        let
+          val commiteda = map (renum_states i) commited;
+          val transa =
+            map (fn (l, a) =>
+                  let
+                    val (b, aa) = a;
+                    val (g, ab) = aa;
+                    val (ac, (upd, (r, la))) = ab;
+                  in
+                    (renum_states i l,
+                      (renum_bexp B_ renum_vars b,
+                        (renum_cconstraint C_ renum_clocks g,
+                          (renum_act A_ renum_acts ac,
+                            (renum_upd B_ renum_vars upd,
+                              (renum_reset C_ renum_clocks r,
+                                renum_states i la))))))
+                  end)
+              trans;
+          val inva =
+            map (fn (l, g) =>
+                  (renum_states i l, renum_cconstraint C_ renum_clocks g))
+              inv;
+        in
+          (commiteda, (transa, inva))
+        end);
+
+fun rename_network A_ B_ E_ G_ broadcast bounds automata renum_acts renum_vars
+  renum_clocks renum_states =
+  let
+    val automataa =
+      map_index zero_nata
+        (renum_automaton A_ B_ G_ E_ renum_acts renum_vars renum_clocks
+          renum_states)
+        automata;
+    val broadcasta = map renum_acts broadcast;
+    val boundsa = map (fn (a, b) => let
+                                      val (ba, c) = b;
+                                    in
+                                      (renum_vars a, (ba, c))
+                                    end)
+                    bounds;
+  in
+    (broadcasta, (automataa, boundsa))
+  end;
+
 fun show_vars A_ B_ inv_renum_vars =
   (fn x => shows_prec_list (show_list show_char) zero_nata x []) o
     map_index zero_nata
@@ -9346,7 +9615,7 @@ fun show_state B_ C_ D_ inv_renum_states inv_renum_vars =
                vsa @ [Chara (false, true, true, true, true, true, false, false)]
     end);
 
-fun rename_mc A_ B_ C_ dc broadcast bounds automata k l_0 s_0 formula m
+fun do_rename_mc C_ E_ F_ G_ f dc broadcast bounds automata k l_0 s_0 formula m
   num_states num_actions renum_acts renum_vars renum_clocks renum_states
   inv_renum_states inv_renum_vars inv_renum_clocks =
   let
@@ -9391,8 +9660,8 @@ show_nat)))))))
     val _ = writeln "Renaming state";
     val l_0a = map_index zero_nata renum_states l_0;
     val s_0a = map (fn (x, a) => (renum_vars x, a)) s_0;
-    val show_clock = (fn x => shows_prec C_ zero_nata x []) o inv_renum_clocks;
-    val show_statea = show_state A_ B_ show_int inv_renum_states inv_renum_vars;
+    val show_clock = (fn x => shows_prec G_ zero_nata x []) o inv_renum_clocks;
+    val show_statea = show_state E_ F_ C_ inv_renum_states inv_renum_vars;
   in
     (if is_result renaming_valid
       then let
@@ -9412,26 +9681,39 @@ show_nat)))))))
              val _ = writeln "Running precond_mc";
            in
              (fn f_ => fn () => f_
-               ((if dc
-                  then precond_dc show_clock show_statea broadcasta boundsa
-                         automataa m num_states num_actions k l_0a s_0a formulab
-                  else precond_mc show_clock show_statea broadcasta boundsa
-                         automataa m num_states num_actions k l_0a s_0a
-                         formulab)
+               ((f show_clock show_statea broadcasta boundsa automataa m
+                   num_states
+                   num_actions
+                   k
+                   l_0a
+                   s_0a
+                  formulab)
                ()) ())
-               (fn a =>
-                 (case a of NONE => (fn () => Preconds_Unsat)
-                   | SOME true => (fn () => Sat)
-                   | SOME false => (fn () => Unsat)))
+               (fn ra => (fn () => (SOME ra)))
            end
       else let
              val _ =
                writeln "The following conditions on the renaming were not satisfied:";
              val _ = map (fn a => writeln a) (the_errors renaming_valid);
            in
-             (fn () => Renaming_Failed)
+             (fn () => NONE)
            end)
   end;
+
+fun rename_mc A_ B_ C_ dc broadcast bounds automata k l_0 s_0 formula m
+  num_states num_actions renum_acts renum_vars renum_clocks renum_states
+  inv_renum_states inv_renum_vars inv_renum_clocks =
+  (fn f_ => fn () => f_
+    ((do_rename_mc show_int A_ B_ C_ (if dc then precond_dc else precond_mc) dc
+       broadcast bounds automata k l_0 s_0 formula m num_states num_actions
+       renum_acts renum_vars renum_clocks renum_states inv_renum_states
+       inv_renum_vars inv_renum_clocks)
+    ()) ())
+    (fn a =>
+      (case a of NONE => (fn () => Renaming_Failed)
+        | SOME NONE => (fn () => Preconds_Unsat)
+        | SOME (SOME true) => (fn () => Sat)
+        | SOME (SOME false) => (fn () => Unsat)));
 
 fun concat_str x = (implode o concat o map explode) x;
 
@@ -9787,7 +10069,7 @@ fun do_preproc_mc A_ =
                   else "Property is not satisfied!")
             | Error es =>
               err ("Error during preprocessing:\092" ^
-                    concat_str (intersperse "\092" es))))));
+                    concat_str (interspersea "\092" es))))));
 
 fun parse_convert_run dc s =
   (case binda (parse json s) convert

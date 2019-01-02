@@ -302,6 +302,67 @@ definition
   let L = show_locs inv_renum_states L; vs = show_vars inv_renum_vars vs in
   ''<'' @ L @ ''>, <'' @ vs @ ''>''"
 
+definition do_rename_mc where
+  "do_rename_mc f dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    inv_renum_states inv_renum_vars inv_renum_clocks
+\<equiv>
+let
+   _ = println (STR ''Checking renaming'');
+  formula = (if dc then formula.EX (not sexp.true) else formula);
+   renaming_valid = Simple_Network_Rename_Formula_String_Defs.check_renaming
+      broadcast bounds' renum_vars renum_clocks renum_states automata formula L\<^sub>0 s\<^sub>0;
+   _ = println (STR ''Renaming network'');
+   (broadcast, automata, bounds') = rename_network
+      broadcast bounds' automata renum_acts renum_vars renum_clocks renum_states;
+   _ = println (STR ''Automata after renaming'');
+   _ = map (\<lambda>a. show a |> String.implode |> println) automata;
+   _ = println (STR ''Renaming formula'');
+   formula =
+    (if dc then formula.EX (not sexp.true) else map_formula renum_states renum_vars id formula);
+    _ = println (STR ''Renaming state'');
+   L\<^sub>0 = map_index renum_states L\<^sub>0;
+   s\<^sub>0 = map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0;
+   show_clock = show o inv_renum_clocks;
+   show_state = show_state inv_renum_states inv_renum_vars
+in
+  if is_result renaming_valid then do {
+    let _ = println (STR ''Checking preconditions'');
+    let r = Simple_Network_Impl_nat_defs.check_precond
+      broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
+    let _ = (case r of Result _ \<Rightarrow> [()]
+      | Error es \<Rightarrow> let _ = println (STR ''The following pre-conditions were not satisified'') in
+          map println es);
+    let _ = println (STR ''Running precond_mc'');
+    r \<leftarrow> f show_clock show_state
+        broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
+    return (Some r)
+  }
+  else do {
+    let _ = println (STR ''The following conditions on the renaming were not satisfied:'');
+    let _ = the_errors renaming_valid |> map println;
+    return None}
+"
+
+definition rename_mc where
+  "rename_mc dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    inv_renum_states inv_renum_vars inv_renum_clocks
+\<equiv>
+do {
+  r \<leftarrow> do_rename_mc (if dc then precond_dc else precond_mc)
+    dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    inv_renum_states inv_renum_vars inv_renum_clocks;
+  case r of Some r \<Rightarrow>
+    case r of
+      None \<Rightarrow> return Preconds_Unsat
+    | Some False \<Rightarrow> return Unsat
+    | Some True \<Rightarrow> return Sat
+  | None \<Rightarrow> return Renaming_Failed}
+"
+
+(*
 definition rename_mc where
   "rename_mc dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
@@ -349,6 +410,7 @@ in
     let _ = the_errors renaming_valid |> map println;
     return Renaming_Failed}
 "
+*)
 
 theorem model_check_rename:
   "<emp> rename_mc False broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
@@ -426,7 +488,7 @@ proof -
     simplified
     ]
   show ?thesis
-    unfolding rename_mc_def rename_network_def
+    unfolding rename_mc_def do_rename_mc_def rename_network_def
     unfolding if_False
     unfolding Simple_Network_Rename_Formula_String_Defs.check_renaming[symmetric] * Let_def
     unfolding
@@ -497,7 +559,7 @@ proof -
     simplified
     ]
   show ?thesis
-    unfolding rename_mc_def rename_network_def
+    unfolding rename_mc_def do_rename_mc_def  rename_network_def
     unfolding if_True
     unfolding Simple_Network_Rename_Formula_String_Defs.check_renaming[symmetric] * Let_def
     unfolding
@@ -1491,18 +1553,5 @@ ML_val \<open>assert
 ML_val \<open>assert
   (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_3b.muntax" ())
   "Model has no deadlock!"\<close>
-
-ML _val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_05.muntax" ()) "Property is not satisfied!"\<close>
-ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/csma_06.muntax" ()) "Property is not satisfied!"\<close>
-
-ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer_05.muntax" ()) "Property is not satisfied!"\<close>
-
-ML_ val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/hddi_08.muntax" ()) "Property is not satisfied!"\<close>
-
-(*
-ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_one_clock.muntax" ()) "Property is not satisfied!"\<close>
-
-ML_val \<open>assert (test "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all.muntax" ()) "Property is satisfied!"\<close>
-*)
 
 end
