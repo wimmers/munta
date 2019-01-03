@@ -145,15 +145,6 @@ context
   fixes P :: "('l \<times> 's) \<Rightarrow> bool"
 begin
 
-(*
-definition "check_prop \<equiv>
-do {
-  l \<leftarrow> SPEC (\<lambda>l. set l = L);
-  nfoldli l (\<lambda>b. b) (\<lambda>l _. RETURN (\<forall> s \<in> M l. P (l, s))) True
-}
-"
-*)
-
 definition "check_prop \<equiv>
 do {
   xs \<leftarrow> SPEC (\<lambda>xs. set xs = PR_CONST L);
@@ -191,9 +182,7 @@ do {
   l \<leftarrow> SPEC (\<lambda>xs. set xs = L);
   monadic_list_all (\<lambda>l.
   do {
-    (* as    \<leftarrow> SPEC (\<lambda>xs. set xs = M l); *)
     let as = M l;
-    (* succs \<leftarrow> SPEC (\<lambda>xs. set xs = succs l as); *)
     let succs = succs l as;
     monadic_list_all (\<lambda>(l', xs).
     do {
@@ -341,22 +330,20 @@ private lemma frame3:
 lemma list_rev_aux: "list_assn A a c \<Longrightarrow>\<^sub>A list_assn A (rev a) (rev c)"
   apply (subst list_assn_aux_len; clarsimp)
   apply (induction rule: list_induct2)
-  apply sep_auto
-  apply sep_auto
-  apply (erule ent_frame_fwd, frame_inference)
-  apply sep_auto
+   apply sep_auto
+  apply (sep_auto, erule ent_frame_fwd, frame_inference, sep_auto)
   done
 
 theorem copy_list_refine:
-  fixes A :: "'b \<Rightarrow> 'a \<Rightarrow> assn"
-    and x :: "'b list"
-    and xi :: "'a list"
-    and copy :: "'a \<Rightarrow> 'a Heap"
   assumes
     copy: "(copy, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   shows
-    "hn_refine (hn_ctxt (list_assn A) x xi) (copy_list_impl copy $ xi) (hn_ctxt (list_assn A) x xi)
-      (list_assn A) (copy_list (RETURN \<circ> COPY) $ x)"
+    "hn_refine
+      (hn_ctxt (list_assn A) x xi)
+        (copy_list_impl copy $ xi)
+      (hn_ctxt (list_assn A) x xi)
+      (list_assn A)
+        (copy_list (RETURN \<circ> COPY) $ x)"
   unfolding copy_list_def copy_list_impl_def
   apply sep_auto
   apply (rule hnr_bind)
@@ -364,16 +351,11 @@ theorem copy_list_refine:
         where S = "set x" and Rs = "list_assn A" and Rl = A and Rl' = A and Rl'' = A and \<Gamma> = emp,
           THEN hn_refine_cons_pre[rotated]])
         apply sep_auto
-       apply sep_auto
   subgoal
-    apply standard
-    apply (sep_auto simp: pure_def)
-    done
-      apply sep_auto
+    by standard (sep_auto simp: pure_def)
       prefer 3
   subgoal
-    apply (sep_auto simp: pure_def)
-    done
+    by (sep_auto simp: pure_def)
   subgoal
     supply [sep_heap_rules]  = copy[to_hnr, unfolded hn_refine_def, simplified]
     apply standard
@@ -381,11 +363,10 @@ theorem copy_list_refine:
       (* Frame *)
     by (smt assn_times_comm ent_refl ent_star_mono hn_ctxt_def invalidate_clone star_aci(3))
 
-    apply sep_auto
-   apply sep_auto
+    apply (sep_auto; fail)
    defer
-   apply (rule frame3)
-  apply rule
+   apply (rule frame3; fail)
+  apply standard
   apply sep_auto
   apply (drule order_trans, rule monadic_nfoldli_rev)
   apply (rule ent_true_drop(2))
@@ -428,6 +409,11 @@ locale Reachability_Impl =
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and F
     and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i
   and L_list :: "'ki list" and M_table :: "('ki, 'bi list) hashtable"
+  assumes L_finite: "finite L"
+      and M_ran_finite: "\<forall>S \<in> ran M. finite S"
+      and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S'"
+      (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
+      and succs_empty: "\<And>l. succs l {} = []"
   assumes L_impl[sepref_fr_rules]:
     "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST L))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn K"
   assumes M_impl:
@@ -439,7 +425,8 @@ locale Reachability_Impl =
   assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]:
-    "(uncurry succsi,uncurry (RETURN oo PR_CONST succs)) \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>k \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
+    "(uncurry succsi,uncurry (RETURN oo PR_CONST succs))
+    \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>k \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
   assumes [sepref_fr_rules]:
     "(uncurry Lei,uncurry (RETURN oo PR_CONST less_eq)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]:
@@ -450,8 +437,6 @@ locale Reachability_Impl =
   assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
   assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
 begin
-
-abbreviation "hm_assn \<equiv> hm.hms_assn' K (lso_assn A)"
 
 lemma check_final_alt_def:
   "check_final F = do {
@@ -466,44 +451,9 @@ lemma check_final_alt_def:
     }
     }
   ) l
-  }
-"
+  }"
   unfolding check_final_def
-  apply (rule arg_cong2[where f = Refine_Basic.bind])
-   apply simp
-  apply (fo_rule arg_cong)
-  apply (auto split: option.split simp: monadic_list_all_def bind_RES)
-  done
-
-lemma check_prop_alt_def:
-  "check_prop P = do {
-  l \<leftarrow> SPEC (\<lambda>xs. set xs = PR_CONST L);
-  monadic_list_all (\<lambda>l. do {
-    let (S, M) = op_map_extract l (PR_CONST M);
-    if is_None S then RETURN True else do {
-      let S = the S;
-      xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
-      r \<leftarrow> monadic_list_all (\<lambda>s.
-        RETURN (PR_CONST P (l, s))
-      ) xs;
-      let M = (M(l \<mapsto> S));
-      RETURN r
-    }
-    }
-  ) l
-  }
-"
-  unfolding check_prop_def
-  apply auto
-  apply (rule arg_cong2[where f = Refine_Basic.bind])
-   apply simp
-  apply (fo_rule arg_cong)
-  apply (rule ext)
-  apply (auto split: option.split_asm simp: )
-  unfolding monadic_list_all_def
-  unfolding bind_RES
-  apply auto
-  oops
+  by (fo_rule arg_cong2, simp, fo_rule arg_cong) (auto split: option.split simp: bind_RES)
 
 lemma check_prop_alt_def:
   "check_prop P = do {
@@ -519,16 +469,9 @@ lemma check_prop_alt_def:
     }
     }
   ) l
-  }
-"
+  }"
   unfolding check_prop_def
-  apply auto
-  apply (rule arg_cong2[where f = Refine_Basic.bind])
-   apply simp
-  apply (fo_rule arg_cong)
-  apply (rule ext)
-  apply (auto split: option.split simp: bind_RES)
-  done
+  by (fo_rule arg_cong2, simp, fo_rule arg_cong) (auto split: option.split simp: bind_RES)
 
 lemma check_prop_alt_def2:
   "check_prop P = do {
@@ -540,34 +483,22 @@ lemma check_prop_alt_def2:
       r \<leftarrow> monadic_list_all (\<lambda>s.
         RETURN (PR_CONST P (l, s))
       ) xs;
-      (* let M = (M(l \<mapsto> S)); *)
       RETURN r
     }
     }
   ) l
-  }
-"
+  }"
   unfolding check_prop_def
-  apply auto
-  apply (rule arg_cong2[where f = Refine_Basic.bind])
-   apply simp
-  apply (fo_rule arg_cong)
-  apply (rule ext)
-  apply (auto split: option.split simp: bind_RES)
-  done
+  by (fo_rule arg_cong2, simp, fo_rule arg_cong) (auto split: option.split simp: bind_RES)
 
 lemma M_listD:
   assumes "M l = Some S"
   shows "\<exists> xs. set xs = S"
-  sorry
+  using M_ran_finite assms unfolding ran_def by (auto intro: finite_list)
 
 lemma L_listD:
   shows "\<exists> xs. set xs = L"
-  sorry
-
-lemma succs_empty:
-  "succs l {} = []"
-  sorry
+  using L_finite by (rule finite_list)
 
 definition
   "check_invariant' \<equiv> do {
@@ -596,53 +527,44 @@ definition
   ) l
 }"
 
+lemma succs_listD:
+  assumes "(l', S') \<in> set (succs l S)"
+  shows "\<exists> xs. set xs = S'"
+  using assms succs_finite by (force intro!: finite_list)
+
 lemma check_invariant'_refine:
   "check_invariant' \<le> check_invariant"
   unfolding check_invariant_def check_invariant'_def
   unfolding PR_CONST_def
   apply refine_mono
-  apply (auto split: option.splits simp: succs_empty)
-   defer
-   apply refine_mono
-   apply auto
-    apply refine_mono
-    apply auto
-    apply (auto split: option.splits)
+  apply (clarsimp split: option.splits simp: succs_empty)
+  apply refine_mono
+  apply (clarsimp split: option.splits)
+  apply safe
   subgoal
-    apply (auto simp: bind_RES monadic_list_all_False dest: M_listD)
-    done
-subgoal
-  apply (auto simp: bind_RES monadic_list_all_False dest: M_listD)
-  apply (rule less_eq_Sup)
-   apply auto
-  sorry
-  apply (auto simp: bind_RES monadic_list_all_False dest: M_listD)
+    by (auto simp: bind_RES monadic_list_all_False dest: M_listD)
+  subgoal
+    by (auto dest: succs_listD intro: less_eq_Sup simp: bind_RES monadic_list_all_False)
+  apply (clarsimp simp: bind_RES monadic_list_all_False dest: M_listD)
   apply (intro less_eq_Sup)
-  apply auto
-  apply (intro less_eq_Sup)
-   apply auto
-subgoal for x xa x2 a xs ys
-    apply (cases "monadic_list_all
-     (\<lambda>x. monadic_list_ex (\<lambda>y. RETURN (less_eq x y)) ys)
-     xs")
-     apply (auto simp: bind_RES)
-     apply (intro less_eq_Sup)
-      apply (auto dest: )
+   apply clarsimp
+   apply (intro less_eq_Sup)
+    apply clarsimp
+  subgoal for x xa x2 a xs ys
     using monadic_list_all_list_ex_is_RETURN[of "\<lambda> x y. less_eq x y" ys xs]
-    apply auto
-    done
+    by (cases "monadic_list_all (\<lambda>x. monadic_list_ex (\<lambda>y. RETURN (less_eq x y)) ys) xs") auto
   subgoal
     by (auto dest: M_listD)
   subgoal
-    sorry
+    by (auto dest: succs_listD)
   done
 
 lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
 
 lemmas [sepref_fr_rules] = lso_id_hnr
 
-sepref_register "PR_CONST L" "list_of_set" "PR_CONST P" "PR_CONST F" "PR_CONST succs"
-  "PR_CONST less_eq"
+sepref_register
+  "PR_CONST L" "list_of_set" "PR_CONST P" "PR_CONST F" "PR_CONST succs" "PR_CONST less_eq"
   "PR_CONST M" :: "('k, 'b set) i_map"
 
 lemma [sepref_import_param]: "(id, id) \<in> (Id :: (bool \<times> bool) set) \<rightarrow> Id"
@@ -769,10 +691,9 @@ lemma check_prop_gt_SUCCEED:
 lemma check_all'_refine:
   "check_all' \<le> check_all"
   unfolding check_all_def check_all'_def PR_CONST_def Let_def
-  apply refine_mono
+  using check_prop_gt_SUCCEED
   apply (cases "op_map_lookup l\<^sub>0 M"; simp add: bind_RES)
   apply (cases "check_prop P")
-  using check_prop_gt_SUCCEED
    apply (auto intro: less_eq_Sup simp: bind_RES)
   done
 
@@ -780,9 +701,9 @@ lemma check_all'_correct:
   "(uncurry0 check_all', uncurry0 (PR_CONST check_all)) \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
   using check_all'_refine by (auto simp: pw_le_iff pw_nres_rel_iff)
 
-sepref_register "PR_CONST check_invariant" check_prop: "PR_CONST (check_prop P)"
-
-sepref_register "PR_CONST l\<^sub>0" "PR_CONST s\<^sub>0"
+sepref_register
+  "PR_CONST check_invariant" check_prop: "PR_CONST (check_prop P)"
+  "PR_CONST l\<^sub>0" "PR_CONST s\<^sub>0"
 
 lemmas [sepref_fr_rules] =
   check_prop_impl.refine
