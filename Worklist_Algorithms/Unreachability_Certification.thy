@@ -259,7 +259,7 @@ definition
   b1 \<leftarrow> RETURN (l\<^sub>0 \<in> L);
   b2 \<leftarrow> RETURN (P (l\<^sub>0, s\<^sub>0));
   xs \<leftarrow> SPEC (\<lambda>xs. set xs = M l\<^sub>0);
-  b3 \<leftarrow> RETURN (s\<^sub>0 \<in> set xs);
+  b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (s\<^sub>0 \<preceq> s)) xs;
   b4 \<leftarrow> check_prop P;
   if b1 \<and> b2 \<and> b3 \<and> b4 then check_invariant else RETURN False
   }
@@ -291,7 +291,9 @@ begin
 
 lemma check_all_correct:
   "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P)"
-  unfolding check_all_def by (refine_vcg check_prop_correct check_invariant_correct; standard; auto)
+  unfolding check_all_def
+  by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule;
+      standard; auto simp: list_ex_iff)
 
 end
 
@@ -419,8 +421,6 @@ lemma copy_list_lso_assn_refine:
     copy_list_refine'[OF that, to_hnr, unfolded copy_list_COPY hn_refine_def hn_ctxt_def, simplified]
   unfolding lso_assn_def hr_comp_def by sepref_to_hoare sep_auto
 
-(* sepref_decl_impl "extract": hms_extract_hnr uses op_map_extract.fref[where V = Id] . *)
-
 locale Reachability_Impl =
   Reachability_Impl_pre less_eq _ "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" and M :: "'k \<Rightarrow> 'b set option" +
@@ -428,17 +428,12 @@ locale Reachability_Impl =
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and F
     and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i
   and L_list :: "'ki list" and M_table :: "('ki, 'bi list) hashtable"
-  (* assumes L_impl: "L = set L_list" *)
   assumes L_impl[sepref_fr_rules]:
     "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST L))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn K"
   assumes M_impl:
     "(uncurry0 (return M_table),
       uncurry0 (RETURN (PR_CONST M))
      ) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' K (lso_assn A)"
-(*
-  fixes K
-  assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST key) \<in> A\<^sup>k \<rightarrow>\<^sub>a K"
-*)
   assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
   assumes copyi[sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -679,10 +674,6 @@ sepref_definition check_final_impl is
   unfolding monadic_list_all_def
   by sepref
 
-lemma set_member_op_lso_bex:
-  "(x \<in> S) \<longleftrightarrow> op_lso_bex (\<lambda>y. x = y) S"
-  unfolding op_lso_bex_def by simp
-
 definition
   "is_member x \<equiv> do {
     xs \<leftarrow> SPEC (\<lambda>xs. set xs = PR_CONST L);
@@ -757,7 +748,7 @@ definition
   let S = op_map_lookup (PR_CONST l\<^sub>0) (PR_CONST M);
   case S of None \<Rightarrow> RETURN False | Some S \<Rightarrow> do {
     xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
-    b3 \<leftarrow> RETURN (PR_CONST s\<^sub>0 \<in> set xs);
+    b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (PR_CONST less_eq (PR_CONST s\<^sub>0) s)) xs;
     b4 \<leftarrow> PR_CONST (check_prop P);
     if b1 \<and> b2 \<and> b3 \<and> b4 then PR_CONST check_invariant else RETURN False
   }
@@ -801,12 +792,10 @@ sepref_definition check_all_impl is
   "uncurry0 check_all'" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding check_all'_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def monadic_list_ex_def
-  thm L_member_def
   unfolding L_member_def[symmetric]
-  apply sepref_dbg_keep
-apply sepref_dbg_id_keep
-apply sepref_dbg_trans_keep
-  oops
+  by sepref
+
+lemmas check_all_impl_refine = check_all_impl.refine[FCOMP check_all'_correct]
 
 end (* Reachability Impl *)
 

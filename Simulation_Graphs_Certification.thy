@@ -110,7 +110,7 @@ locale Unreachability_Invariant_paired_pre =
 locale Unreachability_Invariant_paired =
   Unreachability_Invariant_paired_pre +
   assumes M_invariant: "l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> P (l, s)"
-  assumes start: "l\<^sub>0 \<in> L" "s\<^sub>0 \<in> M(l\<^sub>0)" "P (l\<^sub>0, s\<^sub>0)"
+  assumes start: "l\<^sub>0 \<in> L" "\<exists> s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s'" "P (l\<^sub>0, s\<^sub>0)"
   assumes closed:
     "\<forall> l \<in> L. \<forall> s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')"
 begin
@@ -126,6 +126,28 @@ interpretation Unreachability_Invariant
       apply (auto simp: less_le_not_le; fail)+
    apply (fastforce intro: P_invariant.invariant_reaches[OF _ start(3)] M_invariant dest: mono)
   using closed by fastforce
+
+context
+begin
+
+private definition
+  "s' \<equiv> SOME s. s \<in> M l\<^sub>0 \<and> s\<^sub>0 \<preceq> s"
+
+private lemma s'_correct:
+  "s' \<in> M l\<^sub>0 \<and> s\<^sub>0 \<preceq> s'"
+  using start(2) unfolding s'_def by - (rule someI_ex, auto)
+
+private lemma s'_1:
+  "(l\<^sub>0, s') \<in> {(l, s) |l s. l \<in> L \<and> s \<in> M l}"
+  using s'_correct start by auto
+
+private lemma s'_2:
+  "(case (l\<^sub>0, s\<^sub>0) of (l, s) \<Rightarrow> \<lambda>(l', s'). l' = l \<and> s \<preceq> s') (l\<^sub>0, s')"
+  using s'_correct start by auto
+
+lemmas final_unreachable = final_unreachable[OF _ s'_1 s'_2]
+
+end (* Anonymous Context *)
 
 thm final_unreachable
 
