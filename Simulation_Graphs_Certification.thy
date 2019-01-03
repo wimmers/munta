@@ -88,17 +88,14 @@ end (* Unreachability Invariant *)
 locale Reachability_Invariant_paired_defs =
   ord less_eq less for less_eq :: "'s \<Rightarrow> 's \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
   fixes E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"
-  fixes T :: "'l \<Rightarrow> ('l \<times> ('s \<Rightarrow> 's)) set"
   fixes M :: "'l \<Rightarrow> 's set"
     and L :: "'l set" 
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
 begin
 
-definition "E' = (\<lambda> (l, s) (l', s'). \<exists> f. (l', f) \<in> T l \<and> s' = f s)"
-
 definition "covered \<equiv> \<lambda> (l, s). \<exists> s' \<in> M l. s \<prec> s'"
 
-definition "RE = (\<lambda>(l, s) ab. s \<in> M l \<and> \<not> covered (l, s) \<and> E' (l, s) ab)"
+definition "RE = (\<lambda>(l, s) ab. s \<in> M l \<and> \<not> covered (l, s) \<and> E (l, s) ab)"
 
 end (* Reachability Invariant paired defs *)
 
@@ -106,7 +103,6 @@ locale Unreachability_Invariant_paired_pre =
   Reachability_Invariant_paired_defs _ _ E +
   preorder less_eq less for E :: "('l \<times> 's) \<Rightarrow> _" +
   fixes P :: "('l \<times> 's) \<Rightarrow> bool"
-  assumes E_T: "\<forall> l s l' s'. E (l, s) (l', s') \<longrightarrow> (\<exists> f. (l', f) \<in> T l \<and> s' = f s)"
   assumes mono:
     "s \<preceq> s' \<Longrightarrow> E (l, s) (l', t) \<Longrightarrow> P (l, s) \<Longrightarrow> P (l, s') \<Longrightarrow> \<exists> t'. t \<preceq> t' \<and> E (l, s') (l', t')"
   assumes P_invariant: "P (l, s) \<Longrightarrow> E (l, s) (l', s') \<Longrightarrow> P (l', s')"
@@ -115,7 +111,8 @@ locale Unreachability_Invariant_paired =
   Unreachability_Invariant_paired_pre +
   assumes M_invariant: "l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> P (l, s)"
   assumes start: "l\<^sub>0 \<in> L" "s\<^sub>0 \<in> M(l\<^sub>0)" "P (l\<^sub>0, s\<^sub>0)"
-  assumes closed: "\<forall> l \<in> L. \<forall> (l', f) \<in> T l. l' \<in> L \<and> (\<forall> s \<in> M l. \<exists> s' \<in> M l'. f s \<preceq> s')"
+  assumes closed:
+    "\<forall> l \<in> L. \<forall> s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')"
 begin
 
 interpretation P_invariant: Graph_Invariant E P
@@ -128,7 +125,7 @@ interpretation Unreachability_Invariant
   apply standard
       apply (auto simp: less_le_not_le; fail)+
    apply (fastforce intro: P_invariant.invariant_reaches[OF _ start(3)] M_invariant dest: mono)
-  using closed E_T by fastforce
+  using closed by fastforce
 
 thm final_unreachable
 
@@ -151,15 +148,9 @@ locale Reachability_Invariant_paired = Reachability_Invariant_paired_defs + preo
     "finite L" "\<forall> l \<in> L. finite (M l)"
 begin
 
-interpretation Bisimulation E E' "(=)"
-  using E_T closed by - (standard, auto simp: E'_def)
-
-interpretation Bisimulation_Invariant E E' "(=)" "\<lambda> (l, s). l \<in> L" "\<lambda> (l, s). l \<in> L"
-  using E_T closed by - (standard, auto 4 3 simp: E'_def)
-
 lemma invariant:
   "((\<exists> s' \<in> M l. s \<prec> s') \<or> s \<in> M l) \<and> l \<in> L" if "RE\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) (l, s)"
-  using that start closed by (induction rule: rtranclp_induct2) (auto 4 3 simp: RE_def E'_def)
+  using that start closed by (induction rule: rtranclp_induct2) (auto 4 3 simp: RE_def)
 
 interpretation Reachability_Compatible_Subsumption_Graph_View 
   "\<lambda> (l, s) (l', s'). l' = l \<and> s \<preceq> s'" "\<lambda> (l, s) (l', s'). l' = l \<and> s \<prec> s'"
@@ -179,11 +170,11 @@ interpretation Reachability_Compatible_Subsumption_Graph_View
     using reachable unfolding covered_def RE_def by fastforce
   subgoal for l s l' s'
     apply (drule invariant)
-    unfolding E'_def RE_def covered_def using E_T by force
+    unfolding RE_def covered_def using E_T by force
   subgoal
-    unfolding E'_def using E_T by force
+    using E_T by force
   subgoal
-    unfolding E'_def RE_def using E_T by force
+    unfolding RE_def using E_T by force
   subgoal
     unfolding Graph_Start_Defs.reachable_def
   proof -
@@ -196,16 +187,10 @@ interpretation Reachability_Compatible_Subsumption_Graph_View
         using finite by auto
       finally show "finite ?S" .
     qed
-    have 2: "finite (Collect (E' (l, s)))" for l s
-    proof -
-      have "Collect (E' (l, s)) \<subseteq> Collect (E (l, s))"
-        by (auto simp: E'_def E_T)
-      also have "finite \<dots>"
-        by (rule finitely_branching)
-      finally show ?thesis .
-    qed
+    have 2: "finite (Collect (E (l, s)))" for l s
+      by (rule finitely_branching)
     let ?S = "{a. RE\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) a}"
-    have "?S \<subseteq> {(l\<^sub>0, s\<^sub>0)} \<union> (\<Union> ((\<lambda> a. {b. E' a b}) ` {(l, s). l \<in> L \<and> s \<in> M l}))"
+    have "?S \<subseteq> {(l\<^sub>0, s\<^sub>0)} \<union> (\<Union> ((\<lambda> a. {b. E a b}) ` {(l, s). l \<in> L \<and> s \<in> M l}))"
       using invariant by (auto simp: RE_def elim: rtranclp.cases)
     also have "finite \<dots>"
       using 1 2 by auto
