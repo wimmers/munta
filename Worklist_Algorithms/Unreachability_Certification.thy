@@ -273,6 +273,13 @@ lemma check_final_correct:
   unfolding check_final_def
   by (refine_vcg monadic_list_all_rule) (auto simp: list_all_iff list_ex_iff)
 
+definition
+  "certify_unreachable F \<equiv> do {
+  b1 \<leftarrow> check_all;
+  b2 \<leftarrow> check_final F;
+  RETURN (b1 \<and> b2)
+  }"
+
 end
 
 context Reachability_Impl_pre
@@ -283,6 +290,13 @@ lemma check_all_correct:
   unfolding check_all_def
   by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule;
       standard; auto simp: list_ex_iff)
+
+lemma certify_unreachable_correct:
+  assumes F_mono: "\<And>a b. F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> F b"
+  shows "certify_unreachable F \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))"
+  unfolding certify_unreachable_def
+  by (refine_vcg check_all_correct check_final_correct)
+     (rule Unreachability_Invariant_paired.final_unreachable, auto intro: F_mono)
 
 end
 
@@ -328,9 +342,9 @@ private lemma frame3:
 
 (* XXX Copy *)
 lemma list_rev_aux: "list_assn A a c \<Longrightarrow>\<^sub>A list_assn A (rev a) (rev c)"
-  apply (subst list_assn_aux_len; clarsimp)
+  apply (subst list_assn_aux_len, clarsimp)
   apply (induction rule: list_induct2)
-   apply sep_auto
+   apply (sep_auto; fail)
   apply (sep_auto, erule ent_frame_fwd, frame_inference, sep_auto)
   done
 
@@ -353,9 +367,6 @@ theorem copy_list_refine:
         apply sep_auto
   subgoal
     by standard (sep_auto simp: pure_def)
-      prefer 3
-  subgoal
-    by (sep_auto simp: pure_def)
   subgoal
     supply [sep_heap_rules]  = copy[to_hnr, unfolded hn_refine_def, simplified]
     apply standard
@@ -363,8 +374,9 @@ theorem copy_list_refine:
       (* Frame *)
     by (smt assn_times_comm ent_refl ent_star_mono hn_ctxt_def invalidate_clone star_aci(3))
 
-    apply (sep_auto; fail)
-   defer
+     apply (sep_auto; fail)
+    apply (sep_auto simp: pure_def; fail)
+   prefer 2
    apply (rule frame3; fail)
   apply standard
   apply sep_auto
@@ -407,13 +419,14 @@ locale Reachability_Impl =
   for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" and M :: "'k \<Rightarrow> 'b set option" +
   fixes A :: "'b \<Rightarrow> ('bi :: heap) \<Rightarrow> assn"
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and F
-    and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i
+    and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i and succsi
   and L_list :: "'ki list" and M_table :: "('ki, 'bi list) hashtable"
   assumes L_finite: "finite L"
       and M_ran_finite: "\<forall>S \<in> ran M. finite S"
       and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S'"
       (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
       and succs_empty: "\<And>l. succs l {} = []"
+  assumes F_mono: "\<And>a b. F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> less_eq s s') a b \<Longrightarrow> F b"
   assumes L_impl[sepref_fr_rules]:
     "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST L))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn K"
   assumes M_impl:
@@ -582,19 +595,25 @@ sepref_decl_impl "map_lookup":
   copy_list_lso_assn_refine[OF copyi, THEN hms_hm.hms_lookup_hnr]
   uses op_map_lookup.fref[where V = Id] .
 
-sepref_definition check_prop_impl is
+sepref_thm check_prop_impl is
   "uncurry0 (PR_CONST (check_prop P))" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding PR_CONST_def
   unfolding check_prop_alt_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def
   by sepref
 
-sepref_definition check_final_impl is
+concrete_definition (in -) check_prop_impl
+  uses Reachability_Impl.check_prop_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
+
+sepref_thm check_final_impl is
   "uncurry0 (PR_CONST (check_final F))" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding PR_CONST_def
   unfolding check_final_alt_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def
   by sepref
+
+concrete_definition (in -) check_final_impl
+  uses Reachability_Impl.check_final_impl.refine_raw is "(uncurry0 ?f,_)\<in>_"
 
 definition
   "is_member x \<equiv> do {
@@ -618,7 +637,7 @@ lemma is_member_correct'':
   using is_member_refine by (auto simp: L_member_def pw_le_iff pw_nres_rel_iff)
 
 lemma is_member_refine':
-  "is_member x \<le> SPEC (\<lambda> r. r \<longleftrightarrow> x \<in> L)"
+  "is_member x \<le> SPEC (\<lambda>r. r \<longleftrightarrow> x \<in> L)"
   unfolding is_member_def by (refine_vcg monadic_list_ex_rule) (auto simp: list_ex_iff)
 
 lemma is_member_correct':
@@ -650,7 +669,7 @@ lemmas [sepref_fr_rules] = is_member_impl.refine_raw[FCOMP is_member_correct'']
 
 sepref_register L_member
 
-sepref_definition check_invariant_impl is
+sepref_thm check_invariant_impl is
   "uncurry0 check_invariant'" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding check_invariant'_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def monadic_list_ex_def
@@ -661,7 +680,10 @@ lemma check_invariant'_correct:
   "(uncurry0 check_invariant', uncurry0 (PR_CONST check_invariant)) \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
   using check_invariant'_refine by (auto simp: pw_le_iff pw_nres_rel_iff)
 
-lemmas check_invariant_impl_refine = check_invariant_impl.refine[FCOMP check_invariant'_correct]
+lemmas check_invariant_impl_refine = check_invariant_impl.refine_raw[FCOMP check_invariant'_correct]
+
+concrete_definition (in -) check_invariant_impl
+  uses Reachability_Impl.check_invariant_impl_refine is "(uncurry0 ?f,_)\<in>_"
 
 definition
   "check_all' \<equiv> do {
@@ -676,10 +698,6 @@ definition
   }
   }
 "
-
-lemma monadic_list_all_gt_SUCCEED':
-  "monadic_list_all (\<lambda>x. RETURN (PP x)) xs > SUCCEED" for PP
-  by (rule monadic_list_all_gt_SUCCEED) auto
 
 lemma check_prop_gt_SUCCEED:
   "check_prop P > SUCCEED"
@@ -706,18 +724,54 @@ sepref_register
   "PR_CONST l\<^sub>0" "PR_CONST s\<^sub>0"
 
 lemmas [sepref_fr_rules] =
-  check_prop_impl.refine
-  check_invariant_impl_refine
+  check_prop_impl.refine[OF Reachability_Impl_axioms]
+  check_invariant_impl.refine[OF Reachability_Impl_axioms]
 
-sepref_definition check_all_impl is
+sepref_thm check_all_impl is
   "uncurry0 check_all'" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding check_all'_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def monadic_list_ex_def
   unfolding L_member_def[symmetric]
   by sepref
 
-lemmas check_all_impl_refine = check_all_impl.refine[FCOMP check_all'_correct]
+lemmas check_all_impl_refine = check_all_impl.refine_raw[FCOMP check_all'_correct]
+
+concrete_definition (in -) check_all_impl
+  uses Reachability_Impl.check_all_impl_refine is "(uncurry0 ?f,_)\<in>_"
+
+lemmas [sepref_fr_rules] =
+  check_final_impl.refine[OF Reachability_Impl_axioms]
+  check_all_impl.refine[OF Reachability_Impl_axioms]
+
+lemma certify_unreachable_alt_def:
+  "certify_unreachable F \<equiv> do {
+  b1 \<leftarrow> PR_CONST check_all;
+  b2 \<leftarrow> PR_CONST (check_final F);
+  RETURN (b1 \<and> b2)
+  }"
+  unfolding certify_unreachable_def PR_CONST_def .
+
+sepref_register "PR_CONST check_all" "PR_CONST (check_final F)"
+
+sepref_thm certify_unreachable_impl is
+  "uncurry0 (certify_unreachable F)" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  unfolding certify_unreachable_alt_def by sepref
+
+lemma certify_unreachable_correct':
+  "(uncurry0 (certify_unreachable F), uncurry0 (SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))))
+    \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
+  using certify_unreachable_correct[OF F_mono] by (clarsimp simp: pw_le_iff pw_nres_rel_iff) fast
+
+lemmas certify_unreachable_impl_refine =
+  certify_unreachable_impl.refine_raw[FCOMP certify_unreachable_correct']
+
+concrete_definition (in -) certify_unreachable_impl
+  uses Reachability_Impl.certify_unreachable_impl_refine is "(uncurry0 ?f,_)\<in>_"
 
 end (* Reachability Impl *)
+
+thm certify_unreachable_impl.refine certify_unreachable_impl_def check_all_impl_def
+
+export_code certify_unreachable_impl in SML module_name Test
 
 end (* Theory *)
