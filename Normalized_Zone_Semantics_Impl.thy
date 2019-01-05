@@ -1720,7 +1720,7 @@ abbreviation conv_cc :: "('a, int) cconstraint \<Rightarrow> ('a, real) cconstra
 
 abbreviation "conv_t \<equiv> \<lambda> (l,g,a,r,l'). (l,conv_cc g,a,r,l')"
 
-abbreviation "conv_A \<equiv> \<lambda> (T, I). (conv_t ` T, conv_cc o I)"
+definition "conv_A \<equiv> \<lambda> (T, I). (conv_t ` T, conv_cc o I)"
 
 lemma RI_zone_equiv:
   assumes "RI n M M'"
@@ -1809,7 +1809,8 @@ proof -
   by auto
   also have "\<dots> = collect_clkvt ((\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` T)"
   unfolding collect_clkvt_alt_def[symmetric] ..
-  also have "\<dots> = collect_clkvt (trans_of (conv_A A))" unfolding \<open>A = _\<close> trans_of_def by simp
+  also have "\<dots> = collect_clkvt (trans_of (conv_A A))" unfolding \<open>A = _\<close> trans_of_def
+    by (simp add: conv_A_def)
   finally show ?thesis .
 qed
 
@@ -1837,13 +1838,13 @@ by (simp add: collect_clock_pairs_conv_cc')
 
 lemma clkp_set_conv_A:
   "clkp_set (conv_A A) l = (\<lambda> (a, b). (a, real_of_int b)) ` clkp_set A l"
-  unfolding clkp_set_def collect_clki_def collect_clkt_alt_def inv_of_def trans_of_def
+  unfolding clkp_set_def collect_clki_def collect_clkt_alt_def inv_of_def trans_of_def conv_A_def
   apply (simp only: image_Un image_Union split: prod.split)
   by (auto simp: collect_clock_pairs_conv_cc' collect_clock_pairs_conv_cc[symmetric])
 
 lemma ta_clkp_set_conv_A:
   "Timed_Automata.clkp_set (conv_A A) = (\<lambda> (a, b). (a, real_of_int b)) ` Timed_Automata.clkp_set A"
- apply (simp split: prod.split)
+ apply (simp split: prod.split add: conv_A_def)
  unfolding
    Timed_Automata.clkp_set_def ta_collect_clki_alt_def ta_collect_clkt_alt_def inv_of_def trans_of_def
  apply (simp only: image_Un image_Union)
@@ -1887,7 +1888,7 @@ lemma valid_abstraction_conv:
   apply (rule valid_abstraction.intros)
      apply (auto 4 3 simp: clkp_set_conv_A intro: real_of_int_nat; fail)
   using collect_clkvt_conv_A apply fast
-  by (auto split: prod.split_asm simp: trans_of_def)
+  by (auto split: prod.split_asm simp: trans_of_def conv_A_def)
 
 text \<open>Misc\<close>
 
@@ -2556,7 +2557,7 @@ begin
 
   lemma RI_A_conv_A:
     "RI_A n (conv_A A) A"
-  using RI_T_conv_t RI_I_conv_cc unfolding RI_A_def by (auto split: prod.split)
+  using RI_T_conv_t RI_I_conv_cc unfolding RI_A_def conv_A_def by (auto split: prod.split)
 
   lemma norm_upd_diag_preservation:
     assumes "i \<le> n" "M (i, i) \<le> 0"
@@ -3082,7 +3083,7 @@ begin
           apply (rule that)
           unfolding \<open>a = _\<close>
           apply (rule step_a_z_dbm[where A = "conv_A A", of l "map conv_ac g" a' r l'])
-        by (fastforce split: prod.split simp: trans_of_def)
+        by (fastforce split: prod.split simp: trans_of_def conv_A_def)
       qed
       moreover from step_z_dbm_empty[OF global_clock_numbering' this check_diag_empty_spec] True have
         "[M']\<^bsub>v,n\<^esub> = {}"
@@ -3251,7 +3252,7 @@ begin
       obtain g' where "A \<turnstile> l \<longrightarrow>\<^bsup>g',a',r\<^esup> l'"
       proof -
         obtain T I where "A = (T, I)" by force
-        from prems(4) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def intro: that)
+        from prems(4) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def conv_A_def intro: that)
       qed
       then show ?thesis
         apply -
@@ -3341,7 +3342,7 @@ begin
       obtain g' where "A \<turnstile> l \<longrightarrow>\<^bsup>g',a',r\<^esup> l'"
       proof -
         obtain T I where "A = (T, I)" by force
-        from prems(6) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def intro: that)
+        from prems(6) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def conv_A_def intro: that)
       qed
       then show ?thesis
         apply -
@@ -3482,7 +3483,7 @@ proof -
       obtain g' where "A \<turnstile> l \<longrightarrow>\<^bsup>g',a',r\<^esup> l'"
       proof -
         obtain T I where "A = (T, I)" by force
-        from prems(4) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def intro: that)
+        from prems(4) show ?thesis by (fastforce simp: \<open>A = _\<close> trans_of_def conv_A_def intro: that)
       qed
       then show ?thesis
         apply -
@@ -4010,7 +4011,7 @@ subsection \<open>Instantiating the Reachability Problem\<close>
 
   lemma finite_trans':
     "finite (trans_of (conv_A A))"
-    using finite_trans unfolding trans_of_def by (cases A) auto
+    using finite_trans unfolding trans_of_def conv_A_def by (cases A) auto
 
   theorem reachable_decides_emptiness:
     "(\<exists> D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> \<noteq> {})
@@ -4222,7 +4223,7 @@ begin
 
 lemma start_inv':
   "[(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<subseteq> {u. u \<turnstile> inv_of (conv_A A) l\<^sub>0}"
-  using start_inv
+  using start_inv unfolding conv_A_def
   (* XXX SMT *)
   (* s/h *)
   by (smt case_prod_conv comp_apply inv_of_def prod.collapse snd_conv subset_Collect_conv)
@@ -4298,7 +4299,7 @@ definition
 
 lemma conv_inv:
   "conv_cc (inv_of A l\<^sub>0) = inv_of (conv_A A) l\<^sub>0"
-  unfolding inv_of_def by (simp split!: prod.split)
+  unfolding inv_of_def conv_A_def by (simp split!: prod.split)
 
 lemma start_inv_check:
   "start_inv_check \<longleftrightarrow> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<subseteq> {u. u \<turnstile> conv_cc (inv_of A l\<^sub>0)}"

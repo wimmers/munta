@@ -966,19 +966,31 @@ lemma norm_step_dbm_equiv:
   apply (subst norm_step_correct'[OF that(3,3)])
   by auto
 
-lemma E_op'_wf: "wf_dbm (E_op' l r g l' M)" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
+lemma filter_diag_wf_dbm:
+  assumes "\<And> M. wf_dbm M \<Longrightarrow> wf_dbm (f M)" "wf_dbm M"
+  shows "wf_dbm (filter_diag f M)"
+  unfolding filter_diag_def using assms by auto
+
+lemma
+  assumes "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
+    shows E_op'_wf: "wf_dbm (E_op' l r g l' M)" and E_op''_wf: "wf_dbm (E_op'' l r g l' M)"
 proof -
   have "\<forall>c\<in>constraint_clk ` set (inv_of A l). 0 < c \<and> c \<le> n"
     using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
   moreover have "\<forall>c\<in>constraint_clk ` set (inv_of A l'). 0 < c \<and> c \<le> n"
     using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
   moreover have "\<forall>c\<in>constraint_clk ` set g. 0 < c \<and> c \<le> n"
-    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
+    using clock_range collect_clocks_clk_set[OF assms(1)] unfolding collect_clks_def by blast
   moreover have "\<forall>i\<in>set r. 0 < i \<and> i \<le> n"
-    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
-  moreover note side_conds = calculation that(2)
-  note wf_intros = norm_step_wf_dbm wf_dbm_abstr_repair wf_dbm_reset'_upd wf_dbm_up_canonical_upd
-  show ?thesis unfolding E_op'_def by simp (intro wf_intros side_conds order.refl)
+    using clock_range reset_clk_set[OF assms(1)] unfolding collect_clks_def by blast
+  moreover note side_conds = calculation assms(2)
+  note wf_intros =
+    norm_step_wf_dbm wf_dbm_abstr_repair wf_dbm_reset'_upd wf_dbm_up_canonical_upd
+    filter_diag_wf_dbm
+  show "wf_dbm (E_op' l r g l' M)"
+    unfolding E_op'_def by simp (intro wf_intros side_conds order.refl)
+  show "wf_dbm (E_op'' l r g l' M)"
+    unfolding E_op''_def by simp (intro wf_intros side_conds order.refl)
 qed
 
 lemma wf_dbm_abstr_repair_equiv_FW:
@@ -1019,11 +1031,6 @@ next
   then show ?thesis by (auto simp: filter_diag_def)
 qed
 
-lemma filter_diag_wf_dbm:
-  assumes "\<And> M. wf_dbm M \<Longrightarrow> wf_dbm (f M)" "wf_dbm M"
-  shows "wf_dbm (filter_diag f M)"
-  unfolding filter_diag_def using assms by auto
-
 lemma E_op''_bisim:
   "E_op'' l r g l' M \<simeq> E_op' l r g l' M" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
 proof -
@@ -1053,23 +1060,6 @@ qed
 lemma E_op''_bisim':
   "E_op'' l r g l' M \<simeq> E_op l r g l' M" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
   using that by (blast intro: E_op''_bisim E_op'_bisim)
-
-lemma E_op''_wf: "wf_dbm (E_op'' l r g l' M)" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
-proof -
-  have "\<forall>c\<in>constraint_clk ` set (inv_of A l). 0 < c \<and> c \<le> n"
-    using clock_range collect_clks_inv_clk_set[of A l] unfolding collect_clks_def by blast
-  moreover have "\<forall>c\<in>constraint_clk ` set (inv_of A l'). 0 < c \<and> c \<le> n"
-    using clock_range collect_clks_inv_clk_set[of A l'] unfolding collect_clks_def by blast
-  moreover have "\<forall>c\<in>constraint_clk ` set g. 0 < c \<and> c \<le> n"
-    using clock_range collect_clocks_clk_set[OF that(1)] unfolding collect_clks_def by blast
-  moreover have "\<forall>i\<in>set r. 0 < i \<and> i \<le> n"
-    using clock_range reset_clk_set[OF that(1)] unfolding collect_clks_def by blast
-  moreover note side_conds = calculation that(2)
-  note wf_intros =
-    norm_step_wf_dbm wf_dbm_abstr_repair wf_dbm_reset'_upd wf_dbm_up_canonical_upd
-    filter_diag_wf_dbm
-  show ?thesis unfolding E_op''_def by simp (intro wf_intros side_conds order.refl)
-qed
 
 lemma abstra_upd_default:
   assumes "dbm_default (curry M) n" "constraint_clk ac \<le> n"
@@ -1209,7 +1199,7 @@ subsubsection \<open>Misc\<close>
 
 lemma finite_conv_A:
   "finite (trans_of (conv_A A))" if "finite (trans_of A)"
-  using that unfolding trans_of_def by (cases A) auto
+  using that unfolding trans_of_def conv_A_def by (cases A) auto
 
 (* XXX Move *)
 lemma real_of_int_inj:
@@ -1493,7 +1483,7 @@ begin
 
 lemma l\<^sub>0_state_set:
   "l\<^sub>0 \<in> state_set (conv_A A)"
-  using \<open>l\<^sub>0 \<in> state_set A\<close> unfolding state_set_def trans_of_def by (cases A; force)
+  using \<open>l\<^sub>0 \<in> state_set A\<close> unfolding state_set_def trans_of_def conv_A_def by (cases A; force)
 
 interpretation start:
   Regions_TA_Start_State v n "Suc n" "{1..<Suc n}" k "conv_A A"
