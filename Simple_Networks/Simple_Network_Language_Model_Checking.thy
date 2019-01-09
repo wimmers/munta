@@ -576,10 +576,6 @@ sublocale reach1: Reachability_Problem
     by (simp add: k_fun_def)
   done
 
-lemma states'_alt_def:
-  "states' = {(L, s). L \<in> states \<and> bounded bounds s}"
-  unfolding states'_def bounded_def dom_bounds_eq by auto
-
 lemma states'_superset:
   "{l\<^sub>0} \<union> Normalized_Zone_Semantics_Impl_Refine.state_set trans_prod \<subseteq> states'"
   (is "{l\<^sub>0} \<union> ?S \<subseteq> states'")
