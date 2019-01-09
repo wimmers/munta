@@ -2375,6 +2375,7 @@ begin
   lemma prod_conv: "defs'.defs.prod_ta = conv_A A"
     unfolding defs'.defs.prod_ta_def
     unfolding equiv.defs.prod_ta_def
+    unfolding conv_A_def
     by (simp add: prod_invariant_conv[symmetric] prod_trans_conv[symmetric])
 
   lemma F_reachable_correct:
@@ -2496,7 +2497,8 @@ begin
     "u \<turnstile> inv_of (conv_A A) (init, s\<^sub>0) \<longleftrightarrow> (\<forall> i < p. u \<turnstile> conv_cc (inv ! i ! 0))"
   proof -
     have *: "inv_of (conv_A A) (init, s\<^sub>0) = conv_cc (equiv.defs.I' s\<^sub>0 init)"
-      using equiv.defs.inv_of_simp[of init s\<^sub>0] unfolding inv_of_def by (auto split: prod.split)
+      using equiv.defs.inv_of_simp[of init s\<^sub>0]
+      unfolding inv_of_def conv_A_def by (auto split: prod.split)
     have "u \<turnstile> inv_of (conv_A A) (init, s\<^sub>0) \<longleftrightarrow> (\<forall> i < p. u \<turnstile> conv_cc (I i 0))"
       unfolding * Product_TA_Defs.inv_of_product Product_TA_Defs.product_invariant_def
       apply (simp only: product'.prod.length_L p_p_2 cong: list.map_cong_simp)

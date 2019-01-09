@@ -350,7 +350,7 @@ proof -
     unfolding state_set_def
     by cases (auto elim!: step_a.cases step_t.cases)
   then show ?thesis
-    unfolding state_set_def unfolding trans_of_def by (cases A) force
+    unfolding state_set_def unfolding trans_of_def conv_A_def by (cases A) force
 qed
 
 lemma init_state_in_state_set':
