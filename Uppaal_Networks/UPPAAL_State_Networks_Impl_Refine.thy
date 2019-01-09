@@ -2165,6 +2165,7 @@ begin
     and loc_rel = Id
     and show_clock = "show"
     and show_state = "show"
+    and states' = states
     unfolding PR_CONST_def
     apply standard
            apply (fastforce simp: inv_rel_def b_rel_def)

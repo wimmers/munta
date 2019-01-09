@@ -158,6 +158,22 @@ lemma in_union_map_ofD:
   "(x, y) \<in> set xs" if "union_map_of xs x = Some ys" "y \<in> set ys"
   using that unfolding union_map_of_alt_def by (auto split: if_split_asm)
 
+
+paragraph \<open>Implementation of state set\<close>
+
+context Simple_Network_Impl_nat_defs
+begin
+
+definition
+  "states_i i = (\<Union>(l, e, g, a, r, u, l')\<in>set (fst (snd (automata ! i))). {l, l'})"
+
+lemma states_mem_compute[code]:
+  "L \<in> states \<longleftrightarrow> length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i i)"
+  unfolding states_def states_i_def by simp (metis mem_trans_N_iff)
+
+end
+
+
 context Simple_Network_Impl_nat
 begin
 
@@ -2239,6 +2255,9 @@ definition
     (\<forall>x < length s. fst (bounds_map x) \<le> s ! x \<and> s ! x \<le> snd (bounds_map x))"
 
 definition
+  "states'_memi \<equiv> \<lambda>(L, s). L \<in> states \<and> length s = n_vs \<and> check_boundedi s"
+
+definition
   "int_trans_from_loc_impl p l L s \<equiv>
     let trans = trans_i_map p l
     in
@@ -3386,11 +3405,10 @@ lemma swap_eq:
   by auto
 
 lemma trans_from_refine:
-  "(trans_impl, trans_from) \<in> fun_rel_syn
-    loc_rel
-    (list_rel (Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel))"
+  "(trans_impl, trans_from) \<in> fun_rel_syn loc_rel (list_rel (Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel))"
 proof -
-  have [rel2p]: "rel2p loc_rel = (\<lambda> x y. ((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel) y x)"
+  have [rel2p]:
+    "rel2p loc_rel = (\<lambda> x y. ((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) \<times>\<^sub>R state_rel) y x)"
     unfolding loc_rel_def rel2p_def by (intro ext) (auto simp: list.rel_eq)
   have "rel2p (fun_rel_syn
       {((L', s'), L, s) |L s L' s'. L' = L \<and> length L = n_ps \<and> state_rel s s'}
@@ -3407,6 +3425,50 @@ lemma trans_from_correct:
   "(trans_from, trans_prod) \<in> transition_rel states'"
   using int_trans_from_correct bin_trans_from_correct broad_trans_from_correct
   unfolding trans_from_def trans_prod_def transition_rel_def by auto
+
+lemma states'_alt_def:
+  "states' = {(L, s). L \<in> states \<and> bounded bounds s}"
+  unfolding states'_def bounded_def dom_bounds_eq by auto
+
+lemma states'_alt_def2:
+  "states' = {(L, s). L \<in> states \<and> dom s = {0..<n_vs} \<and> check_bounded s}"
+proof -
+  have "states' = {(L, s). L \<in> states \<and> dom s = {0..<n_vs} \<and> bounded bounds s}"
+    unfolding states'_def bounded_def dom_bounds_eq by auto
+  then show ?thesis
+    by (auto simp: check_bounded_iff)
+qed
+
+lemma dom_eq_transfer [transfer_rule]:
+  "(state_rel ===> (=)) (\<lambda>s. dom s = {0..<n_vs}) (\<lambda>s. length s = n_vs)"
+  by (rule rel_funI) (auto simp: state_rel_def)
+
+lemma states'_memi_correct:
+  "(states'_memi, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
+proof -
+  define t where "t s \<equiv> dom s = {0..<n_vs}" for s :: "nat \<rightharpoonup> int"
+  define ti where "ti s \<equiv> length s = n_vs" for s :: "int list"
+  let ?R = "\<lambda>x y. (eq_onp (\<lambda>L. length L = n_ps) \<times>\<^sub>R state_rel) y x"
+  note [transfer_rule] = dom_eq_transfer[folded t_def ti_def]
+  have [p2rel]: "p2rel ((\<lambda>x y. (eq_onp (\<lambda>L. length L = n_ps) \<times>\<^sub>R state_rel) y x)) = loc_rel"
+    by (auto simp: eq_onp_def p2rel_def loc_rel_def)
+  have *: "(\<lambda>(L, s). L \<in> states \<and> dom s = {0..<n_vs} \<and> check_bounded s) = (\<lambda>l. l \<in> states')"
+    by (intro ext) (auto simp: states'_alt_def2)
+  have "(((=) \<times>\<^sub>R state_rel) ===> (=))
+      (\<lambda>(L, s). L \<in> states \<and> t s \<and> check_bounded s) (\<lambda>(L, s). L \<in> states \<and> ti s \<and> check_boundedi s)"
+    by transfer_prover
+  then have
+    "(((=) \<times>\<^sub>R state_rel) ===> (=))
+    (\<lambda>(L, s). L \<in> states \<and> dom s = {0..<n_vs} \<and> check_bounded s)
+    states'_memi"
+    unfolding t_def ti_def states'_memi_def .
+  then have [p2rel]: "(?R ===> (=)) states'_memi (\<lambda>l. l \<in> states')"
+    unfolding * by (intro rel_funI) (auto simp: eq_onp_def elim!: rel_funE)
+  then have "(states'_memi, (\<lambda>l. l \<in> states')) \<in> p2rel (?R ===> (=))"
+    unfolding p2rel_def by simp
+  then show ?thesis
+    unfolding p2rel .
+qed
 
 end (* Lfiting Syntax *)
 

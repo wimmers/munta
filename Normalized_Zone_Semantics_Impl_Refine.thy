@@ -90,6 +90,14 @@ begin
     (* XXX Or use "inv_rel X = Id_on X \<rightarrow> Id" ? *)
     "inv_rel R X = b_rel R (\<lambda> x. x \<in> X) \<rightarrow> Id"
 
+  lemma transition_rel_anti_mono:
+  "transition_rel S \<subseteq> transition_rel R" if "R \<subseteq> S"
+  using that unfolding transition_rel_def by auto
+
+  lemma inv_rel_anti_mono:
+    "inv_rel A S \<subseteq> inv_rel A R" if "R \<subseteq> S"
+    using that unfolding inv_rel_def fun_rel_def b_rel_def by auto
+
   (* XXX Map from automaton? *)
   definition state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
     "state_set T = fst ` T \<union> (snd o snd o snd o snd) ` T"
@@ -177,19 +185,30 @@ locale Reachability_Problem_Impl =
   and n :: nat
   and k
   and trans_impl :: "('a, nat, int, 'si :: {hashable, heap}) transition_fun" +
-  fixes loc_rel :: "('si \<times> 's) set"
-  assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states"
+  fixes states' and loc_rel :: "('si \<times> 's) set"
+  assumes trans_fun': "(trans_fun, trans_of A) \<in> transition_rel states'"
       and trans_impl:
         "(trans_impl, trans_fun) \<in> fun_rel_syn loc_rel (list_rel (Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel))"
-      and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel loc_rel states"
-      and F_fun: "(F_fun, F) \<in> inv_rel loc_rel states"
-      and ceiling: "(ceiling, IArray o k') \<in> inv_rel loc_rel states"
+      and inv_fun': "(inv_fun, inv_of A) \<in> inv_rel loc_rel states'"
+      and F_fun': "(F_fun, F) \<in> inv_rel loc_rel states'"
+      and ceiling': "(ceiling, IArray o k') \<in> inv_rel loc_rel states'"
+      and states'_states: "states \<subseteq> states'"
       and init_impl: "(l\<^sub>0i, l\<^sub>0) \<in> loc_rel"
       and loc_rel_left_unique:
         "\<And>l li li'. l \<in> states \<Longrightarrow> (li, l) \<in> loc_rel \<Longrightarrow> (li', l) \<in> loc_rel \<Longrightarrow> li' = li"
       and loc_rel_right_unique:
         "\<And>l l' li. l \<in> states \<Longrightarrow> l' \<in> states \<Longrightarrow> (li,l) \<in> loc_rel \<Longrightarrow> (li,l') \<in> loc_rel \<Longrightarrow> l' = l"
 begin
+
+  lemma trans_fun:
+    "(trans_fun, trans_of A) \<in> transition_rel states"
+    using transition_rel_anti_mono[OF states'_states] trans_fun' by blast
+
+  lemma
+    shows inv_fun: "(inv_fun, inv_of A) \<in> inv_rel loc_rel states"
+      and F_fun:   "(F_fun, F) \<in> inv_rel loc_rel states"
+      and ceiling: "(ceiling, IArray o k') \<in> inv_rel loc_rel states"
+    using inv_fun' F_fun' ceiling' inv_rel_anti_mono[OF states'_states] by blast+
 
   abbreviation "location_rel \<equiv> b_rel loc_rel (\<lambda> x. x \<in> states)"
 
@@ -1119,7 +1138,8 @@ end (* End sepref setup *)
 
 subsection \<open>Correctness Theorems\<close>
 
-sublocale Reachability_Problem_Impl_Op _ _ _ _ _ _ _ _ _ _ _ loc_rel "PR_CONST E_op''" _ _ E_op''_impl
+sublocale Reachability_Problem_Impl_Op
+  where loc_rel = loc_rel and f = "PR_CONST E_op''" and op_impl = E_op''_impl
   unfolding PR_CONST_def by standard (rule E_op''_impl.refine)
 
 lemma E_op_F_reachable:
@@ -1319,6 +1339,8 @@ begin
       \<in> fun_rel_syn nat_rel (list_rel (Id \<times>\<^sub>r nat_rel \<times>\<^sub>r Id \<times>\<^sub>r nat_rel))"
     by auto (metis IdI list_rel_id_simp relAPP_def)
 
+  term states
+
   (* XXX Room for optimization *)
   sublocale Reachability_Problem_Impl
     where A = A
@@ -1335,8 +1357,8 @@ begin
     and l\<^sub>0i = 0
     and show_state = "show"
     and show_clock = "show"
-    unfolding PR_CONST_def
-    using iarray_k' trans_impl_refine_self by - (standard, fastforce+)
+    and states' = Defs.states
+    unfolding PR_CONST_def using iarray_k' trans_impl_refine_self by - (standard, fastforce+)
 
   subsection \<open>Correctness Theorems\<close>
 

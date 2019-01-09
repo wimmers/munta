@@ -576,14 +576,6 @@ sublocale reach1: Reachability_Problem
     by (simp add: k_fun_def)
   done
 
-lemma transition_rel_anti_mono:
-  "transition_rel S \<subseteq> transition_rel R" if "R \<subseteq> S"
-  using that unfolding transition_rel_def by auto
-
-lemma inv_rel_anti_mono:
-  "inv_rel A S \<subseteq> inv_rel A R" if "R \<subseteq> S"
-  using that unfolding inv_rel_def fun_rel_def b_rel_def by auto
-
 lemma states'_alt_def:
   "states' = {(L, s). L \<in> states \<and> bounded bounds s}"
   unfolding states'_def bounded_def dom_bounds_eq by auto
@@ -676,7 +668,6 @@ proof -
 qed
 
 
-
 sublocale impl: Reachability_Problem_Impl
   _ _
   trans_from
@@ -689,28 +680,22 @@ sublocale impl: Reachability_Problem_Impl
   "PR_CONST F"
   m
   k_fun
-  trans_impl loc_rel
+  trans_impl states' loc_rel
   apply standard
 
 (* trans_from *)
   subgoal
-    unfolding trans_of_prod
-    apply (rule set_mp[of "transition_rel states'", OF _ trans_from_correct])
-    apply (rule transition_rel_anti_mono)
-    apply (rule states'_superset)
-    done
+    unfolding trans_of_prod by (rule trans_from_correct)
 
 (* trans_impl *)
   subgoal
-    apply (rule trans_from_refine)
-    done
+    by (rule trans_from_refine)
 
 (* inv_fun *)
   subgoal
     unfolding trans_of_prod
-    apply (rule set_mp[OF _ inv_fun_inv_of'[where R = loc_rel and S = "{(s, s'). state_rel s' s}"]])
-     apply (rule inv_rel_anti_mono[OF states'_superset])
-    unfolding loc_rel_def by auto
+    by (rule set_mp[OF _ inv_fun_inv_of'[where R = loc_rel and S = "{(s, s'). state_rel s' s}"]])
+       (auto simp: loc_rel_def)
 
 (* F_fun *)
   subgoal
@@ -718,16 +703,12 @@ sublocale impl: Reachability_Problem_Impl
 
 (* ceiling *)
   subgoal
-    unfolding inv_rel_def
-    apply auto
-    (* l\<^sub>0 *)
-    subgoal
-      using L\<^sub>0_states by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
-    (* state set *)
-    subgoal
-      using state_set_states
-      by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
-    done
+    unfolding inv_rel_def using L\<^sub>0_states
+    by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
+
+(* state set *)
+  subgoal
+    using states'_superset by simp
 
 (* loc_rel l\<^sub>0 l\<^sub>0i*)
   subgoal
@@ -813,13 +794,8 @@ proof -
     unfolding E_op''_F_reachable_correct
   proof safe
     fix l' :: \<open>'s\<close> and u\<^sub>0 :: \<open>nat \<Rightarrow> real\<close>
-    assume 
-      \<open>\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow>
-           (\<exists>u'. (case A of
-                  (T, I) \<Rightarrow>
-                    ((\<lambda>(l, g, a, r, l'). (l, map conv_ac g, a, r, l')) ` T,
-                     map conv_ac \<circ> I)) \<turnstile>' \<langle>l\<^sub>0, u\<^sub>0\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and>
-                 F l')\<close> and
+    assume
+      \<open>\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> (\<exists>u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<^sub>0\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l')\<close> and
       \<open>\<forall>c\<in>{1..n}. u\<^sub>0 c = 0\<close>
     then show \<open>Ex_ev (\<lambda>(l, _). F l) (l\<^sub>0, u\<^sub>0)\<close>
       using assms by (subst Ex_ev; unfold reaches_steps'[symmetric]) blast+
