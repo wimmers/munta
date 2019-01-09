@@ -132,7 +132,8 @@ qed
 
 locale Reachability_Impl_pre =
   Unreachability_Invariant_paired_pre _ _ +
-  fixes succs :: "_ \<Rightarrow> _"
+  fixes succs :: "_ \<Rightarrow> _" and P'
+  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
   assumes succs_correct:
     "\<And> l. \<forall> s \<in> xs. P (l, s)
   \<Longrightarrow> {(l', s')| l' ys s'. (l', ys) \<in> set (succs l xs) \<and> s' \<in> ys}
@@ -246,10 +247,10 @@ qed
 definition
   "check_all \<equiv> do {
   b1 \<leftarrow> RETURN (l\<^sub>0 \<in> L);
-  b2 \<leftarrow> RETURN (P (l\<^sub>0, s\<^sub>0));
+  b2 \<leftarrow> RETURN (P' (l\<^sub>0, s\<^sub>0));
   xs \<leftarrow> SPEC (\<lambda>xs. set xs = M l\<^sub>0);
   b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (s\<^sub>0 \<preceq> s)) xs;
-  b4 \<leftarrow> check_prop P;
+  b4 \<leftarrow> check_prop P';
   if b1 \<and> b2 \<and> b3 \<and> b4 then check_invariant else RETURN False
   }
 "
@@ -289,7 +290,7 @@ lemma check_all_correct:
   "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P)"
   unfolding check_all_def
   by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule;
-      standard; auto simp: list_ex_iff)
+      standard; auto simp: list_ex_iff dest: P'_P)
 
 lemma certify_unreachable_correct:
   assumes F_mono: "\<And>a b. F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> F b"
@@ -423,7 +424,7 @@ locale Reachability_Impl =
   and L_list :: "'ki list" and M_table :: "('ki, 'bi list) hashtable"
   assumes L_finite: "finite L"
       and M_ran_finite: "\<forall>S \<in> ran M. finite S"
-      and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S'"
+      and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
       (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
       and succs_empty: "\<And>l. succs l {} = []"
   assumes F_mono: "\<And>a b. F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> less_eq s s') a b \<Longrightarrow> F b"
@@ -435,11 +436,11 @@ locale Reachability_Impl =
      ) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' K (lso_assn A)"
   assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
   assumes copyi[sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
-  assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P') \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]:
     "(uncurry succsi,uncurry (RETURN oo PR_CONST succs))
-    \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>k \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
+    \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>d \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
   assumes [sepref_fr_rules]:
     "(uncurry Lei,uncurry (RETURN oo PR_CONST less_eq)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]:
@@ -469,14 +470,14 @@ lemma check_final_alt_def:
   by (fo_rule arg_cong2, simp, fo_rule arg_cong) (auto split: option.split simp: bind_RES)
 
 lemma check_prop_alt_def:
-  "check_prop P = do {
+  "check_prop P' = do {
   l \<leftarrow> SPEC (\<lambda>xs. set xs = PR_CONST L);
   monadic_list_all (\<lambda>l. do {
     let S = op_map_lookup l (PR_CONST M);
     case S of None \<Rightarrow> RETURN True | Some S \<Rightarrow> do {
       xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
       r \<leftarrow> monadic_list_all (\<lambda>s.
-        RETURN (PR_CONST P (l, s))
+        RETURN (PR_CONST P' (l, s))
       ) xs;
       RETURN r
     }
@@ -487,14 +488,14 @@ lemma check_prop_alt_def:
   by (fo_rule arg_cong2, simp, fo_rule arg_cong) (auto split: option.split simp: bind_RES)
 
 lemma check_prop_alt_def2:
-  "check_prop P = do {
+  "check_prop P' = do {
   l \<leftarrow> SPEC (\<lambda>xs. set xs = PR_CONST L);
   monadic_list_all (\<lambda>l. do {
     let (S, M) = op_map_extract l (PR_CONST M);
     case S of None \<Rightarrow> RETURN True | Some S \<Rightarrow> do {
       xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
       r \<leftarrow> monadic_list_all (\<lambda>s.
-        RETURN (PR_CONST P (l, s))
+        RETURN (PR_CONST P' (l, s))
       ) xs;
       RETURN r
     }
@@ -541,7 +542,7 @@ definition
 }"
 
 lemma succs_listD:
-  assumes "(l', S') \<in> set (succs l S)"
+  assumes "(l', S') \<in> set (succs l S)" "finite S"
   shows "\<exists> xs. set xs = S'"
   using assms succs_finite by (force intro!: finite_list)
 
@@ -557,7 +558,7 @@ lemma check_invariant'_refine:
   subgoal
     by (auto simp: bind_RES monadic_list_all_False dest: M_listD)
   subgoal
-    by (auto dest: succs_listD intro: less_eq_Sup simp: bind_RES monadic_list_all_False)
+    by (auto dest: succs_listD M_listD intro: less_eq_Sup simp: bind_RES monadic_list_all_False)
   apply (clarsimp simp: bind_RES monadic_list_all_False dest: M_listD)
   apply (intro less_eq_Sup)
    apply clarsimp
@@ -569,7 +570,7 @@ lemma check_invariant'_refine:
   subgoal
     by (auto dest: M_listD)
   subgoal
-    by (auto dest: succs_listD)
+    by (auto dest: succs_listD M_listD)
   done
 
 lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
@@ -577,7 +578,7 @@ lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
 lemmas [sepref_fr_rules] = lso_id_hnr
 
 sepref_register
-  "PR_CONST L" "list_of_set" "PR_CONST P" "PR_CONST F" "PR_CONST succs" "PR_CONST less_eq"
+  "PR_CONST L" "list_of_set" "PR_CONST P'" "PR_CONST F" "PR_CONST succs" "PR_CONST less_eq"
   "PR_CONST M" :: "('k, 'b set) i_map"
 
 lemma [sepref_import_param]: "(id, id) \<in> (Id :: (bool \<times> bool) set) \<rightarrow> Id"
@@ -586,7 +587,7 @@ lemma [sepref_import_param]: "(id, id) \<in> (Id :: (bool \<times> bool) set) \<
 lemmas [sepref_fr_rules] = M_impl
 
 sepref_definition check_prop_impl_wrong is
-  "uncurry0 (check_prop P)" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  "uncurry0 (check_prop P')" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding check_prop_alt_def2 list_of_set_def[symmetric]
   unfolding monadic_list_all_def
   by sepref
@@ -596,7 +597,7 @@ sepref_decl_impl "map_lookup":
   uses op_map_lookup.fref[where V = Id] .
 
 sepref_thm check_prop_impl is
-  "uncurry0 (PR_CONST (check_prop P))" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  "uncurry0 (PR_CONST (check_prop P'))" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding PR_CONST_def
   unfolding check_prop_alt_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def
@@ -688,19 +689,19 @@ concrete_definition (in -) check_invariant_impl
 definition
   "check_all' \<equiv> do {
   b1 \<leftarrow> RETURN (PR_CONST l\<^sub>0 \<in> PR_CONST L);
-  b2 \<leftarrow> RETURN (PR_CONST P (PR_CONST l\<^sub>0, PR_CONST s\<^sub>0));
+  b2 \<leftarrow> RETURN (PR_CONST P' (PR_CONST l\<^sub>0, PR_CONST s\<^sub>0));
   let S = op_map_lookup (PR_CONST l\<^sub>0) (PR_CONST M);
   case S of None \<Rightarrow> RETURN False | Some S \<Rightarrow> do {
     xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
     b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (PR_CONST less_eq (PR_CONST s\<^sub>0) s)) xs;
-    b4 \<leftarrow> PR_CONST (check_prop P);
+    b4 \<leftarrow> PR_CONST (check_prop P');
     if b1 \<and> b2 \<and> b3 \<and> b4 then PR_CONST check_invariant else RETURN False
   }
   }
 "
 
 lemma check_prop_gt_SUCCEED:
-  "check_prop P > SUCCEED"
+  "check_prop P' > SUCCEED"
   unfolding check_prop_def using L_listD
   by (fastforce split: option.split dest: M_listD
         intro: monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I
@@ -711,7 +712,7 @@ lemma check_all'_refine:
   unfolding check_all_def check_all'_def PR_CONST_def Let_def
   using check_prop_gt_SUCCEED
   apply (cases "op_map_lookup l\<^sub>0 M"; simp add: bind_RES)
-  apply (cases "check_prop P")
+  apply (cases "check_prop P'")
    apply (auto intro: less_eq_Sup simp: bind_RES)
   done
 
@@ -720,7 +721,7 @@ lemma check_all'_correct:
   using check_all'_refine by (auto simp: pw_le_iff pw_nres_rel_iff)
 
 sepref_register
-  "PR_CONST check_invariant" check_prop: "PR_CONST (check_prop P)"
+  "PR_CONST check_invariant" check_prop: "PR_CONST (check_prop P')"
   "PR_CONST l\<^sub>0" "PR_CONST s\<^sub>0"
 
 lemmas [sepref_fr_rules] =
