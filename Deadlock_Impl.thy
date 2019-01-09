@@ -541,7 +541,7 @@ proof -
   include lifting_syntax
   note [simp del] = And.simps abstr.simps (* TODO: make definitions *)
   have inv_of_simp: "inv_of (conv_A A) l = conv_cc (inv_of A l)" if \<open>l \<in> states\<close> for l
-    using inv_fun \<open>l \<in> states\<close> unfolding inv_rel_def b_rel_def fun_rel_def
+    using inv_fun \<open>l \<in> states\<close> unfolding inv_rel_def b_rel_def fun_rel_def conv_A_def
     by (force split: prod.split simp: inv_of_def)
 
   have trans_funD: "l' \<in> states"
@@ -675,11 +675,11 @@ proof -
   have transD: "\<exists> g'. (g', a, r, l') \<in> set (trans_fun l) \<and> g = conv_cc g'"
     if "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" for g a r l'
     using trans_of_trans_impl[OF _ \<open>l \<in> states\<close>] that
-    unfolding trans_of_def by (auto 5 0 split: prod.split_asm)
+    unfolding trans_of_def conv_A_def by (auto 5 0 split: prod.split_asm)
   have transD2:
     "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>conv_cc g,a,r\<^esup> l'" if "(g, a, r, l') \<in> set (trans_fun l)" for g a r l'
     using trans_impl_trans_of[OF that \<open>l \<in> states\<close>]
-    unfolding trans_of_def by (auto 4 3 split: prod.split)
+    unfolding trans_of_def conv_A_def by (auto 4 3 split: prod.split)
   show ?thesis
     unfolding TA.check_deadlock_alt_def[OF \<open>_ \<subseteq> V\<close>] check_deadlock_dbm_def inv_of_A_def *[symmetric]
     apply (subst dbm.dbm_subset_fed_check_correct[symmetric, OF that(3)])
@@ -1216,7 +1216,7 @@ proof -
     using trans_of_trans_impl[OF that] \<open>\<not> _\<close> unfolding is_start_in_states_def by auto
   { fix l g2 a2 r2 l' assume A: "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g2,a2,r2\<^esup> l'"
     obtain g1 a1 r1 where **: "A \<turnstile> l \<longrightarrow>\<^bsup>g1,a1,r1\<^esup> l'"
-      using A unfolding trans_of_def by (cases A) force
+      using A unfolding trans_of_def conv_A_def by (cases A) force
     then have "\<exists> g1 a1 r1. A \<turnstile> l \<longrightarrow>\<^bsup>g1,a1,r1\<^esup> l'"
       by auto
   } note ** = this (* XXX Better proof *)
