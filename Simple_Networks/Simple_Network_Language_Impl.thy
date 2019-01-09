@@ -1466,6 +1466,7 @@ lemma conv_prod_ta:
   unfolding conv.trans_prod_def trans_prod_def
   unfolding conv.prod_inv_def prod_inv_def
   unfolding conv.N_def N_def conv_n_ps_eq
+  unfolding conv_A_def
   apply simp
   apply (rule conjI)
   subgoal
