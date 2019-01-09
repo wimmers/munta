@@ -3439,6 +3439,15 @@ proof -
     by (auto simp: check_bounded_iff)
 qed
 
+lemma trans_prod_states'_inv:
+  "l' \<in> states'" if "(l, g, a, r, l') \<in> trans_prod" "l \<in> states'"
+  using that unfolding states'_alt_def
+  by (cases l') (auto dest: trans_prod_bounded_inv trans_prod_states_inv)
+
+lemma prod_ta_states'_inv:
+  "l' \<in> states'" if "prod_ta \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "l \<in> states'"
+  using that by simp (rule trans_prod_states'_inv)
+
 lemma dom_eq_transfer [transfer_rule]:
   "(state_rel ===> (=)) (\<lambda>s. dom s = {0..<n_vs}) (\<lambda>s. length s = n_vs)"
   by (rule rel_funI) (auto simp: state_rel_def)

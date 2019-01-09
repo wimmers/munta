@@ -294,6 +294,31 @@ lemma state_set_states:
   unfolding trans_int_def trans_bin_def trans_broad_def
   by auto (auto intro: state_preservation_updI state_preservation_fold_updI)
 
+lemma trans_prod_bounded_inv:
+  \<open>bounded bounds s'\<close> if \<open>((L, s), g, a, r, (L', s')) \<in> trans_prod\<close>
+  using that unfolding bounds_def trans_prod_def trans_int_def trans_bin_def trans_broad_def
+  by (auto simp: bounds_def)
+
+lemma trans_prod_states_inv:
+  \<open>L' \<in> states\<close> if \<open>((L, s), g, a, r, (L', s')) \<in> trans_prod\<close> \<open>L \<in> states\<close>
+  using that
+  unfolding bounds_def trans_prod_def trans_int_def trans_bin_def trans_broad_def
+  apply clarsimp
+  apply safe
+         apply (force intro!: state_preservation_updI)
+        apply (force intro!: state_preservation_updI)
+       apply (force intro!: state_preservation_updI)
+      apply (force intro!: state_preservation_updI)
+     apply (force intro!: state_preservation_updI)
+    apply (fastforce intro!: state_preservation_updI state_preservation_fold_updI)
+  subgoal
+    apply (rule state_preservation_updI)
+    apply force
+    apply (force intro!: state_preservation_fold_updI)
+    done
+  apply (fastforce intro!: state_preservation_updI state_preservation_fold_updI)
+  done
+
 end (* Prod TA Defs *)
 
 
