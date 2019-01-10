@@ -535,21 +535,21 @@ abbreviation zone_of ("\<lbrakk>_\<rbrakk>") where "zone_of M \<equiv> [curry (c
 
 theorem check_deadlock_dbm_correct:
   "TA.check_deadlock l \<lbrakk>M\<rbrakk> = check_deadlock_dbm l M" if
-  "\<lbrakk>M\<rbrakk> \<subseteq> V" "l \<in> states" "Deadlock.canonical' n (curry (conv_M M))"
+  "\<lbrakk>M\<rbrakk> \<subseteq> V" "l \<in> states'" "Deadlock.canonical' n (curry (conv_M M))"
 proof -
   text \<open>0. Setup \<open>&\<close> auxiliary facts\<close>
   include lifting_syntax
   note [simp del] = And.simps abstr.simps (* TODO: make definitions *)
-  have inv_of_simp: "inv_of (conv_A A) l = conv_cc (inv_of A l)" if \<open>l \<in> states\<close> for l
-    using inv_fun \<open>l \<in> states\<close> unfolding inv_rel_def b_rel_def fun_rel_def conv_A_def
+  have inv_of_simp: "inv_of (conv_A A) l = conv_cc (inv_of A l)" for l
+    using inv_fun unfolding inv_rel_def b_rel_def fun_rel_def conv_A_def
     by (force split: prod.split simp: inv_of_def)
 
   have trans_funD: "l' \<in> states"
     "collect_clks (inv_of A l) \<subseteq> clk_set A" "collect_clks (inv_of A l') \<subseteq> clk_set A"
     "collect_clks g \<subseteq> clk_set A" "set r \<subseteq> clk_set A"
-    if "(g, a, r, l') \<in> set(trans_fun l)" for g a r l'
+    if "(g, a, r, l') \<in> set (trans_fun l)" for g a r l'
     subgoal
-      using \<open>l \<in> states\<close> that trans_impl_states by auto
+      using \<open>l \<in> states'\<close> that trans_impl_states by auto
     subgoal
       by (metis collect_clks_inv_clk_set)
     subgoal
@@ -634,7 +634,7 @@ proof -
       "\<forall>c\<in>collect_clks (conv_cc (inv_of A l')). 0 < c \<and> c \<le> n"
       "\<forall>c\<in>collect_clks (conv_cc g). 0 < c \<and> c \<le> n"
       "\<forall>c\<in>set r. 0 < c \<and> c \<le> n"
-      using \<open>l \<in> states\<close> clock_range by (auto simp: constraint_clk_conv_cc)
+      using \<open>l \<in> states'\<close> clock_range by (auto simp: constraint_clk_conv_cc)
     have structural_conditions:
       "abstr_FW n (conv_cc (inv_of A l')) V_dbm v 0 0 \<le> 0"
       "\<forall>x\<in>set r. abstr_FW n (map conv_ac (inv_of A l')) V_dbm v 0 x \<le> 0"
@@ -653,8 +653,8 @@ proof -
       apply (subst dbm.abstr_FW_correct, rule side_conditions)
       apply (subst dbm.pre_reset_list_correct, (rule side_conditions)+)
       apply (subst dbm.abstr_FW_correct, (rule side_conditions)+)
-      by (simp add: inv_of_simp[OF \<open>l \<in> states\<close>] inv_of_simp[OF \<open>l' \<in> states\<close>] dbm.V_dbm_correct
-          atLeastLessThanSuc_atLeastAtMost Int_commute)
+      apply (simp add: inv_of_simp dbm.V_dbm_correct atLeastLessThanSuc_atLeastAtMost Int_commute)
+      done
   qed
   have **:
     "(\<Union>x\<in>set (trans_fun l).
@@ -674,11 +674,11 @@ proof -
   text \<open>3. Putting it all together\<close>
   have transD: "\<exists> g'. (g', a, r, l') \<in> set (trans_fun l) \<and> g = conv_cc g'"
     if "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" for g a r l'
-    using trans_of_trans_impl[OF _ \<open>l \<in> states\<close>] that
+    using trans_of_trans_impl[OF _ \<open>l \<in> states'\<close>] that
     unfolding trans_of_def conv_A_def by (auto 5 0 split: prod.split_asm)
   have transD2:
     "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>conv_cc g,a,r\<^esup> l'" if "(g, a, r, l') \<in> set (trans_fun l)" for g a r l'
-    using trans_impl_trans_of[OF that \<open>l \<in> states\<close>]
+    using trans_impl_trans_of[OF that \<open>l \<in> states'\<close>]
     unfolding trans_of_def conv_A_def by (auto 4 3 split: prod.split)
   show ?thesis
     unfolding TA.check_deadlock_alt_def[OF \<open>_ \<subseteq> V\<close>] check_deadlock_dbm_def inv_of_A_def *[symmetric]
@@ -1013,7 +1013,7 @@ lemma E_op''_states:
 subsubsection \<open>Instantiating the Checker Algorithm\<close>
 
 corollary check_deadlock_dbm_correct':
-  assumes "l \<in> states" "wf_state (l, M)"
+  assumes "l \<in> states'" "wf_state (l, M)"
   shows "TA.check_deadlock l (dbm.zone_of (curry (conv_M M))) = check_deadlock_dbm l M"
   apply (rule check_deadlock_dbm_correct)
   using assms
@@ -1030,9 +1030,9 @@ corollary check_deadlock_dbm_correct'':
   assumes "E_op''.reachable (l, M)"
   shows "TA.check_deadlock l (dbm.zone_of (curry (conv_M M))) = check_deadlock_dbm l M"
   using assms
-  apply -
+  apply - term states'
   apply (rule check_deadlock_dbm_correct')
-   apply (erule reachable_states)
+   apply (drule reachable_states, use states'_states in auto; fail)
   unfolding E_op''.reachable_def wf_state_def prod.case apply (erule E_op''.reachable_wf_dbm)
   done
 
@@ -1057,7 +1057,7 @@ lemma not_check_deadlock_mono:
 lemma not_check_deadlock_compatible:
   assumes
     "(case a of (l, Z) \<Rightarrow> \<lambda>(l', D'). l' = l \<and> dbm.zone_of (curry (conv_M D')) = Z) b"
-   "case b of (l, M) \<Rightarrow> l \<in> states \<and> wf_state (l, M)"
+   "case b of (l, M) \<Rightarrow> l \<in> states' \<and> wf_state (l, M)"
  shows
    "(case a of (l, Z) \<Rightarrow> \<not> TA.check_deadlock l Z) = (case b of (l, M) \<Rightarrow> \<not> check_deadlock_dbm l M)"
   using assms by (auto simp: check_deadlock_dbm_correct'[symmetric])
@@ -1067,7 +1067,7 @@ lemma deadlock_check_diag:
   using that(1)
   apply (subst (asm) check_deadlock_dbm_correct'[symmetric])
   subgoal
-    using E_op''.reachable_def reachable_states that(2) by auto
+    using E_op''.reachable_def reachable_states that(2) states'_states by auto
   subgoal
     unfolding wf_state_def using op.reachable_wf_dbm[OF that(2)] by simp
   using canonical_check_diag_empty_iff by (blast dest: not_check_deadlock_non_empty)
@@ -1146,9 +1146,9 @@ proof -
   also have "\<dots> \<longleftrightarrow> (\<exists>l M. op.reaches a\<^sub>0 (l, M) \<and> \<not> check_deadlock_dbm l M)"
     using bisim.reaches_ex_iff[where
         \<phi> = "\<lambda> (l, Z). \<not>TA.check_deadlock l Z" and \<psi> = "\<lambda>(l, M). \<not> check_deadlock_dbm l M",
-        OF not_check_deadlock_compatible
+        OF not_check_deadlock_compatible, of "(l\<^sub>0, {u. \<forall>c\<in>{1..n}. u c = 0})" a\<^sub>0
         ]
-    using wf_state_init init_dbm_zone unfolding a\<^sub>0_def by clarsimp
+    using wf_state_init init_dbm_zone states'_states unfolding a\<^sub>0_def by force
   also have "\<dots> \<longleftrightarrow> ?l"
     unfolding op.reachable_def by (auto 4 4 dest: deadlock_check_diag)
   finally show ?thesis ..
@@ -1163,9 +1163,6 @@ lemma check_deadlock':
 context
   assumes "F = (\<lambda> _. False)"
 begin
-
-print_locale Worklist_Map2_Impl_check
-term K
 
 interpretation Worklist_Map2_Impl_check
   op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
@@ -1203,7 +1200,7 @@ proof -
   from that obtain g a r l' where "(g, a, r, l') \<in> set (trans_fun l\<^sub>0)"
     by (cases "hd (trans_fun l\<^sub>0)" rule: prod_cases4)
        (auto dest: hd_in_set simp: is_start_in_states_def)
-  from trans_impl_trans_of[OF this] have "A \<turnstile> l\<^sub>0 \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+  from trans_impl_trans_of[OF this] states'_states have "A \<turnstile> l\<^sub>0 \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
     by simp
   then show ?thesis
     unfolding Simulation_Graphs_TA.state_set_def trans_of_def by auto
@@ -1213,7 +1210,7 @@ lemma deadlocked_if_not_is_start_in_states:
   "deadlocked (l\<^sub>0, Z\<^sub>0)" if "\<not> is_start_in_states"
 proof -
   have *: False if "A \<turnstile> l\<^sub>0 \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" for g a r l'
-    using trans_of_trans_impl[OF that] \<open>\<not> _\<close> unfolding is_start_in_states_def by auto
+    using trans_of_trans_impl[OF that] \<open>\<not> _\<close> states'_states unfolding is_start_in_states_def by auto
   { fix l g2 a2 r2 l' assume A: "conv_A A \<turnstile> l \<longrightarrow>\<^bsup>g2,a2,r2\<^esup> l'"
     obtain g1 a1 r1 where **: "A \<turnstile> l \<longrightarrow>\<^bsup>g1,a1,r1\<^esup> l'"
       using A unfolding trans_of_def conv_A_def by (cases A) force

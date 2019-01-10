@@ -364,7 +364,7 @@ begin
 
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
-    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states"
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states'"
 begin
 
 (* XXX Put in place of for leadsto_spec_refine *)

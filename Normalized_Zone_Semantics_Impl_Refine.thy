@@ -186,31 +186,32 @@ locale Reachability_Problem_Impl =
   and k
   and trans_impl :: "('a, nat, int, 'si :: {hashable, heap}) transition_fun" +
   fixes states' and loc_rel :: "('si \<times> 's) set"
-  assumes trans_fun': "(trans_fun, trans_of A) \<in> transition_rel states'"
+  assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states'"
       and trans_impl:
         "(trans_impl, trans_fun) \<in> fun_rel_syn loc_rel (list_rel (Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel))"
-      and inv_fun': "(inv_fun, inv_of A) \<in> inv_rel loc_rel states'"
-      and F_fun': "(F_fun, F) \<in> inv_rel loc_rel states'"
-      and ceiling': "(ceiling, IArray o k') \<in> inv_rel loc_rel states'"
+      and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel loc_rel states'"
+      and F_fun: "(F_fun, F) \<in> inv_rel loc_rel states'"
+      and ceiling: "(ceiling, IArray o k') \<in> inv_rel loc_rel states'"
       and states'_states: "states \<subseteq> states'"
       and init_impl: "(l\<^sub>0i, l\<^sub>0) \<in> loc_rel"
       and loc_rel_left_unique:
-        "\<And>l li li'. l \<in> states \<Longrightarrow> (li, l) \<in> loc_rel \<Longrightarrow> (li', l) \<in> loc_rel \<Longrightarrow> li' = li"
+        "\<And>l li li'. l \<in> states' \<Longrightarrow> (li, l) \<in> loc_rel \<Longrightarrow> (li', l) \<in> loc_rel \<Longrightarrow> li' = li"
       and loc_rel_right_unique:
-        "\<And>l l' li. l \<in> states \<Longrightarrow> l' \<in> states \<Longrightarrow> (li,l) \<in> loc_rel \<Longrightarrow> (li,l') \<in> loc_rel \<Longrightarrow> l' = l"
+        "\<And>l l' li. l \<in> states' \<Longrightarrow> l' \<in> states' \<Longrightarrow> (li,l) \<in> loc_rel \<Longrightarrow> (li,l') \<in> loc_rel
+          \<Longrightarrow> l' = l"
 begin
 
-  lemma trans_fun:
+  lemma trans_fun':
     "(trans_fun, trans_of A) \<in> transition_rel states"
-    using transition_rel_anti_mono[OF states'_states] trans_fun' by blast
+    using transition_rel_anti_mono[OF states'_states] trans_fun by blast
 
   lemma
-    shows inv_fun: "(inv_fun, inv_of A) \<in> inv_rel loc_rel states"
-      and F_fun:   "(F_fun, F) \<in> inv_rel loc_rel states"
-      and ceiling: "(ceiling, IArray o k') \<in> inv_rel loc_rel states"
-    using inv_fun' F_fun' ceiling' inv_rel_anti_mono[OF states'_states] by blast+
+    shows inv_fun': "(inv_fun, inv_of A) \<in> inv_rel loc_rel states"
+      and F_fun':   "(F_fun, F) \<in> inv_rel loc_rel states"
+      and ceiling': "(ceiling, IArray o k') \<in> inv_rel loc_rel states"
+    using inv_fun F_fun ceiling inv_rel_anti_mono[OF states'_states] by blast+
 
-  abbreviation "location_rel \<equiv> b_rel loc_rel (\<lambda> x. x \<in> states)"
+  abbreviation "location_rel \<equiv> b_rel loc_rel (\<lambda> x. x \<in> states')"
 
   abbreviation "location_assn \<equiv> pure location_rel"
 
@@ -289,7 +290,7 @@ begin
   using collect_clks_inv_clk_set[of A l] clocks_n by force
 
   lemma inv_fun_rel:
-    assumes "l \<in> states" "(l1, l) \<in> loc_rel"
+    assumes "l \<in> states'" "(l1, l) \<in> loc_rel"
     shows "(inv_fun l1, inv_of A l) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
   proof -
     have "(xs, xs) \<in> \<langle>\<langle>nbn_rel (Suc n), int_rel\<rangle>acconstraint_rel\<rangle>list_rel"
@@ -515,7 +516,7 @@ begin
 
   lemma [sepref_import_param]:
     "(l\<^sub>0i, l\<^sub>0) \<in> location_rel"
-    using init_impl by auto
+    using init_impl states'_states by auto
 
   sepref_definition a\<^sub>0_impl is
     "uncurry0 (RETURN a\<^sub>0)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a state_assn'"
@@ -537,32 +538,40 @@ begin
     by sepref
 
   lemma trans_impl_trans_of[intro]:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states' \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
     using trans_fun unfolding transition_rel_def by auto
 
   lemma trans_of_trans_impl[intro]:
-    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> l \<in> states \<Longrightarrow> (g, a, r, l') \<in> set (trans_fun l)"
+    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> l \<in> states' \<Longrightarrow> (g, a, r, l') \<in> set (trans_fun l)"
     using trans_fun unfolding transition_rel_def by auto
 
   lemma trans_impl_clock_bounds1:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> set r. c \<le> n"
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states' \<Longrightarrow> \<forall> c \<in> set r. c \<le> n"
     using clocks_n reset_clk_set[OF trans_impl_trans_of] by fastforce
 
   lemma trans_impl_clock_bounds2:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> \<forall> c \<in> collect_clks g. c \<le> n"
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states' \<Longrightarrow> \<forall> c \<in> collect_clks g. c \<le> n"
     using clocks_n collect_clocks_clk_set[OF trans_impl_trans_of] by fastforce
 
   lemma trans_impl_states:
-    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states \<Longrightarrow> l' \<in> state_set (trans_of A)"
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states' \<Longrightarrow> l' \<in> state_set (trans_of A)"
      apply (drule trans_impl_trans_of)
      apply assumption
      unfolding state_set_def
      apply (rule UnI2)
      by force
 
+  lemma trans_impl_states':
+    "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states' \<Longrightarrow> l' \<in> states'"
+    using trans_impl_states states'_states by auto
+
   lemma trans_of_states[intro]:
-    "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<Longrightarrow> l \<in> states \<Longrightarrow> l' \<in> states"
-    by (auto intro: trans_impl_states)
+    "l' \<in> states" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "l \<in> states'"
+    using that by (auto intro: trans_impl_states)
+
+  lemma trans_of_states'[intro]:
+    "l' \<in> states'" if "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "l \<in> states'"
+    using that states'_states by (auto intro: trans_impl_states)
 
   abbreviation "clock_rel \<equiv> nbn_rel (Suc n)"
 
@@ -573,12 +582,12 @@ begin
         list_rel"
   proof (rule fun_relI)
     fix li l
-    assume "(li, l) \<in> b_rel loc_rel (\<lambda>x. x \<in> states)"
+    assume "(li, l) \<in> location_rel"
     { fix xs  :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 's) list"
         and xs' :: "((nat, int) acconstraint list \<times> 'a \<times> nat list \<times> 'si) list"
       assume A:
         "\<forall> g a r l'. (g, a, r, l') \<in> set xs
-          \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> states"
+          \<longrightarrow> (\<forall> c \<in> collect_clks g. c \<le> n) \<and> (\<forall> c \<in> set r. c \<le> n) \<and> l' \<in> states'"
       assume "(xs', xs) \<in> \<langle>Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel\<rangle>list_rel"
       then have
         "(xs', xs) \<in>
@@ -624,10 +633,10 @@ begin
       qed
     } note * = this
     from
-      \<open>(li, l) \<in> _\<close> trans_impl_clock_bounds1 trans_impl_clock_bounds2 trans_impl_states trans_impl
+      \<open>(li, l) \<in> _\<close> trans_impl_clock_bounds1 trans_impl_clock_bounds2 trans_impl_states' trans_impl
     show "(trans_impl li, trans_fun l)
         \<in> \<langle>\<langle>\<langle>clock_rel, int_rel\<rangle>acconstraint_rel\<rangle>list_rel \<times>\<^sub>r
-           Id \<times>\<^sub>r \<langle>clock_rel\<rangle>list_rel \<times>\<^sub>r b_rel loc_rel (\<lambda>x. x \<in> states)\<rangle>list_rel"
+           Id \<times>\<^sub>r \<langle>clock_rel\<rangle>list_rel \<times>\<^sub>r location_rel\<rangle>list_rel"
       by - (rule *, auto, (drule fun_relD, assumption, simp add: relAPP_def)+)
   qed
 
@@ -678,7 +687,7 @@ sepref_register trans_fun
 
   context
     fixes P :: "'s \<Rightarrow> bool" and P_fun
-    assumes P_fun: "(P_fun, P) \<in> inv_rel loc_rel states"
+    assumes P_fun: "(P_fun, P) \<in> inv_rel loc_rel states'"
   begin
 
   context
@@ -736,7 +745,7 @@ sepref_register trans_fun
   sublocale Worklist0 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M"
     apply standard
     apply (clarsimp split: prod.split dest!: reachable_states)
-    unfolding succs_def op.E_from_op_def by force thm E_alt_def
+    unfolding succs_def op.E_from_op_def using states'_states by force
 
   sublocale Worklist1 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" ..
 
@@ -835,7 +844,8 @@ sepref_register trans_fun
       have
         "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P F) a)
         = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l' \<and> \<not> check_diag n M') a x}"
-        unfolding op.E_from_op_def succs_P_def using prems by (force dest!: reachable_states)
+        unfolding op.E_from_op_def succs_P_def using prems states'_states
+        by (force dest!: reachable_states)
       also have "\<dots> =
         {x. Subgraph_Node_Defs.E'
          (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M')
@@ -914,7 +924,7 @@ sepref_register trans_fun
 
   context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
-    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states"
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states'"
   begin
 
   interpretation leadsto: Leadsto_Search_Space_Key
@@ -955,7 +965,7 @@ sepref_register trans_fun
         have
           "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
             = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
-          unfolding op.E_from_op_def succs_P_def using prems
+          unfolding op.E_from_op_def succs_P_def using prems states'_states
           by (force dest!: reachable reachable_states)
         then show ?thesis
           by auto
@@ -999,7 +1009,8 @@ sepref_register trans_fun
       have
         "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
             = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
-        unfolding op.E_from_op_def succs_P_def using prems by (force dest!: reachable_states)
+        unfolding op.E_from_op_def succs_P_def using prems states'_states
+        by (force dest!: reachable_states)
       also have "\<dots> =
             {x. Subgraph_Node_Defs.E'
              (\<lambda>x y.
@@ -1189,7 +1200,7 @@ lemma Alw_ev_impl_hnr:
 
 context
     fixes Q :: "'s \<Rightarrow> bool" and Q_fun
-    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states"
+    assumes Q_fun: "(Q_fun, Q) \<in> inv_rel loc_rel states'"
     assumes no_deadlock: "\<forall>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"
 begin
 

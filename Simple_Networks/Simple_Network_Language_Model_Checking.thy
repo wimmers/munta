@@ -711,15 +711,10 @@ sublocale impl: Reachability_Problem_Impl
     using state_rel_start unfolding loc_rel_def by auto
 
   subgoal for l li li'
-    unfolding trans_of_prod
-    apply (drule set_mp[OF states'_superset])
-    by (rule state_rel_left_unique)
+    unfolding trans_of_prod by (rule state_rel_left_unique)
 
   subgoal for l l' li
-    unfolding trans_of_prod
-    apply (rule state_rel_right_unique)
-       apply (rule set_mp[OF states'_superset] | assumption)+
-    done
+    unfolding trans_of_prod by (rule state_rel_right_unique)
   done
 
 end (* Simple_Network_Impl_nat_ceiling_start_state *)
@@ -1158,8 +1153,8 @@ proof -
     proof -
       have *: "(\<lambda>(l, u). F l) = ((\<lambda>(p, _). case p of (L, s) \<Rightarrow> check_sexp \<phi> L (the \<circ> s)))"
         using prems by auto
-      have **: "(\<lambda>(L, s). \<not> check_sexpi \<psi> L s, \<lambda>(L, s). \<not> check_sexp \<psi> L (the \<circ> s))
-    \<in> inv_rel loc_rel ({l\<^sub>0} \<union> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of prod_ta))"
+      have **:"(\<lambda>(L, s). \<not> check_sexpi \<psi> L s, \<lambda>(L, s). \<not> check_sexp \<psi> L (the \<circ> s))
+               \<in> inv_rel loc_rel states'"
         unfolding trans_of_prod using prems by (auto simp: F_Fi' inv_rel_def)
       have ****: "(\<lambda>(l, u). \<not> (case l of (L, s) \<Rightarrow> \<not> check_sexp \<psi> L (the \<circ> s)))
       = (\<lambda>(l, u). (case l of (L, s) \<Rightarrow> check_sexp \<psi> L (the \<circ> s)))"
@@ -1167,11 +1162,8 @@ proof -
       show ?thesis
         apply (cases "reach.deadlock (l\<^sub>0, \<lambda>_. 0)")
         subgoal
-          thm impl.leadsto_impl_hnr'
           using impl.leadsto_impl_hnr'[OF **, to_hnr, unfolded hn_refine_def]
-          unfolding protect_def \<open>formula = _\<close>
-          apply (sep_auto simp: pure_def)
-          done
+          unfolding protect_def \<open>formula = _\<close> by (sep_auto simp: pure_def)
         using impl.leadsto_impl_hnr[unfolded deadlock_bisim, to_hnr, unfolded hn_refine_def, OF **]
           prems start
         unfolding PR_CONST_def * protect_def by (sep_auto simp: pure_def bisims ****)
@@ -1297,8 +1289,7 @@ schematic_goal succs_impl_alt_def:
 
 schematic_goal succs_P_impl_alt_def:
   "impl.succs_P_impl Pi \<equiv> ?impl"
-  if "(Pi, P)
-    \<in> inv_rel loc_rel ({l\<^sub>0} \<union> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of prod_ta))"
+  if "(Pi, P) \<in> inv_rel loc_rel states'"
   for P Pi
   unfolding impl.succs_P_impl_def[OF that]
   apply (abstract_let impl.E_op''_impl E_op''_impl)
@@ -1357,9 +1348,7 @@ schematic_goal Alw_ev_checker_alt_def:
   by (rule Pure.reflexive)
 
 lemma \<psi>_compatibleI:
-  "(\<lambda>(L, s). \<not> check_sexpi \<psi> L s,
-     \<lambda>(L, s). \<not> check_sexp \<psi> L (the \<circ> s))
-    \<in> inv_rel loc_rel ({l\<^sub>0} \<union> Normalized_Zone_Semantics_Impl_Refine.state_set (trans_of prod_ta))"
+  "(\<lambda>(L, s). \<not> check_sexpi \<psi> L s, \<lambda>(L, s). \<not> check_sexp \<psi> L (the \<circ> s)) \<in> inv_rel loc_rel states'"
   if "formula = Leadsto \<phi> \<psi>"
   using F_Fi'[OF _ that] unfolding inv_rel_def by auto
 
