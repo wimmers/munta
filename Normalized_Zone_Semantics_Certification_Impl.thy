@@ -4,7 +4,10 @@ theory Normalized_Zone_Semantics_Certification_Impl
     Normalized_Zone_Semantics_Certification
     "Worklist_Algorithms/Unreachability_Certification"
     Deadlock_Impl
+    "library/More_Methods"
 begin
+
+paragraph \<open>Misc\<close>
 
 lemma Simulation_Composition:
   fixes A B C
@@ -20,11 +23,10 @@ proof -
     by standard (auto dest!: B.A_B_step A.A_B_step simp: assms(3)[symmetric])
 qed
 
-locale Reachability_Problem_Impl_Precise =
-  Reachability_Problem_Impl _ _ _ _ _ _ l\<^sub>0i _ l\<^sub>0
-  + op_precise: E_Precise_Bisim l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
-  fixes op_impl
-  assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
+lemma fold_generalize_start:
+  assumes "\<And>a. P a \<Longrightarrow> Q (fold g xs a)" "P a"
+  shows "Q (fold g xs a)"
+  using assms by auto
 
 definition
   "set_of_list xs = SPEC (\<lambda>S. set xs = S)"
@@ -34,8 +36,69 @@ lemma set_of_list_hnr:
   "(return o id, set_of_list) \<in> (list_assn A)\<^sup>d \<rightarrow>\<^sub>a lso_assn A"
   unfolding set_of_list_def lso_assn_def hr_comp_def br_def by sepref_to_hoare sep_auto
 
-context Reachability_Problem_Impl_Precise
+lemma set_of_list_alt_def:
+  "set_of_list = RETURN o set"
+  unfolding set_of_list_def by auto
+
+lemmas set_of_list_hnr' = set_of_list_hnr[unfolded set_of_list_alt_def]
+
+
+lemmas amtx_copy_hnr = amtx_copy_hnr[unfolded op_mtx_copy_def, folded COPY_def[abs_def]]
+
+lemma lso_op_set_is_empty_hnr[sepref_fr_rules]:
+  "(return o (\<lambda>xs. xs = []), RETURN o op_set_is_empty) \<in> (lso_assn AA)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  unfolding lso_assn_def hr_comp_def br_def by sepref_to_hoare sep_auto
+
+context
+  fixes n :: nat
 begin
+
+private definition
+  "dbm_tab M \<equiv> \<lambda> (i, j). if i \<le> n \<and> j \<le> n then M ! (n * i + j) else 0"
+
+private lemma
+  shows mtx_nonzero_dbm_tab_1: "(a, b) \<in> mtx_nonzero (dbm_tab M) \<Longrightarrow> a < Suc n"
+    and mtx_nonzero_dbm_tab_2: "(a, b) \<in> mtx_nonzero (dbm_tab M) \<Longrightarrow> b < Suc n"
+  unfolding mtx_nonzero_def dbm_tab_def by (auto split: if_split_asm)
+
+definition
+  "list_to_dbm M = op_amtx_new (Suc n) (Suc n) (dbm_tab M)"
+
+lemma [sepref_fr_rules]:
+  "(return o dbm_tab, RETURN o PR_CONST dbm_tab) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a pure (nat_rel \<times>\<^sub>r nat_rel \<rightarrow> Id)"
+  by sepref_to_hoare sep_auto
+
+lemmas [sepref_opt_simps] = dbm_tab_def
+
+sepref_register dbm_tab
+
+sepref_definition list_to_dbm_impl
+  is "RETURN o PR_CONST list_to_dbm" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a mtx_assn n"
+  supply mtx_nonzero_dbm_tab_1[simp] mtx_nonzero_dbm_tab_2[simp]
+  unfolding PR_CONST_def list_to_dbm_def by sepref
+
+end
+
+
+context Reachability_Problem_Impl
+begin
+
+sepref_definition E_precise_op'_impl is
+  "uncurry4 (\<lambda> l r. RETURN ooo E_precise_op' l r)" :: "op_impl_assn"
+  unfolding
+    E_precise_op'_def FW''_def[symmetric] reset'_upd_def inv_of_A_def[symmetric] PR_CONST_def
+    filter_diag_def
+  by sepref
+
+end
+
+
+locale Reachability_Problem_Impl_Precise =
+  Reachability_Problem_Impl _ _ _ _ _ _ l\<^sub>0i _ l\<^sub>0
+  + op_precise: E_Precise_Bisim l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
+  fixes op_impl and states_mem_impl
+  assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
+      and states_mem_impl: "(states_mem_impl, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
 
 lemma E_precise_E_op:
   "E_precise = (\<lambda>(l, M) (l', M'''). \<exists>g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> M''' = E_precise_op l r g l' M)"
@@ -138,13 +201,7 @@ sepref_register succs_precise_inner
 
 lemmas [sepref_fr_rules] = succs_precise_inner_impl.refine
 
-lemmas amtx_copy_hnr = amtx_copy_hnr[unfolded op_mtx_copy_def, folded COPY_def[abs_def]]
-
 lemmas [sepref_fr_rules] = copy_list_lso_assn_refine[OF amtx_copy_hnr]
-
-lemma lso_op_set_is_empty_hnr[sepref_fr_rules]:
-  "(return o (\<lambda>xs. xs = []), RETURN o op_set_is_empty) \<in> (lso_assn AA)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding lso_assn_def hr_comp_def br_def by sepref_to_hoare sep_auto
 
 (* The d can also be a k *)
 sepref_definition succs_precise'_impl is
@@ -156,8 +213,7 @@ sepref_definition succs_precise'_impl is
     comp_def succs_precise'_def
     FW''_def[symmetric] rev_map_fold inv_of_A_def[symmetric]
     list_of_set_def[symmetric] set_of_list_def[symmetric]
-  unfolding HOL_list.fold_custom_empty
-  by sepref
+  unfolding HOL_list.fold_custom_empty by sepref
 
 lemmas succs_precise_impl_refine = succs_precise'_impl.refine[FCOMP succs_precise'_correct]
 
@@ -165,31 +221,13 @@ lemma succs_precise_finite:
   "\<forall>l S. \<forall>(l', S')\<in>set (succs_precise l S). finite S \<longrightarrow> finite S'"
   unfolding succs_precise_def by auto
 
-term op_precise.E_from_op
-
-lemma E_from_op_states:
-  "l' \<in> states" if "op_precise.E_from_op (l, M) (l', M')" "l \<in> states"
-proof -
-  from that(1) obtain g a r where "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-    unfolding op_precise.E_from_op_def by auto
-  then show ?thesis
-    using \<open>l \<in> states\<close> by (rule trans_of_states)
-qed
-
 sepref_definition F_impl' is
   "RETURN o PR_CONST F_rel" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding PR_CONST_def F_rel_def by sepref
 
-thm wf_dbm_def valid_dbm_def
-
-print_statement wf_dbm_def
-
-thm V_I
-
 definition
   "wf_dbm' D \<equiv> (canonical' D \<or> check_diag n D) \<and>
-     (list_all (\<lambda>i. D (i, i) \<le> 0) [0..<n+1]) \<and> list_all (\<lambda>i. D (0, i) \<le> 0) [0..<n+1]
-    "
+     (list_all (\<lambda>i. D (i, i) \<le> 0) [0..<n+1]) \<and> list_all (\<lambda>i. D (0, i) \<le> 0) [0..<n+1]"
 
 theorem wf_dbm'_wf_dbm:
   fixes D :: "nat \<times> nat \<Rightarrow> int DBMEntry"
@@ -237,53 +275,166 @@ sepref_thm wf_dbm'_impl is
   "RETURN o PR_CONST wf_dbm'" :: "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding wf_dbm'_def canonical'_compute list_all_foldli PR_CONST_def by sepref
 
-(* Merge with is_start_in_states *)
 definition
-  "is_in_states l = (trans_fun l \<noteq> [])"
+  "states_mem l \<equiv> l \<in> states'"
 
 definition
-  "P \<equiv> \<lambda> (l, M). is_in_states l \<and> wf_dbm' M"
-
-lemma is_state_in_states:
-  "l \<in> states" if "is_in_states l"
-proof -
-  from that obtain g a r l' where "(g, a, r, l') \<in> set (trans_fun l)"
-    by (cases "hd (trans_fun l)" rule: prod_cases4)
-       (auto dest: hd_in_set simp: is_in_states_def)
-  from trans_impl_trans_of[OF this] have "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
-    (* wrong *)
-    by simp
-  then show ?thesis
-    unfolding Simulation_Graphs_TA.state_set_def trans_of_def
-    unfolding Normalized_Zone_Semantics_Impl_Refine.state_set_def
-    by auto
-qed
+  "P \<equiv> \<lambda> (l, M). PR_CONST states_mem l \<and> wf_dbm' M"
 
 lemma P_correct:
-  "l \<in> states \<and> wf_dbm M" if "P (l, M)"
-  using that unfolding P_def by (auto intro: wf_dbm'_wf_dbm dest: is_state_in_states)
+  "l \<in> states' \<and> wf_dbm M" if "P (l, M)"
+  using that unfolding P_def states_mem_def by (auto intro: wf_dbm'_wf_dbm)
 
-sepref_thm is_in_states_impl is
-  "RETURN o PR_CONST is_in_states" :: "location_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding PR_CONST_def is_in_states_def by sepref
+(* lemma [sepref_import_param]:
+  "(states_mem, states_mem) \<in> Id \<rightarrow> Id"
+  by simp *)
 
-sepref_register is_in_states
-sepref_register wf_dbm' :: "'b DBMEntry i_mtx \<Rightarrow> bool"
+lemmas [sepref_import_param] = states_mem_impl[folded states_mem_def]
+
+sepref_register states_mem
+
+(* sepref_thm is_in_states_impl is
+  "RETURN o PR_CONST states_mem" :: "(pure loc_rel)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  unfolding PR_CONST_def by sepref *)
+
+sepref_register wf_dbm' :: "'c DBMEntry i_mtx \<Rightarrow> bool"
 
 lemmas [sepref_fr_rules] =
-  is_in_states_impl.refine_raw
+  (* is_in_states_impl.refine_raw *)
   wf_dbm'_impl.refine_raw
 
 sepref_definition P_impl is
-  "RETURN o PR_CONST P" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  "RETURN o PR_CONST P" :: "(prod_assn (pure loc_rel) (mtx_assn n))\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding PR_CONST_def P_def by sepref
 
+(* XXX Better proof technique? *)
+lemma P_impl_refine:
+  "(P_impl, (RETURN \<circ>\<circ> PR_CONST) P) \<in> (location_assn \<times>\<^sub>a mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  apply sepref_to_hoare
+  apply sep_auto
+  subgoal for l M l' M'
+    using P_impl.refine[to_hnr, unfolded hn_refine_def hn_ctxt_def, rule_format, of "(l, M)"]
+    by (sep_auto simp: pure_def)
+  done
 
+lemma E_from_op_states:
+  "l' \<in> states'" if "op_precise.E_from_op (l, M) (l', M')" "l \<in> states'"
+  using that unfolding op_precise.E_from_op_def by auto
 
+context
+  fixes L_list :: "'si list" and P_loc and M_list :: "('si \<times> int DBMEntry list list) list"
+  assumes state_impl_abstract: "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
+  assumes P_loc: "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
+  assumes M_list_covered: "fst ` set M_list \<subseteq> set L_list"
+      (* and dbm_len: "list_all (\<lambda> (l, M). length M = n * n) M_list" *)
+begin
 
+definition
+  "L \<equiv> map (\<lambda>li. SOME l. (li, l) \<in> loc_rel) L_list"
 
+lemma mem_states'I:
+  "l \<in> states'" if "states_mem_impl li" "(li, l) \<in> loc_rel" for l li
+  using states_mem_impl that by (auto dest: fun_relD)
 
-sublocale
+lemma L_list_rel:
+  "(L_list, L) \<in> \<langle>location_rel\<rangle>list_rel"
+  unfolding list_rel_def L_def
+  using P_loc
+  apply (clarsimp simp: list.pred_rel list.rel_map)
+  apply (elim list_all2_mono)
+  apply (clarsimp simp: eq_onp_def)
+  apply (meson someI_ex state_impl_abstract)
+  apply (erule mem_states'I, meson someI_ex state_impl_abstract)
+  done
+
+lemma L_list_hnr:
+  "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST (set L))))
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn location_assn"
+proof -
+  have "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) = pure location_rel"
+    unfolding pure_def by auto
+  then have "list_assn (\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) = pure (\<langle>location_rel\<rangle>list_rel)"
+    by (simp add: fcomp_norm_unfold)
+  then have "emp \<Longrightarrow>\<^sub>A list_assn (\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) L L_list * true"
+    by (sep_auto simp: pure_def intro: L_list_rel)
+  then show ?thesis
+    by sepref_to_hoare (sep_auto simp: lso_assn_def hr_comp_def br_def)
+qed
+
+definition
+  "M_list' \<equiv> map (\<lambda>(li, xs). (SOME l. (li, l) \<in> loc_rel, xs)) M_list"
+
+definition
+  "M = fold (\<lambda>p M.
+    let s = fst p; xs = snd p; xs = rev (map (list_to_dbm n) xs); S = set xs in fun_upd M s (Some S)
+  ) (PR_CONST M_list') op_map_empty"
+
+lemma M_finite:
+  "\<forall>S\<in>ran M. finite S"
+  unfolding M_def
+  apply (rule fold_generalize_start[where P = "\<lambda>M. \<forall>S\<in>ran M. finite S"])
+  subgoal for a
+    unfolding M_list'_def
+    apply (induction M_list arbitrary: a)
+    apply (simp; fail)
+    apply (simp, rprem, auto dest: ran_upd_cases)
+    done
+  apply (simp; fail)
+  done
+
+lemma P_loc':
+  "list_all (\<lambda>(l, M). P_loc l \<and> states_mem_impl l) M_list"
+  using P_loc \<open>_ \<subseteq> set L_list\<close> unfolding list_all_iff by auto
+
+lemma M_list_rel:
+  "(M_list, M_list') \<in> \<langle>location_rel \<times>\<^sub>r Id\<rangle>list_rel"
+  unfolding list_rel_def M_list'_def
+  using P_loc'
+  apply (clarsimp simp: list.pred_rel list.rel_map)
+  apply (elim list_all2_mono)
+  apply (clarsimp simp: eq_onp_def)
+  apply (meson someI_ex state_impl_abstract)
+  apply (erule mem_states'I, meson someI_ex state_impl_abstract)
+  done
+
+lemma M_list_hnr[sepref_fr_rules]:
+  "(uncurry0 (return M_list), uncurry0 (RETURN (PR_CONST M_list')))
+    \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (location_assn \<times>\<^sub>a list_assn id_assn)"
+proof -
+  let ?R = "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) \<times>\<^sub>a list_assn (\<lambda>a c. \<up> (c = a))"
+  have *: "list_assn (\<lambda>a c. \<up> (c = a)) = pure (\<langle>Id\<rangle>list_rel)"
+    unfolding fcomp_norm_unfold by (simp add: pure_def)
+  have "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) \<times>\<^sub>a list_assn (\<lambda>a c. \<up> (c = a))
+    = pure (location_rel \<times>\<^sub>r Id)"
+    unfolding * pure_def prod_assn_def by (intro ext) auto
+  then have **: "list_assn ?R = pure (\<langle>location_rel \<times>\<^sub>r Id\<rangle>list_rel)"
+    apply (simp add: fcomp_norm_unfold)
+    apply (rule HOL.arg_cong[where f = list_assn])
+    apply assumption
+    done
+  have "emp \<Longrightarrow>\<^sub>A list_assn ?R M_list' M_list * true"
+    using M_list_rel unfolding ** by (sep_auto simp: pure_def)
+  then show ?thesis
+    by sepref_to_hoare (sep_auto simp: lso_assn_def hr_comp_def br_def)
+qed
+
+sepref_register "PR_CONST M_list'"
+
+sepref_register "list_to_dbm n"
+
+lemmas [sepref_fr_rules] = list_to_dbm_impl.refine
+
+sepref_register set
+
+lemmas [sepref_fr_rules] = set_of_list_hnr'
+
+sepref_definition M_table is
+  "uncurry0 (RETURN M)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' location_assn (lso_assn (mtx_assn n))"
+  unfolding M_def set_of_list_def[symmetric] rev_map_fold
+    HOL_list.fold_custom_empty hm.op_hms_empty_def[symmetric]
+  by sepref
+
+interpretation
   Reachability_Impl
   where A = "mtx_assn n"
     and F = F_rel
@@ -300,9 +451,12 @@ sublocale
     and K = location_assn
     and keyi = "return o fst"
     and copyi = amtx_copy
-    and P = "\<lambda>(l, M). l \<in> states \<and> wf_dbm M"
+    and P = "\<lambda>(l, M). l \<in> states' \<and> wf_dbm M"
     and P' = P
     and Pi = P_impl
+    and L = "set L"
+    and M = M
+    and M_table = M_table
   apply standard
                       apply (rule HOL.refl; fail)
                       apply (rule dbm_subset_refl; fail)
@@ -312,19 +466,19 @@ sublocale
     by (auto dest: op_precise.E_from_op_mono')
   subgoal (* E_precise invariant *)
     by (frule op_precise.E_from_op_wf_state[rotated])
-      (auto dest: E_from_op_states simp: wf_state_def)
+       (auto dest: E_from_op_states simp: wf_state_def)
   subgoal (* P correct *)
     by (auto dest: P_correct)
   subgoal (* succs correct *)
     unfolding succs_precise_def op_precise.E_from_op_def
     apply (auto dest!: trans_impl_trans_of)
-    apply (auto dest!: trans_of_trans_impl)
+     apply (auto dest!: trans_of_trans_impl)
     apply force
     done
   subgoal (* L finite *)
-    sorry
+    ..
   subgoal (* M finite *)
-    sorry
+    by (rule M_finite)
   subgoal (* succs finite *)
     by (rule succs_precise_finite)
   subgoal (* succs empty *)
@@ -332,21 +486,21 @@ sublocale
   subgoal (* F mono *)
     using op.F_mono subsumes_simp_1 by fastforce
   subgoal (* L refine *)
-    sorry
+    by (rule L_list_hnr)
   subgoal (* M refine *)
-    sorry
+    unfolding PR_CONST_def by (rule M_table.refine)
   subgoal (* key refine *)
     by sepref_to_hoare sep_auto
            apply (rule amtx_copy_hnr; fail)
   subgoal (* P refine *)
-    by (rule P_impl.refine)
+    by (rule P_impl_refine)
   subgoal (* F refine *)
     by (rule F_impl'.refine)
   subgoal (* succs refine *)
     using succs_precise_impl_refine unfolding b_assn_pure_conv .
        apply (rule dbm_subset_impl.refine; fail)
   subgoal (* init loc refine *)
-    using init_impl by sepref_to_hoare sep_auto
+    using init_impl states'_states by sepref_to_hoare sep_auto
      apply (unfold PR_CONST_def, rule init_dbm_impl.refine; fail)
     apply (rule location_assn_constraints; fail)+
   done

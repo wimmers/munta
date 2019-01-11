@@ -421,7 +421,7 @@ locale Reachability_Impl =
   fixes A :: "'b \<Rightarrow> ('bi :: heap) \<Rightarrow> assn"
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and F
     and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i and succsi
-  and L_list :: "'ki list" and M_table :: "('ki, 'bi list) hashtable"
+  and L_list :: "'ki list" and M_table :: "('ki, 'bi list) hashtable Heap"
   assumes L_finite: "finite L"
       and M_ran_finite: "\<forall>S \<in> ran M. finite S"
       and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
@@ -431,9 +431,7 @@ locale Reachability_Impl =
   assumes L_impl[sepref_fr_rules]:
     "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST L))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn K"
   assumes M_impl:
-    "(uncurry0 (return M_table),
-      uncurry0 (RETURN (PR_CONST M))
-     ) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' K (lso_assn A)"
+    "(uncurry0 M_table, uncurry0 (RETURN (PR_CONST M))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' K (lso_assn A)"
   assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
   assumes copyi[sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P') \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -519,7 +517,7 @@ definition
   l \<leftarrow> SPEC (\<lambda>xs. set xs = PR_CONST L);
   monadic_list_all (\<lambda>l.
   do {
-    case op_map_lookup l  (PR_CONST M) of None \<Rightarrow> RETURN True  | Some xs \<Rightarrow> do {
+    case op_map_lookup l (PR_CONST M) of None \<Rightarrow> RETURN True  | Some xs \<Rightarrow> do {
     let succs = PR_CONST succs l xs;
     monadic_list_all (\<lambda>(l', xs).
     do {
