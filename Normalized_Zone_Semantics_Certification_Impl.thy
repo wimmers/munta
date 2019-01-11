@@ -99,6 +99,7 @@ locale Reachability_Problem_Impl_Precise =
   fixes op_impl and states_mem_impl
   assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
       and states_mem_impl: "(states_mem_impl, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
+begin
 
 lemma E_precise_E_op:
   "E_precise = (\<lambda>(l, M) (l', M'''). \<exists>g a r. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> M''' = E_precise_op l r g l' M)"
