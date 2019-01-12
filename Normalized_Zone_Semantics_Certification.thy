@@ -1,5 +1,5 @@
 theory Normalized_Zone_Semantics_Certification
-  imports Normalized_Zone_Semantics_Impl_Semantic_Refinement
+  imports TA_Impl.Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 
 no_notation Reachability_Problem_Defs.step_impl' ("\<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)

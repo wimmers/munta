@@ -1,6 +1,6 @@
 theory Normalized_Zone_Semantics_Certification_Impl
   imports
-    Normalized_Zone_Semantics_Impl_Refine
+    TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     Normalized_Zone_Semantics_Certification
     "Worklist_Algorithms/Unreachability_Certification"
     Deadlock_Impl
@@ -97,7 +97,7 @@ locale Reachability_Problem_Impl_Precise =
   Reachability_Problem_Impl _ _ _ _ _ _ l\<^sub>0i _ l\<^sub>0
   + op_precise: E_Precise_Bisim l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
   fixes op_impl and states_mem_impl
-  assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
+  assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo PR_CONST f l r)) \<in> op_impl_assn"
       and states_mem_impl: "(states_mem_impl, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
 begin
 
@@ -113,7 +113,7 @@ definition succs_precise_inner where
   "succs_precise_inner l r g l' S \<equiv> do {
     xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
     p \<leftarrow> nfoldli xs (\<lambda>_. True) (\<lambda>D xs.
-      RETURN (f l r g l' D # xs)
+      RETURN (PR_CONST f l r g l' D # xs)
     ) [];
     S' \<leftarrow> SPEC (\<lambda>S. set p = S);
     RETURN S'
@@ -152,7 +152,7 @@ lemma succs_precise'_correct:
   "(uncurry succs_precise', uncurry (RETURN oo PR_CONST succs_precise)) \<in> Id \<times>\<^sub>r Id \<rightarrow> \<langle>Id\<rangle>nres_rel"
   using succs_precise'_refine by (clarsimp simp: pw_le_iff pw_nres_rel_iff)
 
-sepref_register f ::
+sepref_register "PR_CONST f" ::
   "'s \<Rightarrow> nat list \<Rightarrow> (nat, int) acconstraint list \<Rightarrow> 's \<Rightarrow> int DBMEntry i_mtx \<Rightarrow> int DBMEntry i_mtx"
 
 lemma aux:
@@ -182,7 +182,8 @@ sepref_definition succs_precise_inner_impl is
       (list_assn (acconstraint_assn (clock_assn n) int_assn))\<^sup>k *\<^sub>a
       location_assn\<^sup>k *\<^sub>a (lso_assn (mtx_assn n))\<^sup>d
   \<rightarrow>\<^sub>a lso_assn (mtx_assn n)"
-  unfolding succs_precise_inner_def PR_CONST_def
+  unfolding PR_CONST_def
+  unfolding succs_precise_inner_def
     list_of_set_def[symmetric] set_of_list_def[symmetric]
   apply (rewrite "HOL_list.fold_custom_empty")
   apply sepref_dbg_keep
@@ -564,6 +565,8 @@ lemma op_precise_unreachable_correct':
 
 lemmas certify_unreachable_impl_hnr =
   certify_unreachable_impl.refine[OF Reachability_Impl_axioms, FCOMP op_precise_unreachable_correct']
+
+end
 
 end
 

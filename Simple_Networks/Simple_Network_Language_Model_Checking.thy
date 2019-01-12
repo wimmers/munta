@@ -665,18 +665,19 @@ qed
 
 
 sublocale impl: Reachability_Problem_Impl
-  _ _
-  trans_from
-  inv_fun
-  Fi
-  k_impl
-  l\<^sub>0i
-  prod_ta
-  l\<^sub>0
-  "PR_CONST F"
-  m
-  k_fun
-  trans_impl states' loc_rel
+  where trans_fun = trans_from
+  and inv_fun = inv_fun
+  and F_fun = Fi
+  and ceiling = k_impl
+  and A = prod_ta
+  and l\<^sub>0 = l\<^sub>0
+  and l\<^sub>0i = l\<^sub>0i
+  and F = "PR_CONST F"
+  and n = m
+  and k = k_fun
+  and trans_impl = trans_impl
+  and states' = states'
+  and loc_rel = loc_rel
   apply standard
 
 (* trans_from *)
@@ -865,6 +866,8 @@ interpretation Bisimulation_Invariant
     apply (rule conv_eq_bisim.Bisimulation_Invariant_axioms conv.prod_bisim_intro)+
   apply auto
   done
+
+lemmas prod_bisim = Bisimulation_Invariant_axioms
 
 lemmas deadlock_iff = deadlock_iff
 

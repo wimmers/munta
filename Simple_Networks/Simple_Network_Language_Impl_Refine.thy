@@ -2194,6 +2194,11 @@ definition state_rel :: "(nat \<rightharpoonup> int) \<Rightarrow> int list \<Ri
 definition loc_rel where
   "loc_rel \<equiv> {((L', s'), (L, s)) | L s L' s'. L' = L \<and> length L = n_ps \<and> state_rel s s'}"
 
+lemma state_impl_abstract:
+  "\<exists>L s. ((Li, si), (L, s)) \<in> loc_rel" if "length Li = n_ps" "length si = n_vs"
+  using that unfolding loc_rel_def state_rel_def
+  by (inst_existentials Li "\<lambda>i. if i < n_vs then Some (si ! i) else None")(auto split: if_split_asm)
+
 lemma state_rel_left_unique:
   "l \<in> states' \<Longrightarrow> (li, l) \<in> loc_rel \<Longrightarrow> (li', l) \<in> loc_rel \<Longrightarrow> li' = li"
   unfolding loc_rel_def state_rel_def by (auto intro: nth_equalityI)

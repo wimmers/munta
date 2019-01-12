@@ -1,5 +1,9 @@
 theory Unreachability_Certification
-  imports Worklist_Locales "../Simulation_Graphs_Certification" Unified_PW_Impl Leadsto_Impl
+  imports
+    TA_Impl.Worklist_Locales
+    "../Simulation_Graphs_Certification"
+    TA_Impl.Unified_PW_Impl
+    TA_Impl.Leadsto_Impl
 begin
 
 paragraph \<open>Misc \<open>nres\<close>\<close>
