@@ -730,7 +730,7 @@ definition "
 "
 
 definition "
-  local_ceiling \<equiv>
+  local_ceiling_single \<equiv>
   let
     w = calc_shortest_scc_paths G n
   in
@@ -740,7 +740,7 @@ definition "
 end
 
 definition "
-  k \<equiv>
+  local_ceiling \<equiv>
     rev $
     fold
       (\<lambda> q xs.
@@ -749,7 +749,7 @@ definition "
           (\<lambda> l xs.
             (\<lambda> x. (0 # rev x) # xs) $
             fold
-              (\<lambda> c xs. local_ceiling q c ! l # xs)
+              (\<lambda> c xs. local_ceiling_single q c ! l # xs)
               [1..<Suc m]
               []
           )
@@ -764,8 +764,8 @@ end
 
 
 lemmas [code] =
-  Simple_Network_Impl_nat_defs.k_def
   Simple_Network_Impl_nat_defs.local_ceiling_def
+  Simple_Network_Impl_nat_defs.local_ceiling_single_def
   Simple_Network_Impl_nat_defs.n_def
   Simple_Network_Impl_nat_defs.G_def
   Simple_Network_Impl_nat_defs.W_def
@@ -780,7 +780,7 @@ lemmas [code] =
   Simple_Network_Impl_nat_defs.clkp_set''_def
   Simple_Network_Impl_nat_defs.clkp_inv_def
 
-export_code Simple_Network_Impl_nat_defs.k checking SML_imp
+export_code Simple_Network_Impl_nat_defs.local_ceiling checking SML_imp
 
 
 
@@ -909,7 +909,7 @@ definition "preproc_mc \<equiv> \<lambda>dc ids_to_names (broadcast, automata, b
     let (broadcast', automata', bounds') = rename_network
       broadcast bounds automata renum_acts renum_vars renum_clocks renum_states;
     let _ = println (STR ''Calculating ceiling'');
-    let k = Simple_Network_Impl_nat_defs.k broadcast' bounds' automata' m num_states;
+    let k = Simple_Network_Impl_nat_defs.local_ceiling broadcast' bounds' automata' m num_states;
     let _ = println (STR ''Running model checker'');
     let inv_renum_states = (\<lambda>i. ids_to_names i o inv_renum_states i);
     r \<leftarrow> rename_mc dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula

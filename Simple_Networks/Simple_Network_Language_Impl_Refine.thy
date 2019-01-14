@@ -171,6 +171,10 @@ lemma states_mem_compute[code]:
   "L \<in> states \<longleftrightarrow> length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i i)"
   unfolding states_def states_i_def by simp (metis mem_trans_N_iff)
 
+lemma states_mem_compute':
+  "L \<in> states \<longleftrightarrow> length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> map states_i [0..<n_ps] ! i)"
+  unfolding states_mem_compute by simp
+
 end
 
 

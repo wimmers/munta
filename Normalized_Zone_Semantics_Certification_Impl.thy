@@ -566,8 +566,30 @@ lemma op_precise_unreachable_correct':
 lemmas certify_unreachable_impl_hnr =
   certify_unreachable_impl.refine[OF Reachability_Impl_axioms, FCOMP op_precise_unreachable_correct']
 
+definition
+  "unreachability_checker \<equiv>
+  let
+    Fi = F_impl';
+    Pi = P_impl;
+    copyi = amtx_copy;
+    Lei = dbm_subset_impl n;
+    l\<^sub>0i = Heap_Monad.return l\<^sub>0i;
+    s\<^sub>0i = init_dbm_impl;
+    succsi = succs_precise'_impl;
+    M_table = M_table
+  in
+  certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table"
+
+lemmas unreachability_checker_hnr =
+  certify_unreachable_impl_hnr[folded unreachability_checker_def[unfolded Let_def]]
+
+lemmas unreachability_checker_alt_def = unreachability_checker_def[unfolded M_table_def]
+
 end
 
 end
+
+concrete_definition (in -) unreachability_checker
+  uses Reachability_Problem_Impl_Precise.unreachability_checker_alt_def
 
 end

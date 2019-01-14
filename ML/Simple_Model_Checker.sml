@@ -9817,7 +9817,7 @@ fun calc_shortest_scc_paths (A1_, A2_, A3_) g n =
     db
   end;
 
-fun local_ceiling automata num_states q c =
+fun local_ceiling_single automata num_states q c =
   let
     val a =
       calc_shortest_scc_paths (plus_int, zero_int, ord_int)
@@ -9828,7 +9828,7 @@ fun local_ceiling automata num_states q c =
       a
   end;
 
-fun k broadcast bounds automata m num_states =
+fun local_ceiling broadcast bounds automata m num_states =
   app rev
     (fold (fn q => fn xs =>
             app (fn x => rev x :: xs)
@@ -9836,7 +9836,8 @@ fun k broadcast bounds automata m num_states =
                       app (fn x => (zero_nata :: rev x) :: xsa)
                         (fold (fn c =>
                                 (fn a =>
-                                  nth (local_ceiling automata num_states q c)
+                                  nth (local_ceiling_single automata num_states
+q c)
                                     l ::
                                     a))
                           (upt one_nata (suc m)) []))
@@ -10032,14 +10033,14 @@ fun preproc_mc A_ =
                    countable_nat countable_literal broadcast bounds automata
                    renum_acts renum_vars renum_clocks renum_states;
                val _ = writeln "Calculating ceiling";
-               val ka = k broadcasta boundsa automataa m num_states;
+               val k = local_ceiling broadcasta boundsa automataa m num_states;
                val _ = writeln "Running model checker";
                val inv_renum_statesa =
                  (fn i => ids_to_names i o inv_renum_states i);
              in
                (fn f_ => fn () => f_
                  ((rename_mc A_ show_literal show_literal dc broadcast bounds
-                    automata ka l_0 s_0 formula m num_states num_actions
+                    automata k l_0 s_0 formula m num_states num_actions
                     renum_acts renum_vars renum_clocks renum_states
                     inv_renum_statesa inv_renum_vars inv_renum_clocks)
                  ()) ())
