@@ -2,6 +2,7 @@ theory Simple_Network_Language_Certificate_Checking
   imports
     "../Normalized_Zone_Semantics_Certification_Impl"
     Simple_Network_Language_Export_Code
+    "../library/Trace_Timing"
 begin
 
 (* XXX Merge proof with Ex_ev *)
@@ -161,11 +162,24 @@ private lemma A:
   "list_all (\<lambda>x. states'_memi x \<and> states'_memi x) L_list"
   using assms by simp
 
+lemma unreachability_checker_def:
+  "impl.unreachability_checker L_list M_list \<equiv>
+   let Fi = impl.F_impl'; Pi = impl.P_impl; copyi = amtx_copy; Lei = dbm_subset_impl m;
+       l\<^sub>0i = Heap_Monad.return l\<^sub>0i; s\<^sub>0i = impl.init_dbm_impl; succsi = impl.succs_precise'_impl;
+       _ = start_timer ();
+       M_table = impl.M_table M_list;
+       _ = save_time STR ''Time for loading certificate''
+   in do {
+    let _ = start_timer ();
+    r \<leftarrow> certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table;
+    let _ = save_time STR ''Time for main part of certificate checking'';
+    Heap_Monad.return r
+  }"
+  by (subst impl.unreachability_checker_def[OF state_impl_abstract', OF _ A assms(2)]; simp)
+
 schematic_goal unreachability_checker_alt_def:
   "impl.unreachability_checker L_list M_list \<equiv> ?x"
-  apply (subst
-      impl.unreachability_checker_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2)])
-     apply assumption
+  apply (subst unreachability_checker_def)
   apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2)])
    apply assumption
   unfolding impl.F_impl'_def impl.P_impl_def
@@ -186,8 +200,6 @@ schematic_goal unreachability_checker_alt_def:
   by (rule Pure.reflexive)
 
 end (* Anonymous context *)
-
-thm states'_memi_def
 
 end (* Simple_Network_Impl_nat_ceiling_start_state *)
 
@@ -215,15 +227,19 @@ definition
   "certificate_checker
     M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<equiv>
   let
+    _ = start_timer ();
     check1 = Simple_Network_Impl_nat_ceiling_start_state
       broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
+    _ = save_time STR ''Time to check ceiling'';
     L_list = map fst M_list;
     n_ps = length automata;
     n_vs = Simple_Network_Impl.n_vs bounds';
     states_i = map (Simple_Network_Impl_nat_defs.states_i automata) [0..<n_ps];
+    _ = start_timer ();
     check2 = list_all (\<lambda>(L, s). length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i ! i) \<and>
       length s = n_vs \<and> Simple_Network_Impl_nat_defs.check_boundedi bounds' s
     ) L_list;
+    _ = save_time STR ''Time to check states'';
     check3 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False)
   in if check1 \<and> check2 \<and> check3 then
   do {
