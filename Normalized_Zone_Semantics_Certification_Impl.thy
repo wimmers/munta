@@ -440,6 +440,42 @@ sepref_definition M_table is
     HOL_list.fold_custom_empty hm.op_hms_empty_def[symmetric]
   by sepref
 
+lemma dom_M_eq:
+  "dom M = fst ` set M_list'"
+proof -
+  have *: "dom (fold (\<lambda>p M.
+    let s = fst p; xs = snd p; xs = rev (map (list_to_dbm n) xs); S = set xs in fun_upd M s (Some S)
+  ) xs m) = dom m \<union> fst ` set xs" for xs m
+    by (induction xs arbitrary: m) auto
+  show ?thesis
+    unfolding M_def * by simp
+qed
+
+lemma L_dom_M_eqI:
+  assumes "fst ` set M_list = set L_list"
+  shows "set L = dom M"
+proof -
+  show ?thesis
+    unfolding dom_M_eq
+  proof (safe; clarsimp?)
+    fix l assume "l \<in> set L"
+    with L_list_rel assms obtain l' where "l' \<in> fst ` set M_list" "(l', l) \<in> location_rel"
+      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
+    with M_list_rel obtain l1 where "l1 \<in> fst ` set M_list'" "(l', l1) \<in> location_rel"
+      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
+    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> fst ` set M_list'"
+      using loc_rel_right_unique by auto
+  next
+    fix l M assume "(l, M) \<in> set M_list'"
+    with M_list_rel assms obtain l' where "l' \<in> set L_list" "(l', l) \<in> location_rel"
+      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
+    with L_list_rel obtain l1 where "l1 \<in> set L" "(l', l1) \<in> location_rel"
+      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
+    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> set L"
+      using loc_rel_right_unique by auto
+  qed
+qed
+
 interpretation
   Reachability_Impl
   where A = "mtx_assn n"

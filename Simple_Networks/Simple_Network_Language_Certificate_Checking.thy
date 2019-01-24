@@ -162,7 +162,7 @@ qed
 theorem unreachability_checker_hnr:
   assumes "\<And>li. P_loc li \<Longrightarrow> states'_memi li"
     and "list_all (\<lambda>x. P_loc x \<and> states'_memi x) L_list"
-    and "fst ` set M_list \<subseteq> set L_list"
+    and "fst ` set M_list = set L_list"
     and "formula = formula.EX \<phi>"
   shows "(
   uncurry0 (impl.unreachability_checker L_list M_list),
@@ -171,9 +171,12 @@ theorem unreachability_checker_hnr:
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
 proof -
   define checker where "checker \<equiv> impl.unreachability_checker L_list M_list"
+  from assms(3) have "fst ` set M_list \<subseteq> set L_list"
+    by blast
   note [sep_heap_rules] =
     impl.unreachability_checker_hnr[
-      OF state_impl_abstract', OF assms(1-3),
+      OF state_impl_abstract',
+      OF assms(1,2) this impl.L_dom_M_eqI[OF state_impl_abstract', OF assms(1,2) this assms(3)],
       to_hnr, unfolded hn_refine_def, rule_format, folded checker_def
     ]
   show ?thesis

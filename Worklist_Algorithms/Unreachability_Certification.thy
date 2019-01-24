@@ -667,27 +667,21 @@ definition
   monadic_list_all (\<lambda>l.
   do {
     case op_map_lookup l M' of None \<Rightarrow> RETURN True  | Some xs \<Rightarrow> do {
-    let succs = PR_CONST succs l xs;
-    monadic_list_all (\<lambda>(l', xs). do {
-      xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
-      if xs = [] then RETURN True
-      else do {
-        b1 \<leftarrow> RETURN (l' \<in> L'); (* XXX Optimize this *)
-        if b1 then do {
-        case op_map_lookup l' M' of None \<Rightarrow> RETURN False | Some ys \<Rightarrow> do {
-          ys \<leftarrow> SPEC (\<lambda>xs.  set xs  = ys);
-          b2 \<leftarrow> monadic_list_all (\<lambda>x'.
-            monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
-          ) xs;
-          RETURN b2
+      let succs = PR_CONST succs l xs;
+      monadic_list_all (\<lambda>(l', xs). do {
+        xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
+        if xs = [] then RETURN True
+        else do {
+          case op_map_lookup l' M' of None \<Rightarrow> RETURN False | Some ys \<Rightarrow> do {
+            ys \<leftarrow> SPEC (\<lambda>xs.  set xs  = ys);
+            monadic_list_all (\<lambda>x'.
+              monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
+            ) xs
+          }
         }
-      }
-      else RETURN False
+      }) succs
     }
-    }) succs
-  }
-  }
-  ) l
+  }) l
 }"
 
 lemma succs_listD:
@@ -696,7 +690,7 @@ lemma succs_listD:
   using assms succs_finite by (force intro!: finite_list)
 
 lemma check_invariant'_refine:
-  "check_invariant' L M \<le> check_invariant"
+  "check_invariant' L M \<le> check_invariant" if "L = dom M"
   unfolding check_invariant_def check_invariant'_def
   unfolding PR_CONST_def
   apply refine_mono
@@ -709,11 +703,11 @@ lemma check_invariant'_refine:
   subgoal
     apply refine_mono
     apply clarsimp
-    apply ((drule M_listD)+, elim exE)
-    subgoal for xs1 _ _ xs2
+    apply refine_mono
+    apply clarsimp
+    subgoal for xs1 xs2
       using monadic_list_all_list_ex_is_RETURN[of "\<lambda> x y. less_eq x y" xs2 xs1]
-      by (cases "monadic_list_all (\<lambda>x. monadic_list_ex (\<lambda>y. RETURN (less_eq x y)) xs2) xs1")
-         (auto intro: le_SPEC_bindI)
+      by (auto simp: bind_RES \<open>L = dom M\<close>)
     done
   done
 
@@ -841,8 +835,8 @@ lemma check_prop_gt_SUCCEED:
         intro: monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I
      )
 
-lemma check_all'_refine[refine_mono]:
-  "check_all' L M \<le> check_all"
+lemma check_all'_refine:
+  "check_all' L M \<le> check_all"  if "L = dom M"
   unfolding check_all_def check_all'_def PR_CONST_def Let_def
   using check_prop_gt_SUCCEED
   apply (cases "op_map_lookup l\<^sub>0 M"; simp add: bind_RES)
@@ -855,7 +849,7 @@ lemma check_all'_refine[refine_mono]:
     apply clarsimp
     supply [refine_mono] = monadic_list_ex_mono monadic_list_ex_RETURN_mono
     apply refine_mono
-    apply (simp add: check_invariant'_refine PRINT_CHECK_def)
+    apply (simp add: check_invariant'_refine[OF that] PRINT_CHECK_def)
     done
   subgoal
     by (auto dest: M_listD)
@@ -993,7 +987,8 @@ definition certify_unreachable' where
   }"
 
 lemma certify_unreachable'_refine:
-  "certify_unreachable' L M \<le> certify_unreachable F"
+  "certify_unreachable' L M \<le> certify_unreachable F" if "L = dom M"
+  supply [refine_mono] = check_all'_refine[OF that]
   unfolding certify_unreachable'_def certify_unreachable_def PR_CONST_def check_final_alt_def
   unfolding PRINT_CHECK_def
   by simp refine_mono
@@ -1010,8 +1005,8 @@ sepref_thm certify_unreachable_impl' is
 
 lemma certify_unreachable_correct':
   "(uncurry0 (certify_unreachable' L M), uncurry0 (SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))))
-    \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
-  using certify_unreachable_correct[OF F_mono] certify_unreachable'_refine
+    \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel" if "L = dom M"
+  using certify_unreachable_correct[OF F_mono] certify_unreachable'_refine[OF that]
   by (clarsimp simp: pw_le_iff pw_nres_rel_iff) fast
 
 lemmas certify_unreachable_impl'_refine =
