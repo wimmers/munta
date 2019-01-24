@@ -107,18 +107,19 @@ lemma E_precise_E_op:
 
 definition succs_precise where
   "succs_precise \<equiv> \<lambda>l S.
-    if S = {} then [] else rev [(l', (\<lambda>D. f l r g l' D) ` S). (g,a,r,l') \<leftarrow> trans_fun l]"
+    if S = {} then []
+    else rev [
+      (l', {D' | D' D. D \<in> S \<and> D' = f l r g l' D \<and> \<not> check_diag n D'}). (g,a,r,l') \<leftarrow> trans_fun l]"
 
 definition succs_precise_inner where
-  "succs_precise_inner l r g l' S \<equiv> do {
+ "succs_precise_inner l r g l' S \<equiv> do {
     xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
     p \<leftarrow> nfoldli xs (\<lambda>_. True) (\<lambda>D xs.
-      RETURN (PR_CONST f l r g l' D # xs)
+      do {let D' = PR_CONST f l r g l' D; if check_diag n D' then RETURN xs else RETURN (D' # xs)}
     ) [];
     S' \<leftarrow> SPEC (\<lambda>S. set p = S);
     RETURN S'
-}
-"
+  }"
 
 definition succs_precise' where
   "succs_precise' \<equiv> \<lambda>l S. if S = {} then RETURN [] else do {
@@ -131,9 +132,12 @@ definition succs_precise' where
   }"
 
 lemma succs_precise_inner_rule:
-  "succs_precise_inner l r g l' S \<le> RETURN ((\<lambda>D. f l r g l' D) ` S)"
+  "succs_precise_inner l r g l' S
+  \<le> RETURN {D' | D' D. D \<in> S \<and> D' = f l r g l' D \<and> \<not> check_diag n D'}"
   unfolding succs_precise_inner_def
-  by (refine_vcg nfoldli_rule[where I = "\<lambda>l1 l2 \<sigma>. \<sigma> = rev (map (f l r g l') l1)"]) auto
+  by (refine_vcg nfoldli_rule[where
+        I = "\<lambda>l1 l2 \<sigma>. \<sigma> = rev (filter (\<lambda>D'. \<not> check_diag n D') (map (f l r g l') l1))"
+     ]) auto
 
 lemma succs_precise'_refine:
   "succs_precise' l S \<le> RETURN (succs_precise l S)"
@@ -224,8 +228,8 @@ lemma succs_precise_finite:
   unfolding succs_precise_def by auto
 
 sepref_definition F_impl' is
-  "RETURN o PR_CONST F_rel" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding PR_CONST_def F_rel_def by sepref
+  "RETURN o PR_CONST (\<lambda> (l, M). F l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  unfolding PR_CONST_def by sepref
 
 definition
   "wf_dbm' D \<equiv> (canonical' D \<or> check_diag n D) \<and>
@@ -439,7 +443,7 @@ sepref_definition M_table is
 interpretation
   Reachability_Impl
   where A = "mtx_assn n"
-    and F = F_rel
+    and F = "\<lambda> (l, M). F l"
     and l\<^sub>0i = "return l\<^sub>0i"
     and s\<^sub>0 = init_dbm
     and s\<^sub>0i = init_dbm_impl
@@ -448,7 +452,7 @@ interpretation
     and less = "\<lambda> x y. dbm_subset n x y \<and> \<not> dbm_subset n y x"
     and less_eq = "dbm_subset n"
     and Lei = "dbm_subset_impl n"
-    and E = op_precise.E_from_op
+    and E = op_precise.E_from_op_empty
     and Fi = F_impl'
     and K = location_assn
     and keyi = "return o fst"
@@ -465,17 +469,18 @@ interpretation
                       apply (rule dbm_subset_trans; assumption)
     (* E_precise mono *)
   subgoal
-    by (auto dest: op_precise.E_from_op_mono')
+    by (auto dest: op_precise.E_from_op_empty_mono')
   subgoal (* E_precise invariant *)
-    by (frule op_precise.E_from_op_wf_state[rotated])
-       (auto dest: E_from_op_states simp: wf_state_def)
+    by (clarsimp simp: op_precise.E_from_op_empty_def, frule op_precise.E_from_op_wf_state[rotated])
+      (auto dest: E_from_op_states simp: wf_state_def)
   subgoal (* P correct *)
     by (auto dest: P_correct)
   subgoal (* succs correct *)
-    unfolding succs_precise_def op_precise.E_from_op_def
+    unfolding succs_precise_def op_precise.E_from_op_empty_def op_precise.E_from_op_def
     apply (auto dest!: trans_impl_trans_of)
-     apply (auto dest!: trans_of_trans_impl)
-    apply force
+    apply (auto dest!: trans_of_trans_impl)
+    apply (intro exI conjI, erule image_eqI[rotated])
+     apply auto
     done
   subgoal (* L finite *)
     ..
@@ -487,9 +492,9 @@ interpretation
     unfolding succs_precise_def by auto
   subgoal (* F mono *)
     using op.F_mono subsumes_simp_1 by fastforce
-  (* subgoal (* L refine *)
+      (* subgoal (* L refine *)
     by (rule L_list_hnr) *)
-  (* subgoal (* M refine *)
+      (* subgoal (* M refine *)
     unfolding PR_CONST_def by (rule M_table.refine) *)
   subgoal (* key refine *)
     by sepref_to_hoare sep_auto
@@ -512,41 +517,41 @@ lemmas step_z_dbm_complete = step_z_dbm_complete[OF global_clock_numbering']
 interpretation A:
   Simulation
   "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
-  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>"
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
   "\<lambda> (l, u) (l', Z). l' = l \<and> u \<in> Z"
-  by standard (auto dest: step_z_complete')
+  by standard (auto dest!: step_z_complete')
 
 interpretation B:
   Simulation
-  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>"
-  "\<lambda> (l, D) (l', D'). \<exists> a. step_z_dbm' (conv_A A) l D v n a l' D'"
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
+  "\<lambda> (l, M) (l', M'). \<exists> a. step_z_dbm' (conv_A A) l M v n a l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
   "\<lambda> (l, Z) (l', M). l' = l \<and> Z = [M]\<^bsub>v,n\<^esub>"
   by standard (force simp: step_z'_def step_z_dbm'_def elim!: step_z_dbm_DBM)
 
 interpretation
   Simulation
   "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
-  "\<lambda> (l, D) (l', D'). \<exists> a. step_z_dbm' (conv_A A) l D v n a l' D'"
+  "\<lambda> (l, M) (l', M'). \<exists> a. step_z_dbm' (conv_A A) l M v n a l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
   "\<lambda> (l, u) (l', M). l' = l \<and> u \<in> [M]\<^bsub>v,n\<^esub>"
   by (rule Simulation_Composition, rule A.Simulation_axioms, rule B.Simulation_axioms) auto
 
 lemma op_precise_unreachable_correct:
-  assumes "\<nexists>s'. op_precise.E_from_op\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> F_rel s'"
+  assumes "\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> (\<lambda> (l, M). F l) s'"
   shows "\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'"
 proof -
+  define E where "E \<equiv> \<lambda>(l, M) (l', M'). \<exists> a. conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
   interpret Bisimulation_Invariant
-    "\<lambda> (l, D) (l', D'). \<exists> a. step_z_dbm' (conv_A A) l D v n a l' D'"
-    op_precise.E_from_op
+    E
+    op_precise.E_from_op_empty
     "\<lambda>(l, M) (l', D). l' = l \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
     "\<lambda>(l, y). valid_dbm y"
     "wf_state"
-    by (rule op_precise.step_z_dbm'_E_from_op_bisim)
+    unfolding E_def by (rule op_precise.step_z_dbm'_E_from_op_bisim_empty)
   have 1: "reaches (l\<^sub>0, u) (l', u')" if "conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" for u u' l'
     by (simp add: steps'_iff that)
   have 2: "u \<in> dbm.zone_of (curry init_dbm)" if "\<forall>c \<le> n. u c = 0" for u :: "_ \<Rightarrow> real"
     by (simp add: init_dbm_zone that)
-  let ?E = "(\<lambda> (l, D) (l', D'). \<exists> a. step_z_dbm' (conv_A A) l D v n a l' D')"
-  from assms have "\<nexists>l' M'. ?E\<^sup>*\<^sup>* (l\<^sub>0, curry (conv_M init_dbm)) (l', M') \<and> F l' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+  from assms have "\<nexists>l' M'. E\<^sup>*\<^sup>* (l\<^sub>0, curry (conv_M init_dbm)) (l', M') \<and> F l' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
     apply (clarsimp simp: F_rel_def)
     apply (drule bisim.A_B_reaches[where b = "(l\<^sub>0, init_dbm)"])
     subgoal
@@ -554,12 +559,14 @@ proof -
       by (auto simp: wf_state_def)
     unfolding equiv'_def using canonical_check_diag_empty_iff by blast
   then show ?thesis
-    using simulation_reaches by (force dest!: 1 2 dest: dbm.check_diag_empty)
+    unfolding E_def using simulation_reaches by (force dest!: 1 2 dest: dbm.check_diag_empty)
 qed
 
 lemma op_precise_unreachable_correct':
-  "(uncurry0 (SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. op_precise.E_from_op\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> F_rel s'))),
-    uncurry0 (SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'))))
+  "(uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
+      (\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> (\<lambda>(l, M). F l) s'))),
+    uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
+      (\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'))))
   \<in> Id \<rightarrow> \<langle>Id\<rangle>nres_rel"
   using op_precise_unreachable_correct by (clarsimp simp: pw_le_iff pw_nres_rel_iff)
 
@@ -581,8 +588,7 @@ definition
     succsi = succs_precise'_impl;
     M_table = M_table
   in
-    certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table
-  "
+    certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table"
 
 lemma unreachability_checker_alt_def:
   "unreachability_checker \<equiv>

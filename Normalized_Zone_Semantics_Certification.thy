@@ -134,6 +134,25 @@ lemma E_from_op_bisim:
   apply (rule E_from_op_wf_state; assumption)
   done
 
+lemma E_from_op_bisim_empty:
+  "Bisimulation_Invariant
+    (\<lambda>(l, M) (l', M'). E_precise (l, M) (l', M') \<and> \<not> check_diag n M')
+    (\<lambda>(l, M) (l', M'). E_from_op (l, M) (l', M') \<and> \<not> check_diag n M')
+    (\<sim>) wf_state wf_state"
+  using E_from_op_bisim
+  apply (rule Bisimulation_Invariant_filter[
+        where FA = "\<lambda>(l, M). \<not> check_diag n M" and FB = "\<lambda>(l, M). \<not> check_diag n M"
+        ])
+  subgoal
+    unfolding wf_state_def state_equiv_def
+    apply clarsimp
+    apply (subst canonical_check_diag_empty_iff[symmetric], erule wf_dbm_altD(1))
+    apply (subst canonical_check_diag_empty_iff[symmetric], erule wf_dbm_altD(1))
+    apply (simp add: dbm_equiv_def)
+    done
+   apply (auto; fail)+
+  done
+
 end (* End of context for bisimilarity *)
 
 definition step_z_dbm' ::
@@ -361,6 +380,24 @@ interpretation
 
 lemmas step_z_dbm'_E_from_op_bisim = Bisimulation_Invariant_axioms
 
+definition
+  "E_from_op_empty \<equiv> \<lambda>(l, D) (l', D'). E_from_op (l, D) (l', D') \<and> \<not> check_diag n D'"
+
+interpretation bisim_empty:
+  Bisimulation_Invariant
+  "\<lambda>(l, M) (l', M'). \<exists> a. step_z_dbm' (conv_A A) l M v n a l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+  "\<lambda>(l, D) (l', D'). E_from_op (l, D) (l', D') \<and> \<not> check_diag n D'"
+  "\<lambda>(l, M) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+  "\<lambda>(l, y). valid_dbm y"
+  wf_state
+  using step_z_dbm'_E_from_op_bisim apply (rule Bisimulation_Invariant_filter[
+        where FA = "\<lambda>(l', M'). [M']\<^bsub>v,n\<^esub> \<noteq> {}" and FB = "\<lambda>(l', D'). \<not> check_diag n D'"
+        ])
+  using canonical_check_diag_empty_iff canonical_empty_check_diag' by (auto simp: wf_state_def)
+
+lemmas step_z_dbm'_E_from_op_bisim_empty =
+  bisim_empty.Bisimulation_Invariant_axioms[folded E_from_op_empty_def]
+
 lemma E_from_op_mono:
   assumes "E_from_op (l,D) (l',D')"
     and   "wf_dbm D" "wf_dbm M"
@@ -399,6 +436,13 @@ lemma E_from_op_mono':
     using B_invariant[unfolded wf_state_def] by auto
   apply (blast intro: dbm_subset_conv_rev)
   done
+
+lemma E_from_op_empty_mono':
+  assumes "E_from_op_empty (l,D) (l',D')"
+    and   "wf_dbm D" "wf_dbm M"
+    and "dbm_subset n D M"
+  shows "\<exists> M'. E_from_op_empty (l,M) (l',M') \<and> dbm_subset n D' M'"
+  using assms unfolding E_from_op_empty_def using check_diag_subset E_from_op_mono' by blast
 
 end
 

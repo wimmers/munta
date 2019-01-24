@@ -1189,7 +1189,7 @@ definition
 sepref_thm check_invariant_fail_impl is
   "uncurry check_invariant_fail"
   :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a
-      option_assn ((K \<times>\<^sub>a K \<times>\<^sub>a (list_assn A) +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a (list_assn A)) +\<^sub>a K \<times>\<^sub>a A)"
+      option_assn ((K \<times>\<^sub>a K \<times>\<^sub>a list_assn A +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a list_assn A) +\<^sub>a K \<times>\<^sub>a A)"
   unfolding PR_CONST_def
   unfolding check_invariant_fail_def list_of_set_def[symmetric]
   unfolding monadic_list_all_fail'_alt_def monadic_list_all_fail_alt_def
