@@ -1,5 +1,6 @@
 theory Simple_Network_Language_Certificate_Checking
   imports
+    "../Extract_Certificate"
     "../Normalized_Zone_Semantics_Certification_Impl"
     Simple_Network_Language_Export_Code
     "../library/Trace_Timing"
@@ -27,6 +28,69 @@ proof safe
       including graph_automation by (auto 4 3)
   qed
 qed
+
+text \<open>More debugging auxiliaries\<close>
+
+concrete_definition (in -) M_table
+  uses Reachability_Problem_Impl_Precise.M_table_def
+
+definition
+  "check_nonneg n M \<equiv> imp_for 0 (n + 1) Heap_Monad.return
+    (\<lambda>xc \<sigma>. mtx_get (Suc n) M (0, xc) \<bind> (\<lambda>x'e. Heap_Monad.return (x'e \<le> Le 0))) True"  
+
+definition
+  "check_diag_nonpos n M \<equiv> imp_for 0 (n + 1) Heap_Monad.return
+    (\<lambda>xc \<sigma>. mtx_get (Suc n) M (xc, xc) \<bind> (\<lambda>x'd. Heap_Monad.return (x'd \<le> Le 0))) True"
+
+
+text \<open>Complete DBM printing\<close>
+
+context
+  fixes n :: nat
+  fixes show_clock :: "nat \<Rightarrow> string"
+    and show_num :: "'a :: {linordered_ab_group_add,heap} \<Rightarrow> string"
+  notes [id_rules] = itypeI[of n "TYPE (nat)"]
+    and [sepref_import_param] = IdI[of n]
+begin
+
+definition
+  "make_string' e i j \<equiv>
+    let
+      i = (if i > 0 then show_clock i else ''0'');
+      j = (if j > 0 then show_clock j else ''0'')
+    in
+    case e of
+      DBMEntry.Le a \<Rightarrow> i @ '' - '' @ j @ '' <= '' @ show_num a
+    | DBMEntry.Lt a \<Rightarrow> i @ '' - '' @ j @ '' < '' @ show_num a
+    | _ \<Rightarrow> i @ '' - '' @ j @ '' < inf''"
+
+definition
+  "dbm_list_to_string' xs \<equiv>
+  (concat o intersperse '', '' o rev o snd o snd) $ fold (\<lambda>e (i, j, acc).
+    let
+      s = make_string' e i j;
+      j = (j + 1) mod (n + 1);
+      i = (if j = 0 then i + 1 else i)
+    in (i, j, s # acc)
+  ) xs (0, 0, [])"
+
+lemma [sepref_import_param]:
+  "(dbm_list_to_string', PR_CONST dbm_list_to_string') \<in> \<langle>Id\<rangle>list_rel \<rightarrow> \<langle>Id\<rangle>list_rel"
+  by simp
+
+definition show_dbm' where
+  "show_dbm' M \<equiv> PR_CONST dbm_list_to_string' (dbm_to_list n M)"
+
+sepref_register "PR_CONST dbm_list_to_string'"
+
+lemmas [sepref_fr_rules] = dbm_to_list_impl.refine
+
+sepref_definition show_dbm_impl_all is
+  "Refine_Basic.RETURN o show_dbm'" :: "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a list_assn id_assn"
+  unfolding show_dbm'_def by sepref
+
+end (* Context for show functions and importing n *)
+
 
 context Simple_Network_Impl_nat_ceiling_start_state
 begin
@@ -165,17 +229,17 @@ private lemma A:
 lemma unreachability_checker_def:
   "impl.unreachability_checker L_list M_list \<equiv>
    let Fi = impl.F_impl'; Pi = impl.P_impl; copyi = amtx_copy; Lei = dbm_subset_impl m;
-       l\<^sub>0i = Heap_Monad.return l\<^sub>0i; s\<^sub>0i = impl.init_dbm_impl; succsi = impl.succs_precise'_impl;
-       _ = start_timer ();
-       M_table = impl.M_table M_list;
-       _ = save_time STR ''Time for loading certificate''
+       l\<^sub>0i = Heap_Monad.return l\<^sub>0i; s\<^sub>0i = impl.init_dbm_impl; succsi = impl.succs_precise'_impl
    in do {
     let _ = start_timer ();
-    r \<leftarrow> certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table;
+    M_table \<leftarrow> impl.M_table M_list;
+    let _ = save_time STR ''Time for loading certificate'';
+    let _ = start_timer ();
+    r \<leftarrow> certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table;
     let _ = save_time STR ''Time for main part of certificate checking'';
     Heap_Monad.return r
   }"
-  by (subst impl.unreachability_checker_def[OF state_impl_abstract', OF _ A assms(2)]; simp)
+  by (subst impl.unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2)]; simp)
 
 schematic_goal unreachability_checker_alt_def:
   "impl.unreachability_checker L_list M_list \<equiv> ?x"
@@ -201,10 +265,136 @@ schematic_goal unreachability_checker_alt_def:
 
 end (* Anonymous context *)
 
+
+definition
+  "show_dbm_impl' M \<equiv> do {
+  s \<leftarrow> show_dbm_impl m show_clock show M;
+  Heap_Monad.return (String.implode s)
+}"
+
+definition
+  "show_state_impl l \<equiv> do {
+    let s = show_state l;
+    let s = String.implode s;
+    Heap_Monad.return s
+  }"
+
+definition
+  "trace_table M_table \<equiv> do {
+    M_list' \<leftarrow> list_of_map_impl M_table;
+    let _ = println STR ''Inverted table'';
+    Heap_Monad.fold_map (\<lambda> (l, xs). do {
+      s1 \<leftarrow> show_state_impl l;
+      let _ = println (s1 + STR '':'');
+      Heap_Monad.fold_map (\<lambda>M.  do {
+        s2 \<leftarrow> show_dbm_impl_all m show_clock show M;
+        let _ = println (STR ''  '' + String.implode s2);
+        Heap_Monad.return ()
+      }) xs;
+      Heap_Monad.return ()
+    }) M_list';
+    Heap_Monad.return ()
+  }" for M_table
+
+definition
+  "check_prop_fail L_list M_list \<equiv> let
+    P_impl = impl.P_impl;
+    copy = amtx_copy;
+    show_dbm = show_dbm_impl';
+    show_state = show_state_impl
+   in do {
+    M_table \<leftarrow> M_table m M_list;
+
+    trace_table M_table;
+
+    r \<leftarrow> check_prop_fail_impl P_impl copy show_dbm show_state L_list M_table;
+    case r of None \<Rightarrow> Heap_Monad.return () | Some (l, M) \<Rightarrow> do {
+      let b = states'_memi l;
+      let _ = println (if b then STR ''State passed'' else STR ''State failed'');
+      b \<leftarrow> check_diag_impl m M;
+      let _ = println (if b then STR ''DBM passed diag'' else STR ''DBM failed diag'');
+      b \<leftarrow> check_diag_nonpos m M;
+      let _ = println (if b then STR ''DBM passed diag nonpos'' else STR ''DBM failed diag nonpos'');
+       b \<leftarrow> check_nonneg m M;
+      let _ = println (if b then STR ''DBM passed nonneg'' else STR ''DBM failed nonneg'');
+      s \<leftarrow> show_dbm_impl_all m show_clock show M;
+      let _ = println (STR ''DBM: '' + String.implode s);
+      Heap_Monad.return ()
+    }
+   }"
+
+definition 
+  "check_invariant_fail \<equiv> \<lambda>L_list M_list. let
+    copy = amtx_copy;
+    succs = impl.succs_precise'_impl;
+    Lei = dbm_subset_impl m;
+    show_state = show_state_impl;
+    show_dbm = show_dbm_impl_all m show_clock show
+  in do {
+    M_table \<leftarrow> M_table m M_list;
+    r \<leftarrow> check_invariant_fail_impl copy Lei succs L_list M_table;
+    case r of None \<Rightarrow> Heap_Monad.return ()
+    | Some (Inl (Inl (l, l'))) \<Rightarrow> do {
+        let _ = println (STR ''The successor is not contained in L:'');
+        s \<leftarrow> show_state l;
+        let _ = println (STR ''  '' + s);
+        s \<leftarrow> show_state l';
+        let _ = println (STR ''  '' + s);
+        Heap_Monad.return ()
+      }
+    | Some (Inl (Inr (l, l'))) \<Rightarrow> do {
+        let _ = println (STR ''The successor is not empty:'');
+        s \<leftarrow> show_state l;
+        let _ = println (STR ''  '' + s);
+        s \<leftarrow> show_state l';
+        let _ = println (STR ''  '' + s);
+        Heap_Monad.return ()
+      }
+    | Some (Inr (l, M)) \<Rightarrow> do {
+        s1 \<leftarrow> show_state l;
+        s2 \<leftarrow> show_dbm M;
+        let _ = println (STR ''A pair failed: '' + s1);
+        let _ = println (STR ''  '' + String.implode s2);
+        Heap_Monad.return ()
+      }
+  }
+"
+
+schematic_goal check_prop_fail_alt_def:
+  "check_prop_fail \<equiv> ?t"
+  unfolding check_prop_fail_def
+  unfolding M_table_def trace_table_def
+  unfolding impl.P_impl_def
+  unfolding show_dbm_impl'_def
+  unfolding show_state_impl_def
+  apply (abstract_let states'_memi check_states)
+  unfolding states'_memi_def states_mem_compute'
+  apply (abstract_let "map states_i [0..<n_ps]" states_i)
+  by (rule Pure.reflexive)
+
+schematic_goal check_invariant_fail_alt_def:
+  "check_invariant_fail \<equiv> ?t"
+  unfolding check_invariant_fail_def
+  unfolding M_table_def
+  unfolding succs_impl_alt_def
+  (* The following are just to unfold things that should have been defined in a defs locale *)
+  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+  unfolding impl.subsumes_impl_def
+  unfolding impl.emptiness_check_impl_def
+  unfolding impl.state_copy_impl_def
+  unfolding show_dbm_impl'_def show_state_impl_def
+  by (rule Pure.reflexive)
+
 end (* Simple_Network_Impl_nat_ceiling_start_state *)
 
 concrete_definition unreachability_checker uses
   Simple_Network_Impl_nat_ceiling_start_state.unreachability_checker_alt_def
+
+concrete_definition check_prop_fail uses
+  Simple_Network_Impl_nat_ceiling_start_state.check_prop_fail_alt_def
+
+concrete_definition check_invariant_fail uses
+  Simple_Network_Impl_nat_ceiling_start_state.check_invariant_fail_alt_def
 
 lemma states'_memi_alt_def:
   "Simple_Network_Impl_nat_defs.states'_memi broadcast bounds' automata = (
@@ -225,7 +415,38 @@ lemma states'_memi_alt_def:
 
 definition
   "certificate_checker
-    M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula \<equiv>
+    M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+  \<equiv>
+  let
+    _ = start_timer ();
+    check1 = Simple_Network_Impl_nat_ceiling_start_state
+      broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
+    _ = save_time STR ''Time to check ceiling'';
+    L_list = map fst M_list;
+    n_ps = length automata;
+    n_vs = Simple_Network_Impl.n_vs bounds';
+    states_i = map (Simple_Network_Impl_nat_defs.states_i automata) [0..<n_ps];
+    _ = start_timer ();
+    check2 = list_all (\<lambda>(L, s). length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i ! i) \<and>
+      length s = n_vs \<and> Simple_Network_Impl_nat_defs.check_boundedi bounds' s
+    ) L_list;
+    _ = save_time STR ''Time to check states'';
+    check3 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False) (*;
+    show_c = show_clock inv_renum_clocks;
+    show_st = show_state inv_renum_states inv_renum_vars *)
+  in if check1 \<and> check2 \<and> check3 then
+  do {
+    r \<leftarrow> unreachability_checker
+      broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list;
+    Heap_Monad.return (Some r)
+  } else Heap_Monad.return None"
+
+definition
+  "certificate_checker_dbg
+    (show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list))
+    M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+  \<equiv>
   let
     _ = start_timer ();
     check1 = Simple_Network_Impl_nat_ceiling_start_state
@@ -243,14 +464,18 @@ definition
     check3 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False)
   in if check1 \<and> check2 \<and> check3 then
   do {
+    check_prop_fail broadcast bounds' automata m show_clock show_state L_list M_list;
+    check_invariant_fail broadcast bounds' automata m
+      num_states num_actions show_clock show_state L_list M_list;
     r \<leftarrow> unreachability_checker
       broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list;
     Heap_Monad.return (Some r)
-  } else Heap_Monad.return None"
+  } else Heap_Monad.return None" for show_clock show_state
 
 theorem certificate_check:
   "<emp> certificate_checker
     M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
    <\<lambda> Some r \<Rightarrow> \<up>(r \<longrightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula)
     | None \<Rightarrow> true>\<^sub>t"
 proof -
@@ -288,6 +513,27 @@ do {
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks; *)
     (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '');
+  case r of Some r \<Rightarrow>
+    case r of
+      None \<Rightarrow> Heap_Monad.return Preconds_Unsat
+    | Some False \<Rightarrow> Heap_Monad.return Unsat
+    | Some True \<Rightarrow> Heap_Monad.return Sat
+  | None \<Rightarrow> Heap_Monad.return Renaming_Failed}
+"
+
+definition rename_check_dbg where
+  "rename_check_dbg dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    inv_renum_states inv_renum_vars inv_renum_clocks
+    state_space
+\<equiv>
+do {
+  r \<leftarrow> do_rename_mc (
+      \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
+      certificate_checker_dbg show_clock show_state state_space)
+    dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    inv_renum_states inv_renum_vars inv_renum_clocks;
   case r of Some r \<Rightarrow>
     case r of
       None \<Rightarrow> Heap_Monad.return Preconds_Unsat
@@ -358,5 +604,7 @@ qed
 lemmas [code] = Simple_Network_Impl_nat_defs.states_i_def
 
 export_code rename_check in SML module_name Test
+
+export_code rename_check_dbg in SML module_name Test
 
 end

@@ -85,11 +85,14 @@ end (* Context for property *)
 
 end (* Unreachability Invariant *)
 
-locale Reachability_Invariant_paired_defs =
+locale Reachability_Invariant_paired_pre_defs =
   ord less_eq less for less_eq :: "'s \<Rightarrow> 's \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
   fixes E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"
+
+locale Reachability_Invariant_paired_defs =
+  Reachability_Invariant_paired_pre_defs _ _ E for E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool" +
   fixes M :: "'l \<Rightarrow> 's set"
-    and L :: "'l set" 
+    and L :: "'l set"
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
 begin
 

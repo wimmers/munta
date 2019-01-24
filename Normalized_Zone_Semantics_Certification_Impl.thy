@@ -54,7 +54,7 @@ context
 begin
 
 private definition
-  "dbm_tab M \<equiv> \<lambda> (i, j). if i \<le> n \<and> j \<le> n then M ! (n * i + j) else 0"
+  "dbm_tab M \<equiv> \<lambda> (i, j). if i \<le> n \<and> j \<le> n then M ! ((n + 1) * i + j) else 0"
 
 private lemma
   shows mtx_nonzero_dbm_tab_1: "(a, b) \<in> mtx_nonzero (dbm_tab M) \<Longrightarrow> a < Suc n"
@@ -458,7 +458,7 @@ interpretation
     and Pi = P_impl
     and L = "set L"
     and M = M
-    and M_table = M_table
+    (* and M_table = M_table *)
   apply standard
                       apply (rule HOL.refl; fail)
                       apply (rule dbm_subset_refl; fail)
@@ -487,10 +487,10 @@ interpretation
     unfolding succs_precise_def by auto
   subgoal (* F mono *)
     using op.F_mono subsumes_simp_1 by fastforce
-  subgoal (* L refine *)
-    by (rule L_list_hnr)
-  subgoal (* M refine *)
-    unfolding PR_CONST_def by (rule M_table.refine)
+  (* subgoal (* L refine *)
+    by (rule L_list_hnr) *)
+  (* subgoal (* M refine *)
+    unfolding PR_CONST_def by (rule M_table.refine) *)
   subgoal (* key refine *)
     by sepref_to_hoare sep_auto
            apply (rule amtx_copy_hnr; fail)
@@ -564,7 +564,10 @@ lemma op_precise_unreachable_correct':
   using op_precise_unreachable_correct by (clarsimp simp: pw_le_iff pw_nres_rel_iff)
 
 lemmas certify_unreachable_impl_hnr =
-  certify_unreachable_impl.refine[OF Reachability_Impl_axioms, FCOMP op_precise_unreachable_correct']
+  certify_unreachable_impl.refine[
+    OF Reachability_Impl_axioms L_list_hnr, unfolded PR_CONST_def, OF M_table.refine,
+    FCOMP op_precise_unreachable_correct'
+  ]
 
 definition
   "unreachability_checker \<equiv>
@@ -578,12 +581,29 @@ definition
     succsi = succs_precise'_impl;
     M_table = M_table
   in
-  certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table"
+    certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table
+  "
+
+lemma unreachability_checker_alt_def:
+  "unreachability_checker \<equiv>
+  let
+    Fi = F_impl';
+    Pi = P_impl;
+    copyi = amtx_copy;
+    Lei = dbm_subset_impl n;
+    l\<^sub>0i = Heap_Monad.return l\<^sub>0i;
+    s\<^sub>0i = init_dbm_impl;
+    succsi = succs_precise'_impl
+  in do {
+    M_table \<leftarrow> M_table;
+    certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table
+  }"
+  unfolding unreachability_checker_def certify_unreachable_impl_def Let_def .
 
 lemmas unreachability_checker_hnr =
   certify_unreachable_impl_hnr[folded unreachability_checker_def[unfolded Let_def]]
 
-lemmas unreachability_checker_alt_def = unreachability_checker_def[unfolded M_table_def]
+lemmas unreachability_checker_alt_def' = unreachability_checker_alt_def[unfolded M_table_def]
 
 end
 
