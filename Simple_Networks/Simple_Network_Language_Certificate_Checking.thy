@@ -334,20 +334,30 @@ definition
     M_table \<leftarrow> M_table m M_list;
     r \<leftarrow> check_invariant_fail_impl copy Lei succs L_list M_table;
     case r of None \<Rightarrow> Heap_Monad.return ()
-    | Some (Inl (Inl (l, l'))) \<Rightarrow> do {
+    | Some (Inl (Inl (l, l', xs))) \<Rightarrow> do {
         let _ = println (STR ''The successor is not contained in L:'');
         s \<leftarrow> show_state l;
         let _ = println (STR ''  '' + s);
         s \<leftarrow> show_state l';
         let _ = println (STR ''  '' + s);
+        Heap_Monad.fold_map (\<lambda>M. do {
+          s \<leftarrow> show_dbm M;
+          let _ = println (STR '' '' + String.implode s);
+          Heap_Monad.return ()
+        }) xs;
         Heap_Monad.return ()
       }
-    | Some (Inl (Inr (l, l'))) \<Rightarrow> do {
+    | Some (Inl (Inr (l, l', xs))) \<Rightarrow> do {
         let _ = println (STR ''The successor is not empty:'');
         s \<leftarrow> show_state l;
         let _ = println (STR ''  '' + s);
         s \<leftarrow> show_state l';
         let _ = println (STR ''  '' + s);
+        Heap_Monad.fold_map (\<lambda>M. do {
+          s \<leftarrow> show_dbm M;
+          let _ = println (STR '' '' + String.implode s);
+          Heap_Monad.return ()
+        }) xs;
         Heap_Monad.return ()
       }
     | Some (Inr (l, M)) \<Rightarrow> do {

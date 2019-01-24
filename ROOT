@@ -43,6 +43,9 @@ session "TA_All_Pre" = "TA_Impl_Refine_Calc_Prereq" +
     "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
 *)
 
+session "TA_Byte_Code" = "TA_Impl" +
+  theories UPPAAL_Model_Checking
+
 (* Use this to get document output for the implementation of Reachability Checking *)
 session "TA_All" = "TA_Impl" +
   options

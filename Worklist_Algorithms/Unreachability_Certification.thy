@@ -258,13 +258,15 @@ do {
     let succs = succs l as;
     monadic_list_all (\<lambda>(l', xs).
     do {
-      b1 \<leftarrow> RETURN (l' \<in> L);
       xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
-      ys \<leftarrow> SPEC (\<lambda>xs. set xs = M l');
-      b2 \<leftarrow> monadic_list_all (\<lambda>x.
-        monadic_list_ex (\<lambda>y. RETURN (x \<preceq> y)) ys
-      ) xs;
-      RETURN (b1 \<and> b2)
+      if xs = [] then RETURN True else do {
+        b1 \<leftarrow> RETURN (l' \<in> L);
+        ys \<leftarrow> SPEC (\<lambda>xs. set xs = M l');
+        b2 \<leftarrow> monadic_list_all (\<lambda>x.
+          monadic_list_ex (\<lambda>y. RETURN (x \<preceq> y)) ys
+        ) xs;
+        RETURN (b1 \<and> b2)
+      }
     }
     ) succs
   }
@@ -307,7 +309,7 @@ proof -
      (\<forall> l \<in> L. \<forall>s\<in>M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. s' \<preceq> s''))"
     by (simp add: *)
   have "check_invariant \<le> SPEC (\<lambda>r. r \<longleftrightarrow>
-    (\<forall> l \<in> L. (\<forall> (l',ys) \<in> set (succs l (M l)). l' \<in> L \<and> (\<forall> s' \<in> ys. (\<exists> s'' \<in> M l'. s' \<preceq> s'')))))"
+    (\<forall> l \<in> L. (\<forall> (l',ys) \<in> set (succs l (M l)). (\<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')))))"
     unfolding check_invariant_def
     by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff list_ex_iff)
   also have "\<dots> \<le> ?rhs"
@@ -666,21 +668,23 @@ definition
   do {
     case op_map_lookup l M' of None \<Rightarrow> RETURN True  | Some xs \<Rightarrow> do {
     let succs = PR_CONST succs l xs;
-    monadic_list_all (\<lambda>(l', xs).
-    do {
-      b1 \<leftarrow> RETURN (l' \<in> L');
-      if b1 then do {
+    monadic_list_all (\<lambda>(l', xs). do {
       xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
-      case op_map_lookup l' M' of None \<Rightarrow> RETURN (xs = []) | Some ys \<Rightarrow> do {
-      ys \<leftarrow> SPEC (\<lambda>xs.  set xs  = ys);
-      b2 \<leftarrow> monadic_list_all (\<lambda>x'.
-        monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
-      ) xs;
-      RETURN b2
-      }}
+      if xs = [] then RETURN True
+      else do {
+        b1 \<leftarrow> RETURN (l' \<in> L'); (* XXX Optimize this *)
+        if b1 then do {
+        case op_map_lookup l' M' of None \<Rightarrow> RETURN False | Some ys \<Rightarrow> do {
+          ys \<leftarrow> SPEC (\<lambda>xs.  set xs  = ys);
+          b2 \<leftarrow> monadic_list_all (\<lambda>x'.
+            monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
+          ) xs;
+          RETURN b2
+        }
+      }
       else RETURN False
     }
-    ) succs
+    }) succs
   }
   }
   ) l
@@ -701,21 +705,16 @@ lemma check_invariant'_refine:
   apply (clarsimp split: option.splits)
   apply safe
   subgoal
-    by (auto simp: bind_RES monadic_list_all_False dest: M_listD)
+    by refine_mono (auto simp: bind_RES monadic_list_all_False dest: M_listD)
   subgoal
-    by (auto dest: succs_listD M_listD intro: less_eq_Sup simp: bind_RES monadic_list_all_False)
-  apply (clarsimp simp: bind_RES monadic_list_all_False dest: M_listD)
-  apply (intro less_eq_Sup)
-   apply clarsimp
-   apply (intro less_eq_Sup)
+    apply refine_mono
     apply clarsimp
-  subgoal for x xa x2 a xs ys
-    using monadic_list_all_list_ex_is_RETURN[of "\<lambda> x y. less_eq x y" ys xs]
-    by (cases "monadic_list_all (\<lambda>x. monadic_list_ex (\<lambda>y. RETURN (less_eq x y)) ys) xs") auto
-  subgoal
-    by (auto dest: M_listD)
-  subgoal
-    by (auto dest: succs_listD M_listD)
+    apply ((drule M_listD)+, elim exE)
+    subgoal for xs1 _ _ xs2
+      using monadic_list_all_list_ex_is_RETURN[of "\<lambda> x y. less_eq x y" xs2 xs1]
+      by (cases "monadic_list_all (\<lambda>x. monadic_list_ex (\<lambda>y. RETURN (less_eq x y)) xs2) xs1")
+         (auto intro: le_SPEC_bindI)
+    done
   done
 
 lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
@@ -1165,23 +1164,23 @@ definition
   do {
     case op_map_lookup l M' of None \<Rightarrow> RETURN None  | Some xs \<Rightarrow> do {
     let succs = PR_CONST succs l xs;
-    monadic_list_all_fail' (\<lambda>(l', xs).
-    do {
-      b1 \<leftarrow> RETURN (l' \<in> L');
-      if b1 then do {
+    monadic_list_all_fail' (\<lambda>(l', xs). do {
       xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
-      case op_map_lookup l' M' of None \<Rightarrow> RETURN (if xs = [] then None else Some (Inl (Inr (l, l'))))
-      | Some ys \<Rightarrow> do {
-        ys \<leftarrow> SPEC (\<lambda>xs.  set xs  = ys);
-        b2 \<leftarrow> monadic_list_all_fail (\<lambda>x'.
-          monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
-        ) xs;
-        case b2 of None \<Rightarrow> RETURN None | Some M \<Rightarrow> RETURN (Some (Inr (l, M)))
+      if xs = [] then RETURN None
+      else do {
+        b1 \<leftarrow> RETURN (l' \<in> L'); (* XXX Optimize this *)
+        if b1 then do {
+        case op_map_lookup l' M' of None \<Rightarrow> RETURN (Some (Inl (Inr (l, l', xs)))) | Some ys \<Rightarrow> do {
+          ys \<leftarrow> SPEC (\<lambda>xs.  set xs  = ys);
+          b2 \<leftarrow> monadic_list_all_fail (\<lambda>x'.
+            monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
+          ) xs;
+          case b2 of None \<Rightarrow> RETURN None | Some M \<Rightarrow> RETURN (Some (Inr (l, M)))
         }
       }
-      else RETURN (Some (Inl (Inl (l, l'))))
+      else RETURN (Some (Inl (Inl (l, l', xs))))
     }
-    ) succs
+    }) succs
   }
   }
   ) l
@@ -1189,7 +1188,8 @@ definition
 
 sepref_thm check_invariant_fail_impl is
   "uncurry check_invariant_fail"
-  :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a option_assn ((K \<times>\<^sub>a K +\<^sub>a K \<times>\<^sub>a K) +\<^sub>a K \<times>\<^sub>a A)"
+  :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a
+      option_assn ((K \<times>\<^sub>a K \<times>\<^sub>a (list_assn A) +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a (list_assn A)) +\<^sub>a K \<times>\<^sub>a A)"
   unfolding PR_CONST_def
   unfolding check_invariant_fail_def list_of_set_def[symmetric]
   unfolding monadic_list_all_fail'_alt_def monadic_list_all_fail_alt_def
