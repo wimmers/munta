@@ -179,7 +179,7 @@ proof -
     unfolding A_def[symmetric] precond_dc_def
     by (sep_auto simp:
         deadlock_checker.refine[symmetric] UPPAAL_Reachability_Problem_precompiled_defs.init_def 
-        mod_star_conv)
+        mod_star_conv has_deadlock_def)
 qed
 
 export_code precond_dc checking SML

@@ -107,7 +107,7 @@ proof -
       ]
   show ?thesis
     unfolding A_def[symmetric] precond_dc_def
-    by (sep_auto simp: deadlock_checker.refine[symmetric] pure_def)
+    by (sep_auto simp: deadlock_checker.refine[symmetric] pure_def has_deadlock_def)
 qed
 
 end
