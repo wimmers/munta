@@ -162,6 +162,7 @@ qed
 theorem unreachability_checker_hnr:
   assumes "\<And>li. P_loc li \<Longrightarrow> states'_memi li"
     and "list_all (\<lambda>x. P_loc x \<and> states'_memi x) L_list"
+    and "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
     and "fst ` set M_list = set L_list"
     and "formula = formula.EX \<phi>"
   shows "(
@@ -171,16 +172,17 @@ theorem unreachability_checker_hnr:
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
 proof -
   define checker where "checker \<equiv> impl.unreachability_checker L_list M_list"
-  from assms(3) have "fst ` set M_list \<subseteq> set L_list"
+  from assms(4) have "fst ` set M_list \<subseteq> set L_list"
     by blast
   note [sep_heap_rules] =
     impl.unreachability_checker_hnr[
       OF state_impl_abstract',
-      OF assms(1,2) this impl.L_dom_M_eqI[OF state_impl_abstract', OF assms(1,2) this assms(3)],
+      OF assms(1,2) this assms(3)
+        impl.L_dom_M_eqI[OF state_impl_abstract', OF assms(1,2) this assms(3,4)],
       to_hnr, unfolded hn_refine_def, rule_format, folded checker_def
     ]
   show ?thesis
-    unfolding checker_def[symmetric] using unreachability_prod[OF assms(4)]
+    unfolding checker_def[symmetric] using unreachability_prod[OF assms(5)]
     by sepref_to_hoare (sep_auto simp: pure_def)
 qed
 
@@ -223,6 +225,7 @@ context
   assumes assms:
     "list_all states'_memi L_list"
     "fst ` set M_list \<subseteq> set L_list"
+    "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
 begin
 
 private lemma A:
@@ -242,12 +245,12 @@ lemma unreachability_checker_def:
     let _ = save_time STR ''Time for main part of certificate checking'';
     Heap_Monad.return r
   }"
-  by (subst impl.unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2)]; simp)
+  by (subst impl.unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2,3)]; simp)
 
 schematic_goal unreachability_checker_alt_def:
   "impl.unreachability_checker L_list M_list \<equiv> ?x"
   apply (subst unreachability_checker_def)
-  apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2)])
+  apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
    apply assumption
   unfolding impl.F_impl'_def impl.P_impl_def
   apply (abstract_let states'_memi check_states)
@@ -306,7 +309,7 @@ definition
     show_dbm = show_dbm_impl';
     show_state = show_state_impl
    in do {
-    M_table \<leftarrow> M_table m M_list;
+    M_table \<leftarrow> M_table M_list;
 
     trace_table M_table;
 
@@ -334,7 +337,7 @@ definition
     show_state = show_state_impl;
     show_dbm = show_dbm_impl_all m show_clock show
   in do {
-    M_table \<leftarrow> M_table m M_list;
+    M_table \<leftarrow> M_table M_list;
     r \<leftarrow> check_invariant_fail_impl copy Lei succs L_list M_table;
     case r of None \<Rightarrow> Heap_Monad.return ()
     | Some (Inl (Inl (l, l', xs))) \<Rightarrow> do {
@@ -445,10 +448,14 @@ definition
       length s = n_vs \<and> Simple_Network_Impl_nat_defs.check_boundedi bounds' s
     ) L_list;
     _ = save_time STR ''Time to check states'';
-    check3 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False) (*;
+    _ = start_timer ();
+    n_sq = Suc m * Suc m;
+    check3 = list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = n_sq) xs) M_list;
+    _ = save_time STR ''Time to check DBMs'';
+    check4 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False) (*;
     show_c = show_clock inv_renum_clocks;
     show_st = show_state inv_renum_states inv_renum_vars *)
-  in if check1 \<and> check2 \<and> check3 then
+  in if check1 \<and> check2 \<and> check3 \<and> check4 then
   do {
     r \<leftarrow> unreachability_checker
       broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list;
@@ -502,7 +509,7 @@ proof -
            "map fst M_list" M_list,
         folded A_def check_def has_deadlock_def,
         to_hnr, unfolded hn_refine_def, rule_format,
-        OF _ _ _ _ A, unfolded A]
+        OF _ _ _ _ _ A, unfolded A]
   } note *[sep_heap_rules] = this[simplified, unfolded hd_of_formulai.simps[abs_def]]
   show ?thesis
     unfolding A_def[symmetric] check_def[symmetric]

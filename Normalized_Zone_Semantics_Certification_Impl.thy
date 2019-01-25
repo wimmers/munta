@@ -77,6 +77,26 @@ sepref_definition list_to_dbm_impl
   supply mtx_nonzero_dbm_tab_1[simp] mtx_nonzero_dbm_tab_2[simp]
   unfolding PR_CONST_def list_to_dbm_def by sepref
 
+lemma the_pure_Id:
+  "the_pure (\<lambda>a c. \<up> (c = a)) = Id"
+  by (subst is_pure_the_pure_id_eq) (auto simp: pure_def intro: is_pureI)
+
+lemma of_list_list_to_dbm:
+  "(Array.of_list, (RETURN \<circ>\<circ> PR_CONST) list_to_dbm)
+  \<in> [\<lambda>a. length a = Suc n * Suc n]\<^sub>a id_assn\<^sup>k \<rightarrow> mtx_assn n"
+  apply sepref_to_hoare
+  apply sep_auto
+  unfolding amtx_assn_def hr_comp_def IICF_Array_Matrix.is_amtx_def
+  apply (sep_auto eintros del: exI)
+  subgoal for xs p
+    apply (rule exI[where x = "list_to_dbm xs"])
+    apply (rule exI[where x = xs])
+    apply (sep_auto simp: list_to_dbm_def dbm_tab_def the_pure_Id)
+     apply (simp add: algebra_simps; fail)
+    apply sep_auto
+    done
+  done
+
 end
 
 
@@ -332,7 +352,7 @@ context
   assumes state_impl_abstract: "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
   assumes P_loc: "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
   assumes M_list_covered: "fst ` set M_list \<subseteq> set L_list"
-      (* and dbm_len: "list_all (\<lambda> (l, M). length M = n * n) M_list" *)
+      and M_dbm_len: "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
 begin
 
 definition
@@ -382,53 +402,60 @@ lemma M_finite:
   subgoal for a
     unfolding M_list'_def
     apply (induction M_list arbitrary: a)
-    apply (simp; fail)
+     apply (simp; fail)
     apply (simp, rprem, auto dest: ran_upd_cases)
     done
   apply (simp; fail)
   done
 
 lemma P_loc':
-  "list_all (\<lambda>(l, M). P_loc l \<and> states_mem_impl l) M_list"
-  using P_loc \<open>_ \<subseteq> set L_list\<close> unfolding list_all_iff by auto
+  "list_all
+    (\<lambda>(l, xs). P_loc l \<and> states_mem_impl l \<and> list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
+  using P_loc \<open>_ \<subseteq> set L_list\<close> M_dbm_len unfolding list_all_iff by auto
 
 lemma M_list_rel:
-  "(M_list, M_list') \<in> \<langle>location_rel \<times>\<^sub>r Id\<rangle>list_rel"
+  "(M_list, M_list') \<in> \<langle>location_rel \<times>\<^sub>r \<langle>br id (\<lambda>xs. length xs = Suc n * Suc n)\<rangle>list_rel\<rangle>list_rel"
   unfolding list_rel_def M_list'_def
   using P_loc'
-  apply (clarsimp simp: list.pred_rel list.rel_map)
+  apply (clarsimp simp: list.pred_rel list.rel_map br_def)
   apply (elim list_all2_mono)
   apply (clarsimp simp: eq_onp_def)
   apply (meson someI_ex state_impl_abstract)
-  apply (erule mem_states'I, meson someI_ex state_impl_abstract)
+   apply (erule mem_states'I, meson someI_ex state_impl_abstract)
+  apply (elim list_all2_mono, clarsimp)
   done
 
 lemma M_list_hnr[sepref_fr_rules]:
   "(uncurry0 (return M_list), uncurry0 (RETURN (PR_CONST M_list')))
-    \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (location_assn \<times>\<^sub>a list_assn id_assn)"
+    \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (
+        location_assn \<times>\<^sub>a list_assn (pure (b_rel Id (\<lambda>xs. length xs = Suc n * Suc n))))"
 proof -
-  let ?R = "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) \<times>\<^sub>a list_assn (\<lambda>a c. \<up> (c = a))"
-  have *: "list_assn (\<lambda>a c. \<up> (c = a)) = pure (\<langle>Id\<rangle>list_rel)"
-    unfolding fcomp_norm_unfold by (simp add: pure_def)
-  have "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) \<times>\<^sub>a list_assn (\<lambda>a c. \<up> (c = a))
-    = pure (location_rel \<times>\<^sub>r Id)"
+  let ?R1 = "\<langle>br id (\<lambda>xs. length xs = Suc n * Suc n)\<rangle>list_rel"
+  let ?R2 = "\<lambda>a c. \<up> (a = c \<and> length c = Suc (n + (n + n * n)))"
+  let ?R = "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) \<times>\<^sub>a list_assn ?R2"
+  have "b_rel Id = br id"
+    unfolding br_def b_rel_def by auto
+  have *: "list_assn (\<lambda>a c. \<up> (a = c \<and> length c = Suc (n + (n + n * n)))) = pure ?R1"
+    unfolding fcomp_norm_unfold by (simp add: pure_def br_def)
+  have "?R = pure (location_rel \<times>\<^sub>r ?R1)"
     unfolding * pure_def prod_assn_def by (intro ext) auto
-  then have **: "list_assn ?R = pure (\<langle>location_rel \<times>\<^sub>r Id\<rangle>list_rel)"
-    apply (simp add: fcomp_norm_unfold)
+  then have **: "list_assn ?R = pure (\<langle>location_rel \<times>\<^sub>r ?R1\<rangle>list_rel)"
+    unfolding fcomp_norm_unfold
+    apply simp
     apply (rule HOL.arg_cong[where f = list_assn])
     apply assumption
     done
   have "emp \<Longrightarrow>\<^sub>A list_assn ?R M_list' M_list * true"
     using M_list_rel unfolding ** by (sep_auto simp: pure_def)
   then show ?thesis
-    by sepref_to_hoare (sep_auto simp: lso_assn_def hr_comp_def br_def)
+    by sepref_to_hoare (sep_auto simp: lso_assn_def hr_comp_def br_def \<open>b_rel Id = br id\<close>)
 qed
 
 sepref_register "PR_CONST M_list'"
 
 sepref_register "list_to_dbm n"
 
-lemmas [sepref_fr_rules] = list_to_dbm_impl.refine
+lemmas [sepref_fr_rules] = of_list_list_to_dbm[of n]
 
 sepref_register set
 
