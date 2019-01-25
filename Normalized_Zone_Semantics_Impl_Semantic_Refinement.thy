@@ -54,7 +54,7 @@ definition
   "abstra_repair ac M = repair_pair n (abstra_upd ac M) 0 (constraint_clk ac)"
 
 definition
-  "filter_diag f M \<equiv> if check_diag n M then M else f M"
+  "filter_diag f M \<equiv> if check_diag n M then M((0,0) := Lt 0) else f M"
 
 definition abstr_repair where
   "abstr_repair = fold (\<lambda> ac M. abstra_repair ac M)"
@@ -84,6 +84,10 @@ definition
       M4 = filter_diag (\<lambda> M. FW' (norm_upd M (k' l') n) n) M3
     in M4"
 
+lemma check_diag_marker:
+  "check_diag n (M((0, 0) := Lt 0))"
+  unfolding check_diag_def by (auto simp: Lt_lt_LeI)
+
 lemma E_op''_alt_def:
   "E_op'' l r g l' M \<equiv>
     let
@@ -91,8 +95,9 @@ lemma E_op''_alt_def:
       f1 = \<lambda> M. abstr_repair g M;
       f2 = \<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0);
       f3 = \<lambda> M. FW' (norm_upd M (k' l') n) n
-    in filter_diag (filter_diag f3 o filter_diag f2 o f1) M'"
-  unfolding E_op''_def filter_diag_def by (rule HOL.eq_reflection) (auto simp: Let_def)
+    in filter_diag (filter_diag f3 o filter_diag f2 o f1) M'" if "n > 0"
+  unfolding E_op''_def filter_diag_def
+  by (rule HOL.eq_reflection) (auto simp: Let_def check_diag_marker)
 
 end (* End of context for reachability problem defs *)
 
@@ -962,14 +967,34 @@ begin
 lemma norm_step_dbm_equiv:
   "FW' (norm_upd D (k' l') n) n \<simeq> FW' (norm_upd M (k' l') n) n" if "D \<simeq> M" "wf_dbm D" "wf_dbm M"
   unfolding dbm_equiv_def
-  apply (subst norm_step_correct'[OF that(2,3,1)])
-  apply (subst norm_step_correct'[OF that(3,3)])
-  by auto
+  by (subst norm_step_correct'[OF that(2,3,1)], subst norm_step_correct'[OF that(3,3)]) auto
+
+lemma empty_dbm_marker:
+  "[curry (conv_M (M((0, 0) := Lt 0)))]\<^bsub>v,n\<^esub> = {}"
+proof -
+  have "check_diag n (M((0, 0) := Lt 0))"
+    by (simp add: check_diag_marker)
+  then show ?thesis
+    using canonical_check_diag_empty_iff by blast
+qed
+
+lemma wf_dbm_marker:
+  "wf_dbm (M((0, 0) := Lt 0))" (is "wf_dbm ?M") if "wf_dbm M"
+proof -
+  have "check_diag n ?M"
+    by (simp add: check_diag_marker)
+  moreover from this have "[curry (conv_M ?M)]\<^bsub>v,n\<^esub> \<subseteq> V"
+    by (simp add: empty_dbm_marker)
+  moreover have "\<forall>i\<le>n. (M((0, 0) := Lt 0)) (i, i) \<le> 0"
+    using that by (auto simp: Lt_lt_LeI neutral dest: wf_dbm_altD)
+  ultimately show ?thesis
+    by (intro wf_dbm_altI) (simp add: check_diag_marker; fail)+
+qed
 
 lemma filter_diag_wf_dbm:
   assumes "\<And> M. wf_dbm M \<Longrightarrow> wf_dbm (f M)" "wf_dbm M"
   shows "wf_dbm (filter_diag f M)"
-  unfolding filter_diag_def using assms by auto
+  unfolding filter_diag_def using assms by (auto intro: wf_dbm_marker)
 
 lemma
   assumes "A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'" "wf_dbm M"
@@ -1025,7 +1050,8 @@ proof (cases "check_diag n M")
   case True
   then have "check_diag n (f M)" by (rule assms)
   with True show ?thesis
-    unfolding filter_diag_def dbm_equiv_def by (auto dest: check_diag_conv_M check_diag_empty_spec)
+    unfolding filter_diag_def dbm_equiv_def
+    by (auto dest: check_diag_conv_M check_diag_empty_spec simp: empty_dbm_marker)
 next
   case False
   then show ?thesis by (auto simp: filter_diag_def)
@@ -1163,7 +1189,8 @@ proof -
   moreover have "dbm_int (curry ?M) n"
     by (auto simp: Ints_def)
   ultimately show ?thesis
-    using that(3) unfolding E_op''_def by (auto simp: Let_def filter_diag_def)
+    using that(3) unfolding E_op''_def
+    by (auto simp: Let_def filter_diag_def intro: check_diag_marker)
 qed
 
 lemma E_op''_check_diag_aux:
@@ -1173,7 +1200,8 @@ lemma E_op''_check_diag_aux:
 
 lemma E_op''_check_diag:
   "check_diag n (E_op'' l r g l' M)" if "check_diag n M"
-  using that E_op''_check_diag_aux unfolding E_op''_def filter_diag_def by (auto simp: Let_def)
+  using that E_op''_check_diag_aux unfolding E_op''_def filter_diag_def
+  by (auto simp: Let_def intro: check_diag_marker)
 
 sublocale E_op'': E_From_Op_Bisim_Finite _ _ _ _ _ E_op''
   by standard (rule E_op''_bisim' E_op''_wf E_op''_FW_norm E_op''_check_diag; assumption)+

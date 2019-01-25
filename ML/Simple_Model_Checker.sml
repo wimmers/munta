@@ -7042,7 +7042,9 @@ end)
                   ()) ())
                   (fn xaa =>
                     (fn f_ => fn () => f_
-                      ((if xaa then (fn () => xa)
+                      ((if xaa
+                         then mtx_set (heap_DBMEntry heap_int) (suc m) xa
+                                (zero_nata, zero_nata) (Lt zero_inta)
                          else imp_nfoldli bib (fn _ => (fn () => true))
                                 (fn aia => fn bid =>
                                   (fn f_ => fn () => f_
@@ -7067,7 +7069,9 @@ m xb zero_nata (constraint_clk aia)))
                           ()) ())
                           (fn xb =>
                             (fn f_ => fn () => f_
-                              ((if xb then (fn () => x_a)
+                              ((if xb
+                                 then mtx_set (heap_DBMEntry heap_int) (suc m)
+x_a (zero_nata, zero_nata) (Lt zero_inta)
                                  else (fn f_ => fn () => f_
 ((imp_nfoldli bic (fn _ => (fn () => true))
    (fn xc => fn sigma =>
@@ -7098,7 +7102,9 @@ m xb zero_nata (constraint_clk aia)))
                                      m m x_b)
                                   ()) ())
                                   (fn x_c =>
-                                    (if x_c then (fn () => x_b)
+                                    (if x_c
+                                      then mtx_set (heap_DBMEntry heap_int)
+     (suc m) x_b (zero_nata, zero_nata) (Lt zero_inta)
                                       else (fn f_ => fn () => f_
      ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
         let
@@ -7573,7 +7579,9 @@ end)
                          ()) ())
                          (fn xaa =>
                            (fn f_ => fn () => f_
-                             ((if xaa then (fn () => xa)
+                             ((if xaa
+                                then mtx_set (heap_DBMEntry heap_int) (suc m) xa
+                                       (zero_nata, zero_nata) (Lt zero_inta)
                                 else imp_nfoldli bib (fn _ => (fn () => true))
                                        (fn aia => fn bid =>
  (fn f_ => fn () => f_
@@ -7598,7 +7606,9 @@ end)
                                  ()) ())
                                  (fn xb =>
                                    (fn f_ => fn () => f_
-                                     ((if xb then (fn () => x_a)
+                                     ((if xb
+then mtx_set (heap_DBMEntry heap_int) (suc m) x_a (zero_nata, zero_nata)
+       (Lt zero_inta)
 else (fn f_ => fn () => f_
        ((imp_nfoldli bic (fn _ => (fn () => true))
           (fn xc => fn sigma =>
@@ -7627,7 +7637,9 @@ else (fn f_ => fn () => f_
  ((check_diag_impla (linordered_cancel_ab_monoid_add_int, heap_int) m m x_b) ())
  ())
  (fn x_c =>
-   (if x_c then (fn () => x_b)
+   (if x_c
+     then mtx_set (heap_DBMEntry heap_int) (suc m) x_b (zero_nata, zero_nata)
+            (Lt zero_inta)
      else (fn f_ => fn () => f_
             ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
                let
@@ -8004,7 +8016,9 @@ heap_DBMEntry heap_int)
                                ()) ())
                                (fn xaa =>
                                  (fn f_ => fn () => f_
-                                   ((if xaa then (fn () => xa)
+                                   ((if xaa
+                                      then mtx_set (heap_DBMEntry heap_int)
+     (suc m) xa (zero_nata, zero_nata) (Lt zero_inta)
                                       else imp_nfoldli bib
      (fn _ => (fn () => true))
      (fn aia => fn bid =>
@@ -8029,7 +8043,9 @@ heap_DBMEntry heap_int)
                                        ()) ())
                                        (fn xb =>
  (fn f_ => fn () => f_
-   ((if xb then (fn () => x_a)
+   ((if xb
+      then mtx_set (heap_DBMEntry heap_int) (suc m) x_a (zero_nata, zero_nata)
+             (Lt zero_inta)
       else (fn f_ => fn () => f_
              ((imp_nfoldli bic (fn _ => (fn () => true))
                 (fn xc => fn sigma =>
@@ -8059,7 +8075,9 @@ heap_DBMEntry heap_int)
           x_b)
        ()) ())
        (fn x_c =>
-         (if x_c then (fn () => x_b)
+         (if x_c
+           then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                  (zero_nata, zero_nata) (Lt zero_inta)
            else (fn f_ => fn () => f_
                   ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
                      let
@@ -8406,7 +8424,9 @@ heap_DBMEntry heap_int)
                                ()) ())
                                (fn xaa =>
                                  (fn f_ => fn () => f_
-                                   ((if xaa then (fn () => xa)
+                                   ((if xaa
+                                      then mtx_set (heap_DBMEntry heap_int)
+     (suc m) xa (zero_nata, zero_nata) (Lt zero_inta)
                                       else imp_nfoldli bib
      (fn _ => (fn () => true))
      (fn aia => fn bid =>
@@ -8431,7 +8451,9 @@ heap_DBMEntry heap_int)
                                        ()) ())
                                        (fn xb =>
  (fn f_ => fn () => f_
-   ((if xb then (fn () => x_a)
+   ((if xb
+      then mtx_set (heap_DBMEntry heap_int) (suc m) x_a (zero_nata, zero_nata)
+             (Lt zero_inta)
       else (fn f_ => fn () => f_
              ((imp_nfoldli bic (fn _ => (fn () => true))
                 (fn xc => fn sigma =>
@@ -8461,7 +8483,9 @@ heap_DBMEntry heap_int)
           x_b)
        ()) ())
        (fn x_c =>
-         (if x_c then (fn () => x_b)
+         (if x_c
+           then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                  (zero_nata, zero_nata) (Lt zero_inta)
            else (fn f_ => fn () => f_
                   ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
                      let
@@ -8852,7 +8876,9 @@ heap_DBMEntry heap_int)
                                ()) ())
                                (fn xaa =>
                                  (fn f_ => fn () => f_
-                                   ((if xaa then (fn () => xa)
+                                   ((if xaa
+                                      then mtx_set (heap_DBMEntry heap_int)
+     (suc m) xa (zero_nata, zero_nata) (Lt zero_inta)
                                       else imp_nfoldli bib
      (fn _ => (fn () => true))
      (fn aia => fn bid =>
@@ -8877,7 +8903,9 @@ heap_DBMEntry heap_int)
                                        ()) ())
                                        (fn xb =>
  (fn f_ => fn () => f_
-   ((if xb then (fn () => x_a)
+   ((if xb
+      then mtx_set (heap_DBMEntry heap_int) (suc m) x_a (zero_nata, zero_nata)
+             (Lt zero_inta)
       else (fn f_ => fn () => f_
              ((imp_nfoldli bic (fn _ => (fn () => true))
                 (fn xc => fn sigma =>
@@ -8907,7 +8935,9 @@ heap_DBMEntry heap_int)
           x_b)
        ()) ())
        (fn x_c =>
-         (if x_c then (fn () => x_b)
+         (if x_c
+           then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                  (zero_nata, zero_nata) (Lt zero_inta)
            else (fn f_ => fn () => f_
                   ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
                      let

@@ -29,7 +29,8 @@ lemma E_precise_op'_alt_def:
       f1 = \<lambda> M. abstr_repair g M;
       f2 = \<lambda> M. abstr_repair (inv_of A l') (reset'_upd M n r 0)
     in filter_diag (filter_diag f2 o f1) M'"
-  unfolding E_precise_op'_def filter_diag_def by (rule HOL.eq_reflection) (auto simp: Let_def)
+  unfolding E_precise_op'_def filter_diag_def
+  by (rule HOL.eq_reflection) (auto simp: Let_def check_diag_marker)
 
 no_notation step_impl' ("\<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
 
