@@ -568,7 +568,7 @@ lemmas dbm_list_superset_op =
 
 end (* Trivial clock numbering *)
 
-context Reachability_Problem_no_ceiling
+context TA_Start_No_Ceiling
 begin
 
 sublocale dbm: Default_Nat_Clock_Numbering n v

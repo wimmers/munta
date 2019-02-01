@@ -1,6 +1,6 @@
 theory Simple_Network_Language_Model_Checking
   imports Simple_Network_Language_Impl_Refine
-    "../UPPAAL_Model_Checking" "../library/Abstract_Term"
+    "TA_Byte_Code.UPPAAL_Model_Checking" "TA_Impl.Abstract_Term"
 begin
 
 section \<open>Product Bisimulation\<close>
@@ -516,13 +516,15 @@ lemma l\<^sub>0_states'[simp, intro]:
   "l\<^sub>0 \<in> states'"
   using state_rel_start s\<^sub>0_bounded unfolding states'_def state_rel_def by auto
 
+print_locale Reachability_Problem_Defs
+
 sublocale reach: Reachability_Problem_Defs
-  l\<^sub>0
-  F
-  m
   prod_ta
+  l\<^sub>0
+  m
   k_fun
-  by standard
+  F
+  .
 
 lemma (in -) collect_clkt_state_setI:
   assumes "(x, d) \<in> Closure.collect_clkt (trans_of A) l"
@@ -546,11 +548,11 @@ lemma clkp_set_statesD:
   using state_set_states by auto
 
 sublocale reach1: Reachability_Problem
-  l\<^sub>0
-  F
-  m
   prod_ta
+  l\<^sub>0
+  m
   k_fun
+  F
   apply standard
   subgoal
     apply safe
@@ -694,15 +696,6 @@ sublocale impl: Reachability_Problem_Impl
     by (rule set_mp[OF _ inv_fun_inv_of'[where R = loc_rel and S = "{(s, s'). state_rel s' s}"]])
        (auto simp: loc_rel_def)
 
-(* F_fun *)
-  subgoal
-    unfolding inv_rel_def by (clarsimp dest!: F_Fi)
-
-(* ceiling *)
-  subgoal
-    unfolding inv_rel_def using L\<^sub>0_states
-    by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
-
 (* state set *)
   subgoal
     using states'_superset by simp
@@ -711,11 +704,23 @@ sublocale impl: Reachability_Problem_Impl
   subgoal
     using state_rel_start unfolding loc_rel_def by auto
 
+(* loc_rel left unique *)
   subgoal for l li li'
     unfolding trans_of_prod by (rule state_rel_left_unique)
 
+(* loc_rel right unique *)
   subgoal for l l' li
     unfolding trans_of_prod by (rule state_rel_right_unique)
+
+(* ceiling *)
+  subgoal
+    unfolding inv_rel_def using L\<^sub>0_states
+    by (auto simp: loc_rel_def state_rel_def reach.k'_def k_fun_def k_impl_k_fun)
+
+(* F_fun *)
+  subgoal
+    unfolding inv_rel_def by (clarsimp dest!: F_Fi)
+
   done
 
 end (* Simple_Network_Impl_nat_ceiling_start_state *)
@@ -754,14 +759,14 @@ lemma F_reachable_correct:
   \<longleftrightarrow> (\<exists>l'. \<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> (\<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<^sub>0\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'))"
   using E_op''.E_from_op_reachability_check[symmetric] reachability_check_new
   unfolding E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
-  by auto
+  unfolding F_rel_def by auto
 
 lemma E_op''_F_reachable_correct:
   "E_op''.F_reachable
   \<longleftrightarrow> (\<exists>l'. \<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> (\<exists> u'. conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<^sub>0\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'))"
   using E_op''.E_from_op_reachability_check[symmetric] reachability_check_new
   unfolding E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
-  by auto
+  unfolding F_rel_def by auto
 
 lemma Ex_ev_impl_hnr:
   assumes "\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0)"

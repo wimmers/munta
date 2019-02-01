@@ -366,11 +366,11 @@ lemma check_all_correct:
       standard; auto simp: list_ex_iff dest: P'_P)
 
 lemma certify_unreachable_correct:
-  assumes F_mono: "\<And>a b. F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> F b"
+  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
   shows "certify_unreachable F \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))"
   unfolding certify_unreachable_def
   by (refine_vcg check_all_correct check_final_correct)
-     (rule Unreachability_Invariant_paired.final_unreachable, auto intro: F_mono)
+     (rule Unreachability_Invariant_paired.final_unreachable, simp, auto intro: F_mono)
 
 end
 
@@ -568,7 +568,8 @@ locale Reachability_Impl =
       and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
       (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
       and succs_empty: "\<And>l. succs l {} = []"
-  assumes F_mono: "\<And>a b. F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> less_eq s s') a b \<Longrightarrow> F b"
+    assumes F_mono:
+      "\<And>a b. F a \<Longrightarrow> P a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> less_eq s s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
 (*
   assumes L_impl[sepref_fr_rules]:
     "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST L))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn K"
@@ -578,7 +579,7 @@ locale Reachability_Impl =
   assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
   assumes copyi[sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P') \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F) \<in> (prod_assn K A)\<^sup>d \<rightarrow>\<^sub>a bool_assn"
   assumes [sepref_fr_rules]:
     "(uncurry succsi,uncurry (RETURN oo PR_CONST succs))
     \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>d \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"

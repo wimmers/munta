@@ -1,5 +1,9 @@
 theory Simple_Network_Language
-  imports Main "../Networks/State_Networks" "../Uppaal_Networks/UPPAAL_State_Networks_Impl" "../library/Explorer" FinFun.FinFun
+  imports Main
+    "TA_Byte_Code.State_Networks"
+    "TA_Byte_Code.UPPAAL_State_Networks_Impl"
+    "../library/Explorer"
+    FinFun.FinFun
 begin
 
 section \<open>Simple networks of automata with broadcast channels and commited locations\<close>

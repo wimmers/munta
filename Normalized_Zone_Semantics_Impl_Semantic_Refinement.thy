@@ -47,7 +47,7 @@ lemma n_eq_equiv:
 definition
   "repair_pair n M a b = FWI' (FWI' M n b) n a"
 
-context Reachability_Problem_Defs
+context TA_Start_Defs
 begin
 
 definition
@@ -112,8 +112,8 @@ proof -
     by (standard; (blast dest: A_B_step intro: assms(2) | blast dest: B_A_step intro: assms(2)))
 qed
 
-context Reachability_Problem
-  begin
+context TA_Start
+begin
 
 context
   fixes E\<^sub>1 :: "'s \<times> _ \<Rightarrow> 's \<times> _ \<Rightarrow> bool"
@@ -273,7 +273,7 @@ lemma wf_dbm_altD:
   done
 
 lemmas valid_dbm_convI = valid_dbm.intros[OF _ dbm_int_conv]
-thm diag_conv
+
 lemmas wf_dbm_altI = wf_dbm_I[OF _ diag_conv_M valid_dbm_convI]
 (* XXX Why do we have two notions here? *)
 thm valid_dbm_def
@@ -688,7 +688,7 @@ lemma E_E_op: "E = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turnstile>
 
 end (* End of locale for Reachability Problem *)
 
-locale E_From_Op_Defs = Reachability_Problem_Defs l\<^sub>0 for l\<^sub>0 :: "'s" +
+locale E_From_Op_Defs = TA_Start_Defs _ l\<^sub>0 for l\<^sub>0 :: "'s" +
   fixes f :: "'s
    \<Rightarrow> nat list
       \<Rightarrow> (nat, int) acconstraint list
@@ -701,7 +701,7 @@ definition "E_from_op = (\<lambda> (l, M) (l', M'''). \<exists> g a r. A \<turns
 
 end
 
-locale E_From_Op = Reachability_Problem + E_From_Op_Defs
+locale E_From_Op = TA_Start + E_From_Op_Defs
 
 locale E_From_Op_Bisim = E_From_Op +
   assumes op_bisim:
@@ -731,8 +731,8 @@ lemma E_E_from_op_steps_empty:
 theorem E_from_op_reachability_check:
   "(\<exists> l' D'. E\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))
   \<longleftrightarrow> (\<exists> l' D'. E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l', D') \<and> F_rel (l', D'))"
-  apply (rule E_E\<^sub>1_steps_equiv[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
-  by
+  if F_rel_def: "F_rel = (\<lambda>(l, D). F l \<and> \<not> check_diag n D)"
+  by (rule E_E\<^sub>1_steps_equiv[OF E_E_from_op_step E_from_op_E_step E_from_op_wf_state])
     (auto
       simp: F_rel_def state_equiv_def wf_state_def dbm_equiv_def
       dest!:
@@ -893,6 +893,11 @@ begin
       unfolding wf_state_def by auto
   qed
 
+end
+
+locale E_From_Op_Bisim_Finite_Reachability = E_From_Op_Bisim_Finite + Reachability_Problem
+begin
+
   sublocale Search_Space E_from_op a\<^sub>0 F_rel "subsumes n" "\<lambda> (l, M). check_diag n M"
     apply standard
     subgoal for a
@@ -961,7 +966,7 @@ begin
 
 end (* End of context for finiteness and bisimilarity *)
 
-context Reachability_Problem
+context TA_Start
 begin
 
 lemma norm_step_dbm_equiv:
@@ -1203,12 +1208,19 @@ lemma E_op''_check_diag:
   using that E_op''_check_diag_aux unfolding E_op''_def filter_diag_def
   by (auto simp: Let_def intro: check_diag_marker)
 
-sublocale E_op'': E_From_Op_Bisim_Finite _ _ _ _ _ E_op''
+sublocale E_op'': E_From_Op_Bisim_Finite _ _ _ _ E_op''
   by standard (rule E_op''_bisim' E_op''_wf E_op''_FW_norm E_op''_check_diag; assumption)+
 
-end (* End of context for reachability problem*)
+end (* TA Start *)
 
-context Reachability_Problem_Defs
+context Reachability_Problem
+begin
+
+sublocale E_op'': E_From_Op_Bisim_Finite_Reachability _ _ _ _ E_op'' ..
+
+end
+
+context TA_Start_Defs
 begin
 
 abbreviation step_impl' ("\<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
@@ -1250,7 +1262,7 @@ lemma (in -) n_eq_conv_MI:
   using that unfolding n_eq_def by (auto intro: map_DBMEntry_real_of_int_inj)
 
 (* XXX Move? *)
-lemma (in Reachability_Problem) check_diag_conv_M_iff:
+lemma (in TA_Start_No_Ceiling) check_diag_conv_M_iff:
   "check_diag n D \<longleftrightarrow> check_diag n (conv_M D)"
   using check_diag_conv_M check_diag_conv_M_rev by fast
 
@@ -1265,17 +1277,11 @@ lemma step_impl_delay_loc_eq:
   using that by cases auto
 
 
-
-context Reachability_Problem
+context TA_Start_No_Ceiling
 begin
-
-sublocale TA: Regions_TA v n "Suc n" "{1..<Suc n}" k "conv_A A"
-  by (standard; intro valid_abstraction' finite_conv_A finite_trans_of_finite_state_set finite_trans)
-
 
 subsubsection \<open>@{term init_dbm}\<close>
 
-(* XXX Move *)
 lemma init_dbm_semantics:
   "u \<in> [(curry init_dbm :: real DBM)]\<^bsub>v,n\<^esub> \<longleftrightarrow> (\<forall>c\<in>{1..n}. u c = 0)"
   by (safe elim!: init_dbm_semantics' init_dbm_semantics'')
@@ -1288,6 +1294,14 @@ proof -
     by (rule init_dbm_semantics'', auto)
   then show ?thesis by auto
 qed
+
+end
+
+context TA_Start
+begin
+
+sublocale TA: Regions_TA v n "Suc n" "{1..<Suc n}" k "conv_A A"
+  by (standard; intro valid_abstraction' finite_conv_A finite_trans_of_finite_state_set finite_trans)
 
 subsubsection \<open>@{term dbm_default}\<close>
 
@@ -1772,7 +1786,7 @@ proof -
     by auto
 qed
 
-end (* Reachability Problem *)
+end (* TA Start *)
 
 context Reachability_Problem_precompiled
 begin

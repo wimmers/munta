@@ -1,5 +1,5 @@
 theory Deadlock_Checking
-  imports Deadlock_Impl UPPAAL_Model_Checking
+  imports Deadlock_Impl TA_Byte_Code.UPPAAL_Model_Checking
 begin
 
 paragraph \<open>Standard Deadlock Checker Implementation\<close>

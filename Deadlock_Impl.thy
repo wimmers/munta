@@ -1,5 +1,5 @@
 theory Deadlock_Impl
-  imports Deadlock "library/Abstract_Term"
+  imports Deadlock TA_Impl.Abstract_Term
 begin
 
 paragraph \<open>Misc\<close>
@@ -520,7 +520,17 @@ end (* Fixed n *)
 
 subsection \<open>Implementation for a Concrete Automaton\<close>
 
-context Reachability_Problem_Impl
+(* XXX Move *)
+context TA_Impl
+begin
+
+sublocale TA_Impl_Op
+  where loc_rel = loc_rel and f = "PR_CONST E_op''" and op_impl = E_op''_impl
+  unfolding PR_CONST_def by standard (rule E_op''_impl.refine)
+
+end
+
+context TA_Impl
 begin
 
 definition
@@ -963,7 +973,7 @@ lemma dbm_int_init_dbm:
   "dbm_int (curry init_dbm) n"
   unfolding init_dbm_def by auto
 
-context Reachability_Problem
+context TA_Start
 begin
 
 lemma wf_dbm_canonical'D:
@@ -992,19 +1002,16 @@ lemma not_check_deadlock_non_empty:
   "Z \<noteq> {}" if "\<not> TA.check_deadlock l Z"
   using that unfolding TA.check_deadlock_def by auto
 
-end (* Reachability Problem *)
+end (* TA Start *)
 
-context Reachability_Problem_Impl
+context TA_Impl
 begin
 
 lemma op_E_from_op_iff:
   "op.E_from_op = E_op''.E_from_op"
   unfolding PR_CONST_def ..
 
-lemma reachable_states:
-  "l \<in> states" if "E_op''.reachable (l, M)"
-  using that unfolding E_op''.reachable_def
-  by (induction "(l, M)" arbitrary: l M; force simp: a\<^sub>0_def state_set_def E_op''.E_from_op_def)
+lemmas reachable_states = reachable_states[unfolded op_E_from_op_iff]
 
 lemma E_op''_states:
   "l' \<in> states" if "E_op''.E_from_op (l, M) (l', M')" "l \<in> states"
@@ -1027,13 +1034,13 @@ corollary check_deadlock_dbm_correct':
   unfolding canonical'_conv_M_iff check_diag_conv_M_iff by simp
 
 corollary check_deadlock_dbm_correct'':
-  assumes "E_op''.reachable (l, M)"
+  assumes "E_op''.E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
   shows "TA.check_deadlock l (dbm.zone_of (curry (conv_M M))) = check_deadlock_dbm l M"
   using assms
-  apply - term states'
+  apply -
   apply (rule check_deadlock_dbm_correct')
    apply (drule reachable_states, use states'_states in auto; fail)
-  unfolding E_op''.reachable_def wf_state_def prod.case apply (erule E_op''.reachable_wf_dbm)
+  unfolding wf_state_def prod.case apply (erule E_op''.reachable_wf_dbm)
   done
 
 lemma not_check_deadlock_non_empty:
@@ -1063,13 +1070,13 @@ lemma not_check_deadlock_compatible:
   using assms by (auto simp: check_deadlock_dbm_correct'[symmetric])
 
 lemma deadlock_check_diag:
-  "\<not> check_diag n M" if "\<not> check_deadlock_dbm l M" "op.reaches a\<^sub>0 (l, M)"
+  "\<not> check_diag n M" if "\<not> check_deadlock_dbm l M" "E_op''.E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
   using that(1)
   apply (subst (asm) check_deadlock_dbm_correct'[symmetric])
   subgoal
-    using E_op''.reachable_def reachable_states that(2) states'_states by auto
+    using reachable_states that(2) states'_states by auto
   subgoal
-    unfolding wf_state_def using op.reachable_wf_dbm[OF that(2)] by simp
+    unfolding wf_state_def using E_op''.reachable_wf_dbm[OF that(2)] by simp
   using canonical_check_diag_empty_iff by (blast dest: not_check_deadlock_non_empty)
 
 (* XXX Duplication *)
@@ -1094,102 +1101,12 @@ interpretation bisim:
   "\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z"
   "\<lambda>_. True" "\<lambda>(l, M). l \<in> states \<and> wf_state (l, M)"
   unfolding op_E_from_op_iff
-  thm TA.bisim Bisimulation_Invariant_strengthen_post'
-Bisimulation_Invariant_composition[OF TA.bisim norm_final_bisim]
-norm_final_bisim
   by (rule Bisimulation_Invariant_strengthen_post',
       (rule Bisimulation_Invariant_composition[OF TA.bisim norm_final_bisim]
         Bisimulation_Invariant_sim_replace
         )+) (auto 4 3 dest: E_op''_states wf_dbm_D(3) simp: wf_state_def)
 
-context
-  assumes l\<^sub>0_in_A: "l\<^sub>0 \<in> Simulation_Graphs_TA.state_set A"
-begin
-
-interpretation TA:
-  Regions_TA_Start_State v n "Suc n" "{1..<Suc n}" k "conv_A A" l\<^sub>0 "{u. \<forall>c\<in>{1..n}. u c = 0}"
-  apply standard
-  subgoal
-    by (intro l\<^sub>0_state_set l\<^sub>0_in_A)
-  subgoal
-    unfolding V'_def
-    apply safe
-    subgoal for x
-      unfolding V_def by auto
-    apply (inst_existentials "curry init_dbm :: real DBM")
-     apply (simp add: init_dbm_zone)
-    by (rule dbm_int_init_dbm)
-  subgoal
-    by auto
-  done
-
 lemmas beta_final_bisim = bisim.Bisimulation_Invariant_axioms
-
-lemma check_deadlock:
-  "(\<exists>a. op.reachable a \<and>
-    \<not> (case a of (l, M) \<Rightarrow> check_diag n M) \<and> (case a of (l, M) \<Rightarrow> \<not> check_deadlock_dbm l M))
-  \<longleftrightarrow> (\<exists>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<and> deadlock (l\<^sub>0, u\<^sub>0))" (is "?l \<longleftrightarrow> ?r")
-proof -
-  text \<open>@{term TA.reaches} corresponds to (non-empty) steps of @{term step_z_beta'}\<close>
-  text \<open>@{term Standard_Search_Space.reaches} corresponds to steps of @{term E}\<close>
-  text \<open>@{term op.reaches} corresponds to steps of @{term op.E_from_op} (@{term E_op''})\<close>
-  have "?r \<longleftrightarrow> (\<exists>l Z. TA.reaches (l\<^sub>0, {u. \<forall>c\<in>{1..n}. u c = 0}) (l, Z) \<and> \<not>TA.check_deadlock l Z)"
-    using TA.deadlock_check unfolding TA.a\<^sub>0_def from_R_def by simp
-  also have
-    "\<dots> \<longleftrightarrow> (\<exists>l Z. bisim.A.reaches (l\<^sub>0, {u. \<forall>c\<in>{1..n}. u c = 0}) (l, Z) \<and> \<not>TA.check_deadlock l Z)"
-    apply safe
-    subgoal for l Z
-      by (subst (asm) TA.reaches_steps_z_beta_iff) auto
-    subgoal for l Z
-      by (subst TA.reaches_steps_z_beta_iff) (auto dest: not_check_deadlock_non_empty)
-    done
-  also have "\<dots> \<longleftrightarrow> (\<exists>l M. op.reaches a\<^sub>0 (l, M) \<and> \<not> check_deadlock_dbm l M)"
-    using bisim.reaches_ex_iff[where
-        \<phi> = "\<lambda> (l, Z). \<not>TA.check_deadlock l Z" and \<psi> = "\<lambda>(l, M). \<not> check_deadlock_dbm l M",
-        OF not_check_deadlock_compatible, of "(l\<^sub>0, {u. \<forall>c\<in>{1..n}. u c = 0})" a\<^sub>0
-        ]
-    using wf_state_init init_dbm_zone states'_states unfolding a\<^sub>0_def by force
-  also have "\<dots> \<longleftrightarrow> ?l"
-    unfolding op.reachable_def by (auto 4 4 dest: deadlock_check_diag)
-  finally show ?thesis ..
-qed
-
-lemma check_deadlock':
-  "(\<nexists>a. op.reachable a \<and>
-    \<not> (case a of (l, M) \<Rightarrow> check_diag n M) \<and> (case a of (l, M) \<Rightarrow> \<not> check_deadlock_dbm l M))
-  \<longleftrightarrow> (\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0))" (is "?l \<longleftrightarrow> ?r")
-  using check_deadlock by auto
-
-context
-  assumes "F = (\<lambda> _. False)"
-begin
-
-interpretation Worklist_Map2_Impl_check
-  op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
-  "\<lambda> (l, M). F l" state_assn'
-  succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
-  tracei location_assn "\<lambda>(l, M). \<not> check_deadlock_dbm l M" check_deadlock_neg_impl
-  apply standard
-  subgoal
-    using check_deadlock_neg_impl.refine unfolding PR_CONST_def .
-  subgoal
-    unfolding F_rel_def unfolding \<open>F = _\<close> by auto
-  subgoal for a b
-    apply clarsimp
-    apply (subst (asm) check_deadlock_dbm_correct''[symmetric], assumption)
-    apply (subst (asm) check_deadlock_dbm_correct''[symmetric], assumption)
-    apply (frule subsumes_loc_eqD, assumption)
-    apply (drule subsumes_dbm_subsetD, assumption)
-    apply (drule dbm_subset_conv)
-    apply (subst (asm) dbm_subset_correct''[symmetric])
-    by (auto dest: TA.check_deadlock_anti_mono E_op''.reachable_wf_dbm simp: E_op''.reachable_def)
-  done
-
-lemmas check_passed_impl_hnr = check_passed_impl_hnr[unfolded check_deadlock]
-
-end (* F is always false *)
-
-end (* l\<^sub>0 belongs to A *)
 
 definition
   "is_start_in_states = (trans_fun l\<^sub>0 \<noteq> [])"
@@ -1235,10 +1152,6 @@ sepref_definition is_start_in_states_impl is
   "uncurry0 (RETURN is_start_in_states)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding is_start_in_states_def by sepref
 
-(* lemmas [sepref_fr_rules] = check_passed_impl_hnr *)
-
-thm check_passed_impl_hnr
-
 thm is_start_in_states_impl.refine[to_hnr, unfolded hn_refine_def, simplified]
 
 lemma is_start_in_states_impl_hoare:
@@ -1264,6 +1177,107 @@ lemma is_start_in_states_impl_hoare':
    )>\<^sub>t"
   by (rule cons_post_rule[OF is_start_in_states_impl_hoare]) (auto intro: deadlock_if_deadlocked)
 
+end (* TA Impl *)
+
+context Reachability_Problem_Impl
+begin
+
+context
+  assumes l\<^sub>0_in_A: "l\<^sub>0 \<in> Simulation_Graphs_TA.state_set A"
+begin
+
+interpretation TA:
+  Regions_TA_Start_State v n "Suc n" "{1..<Suc n}" k "conv_A A" l\<^sub>0 "{u. \<forall>c\<in>{1..n}. u c = 0}"
+  apply standard
+  subgoal
+    by (intro l\<^sub>0_state_set l\<^sub>0_in_A)
+  subgoal
+    unfolding V'_def
+    apply safe
+    subgoal for x
+      unfolding V_def by auto
+    apply (inst_existentials "curry init_dbm :: real DBM")
+     apply (simp add: init_dbm_zone)
+    by (rule dbm_int_init_dbm)
+  subgoal
+    by auto
+  done
+
+interpretation bisim:
+  Bisimulation_Invariant
+  "\<lambda>(l, Z) (l', Z'). step_z_beta' (conv_A A) l Z l' Z'"
+  "\<lambda>a b. op.E_from_op a b"
+  "\<lambda>(l, Z) (l', D'). l' = l \<and> [curry (conv_M D')]\<^bsub>v,n\<^esub> = Z"
+  "\<lambda>_. True" "\<lambda>(l, M). l \<in> states \<and> wf_state (l, M)"
+  by (rule beta_final_bisim)
+
+lemma check_deadlock:
+  "(\<exists>a. E_op''.E_from_op\<^sup>*\<^sup>* a\<^sub>0 a \<and>
+    \<not> (case a of (l, M) \<Rightarrow> check_diag n M) \<and> (case a of (l, M) \<Rightarrow> \<not> check_deadlock_dbm l M))
+  \<longleftrightarrow> (\<exists>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<and> deadlock (l\<^sub>0, u\<^sub>0))" (is "?l \<longleftrightarrow> ?r")
+proof -
+  text \<open>@{term TA.reaches} corresponds to non-empty steps of @{term step_z_beta'}\<close>
+  text \<open>@{term bisim.A.reaches} corresponds to steps of @{term step_z_beta'}\<close>
+  text \<open>@{term \<open>E_op''.E_from_op\<^sup>*\<^sup>* a\<^sub>0\<close>} corresponds to steps of @{term op.E_from_op} (@{term E_op''})\<close>
+  have "?r \<longleftrightarrow> (\<exists>l Z. TA.reaches (l\<^sub>0, {u. \<forall>c\<in>{1..n}. u c = 0}) (l, Z) \<and> \<not>TA.check_deadlock l Z)"
+    using TA.deadlock_check unfolding TA.a\<^sub>0_def from_R_def by simp
+  also have
+    "\<dots> \<longleftrightarrow> (\<exists>l Z. bisim.A.reaches (l\<^sub>0, {u. \<forall>c\<in>{1..n}. u c = 0}) (l, Z) \<and> \<not>TA.check_deadlock l Z)"
+    apply safe
+    subgoal for l Z
+      by (subst (asm) TA.reaches_steps_z_beta_iff) auto
+    subgoal for l Z
+      by (subst TA.reaches_steps_z_beta_iff) (auto dest: not_check_deadlock_non_empty)
+    done
+  also have "\<dots> \<longleftrightarrow> (\<exists>l M. E_op''.E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l, M) \<and> \<not> check_deadlock_dbm l M)"
+    using bisim.reaches_ex_iff[where
+        \<phi> = "\<lambda> (l, Z). \<not>TA.check_deadlock l Z" and \<psi> = "\<lambda>(l, M). \<not> check_deadlock_dbm l M",
+        OF not_check_deadlock_compatible, of "(l\<^sub>0, {u. \<forall>c\<in>{1..n}. u c = 0})" a\<^sub>0
+        ]
+    using wf_state_init init_dbm_zone states'_states unfolding a\<^sub>0_def by force
+  also have "\<dots> \<longleftrightarrow> ?l"
+    by (auto 4 4 dest: deadlock_check_diag)
+  finally show ?thesis ..
+qed
+
+lemma check_deadlock':
+  "(\<nexists>a. E_op''.E_from_op\<^sup>*\<^sup>* a\<^sub>0 a \<and>
+    \<not> (case a of (l, M) \<Rightarrow> check_diag n M) \<and> (case a of (l, M) \<Rightarrow> \<not> check_deadlock_dbm l M))
+  \<longleftrightarrow> (\<forall>u\<^sub>0. (\<forall>c \<in> {1..n}. u\<^sub>0 c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u\<^sub>0))" (is "?l \<longleftrightarrow> ?r")
+  using check_deadlock by auto
+
+context
+  assumes "F = (\<lambda> _. False)"
+begin
+
+interpretation Worklist_Map2_Impl_check
+  op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
+  "\<lambda> (l, M). F l" state_assn'
+  succs_impl a\<^sub>0_impl F_impl subsumes_impl emptiness_check_impl fst "return o fst" state_copy_impl
+  tracei location_assn "\<lambda>(l, M). \<not> check_deadlock_dbm l M" check_deadlock_neg_impl
+  apply standard
+  subgoal
+    using check_deadlock_neg_impl.refine unfolding PR_CONST_def .
+  subgoal
+    unfolding F_rel_def unfolding \<open>F = _\<close> by auto
+  subgoal for a b
+    apply (clarsimp simp: E_op''.reachable_def)
+    apply (subst (asm) check_deadlock_dbm_correct''[symmetric], assumption)
+    apply (subst (asm) check_deadlock_dbm_correct''[symmetric], assumption)
+    apply (frule subsumes_loc_eqD, assumption)
+    apply (drule subsumes_dbm_subsetD, assumption)
+    apply (drule dbm_subset_conv)
+    apply (subst (asm) dbm_subset_correct''[symmetric])
+    by (auto dest: TA.check_deadlock_anti_mono E_op''.reachable_wf_dbm simp: E_op''.reachable_def)
+  done
+
+lemmas check_passed_impl_hnr =
+  check_passed_impl_hnr[unfolded op.reachable_def, unfolded op_E_from_op_iff check_deadlock]
+
+end (* F is always false *)
+
+end (* l\<^sub>0 belongs to A *)
+
 definition
   "check_passed_impl_start \<equiv> do {
     r1 \<leftarrow> is_start_in_states_impl;
@@ -1282,7 +1296,9 @@ lemma check_passed_impl_start_hnr:
 proof -
   define has_deadlock where "has_deadlock \<equiv> \<exists>u\<^sub>0. (\<forall>c\<in>{1..n}. u\<^sub>0 c = 0) \<and> deadlock (l\<^sub>0, u\<^sub>0)"
   note [sep_heap_rules] =
-    check_passed_impl_hnr[OF _ that, to_hnr, unfolded hn_refine_def, folded has_deadlock_def, simplified]
+    check_passed_impl_hnr[
+      OF _ that, to_hnr, unfolded hn_refine_def, folded has_deadlock_def, simplified
+    ]
     is_start_in_states_impl_hoare'[folded has_deadlock_def, simplified]
   show ?thesis
     unfolding has_deadlock_def[symmetric] check_passed_impl_start_def

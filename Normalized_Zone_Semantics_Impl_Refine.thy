@@ -6,7 +6,8 @@ theory Normalized_Zone_Semantics_Impl_Refine
     "Worklist_Algorithms/Worklist_Subsumption_Impl1" "Worklist_Algorithms/Unified_PW_Impl"
     "Worklist_Algorithms/Liveness_Subsumption_Impl" "Worklist_Algorithms/Leadsto_Impl"
     Normalized_Zone_Semantics_Impl_Semantic_Refinement
-    "library/Printing" "Show.Show_Instances"
+    "library/Printing" Show.Show_Instances
+    "library/Abstract_Term"
 begin
 
   chapter \<open>Imperative Implementation of Reachability Checking\<close>
@@ -120,22 +121,46 @@ definition tracei where
 
 end
 
-locale Reachability_Problem_Impl_Defs =
+locale TA_Impl_No_Ceiling_Defs =
   Show_State_Defs n show_state +
-  Reachability_Problem_no_ceiling A l\<^sub>0 F n
+  TA_Start_No_Ceiling_Defs A l\<^sub>0 n
   for show_state :: "'si :: {hashable, heap} \<Rightarrow> string"
-  and A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and F :: "'s \<Rightarrow> bool" and n :: nat +
+  and A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and n :: nat +
 
   fixes trans_fun :: "('a, nat, int, 's) transition_fun"
     and inv_fun :: "(nat, int, 'si :: {hashable, heap}) invassn"
-    and F_fun :: "'si \<Rightarrow> bool"
-    and ceiling :: "'si \<Rightarrow> int iarray"
     and trans_impl :: "('a, nat, int, 'si) transition_fun"
     and l\<^sub>0i :: 'si
 begin
 
-  (* XXX Should this be something different? *)
+(* XXX Should this be something different? *)
 abbreviation "states \<equiv> {l\<^sub>0} \<union> (state_set (trans_of A))"
+
+end
+
+locale TA_Impl_Defs =
+  TA_Start_Defs A l\<^sub>0 n k +
+  TA_Impl_No_Ceiling_Defs show_clock show_state A l\<^sub>0 n trans_fun inv_fun trans_impl l\<^sub>0i
+  for show_clock and show_state :: "'si :: {hashable, heap} \<Rightarrow> string"
+  and A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and n :: nat and k
+  and trans_fun inv_fun trans_impl l\<^sub>0i
+  +
+  fixes ceiling :: "'si \<Rightarrow> int iarray"
+begin
+
+definition "inv_of_A = inv_of A"
+
+end
+
+locale Reachability_Problem_Impl_Defs =
+  Reachability_Problem_Defs A l\<^sub>0 n k F +
+  TA_Impl_No_Ceiling_Defs show_clock show_state A l\<^sub>0 n trans_fun inv_fun trans_impl l\<^sub>0i
+  for show_clock and show_state :: "'si :: {hashable, heap} \<Rightarrow> string"
+  and A :: "('a, nat, int, 's) ta" and l\<^sub>0 :: 's and  n :: nat and k and F :: "'s \<Rightarrow> bool"
+  and trans_fun inv_fun trans_impl and l\<^sub>0i
+  +
+  fixes F_fun :: "'si \<Rightarrow> bool"
+begin
 
 end (* Reachability Problem Impl Defs *)
 
@@ -175,23 +200,21 @@ begin
 
 end
 
-
-locale Reachability_Problem_Impl =
-  Reachability_Problem_Impl_Defs _ _ A l\<^sub>0 F n _ _ _ _trans_impl +
-  Reachability_Problem l\<^sub>0 F n A k
+locale TA_Impl_No_Ceiling =
+  TA_Impl_No_Ceiling_Defs _ _ A l\<^sub>0 n trans_fun inv_fun trans_impl l\<^sub>0i +
+  TA_Start_No_Ceiling A l\<^sub>0 n
   for A :: "('a, nat, int, 's) ta"
   and l\<^sub>0 :: 's
-  and F :: "'s \<Rightarrow> bool"
   and n :: nat
-  and k
-  and trans_impl :: "('a, nat, int, 'si :: {hashable, heap}) transition_fun" +
+  and trans_fun inv_fun
+  and trans_impl :: "('a, nat, int, 'si :: {hashable, heap}) transition_fun"
+  and l\<^sub>0i
+  +
   fixes states' and loc_rel :: "('si \<times> 's) set"
   assumes trans_fun: "(trans_fun, trans_of A) \<in> transition_rel states'"
       and trans_impl:
         "(trans_impl, trans_fun) \<in> fun_rel_syn loc_rel (list_rel (Id \<times>\<^sub>r Id \<times>\<^sub>r Id \<times>\<^sub>r loc_rel))"
       and inv_fun: "(inv_fun, inv_of A) \<in> inv_rel loc_rel states'"
-      and F_fun: "(F_fun, F) \<in> inv_rel loc_rel states'"
-      and ceiling: "(ceiling, IArray o k') \<in> inv_rel loc_rel states'"
       and states'_states: "states \<subseteq> states'"
       and init_impl: "(l\<^sub>0i, l\<^sub>0) \<in> loc_rel"
       and loc_rel_left_unique:
@@ -201,35 +224,76 @@ locale Reachability_Problem_Impl =
           \<Longrightarrow> l' = l"
 begin
 
-  lemma trans_fun':
-    "(trans_fun, trans_of A) \<in> transition_rel states"
-    using transition_rel_anti_mono[OF states'_states] trans_fun by blast
+lemma trans_fun':
+  "(trans_fun, trans_of A) \<in> transition_rel states"
+  using transition_rel_anti_mono[OF states'_states] trans_fun by blast
 
-  lemma
-    shows inv_fun': "(inv_fun, inv_of A) \<in> inv_rel loc_rel states"
-      and F_fun':   "(F_fun, F) \<in> inv_rel loc_rel states"
-      and ceiling': "(ceiling, IArray o k') \<in> inv_rel loc_rel states"
-    using inv_fun F_fun ceiling inv_rel_anti_mono[OF states'_states] by blast+
+lemma inv_fun': "(inv_fun, inv_of A) \<in> inv_rel loc_rel states"
+  using inv_fun inv_rel_anti_mono[OF states'_states] by blast
 
-  abbreviation "location_rel \<equiv> b_rel loc_rel (\<lambda> x. x \<in> states')"
+abbreviation "location_rel \<equiv> b_rel loc_rel (\<lambda> x. x \<in> states')"
 
-  abbreviation "location_assn \<equiv> pure location_rel"
+abbreviation "location_assn \<equiv> pure location_rel"
 
-  abbreviation "state_assn \<equiv> prod_assn id_assn (mtx_assn n)"
+abbreviation "state_assn \<equiv> prod_assn id_assn (mtx_assn n)"
 
-  abbreviation "state_assn' \<equiv> prod_assn location_assn (mtx_assn n)"
+abbreviation "state_assn' \<equiv> prod_assn location_assn (mtx_assn n)"
 
-  abbreviation
-    "op_impl_assn \<equiv>
-    location_assn\<^sup>k *\<^sub>a (list_assn (clock_assn n))\<^sup>k *\<^sub>a
-    (list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a location_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d
-    \<rightarrow>\<^sub>a mtx_assn n"
+abbreviation
+  "op_impl_assn \<equiv>
+  location_assn\<^sup>k *\<^sub>a (list_assn (clock_assn n))\<^sup>k *\<^sub>a
+  (list_assn (acconstraint_assn (clock_assn n) id_assn))\<^sup>k *\<^sub>a location_assn\<^sup>k *\<^sub>a (mtx_assn n)\<^sup>d
+  \<rightarrow>\<^sub>a mtx_assn n"
 
-  lemma tracei_refine:
+lemma tracei_refine:
   "(uncurry tracei, uncurry (\<lambda>_ _. RETURN ())) \<in> id_assn\<^sup>k *\<^sub>a state_assn'\<^sup>k \<rightarrow>\<^sub>a unit_assn"
     unfolding tracei_def
     using show_dbm_impl.refine[to_hnr, unfolded hn_refine_def, of n]
     by sepref_to_hoare sep_auto
+
+end
+
+locale TA_Impl =
+  TA_Impl_Defs _ _ A l\<^sub>0 n k trans_fun inv_fun trans_impl l\<^sub>0i ceiling +
+  TA_Impl_No_Ceiling _ _ A l\<^sub>0 n trans_fun inv_fun trans_impl l\<^sub>0i states' loc_rel +
+  TA_Start A l\<^sub>0 n k
+  for A :: "('a, nat, int, 's) ta"
+  and l\<^sub>0 :: 's
+  and n :: nat
+  and k
+  and trans_fun inv_fun
+  and trans_impl :: "('a, nat, int, 'si :: {hashable, heap}) transition_fun"
+  and l\<^sub>0i
+  and ceiling
+  and states' and loc_rel :: "('si \<times> 's) set"
+  +
+  assumes ceiling: "(ceiling, IArray o k') \<in> inv_rel loc_rel states'"
+begin
+
+lemma ceiling': "(ceiling, IArray o k') \<in> inv_rel loc_rel states"
+  using ceiling inv_rel_anti_mono[OF states'_states] by blast
+
+end
+
+locale Reachability_Problem_Impl =
+  Reachability_Problem_Impl_Defs _ _ A l\<^sub>0 n k F trans_fun inv_fun trans_impl l\<^sub>0i +
+  TA_Impl _ _ A l\<^sub>0 n k trans_fun inv_fun trans_impl l\<^sub>0i ceiling states' loc_rel +
+  Reachability_Problem A l\<^sub>0 n k F
+  for A :: "('a, nat, int, 's) ta"
+  and l\<^sub>0 :: 's
+  and n :: nat
+  and k
+  and F
+  and trans_fun inv_fun
+  and trans_impl :: "('a, nat, int, 'si :: {hashable, heap}) transition_fun"
+  and l\<^sub>0i
+  and ceiling
+  and states' and loc_rel :: "('si \<times> 's) set" +
+  assumes F_fun: "(F_fun, F) \<in> inv_rel loc_rel states'"
+begin
+
+lemma F_fun':  "(F_fun, F) \<in> inv_rel loc_rel states"
+  using F_fun inv_rel_anti_mono[OF states'_states] by blast
 
 end
 
@@ -251,21 +315,40 @@ sublocale liveness_search_space_pre:
 
 end
 
-
-locale Reachability_Problem_Impl_Op =
-  Reachability_Problem_Impl _ _ _ _ _ _ l\<^sub>0i _ l\<^sub>0
-  + op: E_From_Op_Bisim_Finite l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
+locale TA_Impl_Op =
+  TA_Impl _ _ A l\<^sub>0 n k trans_fun inv_fun trans_impl l\<^sub>0i ceiling states' loc_rel
+  + op: E_From_Op_Bisim A l\<^sub>0 n k f
+  for A and l\<^sub>0 :: 's and n k
+  and f trans_fun inv_fun trans_impl and l\<^sub>0i :: "'si:: {hashable,heap}"
+  and ceiling  states' loc_rel
+  +
   fixes op_impl
   assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo f l r)) \<in> op_impl_assn"
+
+(*
+locale Reachability_Problem_Impl_Op =
+  TA_Impl_Op _ _ A l\<^sub>0 n k f trans_fun inv_fun trans_impl l\<^sub>0i ceiling states' loc_rel
++ Reachability_Problem_Impl _ _ _ A l\<^sub>0 n k _ trans_fun inv_fun trans_impl l\<^sub>0i ceiling states' loc_rel
+  for A and l\<^sub>0 :: 's and n k
+  and f trans_fun inv_fun trans_impl and l\<^sub>0i :: "'si:: {hashable,heap}"
+  and ceiling  states' loc_rel
+*)
+
+locale Reachability_Problem_Impl_Op =
+  TA_Impl_Op _ _ A l\<^sub>0 n k f trans_fun inv_fun trans_impl l\<^sub>0i ceiling states' loc_rel
++ Reachability_Problem_Impl _ _ _ A l\<^sub>0 n k _ trans_fun inv_fun trans_impl l\<^sub>0i ceiling states' loc_rel
++ op: E_From_Op_Bisim_Finite_Reachability A l\<^sub>0 n k f
+  for A and l\<^sub>0 :: 's and n k
+  and f trans_fun inv_fun trans_impl and l\<^sub>0i :: "'si:: {hashable,heap}"
+  and ceiling  states' loc_rel
+
 
 section \<open>Implementing of the Successor Function\<close>
 
 paragraph \<open>Shared Setup\<close>
 
-context Reachability_Problem_Impl
+context TA_Impl
 begin
-
-  definition "inv_of_A = inv_of A"
 
   context
     notes [map_type_eqs] = map_type_eqI[of "TYPE(nat * nat \<Rightarrow> 'e)" "TYPE('e i_mtx)"]
@@ -277,7 +360,7 @@ begin
 
   sepref_register "PR_CONST (FW'' n)"
 
-  sepref_register "PR_CONST (Reachability_Problem_Impl.inv_of_A A)"
+  sepref_register "PR_CONST (inv_of_A)"
 
   end
 
@@ -322,13 +405,13 @@ begin
 
   sepref_register "PR_CONST k'"
 
-  lemma [def_pat_rules]: "(Reachability_Problem_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp
+  lemma [def_pat_rules]: "(TA_Start_Defs.k' $ n $ k) \<equiv> PR_CONST k'" by simp
 
   lemma [simp]:
     "length (k' l) > n"
   by (simp add: k'_def)
 
-  lemma [def_pat_rules]: "(Reachability_Problem_Impl.inv_of_A $ A) \<equiv> PR_CONST inv_of_A" by simp
+  lemma [def_pat_rules]: "(TA_Impl_Defs.inv_of_A $ A) \<equiv> PR_CONST inv_of_A" by simp
 
   lemma reset_canonical_upd_impl_refine:
     "(uncurry3 (reset_canonical_upd_impl n), uncurry3 (\<lambda>x. RETURN \<circ>\<circ>\<circ> reset_canonical_upd x))
@@ -388,10 +471,31 @@ begin
 
   lemmas [sepref_fr_rules] = abstr_repair_impl.refine
 
-end (* End of Reachability Problem Impl *)
+end (* TA Impl *)
 
 paragraph \<open>Implementation for an Arbitrary DBM Successor Operation\<close>
-context Reachability_Problem_Impl_Op
+
+context Reachability_Problem_Impl
+begin
+
+(* XXX Better implementation? *)
+lemma F_rel_alt_def:
+  "F_rel = (\<lambda> (l, M). F l  \<and> \<not> check_diag n M)"
+unfolding F_rel_def by auto
+
+sepref_register F
+
+lemma [sepref_fr_rules]:
+  "(return o F_fun, RETURN o F) \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+using F_fun by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def)
+
+sepref_definition F_impl is
+  "RETURN o (\<lambda> (l, M). F l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  by sepref
+
+end
+
+context TA_Impl_Op
 begin
 
   definition succs where
@@ -522,21 +626,6 @@ begin
     "uncurry0 (RETURN a\<^sub>0)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a state_assn'"
     unfolding a\<^sub>0_def by sepref
 
-  (* XXX Better implementation? *)
-  lemma F_rel_alt_def:
-    "F_rel = (\<lambda> (l, M). F l  \<and> \<not> check_diag n M)"
-  unfolding F_rel_def by auto
-
-  sepref_register F
-
-  lemma [sepref_fr_rules]:
-    "(return o F_fun, RETURN o F) \<in> location_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
-  using F_fun by sepref_to_hoare (sep_auto simp: inv_rel_def b_rel_def fun_rel_def)
-
-  sepref_definition F_impl is
-    "RETURN o (\<lambda> (l, M). F l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-    by sepref
-
   lemma trans_impl_trans_of[intro]:
     "(g, a, r, l') \<in> set (trans_fun l) \<Longrightarrow> l \<in> states' \<Longrightarrow> A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l'"
     using trans_fun unfolding transition_rel_def by auto
@@ -661,7 +750,7 @@ begin
       and [sepref_import_param] = IdI[of n]
   begin
 
-sepref_register trans_fun
+  sepref_register trans_fun
 
   sepref_definition succs_impl is
     "RETURN o PR_CONST succs" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a list_assn state_assn'"
@@ -728,8 +817,8 @@ sepref_register trans_fun
 
   (* XXX Move to different context *)
   lemma reachable_states:
-    "l \<in> states" if "op.reachable (l, M)"
-    using that unfolding op.reachable_def
+    "l \<in> states" if "op.E_from_op\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
+    using that
     by (induction "(l, M)" arbitrary: l M; force simp: a\<^sub>0_def state_set_def op.E_from_op_def)
 
   definition "emptiness_check \<equiv> \<lambda> (l, M). check_diag n M"
@@ -739,12 +828,36 @@ sepref_register trans_fun
     unfolding emptiness_check_def
     by sepref
 
+  lemma state_copy:
+    "RETURN \<circ> COPY = (\<lambda> (l, M). do {M' \<leftarrow> mop_mtx_copy M; RETURN (l, M')})"
+    by auto
+
+  sepref_definition state_copy_impl is
+    "RETURN \<circ> COPY" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a state_assn'"
+    unfolding state_copy
+    by sepref
+
+  lemma location_assn_constraints:
+    "is_pure location_assn"
+    "IS_LEFT_UNIQUE (the_pure location_assn)"
+    "IS_RIGHT_UNIQUE (the_pure location_assn)"
+    using left_unique_location_rel right_unique_location_rel
+    by (auto elim: single_valued_subset[rotated] simp: b_rel_def IS_LEFT_UNIQUE_def)
+
+  lemma not_check_diag_init_dbm[intro, simp]:
+      "\<not> check_diag n init_dbm"
+      unfolding check_diag_def init_dbm_def by auto
+
+end (* TA Impl Op *)
 
   section \<open>Instantiation of Worklist Algorithms\<close>
 
+context Reachability_Problem_Impl_Op
+begin
+
   sublocale Worklist0 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M"
     apply standard
-    apply (clarsimp split: prod.split dest!: reachable_states)
+    apply (clarsimp simp: op.reachable_def split: prod.split dest!: reachable_states)
     unfolding succs_def op.E_from_op_def using states'_states by force
 
   sublocale Worklist1 op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" ..
@@ -785,22 +898,6 @@ sepref_register trans_fun
         a\<^sub>0_impl.refine F_impl.refine subsumes_impl.refine succs_impl.refine[unfolded PR_CONST_def]
         emptiness_check_impl.refine[unfolded emptiness_check_def]
         )+
-
-  lemma state_copy:
-    "RETURN \<circ> COPY = (\<lambda> (l, M). do {M' \<leftarrow> mop_mtx_copy M; RETURN (l, M')})"
-    by auto
-
-  sepref_definition state_copy_impl is
-    "RETURN \<circ> COPY" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a state_assn'"
-    unfolding state_copy
-    by sepref
-
-  lemma location_assn_constraints:
-    "is_pure location_assn"
-    "IS_LEFT_UNIQUE (the_pure location_assn)"
-    "IS_RIGHT_UNIQUE (the_pure location_assn)"
-    using left_unique_location_rel right_unique_location_rel
-    by (auto elim: single_valued_subset[rotated] simp: b_rel_def IS_LEFT_UNIQUE_def)
 
   sublocale Worklist_Map2_Impl
     op.E_from_op a\<^sub>0 F_rel "subsumes n" succs "\<lambda> (l, M). check_diag n M" subsumes'
@@ -845,7 +942,7 @@ sepref_register trans_fun
         "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P F) a)
         = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l' \<and> \<not> check_diag n M') a x}"
         unfolding op.E_from_op_def succs_P_def using prems states'_states
-        by (force dest!: reachable_states)
+        by (force dest!: reachable_states simp: op.reachable_def)
       also have "\<dots> =
         {x. Subgraph_Node_Defs.E'
          (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M')
@@ -871,20 +968,16 @@ sepref_register trans_fun
       by sepref_to_hoare sep_auto
     by (rule state_copy_impl.refine)
 
+  lemma precond_a\<^sub>0:
+    "case a\<^sub>0 of (l, M) \<Rightarrow> op.reachable (l, M) \<and> \<not> check_diag n M"
+    unfolding op.reachable_def unfolding a\<^sub>0_def by auto
+
   lemma liveness_step_equiv:
     fixes x y
     assumes "(\<lambda> (l, M). op.reachable (l, M) \<and> \<not> check_diag n M \<and> F l) x"
     shows "liveness.G.E' x y \<longleftrightarrow>
       (\<lambda> (l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M') x y"
     using assms unfolding liveness.G.E'_def by auto
-
-  lemma not_check_diag_init_dbm[intro, simp]:
-    "\<not> check_diag n init_dbm"
-    unfolding check_diag_def init_dbm_def by auto
-
-  lemma precond_a\<^sub>0:
-    "case a\<^sub>0 of (l, M) \<Rightarrow> op.reachable (l, M) \<and> \<not> check_diag n M"
-    unfolding op.reachable_def unfolding a\<^sub>0_def by auto
 
   lemma liveness_check_equiv:
     "(\<exists>x. liveness.G.G'.reaches a\<^sub>0 x \<and> liveness.G.G'.reaches1 x x) \<longleftrightarrow>
@@ -955,7 +1048,6 @@ sepref_register trans_fun
           apply (simp; fail)
       subgoal
         using op.finite_reachable by (auto intro: reachable elim!: finite_subset[rotated])
-      thm op.F_mono[unfolded F_rel_def] final_non_empty
       subgoal for a a'
         by (auto simp: empty_subsumes' dest: subsumes_key)
       subgoal for a a'
@@ -966,7 +1058,7 @@ sepref_register trans_fun
           "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
             = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
           unfolding op.E_from_op_def succs_P_def using prems states'_states
-          by (force dest!: reachable reachable_states)
+          by (force dest!: reachable reachable_states simp: op.reachable_def)
         then show ?thesis
           by auto
       qed
@@ -1010,7 +1102,7 @@ sepref_register trans_fun
         "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
             = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
         unfolding op.E_from_op_def succs_P_def using prems states'_states
-        by (force dest!: reachable_states)
+        by (force dest!: reachable_states[folded op.reachable_def])
       also have "\<dots> =
             {x. Subgraph_Node_Defs.E'
              (\<lambda>x y.
@@ -1052,8 +1144,13 @@ sepref_register trans_fun
 
   end (* Context for second predicate *)
 
+end (* Reachability Problem Impl Op *)
 
-  section \<open>Implementation of the Invariant Precondition Check\<close>
+
+section \<open>Implementation of the Invariant Precondition Check\<close>
+
+context TA_Impl_Op
+begin
 
   definition
     "unbounded_dbm' = unbounded_dbm"
@@ -1127,7 +1224,7 @@ lemma (in Graph_Defs) Alw_ev:
   "Alw_ev \<phi> x" if "\<phi> x"
   using that unfolding Alw_ev_def by auto
 
-context Reachability_Problem_Impl
+context TA_Impl
 begin
 
 context
@@ -1147,7 +1244,12 @@ begin
 
 end (* End sepref setup *)
 
+end (* TA Impl *)
+
 subsection \<open>Correctness Theorems\<close>
+
+context Reachability_Problem_Impl
+begin
 
 sublocale Reachability_Problem_Impl_Op
   where loc_rel = loc_rel and f = "PR_CONST E_op''" and op_impl = E_op''_impl
@@ -1272,7 +1374,8 @@ datatype result = REACHABLE | UNREACHABLE | INIT_INV_ERR
 context Reachability_Problem_precompiled
 begin
 
-  sublocale Defs: Reachability_Problem_Impl_Defs _ _ A 0 "PR_CONST F" m by standard
+  sublocale Defs: Reachability_Problem_Impl_Defs
+    _ _ A 0 m "\<lambda> l i. if l < n \<and> i \<le> m then k ! l ! i else 0" "PR_CONST F" .
 
   lemma
     "(IArray xs) !! i = xs ! i"
@@ -1350,8 +1453,6 @@ begin
       \<in> fun_rel_syn nat_rel (list_rel (Id \<times>\<^sub>r nat_rel \<times>\<^sub>r Id \<times>\<^sub>r nat_rel))"
     by auto (metis IdI list_rel_id_simp relAPP_def)
 
-  term states
-
   (* XXX Room for optimization *)
   sublocale Reachability_Problem_Impl
     where A = A
@@ -1376,9 +1477,9 @@ begin
   lemma F_reachable_correct:
     "op.F_reachable
     \<longleftrightarrow> (\<exists> l' u u'. conv_A A \<turnstile>' \<langle>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> l' \<in> set final)"
-    using E_op''.E_from_op_reachability_check reachability_check
+    using E_op''.E_from_op_reachability_check[of F_rel "PR_CONST F"] reachability_check
     unfolding E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
-    unfolding F_def by auto
+    unfolding F_rel_def unfolding F_def by auto
 
   definition
     "reachability_checker_wl \<equiv>

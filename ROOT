@@ -1,12 +1,22 @@
+session "TA_Library" = "Refine_Imperative_HOL" +
+  theories
+    "library/More_Methods"
+    "library/Abstract_Term"
+    "library/Instantiate_Existentials"
+    "library/Tracing"
+    "library/Printing"
+    "library/Error_List_Monad"
+
+
 (* Use this to get document output for the abstract formalization of Reachability Checking *)
-session "TA" = "Refine_Imperative_HOL" +
+session "TA" = "TA_Library" +
 (*
   options
     [document = pdf, document_output = "output",
      document_variants = "abstract_reachability_proofs:abstract_reachability=/proof,/ML"]
 *)
   theories [document = false]
-    Main "HOL.Real" Floyd_Warshall FW_Code
+    Main HOL.Real Floyd_Warshall FW_Code
   theories
     Normalized_Zone_Semantics
 (*
@@ -20,7 +30,7 @@ session "TA_Impl" = "TA" +
   sessions
     Show
   theories [document = false]
-    "Refine_Imperative_HOL.IICF"
+    Refine_Imperative_HOL.IICF
     "HOL-Library.IArray"
   theories
     Normalized_Zone_Semantics_Impl_Refine
@@ -53,15 +63,13 @@ session "TA_All" = "TA_Impl" +
      document_variants = "model_checking_proofs:model_checking=/proof,/ML"]
   theories [document = false]
     Refine_Imperative_HOL.IICF
-    "TA.Instantiate_Existentials"
-    "library/ML_Util"
-    "library/Reordering_Quantifiers"
-    "TA.Sequence"
-    "TA.Stream_More"
+    TA.Instantiate_Existentials
+    TA.Sequence
+    TA.Stream_More
     "HOL-Library.IArray"
   theories
     "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
-    "TA.Simulation_Graphs"
+    TA.Simulation_Graphs
     TA_More
     Infinite_TA_Runs
     "Worklist_Algorithms/Worklist_Subsumption_Impl1"
@@ -70,7 +78,7 @@ session "TA_All" = "TA_Impl" +
   document_files (in "document/model_checking")
     "root.tex"
 
-session "TA_Code" = "TA_Impl" +
+session "TA_Code" = "TA_Byte_Code" +
   sessions
     Gabow_SCC
   theories [document = false]

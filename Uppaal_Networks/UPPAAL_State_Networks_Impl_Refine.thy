@@ -990,7 +990,7 @@ lemma
     "\<forall> l. k_fun l 0 = 0"
   using k_ceiling_1 k_ceiling_2 unfolding k_fun_def by auto
 
-sublocale Reachability_Problem "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m A k_fun
+sublocale Reachability_Problem A "(init, s\<^sub>0)" m k_fun "PR_CONST (\<lambda> (l, s). F l s)"
   by (standard; rule k_ceiling' k_bound' k_0')
 
 end (* End of context for precompiled reachability problem with ceiling *)
@@ -1127,8 +1127,7 @@ locale UPPAAL_Reachability_Problem_precompiled' =
 begin
 
   (* XXX Why are we re-doing this here? *)
-  sublocale Reachability_Problem_Impl_Defs _ _ A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m
-    by standard
+  sublocale Reachability_Problem_Impl_Defs _ _ A "(init, s\<^sub>0)" m k_fun "PR_CONST (\<lambda> (l, s). F l s)" .
 
   definition
     "states' = {(L, s). L \<in> equiv.defs.states' s \<and> check_pred L s \<and> length s = length bounds}"
@@ -2028,37 +2027,6 @@ begin
 
 end (* End of context *)
 
-ML \<open>
-    fun pull_let ctxt u t =
-      let
-        val t1 = abstract_over (u, t);
-        val r1 = Const (@{const_name "HOL.Let"}, dummyT) $ u $ Abs ("I", dummyT, t1);
-        val ct1 = Syntax.check_term ctxt r1;
-        val g1 =
-          Goal.prove ctxt [] [] (Logic.mk_equals (t, ct1))
-          (fn {context, ...} => EqSubst.eqsubst_tac context [0] [@{thm Let_def}] 1
-          THEN resolve_tac context [@{thm Pure.reflexive}] 1)
-      in g1 end;
-
-    fun get_rhs thm =
-      let
-        val Const ("Pure.eq", _) $ _ $ r = Thm.full_prop_of thm
-      in r end;
-
-    fun get_lhs thm =
-      let
-        val Const ("Pure.imp", _) $ (Const ("Pure.eq", _) $ l $ _) $ _ = Thm.full_prop_of thm
-      in l end;
-
-    fun pull_tac' u ctxt thm =
-      let
-        val l = get_lhs thm;
-        val rewr = pull_let ctxt u l;
-      in Local_Defs.unfold_tac ctxt [rewr] thm end;
-
-    fun pull_tac u ctxt = SELECT_GOAL (pull_tac' u ctxt) 1;
-  \<close>
-
 context UPPAAL_Reachability_Problem_precompiled'
 begin
 
@@ -2193,9 +2161,11 @@ begin
         conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
         \<and> (\<forall> c \<in> {1..m}. u c = 0) \<and> check_bexp \<phi> L' s'
       )" if "formula = formula.EX \<phi>"
-    using that E_op''.E_from_op_reachability_check reachability_check
+    using that E_op''.E_from_op_reachability_check[of F_rel "PR_CONST (\<lambda>(x, y). F x y)",
+        unfolded F_rel_def, OF HOL.refl]
+      reachability_check
     unfolding impl.E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
-    unfolding F_def by auto
+    unfolding F_rel_def unfolding F_def by force
 
   lemma PT_PT:
     "defs'.PT = equiv.PT"
@@ -2545,21 +2515,17 @@ begin
     "impl.succs_impl \<equiv> ?impl"
     unfolding impl.succs_impl_def
     unfolding k_impl_alt_def
-    apply (tactic
-        \<open>pull_tac
-        @{term
-          "\<lambda> (l, _). IArray (map (\<lambda> c. Max {k_i !! i !! (l ! i) !! c | i. i \<in> {0..<p}}) [0..<m+1])"
-        }
-        @{context}
-       \<close>
+    apply (abstract_let
+          "\<lambda> (l, _ :: int list). IArray (map (\<lambda> c. MAX i\<in>{0..<p}. k_i !! i !! (l ! i) !! c) [0..<m+1])"
+          k_i
         )
-    apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+    apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> (nat, int) acconstraint list" inv_fun)
+    apply (abstract_let "trans_fun" trans_fun)
     unfolding inv_fun_def[abs_def] trans_fun_def[abs_def] trans_s_fun_def trans_i_fun_def trans_i_from_def
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
+    apply (abstract_let "IArray (map IArray inv)" inv)
+    apply (abstract_let "IArray (map IArray trans_out_map)" trans_out_map)
+    apply (abstract_let "IArray (map IArray trans_in_map)" trans_in_map)
+    apply (abstract_let "IArray (map IArray trans_in_map)" trans_in_map)
     by (rule Pure.reflexive)
 
   lemma reachability_checker'_alt_def':
@@ -2586,23 +2552,16 @@ begin
       impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
       impl.unbounded_dbm'_def unbounded_dbm_def
     unfolding k_impl_alt_def
-   apply (tactic
-        \<open>pull_tac
-        @{term
-          k_i
-        }
-        @{context}
-       \<close>
-        )
-   apply (tactic \<open>pull_tac @{term "inv_fun"} @{context}\<close>) (* XXX This is not pulling anything *)
-    apply (tactic \<open>pull_tac @{term "trans_fun"} @{context}\<close>)
+   apply (abstract_let k_i k_i)
+   apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> (nat, int) acconstraint list" )
+    apply (abstract_let "trans_fun" trans_fun)
       (*
     unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def trans_i_from_def
       thm inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def trans_i_from_def trans_i_map_def
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-   apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
+   apply (abstract_let "IArray (map IArray inv)" )
+   apply (abstract_let "IArray (map IArray trans_out_map)" )
+   apply (abstract_let "IArray (map IArray trans_in_map)" )
+   apply (abstract_let "IArray (map IArray trans_i_map)" )
   *)
    unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
    unfolding impl.F_impl_def
@@ -2821,25 +2780,25 @@ begin
     unfolding inv_fun_def trans_fun_def trans_s_fun_def trans_i_fun_def
     unfolding trans_i_from_impl
     unfolding runf_impl runt_impl check_g_impl pairs_by_action_impl check_pred_impl
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray inv)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_out_map)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_in_map)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map IArray trans_i_map)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray bounds"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term PF} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term PT} @{context}\<close>)
+    apply (abstract_let "IArray (map IArray inv)" inv)
+    apply (abstract_let "IArray (map IArray trans_out_map)" trans_out_map)
+    apply (abstract_let "IArray (map IArray trans_in_map)" trans_in_map)
+    apply (abstract_let "IArray (map IArray trans_i_map)" trans_i_map)
+    apply (abstract_let "IArray bounds" bounds)
+    apply (abstract_let PF PF)
+    apply (abstract_let PT PT)
     unfolding PF_alt_def PT_alt_def
-    apply (tactic \<open>pull_tac @{term PROG'} @{context}\<close>)
+    apply (abstract_let PROG' PROG')
     unfolding PROG'_def
-    apply (tactic \<open>pull_tac @{term "length prog"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map (map_option stripf) prog)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray (map (map_option stript) prog)"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "IArray prog"} @{context}\<close>)
+    apply (abstract_let "length prog" len_prof)
+    apply (abstract_let "IArray (map (map_option stripf) prog)" prog_f)
+    apply (abstract_let "IArray (map (map_option stript) prog)" prog_t)
+    apply (abstract_let "IArray prog" prog)
     unfolding all_actions_by_state_impl
-    apply (tactic \<open>pull_tac @{term "[0..<p]"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "[0..<na]"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "{0..<p}"} @{context}\<close>)
-    apply (tactic \<open>pull_tac @{term "[0..<m+1]"} @{context}\<close>)
+    apply (abstract_let "[0..<p]")
+    apply (abstract_let "[0..<na]")
+    apply (abstract_let "{0..<p}")
+    apply (abstract_let "[0..<m+1]")
     by (rule Pure.reflexive)
 
 end (* End of precompiled' locale context *)
@@ -3009,9 +2968,6 @@ lemmas [code] =
 
 lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.P_def
-
-term exec
-  term prog
 
 lemma exec_code[code]:
   "exec prog n (pc, st, m, f, rs) pcs =

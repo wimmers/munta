@@ -3,7 +3,7 @@ theory UPPAAL_Model_Checking
     "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
     (* "HOL-Library.BNF_Corec" *)
     TA_Impl.TA_More
-    "library/Abstract_Term"
+    TA_Impl.Abstract_Term
 begin
 
 hide_const models
@@ -448,9 +448,11 @@ lemma F_reachable_correct'_new:
       conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
       \<and>  check_bexp \<phi> L' s')
     )" if "formula = formula.EX \<phi>"
-  using that E_op''.E_from_op_reachability_check reachability_check_new
+  using
+    that E_op''.E_from_op_reachability_check[of F_rel "PR_CONST (\<lambda>(x, y). F x y)"]
+    reachability_check_new
   unfolding impl.E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
-  unfolding F_def by auto
+  unfolding F_rel_def unfolding F_def by force
 
 lemma F_reachable_correct'_new':
   "impl.op.F_reachable
@@ -458,9 +460,11 @@ lemma F_reachable_correct'_new':
       conv_A A \<turnstile>' \<langle>(init, s\<^sub>0), u\<rangle> \<rightarrow>* \<langle>(L', s'), u'\<rangle>
       \<and>  \<not> check_bexp \<phi> L' s')
     )" if "formula = formula.AG \<phi>"
-  using that E_op''.E_from_op_reachability_check reachability_check_new
+  using
+    that E_op''.E_from_op_reachability_check[of F_rel "PR_CONST (\<lambda>(x, y). F x y)"]
+    reachability_check_new
   unfolding impl.E_op_F_reachable E_op''.F_reachable_def E_op''.reachable_def
-  unfolding F_def by auto
+  unfolding F_rel_def unfolding F_def by force
 
 lemma F_reachable_correct_new:
   "impl.op.F_reachable

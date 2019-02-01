@@ -2,9 +2,9 @@ theory Normalized_Zone_Semantics_Certification
   imports TA_Impl.Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 
-no_notation Reachability_Problem_Defs.step_impl' ("\<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
+no_notation TA_Start_Defs.step_impl' ("\<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
 
-context Reachability_Problem_Defs
+context TA_Start_Defs
 begin
 
 definition
@@ -163,7 +163,7 @@ definition step_z_dbm' ::
   "A \<turnstile>' \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l'',D''\<rangle> \<equiv>
   \<exists>l' D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D'\<rangle> \<and> A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^bsub>v,n,\<upharpoonleft>a\<^esub> \<langle>l'', D''\<rangle>"
 
-context Reachability_Problem
+context TA_Start
 begin
 
 lemma E_precise_op'_bisim:
@@ -337,7 +337,7 @@ proof -
     unfolding E_precise_op'_def by simp (intro wf_intros side_conds order.refl)
 qed
 
-sublocale E_precise_op': E_Precise_Bisim _ _ _ _ _ E_precise_op'
+sublocale E_precise_op': E_Precise_Bisim _ _ _ _ E_precise_op'
   by standard (rule E_precise_op'_bisim E_precise_op'_wf; assumption)+
 
 lemma step_z_dbm'_final_bisim:
@@ -351,7 +351,7 @@ lemma step_z_dbm'_final_bisim:
         OF step_z_dbm'_step_impl_precise_equiv[folded E_precise_def] E_precise_op'.E_from_op_bisim
       ]) (auto simp add: state_equiv_def dbm_equiv_def)
 
-end (* Reachability Problem *)
+end (* TA Start *)
 
 context E_Precise_Bisim
 begin
@@ -445,6 +445,6 @@ lemma E_from_op_empty_mono':
   shows "\<exists> M'. E_from_op_empty (l,M) (l',M') \<and> dbm_subset n D' M'"
   using assms unfolding E_from_op_empty_def using check_diag_subset E_from_op_mono' by blast
 
-end
+end (* E Precise Bisim *)
 
 end

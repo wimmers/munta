@@ -467,8 +467,13 @@ begin
     qed
   qed (auto simp: p_gt_0)
 
+  sublocale TA_Start_No_Ceiling A "(init, s\<^sub>0)" m
+    using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
+
+(*
   sublocale Reachability_Problem_no_ceiling A "(init, s\<^sub>0)" "PR_CONST (\<lambda> (l, s). F l s)" m
     using clkp_set_consts_nat clk_set m_gt_0 by - (standard; blast)
+*)
 
   lemma [simp]:
     "length P = p"

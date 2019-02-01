@@ -4,10 +4,35 @@ theory Normalized_Zone_Semantics_Certification_Impl
     Normalized_Zone_Semantics_Certification
     "Worklist_Algorithms/Unreachability_Certification"
     Deadlock_Impl
-    "library/More_Methods"
+    "TA_Byte_Code.More_Methods"
 begin
 
 paragraph \<open>Misc\<close>
+
+context TA_Start
+begin
+
+(* XXX This is in Normalized_Zone_Semantics_Impl but in the wrong context *)
+lemma V_I:
+  assumes "\<forall> i \<in> {1..<Suc n}. M 0 i \<le> 0"
+  shows "[M]\<^bsub>v,n\<^esub> \<subseteq> V"
+  unfolding V_def DBM_zone_repr_def
+proof (safe, goal_cases)
+  case prems: (1 u i)
+  then have "v i = i"
+    using X_alt_def X_def triv_numbering by blast
+  with prems have "v i > 0" "v i \<le> n" by auto
+  with prems have "dbm_entry_val u None (Some i) (M 0 (v i))"
+    unfolding DBM_val_bounded_def by auto
+  moreover from assms \<open>v i > 0\<close> \<open>v i \<le> n\<close> have "M 0 (v i) \<le> 0" by auto
+  ultimately
+  show ?case
+    apply (cases "M 0 (v i)")
+    unfolding neutral less_eq dbm_le_def
+    by (auto elim!: dbm_lt.cases simp: \<open>v i = i\<close>)
+qed
+
+end
 
 lemma Simulation_Composition:
   fixes A B C
@@ -100,7 +125,7 @@ lemma of_list_list_to_dbm:
 end
 
 
-context Reachability_Problem_Impl
+context TA_Impl
 begin
 
 sepref_definition E_precise_op'_impl is
@@ -112,13 +137,37 @@ sepref_definition E_precise_op'_impl is
 
 end
 
-
+(*
 locale Reachability_Problem_Impl_Precise =
   Reachability_Problem_Impl _ _ _ _ _ _ l\<^sub>0i _ l\<^sub>0
   + op_precise: E_Precise_Bisim l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
   fixes op_impl and states_mem_impl
   assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo PR_CONST f l r)) \<in> op_impl_assn"
       and states_mem_impl: "(states_mem_impl, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
+begin
+*)
+
+locale TA_Impl_Precise =
+  TA_Impl _ _ _ l\<^sub>0 _ _ _ _ _ l\<^sub>0i
+  + op_precise: E_Precise_Bisim _ l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
+  fixes op_impl and states_mem_impl
+  assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo PR_CONST f l r)) \<in> op_impl_assn"
+      and states_mem_impl: "(states_mem_impl, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
+
+locale Reachability_Problem_Impl_Precise =
+  TA_Impl_Precise _ show_state A
+  for show_state :: "'si:: {hashable,heap} \<Rightarrow> string" and A :: "('a, nat, int, 's) ta"+
+  fixes F :: "'s \<times> (nat \<times> nat \<Rightarrow> int DBMEntry) \<Rightarrow> bool" and F' and F1 and F_impl
+  assumes F_mono: "\<And> a b.
+    (\<lambda>(l, M). l \<in> states' \<and> wf_dbm M) a \<Longrightarrow> F a \<Longrightarrow>
+    (\<lambda>(l, s) (l', s'). l' = l \<and> dbm_subset n s s') a b \<Longrightarrow> (\<lambda>(l, M). l \<in> states' \<and> wf_dbm M) b
+    \<Longrightarrow> F b"
+      and F_F1: "\<And>l D Z. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) (l, D)
+          \<Longrightarrow> dbm.zone_of (curry (conv_M D)) = Z \<Longrightarrow> F (l, D) = F1 (l, Z)"
+      and F'_F1: "\<And>l u Z. u \<in> Z \<Longrightarrow> F' (l, u) \<Longrightarrow> F1 (l, Z)"
+      and F_impl: "(F_impl, RETURN o PR_CONST F) \<in> state_assn'\<^sup>d \<rightarrow>\<^sub>a bool_assn"
+
+context TA_Impl_Precise
 begin
 
 lemma E_precise_E_op:
@@ -247,10 +296,6 @@ lemma succs_precise_finite:
   "\<forall>l S. \<forall>(l', S')\<in>set (succs_precise l S). finite S \<longrightarrow> finite S'"
   unfolding succs_precise_def by auto
 
-sepref_definition F_impl' is
-  "RETURN o PR_CONST (\<lambda> (l, M). F l)" :: "state_assn'\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  unfolding PR_CONST_def by sepref
-
 definition
   "wf_dbm' D \<equiv> (canonical' D \<or> check_diag n D) \<and>
      (list_all (\<lambda>i. D (i, i) \<le> 0) [0..<n+1]) \<and> list_all (\<lambda>i. D (0, i) \<le> 0) [0..<n+1]"
@@ -346,6 +391,13 @@ lemma P_impl_refine:
 lemma E_from_op_states:
   "l' \<in> states'" if "op_precise.E_from_op (l, M) (l', M')" "l \<in> states'"
   using that unfolding op_precise.E_from_op_def by auto
+
+lemmas [safe_constraint_rules] = location_assn_constraints
+
+end (* TA Impl Precise *)
+
+context Reachability_Problem_Impl_Precise
+begin
 
 context
   fixes L_list :: "'si list" and P_loc and M_list :: "('si \<times> int DBMEntry list list) list"
@@ -503,10 +555,108 @@ proof -
   qed
 qed
 
+lemmas step_z_dbm_complete = step_z_dbm_complete[OF global_clock_numbering']
+
+interpretation A:
+  Simulation
+  "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
+  "\<lambda> (l, u) (l', Z). l' = l \<and> u \<in> Z"
+  by standard (auto dest!: step_z_complete')
+
+interpretation B:
+  Simulation
+  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
+  "\<lambda> (l, M) (l', M'). \<exists> a. conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+  "\<lambda> (l, Z) (l', M). l' = l \<and> Z = [M]\<^bsub>v,n\<^esub>"
+  by standard (force simp: step_z'_def step_z_dbm'_def elim!: step_z_dbm_DBM)
+
+interpretation
+  Simulation
+  "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
+  "\<lambda> (l, M) (l', M'). \<exists> a. step_z_dbm' (conv_A A) l M v n a l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+  "\<lambda> (l, u) (l', M). l' = l \<and> u \<in> [M]\<^bsub>v,n\<^esub>"
+  by (rule Simulation_Composition, rule A.Simulation_axioms, rule B.Simulation_axioms) auto
+
+lemma op_precise_unreachable_correct:
+  assumes "\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> F s'"
+  shows "\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F' (l', u')"
+proof -
+  define E where "E \<equiv> \<lambda>(l, M) (l', M'). \<exists> a. conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+  interpret Bisimulation_Invariant
+    E
+    op_precise.E_from_op_empty
+    "\<lambda>(l, M) (l', D). l' = l \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+    "\<lambda>(l, y). valid_dbm y"
+    "wf_state"
+    unfolding E_def by (rule op_precise.step_z_dbm'_E_from_op_bisim_empty)
+  have 1: "reaches (l\<^sub>0, u) (l', u')" if "conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" for u u' l'
+    by (simp add: steps'_iff that)
+  have 2: "u \<in> dbm.zone_of (curry init_dbm)" if "\<forall>c \<le> n. u c = 0" for u :: "_ \<Rightarrow> real"
+    by (simp add: init_dbm_zone that)
+  from assms have
+    "\<nexists>l' M'. E\<^sup>*\<^sup>* (l\<^sub>0, curry (conv_M init_dbm)) (l', M') \<and> F1 (l', [M']\<^bsub>v,n\<^esub>) \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+    apply (clarsimp simp: )
+    apply (drule bisim.A_B_reaches[where b = "(l\<^sub>0, init_dbm)"])
+    subgoal
+      using valid_init_dbm unfolding equiv'_def
+      by (auto simp: wf_state_def)
+    unfolding equiv'_def using canonical_check_diag_empty_iff
+    using F_F1 by blast
+  then show ?thesis
+    unfolding E_def by (fastforce dest: dbm.check_diag_empty F'_F1 dest!: simulation_reaches 1 2)
+qed
+
+lemma op_precise_unreachable_correct':
+  "(uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
+      (\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> F s'))),
+    uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
+      (\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F' (l', u')))))
+  \<in> Id \<rightarrow> \<langle>Id\<rangle>nres_rel"
+  using op_precise_unreachable_correct by (clarsimp simp: pw_le_iff pw_nres_rel_iff)
+
+(*
+lemma op_precise_unreachable_correct:
+  assumes "\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> (\<lambda> (l, M). F l) s'"
+  shows "\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'"
+proof -
+  define E where "E \<equiv> \<lambda>(l, M) (l', M'). \<exists> a. conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+  interpret Bisimulation_Invariant
+    E
+    op_precise.E_from_op_empty
+    "\<lambda>(l, M) (l', D). l' = l \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
+    "\<lambda>(l, y). valid_dbm y"
+    "wf_state"
+    unfolding E_def by (rule op_precise.step_z_dbm'_E_from_op_bisim_empty)
+  have 1: "reaches (l\<^sub>0, u) (l', u')" if "conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" for u u' l'
+    by (simp add: steps'_iff that)
+  have 2: "u \<in> dbm.zone_of (curry init_dbm)" if "\<forall>c \<le> n. u c = 0" for u :: "_ \<Rightarrow> real"
+    by (simp add: init_dbm_zone that)
+  from assms have "\<nexists>l' M'. E\<^sup>*\<^sup>* (l\<^sub>0, curry (conv_M init_dbm)) (l', M') \<and> F l' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+    apply (clarsimp simp: F_rel_def)
+    apply (drule bisim.A_B_reaches[where b = "(l\<^sub>0, init_dbm)"])
+    subgoal
+      using valid_init_dbm unfolding equiv'_def
+      by (auto simp: wf_state_def)
+    unfolding equiv'_def using canonical_check_diag_empty_iff by blast
+  then show ?thesis
+    unfolding E_def using simulation_reaches by (force dest!: 1 2 dest: dbm.check_diag_empty)
+qed
+
+lemma op_precise_unreachable_correct':
+  "(uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
+      (\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> (\<lambda>(l, M). F l) s'))),
+    uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
+      (\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'))))
+  \<in> Id \<rightarrow> \<langle>Id\<rangle>nres_rel"
+  using op_precise_unreachable_correct by (clarsimp simp: pw_le_iff pw_nres_rel_iff)
+*)
+
 interpretation
   Reachability_Impl
   where A = "mtx_assn n"
-    and F = "\<lambda> (l, M). F l"
+    (* and F = "\<lambda> (l, M). F l" *)
+    and F = F
     and l\<^sub>0i = "return l\<^sub>0i"
     and s\<^sub>0 = init_dbm
     and s\<^sub>0i = init_dbm_impl
@@ -516,7 +666,7 @@ interpretation
     and less_eq = "dbm_subset n"
     and Lei = "dbm_subset_impl n"
     and E = op_precise.E_from_op_empty
-    and Fi = F_impl'
+    and Fi = F_impl
     and K = location_assn
     and keyi = "return o fst"
     and copyi = amtx_copy
@@ -553,8 +703,9 @@ interpretation
     by (rule succs_precise_finite)
   subgoal (* succs empty *)
     unfolding succs_precise_def by auto
-  subgoal (* F mono *)
-    using op.F_mono subsumes_simp_1 by fastforce
+  subgoal (* F mono *) thm subsumes_simp_1
+    by (rule F_mono)
+    (* using op.F_mono subsumes_simp_1 by fastforce *)
       (* subgoal (* L refine *)
     by (rule L_list_hnr) *)
       (* subgoal (* M refine *)
@@ -565,7 +716,7 @@ interpretation
   subgoal (* P refine *)
     by (rule P_impl_refine)
   subgoal (* F refine *)
-    by (rule F_impl'.refine)
+    by (rule F_impl)
   subgoal (* succs refine *)
     using succs_precise_impl_refine unfolding b_assn_pure_conv .
        apply (rule dbm_subset_impl.refine; fail)
@@ -575,63 +726,9 @@ interpretation
     apply (rule location_assn_constraints; fail)+
   done
 
-lemmas step_z_dbm_complete = step_z_dbm_complete[OF global_clock_numbering']
-
-interpretation A:
-  Simulation
-  "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
-  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  "\<lambda> (l, u) (l', Z). l' = l \<and> u \<in> Z"
-  by standard (auto dest!: step_z_complete')
-
-interpretation B:
-  Simulation
-  "\<lambda> (l, Z) (l', Z'). \<exists> a. conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> Z' \<noteq> {}"
-  "\<lambda> (l, M) (l', M'). \<exists> a. step_z_dbm' (conv_A A) l M v n a l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
-  "\<lambda> (l, Z) (l', M). l' = l \<and> Z = [M]\<^bsub>v,n\<^esub>"
-  by standard (force simp: step_z'_def step_z_dbm'_def elim!: step_z_dbm_DBM)
-
-interpretation
-  Simulation
-  "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
-  "\<lambda> (l, M) (l', M'). \<exists> a. step_z_dbm' (conv_A A) l M v n a l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
-  "\<lambda> (l, u) (l', M). l' = l \<and> u \<in> [M]\<^bsub>v,n\<^esub>"
-  by (rule Simulation_Composition, rule A.Simulation_axioms, rule B.Simulation_axioms) auto
-
-lemma op_precise_unreachable_correct:
-  assumes "\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> (\<lambda> (l, M). F l) s'"
-  shows "\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'"
-proof -
-  define E where "E \<equiv> \<lambda>(l, M) (l', M'). \<exists> a. conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
-  interpret Bisimulation_Invariant
-    E
-    op_precise.E_from_op_empty
-    "\<lambda>(l, M) (l', D). l' = l \<and> [curry (conv_M D)]\<^bsub>v,n\<^esub> = [M]\<^bsub>v,n\<^esub>"
-    "\<lambda>(l, y). valid_dbm y"
-    "wf_state"
-    unfolding E_def by (rule op_precise.step_z_dbm'_E_from_op_bisim_empty)
-  have 1: "reaches (l\<^sub>0, u) (l', u')" if "conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>" for u u' l'
-    by (simp add: steps'_iff that)
-  have 2: "u \<in> dbm.zone_of (curry init_dbm)" if "\<forall>c \<le> n. u c = 0" for u :: "_ \<Rightarrow> real"
-    by (simp add: init_dbm_zone that)
-  from assms have "\<nexists>l' M'. E\<^sup>*\<^sup>* (l\<^sub>0, curry (conv_M init_dbm)) (l', M') \<and> F l' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
-    apply (clarsimp simp: F_rel_def)
-    apply (drule bisim.A_B_reaches[where b = "(l\<^sub>0, init_dbm)"])
-    subgoal
-      using valid_init_dbm unfolding equiv'_def
-      by (auto simp: wf_state_def)
-    unfolding equiv'_def using canonical_check_diag_empty_iff by blast
-  then show ?thesis
-    unfolding E_def using simulation_reaches by (force dest!: 1 2 dest: dbm.check_diag_empty)
-qed
-
-lemma op_precise_unreachable_correct':
-  "(uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
-      (\<nexists>s'. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) s' \<and> (\<lambda>(l, M). F l) s'))),
-    uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
-      (\<nexists>u l' u'. (\<forall>c \<le> n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F l'))))
-  \<in> Id \<rightarrow> \<langle>Id\<rangle>nres_rel"
-  using op_precise_unreachable_correct by (clarsimp simp: pw_le_iff pw_nres_rel_iff)
+thm certify_unreachable_impl.refine[
+    OF Reachability_Impl_axioms L_list_hnr, unfolded PR_CONST_def, OF M_table.refine]
+op_precise_unreachable_correct'
 
 lemmas certify_unreachable_impl_hnr =
   certify_unreachable_impl.refine[
@@ -642,7 +739,7 @@ lemmas certify_unreachable_impl_hnr =
 definition
   "unreachability_checker \<equiv>
   let
-    Fi = F_impl';
+    Fi = F_impl;
     Pi = P_impl;
     copyi = amtx_copy;
     Lei = dbm_subset_impl n;
@@ -656,7 +753,7 @@ definition
 lemma unreachability_checker_alt_def:
   "unreachability_checker \<equiv>
   let
-    Fi = F_impl';
+    Fi = F_impl;
     Pi = P_impl;
     copyi = amtx_copy;
     Lei = dbm_subset_impl n;
@@ -676,7 +773,90 @@ lemmas unreachability_checker_alt_def' = unreachability_checker_alt_def[unfolded
 
 end
 
-end
+end (* Reachability Problem Impl Precise *)
+
+
+
+context TA_Impl_Precise
+begin
+
+lemma (in TA_Impl) dbm_subset_correct:
+  assumes "wf_dbm D" and "wf_dbm M"
+  shows "[curry (conv_M D)]\<^bsub>v,n\<^esub> \<subseteq> [curry (conv_M M)]\<^bsub>v,n\<^esub> \<longleftrightarrow> dbm_subset n D M"
+  unfolding dbm_subset_correct''[OF assms] using dbm_subset_conv_rev dbm_subset_conv ..
+
+lemma empty_steps_states':
+  "l' \<in> states'" if "op_precise.E_from_op_empty\<^sup>*\<^sup>* (l, D) (l', D')" "l \<in> states'"
+  using that
+proof (induction "(l, D)" "(l', D')" arbitrary: l' D')
+  case rtrancl_refl
+  then show ?case
+    by simp
+next
+  case (rtrancl_into_rtrancl b)
+  then show ?case
+    by (cases b) (auto simp add: op_precise.E_from_op_empty_def intro: E_from_op_states)
+qed
+
+interpretation deadlock: Reachability_Problem_Impl_Precise where
+  F = "\<lambda>(l, D). \<not> (check_deadlock_dbm l D)" and
+  F1 = "\<lambda>(l, Z). \<not> (TA.check_deadlock l Z)" and
+  F' = deadlocked and
+  F_impl = "\<lambda>(l, M). do {r \<leftarrow> check_deadlock_impl l M; return (\<not> r)}"
+  apply standard
+(* mono *)
+  subgoal for a b
+    apply clarsimp
+    apply (auto dest: TA.check_deadlock_anti_mono simp:
+        dbm_subset_correct[symmetric] check_deadlock_dbm_correct'[symmetric, unfolded wf_state_def])
+    done
+(* compatible zone *)
+  subgoal
+    using
+      Bisimulation_Invariant.B_steps_invariant[OF op_precise.step_z_dbm'_E_from_op_bisim_empty]
+      wf_state_init states'_states
+    unfolding a\<^sub>0_def
+    by simp (subst check_deadlock_dbm_correct'[symmetric], auto elim: empty_steps_states')
+(* compatible semantics *)
+  subgoal for l u Z
+    unfolding TA.check_deadlock_correct_step' deadlocked_def by auto
+(* implementation correct *)
+  subgoal
+  proof -
+    define location_assn' where "location_assn' = location_assn"
+    define mtx_assn' :: "_ \<Rightarrow> int DBMEntry array \<Rightarrow> _" where "mtx_assn' = mtx_assn n"
+    note [sep_heap_rules] = check_deadlock_impl.refine[
+        to_hnr, unfolded hn_refine_def hn_ctxt_def,
+        folded location_assn'_def mtx_assn'_def, simplified]
+    show ?thesis
+      unfolding location_assn'_def[symmetric] mtx_assn'_def[symmetric]
+      by sepref_to_hoare (sep_auto simp: pure_def)
+  qed
+  done
+
+lemma deadlock_unreachability_checker_hnr:
+  fixes P_loc :: "'si \<Rightarrow> bool"
+    and L_list :: "'si list"
+    and M_list :: "('si \<times> int DBMEntry list list) list"
+  assumes "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
+    and "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
+    and "fst ` set M_list \<subseteq> set L_list"
+    and "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
+    and "set (deadlock.L L_list) = dom (deadlock.M M_list)"
+  shows
+    "(uncurry0
+       (Reachability_Problem_Impl_Precise.unreachability_checker n trans_impl l\<^sub>0i op_impl
+         states_mem_impl (\<lambda>(l, M). check_deadlock_impl l M \<bind> (\<lambda>r. return (\<not> r))) L_list M_list),
+      uncurry0
+       (SPEC
+         (\<lambda>r. r \<longrightarrow> (\<forall>u. (\<forall>c\<le>n. u c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u)))))
+     \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  using deadlock.unreachability_checker_hnr[OF assms]
+  unfolding deadlock_def steps'_iff[symmetric] by simp linarith
+
+lemmas deadlock_unreachability_checker_alt_def = deadlock.unreachability_checker_alt_def
+
+end (* TA Impl Precise *)
 
 concrete_definition (in -) unreachability_checker
   uses Reachability_Problem_Impl_Precise.unreachability_checker_alt_def

@@ -74,7 +74,7 @@ lemma reachable_S_subsumed:
 
 context
   fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
-  assumes F_mono[intro]: "F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> F b"
+  assumes F_mono[intro]: "reaches s\<^sub>0 a \<Longrightarrow> F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> b \<in> S \<Longrightarrow> F b"
 begin
 
 corollary final_unreachable:
@@ -148,7 +148,15 @@ private lemma s'_2:
   "(case (l\<^sub>0, s\<^sub>0) of (l, s) \<Rightarrow> \<lambda>(l', s'). l' = l \<and> s \<preceq> s') (l\<^sub>0, s')"
   using s'_correct start by auto
 
-lemmas final_unreachable = final_unreachable[OF _ s'_1 s'_2]
+lemma final_unreachable:
+  assumes "\<And> a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
+  assumes "\<forall>s'\<in>{(l, s) |l s. l \<in> L \<and> s \<in> M l}. \<not> F s'"
+  shows "\<nexists>s'. (l\<^sub>0, s\<^sub>0) \<rightarrow>* s' \<and> F s'"
+  apply (rule final_unreachable[OF _ s'_1 s'_2])
+  subgoal for a b
+    using P_invariant.invariant_reaches start(3) M_invariant by (auto intro: assms(1)[of a])
+  apply (rule assms(2))
+  done
 
 end (* Anonymous Context *)
 

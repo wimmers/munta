@@ -3,7 +3,7 @@ theory Simple_Network_Language_Impl
     Simple_Network_Language
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     "HOL-Library.IArray" "HOL-Library.AList"
-    "../library/More_Methods"
+    "TA_Byte_Code.More_Methods"
     "../library/Bijective_Embedding"
     TA_Impl_Misc2
     TA_More2
@@ -1896,7 +1896,7 @@ sublocale conv: Prod_TA
   by - (standard,
  fastforce simp: conv.broadcast_def Simple_Network_Language.conv_t_def conv_n_ps_eq trans_conv_N_eq)
 
-sublocale Reachability_Problem_no_ceiling prod_ta init "\<lambda>_. False" m
+sublocale TA_Start_No_Ceiling prod_ta init m
 proof standard
   show "finite (trans_of prod_ta)"
     using trans_prod_finite by simp
