@@ -1376,7 +1376,7 @@ fun rename_locs_formula where
     do {\<phi> \<leftarrow> rename_locs_sexp f \<phi>; \<psi> \<leftarrow> rename_locs_sexp f \<psi>; Leadsto \<phi> \<psi> |> Result}"
 
 definition convert :: "JSON \<Rightarrow>
-  ((nat \<Rightarrow> nat \<Rightarrow> String.literal) \<times> String.literal list \<times>
+  ((nat \<Rightarrow> nat \<Rightarrow> String.literal) \<times> (String.literal \<Rightarrow> nat) \<times> String.literal list \<times>
     (nat list \<times>
      (String.literal act, nat, String.literal, int, String.literal, int) transition list
       \<times> (nat \<times> (String.literal, int) cconstraint) list) list \<times>
@@ -1419,7 +1419,9 @@ definition convert :: "JSON \<Rightarrow>
     let ids_to_names =
       (\<lambda>p i. case (ids_to_names ! p) i of Some n \<Rightarrow> n | None \<Rightarrow> String.implode (show i));
     formula \<leftarrow> rename_locs_formula (\<lambda>i. get (names ! i)) formula;
-    Result (ids_to_names, broadcast, automata, bounds, formula, init_locs, init_vars)
+    Result
+    (ids_to_names, process_names_to_index,
+     broadcast, automata, bounds, formula, init_locs, init_vars)
 }" for json
 
 
@@ -1437,7 +1439,7 @@ definition parse_convert_run_print where
   "parse_convert_run_print dc s \<equiv>
    case parse json s \<bind> convert of
      Error es \<Rightarrow> do {let _ = map println es; return ()}
-   | Result (ids_to_names, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
+   | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
       r \<leftarrow> do_preproc_mc dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
       case r of
         Error es \<Rightarrow> do {let _ = map println es; return ()}
@@ -1448,7 +1450,7 @@ definition parse_convert_run where
   "parse_convert_run dc s \<equiv>
    case parse json s \<bind> convert of
      Error es \<Rightarrow> return (Error es)
-   | Result (ids_to_names, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
+   | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
       do_preproc_mc dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
 "
 

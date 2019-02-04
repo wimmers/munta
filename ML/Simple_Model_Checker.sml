@@ -6338,8 +6338,9 @@ binda (rename_locs_formula (fn i => geta show_literal (nth names i)) formulac)
   (fn formulad =>
     Result
       (ids_to_namesa,
-        (broadcasta,
-          (automatac, (boundsa, (formulad, (init_locs, init_vars)))))))
+        (process_names_to_index,
+          (broadcasta,
+            (automatac, (boundsa, (formulad, (init_locs, init_vars))))))))
                                       end)
                                 end)
                           end)))))))))))
@@ -10106,7 +10107,7 @@ fun parse_convert_run dc s =
   (case binda (parse json s) convert
     of Result
          (ids_to_names,
-           (broadcast, (automata, (bounds, (formula, (l_0, s_0))))))
+           (_, (broadcast, (automata, (bounds, (formula, (l_0, s_0)))))))
       => do_preproc_mc show_literal dc ids_to_names
            (broadcast, (automata, bounds)) l_0 s_0 formula
     | Error es => (fn () => (Error es)));

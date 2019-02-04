@@ -322,12 +322,44 @@ lemma no_deadlock_certifier_alt_def1:
   by (subst impl.deadlock_unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2,3)];
       simp)
 
+schematic_goal check_deadlock_impl_alt_def:
+  "impl.check_deadlock_impl \<equiv> ?impl"
+  unfolding impl.check_deadlock_impl_def
+  apply (abstract_let trans_impl trans_impl)
+  unfolding trans_impl_def
+  apply (abstract_let int_trans_impl int_trans_impl)
+  apply (abstract_let bin_trans_from_impl bin_trans_impl)
+  apply (abstract_let broad_trans_from_impl broad_trans_impl)
+  unfolding int_trans_impl_def bin_trans_from_impl_def broad_trans_from_impl_def
+  apply (abstract_let trans_in_broad_grouped trans_in_broad_grouped)
+  apply (abstract_let trans_out_broad_grouped trans_out_broad_grouped)
+  apply (abstract_let trans_in_map trans_in_map)
+  apply (abstract_let trans_out_map trans_out_map)
+  apply (abstract_let int_trans_from_all_impl int_trans_from_all_impl)
+  unfolding int_trans_from_all_impl_def
+  apply (abstract_let int_trans_from_vec_impl int_trans_from_vec_impl)
+  unfolding int_trans_from_vec_impl_def
+  apply (abstract_let int_trans_from_loc_impl int_trans_from_loc_impl)
+  unfolding int_trans_from_loc_impl_def
+  apply (abstract_let trans_i_map trans_i_map)
+  unfolding trans_out_broad_grouped_def trans_out_broad_map_def
+  unfolding trans_in_broad_grouped_def trans_in_broad_map_def
+  unfolding trans_in_map_def trans_out_map_def
+  unfolding trans_i_map_def
+  apply (abstract_let trans_map trans_map)
+  apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> _" inv_fun)
+  unfolding inv_fun_alt_def
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  apply (abstract_let n_ps n_ps)
+  by (rule Pure.reflexive)
+
 schematic_goal no_deadlock_certifier_alt_def:
   "no_deadlock_certifier L_list M_list \<equiv> ?x"
   apply (subst no_deadlock_certifier_alt_def1)
   apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
    apply assumption
-  unfolding (* impl.check_deadlock_impl_def *) impl.P_impl_def
+  unfolding check_deadlock_impl_alt_def impl.P_impl_def
   apply (abstract_let states'_memi check_states)
   unfolding states'_memi_def states_mem_compute'
   apply (abstract_let "map states_i [0..<n_ps]" states_i)
