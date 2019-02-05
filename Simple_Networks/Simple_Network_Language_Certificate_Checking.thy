@@ -267,9 +267,7 @@ lemma unreachability_checker_def:
     let _ = start_timer ();
     M_table \<leftarrow> impl.M_table M_list;
     let _ = save_time STR ''Time for loading certificate'';
-    let _ = start_timer ();
     r \<leftarrow> certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table;
-    let _ = save_time STR ''Time for main part of certificate checking'';
     Heap_Monad.return r
   }"
   by (subst impl.unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2,3)]; simp)
@@ -313,9 +311,7 @@ lemma no_deadlock_certifier_alt_def1:
     let _ = start_timer ();
     M_table \<leftarrow> impl.M_table M_list;
     let _ = save_time STR ''Time for loading certificate'';
-    let _ = start_timer ();
     r \<leftarrow> certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table;
-    let _ = save_time STR ''Time for main part of certificate checking'';
     Heap_Monad.return r
   }"
   unfolding no_deadlock_certifier_def

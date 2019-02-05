@@ -5,6 +5,7 @@ theory Unreachability_Certification
     TA_Impl.Unified_PW_Impl
     TA_Impl.Leadsto_Impl
     TA_Impl.Printing
+    "../library/Trace_Timing"
 begin
 
 paragraph \<open>Misc \<open>nres\<close>\<close>
@@ -980,8 +981,12 @@ lemma certify_unreachable_alt_def:
 
 definition certify_unreachable' where
   "certify_unreachable' L' M' \<equiv> do {
+  START_TIMER ();
   b1 \<leftarrow> PR_CONST check_all' L' M';
+  SAVE_TIME STR ''Time for state space invariant check'';
+  START_TIMER ();
   b2 \<leftarrow> PR_CONST check_final' L' M';
+  SAVE_TIME STR ''Time to check final state predicate'';
   PRINT_CHECK STR ''All check: '' b1;
   PRINT_CHECK STR ''Target property check: '' b2;
   RETURN (b1 \<and> b2)
@@ -991,7 +996,7 @@ lemma certify_unreachable'_refine:
   "certify_unreachable' L M \<le> certify_unreachable F" if "L = dom M"
   supply [refine_mono] = check_all'_refine[OF that]
   unfolding certify_unreachable'_def certify_unreachable_def PR_CONST_def check_final_alt_def
-  unfolding PRINT_CHECK_def
+  unfolding PRINT_CHECK_def START_TIMER_def SAVE_TIME_def
   by simp refine_mono
 
 sepref_register "PR_CONST check_all" "PR_CONST (check_final F)"
@@ -1002,7 +1007,8 @@ lemmas [sepref_fr_rules] =
 
 sepref_thm certify_unreachable_impl' is
   "uncurry (PR_CONST certify_unreachable')" :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
-  unfolding PR_CONST_def unfolding certify_unreachable'_def by sepref
+  unfolding PR_CONST_def unfolding certify_unreachable'_def
+  by sepref
 
 lemma certify_unreachable_correct':
   "(uncurry0 (certify_unreachable' L M), uncurry0 (SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))))

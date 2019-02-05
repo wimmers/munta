@@ -1,5 +1,5 @@
 theory Trace_Timing
-  imports Main
+  imports Refine_Imperative_HOL.Sepref
 begin
 
 datatype time = Time int
@@ -63,5 +63,36 @@ definition "test \<equiv> let _ = start_timer (); _ = save_time STR ''test'' in 
 export_code test checking SML
 
 hide_const test
+
+paragraph \<open>Setup for Sepref\<close>
+
+lemma [sepref_import_param]:
+  "(start_timer, start_timer) \<in> Id \<rightarrow> Id"
+  "(save_time, save_time) \<in> Id \<rightarrow> Id"
+  by simp+
+
+definition
+  "START_TIMER = RETURN o start_timer"
+
+definition
+  "start_timer_impl = return o start_timer"
+
+definition
+  "SAVE_TIME = RETURN o save_time"
+
+definition
+  "save_time_impl = return o save_time"
+
+lemma start_timer_hnr:
+  "hn_refine (hn_val Id x' x) (start_timer_impl x) (hn_val Id x' x) unit_assn (START_TIMER $ x')"
+  unfolding START_TIMER_def start_timer_impl_def by sepref_to_hoare sep_auto
+
+lemma save_time_hnr:
+  "(save_time_impl, SAVE_TIME) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a unit_assn"
+  unfolding SAVE_TIME_def save_time_impl_def by sepref_to_hoare sep_auto
+
+sepref_register START_TIMER SAVE_TIME
+
+lemmas [sepref_fr_rules] = start_timer_hnr save_time_hnr
 
 end
