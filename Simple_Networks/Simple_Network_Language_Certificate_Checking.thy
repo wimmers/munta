@@ -6,6 +6,43 @@ theory Simple_Network_Language_Certificate_Checking
     "../library/Trace_Timing"
 begin
 
+paragraph \<open>Splitters\<close>
+
+context
+  fixes width :: nat
+begin
+
+fun split_size :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
+  "split_size _ acc [] = [acc]"
+| "split_size n acc (x # xs) =
+  (if n < width then split_size (n + 1) (x # acc) xs else acc # split_size 1 [x] xs)"
+
+lemma split_size_full_split:
+  "(\<Union>x \<in> set (split_size n acc xs). set x) = set xs \<union> set acc"
+  by (induction n acc xs rule: split_size.induct) auto
+
+end
+
+definition split_eq_width :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
+  "split_eq_width n xs \<equiv> split_size n 0 [] xs"
+
+definition split_k :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
+  "split_k k xs \<equiv> let
+    width = length xs div k;
+    width = (if length xs mod k = 0 then width else width + 1)
+  in split_size width 0 [] xs"
+
+lemma split_eq_width_full_split:
+  "set xs = (\<Union>x \<in> set (split_eq_width n xs). set x)"
+  unfolding split_eq_width_def by (simp add: split_size_full_split)
+
+lemma split_k_full_split:
+  "set xs = (\<Union>x \<in> set (split_k n xs). set x)"
+  unfolding split_k_def by (simp add: split_size_full_split)
+
+
+
+
 (* XXX Merge proof with Ex_ev *)
 lemma (in Graph_Defs) Ex_ev_reaches:
   "\<exists> y. x \<rightarrow>* y \<and> \<phi> y" if "Ex_ev \<phi> x"
@@ -186,6 +223,23 @@ lemma deadlock_prod:
   \<longleftrightarrow> \<not> has_deadlock (Simple_Network_Language.conv A) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
   unfolding has_deadlock_def deadlock_start_iff ..
 
+lemma list_assn_split:
+  "list_assn (list_assn impl.location_assn) (split_k num_split L) (split_k num_split Li) =
+      list_assn impl.location_assn L Li"
+proof -
+  have 1: "impl.location_assn = pure (the_pure impl.location_assn)"
+    using impl.pure_K by auto
+  have "(split_k num_split Li, split_k num_split L) \<in> \<langle>\<langle>the_pure impl.location_assn\<rangle>list_rel\<rangle>list_rel
+  \<longleftrightarrow> (Li, L) \<in> \<langle>the_pure impl.location_assn\<rangle>list_rel"
+    apply auto
+    unfolding list_rel_def
+     apply auto
+    sorry
+  then show ?thesis
+    apply (subst (2) 1, subst 1)
+    unfolding list_assn_pure_conv unfolding pure_def by auto
+qed
+
 theorem unreachability_checker_hnr:
   assumes "\<And>li. P_loc li \<Longrightarrow> states'_memi li"
     and "list_all (\<lambda>x. P_loc x \<and> states'_memi x) L_list"
@@ -193,7 +247,7 @@ theorem unreachability_checker_hnr:
     and "fst ` set M_list = set L_list"
     and "formula = formula.EX \<phi>"
   shows "(
-  uncurry0 (impl.unreachability_checker L_list M_list),
+  uncurry0 (impl.unreachability_checker L_list M_list (split_k num_split)),
   uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
     \<not> Simple_Network_Language.conv A,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0) \<Turnstile> formula)))
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -204,7 +258,7 @@ proof -
   note [sep_heap_rules] =
     impl.unreachability_checker_hnr[
       OF state_impl_abstract',
-      OF assms(1,2) this assms(3)
+      OF assms(1,2) this assms(3) split_k_full_split list_assn_split
         impl.L_dom_M_eqI[OF state_impl_abstract', OF assms(1,2) this assms(3,4)],
       to_hnr, unfolded hn_refine_def, rule_format, folded checker_def
     ]
@@ -260,20 +314,23 @@ private lemma A:
   using assms by simp
 
 lemma unreachability_checker_def:
-  "impl.unreachability_checker L_list M_list \<equiv>
+  "impl.unreachability_checker L_list M_list (split_k num_split) \<equiv>
    let Fi = impl.F_impl; Pi = impl.P_impl; copyi = amtx_copy; Lei = dbm_subset_impl m;
        l\<^sub>0i = Heap_Monad.return l\<^sub>0i; s\<^sub>0i = impl.init_dbm_impl; succsi = impl.succs_precise'_impl
    in do {
     let _ = start_timer ();
     M_table \<leftarrow> impl.M_table M_list;
     let _ = save_time STR ''Time for loading certificate'';
-    r \<leftarrow> certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table;
+    r \<leftarrow> certify_unreachable_impl_inner
+      Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi (split_k num_split) L_list M_table;
     Heap_Monad.return r
   }"
-  by (subst impl.unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2,3)]; simp)
+  by (subst impl.unreachability_checker_alt_def[OF
+        state_impl_abstract', OF _ A assms(2,3) split_k_full_split list_assn_split];
+      simp)
 
 schematic_goal unreachability_checker_alt_def:
-  "impl.unreachability_checker L_list M_list \<equiv> ?x"
+  "impl.unreachability_checker L_list M_list (split_k num_split) \<equiv> ?x"
   apply (subst unreachability_checker_def)
   apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
    apply assumption
@@ -301,7 +358,7 @@ definition no_deadlock_certifier where
     states'_memi (\<lambda>(l, M). impl.check_deadlock_impl l M \<bind> (\<lambda>r. Heap_Monad.return (\<not> r)))"
 
 lemma no_deadlock_certifier_alt_def1:
-  "no_deadlock_certifier L_list M_list \<equiv>
+  "no_deadlock_certifier L_list M_list (split_k num_split) \<equiv>
    let
       Fi = (\<lambda>(l, M). impl.check_deadlock_impl l M \<bind> (\<lambda>r. Heap_Monad.return (\<not> r)));
       Pi = impl.P_impl; copyi = amtx_copy; Lei = dbm_subset_impl m;
@@ -311,11 +368,11 @@ lemma no_deadlock_certifier_alt_def1:
     let _ = start_timer ();
     M_table \<leftarrow> impl.M_table M_list;
     let _ = save_time STR ''Time for loading certificate'';
-    r \<leftarrow> certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table;
+    r \<leftarrow> certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi (split_k num_split) L_list M_table;
     Heap_Monad.return r
   }"
   unfolding no_deadlock_certifier_def
-  by (subst impl.deadlock_unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2,3)];
+  by (subst impl.deadlock_unreachability_checker_alt_def[OF state_impl_abstract', OF _ A assms(2,3) split_k_full_split list_assn_split];
       simp)
 
 schematic_goal check_deadlock_impl_alt_def:
@@ -351,7 +408,7 @@ schematic_goal check_deadlock_impl_alt_def:
   by (rule Pure.reflexive)
 
 schematic_goal no_deadlock_certifier_alt_def:
-  "no_deadlock_certifier L_list M_list \<equiv> ?x"
+  "no_deadlock_certifier L_list M_list (split_k num_split) \<equiv> ?x"
   apply (subst no_deadlock_certifier_alt_def1)
   apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
    apply assumption
@@ -375,7 +432,8 @@ schematic_goal no_deadlock_certifier_alt_def:
 lemmas no_deadlock_certifier_hnr' =
   impl.deadlock_unreachability_checker_hnr[folded no_deadlock_certifier_def,
     OF state_impl_abstract',
-    OF _ A assms(2,3) impl.L_dom_M_eqI[OF state_impl_abstract' A assms(2,3)],
+    OF _ A assms(2,3) impl.L_dom_M_eqI[OF state_impl_abstract' A assms(2,3)]
+       split_k_full_split list_assn_split,
     unfolded deadlock_prod
   ]
 
@@ -386,7 +444,7 @@ theorem no_deadlock_certifier_hnr:
       and "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
       and "fst ` set M_list = set L_list"
   shows "(
-  uncurry0 (no_deadlock_certifier L_list M_list),
+  uncurry0 (no_deadlock_certifier L_list M_list (split_k num_split)),
   uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
     \<not> has_deadlock (Simple_Network_Language.conv A) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0))))
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -564,7 +622,7 @@ lemma states'_memi_alt_def:
   by (intro ext) simp
 
 definition
-  "certificate_checker dc
+  "certificate_checker num_split dc
     M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
     (* inv_renum_states inv_renum_vars inv_renum_clocks *)
   \<equiv>
@@ -594,15 +652,15 @@ definition
     r \<leftarrow>
       if dc then
         no_deadlock_certifier
-          broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 L_list M_list
+          broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 L_list M_list num_split
       else
         unreachability_checker
-          broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list;
+          broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list num_split;
     Heap_Monad.return (Some r)
   } else Heap_Monad.return None"
 
 definition
-  "certificate_checker_dbg
+  "certificate_checker_dbg num_split
     (show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list))
     M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
   \<equiv>
@@ -627,12 +685,12 @@ definition
     check_invariant_fail broadcast bounds' automata m
       num_states num_actions show_clock show_state L_list M_list;
     r \<leftarrow> unreachability_checker
-      broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list;
+      broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list num_split;
     Heap_Monad.return (Some r)
   } else Heap_Monad.return None" for show_clock show_state
 
 theorem certificate_check:
-  "<emp> certificate_checker False
+  "<emp> certificate_checker num_split False
     M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
     (* inv_renum_states inv_renum_vars inv_renum_clocks *)
    <\<lambda> Some r \<Rightarrow> \<up>(r \<longrightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula)
@@ -659,7 +717,7 @@ proof -
 qed
 
 theorem certificate_deadlock_check:
-  "<emp> certificate_checker True
+  "<emp> certificate_checker num_split True
     M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
     (* inv_renum_states inv_renum_vars inv_renum_clocks *)
    <\<lambda> Some r \<Rightarrow> \<up>(r \<longrightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0))
@@ -682,7 +740,7 @@ proof -
 qed
 
 definition rename_check where
-  "rename_check dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+  "rename_check num_split dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks *)
     state_space
@@ -690,7 +748,7 @@ definition rename_check where
 do {
   r \<leftarrow> do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
-      certificate_checker dc state_space)
+      certificate_checker num_split dc state_space)
     dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks; *)
@@ -704,7 +762,7 @@ do {
 "
 
 definition rename_check_dbg where
-  "rename_check_dbg dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+  "rename_check_dbg num_split dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     inv_renum_states inv_renum_vars inv_renum_clocks
     state_space
@@ -712,7 +770,7 @@ definition rename_check_dbg where
 do {
   r \<leftarrow> do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
-      certificate_checker_dbg show_clock show_state state_space)
+      certificate_checker_dbg num_split show_clock show_state state_space)
     dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     inv_renum_states inv_renum_vars inv_renum_clocks;
@@ -725,7 +783,7 @@ do {
 "
 
 theorem certificate_check_rename:
-  "<emp> rename_check False broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+  "<emp> rename_check num_split False broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks *)
     state_space
@@ -766,7 +824,7 @@ proof -
     by (rule Simple_Network_Rename_Formula.models_iff'[symmetric])
   note [sep_heap_rules] =
     certificate_check[
-    of state_space
+    of num_split state_space
     "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
     "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
@@ -784,7 +842,7 @@ proof -
 qed
 
 theorem certificate_deadlock_check_rename:
-  "<emp> rename_check True broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+  "<emp> rename_check num_split True broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks *)
     state_space
@@ -825,7 +883,7 @@ proof -
     by (rule Simple_Network_Rename_Formula.has_deadlock_iff'[symmetric])
   note [sep_heap_rules] =
     certificate_deadlock_check[
-    of state_space
+    of num_split state_space
     "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
     "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"

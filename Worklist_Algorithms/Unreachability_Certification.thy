@@ -8,6 +8,51 @@ theory Unreachability_Certification
     "../library/Trace_Timing"
 begin
 
+paragraph \<open>Misc \<open>heap\<close>\<close>
+
+lemma fold_map_ht:
+  assumes "list_all (\<lambda>x. <A * true> f x <\<lambda>r. \<up>(Q x r) * A>\<^sub>t) xs"
+  shows "<A * true> Heap_Monad.fold_map f xs <\<lambda>rs. \<up>(list_all2 (\<lambda>x r. Q x r) xs rs) * A>\<^sub>t"
+  using assms by (induction xs; sep_auto)
+
+lemma fold_map_ht':
+  assumes "list_all (\<lambda>x. <true> f x <\<lambda>r. \<up>(Q x r)>\<^sub>t) xs"
+  shows "<true> Heap_Monad.fold_map f xs <\<lambda>rs. \<up>(list_all2 (\<lambda>x r. Q x r) xs rs)>\<^sub>t"
+  using assms by (induction xs; sep_auto)
+
+lemma fold_map_ht1:
+  assumes "\<And>x xi. <A * R x xi * true> f xi <\<lambda>r. A * \<up>(Q x r)>\<^sub>t"
+  shows "
+  <A * list_assn R xs xsi * true>
+    Heap_Monad.fold_map f xsi
+  <\<lambda>rs. A * \<up>(list_all2 (\<lambda>x r. Q x r) xs rs)>\<^sub>t"
+  apply (induction xs arbitrary: xsi)
+   apply (sep_auto; fail)
+  subgoal for x xs xsi
+    by (cases xsi; sep_auto heap: assms)
+  done
+
+lemma fold_map_ht2:
+  assumes "\<And>x xi. <A * R x xi * true> f xi <\<lambda>r. A * R x xi * \<up>(Q x r)>\<^sub>t"
+  shows "
+  <A * list_assn R xs xsi * true>
+    Heap_Monad.fold_map f xsi
+  <\<lambda>rs. A * list_assn R xs xsi * \<up>(list_all2 (\<lambda>x r. Q x r) xs rs)>\<^sub>t"
+  apply (induction xs arbitrary: xsi)
+   apply (sep_auto; fail)
+  subgoal for x xs xsi
+    apply (cases xsi; sep_auto heap: assms)
+     apply (rule cons_rule[rotated 2], rule frame_rule, rprems)
+      apply frame_inference
+     apply frame_inference
+    apply sep_auto
+    done
+  done
+
+definition
+  "parallel_fold_map = Heap_Monad.fold_map"
+
+
 paragraph \<open>Misc \<open>nres\<close>\<close>
 
 lemma SUCCEED_lt_RES_iff[simp]:
@@ -155,6 +200,21 @@ lemma monadic_list_ex_gt_SUCCEED:
 
 end (* Anonymous context *)
 
+lemma monadic_list_all_nofailI:
+  assumes "\<And> x. x \<in> set xs \<Longrightarrow> nofail (f x)"
+  shows "nofail (monadic_list_all f xs)"
+  sorry
+
+lemma monadic_list_ex_nofailI:
+  assumes "\<And> x. x \<in> set xs \<Longrightarrow> nofail (f x)"
+  shows "nofail (monadic_list_ex f xs)"
+  sorry
+
+lemma no_fail_RES_bindI:
+  assumes "\<And>x. x \<in> S \<Longrightarrow> nofail (f x)" "S \<noteq> {}"
+  shows "nofail (RES S \<bind> f)"
+  sorry
+
 lemma monadic_list_ex_is_RETURN:
   "\<exists> r. monadic_list_ex (\<lambda>x. RETURN (P x)) xs = RETURN r"
 proof (induction xs)
@@ -242,17 +302,11 @@ end
 
 end
 
-context Reachability_Invariant_paired_pre_defs
-begin
-
-end
-
 context Reachability_Impl_pre
 begin
 
-definition "check_invariant \<equiv>
+definition "check_invariant L' \<equiv>
 do {
-  l \<leftarrow> SPEC (\<lambda>xs. set xs = L);
   monadic_list_all (\<lambda>l.
   do {
     let as = M l;
@@ -271,15 +325,18 @@ do {
     }
     ) succs
   }
-  ) l
+  ) L'
 }
 "
 
+definition
+  "check_invariant_spec L' \<equiv>
+  \<forall> l \<in> L'. \<forall> s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')"
+
 lemma check_invariant_correct:
-  "check_invariant \<le> SPEC (\<lambda>r. r \<longrightarrow>
-    (\<forall> l \<in> L. \<forall> s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')))"
+  "check_invariant L' \<le> SPEC (\<lambda>r. r \<longrightarrow> check_invariant_spec (set L'))"
   (is "_ \<le> ?rhs")
-  if assms: "\<forall>l \<in> L. \<forall>s \<in> M l. P (l, s)"
+  if assms: "\<forall>l \<in> L. \<forall>s \<in> M l. P (l, s)" "set L' \<subseteq> L"
 proof -
   have *: "(\<forall> (l',ys) \<in> set (succs l xs). \<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')) =
        (\<forall>s\<in>M l.
@@ -287,7 +344,7 @@ proof -
               E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. s' \<preceq> s''))"
     if "xs = M l" "l \<in> L"
      for l xs
-    using succs_correct[of xs l] assms that
+    using succs_correct[of xs l] assms(1) that
     apply clarsimp
     apply safe
        apply clarsimp_all
@@ -306,26 +363,33 @@ proof -
     apply fastforce
     done
   have **: "
-     (\<forall> l \<in> L. (\<forall> (l',ys) \<in> set (succs l (M l)). \<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s''))) =
-     (\<forall> l \<in> L. \<forall>s\<in>M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. s' \<preceq> s''))"
-    by (simp add: *)
-  have "check_invariant \<le> SPEC (\<lambda>r. r \<longleftrightarrow>
-    (\<forall> l \<in> L. (\<forall> (l',ys) \<in> set (succs l (M l)). (\<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')))))"
+     (\<forall> l \<in> set L'. (\<forall> (l',ys) \<in> set (succs l (M l)). \<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')))
+  =  (\<forall> l \<in> set L'. \<forall>s\<in>M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. s' \<preceq> s''))"
+    by (simp add: * assms(2)[THEN subsetD])
+  have "check_invariant L' \<le> SPEC (\<lambda>r. r \<longleftrightarrow>
+    (\<forall> l \<in> set L'. (\<forall> (l',ys) \<in> set (succs l (M l)). (\<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')))))"
     unfolding check_invariant_def
     by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff list_ex_iff)
   also have "\<dots> \<le> ?rhs"
-    by (auto; smt ** case_prodI2 case_prod_conv)
+    unfolding check_invariant_spec_def by (auto; smt ** case_prodI2 case_prod_conv)
   finally show ?thesis .
 qed
 
 definition
-  "check_all\<equiv> do {
+  "check_all_pre \<equiv> do {
   b1 \<leftarrow> RETURN (l\<^sub>0 \<in> L);
   b2 \<leftarrow> RETURN (P' (l\<^sub>0, s\<^sub>0));
   xs \<leftarrow> SPEC (\<lambda>xs. set xs = M l\<^sub>0);
   b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (s\<^sub>0 \<preceq> s)) xs;
   b4 \<leftarrow> check_prop P';
-  if b1 \<and> b2 \<and> b3 \<and> b4 then check_invariant else RETURN False
+  RETURN (b1 \<and> b2 \<and> b3 \<and> b4)
+  }
+"
+
+definition
+  "check_all\<equiv> do {
+  b \<leftarrow> check_all_pre;
+  if b then RETURN (check_invariant_spec L) else RETURN False
   }
 "
 
@@ -362,7 +426,7 @@ begin
 
 lemma check_all_correct:
   "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P)"
-  unfolding check_all_def
+  unfolding check_all_def check_all_pre_def check_invariant_spec_def
   by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule;
       standard; auto simp: list_ex_iff dest: P'_P)
 
@@ -557,6 +621,7 @@ sepref_register PRINT_CHECK
 lemmas [sepref_fr_rules] = print_check_impl.refine
 
 
+
 locale Reachability_Impl =
   Reachability_Impl_pre less_eq _ "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" and M :: "'k \<Rightarrow> 'b set option" +
@@ -665,7 +730,6 @@ lemma L_listD:
 
 definition
   "check_invariant' L' M' \<equiv> do {
-  l \<leftarrow> SPEC (\<lambda>xs. set xs = L');
   monadic_list_all (\<lambda>l.
   do {
     case op_map_lookup l M' of None \<Rightarrow> RETURN True  | Some xs \<Rightarrow> do {
@@ -683,7 +747,7 @@ definition
         }
       }) succs
     }
-  }) l
+  }) L'
 }"
 
 lemma succs_listD:
@@ -692,7 +756,7 @@ lemma succs_listD:
   using assms succs_finite by (force intro!: finite_list)
 
 lemma check_invariant'_refine:
-  "check_invariant' L M \<le> check_invariant" if "L = dom M"
+  "check_invariant' L_part M \<le> check_invariant L_part" if "L = dom M" "set L_part \<subseteq> L"
   unfolding check_invariant_def check_invariant'_def
   unfolding PR_CONST_def
   apply refine_mono
@@ -780,8 +844,8 @@ sepref_definition is_K_eq_impl is
 
 lemmas [sepref_fr_rules] = op_set_member_lso_hnr[OF pure_K left_unique_K right_unique_K]
 
-sepref_thm check_invariant_impl is
-  "uncurry (PR_CONST check_invariant')" :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+sepref_definition check_invariant_impl is
+  "uncurry (PR_CONST check_invariant')" :: "(list_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding PR_CONST_def
   unfolding check_invariant'_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def monadic_list_ex_def
@@ -799,7 +863,7 @@ concrete_definition (in -) check_invariant_impl
 *)
 
 definition
-  "check_all' L' M' \<equiv> do {
+  "check_all_pre' L' M' \<equiv> do {
   b1 \<leftarrow> RETURN (PR_CONST l\<^sub>0 \<in> L');
   b2 \<leftarrow> RETURN (PR_CONST P' (PR_CONST l\<^sub>0, PR_CONST s\<^sub>0));
   let S = op_map_lookup (PR_CONST l\<^sub>0) M';
@@ -811,14 +875,21 @@ definition
     PRINT_CHECK STR ''Start state fulfills property'' b2;
     PRINT_CHECK STR ''Start state is subsumed'' b3;
     PRINT_CHECK STR ''Check property'' b4;
-    if b1 \<and> b2 \<and> b3 \<and> b4
-    then do {
-      r \<leftarrow> PR_CONST check_invariant' L' M';
-      PRINT_CHECK STR ''State set invariant check'' r;
-      RETURN r
+    RETURN (b1 \<and> b2 \<and> b3 \<and> b4)
     }
-    else RETURN False
   }
+"
+
+definition
+  "check_all' L' M' \<equiv> do {
+  b \<leftarrow> check_all_pre' L' M';
+  if b
+  then do {
+    r \<leftarrow> RETURN (check_invariant_spec L');
+    PRINT_CHECK STR ''State set invariant check'' r;
+    RETURN r
+  }
+  else RETURN False
   }
 "
 
@@ -837,9 +908,9 @@ lemma check_prop_gt_SUCCEED:
         intro: monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I
      )
 
-lemma check_all'_refine:
-  "check_all' L M \<le> check_all"  if "L = dom M"
-  unfolding check_all_def check_all'_def PR_CONST_def Let_def
+lemma check_all_pre'_refine:
+  "check_all_pre' L M \<le> check_all_pre"
+  unfolding check_all_pre_def check_all_pre'_def PR_CONST_def Let_def
   using check_prop_gt_SUCCEED
   apply (cases "op_map_lookup l\<^sub>0 M"; simp add: bind_RES)
    apply (cases "check_prop P'")
@@ -851,20 +922,27 @@ lemma check_all'_refine:
     apply clarsimp
     supply [refine_mono] = monadic_list_ex_mono monadic_list_ex_RETURN_mono
     apply refine_mono
-    apply (simp add: check_invariant'_refine[OF that] PRINT_CHECK_def)
+    apply (simp add: PRINT_CHECK_def)
     done
   subgoal
     by (auto dest: M_listD)
   done
+
+lemma check_all'_refine:
+  "check_all' L M \<le> check_all"
+  supply [refine_mono] = check_all_pre'_refine
+  unfolding check_all_def check_all'_def PRINT_CHECK_def by refine_mono auto
 
 (*
 lemma check_all'_correct:
   "(uncurry0 check_all', uncurry0 (PR_CONST check_all)) \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
   using check_all'_refine by (auto simp: pw_le_iff pw_nres_rel_iff)
 *)
-
+term check_invariant'
 sepref_register
-  "PR_CONST check_invariant'" :: "'k set \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres" (* check_prop: "PR_CONST (check_prop P')" *)
+  "PR_CONST check_invariant'" :: "'k list \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres"
+  "PR_CONST check_all_pre'" :: "'k set \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres"
+  (* check_prop: "PR_CONST (check_prop P')" *)
   "PR_CONST check_prop'" :: "'k set \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres"
   "PR_CONST check_all'" :: "'k set \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres"
   "PR_CONST check_final'" :: "'k set \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres"
@@ -893,8 +971,6 @@ lemmas [sepref_fr_rules] =
   check_prop_impl.refine[OF Reachability_Impl_axioms]
   check_invariant_impl.refine[OF Reachability_Impl_axioms]
 *)
-
-term M
 
 definition
   "lookup (M' :: 'k \<Rightarrow> 'b set option) = op_map_lookup (PR_CONST l\<^sub>0) M'"
@@ -942,14 +1018,140 @@ lemmas [sepref_fr_rules] =
   check1_impl.refine_raw
   check2_impl.refine_raw
   check_prop_impl.refine_raw
-  check_invariant_impl.refine_raw
+  (* check_invariant_impl.refine_raw *)
+
+context
+  fixes splitter :: "'k list \<Rightarrow> 'k list list" and splitteri :: "'ki list \<Rightarrow> 'ki list list"
+  (* assumes full_split: "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)" *)
+  assumes full_split: "set xs = (\<Union>xs \<in> set (splitter xs). set xs)"
+(*
+      and same_split:
+      "(return o splitteri, RETURN o splitter) \<in> (list_assn K)\<^sup>k \<rightarrow>\<^sub>a list_assn (list_assn K)"
+*)
+  and same_split:
+    "\<And>L Li. list_assn (list_assn K) (splitter L) (splitteri Li) = list_assn K L Li"
+begin
+
+definition
+  "check_invariant_all_impl L' M' \<equiv> do {
+    bs \<leftarrow> parallel_fold_map (\<lambda>L. check_invariant_impl L M') (splitteri L');
+    return (list_all id bs)
+  }"
+
+definition
+  "split_spec \<equiv> \<lambda>L M. RETURN (list_all (\<lambda>x. RETURN True \<le> check_invariant' x M) (splitter L))"
+
+lemma check_invariant_all_impl_refine:
+  "(uncurry check_invariant_all_impl,
+    uncurry (PR_CONST split_spec))
+  \<in> (list_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  unfolding split_spec_def PR_CONST_def
+  apply sepref_to_hoare
+  apply sep_auto
+  subgoal for M Mi L Li
+  unfolding check_invariant_all_impl_def parallel_fold_map_def
+  apply sep_auto
+   apply (rule Hoare_Triple.cons_pre_rule[rotated])
+    apply (rule fold_map_ht2[
+        where Q = "\<lambda>L r. RETURN r \<le> check_invariant' L M"
+          and R = "list_assn K" and A = "table_assn M Mi" and xs = "splitter L"
+          ])
+    apply (rule Hoare_Triple.cons_post_rule)
+(* find_theorems intro does not find it *)
+  apply (rule frame_rule)
+     apply (rule check_invariant_impl.refine[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified, rule_format])
+  subgoal
+    unfolding check_invariant'_def
+    apply (intro monadic_list_all_nofailI)
+    apply (clarsimp split: option.splits)
+    apply (intro monadic_list_all_nofailI)
+    apply (clarsimp split: prod.splits)
+    apply (rule no_fail_RES_bindI)
+     apply (clarsimp split: option.splits)
+     apply (rule no_fail_RES_bindI)
+apply (intro monadic_list_all_nofailI monadic_list_ex_nofailI)
+      apply auto
+(* missing finiteness of table *)
+    sorry
+    apply (sep_auto simp: pure_def; fail)
+  subgoal
+    unfolding same_split by solve_entails
+  apply sep_auto
+  subgoal
+    unfolding list_all_length list_all2_conv_all_nth by auto
+  subgoal for x
+    unfolding list_all_length
+    unfolding list_all2_conv_all_nth
+    apply auto
+    apply (elim allE impE)
+       apply assumption+
+    subgoal for n
+      apply (cases "x ! n")
+       apply auto
+      sorry
+    done
+  subgoal
+    unfolding same_split by solve_entails
+  done
+  done
+
+sepref_thm check_all_pre_impl is
+  "uncurry (PR_CONST check_all_pre')" :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  unfolding PR_CONST_def
+  unfolding check_all_pre'_def list_of_set_def[symmetric]
+  unfolding monadic_list_all_def monadic_list_ex_def
+  by sepref
+
+definition
+  "check_all'' L' M' \<equiv> do {
+  b \<leftarrow> PR_CONST check_all_pre' L' M';
+  if b
+  then do {
+    xs \<leftarrow> SPEC (\<lambda>xs. set xs = L');
+    r \<leftarrow> PR_CONST split_spec xs M';
+    PRINT_CHECK STR ''State set invariant check'' r;
+    RETURN r
+  }
+  else RETURN False
+  }
+"
+
+sepref_register split_spec :: "'k list \<Rightarrow> (('k, 'b set) i_map) \<Rightarrow> bool nres"
+
+lemmas [sepref_fr_rules] =
+  check_all_pre_impl.refine_raw
+  check_invariant_all_impl_refine
+
+sepref_thm check_all_impl is
+  "uncurry (PR_CONST check_all'')" :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  unfolding PR_CONST_def
+  unfolding check_all''_def list_of_set_def[symmetric]
+  by sepref
+
+lemma [refine_mono]:
+  "split_spec L' M \<le> RETURN (check_invariant_spec (set L'))" if "dom M = L" "set L' \<subseteq> L"
+  sorry
+
+lemma check_all''_refine:
+  "check_all'' L' M \<le> check_all' L' M" if "dom M = L" "L' \<subseteq> L"
+  using that
+  unfolding check_all''_def check_all'_def PR_CONST_def
+  apply refine_mono
+  sorry
 
 sepref_thm check_all_impl is
   "uncurry (PR_CONST check_all')" :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
   unfolding PR_CONST_def
   unfolding check_all'_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def monadic_list_ex_def
-  by sepref
+  oops
+
+sepref_thm check_all_impl is
+  "uncurry (PR_CONST check_all')" :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  unfolding PR_CONST_def
+  unfolding check_all'_def check_all_pre'_def list_of_set_def[symmetric]
+  unfolding monadic_list_all_def monadic_list_ex_def
+  oops
 
 (*
 lemmas check_all_impl_refine = check_all_impl.refine_raw[FCOMP check_all'_correct]
@@ -959,9 +1161,6 @@ lemmas check_all_impl_refine = check_all_impl.refine_raw[FCOMP check_all'_correc
 concrete_definition (in -) check_all_impl
   uses Reachability_Impl.check_all_impl_refine is "(uncurry0 ?f,_)\<in>_"
 *)
-
-concrete_definition (in -) check_all_impl
-  uses Reachability_Impl.check_all_impl.refine_raw is "(uncurry ?f,_)\<in>_"
 
 (*
 thm check_all_impl.refine
@@ -982,7 +1181,7 @@ lemma certify_unreachable_alt_def:
 definition certify_unreachable' where
   "certify_unreachable' L' M' \<equiv> do {
   START_TIMER ();
-  b1 \<leftarrow> PR_CONST check_all' L' M';
+  b1 \<leftarrow> PR_CONST check_all'' L' M';
   SAVE_TIME STR ''Time for state space invariant check'';
   START_TIMER ();
   b2 \<leftarrow> PR_CONST check_final' L' M';
@@ -994,12 +1193,15 @@ definition certify_unreachable' where
 
 lemma certify_unreachable'_refine:
   "certify_unreachable' L M \<le> certify_unreachable F" if "L = dom M"
-  supply [refine_mono] = check_all'_refine[OF that]
+  supply [refine_mono] =
+    order.trans[OF check_all''_refine[OF that[symmetric] subset_refl] check_all'_refine]
   unfolding certify_unreachable'_def certify_unreachable_def PR_CONST_def check_final_alt_def
   unfolding PRINT_CHECK_def START_TIMER_def SAVE_TIME_def
   by simp refine_mono
 
-sepref_register "PR_CONST check_all" "PR_CONST (check_final F)"
+sepref_register
+  "PR_CONST check_all''" :: "'k set \<Rightarrow> (('k, 'b set) i_map) \<Rightarrow> bool nres"
+  "PR_CONST (check_final F)"
 
 lemmas [sepref_fr_rules] =
   check_all_impl.refine_raw
@@ -1019,7 +1221,13 @@ lemma certify_unreachable_correct':
 lemmas certify_unreachable_impl'_refine =
   certify_unreachable_impl'.refine_raw[
     unfolded is_member_impl_def[OF pure_K left_unique_K right_unique_K]
+      check_invariant_all_impl_def check_invariant_impl_def
   ]
+
+end (* Splitter *)
+
+concrete_definition (in -) check_all_impl
+  uses Reachability_Impl.check_all_impl.refine_raw is "(uncurry ?f,_)\<in>_"
 
 concrete_definition (in -) certify_unreachable_impl_inner
   uses Reachability_Impl.certify_unreachable_impl'_refine is "(uncurry ?f,_)\<in>_"
@@ -1042,20 +1250,26 @@ context
     "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST L))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn K"
   assumes M_impl[sepref_fr_rules]:
     "(uncurry0 M_table, uncurry0 (RETURN (PR_CONST M))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' K (lso_assn A)"
+  fixes splitter :: "'k list \<Rightarrow> 'k list list" and splitteri :: "'ki list \<Rightarrow> 'ki list list"
+  assumes full_split: "set xs = (\<Union>xs \<in> set (splitter xs). set xs)"
+      and same_split:
+    "\<And>L Li. list_assn (list_assn K) (splitter L) (splitteri Li) = list_assn K L Li"
 begin
 
-lemmas [sepref_fr_rules] = certify_unreachable'_impl_hnr
+lemmas [sepref_fr_rules] = certify_unreachable'_impl_hnr[OF full_split same_split]
 
-sepref_register "PR_CONST certify_unreachable'" :: "'k set \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres"
+sepref_register
+  "certify_unreachable' splitter" :: "'k set \<Rightarrow> ('k, 'b set) i_map \<Rightarrow> bool nres"
 
 sepref_thm certify_unreachable_impl is
-  "uncurry0 (PR_CONST certify_unreachable' (PR_CONST L) (PR_CONST M))" :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
-  by sepref
+  "uncurry0 (PR_CONST (certify_unreachable' splitter) (PR_CONST L) (PR_CONST M))"
+  :: "id_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
+  by sepref_dbg_keep
 
 lemmas certify_unreachable_impl_refine =
   certify_unreachable_impl.refine_raw[
     unfolded PR_CONST_def is_member_impl_def[OF pure_K left_unique_K right_unique_K],
-    FCOMP certify_unreachable_correct'
+    FCOMP certify_unreachable_correct'[OF full_split same_split]
   ]
 
 end

@@ -727,12 +727,22 @@ interpretation
   done
 
 thm certify_unreachable_impl.refine[
-    OF Reachability_Impl_axioms L_list_hnr, unfolded PR_CONST_def, OF M_table.refine]
+    OF Reachability_Impl_axioms L_list_hnr, unfolded PR_CONST_def, OF M_table.refine
+    ]
 op_precise_unreachable_correct'
+
+context
+  fixes splitter :: "'s list \<Rightarrow> 's list list" and splitteri :: "'si list \<Rightarrow> 'si list list"
+  assumes full_split: "set xs = (\<Union>xs \<in> set (splitter xs). set xs)"
+      and same_split:
+  "\<And>L Li.
+    list_assn (list_assn location_assn) (splitter L) (splitteri Li) = list_assn location_assn L Li"
+begin
 
 lemmas certify_unreachable_impl_hnr =
   certify_unreachable_impl.refine[
     OF Reachability_Impl_axioms L_list_hnr, unfolded PR_CONST_def, OF M_table.refine,
+    OF full_split same_split,
     FCOMP op_precise_unreachable_correct'
   ]
 
@@ -748,7 +758,7 @@ definition
     succsi = succs_precise'_impl;
     M_table = M_table
   in
-    certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table"
+    certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table splitteri"
 
 lemma unreachability_checker_alt_def:
   "unreachability_checker \<equiv>
@@ -762,7 +772,7 @@ lemma unreachability_checker_alt_def:
     succsi = succs_precise'_impl
   in do {
     M_table \<leftarrow> M_table;
-    certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table
+    certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi splitteri L_list M_table
   }"
   unfolding unreachability_checker_def certify_unreachable_impl_def Let_def .
 
@@ -771,7 +781,9 @@ lemmas unreachability_checker_hnr =
 
 lemmas unreachability_checker_alt_def' = unreachability_checker_alt_def[unfolded M_table_def]
 
-end
+end (* Splitter *)
+
+end (* L and M *)
 
 end (* Reachability Problem Impl Precise *)
 
@@ -838,20 +850,26 @@ lemma deadlock_unreachability_checker_hnr:
   fixes P_loc :: "'si \<Rightarrow> bool"
     and L_list :: "'si list"
     and M_list :: "('si \<times> int DBMEntry list list) list"
+  fixes splitter :: "'s list \<Rightarrow> 's list list" and splitteri :: "'si list \<Rightarrow> 'si list list"
   assumes "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
     and "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
     and "fst ` set M_list \<subseteq> set L_list"
     and "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
     and "set (deadlock.L L_list) = dom (deadlock.M M_list)"
+  assumes full_split: "\<And>xs. set xs = (\<Union>xs \<in> set (splitter xs). set xs)"
+      and same_split:
+    "\<And>L Li.
+      list_assn (list_assn location_assn) (splitter L) (splitteri Li) = list_assn location_assn L Li"
   shows
     "(uncurry0
        (Reachability_Problem_Impl_Precise.unreachability_checker n trans_impl l\<^sub>0i op_impl
-         states_mem_impl (\<lambda>(l, M). check_deadlock_impl l M \<bind> (\<lambda>r. return (\<not> r))) L_list M_list),
+         states_mem_impl (\<lambda>(l, M). check_deadlock_impl l M \<bind> (\<lambda>r. return (\<not> r))) L_list M_list splitteri),
       uncurry0
        (SPEC
          (\<lambda>r. r \<longrightarrow> (\<forall>u. (\<forall>c\<le>n. u c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u)))))
      \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  using deadlock.unreachability_checker_hnr[OF assms]
+  thm deadlock.unreachability_checker_hnr
+  using deadlock.unreachability_checker_hnr[OF assms(1-4), OF _ full_split same_split assms(5)]
   unfolding deadlock_def steps'_iff[symmetric] by simp linarith
 
 lemmas deadlock_unreachability_checker_alt_def = deadlock.unreachability_checker_alt_def
