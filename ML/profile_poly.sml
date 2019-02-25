@@ -1,0 +1,1 @@
+val main = PolyML.Profiling.profile PolyML.Profiling.ProfileTime main
