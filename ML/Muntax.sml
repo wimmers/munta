@@ -55,3 +55,5 @@ fun check_and_verify_from_stream stream _ =
       (* We append a space to terminate the input for the parser *)
     else input ^ " " |> run_and_print check_deadlock
   end;
+
+val main = check_and_verify_from_stream TextIO.stdIn
