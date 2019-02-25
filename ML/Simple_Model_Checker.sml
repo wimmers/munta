@@ -3047,6 +3047,8 @@ fun array_length x = (nat_of_integer o FArray.IsabelleMapping.array_length) x;
 
 fun array_shrink a = FArray.IsabelleMapping.array_shrink a o integer_of_nat;
 
+fun assert b m = (if b then Result () else Error [m]);
+
 val op_list_empty : 'a list = [];
 
 fun as_get s i = let
@@ -5389,8 +5391,6 @@ fun check_diag_impl (A1_, A2_) n =
                 sigma))))
       false);
 
-fun assert b m = (if b then Result () else Error [m]);
-
 fun of_nat json =
   (case json of Object _ => Error ["of_nat: expected natural number"]
     | Arraya _ => Error ["of_nat: expected natural number"]
@@ -5661,20 +5661,31 @@ false, false),
                              bindb (gen_token lx_ws
                                      (exactly (equal_char, show_char)
                                        [Chara
-  (false, true, true, true, true, true, false, false),
- Chara (true, false, true, true, true, true, false, false)]))
+  (true, false, true, true, true, true, false, false)]))
                                (fn _ =>
                                  bindb (gen_token lx_ws lx_int)
-                                   (fn xaa => return (Gea (implode xa, xaa))))))
-                      (bindb (gen_token lx_ws scan_var)
-                        (fn xa =>
-                          bindb (gen_token lx_ws
-                                  (exactly (equal_char, show_char)
-                                    [Chara (false, true, true, true, true, true,
-     false, false)]))
-                            (fn _ =>
-                              bindb (gen_token lx_ws lx_int)
-                                (fn xaa => return (Gta (implode xa, xaa)))))))
+                                   (fn xaa => return (Eqa (implode xa, xaa))))))
+                      (bindb
+                        (alt (bindb (gen_token lx_ws scan_var)
+                               (fn xa =>
+                                 bindb (gen_token lx_ws
+ (exactly (equal_char, show_char)
+   [Chara (false, true, true, true, true, true, false, false),
+     Chara (true, false, true, true, true, true, false, false)]))
+                                   (fn _ =>
+                                     bindb (gen_token lx_ws lx_int)
+                                       (fn xaa =>
+ return (Gea (implode xa, xaa))))))
+                          (bindb (gen_token lx_ws scan_var)
+                            (fn xa =>
+                              bindb (gen_token lx_ws
+                                      (exactly (equal_char, show_char)
+[Chara (false, true, true, true, true, true, false, false)]))
+                                (fn _ =>
+                                  bindb (gen_token lx_ws lx_int)
+                                    (fn xaa =>
+                                      return (Gta (implode xa, xaa)))))))
+                        (fn xa => return (sum_join xa))))
                     (fn xa => return (sum_join xa))))
                 (fn xa => return (sum_join xa))))
             (fn xa => return (sum_join xa))))
