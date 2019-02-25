@@ -10,6 +10,9 @@ export_code state_space in SML module_name Test
 hide_const Parser_Combinator.return
 hide_const Error_Monad.return
 
+definition
+  "show_lit = String.implode o show"
+
 definition "rename_state_space \<equiv> \<lambda>dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula.
   let _ = println (STR ''Make renaming'') in
   case make_renaming broadcast automata bounds of
@@ -100,14 +103,14 @@ definition parse_convert_run_print where
       | Result (r, show_clk, show_st, renamings, k) \<Rightarrow>
         case r of None \<Rightarrow> return () | Some r \<Rightarrow>
         do {
-          let _ = ''Length: '' @ show (length r) |> String.implode |> println;
+          let _ = ''Number of discrete states: '' @ show (length r) |> String.implode |> println;
           let _ = ''Size of passed list: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
           let n = Simple_Network_Impl.clk_set' automata |> list_of_set |> length;
           r \<leftarrow> imp_map (\<lambda> (a, b). do {
               b \<leftarrow> imp_map (return o snd) b; b \<leftarrow> filter_dbm_list n b; return (a, b)
             }) r;
-          let _ = ''Length: '' @ show (length r) |> String.implode |> println;
+          let _ = ''Number of discrete states: '' @ show (length r) |> String.implode |> println;
           let _ = ''Size of passed list after removing subsumed states: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
           let show_dbm = (\<lambda>M. do {s \<leftarrow> show_dbm_impl_all n show_clk show M; return (''<'' @ s @ ''>'')});
@@ -167,38 +170,6 @@ definition parse_convert_run_check where
         let (m,num_states,num_actions,renum_acts,renum_vars,renum_clocks,renum_states,
           inv_renum_states, inv_renum_vars, inv_renum_clocks
         ) = renamings;
-(*
-        let _ = ''Size of passed list before removing subsumed states: ''
-            @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
-        invalid \<leftarrow> Heap_Monad.fold_map (\<lambda>(s, xs).
-          do {
-            let xs = map snd xs;
-            xs \<leftarrow> imp_filter_index (\<lambda> _ M. check_diag_nonpos m M) xs;
-            return (s, xs)
-          }
-        ) r;
-        let _ = println (STR ''Len of invalid: '' + String.implode (show (length invalid)));
-        r \<leftarrow> imp_map (\<lambda> (a, b). do {
-              b \<leftarrow> imp_map (return o snd) b; b \<leftarrow> filter_dbm_list m b; return (a, b)
-            }) r;
-        let _ = ''Size of passed list after removing subsumed states: ''
-            @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
-        state_space \<leftarrow> Heap_Monad.fold_map (\<lambda>(s, xs).
-          do {
-            xs \<leftarrow> Heap_Monad.fold_map (dbm_to_list_impl m) xs;
-            return (s, xs)
-          }
-        ) r;
-        let show_dbm_list = (\<lambda>M. let s = dbm_list_to_string' m show_clk show M in return (''<'' @ s @ ''>''));
-        _ \<leftarrow> imp_map (\<lambda> (s, xs).
-        do {
-          let s = show_st s;
-          xs \<leftarrow> imp_map show_dbm_list xs;
-          let _ = s @ '': '' @ show xs |> String.implode |> println;
-          return ()
-        }
-        ) state_space;
-*)
         let _ = start_timer ();
         state_space \<leftarrow> Heap_Monad.fold_map (\<lambda>(s, xs).
           do {
@@ -208,7 +179,8 @@ definition parse_convert_run_check where
           }
         ) r;
         let _ = save_time STR ''Time for converting DBMs in certificate'';
-        let _ = println (STR ''Len of state space: '' + String.implode (show (length state_space)));
+        let _ = println (
+          STR ''Number of discrete states of state space: '' + show_lit (length state_space));
         let _ = ''Size of passed list: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
         let t = now ();
@@ -216,12 +188,6 @@ definition parse_convert_run_check where
           m num_states num_actions renum_acts renum_vars renum_clocks renum_states
           (* inv_renum_states inv_renum_vars inv_renum_clocks *)
           state_space;
-(*
-        check \<leftarrow> rename_check_dbg dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
-          m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-          inv_renum_states inv_renum_vars inv_renum_clocks
-          state_space;
-*)
         let t = now () - t;
         let _ = println (STR ''Time for certificate checking: '' + time_to_string t);
         case check of
@@ -333,40 +299,7 @@ definition
 ML_val \<open>@{code Test} ()\<close>
 
 
-text \<open>Scratch\<close>
-
-(*
-ML_val \<open>
-  do_test true "/Users/wimmers/Code/mlunta/test/resources/fddi.muntax" ()
-\<close>
-*)
-
-ML_val \<open>
-  do_test true "/Users/wimmers/Code/mlunta/benchmarks/resources/csma_R_6.muntax" ()
-\<close>
-
-(* definition "mk_renaming1 str xs \<equiv>
-do {
-  mapping \<leftarrow> fold_error
-    (\<lambda>x m.
-      if mem_assoc x m then Error [STR ''Duplicate name: '' + str x] else (x,length m) # m |> Result
-    ) xs [];
-  Result (let
-    m = map_of mapping;
-    f = (\<lambda>x.
-      case m x of
-        None \<Rightarrow> let _ = println (STR ''Key error: '' + str x) in undefined
-      | Some v \<Rightarrow> v);
-    m = map_of (map prod.swap mapping);
-    f_inv = (\<lambda>x.
-      case m x of
-        None \<Rightarrow> let _ = println (STR ''Key error: '' + String.implode (show x)) in undefined
-      | Some v \<Rightarrow> v)
-  in (f, f_inv)
-  )
-}"
-
-value "the_result (mk_renaming1 id [STR ''x'']) |> fst |> (\<lambda>f. f (STR ''y''))" *)
+paragraph \<open>Checking external certificates\<close>
 
 definition
   "list_of_json_object obj \<equiv>
@@ -374,9 +307,6 @@ definition
     Object m \<Rightarrow> Result m
   | _ \<Rightarrow> Error [STR ''Not an object'']
 "
-
-definition
-  "show_lit = String.implode o show"
 
 definition
   "map_of_debug m \<equiv>
@@ -484,7 +414,8 @@ definition parse_convert_check1 where
   "parse_convert_check1 model renaming state_space \<equiv>
    do {
     model \<leftarrow> parse json model;
-    (ids_to_names, process_names_to_index, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<leftarrow> convert model;
+    (ids_to_names, process_names_to_index, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0)
+      \<leftarrow> convert model;
     renaming \<leftarrow> parse json renaming;
     (var_renaming, clock_renaming, location_renaming) \<leftarrow>
         convert_renaming ids_to_names process_names_to_index renaming;
@@ -519,7 +450,7 @@ definition parse_convert_check where
           state_space) = r;
         let _ = start_timer ();
         let _ = save_time STR ''Time for converting DBMs in certificate'';
-        let _ = println (STR ''Len of state space: '' + String.implode (show (length state_space)));
+        let _ = println (STR ''Number of discrete states: '' + show_lit (length state_space));
         let t = now ();
         check \<leftarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
           m num_states num_actions renum_acts renum_vars renum_clocks renum_states
