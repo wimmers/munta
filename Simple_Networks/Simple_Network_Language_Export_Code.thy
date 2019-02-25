@@ -14,8 +14,6 @@ abbreviation "renum_automaton \<equiv> Simple_Network_Rename_Defs.renum_automato
 
 hide_const m
 
-definition assert where "assert b m = (if b then Result () else Error [m])"
-
 locale Simple_Network_Rename_Formula_String_Defs =
   Simple_Network_Rename_Defs where automata = automata for automata ::
     "(nat list \<times>
@@ -309,7 +307,7 @@ definition do_rename_mc where
 \<equiv>
 let
    _ = println (STR ''Checking renaming'');
-  formula = (if dc then formula.EX (not sexp.true) else formula);
+   formula = (if dc then formula.EX (not sexp.true) else formula);
    renaming_valid = Simple_Network_Rename_Formula_String_Defs.check_renaming
       broadcast bounds' renum_vars renum_clocks renum_states automata formula L\<^sub>0 s\<^sub>0;
    _ = println (STR ''Renaming network'');
@@ -1044,7 +1042,8 @@ definition scan_acconstraint where [unfolded Let_def, consuming]:
   (
     scan ''<''  lt \<parallel>
     scan ''<='' le \<parallel>
-    scan ''==''  eq \<parallel>
+    scan ''=='' eq \<parallel>
+    scan ''=''  eq \<parallel>
     scan ''>='' ge \<parallel>
     scan ''>''  gt
   )

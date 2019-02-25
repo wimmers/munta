@@ -26,6 +26,8 @@ fun make_err where
 
 definition assert_msg where "assert_msg b m = (if b then (\<lambda>x. x) else make_err m)"
 
+definition assert where "assert b m = (if b then Result () else Error [m])"
+
 fun the_result where
   "the_result (Result x) = x"
 
