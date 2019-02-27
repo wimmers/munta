@@ -15,10 +15,10 @@ definition
 
 definition "rename_state_space \<equiv> \<lambda>dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula.
   let _ = println (STR ''Make renaming'') in
-  case make_renaming broadcast automata bounds of
-    Error e \<Rightarrow> return (Error e)
-  | Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
-      inv_renum_states, inv_renum_vars, inv_renum_clocks) \<Rightarrow> do {
+  do {
+    (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
+      inv_renum_states, inv_renum_vars, inv_renum_clocks)
+      \<leftarrow> make_renaming broadcast automata bounds;
     let _ = println (STR ''Renaming'');
     let (broadcast', automata', bounds') = rename_network
       broadcast bounds automata renum_acts renum_vars renum_clocks renum_states;
@@ -31,7 +31,7 @@ definition "rename_state_space \<equiv> \<lambda>dc ids_to_names (broadcast, aut
       state_space broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
         show_clock show_state ()
     );
-    r \<leftarrow> do_rename_mc f dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+    let r = do_rename_mc f dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
       m num_states num_actions renum_acts renum_vars renum_clocks renum_states
       inv_renum_states' inv_renum_vars inv_renum_clocks;
     let show_clock = show o inv_renum_clocks;
@@ -40,7 +40,7 @@ definition "rename_state_space \<equiv> \<lambda>dc ids_to_names (broadcast, aut
       (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
        inv_renum_states, inv_renum_vars, inv_renum_clocks
       );
-    return (Result (r, show_clock, show_state, renamings, k))
+    Result (r, show_clock, show_state, renamings, k)
   }"
 
 definition
@@ -97,12 +97,13 @@ definition parse_convert_run_print where
    case parse json s \<bind> convert of
      Error es \<Rightarrow> do {let _ = map println es; return ()}
    | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
-      r \<leftarrow> rename_state_space dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
+      let r = rename_state_space dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
       case r of
         Error es \<Rightarrow> do {let _ = map println es; return ()}
       | Result (r, show_clk, show_st, renamings, k) \<Rightarrow>
         case r of None \<Rightarrow> return () | Some r \<Rightarrow>
         do {
+          r \<leftarrow> r;
           let _ = ''Number of discrete states: '' @ show (length r) |> String.implode |> println;
           let _ = ''Size of passed list: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
@@ -154,19 +155,22 @@ code_printing
       (SML)   "(fn n => fn show_state => fn show_clock => fn typ => fn x => ()) _ _ _"
   and (OCaml) "(fun n show_state show_clock ty x -> ()) _ _ _"
 
+datatype mode = Impl1 | Impl2
+
 definition parse_convert_run_check where
-  "parse_convert_run_check num_split dc s \<equiv>
+  "parse_convert_run_check mode num_split dc s \<equiv>
    case parse json s \<bind> convert of
      Error es \<Rightarrow> do {let _ = map println es; return ()}
    | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
       let t = now ();
-      r \<leftarrow> rename_state_space dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
+      let r = rename_state_space dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
       let t = now () - t;
       let _ = println (STR ''Time for model checking + certificate extraction: '' + time_to_string t);
       case r of
         Error es \<Rightarrow> do {let _ = map println es; return ()}
       | Result (r, show_clk, show_st, renamings, k) \<Rightarrow>
         case r of None \<Rightarrow> return () | Some r \<Rightarrow> do {
+        r \<leftarrow> r;
         let (m,num_states,num_actions,renum_acts,renum_vars,renum_clocks,renum_states,
           inv_renum_states, inv_renum_vars, inv_renum_clocks
         ) = renamings;
@@ -184,10 +188,14 @@ definition parse_convert_run_check where
         let _ = ''Size of passed list: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
         let t = now ();
-        check \<leftarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
-          m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-          (* inv_renum_states inv_renum_vars inv_renum_clocks *)
-          state_space;
+        check \<leftarrow> case mode of
+          Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+            (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+            state_space
+        | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+            state_space |> return;
         let t = now () - t;
         let _ = println (STR ''Time for certificate checking: '' + time_to_string t);
         case check of
@@ -248,7 +256,7 @@ ML \<open>
   let
     val s = file_to_string file;
   in
-    @{code parse_convert_run_check} @{code num_split} dc s end
+    @{code parse_convert_run_check} @{code Impl2} @{code num_split} dc s end
 \<close>
 
 (*
@@ -440,9 +448,9 @@ definition parse_convert_check1 where
    }" for num_split and state_space :: "((int list \<times> int list) \<times> int DBMEntry list list) list"
 
 definition parse_convert_check where
-  "parse_convert_check num_split dc model renaming state_space \<equiv>
+  "parse_convert_check mode num_split dc model renaming state_space \<equiv>
    let
-   r = parse_convert_check1 model renaming state_space
+     r = parse_convert_check1 model renaming state_space
    in case r of Error es \<Rightarrow> do {let _ = map println es; return ()}
    | Result r \<Rightarrow> do {
      let (broadcast, bounds, automata, k, L\<^sub>0, s\<^sub>0, formula,
@@ -452,10 +460,15 @@ definition parse_convert_check where
         let _ = save_time STR ''Time for converting DBMs in certificate'';
         let _ = println (STR ''Number of discrete states: '' + show_lit (length state_space));
         let t = now ();
-        check \<leftarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
-          m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-          (* inv_renum_states inv_renum_vars inv_renum_clocks *)
-          state_space;
+        check \<leftarrow> case mode of
+          Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+            (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+            state_space
+        | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+            (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+            state_space |> return;
         let t = now () - t;
         let _ = println (STR ''Time for certificate checking: '' + time_to_string t);
         case check of
@@ -468,6 +481,7 @@ definition parse_convert_check where
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
+  Impl1 Impl2
   in SML module_name Model_Checker file "../ML/Certificate.sml"
 
 end

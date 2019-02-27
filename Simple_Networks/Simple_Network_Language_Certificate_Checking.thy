@@ -225,7 +225,7 @@ lemma deadlock_prod:
 
 lemma list_assn_split:
   "list_assn (list_assn impl.location_assn) (split_k num_split L) (split_k num_split Li) =
-      list_assn impl.location_assn L Li"
+   list_assn impl.location_assn L Li"
 proof -
   have 1: "impl.location_assn = pure (the_pure impl.location_assn)"
     using impl.pure_K by auto
@@ -266,6 +266,22 @@ proof -
     unfolding checker_def[symmetric] using unreachability_prod[OF assms(5)]
     by sepref_to_hoare (sep_auto simp: pure_def)
 qed
+
+theorem unreachability_checker2_refine:
+  assumes "\<And>li. P_loc li \<Longrightarrow> states'_memi li"
+    and "list_all (\<lambda>x. P_loc x \<and> states'_memi x) L_list"
+    and "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
+    and "fst ` set M_list = set L_list"
+    and "formula = formula.EX \<phi>"
+  shows "
+  impl.unreachability_checker2 L_list M_list (split_k num_split) \<longrightarrow>
+    \<not> Simple_Network_Language.conv A,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0) \<Turnstile> formula"
+  using impl.unreachability_checker2_refine[OF state_impl_abstract',
+      OF assms(1,2) assms(4)[THEN equalityD1] assms(3) split_k_full_split list_assn_split assms(4)
+      ]
+    unreachability_prod[OF assms(5)]
+  by auto
+
 
 schematic_goal succs_impl_alt_def:
   "impl.succs_precise'_impl \<equiv> ?impl"
@@ -437,6 +453,69 @@ lemmas no_deadlock_certifier_hnr' =
     unfolded deadlock_prod
   ]
 
+
+
+schematic_goal unreachability_checker2_alt_def:
+  "impl.unreachability_checker2 L_list M_list (split_k num_split) \<equiv> ?x"
+  apply (subst impl.unreachability_checker2_def[
+      OF state_impl_abstract', OF _ A assms(2,3) split_k_full_split list_assn_split
+      ], (simp; fail))
+  apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
+   apply assumption
+  unfolding check_deadlock_impl_alt_def impl.P_impl_def impl.F_impl_def
+  apply (abstract_let states'_memi check_states)
+  unfolding states'_memi_def states_mem_compute'
+  apply (abstract_let "map states_i [0..<n_ps]" states_i)
+  unfolding succs_impl_alt_def
+  unfolding k_impl_alt_def k_i_def
+  (* The following are just to unfold things that should have been defined in a defs locale *)
+  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+  unfolding
+    impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
+    impl.unbounded_dbm'_def
+  unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
+  unfolding impl.subsumes_impl_def
+  unfolding impl.emptiness_check_impl_def
+  unfolding impl.state_copy_impl_def
+  by (rule Pure.reflexive)
+
+definition no_deadlock_certifier2 where
+  "no_deadlock_certifier2 \<equiv>
+  Reachability_Problem_Impl_Precise.unreachability_checker2
+    m trans_impl l\<^sub>0i (PR_CONST impl.E_precise_op'_impl)
+    states'_memi (\<lambda>(l, M). impl.check_deadlock_impl l M \<bind> (\<lambda>r. Heap_Monad.return (\<not> r)))"
+
+schematic_goal no_deadlock_certifier2_alt_def:
+  "no_deadlock_certifier2 L_list M_list (split_k num_split) \<equiv> ?x"
+  unfolding no_deadlock_certifier2_def
+  apply (subst impl.deadlock_unreachability_checker2_def[
+        OF state_impl_abstract', OF _ A assms(2,3) split_k_full_split list_assn_split
+        ], (simp; fail))
+  apply (subst impl.M_table_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
+   apply assumption
+  unfolding check_deadlock_impl_alt_def impl.P_impl_def
+  apply (abstract_let states'_memi check_states)
+  unfolding states'_memi_def states_mem_compute'
+  apply (abstract_let "map states_i [0..<n_ps]" states_i)
+  unfolding succs_impl_alt_def
+  unfolding k_impl_alt_def k_i_def
+  (* The following are just to unfold things that should have been defined in a defs locale *)
+  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+  unfolding
+    impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
+    impl.unbounded_dbm'_def
+  unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
+  unfolding impl.subsumes_impl_def
+  unfolding impl.emptiness_check_impl_def
+  unfolding impl.state_copy_impl_def
+  by (rule Pure.reflexive)
+
+lemmas no_deadlock_certifier2_refine' =
+  impl.deadlock_unreachability_checker2_hnr[
+    folded no_deadlock_certifier2_def,
+    OF state_impl_abstract' A assms(3) _ split_k_full_split list_assn_split
+  ]
+
 end (* Anonymous context *)
 
 theorem no_deadlock_certifier_hnr:
@@ -460,6 +539,15 @@ proof -
     unfolding checker_def[symmetric] deadlock_prod[symmetric] P_def[symmetric]
     by sepref_to_hoare (sep_auto simp: pure_def)
 qed
+
+theorem no_deadlock_certifier2_refine:
+  assumes "list_all states'_memi L_list"
+      and "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
+      and "fst ` set M_list = set L_list"
+  shows "no_deadlock_certifier2 L_list M_list (split_k num_split) \<longrightarrow>
+    \<not> has_deadlock (Simple_Network_Language.conv A) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+  using no_deadlock_certifier2_refine'[OF assms(1) _ assms(2), of num_split] assms(3)
+  unfolding deadlock_prod[symmetric] by auto
 
 definition
   "show_dbm_impl' M \<equiv> do {
@@ -598,6 +686,12 @@ concrete_definition unreachability_checker uses
 concrete_definition no_deadlock_certifier uses
   Simple_Network_Impl_nat_ceiling_start_state.no_deadlock_certifier_alt_def
 
+concrete_definition unreachability_checker2 uses
+  Simple_Network_Impl_nat_ceiling_start_state.unreachability_checker2_alt_def
+
+concrete_definition no_deadlock_certifier2 uses
+  Simple_Network_Impl_nat_ceiling_start_state.no_deadlock_certifier2_alt_def
+
 concrete_definition check_prop_fail uses
   Simple_Network_Impl_nat_ceiling_start_state.check_prop_fail_alt_def
 
@@ -622,16 +716,14 @@ lemma states'_memi_alt_def:
   by (intro ext) simp
 
 definition
-  "certificate_checker num_split dc
-    M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
-    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+  "certificate_checker_pre
+    L_list M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
   \<equiv>
   let
     _ = start_timer ();
     check1 = Simple_Network_Impl_nat_ceiling_start_state
       broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
     _ = save_time STR ''Time to check ceiling'';
-    L_list = map fst M_list;
     n_ps = length automata;
     n_vs = Simple_Network_Impl.n_vs bounds';
     states_i = map (Simple_Network_Impl_nat_defs.states_i automata) [0..<n_ps];
@@ -644,10 +736,22 @@ definition
     n_sq = Suc m * Suc m;
     check3 = list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = n_sq) xs) M_list;
     _ = save_time STR ''Time to check DBMs'';
-    check4 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False) (*;
+    check4 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False)
+  in check1 \<and> check2 \<and> check3 \<and> check4"
+
+definition
+  "certificate_checker num_split dc
+    M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+  \<equiv>
+  let
+    L_list = map fst M_list;
+    check = certificate_checker_pre
+      L_list M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+    (*;
     show_c = show_clock inv_renum_clocks;
     show_st = show_state inv_renum_states inv_renum_vars *)
-  in if check1 \<and> check2 \<and> check3 \<and> check4 then
+  in if check then
   do {
     r \<leftarrow>
       if dc then
@@ -658,6 +762,23 @@ definition
           broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list num_split;
     Heap_Monad.return (Some r)
   } else Heap_Monad.return None"
+
+definition
+  "certificate_checker2 num_split dc
+    M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+  \<equiv>
+  let
+    L_list = map fst M_list;
+    check = certificate_checker_pre
+      L_list M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+  in if check then
+    if dc then
+        no_deadlock_certifier2
+          broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 L_list M_list num_split
+      else
+        unreachability_checker2
+          broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list num_split
+  else False"
 
 definition
   "certificate_checker_dbg num_split
@@ -710,7 +831,7 @@ proof -
   } note *[sep_heap_rules] = this[simplified, unfolded hd_of_formulai.simps[abs_def]]
   show ?thesis
     unfolding A_def[symmetric] check_def[symmetric]
-    unfolding certificate_checker_def
+    unfolding certificate_checker_def certificate_checker_pre_def
     unfolding Let_def
     unfolding states'_memi_alt_def[unfolded Let_def, symmetric, of automata bounds broadcast]
     by (sep_auto simp: unreachability_checker.refine[symmetric] pure_def split: formula.split_asm)
@@ -733,11 +854,37 @@ proof -
   ]
   show ?thesis
     unfolding A_def[symmetric] check_def[symmetric]
-    unfolding certificate_checker_def
+    unfolding certificate_checker_def certificate_checker_pre_def
     unfolding Let_def
     unfolding states'_memi_alt_def[unfolded Let_def, symmetric, of automata bounds broadcast]
     by (sep_auto simp: no_deadlock_certifier.refine[symmetric] pure_def split: formula.split_asm)
 qed
+
+theorem certificate_check2:
+  "certificate_checker2 num_split False
+    M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+   \<longrightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula"
+  using Simple_Network_Impl_nat_ceiling_start_state.unreachability_checker2_refine[
+      of broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+         "Simple_Network_Impl_nat_defs.states'_memi broadcast bounds automata"
+         "map fst M_list" M_list
+         ]
+  unfolding certificate_checker2_def certificate_checker_pre_def
+  unfolding Let_def
+  unfolding states'_memi_alt_def[unfolded Let_def, symmetric, of automata bounds broadcast]
+  by (clarsimp split: formula.split_asm simp: unreachability_checker2.refine[symmetric])
+
+theorem certificate_deadlock_check2:
+  "certificate_checker2 num_split True
+    M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+   \<longrightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)"
+  using Simple_Network_Impl_nat_ceiling_start_state.no_deadlock_certifier2_refine[
+      of broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+         "map fst M_list" M_list num_split
+         ]
+  unfolding certificate_checker2_def certificate_checker_pre_def Let_def
+  unfolding states'_memi_alt_def[unfolded Let_def, symmetric, of automata bounds broadcast]
+  by (clarsimp simp: no_deadlock_certifier2.refine[symmetric])
 
 definition rename_check where
   "rename_check num_split dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
@@ -746,19 +893,39 @@ definition rename_check where
     state_space
 \<equiv>
 do {
-  r \<leftarrow> do_rename_mc (
+  let r = do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
       certificate_checker num_split dc state_space)
     dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks; *)
     (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '');
-  case r of Some r \<Rightarrow>
+  case r of Some r \<Rightarrow> do {
+    r \<leftarrow> r;
     case r of
       None \<Rightarrow> Heap_Monad.return Preconds_Unsat
     | Some False \<Rightarrow> Heap_Monad.return Unsat
     | Some True \<Rightarrow> Heap_Monad.return Sat
-  | None \<Rightarrow> Heap_Monad.return Renaming_Failed}
+  }
+  | None \<Rightarrow> Heap_Monad.return Renaming_Failed
+}
+"
+
+definition rename_check2 where
+  "rename_check2 num_split dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    state_space
+\<equiv>
+  let r = do_rename_mc (
+      \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
+      certificate_checker2 num_split dc state_space)
+    dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '')
+  in case r of
+    Some False \<Rightarrow> Unsat
+  | Some True \<Rightarrow> Sat
+  | None \<Rightarrow> Renaming_Failed
 "
 
 definition rename_check_dbg where
@@ -768,18 +935,21 @@ definition rename_check_dbg where
     state_space
 \<equiv>
 do {
-  r \<leftarrow> do_rename_mc (
+  let r = do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
       certificate_checker_dbg num_split show_clock show_state state_space)
     dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     inv_renum_states inv_renum_vars inv_renum_clocks;
-  case r of Some r \<Rightarrow>
+  case r of Some r \<Rightarrow> do {
+    r \<leftarrow> r;
     case r of
       None \<Rightarrow> Heap_Monad.return Preconds_Unsat
     | Some False \<Rightarrow> Heap_Monad.return Unsat
     | Some True \<Rightarrow> Heap_Monad.return Sat
-  | None \<Rightarrow> Heap_Monad.return Renaming_Failed}
+  }
+  | None \<Rightarrow> Heap_Monad.return Renaming_Failed
+}
 "
 
 theorem certificate_check_rename:
@@ -793,7 +963,17 @@ theorem certificate_check_rename:
         broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0)
      | Unsat \<Rightarrow> true
      | Preconds_Unsat \<Rightarrow> true
-    >\<^sub>t"
+    >\<^sub>t" (is ?A)
+and certificate_check_rename2:
+  "case rename_check2 num_split False broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+      m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+      state_space
+    of 
+      Sat \<Rightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
+    | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
+          broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+    | Unsat \<Rightarrow> True
+    | Preconds_Unsat \<Rightarrow> True" (is ?B)
 proof -
   have *: "
     Simple_Network_Rename_Formula_String
@@ -832,13 +1012,20 @@ proof -
     folded A'_def check'_def renaming_valid_def,
     simplified
     ]
-  show ?thesis
-    unfolding rename_check_def do_rename_mc_def rename_network_def
+  show ?A ?B
+    using certificate_check2[
+      of num_split state_space
+      "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+      m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
+      "map_formula renum_states renum_vars id formula",
+      folded A'_def check'_def renaming_valid_def
+    ]
+    unfolding rename_check_def rename_check2_def do_rename_mc_def rename_network_def
     unfolding if_False
     unfolding Simple_Network_Rename_Formula_String_Defs.check_renaming[symmetric] * Let_def
-    unfolding
-      A_def[symmetric] check_def[symmetric] renaming_valid_def[symmetric]
-    by (sep_auto simp: split: bool.splits)
+    unfolding A_def[symmetric] check_def[symmetric] renaming_valid_def[symmetric]
+    by (sep_auto simp: split: bool.splits)+
 qed
 
 theorem certificate_deadlock_check_rename:
@@ -846,13 +1033,24 @@ theorem certificate_deadlock_check_rename:
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks *)
     state_space
-    <\<lambda> Sat \<Rightarrow> \<up>((\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)))
+    <\<lambda> Sat \<Rightarrow> \<up>(\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
         broadcast bounds renum_vars renum_clocks renum_states automata
         (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0)
      | Unsat \<Rightarrow> true
      | Preconds_Unsat \<Rightarrow> true
-    >\<^sub>t"
+    >\<^sub>t" (is ?A)
+and certificate_deadlock_check_rename2:
+  "case rename_check2 num_split True broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+      m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+      state_space
+    of 
+      Sat \<Rightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)
+    | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
+        broadcast bounds renum_vars renum_clocks renum_states automata
+        (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0
+    | Unsat \<Rightarrow> True
+    | Preconds_Unsat \<Rightarrow> True" (is ?B)
 proof -
   let ?formula = "formula.EX (sexp.not sexp.true)"
   have *: "
@@ -891,18 +1089,27 @@ proof -
     folded A'_def check'_def renaming_valid_def,
     simplified
     ]
-  show ?thesis
-    unfolding rename_check_def do_rename_mc_def rename_network_def
+  show ?A ?B
+    using certificate_deadlock_check2[
+      of num_split state_space
+      "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+      m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
+      "map_formula renum_states renum_vars id ?formula",
+      folded A'_def check'_def renaming_valid_def,
+      simplified
+    ]
+    unfolding rename_check_def rename_check2_def do_rename_mc_def rename_network_def
     unfolding if_True
     unfolding Simple_Network_Rename_Formula_String_Defs.check_renaming[symmetric] * Let_def
     unfolding
       A_def[symmetric] check_def[symmetric] renaming_valid_def[symmetric]
-    by (sep_auto simp: split: bool.splits)
+    by (sep_auto split: bool.splits)+
 qed
 
 lemmas [code] = Simple_Network_Impl_nat_defs.states_i_def
 
-export_code rename_check in SML module_name Test
+export_code rename_check rename_check2 in SML module_name Test
 
 export_code rename_check_dbg in SML module_name Test
 

@@ -332,14 +332,14 @@ in
       | Error es \<Rightarrow> let _ = println (STR ''The following pre-conditions were not satisified'') in
           map println es);
     let _ = println (STR ''Running precond_mc'');
-    r \<leftarrow> f show_clock show_state
+    let r = f show_clock show_state
         broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
-    return (Some r)
+    Some r
   }
   else do {
     let _ = println (STR ''The following conditions on the renaming were not satisfied:'');
     let _ = the_errors renaming_valid |> map println;
-    return None}
+    None}
 "
 
 definition rename_mc where
@@ -348,16 +348,19 @@ definition rename_mc where
     inv_renum_states inv_renum_vars inv_renum_clocks
 \<equiv>
 do {
-  r \<leftarrow> do_rename_mc (if dc then precond_dc else precond_mc)
+  let r = do_rename_mc (if dc then precond_dc else precond_mc)
     dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     inv_renum_states inv_renum_vars inv_renum_clocks;
-  case r of Some r \<Rightarrow>
+  case r of Some r \<Rightarrow> do {
+    r \<leftarrow> r;
     case r of
       None \<Rightarrow> return Preconds_Unsat
     | Some False \<Rightarrow> return Unsat
     | Some True \<Rightarrow> return Sat
-  | None \<Rightarrow> return Renaming_Failed}
+  }
+  | None \<Rightarrow> return Renaming_Failed
+}
 "
 
 (*

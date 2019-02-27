@@ -781,6 +781,28 @@ lemmas unreachability_checker_hnr =
 
 lemmas unreachability_checker_alt_def' = unreachability_checker_alt_def[unfolded M_table_def]
 
+definition
+  "unreachability_checker2 \<equiv>
+  let
+    Fi = F_impl;
+    Pi = P_impl;
+    copyi = amtx_copy;
+    Lei = dbm_subset_impl n;
+    l\<^sub>0i = Heap_Monad.return l\<^sub>0i;
+    s\<^sub>0i = init_dbm_impl;
+    succsi = succs_precise'_impl;
+    M_table = M_table
+  in
+    certify_unreachable_impl2 Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi splitteri L_list M_table"
+
+lemmas unreachability_checker2_refine = certify_unreachable_impl2_refine[
+    of L_list M_table splitter splitteri,
+    OF L_list_hnr _ full_split same_split L_dom_M_eqI[symmetric],
+    unfolded PR_CONST_def, OF M_table.refine,
+    folded unreachability_checker2_def[unfolded Let_def],
+    THEN mp, THEN op_precise_unreachable_correct
+]
+
 end (* Splitter *)
 
 end (* L and M *)
@@ -846,6 +868,31 @@ interpretation deadlock: Reachability_Problem_Impl_Precise where
   qed
   done
 
+lemma deadlock_unreachability_checker2_hnr:
+  fixes P_loc :: "'si \<Rightarrow> bool"
+    and L_list :: "'si list"
+    and M_list :: "('si \<times> int DBMEntry list list) list"
+  fixes splitter :: "'s list \<Rightarrow> 's list list" and splitteri :: "'si list \<Rightarrow> 'si list list"
+  assumes "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
+    and "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
+    and "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
+    and "fst ` set M_list = set L_list"
+  assumes full_split: "\<And>xs. set xs = (\<Union>xs \<in> set (splitter xs). set xs)"
+    and same_split:
+    "\<And>L Li.
+      list_assn (list_assn location_assn) (splitter L) (splitteri Li) = list_assn location_assn L Li"
+  shows
+    "deadlock.unreachability_checker2 L_list M_list splitteri
+    \<longrightarrow> (\<forall>u. (\<forall>c\<le>n. u c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u))"
+  using deadlock.unreachability_checker2_refine[
+      OF assms(1-2) assms(4)[THEN equalityD1] assms(3) full_split same_split assms(4)
+      ]
+  unfolding deadlock_def steps'_iff[symmetric] by auto
+
+lemmas deadlock_unreachability_checker2_def = deadlock.unreachability_checker2_def
+
+lemmas deadlock_unreachability_checker_alt_def = deadlock.unreachability_checker_alt_def
+
 lemma deadlock_unreachability_checker_hnr:
   fixes P_loc :: "'si \<Rightarrow> bool"
     and L_list :: "'si list"
@@ -868,11 +915,8 @@ lemma deadlock_unreachability_checker_hnr:
        (SPEC
          (\<lambda>r. r \<longrightarrow> (\<forall>u. (\<forall>c\<le>n. u c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u)))))
      \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  thm deadlock.unreachability_checker_hnr
   using deadlock.unreachability_checker_hnr[OF assms(1-4), OF _ full_split same_split assms(5)]
   unfolding deadlock_def steps'_iff[symmetric] by simp linarith
-
-lemmas deadlock_unreachability_checker_alt_def = deadlock.unreachability_checker_alt_def
 
 end (* TA Impl Precise *)
 

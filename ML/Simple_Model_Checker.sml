@@ -9721,41 +9721,39 @@ show_nat)))))))
                      map (fn a => writeln a) es
                    end);
              val _ = writeln "Running precond_mc";
+             val a =
+               f show_clock show_statea broadcasta boundsa automataa m
+                 num_states
+                 num_actions
+                 k
+                 l_0a
+                 s_0a
+                 formulab;
            in
-             (fn f_ => fn () => f_
-               ((f show_clock show_statea broadcasta boundsa automataa m
-                   num_states
-                   num_actions
-                   k
-                   l_0a
-                   s_0a
-                  formulab)
-               ()) ())
-               (fn ra => (fn () => (SOME ra)))
+             SOME a
            end
       else let
              val _ =
                writeln "The following conditions on the renaming were not satisfied:";
              val _ = map (fn a => writeln a) (the_errors renaming_valid);
            in
-             (fn () => NONE)
+             NONE
            end)
   end;
 
 fun rename_mc A_ B_ C_ dc broadcast bounds automata k l_0 s_0 formula m
   num_states num_actions renum_acts renum_vars renum_clocks renum_states
   inv_renum_states inv_renum_vars inv_renum_clocks =
-  (fn f_ => fn () => f_
-    ((do_rename_mc show_int A_ B_ C_ (if dc then precond_dc else precond_mc) dc
-       broadcast bounds automata k l_0 s_0 formula m num_states num_actions
-       renum_acts renum_vars renum_clocks renum_states inv_renum_states
-       inv_renum_vars inv_renum_clocks)
-    ()) ())
-    (fn a =>
-      (case a of NONE => (fn () => Renaming_Failed)
-        | SOME NONE => (fn () => Preconds_Unsat)
-        | SOME (SOME true) => (fn () => Sat)
-        | SOME (SOME false) => (fn () => Unsat)));
+  (case do_rename_mc show_int A_ B_ C_ (if dc then precond_dc else precond_mc)
+          dc broadcast bounds automata k l_0 s_0 formula m num_states
+          num_actions renum_acts renum_vars renum_clocks renum_states
+          inv_renum_states inv_renum_vars inv_renum_clocks
+    of NONE => (fn () => Renaming_Failed)
+    | SOME r =>
+      (fn f_ => fn () => f_ (r ()) ())
+        (fn a =>
+          (case a of NONE => (fn () => Preconds_Unsat)
+            | SOME true => (fn () => Sat) | SOME false => (fn () => Unsat))));
 
 fun concat_str x = (implode o concat o map explode) x;
 
