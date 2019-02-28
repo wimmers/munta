@@ -66,10 +66,10 @@ locale Reachability_Impl_pure = Reachability_Impl_pre +
   fixes get_succs and loc_rel and state_rel and Mi and Li and lei
   assumes loc_rel_right_unique: "single_valued loc_rel"
   assumes loc_rel_left_unique:  "single_valued (loc_rel\<inverse>)"
-  assumes Li_L[refine]: "(Li, L) \<in> \<langle>loc_rel\<rangle>list_set_rel"
-  assumes Mi_M[refine]: "(Mi, M) \<in> loc_rel \<rightarrow> \<langle>state_rel\<rangle>list_set_rel"
-  assumes lei_less_eq[refine]: "(lei, less_eq) \<in> state_rel \<rightarrow> state_rel \<rightarrow> bool_rel"
-  assumes get_succs_succs[refine]:
+  assumes Li_L: "(Li, L) \<in> \<langle>loc_rel\<rangle>list_set_rel"
+  assumes Mi_M[param]: "(Mi, M) \<in> loc_rel \<rightarrow> \<langle>state_rel\<rangle>list_set_rel"
+  assumes lei_less_eq: "(lei, less_eq) \<in> state_rel \<rightarrow> state_rel \<rightarrow> bool_rel"
+  assumes get_succs_succs[param]:
     "(get_succs, succs) \<in>
     loc_rel \<rightarrow> \<langle>state_rel\<rangle>list_set_rel \<rightarrow> \<langle>loc_rel \<times>\<^sub>r \<langle>state_rel\<rangle>list_set_rel\<rangle>list_rel"
 begin
@@ -99,33 +99,34 @@ do {
 
 lemma check_invariant1_refine:
   "(check_invariant1, check_invariant) \<in> \<langle>loc_rel\<rangle>list_rel \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
-  unfolding check_invariant1_def check_invariant_def
-  apply refine_rcg
-  supply [refine_mono] = monadic_list_all_mono' monadic_list_ex_mono' refine_IdI
-  apply refine_mono
-  using get_succs_succs Mi_M
+  unfolding check_invariant1_def check_invariant_def Let_def
+  apply (refine_rcg monadic_list_all_mono' refine_IdI)
+    apply assumption
    apply parametricity
   apply (clarsimp; safe)
   subgoal for _ _ _ _ li _ l
     by (elim list_set_relE specify_right) auto
   subgoal premises prems for _ _ _ _ li _ l
   proof -
-    from prems Mi_M have "(Mi li, M l) \<in> \<langle>state_rel\<rangle>list_set_rel"
+    have [refine_mono]: \<open>RETURN (lei a b) \<le> RETURN (a' \<preceq> b')\<close>
+      if  \<open>(a, a') \<in> state_rel\<close> \<open>(b, b') \<in> state_rel\<close> for a a' b b'
+      using that using lei_less_eq by simp (metis pair_in_Id_conv tagged_fun_relD_both)
+    have *: \<open>li \<in> set Li \<longleftrightarrow> l \<in> L\<close> if \<open>(li, l) \<in> loc_rel\<close>
+      using that using Li_L loc_rel_left_unique loc_rel_right_unique
+      by (auto dest: single_valuedD elim: list_rel_setE1 list_rel_setE2 elim!: list_set_relE)
+    from prems have "(Mi li, M l) \<in> \<langle>state_rel\<rangle>list_set_rel"
       by parametricity
     then obtain xs where "(Mi li, xs) \<in> \<langle>state_rel\<rangle>list_rel" "set xs = M l"
       by (elim list_set_relE)
     with prems show ?thesis
-      apply -
-      apply (erule list_set_relE, erule specify_right)
+      apply (elim list_set_relE, elim specify_right)
       apply (clarsimp, safe)
        apply (auto; fail)
-      apply (erule specify_right[where x = xs])
+      apply (elim specify_right[where x = xs])
+      supply [refine_mono] = monadic_list_all_mono' monadic_list_ex_mono'
       apply refine_mono
       subgoal
-        using lei_less_eq by simp (metis pair_in_Id_conv tagged_fun_relD_both)
-      subgoal
-        using Li_L loc_rel_left_unique loc_rel_right_unique
-        by (auto dest: single_valuedD elim: list_rel_setE1 list_rel_setE2 elim!: list_set_relE)
+        using * by simp
       done
   qed
   done
