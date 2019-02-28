@@ -649,7 +649,7 @@ definition
 "
 
 definition
-  "check_all\<equiv> do {
+  "check_all \<equiv> do {
   b \<leftarrow> check_all_pre;
   if b then RETURN (check_invariant_spec L) else RETURN False
   }
@@ -693,7 +693,8 @@ lemma certify_unreachable_alt_def:
   unfolding certify_unreachable_def check_all_def by simp (fo_rule arg_cong2, auto)
 
 definition
-  "check_all_pre_spec \<equiv> (\<forall>l \<in> L. \<forall>s \<in> M l. P' (l, s)) \<and> l\<^sub>0 \<in> L \<and> (\<exists> s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s') \<and> P' (l\<^sub>0, s\<^sub>0)"
+  "check_all_pre_spec \<equiv>
+  (\<forall>l \<in> L. \<forall>s \<in> M l. P' (l, s)) \<and> l\<^sub>0 \<in> L \<and> (\<exists> s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s') \<and> P' (l\<^sub>0, s\<^sub>0)"
 
 lemma check_all_pre_correct:
   "check_all_pre \<le> RETURN check_all_pre_spec"
@@ -730,43 +731,34 @@ end
 
 paragraph \<open>Concrete Implementations\<close>
 
-locale Reachability_Impl =
+locale Reachability_Impl_common =
   Reachability_Impl_pre less_eq _ "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
-  for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" and M :: "'k \<Rightarrow> 'b set option" +
-  fixes A :: "'b \<Rightarrow> ('bi :: heap) \<Rightarrow> assn"
-    and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and F
-    and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i and succsi
-  (* and L_list :: "'ki list" and M_table :: "('ki, 'bi list) hashtable Heap" *)
+  for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'b set option" +
+  fixes F
   assumes L_finite: "finite L"
       and M_ran_finite: "\<forall>S \<in> ran M. finite S"
       and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
-      (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
       and succs_empty: "\<And>l. succs l {} = []"
-    assumes F_mono:
-      "\<And>a b. F a \<Longrightarrow> P a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> less_eq s s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
-(*
-  assumes L_impl[sepref_fr_rules]:
-    "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST L))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn K"
-  assumes M_impl:
-    "(uncurry0 M_table, uncurry0 (RETURN (PR_CONST M))) \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' K (lso_assn A)"
-*)
-  assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
-  assumes copyi[sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
-  assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P') \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F) \<in> (prod_assn K A)\<^sup>d \<rightarrow>\<^sub>a bool_assn"
-  assumes succsi[sepref_fr_rules]:
-    "(uncurry succsi,uncurry (RETURN oo PR_CONST succs))
-    \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>d \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
-  assumes [sepref_fr_rules]:
-    "(uncurry Lei,uncurry (RETURN oo PR_CONST less_eq)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  assumes [sepref_fr_rules]:
-    "(uncurry0 l\<^sub>0i, uncurry0 (RETURN (PR_CONST l\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a K"
-  assumes [sepref_fr_rules]:
-    "(uncurry0 s\<^sub>0i, uncurry0 (RETURN (PR_CONST s\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
-  assumes pure_K: "is_pure K"
-  assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
-  assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
+      (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
+  assumes F_mono:
+    "\<And>a b. F a \<Longrightarrow> P a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> less_eq s s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
 begin
+
+lemma M_listD:
+  assumes "M l = Some S"
+  shows "\<exists> xs. set xs = S"
+  using M_ran_finite assms unfolding ran_def by (auto intro: finite_list)
+
+lemma L_listD:
+  shows "\<exists> xs. set xs = L"
+  using L_finite by (rule finite_list)
+
+lemma check_prop_gt_SUCCEED:
+  "check_prop P' > SUCCEED"
+  unfolding check_prop_def using L_listD
+  by (fastforce split: option.split dest: M_listD
+        intro: monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I
+     )
 
 definition
   "check_final' L' M' = do {
@@ -827,14 +819,30 @@ lemma check_prop'_alt_def:
   unfolding check_prop'_def
   by (fo_rule arg_cong2, simp, fo_rule arg_cong) (auto split: option.split simp: bind_RES)
 
-lemma M_listD:
-  assumes "M l = Some S"
-  shows "\<exists> xs. set xs = S"
-  using M_ran_finite assms unfolding ran_def by (auto intro: finite_list)
+end
 
-lemma L_listD:
-  shows "\<exists> xs. set xs = L"
-  using L_finite by (rule finite_list)
+locale Reachability_Impl = Reachability_Impl_common less L
+  for less :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<prec>" 50) and L :: "'k set" +
+  fixes A :: "'b \<Rightarrow> ('bi :: heap) \<Rightarrow> assn"
+    and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn"
+    and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i and succsi
+  assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
+  assumes copyi[sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
+  assumes [sepref_fr_rules]: "(Pi,RETURN o PR_CONST P') \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  assumes [sepref_fr_rules]: "(Fi,RETURN o PR_CONST F) \<in> (prod_assn K A)\<^sup>d \<rightarrow>\<^sub>a bool_assn"
+  assumes succsi[sepref_fr_rules]:
+    "(uncurry succsi,uncurry (RETURN oo PR_CONST succs))
+    \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>d \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
+  assumes [sepref_fr_rules]:
+    "(uncurry Lei,uncurry (RETURN oo PR_CONST less_eq)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  assumes [sepref_fr_rules]:
+    "(uncurry0 l\<^sub>0i, uncurry0 (RETURN (PR_CONST l\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a K"
+  assumes [sepref_fr_rules]:
+    "(uncurry0 s\<^sub>0i, uncurry0 (RETURN (PR_CONST s\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
+  assumes pure_K: "is_pure K"
+  assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
+  assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
+begin
 
 definition
   "check_invariant' L' M' \<equiv> do {
@@ -1024,13 +1032,6 @@ definition check_init where
     monadic_list_ex (\<lambda>s. RETURN (PR_CONST less_eq (PR_CONST s\<^sub>0) s)) xs
   }
 "
-
-lemma check_prop_gt_SUCCEED:
-  "check_prop P' > SUCCEED"
-  unfolding check_prop_def using L_listD
-  by (fastforce split: option.split dest: M_listD
-        intro: monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I
-     )
 
 lemma check_all_pre'_refine:
   "check_all_pre' L M \<le> check_all_pre"
