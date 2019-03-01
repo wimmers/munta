@@ -73,7 +73,7 @@ lemma list_of_set_impl[autoref_rules]:
 lemma case_option_mono:
   "(case x of None \<Rightarrow> a | Some x' \<Rightarrow> f x', case y of None \<Rightarrow> b | Some x' \<Rightarrow> g x') \<in> R"
   if "(x, y) \<in> \<langle>S\<rangle>option_rel" "(a, b) \<in> R" "(f, g) \<in> S \<rightarrow> R"
-  sorry
+  by (metis fun_relD2 param_case_option' that)
 
 lemmas case_option_mono' =
   case_option_mono[where R = "\<langle>R\<rangle>nres_rel" for R, THEN nres_relD, THEN refine_IdD]
@@ -223,23 +223,24 @@ lemma check_prop1_refine:
    apply parametricity
   apply (rule bind_mono)
    apply refine_mono+
-  apply simp
-  sorry
+  using Pi_P'
+  apply (auto simp add: prod_rel_def dest!: fun_relD)
+  done
 
 lemma [refine]:
-  "(Mi l\<^sub>0i \<noteq> None, l\<^sub>0 \<in> L) \<in> bool_rel"
-  sorry
+  "(Mi l\<^sub>0i \<noteq> None, l\<^sub>0 \<in> L) \<in> bool_rel" if "L = dom M"
+  using that by (auto simp: Mi_M_None_iff[symmetric, OF l\<^sub>0i_l\<^sub>0])
 
 lemma [refine]:
   "(Pi (l\<^sub>0i, s\<^sub>0i), P' (l\<^sub>0, s\<^sub>0)) \<in> bool_rel"
   by parametricity
 
 lemma check_all_pre1_refine[refine]:
-  "(check_all_pre1, check_all_pre) \<in> \<langle>bool_rel\<rangle>nres_rel"
+  "(check_all_pre1, check_all_pre) \<in> \<langle>bool_rel\<rangle>nres_rel" if "L = dom M"
 proof (cases "M l\<^sub>0")
   case None
   then show ?thesis
-    using check_prop_gt_SUCCEED l\<^sub>0i_l\<^sub>0 unfolding check_all_pre1_def check_all_pre_def
+    using that check_prop_gt_SUCCEED l\<^sub>0i_l\<^sub>0 unfolding check_all_pre1_def check_all_pre_def
     by (refine_rcg) (simp flip: Mi_M_None_iff add: bind_RES; cases "check_prop P'"; simp)
 next
   case (Some S)
@@ -249,7 +250,7 @@ next
     unfolding option_rel_def by (auto elim: list_set_relE)
   with \<open>M l\<^sub>0 = _\<close> show ?thesis
     unfolding check_all_pre1_def check_all_pre_def
-    apply (refine_rcg; simp)
+    apply (refine_rcg that; simp)
     supply [refine_mono] =
       monadic_list_ex_mono' monadic_list_ex_RETURN_mono specify_right HOL.refl
       check_prop1_refine[THEN fun_relD, THEN fun_relD, THEN nres_relD, THEN refine_IdD,
@@ -275,7 +276,7 @@ definition
 lemma check_all1_correct[refine]:
   "check_all1 \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_pre_spec \<and> check_invariant_spec L)" if "L = dom M"
 proof -
-  from check_all_pre1_refine[THEN nres_relD] have "check_all_pre1 \<le> check_all_pre"
+  from check_all_pre1_refine[THEN nres_relD, OF that] have "check_all_pre1 \<le> check_all_pre"
     by (rule refine_IdD)
   also note check_all_pre_correct
   finally have [refine]: "check_all_pre1 \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_pre_spec)"
@@ -473,15 +474,30 @@ proof (refine_rcg, clarsimp, rule hoare_triple_run_heapD)
     using list_all2_swap by (sep_auto simp: list_rel_def)
 qed
 
+definition
+  "to_pair \<equiv> \<lambda>(l, s). do {s \<leftarrow> to_state s; return (to_loc l, s)}"
+
+definition
+  "from_pair \<equiv> \<lambda>(l, s). do {s \<leftarrow> from_state s; return (from_loc l, s)}"
+
+lemma to_pair_ht:
+  "<emp> to_pair a <\<lambda>ai. (K \<times>\<^sub>a A) a ai>"
+  unfolding to_pair_def
+  by (subst pure_the_pure[symmetric, OF pure_K]) (sep_auto heap: to_state_ht simp: pure_def to_loc)
+
 interpretation pure:
   Reachability_Impl_pure
-  where 
-    M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" and
-    Mi = "\<lambda>x. case Mi x of None \<Rightarrow> [] | Some S \<Rightarrow> S" and
+  where
+    M = M and
+    Mi = Mi and
     get_succs = "run_heap oo get_succs" and
     K = Id and
     A = Id and
-    lei = less_eq
+    lei = less_eq and
+    Pi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Pi a})" and
+    Fi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Fi a})" and
+    l\<^sub>0i = l\<^sub>0 and
+    s\<^sub>0i = s\<^sub>0
   apply standard
   subgoal
     by simp
@@ -490,13 +506,48 @@ interpretation pure:
   subgoal
     using Li unfolding list_set_rel_def by auto
   subgoal
-    using Mi_M by parametricity simp
+    using Mi_M .
   subgoal
     by simp
   subgoal
     using get_succs .
+  subgoal
+    apply simp
+    apply (intro ext)
+    apply (rule hoare_triple_run_heapD)
+    apply (sep_auto heap: to_pair_ht)
+    apply (rule Hoare_Triple.cons_rule[rotated 2])
+      apply (rule Pi_P'[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified])
+     focus
+    unfolding prod_assn_def
+    apply solve_entails
+    apply (clarsimp split: prod.splits)
+    using ent_refl apply blast
+    solved
+    apply (sep_auto simp: pure_def)
+    done
+  subgoal
+    by simp
+  subgoal
+    by simp
+  subgoal
+    using succs_empty .
+  subgoal
+    apply simp
+    apply (intro ext)
+    apply (rule hoare_triple_run_heapD)
+    apply (sep_auto heap: to_pair_ht)
+    apply (rule Hoare_Triple.cons_rule[rotated 2])
+      apply (rule Fi_F[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified])
+    focus
+      unfolding prod_assn_def
+      apply solve_entails
+      apply (clarsimp split: prod.splits)
+      using ent_refl apply blast
+    solved
+    apply (sep_auto simp: pure_def)
+    done
   done
-  oops
 
 end
 
