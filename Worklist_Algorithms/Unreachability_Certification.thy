@@ -348,13 +348,13 @@ sepref_decl_op map_lookup_copy: "\<lambda>k (m :: _ \<rightharpoonup> _). (m k, 
   done
 
 definition
-  "copy_list_impl copy xs \<equiv> do {
+  "heap_map copy xs \<equiv> do {
     xs \<leftarrow> imp_nfoldli xs (\<lambda>_. return True) (\<lambda>x xs. do {x \<leftarrow> copy x; return (x # xs)}) [];
     return (rev xs)
   }"
 
 definition
-  "copy_list copy xs \<equiv> do {
+  "monadic_map copy xs \<equiv> do {
     xs \<leftarrow> monadic_nfoldli xs (\<lambda>_. RETURN True) (\<lambda>x xs. do {x \<leftarrow> copy x; RETURN (x # xs)}) [];
     RETURN (rev xs)
   }"
@@ -391,11 +391,11 @@ theorem copy_list_refine:
   shows
     "hn_refine
       (hn_ctxt (list_assn A) x xi)
-        (copy_list_impl copy $ xi)
+        (heap_map copy $ xi)
       (hn_ctxt (list_assn A) x xi)
       (list_assn A)
-        (copy_list (RETURN \<circ> COPY) $ x)"
-  unfolding copy_list_def copy_list_impl_def
+        (monadic_map (RETURN \<circ> COPY) $ x)"
+  unfolding monadic_map_def heap_map_def
   apply sep_auto
   apply (rule hnr_bind)
     apply (rule monadic_nfoldli_refine_aux'[
@@ -427,13 +427,13 @@ theorem copy_list_refine:
 
 end
 
-lemma copy_list_refine':
-  "(copy_list_impl copy, copy_list (RETURN o COPY)) \<in> (list_assn A)\<^sup>k \<rightarrow>\<^sub>a list_assn A"
+lemma monadic_map_refine':
+  "(heap_map copy, monadic_map (RETURN o COPY)) \<in> (list_assn A)\<^sup>k \<rightarrow>\<^sub>a list_assn A"
   if "(copy, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   using that by (rule copy_list_refine[to_hfref])
 
 lemma copy_list_COPY:
-  "copy_list (RETURN o COPY) = RETURN o COPY"
+  "monadic_map (RETURN o COPY) = RETURN o COPY"
 proof (rule ext, goal_cases)
   case (1 xs)
   then have *: "monadic_nfoldli xs (\<lambda>_. RETURN True)
@@ -441,14 +441,14 @@ proof (rule ext, goal_cases)
      as = RETURN (rev xs @ as)" for as
     by (induction xs arbitrary: as) auto
   show ?case
-    unfolding copy_list_def COPY_def by (subst *) simp
+    unfolding monadic_map_def COPY_def by (subst *) simp
 qed
 
 lemma copy_list_lso_assn_refine:
-  "(copy_list_impl copy, RETURN o COPY) \<in> (lso_assn A)\<^sup>k \<rightarrow>\<^sub>a lso_assn A"
+  "(heap_map copy, RETURN o COPY) \<in> (lso_assn A)\<^sup>k \<rightarrow>\<^sub>a lso_assn A"
   if "(copy, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   supply [sep_heap_rules] =
-    copy_list_refine'[OF that, to_hnr, unfolded copy_list_COPY hn_refine_def hn_ctxt_def, simplified]
+    monadic_map_refine'[OF that, to_hnr, unfolded copy_list_COPY hn_refine_def hn_ctxt_def, simplified]
   unfolding lso_assn_def hr_comp_def by sepref_to_hoare sep_auto
 
 
@@ -1167,8 +1167,7 @@ definition
   "split_spec \<equiv> \<lambda>L M. RETURN (list_all (\<lambda>x. RETURN True \<le> check_invariant' x M) (splitter L))"
 
 lemma check_invariant_all_impl_refine:
-  "(uncurry check_invariant_all_impl,
-    uncurry (PR_CONST split_spec))
+  "(uncurry check_invariant_all_impl, uncurry (PR_CONST split_spec))
   \<in> (list_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding split_spec_def PR_CONST_def
   apply sepref_to_hoare

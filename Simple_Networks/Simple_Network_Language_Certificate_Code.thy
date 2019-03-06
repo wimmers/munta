@@ -484,7 +484,7 @@ definition parse_convert_check where
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
-  Impl1 Impl2
+  Impl1 Impl2 Impl3
   in SML module_name Model_Checker file "../ML/Certificate.sml"
 
 end

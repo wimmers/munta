@@ -2,6 +2,7 @@ theory Unreachability_Certification2
   imports
     Unreachability_Certification
     TA_Impl.Abstract_Term
+    "HOL-Library.Parallel"
 begin
 
 hide_const (open) list_set_rel
@@ -86,10 +87,16 @@ lemma bind_mono:
   shows "Refine_Basic.bind m f \<le> m' \<bind> f'"
   using assms by (force simp: refine_pw_simps pw_le_iff)
 
+lemma list_all_split:
+  assumes "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
+  shows "list_all P xs = list_all id (map (list_all P) (splitteri xs))"
+  unfolding list_all_iff using assms by auto
+
 locale Reachability_Impl_pure =
   Reachability_Impl_common _ _ _ _ _ _ _ _ less_eq M
-  for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'b set option" +
-  fixes get_succs and K and A and Mi and Li and lei and Pi and l\<^sub>0i and s\<^sub>0i and Fi
+  for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'a set option" +
+  fixes get_succs and K and A and Mi and Li and lei and Pi and l\<^sub>0i :: 'ki and s\<^sub>0i :: 'ai and Fi
+    and splitteri :: "'ki list \<Rightarrow> 'ki list list"
   assumes K_right_unique: "single_valued K"
   assumes K_left_unique:  "single_valued (K\<inverse>)"
   assumes Li_L: "(Li, L) \<in> \<langle>K\<rangle>list_set_rel"
@@ -102,13 +109,20 @@ locale Reachability_Impl_pure =
       and s\<^sub>0i_s\<^sub>0[refine,param,refine_mono]: "(s\<^sub>0i, s\<^sub>0) \<in> A"
   assumes succs_empty: "\<And>l. succs l {} = []"
   assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
+  assumes full_split: "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
 begin
+
+definition list_all_split :: "_ \<Rightarrow> 'ki list \<Rightarrow> bool" where [simp]:
+  "list_all_split = list_all"
+
+definition monadic_list_all_split :: "_ \<Rightarrow> 'ki list \<Rightarrow> bool nres" where [simp]:
+  "monadic_list_all_split = monadic_list_all"
 
 paragraph \<open>Refinement\<close>
 
 definition "check_invariant1 L' \<equiv>
 do {
-  monadic_list_all (\<lambda>l.
+  monadic_list_all_split (\<lambda>l.
     case Mi l of
       None \<Rightarrow> RETURN True
     | Some as \<Rightarrow> do {
@@ -146,7 +160,7 @@ lemma lei_refine[refine_mono]:
 lemma check_invariant1_refine[refine]:
   "check_invariant1 L1 \<le> check_invariant L'"
   if "(L1, L') \<in> \<langle>K\<rangle>list_rel" "L = dom M" "set L' \<subseteq> L"
-  unfolding check_invariant1_def check_invariant_def Let_def
+  unfolding check_invariant1_def check_invariant_def Let_def monadic_list_all_split_def
   apply (refine_rcg monadic_list_all_mono' refine_IdI that)
   apply (clarsimp split: option.splits simp: succs_empty; safe)
    apply (simp flip: Mi_M_None_iff; fail)
@@ -354,17 +368,19 @@ qed
 paragraph \<open>Synthesizing a pure program via rewriting\<close>
 
 lemma check_final1_alt_def:
-  "check_final1 L' = RETURN (list_all
+  "check_final1 L' = RETURN (list_all_split
     (\<lambda>l. case op_map_lookup l Mi of None \<Rightarrow> True | Some xs \<Rightarrow> list_all (\<lambda>s. \<not> Fi (l, s)) xs) L')"
   unfolding check_final1_def
-  unfolding monadic_list_all_RETURN[symmetric]
+  unfolding monadic_list_all_RETURN[symmetric] list_all_split_def
   by (fo_rule arg_cong2, intro ext)
      (auto split: option.splits simp: monadic_list_all_RETURN[symmetric])
 
-concrete_definition check_final_impl uses check_final1_alt_def is "_ = RETURN ?f"
+concrete_definition check_final_impl
+  uses check_final1_alt_def is "_ = RETURN ?f"
 
 lemmas pure_unfolds =
-  monadic_list_ex_RETURN monadic_list_all_RETURN monadic_list_ex_RETURN nres_monad1
+  monadic_list_all_RETURN[where 'a = 'ki, folded monadic_list_all_split_def list_all_split_def]
+  monadic_list_ex_RETURN monadic_list_all_RETURN monadic_list_ex_RETURN
   nres_monad1 option.case_distrib[where h = RETURN, symmetric]
   if_distrib[where f = RETURN, symmetric] prod.case_distrib[where h = RETURN, symmetric]
 
@@ -397,6 +413,12 @@ schematic_goal certify_unreachable1_alt_def:
 concrete_definition certify_unreachable_impl_pure1
   uses certify_unreachable1_alt_def is "_ \<equiv> RETURN ?f"
 
+text \<open>This is where we add parallel execution:\<close>
+lemma list_all_split:
+  "list_all_split Q xs = list_all id (Parallel.map (list_all Q) (splitteri xs))"
+  unfolding list_all_split_def list_all_split[of xs splitteri for xs, OF full_split, symmetric]
+    Parallel.map_def ..
+
 schematic_goal certify_unreachable_impl_pure1_alt_def:
   "certify_unreachable_impl_pure1 \<equiv> ?f"
   unfolding certify_unreachable_impl_pure1_def
@@ -406,13 +428,15 @@ schematic_goal certify_unreachable_impl_pure1_alt_def:
   unfolding
     check_invariant_impl_def check_all_pre_impl_def
     check_prop_impl_def check_final_impl_def
+    list_all_split
   .
 
 concrete_definition (in -) certify_unreachable_impl_pure
   uses Reachability_Impl_pure.certify_unreachable_impl_pure1_alt_def is "_ \<equiv> ?f"
 
 theorem certify_unreachable_impl_pure_correct:
-  "certify_unreachable_impl_pure get_succs Mi Li lei Pi l\<^sub>0i s\<^sub>0i Fi \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
+  "certify_unreachable_impl_pure get_succs Mi Li lei Pi l\<^sub>0i s\<^sub>0i Fi splitteri
+  \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
   if "L = dom M"
   using certify_unreachable1_correct that
   unfolding
@@ -430,7 +454,7 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl
     and to_loc :: "'k1 \<Rightarrow> 'ki" and from_loc :: "'ki \<Rightarrow> 'k1"
   fixes K_rel and A_rel
   fixes L_list :: "'ki list" and Li :: "'k1 list" and L' :: "'k list"
-  (* assumes Li: "(L_list, Li) \<in> \<langle>the_pure K\<rangle>list_rel" *) (* "set Li = L" *)
+  fixes splitteri :: "'k1 list \<Rightarrow> 'k1 list list"
   assumes Li: "(L_list, L') \<in> \<langle>the_pure K\<rangle>list_rel" "(Li, L') \<in> \<langle>K_rel\<rangle>list_rel" "set L' = L"
   fixes Mi :: "'k1 \<Rightarrow> 'b1 list option"
   assumes Mi_M: "(Mi, M) \<in> K_rel \<rightarrow> \<langle>\<langle>A_rel\<rangle>list_set_rel\<rangle>option_rel"
@@ -439,6 +463,7 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl
   assumes from_loc: "(li, l) \<in> the_pure K \<Longrightarrow> (from_loc li, l) \<in> K_rel"
   assumes to_loc: "(l1, l) \<in> K_rel \<Longrightarrow> (to_loc l1, l) \<in> the_pure K"
   assumes K_rel: "single_valued K_rel" "single_valued (K_rel\<inverse>)"
+  assumes full_split: "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
 begin
 
 definition
@@ -571,7 +596,7 @@ sublocale pure:
       apply (rule Fi_F[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified], rule ent_refl)
     apply (sep_auto simp: pure_def)
     done
-  done
+  by (rule full_split)
 
 end
 
