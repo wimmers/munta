@@ -1,5 +1,7 @@
 theory Unreachability_Certification2
-  imports Unreachability_Certification
+  imports
+    Unreachability_Certification
+    TA_Impl.Abstract_Term
 begin
 
 hide_const (open) list_set_rel
@@ -359,6 +361,8 @@ lemma check_final1_alt_def:
   by (fo_rule arg_cong2, intro ext)
      (auto split: option.splits simp: monadic_list_all_RETURN[symmetric])
 
+concrete_definition check_final_impl uses check_final1_alt_def is "_ = RETURN ?f"
+
 lemmas pure_unfolds =
   monadic_list_ex_RETURN monadic_list_all_RETURN monadic_list_ex_RETURN nres_monad1
   nres_monad1 option.case_distrib[where h = RETURN, symmetric]
@@ -385,32 +389,56 @@ concrete_definition check_invariant_impl uses check_invariant1_alt_def is "_ \<e
 schematic_goal certify_unreachable1_alt_def:
   "certify_unreachable1 \<equiv> RETURN ?f"
   unfolding
-    certify_unreachable1_def check_all1_def check_final1_alt_def check_all_pre_impl.refine
+    certify_unreachable1_def check_all1_def check_final_impl.refine check_all_pre_impl.refine
     check_invariant_impl.refine
-    pure_unfolds PRINT_CHECK_def comp_def short_circuit_conv if_bool_simps .
+    pure_unfolds PRINT_CHECK_def comp_def short_circuit_conv if_bool_simps
+  .
 
-concrete_definition certify_unreachable_impl uses certify_unreachable1_alt_def is "_ \<equiv> RETURN ?f"
+concrete_definition certify_unreachable_impl_pure1
+  uses certify_unreachable1_alt_def is "_ \<equiv> RETURN ?f"
 
-theorem certify_unreachable_impl_correct:
-  "certify_unreachable_impl \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')" if "L = dom M"
-  using certify_unreachable1_correct[OF that] unfolding certify_unreachable_impl.refine by simp
+schematic_goal certify_unreachable_impl_pure1_alt_def:
+  "certify_unreachable_impl_pure1 \<equiv> ?f"
+  unfolding certify_unreachable_impl_pure1_def
+  apply (abstract_let check_invariant_impl check_invariant)
+  apply (abstract_let "check_final_impl Li" check_final)
+  apply (abstract_let check_all_pre_impl check_all_pre_impl)
+  unfolding
+    check_invariant_impl_def check_all_pre_impl_def
+    check_prop_impl_def check_final_impl_def
+  .
+
+concrete_definition (in -) certify_unreachable_impl_pure
+  uses Reachability_Impl_pure.certify_unreachable_impl_pure1_alt_def is "_ \<equiv> ?f"
+
+theorem certify_unreachable_impl_pure_correct:
+  "certify_unreachable_impl_pure get_succs Mi Li lei Pi l\<^sub>0i s\<^sub>0i Fi \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
+  if "L = dom M"
+  using certify_unreachable1_correct that
+  unfolding
+    certify_unreachable_impl_pure1.refine
+    certify_unreachable_impl_pure.refine[OF Reachability_Impl_pure_axioms]
+  by simp
 
 end (* Reachability_Impl_pure *)
 
-context Reachability_Impl
-begin
-
-context
-  fixes to_state :: "'b \<Rightarrow> 'bi Heap" and from_state :: "'bi \<Rightarrow> 'b Heap"
-    and to_loc :: "'k \<Rightarrow> 'ki" and from_loc :: "'ki \<Rightarrow> 'k"
-  fixes L_list :: "'ki list" and Li :: "'k list"
-  assumes Li: "(L_list, Li) \<in> \<langle>the_pure K\<rangle>list_rel" "set Li = L"
-  fixes Mi :: "'k \<Rightarrow> 'b list option"
-  assumes Mi_M: "(Mi, M) \<in> Id \<rightarrow> \<langle>\<langle>Id\<rangle>list_set_rel\<rangle>option_rel"
-  assumes to_state_ht: "<emp> to_state s <\<lambda>si. A s si>"
-  assumes from_state_ht: "<A s si> from_state is <\<lambda>s'. \<up>(s = s')>\<^sub>t"
-  assumes from_loc: "(li, l) \<in> the_pure K \<Longrightarrow> from_loc li = l"
-  assumes to_loc: "(to_loc l, l) \<in> the_pure K"
+locale Reachability_Impl_imp_to_pure = Reachability_Impl
+  l\<^sub>0 s\<^sub>0 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ l\<^sub>0i s\<^sub>0i _
+  for l\<^sub>0 :: 'k and s\<^sub>0 :: 'b and l\<^sub>0i :: "('ki :: {hashable,heap}) Heap" and s\<^sub>0i :: "('bi :: heap) Heap"
+  +
+  fixes to_state :: "'b1 \<Rightarrow> 'bi Heap" and from_state :: "'bi \<Rightarrow> 'b1 Heap"
+    and to_loc :: "'k1 \<Rightarrow> 'ki" and from_loc :: "'ki \<Rightarrow> 'k1"
+  fixes K_rel and A_rel
+  fixes L_list :: "'ki list" and Li :: "'k1 list" and L' :: "'k list"
+  (* assumes Li: "(L_list, Li) \<in> \<langle>the_pure K\<rangle>list_rel" *) (* "set Li = L" *)
+  assumes Li: "(L_list, L') \<in> \<langle>the_pure K\<rangle>list_rel" "(Li, L') \<in> \<langle>K_rel\<rangle>list_rel" "set L' = L"
+  fixes Mi :: "'k1 \<Rightarrow> 'b1 list option"
+  assumes Mi_M: "(Mi, M) \<in> K_rel \<rightarrow> \<langle>\<langle>A_rel\<rangle>list_set_rel\<rangle>option_rel"
+  assumes to_state_ht: "(s1, s) \<in> A_rel \<Longrightarrow> <emp> to_state s1 <\<lambda>si. A s si>"
+  assumes from_state_ht: "<A s si> from_state si <\<lambda>s'. \<up>((s', s) \<in> A_rel)>\<^sub>t"
+  assumes from_loc: "(li, l) \<in> the_pure K \<Longrightarrow> (from_loc li, l) \<in> K_rel"
+  assumes to_loc: "(l1, l) \<in> K_rel \<Longrightarrow> (to_loc l1, l) \<in> the_pure K"
+  assumes K_rel: "single_valued K_rel" "single_valued (K_rel\<inverse>)"
 begin
 
 definition
@@ -424,29 +452,30 @@ definition
     }"
 
 lemma get_succs:
-  "(run_heap oo get_succs, succs) \<in> Id \<rightarrow> \<langle>Id\<rangle>list_set_rel \<rightarrow> \<langle>Id \<times>\<^sub>r \<langle>Id\<rangle>list_set_rel\<rangle>list_rel"
+  "(run_heap oo get_succs, succs)
+  \<in> K_rel \<rightarrow> \<langle>A_rel\<rangle>list_set_rel \<rightarrow> \<langle>K_rel \<times>\<^sub>r \<langle>A_rel\<rangle>list_set_rel\<rangle>list_rel"
 proof (refine_rcg, clarsimp, rule hoare_triple_run_heapD)
-  fix l :: \<open>'k\<close> and xs :: \<open>'b list\<close> and S :: \<open>'b set\<close>
-  assume \<open>(xs, S) \<in> \<langle>Id\<rangle>list_set_rel\<close>
-  then obtain ys where ys: "(xs, ys) \<in> \<langle>Id\<rangle>list_rel" "set ys = S"
+  fix l :: \<open>'k\<close> and l1 :: \<open>'k1\<close> and xs :: \<open>'b1 list\<close> and S :: \<open>'b set\<close>
+  assume \<open>(l1, l) \<in> K_rel\<close> \<open>(xs, S) \<in> \<langle>A_rel\<rangle>list_set_rel\<close>
+  then obtain ys where ys: "(xs, ys) \<in> \<langle>A_rel\<rangle>list_rel" "set ys = S"
     by (elim list_set_relE)
   have 1: "K = pure (the_pure K)"
     using pure_K by auto
-  let ?li = "to_loc l"
-  show "<emp> get_succs l xs <\<lambda>r. \<up>((r, succs l S) \<in> \<langle>Id \<times>\<^sub>r \<langle>Id\<rangle>list_set_rel\<rangle>list_rel)>\<^sub>t"
+  let ?li = "to_loc l1"
+  show "<emp> get_succs l1 xs <\<lambda>r. \<up>((r, succs l S) \<in> \<langle>K_rel \<times>\<^sub>r \<langle>A_rel\<rangle>list_set_rel\<rangle>list_rel)>\<^sub>t"
     unfolding get_succs_def
     apply sep_auto
       (* fold_map to_state *)
      apply (rule Hoare_Triple.cons_pre_rule[rotated])
-      apply (rule fold_map_ht3[where A = true and R = id_assn and Q = A and xs = xs])
-      apply (sep_auto heap: to_state_ht simp: pure_def; fail)
-     apply (unfold list_assn_pure_conv, sep_auto simp: pure_def; fail)
+      apply (rule fold_map_ht3[where A = true and R = "pure A_rel" and Q = A and xs = ys])
+    apply (sep_auto heap: to_state_ht simp: pure_def; fail)
+     apply (unfold list_assn_pure_conv, sep_auto simp: pure_def ys; fail)
     apply sep_auto
       (* succsi *)
      apply (rule Hoare_Triple.cons_pre_rule[rotated], rule frame_rule[where R = true])
       apply (rule succsi[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified, of S _ l ?li])
     subgoal
-      using ys(1) unfolding lso_assn_def hr_comp_def br_def \<open>set ys = _\<close>[symmetric]
+      using ys \<open>(l1, l) \<in> K_rel\<close> unfolding lso_assn_def hr_comp_def br_def \<open>set ys = _\<close>[symmetric]
       by (subst 1) (sep_auto simp: pure_def to_loc)
         (* nested fold_map *)
     apply (sep_auto simp: invalid_assn_def)
@@ -454,7 +483,7 @@ proof (refine_rcg, clarsimp, rule hoare_triple_run_heapD)
       apply (rule frame_rule)
       apply (rule fold_map_ht1[where
           A = true and R = "(K \<times>\<^sub>a lso_assn A)" and xs = "succs l S" and
-          Q = "\<lambda>x xi. (xi, x) \<in> Id \<times>\<^sub>r \<langle>Id\<rangle>list_set_rel"
+          Q = "\<lambda>x xi. (xi, x) \<in> K_rel \<times>\<^sub>r \<langle>A_rel\<rangle>list_set_rel"
           ])
     subgoal
       unfolding lso_assn_def
@@ -462,14 +491,13 @@ proof (refine_rcg, clarsimp, rule hoare_triple_run_heapD)
       apply (sep_auto simp: prod_assn_def hr_comp_def br_def split: prod.splits)
         (* inner fold_map *)
        apply (rule Hoare_Triple.cons_pre_rule[rotated])
-        apply (rule fold_map_ht1[where A = true and R = A and Q = "(=)"])
+        apply (rule fold_map_ht1[where A = true and R = A and Q = "\<lambda>l l1. (l1, l) \<in> A_rel"])
         apply (rule cons_rule[rotated 2], rule frame_rule, rule from_state_ht)
          apply frame_inference
         apply (sep_auto; fail)
        apply solve_entails
         (* return *)
-      apply (sep_auto simp: list.rel_eq list_set_rel_def from_loc)
-      done
+      using list_all2_swap by (sep_auto simp: list.rel_eq list_set_rel_def from_loc list_rel_def)
      apply solve_entails
     using list_all2_swap by (sep_auto simp: list_rel_def)
 qed
@@ -477,79 +505,73 @@ qed
 definition
   "to_pair \<equiv> \<lambda>(l, s). do {s \<leftarrow> to_state s; return (to_loc l, s)}"
 
-definition
-  "from_pair \<equiv> \<lambda>(l, s). do {s \<leftarrow> from_state s; return (from_loc l, s)}"
-
 lemma to_pair_ht:
-  "<emp> to_pair a <\<lambda>ai. (K \<times>\<^sub>a A) a ai>"
-  unfolding to_pair_def
-  by (subst pure_the_pure[symmetric, OF pure_K]) (sep_auto heap: to_state_ht simp: pure_def to_loc)
+  "<emp> to_pair a1 <\<lambda>ai. (K \<times>\<^sub>a A) a ai>" if "(a1, a) \<in> K_rel \<times>\<^sub>r A_rel"
+  using that unfolding to_pair_def
+  by (cases a, cases a1, subst pure_the_pure[symmetric, OF pure_K])
+     (sep_auto heap: to_state_ht simp: pure_def to_loc prod_assn_def split: prod.splits)
 
-interpretation pure:
+sublocale pure:
   Reachability_Impl_pure
   where
     M = M and
     Mi = Mi and
     get_succs = "run_heap oo get_succs" and
-    K = Id and
-    A = Id and
-    lei = less_eq and
+    K = K_rel and
+    A = A_rel and
+    lei = "\<lambda>s s'. run_heap (do {s \<leftarrow> to_state s; s' \<leftarrow> to_state s'; Lei s s'})" and
     Pi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Pi a})" and
     Fi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Fi a})" and
-    l\<^sub>0i = l\<^sub>0 and
-    s\<^sub>0i = s\<^sub>0
+    l\<^sub>0i = "from_loc (run_heap l\<^sub>0i)" and
+    s\<^sub>0i = "run_heap (do {s \<leftarrow> s\<^sub>0i; from_state s})"
   apply standard
   subgoal
-    by simp
+    by (rule K_rel)
   subgoal
-    by simp
+    by (rule K_rel)
   subgoal
     using Li unfolding list_set_rel_def by auto
   subgoal
     using Mi_M .
   subgoal
-    by simp
+    apply standard
+    apply standard
+    apply (rule hoare_triple_run_heapD)
+    apply (sep_auto
+        heap: to_state_ht Lei[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified] simp: pure_def
+        )
+    done
   subgoal
     using get_succs .
   subgoal
-    apply simp
-    apply (intro ext)
+    apply standard
     apply (rule hoare_triple_run_heapD)
-    apply (sep_auto heap: to_pair_ht)
+    apply (sep_auto heap: to_pair_ht simp del: prod_rel_simp prod_assn_pair_conv)
     apply (rule Hoare_Triple.cons_rule[rotated 2])
-      apply (rule Pi_P'[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified])
-     focus
-    unfolding prod_assn_def
-    apply solve_entails
-    apply (clarsimp split: prod.splits)
-    using ent_refl apply blast
-    solved
+      apply (rule Pi_P'[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified], rule ent_refl)
     apply (sep_auto simp: pure_def)
     done
   subgoal
-    by simp
+    apply (rule from_loc)
+    apply (rule hoare_triple_run_heapD)
+    using l\<^sub>0i_l\<^sub>0[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified]
+    apply (subst (asm) pure_the_pure[symmetric, OF pure_K])
+    apply (sep_auto simp: pure_def elim!: cons_post_rule)
+    done
   subgoal
-    by simp
+    using s\<^sub>0i_s\<^sub>0[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified]
+    by - (rule hoare_triple_run_heapD, sep_auto heap: from_state_ht)
   subgoal
     using succs_empty .
   subgoal
-    apply simp
-    apply (intro ext)
+    apply standard
     apply (rule hoare_triple_run_heapD)
-    apply (sep_auto heap: to_pair_ht)
+    apply (sep_auto heap: to_pair_ht simp del: prod_rel_simp prod_assn_pair_conv)
     apply (rule Hoare_Triple.cons_rule[rotated 2])
-      apply (rule Fi_F[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified])
-    focus
-      unfolding prod_assn_def
-      apply solve_entails
-      apply (clarsimp split: prod.splits)
-      using ent_refl apply blast
-    solved
+      apply (rule Fi_F[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified], rule ent_refl)
     apply (sep_auto simp: pure_def)
     done
   done
-
-end
 
 end
 

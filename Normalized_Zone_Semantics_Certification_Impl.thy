@@ -2,7 +2,9 @@ theory Normalized_Zone_Semantics_Certification_Impl
   imports
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     Normalized_Zone_Semantics_Certification
-    "Worklist_Algorithms/Unreachability_Certification"
+    Collections.Refine_Dflt_ICF
+    "Worklist_Algorithms/Unreachability_Certification2"
+    "HOL-Library.IArray"
     Deadlock_Impl
     "TA_Byte_Code.More_Methods"
 begin
@@ -121,6 +123,73 @@ lemma of_list_list_to_dbm:
     apply sep_auto
     done
   done
+
+end
+
+definition
+  "array_freeze a = do {xs \<leftarrow> Array.freeze a; Heap_Monad.return (IArray xs)}"
+
+definition
+  "array_unfreeze a = Array.of_list (IArray.list_of a)"
+
+definition
+  "iarray_mtx_rel n m c a \<equiv>
+    IArray.length a = n * m
+  \<and> (\<forall>i<n.\<forall>j<m. c (i, j) = IArray.sub a (i * m + j))
+  \<and> (\<forall>i j. i \<ge> n \<or> j \<ge> m \<longrightarrow> c (i, j) = 0)"
+
+lemma iarray_mtx_rel_is_amtx:
+  "x \<mapsto>\<^sub>a IArray.list_of a \<Longrightarrow>\<^sub>A IICF_Array_Matrix.is_amtx n m c x" if "iarray_mtx_rel n m c a"
+  using that unfolding is_amtx_def iarray_mtx_rel_def by simp solve_entails
+
+lemma array_unfreeze_ht:
+  "<emp> array_unfreeze a <amtx_assn n m id_assn c>" if "iarray_mtx_rel n m c a"
+  using that unfolding array_unfreeze_def amtx_assn_def by (sep_auto intro: iarray_mtx_rel_is_amtx)
+
+lemma array_freeze_ht:
+  "<amtx_assn n m id_assn c a> array_freeze a <\<lambda>a. \<up>(iarray_mtx_rel n m c a)>\<^sub>t"
+  unfolding array_freeze_def amtx_assn_def iarray_mtx_rel_def is_amtx_def
+  by (sep_auto intro: iarray_mtx_rel_is_amtx)
+
+context
+  fixes M :: "('a :: hashable * 'b) list"
+begin
+
+definition "map_of_list = fold (\<lambda>(k, v) a. a(k \<mapsto> v)) M Map.empty"
+
+lemma [autoref_rules]:
+  "(M, M) \<in> \<langle>Id \<times>\<^sub>r Id\<rangle>list_rel"
+  by simp
+
+schematic_goal M_impl:
+  "(?M::?'c, map_of_list:::\<^sub>r\<langle>Id,Id\<rangle>dflt_ahm_rel) \<in> ?R"
+  unfolding map_of_list_def
+  apply (autoref (trace))
+  done
+
+concrete_definition hashmap_of_list uses M_impl
+
+theorem hashmap_of_list_lookup:
+  "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k hashmap_of_list, map_of_list)
+  \<in> Id \<rightarrow> \<langle>Id\<rangle>option_rel" (is "(\<lambda>k. ?f k hashmap_of_list, _) \<in> ?R")
+proof -
+  have *: "(?f, Intf_Map.op_map_lookup) \<in> Id \<rightarrow> ahm_map_rel' bounded_hashcode_nat \<rightarrow> Id"
+    using Impl_Array_Hash_Map.ahm_lookup_impl[OF hashable_bhc_is_bhc] by simp
+  { fix k :: 'a
+    have "abstract_bounded_hashcode Id bounded_hashcode_nat = bounded_hashcode_nat"
+      unfolding abstract_bounded_hashcode_def by (intro ext) auto
+    from hashmap_of_list.refine guess hm
+      unfolding ahm_rel_def by clarsimp
+    then have "(hm, map_of_list) \<in> ahm_map_rel' bounded_hashcode_nat"
+      unfolding \<open>_ = bounded_hashcode_nat\<close> by -
+    with * have "?f k hm = Intf_Map.op_map_lookup k map_of_list"
+      by (auto dest!: fun_relD)
+    with \<open>(hashmap_of_list, hm) \<in> _\<close> have "?f k hashmap_of_list = map_of_list k"
+      unfolding ahm_map_rel_def array_rel_def by clarsimp
+  }
+  then show ?thesis
+    by simp
+qed
 
 end
 
@@ -445,7 +514,7 @@ definition
 definition
   "M = fold (\<lambda>p M.
     let s = fst p; xs = snd p; xs = rev (map (list_to_dbm n) xs); S = set xs in fun_upd M s (Some S)
-  ) (PR_CONST M_list') op_map_empty"
+  ) (PR_CONST M_list') IICF_Map.op_map_empty"
 
 lemma M_finite:
   "\<forall>S\<in>ran M. finite S"
@@ -655,7 +724,6 @@ lemma op_precise_unreachable_correct':
 interpretation
   Reachability_Impl
   where A = "mtx_assn n"
-    (* and F = "\<lambda> (l, M). F l" *)
     and F = F
     and l\<^sub>0i = "return l\<^sub>0i"
     and s\<^sub>0 = init_dbm
@@ -675,7 +743,6 @@ interpretation
     and Pi = P_impl
     and L = "set L"
     and M = M
-    (* and M_table = M_table *)
   apply standard
                       apply (rule HOL.refl; fail)
                       apply (rule dbm_subset_refl; fail)
@@ -703,7 +770,7 @@ interpretation
     by (rule succs_precise_finite)
   subgoal (* succs empty *)
     unfolding succs_precise_def by auto
-  subgoal (* F mono *) thm subsumes_simp_1
+  subgoal (* F mono *)
     by (rule F_mono)
     (* using op.F_mono subsumes_simp_1 by fastforce *)
       (* subgoal (* L refine *)
@@ -726,10 +793,96 @@ interpretation
     apply (rule location_assn_constraints; fail)+
   done
 
-thm certify_unreachable_impl.refine[
+definition
+  "Mi = hashmap_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
+
+lemma
+  "(map_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list), M)
+\<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel\<rangle>option_rel"
+  unfolding M_def M_list'_def
+  sorry
+
+lemma Mi_M:
+  "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k Mi, M)
+\<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel\<rangle>option_rel"
+(is "(?f, M) \<in> ?R")
+proof -
+  let ?g = "map_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
+  have "(?f, ?g) \<in> Id \<rightarrow> \<langle>Id\<rangle>option_rel"
+    unfolding Mi_def by (rule hashmap_of_list_lookup)
+  moreover have "(?g, M) \<in> ?R"
+    sorry
+  ultimately show ?thesis
+    by auto
+qed
+
+interpretation Reachability_Impl_imp_to_pure
+  where A = "mtx_assn n"
+    and F = F
+    and l\<^sub>0i = "return l\<^sub>0i"
+    and s\<^sub>0 = init_dbm
+    and s\<^sub>0i = init_dbm_impl
+    and succs = succs_precise
+    and succsi = succs_precise'_impl
+    and less = "\<lambda> x y. dbm_subset n x y \<and> \<not> dbm_subset n y x"
+    and less_eq = "dbm_subset n"
+    and Lei = "dbm_subset_impl n"
+    and E = op_precise.E_from_op_empty
+    and Fi = F_impl
+    and K = location_assn
+    and keyi = "return o fst"
+    and copyi = amtx_copy
+    and P = "\<lambda>(l, M). l \<in> states' \<and> wf_dbm M"
+    and P' = P
+    and Pi = P_impl
+    and L = "set L"
+    and M = M
+    and to_loc = id
+    and from_loc = id
+    and L_list = L_list
+    and K_rel = location_rel
+    and L' = L
+    and Li = L_list
+    and to_state = array_unfreeze
+    and from_state = array_freeze
+    and A_rel = "{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}"
+    and Mi = "\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k Mi"
+  apply standard
+  subgoal
+    using L_list_rel by simp
+  subgoal
+    by (rule L_list_rel)
+  subgoal
+    ..
+  subgoal
+    using Mi_M .
+  subgoal for s1 s
+    by (rule array_unfreeze_ht) simp
+  subgoal for si s
+    by (sep_auto heap: array_freeze_ht)
+  subgoal
+    by simp
+  subgoal
+    by simp
+  subgoal
+    by (rule right_unique_location_rel)
+  subgoal
+    using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def .
+  done
+
+concrete_definition certify_unreachable_pure
+  uses pure.certify_unreachable_impl_pure_correct[unfolded to_pair_def get_succs_def] is "?f \<longrightarrow> _"
+
+lemma certify_unreachable_pure_refine:
+  assumes "fst ` set M_list = set L_list" certify_unreachable_pure
+  shows "\<nexists>u l' u'. (\<forall>c\<le>n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F' (l', u')"
+  using certify_unreachable_pure.refine[OF L_dom_M_eqI] assms op_precise_unreachable_correct by simp
+
+thm
+  certify_unreachable_impl.refine[
     OF Reachability_Impl_axioms L_list_hnr, unfolded PR_CONST_def, OF M_table.refine
     ]
-op_precise_unreachable_correct'
+  op_precise_unreachable_correct'
 
 context
   fixes splitter :: "'s list \<Rightarrow> 's list list" and splitteri :: "'si list \<Rightarrow> 'si list list"
@@ -858,7 +1011,7 @@ interpretation deadlock: Reachability_Problem_Impl_Precise where
   subgoal
   proof -
     define location_assn' where "location_assn' = location_assn"
-    define mtx_assn' :: "_ \<Rightarrow> int DBMEntry array \<Rightarrow> _" where "mtx_assn' = mtx_assn n"
+    define mtx_assn' :: "_ \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _" where "mtx_assn' = mtx_assn n"
     note [sep_heap_rules] = check_deadlock_impl.refine[
         to_hnr, unfolded hn_refine_def hn_ctxt_def,
         folded location_assn'_def mtx_assn'_def, simplified]
@@ -889,9 +1042,32 @@ lemma deadlock_unreachability_checker2_hnr:
       ]
   unfolding deadlock_def steps'_iff[symmetric] by auto
 
+lemma deadlock_unreachability_checker3_hnr:
+  fixes P_loc :: "'si \<Rightarrow> bool"
+    and L_list :: "'si list"
+    and M_list :: "('si \<times> int DBMEntry list list) list"
+  fixes splitter :: "'s list \<Rightarrow> 's list list" and splitteri :: "'si list \<Rightarrow> 'si list list"
+  assumes "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
+    and "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
+    and "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
+    and "fst ` set M_list = set L_list"
+  assumes full_split: "\<And>xs. set xs = (\<Union>xs \<in> set (splitter xs). set xs)"
+    and same_split:
+    "\<And>L Li.
+      list_assn (list_assn location_assn) (splitter L) (splitteri Li) = list_assn location_assn L Li"
+  shows
+    "deadlock.certify_unreachable_pure L_list M_list
+    \<longrightarrow> (\<forall>u. (\<forall>c\<le>n. u c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u))"
+  using deadlock.certify_unreachable_pure_refine[
+      OF assms(1-2) assms(4)[THEN equalityD1] assms(3) assms(4)
+      ]
+  unfolding deadlock_def steps'_iff[symmetric] by auto
+
 lemmas deadlock_unreachability_checker2_def = deadlock.unreachability_checker2_def
 
 lemmas deadlock_unreachability_checker_alt_def = deadlock.unreachability_checker_alt_def
+
+lemmas deadlock_unreachability_checker3_def = deadlock.certify_unreachable_pure_def
 
 lemma deadlock_unreachability_checker_hnr:
   fixes P_loc :: "'si \<Rightarrow> bool"

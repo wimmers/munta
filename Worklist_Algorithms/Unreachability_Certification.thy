@@ -833,11 +833,11 @@ locale Reachability_Impl = Reachability_Impl_common less L
   assumes succsi[sepref_fr_rules]:
     "(uncurry succsi,uncurry (RETURN oo PR_CONST succs))
     \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>d \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
-  assumes [sepref_fr_rules]:
+  assumes Lei[sepref_fr_rules]:
     "(uncurry Lei,uncurry (RETURN oo PR_CONST less_eq)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  assumes [sepref_fr_rules]:
+  assumes l\<^sub>0i_l\<^sub>0[sepref_fr_rules]:
     "(uncurry0 l\<^sub>0i, uncurry0 (RETURN (PR_CONST l\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a K"
-  assumes [sepref_fr_rules]:
+  assumes s\<^sub>0i_s\<^sub>0[sepref_fr_rules]:
     "(uncurry0 s\<^sub>0i, uncurry0 (RETURN (PR_CONST s\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
   assumes pure_K: "is_pure K"
   assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"

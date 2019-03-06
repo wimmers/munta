@@ -155,7 +155,7 @@ code_printing
       (SML)   "(fn n => fn show_state => fn show_clock => fn typ => fn x => ()) _ _ _"
   and (OCaml) "(fun n show_state show_clock ty x -> ()) _ _ _"
 
-datatype mode = Impl1 | Impl2
+datatype mode = Impl1 | Impl2 | Impl3
 
 definition parse_convert_run_check where
   "parse_convert_run_check mode num_split dc s \<equiv>
@@ -194,6 +194,9 @@ definition parse_convert_run_check where
             (* inv_renum_states inv_renum_vars inv_renum_clocks *)
             state_space
         | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+            state_space |> return
+        | Impl3 \<Rightarrow> rename_check3 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
             m num_states num_actions renum_acts renum_vars renum_clocks renum_states
             state_space |> return;
         let t = now () - t;
@@ -256,7 +259,7 @@ ML \<open>
   let
     val s = file_to_string file;
   in
-    @{code parse_convert_run_check} @{code Impl2} @{code num_split} dc s end
+    @{code parse_convert_run_check} @{code Impl3} @{code num_split} dc s end
 \<close>
 
 (*

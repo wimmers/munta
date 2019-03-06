@@ -235,6 +235,7 @@ abbreviation "location_rel \<equiv> b_rel loc_rel (\<lambda> x. x \<in> states')
 
 abbreviation "location_assn \<equiv> pure location_rel"
 
+(* XXX Remove altogether? *)
 abbreviation "state_assn \<equiv> prod_assn id_assn (mtx_assn n)"
 
 abbreviation "state_assn' \<equiv> prod_assn location_assn (mtx_assn n)"
