@@ -425,6 +425,9 @@ schematic_goal certify_unreachable_impl_pure1_alt_def:
   apply (abstract_let check_invariant_impl check_invariant)
   apply (abstract_let "check_final_impl Li" check_final)
   apply (abstract_let check_all_pre_impl check_all_pre_impl)
+  apply (time_it "STR ''Time for state set preconditions check''" check_all_pre_impl)
+  apply (time_it "STR ''Time for state space invariant check''"   check_invariant_impl)
+  apply (time_it "STR ''Time to check final state predicate''"    "check_final_impl Li")
   unfolding
     check_invariant_impl_def check_all_pre_impl_def
     check_prop_impl_def check_final_impl_def

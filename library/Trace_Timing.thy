@@ -95,4 +95,13 @@ sepref_register START_TIMER SAVE_TIME
 
 lemmas [sepref_fr_rules] = start_timer_hnr save_time_hnr
 
+definition
+  "time_it s f = (let _ = start_timer (); r = f (); _ = save_time s in r)"
+
+lemma time_it:
+  "e = time_it s (\<lambda>_. e)"
+  unfolding Let_def time_it_def ..
+
+method time_it for s :: String.literal and t = (subst time_it[where s = s and e = t])
+
 end

@@ -1367,9 +1367,9 @@ definition certify_unreachable_new where
   b1 = run_heap (do {M' \<leftarrow> M_table; check_all_pre_impl L_list M'});
   _ = save_time STR ''Time for checking basic preconditions'';
   _ = start_timer ();
-  _ = save_time STR ''Time for state space invariant check'';
   xs = run_map_heap (\<lambda>Li. do {M' \<leftarrow> M_table; check_invariant_impl Li M'}) (splitteri L_list);
   b2 = list_all id xs;
+  _ = save_time STR ''Time for state space invariant check'';
   _ = print_check STR ''State set invariant check'' b2;
   _ = start_timer ();
   b3 = run_heap (do {M' \<leftarrow> M_table; check_final_impl Fi copyi L_list M'});
