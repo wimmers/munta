@@ -466,11 +466,12 @@ definition parse_convert_check where
         check \<leftarrow> case mode of
           Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
             m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-            (* inv_renum_states inv_renum_vars inv_renum_clocks *)
             state_space
         | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
             m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-            (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+            state_space |> return
+        | Impl3 \<Rightarrow> rename_check3 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
             state_space |> return;
         let t = now () - t;
         let _ = println (STR ''Time for certificate checking: '' + time_to_string t);
@@ -481,6 +482,13 @@ definition parse_convert_check where
         | Unsat \<Rightarrow> do {let _ = println STR ''Certificate was rejected''; return ()}
     }
 " for num_split and state_space :: "((int list \<times> int list) \<times> int DBMEntry list list) list"
+
+(* XXX This is a bug fix. Fix in Isabelle distribution *)
+code_printing
+  constant IArray.length' \<rightharpoonup> (SML) "(IntInf.fromInt o Vector.length)"
+
+code_printing
+  constant Parallel.map \<rightharpoonup> (SML) "Par'_List.map"
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF

@@ -22,7 +22,7 @@ fun run_and_print check_deadlock s =
     val _ = debug_level := 2
     val t = Time.now ()
     (* val r = parse_convert_run_print check_deadlock s () *)
-    val r = parse_convert_run_check (nat_of_integer 1) check_deadlock s ()
+    val r = parse_convert_run_check Impl3 (nat_of_integer 1) check_deadlock s ()
     val t = Time.- (Time.now (), t)
     val _ = println("")
     val _ = println("Internal time for precondition check + actual checking: " ^ Time.toString t)
@@ -108,7 +108,7 @@ fun read_and_check check_deadlock model certificate renaming =
     in
       case certificate of
         NONE => println "Failed to read certificate! (malformed)"
-      | SOME certificate => (parse_convert_check (nat_of_integer 1) check_deadlock model renaming certificate (); print_timings ())
+      | SOME certificate => (parse_convert_check Impl3 (nat_of_integer 1) check_deadlock model renaming certificate (); print_timings ())
     end
 
 fun main () =

@@ -1,10 +1,14 @@
 use "Unsynchronized.sml";
 use "Writeln.sml";
-use "Certificate.sml";
 use "basics.ML";
 use "library.ML";
-use "/Users/wimmers/Code/mlunta_certificate/prelude.sml";
-use "/Users/wimmers/Code/mlunta_certificate/serializable.sml";
-use "/Users/wimmers/Code/mlunta_certificate/certificate.sml";
+use "parallel.sml";
+use "Certificate.sml";
+val mlunta_dir = "/Users/wimmers/Code/mlunta_certificate/";
+map (fn f => use (mlunta_dir ^ f)) [
+    "prelude.sml",
+    "serializable.sml",
+    "certificate.sml"
+];
 use "Muntac.sml";
-use "profile_poly.sml"
+(* use "profile_poly.sml" *)

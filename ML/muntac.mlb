@@ -6,6 +6,8 @@ local
 
     Writeln.sml
 
+    sequential.sml
+
     ann "nonexhaustiveMatch ignore" in
       Certificate.sml
     end
