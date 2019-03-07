@@ -246,11 +246,9 @@ ML_val \<open>
   do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_mod1.muntax" ()
 \<close>
 
-(*
 code_printing
   constant "parallel_fold_map" \<rightharpoonup>
       (SML)   "(fn f => fn xs => fn () => Par'_List.map (fn x => f x ()) xs) _ _"
-*)
 
 definition
   "num_split \<equiv> 4 :: nat"
@@ -490,6 +488,9 @@ code_printing
 
 code_printing
   constant Parallel.map \<rightharpoonup> (SML) "Par'_List.map"
+
+lemma [code]: "run_map_heap f xs = Parallel.map (run_heap o f) xs"
+  unfolding run_map_heap_def Parallel.map_def ..
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
