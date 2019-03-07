@@ -1,0 +1,708 @@
+{
+    "automata": [
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 0, 
+                    "source_name": "WaitURI", 
+                    "target": 2, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "clk>=400", 
+                    "label": "VP!", 
+                    "source": 0, 
+                    "source_name": "WaitURI", 
+                    "target": 2, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PAVI_t>=150 && clk<400", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": "AVI", 
+                    "target": 0, 
+                    "target_name": "WaitURI", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PAVI_t>=150 && clk>=400", 
+                    "label": "VP!", 
+                    "source": 1, 
+                    "source_name": "AVI", 
+                    "target": 2, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "AVI", 
+                    "target": 2, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AP?", 
+                    "source": 2, 
+                    "source_name": "Idle", 
+                    "target": 1, 
+                    "target_name": "AVI", 
+                    "update": "PAVI_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS?", 
+                    "source": 2, 
+                    "source_name": "Idle", 
+                    "target": 1, 
+                    "target_name": "AVI", 
+                    "update": "PAVI_t=0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "PAVI", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "Idle"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "clk<=400", 
+                    "name": "WaitURI"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "PAVI_t<=150", 
+                    "name": "AVI"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 0, 
+                    "source_name": "ASed", 
+                    "target": 1, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 0, 
+                    "source_name": "ASed", 
+                    "target": 1, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS?", 
+                    "source": 1, 
+                    "source_name": "LRI", 
+                    "target": 0, 
+                    "target_name": "ASed", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PLRI_t>=850", 
+                    "label": "AP!", 
+                    "source": 1, 
+                    "source_name": "LRI", 
+                    "target": 1, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "LRI", 
+                    "target": 1, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 1, 
+                    "source_name": "LRI", 
+                    "target": 1, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_t=0"
+                }
+            ], 
+            "initial": 1, 
+            "name": "PLRI", 
+            "nodes": [
+                {
+                    "id": 1, 
+                    "invariant": "PLRI_t<=850", 
+                    "name": "LRI"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "ASed"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0, 
+                1, 
+                3
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 2, 
+                    "source_name": "PVARP", 
+                    "target": 1, 
+                    "target_name": "inter1", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 4, 
+                    "source_name": "PVAB", 
+                    "target": 0, 
+                    "target_name": "ABl", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "ABlock!", 
+                    "source": 0, 
+                    "source_name": "ABl", 
+                    "target": 4, 
+                    "target_name": "PVAB", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Aget?", 
+                    "source": 4, 
+                    "source_name": "PVAB", 
+                    "target": 0, 
+                    "target_name": "ABl", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 3, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AR!", 
+                    "source": 1, 
+                    "source_name": "inter1", 
+                    "target": 2, 
+                    "target_name": "PVARP", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Aget?", 
+                    "source": 2, 
+                    "source_name": "PVARP", 
+                    "target": 1, 
+                    "target_name": "inter1", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "PPVARP_t>=100", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "PVARP", 
+                    "target": 5, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PPVARP_t>=50", 
+                    "label": "", 
+                    "source": 4, 
+                    "source_name": "PVAB", 
+                    "target": 2, 
+                    "target_name": "PVARP", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS!", 
+                    "source": 3, 
+                    "source_name": "inter", 
+                    "target": 5, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Aget?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 3, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 4, 
+                    "target_name": "PVAB", 
+                    "update": "PPVARP_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 4, 
+                    "target_name": "PVAB", 
+                    "update": "PPVARP_t=0"
+                }
+            ], 
+            "initial": 5, 
+            "name": "PPVARP", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "ABl"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "urge<=0", 
+                    "name": "inter1"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "PPVARP_t<=100", 
+                    "name": "PVARP"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "urge<=0", 
+                    "name": "inter"
+                }, 
+                {
+                    "id": 4, 
+                    "invariant": "PPVARP_t<=50", 
+                    "name": "PVAB"
+                }, 
+                {
+                    "id": 5, 
+                    "invariant": "", 
+                    "name": "Idle"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                1, 
+                0
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VBlock!", 
+                    "source": 0, 
+                    "source_name": "VB", 
+                    "target": 2, 
+                    "target_name": "VRP", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "V_act?", 
+                    "source": 2, 
+                    "source_name": "VRP", 
+                    "target": 0, 
+                    "target_name": "VB", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Vget?", 
+                    "source": 2, 
+                    "source_name": "VRP", 
+                    "target": 0, 
+                    "target_name": "VB", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "V_act?", 
+                    "source": 3, 
+                    "source_name": "Idle", 
+                    "target": 1, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS!", 
+                    "source": 1, 
+                    "source_name": "inter", 
+                    "target": 2, 
+                    "target_name": "VRP", 
+                    "update": "PVRP_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Vget?", 
+                    "source": 3, 
+                    "source_name": "Idle", 
+                    "target": 1, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "PVRP_t>=150", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "VRP", 
+                    "target": 3, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 3, 
+                    "source_name": "Idle", 
+                    "target": 2, 
+                    "target_name": "VRP", 
+                    "update": "PVRP_t=0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "PVRP", 
+            "nodes": [
+                {
+                    "id": 1, 
+                    "invariant": "urge<=0", 
+                    "name": "inter"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "VB"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "Idle"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "PVRP_t<=150", 
+                    "name": "VRP"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 0, 
+                    "source_name": "URI", 
+                    "target": 0, 
+                    "target_name": "URI", 
+                    "update": "clk=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 0, 
+                    "source_name": "URI", 
+                    "target": 0, 
+                    "target_name": "URI", 
+                    "update": "clk=0"
+                }
+            ], 
+            "initial": 0, 
+            "name": "PURI", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "URI"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "wait_vp", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "interval", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 1, 
+                    "source_name": "wait_vp", 
+                    "target": 0, 
+                    "target_name": "interval", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 2, 
+                    "source_name": "wait_v", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 2, 
+                    "source_name": "wait_v", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "PURI_test", 
+            "nodes": [
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "wait_vp"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "wait_v"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "interval"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "two_a", 
+                    "target": 1, 
+                    "target_name": "wait_2nd", 
+                    "update": "Pvv_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 1, 
+                    "source_name": "wait_2nd", 
+                    "target": 0, 
+                    "target_name": "two_a", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "wait_2nd", 
+                    "target": 0, 
+                    "target_name": "two_a", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 2, 
+                    "source_name": "wait_1st", 
+                    "target": 1, 
+                    "target_name": "wait_2nd", 
+                    "update": "Pvv_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 2, 
+                    "source_name": "wait_1st", 
+                    "target": 1, 
+                    "target_name": "wait_2nd", 
+                    "update": "Pvv_t=0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "Pvv", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "two_a"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "wait_1st"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "wait_2nd"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "V_act?", 
+                    "source": 0, 
+                    "source_name": "VReady", 
+                    "target": 0, 
+                    "target_name": "VReady", 
+                    "update": "PV_x=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 0, 
+                    "source_name": "VReady", 
+                    "target": 0, 
+                    "target_name": "VReady", 
+                    "update": "PV_x=0"
+                }, 
+                {
+                    "guard": "PV_x>500", 
+                    "label": "Vget!", 
+                    "source": 0, 
+                    "source_name": "VReady", 
+                    "target": 0, 
+                    "target_name": "VReady", 
+                    "update": "PV_x=0"
+                }
+            ], 
+            "initial": 0, 
+            "name": "PV", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "PV_x<800", 
+                    "name": "VReady"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 0, 
+                    "source_name": "AReady", 
+                    "target": 0, 
+                    "target_name": "AReady", 
+                    "update": "PA_x=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AP?", 
+                    "source": 0, 
+                    "source_name": "AReady", 
+                    "target": 0, 
+                    "target_name": "AReady", 
+                    "update": "PA_x=0"
+                }, 
+                {
+                    "guard": "PA_x>500", 
+                    "label": "Aget!", 
+                    "source": 0, 
+                    "source_name": "AReady", 
+                    "target": 0, 
+                    "target_name": "AReady", 
+                    "update": "PA_x=0"
+                }
+            ], 
+            "initial": 0, 
+            "name": "PA", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "PA_x<800", 
+                    "name": "AReady"
+                }
+            ]
+        }
+    ], 
+    "broadcast": [
+        "AP", 
+        "AS", 
+        "VP", 
+        "VS", 
+        "Vget", 
+        "Aget", 
+        "AR", 
+        "A_act", 
+        "V_act", 
+        "ABlock", 
+        "VBlock", 
+        "reset", 
+        "VP_AS", 
+        "Fast", 
+        "Slow", 
+        "du_beg", 
+        "du_end", 
+        "DDD", 
+        "VDI"
+    ], 
+    "clocks": "clk, PAVI_t, PLRI_t, PPVARP_t, PVRP_t, PURI_test_t, Pvv_t, PV_x, PA_x, urge", 
+    "vars": "",
+    "formula": "E<> (Pvv.two_a)"
+}

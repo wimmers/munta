@@ -1,0 +1,1673 @@
+{
+    "automata": [
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VDI?", 
+                    "source": 2, 
+                    "source_name": "WaitURI", 
+                    "target": 1, 
+                    "target_name": "VDI_idle", 
+                    "update": "PAVI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 2, 
+                    "source_name": "WaitURI", 
+                    "target": 4, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PAVI_MS_t>=150", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "VDI_AVI", 
+                    "target": 1, 
+                    "target_name": "VDI_idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 0, 
+                    "source_name": "VDI_AVI", 
+                    "target": 1, 
+                    "target_name": "VDI_idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AP?", 
+                    "source": 1, 
+                    "source_name": "VDI_idle", 
+                    "target": 0, 
+                    "target_name": "VDI_AVI", 
+                    "update": "PAVI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS?", 
+                    "source": 1, 
+                    "source_name": "VDI_idle", 
+                    "target": 0, 
+                    "target_name": "VDI_AVI", 
+                    "update": "PAVI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "DDD?", 
+                    "source": 0, 
+                    "source_name": "VDI_AVI", 
+                    "target": 3, 
+                    "target_name": "AVI", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI?", 
+                    "source": 3, 
+                    "source_name": "AVI", 
+                    "target": 0, 
+                    "target_name": "VDI_AVI", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "DDD?", 
+                    "source": 1, 
+                    "source_name": "VDI_idle", 
+                    "target": 4, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI?", 
+                    "source": 4, 
+                    "source_name": "Idle", 
+                    "target": 1, 
+                    "target_name": "VDI_idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "clk>=400", 
+                    "label": "VP!", 
+                    "source": 2, 
+                    "source_name": "WaitURI", 
+                    "target": 4, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PAVI_MS_t>=150 && clk<=400", 
+                    "label": "", 
+                    "source": 3, 
+                    "source_name": "AVI", 
+                    "target": 2, 
+                    "target_name": "WaitURI", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PAVI_MS_t>=150 && clk>=400", 
+                    "label": "VP!", 
+                    "source": 3, 
+                    "source_name": "AVI", 
+                    "target": 4, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 3, 
+                    "source_name": "AVI", 
+                    "target": 4, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AP?", 
+                    "source": 4, 
+                    "source_name": "Idle", 
+                    "target": 3, 
+                    "target_name": "AVI", 
+                    "update": "PAVI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS?", 
+                    "source": 4, 
+                    "source_name": "Idle", 
+                    "target": 3, 
+                    "target_name": "AVI", 
+                    "update": "PAVI_MS_t=0"
+                }
+            ], 
+            "initial": 4, 
+            "name": "PAVI_MS", 
+            "nodes": [
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "VDI_idle"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "clk<=400", 
+                    "name": "WaitURI"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "PAVI_MS_t<=150", 
+                    "name": "VDI_AVI"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "PAVI_MS_t<=150", 
+                    "name": "AVI"
+                }, 
+                {
+                    "id": 4, 
+                    "invariant": "", 
+                    "name": "Idle"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 0, 
+                    "source_name": "VDI_LRI", 
+                    "target": 0, 
+                    "target_name": "VDI_LRI", 
+                    "update": "PLRI_MS_t=0"
+                }, 
+                {
+                    "guard": "PLRI_MS_t>=1000", 
+                    "label": "VP!", 
+                    "source": 0, 
+                    "source_name": "VDI_LRI", 
+                    "target": 0, 
+                    "target_name": "VDI_LRI", 
+                    "update": "PLRI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI?", 
+                    "source": 1, 
+                    "source_name": "aSensed", 
+                    "target": 0, 
+                    "target_name": "VDI_LRI", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "DDD?", 
+                    "source": 0, 
+                    "source_name": "VDI_LRI", 
+                    "target": 2, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI?", 
+                    "source": 2, 
+                    "source_name": "LRI", 
+                    "target": 0, 
+                    "target_name": "VDI_LRI", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "aSensed", 
+                    "target": 2, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 1, 
+                    "source_name": "aSensed", 
+                    "target": 2, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS?", 
+                    "source": 2, 
+                    "source_name": "LRI", 
+                    "target": 1, 
+                    "target_name": "aSensed", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PLRI_MS_t>=850", 
+                    "label": "AP!", 
+                    "source": 2, 
+                    "source_name": "LRI", 
+                    "target": 2, 
+                    "target_name": "LRI", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 2, 
+                    "source_name": "LRI", 
+                    "target": 2, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_MS_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 2, 
+                    "source_name": "LRI", 
+                    "target": 2, 
+                    "target_name": "LRI", 
+                    "update": "PLRI_MS_t=0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "PLRI_MS", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "PLRI_MS_t<=1000", 
+                    "name": "VDI_LRI"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "aSensed"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "PLRI_MS_t<=850", 
+                    "name": "LRI"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0, 
+                1, 
+                3
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 2, 
+                    "source_name": "PVARP", 
+                    "target": 1, 
+                    "target_name": "inter1", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 4, 
+                    "source_name": "PVAB", 
+                    "target": 0, 
+                    "target_name": "ABl", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "ABlock!", 
+                    "source": 0, 
+                    "source_name": "ABl", 
+                    "target": 4, 
+                    "target_name": "PVAB", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Aget?", 
+                    "source": 4, 
+                    "source_name": "PVAB", 
+                    "target": 0, 
+                    "target_name": "ABl", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 3, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AR!", 
+                    "source": 1, 
+                    "source_name": "inter1", 
+                    "target": 2, 
+                    "target_name": "PVARP", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Aget?", 
+                    "source": 2, 
+                    "source_name": "PVARP", 
+                    "target": 1, 
+                    "target_name": "inter1", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "PPVARP_t>=100", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "PVARP", 
+                    "target": 5, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "PPVARP_t>=50", 
+                    "label": "", 
+                    "source": 4, 
+                    "source_name": "PVAB", 
+                    "target": 2, 
+                    "target_name": "PVARP", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS!", 
+                    "source": 3, 
+                    "source_name": "inter", 
+                    "target": 5, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Aget?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 3, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 4, 
+                    "target_name": "PVAB", 
+                    "update": "PPVARP_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 5, 
+                    "source_name": "Idle", 
+                    "target": 4, 
+                    "target_name": "PVAB", 
+                    "update": "PPVARP_t=0"
+                }
+            ], 
+            "initial": 5, 
+            "name": "PPVARP", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "ABl"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "urge<=0", 
+                    "name": "inter1"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "PPVARP_t<=100", 
+                    "name": "PVARP"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "urge<=0", 
+                    "name": "inter"
+                }, 
+                {
+                    "id": 4, 
+                    "invariant": "PPVARP_t<=50", 
+                    "name": "PVAB"
+                }, 
+                {
+                    "id": 5, 
+                    "invariant": "", 
+                    "name": "Idle"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                1, 
+                0
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VBlock!", 
+                    "source": 0, 
+                    "source_name": "VB", 
+                    "target": 2, 
+                    "target_name": "VRP", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "V_act?", 
+                    "source": 2, 
+                    "source_name": "VRP", 
+                    "target": 0, 
+                    "target_name": "VB", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Vget?", 
+                    "source": 2, 
+                    "source_name": "VRP", 
+                    "target": 0, 
+                    "target_name": "VB", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "V_act?", 
+                    "source": 3, 
+                    "source_name": "Idle", 
+                    "target": 1, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS!", 
+                    "source": 1, 
+                    "source_name": "inter", 
+                    "target": 2, 
+                    "target_name": "VRP", 
+                    "update": "PVRP_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Vget?", 
+                    "source": 3, 
+                    "source_name": "Idle", 
+                    "target": 1, 
+                    "target_name": "inter", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "PVRP_t>=150", 
+                    "label": "", 
+                    "source": 2, 
+                    "source_name": "VRP", 
+                    "target": 3, 
+                    "target_name": "Idle", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 3, 
+                    "source_name": "Idle", 
+                    "target": 2, 
+                    "target_name": "VRP", 
+                    "update": "PVRP_t=0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "PVRP", 
+            "nodes": [
+                {
+                    "id": 1, 
+                    "invariant": "urge<=0", 
+                    "name": "inter"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "VB"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "Idle"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "PVRP_t<=150", 
+                    "name": "VRP"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 0, 
+                    "source_name": "URI", 
+                    "target": 0, 
+                    "target_name": "URI", 
+                    "update": "clk=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 0, 
+                    "source_name": "URI", 
+                    "target": 0, 
+                    "target_name": "URI", 
+                    "update": "clk=0"
+                }
+            ], 
+            "initial": 0, 
+            "name": "PURI", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "URI"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "V_act?", 
+                    "source": 0, 
+                    "source_name": "VReady", 
+                    "target": 0, 
+                    "target_name": "VReady", 
+                    "update": "PV_x=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 0, 
+                    "source_name": "VReady", 
+                    "target": 0, 
+                    "target_name": "VReady", 
+                    "update": "PV_x=0"
+                }, 
+                {
+                    "guard": "PV_x>500", 
+                    "label": "Vget!", 
+                    "source": 0, 
+                    "source_name": "VReady", 
+                    "target": 0, 
+                    "target_name": "VReady", 
+                    "update": "PV_x=0"
+                }
+            ], 
+            "initial": 0, 
+            "name": "PV", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "PV_x<800", 
+                    "name": "VReady"
+                }
+            ]
+        }, 
+        {
+            "committed": [], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "A_act?", 
+                    "source": 0, 
+                    "source_name": "AReady", 
+                    "target": 0, 
+                    "target_name": "AReady", 
+                    "update": "PA_x=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AP?", 
+                    "source": 0, 
+                    "source_name": "AReady", 
+                    "target": 0, 
+                    "target_name": "AReady", 
+                    "update": "PA_x=0"
+                }, 
+                {
+                    "guard": "PA_x>500", 
+                    "label": "Aget!", 
+                    "source": 0, 
+                    "source_name": "AReady", 
+                    "target": 0, 
+                    "target_name": "AReady", 
+                    "update": "PA_x=0"
+                }
+            ], 
+            "initial": 0, 
+            "name": "PA", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "PA_x<800", 
+                    "name": "AReady"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0, 
+                1
+            ], 
+            "edges": [
+                {
+                    "guard": "Pinterval_t<=400", 
+                    "label": "Fast!", 
+                    "source": 1, 
+                    "source_name": "Resett", 
+                    "target": 2, 
+                    "target_name": "wait2nd", 
+                    "update": "Pinterval_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow!", 
+                    "source": 0, 
+                    "source_name": "APed", 
+                    "target": 2, 
+                    "target_name": "wait2nd", 
+                    "update": "Pinterval_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AP?", 
+                    "source": 2, 
+                    "source_name": "wait2nd", 
+                    "target": 0, 
+                    "target_name": "APed", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "Pinterval_t>400", 
+                    "label": "Slow!", 
+                    "source": 1, 
+                    "source_name": "Resett", 
+                    "target": 2, 
+                    "target_name": "wait2nd", 
+                    "update": "Pinterval_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS?", 
+                    "source": 2, 
+                    "source_name": "wait2nd", 
+                    "target": 1, 
+                    "target_name": "Resett", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AR?", 
+                    "source": 2, 
+                    "source_name": "wait2nd", 
+                    "target": 1, 
+                    "target_name": "Resett", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AR?", 
+                    "source": 3, 
+                    "source_name": "Wait1st", 
+                    "target": 2, 
+                    "target_name": "wait2nd", 
+                    "update": "Pinterval_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AS?", 
+                    "source": 3, 
+                    "source_name": "Wait1st", 
+                    "target": 2, 
+                    "target_name": "wait2nd", 
+                    "update": "Pinterval_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "AP?", 
+                    "source": 3, 
+                    "source_name": "Wait1st", 
+                    "target": 2, 
+                    "target_name": "wait2nd", 
+                    "update": "Pinterval_t=0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "Pinterval", 
+            "nodes": [
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "wait2nd"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "Wait1st"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "APed"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "urge<=0", 
+                    "name": "Resett"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                7, 
+                6, 
+                5, 
+                4, 
+                3, 
+                2, 
+                1, 
+                0, 
+                12, 
+                8
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 0, 
+                    "source_name": null, 
+                    "target": 17, 
+                    "target_name": "fast1", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 17, 
+                    "source_name": "fast1", 
+                    "target": 0, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 9, 
+                    "source_name": "fast8", 
+                    "target": 10, 
+                    "target_name": "fast7", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 10, 
+                    "source_name": "fast7", 
+                    "target": 11, 
+                    "target_name": "fast6", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 11, 
+                    "source_name": "fast6", 
+                    "target": 13, 
+                    "target_name": "fast5", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_beg!", 
+                    "source": 1, 
+                    "source_name": null, 
+                    "target": 9, 
+                    "target_name": "fast8", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 10, 
+                    "source_name": "fast7", 
+                    "target": 1, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 9, 
+                    "source_name": "fast8", 
+                    "target": 2, 
+                    "target_name": "switch2", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 2, 
+                    "source_name": "switch2", 
+                    "target": 9, 
+                    "target_name": "fast8", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 10, 
+                    "source_name": "fast7", 
+                    "target": 3, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 3, 
+                    "source_name": null, 
+                    "target": 10, 
+                    "target_name": "fast7", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 11, 
+                    "source_name": "fast6", 
+                    "target": 4, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 4, 
+                    "source_name": null, 
+                    "target": 11, 
+                    "target_name": "fast6", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 13, 
+                    "source_name": "fast5", 
+                    "target": 5, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 5, 
+                    "source_name": null, 
+                    "target": 13, 
+                    "target_name": "fast5", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 14, 
+                    "source_name": "fast4", 
+                    "target": 6, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 6, 
+                    "source_name": null, 
+                    "target": 14, 
+                    "target_name": "fast4", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 15, 
+                    "source_name": "fast3", 
+                    "target": 7, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 7, 
+                    "source_name": null, 
+                    "target": 15, 
+                    "target_name": "fast3", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VDI!", 
+                    "source": 8, 
+                    "source_name": null, 
+                    "target": 16, 
+                    "target_name": "fast2", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_end?", 
+                    "source": 16, 
+                    "source_name": "fast2", 
+                    "target": 8, 
+                    "target_name": null, 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 11, 
+                    "source_name": "fast6", 
+                    "target": 10, 
+                    "target_name": "fast7", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 13, 
+                    "source_name": "fast5", 
+                    "target": 11, 
+                    "target_name": "fast6", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "DDD!", 
+                    "source": 12, 
+                    "source_name": "switch1", 
+                    "target": 18, 
+                    "target_name": "Init", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 17, 
+                    "source_name": "fast1", 
+                    "target": 12, 
+                    "target_name": "switch1", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 16, 
+                    "source_name": "fast2", 
+                    "target": 17, 
+                    "target_name": "fast1", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 15, 
+                    "source_name": "fast3", 
+                    "target": 16, 
+                    "target_name": "fast2", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 14, 
+                    "source_name": "fast4", 
+                    "target": 15, 
+                    "target_name": "fast3", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Slow?", 
+                    "source": 13, 
+                    "source_name": "fast5", 
+                    "target": 14, 
+                    "target_name": "fast4", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 14, 
+                    "source_name": "fast4", 
+                    "target": 13, 
+                    "target_name": "fast5", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 15, 
+                    "source_name": "fast3", 
+                    "target": 14, 
+                    "target_name": "fast4", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 16, 
+                    "source_name": "fast2", 
+                    "target": 15, 
+                    "target_name": "fast3", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 17, 
+                    "source_name": "fast1", 
+                    "target": 16, 
+                    "target_name": "fast2", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "Fast?", 
+                    "source": 18, 
+                    "source_name": "Init", 
+                    "target": 17, 
+                    "target_name": "fast1", 
+                    "update": ""
+                }
+            ], 
+            "initial": 18, 
+            "name": "Pcounter", 
+            "nodes": [
+                {
+                    "id": 15, 
+                    "invariant": "", 
+                    "name": "fast3"
+                }, 
+                {
+                    "id": 16, 
+                    "invariant": "", 
+                    "name": "fast2"
+                }, 
+                {
+                    "id": 17, 
+                    "invariant": "", 
+                    "name": "fast1"
+                }, 
+                {
+                    "id": 7, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 6, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 5, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 4, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "urge<=0", 
+                    "name": "switch2"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 10, 
+                    "invariant": "", 
+                    "name": "fast7"
+                }, 
+                {
+                    "id": 9, 
+                    "invariant": "", 
+                    "name": "fast8"
+                }, 
+                {
+                    "id": 12, 
+                    "invariant": "urge<=0", 
+                    "name": "switch1"
+                }, 
+                {
+                    "id": 18, 
+                    "invariant": "", 
+                    "name": "Init"
+                }, 
+                {
+                    "id": 13, 
+                    "invariant": "", 
+                    "name": "fast5"
+                }, 
+                {
+                    "id": 11, 
+                    "invariant": "", 
+                    "name": "fast6"
+                }, 
+                {
+                    "id": 8, 
+                    "invariant": "urge<=0", 
+                    "name": ""
+                }, 
+                {
+                    "id": 14, 
+                    "invariant": "", 
+                    "name": "fast4"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "du_end!", 
+                    "source": 0, 
+                    "source_name": "V8", 
+                    "target": 9, 
+                    "target_name": "Init", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 1, 
+                    "source_name": "V7", 
+                    "target": 0, 
+                    "target_name": "V8", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 2, 
+                    "source_name": "V6", 
+                    "target": 1, 
+                    "target_name": "V7", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 3, 
+                    "source_name": "V5", 
+                    "target": 2, 
+                    "target_name": "V6", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 4, 
+                    "source_name": "V4", 
+                    "target": 3, 
+                    "target_name": "V5", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 5, 
+                    "source_name": "V3", 
+                    "target": 4, 
+                    "target_name": "V4", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 6, 
+                    "source_name": "V2", 
+                    "target": 5, 
+                    "target_name": "V3", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 7, 
+                    "source_name": "V1", 
+                    "target": 6, 
+                    "target_name": "V2", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 8, 
+                    "source_name": "V0", 
+                    "target": 7, 
+                    "target_name": "V1", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "V7", 
+                    "target": 0, 
+                    "target_name": "V8", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 2, 
+                    "source_name": "V6", 
+                    "target": 1, 
+                    "target_name": "V7", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 3, 
+                    "source_name": "V5", 
+                    "target": 2, 
+                    "target_name": "V6", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 4, 
+                    "source_name": "V4", 
+                    "target": 3, 
+                    "target_name": "V5", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 5, 
+                    "source_name": "V3", 
+                    "target": 4, 
+                    "target_name": "V4", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 6, 
+                    "source_name": "V2", 
+                    "target": 5, 
+                    "target_name": "V3", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 7, 
+                    "source_name": "V1", 
+                    "target": 6, 
+                    "target_name": "V2", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 8, 
+                    "source_name": "V0", 
+                    "target": 7, 
+                    "target_name": "V1", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "du_beg?", 
+                    "source": 9, 
+                    "source_name": "Init", 
+                    "target": 8, 
+                    "target_name": "V0", 
+                    "update": ""
+                }
+            ], 
+            "initial": 9, 
+            "name": "Pdu_count", 
+            "nodes": [
+                {
+                    "id": 9, 
+                    "invariant": "", 
+                    "name": "Init"
+                }, 
+                {
+                    "id": 7, 
+                    "invariant": "", 
+                    "name": "V1"
+                }, 
+                {
+                    "id": 8, 
+                    "invariant": "", 
+                    "name": "V0"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "V6"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "V7"
+                }, 
+                {
+                    "id": 4, 
+                    "invariant": "", 
+                    "name": "V4"
+                }, 
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "V5"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "V8"
+                }, 
+                {
+                    "id": 6, 
+                    "invariant": "", 
+                    "name": "V2"
+                }, 
+                {
+                    "id": 5, 
+                    "invariant": "", 
+                    "name": "V3"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "wait_vp", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "interval", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 1, 
+                    "source_name": "wait_vp", 
+                    "target": 0, 
+                    "target_name": "interval", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 2, 
+                    "source_name": "wait_v", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 2, 
+                    "source_name": "wait_v", 
+                    "target": 1, 
+                    "target_name": "wait_vp", 
+                    "update": "PURI_test_t=0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "PURI_test", 
+            "nodes": [
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "wait_vp"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "wait_v"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "interval"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                0
+            ], 
+            "edges": [
+                {
+                    "guard": "", 
+                    "label": "", 
+                    "source": 0, 
+                    "source_name": "two_a", 
+                    "target": 1, 
+                    "target_name": "wait_2nd", 
+                    "update": "Pvv_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 1, 
+                    "source_name": "wait_2nd", 
+                    "target": 0, 
+                    "target_name": "two_a", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 1, 
+                    "source_name": "wait_2nd", 
+                    "target": 0, 
+                    "target_name": "two_a", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 2, 
+                    "source_name": "wait_1st", 
+                    "target": 1, 
+                    "target_name": "wait_2nd", 
+                    "update": "Pvv_t=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VS?", 
+                    "source": 2, 
+                    "source_name": "wait_1st", 
+                    "target": 1, 
+                    "target_name": "wait_2nd", 
+                    "update": "Pvv_t=0"
+                }
+            ], 
+            "initial": 2, 
+            "name": "Pvv", 
+            "nodes": [
+                {
+                    "id": 0, 
+                    "invariant": "urge<=0", 
+                    "name": "two_a"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "wait_1st"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "", 
+                    "name": "wait_2nd"
+                }
+            ]
+        }, 
+        {
+            "committed": [
+                1
+            ], 
+            "edges": [
+                {
+                    "guard": "Pvp_vp_t<=400", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": "V2", 
+                    "target": 2, 
+                    "target_name": "V1", 
+                    "update": "Pvp_vp_t=0"
+                }, 
+                {
+                    "guard": "Pvp_vp_t>400", 
+                    "label": "", 
+                    "source": 1, 
+                    "source_name": "V2", 
+                    "target": 0, 
+                    "target_name": "err", 
+                    "update": ""
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 2, 
+                    "source_name": "V1", 
+                    "target": 1, 
+                    "target_name": "V2", 
+                    "update": "urge=0"
+                }, 
+                {
+                    "guard": "", 
+                    "label": "VP?", 
+                    "source": 3, 
+                    "source_name": "Init", 
+                    "target": 2, 
+                    "target_name": "V1", 
+                    "update": "Pvp_vp_t=0"
+                }
+            ], 
+            "initial": 3, 
+            "name": "Pvp_vp", 
+            "nodes": [
+                {
+                    "id": 3, 
+                    "invariant": "", 
+                    "name": "Init"
+                }, 
+                {
+                    "id": 2, 
+                    "invariant": "", 
+                    "name": "V1"
+                }, 
+                {
+                    "id": 1, 
+                    "invariant": "urge<=0", 
+                    "name": "V2"
+                }, 
+                {
+                    "id": 0, 
+                    "invariant": "", 
+                    "name": "err"
+                }
+            ]
+        }
+    ], 
+    "broadcast": [
+        "AP", 
+        "AS", 
+        "VP", 
+        "VS", 
+        "Vget", 
+        "Aget", 
+        "AR", 
+        "A_act", 
+        "V_act", 
+        "ABlock", 
+        "VBlock", 
+        "reset", 
+        "VP_AS", 
+        "Fast", 
+        "Slow", 
+        "du_beg", 
+        "du_end", 
+        "DDD", 
+        "VDI"
+    ], 
+    "clocks": "clk, PAVI_MS_t, PLRI_MS_t, PPVARP_t, PVRP_t, PV_x, PA_x, Pinterval_t, PURI_test_t, Pvv_t, Pvp_vp_t, urge", 
+    "vars": "",
+    "formula": "E<> !(PAVI_MS.Idle) && PAVI_MS.Idle"
+}
