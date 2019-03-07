@@ -162,15 +162,16 @@ definition parse_convert_run_check where
    case parse json s \<bind> convert of
      Error es \<Rightarrow> do {let _ = map println es; return ()}
    | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
-      let t = now ();
       let r = rename_state_space dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
-      let t = now () - t;
-      let _ = println (STR ''Time for model checking + certificate extraction: '' + time_to_string t);
       case r of
         Error es \<Rightarrow> do {let _ = map println es; return ()}
       | Result (r, show_clk, show_st, renamings, k) \<Rightarrow>
         case r of None \<Rightarrow> return () | Some r \<Rightarrow> do {
+        let t = now ();
         r \<leftarrow> r;
+        let t = now () - t;
+        let _ = println (
+          STR ''Time for model checking + certificate extraction: '' + time_to_string t);
         let (m,num_states,num_actions,renum_acts,renum_vars,renum_clocks,renum_states,
           inv_renum_states, inv_renum_vars, inv_renum_clocks
         ) = renamings;
