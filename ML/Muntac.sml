@@ -16,13 +16,13 @@ fun print_timings () =
   in map print_time tab; () end;
 
 (*** Wrapping up the checker ***)
-fun run_and_print check_deadlock s =
+fun run_and_print implementation num_threads check_deadlock s =
   let
     val debug_level: Int32.int Unsynchronized.ref = ref 0
     val _ = debug_level := 2
     val t = Time.now ()
     (* val r = parse_convert_run_print check_deadlock s () *)
-    val r = parse_convert_run_check Impl3 (nat_of_integer 1) check_deadlock s ()
+    val r = parse_convert_run_check implementation num_threads check_deadlock s ()
     val t = Time.- (Time.now (), t)
     val _ = println("")
     val _ = println("Internal time for precondition check + actual checking: " ^ Time.toString t)
@@ -54,7 +54,7 @@ fun read_lines stream =
     | SOME input => input ^ read_lines stream
   end;
 
-fun check_and_verify_from_stream model check_deadlock =
+fun check_and_verify_from_stream implementation num_threads model check_deadlock =
   let
     val stream = TextIO.openIn model
     val input = read_lines stream
@@ -63,7 +63,7 @@ fun check_and_verify_from_stream model check_deadlock =
     if input = ""
     then println "Failed to read line from input!"
       (* We append a space to terminate the input for the parser *)
-    else input ^ " " |> run_and_print check_deadlock
+    else input ^ " " |> run_and_print implementation num_threads check_deadlock
   end;
 
 fun find_with_arg P [] = NONE
@@ -98,7 +98,7 @@ fun read_certificate_from_file f =
     val _ = BinIO.closeIn file
   in r end;
 
-fun read_and_check check_deadlock model certificate renaming =
+fun read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads) =
   let
       val model = read_file model
       val renaming = read_file renaming
@@ -108,7 +108,10 @@ fun read_and_check check_deadlock model certificate renaming =
     in
       case certificate of
         NONE => println "Failed to read certificate! (malformed)"
-      | SOME certificate => (parse_convert_check Impl3 (nat_of_integer 1) check_deadlock model renaming certificate (); print_timings ())
+      | SOME certificate => (
+          parse_convert_check implementation num_threads check_deadlock model renaming certificate ();
+          print_timings ()
+          )
     end
 
 fun main () =
@@ -118,16 +121,41 @@ fun main () =
     val model = find_with_arg (fn x => x = "-model" orelse x = "-m") args
     val certificate = find_with_arg (fn x => x = "-certificate" orelse x = "-c") args
     val renaming = find_with_arg (fn x => x = "-renaming" orelse x = "-r") args
+    val num_threads = find_with_arg (fn x => x = "-num-threads" orelse x = "-n") args
+    val implementation = find_with_arg (fn x => x = "-implementation" orelse x = "-i") args
+    fun convert f NONE = NONE
+      | convert f (SOME x) = SOME (f x)
+        handle Fail msg => (println ("Argument error: " ^ msg); OS.Process.exit OS.Process.failure)
+    fun int_of_string err_msg s = case Int.fromString s of
+        NONE => raise Fail (err_msg ^ " should be an integer")
+      | SOME x => x
+    fun int_to_impl n =
+      if n < 1 orelse n > 3 then
+        raise Fail "Implementation needs to be in the range 1 to 3"
+      else if n = 1 then Impl1
+      else if n = 2 then Impl2
+      else Impl3
+    fun the_default x NONE = x
+      | the_default _ (SOME x) = x
+    val implementation = implementation
+      |> convert (fn x => x |> int_of_string "Implementation" |> int_to_impl)
+      |> the_default Impl1
+    val num_threads = num_threads
+      |> convert (int_of_string "Number of threads")
+      |> the_default 1 |> IntInf.fromInt |> nat_of_integer
     val args = [model, certificate, renaming]
   in
     if certificate = NONE andalso renaming = NONE andalso model <> NONE then
-      (println "Falling back to munta!"; check_and_verify_from_stream (the model) check_deadlock)
+      (
+        println "Falling back to munta!";
+        check_and_verify_from_stream implementation num_threads (the model) check_deadlock
+      )
     else if exists (fn x => x = NONE) args then
       println "Missing command line arguments!"
     else
       let
         val [model, certificate, renaming] = map the args
       in
-        read_and_check check_deadlock model certificate renaming
+        read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads)
       end
   end
