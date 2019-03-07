@@ -22,8 +22,8 @@ ann "nonexhaustiveMatch ignore" in
     library.ML
 end
 Unsynchronized.sml
-/Users/wimmers/Code/mlunta_certificate/prelude.sml
-/Users/wimmers/Code/mlunta_certificate/serializable.sml
-/Users/wimmers/Code/mlunta_certificate/certificate.sml
+$(MLUNTA_CERT)/prelude.sml
+$(MLUNTA_CERT)/serializable.sml
+$(MLUNTA_CERT)/certificate.sml
 Muntac.sml
 Mlton_Main.sml
