@@ -80,7 +80,7 @@ context
   fixes n :: nat
 begin
 
-private definition
+qualified definition
   "dbm_tab M \<equiv> \<lambda> (i, j). if i \<le> n \<and> j \<le> n then M ! ((n + 1) * i + j) else 0"
 
 private lemma
@@ -796,11 +796,76 @@ interpretation
 definition
   "Mi = hashmap_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
 
-lemma
+lemma IArray_list_to_dbm_rel[param]:
+  "(IArray, list_to_dbm n)
+  \<in> {(xs, ys). xs = ys \<and> length xs = Suc n * Suc n} \<rightarrow> {(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}"
+  unfolding list_to_dbm_def op_amtx_new_def iarray_mtx_rel_def
+    Normalized_Zone_Semantics_Certification_Impl.dbm_tab_def
+  by (auto simp: algebra_simps)
+
+lemma IArray_list_to_dbm_rel':
+  "(map IArray xs, list_to_dbm n ` set xs) \<in> \<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel"
+  if "list_all (\<lambda>xs. length xs = Suc n * Suc n) xs"
+  unfolding list_set_rel_def
+  apply (rule relcompI[where b = "map (list_to_dbm n) xs"])
+  apply parametricity
+  using that unfolding list_rel_def list_all_iff
+  by (auto intro: list.rel_refl_strong)
+
+lemma map_of_M_list_M_rel:
   "(map_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list), M)
 \<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel\<rangle>option_rel"
   unfolding M_def M_list'_def
-  sorry
+  unfolding map_of_list_def
+  unfolding PR_CONST_def
+proof goal_cases
+  case 1
+  let "(fold ?f ?xs Map.empty, fold ?g ?ys _) \<in> ?R" = ?case
+  have *: "l' = (SOME l'. (l, l') \<in> loc_rel)"
+    if "(l, l') \<in> loc_rel" "states_mem_impl l" "l' \<in> states'" for l l'
+  proof -
+    from that have "(l, SOME l'. (l, l') \<in> loc_rel) \<in> loc_rel"
+      by (intro someI)
+    moreover then have "(SOME l'. (l, l') \<in> loc_rel) \<in> states'"
+      using that(2) by (elim mem_states'I)
+    ultimately show ?thesis
+      using that right_unique_location_rel unfolding single_valued_def by auto
+  qed
+  have "(fold ?f ?xs m, fold ?g ?ys m') \<in> ?R"
+    if "(m, m') \<in> ?R" for m m'
+    using that P_loc'
+  proof (induction M_list arbitrary: m m')
+    case Nil
+    then show ?case
+      by simp
+  next
+    case (Cons x M_list)
+    obtain l M where "x = (l, M)"
+      by force
+    from Cons.IH \<open>list_all _ (x # M_list)\<close> show ?case
+      apply (simp split:)
+      apply rprems
+      unfolding \<open>x = _\<close>
+      apply simp
+      apply (rule fun_relI)
+      apply (clarsimp; safe)
+      subgoal
+        by (rule IArray_list_to_dbm_rel') simp
+      subgoal
+        by (frule *) auto
+      subgoal
+        using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def single_valued_def
+        by (auto dest: someI_ex[OF state_impl_abstract])
+      subgoal
+        using Cons.prems(1)
+        apply -
+        apply (drule fun_relD)
+        by simp
+      done
+  qed
+  then show ?case
+    by rprems auto
+qed
 
 lemma Mi_M:
   "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k Mi, M)
@@ -811,7 +876,7 @@ proof -
   have "(?f, ?g) \<in> Id \<rightarrow> \<langle>Id\<rangle>option_rel"
     unfolding Mi_def by (rule hashmap_of_list_lookup)
   moreover have "(?g, M) \<in> ?R"
-    sorry
+    by (rule map_of_M_list_M_rel)
   ultimately show ?thesis
     by auto
 qed
