@@ -368,147 +368,153 @@ lemma map_of_inv_map:
     using that by auto
   done
 
+lemma dom_vars_invD:
+  assumes "x \<in> dom (s \<circ> Simple_Network_Rename_Defs.vars_inv renum_vars)"
+  shows "x \<in> renum_vars ` dom s" (is ?A) and "the_inv renum_vars x \<in> dom s" (is ?B)
+proof -
+  show ?A
+    using assms unfolding vars_inv_def dom_the_inv_comp[OF inj_renum_vars surj_renum_vars] .
+  then show ?B
+    apply (elim imageE)
+    apply simp
+    apply (subst the_inv_f_f, rule inj_renum_vars, assumption)
+    done
+qed
+
 lemma bounded_renumI:
   assumes "bounded (map_of bounds') s"
-  shows
-    "bounded
-       (map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds'))
-       (s o vars_inv)"
-  using assms
-  unfolding bounded_def
+  shows "bounded (map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds')) (s o vars_inv)"
+  using assms unfolding bounded_def
   apply elims
   apply intros
   subgoal
-    unfolding dom_map_of_conv_image_fst
-    unfolding vars_inv_def
-    apply (subst dom_the_inv_comp, rule inj_renum_vars, rule surj_renum_vars)
-    apply simp
-    unfolding image_comp
-    apply (rule image_cong, rule HOL.refl)
-    by auto
+    unfolding dom_map_of_conv_image_fst vars_inv_def
+    by (auto intro!: image_cong simp: dom_the_inv_comp[OF inj_renum_vars surj_renum_vars] image_comp)
   subgoal for x
-    unfolding vars_inv_def
-    apply (subst (asm) dom_the_inv_comp, rule inj_renum_vars, rule surj_renum_vars)
-    apply (subgoal_tac "the_inv renum_vars x \<in> dom s")
-     apply (drule bspec, assumption)
-     apply (drule conjunct1)
-     apply simp
-     apply (subst (asm) map_of_inv_map, rule inj_renum_vars, rule surj_renum_vars)
-     apply (simp; fail)
-    subgoal
-      by auto
-    subgoal
-      apply (erule imageE)
-      apply simp
-      apply (subst the_inv_f_f, rule inj_renum_vars, assumption)
-      done
+    apply (frule dom_vars_invD)
+    apply (frule dom_vars_invD(2))
+    apply (drule bspec, assumption)
+    apply (auto simp: map_of_inv_map[OF inj_renum_vars surj_renum_vars] vars_inv_def)
     done
-  subgoal
-    sorry
+  subgoal for x
+    apply (frule dom_vars_invD)
+    apply (frule dom_vars_invD(2))
+    apply (drule bspec, assumption)
+    apply (auto simp: map_of_inv_map[OF inj_renum_vars surj_renum_vars] vars_inv_def)
+    done
   done
+
+lemma map_of_renum_vars_simp:
+  assumes
+    "dom (s o (Simple_Network_Rename_Defs.vars_inv renum_vars))
+     = dom (map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds'))"
+    "x \<in> dom s" "dom s \<subseteq> var_set"
+  shows "map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds') (renum_vars x) = map_of bounds' x"
+proof -
+  have *:
+    "map (\<lambda>(a, y). (renum_vars a, y)) bounds' = map (\<lambda>(a, y). (renum_vars a, y)) bounds'"
+    by auto
+  have "x \<in> dom (map_of bounds')"
+    unfolding dom_map_of_conv_image_fst
+    using assms
+    unfolding vars_inv_def
+    apply -
+    apply (subst (asm) dom_the_inv_comp, rule inj_renum_vars, rule surj_renum_vars)
+    apply (subst (asm) dom_map_of_map)
+    apply auto
+    apply (subst (asm) inj_on_image_eq_iff[OF inj_renum_vars])
+    by auto
+  then obtain y where "map_of bounds' x = Some y"
+    by auto
+  then show ?thesis
+    by (subst map_of_mapk_SomeI) (auto intro: inj_renum_vars)
+qed
 
 lemma bounded_renumD:
   assumes
     "Simple_Network_Language.bounded
      (map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds')) (s o vars_inv)"
-      and "dom s \<subseteq> var_set"
+    and "dom s \<subseteq> var_set"
   shows "Simple_Network_Language.bounded (map_of bounds') s"
 proof -
   show ?thesis
-  using assms(1)
-  unfolding bounded_def
-  apply elims
-  apply intros
-  subgoal
-    unfolding vars_inv_def
-    apply (subst (asm) dom_the_inv_comp, rule inj_renum_vars, rule surj_renum_vars)
-    apply (subst (asm) dom_map_of_map)
-    unfolding dom_map_of_conv_image_fst
-    apply (rule inj_image_eqI[OF inj_renum_vars], simp)
+    using assms(1)
+    unfolding bounded_def
+    apply elims
+    apply intros
+    subgoal
+      unfolding vars_inv_def
+      apply (subst (asm) dom_the_inv_comp[OF inj_renum_vars surj_renum_vars])
+      apply (subst (asm) dom_map_of_map)
+      apply (rule inj_image_eqI[OF inj_renum_vars], simp add: dom_map_of_conv_image_fst)
+      done
+    subgoal for x
+      using assms(2) unfolding vars_inv_def
+      apply (subst (asm) (2) dom_the_inv_comp[OF inj_renum_vars surj_renum_vars])
+      apply (drule bspec, erule imageI)
+      apply (simp add: the_inv_f_f[OF inj_renum_vars] map_of_renum_vars_simp[unfolded vars_inv_def])
+      done
+    subgoal for x
+      using assms(2) unfolding vars_inv_def
+      apply (subst (asm) (2) dom_the_inv_comp[OF inj_renum_vars surj_renum_vars])
+      apply (drule bspec, erule imageI)
+      apply (simp add: the_inv_f_f[OF inj_renum_vars] map_of_renum_vars_simp[unfolded vars_inv_def])
+      done
     done
-  subgoal for x
-    apply (rotate_tac)
-    unfolding vars_inv_def
-    apply (subst (asm) dom_the_inv_comp, rule inj_renum_vars, rule surj_renum_vars)
-    apply (drule bspec)
-     apply (rule imageI, assumption)
-    apply (drule conjunct1)
-    apply (subgoal_tac "map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds')
-               (renum_vars x) = map_of bounds' x",
-          (simp add: the_inv_f_f[OF inj_renum_vars]; fail))
-    subgoal premises prems
-    proof -
-      have *:
-        "map (\<lambda>(a, y). (renum_vars a, y)) bounds' = map (\<lambda>(a, y). (renum_vars a, y)) bounds'"
-        by auto
-      have "x \<in> dom (map_of bounds')"
-        unfolding dom_map_of_conv_image_fst
-        using prems(1,2)
-        apply -
-        apply (subst (asm) dom_the_inv_comp, rule inj_renum_vars, rule surj_renum_vars)
-        apply (subst (asm) dom_map_of_map)
-        apply auto
-        apply (subst (asm) inj_on_image_eq_iff[OF inj_renum_vars])
-        using \<open>dom s \<subseteq> _\<close> by auto
-      then obtain y where "map_of bounds' x = Some y"
-        by auto
-      then show ?thesis
-        by (subst map_of_mapk_SomeI) (auto intro: inj_renum_vars)
-    qed
-    done
-  subgoal for x
-    sorry
-  done
 qed
 
 lemma dom_bounds_var_set: "dom sem.bounds \<subseteq> var_set"
   unfolding dom_bounds sem_bounds_eq using bounds'_var_set .
 
-interpretation single: Bisimulation_Invariant
-  "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u sem L s u a L' s' u'"
-  "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u renum.sem L s u a L' s' u'"
-  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
-  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set" "\<lambda>_. True"
-proof (-, goal_cases)
-  case 1
-  have *: "L ! p \<in> loc_set" if "p < length automata" "L \<in> sem.states" for L p
-    using that sem_loc_set_eq sem.states_loc_set by (force simp: n_ps_def)
-  show ?case
-    apply standard
-       apply clarsimp
-    subgoal for L s u L' s' u' a
-      apply (inst_existentials "renum_label a")
-      apply (cases a)
-      subgoal
-        apply (simp add: renum_label_def)
-        apply (erule step_u_elims')
-        apply simp
-        apply (rule step_u.intros)
-        subgoal
-          apply simp
-          apply (intros)
-          apply (elim allE impE, assumption)
-          apply (frule sem.states_lengthD)
-          apply (drule inv_renum_sem_I[OF _ _ *]; simp add: n_ps_def; fail)
-          done
-        subgoal
-          by assumption
-        subgoal
-          by (rule bounded_renumI)
-        done
-      sorry
-      apply clarsimp
-    subgoal for L s u L' s' u' a
-      apply (cases a)
+lemma sem_states_loc_setD: "L ! p \<in> loc_set" if "p < length automata" "L \<in> sem.states" for L p
+  using that sem_loc_set_eq sem.states_loc_set by (force simp: n_ps_def)
+
+lemma step_single_renumD:
+  assumes "step_u sem L s u a L' s' u'" "L \<in> sem.states" "dom s \<subseteq> var_set"
+  shows "step_u renum.sem
+    (map_index renum_states L) (s o vars_inv) (map_u u)
+    (renum_label a)
+    (map_index renum_states L') (s' o vars_inv) (map_u u')"
+  using assms
+  apply (cases a)
+  subgoal
+    apply (simp add: renum_label_def)
+    apply (erule step_u_elims')
+    apply simp
+    apply (rule step_u.intros)
+    subgoal
+      apply simp
+      apply (intros)
+      apply (elim allE impE, assumption)
+      apply (frule sem.states_lengthD)
+      apply (drule inv_renum_sem_I[OF _ _ sem_states_loc_setD]; simp add: n_ps_def; fail)
+      done
+    subgoal
+      by assumption
+    subgoal
+      by (rule bounded_renumI)
+    done
+  sorry
+
+lemma step_single_renumI:
+  assumes
+    "step_u renum.sem
+      (map_index renum_states L) (s o vars_inv) (map_u u) a L' s' u'"
+    "L \<in> sem.states" "dom s \<subseteq> var_set"
+  shows "\<exists> a1 L1 s1 u1. step_u sem L s u a1 L1 s1 u1 \<and> renum_label a1 = a \<and>
+    L' = map_index renum_states L1 \<and> s' = s1 o vars_inv\<and> u' = map_u u1"
+  using assms
+apply (cases a)
       subgoal
         apply (simp add: renum_label_def)
         apply (erule step_u_elims')
         subgoal for d
-          apply (inst_existentials L s  "u \<oplus> d" "Del :: 'a Simple_Network_Language.label")
+          apply (inst_existentials "Del :: 'a Simple_Network_Language.label" L s  "u \<oplus> d")
              apply simp_all
           apply (rule step_u.intros)
           subgoal
-            by (auto 4 3 simp: n_ps_def intro: inv_renum_sem_D dest: sem.states_lengthD *)
+            by (auto 4 3 simp: n_ps_def
+                  intro: inv_renum_sem_D dest: sem.states_lengthD sem_states_loc_setD)
           subgoal
             by assumption
           subgoal
@@ -517,21 +523,85 @@ proof (-, goal_cases)
           done
         done
       sorry
-    subgoal
-      apply (auto intro: sem.states_inv)
-      apply (drule sem.bounded_inv)
-      unfolding bounded_def using dom_bounds_var_set by blast
-    subgoal
-      .
-    done
-qed
+
+lemma step_u_var_set_invariant:
+  assumes "step_u sem L s u a L' s' u'" "dom s \<subseteq> var_set"
+  shows "dom s' \<subseteq> var_set"
+  using assms dom_bounds_var_set by (auto 4 4 dest!: sem.bounded_inv simp: bounded_def)
+
+lemmas step_u_invariants = sem.states_inv step_u_var_set_invariant
+
+interpretation single: Bisimulation_Invariant
+  "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u sem L s u a L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u renum.sem L s u a L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
+  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set" "\<lambda>_. True"
+  apply standard
+     apply clarsimp
+  subgoal for L s u L' s' u' a
+    by (drule (2) step_single_renumD, auto)
+  subgoal
+    by clarsimp (drule (1) step_single_renumI[rotated], simp, blast)
+  subgoal
+    by clarsimp (intro conjI; elim step_u_invariants)
+  subgoal
+    .
+  done
 
 interpretation Bisimulation_Invariant
   "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
   "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set" "\<lambda>_. True"
-  sorry
+proof -
+  define rsem where "rsem = renum.sem"
+  note step_single_renumD = step_single_renumD[folded rsem_def]
+  show "Bisimulation_Invariant
+     (\<lambda>(L, s, u) (L', s', u'). sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+     (\<lambda>(L, s, u) (L', s', u'). renum.sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+     (\<lambda>(L, s, u) (L', s', u').
+         L' = map_index renum_states L \<and>
+         s' = (s \<circ>\<circ> Simple_Network_Rename_Defs.vars_inv) renum_vars \<and>
+         u' = map_u u)
+     (\<lambda>(L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set) (\<lambda>_. True)"
+    unfolding rsem_def[symmetric]
+  proof ((standard; clarsimp split: prod.splits), goal_cases)
+    case (1 L s u L' s' u')
+    from 1(1) guess L1 s1 u1 a
+      by (elim step_u'_elims)
+    with 1(2-) show ?case
+      apply -
+      apply (rule step_u'.intros[where a = "renum_label a"])
+        apply (erule (2) step_single_renumD[where a = Del, unfolded renum_label_def, simplified])
+       apply (cases a; simp add: renum_label_def; fail)
+      apply (erule step_single_renumD)
+       apply (blast dest: step_u_invariants)+
+      done
+  next
+    case (2 L s u L' s' u')
+    from 2(3) guess L1 s1 u1 a
+      by (elim step_u'_elims)
+    with 2(1,2) show ?case
+      apply -
+      apply (drule (2) step_single_renumI[folded rsem_def])
+      apply safe
+      subgoal for a1
+        apply (drule step_single_renumI[folded rsem_def])
+          apply (blast dest: step_u_invariants)+
+        apply (subgoal_tac "a1 = Del")
+         apply clarsimp
+         apply intros
+            apply (erule step_u'.intros)
+             apply auto
+        apply (cases a1; simp add: renum_label_def)
+        done
+      done
+  next
+    case (3 x1 x1a x2a x1b x1c x2c)
+    then show ?case
+      by (elim step_u'_elims) (auto 4 4 dest: step_u_invariants)
+  qed
+qed
 
 lemmas renum_bisim = Bisimulation_Invariant_axioms
 
