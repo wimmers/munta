@@ -88,15 +88,15 @@ lemma bind_mono:
   using assms by (force simp: refine_pw_simps pw_le_iff)
 
 lemma list_all_split:
-  assumes "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
-  shows "list_all P xs = list_all id (map (list_all P) (splitteri xs))"
+  assumes "set xs = (\<Union>xs \<in> set split. set xs)"
+  shows "list_all P xs = list_all id (map (list_all P) split)"
   unfolding list_all_iff using assms by auto
 
 locale Reachability_Impl_pure =
   Reachability_Impl_common _ _ _ _ _ _ _ _ less_eq M
   for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'a set option" +
   fixes get_succs and K and A and Mi and Li and lei and Pi and l\<^sub>0i :: 'ki and s\<^sub>0i :: 'ai and Fi
-    and splitteri :: "'ki list \<Rightarrow> 'ki list list"
+    and Li_split :: "'ki list list"
   assumes K_right_unique: "single_valued K"
   assumes K_left_unique:  "single_valued (K\<inverse>)"
   assumes Li_L: "(Li, L) \<in> \<langle>K\<rangle>list_set_rel"
@@ -109,7 +109,7 @@ locale Reachability_Impl_pure =
       and s\<^sub>0i_s\<^sub>0[refine,param,refine_mono]: "(s\<^sub>0i, s\<^sub>0) \<in> A"
   assumes succs_empty: "\<And>l. succs l {} = []"
   assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
-  assumes full_split: "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
+  assumes full_split: "set Li = (\<Union>xs \<in> set Li_split. set xs)"
 begin
 
 definition list_all_split :: "_ \<Rightarrow> 'ki list \<Rightarrow> bool" where [simp]:
@@ -415,9 +415,8 @@ concrete_definition certify_unreachable_impl_pure1
 
 text \<open>This is where we add parallel execution:\<close>
 lemma list_all_split:
-  "list_all_split Q xs = list_all id (Parallel.map (list_all Q) (splitteri xs))"
-  unfolding list_all_split_def list_all_split[of xs splitteri for xs, OF full_split, symmetric]
-    Parallel.map_def ..
+  "list_all_split Q Li = list_all id (Parallel.map (list_all Q) Li_split)"
+  unfolding list_all_split_def list_all_split[OF full_split, symmetric] Parallel.map_def ..
 
 schematic_goal certify_unreachable_impl_pure1_alt_def:
   "certify_unreachable_impl_pure1 \<equiv> ?f"
@@ -438,7 +437,7 @@ concrete_definition (in -) certify_unreachable_impl_pure
   uses Reachability_Impl_pure.certify_unreachable_impl_pure1_alt_def is "_ \<equiv> ?f"
 
 theorem certify_unreachable_impl_pure_correct:
-  "certify_unreachable_impl_pure get_succs Mi Li lei Pi l\<^sub>0i s\<^sub>0i Fi splitteri
+  "certify_unreachable_impl_pure get_succs Mi Li lei Pi l\<^sub>0i s\<^sub>0i Fi Li_split
   \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
   if "L = dom M"
   using certify_unreachable1_correct that
@@ -457,7 +456,7 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl
     and to_loc :: "'k1 \<Rightarrow> 'ki" and from_loc :: "'ki \<Rightarrow> 'k1"
   fixes K_rel and A_rel
   fixes L_list :: "'ki list" and Li :: "'k1 list" and L' :: "'k list"
-  fixes splitteri :: "'k1 list \<Rightarrow> 'k1 list list"
+  fixes Li_split :: "'k1 list list"
   assumes Li: "(L_list, L') \<in> \<langle>the_pure K\<rangle>list_rel" "(Li, L') \<in> \<langle>K_rel\<rangle>list_rel" "set L' = L"
   fixes Mi :: "'k1 \<Rightarrow> 'b1 list option"
   assumes Mi_M: "(Mi, M) \<in> K_rel \<rightarrow> \<langle>\<langle>A_rel\<rangle>list_set_rel\<rangle>option_rel"
@@ -466,7 +465,7 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl
   assumes from_loc: "(li, l) \<in> the_pure K \<Longrightarrow> (from_loc li, l) \<in> K_rel"
   assumes to_loc: "(l1, l) \<in> K_rel \<Longrightarrow> (to_loc l1, l) \<in> the_pure K"
   assumes K_rel: "single_valued K_rel" "single_valued (K_rel\<inverse>)"
-  assumes full_split: "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
+  assumes full_split: "set Li = (\<Union>xs \<in> set Li_split. set xs)"
 begin
 
 definition

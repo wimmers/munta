@@ -9,13 +9,13 @@ begin
 paragraph \<open>Splitters\<close>
 
 context
-  fixes width :: nat
+  fixes f :: "'a \<Rightarrow> nat" and width :: nat
 begin
 
 fun split_size :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
   "split_size _ acc [] = [acc]"
 | "split_size n acc (x # xs) =
-  (if n < width then split_size (n + 1) (x # acc) xs else acc # split_size 1 [x] xs)"
+   (let k = f x in if n < width then split_size (n + k) (x # acc) xs else acc # split_size k [x] xs)"
 
 lemma split_size_full_split:
   "(\<Union>x \<in> set (split_size n acc xs). set x) = set xs \<union> set acc"
@@ -24,22 +24,31 @@ lemma split_size_full_split:
 end
 
 definition split_eq_width :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
-  "split_eq_width n xs \<equiv> split_size n 0 [] xs"
+  "split_eq_width n \<equiv> split_size (\<lambda>_. 1 :: nat) n 0 []"
 
 definition split_k :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
   "split_k k xs \<equiv> let
     width = length xs div k;
     width = (if length xs mod k = 0 then width else width + 1)
-  in split_size width 0 [] xs"
+  in split_eq_width width xs"
+
+definition split_k' :: "nat \<Rightarrow> ('a \<times> 'b list) list \<Rightarrow> 'a list list" where
+  "split_k' k xs \<equiv> let
+    width = sum_list (map (length o snd) xs) div k;
+    width = (if length xs mod k = 0 then width else width + 1)
+  in map (map fst) (split_size (length o snd) width 0 [] xs)"
 
 lemma split_eq_width_full_split:
   "set xs = (\<Union>x \<in> set (split_eq_width n xs). set x)"
-  unfolding split_eq_width_def by (simp add: split_size_full_split)
+  unfolding split_eq_width_def by (auto simp add: split_size_full_split)
 
 lemma split_k_full_split:
   "set xs = (\<Union>x \<in> set (split_k n xs). set x)"
-  unfolding split_k_def by (simp add: split_size_full_split)
+  unfolding split_k_def by (simp add: split_eq_width_full_split)
 
+lemma split_k'_full_split:
+  "fst ` set xs = (\<Union>x \<in> set (split_k' n xs). set x)"
+  unfolding split_k'_def by (simp add: split_size_full_split image_UN[symmetric])
 
 
 
@@ -289,11 +298,11 @@ theorem unreachability_checker3_refine:
     and "fst ` set M_list = set L_list"
     and "formula = formula.EX \<phi>"
   shows "
-  impl.certify_unreachable_pure L_list M_list (split_k num_split) \<longrightarrow>
+  impl.certify_unreachable_pure L_list M_list (split_k' num_split M_list) \<longrightarrow>
     \<not> Simple_Network_Language.conv A,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0) \<Turnstile> formula"
   using impl.certify_unreachable_pure_refine[
       OF state_impl_abstract', OF assms(1,2) assms(4)[THEN equalityD1] assms(3)
-         split_k_full_split assms(4)
+         split_k'_full_split[of M_list, unfolded assms(4)] assms(4)
       ]
     unreachability_prod[OF assms(5)]
   by auto
@@ -534,9 +543,10 @@ lemmas no_deadlock_certifier2_refine' =
   ]
 
 schematic_goal unreachability_checker3_alt_def:
-  "impl.certify_unreachable_pure L_list M_list (split_k num_split) \<equiv> ?x"
+  "impl.certify_unreachable_pure L_list M_list (split_k' num_split M_list) \<equiv> ?x"
+  if "fst ` set M_list = set L_list"
   apply (subst impl.certify_unreachable_pure_def[
-      OF state_impl_abstract', OF _ A assms(2,3) split_k_full_split
+      OF state_impl_abstract', OF _ A assms(2,3) split_k'_full_split[of M_list, unfolded that]
       ], (simp; fail))
   apply (abstract_let "impl.Mi M_list" Mi)
   apply (subst impl.Mi_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
@@ -566,10 +576,11 @@ definition no_deadlock_certifier3 where
     states'_memi (\<lambda>(l, M). impl.check_deadlock_impl l M \<bind> (\<lambda>r. Heap_Monad.return (\<not> r)))"
 
 schematic_goal no_deadlock_certifier3_alt_def:
-  "no_deadlock_certifier3 L_list M_list (split_k num_split) \<equiv> ?x"
+  "no_deadlock_certifier3 L_list M_list (split_k' num_split M_list) \<equiv> ?x"
+  if "fst ` set M_list = set L_list"
   unfolding no_deadlock_certifier3_def
   apply (subst impl.deadlock_unreachability_checker3_def[
-        OF state_impl_abstract', OF _ A assms(2,3) split_k_full_split
+        OF state_impl_abstract', OF _ A assms(2,3) split_k'_full_split[of M_list, unfolded that]
         ], (simp; fail))
   apply (abstract_let "impl.Mi M_list" Mi)
   apply (subst impl.Mi_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
@@ -592,11 +603,12 @@ schematic_goal no_deadlock_certifier3_alt_def:
   unfolding impl.state_copy_impl_def
   by (rule Pure.reflexive)
 
-lemmas no_deadlock_certifier3_refine' =
-  impl.deadlock_unreachability_checker3_hnr[
-    folded no_deadlock_certifier3_def,
-    OF state_impl_abstract' A assms(3) _ split_k_full_split
-  ]
+lemma no_deadlock_certifier3_refine':
+    "no_deadlock_certifier3 L_list M_list (split_k' num_split M_list)
+    \<longrightarrow> (\<forall>u. (\<forall>c\<le>m. u c = 0) \<longrightarrow> \<not> reach.deadlock (l\<^sub>0, u))" if "fst ` set M_list = set L_list"
+  by (rule impl.deadlock_unreachability_checker3_hnr[
+    folded no_deadlock_certifier3_def, OF state_impl_abstract' A assms(3)
+  ]) (simp add: that split_k'_full_split[symmetric])+
 
 end (* Anonymous context *)
 
@@ -635,7 +647,7 @@ theorem no_deadlock_certifier3_refine:
   assumes "list_all states'_memi L_list"
       and "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
       and "fst ` set M_list = set L_list"
-  shows "no_deadlock_certifier3 L_list M_list (split_k num_split) \<longrightarrow>
+  shows "no_deadlock_certifier3 L_list M_list (split_k' num_split M_list) \<longrightarrow>
     \<not> has_deadlock (Simple_Network_Language.conv A) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
   using no_deadlock_certifier3_refine' assms unfolding deadlock_prod[symmetric] by auto
 

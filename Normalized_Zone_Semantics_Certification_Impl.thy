@@ -882,8 +882,8 @@ proof -
 qed
 
 context
-  fixes splitteri :: "'si list \<Rightarrow> 'si list list"
-  assumes full_split: "set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
+  fixes Li_split :: "'si list list"
+  assumes full_split: "set L_list = (\<Union>xs \<in> set Li_split. set xs)"
 begin
 
 interpretation Reachability_Impl_imp_to_pure
@@ -1120,14 +1120,14 @@ lemma deadlock_unreachability_checker3_hnr:
   fixes P_loc :: "'si \<Rightarrow> bool"
     and L_list :: "'si list"
     and M_list :: "('si \<times> int DBMEntry list list) list"
-  fixes splitteri :: "'si list \<Rightarrow> 'si list list"
+  fixes Li_split :: "'si list list"
   assumes "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
     and "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
     and "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
     and "fst ` set M_list = set L_list"
-  assumes full_split: "\<And>xs. set xs = (\<Union>xs \<in> set (splitteri xs). set xs)"
+  assumes full_split: "set L_list = (\<Union>xs \<in> set Li_split. set xs)"
   shows
-    "deadlock.certify_unreachable_pure L_list M_list splitteri
+    "deadlock.certify_unreachable_pure L_list M_list Li_split
     \<longrightarrow> (\<forall>u. (\<forall>c\<le>n. u c = 0) \<longrightarrow> \<not> deadlock (l\<^sub>0, u))"
   using deadlock.certify_unreachable_pure_refine[
       OF assms(1-2) assms(4)[THEN equalityD1] assms(3) full_split assms(4)
