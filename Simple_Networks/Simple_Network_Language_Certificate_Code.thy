@@ -205,12 +205,12 @@ definition parse_convert_run_check where
           STR ''Number of discrete states of state space: '' + show_lit (length state_space));
         let _ = ''Size of passed list: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
-        let _ = ''DBM list length distribution:\<newline>'' @ show (distr (map (length o snd) state_space))
+        let _ = ''DBM list length distribution: '' @ show (distr (map (length o snd) state_space))
           |> String.implode |> println;
         let split =
           (if mode = Impl3 then split_k'' num_split state_space else split_k num_split state_space);
         let split_distr = map (sum_list o map (length o snd)) split;
-        let _ = ''Size of passed list distribution after split:\<newline>'' @ show split_distr
+        let _ = ''Size of passed list distribution after split: '' @ show split_distr
           |> String.implode |> println;
         let t = now ();
         check \<leftarrow> case mode of
