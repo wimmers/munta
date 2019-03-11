@@ -1067,6 +1067,10 @@ fun less_eq_nat m n = IntInf.<= (integer_of_nat m, integer_of_nat n);
 
 val ord_nat = {less_eq = less_eq_nat, less = less_nat} : nat ord;
 
+val preorder_nat = {ord_preorder = ord_nat} : nat preorder;
+
+val order_nat = {preorder_order = preorder_nat} : nat order;
+
 val semigroup_add_nat = {plus_semigroup_add = plus_nat} : nat semigroup_add;
 
 val monoid_add_nat =
@@ -1082,6 +1086,8 @@ fun hashcode_nat n = uint32_of_int (int_of_nat n);
 val hashable_nat =
   {hashcode = hashcode_nat, def_hashmap_size = def_hashmap_size_nat} :
   nat hashable;
+
+val linorder_nat = {order_linorder = order_nat} : nat linorder;
 
 datatype ('a, 'b) phantom = Phantom of 'b;
 
@@ -3601,6 +3607,36 @@ fun combine_map f xs = combine (map f xs);
 
 fun as_is_empty s = equal_nata (snd s) zero_nata;
 
+fun part B_ f pivot (x :: xs) =
+  let
+    val (lts, (eqs, gts)) = part B_ f pivot xs;
+    val xa = f x;
+  in
+    (if less ((ord_preorder o preorder_order o order_linorder) B_) xa pivot
+      then (x :: lts, (eqs, gts))
+      else (if less ((ord_preorder o preorder_order o order_linorder) B_) pivot
+                 xa
+             then (lts, (eqs, x :: gts)) else (lts, (x :: eqs, gts))))
+  end
+  | part B_ f pivot [] = ([], ([], []));
+
+fun sort_key B_ f xs =
+  (case xs of [] => [] | [_] => xs
+    | [x, y] =>
+      (if less_eq ((ord_preorder o preorder_order o order_linorder) B_) (f x)
+            (f y)
+        then xs else [y, x])
+    | _ :: _ :: _ :: _ =>
+      let
+        val (lts, (eqs, gts)) =
+          part B_ f
+            (f (nth xs
+                 (divide_nat (size_list xs) (nat_of_integer (2 : IntInf.int)))))
+            xs;
+      in
+        sort_key B_ f lts @ eqs @ sort_key B_ f gts
+      end);
+
 fun heap_WHILET b f s =
   (fn f_ => fn () => f_ ((b s) ()) ())
     (fn bv =>
@@ -5730,6 +5766,17 @@ fun check_final_impl (A1_, A2_, A3_) B_ fi copyi =
 
 fun print_check_impl x = (fn ai => fn bi => (fn () => (print_check ai bi))) x;
 
+fun distr (A1_, A2_) xs =
+  let
+    val (m, d) =
+      fold (fn x => fn (m, d) =>
+             (case m x of NONE => (fun_upd A1_ m x (SOME one_nata), x :: d)
+               | SOME y => (fun_upd A1_ m x (SOME (plus_nata y one_nata)), d)))
+        xs ((fn _ => NONE), []);
+  in
+    map (fn x => (x, the (m x))) (sort_key A2_ (fn x => x) d)
+  end;
+
 fun show_state B_ C_ D_ inv_renum_states inv_renum_vars =
   (fn (l, vs) =>
     let
@@ -7135,20 +7182,36 @@ fun make_renaming (A1_, A2_) =
             b)
     end);
 
-fun split_size width uu acc [] = [acc]
-  | split_size width n acc (x :: xs) =
-    (if less_nat n width
-      then split_size width (plus_nata n one_nata) (x :: acc) xs
-      else acc :: split_size width one_nata [x] xs);
+fun split_size f width uu acc [] = [acc]
+  | split_size f width n acc (x :: xs) =
+    let
+      val k = f x;
+    in
+      (if less_nat n width then split_size f width (plus_nata n k) (x :: acc) xs
+        else acc :: split_size f width k [x] xs)
+    end;
 
 fun split_k k xs =
+  let
+    val width =
+      divide_nat (sum_list monoid_add_nat (map (size_list o snd) xs)) k;
+    val widtha =
+      (if equal_nata (modulo_nat (size_list xs) k) zero_nata then width
+        else plus_nata width one_nata);
+  in
+    split_size (size_list o snd) widtha zero_nata [] xs
+  end;
+
+fun split_eq_width n = split_size (fn _ => one_nata) n zero_nata [];
+
+fun split_ka k xs =
   let
     val width = divide_nat (size_list xs) k;
     val widtha =
       (if equal_nata (modulo_nat (size_list xs) k) zero_nata then width
         else plus_nata width one_nata);
   in
-    split_size widtha zero_nata [] xs
+    split_eq_width widtha xs
   end;
 
 fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
@@ -7253,6 +7316,17 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
                   end)
                 trans)
             automata)));
+
+fun split_kb k xs =
+  let
+    val width =
+      divide_nat (sum_list monoid_add_nat (map (size_list o snd) xs)) k;
+    val widtha =
+      (if equal_nata (modulo_nat (size_list xs) k) zero_nata then width
+        else plus_nata width one_nata);
+  in
+    map (map fst) (split_size (size_list o snd) widtha zero_nata [] xs)
+  end;
 
 fun map_of_debug (A1_, A2_) m =
   let
@@ -8228,7 +8302,7 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
                    (hashable_list hashable_int),
                  heap_prod (heap_list heap_nat) (heap_list heap_int))
                (heap_array (typerep_DBMEntry typerep_int)) fi pi copyi lei l_0i
-               s_0i succsi (split_k num_split) l_list m_table)
+               s_0i succsi (split_ka num_split) l_list m_table)
             ()) ())
             (fn a => (fn () => a))
         end)
@@ -8997,7 +9071,7 @@ fun no_deadlock_certifier broadcast bounds automata m num_states num_actions l_0
                    (hashable_list hashable_int),
                  heap_prod (heap_list heap_nat) (heap_list heap_int))
                (heap_array (typerep_DBMEntry typerep_int)) fi pi copyi lei l_0i
-               s_0i succsi (split_k num_split) l_list m_table)
+               s_0i succsi (split_ka num_split) l_list m_table)
             ()) ())
             (fn a => (fn () => a))
         end)
@@ -9637,7 +9711,7 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
         hashable_prod (hashable_list hashable_nat) (hashable_list hashable_int),
         heap_prod (heap_list heap_nat) (heap_list heap_int))
       (heap_array (typerep_DBMEntry typerep_int)) fi pi copyi lei l_0i s_0i
-      succsi (split_k num_split) l_list a
+      succsi (split_ka num_split) l_list a
   end;
 
 fun no_deadlock_certifier2 broadcast bounds automata m num_states num_actions
@@ -10394,7 +10468,7 @@ fun no_deadlock_certifier2 broadcast bounds automata m num_states num_actions
         hashable_prod (hashable_list hashable_nat) (hashable_list hashable_int),
         heap_prod (heap_list heap_nat) (heap_list heap_int))
       (heap_array (typerep_DBMEntry typerep_int)) fi pi copyi lei l_0i s_0i
-      succsi (split_k num_split) l_list a
+      succsi (split_ka num_split) l_list a
   end;
 
 fun certificate_checker2 num_split dc m_list broadcast bounds automata m
@@ -10433,53 +10507,52 @@ fun hashmap_of_list (A1_, A2_) m =
   fold (fn (a, b) => ahm_update (eq A1_) (bounded_hashcode_nat A2_) a b) m
     (ahm_empty (def_hashmap_size A2_ Type));
 
-fun certify_unreachable_impl_pure get_succs mi li lei pi l_0i s_0i fi splitteri
-  = let
-      val check_all_pre_impl =
-        time_it "Time for state set preconditions check"
-          (fn _ =>
-            (case mi l_0i of NONE => false
-              | SOME xs =>
-                not (is_none (mi l_0i)) andalso
-                  (pi (l_0i, s_0i) andalso
-                    (list_ex (lei s_0i) xs andalso
+fun certify_unreachable_impl_pure get_succs mi li lei pi l_0i s_0i fi li_split =
+  let
+    val check_all_pre_impl =
+      time_it "Time for state set preconditions check"
+        (fn _ =>
+          (case mi l_0i of NONE => false
+            | SOME xs =>
+              not (is_none (mi l_0i)) andalso
+                (pi (l_0i, s_0i) andalso
+                  (list_ex (lei s_0i) xs andalso
+                    list_all
+                      (fn l =>
+                        (case op_map_lookup l mi of NONE => true
+                          | SOME a => list_all (fn s => pi (l, s)) a))
+                      li))));
+    val check_final =
+      time_it "Time to check final state predicate"
+        (fn _ =>
+          list_all id
+            (Par_List.map
+              (list_all
+                (fn l =>
+                  (case op_map_lookup l mi of NONE => true
+                    | SOME a => list_all (fn s => not (fi (l, s))) a)))
+              li_split));
+    val check_invariant =
+      time_it "Time for state space invariant check"
+        (fn _ =>
+          list_all id
+            (Par_List.map
+              (list_all
+                (fn l =>
+                  (case mi l of NONE => true
+                    | SOME asa =>
                       list_all
-                        (fn l =>
-                          (case op_map_lookup l mi of NONE => true
-                            | SOME a => list_all (fn s => pi (l, s)) a))
-                        li))));
-      val check_final =
-        time_it "Time to check final state predicate"
-          (fn _ =>
-            list_all id
-              (Par_List.map
-                (list_all
-                  (fn l =>
-                    (case op_map_lookup l mi of NONE => true
-                      | SOME a => list_all (fn s => not (fi (l, s))) a)))
-                (splitteri li)));
-      val check_invariant =
-        time_it "Time for state space invariant check"
-          (fn _ =>
-            list_all id
-              (Par_List.map
-                (list_all
-                  (fn l =>
-                    (case mi l of NONE => true
-                      | SOME asa =>
-                        list_all
-                          (fn (la, xs) =>
-                            (if null xs then true
-                              else (case mi la of NONE => false
-                                     | SOME ys =>
-                                       list_all (fn x => list_ex (lei x) ys)
- xs)))
-                          (get_succs l asa))))
-                (splitteri li)));
-    in
-      (if (if check_all_pre_impl then check_invariant else false)
-        then check_final else false)
-    end;
+                        (fn (la, xs) =>
+                          (if null xs then true
+                            else (case mi la of NONE => false
+                                   | SOME ys =>
+                                     list_all (fn x => list_ex (lei x) ys) xs)))
+                        (get_succs l asa))))
+              li_split));
+  in
+    (if (if check_all_pre_impl then check_invariant else false) then check_final
+      else false)
+  end;
 
 fun array_unfreeze A_ a = (fn () => Array.fromList (list_of a));
 
@@ -10979,7 +11052,7 @@ true)
                                      in
                                        hd_of_formulai equal_nat formula aa b
                                      end))))
-      (split_k num_split)
+      (split_kb num_split m_list)
   end;
 
 fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
@@ -11746,7 +11819,7 @@ compute_upds_impl bounds init combsa
                                 ma)
                              ()) ())
                              (fn r => (fn () => (not r))))))
-      (split_k num_split)
+      (split_kb num_split m_list)
   end;
 
 fun certificate_checker3 num_split dc m_list broadcast bounds automata m
@@ -12134,6 +12207,16 @@ fun show_dbm_impl_all (A1_, A2_, A3_) n show_clock show_num =
       (fn x =>
         (fn () => (dbm_list_to_string (A1_, A3_) n show_clock show_num x))));
 
+fun equal_mode Impl2 Impl3 = false
+  | equal_mode Impl3 Impl2 = false
+  | equal_mode Impl1 Impl3 = false
+  | equal_mode Impl3 Impl1 = false
+  | equal_mode Impl1 Impl2 = false
+  | equal_mode Impl2 Impl1 = false
+  | equal_mode Impl3 Impl3 = true
+  | equal_mode Impl2 Impl2 = true
+  | equal_mode Impl1 Impl1 = true;
+
 fun parse_convert_run_check mode num_split dc s =
   (case binda (parse json s) convert
     of Result
@@ -12214,6 +12297,98 @@ fun parse_convert_run_check mode num_split dc s =
       Chara (false, false, false, false, false, true, false, false)] @
      shows_prec_nat zero_nata
        (sum_list monoid_add_nat (map (size_list o snd) rb)) []));
+                               val _ =
+                                 writeln (implode
+   ([Chara (false, false, true, false, false, false, true, false),
+      Chara (false, true, false, false, false, false, true, false),
+      Chara (true, false, true, true, false, false, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (false, false, true, true, false, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (true, true, false, false, true, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (false, false, true, true, false, true, true, false),
+      Chara (true, false, true, false, false, true, true, false),
+      Chara (false, true, true, true, false, true, true, false),
+      Chara (true, true, true, false, false, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (false, false, false, true, false, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (false, false, true, false, false, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (true, true, false, false, true, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (false, true, false, false, true, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (false, true, false, false, false, true, true, false),
+      Chara (true, false, true, false, true, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (true, true, true, true, false, true, true, false),
+      Chara (false, true, true, true, false, true, true, false),
+      Chara (false, true, false, true, true, true, false, false),
+      Chara (false, true, false, true, false, false, false, false)] @
+     shows_prec_list (show_prod show_nat show_nat) zero_nata
+       (distr (equal_nat, linorder_nat) (map (size_list o snd) state_space))
+       []));
+                               val split =
+                                 (if equal_mode mode Impl3
+                                   then split_k num_split state_space
+                                   else split_ka num_split state_space);
+                               val split_distr =
+                                 map (sum_list monoid_add_nat o
+                                       map (size_list o snd))
+                                   split;
+                               val _ =
+                                 writeln (implode
+   ([Chara (true, true, false, false, true, false, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (false, true, false, true, true, true, true, false),
+      Chara (true, false, true, false, false, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (true, true, true, true, false, true, true, false),
+      Chara (false, true, true, false, false, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (false, false, false, false, true, true, true, false),
+      Chara (true, false, false, false, false, true, true, false),
+      Chara (true, true, false, false, true, true, true, false),
+      Chara (true, true, false, false, true, true, true, false),
+      Chara (true, false, true, false, false, true, true, false),
+      Chara (false, false, true, false, false, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (false, false, true, true, false, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (true, true, false, false, true, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (false, false, true, false, false, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (true, true, false, false, true, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (false, true, false, false, true, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (false, true, false, false, false, true, true, false),
+      Chara (true, false, true, false, true, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (true, true, true, true, false, true, true, false),
+      Chara (false, true, true, true, false, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (true, false, false, false, false, true, true, false),
+      Chara (false, true, true, false, false, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (true, false, true, false, false, true, true, false),
+      Chara (false, true, false, false, true, true, true, false),
+      Chara (false, false, false, false, false, true, false, false),
+      Chara (true, true, false, false, true, true, true, false),
+      Chara (false, false, false, false, true, true, true, false),
+      Chara (false, false, true, true, false, true, true, false),
+      Chara (true, false, false, true, false, true, true, false),
+      Chara (false, false, true, false, true, true, true, false),
+      Chara (false, true, false, true, true, true, false, false),
+      Chara (false, true, false, true, false, false, false, false)] @
+     shows_prec_list show_nat zero_nata split_distr []));
                                val tb = Time.now ();
                              in
                                (fn f_ => fn () => f_

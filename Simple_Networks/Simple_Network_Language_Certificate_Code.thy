@@ -114,7 +114,10 @@ definition parse_convert_run_print where
           let _ = ''Number of discrete states: '' @ show (length r) |> String.implode |> println;
           let _ = ''Size of passed list after removing subsumed states: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
-          let show_dbm = (\<lambda>M. do {s \<leftarrow> show_dbm_impl_all n show_clk show M; return (''<'' @ s @ ''>'')});
+          let show_dbm = (\<lambda>M. do {
+            s \<leftarrow> show_dbm_impl_all n show_clk show M;
+            return (''<'' @ s @ ''>'')
+          });
           _ \<leftarrow> imp_map (\<lambda> (s, xs).
           do {
             let s = show_st s;
@@ -157,6 +160,20 @@ code_printing
 
 datatype mode = Impl1 | Impl2 | Impl3
 
+definition
+  "distr xs \<equiv>
+  let (m, d) =
+  fold
+    (\<lambda>x (m, d). case m x of None \<Rightarrow> (m(x \<mapsto> 1:: nat), x # d) | Some y \<Rightarrow> (m(x \<mapsto> (y + 1)), d))
+    xs (Map.empty, [])
+  in map (\<lambda>x. (x, the (m x))) (sort d)"
+
+definition split_k'' :: "nat \<Rightarrow> ('a \<times> 'b list) list \<Rightarrow> ('a \<times> 'b list) list list" where
+  "split_k'' k xs \<equiv> let
+    width = sum_list (map (length o snd) xs) div k;
+    width = (if length xs mod k = 0 then width else width + 1)
+  in split_size (length o snd) width 0 [] xs"
+
 definition parse_convert_run_check where
   "parse_convert_run_check mode num_split dc s \<equiv>
    case parse json s \<bind> convert of
@@ -188,11 +205,17 @@ definition parse_convert_run_check where
           STR ''Number of discrete states of state space: '' + show_lit (length state_space));
         let _ = ''Size of passed list: ''
             @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
+        let _ = ''DBM list length distribution:\<newline>'' @ show (distr (map (length o snd) state_space))
+          |> String.implode |> println;
+        let split =
+          (if mode = Impl3 then split_k'' num_split state_space else split_k num_split state_space);
+        let split_distr = map (sum_list o map (length o snd)) split;
+        let _ = ''Size of passed list distribution after split:\<newline>'' @ show split_distr
+          |> String.implode |> println;
         let t = now ();
         check \<leftarrow> case mode of
           Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
             m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-            (* inv_renum_states inv_renum_vars inv_renum_clocks *)
             state_space
         | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
             m num_states num_actions renum_acts renum_vars renum_clocks renum_states
