@@ -429,7 +429,7 @@ theorem model_check_rename:
         broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0)
      | Preconds_Unsat \<Rightarrow> \<up>(\<not> Simple_Network_Impl_nat_ceiling_start_state
         (map renum_acts broadcast)
-        (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)
+        (map (\<lambda>(a,p). (renum_vars a, p)) bounds)
         (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
         m num_states num_actions k
         (map_index renum_states L\<^sub>0) (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0)
@@ -451,14 +451,14 @@ proof -
   define A' where "A' \<equiv> N
     (map renum_acts broadcast)
     (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
-    (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)"
+    (map (\<lambda>(a,p). (renum_vars a, p)) bounds)"
   define check' where "check' \<equiv>
     A',(map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0) \<Turnstile>
     map_formula renum_states renum_vars id formula"
   define preconds_sat where "preconds_sat \<equiv>
     Simple_Network_Impl_nat_ceiling_start_state
       (map renum_acts broadcast)
-      (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)
+      (map (\<lambda>(a,p). (renum_vars a, p)) bounds)
       (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
       m num_states num_actions k
       (map_index renum_states L\<^sub>0) (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0)
@@ -481,12 +481,11 @@ proof -
   note [sep_heap_rules] =
     model_check[
     of _ _
-    "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+    "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
     "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
     "map_formula renum_states renum_vars id formula",
-    folded A'_def check'_def preconds_sat_def renaming_valid_def,
-    simplified
+    folded A'_def preconds_sat_def renaming_valid_def, folded check'_def, simplified
     ]
   show ?thesis
     unfolding rename_mc_def do_rename_mc_def rename_network_def
@@ -509,7 +508,7 @@ theorem deadlock_check_rename:
         (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0)
      | Preconds_Unsat \<Rightarrow> \<up>(\<not> Simple_Network_Impl_nat_ceiling_start_state
         (map renum_acts broadcast)
-        (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)
+        (map (\<lambda>(a,p). (renum_vars a, p)) bounds)
         (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
         m num_states num_actions k
         (map_index renum_states L\<^sub>0) (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0)
@@ -530,11 +529,11 @@ proof -
   define A' where "A' \<equiv> N
     (map renum_acts broadcast)
     (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
-    (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)"
+    (map (\<lambda>(a,p). (renum_vars a, p)) bounds)"
   define preconds_sat where "preconds_sat \<equiv>
     Simple_Network_Impl_nat_ceiling_start_state
       (map renum_acts broadcast)
-      (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)
+      (map (\<lambda>(a,p). (renum_vars a, p)) bounds)
       (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
       m num_states num_actions k
       (map_index renum_states L\<^sub>0) (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0)
@@ -553,20 +552,17 @@ proof -
   note [sep_heap_rules] =
     deadlock_check[
     of _ _
-    "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+    "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
     "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0",
-    folded A'_def preconds_sat_def renaming_valid_def,
+    folded preconds_sat_def A'_def renaming_valid_def,
     simplified
     ]
   show ?thesis
     unfolding rename_mc_def do_rename_mc_def  rename_network_def
     unfolding if_True
     unfolding Simple_Network_Rename_Formula_String_Defs.check_renaming[symmetric] * Let_def
-    unfolding
-      A_def[symmetric]
-    unfolding
-      preconds_sat_def[symmetric] renaming_valid_def[symmetric]
+    unfolding A_def[symmetric] preconds_sat_def[symmetric] renaming_valid_def[symmetric]
     by (sep_auto simp: deadlock_checker.refine[symmetric] split: bool.splits)
 qed
 

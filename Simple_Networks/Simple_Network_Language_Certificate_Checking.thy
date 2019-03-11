@@ -1156,7 +1156,7 @@ proof -
   define A' where "A' \<equiv> N
     (map renum_acts broadcast)
     (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
-    (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)"
+    (map (\<lambda>(a,p). (renum_vars a, p)) bounds)"
   define check' where "check' \<equiv>
     A',(map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0) \<Turnstile>
     map_formula renum_states renum_vars id formula"
@@ -1171,29 +1171,28 @@ proof -
   note [sep_heap_rules] =
     certificate_check[
     of num_split state_space
-    "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+    "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
     "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
     "map_formula renum_states renum_vars id formula",
-    folded A'_def check'_def renaming_valid_def,
-    simplified
+    folded A'_def renaming_valid_def, folded check'_def, simplified
     ]
   show ?A ?B ?C
     using certificate_check2[
       of num_split state_space
-      "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+      "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
       "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id formula",
-      folded A'_def check'_def renaming_valid_def
+      folded A'_def renaming_valid_def, folded check'_def
     ]
     using certificate_check3[
       of num_split state_space
-      "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+      "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
       "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id formula",
-      folded A'_def check'_def renaming_valid_def
+      folded A'_def renaming_valid_def, folded check'_def
     ]
     unfolding
       rename_check_def rename_check2_def rename_check3_def
@@ -1255,7 +1254,7 @@ proof -
   define A' where "A' \<equiv> N
     (map renum_acts broadcast)
     (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
-    (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds)"
+    (map (\<lambda>(a,p). (renum_vars a, p)) bounds)"
   define check' where "check' \<equiv>
     has_deadlock A' (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0)"
   define renaming_valid where "renaming_valid \<equiv>
@@ -1269,31 +1268,28 @@ proof -
   note [sep_heap_rules] =
     certificate_deadlock_check[
     of num_split state_space
-    "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+    "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
     "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
     "map_formula renum_states renum_vars id ?formula",
-    folded A'_def check'_def renaming_valid_def,
-    simplified
+    folded A'_def renaming_valid_def, folded check'_def, simplified
     ]
   show ?A ?B ?C
     using certificate_deadlock_check2[
       of num_split state_space
-      "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+      "map renum_acts broadcast" "map (\<lambda>(a, p). (renum_vars a, p)) bounds"
       "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id ?formula",
-      folded A'_def check'_def renaming_valid_def,
-      simplified
+      folded A'_def renaming_valid_def, folded check'_def, simplified
     ]
     using certificate_deadlock_check3[
       of num_split state_space
-      "map renum_acts broadcast" "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds"
+      "map renum_acts broadcast" "map (\<lambda>(a, p). (renum_vars a, p)) bounds"
       "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id ?formula",
-      folded A'_def check'_def renaming_valid_def,
-      simplified
+      folded A'_def renaming_valid_def, folded check'_def, simplified
     ]
     unfolding
       rename_check_def rename_check2_def rename_check3_def do_rename_mc_def rename_network_def

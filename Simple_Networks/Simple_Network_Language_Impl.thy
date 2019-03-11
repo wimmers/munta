@@ -2100,13 +2100,14 @@ end
 context Simple_Network_Impl
 begin
 
-abbreviation "sem \<equiv> (set broadcast, map (automaton_of o conv_automaton) automata, map_of bounds')"
+definition "sem \<equiv> (set broadcast, map (automaton_of o conv_automaton) automata, map_of bounds')"
 
 sublocale sem: Prod_TA_sem sem .
 
 lemma sem_N_eq:
   "sem.N p = automaton_of (conv_automaton (automata ! p))" if \<open>p < n_ps\<close>
-  using that unfolding sem.N_def n_ps_def fst_conv snd_conv by (subst nth_map) auto
+  using that unfolding sem.N_def n_ps_def unfolding sem_def fst_conv snd_conv
+  by (subst nth_map) auto
 
 end (* Simple Network Impl *)
 

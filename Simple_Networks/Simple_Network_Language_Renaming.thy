@@ -80,7 +80,7 @@ definition renum_automaton where
 sublocale renum: Simple_Network_Impl
   "map_index renum_automaton automata"
   "map renum_acts broadcast"
-  "map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds'"
+  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
   .
 
 definition
@@ -108,13 +108,13 @@ lemma renum_n_ps_simp[simp]:
 
 lemma n_ps_eq[simp]:
   "sem.n_ps = n_ps"
-  unfolding n_ps_def sem.n_ps_def by auto
+  unfolding n_ps_def sem.n_ps_def unfolding sem_def by auto
 
 lemma dom_bounds: "dom bounds = fst ` set bounds'"
   unfolding bounds_def by (simp add: dom_map_of_conv_image_fst)
 
 lemma sem_bounds_eq: "sem.bounds = bounds"
-  unfolding sem.bounds_def bounds_def by simp
+  unfolding sem.bounds_def bounds_def unfolding sem_def by simp
 
 lemma sem_loc_set_eq:
   "sem.loc_set = loc_set"
@@ -469,15 +469,98 @@ lemma dom_bounds_var_set: "dom sem.bounds \<subseteq> var_set"
 lemma sem_states_loc_setD: "L ! p \<in> loc_set" if "p < length automata" "L \<in> sem.states" for L p
   using that sem_loc_set_eq sem.states_loc_set by (force simp: n_ps_def)
 
+lemma trans_N_renumD:
+  assumes "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  shows "(renum_states p l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd f, renum_reset r, renum_states p l')
+  \<in> Simple_Network_Language.trans (renum.N p)"
+  using assms
+  unfolding mem_trans_N_iff[OF assms(2)] renum.mem_trans_N_iff[unfolded renum_n_ps_simp, OF assms(2)]
+  by (force split: prod.split simp: renum_automaton_def n_ps_def)
+
+definition
+  "conv' \<equiv> \<lambda>(commited, trans, inv).
+  (commited, (\<lambda>(l, b, g, a, f, r, l'). (l, b, conv_cc g, a, f, r, l')) ` trans, conv_cc o inv)"
+
+lemma eq1':
+  "(l, b, g, a, f, r, l') \<in> trans (automaton_of (conv_automaton A))
+\<longleftrightarrow> (\<exists> g'. (l, b, g', a, f, r, l') \<in> trans (automaton_of A) \<and> g = conv_cc g')"
+  unfolding conv_automaton_def automaton_of_def conv'_def trans_def by (force split: prod.split)
+
+lemma eq1:
+  "automaton_of (conv_automaton A) = conv' (automaton_of A)"
+  unfolding conv_automaton_def automaton_of_def conv'_def
+  apply (clarsimp split: prod.split)
+  sorry
+
+lemma eq2:
+  "(l, b, g, a, f, r, l') \<in> trans (conv' A)
+  \<longleftrightarrow> (\<exists> g'. (l, b, g', a, f, r, l') \<in> trans A \<and> g = conv_cc g')"
+  unfolding trans_def conv'_def by (cases A; force)
+
+lemma map_acconstraint_conv_ac_commute:
+  "map_acconstraint renum_clocks id (conv_ac ac) = conv_ac (map_acconstraint renum_clocks id ac)"
+  by (cases ac; simp)
+
+lemma map_ccconstraint_conv_cc_commute:
+  "renum_cconstraint (conv_cc g) = conv_cc (renum_cconstraint g)"
+  unfolding renum_cconstraint_def map_cconstraint_def by (simp add: map_acconstraint_conv_ac_commute)
+
+lemma trans_sem_N_renumD:
+  assumes "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (sem.N p)" "p < n_ps"
+  shows "(renum_states p l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd f, renum_reset r, renum_states p l')
+  \<in> Simple_Network_Language.trans (renum.sem.N p)"
+  using assms(1)
+  unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)] eq1'
+  apply clarsimp
+  subgoal for g'
+    using \<open>p < n_ps\<close>
+    apply (simp add: N_eq[symmetric])
+    apply (drule (1) trans_N_renumD)
+    apply (subst renum.N_eq[symmetric])
+     apply (subst renum_n_ps_simp; assumption)
+    apply (auto simp: map_ccconstraint_conv_cc_commute)
+    done
+  done
+
+lemma fold_sem_N:
+  "map (renum.automaton_of \<circ> renum.conv_automaton) automata ! p = sem.N p"
+  by (simp add: sem_def)
+
+lemma fold_renum_sem_N:
+  "map (renum.automaton_of \<circ> renum.conv_automaton) (map_index renum_automaton automata) ! p
+= renum.sem.N p"
+  by (simp add: renum.sem_def)
+
+lemma fold_inv_sem_N:
+  "inv (automaton_of (conv_automaton (automata ! p))) l = inv (sem.N p) l" if "p < length automata"
+  using that unfolding sem.N_def unfolding sem_def by simp
+
+lemma fold_inv_renum_sem_N:
+  "inv (automaton_of (conv_automaton (renum_automaton p (automata ! p)))) l = inv (renum.sem.N p) l"
+  if "p < length automata"
+  using that unfolding renum.sem.N_def unfolding renum.sem_def by simp
+
+lemma commited_renum_eq:
+  "commited (renum.sem.N p) = renum_states p ` commited (sem.N p)" if "p < n_ps"
+  unfolding
+    commited_def sem_N_eq[OF \<open>p < n_ps\<close>] renum.sem_N_eq[unfolded renum_n_ps_simp, OF \<open>p < n_ps\<close>]
+  apply (subst nth_map_index)
+  subgoal
+    using \<open>p < n_ps\<close> by (simp add: n_ps_def)
+  unfolding automaton_of_def conv_automaton_def renum_automaton_def by (simp split: prod.split)
+
 lemma step_single_renumD:
   assumes "step_u sem L s u a L' s' u'" "L \<in> sem.states" "dom s \<subseteq> var_set"
+  defines "rsem \<equiv> renum.sem"
   shows "step_u renum.sem
     (map_index renum_states L) (s o vars_inv) (map_u u)
     (renum_label a)
     (map_index renum_states L') (s' o vars_inv) (map_u u')"
-  using assms
+  using assms(1-3)
   apply (cases a)
   subgoal
+    unfolding renum.sem_def
+    apply (subst (asm) sem_def)
     apply (simp add: renum_label_def)
     apply (erule step_u_elims')
     apply simp
@@ -487,13 +570,42 @@ lemma step_single_renumD:
       apply (intros)
       apply (elim allE impE, assumption)
       apply (frule sem.states_lengthD)
-      apply (drule inv_renum_sem_I[OF _ _ sem_states_loc_setD]; simp add: n_ps_def; fail)
+      apply (simp add: fold_inv_sem_N)
+      apply (drule inv_renum_sem_I[OF _ _ sem_states_loc_setD];
+             simp add: n_ps_def fold_inv_sem_N fold_inv_renum_sem_N)
       done
     subgoal
       by assumption
     subgoal
       by (rule bounded_renumI)
     done
+
+subgoal for a'
+  unfolding sem_states_eq
+  apply (subst (asm) sem.A_split)
+    apply (simp only: renum_label_def label.map)
+    apply (erule step_u_elims')
+  apply (simp add: L_len)
+    apply (drule (1) trans_sem_N_renumD)
+    apply (subst renum.sem_def)
+    apply (rule step_u.intros)
+    unfolding fold_renum_sem_N
+              apply (simp only: renum_act_def act.map; fail)
+             apply (erule disjE)
+              apply (rule disjI1)
+    subgoal
+      by (simp add: commited_renum_eq)
+    subgoal
+      apply (rule disjI2)
+      apply (intro allI impI)
+      apply (subst nth_map_index)
+      subgoal
+        by (simp add: L_len n_ps_def)
+      apply (clarsimp simp: n_ps_def commited_renum_eq)
+apply (drule inj_renum_states[THEN injD, rotated])
+       apply (simp add: L_len n_ps_def; fail)
+      by blast
+    sorry
   sorry
 
 lemma step_single_renumI:
@@ -504,6 +616,7 @@ lemma step_single_renumI:
   shows "\<exists> a1 L1 s1 u1. step_u sem L s u a1 L1 s1 u1 \<and> renum_label a1 = a \<and>
     L' = map_index renum_states L1 \<and> s' = s1 o vars_inv\<and> u' = map_u u1"
   using assms
+  sorry
 apply (cases a)
       subgoal
         apply (simp add: renum_label_def)
@@ -920,6 +1033,7 @@ qed
 
 lemma rename_sem_eq:
   "rename.renum.sem = renum.sem"
+  unfolding renum.sem_def rename.renum.sem_def
   apply clarsimp
   apply (rule conjI)
   subgoal
@@ -1018,16 +1132,16 @@ lemma (in Simple_Network_Rename_Defs) conv_automaton_of:
 
 lemma N_eq_sem:
   "Simple_Network_Language_Model_Checking.N broadcast automata bounds' = sem"
-  unfolding conv_alt_def
+  unfolding conv_alt_def sem_def
   by safe (rule nth_equalityI; simp add: conv_N_eq N_eq sem_N_eq conv_automaton_of n_ps_def)
 
 lemma rename_N_eq_sem:
   "Simple_Network_Language_Model_Checking.N
   (map renum_acts broadcast)
   (map_index renum_automaton automata)
-  (map (\<lambda>(a,b,c). (renum_vars a, b, c)) bounds')
+  (map (\<lambda>(a,p). (renum_vars a,p)) bounds')
   = renum.sem"
-  unfolding renum.conv_alt_def
+  unfolding renum.sem_def renum.conv_alt_def
   by safe (rule nth_equalityI; simp add: conv_N_eq N_eq sem_N_eq conv_automaton_of n_ps_def)
 
 lemmas models_iff' = models_iff[folded rename_N_eq_sem N_eq_sem,unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
