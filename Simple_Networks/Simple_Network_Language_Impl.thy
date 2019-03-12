@@ -84,6 +84,10 @@ proof (intros add: nth_equalityI)
     by simp
 qed
 
+lemma map_index_update:
+  "map_index f (xs[i := a]) = map_index f xs[i := f i a]"
+  by (rule nth_equalityI) (auto simp: nth_list_update')
+
 lemma (in Prod_TA_Defs) trans_broad_alt_def:
   "trans_broad =
     {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
@@ -620,10 +624,6 @@ lemma
   "fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] = fold (\<lambda>p L . L[p := ls' p]) ps (L[p := l'])"
   if "p \<notin> set ps" for ps ls' p l'
   using that by (induction ps arbitrary: L) (auto simp: list_update_swap)
-
-lemma map_index_update:
-  "map_index f (xs[i := a]) = map_index f xs[i := f i a]"
-  by (rule nth_equalityI) (auto simp: nth_list_update')
 
 lemma check_bexp_map_var:
    "check_bexp s b bv \<Longrightarrow> check_bexp (\<lambda>x. if x \<in> map_var ` dom s then s (the_inv map_var x) else None)
