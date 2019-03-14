@@ -15,3 +15,4 @@ ML/munta
 ML/munta_int
 ML/Checker_int.sml
 ML/*_int.*
+results/*
