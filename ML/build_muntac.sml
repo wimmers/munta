@@ -2,7 +2,9 @@ use "Unsynchronized.sml";
 use "Writeln.sml";
 use "basics.ML";
 use "library.ML";
-use "parallel.sml";
+(*use "parallel.sml";*)
+(* use "sequential.sml"; *)
+use "parallel_task_queue.sml";
 use "Certificate.sml";
 val mlunta_dir =
   case OS.Process.getEnv "MLUNTA_CERT" of
@@ -14,4 +16,4 @@ map (fn f => use (mlunta_dir ^ "/" ^ f)) [
   "certificate.sml"
 ];
 use "Muntac.sml";
-use "profile_poly.sml"
+(*use "profile_poly.sml"*)

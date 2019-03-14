@@ -130,19 +130,25 @@ fun main () =
         NONE => raise Fail (err_msg ^ " should be an integer")
       | SOME x => x
     fun int_to_impl n =
-      if n < 1 orelse n > 3 then
-        raise Fail "Implementation needs to be in the range 1 to 3"
+      if n < 1 orelse n > 4 then
+        raise Fail "Implementation needs to be in the range 1 to 4"
       else if n = 1 then Impl1
       else if n = 2 then Impl2
       else Impl3
     fun the_default x NONE = x
       | the_default _ (SOME x) = x
     val implementation = implementation
-      |> convert (fn x => x |> int_of_string "Implementation" |> int_to_impl)
-      |> the_default Impl1
+      |> convert (fn x => x |> int_of_string "Implementation")
+      |> the_default 1
     val num_threads = num_threads
       |> convert (int_of_string "Number of threads")
-      |> the_default 1 |> IntInf.fromInt |> nat_of_integer
+      |> the_default 1
+    (* val _ = if implementation = 4 then Par_List.set_num_threads num_threads else () *)
+    (* val num_threads = if implementation = 4 then 100000 else num_threads *)
+    val _ = Par_List.set_num_threads num_threads
+    val num_threads = 10000
+    val num_threads = num_threads |> IntInf.fromInt |> nat_of_integer
+    val implementation = int_to_impl implementation
     val args = [model, certificate, renaming]
   in
     if certificate = NONE andalso renaming = NONE andalso model <> NONE then

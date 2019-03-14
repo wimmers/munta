@@ -5701,6 +5701,8 @@ fun map_acconstraint f1 f2 (LT (x11, x12)) = LT (f1 x11, f2 x12)
   | map_acconstraint f1 f2 (GT (x41, x42)) = GT (f1 x41, f2 x42)
   | map_acconstraint f1 f2 (GE (x51, x52)) = GE (f1 x51, f2 x52);
 
+fun print_line_impl x = (fn xi => (fn () => (writeln xi))) x;
+
 fun mem_assoc A_ x = list_ex (fn (y, _) => eq A_ x y);
 
 fun show_locs B_ inv_renum_states =
@@ -7340,6 +7342,10 @@ fun map_of_debug (A1_, A2_) m =
                             end
         | SOME a => SOME a))
   end;
+
+fun print_errors es =
+  (fn f_ => fn () => f_ ((fold_map print_line_impl es) ()) ())
+    (fn _ => (fn () => ()));
 
 fun certify_unreachable_impl2 (A1_, A2_, A3_) B_ fi pi copyi lei l_0i s_0i
   succsi splitteri l_list m_table =
@@ -12222,239 +12228,262 @@ fun parse_convert_run_check mode num_split dc s =
     of Result
          (ids_to_names,
            (_, (broadcast, (automata, (bounds, (formula, (l_0, s_0)))))))
-      => (case rename_state_space show_literal dc ids_to_names
-                 (broadcast, (automata, bounds)) l_0 s_0 formula
-           of Result (r, (_, (_, (renamings, k)))) =>
-             (case r of NONE => (fn () => ())
-               | SOME ra =>
-                 let
-                   val t = Time.now ();
-                 in
-                   (fn f_ => fn () => f_ (ra ()) ())
-                     (fn rb =>
-                       let
-                         val ta =
-                           (fn x => fn y => Time.- (x, y)) (Time.now ()) t;
-                         val _ =
-                           writeln ("Time for model checking + certificate extraction: " ^
-                                     (fn x => Time.toString x) ta);
-                         val (m, (num_states,
-                                   (num_actions,
-                                     (renum_acts,
-                                       (renum_vars,
- (renum_clocks, (renum_states, (_, (_, _)))))))))
-                           = renamings;
-                         val _ = Timing.start_timer ();
-                       in
-                         (fn f_ => fn () => f_
-                           ((fold_map
-                              (fn (sa, xs) =>
-                                let
-                                  val xsa = map snd xs;
-                                in
-                                  (fn f_ => fn () => f_
-                                    ((fold_map
-                                       (dbm_to_list_impl
- (linordered_ab_monoid_add_DBMEntry
-    (linordered_cancel_ab_monoid_add_int, equal_int),
-   heap_DBMEntry heap_int)
- m)
-                                       xsa)
-                                    ()) ())
-                                    (fn xsb => (fn () => (sa, xsb)))
-                                end)
-                              rb)
-                           ()) ())
-                           (fn state_space =>
-                             let
-                               val _ =
-                                 Timing.save_time "Time for converting DBMs in certificate";
-                               val _ =
-                                 writeln ("Number of discrete states of state space: " ^
-   show_lit show_nat (size_list state_space));
-                               val _ =
-                                 writeln (implode
-   ([Chara (true, true, false, false, true, false, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (false, true, false, true, true, true, true, false),
-      Chara (true, false, true, false, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (true, true, true, true, false, true, true, false),
-      Chara (false, true, true, false, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, false, false, true, true, true, false),
-      Chara (true, false, false, false, false, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (true, false, true, false, false, true, true, false),
-      Chara (false, false, true, false, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, true, true, false, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (false, true, false, true, true, true, false, false),
-      Chara (false, false, false, false, false, true, false, false)] @
-     shows_prec_nat zero_nata
-       (sum_list monoid_add_nat (map (size_list o snd) rb)) []));
-                               val _ =
-                                 writeln (implode
-   ([Chara (false, false, true, false, false, false, true, false),
-      Chara (false, true, false, false, false, false, true, false),
-      Chara (true, false, true, true, false, false, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, true, true, false, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, true, true, false, true, true, false),
-      Chara (true, false, true, false, false, true, true, false),
-      Chara (false, true, true, true, false, true, true, false),
-      Chara (true, true, true, false, false, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (false, false, false, true, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, true, false, false, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (false, true, false, false, true, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (false, true, false, false, false, true, true, false),
-      Chara (true, false, true, false, true, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (true, true, true, true, false, true, true, false),
-      Chara (false, true, true, true, false, true, true, false),
-      Chara (false, true, false, true, true, true, false, false),
-      Chara (false, true, false, true, false, false, false, false)] @
-     shows_prec_list (show_prod show_nat show_nat) zero_nata
-       (distr (equal_nat, linorder_nat) (map (size_list o snd) state_space))
-       []));
-                               val split =
-                                 (if equal_mode mode Impl3
-                                   then split_k num_split state_space
-                                   else split_ka num_split state_space);
-                               val split_distr =
-                                 map (sum_list monoid_add_nat o
-                                       map (size_list o snd))
-                                   split;
-                               val _ =
-                                 writeln (implode
-   ([Chara (true, true, false, false, true, false, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (false, true, false, true, true, true, true, false),
-      Chara (true, false, true, false, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (true, true, true, true, false, true, true, false),
-      Chara (false, true, true, false, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, false, false, true, true, true, false),
-      Chara (true, false, false, false, false, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (true, false, true, false, false, true, true, false),
-      Chara (false, false, true, false, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, true, true, false, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (false, false, true, false, false, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (false, true, false, false, true, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (false, true, false, false, false, true, true, false),
-      Chara (true, false, true, false, true, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (true, true, true, true, false, true, true, false),
-      Chara (false, true, true, true, false, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (true, false, false, false, false, true, true, false),
-      Chara (false, true, true, false, false, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (true, false, true, false, false, true, true, false),
-      Chara (false, true, false, false, true, true, true, false),
-      Chara (false, false, false, false, false, true, false, false),
-      Chara (true, true, false, false, true, true, true, false),
-      Chara (false, false, false, false, true, true, true, false),
-      Chara (false, false, true, true, false, true, true, false),
-      Chara (true, false, false, true, false, true, true, false),
-      Chara (false, false, true, false, true, true, true, false),
-      Chara (false, true, false, true, true, true, false, false),
-      Chara (false, true, false, true, false, false, false, false)] @
-     shows_prec_list show_nat zero_nata split_distr []));
-                               val tb = Time.now ();
-                             in
-                               (fn f_ => fn () => f_
-                                 ((case mode
-                                    of Impl1 =>
-                                      rename_check num_split dc broadcast bounds
-automata k l_0 s_0 formula m num_states num_actions renum_acts renum_vars
-renum_clocks renum_states state_space
-                                    | Impl2 =>
-                                      (fn () =>
-(rename_check2 num_split dc broadcast bounds automata k l_0 s_0 formula m
-  num_states num_actions renum_acts renum_vars renum_clocks renum_states
-  state_space))
-                                    | Impl3 =>
-                                      (fn () =>
-(rename_check3 num_split dc broadcast bounds automata k l_0 s_0 formula m
-  num_states num_actions renum_acts renum_vars renum_clocks renum_states
-  state_space)))
-                                 ()) ())
-                                 (fn check =>
-                                   let
-                                     val tc =
-                                       (fn x => fn y => Time.- (x, y)) (Time.now ()) tb;
-                                     val _ =
-                                       writeln ("Time for certificate checking: " ^
-         (fn x => Time.toString x) tc);
-                                   in
-                                     (case check
-                                       of Renaming_Failed =>
- let
-   val _ = writeln "Renaming failed";
- in
-   (fn () => ())
- end
-                                       | Preconds_Unsat =>
- let
-   val _ = writeln "Preconditions were not met";
- in
-   (fn () => ())
- end
-                                       | Sat =>
- let
-   val _ = writeln "Certificate was accepted";
- in
-   (fn () => ())
- end
-                                       | Unsat =>
- let
-   val _ = writeln "Certificate was rejected";
- in
-   (fn () => ())
- end)
-                                   end)
-                             end)
-                       end)
-                 end)
-           | Error es => let
-                           val _ = map (fn a => writeln a) es;
+      => let
+           val a =
+             rename_state_space show_literal dc ids_to_names
+               (broadcast, (automata, bounds)) l_0 s_0 formula;
+         in
+           (case a
+             of Result (r, (_, (_, (renamings, k)))) =>
+               (case r of NONE => (fn () => ())
+                 | SOME ra =>
+                   let
+                     val t = Time.now ();
+                   in
+                     (fn f_ => fn () => f_ (ra ()) ())
+                       (fn rb =>
+                         let
+                           val ta =
+                             (fn x => fn y => Time.- (x, y)) (Time.now ()) t;
                          in
-                           (fn () => ())
+                           (fn f_ => fn () => f_
+                             ((print_line_impl
+                                ("Time for model checking + certificate extraction: " ^
+                                  (fn x => Time.toString x) ta))
+                             ()) ())
+                             (fn _ =>
+                               let
+                                 val (m, (num_states,
+   (num_actions,
+     (renum_acts, (renum_vars, (renum_clocks, (renum_states, (_, (_, _)))))))))
+                                   = renamings;
+                                 val _ = Timing.start_timer ();
+                               in
+                                 (fn f_ => fn () => f_
+                                   ((fold_map
+                                      (fn (sa, xs) =>
+let
+  val xsa = map snd xs;
+in
+  (fn f_ => fn () => f_
+    ((fold_map
+       (dbm_to_list_impl
+         (linordered_ab_monoid_add_DBMEntry
+            (linordered_cancel_ab_monoid_add_int, equal_int),
+           heap_DBMEntry heap_int)
+         m)
+       xsa)
+    ()) ())
+    (fn xsb => (fn () => (sa, xsb)))
+end)
+                                      rb)
+                                   ()) ())
+                                   (fn state_space =>
+                                     let
+                                       val _ =
+ Timing.save_time "Time for converting DBMs in certificate";
+                                     in
+                                       (fn f_ => fn () => f_
+ ((print_line_impl
+    ("Number of discrete states of state space: " ^
+      show_lit show_nat (size_list state_space)))
+ ()) ())
+ (fn _ =>
+   let
+     val _ =
+       writeln (implode
+                 ([Chara (true, true, false, false, true, false, true, false),
+                    Chara (true, false, false, true, false, true, true, false),
+                    Chara (false, true, false, true, true, true, true, false),
+                    Chara (true, false, true, false, false, true, true, false),
+                    Chara (false, false, false, false, false, true, false,
+                            false),
+                    Chara (true, true, true, true, false, true, true, false),
+                    Chara (false, true, true, false, false, true, true, false),
+                    Chara (false, false, false, false, false, true, false,
+                            false),
+                    Chara (false, false, false, false, true, true, true, false),
+                    Chara (true, false, false, false, false, true, true, false),
+                    Chara (true, true, false, false, true, true, true, false),
+                    Chara (true, true, false, false, true, true, true, false),
+                    Chara (true, false, true, false, false, true, true, false),
+                    Chara (false, false, true, false, false, true, true, false),
+                    Chara (false, false, false, false, false, true, false,
+                            false),
+                    Chara (false, false, true, true, false, true, true, false),
+                    Chara (true, false, false, true, false, true, true, false),
+                    Chara (true, true, false, false, true, true, true, false),
+                    Chara (false, false, true, false, true, true, true, false),
+                    Chara (false, true, false, true, true, true, false, false),
+                    Chara (false, false, false, false, false, true, false,
+                            false)] @
+                   shows_prec_nat zero_nata
+                     (sum_list monoid_add_nat (map (size_list o snd) rb)) []));
+   in
+     (fn f_ => fn () => f_
+       ((print_line_impl
+          (implode
+            ([Chara (false, false, true, false, false, false, true, false),
+               Chara (false, true, false, false, false, false, true, false),
+               Chara (true, false, true, true, false, false, true, false),
+               Chara (false, false, false, false, false, true, false, false),
+               Chara (false, false, true, true, false, true, true, false),
+               Chara (true, false, false, true, false, true, true, false),
+               Chara (true, true, false, false, true, true, true, false),
+               Chara (false, false, true, false, true, true, true, false),
+               Chara (false, false, false, false, false, true, false, false),
+               Chara (false, false, true, true, false, true, true, false),
+               Chara (true, false, true, false, false, true, true, false),
+               Chara (false, true, true, true, false, true, true, false),
+               Chara (true, true, true, false, false, true, true, false),
+               Chara (false, false, true, false, true, true, true, false),
+               Chara (false, false, false, true, false, true, true, false),
+               Chara (false, false, false, false, false, true, false, false),
+               Chara (false, false, true, false, false, true, true, false),
+               Chara (true, false, false, true, false, true, true, false),
+               Chara (true, true, false, false, true, true, true, false),
+               Chara (false, false, true, false, true, true, true, false),
+               Chara (false, true, false, false, true, true, true, false),
+               Chara (true, false, false, true, false, true, true, false),
+               Chara (false, true, false, false, false, true, true, false),
+               Chara (true, false, true, false, true, true, true, false),
+               Chara (false, false, true, false, true, true, true, false),
+               Chara (true, false, false, true, false, true, true, false),
+               Chara (true, true, true, true, false, true, true, false),
+               Chara (false, true, true, true, false, true, true, false),
+               Chara (false, true, false, true, true, true, false, false),
+               Chara (false, false, false, false, false, true, false, false)] @
+              shows_prec_list (show_prod show_nat show_nat) zero_nata
+                (distr (equal_nat, linorder_nat)
+                  (map (size_list o snd) state_space))
+                [])))
+       ()) ())
+       (fn _ =>
+         let
+           val split =
+             (if equal_mode mode Impl3 then split_k num_split state_space
+               else split_ka num_split state_space);
+           val split_distr =
+             map (sum_list monoid_add_nat o map (size_list o snd)) split;
+         in
+           (fn f_ => fn () => f_
+             ((print_line_impl
+                (implode
+                  ([Chara (true, true, false, false, true, false, true, false),
+                     Chara (true, false, false, true, false, true, true, false),
+                     Chara (false, true, false, true, true, true, true, false),
+                     Chara (true, false, true, false, false, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (true, true, true, true, false, true, true, false),
+                     Chara (false, true, true, false, false, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (false, false, false, false, true, true, true,
+                             false),
+                     Chara (true, false, false, false, false, true, true,
+                             false),
+                     Chara (true, true, false, false, true, true, true, false),
+                     Chara (true, true, false, false, true, true, true, false),
+                     Chara (true, false, true, false, false, true, true, false),
+                     Chara (false, false, true, false, false, true, true,
+                             false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (false, false, true, true, false, true, true, false),
+                     Chara (true, false, false, true, false, true, true, false),
+                     Chara (true, true, false, false, true, true, true, false),
+                     Chara (false, false, true, false, true, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (false, false, true, false, false, true, true,
+                             false),
+                     Chara (true, false, false, true, false, true, true, false),
+                     Chara (true, true, false, false, true, true, true, false),
+                     Chara (false, false, true, false, true, true, true, false),
+                     Chara (false, true, false, false, true, true, true, false),
+                     Chara (true, false, false, true, false, true, true, false),
+                     Chara (false, true, false, false, false, true, true,
+                             false),
+                     Chara (true, false, true, false, true, true, true, false),
+                     Chara (false, false, true, false, true, true, true, false),
+                     Chara (true, false, false, true, false, true, true, false),
+                     Chara (true, true, true, true, false, true, true, false),
+                     Chara (false, true, true, true, false, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (true, false, false, false, false, true, true,
+                             false),
+                     Chara (false, true, true, false, false, true, true, false),
+                     Chara (false, false, true, false, true, true, true, false),
+                     Chara (true, false, true, false, false, true, true, false),
+                     Chara (false, true, false, false, true, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (true, true, false, false, true, true, true, false),
+                     Chara (false, false, false, false, true, true, true,
+                             false),
+                     Chara (false, false, true, true, false, true, true, false),
+                     Chara (true, false, false, true, false, true, true, false),
+                     Chara (false, false, true, false, true, true, true, false),
+                     Chara (false, true, false, true, true, true, false, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false)] @
+                    shows_prec_list show_nat zero_nata split_distr [])))
+             ()) ())
+             (fn _ =>
+               let
+                 val tb = Time.now ();
+               in
+                 (fn f_ => fn () => f_
+                   ((case mode
+                      of Impl1 =>
+                        rename_check num_split dc broadcast bounds automata k
+                          l_0 s_0 formula m num_states num_actions renum_acts
+                          renum_vars renum_clocks renum_states state_space
+                      | Impl2 =>
+                        (fn () =>
+                          (rename_check2 num_split dc broadcast bounds automata
+                            k l_0 s_0 formula m num_states num_actions
+                            renum_acts renum_vars renum_clocks renum_states
+                            state_space))
+                      | Impl3 =>
+                        (fn () =>
+                          (rename_check3 num_split dc broadcast bounds automata
+                            k l_0 s_0 formula m num_states num_actions
+                            renum_acts renum_vars renum_clocks renum_states
+                            state_space)))
+                   ()) ())
+                   (fn check =>
+                     let
+                       val tc =
+                         (fn x => fn y => Time.- (x, y)) (Time.now ()) tb;
+                     in
+                       (fn f_ => fn () => f_
+                         ((print_line_impl
+                            ("Time for certificate checking: " ^
+                              (fn x => Time.toString x) tc))
+                         ()) ())
+                         (fn _ =>
+                           (case check
+                             of Renaming_Failed =>
+                               print_line_impl "Renaming failed"
+                             | Preconds_Unsat =>
+                               print_line_impl "Preconditions were not met"
+                             | Sat => print_line_impl "Certificate was accepted"
+                             | Unsat =>
+                               print_line_impl "Certificate was rejected"))
+                     end)
+               end)
+         end)
+   end)
+                                     end)
+                               end)
                          end)
-    | Error es => let
-                    val _ = map (fn a => writeln a) es;
-                  in
-                    (fn () => ())
-                  end);
+                   end)
+             | Error aa => print_errors aa)
+         end
+    | Error a => print_errors a);
 
 fun parse_convert_run_print dc s =
   (case binda (parse json s) convert
