@@ -118,6 +118,7 @@ fun main () =
   let
     val args = CommandLine.arguments()
     val check_deadlock = List.find (fn x => x = "-deadlock" orelse x = "-dc") args <> NONE
+    val cpu_time = List.find (fn x => x = "-cpu-time" orelse x = "-cpu") args <> NONE
     val model = find_with_arg (fn x => x = "-model" orelse x = "-m") args
     val certificate = find_with_arg (fn x => x = "-certificate" orelse x = "-c") args
     val renaming = find_with_arg (fn x => x = "-renaming" orelse x = "-r") args
@@ -143,6 +144,11 @@ fun main () =
     val num_threads = num_threads
       |> convert (int_of_string "Number of threads")
       |> the_default 1
+    val _ = println "** Configuration options **"
+    val _ = "* Deadlock: " ^ (if check_deadlock then "True" else "False") |> println
+    val _ = "* Implementation: " ^ Int.toString implementation |> println
+    val _ = "* Num Threads: " ^ Int.toString num_threads |> println
+    val _ = "* Measuring CPU time: " ^ (if cpu_time then "True" else "False") |> println
     (* val _ = if implementation = 4 then Par_List.set_num_threads num_threads else () *)
     (* val num_threads = if implementation = 4 then 100000 else num_threads *)
     val _ = Par_List.set_num_threads num_threads
@@ -150,6 +156,7 @@ fun main () =
     val num_threads = num_threads |> IntInf.fromInt |> nat_of_integer
     val implementation = int_to_impl implementation
     val args = [model, certificate, renaming]
+    val _ = if cpu_time then Timing.set_cpu true else ()
   in
     if certificate = NONE andalso renaming = NONE andalso model <> NONE then
       (

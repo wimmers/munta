@@ -32,11 +32,28 @@ structure Timing : sig
   val start_timer: unit -> unit
   val save_time: string -> unit
   val get_timings: unit -> (string * Time.time) list
+  val set_cpu: bool -> unit
 end = struct
-  val t = Unsynchronized.ref Time.zeroTime;
+
+  open Timer;
+
+  val is_cpu = Unsynchronized.ref false;
+  fun set_cpu b = is_cpu := b;
+
+  val cpu_timer: cpu_timer option Unsynchronized.ref = Unsynchronized.ref NONE;
+  val real_timer: real_timer option Unsynchronized.ref = Unsynchronized.ref NONE;
+
   val timings = Unsynchronized.ref [];
-  fun start_timer () = (t := Time.now ());
-  fun get_elapsed () = Time.- (Time.now (), !t);
+  fun start_timer () = (
+    if !is_cpu then
+      cpu_timer := SOME (startCPUTimer ())
+    else
+      real_timer := SOME (startRealTimer ()));
+  fun get_elapsed () = (
+    if !is_cpu then
+      #usr (!cpu_timer |> the |> checkCPUTimer)
+    else
+      (!real_timer |> the |> checkRealTimer));
   fun save_time s = (timings := ((s, get_elapsed ()) :: !timings));
   fun get_timings () = !timings;
 end
@@ -7044,6 +7061,8 @@ fun mk_renaminga (A1_, A2_) xs =
 
 fun show_lit A_ = implode o (fn x => shows_prec A_ zero_nata x []);
 
+fun show_str A_ = implode o (fn x => shows_prec A_ zero_nata x []);
+
 fun extend_domain A_ (B1_, B2_) m d n =
   let
     val (_, xs) =
@@ -12291,72 +12310,16 @@ end)
  (fn _ =>
    let
      val _ =
-       writeln (implode
-                 ([Chara (true, true, false, false, true, false, true, false),
-                    Chara (true, false, false, true, false, true, true, false),
-                    Chara (false, true, false, true, true, true, true, false),
-                    Chara (true, false, true, false, false, true, true, false),
-                    Chara (false, false, false, false, false, true, false,
-                            false),
-                    Chara (true, true, true, true, false, true, true, false),
-                    Chara (false, true, true, false, false, true, true, false),
-                    Chara (false, false, false, false, false, true, false,
-                            false),
-                    Chara (false, false, false, false, true, true, true, false),
-                    Chara (true, false, false, false, false, true, true, false),
-                    Chara (true, true, false, false, true, true, true, false),
-                    Chara (true, true, false, false, true, true, true, false),
-                    Chara (true, false, true, false, false, true, true, false),
-                    Chara (false, false, true, false, false, true, true, false),
-                    Chara (false, false, false, false, false, true, false,
-                            false),
-                    Chara (false, false, true, true, false, true, true, false),
-                    Chara (true, false, false, true, false, true, true, false),
-                    Chara (true, true, false, false, true, true, true, false),
-                    Chara (false, false, true, false, true, true, true, false),
-                    Chara (false, true, false, true, true, true, false, false),
-                    Chara (false, false, false, false, false, true, false,
-                            false)] @
-                   shows_prec_nat zero_nata
-                     (sum_list monoid_add_nat (map (size_list o snd) rb)) []));
+       writeln ("Size of passed list: " ^
+                 show_str show_nat
+                   (sum_list monoid_add_nat (map (size_list o snd) rb)));
    in
      (fn f_ => fn () => f_
        ((print_line_impl
-          (implode
-            ([Chara (false, false, true, false, false, false, true, false),
-               Chara (false, true, false, false, false, false, true, false),
-               Chara (true, false, true, true, false, false, true, false),
-               Chara (false, false, false, false, false, true, false, false),
-               Chara (false, false, true, true, false, true, true, false),
-               Chara (true, false, false, true, false, true, true, false),
-               Chara (true, true, false, false, true, true, true, false),
-               Chara (false, false, true, false, true, true, true, false),
-               Chara (false, false, false, false, false, true, false, false),
-               Chara (false, false, true, true, false, true, true, false),
-               Chara (true, false, true, false, false, true, true, false),
-               Chara (false, true, true, true, false, true, true, false),
-               Chara (true, true, true, false, false, true, true, false),
-               Chara (false, false, true, false, true, true, true, false),
-               Chara (false, false, false, true, false, true, true, false),
-               Chara (false, false, false, false, false, true, false, false),
-               Chara (false, false, true, false, false, true, true, false),
-               Chara (true, false, false, true, false, true, true, false),
-               Chara (true, true, false, false, true, true, true, false),
-               Chara (false, false, true, false, true, true, true, false),
-               Chara (false, true, false, false, true, true, true, false),
-               Chara (true, false, false, true, false, true, true, false),
-               Chara (false, true, false, false, false, true, true, false),
-               Chara (true, false, true, false, true, true, true, false),
-               Chara (false, false, true, false, true, true, true, false),
-               Chara (true, false, false, true, false, true, true, false),
-               Chara (true, true, true, true, false, true, true, false),
-               Chara (false, true, true, true, false, true, true, false),
-               Chara (false, true, false, true, true, true, false, false),
-               Chara (false, false, false, false, false, true, false, false)] @
-              shows_prec_list (show_prod show_nat show_nat) zero_nata
-                (distr (equal_nat, linorder_nat)
-                  (map (size_list o snd) state_space))
-                [])))
+          ("DBM list length distribution: " ^
+            show_str (show_list (show_prod show_nat show_nat))
+              (distr (equal_nat, linorder_nat)
+                (map (size_list o snd) state_space))))
        ()) ())
        (fn _ =>
          let
@@ -12368,68 +12331,8 @@ end)
          in
            (fn f_ => fn () => f_
              ((print_line_impl
-                (implode
-                  ([Chara (true, true, false, false, true, false, true, false),
-                     Chara (true, false, false, true, false, true, true, false),
-                     Chara (false, true, false, true, true, true, true, false),
-                     Chara (true, false, true, false, false, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (true, true, true, true, false, true, true, false),
-                     Chara (false, true, true, false, false, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (false, false, false, false, true, true, true,
-                             false),
-                     Chara (true, false, false, false, false, true, true,
-                             false),
-                     Chara (true, true, false, false, true, true, true, false),
-                     Chara (true, true, false, false, true, true, true, false),
-                     Chara (true, false, true, false, false, true, true, false),
-                     Chara (false, false, true, false, false, true, true,
-                             false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (false, false, true, true, false, true, true, false),
-                     Chara (true, false, false, true, false, true, true, false),
-                     Chara (true, true, false, false, true, true, true, false),
-                     Chara (false, false, true, false, true, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (false, false, true, false, false, true, true,
-                             false),
-                     Chara (true, false, false, true, false, true, true, false),
-                     Chara (true, true, false, false, true, true, true, false),
-                     Chara (false, false, true, false, true, true, true, false),
-                     Chara (false, true, false, false, true, true, true, false),
-                     Chara (true, false, false, true, false, true, true, false),
-                     Chara (false, true, false, false, false, true, true,
-                             false),
-                     Chara (true, false, true, false, true, true, true, false),
-                     Chara (false, false, true, false, true, true, true, false),
-                     Chara (true, false, false, true, false, true, true, false),
-                     Chara (true, true, true, true, false, true, true, false),
-                     Chara (false, true, true, true, false, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (true, false, false, false, false, true, true,
-                             false),
-                     Chara (false, true, true, false, false, true, true, false),
-                     Chara (false, false, true, false, true, true, true, false),
-                     Chara (true, false, true, false, false, true, true, false),
-                     Chara (false, true, false, false, true, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (true, true, false, false, true, true, true, false),
-                     Chara (false, false, false, false, true, true, true,
-                             false),
-                     Chara (false, false, true, true, false, true, true, false),
-                     Chara (true, false, false, true, false, true, true, false),
-                     Chara (false, false, true, false, true, true, true, false),
-                     Chara (false, true, false, true, true, true, false, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false)] @
-                    shows_prec_list show_nat zero_nata split_distr [])))
+                ("Size of passed list distribution after split: " ^
+                  show_str (show_list show_nat) split_distr))
              ()) ())
              (fn _ =>
                let
@@ -12499,111 +12402,13 @@ fun parse_convert_run_print dc s =
                    (fn rb =>
                      let
                        val _ =
-                         writeln (implode
-                                   ([Chara (false, true, true, true, false,
-     false, true, false),
-                                      Chara
-(true, false, true, false, true, true, true, false),
-                                      Chara
-(true, false, true, true, false, true, true, false),
-                                      Chara
-(false, true, false, false, false, true, true, false),
-                                      Chara
-(true, false, true, false, false, true, true, false),
-                                      Chara
-(false, true, false, false, true, true, true, false),
-                                      Chara
-(false, false, false, false, false, true, false, false),
-                                      Chara
-(true, true, true, true, false, true, true, false),
-                                      Chara
-(false, true, true, false, false, true, true, false),
-                                      Chara
-(false, false, false, false, false, true, false, false),
-                                      Chara
-(false, false, true, false, false, true, true, false),
-                                      Chara
-(true, false, false, true, false, true, true, false),
-                                      Chara
-(true, true, false, false, true, true, true, false),
-                                      Chara
-(true, true, false, false, false, true, true, false),
-                                      Chara
-(false, true, false, false, true, true, true, false),
-                                      Chara
-(true, false, true, false, false, true, true, false),
-                                      Chara
-(false, false, true, false, true, true, true, false),
-                                      Chara
-(true, false, true, false, false, true, true, false),
-                                      Chara
-(false, false, false, false, false, true, false, false),
-                                      Chara
-(true, true, false, false, true, true, true, false),
-                                      Chara
-(false, false, true, false, true, true, true, false),
-                                      Chara
-(true, false, false, false, false, true, true, false),
-                                      Chara
-(false, false, true, false, true, true, true, false),
-                                      Chara
-(true, false, true, false, false, true, true, false),
-                                      Chara
-(true, true, false, false, true, true, true, false),
-                                      Chara
-(false, true, false, true, true, true, false, false),
-                                      Chara
-(false, false, false, false, false, true, false, false)] @
-                                     shows_prec_nat zero_nata (size_list rb)
-                                       []));
+                         writeln ("Number of discrete states: " ^
+                                   show_str show_nat (size_list rb));
                        val _ =
-                         writeln (implode
-                                   ([Chara (true, true, false, false, true,
-     false, true, false),
-                                      Chara
-(true, false, false, true, false, true, true, false),
-                                      Chara
-(false, true, false, true, true, true, true, false),
-                                      Chara
-(true, false, true, false, false, true, true, false),
-                                      Chara
-(false, false, false, false, false, true, false, false),
-                                      Chara
-(true, true, true, true, false, true, true, false),
-                                      Chara
-(false, true, true, false, false, true, true, false),
-                                      Chara
-(false, false, false, false, false, true, false, false),
-                                      Chara
-(false, false, false, false, true, true, true, false),
-                                      Chara
-(true, false, false, false, false, true, true, false),
-                                      Chara
-(true, true, false, false, true, true, true, false),
-                                      Chara
-(true, true, false, false, true, true, true, false),
-                                      Chara
-(true, false, true, false, false, true, true, false),
-                                      Chara
-(false, false, true, false, false, true, true, false),
-                                      Chara
-(false, false, false, false, false, true, false, false),
-                                      Chara
-(false, false, true, true, false, true, true, false),
-                                      Chara
-(true, false, false, true, false, true, true, false),
-                                      Chara
-(true, true, false, false, true, true, true, false),
-                                      Chara
-(false, false, true, false, true, true, true, false),
-                                      Chara
-(false, true, false, true, true, true, false, false),
-                                      Chara
-(false, false, false, false, false, true, false, false)] @
-                                     shows_prec_nat zero_nata
-                                       (sum_list monoid_add_nat
- (map (size_list o snd) rb))
-                                       []));
+                         writeln ("Size of passed list: " ^
+                                   show_str show_nat
+                                     (sum_list monoid_add_nat
+                                       (map (size_list o snd) rb)));
                        val n =
                          size_list
                            (list_of_set equal_literal
@@ -12628,91 +12433,11 @@ fun parse_convert_run_print dc s =
                          (fn rc =>
                            let
                              val _ =
-                               writeln (implode
- ([Chara (false, true, true, true, false, false, true, false),
-    Chara (true, false, true, false, true, true, true, false),
-    Chara (true, false, true, true, false, true, true, false),
-    Chara (false, true, false, false, false, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (false, true, false, false, true, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (true, true, true, true, false, true, true, false),
-    Chara (false, true, true, false, false, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (false, false, true, false, false, true, true, false),
-    Chara (true, false, false, true, false, true, true, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (true, true, false, false, false, true, true, false),
-    Chara (false, true, false, false, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (false, false, true, false, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (false, false, true, false, true, true, true, false),
-    Chara (true, false, false, false, false, true, true, false),
-    Chara (false, false, true, false, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (false, true, false, true, true, true, false, false),
-    Chara (false, false, false, false, false, true, false, false)] @
-   shows_prec_nat zero_nata (size_list rc) []));
+                               writeln ("Number of discrete states: " ^
+ show_str show_nat (size_list rc));
                              val _ =
-                               writeln (implode
- ([Chara (true, true, false, false, true, false, true, false),
-    Chara (true, false, false, true, false, true, true, false),
-    Chara (false, true, false, true, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (true, true, true, true, false, true, true, false),
-    Chara (false, true, true, false, false, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (false, false, false, false, true, true, true, false),
-    Chara (true, false, false, false, false, true, true, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (false, false, true, false, false, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (false, false, true, true, false, true, true, false),
-    Chara (true, false, false, true, false, true, true, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (false, false, true, false, true, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (true, false, false, false, false, true, true, false),
-    Chara (false, true, true, false, false, true, true, false),
-    Chara (false, false, true, false, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (false, true, false, false, true, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (false, true, false, false, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (true, false, true, true, false, true, true, false),
-    Chara (true, true, true, true, false, true, true, false),
-    Chara (false, true, true, false, true, true, true, false),
-    Chara (true, false, false, true, false, true, true, false),
-    Chara (false, true, true, true, false, true, true, false),
-    Chara (true, true, true, false, false, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (true, false, true, false, true, true, true, false),
-    Chara (false, true, false, false, false, true, true, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (true, false, true, false, true, true, true, false),
-    Chara (true, false, true, true, false, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (false, false, true, false, false, true, true, false),
-    Chara (false, false, false, false, false, true, false, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (false, false, true, false, true, true, true, false),
-    Chara (true, false, false, false, false, true, true, false),
-    Chara (false, false, true, false, true, true, true, false),
-    Chara (true, false, true, false, false, true, true, false),
-    Chara (true, true, false, false, true, true, true, false),
-    Chara (false, true, false, true, true, true, false, false),
-    Chara (false, false, false, false, false, true, false, false)] @
-   shows_prec_nat zero_nata (sum_list monoid_add_nat (map (size_list o snd) rc))
-     []));
+                               writeln ("Size of passed list after removing subsumed states: " ^
+ show_str show_nat (sum_list monoid_add_nat (map (size_list o snd) rc)));
                              val show_dbm =
                                (fn m =>
                                  (fn f_ => fn () => f_

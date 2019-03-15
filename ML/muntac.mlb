@@ -1,14 +1,17 @@
 $(SML_LIB)/basis/basis.mlb
 $(SML_LIB)/basis/mlton.mlb
 
+sequential.sml
+
 local
     Unsynchronized.sml
 
     Writeln.sml
 
-    sequential.sml
+    basics.ML
 
     ann "nonexhaustiveMatch ignore" in
+      library.ML
       Certificate.sml
     end
 in

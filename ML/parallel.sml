@@ -5,8 +5,12 @@ Assigns an individual process to each element in the list.
 structure Par_List:
 sig
   val map: ('a -> 'b) -> 'a list -> 'b list
+  (* Ignored in this implementation *)
+  val set_num_threads: int -> unit
 end =
 struct
+
+val set_num_threads = fn _ => ()
 
 open Thread;
 
