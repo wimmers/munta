@@ -1,0 +1,350 @@
+<?xml version="1.0"?>
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 1.9//EN" "https://www.sosy-lab.org/benchexec/benchmark-1.9.dtd">
+<benchmark tool="benchmarking.muntac">
+
+
+  <rundefinition name='muntac-mlton-1-1'>
+    <option name="mlton"></option>
+    <option name="implementation">1</option>
+    <option name="num-threads">1</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-1-22'>
+    <option name="mlton"></option>
+    <option name="implementation">1</option>
+    <option name="num-threads">22</option>
+  </rundefinition>
+
+ <rundefinition name='muntac-mlton-2-1'>
+    <option name="mlton"></option>
+    <option name="implementation">2</option>
+    <option name="num-threads">1</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-2-22'>
+    <option name="mlton"></option>
+    <option name="implementation">2</option>
+    <option name="num-threads">22</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-3-1'>
+    <option name="mlton"></option>
+    <option name="implementation">3</option>
+    <option name="num-threads">1</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-3-22'>
+    <option name="mlton"></option>
+    <option name="implementation">3</option>
+    <option name="num-threads">22</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-1-1'>
+    <option name="implementation">1</option>
+    <option name="num-threads">1</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-1-4'>
+    <option name="implementation">1</option>
+    <option name="num-threads">4</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-1-8'>
+    <option name="implementation">1</option>
+    <option name="num-threads">8</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-1-22'>
+    <option name="implementation">1</option>
+    <option name="num-threads">22</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-2-1'>
+    <option name="implementation">2</option>
+    <option name="num-threads">1</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-2-2'>
+    <option name="implementation">2</option>
+    <option name="num-threads">2</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-2-4'>
+    <option name="implementation">2</option>
+    <option name="num-threads">4</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-2-8'>
+    <option name="implementation">2</option>
+    <option name="num-threads">8</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-2-22'>
+    <option name="implementation">2</option>
+    <option name="num-threads">22</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-3-1'>
+    <option name="implementation">3</option>
+    <option name="num-threads">1</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-3-2'>
+    <option name="implementation">3</option>
+    <option name="num-threads">2</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-3-4'>
+    <option name="implementation">3</option>
+    <option name="num-threads">4</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-3-8'>
+    <option name="implementation">3</option>
+    <option name="num-threads">8</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-3-22'>
+    <option name="implementation">3</option>
+    <option name="num-threads">22</option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-dc-1-1'>
+    <option name="mlton"></option>
+    <option name="implementation">1</option>
+    <option name="num-threads">1</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-dc-1-22'>
+    <option name="mlton"></option>
+    <option name="implementation">1</option>
+    <option name="num-threads">22</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-dc-2-1'>
+    <option name="mlton"></option>
+    <option name="implementation">2</option>
+    <option name="num-threads">1</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-dc-2-22'>
+    <option name="mlton"></option>
+    <option name="implementation">2</option>
+    <option name="num-threads">22</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-dc-3-1'>
+    <option name="mlton"></option>
+    <option name="implementation">3</option>
+    <option name="num-threads">1</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-mlton-dc-3-22'>
+    <option name="mlton"></option>
+    <option name="implementation">3</option>
+    <option name="num-threads">22</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-1-1'>
+    <option name="implementation">1</option>
+    <option name="num-threads">1</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-1-4'>
+    <option name="implementation">1</option>
+    <option name="num-threads">4</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-1-8'>
+    <option name="implementation">1</option>
+    <option name="num-threads">8</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-1-22'>
+    <option name="implementation">1</option>
+    <option name="num-threads">22</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-2-1'>
+    <option name="implementation">2</option>
+    <option name="num-threads">1</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-2-2'>
+    <option name="implementation">2</option>
+    <option name="num-threads">2</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-2-4'>
+    <option name="implementation">2</option>
+    <option name="num-threads">4</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-2-8'>
+    <option name="implementation">2</option>
+    <option name="num-threads">8</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-2-22'>
+    <option name="implementation">2</option>
+    <option name="num-threads">22</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-3-1'>
+    <option name="implementation">3</option>
+    <option name="num-threads">1</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-3-2'>
+    <option name="implementation">3</option>
+    <option name="num-threads">2</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-3-4'>
+    <option name="implementation">3</option>
+    <option name="num-threads">4</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-3-8'>
+    <option name="implementation">3</option>
+    <option name="num-threads">8</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+  <rundefinition name='muntac-poly-dc-3-22'>
+    <option name="implementation">3</option>
+    <option name="num-threads">22</option>
+    <option name="deadlock"></option>
+  </rundefinition>
+
+<!--
+  <rundefinition name='munta-int'>
+    <option name='int'></option>
+  </rundefinition>
+-->
+  <!--
+  <rundefinition name='munta-imp'>
+    <option name='imp'></option>
+  </rundefinition>
+  -->
+  <!--
+  <rundefinition name='munta-ocaml'>
+    <option name='ocaml'></option>
+  </rundefinition>
+  -->
+<!--
+  <rundefinition name='munta-standard-dc'>
+    <option name='deadlock'></option>
+  </rundefinition>
+  <rundefinition name='munta-int-dc'>
+    <option name='int'></option>
+    <option name='deadlock'></option>
+  </rundefinition>
+-->
+  <!--
+  <rundefinition name='munta-imp-dc'>
+    <option name='imp'></option>
+    <option name='deadlock'></option>
+  </rundefinition>
+  -->
+
+  <!-- <tasks> defines a set of tasks:
+       we define three sets of some arbitrary example files here. -->
+<!--
+  <tasks name="Three State" timelimit="60s">
+    <include>../benchmarks/three*.munta</include>
+  </tasks>
+  <tasks name="Fischer Reachability" timelimit="3h">
+    <include>../benchmarks/fischer_02.munta</include>
+    <include>../benchmarks/fischer_03.munta</include>
+    <include>../benchmarks/fischer_04.munta</include>
+    <include>../benchmarks/fischer_05.munta</include>
+  </tasks>
+  <tasks name="Fischer Liveness" timelimit="3h">
+    <include>../benchmarks/fischer_leadsto_02.munta</include>
+    <include>../benchmarks/fischer_leadsto_03.munta</include>
+    <include>../benchmarks/fischer_leadsto_04.munta</include>
+    <include>../benchmarks/fischer_leadsto_05.munta</include>
+    <include>../benchmarks/fischer_leadsto_06.munta</include>
+  </tasks>
+  <tasks name="CSMA Reachability" timelimit="3h">
+    <include>../benchmarks/csma_03.munta</include>
+    <include>../benchmarks/csma_04.munta</include>
+    <include>../benchmarks/csma_05.munta</include>
+    <include>../benchmarks/csma_06.munta</include>
+  </tasks>
+  <tasks name="CSMA Liveness" timelimit="3h">
+    <include>../benchmarks/csma_leadsto_03.munta</include>
+    <include>../benchmarks/csma_leadsto_04.munta</include>
+    <include>../benchmarks/csma_leadsto_05.munta</include>
+    <include>../benchmarks/csma_leadsto_06.munta</include>
+  </tasks>
+  <tasks name="FDDI Reachability" timelimit="3h">
+    <include>../benchmarks/HDDI_04.munta</include>
+    <include>../benchmarks/HDDI_05.munta</include>
+    <include>../benchmarks/HDDI_06.munta</include>
+    <include>../benchmarks/HDDI_07.munta</include>
+    <include>../benchmarks/HDDI_08.munta</include>
+    <include>../benchmarks/HDDI_09.munta</include>
+    <include>../benchmarks/HDDI_10.munta</include>
+  </tasks>
+  <tasks name="FDDI Liveness" timelimit="3h">
+    <include>../benchmarks/HDDI_Leadsto_04.munta</include>
+    <include>../benchmarks/HDDI_Leadsto_05.munta</include>
+    <include>../benchmarks/HDDI_Leadsto_06.munta</include>
+    <include>../benchmarks/HDDI_Leadsto_07.munta</include>
+  </tasks>
+-->
+
+  <tasks name="FDDI Reachability">
+    <include>../benchmarks/HDDI_02.muntax</include>
+    <include>../benchmarks/hddi_08.muntax</include>
+  </tasks>
+
+  <tasks name="FDDI Broadcast Reachability">
+    <include>../benchmarks/HDDI_02_broadcast.muntax</include>
+    <include>../benchmarks/HDDI_08_broadcast.muntax</include>
+  </tasks>
+
+  <tasks name="Fischer Reachability">
+    <include>../benchmarks/fischer.muntax</include>
+    <include>../benchmarks/fischer_05.muntax</include>
+  </tasks>
+
+  <tasks name="CSMA Reachability">
+    <include>../benchmarks/csma_05.muntax</include>
+    <include>../benchmarks/csma_06.muntax</include>
+  </tasks>
+
+  <tasks name="Pacemakers Reachability">
+    <include>../benchmarks/PM_all_1.muntax</include>
+    <include>../benchmarks/PM_all_2.muntax</include>
+    <include>../benchmarks/PM_all_3.muntax</include>
+    <include>../benchmarks/PM_all_4.muntax</include>
+    <include>../benchmarks/PM_all_5.muntax</include>
+<!--    <include>../benchmarks/PM_all_6.muntax</include> -->
+  </tasks>
+
+  <columns>
+    <column title="# states">num-states</column>
+  </columns>
+
+</benchmark>
