@@ -6,6 +6,8 @@ theory Simple_Network_Language_Certificate_Checking
     "../library/Trace_Timing"
 begin
 
+no_notation test_bit (infixl "!!" 100)
+
 paragraph \<open>Splitters\<close>
 
 context
@@ -136,6 +138,77 @@ sepref_definition show_dbm_impl_all is
   unfolding show_dbm'_def by sepref
 
 end (* Context for show functions and importing n *)
+
+definition
+  "abstr_repair_impl m \<equiv>
+  \<lambda>ai. imp_nfoldli ai (\<lambda>\<sigma>. Heap_Monad.return True)
+      (\<lambda>ai bi. abstra_upd_impl m ai bi \<bind> (\<lambda>x'. repair_pair_impl m x' 0 (constraint_clk ai)))"
+
+definition E_op_impl ::
+  "nat \<Rightarrow> (nat, int) acconstraint list \<Rightarrow> nat list \<Rightarrow> _"
+  where
+  "E_op_impl m l_inv r g l'_inv M \<equiv>
+do {
+   M1 \<leftarrow> up_canonical_upd_impl m M m;
+   M2 \<leftarrow> abstr_repair_impl m l_inv M1;
+   is_empty1 \<leftarrow> check_diag_impl m M2;
+   M3 \<leftarrow> (if is_empty1 then mtx_set (Suc m) M2 (0, 0) (Lt 0) else abstr_repair_impl m g M2);
+   is_empty3 \<leftarrow> check_diag_impl m M3;
+   if is_empty3 then
+     mtx_set (Suc m) M3 (0, 0) (Lt 0)
+   else do {
+     M4 \<leftarrow>
+       imp_nfoldli r (\<lambda>\<sigma>. Heap_Monad.return True) (\<lambda>xc \<sigma>. reset_canonical_upd_impl m \<sigma> m xc 0) M3;
+     abstr_repair_impl m l'_inv M4
+   }
+}"
+
+ML \<open>
+fun fib 0 = 0
+  | fib 1 = 1
+  | fib n = fib (n - 1) + fib (n - 2)
+\<close>
+
+definition dbm_add_int2 :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> int DBMEntry" where
+  "dbm_add_int2 = dbm_add"
+
+ML \<open>
+fun dbm_add1_test1 x y = @{code dbm_add_int} (@{code Le} x) (@{code Lt} y)
+fun dbm_add2_test1 x y = @{code dbm_add_int2} (@{code Le} x) (@{code Lt} y)
+fun for_n f n = if n <= 0 then () else (f (); for_n f (n - 1))
+\<close>
+
+ML_val \<open>for_n (fn x => for_n (fn y => dbm_add1_test1) 100000) 10000\<close>
+
+ML_val \<open>for_n (fn x => for_n (fn y => dbm_add2_test1) 100000) 10000\<close>
+
+
+
+
+
+export_code dbm_add dbm_add_int
+  in SML module_name Model_Checker
+
+definition dbm_add_int :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> int DBMEntry" where
+  "dbm_add_int = dbm_add"
+
+code_thms dbm_add
+
+lemma [code]:
+  "dbm_add_int \<infinity> x = \<infinity>"
+  "dbm_add_int x \<infinity> = \<infinity>"
+  "dbm_add_int (Lt a) (Lt b) = Lt (a + b)"
+  "dbm_add_int (Le a) (Lt b) = Lt (a + b)"
+  "dbm_add_int (Lt a) (Le b) = Lt (a + b)"
+  "dbm_add_int (Le a) (Le b) = Le (a + b)"
+  unfolding dbm_add_int_def by (cases x; simp; fail)+
+
+export_code dbm_add dbm_add_int
+  in SML module_name Model_Checker
+
+thm fw_impl_int_def
+
+value "dbm_add_int (Lt 1) (Le 2)"
 
 lemma hfkeep_hfdropI:
   assumes "(fi, f) \<in> A\<^sup>k \<rightarrow>\<^sub>a B"
@@ -307,6 +380,67 @@ theorem unreachability_checker3_refine:
     unreachability_prod[OF assms(5)]
   by auto
 
+lemma abstr_repair_impl_refine:
+  "impl.abstr_repair_impl = abstr_repair_impl m"
+  unfolding abstr_repair_impl_def impl.abstr_repair_impl_def  impl.abstra_repair_impl_def ..
+
+lemma E_op_impl_refine:
+  "impl.E_precise_op'_impl l r g l' M = E_op_impl m (inv_fun l) r g (inv_fun l') M"
+  unfolding impl.E_precise_op'_impl_def E_op_impl_def abstr_repair_impl_refine ..
+
+definition
+  "succs1 n_ps invs \<equiv>
+  let
+    inv_fun = \<lambda>(L, a). concat (map (\<lambda>i. invs !! i !! (L ! i)) [0..<n_ps]);
+    E_op_impl = (\<lambda>l r g l' M. E_op_impl m (inv_fun l) r g (inv_fun l') M)
+  in (\<lambda>L_s M.
+    if M = [] then Heap_Monad.return []
+    else imp_nfoldli (trans_impl L_s) (\<lambda>\<sigma>. Heap_Monad.return True)
+      (\<lambda>c \<sigma>. case c of (g, a1a, r, L_s') \<Rightarrow> do {
+        M \<leftarrow> heap_map amtx_copy M;
+        Ms \<leftarrow> imp_nfoldli M (\<lambda>\<sigma>. Heap_Monad.return True)
+          (\<lambda>xb \<sigma>. do {
+            x'c \<leftarrow> E_op_impl L_s r g L_s' xb;
+            x'e \<leftarrow> check_diag_impl m x'c;
+            Heap_Monad.return (if x'e then \<sigma> else op_list_prepend x'c \<sigma>)
+          }) [];
+        Heap_Monad.return (op_list_prepend (L_s', Ms) \<sigma>)
+      })
+    [])" for n_ps :: "nat" and invs :: "(nat, int) acconstraint list iarray iarray"
+
+lemma succs1_refine:
+  "impl.succs_precise'_impl = succs1 n_ps invs2"
+  unfolding impl.succs_precise'_impl_def impl.succs_precise_inner_impl_def
+  unfolding succs1_def Let_def PR_CONST_def E_op_impl_refine
+  unfolding inv_fun_alt_def ..
+
+schematic_goal succs1_alt_def:
+  "succs1 \<equiv> ?impl"
+  unfolding succs1_def
+  apply (abstract_let trans_impl trans_impl)
+  unfolding trans_impl_def
+  apply (abstract_let int_trans_impl int_trans_impl)
+  apply (abstract_let bin_trans_from_impl bin_trans_impl)
+  apply (abstract_let broad_trans_from_impl broad_trans_impl)
+  unfolding int_trans_impl_def bin_trans_from_impl_def broad_trans_from_impl_def
+  apply (abstract_let trans_in_broad_grouped trans_in_broad_grouped)
+  apply (abstract_let trans_out_broad_grouped trans_out_broad_grouped)
+  apply (abstract_let trans_in_map trans_in_map)
+  apply (abstract_let trans_out_map trans_out_map)
+  apply (abstract_let int_trans_from_all_impl int_trans_from_all_impl)
+  unfolding int_trans_from_all_impl_def
+  apply (abstract_let int_trans_from_vec_impl int_trans_from_vec_impl)
+  unfolding int_trans_from_vec_impl_def
+  apply (abstract_let int_trans_from_loc_impl int_trans_from_loc_impl)
+  unfolding int_trans_from_loc_impl_def
+  apply (abstract_let trans_i_map trans_i_map)
+  unfolding trans_out_broad_grouped_def trans_out_broad_map_def
+  unfolding trans_in_broad_grouped_def trans_in_broad_map_def
+  unfolding trans_in_map_def trans_out_map_def
+  unfolding trans_i_map_def
+  apply (abstract_let trans_map trans_map)
+  .
+
 schematic_goal succs_impl_alt_def:
   "impl.succs_precise'_impl \<equiv> ?impl"
   unfolding impl.succs_precise'_impl_def impl.succs_precise_inner_impl_def
@@ -340,6 +474,14 @@ schematic_goal succs_impl_alt_def:
   unfolding invs2_def
   apply (abstract_let n_ps n_ps)
   by (rule Pure.reflexive)
+
+end
+
+concrete_definition (in -) succs_impl
+  uses Simple_Network_Impl_nat_ceiling_start_state.succs1_alt_def
+
+context Simple_Network_Impl_nat_ceiling_start_state
+begin
 
 context
   fixes L_list and M_list :: "((nat list \<times> int list) \<times> int DBMEntry list list) list"
@@ -548,26 +690,22 @@ schematic_goal unreachability_checker3_alt_def:
   apply (subst impl.certify_unreachable_pure_def[
       OF state_impl_abstract', OF _ A assms(2,3) split_k'_full_split[of M_list, unfolded that]
       ], (simp; fail))
+  apply (abstract_let "impl.init_dbm_impl :: int DBMEntry Heap.array Heap" init_dbm)
+  unfolding impl.init_dbm_impl_def
   apply (abstract_let "impl.Mi M_list" Mi)
   apply (subst impl.Mi_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
    apply assumption
   unfolding check_deadlock_impl_alt_def impl.P_impl_def impl.F_impl_def
-  apply (abstract_let states'_memi check_states)
+  apply (abstract_let states'_memi check_state)
   unfolding states'_memi_def states_mem_compute'
   apply (abstract_let "map states_i [0..<n_ps]" states_i)
   apply (abstract_let "impl.succs_precise'_impl" succsi)
-  unfolding succs_impl_alt_def
-  unfolding k_impl_alt_def k_i_def
-  (* The following are just to unfold things that should have been defined in a defs locale *)
-  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
-  unfolding
-    impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
-    impl.unbounded_dbm'_def
-  unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
-  unfolding impl.subsumes_impl_def
-  unfolding impl.emptiness_check_impl_def
-  unfolding impl.state_copy_impl_def
-  by (rule Pure.reflexive)
+  unfolding succs_impl.refine[OF Simple_Network_Impl_nat_ceiling_start_state_axioms] succs1_refine
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  apply (abstract_let n_ps n_ps)
+  apply (abstract_let n_vs n_vs)
+  .
 
 definition no_deadlock_certifier3 where
   "no_deadlock_certifier3 \<equiv>
@@ -582,6 +720,8 @@ schematic_goal no_deadlock_certifier3_alt_def:
   apply (subst impl.deadlock_unreachability_checker3_def[
         OF state_impl_abstract', OF _ A assms(2,3) split_k'_full_split[of M_list, unfolded that]
         ], (simp; fail))
+  apply (abstract_let "impl.init_dbm_impl :: int DBMEntry Heap.array Heap" init_dbm)
+  unfolding impl.init_dbm_impl_def
   apply (abstract_let "impl.Mi M_list" Mi)
   apply (subst impl.Mi_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
    apply assumption
@@ -590,18 +730,12 @@ schematic_goal no_deadlock_certifier3_alt_def:
   unfolding states'_memi_def states_mem_compute'
   apply (abstract_let "map states_i [0..<n_ps]" states_i)
   apply (abstract_let "impl.succs_precise'_impl" succsi)
-  unfolding succs_impl_alt_def
-  unfolding k_impl_alt_def k_i_def
-  (* The following are just to unfold things that should have been defined in a defs locale *)
-  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
-  unfolding
-    impl.start_inv_check_impl_def impl.unbounded_dbm_impl_def
-    impl.unbounded_dbm'_def
-  unfolding impl.init_dbm_impl_def impl.a\<^sub>0_impl_def
-  unfolding impl.subsumes_impl_def
-  unfolding impl.emptiness_check_impl_def
-  unfolding impl.state_copy_impl_def
-  by (rule Pure.reflexive)
+  unfolding succs_impl.refine[OF Simple_Network_Impl_nat_ceiling_start_state_axioms] succs1_refine
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  apply (abstract_let n_ps n_ps)
+  apply (abstract_let n_vs n_vs)
+  .
 
 lemma no_deadlock_certifier3_refine':
     "no_deadlock_certifier3 L_list M_list (split_k' num_split M_list)

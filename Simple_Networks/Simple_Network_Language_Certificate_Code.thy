@@ -92,6 +92,9 @@ definition trace_state where
   }
 " for show_clock show_state
 
+definition
+  "show_str = String.implode o show"
+
 definition parse_convert_run_print where
   "parse_convert_run_print dc s \<equiv>
    case parse json s \<bind> convert of
@@ -104,16 +107,16 @@ definition parse_convert_run_print where
         case r of None \<Rightarrow> return () | Some r \<Rightarrow>
         do {
           r \<leftarrow> r;
-          let _ = ''Number of discrete states: '' @ show (length r) |> String.implode |> println;
-          let _ = ''Size of passed list: ''
-            @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
+          let _ = STR ''Number of discrete states: '' + (length r |> show_str) |> println;
+          let _ =
+            STR ''Size of passed list: '' + show_str (sum_list (map (length o snd) r)) |> println;
           let n = Simple_Network_Impl.clk_set' automata |> list_of_set |> length;
           r \<leftarrow> imp_map (\<lambda> (a, b). do {
               b \<leftarrow> imp_map (return o snd) b; b \<leftarrow> filter_dbm_list n b; return (a, b)
             }) r;
-          let _ = ''Number of discrete states: '' @ show (length r) |> String.implode |> println;
-          let _ = ''Size of passed list after removing subsumed states: ''
-            @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
+          let _ = STR ''Number of discrete states: '' + show_str (length r) |> println;
+          let _ = STR ''Size of passed list after removing subsumed states: ''
+            + show_str (sum_list (map (length o snd) r)) |> println;
           let show_dbm = (\<lambda>M. do {
             s \<leftarrow> show_dbm_impl_all n show_clk show M;
             return (''<'' @ s @ ''>'')
@@ -174,21 +177,24 @@ definition split_k'' :: "nat \<Rightarrow> ('a \<times> 'b list) list \<Rightarr
     width = (if length xs mod k = 0 then width else width + 1)
   in split_size (length o snd) width 0 [] xs"
 
+definition
+  "print_errors es = do {Heap_Monad.fold_map print_line_impl es; return ()}"
+
 definition parse_convert_run_check where
   "parse_convert_run_check mode num_split dc s \<equiv>
    case parse json s \<bind> convert of
-     Error es \<Rightarrow> do {let _ = map println es; return ()}
+     Error es \<Rightarrow> print_errors es
    | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
       let r = rename_state_space dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
       case r of
-        Error es \<Rightarrow> do {let _ = map println es; return ()}
+        Error es \<Rightarrow> print_errors es
       | Result (r, show_clk, show_st, renamings, k) \<Rightarrow>
         case r of None \<Rightarrow> return () | Some r \<Rightarrow> do {
         let t = now ();
         r \<leftarrow> r;
         let t = now () - t;
-        let _ = println (
-          STR ''Time for model checking + certificate extraction: '' + time_to_string t);
+        print_line_impl
+          (STR ''Time for model checking + certificate extraction: '' + time_to_string t);
         let (m,num_states,num_actions,renum_acts,renum_vars,renum_clocks,renum_states,
           inv_renum_states, inv_renum_vars, inv_renum_clocks
         ) = renamings;
@@ -201,17 +207,17 @@ definition parse_convert_run_check where
           }
         ) r;
         let _ = save_time STR ''Time for converting DBMs in certificate'';
-        let _ = println (
-          STR ''Number of discrete states of state space: '' + show_lit (length state_space));
-        let _ = ''Size of passed list: ''
-            @ show (sum_list (map (length o snd) r)) |> String.implode |> println;
-        let _ = ''DBM list length distribution: '' @ show (distr (map (length o snd) state_space))
-          |> String.implode |> println;
+        print_line_impl
+          (STR ''Number of discrete states of state space: '' + show_lit (length state_space));
+        let _ = STR ''Size of passed list: ''  + show_str (sum_list (map (length o snd) r))
+          |> println;
+        STR ''DBM list length distribution: '' + show_str (distr (map (length o snd) state_space))
+          |> print_line_impl;
         let split =
           (if mode = Impl3 then split_k'' num_split state_space else split_k num_split state_space);
         let split_distr = map (sum_list o map (length o snd)) split;
-        let _ = ''Size of passed list distribution after split: '' @ show split_distr
-          |> String.implode |> println;
+        STR ''Size of passed list distribution after split: '' + show_str split_distr
+          |> print_line_impl;
         let t = now ();
         check \<leftarrow> case mode of
           Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
@@ -224,12 +230,12 @@ definition parse_convert_run_check where
             m num_states num_actions renum_acts renum_vars renum_clocks renum_states
             state_space |> return;
         let t = now () - t;
-        let _ = println (STR ''Time for certificate checking: '' + time_to_string t);
+        print_line_impl (STR ''Time for certificate checking: '' + time_to_string t);
         case check of
-          Renaming_Failed \<Rightarrow> do {let _ = println STR ''Renaming failed''; return ()}
-        | Preconds_Unsat \<Rightarrow> do {let _ = println STR ''Preconditions were not met''; return ()}
-        | Sat \<Rightarrow> do {let _ = println STR ''Certificate was accepted''; return ()}
-        | Unsat \<Rightarrow> do {let _ = println STR ''Certificate was rejected''; return ()}
+          Renaming_Failed \<Rightarrow> print_line_impl (STR ''Renaming failed'')
+        | Preconds_Unsat \<Rightarrow> print_line_impl (STR ''Preconditions were not met'')
+        | Sat \<Rightarrow> print_line_impl (STR ''Certificate was accepted'')
+        | Unsat \<Rightarrow> print_line_impl (STR ''Certificate was rejected'')
         }
     }"
 
@@ -515,9 +521,89 @@ code_printing
 lemma [code]: "run_map_heap f xs = Parallel.map (run_heap o f) xs"
   unfolding run_map_heap_def Parallel.map_def ..
 
+code_printing code_module "Timing" \<rightharpoonup> (SML)
+\<open>
+structure Timing : sig
+  val start_timer: unit -> unit
+  val save_time: string -> unit
+  val get_timings: unit -> (string * Time.time) list
+  val set_cpu: bool -> unit
+end = struct
+
+  open Timer;
+
+  val is_cpu = Unsynchronized.ref false;
+  fun set_cpu b = is_cpu := b;
+
+  val cpu_timer: cpu_timer option Unsynchronized.ref = Unsynchronized.ref NONE;
+  val real_timer: real_timer option Unsynchronized.ref = Unsynchronized.ref NONE;
+
+  val timings = Unsynchronized.ref [];
+  fun start_timer () = (
+    if !is_cpu then
+      cpu_timer := SOME (startCPUTimer ())
+    else
+      real_timer := SOME (startRealTimer ()));
+  fun get_elapsed () = (
+    if !is_cpu then
+      #usr (!cpu_timer |> the |> checkCPUTimer)
+    else
+      (!real_timer |> the |> checkRealTimer));
+  fun save_time s = (timings := ((s, get_elapsed ()) :: !timings));
+  fun get_timings () = !timings;
+end
+\<close>
+
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
   Impl1 Impl2 Impl3
+  E_op_impl
   in SML module_name Model_Checker file "../ML/Certificate.sml"
+
+code_printing code_module "Printing" \<rightharpoonup> (Haskell)
+\<open>
+import qualified Debug.Trace;
+
+print s = Debug.Trace.trace s ();
+
+printM s = Debug.Trace.traceM s;
+\<close>
+
+code_printing
+  constant Printing.print \<rightharpoonup> (Haskell) "Printing.print _"
+(* 
+code_printing code_module "Timing" \<rightharpoonup> (Haskell)
+\<open>
+import Data.Time.Clock.System;
+
+now = systemToTAITime . Prelude.unsafePerformIO getSystemTime;
+\<close>
+ *)
+
+code_printing
+  constant print_line_impl \<rightharpoonup> (Haskell) "Printing.printM _"
+
+(* code_printing
+  constant "now" \<rightharpoonup> (Haskell) "Prelude.const (Time (Int'_of'_integer 0)) _"
+
+code_printing
+  constant "time_to_string" \<rightharpoonup> (Haskell) "Prelude.show _"
+
+code_printing
+  constant "(-) :: time \<Rightarrow> time \<Rightarrow> time" \<rightharpoonup> (Haskell)
+    "(case _ of Time a -> case _ of Time b -> Time (b - a))" *)
+
+code_printing
+  type_constructor time \<rightharpoonup> (Haskell) "Integer"
+  | constant "now" \<rightharpoonup> (Haskell) "Prelude.const 0"
+  | constant "time_to_string" \<rightharpoonup> (Haskell) "Prelude.show _"
+  | constant "(-) :: time \<Rightarrow> time \<Rightarrow> time" \<rightharpoonup> (Haskell) "(-)"
+
+code_printing
+  constant list_of_set' \<rightharpoonup> (Haskell) "(case _ of Set xs -> xs)"
+
+export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
+  nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
+  Impl1 Impl2 Impl3 in Haskell module_name Model_Checker file "../Haskell/"
 
 end
