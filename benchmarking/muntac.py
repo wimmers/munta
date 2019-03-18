@@ -13,7 +13,7 @@ class Tool(benchexec.tools.template.BaseTool):
 
 
     def cmdline(self, executable, options, tasks, propertyfile, rlimits):
-        suffix = ''
+        suffix = '_poly'
         if 'int' in options:
             suffix = '_int'
         elif 'imp' in options:
@@ -22,6 +22,11 @@ class Tool(benchexec.tools.template.BaseTool):
             suffix = '_ocaml'
         elif 'mlton' in options:
             suffix = '_mlton'
+
+        opts = []
+
+        if suffix == '_poly':
+            opts += ['-H', '2G'] 
 
         num_threads = 1
         if 'num-threads' in options:
@@ -33,7 +38,6 @@ class Tool(benchexec.tools.template.BaseTool):
             i = options.index('implementation')
             implementation=int(options[i + 1])
 
-        opts = []
         opts += ['-i', str(implementation)]
         opts += ['-n', str(num_threads)]
         
