@@ -163,52 +163,134 @@ do {
    }
 }"
 
-ML \<open>
-fun fib 0 = 0
-  | fib 1 = 1
-  | fib n = fib (n - 1) + fib (n - 2)
-\<close>
-
-definition dbm_add_int2 :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> int DBMEntry" where
-  "dbm_add_int2 = dbm_add"
-
-ML \<open>
-fun dbm_add1_test1 x y = @{code dbm_add_int} (@{code Le} x) (@{code Lt} y)
-fun dbm_add2_test1 x y = @{code dbm_add_int2} (@{code Le} x) (@{code Lt} y)
-fun for_n f n = if n <= 0 then () else (f (); for_n f (n - 1))
-\<close>
-
-ML_val \<open>for_n (fn x => for_n (fn y => dbm_add1_test1) 100000) 10000\<close>
-
-ML_val \<open>for_n (fn x => for_n (fn y => dbm_add2_test1) 100000) 10000\<close>
 
 
+paragraph \<open>Full Monomorphization of @{term E_op_impl}\<close>
+
+definition min_int :: "int \<Rightarrow> int \<Rightarrow> int" where
+  "min_int x y \<equiv> if x \<le> y then x else y"
+
+named_theorems int_folds
+
+lemma min_int_fold[int_folds]:
+  "min = min_int"
+  unfolding min_int_def min_def ..
+
+fun min_int_entry :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> int DBMEntry" where
+  "min_int_entry (Lt x) (Lt y) = (if x \<le> y then Lt x else Lt y)"
+| "min_int_entry (Lt x) (Le y) = (if x \<le> y then Lt x else Le y)"
+| "min_int_entry (Le x) (Lt y) = (if x < y then Le x else Lt y)"
+| "min_int_entry (Le x) (Le y) = (if x \<le> y then Le x else Le y)"
+| "min_int_entry \<infinity> x = x"
+| "min_int_entry x \<infinity> = x"
 
 
+export_code min_int_entry in SML
 
-export_code dbm_add dbm_add_int
-  in SML module_name Model_Checker
+lemma min_int_entry[int_folds]:
+  "min = min_int_entry"
+  apply (intro ext)
+  subgoal for a b
+    by (cases a; cases b; simp add: dbm_entry_simps)
+  done
 
-definition dbm_add_int :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> int DBMEntry" where
-  "dbm_add_int = dbm_add"
+definition abstra_upd_impl_int
+  :: "nat \<Rightarrow> (nat, int) acconstraint \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array Heap"
+  where [symmetric, int_folds]:
+    "abstra_upd_impl_int = abstra_upd_impl"
 
-code_thms dbm_add
+schematic_goal abstra_upd_impl_int_code[code]:
+  "abstra_upd_impl_int \<equiv> ?i"
+  unfolding abstra_upd_impl_int_def[symmetric] abstra_upd_impl_def
+  unfolding int_folds
+  .
 
-lemma [code]:
-  "dbm_add_int \<infinity> x = \<infinity>"
-  "dbm_add_int x \<infinity> = \<infinity>"
-  "dbm_add_int (Lt a) (Lt b) = Lt (a + b)"
-  "dbm_add_int (Le a) (Lt b) = Lt (a + b)"
-  "dbm_add_int (Lt a) (Le b) = Lt (a + b)"
-  "dbm_add_int (Le a) (Le b) = Le (a + b)"
-  unfolding dbm_add_int_def by (cases x; simp; fail)+
+definition fw_upd_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int DBMEntry Heap.array Heap"
+  where [symmetric, int_folds]:
+  "fw_upd_impl_int = fw_upd_impl"
 
-export_code dbm_add dbm_add_int
-  in SML module_name Model_Checker
+lemmas [int_folds] = DBM.add dbm_add_int
 
-thm fw_impl_int_def
+schematic_goal [code]:
+  "fw_upd_impl_int \<equiv> ?i"
+  unfolding fw_upd_impl_int_def[symmetric] fw_upd_impl_def
+  unfolding int_folds
+  .
 
-value "dbm_add_int (Lt 1) (Le 2)"
+definition fwi_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> nat \<Rightarrow> int DBMEntry Heap.array Heap"
+  where [symmetric, int_folds]:
+  "fwi_impl_int = fwi_impl"
+
+schematic_goal [code]:
+  "fwi_impl_int \<equiv> ?i"
+  unfolding fwi_impl_int_def[symmetric] fwi_impl_def
+  unfolding int_folds
+  .
+
+definition repair_pair_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int DBMEntry Heap.array Heap"
+  where [symmetric, int_folds]:
+  "repair_pair_impl_int \<equiv> repair_pair_impl"
+
+schematic_goal repair_pair_impl_int_code[code]:
+  "repair_pair_impl_int \<equiv> ?i"
+  unfolding repair_pair_impl_int_def[symmetric] repair_pair_impl_def
+  unfolding int_folds
+  .
+
+definition abstr_repair_impl_int
+  :: "nat \<Rightarrow> (nat, int) acconstraint list \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array Heap"
+  where [symmetric, int_folds]:
+  "abstr_repair_impl_int = abstr_repair_impl"
+
+schematic_goal abstr_repair_impl_int_code[code]:
+  "abstr_repair_impl_int \<equiv> ?i"
+  unfolding abstr_repair_impl_int_def[symmetric] abstr_repair_impl_def
+  unfolding int_folds
+  .
+
+definition check_diag_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
+  where [symmetric, int_folds]:
+    "check_diag_impl_int = check_diag_impl"
+
+schematic_goal check_diag_impl_int_code[code]:
+  "check_diag_impl_int \<equiv> ?i"
+  unfolding check_diag_impl_int_def[symmetric] check_diag_impl_def
+  unfolding int_folds
+  .
+
+definition reset_canonical_upd_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _"
+  where [symmetric, int_folds]:
+    "reset_canonical_upd_impl_int = reset_canonical_upd_impl"
+
+schematic_goal reset_canonical_upd_impl_int_code[code]:
+  "reset_canonical_upd_impl_int \<equiv> ?i"
+  unfolding reset_canonical_upd_impl_int_def[symmetric] reset_canonical_upd_impl_def
+  unfolding int_folds
+  .
+
+definition up_canonical_upd_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _"
+  where [symmetric, int_folds]:
+  "up_canonical_upd_impl_int = up_canonical_upd_impl"
+
+schematic_goal up_canonical_upd_impl_int_code[code]:
+  "up_canonical_upd_impl_int \<equiv> ?i"
+  unfolding up_canonical_upd_impl_int_def[symmetric] up_canonical_upd_impl_def
+  .
+
+schematic_goal E_op_impl_code[code]:
+  "E_op_impl \<equiv> ?i"
+  unfolding E_op_impl_def
+  unfolding int_folds
+  .
+
+
+paragraph \<open>Extracting executable implementations\<close>
 
 lemma hfkeep_hfdropI:
   assumes "(fi, f) \<in> A\<^sup>k \<rightarrow>\<^sub>a B"
