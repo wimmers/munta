@@ -40,7 +40,16 @@ class Tool(benchexec.tools.template.BaseTool):
 
         opts += ['-i', str(implementation)]
         opts += ['-n', str(num_threads)]
-        
+
+        def add_option(name, opt):
+            nonlocal opts
+            if name in options:
+                v = options[options.index(name)+1]
+                opts += [opt, v]
+
+        add_option('certificate', '-c')
+        add_option('renaming', '-r')
+
         if 'deadlock' in options:
             opts += ['-dc']
 
