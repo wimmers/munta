@@ -28,7 +28,7 @@
             "edges": [
                 {
                     "source": 0, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x1:=0", 
                     "target": 1, 
                     "label": ""
@@ -42,14 +42,14 @@
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x1:=0", 
                     "target": 1, 
                     "label": ""
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==1&& x1>2", 
+                    "guard": "id=1&& x1>2", 
                     "update": "", 
                     "target": 3, 
                     "label": ""
@@ -91,7 +91,7 @@
             "edges": [
                 {
                     "source": 0, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x2:=0", 
                     "target": 1, 
                     "label": ""
@@ -105,14 +105,14 @@
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x2:=0", 
                     "target": 1, 
                     "label": ""
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==2&& x2>2", 
+                    "guard": "id=2&& x2>2", 
                     "update": "", 
                     "target": 3, 
                     "label": ""
@@ -154,7 +154,7 @@
             "edges": [
                 {
                     "source": 2, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x3:=0", 
                     "target": 3, 
                     "label": ""
@@ -168,14 +168,14 @@
                 }, 
                 {
                     "source": 0, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x3:=0", 
                     "target": 3, 
                     "label": ""
                 }, 
                 {
                     "source": 0, 
-                    "guard": "id==3&& x3>2", 
+                    "guard": "id=3&& x3>2", 
                     "update": "", 
                     "target": 1, 
                     "label": ""
@@ -217,7 +217,7 @@
             "edges": [
                 {
                     "source": 0, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x4:=0", 
                     "target": 1, 
                     "label": ""
@@ -231,14 +231,14 @@
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x4:=0", 
                     "target": 1, 
                     "label": ""
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==4&& x4>2", 
+                    "guard": "id=4&& x4>2", 
                     "update": "", 
                     "target": 3, 
                     "label": ""
@@ -280,7 +280,7 @@
             "edges": [
                 {
                     "source": 0, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x5:=0", 
                     "target": 1, 
                     "label": ""
@@ -294,14 +294,14 @@
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==0", 
+                    "guard": "id=0", 
                     "update": "x5:=0", 
                     "target": 1, 
                     "label": ""
                 }, 
                 {
                     "source": 2, 
-                    "guard": "id==5&& x5>2", 
+                    "guard": "id=5&& x5>2", 
                     "update": "", 
                     "target": 3, 
                     "label": ""
