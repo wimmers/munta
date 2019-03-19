@@ -404,13 +404,9 @@ structure Gabow_Skeleton_Statistics = struct end
 
 structure Model_Checker : sig
   datatype int = Int_of_integer of IntInf.int
-  type 'a equal
-  type 'a heap
   type nat
   val nat_of_integer : IntInf.int -> nat
   type char
-  type 'a uminus
-  type 'a linordered_cancel_ab_monoid_add
   datatype 'a dBMEntry = Le of 'a | Lt of 'a | INF
   type 'a act
   type ('a, 'b) bexp
@@ -426,13 +422,12 @@ structure Model_Checker : sig
   datatype mode = Impl1 | Impl2 | Impl3
   type ('a, 'b, 'c, 'd) formula
   val e_op_impl :
-    'a linordered_cancel_ab_monoid_add * 'a uminus * 'a equal * 'a heap ->
-      nat ->
-        (nat, 'a) acconstraint list ->
-          nat list ->
-            (nat, 'a) acconstraint list ->
-              (nat, 'a) acconstraint list ->
-                'a dBMEntry array -> (unit -> ('a dBMEntry array))
+    nat ->
+      (nat, int) acconstraint list ->
+        nat list ->
+          (nat, int) acconstraint list ->
+            (nat, int) acconstraint list ->
+              int dBMEntry array -> (unit -> (int dBMEntry array))
   val parse_convert_check :
     mode ->
       nat ->
@@ -7378,64 +7373,185 @@ fun print_errors es =
   (fn f_ => fn () => f_ ((fold_map print_line_impl es) ()) ())
     (fn _ => (fn () => ()));
 
-fun abstr_repair_impl (A1_, A2_, A3_, A4_) m =
-  (fn ai =>
+fun reset_canonical_upd_impl_int x =
+  (fn n => fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_
+      ((mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, zero_nata) (Le bi))
+      ()) ())
+      (fn xa =>
+        (fn f_ => fn () => f_
+          ((mtx_set (heap_DBMEntry heap_int) (suc n) xa (zero_nata, bia)
+             (Le (uminus_inta bi)))
+          ()) ())
+          (imp_fora one_nata (plus_nata bib one_nata)
+            (fn xb => fn sigma =>
+              (if equal_nata xb bia then (fn () => sigma)
+                else (fn f_ => fn () => f_
+                       ((mtx_get (heap_DBMEntry heap_int) (suc n) sigma
+                          (zero_nata, xb))
+                       ()) ())
+                       (fn x_d =>
+                         (fn f_ => fn () => f_
+                           ((mtx_get (heap_DBMEntry heap_int) (suc n) sigma
+                              (xb, zero_nata))
+                           ()) ())
+                           (fn x_e =>
+                             (fn f_ => fn () => f_
+                               ((mtx_set (heap_DBMEntry heap_int) (suc n) sigma
+                                  (bia, xb) (dbm_add_int (Le bi) x_d))
+                               ()) ())
+                               (fn x_f =>
+                                 mtx_set (heap_DBMEntry heap_int) (suc n) x_f
+                                   (xb, bia)
+                                   (dbm_add_int (Le (uminus_inta bi))
+                                     x_e)))))))))
+    x;
+
+fun up_canonical_upd_impl_int x =
+  (fn n => fn ai => fn bi =>
+    imp_fora one_nata (plus_nata bi one_nata)
+      (fn xa => fn sigma =>
+        mtx_set (heap_DBMEntry heap_int) (suc n) sigma (xa, zero_nata) INF)
+      ai)
+    x;
+
+fun min_int_entry (Lt x) (Lt y) = (if less_eq_int x y then Lt x else Lt y)
+  | min_int_entry (Lt x) (Le y) = (if less_eq_int x y then Lt x else Le y)
+  | min_int_entry (Le x) (Lt y) = (if less_int x y then Le x else Lt y)
+  | min_int_entry (Le x) (Le y) = (if less_eq_int x y then Le x else Le y)
+  | min_int_entry INF x = x
+  | min_int_entry (Le v) INF = Le v
+  | min_int_entry (Lt v) INF = Lt v;
+
+fun fw_upd_impl_inta x =
+  (fn n => fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
+      (fn xa =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
+          (fn xaa =>
+            (fn f_ => fn () => f_
+              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
+              (fn xb =>
+                mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
+                  (min_int_entry xa (dbm_add_int xaa xb))))))
+    x;
+
+fun fwi_impl_int x =
+  (fn n => fn ai => fn bi =>
+    imp_fora zero_nata (plus_nata n one_nata)
+      (fn xa =>
+        imp_fora zero_nata (plus_nata n one_nata)
+          (fn xc => fn sigma => fw_upd_impl_inta n sigma bi xa xc))
+      ai)
+    x;
+
+fun repair_pair_impl_int x =
+  (fn n => fn ai => fn bia => fn bi =>
+    (fn f_ => fn () => f_ ((fwi_impl_int n ai bi) ()) ())
+      (fn xa => fwi_impl_int n xa bia))
+    x;
+
+fun abstra_upd_impl_int x =
+  (fn n => fn ai => fn bi =>
+    (case ai
+      of LT (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (x41a, zero_nata)) ())
+          ())
+          (fn xa =>
+            mtx_set (heap_DBMEntry heap_int) (suc n) bi (x41a, zero_nata)
+              (min_int_entry xa (Lt x42a)))
+      | LE (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (x41a, zero_nata)) ())
+          ())
+          (fn xa =>
+            mtx_set (heap_DBMEntry heap_int) (suc n) bi (x41a, zero_nata)
+              (min_int_entry xa (Le x42a)))
+      | EQ (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (zero_nata, x41a)) ())
+          ())
+          (fn xa =>
+            (fn f_ => fn () => f_
+              ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (x41a, zero_nata))
+              ()) ())
+              (fn x_a =>
+                (fn f_ => fn () => f_
+                  ((mtx_set (heap_DBMEntry heap_int) (suc n) bi
+                     (zero_nata, x41a)
+                     (min_int_entry xa (Le (uminus_inta x42a))))
+                  ()) ())
+                  (fn x_b =>
+                    mtx_set (heap_DBMEntry heap_int) (suc n) x_b
+                      (x41a, zero_nata) (min_int_entry x_a (Le x42a)))))
+      | GT (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (zero_nata, x41a)) ())
+          ())
+          (fn xa =>
+            mtx_set (heap_DBMEntry heap_int) (suc n) bi (zero_nata, x41a)
+              (min_int_entry xa (Lt (uminus_inta x42a))))
+      | GE (x41a, x42a) =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) bi (zero_nata, x41a)) ())
+          ())
+          (fn xa =>
+            mtx_set (heap_DBMEntry heap_int) (suc n) bi (zero_nata, x41a)
+              (min_int_entry xa (Le (uminus_inta x42a))))))
+    x;
+
+fun abstr_repair_impl_int x =
+  (fn m => fn ai =>
     imp_nfoldli ai (fn _ => (fn () => true))
       (fn aia => fn bi =>
-        (fn f_ => fn () => f_ ((abstra_upd_impl (A1_, A2_, A3_, A4_) m aia bi)
-          ()) ())
-          (fn x =>
-            repair_pair_impl
-              (linordered_ab_monoid_add_DBMEntry (A1_, A3_), heap_DBMEntry A4_)
-              m x zero_nata (constraint_clk aia))));
+        (fn f_ => fn () => f_ ((abstra_upd_impl_int m aia bi) ()) ())
+          (fn xa => repair_pair_impl_int m xa zero_nata (constraint_clk aia))))
+    x;
 
-fun e_op_impl (A1_, A2_, A3_, A4_) ma l_inva r g l_inv m =
-  (fn f_ => fn () => f_ ((up_canonical_upd_impl (A1_, A4_) ma m ma) ()) ())
-    (fn m1 =>
-      (fn f_ => fn () => f_
-        ((abstr_repair_impl (A1_, A2_, A3_, A4_) ma l_inva m1) ()) ())
-        (fn m2 =>
-          (fn f_ => fn () => f_ ((check_diag_impl (A1_, A4_) ma m2) ()) ())
-            (fn is_empty1 =>
-              (fn f_ => fn () => f_
-                ((if is_empty1
-                   then mtx_set (heap_DBMEntry A4_) (suc ma) m2
-                          (zero_nata, zero_nata)
-                          (Lt (zero ((zero_monoid_add o
-                                       monoid_add_comm_monoid_add o
-                                       comm_monoid_add_ordered_comm_monoid_add o
-                                       ordered_comm_monoid_add_linordered_ab_monoid_add o
-                                       linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                                      A1_)))
-                   else abstr_repair_impl (A1_, A2_, A3_, A4_) ma g m2)
-                ()) ())
-                (fn m3 =>
-                  (fn f_ => fn () => f_ ((check_diag_impl (A1_, A4_) ma m3) ())
-                    ())
-                    (fn is_empty3 =>
-                      (if is_empty3
-                        then mtx_set (heap_DBMEntry A4_) (suc ma) m3
-                               (zero_nata, zero_nata)
-                               (Lt (zero ((zero_monoid_add o
-    monoid_add_comm_monoid_add o comm_monoid_add_ordered_comm_monoid_add o
-    ordered_comm_monoid_add_linordered_ab_monoid_add o
-    linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-   A1_)))
-                        else (fn f_ => fn () => f_
-                               ((imp_nfoldli r (fn _ => (fn () => true))
-                                  (fn xc => fn sigma =>
-                                    reset_canonical_upd_impl (A1_, A2_, A4_) ma
-                                      sigma ma xc
-                                      (zero
-((zero_monoid_add o monoid_add_comm_monoid_add o
-   comm_monoid_add_ordered_comm_monoid_add o
-   ordered_comm_monoid_add_linordered_ab_monoid_add o
-   linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-  A1_)))
-                                  m3)
-                               ()) ())
-                               (abstr_repair_impl (A1_, A2_, A3_, A4_) ma
-                                 l_inv)))))));
+fun check_diag_impl_int x =
+  (fn n => fn xi =>
+    imp_for zero_nata (suc n) (fn sigma => (fn () => (not sigma)))
+      (fn xc => fn sigma =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) xi (xc, xc)) ()) ())
+          (fn xa =>
+            (fn () =>
+              (less_DBMEntry linorder_int xa (Le zero_inta) orelse sigma))))
+      false)
+    x;
+
+fun e_op_impl x =
+  (fn m => fn l_inv => fn r => fn g => fn l_inva => fn ma =>
+    (fn f_ => fn () => f_ ((up_canonical_upd_impl_int m ma m) ()) ())
+      (fn m1 =>
+        (fn f_ => fn () => f_ ((abstr_repair_impl_int m l_inv m1) ()) ())
+          (fn m2 =>
+            (fn f_ => fn () => f_ ((check_diag_impl_int m m2) ()) ())
+              (fn is_empty1 =>
+                (fn f_ => fn () => f_
+                  ((if is_empty1
+                     then mtx_set (heap_DBMEntry heap_int) (suc m) m2
+                            (zero_nata, zero_nata) (Lt zero_inta)
+                     else abstr_repair_impl_int m g m2)
+                  ()) ())
+                  (fn m3 =>
+                    (fn f_ => fn () => f_ ((check_diag_impl_int m m3) ()) ())
+                      (fn is_empty3 =>
+                        (if is_empty3
+                          then mtx_set (heap_DBMEntry heap_int) (suc m) m3
+                                 (zero_nata, zero_nata) (Lt zero_inta)
+                          else (fn f_ => fn () => f_
+                                 ((imp_nfoldli r (fn _ => (fn () => true))
+                                    (fn xc => fn sigma =>
+                                      reset_canonical_upd_impl_int m sigma m xc
+zero_inta)
+                                    m3)
+                                 ()) ())
+                                 (abstr_repair_impl_int m l_inva))))))))
+    x;
 
 fun certify_unreachable_impl2 (A1_, A2_, A3_) B_ fi pi copyi lei l_0i s_0i
   succsi splitteri l_list m_table =
@@ -7786,10 +7902,7 @@ end)
             maps (fn i => sub (sub invs i) (nth l i)) (upt zero_nata n_ps));
         val e_op_impla =
           (fn l => fn r => fn g => fn la =>
-            e_op_impl
-              (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int,
-                heap_int)
-              m (inv_fun l) r g (inv_fun la));
+            e_op_impl m (inv_fun l) r g (inv_fun la));
       in
         (fn l_s => fn ma =>
           (if null ma then (fn () => [])
