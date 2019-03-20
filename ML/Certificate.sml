@@ -3620,12 +3620,13 @@ fun fw_upd_impl_integer n a k i j =
 
 fun fwi_impl_int n a k =
   imp_fora_inner (0 : IntInf.int)
-    (IntInf.+ (integer_of_nat n, (1 : IntInf.int)))
-    (fn x =>
+    (integer_of_nat (plus_nata (nat_of_integer (integer_of_nat n)) one_nata))
+    (fn i =>
       imp_fora_inner (0 : IntInf.int)
-        (IntInf.+ (integer_of_nat n, (1 : IntInf.int)))
-        (fn xa => fn sigma =>
-          fw_upd_impl_integer (integer_of_nat n) sigma (integer_of_nat k) x xa))
+        (integer_of_nat
+          (plus_nata (nat_of_integer (integer_of_nat n)) one_nata))
+        (fn ia => fn xa =>
+          fw_upd_impl_integer (integer_of_nat n) xa (integer_of_nat k) i ia))
     a;
 
 fun repair_pair_impl_int x =

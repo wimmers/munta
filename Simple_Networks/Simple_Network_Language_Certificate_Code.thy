@@ -631,17 +631,26 @@ code_printing constant array_unfreeze' \<rightharpoonup> (SML)
 partial_function (heap) imp_for_int_inner :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
   "imp_for_int_inner i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int_inner (i + 1) u c f else return s})"
 
+lemma integer_of_nat_le_simp:
+  "integer_of_nat i \<le> integer_of_nat u \<longleftrightarrow> i \<le> u"
+  unfolding integer_of_nat_eq_of_nat by simp
+
 lemma imp_for_imp_for_int_inner[code_unfold]:
-  "imp_for i u c f s \<equiv> imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
+  "imp_for i u c f s
+  = imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
   apply (induction "u - i" arbitrary: i u s)
-  apply (simp add: imp_for_int_inner)
-  apply (simp; fail)
-  apply simp
+   apply (simp add: integer_of_nat_le_simp imp_for_int_inner.simps; fail)
+  apply (subst imp_for_int_inner.simps, simp add: integer_of_nat_le_simp)
+  apply auto
+  apply (fo_rule arg_cong, rule ext)
+  apply clarsimp
   apply (fo_rule arg_cong)
-  by auto
+  apply (auto simp: algebra_simps integer_of_nat_eq_of_nat)
+  done
 
 definition
-  "imp_for_int i u c f s \<equiv> imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
+  "imp_for_int i u c f s \<equiv>
+  imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
 
 lemma imp_for_imp_for_int[code_unfold]:
   "imp_for = imp_for_int"
@@ -649,15 +658,37 @@ lemma imp_for_imp_for_int[code_unfold]:
 
 partial_function (heap) imp_for'_int_inner ::
   "integer \<Rightarrow> integer \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
-  "imp_for'_int_inner i u f s = (if i \<ge> u then return s else f i s \<bind> imp_for'_int_inner (i + 1) u f)"
+  "imp_for'_int_inner i u f s =
+    (if i \<ge> u then return s else f i s \<bind> imp_for'_int_inner (i + 1) u f)"
 
 lemma imp_for'_imp_for_int_inner:
-  "imp_for' i u f s \<equiv> imp_for'_int_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
-  thm imp_for'.simps
-  sorry
+  "imp_for' i u f s \<equiv>
+  imp_for'_int_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
+  apply (induction "u - i" arbitrary: i u s)
+   apply (simp add: integer_of_nat_le_simp imp_for'_int_inner.simps; fail)
+  apply (subst imp_for'_int_inner.simps, simp add: integer_of_nat_le_simp)
+  apply auto
+  apply (fo_rule arg_cong, rule ext)
+  apply (auto simp: algebra_simps integer_of_nat_eq_of_nat)
+  done
+
+lemma imp_for'_int_cong:
+  "imp_for' l u f a = imp_for' l u g a"
+  if "\<And> i x. l \<le> i \<Longrightarrow> i < u \<Longrightarrow> f i x = g i x"
+  using that
+  apply (induction "u - l" arbitrary: l u a)
+   apply (simp add: imp_for'.simps; fail)
+  apply (subst imp_for'.simps, simp add: integer_of_nat_le_simp)
+  apply safe
+  apply clarsimp
+  apply (fo_rule arg_cong)
+  apply auto
+  done
+
 
 definition
-  "imp_for'_int i u f s \<equiv> imp_for'_int_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
+  "imp_for'_int i u f s \<equiv>
+  imp_for'_int_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
 
 lemma imp_for'_imp_for_int[code_unfold, int_folds]:
   "imp_for' = imp_for'_int"
@@ -722,22 +753,47 @@ lemma fw_upd_impl_integer_code[code]:
 "
   sorry
 
+thm nat_of_integer_of_nat
+
 lemma nat_of_integer_add:
   "nat_of_integer i + nat_of_integer j = nat_of_integer (i + j)" if "i \<ge> 0" "j \<ge> 0"
-  using that
-  sorry
+proof -
+  have *: "nat a + nat b = nat (a + b)" if "a \<ge> 0" "b \<ge> 0" for a b
+    using that by simp
+  show ?thesis
+    unfolding nat_of_integer.rep_eq
+    apply (simp add: *)
+    apply (subst *)
+    subgoal
+      using zero_integer.rep_eq less_eq_integer.rep_eq that by metis
+    subgoal
+      using zero_integer.rep_eq less_eq_integer.rep_eq that by metis
+    ..
+qed
 
 lemma nat_of_integer_mult:
   "nat_of_integer i * nat_of_integer j = nat_of_integer (i * j)" if "i \<ge> 0" "j \<ge> 0"
   using that
-  sorry
-
-code_thms fw_upd_impl
+proof -
+  have *: "nat a * nat b = nat (a * b)" if "a \<ge> 0" "b \<ge> 0" for a b
+    using that by (simp add: nat_mult_distrib)
+  show ?thesis
+    unfolding nat_of_integer.rep_eq
+    apply simp
+    apply (subst *)
+    subgoal
+      using zero_integer.rep_eq less_eq_integer.rep_eq that by metis
+    subgoal
+      using zero_integer.rep_eq less_eq_integer.rep_eq that by metis
+    ..
+qed
 
 lemma fw_upd_impl_int_fw_upd_impl_integer:
   "fw_upd_impl_int (nat_of_integer n) a (nat_of_integer k) (nat_of_integer i) (nat_of_integer j)
-= fw_upd_impl_integer n a k i j" if "i \<ge> 0" "j \<ge> 0" "k \<ge> 0" "n \<ge> 0"
-  unfolding fw_upd_impl_integer_def fw_upd_impl_int_def[symmetric] fw_upd_impl_def mtx_get_def mtx_set_def
+= fw_upd_impl_integer n a k i j"
+  if "i \<ge> 0" "j \<ge> 0" "k \<ge> 0" "n \<ge> 0"
+  unfolding
+    fw_upd_impl_integer_def fw_upd_impl_int_def[symmetric] fw_upd_impl_def mtx_get_def mtx_set_def
   unfolding int_folds
   unfolding nth_integer_def upd_integer_def
   using that
@@ -756,30 +812,90 @@ lemma fwi_impl_int_eq1:
   "fwi_impl_int n a k \<equiv> fwi_impl_integer (integer_of_nat n) a (integer_of_nat k)"
   unfolding fwi_impl_integer_def fwi_impl_int_def by simp
 
+
+
+lemma
+  "integer_of_nat (nat_of_integer x) = x" if "x \<ge> 0"
+  sorry
+
+partial_function (heap) imp_for'_int_int ::
+  "int \<Rightarrow> int \<Rightarrow> (int \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
+  "imp_for'_int_int i u f s =
+    (if i \<ge> u then return s else f i s \<bind> imp_for'_int_int (i + 1) u f)"
+
+lemma int_bounds_up_induct:
+  assumes "\<And>l. u \<le> (l :: int) \<Longrightarrow> P l u"
+  and "\<And> l. P (l + 1) u \<Longrightarrow> l < u \<Longrightarrow> P l u"
+shows "P l u"
+proof (cases "u \<le> l")
+  case True
+  then show ?thesis
+    by (rule assms(1))
+next
+  case False
+  then have "l \<le> u"
+    by auto
+  then show ?thesis
+    apply (induction "nat (u - l)" arbitrary: l)
+     apply (auto intro: assms(1); fail)
+    apply (auto intro: assms(2))
+    done
+qed
+
+lemma imp_for'_int_int_cong:
+  "imp_for'_int_int l u f a = imp_for'_int_int l u g a"
+  if "\<And> i x. l \<le> i \<Longrightarrow> i < u \<Longrightarrow> f i x = g i x"
+  using that
+  apply (induction arbitrary: a rule: int_bounds_up_induct)
+   apply (simp add: imp_for'_int_int.simps; fail)
+  apply (subst (2) imp_for'_int_int.simps)
+  apply (subst imp_for'_int_int.simps)
+  apply simp
+  apply (fo_rule arg_cong, rule ext)
+  .
+
+lemma plus_int_int_of_integer_aux:
+  "(plus_int (int_of_integer l) 1) = int_of_integer (l + 1)"
+  by simp
+
+lemma imp_for'_int_inner_imp_for'_int_int:
+  "imp_for'_int_inner l u f a
+= imp_for'_int_int (int_of_integer l) (int_of_integer u) (f o integer_of_int) a"
+  apply (induction "int_of_integer l" "int_of_integer u" arbitrary: a l u rule: int_bounds_up_induct)
+   apply (simp add: imp_for'_int_int.simps imp_for'_int_inner.simps less_eq_integer.rep_eq; fail)
+  apply (subst imp_for'_int_int.simps)
+  apply (subst imp_for'_int_inner.simps)
+  apply (simp add: less_eq_integer.rep_eq)
+  apply (fo_rule arg_cong, rule ext)
+  apply (subst plus_int_int_of_integer_aux)
+  apply rprems
+  using plus_int_int_of_integer_aux by metis+
+
+lemma imp_for'_int_inner_cong:
+  "imp_for'_int_inner l u f a = imp_for'_int_inner l u g a"
+  if "\<And> i x. l \<le> i \<Longrightarrow> i < u \<Longrightarrow> f i x = g i x"
+  unfolding imp_for'_int_inner_imp_for'_int_int
+  by (rule imp_for'_int_int_cong)(auto simp: less_eq_integer.rep_eq less_integer.rep_eq intro: that)
+
 schematic_goal fwi_impl_int_unfold1:
-  "fwi_impl_int (nat_of_integer n) a (nat_of_integer k) \<equiv> ?i"
+  "fwi_impl_int (nat_of_integer n) a (nat_of_integer k) = ?i" if "0 \<le> k" "0 \<le> n"
   unfolding fwi_impl_int_def[symmetric] fwi_impl_def
   unfolding int_folds
   unfolding imp_for'_int_def
   unfolding comp_def integer_of_nat_0
-  apply (subst fw_upd_impl_int_fw_upd_impl_integer)
-  subgoal sorry
-  subgoal sorry
-  subgoal sorry
-subgoal sorry
-  apply (subst integer_of_nat_aux)
-  subgoal sorry
-apply (subst integer_of_nat_aux)
-  subgoal sorry
-  .
+  apply (rule imp_for'_int_inner_cong)
+  apply (rule imp_for'_int_inner_cong)
+  apply (rule fw_upd_impl_int_fw_upd_impl_integer)
+  by (assumption | rule that)+
 
 schematic_goal fwi_impl_int_code [code]:
   "fwi_impl_int n a k \<equiv> ?x"
   unfolding fwi_impl_int_eq1
   unfolding fwi_impl_integer_def
-  unfolding fwi_impl_int_unfold1
+  apply (subst fwi_impl_int_unfold1)
+    apply (simp add: integer_of_nat_eq_of_nat; fail)
+   apply (simp add: integer_of_nat_eq_of_nat; fail)
   .
-
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
