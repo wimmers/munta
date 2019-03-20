@@ -659,7 +659,7 @@ lemma imp_for'_imp_for_int_inner:
 definition
   "imp_for'_int i u f s \<equiv> imp_for'_int_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
 
-lemma imp_for'_imp_for_int[code_unfold]:
+lemma imp_for'_imp_for_int[code_unfold, int_folds]:
   "imp_for' = imp_for'_int"
   by (intro ext, unfold imp_for'_int_def imp_for'_imp_for_int_inner, rule HOL.refl)
 
@@ -686,6 +686,87 @@ code_reserved SML imp_for_inner imp_fora_inner
 code_printing
   constant imp_for_int_inner \<rightharpoonup> (SML) "imp'_for'_inner"
 | constant imp_for'_int_inner \<rightharpoonup> (SML) "imp'_fora'_inner"
+
+
+definition
+  "nth_integer a n = Array.nth a (nat_of_integer n)"
+
+definition
+  "upd_integer n x a = Array.upd (nat_of_integer n) x a"
+
+code_printing
+  constant upd_integer \<rightharpoonup> (SML) "(fn a => fn () => (Array.update (a, IntInf.toInt _, _); a)) _"
+| constant nth_integer \<rightharpoonup> (SML) "(fn () => Array.sub (_, IntInf.toInt _))"
+
+definition
+  "fw_upd_impl_integer n a k i j = do {
+  let n = n + 1;
+  let i' = i * n + j;
+  x \<leftarrow> nth_integer a i';
+  y \<leftarrow> nth_integer a (i * n + k);
+  z \<leftarrow> nth_integer a (k * n + j);
+  upd_integer i' (min_int_entry x (dbm_add_int y z)) a
+}
+"
+
+lemma nat_of_integer_add:
+  "nat_of_integer i + nat_of_integer j = nat_of_integer (i + j)" if "i \<ge> 0" "j \<ge> 0"
+  using that
+  sorry
+
+lemma nat_of_integer_mult:
+  "nat_of_integer i * nat_of_integer j = nat_of_integer (i * j)" if "i \<ge> 0" "j \<ge> 0"
+  using that
+  sorry
+
+code_thms fw_upd_impl
+
+lemma fw_upd_impl_int_fw_upd_impl_integer:
+  "fw_upd_impl_int (nat_of_integer n) a (nat_of_integer k) (nat_of_integer i) (nat_of_integer j)
+= fw_upd_impl_integer n a k i j" if "i \<ge> 0" "j \<ge> 0" "k \<ge> 0" "n \<ge> 0"
+  unfolding fw_upd_impl_integer_def fw_upd_impl_int_def[symmetric] fw_upd_impl_def mtx_get_def mtx_set_def
+  unfolding int_folds
+  unfolding nth_integer_def upd_integer_def
+  using that
+  by (simp add: nat_of_integer_add nat_of_integer_mult algebra_simps)
+
+lemma integer_of_nat_aux:
+  "integer_of_nat (nat_of_integer n + 1) = n + 1" if "n \<ge> 0"
+  using that
+  apply (simp add: nat_of_integer_add[symmetric])
+  sorry
+
+definition
+  "fwi_impl_integer n a k = fwi_impl_int (nat_of_integer n) a (nat_of_integer k)"
+
+lemma fwi_impl_int_eq1:
+  "fwi_impl_int n a k \<equiv> fwi_impl_integer (integer_of_nat n) a (integer_of_nat k)"
+  unfolding fwi_impl_integer_def fwi_impl_int_def by simp
+
+schematic_goal fwi_impl_int_unfold1:
+  "fwi_impl_int (nat_of_integer n) a (nat_of_integer k) \<equiv> ?i"
+  unfolding fwi_impl_int_def[symmetric] fwi_impl_def
+  unfolding int_folds
+  unfolding imp_for'_int_def
+  unfolding comp_def integer_of_nat_0
+  apply (subst fw_upd_impl_int_fw_upd_impl_integer)
+  subgoal sorry
+  subgoal sorry
+  subgoal sorry
+subgoal sorry
+  apply (subst integer_of_nat_aux)
+  subgoal sorry
+apply (subst integer_of_nat_aux)
+  subgoal sorry
+  .
+
+schematic_goal fwi_impl_int_code [code]:
+  "fwi_impl_int n a k \<equiv> ?x"
+  unfolding fwi_impl_int_eq1
+  unfolding fwi_impl_integer_def
+  unfolding fwi_impl_int_unfold1
+  .
+
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF

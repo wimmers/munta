@@ -3586,29 +3586,34 @@ fun dbm_add_int INF uu = INF
   | dbm_add_int (Lt a) (Le b) = Lt (plus_inta a b)
   | dbm_add_int (Lt a) (Lt b) = Lt (plus_inta a b);
 
-fun fw_upd_impl_inta x =
-  (fn n => fn ai => fn bib => fn bia => fn bi =>
-    (fn f_ => fn () => f_
-      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
-      (fn xa =>
+fun fw_upd_impl_integer n a k i j =
+  let
+    val na = IntInf.+ (n, (1 : IntInf.int));
+    val ia = IntInf.+ (IntInf.* (i, na), j);
+  in
+    (fn f_ => fn () => f_ (((fn () => Array.sub (a, IntInf.toInt ia))) ()) ())
+      (fn x =>
         (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
-          (fn xaa =>
+          (((fn () => Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (i, na), k)))))
+          ()) ())
+          (fn y =>
             (fn f_ => fn () => f_
-              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
-              (fn xb =>
-                mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
-                  (min_int_entry xa (dbm_add_int xaa xb))))))
-    x;
+              (((fn () => Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (k, na), j)))))
+              ()) ())
+              (fn z =>
+                (fn a => fn () => (Array.update (a, IntInf.toInt ia, (min_int_entry
+                               x (dbm_add_int y z))); a)) a)))
+  end;
 
-fun fwi_impl_int x =
-  (fn n => fn ai => fn bi =>
-    imp_for_inta zero_nata (plus_nata n one_nata)
-      (fn xa =>
-        imp_for_inta zero_nata (plus_nata n one_nata)
-          (fn xc => fn sigma => fw_upd_impl_inta n sigma bi xa xc))
-      ai)
-    x;
+fun fwi_impl_int n a k =
+  imp_fora_inner (0 : IntInf.int)
+    (IntInf.+ (integer_of_nat n, (1 : IntInf.int)))
+    (fn x =>
+      imp_fora_inner (0 : IntInf.int)
+        (IntInf.+ (integer_of_nat n, (1 : IntInf.int)))
+        (fn xa => fn sigma =>
+          fw_upd_impl_integer (integer_of_nat n) sigma (integer_of_nat k) x xa))
+    a;
 
 fun repair_pair_impl_int x =
   (fn n => fn ai => fn bia => fn bi =>
