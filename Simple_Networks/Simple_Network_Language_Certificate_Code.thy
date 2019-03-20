@@ -5,6 +5,60 @@ theory Simple_Network_Language_Certificate_Code
     Simple_Network_Language_Certificate_Checking
 begin
 
+paragraph \<open>Optimized code equations\<close>
+
+lemmas [code_unfold] = imp_for_imp_for'
+
+definition dbm_subset'_impl'_int
+  :: "nat \<Rightarrow> nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
+  where [symmetric, int_folds]:
+    "dbm_subset'_impl'_int = dbm_subset'_impl'"
+
+schematic_goal dbm_subset'_impl'_int_code[code]:
+  "dbm_subset'_impl'_int \<equiv> \<lambda>n m a b.
+    do {
+    l \<leftarrow> Array.len a;
+    imp_for 0 l Heap_Monad.return
+      (\<lambda>i _. do {
+        x \<leftarrow> Array.nth a i; y \<leftarrow> Array.nth b i; Heap_Monad.return (dbm_le_int x y)
+      })
+      True
+    }
+"
+  sorry
+
+definition dbm_subset'_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
+  where [symmetric, int_folds]:
+    "dbm_subset'_impl_int = dbm_subset'_impl"
+
+schematic_goal dbm_subset'_impl_int_code[code]:
+  "dbm_subset'_impl_int \<equiv> \<lambda>n a b.
+    do {
+    l \<leftarrow> Array.len a;
+    imp_for 0 l Heap_Monad.return
+      (\<lambda>i _. do {
+        x \<leftarrow> Array.nth a i; y \<leftarrow> Array.nth b i; Heap_Monad.return (dbm_le_int x y)
+      })
+      True
+    }
+"
+  sorry
+
+definition dbm_subset_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
+  where [symmetric, int_folds]:
+    "dbm_subset_impl_int = dbm_subset_impl"
+
+schematic_goal dbm_subset_impl_int_code[code]:
+  "dbm_subset_impl_int \<equiv> ?i"
+  unfolding dbm_subset_impl_int_def[symmetric] dbm_subset_impl_def
+  unfolding int_folds
+  .
+
+lemmas [code_unfold] = int_folds
+
+
 export_code state_space in SML module_name Test
 
 hide_const Parser_Combinator.return
@@ -439,7 +493,7 @@ ML_val \<open>
   do_check
     true
     "/Users/wimmers/Code/mlunta/benchmarks/resources/csma_R_6.muntax"
-    "/Users/wimmers/Scratch/csma.renaming"
+    "/Users/wimmers/Scratch/certificates/csma.renaming"
     ()
 \<close>
 
@@ -553,6 +607,61 @@ end = struct
   fun get_timings () = !timings;
 end
 \<close>
+
+paragraph \<open>Optimized code printings\<close>
+(*
+code_printing code_module "Iterators" \<rightharpoonup> (SML)
+\<open>
+fun imp_for i u c f s =
+  let
+    fun imp_for1 i u f s =
+      if IntInf.<= (u, i) then (fn () => s)
+      else if c s () then imp_for1 (IntInf.+ (i, 1)) u f (f (nat_of_integer i) s ())
+      else (fn () => s)
+  in imp_for1 (integer_of_nat i) (integer_of_nat u) f s end;
+
+fun imp_fora i u f s =
+  let
+    fun imp_for1 i u f s =
+      if IntInf.<= (u, i) then (fn () => s)
+      else imp_for1 (IntInf.+ (i, 1)) u f (f (nat_of_integer i) s ())
+  in imp_for1 (integer_of_nat i) (integer_of_nat u) f s end;
+\<close>
+*)
+term nat_of_integer
+term integer_of_nat
+
+code_thms imp_for
+
+partial_function (heap) imp_for_int :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
+  "imp_for_int i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int (i + 1) u c f else return s})"
+
+lemma imp_for_imp_for_int[code_unfold]:
+  "imp_for i u c f s \<equiv> imp_for_int (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
+  apply (induction "u - i" arbitrary: i u s)
+  apply (simp add: imp_for_int)
+  apply (simp; fail)
+  apply simp
+  apply (fo_rule arg_cong)
+  by auto
+
+partial_function (heap) imp_for'_int :: "integer \<Rightarrow> integer \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
+  "imp_for'_int i u f s = (if i \<ge> u then return s else f i s \<bind> imp_for'_int (i + 1) u f)"
+
+lemma imp_for'_imp_for_int[code_unfold]:
+  "imp_for' i u f s \<equiv> imp_for'_int (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
+  thm imp_for'.simps
+  sorry
+
+lemmas [code] =
+  imp_for_int.simps
+  imp_for'_int.simps
+
+(*
+code_printing
+  constant imp_for \<rightharpoonup> (SML) "imp'_for"
+| constant imp_for' \<rightharpoonup> (SML) "imp'_fora"
+*)
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF

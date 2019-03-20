@@ -194,6 +194,49 @@ lemma min_int_entry[int_folds]:
     by (cases a; cases b; simp add: dbm_entry_simps)
   done
 
+fun dbm_le_int :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> bool" where
+  "dbm_le_int (Lt a) (Lt b) \<longleftrightarrow> a \<le> b"
+| "dbm_le_int (Lt a) (Le b) \<longleftrightarrow> a \<le> b"
+| "dbm_le_int (Le a) (Lt b) \<longleftrightarrow> a < b"
+| "dbm_le_int (Le a) (Le b) \<longleftrightarrow> a \<le> b"
+| "dbm_le_int _ \<infinity> \<longleftrightarrow> True"
+| "dbm_le_int _ _ \<longleftrightarrow> False"
+
+lemma dbm_le_dbm_le_int[int_folds]:
+  "dbm_le = dbm_le_int"
+  apply (intro ext)
+  subgoal for a b
+    by (cases a; cases b; auto simp: dbm_le_def)
+  done
+
+fun dbm_lt_int :: "int DBMEntry \<Rightarrow> int DBMEntry \<Rightarrow> bool"
+  where
+  "dbm_lt_int (Le a) (Le b) \<longleftrightarrow> a < b" |
+  "dbm_lt_int (Le a) (Lt b) \<longleftrightarrow> a < b" |
+  "dbm_lt_int (Lt a) (Le b) \<longleftrightarrow> a \<le> b" |
+  "dbm_lt_int (Lt a) (Lt b) \<longleftrightarrow> a < b" |
+  "dbm_lt_int \<infinity> _ = False" |
+  "dbm_lt_int _ \<infinity> = True"
+
+lemma dbm_lt_dbm_lt_int[int_folds]:
+  "dbm_lt = dbm_lt_int"
+  apply (intro ext)
+  subgoal for a b
+    by (cases a; cases b; auto)
+  done
+
+definition [symmetric, int_folds]:
+  "dbm_lt_0 x \<equiv> x < (Le (0 :: int))"
+
+lemmas [int_folds] = dbm_lt_0_def[unfolded DBM.less]
+
+lemma dbm_lt_0_code_simps [code]:
+  "dbm_lt_0 (Le x) \<longleftrightarrow> x < 0"
+  "dbm_lt_0 (Lt x) \<longleftrightarrow> x \<le> 0"
+  "dbm_lt_0 \<infinity> = False"
+  unfolding dbm_lt_0_def[symmetric] DBM.less dbm_lt_dbm_lt_int by simp+
+
+
 definition abstra_upd_impl_int
   :: "nat \<Rightarrow> (nat, int) acconstraint \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array Heap"
   where [symmetric, int_folds]:
@@ -259,6 +302,17 @@ definition check_diag_impl_int
 schematic_goal check_diag_impl_int_code[code]:
   "check_diag_impl_int \<equiv> ?i"
   unfolding check_diag_impl_int_def[symmetric] check_diag_impl_def
+  unfolding int_folds
+  .
+
+definition check_diag_impl'_int
+  :: "nat \<Rightarrow> nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
+  where [symmetric, int_folds]:
+    "check_diag_impl'_int = check_diag_impl'"
+
+schematic_goal check_diag_impl'_int_code[code]:
+  "check_diag_impl'_int \<equiv> ?i"
+  unfolding check_diag_impl'_int_def[symmetric] check_diag_impl'_def
   unfolding int_folds
   .
 
