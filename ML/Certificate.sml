@@ -3578,6 +3578,14 @@ fun and_entry_impl n =
         mtx_set (heap_DBMEntry heap_int) (suc n) bi (ai, bib)
           (min_int_entry x bia)));
 
+fun dbm_lt_int (Le a) (Le b) = less_int a b
+  | dbm_lt_int (Le a) (Lt b) = less_int a b
+  | dbm_lt_int (Lt a) (Le b) = less_eq_int a b
+  | dbm_lt_int (Lt a) (Lt b) = less_int a b
+  | dbm_lt_int INF uu = false
+  | dbm_lt_int (Le v) INF = true
+  | dbm_lt_int (Lt v) INF = true;
+
 fun dbm_add_int INF uu = INF
   | dbm_add_int (Le v) INF = INF
   | dbm_add_int (Lt v) INF = INF
@@ -3601,8 +3609,13 @@ fun fw_upd_impl_integer n a k i j =
               (((fn () => Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (k, na), j)))))
               ()) ())
               (fn z =>
-                (fn a => fn () => (Array.update (a, IntInf.toInt ia, (min_int_entry
-                               x (dbm_add_int y z))); a)) a)))
+                let
+                  val m = dbm_add_int y z;
+                in
+                  (if dbm_lt_int m x
+                    then (fn a => fn () => (Array.update (a, IntInf.toInt ia, m); a)) a
+                    else (fn () => a))
+                end)))
   end;
 
 fun fwi_impl_int n a k =

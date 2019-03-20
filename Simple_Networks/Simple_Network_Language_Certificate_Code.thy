@@ -709,6 +709,19 @@ definition
 }
 "
 
+lemma fw_upd_impl_integer_code[code]:
+  "fw_upd_impl_integer n a k i j = do {
+  let n = n + 1;
+  let i' = i * n + j;
+  x \<leftarrow> nth_integer a i';
+  y \<leftarrow> nth_integer a (i * n + k);
+  z \<leftarrow> nth_integer a (k * n + j);
+  let m = dbm_add_int y z;
+  if dbm_lt_int m x then upd_integer i' m a else return a
+}
+"
+  sorry
+
 lemma nat_of_integer_add:
   "nat_of_integer i + nat_of_integer j = nat_of_integer (i + j)" if "i \<ge> 0" "j \<ge> 0"
   using that
