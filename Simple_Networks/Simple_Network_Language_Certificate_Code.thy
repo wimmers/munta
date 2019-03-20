@@ -753,8 +753,6 @@ lemma fw_upd_impl_integer_code[code]:
 "
   sorry
 
-thm nat_of_integer_of_nat
-
 lemma nat_of_integer_add:
   "nat_of_integer i + nat_of_integer j = nat_of_integer (i + j)" if "i \<ge> 0" "j \<ge> 0"
 proof -
@@ -799,11 +797,20 @@ lemma fw_upd_impl_int_fw_upd_impl_integer:
   using that
   by (simp add: nat_of_integer_add nat_of_integer_mult algebra_simps)
 
+lemma integer_of_nat_nat_of_integer:
+  "integer_of_nat (nat_of_integer n) = n" if "n \<ge> 0"
+  using that by (simp add: integer_of_nat_eq_of_nat max_def)
+
 lemma integer_of_nat_aux:
   "integer_of_nat (nat_of_integer n + 1) = n + 1" if "n \<ge> 0"
-  using that
-  apply (simp add: nat_of_integer_add[symmetric])
-  sorry
+proof -
+  have "nat_of_integer n + 1 = nat_of_integer n + nat_of_integer 1"
+    by simp
+  also have "\<dots> = nat_of_integer (n + 1)"
+    using that by (subst nat_of_integer_add; simp)
+  finally show ?thesis
+    using that by (simp add: integer_of_nat_nat_of_integer)
+qed
 
 definition
   "fwi_impl_integer n a k = fwi_impl_int (nat_of_integer n) a (nat_of_integer k)"
@@ -812,12 +819,6 @@ lemma fwi_impl_int_eq1:
   "fwi_impl_int n a k \<equiv> fwi_impl_integer (integer_of_nat n) a (integer_of_nat k)"
   unfolding fwi_impl_integer_def fwi_impl_int_def by simp
 
-
-
-lemma
-  "integer_of_nat (nat_of_integer x) = x" if "x \<ge> 0"
-  sorry
-
 partial_function (heap) imp_for'_int_int ::
   "int \<Rightarrow> int \<Rightarrow> (int \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
   "imp_for'_int_int i u f s =
@@ -825,22 +826,9 @@ partial_function (heap) imp_for'_int_int ::
 
 lemma int_bounds_up_induct:
   assumes "\<And>l. u \<le> (l :: int) \<Longrightarrow> P l u"
-  and "\<And> l. P (l + 1) u \<Longrightarrow> l < u \<Longrightarrow> P l u"
-shows "P l u"
-proof (cases "u \<le> l")
-  case True
-  then show ?thesis
-    by (rule assms(1))
-next
-  case False
-  then have "l \<le> u"
-    by auto
-  then show ?thesis
-    apply (induction "nat (u - l)" arbitrary: l)
-     apply (auto intro: assms(1); fail)
-    apply (auto intro: assms(2))
-    done
-qed
+      and "\<And>l. P (l + 1) u \<Longrightarrow> l < u \<Longrightarrow> P l u"
+  shows "P l u"
+  by (induction "nat (u - l)" arbitrary: l) (auto intro: assms)
 
 lemma imp_for'_int_int_cong:
   "imp_for'_int_int l u f a = imp_for'_int_int l u g a"
