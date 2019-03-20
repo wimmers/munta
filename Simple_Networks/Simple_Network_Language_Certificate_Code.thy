@@ -627,29 +627,6 @@ code_printing constant array_freeze' \<rightharpoonup> (SML) "(fn () => Array.ve
 code_printing constant array_unfreeze' \<rightharpoonup> (SML)
   "(fn a => fn () => Array.tabulate (Vector.length a, fn i => Vector.sub (a, i))) _"
 
-(*
-code_printing code_module "Iterators" \<rightharpoonup> (SML)
-\<open>
-fun imp_for i u c f s =
-  let
-    fun imp_for1 i u f s =
-      if IntInf.<= (u, i) then (fn () => s)
-      else if c s () then imp_for1 (IntInf.+ (i, 1)) u f (f (nat_of_integer i) s ())
-      else (fn () => s)
-  in imp_for1 (integer_of_nat i) (integer_of_nat u) f s end;
-
-fun imp_fora i u f s =
-  let
-    fun imp_for1 i u f s =
-      if IntInf.<= (u, i) then (fn () => s)
-      else imp_for1 (IntInf.+ (i, 1)) u f (f (nat_of_integer i) s ())
-  in imp_for1 (integer_of_nat i) (integer_of_nat u) f s end;
-\<close>
-*)
-term nat_of_integer
-term integer_of_nat
-
-code_thms imp_for
 
 partial_function (heap) imp_for_int_inner :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
   "imp_for_int_inner i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int_inner (i + 1) u c f else return s})"
@@ -686,15 +663,29 @@ lemma imp_for'_imp_for_int[code_unfold]:
   "imp_for' = imp_for'_int"
   by (intro ext, unfold imp_for'_int_def imp_for'_imp_for_int_inner, rule HOL.refl)
 
-lemmas [code] =
-  imp_for_int_inner.simps
-  imp_for'_int_inner.simps
+code_printing code_module "Iterators" \<rightharpoonup> (SML)
+\<open>
+fun imp_for_inner i u c f s =
+  let
+    fun imp_for1 i u f s =
+      if IntInf.<= (u, i) then (fn () => s)
+      else if c s () then imp_for1 (i + 1) u f (f i s ())
+      else (fn () => s)
+  in imp_for1 i u f s end;
 
-(*
+fun imp_fora_inner i u f s =
+  let
+    fun imp_for1 i u f s =
+      if IntInf.<= (u, i) then (fn () => s)
+      else imp_for1 (i + 1) u f (f i s ())
+  in imp_for1 i u f s end;
+\<close>
+
+code_reserved SML imp_for_inner imp_fora_inner
+
 code_printing
-  constant imp_for \<rightharpoonup> (SML) "imp'_for"
-| constant imp_for' \<rightharpoonup> (SML) "imp'_fora"
-*)
+  constant imp_for_int_inner \<rightharpoonup> (SML) "imp'_for'_inner"
+| constant imp_for'_int_inner \<rightharpoonup> (SML) "imp'_fora'_inner"
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF

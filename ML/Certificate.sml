@@ -283,6 +283,23 @@ end
 
 
 
+fun imp_for_inner i u c f s =
+  let
+    fun imp_for1 i u f s =
+      if IntInf.<= (u, i) then (fn () => s)
+      else if c s () then imp_for1 (i + 1) u f (f i s ())
+      else (fn () => s)
+  in imp_for1 i u f s end;
+
+fun imp_fora_inner i u f s =
+  let
+    fun imp_for1 i u f s =
+      if IntInf.<= (u, i) then (fn () => s)
+      else imp_for1 (i + 1) u f (f i s ())
+  in imp_for1 i u f s end;
+
+
+
    fun array_blit src si dst di len = (
       src=dst andalso raise Fail ("array_blit: Same arrays");
       ArraySlice.copy {
@@ -1999,14 +2016,8 @@ fun v_dbm (A1_, A2_, A3_) B_ n =
             (less A3_ n i orelse less A3_ n j))
       then zero_DBMEntrya B_ else INF));
 
-fun imp_for_int_innera i u f s =
-  (if IntInf.<= (u, i) then (fn () => s)
-    else (fn f_ => fn () => f_ ((f i s) ()) ())
-           (imp_for_int_innera (IntInf.+ (i, (1 : IntInf.int))) u f));
-
 fun imp_for_inta i u f s =
-  imp_for_int_innera (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer)
-    s;
+  imp_fora_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s;
 
 fun mtx_set A_ m mtx e v =
   upd A_ (plus_nata (times_nata (fst e) m) (snd e)) v mtx;
@@ -3902,18 +3913,8 @@ fun dbm_lt_0 INF = false
   | dbm_lt_0 (Lt x) = less_eq_int x zero_inta
   | dbm_lt_0 (Le x) = less_int x zero_inta;
 
-fun imp_for_int_inner i u c f s =
-  (if IntInf.<= (u, i) then (fn () => s)
-    else (fn f_ => fn () => f_ ((c s) ()) ())
-           (fn ctn =>
-             (if ctn
-               then (fn f_ => fn () => f_ ((f i s) ()) ())
-                      (imp_for_int_inner (IntInf.+ (i, (1 : IntInf.int))) u c f)
-               else (fn () => s))));
-
 fun imp_for_int i u c f s =
-  imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer)
-    s;
+  imp_for_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s;
 
 fun check_diag_impl_inta x =
   (fn n => fn ai => fn bi =>
