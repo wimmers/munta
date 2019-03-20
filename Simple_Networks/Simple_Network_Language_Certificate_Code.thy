@@ -609,6 +609,24 @@ end
 \<close>
 
 paragraph \<open>Optimized code printings\<close>
+
+definition
+  "array_freeze' = array_freeze"
+
+lemma [code]: "array_freeze a = array_freeze' a"
+  unfolding array_freeze'_def ..
+
+definition
+  "array_unfreeze' = array_unfreeze"
+
+lemma [code]: "array_unfreeze a = array_unfreeze' a"
+  unfolding array_unfreeze'_def ..
+
+code_printing constant array_freeze' \<rightharpoonup> (SML) "(fn () => Array.vector _)"
+
+code_printing constant array_unfreeze' \<rightharpoonup> (SML)
+  "(fn a => fn () => Array.tabulate (Vector.length a, fn i => Vector.sub (a, i))) _"
+
 (*
 code_printing code_module "Iterators" \<rightharpoonup> (SML)
 \<open>
@@ -633,29 +651,44 @@ term integer_of_nat
 
 code_thms imp_for
 
-partial_function (heap) imp_for_int :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
-  "imp_for_int i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int (i + 1) u c f else return s})"
+partial_function (heap) imp_for_int_inner :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
+  "imp_for_int_inner i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int_inner (i + 1) u c f else return s})"
 
-lemma imp_for_imp_for_int[code_unfold]:
-  "imp_for i u c f s \<equiv> imp_for_int (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
+lemma imp_for_imp_for_int_inner[code_unfold]:
+  "imp_for i u c f s \<equiv> imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
   apply (induction "u - i" arbitrary: i u s)
-  apply (simp add: imp_for_int)
+  apply (simp add: imp_for_int_inner)
   apply (simp; fail)
   apply simp
   apply (fo_rule arg_cong)
   by auto
 
-partial_function (heap) imp_for'_int :: "integer \<Rightarrow> integer \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
-  "imp_for'_int i u f s = (if i \<ge> u then return s else f i s \<bind> imp_for'_int (i + 1) u f)"
+definition
+  "imp_for_int i u c f s \<equiv> imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s"
 
-lemma imp_for'_imp_for_int[code_unfold]:
-  "imp_for' i u f s \<equiv> imp_for'_int (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
+lemma imp_for_imp_for_int[code_unfold]:
+  "imp_for = imp_for_int"
+  by (intro ext, unfold imp_for_int_def imp_for_imp_for_int_inner, rule HOL.refl)
+
+partial_function (heap) imp_for'_int_inner ::
+  "integer \<Rightarrow> integer \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
+  "imp_for'_int_inner i u f s = (if i \<ge> u then return s else f i s \<bind> imp_for'_int_inner (i + 1) u f)"
+
+lemma imp_for'_imp_for_int_inner:
+  "imp_for' i u f s \<equiv> imp_for'_int_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
   thm imp_for'.simps
   sorry
 
+definition
+  "imp_for'_int i u f s \<equiv> imp_for'_int_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s"
+
+lemma imp_for'_imp_for_int[code_unfold]:
+  "imp_for' = imp_for'_int"
+  by (intro ext, unfold imp_for'_int_def imp_for'_imp_for_int_inner, rule HOL.refl)
+
 lemmas [code] =
-  imp_for_int.simps
-  imp_for'_int.simps
+  imp_for_int_inner.simps
+  imp_for'_int_inner.simps
 
 (*
 code_printing
