@@ -1976,55 +1976,12 @@ fun implode cs =
 
 fun tracea x = trace ExploredState x;
 
-fun blit A_ src si dst di len =
-  (fn () => 
-    array_blit src (integer_of_nat
-                     si) dst (integer_of_nat di) (integer_of_nat len));
-
 fun v_dbm (A1_, A2_, A3_) B_ n =
   (fn (i, j) =>
     (if eq A2_ i j orelse
           (eq A2_ i (zero A1_) andalso less A3_ (zero A1_) j orelse
             (less A3_ n i orelse less A3_ n j))
       then zero_DBMEntrya B_ else INF));
-
-fun imp_for_inta i u f s =
-  imp_fora_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s;
-
-fun mtx_set A_ m mtx e v =
-  upd A_ (plus_nata (times_nata (fst e) m) (snd e)) v mtx;
-
-fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nata (fst e) m) (snd e));
-
-fun min A_ a b = (if less_eq A_ a b then a else b);
-
-fun fw_upd_impl (A1_, A2_) n =
-  (fn ai => fn bib => fn bia => fn bi =>
-    (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bi)) ()) ())
-      (fn x =>
-        (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bib)) ()) ())
-          (fn xa =>
-            (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bib, bi)) ()) ())
-              (fn xb =>
-                mtx_set A2_ (suc n) ai (bia, bi)
-                  (min ((ord_preorder o preorder_order o order_linorder o
-                          linorder_linordered_ab_semigroup_add o
-                          linordered_ab_semigroup_add_linordered_ab_monoid_add)
-                         A1_)
-                    x (plus ((plus_semigroup_add o semigroup_add_monoid_add o
-                               monoid_add_comm_monoid_add o
-                               comm_monoid_add_ordered_comm_monoid_add o
-                               ordered_comm_monoid_add_linordered_ab_monoid_add)
-                              A1_)
-                        xa xb))))));
-
-fun fw_impl (A1_, A2_) n =
-  imp_for_inta zero_nata (plus_nata n one_nata)
-    (fn xb =>
-      imp_for_inta zero_nata (plus_nata n one_nata)
-        (fn xd =>
-          imp_for_inta zero_nata (plus_nata n one_nata)
-            (fn xf => fn sigma => fw_upd_impl (A1_, A2_) n sigma xb xd xf)));
 
 fun gen_length n (x :: xs) = gen_length (suc n) xs
   | gen_length n [] = n;
@@ -2983,16 +2940,7 @@ fun time_it s f = let
                   end;
 
 fun array_copy A_ a =
-  (fn f_ => fn () => f_ ((len A_ a) ()) ())
-    (fn l =>
-      (if equal_nata l zero_nata then (fn () => Array.fromList [])
-        else (fn f_ => fn () => f_ ((ntha A_ a zero_nata) ()) ())
-               (fn s =>
-                 (fn f_ => fn () => f_ ((new A_ l s) ()) ())
-                   (fn aa =>
-                     (fn f_ => fn () => f_ ((blit A_ a zero_nata aa zero_nata l)
-                       ()) ())
-                       (fn _ => (fn () => aa))))));
+  (fn a => fn () => Array.tabulate (Array.length a, fn i => Array.sub (a, i))) a;
 
 fun array_grow a = FArray.IsabelleMapping.array_grow a o integer_of_nat;
 
@@ -3118,6 +3066,11 @@ fun hm_it_next_key (A1_, A2_) B_ ht =
                      (case a of [] => (raise Fail "Map is empty!")
                        | x :: _ => (fn () => (fst x)))))));
 
+fun min A_ a b = (if less_eq A_ a b then a else b);
+
+fun imp_for_inta i u f s =
+  imp_fora_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s;
+
 fun mtx_tabulate (A1_, A2_, A3_) (B1_, B2_) n m c =
   (fn f_ => fn () => f_ ((new B2_ (times_nata n m) (zero B1_)) ()) ())
     (fn ma =>
@@ -3216,6 +3169,11 @@ fun hms_extract lookup delete k m =
         | SOME v =>
           (fn f_ => fn () => f_ ((delete k m) ()) ())
             (fn ma => (fn () => (SOME v, ma)))));
+
+fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nata (fst e) m) (snd e));
+
+fun mtx_set A_ m mtx e v =
+  upd A_ (plus_nata (times_nata (fst e) m) (snd e)) v mtx;
 
 fun op_list_prepend x = (fn a => x :: a);
 
@@ -3362,90 +3320,6 @@ fun imp_nfoldli (x :: ls) c f s =
   | imp_nfoldli [] c f s = (fn () => s);
 
 fun is_Nil a = (case a of [] => true | _ :: _ => false);
-
-fun abstra_upd_impl (A1_, A2_, A3_, A4_) n =
-  (fn ai => fn bi =>
-    (case ai
-      of LT (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Lt x42a)))
-      | LE (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Le x42a)))
-      | EQ (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
-          (fn x =>
-            (fn f_ => fn () => f_
-              ((mtx_get (heap_DBMEntry A4_) (suc n) bi (x41a, zero_nata)) ())
-              ())
-              (fn x_a =>
-                (fn f_ => fn () => f_
-                  ((mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
-                     (min (ord_DBMEntry
-                            (A3_, (linorder_linordered_ab_semigroup_add o
-                                    linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                                    linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                                    A1_))
-                       x (Le (uminus A2_ x42a))))
-                  ()) ())
-                  (fn x_b =>
-                    mtx_set (heap_DBMEntry A4_) (suc n) x_b (x41a, zero_nata)
-                      (min (ord_DBMEntry
-                             (A3_, (linorder_linordered_ab_semigroup_add o
-                                     linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                                     linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                                     A1_))
-                        x_a (Le x42a)))))
-      | GT (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Lt (uminus A2_ x42a))))
-      | GE (x41a, x42a) =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)) ()) ())
-          (fn x =>
-            mtx_set (heap_DBMEntry A4_) (suc n) bi (zero_nata, x41a)
-              (min (ord_DBMEntry
-                     (A3_, (linorder_linordered_ab_semigroup_add o
-                             linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                             linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                             A1_))
-                x (Le (uminus A2_ x42a))))));
-
-fun abstr_upd_impl (A1_, A2_, A3_, A4_) n =
-  (fn ai =>
-    imp_nfoldli ai (fn _ => (fn () => true))
-      (abstra_upd_impl (A1_, A2_, A3_, A4_) n));
-
-fun abstr_FW_impl (A1_, A2_, A3_, A4_) n =
-  (fn ai => fn bi =>
-    (fn f_ => fn () => f_ ((abstr_upd_impl (A1_, A2_, A3_, A4_) n ai bi) ()) ())
-      (fw_impl (linordered_ab_monoid_add_DBMEntry (A1_, A3_), heap_DBMEntry A4_)
-        n));
 
 fun fold_error f [] a = Result a
   | fold_error f (x :: xs) a = binda (f x a) (fold_error f xs);
@@ -7782,6 +7656,31 @@ fun check_subsumed (A1_, A2_, A3_) n xs i m =
     ()) ())
     (fn (_, a) => (fn () => a));
 
+fun fw_upd_impl_inta x =
+  (fn n => fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
+      (fn xa =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
+          (fn xaa =>
+            (fn f_ => fn () => f_
+              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
+              (fn xb =>
+                mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
+                  (min_int_entry xa (dbm_add_int xaa xb))))))
+    x;
+
+fun fw_impl_inta x =
+  (fn n =>
+    imp_for_inta zero_nata (plus_nata n one_nata)
+      (fn xb =>
+        imp_for_inta zero_nata (plus_nata n one_nata)
+          (fn xd =>
+            imp_for_inta zero_nata (plus_nata n one_nata)
+              (fn xf => fn sigma => fw_upd_impl_inta n sigma xb xd xf))))
+    x;
+
 fun imp_filter_index p xs =
   (fn f_ => fn () => f_
     ((imp_nfoldli xs (fn _ => (fn () => true))
@@ -8571,6 +8470,17 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
         end)
   end;
 
+fun abstr_upd_impl_int x =
+  (fn n => fn ai =>
+    imp_nfoldli ai (fn _ => (fn () => true)) (abstra_upd_impl_int n))
+    x;
+
+fun abstr_FW_impl_int x =
+  (fn n => fn ai => fn bi =>
+    (fn f_ => fn () => f_ ((abstr_upd_impl_int n ai bi) ()) ())
+      (fw_impl_inta n))
+    x;
+
 fun down_impl_int x =
   (fn n =>
     imp_for_inta one_nata (suc n)
@@ -8857,10 +8767,8 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                          ()) ())
                          (fn x =>
                            (fn f_ => fn () => f_
-                             ((abstr_FW_impl
-                                (linordered_cancel_ab_monoid_add_int,
-                                  uminus_int, equal_int, heap_int)
-                                m (inv_fun (snd (snd (snd xb)))) x)
+                             ((abstr_FW_impl_int m
+                                (inv_fun (snd (snd (snd xb)))) x)
                              ()) ())
                              (fn xa =>
                                (fn f_ => fn () => f_
@@ -8869,16 +8777,10 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                                  ()) ())
                                  (fn xc =>
                                    (fn f_ => fn () => f_
-                                     ((abstr_FW_impl
-(linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
-(fst xb) xc)
-                                     ()) ())
+                                     ((abstr_FW_impl_int m (fst xb) xc) ()) ())
                                      (fn xd =>
                                        (fn f_ => fn () => f_
- ((abstr_FW_impl
-    (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
-    (inv_fun ai) xd)
- ()) ())
+ ((abstr_FW_impl_int m (inv_fun ai) xd) ()) ())
  (fn xe =>
    (fn f_ => fn () => f_ ((down_impl_int m xe) ()) ())
      (fn x_c => (fn () => (x_c :: sigma)))))))))
@@ -10182,10 +10084,8 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                          ()) ())
                          (fn x =>
                            (fn f_ => fn () => f_
-                             ((abstr_FW_impl
-                                (linordered_cancel_ab_monoid_add_int,
-                                  uminus_int, equal_int, heap_int)
-                                m (inv_fun (snd (snd (snd xb)))) x)
+                             ((abstr_FW_impl_int m
+                                (inv_fun (snd (snd (snd xb)))) x)
                              ()) ())
                              (fn xa =>
                                (fn f_ => fn () => f_
@@ -10194,16 +10094,10 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                                  ()) ())
                                  (fn xc =>
                                    (fn f_ => fn () => f_
-                                     ((abstr_FW_impl
-(linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
-(fst xb) xc)
-                                     ()) ())
+                                     ((abstr_FW_impl_int m (fst xb) xc) ()) ())
                                      (fn xd =>
                                        (fn f_ => fn () => f_
- ((abstr_FW_impl
-    (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int, heap_int) m
-    (inv_fun ai) xd)
- ()) ())
+ ((abstr_FW_impl_int m (inv_fun ai) xd) ()) ())
  (fn xe =>
    (fn f_ => fn () => f_ ((down_impl_int m xe) ()) ())
      (fn x_c => (fn () => (x_c :: sigma)))))))))
@@ -11000,6 +10894,278 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
     val init_dbm =
       amtx_dflt (heap_DBMEntry heap_int) (suc m) (suc m) (Le zero_inta);
     val check_deadlock =
+      let
+        val n_psa = n_ps;
+        val invsa =
+          Vector.fromList
+            (map (fn i =>
+                   let
+                     val ma =
+                       default_map_of equal_nat [] (snd (snd (nth automata i)));
+                     val mb =
+                       Vector.fromList (map ma (upt zero_nata (num_states i)));
+                   in
+                     mb
+                   end)
+              (upt zero_nata n_psa));
+        val inv_fun =
+          (fn (l, _) =>
+            maps (fn i => sub (sub invsa i) (nth l i)) (upt zero_nata n_psa));
+        val trans_impl =
+          let
+            val trans_mapa = trans_map automata;
+            val trans_i_map =
+              (fn i => fn j =>
+                map_filter
+                  (fn (b, a) =>
+                    let
+                      val (g, aa) = a;
+                      val (ab, (ma, l)) = aa;
+                    in
+                      (case ab of In _ => NONE | Out _ => NONE
+                        | Sil ac => SOME (b, (g, (ac, (ma, l)))))
+                    end)
+                  (trans_mapa i j));
+            val int_trans_from_loc_impl =
+              (fn pa => fn l => fn la => fn s =>
+                let
+                  val a = trans_i_map pa l;
+                in
+                  map_filter
+                    (fn (b, aa) =>
+                      let
+                        val (g, ab) = aa;
+                        val (ac, (f, (r, lb))) = ab;
+                        val sa = mk_updsi s f;
+                      in
+                        (if bvali (equal_int, linorder_int) s b andalso
+                              check_boundedi bounds sa
+                          then SOME (g, (Internal ac,
+  (r, (list_update la pa lb, sa))))
+                          else NONE)
+                      end)
+                    a
+                end);
+            val int_trans_from_vec_impl =
+              (fn pairs => fn l => fn s =>
+                maps (fn (pa, la) => int_trans_from_loc_impl pa la l s) pairs);
+            val int_trans_from_all_impl =
+              (fn l => fn s =>
+                maps (fn pa => int_trans_from_loc_impl pa (nth l pa) l s)
+                  (upt zero_nata n_psa));
+            val trans_out_map =
+              (fn i => fn j =>
+                map_filter
+                  (fn (b, a) =>
+                    let
+                      val (g, aa) = a;
+                      val (ab, (ma, l)) = aa;
+                    in
+                      (case ab of In _ => NONE
+                        | Out ac => SOME (b, (g, (ac, (ma, l))))
+                        | Sil _ => NONE)
+                    end)
+                  (trans_mapa i j));
+            val trans_in_map =
+              (fn i => fn j =>
+                map_filter
+                  (fn (b, a) =>
+                    let
+                      val (g, aa) = a;
+                      val (ab, (ma, l)) = aa;
+                    in
+                      (case ab of In ac => SOME (b, (g, (ac, (ma, l))))
+                        | Out _ => NONE | Sil _ => NONE)
+                    end)
+                  (trans_mapa i j));
+            val trans_out_broad_grouped =
+              (fn i => fn j =>
+                actions_by_statea num_actions
+                  (map_filter
+                    (fn (b, a) =>
+                      let
+                        val (g, aa) = a;
+                        val (ab, (ma, l)) = aa;
+                      in
+                        (case ab of In _ => NONE
+                          | Out ac =>
+                            (if membera equal_nat broadcast ac
+                              then SOME (b, (g, (ac, (ma, l)))) else NONE)
+                          | Sil _ => NONE)
+                      end)
+                    (trans_mapa i j)));
+            val trans_in_broad_grouped =
+              (fn i => fn j =>
+                actions_by_statea num_actions
+                  (map_filter
+                    (fn (b, a) =>
+                      let
+                        val (g, aa) = a;
+                        val (ab, (ma, l)) = aa;
+                      in
+                        (case ab
+                          of In ac =>
+                            (if membera equal_nat broadcast ac
+                              then SOME (b, (g, (ac, (ma, l)))) else NONE)
+                          | Out _ => NONE | Sil _ => NONE)
+                      end)
+                    (trans_mapa i j)));
+            val broad_trans_impl =
+              (fn (l, s) =>
+                let
+                  val pairs = get_commited broadcast bounds automata l;
+                  val ina =
+                    map (fn pa => trans_in_broad_grouped pa (nth l pa))
+                      (upt zero_nata n_psa);
+                  val out =
+                    map (fn pa => trans_out_broad_grouped pa (nth l pa))
+                      (upt zero_nata n_psa);
+                  val inb =
+                    map (map (filter
+                               (fn (b, _) =>
+                                 bvali (equal_int, linorder_int) s b)))
+                      ina;
+                  val outa =
+                    map (map (filter
+                               (fn (b, _) =>
+                                 bvali (equal_int, linorder_int) s b)))
+                      out;
+                in
+                  (if null pairs
+                    then maps (fn a =>
+                                maps (fn pa =>
+                                       let
+ val outs = nth (nth outa pa) a;
+                                       in
+ (if null outs then []
+   else let
+          val combs = make_combs broadcast bounds automata pa a inb;
+          val outsa = map (fn aa => (pa, aa)) outs;
+          val combsa =
+            (if null combs then map (fn x => [x]) outsa
+              else maps (fn x => map (fn aa => x :: aa) combs) outsa);
+          val init = ([], (Broad a, ([], (l, s))));
+        in
+          compute_upds_impl bounds init combsa
+        end)
+                                       end)
+                                  (upt zero_nata n_psa))
+                           (upt zero_nata num_actions)
+                    else maps (fn a =>
+                                let
+                                  val ins_commited =
+                                    map_filter
+                                      (fn (pa, _) =>
+(if not (null (nth (nth inb pa) a)) then SOME pa else NONE))
+                                      pairs;
+                                  val always_commited =
+                                    less_nat one_nata (size_list ins_commited);
+                                in
+                                  maps (fn pa =>
+ let
+   val outs = nth (nth outa pa) a;
+ in
+   (if null outs then []
+     else (if not always_commited andalso
+                ((equal_lista equal_nat ins_commited [pa] orelse
+                   null ins_commited) andalso
+                  not (list_ex (fn (q, _) => equal_nata q pa) pairs))
+            then []
+            else let
+                   val combs = make_combs broadcast bounds automata pa a inb;
+                   val outsa = map (fn aa => (pa, aa)) outs;
+                   val combsa =
+                     (if null combs then map (fn x => [x]) outsa
+                       else maps (fn x => map (fn aa => x :: aa) combs) outsa);
+                   val init = ([], (Broad a, ([], (l, s))));
+                 in
+                   compute_upds_impl bounds init combsa
+                 end))
+ end)
+                                    (upt zero_nata n_psa)
+                                end)
+                           (upt zero_nata num_actions))
+                end);
+            val bin_trans_impl =
+              (fn (l, s) =>
+                let
+                  val pairs = get_commited broadcast bounds automata l;
+                  val ina =
+                    all_actions_by_state broadcast bounds automata num_actions
+                      trans_in_map l;
+                  val out =
+                    all_actions_by_state broadcast bounds automata num_actions
+                      trans_out_map l;
+                in
+                  (if null pairs
+                    then maps (fn a =>
+                                pairs_by_action_impl bounds l s (nth out a)
+                                  (nth ina a))
+                           (bin_actions broadcast num_actions)
+                    else let
+                           val in2 =
+                             all_actions_from_vec num_actions trans_in_map
+                               pairs;
+                           val out2 =
+                             all_actions_from_vec num_actions trans_out_map
+                               pairs;
+                         in
+                           maps (fn a =>
+                                  pairs_by_action_impl bounds l s (nth out a)
+                                    (nth in2 a))
+                             (bin_actions broadcast num_actions) @
+                             maps (fn a =>
+                                    pairs_by_action_impl bounds l s (nth out2 a)
+                                      (nth ina a))
+                               (bin_actions broadcast num_actions)
+                         end)
+                end);
+            val int_trans_impl =
+              (fn (l, s) =>
+                let
+                  val pairs = get_commited broadcast bounds automata l;
+                in
+                  (if null pairs then int_trans_from_all_impl l s
+                    else int_trans_from_vec_impl pairs l s)
+                end);
+          in
+            (fn st =>
+              int_trans_impl st @ bin_trans_impl st @ broad_trans_impl st)
+          end;
+      in
+        (fn ai => fn bi =>
+          (fn f_ => fn () => f_
+            ((imp_nfoldli (trans_impl ai) (fn _ => (fn () => true))
+               (fn xb => fn sigma =>
+                 (fn f_ => fn () => f_
+                   ((v_dbm_impl (linordered_cancel_ab_monoid_add_int, heap_int)
+                      m)
+                   ()) ())
+                   (fn x =>
+                     (fn f_ => fn () => f_
+                       ((abstr_FW_impl_int m (inv_fun (snd (snd (snd xb)))) x)
+                       ()) ())
+                       (fn xa =>
+                         (fn f_ => fn () => f_
+                           ((pre_reset_list_impl m xa (fst (snd (snd xb)))) ())
+                           ())
+                           (fn xc =>
+                             (fn f_ => fn () => f_
+                               ((abstr_FW_impl_int m (fst xb) xc) ()) ())
+                               (fn xd =>
+                                 (fn f_ => fn () => f_
+                                   ((abstr_FW_impl_int m (inv_fun ai) xd) ())
+                                   ())
+                                   (fn xe =>
+                                     (fn f_ => fn () => f_ ((down_impl_int m xe)
+                                       ()) ())
+                                       (fn x_c =>
+ (fn () => (x_c :: sigma)))))))))
+               [])
+            ()) ())
+            (fn x => dbm_subset_fed_impl m bi (op_list_rev x)))
+      end;
+    val check_deadlock1 =
       (fn a =>
         (fn f => f ()) ((fn f_ => fn () => f_
                           (let
@@ -11012,276 +11178,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                            end
                           ()) ())
                          (fn (l, ma) =>
-                           (fn f_ => fn () => f_
-                             ((let
-                                 val n_psa = n_ps;
-                                 val invsa =
-                                   Vector.fromList
-                                     (map (fn i =>
-    let
-      val mb = default_map_of equal_nat [] (snd (snd (nth automata i)));
-      val mc = Vector.fromList (map mb (upt zero_nata (num_states i)));
-    in
-      mc
-    end)
-                                       (upt zero_nata n_psa));
-                                 val inv_fun =
-                                   (fn (la, _) =>
-                                     maps (fn i => sub (sub invsa i) (nth la i))
-                                       (upt zero_nata n_psa));
-                                 val trans_impl =
-                                   let
-                                     val trans_mapa = trans_map automata;
-                                     val trans_i_map =
-                                       (fn i => fn j =>
- map_filter
-   (fn (b, aa) =>
-     let
-       val (g, ab) = aa;
-       val (ac, (mb, la)) = ab;
-     in
-       (case ac of In _ => NONE | Out _ => NONE
-         | Sil ad => SOME (b, (g, (ad, (mb, la)))))
-     end)
-   (trans_mapa i j));
-                                     val int_trans_from_loc_impl =
-                                       (fn pa => fn la => fn laa => fn s =>
- let
-   val aa = trans_i_map pa la;
- in
-   map_filter
-     (fn (b, ab) =>
-       let
-         val (g, ac) = ab;
-         val (ad, (f, (r, lb))) = ac;
-         val sa = mk_updsi s f;
-       in
-         (if bvali (equal_int, linorder_int) s b andalso
-               check_boundedi bounds sa
-           then SOME (g, (Internal ad, (r, (list_update laa pa lb, sa))))
-           else NONE)
-       end)
-     aa
- end);
-                                     val int_trans_from_vec_impl =
-                                       (fn pairs => fn la => fn s =>
- maps (fn (pa, laa) => int_trans_from_loc_impl pa laa la s) pairs);
-                                     val int_trans_from_all_impl =
-                                       (fn la => fn s =>
- maps (fn pa => int_trans_from_loc_impl pa (nth la pa) la s)
-   (upt zero_nata n_psa));
-                                     val trans_out_map =
-                                       (fn i => fn j =>
- map_filter
-   (fn (b, aa) =>
-     let
-       val (g, ab) = aa;
-       val (ac, (mb, la)) = ab;
-     in
-       (case ac of In _ => NONE | Out ad => SOME (b, (g, (ad, (mb, la))))
-         | Sil _ => NONE)
-     end)
-   (trans_mapa i j));
-                                     val trans_in_map =
-                                       (fn i => fn j =>
- map_filter
-   (fn (b, aa) =>
-     let
-       val (g, ab) = aa;
-       val (ac, (mb, la)) = ab;
-     in
-       (case ac of In ad => SOME (b, (g, (ad, (mb, la)))) | Out _ => NONE
-         | Sil _ => NONE)
-     end)
-   (trans_mapa i j));
-                                     val trans_out_broad_grouped =
-                                       (fn i => fn j =>
- actions_by_statea num_actions
-   (map_filter
-     (fn (b, aa) =>
-       let
-         val (g, ab) = aa;
-         val (ac, (mb, la)) = ab;
-       in
-         (case ac of In _ => NONE
-           | Out ad =>
-             (if membera equal_nat broadcast ad
-               then SOME (b, (g, (ad, (mb, la)))) else NONE)
-           | Sil _ => NONE)
-       end)
-     (trans_mapa i j)));
-                                     val trans_in_broad_grouped =
-                                       (fn i => fn j =>
- actions_by_statea num_actions
-   (map_filter
-     (fn (b, aa) =>
-       let
-         val (g, ab) = aa;
-         val (ac, (mb, la)) = ab;
-       in
-         (case ac
-           of In ad =>
-             (if membera equal_nat broadcast ad
-               then SOME (b, (g, (ad, (mb, la)))) else NONE)
-           | Out _ => NONE | Sil _ => NONE)
-       end)
-     (trans_mapa i j)));
-                                     val broad_trans_impl =
-                                       (fn (la, s) =>
- let
-   val pairs = get_commited broadcast bounds automata la;
-   val ina =
-     map (fn pa => trans_in_broad_grouped pa (nth la pa)) (upt zero_nata n_psa);
-   val out =
-     map (fn pa => trans_out_broad_grouped pa (nth la pa))
-       (upt zero_nata n_psa);
-   val inb =
-     map (map (filter (fn (b, _) => bvali (equal_int, linorder_int) s b))) ina;
-   val outa =
-     map (map (filter (fn (b, _) => bvali (equal_int, linorder_int) s b))) out;
- in
-   (if null pairs
-     then maps (fn aa =>
-                 maps (fn pa =>
-                        let
-                          val outs = nth (nth outa pa) aa;
-                        in
-                          (if null outs then []
-                            else let
-                                   val combs =
-                                     make_combs broadcast bounds automata pa aa
-                                       inb;
-                                   val outsa = map (fn ab => (pa, ab)) outs;
-                                   val combsa =
-                                     (if null combs then map (fn x => [x]) outsa
-                                       else maps
-      (fn x => map (fn ab => x :: ab) combs) outsa);
-                                   val init = ([], (Broad aa, ([], (la, s))));
-                                 in
-                                   compute_upds_impl bounds init combsa
-                                 end)
-                        end)
-                   (upt zero_nata n_psa))
-            (upt zero_nata num_actions)
-     else maps (fn aa =>
-                 let
-                   val ins_commited =
-                     map_filter
-                       (fn (pa, _) =>
-                         (if not (null (nth (nth inb pa) aa)) then SOME pa
-                           else NONE))
-                       pairs;
-                   val always_commited =
-                     less_nat one_nata (size_list ins_commited);
-                 in
-                   maps (fn pa =>
-                          let
-                            val outs = nth (nth outa pa) aa;
-                          in
-                            (if null outs then []
-                              else (if not always_commited andalso
- ((equal_lista equal_nat ins_commited [pa] orelse null ins_commited) andalso
-   not (list_ex (fn (q, _) => equal_nata q pa) pairs))
-                                     then []
-                                     else let
-    val combs = make_combs broadcast bounds automata pa aa inb;
-    val outsa = map (fn ab => (pa, ab)) outs;
-    val combsa =
-      (if null combs then map (fn x => [x]) outsa
-        else maps (fn x => map (fn ab => x :: ab) combs) outsa);
-    val init = ([], (Broad aa, ([], (la, s))));
-  in
-    compute_upds_impl bounds init combsa
-  end))
-                          end)
-                     (upt zero_nata n_psa)
-                 end)
-            (upt zero_nata num_actions))
- end);
-                                     val bin_trans_impl =
-                                       (fn (la, s) =>
- let
-   val pairs = get_commited broadcast bounds automata la;
-   val ina =
-     all_actions_by_state broadcast bounds automata num_actions trans_in_map la;
-   val out =
-     all_actions_by_state broadcast bounds automata num_actions trans_out_map
-       la;
- in
-   (if null pairs
-     then maps (fn aa =>
-                 pairs_by_action_impl bounds la s (nth out aa) (nth ina aa))
-            (bin_actions broadcast num_actions)
-     else let
-            val in2 = all_actions_from_vec num_actions trans_in_map pairs;
-            val out2 = all_actions_from_vec num_actions trans_out_map pairs;
-          in
-            maps (fn aa =>
-                   pairs_by_action_impl bounds la s (nth out aa) (nth in2 aa))
-              (bin_actions broadcast num_actions) @
-              maps (fn aa =>
-                     pairs_by_action_impl bounds la s (nth out2 aa)
-                       (nth ina aa))
-                (bin_actions broadcast num_actions)
-          end)
- end);
-                                     val int_trans_impl =
-                                       (fn (la, s) =>
- let
-   val pairs = get_commited broadcast bounds automata la;
- in
-   (if null pairs then int_trans_from_all_impl la s
-     else int_trans_from_vec_impl pairs la s)
- end);
-                                   in
-                                     (fn st =>
-                                       int_trans_impl st @
- bin_trans_impl st @ broad_trans_impl st)
-                                   end;
-                               in
-                                 (fn ai => fn bi =>
-                                   (fn f_ => fn () => f_
-                                     ((imp_nfoldli (trans_impl ai)
-(fn _ => (fn () => true))
-(fn xb => fn sigma =>
-  (fn f_ => fn () => f_
-    ((v_dbm_impl (linordered_cancel_ab_monoid_add_int, heap_int) m) ()) ())
-    (fn x =>
-      (fn f_ => fn () => f_
-        ((abstr_FW_impl
-           (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int,
-             heap_int)
-           m (inv_fun (snd (snd (snd xb)))) x)
-        ()) ())
-        (fn xa =>
-          (fn f_ => fn () => f_ ((pre_reset_list_impl m xa (fst (snd (snd xb))))
-            ()) ())
-            (fn xc =>
-              (fn f_ => fn () => f_
-                ((abstr_FW_impl
-                   (linordered_cancel_ab_monoid_add_int, uminus_int, equal_int,
-                     heap_int)
-                   m (fst xb) xc)
-                ()) ())
-                (fn xd =>
-                  (fn f_ => fn () => f_
-                    ((abstr_FW_impl
-                       (linordered_cancel_ab_monoid_add_int, uminus_int,
-                         equal_int, heap_int)
-                       m (inv_fun ai) xd)
-                    ()) ())
-                    (fn xe =>
-                      (fn f_ => fn () => f_ ((down_impl_int m xe) ()) ())
-                        (fn x_c => (fn () => (x_c :: sigma)))))))))
-[])
-                                     ()) ())
-                                     (fn x =>
-                                       dbm_subset_fed_impl m bi
- (op_list_rev x)))
-                               end
-                                 l
-                                ma)
-                             ()) ())
+                           (fn f_ => fn () => f_ ((check_deadlock l ma) ()) ())
                              (fn r => (fn () => (not r))))));
   in
     certify_unreachable_impl_pure
@@ -11315,7 +11212,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                                     (upt zero_nata n_vsa)))))
       ((fn f => f ()) ((fn f_ => fn () => f_ (init_dbm ()) ())
                         (array_freeze (heap_DBMEntry heap_int))))
-      check_deadlock (split_kb num_split m_list)
+      check_deadlock1 (split_kb num_split m_list)
   end;
 
 fun certificate_checker3 num_split dc m_list broadcast bounds automata m

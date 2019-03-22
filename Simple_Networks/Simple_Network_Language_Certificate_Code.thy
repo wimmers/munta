@@ -622,10 +622,19 @@ definition
 lemma [code]: "array_unfreeze a = array_unfreeze' a"
   unfolding array_unfreeze'_def ..
 
+definition
+  "array_copy' = array_copy"
+
+lemma [code]: "array_copy a = array_copy' a"
+  unfolding array_copy'_def ..
+
 code_printing constant array_freeze' \<rightharpoonup> (SML) "(fn () => Array.vector _)"
 
 code_printing constant array_unfreeze' \<rightharpoonup> (SML)
   "(fn a => fn () => Array.tabulate (Vector.length a, fn i => Vector.sub (a, i))) _"
+
+code_printing constant array_copy' \<rightharpoonup> (SML)
+  "(fn a => fn () => Array.tabulate (Array.length a, fn i => Array.sub (a, i))) _"
 
 
 partial_function (heap) imp_for_int_inner :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where

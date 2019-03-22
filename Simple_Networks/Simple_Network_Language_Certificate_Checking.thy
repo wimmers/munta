@@ -255,7 +255,7 @@ definition fw_upd_impl_int
 
 lemmas [int_folds] = DBM.add dbm_add_int
 
-schematic_goal [code]:
+schematic_goal fw_upd_impl_int_code [code]:
   "fw_upd_impl_int \<equiv> ?i"
   unfolding fw_upd_impl_int_def[symmetric] fw_upd_impl_def
   unfolding int_folds
@@ -266,11 +266,18 @@ definition fwi_impl_int
   where [symmetric, int_folds]:
   "fwi_impl_int = fwi_impl"
 
-schematic_goal [code]:
+schematic_goal fwi_impl_int_code [code]:
   "fwi_impl_int \<equiv> ?i"
-  unfolding fwi_impl_int_def[symmetric] fwi_impl_def
-  unfolding int_folds
-  .
+  unfolding fwi_impl_int_def[symmetric] fwi_impl_def unfolding int_folds .
+
+definition fw_impl_int
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array Heap"
+  where [symmetric, int_folds]:
+  "fw_impl_int = fw_impl"
+
+schematic_goal fw_impl_int_code [code]:
+  "fw_impl_int \<equiv> ?i"
+  unfolding fw_impl_int_def[symmetric] fw_impl_def unfolding int_folds .
 
 definition repair_pair_impl_int
   :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> int DBMEntry Heap.array Heap"
@@ -406,6 +413,26 @@ schematic_goal get_entries_impl_int_code[code]:
 schematic_goal dbm_minus_canonical_impl_code [code]:
   "dbm_minus_canonical_impl \<equiv> ?i"
   unfolding dbm_minus_canonical_impl_def unfolding int_folds .
+
+
+definition abstr_upd_impl_int
+  :: "nat \<Rightarrow> (nat, int) acconstraint list \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array Heap"
+  where [symmetric, int_folds]:
+    "abstr_upd_impl_int = abstr_upd_impl"
+
+schematic_goal abstr_upd_impl_int_code[code]:
+  "abstr_upd_impl_int \<equiv> ?i"
+  unfolding abstr_upd_impl_int_def[symmetric] abstr_upd_impl_def unfolding int_folds .
+
+
+definition abstr_FW_impl_int :: "_ \<Rightarrow> _ \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _"
+  where [symmetric, int_folds]:
+    "abstr_FW_impl_int = abstr_FW_impl"
+
+schematic_goal abstr_FW_impl_int_code [code]:
+  "abstr_FW_impl_int \<equiv> ?i"
+  unfolding abstr_FW_impl_int_def[symmetric] abstr_FW_impl_def unfolding int_folds .
+
 
 
 paragraph \<open>Extracting executable implementations\<close>
@@ -925,7 +952,9 @@ schematic_goal no_deadlock_certifier3_alt_def:
         OF state_impl_abstract', OF _ A assms(2,3) split_k'_full_split[of M_list, unfolded that]
         ], (simp; fail))
   unfolding check_deadlock_fold_def[symmetric]
-  apply (abstract_let check_deadlock_fold check_deadlock)
+  apply (abstract_let check_deadlock_fold check_deadlock1)
+  unfolding check_deadlock_fold_def
+  apply (abstract_let impl.check_deadlock_impl check_deadlock)
   apply (abstract_let "impl.init_dbm_impl :: int DBMEntry Heap.array Heap" init_dbm)
   unfolding impl.init_dbm_impl_def
   apply (abstract_let "impl.Mi M_list" Mi)
@@ -938,7 +967,7 @@ schematic_goal no_deadlock_certifier3_alt_def:
   apply (abstract_let "(\<lambda>(s :: int DBMEntry iarray) s'.
             run_heap (array_unfreeze s \<bind> (\<lambda>s. array_unfreeze s' \<bind> dbm_subset_impl m s)))"
     subsumption)
-  unfolding check_deadlock_fold_def check_deadlock_impl_alt_def2
+  unfolding check_deadlock_impl_alt_def2
   unfolding impl.P_impl_def impl.F_impl_def
   apply (abstract_let states'_memi check_states)
   unfolding states'_memi_def states_mem_compute'
