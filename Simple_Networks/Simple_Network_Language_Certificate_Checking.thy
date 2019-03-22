@@ -343,6 +343,70 @@ schematic_goal E_op_impl_code[code]:
   unfolding int_folds
   .
 
+definition free_impl_int :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _"
+  where [symmetric, int_folds]:
+    "free_impl_int = free_impl"
+
+schematic_goal free_impl_int_code[code]:
+  "free_impl_int \<equiv> ?i"
+  unfolding free_impl_int_def[symmetric] free_impl_def
+  unfolding int_folds
+  .
+
+definition down_impl_int :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _"
+  where [symmetric, int_folds]:
+    "down_impl_int = down_impl"
+
+schematic_goal down_impl_int_code[code]:
+  "down_impl_int \<equiv> ?i"
+  unfolding down_impl_int_def[symmetric] down_impl_def
+  unfolding int_folds
+  .
+
+fun neg_dbm_entry_int where
+  "neg_dbm_entry_int (Le (a :: int)) = Lt (-a)" |
+  "neg_dbm_entry_int (Lt a) = Le (-a)" |
+  "neg_dbm_entry_int DBMEntry.INF = DBMEntry.INF"
+
+lemma neg_dbm_entry_int_fold [int_folds]:
+  "neg_dbm_entry = neg_dbm_entry_int"
+  apply (intro ext)
+  subgoal for x
+    by (cases x; auto)
+  done
+
+schematic_goal and_entry_impl_code [code]:
+  "and_entry_impl \<equiv> ?impl"
+  unfolding and_entry_impl_def unfolding int_folds .
+
+schematic_goal and_entry_repair_impl_code [code]:
+  "and_entry_repair_impl \<equiv> ?impl"
+  unfolding and_entry_repair_impl_def unfolding int_folds .
+
+definition upd_entry_impl_int :: "_ \<Rightarrow> _ \<Rightarrow> _ \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _"
+  where [symmetric, int_folds]:
+    "upd_entry_impl_int = upd_entry_impl"
+
+schematic_goal upd_entry_impl_int_code [code]:
+  "upd_entry_impl_int \<equiv> ?i"
+  unfolding upd_entry_impl_int_def[symmetric] upd_entry_impl_def unfolding int_folds .
+
+schematic_goal upd_entries_impl_code [code]:
+  "upd_entries_impl \<equiv> ?impl"
+  unfolding upd_entries_impl_def int_folds .
+
+definition get_entries_impl_int :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> _"
+  where [symmetric, int_folds]:
+    "get_entries_impl_int = get_entries_impl"
+
+schematic_goal get_entries_impl_int_code[code]:
+  "get_entries_impl_int \<equiv> ?i"
+  unfolding get_entries_impl_int_def[symmetric] get_entries_impl_def unfolding int_folds .
+
+schematic_goal dbm_minus_canonical_impl_code [code]:
+  "dbm_minus_canonical_impl \<equiv> ?i"
+  unfolding dbm_minus_canonical_impl_def unfolding int_folds .
+
 
 paragraph \<open>Extracting executable implementations\<close>
 
@@ -550,10 +614,8 @@ lemma succs1_refine:
   unfolding succs1_def Let_def PR_CONST_def E_op_impl_refine
   unfolding inv_fun_alt_def ..
 
-schematic_goal succs1_alt_def:
-  "succs1 \<equiv> ?impl"
-  unfolding succs1_def
-  apply (abstract_let trans_impl trans_impl)
+schematic_goal trans_impl_alt_def:
+  "trans_impl \<equiv> ?impl"
   unfolding trans_impl_def
   apply (abstract_let int_trans_impl int_trans_impl)
   apply (abstract_let bin_trans_from_impl bin_trans_impl)
@@ -575,6 +637,13 @@ schematic_goal succs1_alt_def:
   unfolding trans_in_map_def trans_out_map_def
   unfolding trans_i_map_def
   apply (abstract_let trans_map trans_map)
+  .
+
+schematic_goal succs1_alt_def:
+  "succs1 \<equiv> ?impl"
+  unfolding succs1_def
+  apply (abstract_let trans_impl trans_impl)
+  unfolding trans_impl_alt_def
   .
 
 schematic_goal succs_impl_alt_def:
@@ -699,33 +768,13 @@ schematic_goal check_deadlock_impl_alt_def:
   "impl.check_deadlock_impl \<equiv> ?impl"
   unfolding impl.check_deadlock_impl_def
   apply (abstract_let trans_impl trans_impl)
-  unfolding trans_impl_def
-  apply (abstract_let int_trans_impl int_trans_impl)
-  apply (abstract_let bin_trans_from_impl bin_trans_impl)
-  apply (abstract_let broad_trans_from_impl broad_trans_impl)
-  unfolding int_trans_impl_def bin_trans_from_impl_def broad_trans_from_impl_def
-  apply (abstract_let trans_in_broad_grouped trans_in_broad_grouped)
-  apply (abstract_let trans_out_broad_grouped trans_out_broad_grouped)
-  apply (abstract_let trans_in_map trans_in_map)
-  apply (abstract_let trans_out_map trans_out_map)
-  apply (abstract_let int_trans_from_all_impl int_trans_from_all_impl)
-  unfolding int_trans_from_all_impl_def
-  apply (abstract_let int_trans_from_vec_impl int_trans_from_vec_impl)
-  unfolding int_trans_from_vec_impl_def
-  apply (abstract_let int_trans_from_loc_impl int_trans_from_loc_impl)
-  unfolding int_trans_from_loc_impl_def
-  apply (abstract_let trans_i_map trans_i_map)
-  unfolding trans_out_broad_grouped_def trans_out_broad_map_def
-  unfolding trans_in_broad_grouped_def trans_in_broad_map_def
-  unfolding trans_in_map_def trans_out_map_def
-  unfolding trans_i_map_def
-  apply (abstract_let trans_map trans_map)
+  unfolding trans_impl_alt_def
   apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> _" inv_fun)
   unfolding inv_fun_alt_def
   apply (abstract_let invs2 invs)
   unfolding invs2_def
   apply (abstract_let n_ps n_ps)
-  by (rule Pure.reflexive)
+  .
 
 schematic_goal no_deadlock_certifier_alt_def:
   "no_deadlock_certifier L_list M_list (split_k num_split) \<equiv> ?x"
@@ -747,7 +796,7 @@ schematic_goal no_deadlock_certifier_alt_def:
   unfolding impl.subsumes_impl_def
   unfolding impl.emptiness_check_impl_def
   unfolding impl.state_copy_impl_def
-  by (rule Pure.reflexive)
+  .
 
 lemmas no_deadlock_certifier_hnr' =
   impl.deadlock_unreachability_checker_hnr[folded no_deadlock_certifier_def,
@@ -843,11 +892,30 @@ schematic_goal unreachability_checker3_alt_def:
   apply (abstract_let n_vs n_vs)
   .
 
+
+schematic_goal check_deadlock_impl_alt_def2:
+  "impl.check_deadlock_impl \<equiv> ?impl"
+  unfolding impl.check_deadlock_impl_def
+  apply (abstract_let trans_impl trans_impl)
+  unfolding trans_impl_alt_def
+  apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> _" inv_fun)
+  unfolding inv_fun_alt_def
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  apply (abstract_let n_ps n_ps)
+  .
+
 definition no_deadlock_certifier3 where
   "no_deadlock_certifier3 \<equiv>
   Reachability_Problem_Impl_Precise.certify_unreachable_pure
     m trans_impl l\<^sub>0i (PR_CONST impl.E_precise_op'_impl)
     states'_memi (\<lambda>(l, M). impl.check_deadlock_impl l M \<bind> (\<lambda>r. Heap_Monad.return (\<not> r)))"
+
+definition
+  "check_deadlock_fold = (\<lambda>a. run_heap ((case a of (l, s) \<Rightarrow> array_unfreeze s
+  \<bind> (\<lambda>s. Heap_Monad.return (id l, s)))
+  \<bind> (\<lambda>a. case a of (l, M) \<Rightarrow> impl.check_deadlock_impl l M
+  \<bind> (\<lambda>r. Heap_Monad.return (\<not> r)))))"
 
 schematic_goal no_deadlock_certifier3_alt_def:
   "no_deadlock_certifier3 L_list M_list (split_k' num_split M_list) \<equiv> ?x"
@@ -856,12 +924,22 @@ schematic_goal no_deadlock_certifier3_alt_def:
   apply (subst impl.deadlock_unreachability_checker3_def[
         OF state_impl_abstract', OF _ A assms(2,3) split_k'_full_split[of M_list, unfolded that]
         ], (simp; fail))
+  unfolding check_deadlock_fold_def[symmetric]
+  apply (abstract_let check_deadlock_fold check_deadlock)
   apply (abstract_let "impl.init_dbm_impl :: int DBMEntry Heap.array Heap" init_dbm)
   unfolding impl.init_dbm_impl_def
   apply (abstract_let "impl.Mi M_list" Mi)
   apply (subst impl.Mi_def[OF state_impl_abstract', of states'_memi, OF _ A assms(2,3)])
    apply assumption
-  unfolding check_deadlock_impl_alt_def impl.P_impl_def impl.F_impl_def
+  apply (abstract_let "(\<lambda>a :: (nat list \<times> int list) \<times> int DBMEntry iarray. run_heap
+      ((case a of (l, s) \<Rightarrow> array_unfreeze s \<bind> (\<lambda>s. Heap_Monad.return (id l, s))) \<bind> impl.P_impl))"
+      P)
+  apply (abstract_let "impl.P_impl :: _ \<times> int DBMEntry Heap.array \<Rightarrow> _" P_impl)
+  apply (abstract_let "(\<lambda>(s :: int DBMEntry iarray) s'.
+            run_heap (array_unfreeze s \<bind> (\<lambda>s. array_unfreeze s' \<bind> dbm_subset_impl m s)))"
+    subsumption)
+  unfolding check_deadlock_fold_def check_deadlock_impl_alt_def2
+  unfolding impl.P_impl_def impl.F_impl_def
   apply (abstract_let states'_memi check_states)
   unfolding states'_memi_def states_mem_compute'
   apply (abstract_let "map states_i [0..<n_ps]" states_i)

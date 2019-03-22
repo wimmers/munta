@@ -77,14 +77,24 @@ fun read_file f =
     val _ = TextIO.closeIn file
   in s end;
 
+(* For IntInf as the default int type *)
+(* val to_large_int = IntInf.fromInt; *)
+(* For Int as the default int type *)
+val to_large_int = fn x => x;
+
+
 structure Bound : BOUND = struct
 
-type bound = int dBMEntry;
-type isabelle_int = int;
-val isabelle_int = Int_of_integer o IntInf.fromInt;
+(* For IntInf as the default int type *)
+(* type bound = int dBMEntry;
+type isabelle_int = int; *)
+(* For Int as the default int type *)
+type bound = inta dBMEntry;
+type isabelle_int = inta;
+val isabelle_int = Int_of_integer o to_large_int;
 val magic_number = 42;
-val lte = Le o Int_of_integer o IntInf.fromInt;
-val lt  = Lt o Int_of_integer o IntInf.fromInt;
+val lte = Le o Int_of_integer o to_large_int;
+val lt  = Lt o Int_of_integer o to_large_int;
 val inf = INF;
 
 end
@@ -153,7 +163,7 @@ fun main () =
     (* val num_threads = if implementation = 4 then 100000 else num_threads *)
     val _ = Par_List.set_num_threads num_threads
     val num_threads = 10000
-    val num_threads = num_threads |> IntInf.fromInt |> nat_of_integer
+    val num_threads = num_threads |> to_large_int |> nat_of_integer
     val implementation = int_to_impl implementation
     val args = [model, certificate, renaming]
     val _ = if cpu_time then Timing.set_cpu true else ()

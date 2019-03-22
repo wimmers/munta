@@ -876,6 +876,10 @@ schematic_goal fwi_impl_int_unfold1:
   apply (rule fw_upd_impl_int_fw_upd_impl_integer)
   by (assumption | rule that)+
 
+lemma integer_of_nat_add:
+  "integer_of_nat (x + y) = integer_of_nat x + integer_of_nat y"
+  by (simp add: integer_of_nat_eq_of_nat)
+
 schematic_goal fwi_impl_int_code [code]:
   "fwi_impl_int n a k \<equiv> ?x"
   unfolding fwi_impl_int_eq1
@@ -883,13 +887,77 @@ schematic_goal fwi_impl_int_code [code]:
   apply (subst fwi_impl_int_unfold1)
     apply (simp add: integer_of_nat_eq_of_nat; fail)
    apply (simp add: integer_of_nat_eq_of_nat; fail)
+  unfolding nat_of_integer_integer_of_nat
+  unfolding integer_of_nat_add integer_of_nat_1
+  apply (abstract_let "integer_of_nat n + 1" n_plus_1)
+  apply (abstract_let "integer_of_nat n" n)
   .
+
+
+code_printing code_module "Integer" \<rightharpoonup> (Eval)
+\<open>
+structure Integer: sig
+  val div_mod: int -> int -> int * int
+end = struct
+  fun div_mod i j = (i div j, i mod j)
+end
+\<close>
+
+text \<open>Delete ``junk''\<close>
+code_printing code_module Bits_Integer \<rightharpoonup> (SML) \<open>\<close>
+
+text \<open>For agreement with SML\<close>
+code_printing
+  type_constructor Typerep.typerep \<rightharpoonup> (Eval)
+| constant Typerep.Typerep \<rightharpoonup> (Eval)
+(*
+code_printing
+  type_constructor Typerep.typerep \<rightharpoonup> (Eval) "typerepa"
+| constant Typerep.Typerep \<rightharpoonup> (Eval) "Typerep/ (_, _)"
+*)
+
+(* datatype typerepa = Typerep of string * typerepa list; *)
+
+(* Speedup for Poly *)
+(*
+definition
+  "fw_upd_impl_integer' = fw_upd_impl_integer"
+
+lemma [code]:
+  "fw_upd_impl_integer = fw_upd_impl_integer'"
+  unfolding fw_upd_impl_integer'_def ..
+
+code_printing
+  constant fw_upd_impl_integer' \<rightharpoonup> (SML) "(fn n => fn a => fn k => fn i => fn j =>
+  let
+    val na = IntInf.+ (n, (1 : IntInf.int));
+    val ia = IntInf.+ (IntInf.* (i, na), j);
+    val x = Array.sub (a, IntInf.toInt ia);
+    val y = Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (i, na), k)));
+    val z = Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (k, na), j)));
+    val m = dbm'_add'_int y z;
+  in
+    if dbm'_lt'_int m x
+    then (fn () => (Array.update (a, IntInf.toInt ia, m); a))
+    else (fn () => a)
+  end) _ _ _ _ _"
+*)
+
+
+
+export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
+  nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
+  Impl1 Impl2 Impl3
+  E_op_impl
+  in Eval module_name Model_Checker file "../ML/Certificate.ML"
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
   Impl1 Impl2 Impl3
   E_op_impl
   in SML module_name Model_Checker file "../ML/Certificate.sml"
+
+
 
 code_printing code_module "Printing" \<rightharpoonup> (Haskell)
 \<open>

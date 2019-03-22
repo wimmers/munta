@@ -12,7 +12,8 @@ local
 
     ann "nonexhaustiveMatch ignore" in
       library.ML
-      Certificate.sml
+      (* Certificate.sml *)
+      Certificate.ML
     end
 in
     structure Timing

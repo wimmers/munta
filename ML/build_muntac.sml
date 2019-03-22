@@ -5,7 +5,8 @@ use "library.ML";
 (*use "parallel.sml";*)
 (* use "sequential.sml"; *)
 use "parallel_task_queue.sml";
-use "Certificate.sml";
+(* use "Certificate.sml"; *)
+use "Certificate.ML";
 val mlunta_dir =
   case OS.Process.getEnv "MLUNTA_CERT" of
     SOME x => x
