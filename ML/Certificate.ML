@@ -7709,17 +7709,7 @@ fun filter_dbm_list (A1_, A2_, A3_) n xs =
         (fn b => (fn () => (not b))))
     xs;
 
-fun array_freeze A_ a =
-  (fn a => fn () =>
-  if Vector.length a = 0
-  then Array.fromList []
-  else
-    let
-      val x = Vector.sub(a, 0)
-      val n = Array.array (Vector.length a, x)
-      val _ = Array.copyVec {src=a,dst=n,di=0}
-    in n end
-) a;
+fun array_freeze A_ a = (fn () => Array.vector a);
 
 fun make_string (A1_, A2_) show_clock show_num e i j =
   let
@@ -10626,7 +10616,16 @@ fun certify_unreachable_impl_pure get_succs mi li lei pi l_0i s_0i fi li_split =
   end;
 
 fun array_unfreeze A_ a =
-  (fn a => fn () => Array.tabulate (Vector.length a, fn i => Vector.sub (a, i))) a;
+  (fn a => fn () =>
+  if Vector.length a = 0
+  then Array.fromList []
+  else
+    let
+      val x = Vector.sub(a, 0)
+      val n = Array.array (Vector.length a, x)
+      val _ = Array.copyVec {src=a,dst=n,di=0}
+    in n end
+) a;
 
 fun unreachability_checker3 broadcast bounds automata m num_states num_actions
   l_0 s_0 formula l_list m_list num_split =

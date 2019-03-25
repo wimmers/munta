@@ -638,7 +638,7 @@ code_printing constant array_copy' \<rightharpoonup> (SML)
 
 text \<open>According to microbenchmarks, these versions are nearly two times faster.\<close>
 
-code_printing constant array_freeze' \<rightharpoonup> (SML)
+code_printing constant array_unfreeze' \<rightharpoonup> (SML)
 "(fn a => fn () =>
   if Vector.length a = 0
   then Array.fromList []
@@ -661,6 +661,7 @@ code_printing constant array_copy' \<rightharpoonup> (SML)
       val '_ = Array.copy {src=a,dst=n,di=0}
     in n end
 ) _"
+
 
 partial_function (heap) imp_for_int_inner :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
   "imp_for_int_inner i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int_inner (i + 1) u c f else return s})"
