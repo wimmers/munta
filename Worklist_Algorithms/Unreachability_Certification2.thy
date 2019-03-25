@@ -454,6 +454,7 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl
   +
   fixes to_state :: "'b1 \<Rightarrow> 'bi Heap" and from_state :: "'bi \<Rightarrow> 'b1 Heap"
     and to_loc :: "'k1 \<Rightarrow> 'ki" and from_loc :: "'ki \<Rightarrow> 'k1"
+  fixes lei
   fixes K_rel and A_rel
   fixes L_list :: "'ki list" and Li :: "'k1 list" and L' :: "'k list"
   fixes Li_split :: "'k1 list list"
@@ -465,6 +466,7 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl
   assumes from_loc: "(li, l) \<in> the_pure K \<Longrightarrow> (from_loc li, l) \<in> K_rel"
   assumes to_loc: "(l1, l) \<in> K_rel \<Longrightarrow> (to_loc l1, l) \<in> the_pure K"
   assumes K_rel: "single_valued K_rel" "single_valued (K_rel\<inverse>)"
+  assumes lei_less_eq: "(lei, (\<preceq>)) \<in> A_rel \<rightarrow> A_rel \<rightarrow> bool_rel"
   assumes full_split: "set Li = (\<Union>xs \<in> set Li_split. set xs)"
 begin
 
@@ -546,7 +548,7 @@ sublocale pure:
     get_succs = "run_heap oo get_succs" and
     K = K_rel and
     A = A_rel and
-    lei = "\<lambda>s s'. run_heap (do {s \<leftarrow> to_state s; s' \<leftarrow> to_state s'; Lei s s'})" and
+    lei = lei and
     Pi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Pi a})" and
     Fi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Fi a})" and
     l\<^sub>0i = "from_loc (run_heap l\<^sub>0i)" and
@@ -561,13 +563,7 @@ sublocale pure:
   subgoal
     using Mi_M .
   subgoal
-    apply standard
-    apply standard
-    apply (rule hoare_triple_run_heapD)
-    apply (sep_auto
-        heap: to_state_ht Lei[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified] simp: pure_def
-        )
-    done
+    by (rule lei_less_eq)
   subgoal
     using get_succs .
   subgoal

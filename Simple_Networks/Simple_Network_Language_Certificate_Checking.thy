@@ -964,8 +964,8 @@ schematic_goal no_deadlock_certifier3_alt_def:
       ((case a of (l, s) \<Rightarrow> array_unfreeze s \<bind> (\<lambda>s. Heap_Monad.return (id l, s))) \<bind> impl.P_impl))"
       P)
   apply (abstract_let "impl.P_impl :: _ \<times> int DBMEntry Heap.array \<Rightarrow> _" P_impl)
-  apply (abstract_let "(\<lambda>(s :: int DBMEntry iarray) s'.
-            run_heap (array_unfreeze s \<bind> (\<lambda>s. array_unfreeze s' \<bind> dbm_subset_impl m s)))"
+  apply (abstract_let "(\<lambda>(as :: int DBMEntry iarray) bs.
+            (\<exists>i\<le>m. as !! (i + i * m + i) < Le 0) \<or> array_all2 (Suc m * Suc m) (\<le>) as bs)"
     subsumption)
   unfolding check_deadlock_impl_alt_def2
   unfolding impl.P_impl_def impl.F_impl_def

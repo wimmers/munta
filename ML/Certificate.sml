@@ -7398,6 +7398,9 @@ fun certify_unreachable_impl2 (A1_, A2_, A3_) B_ fi pi copyi lei l_0i s_0i
     b1 andalso (b2 andalso b3)
   end;
 
+fun array_all2 n p asa bs =
+  all_interval_nat (fn i => p (sub asa i) (sub bs i)) zero_nata n;
+
 fun succs_impl broadcast bounds automata m num_actions =
   let
     val trans_impl =
@@ -10692,14 +10695,15 @@ fun unreachability_checker3 broadcast bounds automata m num_states num_actions
               (hashable_list hashable_int)))
           k mi)
       l_list
-      (fn s => fn sa =>
-        (fn f => f ()) ((fn f_ => fn () => f_
-                          ((array_unfreeze (heap_DBMEntry heap_int) s) ()) ())
-                         (fn sb =>
-                           (fn f_ => fn () => f_
-                             ((array_unfreeze (heap_DBMEntry heap_int) sa) ())
-                             ())
-                             (dbm_subset_impl_int m sb))))
+      (fn asa => fn bs =>
+        not (all_interval_nat
+              (not o
+                (fn i =>
+                  dbm_lt_0
+                    (sub asa (plus_nata (plus_nata i (times_nata i m)) i))))
+              zero_nata (suc m)) orelse
+          array_all2 (times_nata (suc m) (suc m))
+            (less_eq_DBMEntry (equal_int, linorder_int)) asa bs)
       (fn a =>
         (fn f => f ()) ((fn f_ => fn () => f_
                           (let
@@ -10819,14 +10823,15 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
             n_ps andalso
           (equal_nata (size_list s) n_vsa andalso check_boundedi bounds s));
     val subsumption =
-      (fn s => fn sa =>
-        (fn f => f ()) ((fn f_ => fn () => f_
-                          ((array_unfreeze (heap_DBMEntry heap_int) s) ()) ())
-                         (fn sb =>
-                           (fn f_ => fn () => f_
-                             ((array_unfreeze (heap_DBMEntry heap_int) sa) ())
-                             ())
-                             (dbm_subset_impl_int m sb))));
+      (fn asa => fn bs =>
+        not (all_interval_nat
+              (not o
+                (fn i =>
+                  dbm_lt_0
+                    (sub asa (plus_nata (plus_nata i (times_nata i m)) i))))
+              zero_nata (suc m)) orelse
+          array_all2 (times_nata (suc m) (suc m))
+            (less_eq_DBMEntry (equal_int, linorder_int)) asa bs);
     val p_impl =
       (fn (a1, a2) =>
         (fn f_ => fn () => f_

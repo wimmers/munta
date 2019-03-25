@@ -193,6 +193,34 @@ qed
 
 end
 
+definition
+  "array_all2 n P as bs \<equiv> \<forall>i < n. P (IArray.sub as i) (IArray.sub bs i)"
+
+lemma iarray_mtx_relD:
+  assumes "iarray_mtx_rel n m M a" "i < n" "j < m"
+  shows "M (i, j) = IArray.sub a (i * m + j)"
+  using assms unfolding iarray_mtx_rel_def by auto
+
+lemma array_all2_iff_pointwise_cmp:
+  assumes "iarray_mtx_rel (Suc n) (Suc n) M a" "iarray_mtx_rel (Suc n) (Suc n) M' b"
+  shows "array_all2 (Suc n * Suc n) P a b \<longleftrightarrow> pointwise_cmp P n (curry M) (curry M')"
+proof -
+  have *: \<open>i + i * n + j < Suc (n + (n + n * n))\<close> if \<open>i \<le> n\<close> and \<open>j \<le> n\<close> for i j :: \<open>nat\<close>
+    using that by (simp add: algebra_simps) (intro le_imp_less_Suc add_mono; simp)
+  have **: "\<exists>i \<le> n. \<exists>j \<le> n. k = i + i * n + j" if "k < Suc n * Suc n" for k
+    apply (inst_existentials "k div Suc n" "k mod Suc n")
+    subgoal
+      by (meson Suc_leI not_le th2 that)
+    subgoal
+      by simp
+    subgoal
+      by (metis dme mult_Suc_right)
+    done
+  from assms show ?thesis
+    unfolding pointwise_cmp_def array_all2_def
+    by (auto dest: *[simplified] **[simplified] simp: iarray_mtx_relD)
+qed
+
 
 context TA_Impl
 begin
@@ -897,6 +925,8 @@ interpretation Reachability_Impl_imp_to_pure
     and less = "\<lambda> x y. dbm_subset n x y \<and> \<not> dbm_subset n y x"
     and less_eq = "dbm_subset n"
     and Lei = "dbm_subset_impl n"
+    and lei = "\<lambda>as bs.
+      (\<exists>i\<le>n. IArray.sub as (i + i * n + i) < Le 0) \<or> array_all2 (Suc n * Suc n) (\<le>) as bs"
     and E = op_precise.E_from_op_empty
     and Fi = F_impl
     and K = location_assn
@@ -938,6 +968,9 @@ interpretation Reachability_Impl_imp_to_pure
     by (rule right_unique_location_rel)
   subgoal
     using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def .
+  subgoal
+    unfolding dbm_subset_def check_diag_def
+    by (auto simp: array_all2_iff_pointwise_cmp[symmetric] iarray_mtx_relD)
   subgoal
     using full_split .
   done
