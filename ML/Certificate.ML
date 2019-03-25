@@ -2940,7 +2940,16 @@ fun time_it s f = let
                   end;
 
 fun array_copy A_ a =
-  (fn a => fn () => Array.tabulate (Array.length a, fn i => Array.sub (a, i))) a;
+  (fn a => fn () =>
+  if Array.length a = 0
+  then Array.fromList []
+  else
+    let
+      val x = Array.sub(a, 0)
+      val n = Array.array (Array.length a, x)
+      val _ = Array.copy {src=a,dst=n,di=0}
+    in n end
+) a;
 
 fun array_grow a = FArray.IsabelleMapping.array_grow a o integer_of_nat;
 
@@ -7700,7 +7709,17 @@ fun filter_dbm_list (A1_, A2_, A3_) n xs =
         (fn b => (fn () => (not b))))
     xs;
 
-fun array_freeze A_ a = (fn () => Array.vector a);
+fun array_freeze A_ a =
+  (fn a => fn () =>
+  if Vector.length a = 0
+  then Array.fromList []
+  else
+    let
+      val x = Vector.sub(a, 0)
+      val n = Array.array (Vector.length a, x)
+      val _ = Array.copyVec {src=a,dst=n,di=0}
+    in n end
+) a;
 
 fun make_string (A1_, A2_) show_clock show_num e i j =
   let

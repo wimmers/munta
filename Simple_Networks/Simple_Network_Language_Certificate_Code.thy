@@ -636,6 +636,31 @@ code_printing constant array_unfreeze' \<rightharpoonup> (SML)
 code_printing constant array_copy' \<rightharpoonup> (SML)
   "(fn a => fn () => Array.tabulate (Array.length a, fn i => Array.sub (a, i))) _"
 
+text \<open>According to microbenchmarks, these versions are nearly two times faster.\<close>
+
+code_printing constant array_freeze' \<rightharpoonup> (SML)
+"(fn a => fn () =>
+  if Vector.length a = 0
+  then Array.fromList []
+  else
+    let
+      val x = Vector.sub(a, 0)
+      val n = Array.array (Vector.length a, x)
+      val '_ = Array.copyVec {src=a,dst=n,di=0}
+    in n end
+) _"
+
+code_printing constant array_copy' \<rightharpoonup> (SML)
+"(fn a => fn () =>
+  if Array.length a = 0
+  then Array.fromList []
+  else
+    let
+      val x = Array.sub(a, 0)
+      val n = Array.array (Array.length a, x)
+      val '_ = Array.copy {src=a,dst=n,di=0}
+    in n end
+) _"
 
 partial_function (heap) imp_for_int_inner :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
   "imp_for_int_inner i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int_inner (i + 1) u c f else return s})"
