@@ -304,6 +304,11 @@ abbreviation map_A :: "(('s list \<times> ('x \<Rightarrow> 'b option)) \<times>
     else []
   )"
 
+lemma map_trans_broad_aux1:
+  "map_index map_loc (fold (\<lambda>p L. L[p := ls' p]) ps L) =
+  fold (\<lambda>p L. L[p := map_loc p (ls' p)]) ps (map_index map_loc L)"
+  by (induction ps arbitrary: L) (auto simp: map_index_update)
+
 context
   assumes map_loc_inj:    "\<forall> i. inj (map_loc i)"
       and map_var_inj:    "inj map_var"
@@ -821,11 +826,6 @@ lemma is_upds_mapI:
   using assms
   by (induction ps arbitrary: s')
      (auto 4 4 intro: is_upds.intros dest: is_upd_mapI elim: is_upds.cases)
-
-lemma map_trans_broad_aux1:
-  "map_index map_loc (fold (\<lambda>p L. L[p := ls' p]) ps L) =
-  fold (\<lambda>p L. L[p := map_loc p (ls' p)]) ps (map_index map_loc L)"
-  by (induction ps arbitrary: L) (auto simp: map_index_update)
 
 lemma InD2:
   assumes "In (map_action a) = map_act map_action a'"

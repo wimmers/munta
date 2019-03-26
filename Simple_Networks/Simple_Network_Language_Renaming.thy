@@ -212,10 +212,11 @@ locale Simple_Network_Rename' =
   Simple_Network_Rename_Defs where automata = automata for automata ::
     "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
       \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
-  assumes inj_extend_renum_clocks: "inj renum_clocks"
+  assumes bij_renum_clocks: "bij renum_clocks"
       and renum_states_inj: "\<forall>p<n_ps. inj (renum_states p)"
       and bij_renum_vars: "bij renum_vars"
       and bounds'_var_set: "fst ` set bounds' \<subseteq> var_set"
+      and inj_renum_acts: "inj renum_acts"
 begin
 
 lemma aux_1:
@@ -228,7 +229,7 @@ lemma aux_1:
 
 lemma clocks_inv_inv:
   "clocks_inv (renum_clocks a) = a"
-  unfolding clocks_inv_def by (subst the_inv_f_f; rule inj_extend_renum_clocks HOL.refl)
+  unfolding clocks_inv_def by (subst the_inv_f_f; rule bij_renum_clocks[THEN bij_is_inj] HOL.refl)
 
 lemma map_u_renum_cconstraint_clock_valI:
   "map_u u \<turnstile> renum_cconstraint cc" if "u \<turnstile> cc"
@@ -482,6 +483,27 @@ lemma trans_N_renumD:
   unfolding mem_trans_N_iff[OF assms(2)] renum.mem_trans_N_iff[unfolded renum_n_ps_simp, OF assms(2)]
   by (force split: prod.split simp: renum_automaton_def n_ps_def)
 
+lemma match_assumption2:
+  assumes "P a1 b1" "a1 = a" "b1 = b" shows "P a b"
+  using assms by auto
+
+lemma injective_functions:
+  "inj renum_reset" "inj renum_upd" "inj renum_act" "inj renum_cconstraint" "inj renum_bexp"
+  "\<And>p. p < length automata \<Longrightarrow> inj (renum_states p)"
+  sorry
+
+lemma trans_N_renumI:
+  assumes "(renum_states p l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd f, renum_reset r, renum_states p l')
+  \<in> Simple_Network_Language.trans (renum.N p)"  "p < n_ps"
+  shows "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+  using assms
+  unfolding mem_trans_N_iff[OF assms(2)] renum.mem_trans_N_iff[unfolded renum_n_ps_simp, OF assms(2)]
+  apply (clarsimp split: prod.split_asm simp: renum_automaton_def n_ps_def)
+  apply (fo_rule match_assumption2, assumption)
+   apply (auto elim!: injD[rotated, THEN sym] intro: injective_functions)
+  done
+
+
 definition
   "conv' \<equiv> \<lambda>(commited, trans, inv).
   (commited, (\<lambda>(l, b, g, a, f, r, l'). (l, b, conv_cc g, a, f, r, l')) ` trans, conv_cc o inv)"
@@ -519,13 +541,77 @@ lemma trans_sem_N_renumD:
   apply clarsimp
   subgoal for g'
     using \<open>p < n_ps\<close>
-    apply (simp add: N_eq[symmetric])
+    apply (simp only: N_eq[symmetric])
     apply (drule (1) trans_N_renumD)
     apply (subst renum.N_eq[symmetric])
      apply (subst renum_n_ps_simp; assumption)
     apply (auto simp: map_ccconstraint_conv_cc_commute)
     done
   done
+
+lemma renum_acconstraint_eq_convD:
+  assumes "map_acconstraint renum_clocks id g = conv_ac g'"
+  obtains g1 where "g = conv_ac g1" "g' = map_acconstraint renum_clocks id g1"
+  subgoal premises
+    using assms
+    apply (cases g'; cases g; clarsimp)
+    subgoal for m c
+      by (rule that[of "acconstraint.LT c m"]; simp)
+    subgoal for m c
+      by (rule that[of "acconstraint.LE c m"]; simp)
+    subgoal for m c
+      by (rule that[of "acconstraint.EQ c m"]; simp)
+    subgoal for m c
+      by (rule that[of "acconstraint.GT c m"]; simp)
+    subgoal for m c
+      by (rule that[of "acconstraint.GE c m"]; simp)
+    done
+  done
+
+lemma renum_cconstraint_eq_convD:
+  assumes "renum_cconstraint g = conv_cc g'"
+  obtains g1 where "g = conv_cc g1" "g' = renum_cconstraint g1"
+  using assms
+  unfolding renum_cconstraint_def map_cconstraint_def
+  sorry
+
+lemma trans_sem_N_renumI:
+  assumes "(renum_states p l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd f, renum_reset r, renum_states p l')
+  \<in> Simple_Network_Language.trans (renum.sem.N p)" "p < n_ps"
+  shows "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (sem.N p)"
+  using assms(1)
+  unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)] eq1'
+  apply clarsimp
+  apply (erule renum_cconstraint_eq_convD)
+  subgoal for g' g1
+    using \<open>p < n_ps\<close>
+    apply (simp add: N_eq[symmetric])
+    apply (inst_existentials g1)
+     apply (rule trans_N_renumI)
+      apply (simp; fail | metis Simple_Network_Impl.covn_N_eq renum_n_ps_simp)+
+    done
+  done
+
+lemma trans_sem_N_renumI':
+  assumes "(renum_states p l, b, g, renum_act a, f, r, l')
+  \<in> Simple_Network_Language.trans (renum.sem.N p)" "p < n_ps"
+  shows "\<exists> b' g' f' r' l'.
+    (l, b', g', a, f', r', l') \<in> Simple_Network_Language.trans (sem.N p)
+    \<and> b = renum_bexp b' \<and> g = renum_cconstraint g'"
+proof -
+  obtain b' g' f' r' l1 where "b = renum_bexp b'" "g = renum_cconstraint g'" "f = renum_upd f'"
+    "r = renum_reset r'" "l' = renum_states p l1"
+    using assms
+    unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)] eq1'
+    apply clarify
+    apply (subst (asm) nth_map_index)
+    subgoal
+      by (simp add: n_ps_def)
+    unfolding renum_automaton_def automaton_of_def trans_def
+    by (auto split: prod.split_asm simp: map_ccconstraint_conv_cc_commute[symmetric])
+  with assms show ?thesis
+    by (fastforce dest!: trans_sem_N_renumI)
+qed
 
 lemma fold_sem_N:
   "map (renum.automaton_of \<circ> renum.conv_automaton) automata ! p = sem.N p"
@@ -569,33 +655,69 @@ and is_val_renumD:
   using is_val.simps apply fastforce+
   done
 
+method solve_case =
+  auto 
+    intro: check_bexp_is_val.intros
+    simp: renum_bexp_def renum_exp_def vars_inv_def the_inv_f_f[OF inj_renum_vars];
+  fail
+| use is_val.simps in fastforce
+
+lemma check_bexp_renumI:
+  "check_bexp (s o vars_inv) (renum_bexp b) bv \<Longrightarrow> check_bexp s b bv"
+  and is_val_renumI:
+  "is_val (s o vars_inv) (renum_exp e) v \<Longrightarrow> is_val s e v"
+  apply (induction
+      "s o vars_inv" "renum_bexp b" bv and "s o vars_inv" "renum_exp e" _
+      arbitrary: b and e rule: check_bexp_is_val.inducts)
+  subgoal for b
+    by (cases b; solve_case)
+  subgoal for e bv b
+    by (cases b; solve_case)
+  subgoal for e1 a e2 bv b
+    by (cases b; solve_case)
+  subgoal for e1 a e2 bv b
+    by (cases b; solve_case)
+  subgoal for e1 a e2 bv b
+    by (cases b; solve_case)
+  subgoal for a v bv x b
+    by (cases b; solve_case)
+  subgoal for a v bv x b
+    by (cases b; solve_case)
+  subgoal for a v bv x b
+    by (cases b; solve_case)
+  subgoal for a v bv x b
+    by (cases b; solve_case)
+  subgoal for a v bv x b
+    by (cases b; solve_case)
+  subgoal for c e
+    by (cases e; solve_case)
+  subgoal for x v e
+    by (cases e; solve_case)
+  subgoal for e1 v1 e2 v2 b bv e
+    by (auto simp: renum_bexp_def renum_exp_def; cases e; solve_case)
+  subgoal for e1 v1 e2 v2 f e
+    by (auto simp: renum_bexp_def renum_exp_def; cases e; solve_case)
+  subgoal for e1 v f e
+    by (cases e; solve_case)
+  done
+
 lemma renum_reset_map_u:
   "[renum_reset r\<rightarrow>0]map_u u = map_u ([r\<rightarrow>0]u)"
-unfolding map_u_def
-      apply (rule ext)
+  unfolding map_u_def
+  apply (rule ext)
   subgoal for x
-    apply (cases "clocks_inv x \<in> set r"; clarsimp)
-     apply (frule imageI[where f = renum_clocks])
-    unfolding clocks_inv_def
-     apply (subst (asm) f_the_inv_f[OF inj_extend_renum_clocks])
-      apply auto
-    sorry
-  sorry
-    (* oops
-        apply (cases "x \<in> set (renum_reset r)"; clarsimp)
-        unfolding renum_reset_def
-         apply (clarsimp simp: clocks_inv_inv)+
-        apply (subst clock_set_id)
-         apply auto
-        apply (drule imageI[where f = renum_clocks])
-        thm clocks_inv_inv
-        unfolding clocks_inv_def
-        thm f_the_inv_f
-        apply (subst (asm) f_the_inv_f[OF inj_extend_renum_clocks])
-        apply auto
-        apply simp
-        thm imageI
-  sorry *)
+    apply (cases "clocks_inv x \<in> set r"; simp add: clocks_inv_def)
+    subgoal
+      using bij_renum_clocks[THEN bij_is_surj]
+      by (auto
+            simp: renum_reset_def f_the_inv_f[OF bij_is_inj, OF bij_renum_clocks]
+            dest: imageI[where f = renum_clocks]
+         )
+    subgoal
+      by (subst clock_set_id)
+         (auto simp: renum_reset_def the_inv_f_f[OF bij_is_inj, OF bij_renum_clocks])
+    done
+  done
 
 lemma bounded_renumI':
   assumes "bounded sem.bounds s'"
@@ -623,6 +745,28 @@ lemma is_upd_renumD:
       done
     done
   done
+
+lemma is_upds_renumD:
+  assumes "is_upds s1 ps s'"
+  shows "is_upds (s1 o vars_inv) (map renum_upd ps) (s' o vars_inv)"
+  using assms by induction (auto intro: is_upds.intros simp: comp_def dest!: is_upd_renumD)
+
+lemma Ball_mono:
+  assumes "\<forall>x \<in> S. P x" "\<And>x. x \<in> S \<Longrightarrow> P x \<Longrightarrow> Q x"
+  shows "\<forall>x \<in> S. Q x"
+  using assms by blast
+
+lemma atLeastLessThan_upperD:
+  assumes "S \<subseteq> {l..<u}" "x \<in> S"
+  shows "x < u"
+  using assms by auto
+
+lemma imp_mono_rule:
+  assumes "P1 \<longrightarrow> P2"
+    and "Q1 \<Longrightarrow> P1"
+    and "Q1 \<Longrightarrow> P2 \<Longrightarrow> Q2"
+  shows "Q1 \<longrightarrow> Q2"
+  using assms by blast
 
 lemma step_single_renumD:
   assumes "step_u sem L s u a L' s' u'" "L \<in> sem.states" "dom s \<subseteq> var_set"
@@ -674,7 +818,7 @@ lemma step_single_renumD:
     subgoal
       apply clarsimp
       apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ sem.state_preservation_updI]])
-      apply (fastforce simp add: sem_states_eq)+
+          apply (fastforce simp add: sem_states_eq)+
       done
          apply (simp; fail)
         apply (simp; fail)
@@ -684,11 +828,146 @@ lemma step_single_renumD:
       by (erule is_upd_renumD)
     subgoal
       apply (erule bounded_renumI'; fail)
+      done
+    done
+
+(* Binary *)
+  subgoal for a'
+    supply [simp] = length_automata_eq_n_ps L_len renum_sem_n_ps_eq
+    unfolding sem_states_eq
+    apply (subst (asm) sem.A_split)
+    apply (subst renum.sem.A_split)
+    apply (simp only: renum_label_def label.map renum_n_ps_simp renum.n_ps_eq)
+    apply (erule step_u_elims')
+    apply simp
+    apply (rule step_u.intros)
+    subgoal
+      unfolding renum.sem.broadcast_def
+      unfolding renum.sem_def
+      apply clarsimp
+      apply (drule injD[OF inj_renum_acts])
+      apply (subst (asm) sem.broadcast_def, subst (asm) sem_def, simp)
+      done
+
+                     apply (drule (1) trans_sem_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+                    apply (drule (1) trans_sem_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+
+    subgoal
+      by (auto simp: commited_renum_eq dest!: inj_renum_states[THEN injD, rotated])
+
+    subgoal
+      by (erule check_bexp_renumD)
+
+    subgoal
+      by (erule check_bexp_renumD)
+
+    subgoal
+      by (rule map_u_renum_cconstraint_clock_valI)
+
+    subgoal
+      by (rule map_u_renum_cconstraint_clock_valI)
+
+    subgoal
+      apply clarsimp
+      apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ sem.state_preservation_updI]])
+          apply (fastforce simp add: sem_states_eq intro!: sem.state_preservation_updI[unfolded sem_states_eq])+
+      done
+             apply (simp; fail)+
+        apply (simp add: map_index_update; fail)
+       apply (simp add: renum_reset_map_u[symmetric] renum_reset_def; fail)
+      apply (erule is_upd_renumD; fail)
+     apply (erule is_upd_renumD; fail)
+    apply (erule bounded_renumI'; fail)
+    done
+
+
+(* Broadcast *)
+  subgoal for a'
+    supply [simp] = length_automata_eq_n_ps L_len renum_sem_n_ps_eq
+    unfolding sem_states_eq
+    apply (subst (asm) sem.A_split)
+    apply (subst renum.sem.A_split)
+    apply (simp only: renum_label_def label.map renum_n_ps_simp renum.n_ps_eq)
+    apply (erule step_u_elims')
+    apply simp
+
+    apply (rule step_u.intros)
+
+    subgoal
+      unfolding renum.sem.broadcast_def unfolding renum.sem_def
+      by (subst (asm) sem.broadcast_def, subst (asm) sem_def, simp)
+
+                       apply (drule (1) trans_sem_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+
+                      focus
+    apply (auto dest!: trans_sem_N_renumD simp add: renum_act_def atLeastLessThan_upperD)
+    solved
+
+    subgoal
+      apply (simp add: commited_renum_eq)
+      apply (erule disj_mono[rule_format, rotated 2], (simp; fail))
+      apply (erule disj_mono[rule_format, rotated 2])
+      subgoal
+        apply clarify
+        apply (rule rev_bexI, assumption)
+        apply (auto simp: commited_renum_eq)
+        done
+      apply (auto simp: commited_renum_eq dest!: inj_renum_states[THEN injD, rotated]; fail)
+      done
+
+    subgoal
+      by (erule check_bexp_renumD)
+
+    subgoal
+      by (auto elim: check_bexp_renumD)
+
+    subgoal
+      by (rule map_u_renum_cconstraint_clock_valI)
+
+    subgoal
+      by (auto elim: map_u_renum_cconstraint_clock_valI)
+
+    subgoal
+      apply simp
+      apply (erule all_mono[THEN mp, OF impI, rotated])
+      apply (erule (1) imp_mono_rule)
+      apply (erule (1) imp_mono_rule)
+      apply clarify
+      apply (drule trans_sem_N_renumI'[where a = "In a'", unfolded renum_act_def, simplified])
+       apply (simp add: atLeastLessThan_upperD; fail)
+      apply clarsimp
+      apply (drule check_bexp_renumI)
+      apply (drule map_u_renum_cconstraint_clock_valD)
+      apply blast
+      done
+
+    subgoal
+      apply simp
+      apply (drule map_u_renum_cconstraint_clock_valI)+
+      apply (erule all_mono[THEN mp, OF impI, rotated], erule (1) imp_mono_rule, drule (1) inv_renum_sem_I)
+      subgoal
+        sorry
+      apply (fo_rule match_assumption2[where P =clock_val], assumption, rule HOL.refl)
+      apply (subst nth_map_index)
+       apply simp
+      subgoal
+        sorry
+      apply (rule HOL.refl)
+      done
+              apply (simp; fail)
+             apply (simp; fail)
+            apply (simp; fail)
+           apply (simp; fail)
+          apply (simp; fail)
+         apply (simp; fail)
+        apply (simp add: Simple_Network_Impl_map.map_trans_broad_aux1[symmetric] map_index_update; fail)
+       apply (simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def; fail)
+      apply (erule is_upd_renumD; fail)
+     apply (drule is_upds_renumD, simp add: comp_def; fail)
+    apply (erule bounded_renumI'; fail)
     done
   done
-    subgoal
-    sorry
-  sorry
+
 
 lemma step_single_renumI:
   assumes
@@ -972,9 +1251,9 @@ lemma var_set_finite[finite_intros]:
   "finite var_set"
   unfolding var_set_def by (auto intro!: finite_intros)
 
-lemma inj_extend_bij_renum_clocks:
-  "inj (extend_bij renum_clocks clk_set')"
-  by (intro extend_bij_inj renum_clocks_inj clk_set'_finite infinite_types)
+lemma bij_extend_bij_renum_clocks:
+  "bij (extend_bij renum_clocks clk_set')"
+  by (intro extend_bij_bij renum_clocks_inj clk_set'_finite infinite_types) simp
 
 lemma renum_vars_bij_extends[simp]:
   "extend_bij renum_vars var_set x = renum_vars x" if "x \<in> var_set"
@@ -1001,7 +1280,7 @@ sublocale rename: Simple_Network_Rename'
   "\<lambda>p. extend_bij (renum_states p) loc_set"
   automata
   by (standard;
-      intro allI impI inj_extend_bij_renum_clocks inj_extend_bij_renum_states
+      intro allI impI bij_extend_bij_renum_clocks inj_extend_bij_renum_states
            bij_extend_bij_renum_states bounds'_var_set)
 
 definition
