@@ -288,30 +288,26 @@ lemma inj_renum_states: "inj (renum_states p)" if "p < n_ps"
 
 lemma inv_renum_sem_I:
   assumes
-    "u \<turnstile> Simple_Network_Language.inv (sem.N p) l"
-    "p < n_ps" "l \<in> loc_set"
+    "u \<turnstile> Simple_Network_Language.inv (sem.N p) l" "p < n_ps" "l \<in> loc_set"
   shows
     "map_u u \<turnstile> Simple_Network_Language.inv (renum.sem.N p) (renum_states p l)"
-proof -
-  show ?thesis
-    using assms
-    unfolding inv_def
-    apply -
-    apply (subst (asm) sem_N_eq, assumption)
-    apply (subst renum.sem_N_eq, subst renum_n_ps_simp, assumption)
-    apply (subst nth_map_index, simp add: n_ps_def)
-    unfolding conv_automaton_def renum.automaton_of_def
-    apply (auto split: prod.split_asm simp: renum_automaton_def comp_def)
-    unfolding aux_1
-    apply (subst default_map_of_map[where x = "[]"])
-    subgoal
-      by (intro inj_renum_states \<open>p < n_ps\<close>)
-     apply (simp add: renum_cconstraint_def map_cconstraint_def; fail)
-    apply (subst (asm) default_map_of_map_2[where x = "[]"])
-     apply simp
-    apply (erule map_u_conv_renum_cconstraint_clock_valI)
-    done
-qed
+  using assms
+  unfolding inv_def
+  apply -
+  apply (subst (asm) sem_N_eq, assumption)
+  apply (subst renum.sem_N_eq, subst renum_n_ps_simp, assumption)
+  apply (subst nth_map_index, simp add: n_ps_def)
+  unfolding conv_automaton_def renum.automaton_of_def
+  apply (auto split: prod.split_asm simp: renum_automaton_def comp_def)
+  unfolding aux_1
+  apply (subst default_map_of_map[where x = "[]"])
+  subgoal
+    by (intro inj_renum_states \<open>p < n_ps\<close>)
+   apply (simp add: renum_cconstraint_def map_cconstraint_def; fail)
+  apply (subst (asm) default_map_of_map_2[where x = "[]"])
+   apply simp
+  apply (erule map_u_conv_renum_cconstraint_clock_valI)
+  done
 
 lemma inv_renum_sem_D:
   assumes
@@ -319,25 +315,22 @@ lemma inv_renum_sem_D:
     "p < n_ps" "l \<in> loc_set"
   shows
     "u \<turnstile> Simple_Network_Language.inv (sem.N p) l"
-proof -
-  show ?thesis
-    using assms
-    unfolding inv_def
-    apply -
-    apply (subst sem_N_eq, assumption)
-    apply (subst (asm) renum.sem_N_eq, subst renum_n_ps_simp, assumption)
-    apply (subst (asm) nth_map_index, simp add: n_ps_def)
-    unfolding conv_automaton_def renum.automaton_of_def
-    apply (auto split: prod.split simp: renum_automaton_def comp_def)
-    unfolding aux_1
-    apply (subst (asm) default_map_of_map[where x = "[]"])
-    subgoal
-      by (intro inj_renum_states \<open>p < n_ps\<close>)
-     apply (simp add: renum_cconstraint_def map_cconstraint_def; fail)
-    apply (subst default_map_of_map_2[where x = "[]"])
-     apply simp
-    unfolding map_u_renum_cconstraint_clock_val_iff .
-qed
+  using assms
+  unfolding inv_def
+  apply -
+  apply (subst sem_N_eq, assumption)
+  apply (subst (asm) renum.sem_N_eq, subst renum_n_ps_simp, assumption)
+  apply (subst (asm) nth_map_index, simp add: n_ps_def)
+  unfolding conv_automaton_def renum.automaton_of_def
+  apply (auto split: prod.split simp: renum_automaton_def comp_def)
+  unfolding aux_1
+  apply (subst (asm) default_map_of_map[where x = "[]"])
+  subgoal
+    by (intro inj_renum_states \<open>p < n_ps\<close>)
+   apply (simp add: renum_cconstraint_def map_cconstraint_def; fail)
+  apply (subst default_map_of_map_2[where x = "[]"])
+   apply simp
+  unfolding map_u_renum_cconstraint_clock_val_iff .
 
 lemma dom_the_inv_comp:
   "dom (m o the_inv f) = f ` dom m" if "inj f" "range f = UNIV"
@@ -640,54 +633,6 @@ proof -
     by (auto split: prod.split_asm simp: map_ccconstraint_conv_cc_commute[symmetric])
   with assms show ?thesis
     by (fastforce dest!: trans_sem_N_renumI)
-qed
-
-lemma trans_sem_N_renumI'':
-  assumes "(renum_states p l, b, g, a, f, r, l')
-  \<in> Simple_Network_Language.trans (renum.sem.N p)" "p < n_ps"
-  defines
-    "b' \<equiv> (SOME b'. b = renum_bexp b')" and
-    "g' \<equiv> (SOME g'. g = renum_cconstraint g')" and
-    "a' \<equiv> (SOME a'. a = renum_act a')" and
-    "f' \<equiv> (SOME f'. f = renum_upd f')" and
-    "r' \<equiv> (SOME r'. r = renum_reset r')" and
-    "l1 \<equiv> (SOME l1. l' = renum_states p l1)"
-  shows "
-    (l, b', g', a', f', r', l1) \<in> Simple_Network_Language.trans (sem.N p)
-    \<and> b = renum_bexp b' \<and> g = renum_cconstraint g' \<and> a = renum_act a' \<and> f = renum_upd f'
-    \<and> r = renum_reset r' \<and> l' = renum_states p l1"
-  using trans_sem_N_renumI'[OF assms(1,2)]
-  unfolding assms(3-)
-  oops
-
-lemma trans_sem_N_renumI'':
-  assumes "(renum_states p l, b, g, a, f, r, l')
-  \<in> Simple_Network_Language.trans (renum.sem.N p)" "p < n_ps"
-  defines
-    "t \<equiv> SOME (b', g', a', f', r', l1). (l, b', g', a', f', r', l1) \<in> Simple_Network_Language.trans (sem.N p)
-    \<and> b = renum_bexp b' \<and> g = renum_cconstraint g' \<and> a = renum_act a' \<and> f = renum_upd f'
-    \<and> r = renum_reset r' \<and> l' = renum_states p l1"
-  defines
-    "b' \<equiv> case t of (b', g', a', f', r', l1) \<Rightarrow> b'" and
-    "g' \<equiv> case t of (b', g', a', f', r', l1) \<Rightarrow> g'" and
-    "a' \<equiv> case t of (b', g', a', f', r', l1) \<Rightarrow> a'" and
-    "f' \<equiv> case t of (b', g', a', f', r', l1) \<Rightarrow> f'" and
-    "r' \<equiv> case t of (b', g', a', f', r', l1) \<Rightarrow> r'" and
-    "l1 \<equiv> case t of (b', g', a', f', r', l1) \<Rightarrow> l1"
-  shows "
-    (l, b', g', a', f', r', l1) \<in> Simple_Network_Language.trans (sem.N p)
-    \<and> b = renum_bexp b' \<and> g = renum_cconstraint g' \<and> a = renum_act a' \<and> f = renum_upd f'
-    \<and> r = renum_reset r' \<and> l' = renum_states p l1"
-proof -
-  have "case t of (b', g', a', f', r', l1) \<Rightarrow>
-    (l, b', g', a', f', r', l1) \<in> Simple_Network_Language.trans (sem.N p)
-    \<and> b = renum_bexp b' \<and> g = renum_cconstraint g' \<and> a = renum_act a' \<and> f = renum_upd f'
-    \<and> r = renum_reset r' \<and> l' = renum_states p l1"
-    using trans_sem_N_renumI'[OF assms(1,2)]
-    using assms(3)
-    sorry
-  then show ?thesis
-    unfolding assms(4-) by auto
 qed
 
 lemma fold_sem_N:
@@ -1123,7 +1068,8 @@ lemma is_upds_renumI:
 lemma is_upds_renumI'':
   assumes "is_upds s (map renum_upd ps) s'"
   shows "is_upds (s o renum_vars) ps (s' o renum_vars)"
-  sorry
+  using assms
+  by (induction "map renum_upd ps" s' arbitrary: ps) (auto intro: is_upd_renumI'' is_upds.intros)
 
 lemma bounded_renumD1:
   assumes "bounded renum.sem.bounds s'" "dom (s' \<circ> renum_vars) \<subseteq> var_set"
@@ -1224,32 +1170,110 @@ lemma inj_eq_iff:
 lemma trans_sem_N_renum_broadcastI:
   assumes
     "\<forall>p\<in>set ps. (renum_states p (L ! p), bs p, gs p, In a, fs p, rs p, ls p) \<in> trans (renum.sem.N p)"
+    "set ps \<subseteq> {0..<n_ps}"
   obtains bs' gs' fs' rs' ls' a' where
     "\<forall>p\<in>set ps. (L ! p, bs' p, gs' p, In a', fs' p, rs' p, ls' p) \<in> trans (sem.N p)"
     "\<forall>p\<in>set ps. bs p = renum_bexp (bs' p)"
     "\<forall>p\<in>set ps. gs p = renum_cconstraint (gs' p)"
-    "a = renum_acts a'"
+    "ps \<noteq> [] \<longrightarrow> a = renum_acts a'"
     "\<forall>p\<in>set ps. fs p = renum_upd (fs' p)"
     "\<forall>p\<in>set ps. rs p = renum_reset (rs' p)"
     "\<forall>p\<in>set ps. ls p = renum_states p (ls' p)"
-  sorry
+proof -
+  define t where
+    "t p \<equiv> SOME (b', g', a', f', r', l1). (L ! p, b', g', a', f', r', l1) \<in> trans (sem.N p)
+    \<and> bs p = renum_bexp b' \<and> gs p = renum_cconstraint g' \<and> In a = renum_act a' \<and> fs p = renum_upd f'
+    \<and> rs p = renum_reset r' \<and> ls p = renum_states p l1" for p
+  define bs' where "bs' p \<equiv> case t p of (b', g', a', f', r', l1) \<Rightarrow> b'" for p
+  define gs' where "gs' p \<equiv> case t p of (b', g', a', f', r', l1) \<Rightarrow> g'" for p
+  define as' where "as' p \<equiv> case t p of (b', g', a', f', r', l1) \<Rightarrow> a'" for p
+  define fs' where "fs' p \<equiv> case t p of (b', g', a', f', r', l1) \<Rightarrow> f'" for p
+  define rs' where "rs' p \<equiv> case t p of (b', g', a', f', r', l1) \<Rightarrow> r'" for p
+  define ls' where "ls' p \<equiv> case t p of (b', g', a', f', r', l1) \<Rightarrow> l1" for p
 
+  have *: "case t p of (b', g', a', f', r', l1) \<Rightarrow>
+    (L ! p, b', g', a', f', r', l1) \<in> trans (sem.N p)
+    \<and> bs p = renum_bexp b' \<and> gs p = renum_cconstraint g' \<and> In a = renum_act a' \<and> fs p = renum_upd f'
+    \<and> rs p = renum_reset r' \<and> ls p = renum_states p l1" if "p \<in> set ps" for p
+    using assms(1)
+    apply -
+    apply (drule bspec[OF _ that])
+    apply (drule trans_sem_N_renumI')
+    subgoal
+      using assms(2) that by auto
+    unfolding t_def by (elims, fo_rule someI, auto)
+
+  show ?thesis
+  proof (cases "ps")
+    case Nil
+    then show ?thesis
+      by (auto intro: that)
+  next
+    case (Cons p ps')
+    then have "p \<in> set ps"
+      by auto
+    define a' where "a' = as' p"
+    have 1: "as' q = a'" and "In a = renum_act a'" if "q \<in> set ps" for q
+      unfolding as'_def a'_def using *[OF that] *[OF \<open>p \<in> set ps\<close>]
+      by (auto dest: injD[OF injective_functions(3)])
+    then obtain a1 where "a' = In a1" "a = renum_acts a1"
+      using \<open>p \<in> set ps\<close> unfolding renum_act_def by (auto elim!: InD)
+    then show ?thesis
+      apply -
+      apply (rule that[of bs' gs' a1 fs' rs' ls'])
+      unfolding bs'_def gs'_def fs'_def rs'_def ls'_def
+            apply ((intros, frule *)?, auto simp: as'_def dest: 1; fail)+
+      done
+  qed
+qed
+
+lemmas all_mono_rule = all_mono[THEN mp, OF impI, rotated]
+
+method prop_monos =
+  erule all_mono_rule
+  | erule (1) imp_mono_rule
+  | erule disj_mono[rule_format, rotated 2]
 
 lemma inv_sem_N_renum_broadcastI:
   assumes
-  "\<forall>pa<n_ps.
+"\<forall>pa<n_ps.
   [renum_reset r @ concat (map rs ps)\<rightarrow>0]map_u u
-  \<turnstile> inv (renum.sem.N pa)
-      (fold (\<lambda>p L. L[p := ls p]) ps (map_index renum_states L) [p := renum_states p l1] ! pa)"
-"\<forall> p \<in> set ps. rs p = renum_reset (rs' p)"
-"\<forall> p \<in> set ps. ls p = renum_states p (ls' p)"
+    \<turnstile> inv (renum.sem.N pa)
+        (fold (\<lambda>p L. L[p := ls p]) ps (map_index renum_states L) [p := renum_states p l1] ! pa)"
+"\<forall>p\<in>set ps. rs p = renum_reset (rs' p)"
+"\<forall>p\<in>set ps. ls p = renum_states p (ls' p)"
+"\<forall>p\<in>set ps. ls' p \<in> (\<Union>(l, b, g, a, r, u, l') \<in> trans (sem.N p). {l, l'})"
+"l1 \<in> (\<Union>(l, b, g, a, r, u, l') \<in> trans (sem.N p). {l, l'})"
+"L \<in> sem.states"
 shows
 "\<forall>pa<n_ps.
   [r @ concat (map rs' ps)\<rightarrow>0]u \<turnstile> inv (sem.N pa) (fold (\<lambda>p L. L[p := ls' p]) ps L [p := l1] ! pa)"
-  sorry
-
-
-lemmas all_mono_rule = all_mono[THEN mp, OF impI, rotated]
+proof -
+  have [simp]: "renum_reset r @ concat (map rs ps) = renum_reset (r @ concat (map rs' ps))"
+    using assms(2) by (simp cong: map_cong add: map_concat renum_reset_def)
+  have [simp]: "length L = n_ps"
+    using \<open>L \<in> sem.states\<close> by (auto dest: sem.states_lengthD)
+  have [simp]: "(fold (\<lambda>p L. L[p := ls p]) ps (map_index renum_states L) [p := renum_states p l1] ! q)
+    = renum_states q (fold (\<lambda>p L. L[p := ls' p]) ps L [p := l1] ! q)"
+    if "q < n_ps" for q
+    using assms(4-) that
+    thm map_index_update Simple_Network_Impl_map.map_trans_broad_aux1[symmetric]
+    apply (cases "p = q")
+     apply (simp add: fold_upds_aux_length)
+    apply (simp
+        add: assms(3) Simple_Network_Impl_map.map_trans_broad_aux1[symmetric] fold_upds_aux_length
+        cong: fold_cong)
+    done
+  have "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l1] ! q \<in> loc_set" if "q < n_ps" for q
+    using assms(4-)
+    apply (intro sem_states_loc_setD)
+    subgoal
+      using that by (simp add: n_ps_def)
+    apply (erule sem.state_preservation_updI)
+    by (rule sem.state_preservation_fold_updI)
+  then show ?thesis
+    using assms by (auto dest: inv_renum_sem_D simp: renum_reset_map_u)
+qed
 
 method solve_triv =
   assumption
@@ -1265,11 +1289,6 @@ method solve_triv =
     fail
   | subst nth_map, (simp; fail)+; fail
   | (rule sem.state_preservation_updI, blast)+, simp; fail
-
-method prop_monos =
-  erule all_mono_rule
-  | erule (1) imp_mono_rule
-  | erule disj_mono[rule_format, rotated 2]
 
 lemma trans_sem_upd_domI:
   assumes "(L ! p, b', g', a, f', r', l1) \<in> trans (sem.N p)" "dom s = var_set" "p < n_ps"
@@ -1407,92 +1426,104 @@ lemma step_single_renumI:
 
 (* Broadcast *)
   subgoal for a'
-apply (simp only:)
+    apply (simp only:)
     apply (erule step_u_elims')
     apply simp
-    apply (drule (1) trans_sem_N_renumI')
+    apply (frule (1) trans_sem_N_renumI')
     apply elims
     subgoal for b g f r l' p ps bs gs fs rs ls' s'a b' g' a'a f' r' l1
-    unfolding renum_act_def
-    apply (rule OutD, assumption)
+      unfolding renum_act_def
+      apply (rule OutD, assumption)
 
-    apply (simp add: atLeastLessThan_upperD)
-    apply (erule trans_sem_N_renum_broadcastI)
-    apply (subgoal_tac "map fs ps = map renum_upd (map fs' ps)")
-     defer
-     apply (simp; fail)
+      apply (simp add: atLeastLessThan_upperD)
+      apply (erule (1) trans_sem_N_renum_broadcastI)
+      apply (subgoal_tac "map fs ps = map renum_upd (map fs' ps)")
+       defer
+       apply (simp; fail)
 
-    subgoal for a1 bs' gs' fs' rs' ls1 a2
+      subgoal for a1 bs' gs' fs' rs' ls1 a2
 
-    apply intros
-        apply (rule step_u.intros(4)[where ps = ps])
+        apply intros
+            apply (rule step_u.intros(4)[where ps = ps])
 
-    prefer 2
-                        apply solve_triv
+                            prefer 2
+                            apply solve_triv
 
-                        apply (clarsimp simp: renum_sem_broadcast_eq inj_eq_iff[OF inj_renum_acts]; fail)
-                        apply (simp add: atLeastLessThan_upperD inj_eq_iff[OF inj_renum_acts]; fail)
+                            apply (clarsimp simp: renum_sem_broadcast_eq inj_eq_iff[OF inj_renum_acts]; fail)
+                            apply (cases "ps = []"; simp add: atLeastLessThan_upperD inj_eq_iff[OF inj_renum_acts]; fail)
 
-                        apply prop_monos
+                            apply prop_monos
 
-    subgoal
-      by (auto simp: commited_renum_eq inj_eq_iff[OF inj_renum_states])
+        subgoal
+          by (auto simp: commited_renum_eq inj_eq_iff[OF inj_renum_states])
 
-apply prop_monos
+                            apply prop_monos
 
-subgoal
-  by (clarsimp simp: commited_renum_eq inj_eq_iff[OF inj_renum_states] atLeastLessThan_upperD, fast)
+        subgoal
+          by (clarsimp simp: commited_renum_eq inj_eq_iff[OF inj_renum_states] atLeastLessThan_upperD, fast)
 
-subgoal
-  by (auto simp: commited_renum_eq inj_eq_iff[OF inj_renum_states] atLeastLessThan_upperD)
+        subgoal
+          by (auto simp: commited_renum_eq inj_eq_iff[OF inj_renum_states] atLeastLessThan_upperD)
 
-                    apply solve_triv
+                            apply solve_triv
 
-  apply (erule Ball_mono, solve_triv; fail)
+                           apply (erule Ball_mono, solve_triv; fail)
 
-  apply solve_triv
+                          apply solve_triv
 
-                 apply (erule Ball_mono, solve_triv)
+                         apply (erule Ball_mono, solve_triv)
 
-  subgoal
-    sorry
+(* Set of broadcast receivers is maximal *)
+        subgoal
+          apply simp
+          apply prop_monos+
+          subgoal premises prems
+            using prems(30-)
+            apply clarify
+            apply (drule (1) trans_sem_N_renumD)
+            apply (simp add: renum_act_def)
+            apply (drule check_bexp_renumD)
+            apply (drule map_u_renum_cconstraint_clock_valI)
+            apply blast
+            done
+          done
 
-                 apply (simp add: atLeastLessThan_upperD)
+                       apply (simp add: atLeastLessThan_upperD)
 
 (* Target invariant is satisified *)
-                 apply (erule (2) inv_sem_N_renum_broadcastI; fail)
+                       apply (erule (2) inv_sem_N_renum_broadcastI, blast, fast, solve_triv; fail)
 
-  apply solve_triv+
+                      apply solve_triv+
 
-  subgoal
-(* Resulting state is bounded *)
-    apply (erule bounded_renumD1)
+        subgoal
+          (* Resulting state is bounded *)
+          apply (erule bounded_renumD1)
 
-apply (drule is_upd_dom)
-    subgoal
-      using assms(4) by (intro trans_sem_upd_domI)
+          apply (drule is_upd_dom)
+          subgoal
+            using assms(4) by (intro trans_sem_upd_domI)
 
-    apply (drule is_upds_dom)
-    subgoal
-      using assms(4) apply -
-      apply simp
-      apply (drule trans_sem_upd_domI, assumption, assumption)
-      apply (erule Ball_mono, drule trans_sem_upd_domI, assumption, (simp add: atLeastLessThan_upperD; fail))
-      apply simp
+          apply (drule is_upds_dom)
+          subgoal
+            using assms(4) apply -
+            apply simp
+            apply (drule trans_sem_upd_domI, assumption, assumption)
+            apply (erule Ball_mono, drule trans_sem_upd_domI, assumption, (simp add: atLeastLessThan_upperD; fail))
+            apply simp
+            done
+          apply (simp, drule dom_comp_vars_inv_eqD, simp)
+          done
+
+           apply solve_triv
+
+          apply (simp add: Simple_Network_Impl_map.map_trans_broad_aux1 map_index_update cong: fold_cong; fail)
+
+         apply (auto simp: vars_inv_def bij_f_the_inv_f[OF bij_renum_vars]; fail)
+
+        apply (simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def cong: map_cong; fail)
+        done
       done
-      apply (simp, drule dom_comp_vars_inv_eqD, simp)
-      done
-
-    apply solve_triv
-
-    apply (simp add: Simple_Network_Impl_map.map_trans_broad_aux1 map_index_update cong: fold_cong; fail)
-
-    apply (auto simp: vars_inv_def bij_f_the_inv_f[OF bij_renum_vars]; fail)
-
-  apply (simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def cong: map_cong; fail)
     done
-  done
-  done
   done
 
 lemma step_u_var_set_invariant:
