@@ -215,7 +215,7 @@ locale Simple_Network_Rename' =
   assumes bij_renum_clocks: "bij renum_clocks"
       and renum_states_inj: "\<forall>p<n_ps. inj (renum_states p)"
       and bij_renum_vars: "bij renum_vars"
-      and bounds'_var_set: "fst ` set bounds' \<subseteq> var_set"
+      and bounds'_var_set: "fst ` set bounds' = var_set"
       and inj_renum_acts: "inj renum_acts"
 begin
 
@@ -462,8 +462,8 @@ proof -
     done
 qed
 
-lemma dom_bounds_var_set: "dom sem.bounds \<subseteq> var_set"
-  unfolding dom_bounds sem_bounds_eq using bounds'_var_set .
+lemma dom_bounds_var_set: "dom sem.bounds = var_set"
+  unfolding dom_bounds sem_bounds_eq using bounds'_var_set by blast
 
 lemma sem_states_loc_setD: "L ! p \<in> loc_set" if "p < length automata" "L \<in> sem.states" for L p
   using that sem_loc_set_eq sem.states_loc_set by (force simp: n_ps_def)
@@ -1527,8 +1527,8 @@ lemma step_single_renumI:
   done
 
 lemma step_u_var_set_invariant:
-  assumes "step_u sem L s u a L' s' u'" "dom s \<subseteq> var_set"
-  shows "dom s' \<subseteq> var_set"
+  assumes "step_u sem L s u a L' s' u'" "dom s = var_set"
+  shows "dom s' = var_set"
   using assms dom_bounds_var_set by (auto 4 4 dest!: sem.bounded_inv simp: bounded_def)
 
 lemmas step_u_invariants = sem.states_inv step_u_var_set_invariant
@@ -1537,13 +1537,13 @@ interpretation single: Bisimulation_Invariant
   "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u sem L s u a L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). \<exists> a. step_u renum.sem L s u a L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
-  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set" "\<lambda>_. True"
+  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s = var_set" "\<lambda>_. True"
   apply standard
      apply clarsimp
   subgoal for L s u L' s' u' a
-    by (drule (2) step_single_renumD, auto)
+    by (drule (1) step_single_renumD, auto)
   subgoal
-    by clarsimp (drule (1) step_single_renumI[rotated], simp, blast)
+    by clarsimp (drule step_single_renumI[rotated]; blast)
   subgoal
     by clarsimp (intro conjI; elim step_u_invariants)
   subgoal
@@ -1554,7 +1554,7 @@ interpretation Bisimulation_Invariant
   "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
-  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set" "\<lambda>_. True"
+  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s = var_set" "\<lambda>_. True"
 proof -
   define rsem where "rsem = renum.sem"
   note step_single_renumD = step_single_renumD[folded rsem_def]
@@ -1565,7 +1565,7 @@ proof -
          L' = map_index renum_states L \<and>
          s' = (s \<circ>\<circ> Simple_Network_Rename_Defs.vars_inv) renum_vars \<and>
          u' = map_u u)
-     (\<lambda>(L, s, u). L \<in> sem.states \<and> dom s \<subseteq> var_set) (\<lambda>_. True)"
+     (\<lambda>(L, s, u). L \<in> sem.states \<and> dom s = var_set) (\<lambda>_. True)"
     unfolding rsem_def[symmetric]
   proof ((standard; clarsimp split: prod.splits), goal_cases)
     case (1 L s u L' s' u')
@@ -1574,7 +1574,7 @@ proof -
     with 1(2-) show ?case
       apply -
       apply (rule step_u'.intros[where a = "renum_label a"])
-        apply (erule (2) step_single_renumD[where a = Del, unfolded renum_label_def, simplified])
+        apply (erule (1) step_single_renumD[where a = Del, unfolded renum_label_def, simplified], blast)
        apply (cases a; simp add: renum_label_def; fail)
       apply (erule step_single_renumD)
        apply (blast dest: step_u_invariants)+
@@ -1585,7 +1585,7 @@ proof -
       by (elim step_u'_elims)
     with 2(1,2) show ?case
       apply -
-      apply (drule (2) step_single_renumI[folded rsem_def])
+      apply (drule (1) step_single_renumI[folded rsem_def], blast)
       apply safe
       subgoal for a1
         apply (drule step_single_renumI[folded rsem_def])
@@ -1748,6 +1748,19 @@ and set_exp_vars_of_exp:
   "set_exp (e::('a, 'b) exp) = vars_of_exp e"
   by (induction b and e) auto
 
+definition (in Prod_TA_Defs)
+  "act_set \<equiv> (\<Union> p \<in> {0..<n_ps}. \<Union> (l, e, g, a, _) \<in> trans (N p). act.set_act a) \<union> broadcast"
+
+lemma (in Simple_Network_Impl) act_set_compute:
+  "act_set =
+  \<Union> ((\<lambda>(_, t, _). \<Union> ((\<lambda>(l, e, g, a, _). act.set_act a) ` set t)) ` set automata) \<union> set broadcast"
+  unfolding act_set_def
+  apply (fo_rule arg_cong2)
+  apply (auto simp: N_p_trans_eq n_ps_def act_set_def broadcast_def)
+     apply (drule nth_mem, erule bexI[rotated], force)+
+   apply (drule mem_nth, force)+
+  done
+
 locale Simple_Network_Rename =
   Simple_Network_Rename_Defs where automata = automata for automata ::
     "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
@@ -1756,9 +1769,11 @@ locale Simple_Network_Rename =
     "\<forall>i<n_ps. \<forall>x\<in>loc_set. \<forall>y\<in>loc_set. renum_states i x = renum_states i y \<longrightarrow> x = y"
   and renum_clocks_inj: "inj_on renum_clocks clk_set'"
   and renum_vars_inj:   "inj_on renum_vars var_set"
+  and renum_acts_inj: "inj_on renum_acts act_set"
   and infinite_types:
     "infinite (UNIV :: 'c set)" "infinite (UNIV :: 'x set)" "infinite (UNIV :: 's set)"
-  and bounds'_var_set: "fst ` set bounds' \<subseteq> var_set"
+    "infinite (UNIV :: 'a set)"
+  and bounds'_var_set: "fst ` set bounds' = var_set"
   and loc_set_invs: "\<Union> ((\<lambda>g. fst ` set g) ` set (map (snd o snd) automata)) \<subseteq> loc_set"
   and loc_set_broadcast: "\<Union> ((set o fst) ` set automata) \<subseteq> loc_set"
 begin
@@ -1770,6 +1785,10 @@ lemma clk_set'_finite:
 (* XXX Move *)
 lemmas [finite_intros] = trans_N_finite
 
+lemma set_act_finite[finite_intros]:
+  "finite (set_act a)"
+  by (cases a) auto
+
 lemma loc_set_finite:
   "finite loc_set"
   unfolding loc_set_def by (auto intro!: finite_intros)
@@ -1778,6 +1797,10 @@ lemma loc_set_finite:
 lemma var_set_finite[finite_intros]:
   "finite var_set"
   unfolding var_set_def by (auto intro!: finite_intros)
+
+lemma act_set_finite:
+  "finite act_set"
+  unfolding act_set_def broadcast_def by (auto intro!: finite_intros)
 
 lemma bij_extend_bij_renum_clocks:
   "bij (extend_bij renum_clocks clk_set')"
@@ -1800,16 +1823,23 @@ lemma renum_states_extend:
   using renum_states_inj infinite_types loc_set_finite \<open>p < n_ps\<close> \<open>l \<in> loc_set\<close>
   by (intro extend_bij_extends[rule_format]) (auto intro!: inj_onI)
 
+lemma renum_acts_bij_extends[simp]:
+  "extend_bij renum_acts act_set x = renum_acts x" if "x \<in> act_set"
+  by (intro extend_bij_extends[rule_format] renum_acts_inj act_set_finite infinite_types that)
+
+lemma inj_extend_bij_renum_acts: "inj (extend_bij renum_acts act_set)"
+  using renum_acts_inj infinite_types act_set_finite by (intro extend_bij_inj) auto
+
 sublocale rename: Simple_Network_Rename'
   broadcast bounds'
-  renum_acts
+  "extend_bij renum_acts act_set"
   "extend_bij renum_vars var_set"
   "extend_bij renum_clocks clk_set'"
   "\<lambda>p. extend_bij (renum_states p) loc_set"
   automata
   by (standard;
       intro allI impI bij_extend_bij_renum_clocks inj_extend_bij_renum_states
-           bij_extend_bij_renum_states bounds'_var_set)
+           inj_extend_bij_renum_acts bij_extend_bij_renum_states bounds'_var_set)
 
 definition
   "renum_upd' = map (\<lambda>(x, upd). (renum_vars x, map_exp renum_vars upd))"
@@ -1878,6 +1908,13 @@ proof -
       unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
       apply (fastforce dest: nth_mem elim: set1_acconstraint_elim)
       done
+    subgoal actions
+      unfolding rename.renum_act_def renum_act_def
+      apply (fo_rule act.map_cong_pred, (simp; fail))
+      apply (clarsimp simp: pred_act_def)
+      apply (rule renum_acts_bij_extends)
+      apply (auto 4 4 simp: act_set_compute dest: nth_mem)
+      done
     subgoal upds
       unfolding renum_upd_def rename.renum_upd_def rename.renum_exp_def renum_exp_def
       apply (rule map_cong, rule HOL.refl)
@@ -1924,11 +1961,13 @@ lemma rename_sem_eq:
   "rename.renum.sem = renum.sem"
   unfolding renum.sem_def rename.renum.sem_def
   apply clarsimp
-  apply (rule conjI)
+  apply (intro conjI)
+  subgoal
+    by (rule image_cong; intro HOL.refl renum_acts_bij_extends; simp add: act_set_def broadcast_def)
   subgoal
     by (rule map_index_cong) (auto simp: renum_automaton_eq[folded length_automata_eq_n_ps])
   subgoal
-    using bounds'_var_set by - (fo_rule arg_cong, auto)
+    using bounds'_var_set by - (fo_rule arg_cong, auto intro: renum_vars_bij_extends)
   done
 
 end (* Simple_Network_Rename *)
@@ -2026,9 +2065,9 @@ lemma N_eq_sem:
 
 lemma rename_N_eq_sem:
   "Simple_Network_Language_Model_Checking.N
-  (map renum_acts broadcast)
-  (map_index renum_automaton automata)
-  (map (\<lambda>(a,p). (renum_vars a,p)) bounds')
+    (map renum_acts broadcast)
+    (map_index renum_automaton automata)
+    (map (\<lambda>(a,p). (renum_vars a,p)) bounds')
   = renum.sem"
   unfolding renum.sem_def renum.conv_alt_def
   by safe (rule nth_equalityI; simp add: conv_N_eq N_eq sem_N_eq conv_automaton_of n_ps_def)
