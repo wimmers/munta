@@ -28,8 +28,10 @@ definition check_renaming where "check_renaming \<Phi> L\<^sub>0 s\<^sub>0 \<equ
       (STR ''Clock renaming is injective''),
     assert (inj_on renum_vars var_set)
       (STR ''Variable renaming is injective''),
-    assert (fst ` set bounds' \<subseteq> var_set)
-      (STR ''Bound set is a subset of the variable set''),
+    assert (inj_on renum_acts act_set)
+      (STR ''Action renaming is injective''),
+    assert (fst ` set bounds' = var_set)
+      (STR ''Bound set is exactly the variable set''),
     assert (\<Union> ((\<lambda>g. fst ` set g) ` set (map (snd o snd) automata)) \<subseteq> loc_set)
       (STR ''Invariant locations are contained in the location set''),
     assert (\<Union> ((set o fst) ` set automata) \<subseteq> loc_set)
@@ -57,7 +59,8 @@ locale Simple_Network_Rename_Formula_String =
     "\<forall>i<n_ps. \<forall>x\<in>loc_set. \<forall>y\<in>loc_set. renum_states i x = renum_states i y \<longrightarrow> x = y"
   and renum_clocks_inj: "inj_on renum_clocks clk_set'"
   and renum_vars_inj:   "inj_on renum_vars var_set"
-  and bounds'_var_set: "fst ` set bounds' \<subseteq> var_set"
+  and renum_acts_inj:   "inj_on renum_acts act_set"
+  and bounds'_var_set:  "fst ` set bounds' = var_set"
   and loc_set_invs: "\<Union> ((\<lambda>g. fst ` set g) ` set (map (snd o snd) automata)) \<subseteq> loc_set"
   and loc_set_broadcast: "\<Union> ((set o fst) ` set automata) \<subseteq> loc_set"
   fixes \<Phi> :: "(nat, nat, String.literal, int) formula"
@@ -72,8 +75,8 @@ locale Simple_Network_Rename_Formula_String =
 begin
 
 interpretation Simple_Network_Rename_Formula
-  by (standard; 
-      rule renum_states_inj renum_clocks_inj renum_vars_inj bounds'_var_set
+  by (standard;
+      rule renum_states_inj renum_clocks_inj renum_vars_inj bounds'_var_set renum_acts_inj
       loc_set_invs loc_set_broadcast infinite_literal infinite_UNIV_nat
       L\<^sub>0_states s\<^sub>0_dom s\<^sub>0_distinct formula_dom)
 
@@ -101,8 +104,10 @@ context Simple_Network_Rename_Formula_String_Defs
 begin
 
 lemma check_renaming:
-  "Simple_Network_Rename_Formula_String broadcast bounds' renum_vars renum_clocks renum_states
-      automata \<Phi> s\<^sub>0 L\<^sub>0 \<longleftrightarrow>
+  "Simple_Network_Rename_Formula_String
+    broadcast bounds'
+    renum_acts renum_vars renum_clocks renum_states
+    automata \<Phi> s\<^sub>0 L\<^sub>0 \<longleftrightarrow>
   is_result (check_renaming \<Phi> L\<^sub>0 s\<^sub>0)
   "
   unfolding check_renaming_def Simple_Network_Rename_Formula_String_def
@@ -215,10 +220,6 @@ lemma check_precond:
     Simple_Network_Impl_nat_ceiling_start_state_def ..
 
 end
-term intersperse thm intersperse.simps
-fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
-  "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
-  "intersperse _ xs = xs"
 
 derive "show" acconstraint act sexp formula
 
@@ -309,7 +310,7 @@ let
    _ = println (STR ''Checking renaming'');
    formula = (if dc then formula.EX (not sexp.true) else formula);
    renaming_valid = Simple_Network_Rename_Formula_String_Defs.check_renaming
-      broadcast bounds' renum_vars renum_clocks renum_states automata formula L\<^sub>0 s\<^sub>0;
+      broadcast bounds' renum_acts renum_vars renum_clocks renum_states automata formula L\<^sub>0 s\<^sub>0;
    _ = println (STR ''Renaming network'');
    (broadcast, automata, bounds') = rename_network
       broadcast bounds' automata renum_acts renum_vars renum_clocks renum_states;
@@ -426,7 +427,7 @@ theorem model_check_rename:
           \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
         ))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0)
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0)
      | Preconds_Unsat \<Rightarrow> \<up>(\<not> Simple_Network_Impl_nat_ceiling_start_state
         (map renum_acts broadcast)
         (map (\<lambda>(a,p). (renum_vars a, p)) bounds)
@@ -438,9 +439,9 @@ theorem model_check_rename:
 proof -
   have *: "
     Simple_Network_Rename_Formula_String
-        broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
@@ -465,7 +466,7 @@ proof -
       (map_formula renum_states renum_vars id formula)"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+      broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
   "
   have [simp]: "check \<longleftrightarrow> check'" 
     if renaming_valid
@@ -504,7 +505,7 @@ theorem deadlock_check_rename:
     <\<lambda> Sat   \<Rightarrow> \<up>(  has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_.  0))
      | Unsat \<Rightarrow> \<up>(\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
         (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0)
      | Preconds_Unsat \<Rightarrow> \<up>(\<not> Simple_Network_Impl_nat_ceiling_start_state
         (map renum_acts broadcast)
@@ -517,9 +518,9 @@ theorem deadlock_check_rename:
 proof -
   have *: "
     Simple_Network_Rename_Formula_String
-        broadcast bounds renum_vars renum_clocks renum_states automata (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
@@ -540,7 +541,7 @@ proof -
       (formula.EX (not sexp.true))"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_vars renum_clocks renum_states automata
+      broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
       (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0"
  have test[symmetric, simp]:
     "Simple_Network_Language_Model_Checking.has_deadlock A (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)
@@ -645,6 +646,7 @@ lemma (in Prod_TA_Defs) states_mem_iff:
 
 lemmas [code_unfold] =
   Prod_TA_Defs.states_mem_iff
+  Simple_Network_Impl.act_set_compute
   Simple_Network_Impl.var_set_compute
   Simple_Network_Impl.loc_set_compute
   setcompr_eq_image

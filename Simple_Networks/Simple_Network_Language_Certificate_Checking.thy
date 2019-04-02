@@ -1505,7 +1505,7 @@ theorem certificate_check_rename:
     <\<lambda> Sat \<Rightarrow> \<up>(
         (\<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0)
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0)
      | Unsat \<Rightarrow> true
      | Preconds_Unsat \<Rightarrow> true
     >\<^sub>t" (is ?A)
@@ -1516,7 +1516,7 @@ and certificate_check_rename2:
     of 
       Sat \<Rightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-          broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+          broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?B)
 and certificate_check_rename3:
@@ -1526,15 +1526,15 @@ and certificate_check_rename3:
     of 
       Sat \<Rightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-          broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+          broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?C)
 proof -
   have *: "
     Simple_Network_Rename_Formula_String
-        broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
@@ -1551,7 +1551,7 @@ proof -
     map_formula renum_states renum_vars id formula"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+      broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
   "
   have [simp]: "check \<longleftrightarrow> check'" 
     if renaming_valid
@@ -1599,7 +1599,7 @@ theorem certificate_deadlock_check_rename:
     state_space
     <\<lambda> Sat \<Rightarrow> \<up>(\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
         (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0)
      | Unsat \<Rightarrow> true
      | Preconds_Unsat \<Rightarrow> true
@@ -1611,7 +1611,7 @@ and certificate_deadlock_check_rename2:
     of 
       Sat \<Rightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
         (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?B)
@@ -1622,7 +1622,7 @@ and certificate_deadlock_check_rename3:
     of 
       Sat \<Rightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
         (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?C)
@@ -1630,9 +1630,9 @@ proof -
   let ?formula = "formula.EX (sexp.not sexp.true)"
   have *: "
     Simple_Network_Rename_Formula_String
-        broadcast bounds renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
@@ -1648,7 +1648,7 @@ proof -
     has_deadlock A' (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0)"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
+      broadcast bounds renum_acts renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
   "
   have **[simp]: "check \<longleftrightarrow> check'" 
     if renaming_valid

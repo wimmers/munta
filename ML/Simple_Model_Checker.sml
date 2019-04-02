@@ -1444,9 +1444,9 @@ fun explode s =
 
 fun shows_prec_literal p s rest = explode s @ rest;
 
-fun interspersea sep (x :: y :: xs) = x :: sep :: interspersea sep (y :: xs)
-  | interspersea uu [] = []
-  | interspersea uu [v] = [v];
+fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
+  | intersperse uu [] = []
+  | intersperse uu [v] = [v];
 
 fun foldr f [] = id
   | foldr f (x :: xs) = f x o foldr f xs;
@@ -1456,7 +1456,7 @@ fun concat xss = foldr (fn a => fn b => a @ b) xss [];
 fun shows_list_literal cs s =
   [Chara (true, true, false, true, true, false, true, false)] @
     concat
-      (interspersea
+      (intersperse
         [Chara (false, false, true, true, false, true, false, false),
           Chara (false, false, false, false, false, true, false, false)]
         (map explode cs)) @
@@ -1632,7 +1632,7 @@ fun shows_prec_exp A_ B_ p e rest = shows_exp A_ B_ e @ rest;
 fun shows_list_exp A_ B_ es s =
   [Chara (true, true, false, true, true, false, true, false)] @
     concat
-      (interspersea
+      (intersperse
         [Chara (false, false, true, true, false, true, false, false),
           Chara (false, false, false, false, false, true, false, false)]
         (map (shows_exp A_ B_) es)) @
@@ -1712,7 +1712,7 @@ fun shows_prec_bexp A_ B_ p e rest = shows_bexp A_ B_ e @ rest;
 fun shows_list_bexp A_ B_ es s =
   [Chara (true, true, false, true, true, false, true, false)] @
     concat
-      (interspersea
+      (intersperse
         [Chara (false, false, true, true, false, true, false, false),
           Chara (false, false, false, false, false, true, false, false)]
         (map (shows_bexp A_ B_) es)) @
@@ -4747,10 +4747,6 @@ fun dfs_map_impl_0 A_ (B1_, B2_, B3_) succsi lei keyi copyi x =
   end;
 
 fun sup_seta A_ (Set xs) = fold (sup_set A_) xs bot_set;
-
-fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
-  | intersperse uu [] = []
-  | intersperse uu [v] = [v];
 
 fun make_string (A1_, A2_, A3_) show_clock show_num e i j =
   (if equal_nata i j
@@ -9151,8 +9147,8 @@ fun clk_set C_ automata =
               (Set (fst (snd a)))))
         (Set automata)));
 
-fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
-  automata phi l_0 s_0 =
+fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
+  renum_states automata phi l_0 s_0 =
   combine
     [assert
        (all_interval_nat
@@ -9213,7 +9209,25 @@ fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
                   (image (fn (_, (t, _)) => t) (Set automata)))))))
         "Variable renaming is injective",
       assert
-        (subset (card_UNIV_literal, equal_literal) (image fst (Set bounds))
+        (inj_on equal_literal equal_nat renum_acts
+          (sup_set equal_literal
+            (sup_seta equal_literal
+              (image
+                (fn (_, (t, _)) =>
+                  sup_seta equal_literal
+                    (image (fn (_, a) => let
+   val (_, aa) = a;
+   val (_, ab) = aa;
+   val (ac, _) = ab;
+ in
+   set_act equal_literal ac
+ end)
+                      (Set t)))
+                (Set automata)))
+            (Set broadcast)))
+        "Action renaming is injective",
+      assert
+        (eq_set (card_UNIV_literal, equal_literal) (image fst (Set bounds))
           (sup_set equal_literal
             (sup_seta equal_literal
               (image
@@ -9237,7 +9251,7 @@ fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
                       s))
                 (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
                   (image (fn (_, (t, _)) => t) (Set automata)))))))
-        "Bound set is a subset of the variable set",
+        "Bound set is exactly the variable set",
       assert
         (subset (card_UNIV_nat, equal_nat)
           (sup_seta equal_nat
@@ -9664,8 +9678,8 @@ fun do_rename_mc C_ E_ F_ G_ f dc broadcast bounds automata k l_0 s_0 formula m
     val _ = writeln "Checking renaming";
     val formulaa = (if dc then EX (Nota Truea) else formula);
     val renaming_valid =
-      check_renaming broadcast bounds renum_vars renum_clocks renum_states
-        automata formulaa l_0 s_0;
+      check_renaming broadcast bounds renum_acts renum_vars renum_clocks
+        renum_states automata formulaa l_0 s_0;
     val _ = writeln "Renaming network";
     val (broadcasta, (automataa, boundsa)) =
       rename_network countable_literal countable_literal countable_nat
@@ -10110,7 +10124,7 @@ fun do_preproc_mc A_ =
                   else "Property is not satisfied!")
             | Error es =>
               err ("Error during preprocessing:\092" ^
-                    concat_str (interspersea "\092" es))))));
+                    concat_str (intersperse "\092" es))))));
 
 fun parse_convert_run dc s =
   (case binda (parse json s) convert

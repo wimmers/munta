@@ -6354,8 +6354,8 @@ fun vars_of_formula C_ (EX phi) = vars_of_sexp C_ phi
   | vars_of_formula C_ (Leadsto (phi, psi)) =
     sup_set C_ (vars_of_sexp C_ phi) (vars_of_sexp C_ psi);
 
-fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
-  automata phi l_0 s_0 =
+fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
+  renum_states automata phi l_0 s_0 =
   combine
     [assert
        (all_interval_nat
@@ -6416,7 +6416,25 @@ fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
                   (image (fn (_, (t, _)) => t) (Set automata)))))))
         "Variable renaming is injective",
       assert
-        (subset (card_UNIV_literal, equal_literal) (image fst (Set bounds))
+        (inj_on equal_literal equal_nat renum_acts
+          (sup_set equal_literal
+            (sup_seta equal_literal
+              (image
+                (fn (_, (t, _)) =>
+                  sup_seta equal_literal
+                    (image (fn (_, a) => let
+   val (_, aa) = a;
+   val (_, ab) = aa;
+   val (ac, _) = ab;
+ in
+   set_act equal_literal ac
+ end)
+                      (Set t)))
+                (Set automata)))
+            (Set broadcast)))
+        "Action renaming is injective",
+      assert
+        (eq_set (card_UNIV_literal, equal_literal) (image fst (Set bounds))
           (sup_set equal_literal
             (sup_seta equal_literal
               (image
@@ -6440,7 +6458,7 @@ fun check_renaming broadcast bounds renum_vars renum_clocks renum_states
                       s))
                 (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
                   (image (fn (_, (t, _)) => t) (Set automata)))))))
-        "Bound set is a subset of the variable set",
+        "Bound set is exactly the variable set",
       assert
         (subset (card_UNIV_nat, equal_nat)
           (sup_seta equal_nat
@@ -6841,8 +6859,8 @@ fun do_rename_mc C_ E_ F_ G_ f dc broadcast bounds automata k l_0 s_0 formula m
     val _ = writeln "Checking renaming";
     val formulaa = (if dc then EX (Nota Truea) else formula);
     val renaming_valid =
-      check_renaming broadcast bounds renum_vars renum_clocks renum_states
-        automata formulaa l_0 s_0;
+      check_renaming broadcast bounds renum_acts renum_vars renum_clocks
+        renum_states automata formulaa l_0 s_0;
     val _ = writeln "Renaming network";
     val (broadcasta, (automataa, boundsa)) =
       rename_network countable_literal countable_literal countable_nat
