@@ -3,7 +3,53 @@ theory DBM_Operations_Impl_Refine
     DBM_Operations_Impl
     Sepref_Acconstraint
     "HOL-Library.IArray"
+    "library/Imperative_Loops"
 begin
+
+lemma the_pure_id_assn_eq[simp]:
+  "the_pure (\<lambda>a c. \<up> (c = a)) = Id"
+proof -
+  have *: "(\<lambda>a c. \<up> (c = a)) = pure Id"
+    unfolding pure_def by simp
+  show ?thesis
+    by (subst *) simp
+qed
+
+lemma pointwise_cmp_iff:
+  "pointwise_cmp P n M M' \<longleftrightarrow> list_all2 P (take ((n + 1) * (n + 1)) xs) (take ((n + 1) * (n + 1)) ys)"
+  if "\<forall>i\<le>n. \<forall>j\<le>n. xs ! (i + i * n + j) = M i j"
+    "\<forall>i\<le>n. \<forall>j\<le>n. ys ! (i + i * n + j) = M' i j"
+    "(n + 1) * (n + 1) \<le> length xs" "(n + 1) * (n + 1) \<le> length ys"
+  using that unfolding pointwise_cmp_def
+  unfolding list_all2_conv_all_nth
+  apply clarsimp
+  apply safe
+  subgoal premises prems for x
+  proof -
+    let ?i = "x div (n + 1)" let ?j = "x mod (n + 1)"
+    from \<open>x < _\<close> have "?i < Suc n" "?j \<le>n"
+      by (simp add: less_mult_imp_div_less)+
+    with prems have
+      "xs ! (?i + ?i * n + ?j) = M ?i ?j" "ys ! (?i + ?i * n + ?j) = M' ?i ?j"
+      "P (M ?i ?j) (M' ?i ?j)"
+      by auto
+    moreover have "?i + ?i * n + ?j = x"
+      by (metis ab_semigroup_add_class.add.commute mod_div_mult_eq mult_Suc_right plus_1_eq_Suc)
+    ultimately show \<open>P (xs ! x) (ys ! x)\<close>
+      by auto
+  qed
+  subgoal for i j
+    apply (erule allE[of _ i], erule impE, simp)
+    apply (erule allE[of _ i], erule impE, simp)
+    apply (erule allE[of _ "i + i * n + j"], erule impE)
+    subgoal
+      by (rule le_imp_less_Suc) (auto intro!: add_mono simp: algebra_simps)
+    apply (erule allE[of _ j], erule impE, simp)
+    apply (erule allE[of _ j], erule impE, simp)
+    apply simp
+    done
+  done
+
 
 fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
   "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
@@ -37,7 +83,6 @@ lemma dbm_subset_alt_def'[code]:
     (list_ex (\<lambda> i. op_mtx_get M (i, i) < 0) [0..<Suc n] \<or>
     list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n])"
 by (simp add: dbm_subset_def check_diag_alt_def pointwise_cmp_alt_def neutral)
-
 
 context
   fixes n :: nat
@@ -85,10 +130,54 @@ lemma [sepref_opt_simps]:
   "(x = True) = x"
 by simp
 
-sepref_definition dbm_subset'_impl' is
+sepref_definition dbm_subset'_impl2 is
   "uncurry2 (RETURN ooo dbm_subset')" ::
   "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
 unfolding dbm_subset'_alt_def list_all_foldli by sepref
+
+definition
+  "dbm_subset'_impl' \<equiv> \<lambda>m a b.
+    do {
+    imp_for 0 ((m + 1) * (m + 1)) Heap_Monad.return
+      (\<lambda>i _. do {
+        x \<leftarrow> Array.nth a i; y \<leftarrow> Array.nth b i; Heap_Monad.return (x \<le> y)
+      })
+      True
+    }"
+
+lemma imp_for_list_all2_spec:
+  "
+  <a \<mapsto>\<^sub>a xs * b \<mapsto>\<^sub>a ys>
+  imp_for 0 n' Heap_Monad.return
+    (\<lambda>i _. do {
+      x \<leftarrow> Array.nth a i; y \<leftarrow> Array.nth b i; Heap_Monad.return (P x y)
+    })
+    True
+  <\<lambda>r. \<up>(r \<longleftrightarrow> list_all2 P (take n' xs) (take n' ys)) * a \<mapsto>\<^sub>a xs * b \<mapsto>\<^sub>a ys>\<^sub>t"
+  if "n' \<le> length xs" "n' \<le> length ys"
+  apply (rule cons_rule[rotated 2])
+    apply (rule imp_for_list_all2'[where xs = xs and ys = ys and R = id_assn and S = id_assn])
+        apply (use that in simp; fail)+
+    apply (sep_auto simp: pure_def array_assn_def is_array_def)+
+  done
+
+lemma dbm_subset'_impl'_refine:
+  "(uncurry2 dbm_subset'_impl', uncurry2 (RETURN \<circ>\<circ>\<circ> dbm_subset'))
+\<in> [\<lambda>((i, _), _). i = n]\<^sub>a nat_assn\<^sup>k *\<^sub>a local.mtx_assn\<^sup>k *\<^sub>a local.mtx_assn\<^sup>k \<rightarrow> bool_assn"
+  apply sepref_to_hoare
+  unfolding dbm_subset'_impl'_def
+  unfolding amtx_assn_def hr_comp_def is_amtx_def
+(* XXX The simp rules for imp_for need a name *)
+  apply (sep_auto heap: imp_for_list_all2_spec simp only:)
+    apply (simp; intro add_mono mult_mono; simp; fail)+
+  apply sep_auto
+
+  subgoal for b bi ba bia l la a bb
+    unfolding dbm_subset'_def by (simp add: pointwise_cmp_iff[where xs = l and ys = la])
+
+  subgoal for b bi ba bia l la a bb
+    unfolding dbm_subset'_def by (simp add: pointwise_cmp_iff[where xs = l and ys = la])
+  done
 
 sepref_register check_diag ::
   "nat \<Rightarrow> _ :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> bool"
@@ -96,11 +185,11 @@ sepref_register check_diag ::
 sepref_register dbm_subset' ::
   "nat \<Rightarrow> 'a :: {linordered_cancel_ab_monoid_add,heap} DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> bool"
 
-lemmas [sepref_fr_rules] = dbm_subset'_impl'.refine check_diag_impl'.refine
+lemmas [sepref_fr_rules] = dbm_subset'_impl'_refine check_diag_impl'.refine
 
 sepref_definition dbm_subset_impl' is
   "uncurry2 (RETURN ooo dbm_subset)" ::
-  "[\<lambda>((i, _), _). i\<le>n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
+  "[\<lambda>((i, _), _). i=n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> bool_assn"
 unfolding dbm_subset_def dbm_subset'_def[symmetric] short_circuit_conv by sepref
 
 context
@@ -152,12 +241,14 @@ sepref_definition abstra_upd_impl is
 unfolding abstra_upd_alt_def zero_clock_def[symmetric] by sepref
 
 sepref_register abstra_upd ::
-  "(nat, ('a :: {linordered_cancel_ab_monoid_add,uminus,heap})) acconstraint \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx"
+  "(nat, ('a :: {linordered_cancel_ab_monoid_add,uminus,heap})) acconstraint
+  \<Rightarrow> 'a DBMEntry i_mtx \<Rightarrow> 'a DBMEntry i_mtx"
 
 lemmas [sepref_fr_rules] = abstra_upd_impl.refine
 
 sepref_definition abstr_upd_impl is
-  "uncurry (RETURN oo abstr_upd)" :: "(list_assn (acconstraint_assn clock_assn id_assn))\<^sup>k *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
+  "uncurry (RETURN oo abstr_upd)"
+  :: "(list_assn (acconstraint_assn clock_assn id_assn))\<^sup>k *\<^sub>a mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
 unfolding abstr_upd_alt_def by sepref
 
 lemma [sepref_import_param]: "(norm_lower, norm_lower) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
