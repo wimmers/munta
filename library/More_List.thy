@@ -2,7 +2,7 @@
 theory More_List
   imports
     Main
-    Instantiate_Existentials
+    TA_Library.Instantiate_Existentials
 begin
 
 section \<open>First and Last Elements of Lists\<close>

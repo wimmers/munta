@@ -3,7 +3,7 @@ theory DBM_Operations_Impl_Refine
     DBM_Operations_Impl
     Sepref_Acconstraint
     "HOL-Library.IArray"
-    "library/Imperative_Loops"
+    "TA_Library.Imperative_Loops"
 begin
 
 lemma the_pure_id_assn_eq[simp]:

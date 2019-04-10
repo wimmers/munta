@@ -3,7 +3,6 @@ theory Graphs
   imports
     More_List Stream_More
     "HOL-Library.Rewrite"
-    Instantiate_Existentials
 begin
 
 chapter \<open>Graphs\<close>

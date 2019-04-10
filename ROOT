@@ -6,6 +6,7 @@ session "TA_Library" = "Refine_Imperative_HOL" +
     "library/Tracing"
     "library/Printing"
     "library/Error_List_Monad"
+    "library/Imperative_Loops"
 
 
 (* Use this to get document output for the abstract formalization of Reachability Checking *)
@@ -63,7 +64,7 @@ session "TA_All" = "TA_Impl" +
      document_variants = "model_checking_proofs:model_checking=/proof,/ML"]
   theories [document = false]
     Refine_Imperative_HOL.IICF
-    TA.Instantiate_Existentials
+    TA_Library.Instantiate_Existentials
     TA.Sequence
     TA.Stream_More
     "HOL-Library.IArray"
