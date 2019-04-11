@@ -9,24 +9,31 @@ paragraph \<open>Optimized code equations\<close>
 
 lemmas [code_unfold] = imp_for_imp_for'
 
+term dbm_subset'_impl'
+
 definition dbm_subset'_impl'_int
-  :: "nat \<Rightarrow> nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
+  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
   where [symmetric, int_folds]:
     "dbm_subset'_impl'_int = dbm_subset'_impl'"
 
+lemma less_eq_dbm_le_int[int_folds]:
+  "(x \<le> y) = dbm_le_int x y"
+  unfolding dbm_le_dbm_le_int less_eq ..
+
 schematic_goal dbm_subset'_impl'_int_code[code]:
-  "dbm_subset'_impl'_int \<equiv> \<lambda>n m a b.
+  "dbm_subset'_impl'_int \<equiv> \<lambda>m a b.
     do {
-    l \<leftarrow> Array.len a;
-    imp_for 0 l Heap_Monad.return
+    imp_for 0 ((m + 1) * (m + 1)) Heap_Monad.return
       (\<lambda>i _. do {
         x \<leftarrow> Array.nth a i; y \<leftarrow> Array.nth b i; Heap_Monad.return (dbm_le_int x y)
       })
       True
     }
 "
-  sorry
+  unfolding dbm_subset'_impl'_int_def[symmetric] dbm_subset'_impl'_def int_folds .
 
+(* XXX Fix def of dbm_subset'_impl first *)
+(*
 definition dbm_subset'_impl_int
   :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
   where [symmetric, int_folds]:
@@ -44,6 +51,7 @@ schematic_goal dbm_subset'_impl_int_code[code]:
     }
 "
   sorry
+*)
 
 definition dbm_subset_impl_int
   :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"

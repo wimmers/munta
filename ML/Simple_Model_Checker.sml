@@ -4379,26 +4379,15 @@ else (fn f_ => fn () => f_ ((keyi xl) ()) ())
 fun maxa A_ (Set (x :: xs)) =
   fold (max ((ord_preorder o preorder_order o order_linorder) A_)) xs x;
 
-fun dbm_subset_impla (A1_, A2_, A3_) n =
-  (fn ai => fn bia => fn bi =>
-    imp_for zero_nata (suc ai) (fn a => (fn () => a))
-      (fn xb => fn _ =>
-        imp_for zero_nata (suc ai) (fn a => (fn () => a))
-          (fn xe => fn _ =>
-            (fn f_ => fn () => f_
-              ((mtx_get (heap_DBMEntry A3_) (suc n) bia (xb, xe)) ()) ())
-              (fn x_f =>
-                (fn f_ => fn () => f_
-                  ((mtx_get (heap_DBMEntry A3_) (suc n) bi (xb, xe)) ()) ())
-                  (fn x_g =>
-                    (fn () =>
-                      (less_eq_DBMEntry
-                        (A2_, (linorder_linordered_ab_semigroup_add o
-                                linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                                linordered_ab_monoid_add_linordered_cancel_ab_monoid_add)
-                                A1_)
-                        x_f x_g)))))
-          true)
+fun dbm_subset_impla (A1_, A2_) =
+  (fn m => fn a => fn b =>
+    imp_for zero_nata (times_nata (plus_nata m one_nata) (plus_nata m one_nata))
+      (fn aa => (fn () => aa))
+      (fn i => fn _ =>
+        (fn f_ => fn () => f_ ((ntha A1_ a i) ()) ())
+          (fn x =>
+            (fn f_ => fn () => f_ ((ntha A1_ b i) ()) ())
+              (fn y => (fn () => (less_eq A2_ x y)))))
       true);
 
 fun check_diag_impla (A1_, A2_) n =
@@ -4493,9 +4482,9 @@ fun dbm_subset_fed_impl n =
                       (fn xc => fn sigma =>
                         (fn f_ => fn () => f_
                           ((dbm_subset_impla
-                             (linordered_cancel_ab_monoid_add_int, equal_int,
-                               heap_int)
-                             n n ai xc)
+                             (heap_DBMEntry heap_int,
+                               ord_DBMEntry (equal_int, linorder_int))
+                             n ai xc)
                           ()) ())
                           (fn x_d => (fn () => (if x_d then true else sigma))))
                       false)

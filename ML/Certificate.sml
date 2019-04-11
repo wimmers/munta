@@ -3755,18 +3755,17 @@ fun dbm_le_int (Lt a) (Lt b) = less_eq_int a b
   | dbm_le_int INF (Le v) = false
   | dbm_le_int INF (Lt v) = false;
 
-fun dbm_subset_impl_intb x =
-  (fn _ => fn _ => fn a => fn b =>
-    (fn f_ => fn () => f_ ((len (heap_DBMEntry heap_int) a) ()) ())
-      (fn l =>
-        imp_for_int zero_nata l (fn aa => (fn () => aa))
-          (fn i => fn _ =>
-            (fn f_ => fn () => f_ ((ntha (heap_DBMEntry heap_int) a i) ()) ())
-              (fn xa =>
-                (fn f_ => fn () => f_ ((ntha (heap_DBMEntry heap_int) b i) ())
-                  ())
-                  (fn y => (fn () => (dbm_le_int xa y)))))
-          true))
+fun dbm_subset_impl_inta x =
+  (fn m => fn a => fn b =>
+    imp_for_int zero_nata
+      (times_nata (plus_nata m one_nata) (plus_nata m one_nata))
+      (fn aa => (fn () => aa))
+      (fn i => fn _ =>
+        (fn f_ => fn () => f_ ((ntha (heap_DBMEntry heap_int) a i) ()) ())
+          (fn xa =>
+            (fn f_ => fn () => f_ ((ntha (heap_DBMEntry heap_int) b i) ()) ())
+              (fn y => (fn () => (dbm_le_int xa y)))))
+      true)
     x;
 
 fun get_entries_impl_int x =
@@ -3867,7 +3866,7 @@ fun dbm_subset_fed_impl n =
             else (fn f_ => fn () => f_
                    ((imp_nfoldli xa (fn sigma => (fn () => (not sigma)))
                       (fn xc => fn sigma =>
-                        (fn f_ => fn () => f_ ((dbm_subset_impl_intb n n ai xc)
+                        (fn f_ => fn () => f_ ((dbm_subset_impl_inta n ai xc)
                           ()) ())
                           (fn x_d => (fn () => (if x_d then true else sigma))))
                       false)
@@ -5853,20 +5852,6 @@ fun abstra_upd_impl_int x =
               (min_int_entry xa (Le (uminus_inta x42a))))))
     x;
 
-fun dbm_subset_impl_inta x =
-  (fn _ => fn a => fn b =>
-    (fn f_ => fn () => f_ ((len (heap_DBMEntry heap_int) a) ()) ())
-      (fn l =>
-        imp_for_int zero_nata l (fn aa => (fn () => aa))
-          (fn i => fn _ =>
-            (fn f_ => fn () => f_ ((ntha (heap_DBMEntry heap_int) a i) ()) ())
-              (fn xa =>
-                (fn f_ => fn () => f_ ((ntha (heap_DBMEntry heap_int) b i) ())
-                  ())
-                  (fn y => (fn () => (dbm_le_int xa y)))))
-          true))
-    x;
-
 fun check_sexpi A_ Truea uu uv = true
   | check_sexpi A_ (Nota e) l s = not (check_sexpi A_ e l s)
   | check_sexpi A_ (Anda (e1, e2)) l s =
@@ -6233,7 +6218,10 @@ fun state_space broadcast bounds automata m num_states num_actions k l_0 s_0
           val (a1a, a2a) = bi;
         in
           (if equal_proda (equal_list equal_nat) (equal_list equal_int) a1 a1a
-            then dbm_subset_impl_inta m a2 a2a else (fn () => false))
+            then dbm_subset_impl
+                   (linordered_cancel_ab_monoid_add_int, equal_int, heap_int) m
+                   a2 a2a
+            else (fn () => false))
         end);
     val emptyi = (fn (_, a) => check_diag_impl_int m a);
     val keyi = (fn a => (fn () => a)) o fst;
@@ -7903,8 +7891,7 @@ fun certificate_checker_pre l_list m_list broadcast bounds automata m num_states
 fun dbm_subset_impl_int x =
   (fn n => fn ai => fn bi =>
     (fn f_ => fn () => f_ ((check_diag_impl_inta n n ai) ()) ())
-      (fn xa =>
-        (if xa then (fn () => true) else dbm_subset_impl_intb n n ai bi)))
+      (fn xa => (if xa then (fn () => true) else dbm_subset_impl_inta n ai bi)))
     x;
 
 fun certify_unreachable_impl_inner (A1_, A2_, A3_) B_ fi pi copyi lei l_0i s_0i
@@ -8104,8 +8091,7 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
                                  ()) ())
                                  (fn xa =>
                                    (fn () =>
-                                     (less_eq_DBMEntry (equal_int, linorder_int)
-                                       x_i (dbm_add_int x xa)))))))
+                                     (dbm_le_int x_i (dbm_add_int x xa)))))))
                      true)
                  true)
              true)
@@ -8120,10 +8106,7 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
                        (fn f_ => fn () => f_
                          ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xc))
                          ()) ())
-                         (fn x_d =>
-                           (fn () =>
-                             (less_eq_DBMEntry (equal_int, linorder_int) x_d
-                               (Le zero_inta)))))
+                         (fn x_d => (fn () => (dbm_le_int x_d (Le zero_inta)))))
                      true)
                   ()) ())
                   (fn xb =>
@@ -8136,9 +8119,7 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
                                 (zero_nata, xc))
                              ()) ())
                              (fn x_e =>
-                               (fn () =>
-                                 (less_eq_DBMEntry (equal_int, linorder_int) x_e
-                                   (Le zero_inta)))))
+                               (fn () => (dbm_le_int x_e (Le zero_inta)))))
                          true)
                       ()) ())
                       (fn xc =>
@@ -8852,8 +8833,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                                  ()) ())
                                  (fn xa =>
                                    (fn () =>
-                                     (less_eq_DBMEntry (equal_int, linorder_int)
-                                       x_i (dbm_add_int x xa)))))))
+                                     (dbm_le_int x_i (dbm_add_int x xa)))))))
                      true)
                  true)
              true)
@@ -8868,10 +8848,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                        (fn f_ => fn () => f_
                          ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xc))
                          ()) ())
-                         (fn x_d =>
-                           (fn () =>
-                             (less_eq_DBMEntry (equal_int, linorder_int) x_d
-                               (Le zero_inta)))))
+                         (fn x_d => (fn () => (dbm_le_int x_d (Le zero_inta)))))
                      true)
                   ()) ())
                   (fn xb =>
@@ -8884,9 +8861,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                                 (zero_nata, xc))
                              ()) ())
                              (fn x_e =>
-                               (fn () =>
-                                 (less_eq_DBMEntry (equal_int, linorder_int) x_e
-                                   (Le zero_inta)))))
+                               (fn () => (dbm_le_int x_e (Le zero_inta)))))
                          true)
                       ()) ())
                       (fn xc =>
@@ -9460,8 +9435,7 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
                                  ()) ())
                                  (fn xa =>
                                    (fn () =>
-                                     (less_eq_DBMEntry (equal_int, linorder_int)
-                                       x_i (dbm_add_int x xa)))))))
+                                     (dbm_le_int x_i (dbm_add_int x xa)))))))
                      true)
                  true)
              true)
@@ -9476,10 +9450,7 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
                        (fn f_ => fn () => f_
                          ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xc))
                          ()) ())
-                         (fn x_d =>
-                           (fn () =>
-                             (less_eq_DBMEntry (equal_int, linorder_int) x_d
-                               (Le zero_inta)))))
+                         (fn x_d => (fn () => (dbm_le_int x_d (Le zero_inta)))))
                      true)
                   ()) ())
                   (fn xb =>
@@ -9492,9 +9463,7 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
                                 (zero_nata, xc))
                              ()) ())
                              (fn x_e =>
-                               (fn () =>
-                                 (less_eq_DBMEntry (equal_int, linorder_int) x_e
-                                   (Le zero_inta)))))
+                               (fn () => (dbm_le_int x_e (Le zero_inta)))))
                          true)
                       ()) ())
                       (fn xc =>
@@ -10169,8 +10138,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                                  ()) ())
                                  (fn xa =>
                                    (fn () =>
-                                     (less_eq_DBMEntry (equal_int, linorder_int)
-                                       x_i (dbm_add_int x xa)))))))
+                                     (dbm_le_int x_i (dbm_add_int x xa)))))))
                      true)
                  true)
              true)
@@ -10185,10 +10153,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                        (fn f_ => fn () => f_
                          ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xc))
                          ()) ())
-                         (fn x_d =>
-                           (fn () =>
-                             (less_eq_DBMEntry (equal_int, linorder_int) x_d
-                               (Le zero_inta)))))
+                         (fn x_d => (fn () => (dbm_le_int x_d (Le zero_inta)))))
                      true)
                   ()) ())
                   (fn xb =>
@@ -10201,9 +10166,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                                 (zero_nata, xc))
                              ()) ())
                              (fn x_e =>
-                               (fn () =>
-                                 (less_eq_DBMEntry (equal_int, linorder_int) x_e
-                                   (Le zero_inta)))))
+                               (fn () => (dbm_le_int x_e (Le zero_inta)))))
                          true)
                       ()) ())
                       (fn xc =>
@@ -10752,10 +10715,7 @@ fun unreachability_checker3 broadcast bounds automata m num_states num_actions
         (fn x =>
           (fn f_ => fn () => f_
             ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xf, xj)) ()) ())
-            (fn xa =>
-              (fn () =>
-                (less_eq_DBMEntry (equal_int, linorder_int) x_i
-                  (dbm_add_int x xa)))))))
+            (fn xa => (fn () => (dbm_le_int x_i (dbm_add_int x xa)))))))
 true)
                                     true)
                                 true)
@@ -10770,9 +10730,7 @@ true)
 (fn xc => fn _ =>
   (fn f_ => fn () => f_ ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xc))
     ()) ())
-    (fn x_d =>
-      (fn () =>
-        (less_eq_DBMEntry (equal_int, linorder_int) x_d (Le zero_inta)))))
+    (fn x_d => (fn () => (dbm_le_int x_d (Le zero_inta)))))
 true)
                                      ()) ())
                                      (fn xb =>
@@ -10781,9 +10739,7 @@ true)
     (fn xc => fn _ =>
       (fn f_ => fn () => f_
         ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (zero_nata, xc)) ()) ())
-        (fn x_e =>
-          (fn () =>
-            (less_eq_DBMEntry (equal_int, linorder_int) x_e (Le zero_inta)))))
+        (fn x_e => (fn () => (dbm_le_int x_e (Le zero_inta)))))
     true)
  ()) ())
  (fn xc =>
@@ -10876,8 +10832,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                                  ()) ())
                                  (fn xa =>
                                    (fn () =>
-                                     (less_eq_DBMEntry (equal_int, linorder_int)
-                                       x_i (dbm_add_int x xa)))))))
+                                     (dbm_le_int x_i (dbm_add_int x xa)))))))
                      true)
                  true)
              true)
@@ -10892,10 +10847,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                        (fn f_ => fn () => f_
                          ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xc))
                          ()) ())
-                         (fn x_d =>
-                           (fn () =>
-                             (less_eq_DBMEntry (equal_int, linorder_int) x_d
-                               (Le zero_inta)))))
+                         (fn x_d => (fn () => (dbm_le_int x_d (Le zero_inta)))))
                      true)
                   ()) ())
                   (fn xb =>
@@ -10908,9 +10860,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                                 (zero_nata, xc))
                              ()) ())
                              (fn x_e =>
-                               (fn () =>
-                                 (less_eq_DBMEntry (equal_int, linorder_int) x_e
-                                   (Le zero_inta)))))
+                               (fn () => (dbm_le_int x_e (Le zero_inta)))))
                          true)
                       ()) ())
                       (fn xc =>

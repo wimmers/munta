@@ -5,6 +5,7 @@ theory Unreachability_Certification
     TA_Impl.Unified_PW_Impl
     TA_Impl.Leadsto_Impl
     TA_Impl.Printing
+    TA_Library.Imperative_Loops
     "../library/Trace_Timing"
 begin
 
@@ -70,58 +71,6 @@ lemma hoare_triple_run_map_heapD':
     shows "list_all2 P xs (run_map_heap c xsi)"
   using assms unfolding run_map_heap_def list_all2_map2 list.pred_rel
   by (elim list_all2_mono) (auto simp: eq_onp_def intro: hoare_triple_run_heapD)
-
-
-lemma fold_map_ht:
-  assumes "list_all (\<lambda>x. <A * true> f x <\<lambda>r. \<up>(Q x r) * A>\<^sub>t) xs"
-  shows "<A * true> Heap_Monad.fold_map f xs <\<lambda>rs. \<up>(list_all2 (\<lambda>x r. Q x r) xs rs) * A>\<^sub>t"
-  using assms by (induction xs; sep_auto)
-
-lemma fold_map_ht':
-  assumes "list_all (\<lambda>x. <true> f x <\<lambda>r. \<up>(Q x r)>\<^sub>t) xs"
-  shows "<true> Heap_Monad.fold_map f xs <\<lambda>rs. \<up>(list_all2 (\<lambda>x r. Q x r) xs rs)>\<^sub>t"
-  using assms by (induction xs; sep_auto)
-
-lemma fold_map_ht1:
-  assumes "\<And>x xi. <A * R x xi * true> f xi <\<lambda>r. A * \<up>(Q x r)>\<^sub>t"
-  shows "
-  <A * list_assn R xs xsi * true>
-    Heap_Monad.fold_map f xsi
-  <\<lambda>rs. A * \<up>(list_all2 (\<lambda>x r. Q x r) xs rs)>\<^sub>t"
-  apply (induction xs arbitrary: xsi)
-   apply (sep_auto; fail)
-  subgoal for x xs xsi
-    by (cases xsi; sep_auto heap: assms)
-  done
-
-lemma fold_map_ht2:
-  assumes "\<And>x xi. <A * R x xi * true> f xi <\<lambda>r. A * R x xi * \<up>(Q x r)>\<^sub>t"
-  shows "
-  <A * list_assn R xs xsi * true>
-    Heap_Monad.fold_map f xsi
-  <\<lambda>rs. A * list_assn R xs xsi * \<up>(list_all2 (\<lambda>x r. Q x r) xs rs)>\<^sub>t"
-  apply (induction xs arbitrary: xsi)
-   apply (sep_auto; fail)
-  subgoal for x xs xsi
-    apply (cases xsi; sep_auto heap: assms)
-     apply (rule cons_rule[rotated 2], rule frame_rule, rprems)
-      apply frame_inference
-     apply frame_inference
-    apply sep_auto
-    done
-  done
-
-lemma fold_map_ht3:
-  assumes "\<And>x xi. <A * R x xi * true> f xi <\<lambda>r. A * Q x r>\<^sub>t"
-  shows "<A * list_assn R xs xsi * true> Heap_Monad.fold_map f xsi <\<lambda>rs. A * list_assn Q xs rs>\<^sub>t"
-  apply (induction xs arbitrary: xsi)
-   apply (sep_auto; fail)
-  subgoal for x xs xsi
-    apply (cases xsi; sep_auto heap: assms)
-     apply (rule Hoare_Triple.cons_pre_rule[rotated], rule frame_rule, rprems, frame_inference)
-    apply sep_auto
-    done
-  done
 
 definition
   "parallel_fold_map = Heap_Monad.fold_map"
