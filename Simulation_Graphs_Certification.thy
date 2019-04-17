@@ -125,7 +125,7 @@ locale Unreachability_Invariant_paired_pre =
   assumes P_invariant: "P (l, s) \<Longrightarrow> E (l, s) (l', s') \<Longrightarrow> P (l', s')"
 
 locale Unreachability_Invariant_paired =
-  Unreachability_Invariant_paired_pre +
+  Unreachability_Invariant_paired_pre _ _ M L l\<^sub>0 s\<^sub>0 E P for M :: "'l \<Rightarrow> 's set" and L l\<^sub>0 s\<^sub>0 E P+
   assumes M_invariant: "l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> P (l, s)"
   assumes start: "l\<^sub>0 \<in> L" "\<exists> s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s'" "P (l\<^sub>0, s\<^sub>0)"
   assumes closed:
@@ -1065,7 +1065,7 @@ lemma E_L:
   using assms closed by simp
 
 context
-  fixes F :: "'b \<times> 'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
+  fixes F :: "'l \<times> 's \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F (l, a) \<Longrightarrow> a \<preceq> b \<Longrightarrow> F (l, b)"
   assumes finitely_branching: "\<And> a b. finite (Collect (E (a, b)))"
   assumes finite: "finite L" "\<forall> l \<in> L. finite (M l)"
@@ -1231,7 +1231,7 @@ end
 thm no_accepting_cycleI no_accepting_cycleI'
 
 context
-  fixes F :: "'b \<times> 'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
+  fixes F :: "'l \<times> 's \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F (l, a) \<Longrightarrow> a \<preceq> b \<Longrightarrow> F (l, b)"
   assumes anti_sym: "P (l, s) \<Longrightarrow> P (l', s') \<Longrightarrow> s \<preceq> s' \<Longrightarrow> s' \<preceq> s \<Longrightarrow> s = s'"
 begin

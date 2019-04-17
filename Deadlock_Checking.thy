@@ -55,7 +55,6 @@ lemma deadlock_checker_correct:
   unfolding
     deadlock_checker_def Let_def F_impl_is_False[symmetric]
     check_passed_impl_start_def[symmetric] deadlock_zero_clock_val_iff[symmetric]
-    check_passed_impl_start_def[symmetric] deadlock_zero_clock_val_iff[symmetric]
   using check_passed_impl_start_hnr[OF F_False] .
 
 lemmas deadlock_checker_hoare = deadlock_checker_correct[to_hnr, unfolded hn_refine_def, simplified]

@@ -4200,9 +4200,7 @@ fun get_entries_impl (A1_, A2_, A3_) n =
                       (fn () =>
                         ((if (less_nat zero_nata xc orelse
                                less_nat zero_nata xf) andalso
-                               (less_eq_nat xc n andalso
-                                 (less_eq_nat xf n andalso
-                                   not (equal_DBMEntry A2_ x INF)))
+                               not (equal_DBMEntry A2_ x INF)
                            then op_list_prepend (xc, xf) op_list_empty
                            else op_list_empty) ::
                           sigmaa))))

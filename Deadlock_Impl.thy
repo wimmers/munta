@@ -22,7 +22,7 @@ lemma atLeastLessThan_Suc_alt_def:
 
 lemma (in Graph_Defs) deadlock_if_deadlocked:
   "deadlock y" if "deadlocked y"
-  using that unfolding deadlock_def by (inst_existentials y) auto
+  using that unfolding deadlock_def by auto
 
 
 
@@ -38,10 +38,6 @@ proof -
   then show ?thesis
     by simp
 qed
-
-lemma rev_map_conv_fold:
-  "rev (map f xs) = fold (\<lambda> a xs. f a # xs) xs []"
-  using map_conv_rev_fold[of f xs] by simp
 
 lemma concat_map_conv_rev_fold:
   "concat (map f xs) = rev (fold (\<lambda> xs ys. rev (f xs) @ ys) xs [])"
@@ -315,8 +311,7 @@ context
 begin
 
 sepref_definition down_impl is
-  "RETURN o PR_CONST (down_upd n)" ::
-  "(mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
+  "RETURN o PR_CONST (down_upd n)" :: "(mtx_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_assn n"
   unfolding down_upd_alt_def1 upd_pairs_map PR_CONST_def
   unfolding Let_def prod.case
   unfolding fold_map comp_def
@@ -431,6 +426,11 @@ private definition "get_entries m =
   [(make_clock i, make_clock j).
     i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> i \<le> n \<and> j \<le> n \<and> m (i, j) \<noteq> \<infinity>]"
 
+private lemma get_entries_alt_def:
+  "get_entries m = [(make_clock i, make_clock j).
+    i\<leftarrow>[0..<Suc n], j\<leftarrow>[0..<Suc n], (i > 0 \<or> j > 0) \<and> m (i, j) \<noteq> \<infinity>]"
+  unfolding get_entries_def by (intro arg_cong[where f = concat] map_cong) auto
+
 private definition
   "upd_entry i j M m = and_entry_repair_upd n j i (neg_dbm_entry (m (i, j))) (op_mtx_copy M)"
 
@@ -479,7 +479,7 @@ lemma [sepref_import_param]: "((=), (=)) \<in> Id\<rightarrow>Id\<rightarrow>Id"
 sepref_definition get_entries_impl is
   "RETURN o PR_CONST get_entries" ::
   "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a list_assn ((clock_assn n) \<times>\<^sub>a (clock_assn n))"
-  unfolding get_entries_def PR_CONST_def
+  unfolding get_entries_alt_def PR_CONST_def
   unfolding map_conv_rev_fold
   unfolding concat_conv_fold_rev
   supply [sepref_fr_rules] = HOL_list_empty_hnr_aux

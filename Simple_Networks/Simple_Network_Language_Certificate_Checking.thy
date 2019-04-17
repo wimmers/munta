@@ -1462,7 +1462,7 @@ definition rename_check3 where
     state_space
 \<equiv>
   let r = do_rename_mc (
-      \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
+      \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> string)).
       certificate_checker3 num_split dc state_space)
     dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
@@ -1481,7 +1481,7 @@ definition rename_check_dbg where
 \<equiv>
 do {
   let r = do_rename_mc (
-      \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
+      \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> string)).
       certificate_checker_dbg num_split show_clock show_state state_space)
     dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states

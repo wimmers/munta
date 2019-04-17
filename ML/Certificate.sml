@@ -3783,9 +3783,7 @@ fun get_entries_impl_int x =
                       (fn () =>
                         ((if (less_nat zero_nata xc orelse
                                less_nat zero_nata xf) andalso
-                               (less_eq_nat xc n andalso
-                                 (less_eq_nat xf n andalso
-                                   not (equal_DBMEntry equal_int xa INF)))
+                               not (equal_DBMEntry equal_int xa INF)
                            then op_list_prepend (xc, xf) op_list_empty
                            else op_list_empty) ::
                           sigmaa))))
