@@ -1128,7 +1128,7 @@
         "DDD", 
         "VDI"
     ], 
-    "clocks": "clk, PAVI_t, PLRI_t, PPVARP_t, PVRP_t, PV_x, PA_x, Pcond_t, PELT_det_t, Pvp_vp_t, Pvv_t, PURI_test_t, urge", 
+    "clocks": "clk, PAVI_t, PLRI_t, PPVARP_t, PVRP_t, PV_x, PA_x, Pcond_t, Pvp_vp_t, Pvv_t, PURI_test_t, urge", 
     "vars": "",
     "formula": "E<> !(PAVI.Idle) && PAVI.Idle"
 }
