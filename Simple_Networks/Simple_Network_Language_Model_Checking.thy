@@ -688,7 +688,8 @@ sublocale impl: Reachability_Problem_Impl
 
 (* trans_impl *)
   subgoal
-    by (rule trans_from_refine)
+    apply (rule trans_from_refine)
+    done
 
 (* inv_fun *)
   subgoal
@@ -726,29 +727,6 @@ sublocale impl: Reachability_Problem_Impl
 end (* Simple_Network_Impl_nat_ceiling_start_state *)
 
 no_notation UPPAAL_Model_Checking.models ("_,_ \<Turnstile>\<^sub>_ _" [61,61] 61)
-
-(* XXX Move *)
-lemma Bisimulation_Invariants_Bisimulation_Invariant:
-  assumes "Bisimulation_Invariants A B sim PA PA PB PB"
-  shows "Bisimulation_Invariant A B sim PA PB"
-proof -
-  interpret Bisimulation_Invariants A B sim PA PA PB PB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step B_A_step)
-qed
-
-(* XXX Move *)
-lemma Bisimulation_Invariants_Bisimulation_Invariant_iff:
-  "Bisimulation_Invariants A B sim PA PA PB PB \<longleftrightarrow> Bisimulation_Invariant A B sim PA PB"
-  using
-    Bisimulation_Invariants_Bisimulation_Invariant Bisimulation_Invariant_Bisimulation_Invariants
-  by blast
-
-lemmas Bisimulation_Invariant_composition =
-  Bisimulation_Invariant_Invariants_composition[
-    THEN Bisimulation_Invariants_Bisimulation_Invariant,
-    OF _ Bisimulation_Invariant_Bisimulation_Invariants]
 
 
 context Reachability_Problem_Impl
@@ -1459,7 +1437,7 @@ definition precond_mc where
 abbreviation N where
   "N broadcast automata bounds \<equiv>
   Simple_Network_Language.conv
-    (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds)"
+    (set broadcast, map automaton_of automata, map_of bounds)"
 
 definition has_deadlock where
   "has_deadlock A a\<^sub>0 \<equiv>

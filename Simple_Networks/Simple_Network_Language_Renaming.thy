@@ -2,8 +2,41 @@ theory Simple_Network_Language_Renaming
   imports Simple_Network_Language_Model_Checking
 begin
 
-context Simple_Network_Impl
+(* XXX This is missing from the standard library *)
+lemma image_cong_simp:
+  fixes N :: "'b set"
+  assumes "M = N" and "\<And>x. x \<in> N =simp=> f x = g x"
+  shows "f ` M = g ` N"
+  using assms by (simp cong: image_cong add: simp_implies_def)
+
+(* XXX All this stuff is duplicated *)
+context Simple_Network_Impl_Defs
 begin
+
+lemma N_eq:
+  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
+  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
+
+(* XXX Remove? *)
+lemma covn_N_eq:
+  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
+  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
+
+end
+
+context Simple_Network_Impl_Defs
+begin
+
+lemma dom_bounds: "dom bounds = fst ` set bounds'"
+  unfolding bounds_def by (simp add: dom_map_of_conv_image_fst)
+
+lemma mem_trans_N_iff:
+  "t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (automata ! i)))" if "i < n_ps"
+  unfolding N_eq[OF that] by (auto split: prod.splits simp: automaton_of_def trans_def)
+
+lemma length_automata_eq_n_ps:
+  "length automata = n_ps"
+  unfolding n_ps_def by simp
 
 lemma N_p_trans_eq:
   "Simple_Network_Language.trans (N p) = set (fst (snd (automata ! p)))" if "p < n_ps"
@@ -32,15 +65,18 @@ lemma states_loc_setD:
   "set L \<subseteq> loc_set" if "L \<in> states"
   using states_loc_set that by auto
 
+end (* Simple Network Impl Defs *)
+
+
+context Simple_Network_Impl
+begin
+
 lemma sem_bounds_eq: "sem.bounds = bounds"
   unfolding sem.bounds_def bounds_def unfolding sem_def by simp
 
 lemma n_ps_eq[simp]:
   "sem.n_ps = n_ps"
   unfolding n_ps_def sem.n_ps_def unfolding sem_def by auto
-
-lemma dom_bounds: "dom bounds = fst ` set bounds'"
-  unfolding bounds_def by (simp add: dom_map_of_conv_image_fst)
 
 lemma sem_loc_set_eq:
   "sem.loc_set = loc_set"
@@ -61,9 +97,10 @@ end (* Simple Network Impl *)
 
 
 locale Simple_Network_Rename_Defs =
-  Simple_Network_Impl automata for automata ::
-    "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
-      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
+  Simple_Network_Impl_Defs automata broadcast bounds' for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, 't, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, 't) cconstraint) list) list"
+    and broadcast bounds' +
   fixes renum_acts   :: "'a \<Rightarrow> nat"
     and renum_vars   :: "'x \<Rightarrow> nat"
     and renum_clocks :: "'c \<Rightarrow> nat"
@@ -102,12 +139,6 @@ definition renum_automaton where
   in (commited', trans', inv')
 "
 
-sublocale renum: Simple_Network_Impl
-  "map_index renum_automaton automata"
-  "map renum_acts broadcast"
-  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
-  .
-
 definition
   "vars_inv \<equiv> the_inv renum_vars"
 
@@ -127,11 +158,34 @@ lemma map_u_add[simp]:
 definition renum_label where
   "renum_label = map_label renum_acts"
 
+sublocale renum: Simple_Network_Impl_Defs
+  "map_index renum_automaton automata"
+  "map renum_acts broadcast"
+  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
+  .
+
 lemma renum_n_ps_simp[simp]:
   "renum.n_ps = n_ps"
   unfolding n_ps_def renum.n_ps_def by simp
 
-end (* Simple Network Rename Defs *)
+end (* Simple Network Rename Defs' *)
+
+
+locale Simple_Network_Rename_Defs_int =
+  Simple_Network_Rename_Defs automata +
+  Simple_Network_Impl automata
+  for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list"
+begin
+
+sublocale renum: Simple_Network_Impl
+  "map_index renum_automaton automata"
+  "map renum_acts broadcast"
+  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
+  .
+
+end (* Simple Network Rename Defs int *)
 
 lemma
   fixes f :: "'b :: countable \<Rightarrow> nat"
@@ -206,17 +260,117 @@ where
   "map_formula f g h (Leadsto \<phi> \<psi>) = Leadsto (map_sexp f g h \<phi>) (map_sexp f g h \<psi>)"
 
 
+locale Simple_Network_Impl_real =
+  fixes automata ::
+    "('s list \<times> ('a act, 's, 'c, real, 'x, int) transition list
+      \<times> ('s \<times> ('c, real) cconstraint) list) list"
+    and broadcast :: "'a list"
+    and bounds' :: "('x \<times> (int \<times> int)) list"
+begin
 
+sublocale Simple_Network_Impl_Defs automata broadcast bounds' .
+
+definition "sem \<equiv> (set broadcast, map automaton_of automata, map_of bounds')"
+
+sublocale sem: Prod_TA_sem sem .
+
+lemma sem_N_eq:
+  "sem.N p = automaton_of (automata ! p)" if \<open>p < n_ps\<close>
+  using that unfolding sem.N_def n_ps_def unfolding sem_def fst_conv snd_conv
+  by (subst nth_map) auto
+
+lemma sem_bounds_eq: "sem.bounds = bounds"
+  unfolding sem.bounds_def bounds_def unfolding sem_def by simp
+
+lemma n_ps_eq[simp]:
+  "sem.n_ps = n_ps"
+  unfolding n_ps_def sem.n_ps_def unfolding sem_def by auto
+
+lemma sem_loc_set_eq:
+  "sem.loc_set = loc_set"
+  unfolding sem.loc_set_def loc_set_def n_ps_eq setcompr_eq_image by (simp add: sem_N_eq N_eq)
+
+lemma sem_states_eq:
+  "sem.states = states"
+  unfolding sem.states_def states_def n_ps_eq setcompr_eq_image
+  by (auto simp: sem_N_eq N_eq;
+      force simp:  conv_automaton_def trans_def automaton_of_def n_ps_def split: prod.splits)+
+
+lemma sem_state_guard_eq:
+  "(fst \<circ> snd) ` trans (sem.N p) = (fst \<circ> snd) ` trans (N p)" if "p < n_ps"
+  unfolding sem_N_eq[OF \<open>p < n_ps\<close>] N_eq[OF \<open>p < n_ps\<close>]
+  unfolding automaton_of_def conv_automaton_def trans_def
+  by (force split: prod.splits)
+
+lemma sem_state_update_eq:
+  "(fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (sem.N p) = (fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p)"
+  if "p < n_ps"
+  unfolding sem_N_eq[OF \<open>p < n_ps\<close>] N_eq[OF \<open>p < n_ps\<close>]
+  unfolding automaton_of_def conv_automaton_def trans_def
+  by (force split: prod.splits)
+
+lemma sem_var_set_eq:
+  "sem.var_set = var_set"
+  unfolding sem.var_set_def var_set_def n_ps_eq using sem_state_guard_eq sem_state_update_eq
+  by (simp cong: image_cong_simp add: setcompr_eq_image)
+
+end
+
+context Simple_Network_Impl
+begin
+
+lemma sem_state_guard_eq:
+  "(fst \<circ> snd) ` trans (sem.N p) = (fst \<circ> snd) ` trans (N p)" if "p < n_ps"
+  unfolding sem_N_eq[OF \<open>p < n_ps\<close>] N_eq[OF \<open>p < n_ps\<close>]
+  unfolding automaton_of_def conv_automaton_def trans_def
+  by (force split: prod.splits)
+
+lemma sem_state_update_eq:
+  "(fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (sem.N p) = (fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p)"
+  if "p < n_ps"
+  unfolding sem_N_eq[OF \<open>p < n_ps\<close>] N_eq[OF \<open>p < n_ps\<close>]
+  unfolding automaton_of_def conv_automaton_def trans_def
+  by (force split: prod.splits)
+
+lemma sem_var_set_eq:
+  "sem.var_set = var_set"
+  unfolding sem.var_set_def var_set_def n_ps_eq using sem_state_guard_eq sem_state_update_eq
+  by (simp cong: image_cong_simp add: setcompr_eq_image)
+
+end
+
+locale Simple_Network_Rename_Defs_real =
+  Simple_Network_Rename_Defs automata +
+  Simple_Network_Impl_real automata
+  for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, real, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, real) cconstraint) list) list"
+begin
+
+sublocale renum: Simple_Network_Impl_real
+  "map_index renum_automaton automata"
+  "map renum_acts broadcast"
+  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
+  .
+
+end (* Simple Network Rename Defs *)
 
 locale Simple_Network_Rename' =
   Simple_Network_Rename_Defs where automata = automata for automata ::
-    "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
-      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
+    "('s list \<times> (('a :: countable) act, 's, 'c, 't, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, 't) cconstraint) list) list" +
   assumes bij_renum_clocks: "bij renum_clocks"
       and renum_states_inj: "\<forall>p<n_ps. inj (renum_states p)"
       and bij_renum_vars: "bij renum_vars"
       and bounds'_var_set: "fst ` set bounds' = var_set"
       and inj_renum_acts: "inj renum_acts"
+
+locale Simple_Network_Rename_real =
+  Simple_Network_Rename_Defs_real where automata = automata +
+  Simple_Network_Rename' where automata = automata
+  for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, real, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, real) cconstraint) list) list"
 begin
 
 lemma aux_1:
@@ -242,10 +396,12 @@ lemma map_u_renum_cconstraint_clock_valI:
     by (cases "cc ! n") (auto 4 4 simp: clocks_inv_inv split: acconstraint.split)
   done
 
+(*
 lemma map_u_conv_renum_cconstraint_clock_valI:
   "map_u u \<turnstile> map conv_ac (renum_cconstraint cc)" if "u \<turnstile> map conv_ac cc"
   using map_u_renum_cconstraint_clock_valI[OF that]
   by (simp add: renum_cconstraint_def map_cconstraint_def acconstraint.map_comp comp_def)
+*)
 
 lemma map_u_renum_cconstraint_clock_valD:
   "u \<turnstile> cc" if "map_u u \<turnstile> renum_cconstraint cc"
@@ -258,12 +414,14 @@ lemma map_u_renum_cconstraint_clock_valD:
     by (cases "cc ! n") (auto 4 4 simp: clocks_inv_inv split: acconstraint.split)
   done
 
+(*
 lemma map_u_conv_renum_cconstraint_clock_valD:
   "u \<turnstile> map conv_ac cc" if "map_u u \<turnstile> map conv_ac (renum_cconstraint cc)"
   using map_u_renum_cconstraint_clock_valD[of u "map conv_ac cc"] that
   by (simp add: renum_cconstraint_def map_cconstraint_def acconstraint.map_comp comp_def)
+*)
 
-
+(*
 lemma map_u_renum_cconstraint_clock_val_iff:
   "u \<turnstile> map conv_ac cc \<longleftrightarrow> map_u u \<turnstile> map conv_ac (renum_cconstraint cc)"
   unfolding clock_val_def list_all_length
@@ -282,6 +440,7 @@ lemma map_u_renum_cconstraint_clock_val_iff:
         apply (auto simp add: clocks_inv_inv)
     done
   done
+*)
 
 lemma inj_renum_states: "inj (renum_states p)" if "p < n_ps"
   using renum_states_inj \<open>p < n_ps\<close> by blast
@@ -297,16 +456,14 @@ lemma inv_renum_sem_I:
   apply (subst (asm) sem_N_eq, assumption)
   apply (subst renum.sem_N_eq, subst renum_n_ps_simp, assumption)
   apply (subst nth_map_index, simp add: n_ps_def)
-  unfolding conv_automaton_def renum.automaton_of_def
+  unfolding conv_automaton_def automaton_of_def
   apply (auto split: prod.split_asm simp: renum_automaton_def comp_def)
   unfolding aux_1
   apply (subst default_map_of_map[where x = "[]"])
   subgoal
     by (intro inj_renum_states \<open>p < n_ps\<close>)
    apply (simp add: renum_cconstraint_def map_cconstraint_def; fail)
-  apply (subst (asm) default_map_of_map_2[where x = "[]"])
-   apply simp
-  apply (erule map_u_conv_renum_cconstraint_clock_valI)
+  apply (erule map_u_renum_cconstraint_clock_valI)
   done
 
 lemma inv_renum_sem_D:
@@ -321,16 +478,15 @@ lemma inv_renum_sem_D:
   apply (subst sem_N_eq, assumption)
   apply (subst (asm) renum.sem_N_eq, subst renum_n_ps_simp, assumption)
   apply (subst (asm) nth_map_index, simp add: n_ps_def)
-  unfolding conv_automaton_def renum.automaton_of_def
+  unfolding conv_automaton_def automaton_of_def
   apply (auto split: prod.split simp: renum_automaton_def comp_def)
   unfolding aux_1
   apply (subst (asm) default_map_of_map[where x = "[]"])
   subgoal
     by (intro inj_renum_states \<open>p < n_ps\<close>)
    apply (simp add: renum_cconstraint_def map_cconstraint_def; fail)
-  apply (subst default_map_of_map_2[where x = "[]"])
-   apply simp
-  unfolding map_u_renum_cconstraint_clock_val_iff .
+  apply (erule map_u_renum_cconstraint_clock_valD)
+  done
 
 lemma dom_the_inv_comp:
   "dom (m o the_inv f) = f ` dom m" if "inj f" "range f = UNIV"
@@ -368,7 +524,7 @@ lemma map_of_inv_map:
   done
 
 lemma dom_vars_invD:
-  assumes "x \<in> dom (s \<circ> Simple_Network_Rename_Defs.vars_inv renum_vars)"
+  assumes "x \<in> dom (s \<circ> vars_inv)"
   shows "x \<in> renum_vars ` dom s" (is ?A) and "the_inv renum_vars x \<in> dom s" (is ?B)
 proof -
   show ?A
@@ -405,7 +561,7 @@ lemma bounded_renumI:
 
 lemma map_of_renum_vars_simp:
   assumes
-    "dom (s o (Simple_Network_Rename_Defs.vars_inv renum_vars))
+    "dom (s o vars_inv)
      = dom (map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds'))"
     "x \<in> dom s" "dom s \<subseteq> var_set"
   shows "map_of (map (\<lambda>(a, y). (renum_vars a, y)) bounds') (renum_vars x) = map_of bounds' x"
@@ -515,51 +671,18 @@ lemma trans_N_renumI:
    apply (auto elim!: injD[rotated, THEN sym] intro: injective_functions)
   done
 
-
-definition
-  "conv' \<equiv> \<lambda>(commited, trans, inv).
-  (commited, (\<lambda>(l, b, g, a, f, r, l'). (l, b, conv_cc g, a, f, r, l')) ` trans, conv_cc o inv)"
-
-lemma eq1':
-  "(l, b, g, a, f, r, l') \<in> trans (automaton_of (conv_automaton A))
-\<longleftrightarrow> (\<exists> g'. (l, b, g', a, f, r, l') \<in> trans (automaton_of A) \<and> g = conv_cc g')"
-  unfolding conv_automaton_def automaton_of_def conv'_def trans_def by (force split: prod.split)
-
-lemma eq1:
-  "automaton_of (conv_automaton A) = conv' (automaton_of A)"
-  unfolding conv_automaton_def automaton_of_def conv'_def
-  apply (clarsimp split: prod.split)
-  sorry
-
-lemma eq2:
-  "(l, b, g, a, f, r, l') \<in> trans (conv' A)
-  \<longleftrightarrow> (\<exists> g'. (l, b, g', a, f, r, l') \<in> trans A \<and> g = conv_cc g')"
-  unfolding trans_def conv'_def by (cases A; force)
-
-lemma map_acconstraint_conv_ac_commute:
-  "map_acconstraint renum_clocks id (conv_ac ac) = conv_ac (map_acconstraint renum_clocks id ac)"
-  by (cases ac; simp)
-
-lemma map_ccconstraint_conv_cc_commute:
-  "renum_cconstraint (conv_cc g) = conv_cc (renum_cconstraint g)"
-  unfolding renum_cconstraint_def map_cconstraint_def by (simp add: map_acconstraint_conv_ac_commute)
-
 lemma trans_sem_N_renumD:
   assumes "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (sem.N p)" "p < n_ps"
   shows "(renum_states p l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd f, renum_reset r, renum_states p l')
   \<in> Simple_Network_Language.trans (renum.sem.N p)"
   using assms(1)
-  unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)] eq1'
-  apply clarsimp
-  subgoal for g'
-    using \<open>p < n_ps\<close>
-    apply (simp only: N_eq[symmetric])
-    apply (drule (1) trans_N_renumD)
-    apply (subst renum.N_eq[symmetric])
-     apply (subst renum_n_ps_simp; assumption)
-    apply (auto simp: map_ccconstraint_conv_cc_commute)
-    done
-  done
+  unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)]
+  using \<open>p < n_ps\<close>
+  apply (simp only: N_eq[symmetric])
+  apply (drule (1) trans_N_renumD)
+  apply (subst renum.N_eq[symmetric])
+   apply (subst renum_n_ps_simp; assumption)
+  .
 
 lemma renum_acconstraint_eq_convD:
   assumes "map_acconstraint renum_clocks id g = conv_ac g'"
@@ -600,18 +723,9 @@ lemma trans_sem_N_renumI:
   assumes "(renum_states p l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd f, renum_reset r, renum_states p l')
   \<in> Simple_Network_Language.trans (renum.sem.N p)" "p < n_ps"
   shows "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (sem.N p)"
-  using assms(1)
-  unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)] eq1'
-  apply clarsimp
-  apply (erule renum_cconstraint_eq_convD)
-  subgoal for g' g1
-    using \<open>p < n_ps\<close>
-    apply (simp add: N_eq[symmetric])
-    apply (inst_existentials g1)
-     apply (rule trans_N_renumI)
-      apply (simp; fail | metis Simple_Network_Impl.covn_N_eq renum_n_ps_simp)+
-    done
-  done
+  using assms(1) \<open>p < n_ps\<close>
+  unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)]
+  by (simp add: N_eq[symmetric] renum.N_eq[symmetric, unfolded renum_n_ps_simp] trans_N_renumI)
 
 lemma trans_sem_N_renumI':
   assumes "(renum_states p l, b, g, a, f, r, l')
@@ -624,34 +738,31 @@ proof -
   obtain b' g' a' f' r' l1 where "b = renum_bexp b'" "g = renum_cconstraint g'" "f = renum_upd f'"
     "a = renum_act a'" "r = renum_reset r'" "l' = renum_states p l1"
     using assms
-    unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)] eq1'
-    apply clarify
+    unfolding sem_N_eq[OF assms(2)] renum.sem_N_eq[unfolded renum_n_ps_simp, OF assms(2)]
     apply (subst (asm) nth_map_index)
     subgoal
       by (simp add: n_ps_def)
-    unfolding renum_automaton_def automaton_of_def trans_def
-    by (auto split: prod.split_asm simp: map_ccconstraint_conv_cc_commute[symmetric])
+    unfolding renum_automaton_def automaton_of_def trans_def by (auto split: prod.split_asm)
   with assms show ?thesis
     by (fastforce dest!: trans_sem_N_renumI)
 qed
 
 lemma fold_sem_N:
-  "map (renum.automaton_of \<circ> renum.conv_automaton) automata ! p = sem.N p"
+  "map automaton_of automata ! p = sem.N p"
   by (simp add: sem_def)
 
 lemma fold_renum_sem_N:
-  "map (renum.automaton_of \<circ> renum.conv_automaton) (map_index renum_automaton automata) ! p
-= renum.sem.N p"
+  "map automaton_of (map_index renum_automaton automata) ! p = renum.sem.N p"
   by (simp add: renum.sem_def)
 
 lemma fold_inv_sem_N:
-  "inv (automaton_of (conv_automaton (automata ! p))) l = inv (sem.N p) l" if "p < length automata"
-  using that unfolding sem.N_def unfolding sem_def by simp
+  "inv (automaton_of (automata ! p)) l = inv (sem.N p) l" if "p < length automata"
+  using that unfolding sem.N_def unfolding sem_def automaton_of_def by simp
 
 lemma fold_inv_renum_sem_N:
-  "inv (automaton_of (conv_automaton (renum_automaton p (automata ! p)))) l = inv (renum.sem.N p) l"
+  "inv (automaton_of (renum_automaton p (automata ! p))) l = inv (renum.sem.N p) l"
   if "p < length automata"
-  using that unfolding renum.sem.N_def unfolding renum.sem_def by simp
+  using that unfolding renum.sem.N_def unfolding renum.sem_def automaton_of_def by simp
 
 lemma commited_renum_eq:
   "commited (renum.sem.N p) = renum_states p ` commited (sem.N p)" if "p < n_ps"
@@ -802,7 +913,6 @@ lemma inj_id:
 
 lemma step_single_renumD:
   assumes "step_u sem L s u a L' s' u'" "L \<in> sem.states" "dom s \<subseteq> var_set"
-  defines "rsem \<equiv> renum.sem"
   shows "step_u renum.sem
     (map_index renum_states L) (s o vars_inv) (map_u u)
     (renum_label a)
@@ -1094,31 +1204,6 @@ lemma dom_comp_vars_inv_eqD:
   shows "dom (s' o renum_vars) = dom s"
   using assms inj_renum_vars surj_renum_vars unfolding vars_inv_def
   by (subst (asm) dom_the_inv_comp) (auto simp: dom_comp_eq_vimage dest: injD)
-
-lemma sem_state_guard_eq:
-  "(fst \<circ> snd) ` trans (sem.N p) = (fst \<circ> snd) ` trans (N p)" if "p < n_ps"
-  unfolding sem_N_eq[OF \<open>p < n_ps\<close>] N_eq[OF \<open>p < n_ps\<close>]
-  unfolding automaton_of_def conv_automaton_def trans_def
-  by (force split: prod.splits)
-
-lemma sem_state_update_eq:
-  "(fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (sem.N p) = (fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p)"
-  if "p < n_ps"
-  unfolding sem_N_eq[OF \<open>p < n_ps\<close>] N_eq[OF \<open>p < n_ps\<close>]
-  unfolding automaton_of_def conv_automaton_def trans_def
-  by (force split: prod.splits)
-
-(* XXX This is missing from the standard library *)
-lemma image_cong_simp:
-  fixes N :: "'b set"
-  assumes "M = N" and "\<And>x. x \<in> N =simp=> f x = g x"
-  shows "f ` M = g ` N"
-  using assms by (simp cong: image_cong add: simp_implies_def)
-
-lemma sem_var_set_eq:
-  "sem.var_set = var_set"
-  unfolding sem.var_set_def var_set_def n_ps_eq using sem_state_guard_eq sem_state_update_eq
-  by (simp cong: image_cong_simp add: setcompr_eq_image)
 
 lemma sem_trans_upd_domD:
   assumes "(L ! p, b, g', a, f, r, l1) \<in> trans (sem.N p)" "p < n_ps"
@@ -1563,7 +1648,7 @@ proof -
      (\<lambda>(L, s, u) (L', s', u'). renum.sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
      (\<lambda>(L, s, u) (L', s', u').
          L' = map_index renum_states L \<and>
-         s' = (s \<circ>\<circ> Simple_Network_Rename_Defs.vars_inv) renum_vars \<and>
+         s' = (s o vars_inv) \<and>
          u' = map_u u)
      (\<lambda>(L, s, u). L \<in> sem.states \<and> dom s = var_set) (\<lambda>_. True)"
     unfolding rsem_def[symmetric]
@@ -1607,7 +1692,13 @@ qed
 
 lemmas renum_bisim = Bisimulation_Invariant_axioms
 
-context
+end
+
+locale Simple_Network_Impl_Formula_real =
+  Simple_Network_Rename_real where automata = automata
+  for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, real, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, real) cconstraint) list) list" +
   fixes \<Phi> :: "(nat, 's, 'x, int) formula"
     and s\<^sub>0 :: "('x \<times> int) list"
     and L\<^sub>0 :: "'s list"
@@ -1670,6 +1761,13 @@ proof (rule ext)
   qed
 qed
 
+interpretation Bisimulation_Invariant
+  "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
+  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s = var_set" "\<lambda>_. True"
+  by (rule renum_bisim)
+
 lemma start_equiv:
   "A_B.equiv' a\<^sub>0 a\<^sub>0'"
   unfolding A_B.equiv'_def a\<^sub>0_def a\<^sub>0'_def
@@ -1731,9 +1829,239 @@ lemma has_deadlock_iff:
 
 end (* Context for assumptions *)
 
-end (* Context for formula *)
+end (* Simple Network Rename real *)
+
+
+(* XXX Move *)
+lemma Bisimulation_Invariants_Bisimulation_Invariant:
+  assumes "Bisimulation_Invariants A B sim PA PA PB PB"
+  shows "Bisimulation_Invariant A B sim PA PB"
+proof -
+  interpret Bisimulation_Invariants A B sim PA PA PB PB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step B_A_step)
+qed
+
+(* XXX Move *)
+lemma Bisimulation_Invariants_Bisimulation_Invariant_iff:
+  "Bisimulation_Invariants A B sim PA PA PB PB \<longleftrightarrow> Bisimulation_Invariant A B sim PA PB"
+  using
+    Bisimulation_Invariants_Bisimulation_Invariant Bisimulation_Invariant_Bisimulation_Invariants
+  by blast
+
+lemmas Bisimulation_Invariant_composition =
+  Bisimulation_Invariant_Invariants_composition[
+    THEN Bisimulation_Invariants_Bisimulation_Invariant,
+    OF _ Bisimulation_Invariant_Bisimulation_Invariants]
+
+lemma Bisimulation_Invariant_refl:
+  "Bisimulation_Invariant A A (=) P P" if "\<And>a b. P a \<Longrightarrow> A a b \<Longrightarrow> P b"
+  by (rule Bisimulation_Invariant.intro) (auto intro: that)
+
+
+locale Simple_Network_Rename_int =
+  Simple_Network_Rename_Defs_int where automata = automata +
+  Simple_Network_Rename' where automata = automata
+  for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list"
+begin
+
+lemma n_ps_eq1:
+  "Prod_TA_Defs.n_ps
+        (set broadcast, map automaton_of (map conv_automaton automata),
+         map_of bounds') = n_ps"
+  unfolding n_ps_def Prod_TA_Defs.n_ps_def by simp
+
+lemma var_set_eq1:
+  "Prod_TA_Defs.var_set
+     (set broadcast, map automaton_of (map conv_automaton automata),
+      map_of bounds') = var_set"
+  unfolding sem_def sem_var_set_eq[symmetric] by simp
+
+sublocale real: Simple_Network_Rename_real where automata = "map conv_automaton automata"
+  apply standard
+  unfolding n_ps_eq1 var_set_eq1
+      apply (rule bij_renum_clocks renum_states_inj bij_renum_vars bounds'_var_set inj_renum_acts)+
+  done
+
+lemma sem_unfold1:
+  "real.sem = sem"
+  unfolding real.sem_def sem_def by simp
+
+lemma var_set_eq:
+  "real.var_set = sem.var_set"
+  unfolding sem_unfold1[symmetric] real.sem_var_set_eq oops
+
+lemma map_acconstraint_conv_ac_commute:
+  "map_acconstraint renum_clocks id (conv_ac ac) = conv_ac (map_acconstraint renum_clocks id ac)"
+  by (cases ac; simp)
+
+lemma map_ccconstraint_conv_cc_commute:
+  "renum_cconstraint (conv_cc g) = conv_cc (renum_cconstraint g)"
+  unfolding renum_cconstraint_def map_cconstraint_def by (simp add: map_acconstraint_conv_ac_commute)
+
+lemma rename_conv_automaton_commute:
+  "real.renum_automaton n (conv_automaton x) = conv_automaton (real.renum_automaton n x)"
+  unfolding real.renum_automaton_def conv_automaton_def
+  by (clarsimp split: prod.split simp: map_ccconstraint_conv_cc_commute)
+
+lemma sem_unfold2:
+  "real.renum.sem = renum.sem"
+  unfolding real.renum.sem_def renum.sem_def sem_unfold1[symmetric]
+  by (simp add: rename_conv_automaton_commute)
+
+interpretation Bisimulation_Invariant
+  "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
+  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s = var_set" "\<lambda>_. True"
+  apply (rule Bisimulation_Invariant_sim_replace)
+   apply (rule Bisimulation_Invariant_composition)
+    apply (rule real.renum_bisim[unfolded sem_unfold1 var_set_eq1])
+  unfolding sem_unfold2
+   apply (rule Bisimulation_Invariant_refl)
+   apply auto
+  done
+
+lemmas renum_bisim = Bisimulation_Invariant_axioms
+
+end
+
+locale Simple_Network_Rename_Formula_int =
+  Simple_Network_Rename_int where automata = automata
+  for automata ::
+    "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
+  fixes \<Phi> :: "(nat, 's, 'x, int) formula"
+    and s\<^sub>0 :: "('x \<times> int) list"
+    and L\<^sub>0 :: "'s list"
+  assumes L\<^sub>0_states: "L\<^sub>0 \<in> states"
+  assumes s\<^sub>0_dom: "fst ` set s\<^sub>0 = var_set" and s\<^sub>0_distinct: "distinct (map fst s\<^sub>0)"
+begin
+
+definition \<Phi>' where
+  "\<Phi>' = map_formula renum_states renum_vars id \<Phi>"
+
+definition a\<^sub>0 where
+  "a\<^sub>0 = (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+
+definition a\<^sub>0' where
+  "a\<^sub>0' = (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_. 0)"
+
+(* Refine to subset of var_set? *)
+lemma state_eq_aux:
+  assumes "x \<notin> renum_vars ` var_set"
+  shows "vars_inv x \<notin> var_set"
+  unfolding vars_inv_def
+proof clarsimp
+  assume "the_inv renum_vars x \<in> var_set"
+  then have "renum_vars (the_inv renum_vars x) = x"
+    by (intro f_the_inv_f real.inj_renum_vars) (simp add: real.surj_renum_vars)
+  with assms \<open>_ \<in> var_set\<close> show False
+    by force
+qed
+
+lemma state_eq:
+  assumes "fst ` set s\<^sub>0 = var_set" "distinct (map fst s\<^sub>0)"
+  shows "map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0) = (map_of s\<^sub>0 \<circ>\<circ>\<circ> the_inv_into) UNIV renum_vars"
+    (is "?l = ?r")
+proof (rule ext)
+  fix x
+  show "?l x = ?r x"
+  proof (cases "x \<in> renum_vars ` fst ` set s\<^sub>0")
+    case True
+    then show ?thesis
+      apply clarsimp
+      apply (subst map_of_mapk_SomeI')
+      subgoal
+        using real.inj_renum_vars by (auto intro: inj_on_subset)
+       apply (rule map_of_is_SomeI, rule assms, assumption)
+      apply (simp add: the_inv_f_f[OF real.inj_renum_vars] s\<^sub>0_distinct)
+      done
+  next
+    case False
+    then have "vars_inv x \<notin> fst ` set s\<^sub>0"
+      using state_eq_aux assms(1) unfolding vars_inv_def by auto
+    with False show ?thesis
+      apply -
+      apply (frule map_of_NoneI)
+      apply (simp add: vars_inv_def)
+      apply (auto simp: map_of_eq_None_iff)
+      done
+  qed
+qed
+
+interpretation Bisimulation_Invariant
+  "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
+  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
+  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s = var_set" "\<lambda>_. True"
+  by (rule renum_bisim)
+
+lemma start_equiv:
+  "A_B.equiv' a\<^sub>0 a\<^sub>0'"
+  unfolding A_B.equiv'_def a\<^sub>0_def a\<^sub>0'_def
+  apply (clarsimp simp: vars_inv_def, intro conjI)
+  subgoal
+    by (intro state_eq s\<^sub>0_dom s\<^sub>0_distinct)
+  subgoal
+    unfolding map_u_def by auto
+  subgoal
+    unfolding sem_states_eq by (rule L\<^sub>0_states)
+  subgoal
+    using s\<^sub>0_dom dom_map_of_conv_image_fst[of s\<^sub>0] by fastforce
+  done
+
+lemma check_sexp_equiv:
+  assumes "A_B.equiv' (L, s, u) (L', s', u')" "locs_of_sexp e \<subseteq> {0..<n_ps}"
+  shows
+  "check_sexp e L (the \<circ> s) \<longleftrightarrow>
+   check_sexp (map_sexp renum_states renum_vars id e) L' (the \<circ> s')"
+  using assms unfolding A_B.equiv'_def
+  by (induction e)
+     (simp add:
+       inj_eq sem.states_lengthD renum_states_inj vars_inv_def the_inv_f_f[OF real.inj_renum_vars])+
+
+lemma models_iff:
+  "sem,a\<^sub>0 \<Turnstile> \<Phi> = renum.sem,a\<^sub>0' \<Turnstile> \<Phi>'" if "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
+proof (cases \<Phi>)
+  case (EX x1)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps EX formula.case) (rule Ex_ev_iff, auto)
+next
+  case (EG x2)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps EG formula.case Graph_Defs.Ex_alw_iff Not_eq_iff)
+       (rule Alw_ev_iff, auto)
+next
+  case (AX x3)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps AX formula.case) (rule Alw_ev_iff, auto)
+next
+  case (AG x4)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps AG formula.case Graph_Defs.Alw_alw_iff Not_eq_iff)
+       (rule Ex_ev_iff, auto)
+next
+  case (Leadsto x51 x52)
+  show ?thesis
+    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
+    by (simp only: map_formula.simps Leadsto formula.case) (rule Leadsto_iff, auto)
+qed
+
+lemma has_deadlock_iff:
+  "has_deadlock sem a\<^sub>0 \<longleftrightarrow> has_deadlock renum.sem a\<^sub>0'"
+  unfolding has_deadlock_def using start_equiv by (intro deadlock_iff, unfold A_B.equiv'_def) auto
 
 end (* Simple Network Rename' *)
+
+
 
 (* XXX Move *)
 lemma vars_of_bexp_finite[finite_intros]:
@@ -1762,7 +2090,7 @@ lemma (in Simple_Network_Impl) act_set_compute:
   done
 
 locale Simple_Network_Rename =
-  Simple_Network_Rename_Defs where automata = automata for automata ::
+  Simple_Network_Rename_Defs_int where automata = automata for automata ::
     "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
       \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
   assumes renum_states_inj:
@@ -1830,7 +2158,7 @@ lemma renum_acts_bij_extends[simp]:
 lemma inj_extend_bij_renum_acts: "inj (extend_bij renum_acts act_set)"
   using renum_acts_inj infinite_types act_set_finite by (intro extend_bij_inj) auto
 
-sublocale rename: Simple_Network_Rename'
+sublocale rename: Simple_Network_Rename_int
   broadcast bounds'
   "extend_bij renum_acts act_set"
   "extend_bij renum_vars var_set"
@@ -1957,7 +2285,7 @@ proof -
     done
 qed
 
-lemma rename_sem_eq:
+lemma rename_renum_sem_eq:
   "rename.renum.sem = renum.sem"
   unfolding renum.sem_def rename.renum.sem_def
   apply clarsimp
@@ -1972,8 +2300,10 @@ lemma rename_sem_eq:
 
 end (* Simple_Network_Rename *)
 
+
 locale Simple_Network_Rename_Formula =
-  Simple_Network_Rename where automata = automata for automata ::
+  Simple_Network_Rename where automata = automata
+  for automata ::
     "('s list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
       \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
   fixes \<Phi> :: "(nat, 's, 'x, int) formula"
@@ -1987,14 +2317,14 @@ locale Simple_Network_Rename_Formula =
     "vars_of_formula \<Phi> \<subseteq> var_set"
 begin
 
-definition \<Phi>' where
-  "\<Phi>' = map_formula renum_states renum_vars id \<Phi>"
-
-definition a\<^sub>0 where
-  "a\<^sub>0 = (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
-
-definition a\<^sub>0' where
-  "a\<^sub>0' = (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_. 0)"
+sublocale rename: Simple_Network_Rename_Formula_int
+  broadcast bounds'
+  "extend_bij renum_acts act_set"
+  "extend_bij renum_vars var_set"
+  "extend_bij renum_clocks clk_set'"
+  "\<lambda>p. extend_bij (renum_states p) loc_set"
+  automata
+  by (standard; rule L\<^sub>0_states s\<^sub>0_dom s\<^sub>0_distinct)
 
 lemma sexp_eq:
   assumes
@@ -2005,14 +2335,6 @@ lemma sexp_eq:
          map_sexp renum_states renum_vars id e\<close>
   using assms by (induction e; clarsimp simp: renum_states_extend)
 
-lemma formula_eq:
-  "rename.\<Phi>' \<Phi> = \<Phi>'"
-  using formula_dom unfolding rename.\<Phi>'_def \<Phi>'_def by (induction \<Phi>; clarsimp simp: sexp_eq)
-
-lemma a\<^sub>0_eq:
-  "rename.a\<^sub>0 s\<^sub>0 L\<^sub>0 = a\<^sub>0"
-  unfolding a\<^sub>0_def rename.a\<^sub>0_def ..
-
 lemma state_eq:
   "map_of (map (\<lambda>(x, y). (extend_bij renum_vars var_set x, y)) s\<^sub>0) =
     map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0)"
@@ -2022,8 +2344,24 @@ lemma L\<^sub>0_dom:
   "length L\<^sub>0 = n_ps" "set L\<^sub>0 \<subseteq> loc_set"
   using L\<^sub>0_states by (auto intro!: states_loc_setD)
 
+definition
+  "a\<^sub>0 = (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+
+definition
+  "a\<^sub>0' = (
+    map_index (\<lambda>p. renum_states p) L\<^sub>0,
+    map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0),
+    \<lambda>_. 0)"
+
+definition
+  "\<Phi>' = map_formula (\<lambda>p. renum_states p) renum_vars id \<Phi>"
+
+lemma rename_a\<^sub>0_eq:
+  "rename.a\<^sub>0 = a\<^sub>0"
+  unfolding rename.a\<^sub>0_def a\<^sub>0_def ..
+
 lemma rename_a\<^sub>0'_eq:
-  "rename.a\<^sub>0' s\<^sub>0 L\<^sub>0 = a\<^sub>0'"
+  "rename.a\<^sub>0' = a\<^sub>0'"
   unfolding a\<^sub>0'_def rename.a\<^sub>0'_def
   apply (clarsimp, rule conjI)
   subgoal
@@ -2033,26 +2371,25 @@ lemma rename_a\<^sub>0'_eq:
     by (auto simp: state_eq Simple_Network_Rename_Defs.vars_inv_def)
   done
 
+lemma rename_\<Phi>'_eq:
+  "rename.\<Phi>' = \<Phi>'"
+  using formula_dom unfolding rename.\<Phi>'_def \<Phi>'_def by (induction \<Phi>; clarsimp simp: sexp_eq)
+
 lemma models_iff:
   "renum.sem,a\<^sub>0' \<Turnstile> \<Phi>' \<longleftrightarrow> sem,a\<^sub>0 \<Turnstile> \<Phi>"
   by (rule sym)
-     (intro
-      rename.models_iff[of L\<^sub>0 s\<^sub>0 \<Phi>, unfolded rename_sem_eq formula_eq a\<^sub>0_eq rename_a\<^sub>0'_eq]
-      formula_dom L\<^sub>0_states s\<^sub>0_distinct, simp add: s\<^sub>0_dom
-      )
+     (intro rename.models_iff[unfolded rename_a\<^sub>0_eq rename_a\<^sub>0'_eq rename_\<Phi>'_eq rename_renum_sem_eq]
+       formula_dom)
 
 lemma has_deadlock_iff:
   "has_deadlock renum.sem a\<^sub>0' \<longleftrightarrow> has_deadlock sem a\<^sub>0"
-  by (rule sym)
-     (intro
-      rename.has_deadlock_iff[of L\<^sub>0 s\<^sub>0, unfolded rename_sem_eq formula_eq a\<^sub>0_eq rename_a\<^sub>0'_eq]
-      formula_dom L\<^sub>0_states s\<^sub>0_distinct, simp add: s\<^sub>0_dom
-     )
+  apply (rule sym)
+  apply (rule rename.has_deadlock_iff[unfolded rename_a\<^sub>0_eq rename_a\<^sub>0'_eq rename_\<Phi>'_eq rename_renum_sem_eq])
+  done
 
 lemma (in Simple_Network_Rename_Defs) conv_automaton_of:
-  "Simple_Network_Language.conv_A (renum.automaton_of A) =
-   renum.automaton_of (renum.conv_automaton A)"
-  unfolding renum.automaton_of_def renum.conv_automaton_def
+  "Simple_Network_Language.conv_A (automaton_of A) = automaton_of (conv_automaton A)"
+  unfolding automaton_of_def conv_automaton_def
     Simple_Network_Language.conv_A_def
   by (force
       simp: default_map_of_alt_def map_of_map Simple_Network_Language.conv_t_def split: prod.splits

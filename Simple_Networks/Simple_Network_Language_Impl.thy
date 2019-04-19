@@ -141,16 +141,6 @@ theorem map_of_mapk_SomeI:
   shows "map_of (map (\<lambda>(k, y). (f k, g y)) t) (f k) = Some (g x)"
   using assms by - (rule map_of_mapk_SomeI', erule inj_on_subset, auto)
 
-locale Simple_Network_Impl =
-  fixes automata ::
-    "('s list \<times> ('a act, 's, 'c, int, 'x, int) transition list
-      \<times> ('s \<times> ('c, int) cconstraint) list) list"
-    and broadcast :: "'a list"
-    and bounds' :: "('x \<times> (int \<times> int)) list"
-begin
-
-definition \<comment>\<open>Number of state variables\<close>
-  "n_vs = length bounds'"
 
 definition
   "conv_automaton \<equiv> \<lambda>(commited, trans, inv).
@@ -159,11 +149,22 @@ definition
      map (\<lambda>(s, cc). (s, conv_cc cc)) inv)"
 
 definition
-  "B x \<equiv> if x \<in> dom (map_of bounds') then the (map_of bounds' x) else (0, 0)"
-
-definition
   "automaton_of \<equiv>
     \<lambda>(commited, trans, inv). (set commited, set trans, default_map_of [] inv)"
+
+locale Simple_Network_Impl_Defs =
+  fixes automata ::
+    "('s list \<times> ('a act, 's, 'c, 't, 'x, int) transition list
+      \<times> ('s \<times> ('c, 't) cconstraint) list) list"
+    and broadcast :: "'a list"
+    and bounds' :: "('x \<times> (int \<times> int)) list"
+begin
+
+definition \<comment>\<open>Number of state variables\<close>
+  "n_vs = length bounds'"
+
+definition
+  "B x \<equiv> if x \<in> dom (map_of bounds') then the (map_of bounds' x) else (0, 0)"
 
 sublocale Prod_TA_Defs
   "(set broadcast, map automaton_of automata, map_of bounds')" .
@@ -173,6 +174,29 @@ lemma L_len[intro, dest]:
   using that unfolding states_def by simp
 
 end
+
+(*
+locale Simple_Network_Impl =
+  Simple_Network_Impl_Defs automata broadcast bounds
+  for
+    automata ::
+    "('s list \<times> ('a act, 's, 'c, int, 'x, int) transition list
+      \<times> ('s \<times> ('c, int) cconstraint) list) list"
+  and broadcast bounds
+*)
+
+locale Simple_Network_Impl =
+  fixes automata ::
+    "('s list \<times> ('a act, 's, 'c, int, 'x, int) transition list
+      \<times> ('s \<times> ('c, int) cconstraint) list) list"
+    and broadcast :: "'a list"
+    and bounds' :: "('x \<times> (int \<times> int)) list"
+begin
+
+sublocale Simple_Network_Impl_Defs automata broadcast bounds' .
+
+end
+
 
 paragraph \<open>Mapping through the product construction\<close>
 
@@ -266,7 +290,7 @@ sublocale map: Prod_TA_Defs
     map_index (\<lambda> i a. automaton_of (map_automaton i a)) automata,
     map_of (map (\<lambda>(x, p). (map_var x, p)) bounds'))"
   .
-
+typ 'x
 definition
   "map_st \<equiv> \<lambda>(L, s).
     (map_index map_loc L, \<lambda> x. if x \<in> map_var ` dom s then s (the_inv map_var x) else None)"

@@ -498,7 +498,8 @@ interpretation Bisimulation_Invariant
   "(\<lambda>((L, s), u) (L', s', u'). L = L' \<and> u = u' \<and> s = s')"
   "(\<lambda>((L, s), u). conv.all_prop L s)"
   "(\<lambda>(L, s, u). conv.all_prop L s)"
-  by (rule prod_bisim)
+  apply (rule prod_bisim)
+  done (* XXX Why does 'by' not work? *)
 
 lemma unreachability_prod:
   assumes
@@ -1188,7 +1189,7 @@ lemma states'_memi_alt_def:
      \<lambda>(L, s).
     let
       n_ps = length automata;
-      n_vs = Simple_Network_Impl.n_vs bounds';
+      n_vs = Simple_Network_Impl_Defs.n_vs bounds';
       states_i = map (Simple_Network_Impl_nat_defs.states_i automata) [0..<n_ps]
     in
       length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i ! i) \<and>
@@ -1210,7 +1211,7 @@ definition
       broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
     _ = save_time STR ''Time to check ceiling'';
     n_ps = length automata;
-    n_vs = Simple_Network_Impl.n_vs bounds';
+    n_vs = Simple_Network_Impl_Defs.n_vs bounds';
     states_i = map (Simple_Network_Impl_nat_defs.states_i automata) [0..<n_ps];
     _ = start_timer ();
     check2 = list_all (\<lambda>(L, s). length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i ! i) \<and>
@@ -1294,7 +1295,7 @@ definition
     _ = save_time STR ''Time to check ceiling'';
     L_list = map fst M_list;
     n_ps = length automata;
-    n_vs = Simple_Network_Impl.n_vs bounds';
+    n_vs = Simple_Network_Impl_Defs.n_vs bounds';
     states_i = map (Simple_Network_Impl_nat_defs.states_i automata) [0..<n_ps];
     _ = start_timer ();
     check2 = list_all (\<lambda>(L, s). length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i ! i) \<and>

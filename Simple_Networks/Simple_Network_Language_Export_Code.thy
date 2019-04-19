@@ -15,7 +15,7 @@ abbreviation "renum_automaton \<equiv> Simple_Network_Rename_Defs.renum_automato
 hide_const m
 
 locale Simple_Network_Rename_Formula_String_Defs =
-  Simple_Network_Rename_Defs where automata = automata for automata ::
+  Simple_Network_Rename_Defs_int where automata = automata for automata ::
     "(nat list \<times>
      (String.literal act, nat, String.literal, int, String.literal, int) transition list
       \<times> (nat \<times> (String.literal, int) cconstraint) list) list"
@@ -78,7 +78,7 @@ interpretation Simple_Network_Rename_Formula
   by (standard;
       rule renum_states_inj renum_clocks_inj renum_vars_inj bounds'_var_set renum_acts_inj
       loc_set_invs loc_set_broadcast infinite_literal infinite_UNIV_nat
-      L\<^sub>0_states s\<^sub>0_dom s\<^sub>0_distinct formula_dom)
+      L\<^sub>0_states s\<^sub>0_dom s\<^sub>0_distinct formula_dom)+
 
 lemmas Simple_Network_Rename_intro = Simple_Network_Rename_Formula_axioms
 
@@ -578,8 +578,8 @@ lemmas [code] =
 
 lemmas [code] =
   Prod_TA_Defs.n_ps_def
-  Simple_Network_Impl.n_vs_def
-  Simple_Network_Impl.automaton_of_def
+  Simple_Network_Impl_Defs.n_vs_def
+  automaton_of_def
   Simple_Network_Impl_nat_defs.pairs_by_action_impl_def
   Simple_Network_Impl_nat_defs.all_actions_from_vec_def
   Simple_Network_Impl_nat_defs.all_actions_by_state_def
@@ -647,8 +647,8 @@ lemma (in Prod_TA_Defs) states_mem_iff:
 lemmas [code_unfold] =
   Prod_TA_Defs.states_mem_iff
   Simple_Network_Impl.act_set_compute
-  Simple_Network_Impl.var_set_compute
-  Simple_Network_Impl.loc_set_compute
+  Simple_Network_Impl_Defs.var_set_compute
+  Simple_Network_Impl_Defs.loc_set_compute
   setcompr_eq_image
   Simple_Network_Impl.length_automata_eq_n_ps[symmetric]
 
@@ -872,11 +872,11 @@ definition "make_renaming \<equiv> \<lambda> broadcast automata bounds.
     clk_set = Simple_Network_Impl.clk_set' automata |> list_of_set;
     loc_set' = (\<lambda>i. Simple_Network_Impl.loc_set' automata i |> list_of_set);
     loc_set = Prod_TA_Defs.loc_set
-      (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds);
+      (set broadcast, map automaton_of automata, map_of bounds);
     loc_set_diff = (\<lambda>i. loc_set - Simple_Network_Impl.loc_set' automata i |> list_of_set);
     loc_set = list_of_set loc_set;
     var_set = Prod_TA_Defs.var_set
-      (set broadcast, map Simple_Network_Impl.automaton_of automata, map_of bounds) |> list_of_set;
+      (set broadcast, map automaton_of automata, map_of bounds) |> list_of_set;
     n_ps = length automata;
     num_actions = length action_set;
     m = length (remdups clk_set);
