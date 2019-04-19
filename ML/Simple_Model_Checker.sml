@@ -5309,6 +5309,12 @@ fun parse parser s =
                                false)])]
     | Inr a => Result a);
 
+fun default_map_of B_ a xs = map_default a (map_of B_ xs);
+
+fun automaton_of C_ =
+  (fn (commited, (trans, inv)) =>
+    (Set commited, (Set trans, default_map_of C_ [] inv)));
+
 fun bvali (A1_, A2_) s True = true
   | bvali (A1_, A2_) s (Not e) = not (bvali (A1_, A2_) s e)
   | bvali (A1_, A2_) s (And (e1, e2)) =
@@ -6341,8 +6347,6 @@ binda (rename_locs_formula (fn i => geta show_literal (nth names i)) formulac)
                     end)
               end)));
 
-fun default_map_of B_ a xs = map_default a (map_of B_ xs);
-
 fun mk_updsi s upds =
   fold (fn (x, upd) => fn sa =>
          list_update sa x (evali (equal_int, linorder_int) s upd))
@@ -6362,6 +6366,8 @@ fun map_acconstraint f1 f2 (LT (x11, x12)) = LT (f1 x11, f2 x12)
   | map_acconstraint f1 f2 (GE (x51, x52)) = GE (f1 x51, f2 x52);
 
 fun mem_assoc A_ x = list_ex (fn (y, _) => eq A_ x y);
+
+fun n_vs bounds = size_list bounds;
 
 fun vars_of_sexp C_ (Nota e) = vars_of_sexp C_ e
   | vars_of_sexp C_ (Anda (e1, e2)) =
@@ -6384,8 +6390,6 @@ fun vars_of_formula C_ (EX phi) = vars_of_sexp C_ phi
   | vars_of_formula C_ (AG phi) = vars_of_sexp C_ phi
   | vars_of_formula C_ (Leadsto (phi, psi)) =
     sup_set C_ (vars_of_sexp C_ phi) (vars_of_sexp C_ psi);
-
-fun n_vs bounds = size_list bounds;
 
 fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
   m num_states k l_0 s_0 formula =
@@ -9081,10 +9085,6 @@ fun precond_mc show_clock show_state broadcast bounds automata m num_states
            ()) ())
            (fn x => (fn () => (SOME x)))
     else (fn () => NONE));
-
-fun automaton_of C_ =
-  (fn (commited, (trans, inv)) =>
-    (Set commited, (Set trans, default_map_of C_ [] inv)));
 
 fun set2_sexp B_ Truea = bot_set
   | set2_sexp B_ (Nota x2) = set2_sexp B_ x2
