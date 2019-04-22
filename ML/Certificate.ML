@@ -3077,8 +3077,14 @@ fun hm_it_next_key (A1_, A2_) B_ ht =
 
 fun min A_ a b = (if less_eq A_ a b then a else b);
 
+fun imp_for_int_innera i u f s =
+  (if u <= i then (fn () => s)
+    else (fn f_ => fn () => f_ ((f i s) ()) ())
+           (imp_for_int_innera (i + (1 : IntInf.int)) u f));
+
 fun imp_for_inta i u f s =
-  imp_fora_inner (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer) s;
+  imp_for_int_innera (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer)
+    s;
 
 fun mtx_tabulate (A1_, A2_, A3_) (B1_, B2_) n m c =
   (fn f_ => fn () => f_ ((new B2_ (times_nata n m) (zero B1_)) ()) ())
@@ -3450,9 +3456,9 @@ fun fwi_impl_int n a k =
     val na = integer_of_nat n;
     val n_plus_1 = na + (1 : IntInf.int);
   in
-    imp_fora_inner (0 : IntInf.int) n_plus_1
+    imp_for_int_innera (0 : IntInf.int) n_plus_1
       (fn i =>
-        imp_fora_inner (0 : IntInf.int) n_plus_1
+        imp_for_int_innera (0 : IntInf.int) n_plus_1
           (fn ia => fn xa => fw_upd_impl_integer na xa (integer_of_nat k) i ia))
       a
   end;
@@ -3730,8 +3736,18 @@ fun dbm_lt_0 INF = false
   | dbm_lt_0 (Lt x) = less_eq_int x zero_inta
   | dbm_lt_0 (Le x) = less_int x zero_inta;
 
+fun imp_for_int_inner i u c f s =
+  (if u <= i then (fn () => s)
+    else (fn f_ => fn () => f_ ((c s) ()) ())
+           (fn ctn =>
+             (if ctn
+               then (fn f_ => fn () => f_ ((f i s) ()) ())
+                      (imp_for_int_inner (i + (1 : IntInf.int)) u c f)
+               else (fn () => s))));
+
 fun imp_for_int i u c f s =
-  imp_for_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer) s;
+  imp_for_int_inner (integer_of_nat i) (integer_of_nat u) c (f o nat_of_integer)
+    s;
 
 fun check_diag_impl_inta x =
   (fn n => fn ai => fn bi =>
@@ -4381,6 +4397,12 @@ fun parse parser s =
                        Chara (false, false, false, false, false, true, false,
                                false)])]
     | Inr a => Result a);
+
+fun default_map_of B_ a xs = map_default a (map_of B_ xs);
+
+fun automaton_of C_ =
+  (fn (commited, (trans, inv)) =>
+    (Set commited, (Set trans, default_map_of C_ [] inv)));
 
 fun bvali (A1_, A2_) s True = true
   | bvali (A1_, A2_) s (Not e) = not (bvali (A1_, A2_) s e)
@@ -5408,8 +5430,6 @@ binda (rename_locs_formula (fn i => geta show_literal (nth names i)) formulac)
                     end)
               end)));
 
-fun default_map_of B_ a xs = map_default a (map_of B_ xs);
-
 fun extract_certificate_impl A_ (B1_, B2_, B3_) succsi a_0i fi lei emptyi keyi
   copyi tracei =
   uncurry0
@@ -5846,6 +5866,8 @@ fun abstra_upd_impl_int x =
               (min_int_entry xa (Le (uminus_inta x42a))))))
     x;
 
+fun n_vs bounds = size_list bounds;
+
 fun check_sexpi A_ Truea uu uv = true
   | check_sexpi A_ (Nota e) l s = not (check_sexpi A_ e l s)
   | check_sexpi A_ (Anda (e1, e2)) l s =
@@ -5866,8 +5888,6 @@ fun hd_of_formulai A_ (EX phi) l s = check_sexpi A_ phi l s
   | hd_of_formulai A_ (AX phi) l s = not (check_sexpi A_ phi l s)
   | hd_of_formulai A_ (AG phi) l s = not (check_sexpi A_ phi l s)
   | hd_of_formulai A_ (Leadsto (phi, uu)) l s = check_sexpi A_ phi l s;
-
-fun n_vs bounds = size_list bounds;
 
 fun state_space broadcast bounds automata m num_states num_actions k l_0 s_0
   formula show_clock show_state =
@@ -6265,10 +6285,6 @@ fun imp_map f (x :: xs) =
       (fn f_ => fn () => f_ ((imp_map f xs) ()) ())
         (fn ys => (fn () => (y :: ys))))
   | imp_map f [] = (fn () => []);
-
-fun automaton_of C_ =
-  (fn (commited, (trans, inv)) =>
-    (Set commited, (Set trans, default_map_of C_ [] inv)));
 
 fun set2_sexp B_ Truea = bot_set
   | set2_sexp B_ (Nota x2) = set2_sexp B_ x2

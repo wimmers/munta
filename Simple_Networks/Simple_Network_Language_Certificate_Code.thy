@@ -9,8 +9,6 @@ paragraph \<open>Optimized code equations\<close>
 
 lemmas [code_unfold] = imp_for_imp_for'
 
-term dbm_subset'_impl'
-
 definition dbm_subset'_impl'_int
   :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
   where [symmetric, int_folds]:
@@ -671,8 +669,10 @@ code_printing constant array_copy' \<rightharpoonup> (SML)
 ) _"
 
 
-partial_function (heap) imp_for_int_inner :: "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
-  "imp_for_int_inner i u c f s = (if i \<ge> u then return s else do {ctn <- c s; if ctn then f i s \<bind> imp_for_int_inner (i + 1) u c f else return s})"
+partial_function (heap) imp_for_int_inner ::
+  "integer \<Rightarrow> integer \<Rightarrow> ('a \<Rightarrow> bool Heap) \<Rightarrow> (integer \<Rightarrow> 'a \<Rightarrow> 'a Heap) \<Rightarrow> 'a \<Rightarrow> 'a Heap" where
+  "imp_for_int_inner i u c f s = (if i \<ge> u then return s else
+    do {ctn <- c s; if ctn then f i s \<bind> imp_for_int_inner (i + 1) u c f else return s})"
 
 lemma integer_of_nat_le_simp:
   "integer_of_nat i \<le> integer_of_nat u \<longleftrightarrow> i \<le> u"
@@ -756,10 +756,12 @@ fun imp_fora_inner i u f s =
 \<close>
 
 code_reserved SML imp_for_inner imp_fora_inner
-
+(* XXX How much do we gain from this? *)
+(*
 code_printing
   constant imp_for_int_inner \<rightharpoonup> (SML) "imp'_for'_inner"
 | constant imp_for'_int_inner \<rightharpoonup> (SML) "imp'_fora'_inner"
+*)
 
 
 definition
@@ -986,7 +988,7 @@ code_printing
   end) _ _ _ _ _"
 *)
 
-
+lemmas [code] = imp_for'_int_inner.simps imp_for_int_inner.simps
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
