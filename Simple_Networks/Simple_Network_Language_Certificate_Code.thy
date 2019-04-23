@@ -15,7 +15,7 @@ definition dbm_subset'_impl'_int
     "dbm_subset'_impl'_int = dbm_subset'_impl'"
 
 lemma less_eq_dbm_le_int[int_folds]:
-  "(x \<le> y) = dbm_le_int x y"
+  "(\<le>) = dbm_le_int"
   unfolding dbm_le_dbm_le_int less_eq ..
 
 schematic_goal dbm_subset'_impl'_int_code[code]:
@@ -63,7 +63,6 @@ schematic_goal dbm_subset_impl_int_code[code]:
   .
 
 lemmas [code_unfold] = int_folds
-
 
 export_code state_space in SML module_name Test
 

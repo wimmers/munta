@@ -10693,8 +10693,7 @@ fun unreachability_checker3 broadcast bounds automata m num_states num_actions
                   dbm_lt_0
                     (sub asa (plus_nata (plus_nata i (times_nata i m)) i))))
               zero_nata (suc m)) orelse
-          array_all2 (times_nata (suc m) (suc m))
-            (less_eq_DBMEntry (equal_int, linorder_int)) asa bs)
+          array_all2 (times_nata (suc m) (suc m)) dbm_le_int asa bs)
       (fn a =>
         (fn f => f ()) ((fn f_ => fn () => f_
                           (let
@@ -10814,8 +10813,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                   dbm_lt_0
                     (sub asa (plus_nata (plus_nata i (times_nata i m)) i))))
               zero_nata (suc m)) orelse
-          array_all2 (times_nata (suc m) (suc m))
-            (less_eq_DBMEntry (equal_int, linorder_int)) asa bs);
+          array_all2 (times_nata (suc m) (suc m)) dbm_le_int asa bs);
     val p_impl =
       (fn (a1, a2) =>
         (fn f_ => fn () => f_
