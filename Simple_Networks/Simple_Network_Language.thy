@@ -6,6 +6,39 @@ theory Simple_Network_Language
     FinFun.FinFun
 begin
 
+paragraph \<open>Tagging\<close>
+
+definition
+  "TAG t x = x"
+
+definition
+  "TAG' t x = TAG t x"
+
+lemmas TAG = TAG'_def[symmetric]
+
+lemmas add_tag = TAG_def[symmetric]
+
+lemma rm_TAG:
+  assumes "TAG t x" "TAG t x = TAG' t x"
+  shows True
+  by auto
+
+method tags uses del keep =
+  (unfold keep)?,
+  ((drule rm_TAG, rule del)+)?,
+  (unfold keep[symmetric])?
+
+datatype 'a tag = ANY 'a | TRANS 'a | SEL 'a | SEND 'a | RECV 'a
+
+lemma
+  assumes "TAG 1 False" "TAG (TRANS STR ''remove'') (x > 0)"
+  shows False
+  using assms
+  apply -
+  apply (tags del: TAG[of "TRANS t" for t] TAG[of 1] keep: TAG[of 1])
+  unfolding TAG_def .
+
+
 section \<open>Simple networks of automata with broadcast channels and commited locations\<close>
 
 no_notation top_assn ("true")
@@ -137,24 +170,33 @@ where
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Bin a\<^esub> \<langle>L', s'', u'\<rangle>" |
   step_broad:
     "\<lbrakk>
-      a \<in> broadcast;
-      (l, b, g, Out a, f, r, l') \<in> trans (N ! p);
-      \<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p);
-      l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p))
-      \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
-      check_bexp s b True; \<forall>p \<in> set ps. check_bexp s (bs p) True; u \<turnstile> g; \<forall>p \<in> set ps. u \<turnstile> gs p;
-      \<forall>q < length N. q \<notin> set ps \<and> p \<noteq> q
+      TAG ''broadcast'' (a \<in> broadcast);
+      TAG (TRANS ''out'') (l, b, g, Out a, f, r, l') \<in> trans (N ! p);
+      TAG (TRANS ''in'') (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p));
+      TAG ''committed'' (l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p))
+      \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p)));
+      TAG ''bexp'' (check_bexp s b True);
+      TAG ''bexp'' (\<forall>p \<in> set ps. check_bexp s (bs p) True);
+      TAG ''guard'' (u \<turnstile> g);
+      TAG ''guard'' (\<forall>p \<in> set ps. u \<turnstile> gs p);
+      TAG ''maximal'' (\<forall>q < length N. q \<notin> set ps \<and> p \<noteq> q
         \<longrightarrow> (\<forall>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N ! q)
-        \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g);
-      \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
-      L!p = l;
-      p < length L; set ps \<subseteq> {0..<length N}; p \<notin> set ps; distinct ps; sorted ps;
-      L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'];
-      u' = [r@concat (map rs ps)\<rightarrow>0]u;
-      is_upd s f s'; is_upds s' (map fs ps) s'';
-      bounded B s''
+        \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g));
+      TAG ''target invariant'' (\<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p));
+      TAG (SEND ''loc'') (L!p = l);
+      TAG (SEND ''range'')  (p < length L);
+      TAG (SEL ''range'') (set ps \<subseteq> {0..<length N});
+      TAG (SEL ''not sender'') (p \<notin> set ps);
+      TAG (SEL ''distinct'') distinct ps;
+      TAG (SEL ''sorted'') sorted ps;
+      TAG ''new loc'' (L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l']);
+      TAG ''new valuation'' (u' = [r@concat (map rs ps)\<rightarrow>0]u);
+      TAG ''upd'' (is_upd s f s');
+      TAG ''upds'' (is_upds s' (map fs ps) s'');
+      TAG ''bounded'' bounded B s''
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Broad a\<^esub> \<langle>L', s'', u'\<rangle>"
+lemmas [intro?] = step_u.intros[unfolded TAG_def]
 
 text \<open>Comments:
 \<^item> Should there be an error transition + state if states run of bounds or updates are undefined?
@@ -384,7 +426,7 @@ qed
 
 lemma bounded_inv:
   \<open>bounded bounds s'\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close>
-  using that unfolding bounds_def by cases simp+
+  using that unfolding bounds_def by cases (simp add: TAG_def)+
 
 lemma states_inv:
   \<open>L' \<in> states\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close> \<open>L \<in> states\<close>
@@ -408,7 +450,7 @@ next
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems: (step_broad a broadcast l b g f r l' N' p ps bs gs fs rs ls' s' B)
+  case prems[unfolded TAG_def]: (step_broad a broadcast l b g f r l' N' p ps bs gs fs rs ls' s' B)
   from \<open>A = _\<close> prems(4, 5) have
     "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     "\<forall> q \<in> set ps. ls' q \<in> UNION (trans (N q)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
@@ -484,7 +526,7 @@ next
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_broad a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s'' B)
+  case prems[unfolded TAG_def]: (step_broad a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s'' B)
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
