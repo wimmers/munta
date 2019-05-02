@@ -1939,27 +1939,31 @@ fun mtx_set A_ m mtx e v =
 
 fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nata (fst e) m) (snd e));
 
-fun min A_ a b = (if less_eq A_ a b then a else b);
-
 fun fw_upd_impl (A1_, A2_) n =
   (fn ai => fn bib => fn bia => fn bi =>
-    (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bi)) ()) ())
+    (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bib)) ()) ())
       (fn x =>
-        (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bib)) ()) ())
+        (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bib, bi)) ()) ())
           (fn xa =>
-            (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bib, bi)) ()) ())
-              (fn xb =>
-                mtx_set A2_ (suc n) ai (bia, bi)
-                  (min ((ord_preorder o preorder_order o order_linorder o
-                          linorder_linordered_ab_semigroup_add o
-                          linordered_ab_semigroup_add_linordered_ab_monoid_add)
-                         A1_)
-                    x (plus ((plus_semigroup_add o semigroup_add_monoid_add o
-                               monoid_add_comm_monoid_add o
-                               comm_monoid_add_ordered_comm_monoid_add o
-                               ordered_comm_monoid_add_linordered_ab_monoid_add)
-                              A1_)
-                        xa xb))))));
+            let
+              val xb =
+                plus ((plus_semigroup_add o semigroup_add_monoid_add o
+                        monoid_add_comm_monoid_add o
+                        comm_monoid_add_ordered_comm_monoid_add o
+                        ordered_comm_monoid_add_linordered_ab_monoid_add)
+                       A1_)
+                  x xa;
+            in
+              (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bi)) ()) ())
+                (fn xaa =>
+                  (if less ((ord_preorder o preorder_order o order_linorder o
+                              linorder_linordered_ab_semigroup_add o
+                              linordered_ab_semigroup_add_linordered_ab_monoid_add)
+                             A1_)
+                        xb xaa
+                    then mtx_set A2_ (suc n) ai (bia, bi) xb
+                    else (fn () => ai)))
+            end)));
 
 fun fw_impl (A1_, A2_) n =
   imp_fora zero_nata (plus_nata n one_nata)
@@ -2999,6 +3003,8 @@ fun imp_for i u c f s =
                else (fn () => s))));
 
 fun whilea b c s = (if b s then whilea b c (c s) else s);
+
+fun min A_ a b = (if less_eq A_ a b then a else b);
 
 fun down_impl (A1_, A2_, A3_) n =
   imp_fora one_nata (suc n)
@@ -6757,17 +6763,21 @@ fun dbm_add_int INF uu = INF
 fun fw_upd_impl_int n =
   (fn ai => fn bib => fn bia => fn bi =>
     (fn f_ => fn () => f_
-      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
-      (fn x =>
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
+      (fn xa =>
         (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
-          (fn xa =>
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
+          (fn xb =>
             (fn f_ => fn () => f_
-              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
-              (fn xb =>
-                mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
-                  (min (ord_DBMEntry (equal_int, linorder_int)) x
-                    (dbm_add_int xa xb))))));
+              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
+              (fn x =>
+                let
+                  val e = dbm_add_int xa xb;
+                in
+                  (if less_DBMEntry linorder_int e x
+                    then mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi) e
+                    else (fn () => ai))
+                end))));
 
 fun fw_impl_int n =
   imp_fora zero_nata (plus_nata n one_nata)

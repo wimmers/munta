@@ -30,26 +30,6 @@ schematic_goal dbm_subset'_impl'_int_code[code]:
 "
   unfolding dbm_subset'_impl'_int_def[symmetric] dbm_subset'_impl'_def int_folds .
 
-(* XXX Fix def of dbm_subset'_impl first *)
-(*
-definition dbm_subset'_impl_int
-  :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
-  where [symmetric, int_folds]:
-    "dbm_subset'_impl_int = dbm_subset'_impl"
-
-schematic_goal dbm_subset'_impl_int_code[code]:
-  "dbm_subset'_impl_int \<equiv> \<lambda>n a b.
-    do {
-    l \<leftarrow> Array.len a;
-    imp_for 0 l Heap_Monad.return
-      (\<lambda>i _. do {
-        x \<leftarrow> Array.nth a i; y \<leftarrow> Array.nth b i; Heap_Monad.return (dbm_le_int x y)
-      })
-      True
-    }
-"
-  sorry
-*)
 
 definition dbm_subset_impl_int
   :: "nat \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> int DBMEntry Heap.array \<Rightarrow> bool Heap"
@@ -777,25 +757,13 @@ definition
   "fw_upd_impl_integer n a k i j = do {
   let n = n + 1;
   let i' = i * n + j;
-  x \<leftarrow> nth_integer a i';
   y \<leftarrow> nth_integer a (i * n + k);
   z \<leftarrow> nth_integer a (k * n + j);
-  upd_integer i' (min_int_entry x (dbm_add_int y z)) a
-}
-"
-
-lemma fw_upd_impl_integer_code[code]:
-  "fw_upd_impl_integer n a k i j = do {
-  let n = n + 1;
-  let i' = i * n + j;
   x \<leftarrow> nth_integer a i';
-  y \<leftarrow> nth_integer a (i * n + k);
-  z \<leftarrow> nth_integer a (k * n + j);
   let m = dbm_add_int y z;
   if dbm_lt_int m x then upd_integer i' m a else return a
 }
 "
-  sorry
 
 lemma nat_of_integer_add:
   "nat_of_integer i + nat_of_integer j = nat_of_integer (i + j)" if "i \<ge> 0" "j \<ge> 0"
@@ -836,10 +804,13 @@ lemma fw_upd_impl_int_fw_upd_impl_integer:
   if "i \<ge> 0" "j \<ge> 0" "k \<ge> 0" "n \<ge> 0"
   unfolding
     fw_upd_impl_integer_def fw_upd_impl_int_def[symmetric] fw_upd_impl_def mtx_get_def mtx_set_def
-  unfolding int_folds
-  unfolding nth_integer_def upd_integer_def
+  unfolding int_folds less
+  unfolding nth_integer_def upd_integer_def fst_conv snd_conv
   using that
-  by (simp add: nat_of_integer_add nat_of_integer_mult algebra_simps)
+  apply (simp add: nat_of_integer_add nat_of_integer_mult algebra_simps)
+  apply (fo_rule arg_cong | rule ext)+
+  apply (simp add: nat_of_integer_add nat_of_integer_mult algebra_simps)
+  done
 
 lemma integer_of_nat_nat_of_integer:
   "integer_of_nat (nat_of_integer n) = n" if "n \<ge> 0"

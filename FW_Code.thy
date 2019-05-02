@@ -18,6 +18,15 @@ definition fw_upd' :: "('a::linordered_ab_monoid_add) mtx \<Rightarrow> nat \<Ri
     op_mtx_set m (i, j) (min (op_mtx_get m (i, j)) (op_mtx_get m (i, k) + op_mtx_get m (k, j)))
   )"
 
+lemma fw_upd'_alt_def:
+  "fw_upd' m k i j =
+  RETURN (
+    let
+      e = op_mtx_get m (i, k) + op_mtx_get m (k, j)
+    in if e < op_mtx_get m (i, j) then op_mtx_set m (i, j) e else m
+  )"
+  unfolding fw_upd'_def min_def Let_def by auto
+
 definition fwi' ::  "('a::linordered_ab_monoid_add) mtx \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a mtx nres"
 where
   "fwi' m n k i j = RECT (\<lambda> fw (m, k, i, j).
@@ -69,13 +78,17 @@ lemma [sepref_import_param]: "(min,min::'a\<Rightarrow>_) \<in> Id \<rightarrow>
 abbreviation "node_assn \<equiv> nat_assn"
 abbreviation "mtx_assn \<equiv> asmtx_assn (Suc n) id_assn::('a mtx \<Rightarrow>_)"
 
+sepref_definition fw_upd_impl1 is
+  "uncurry2 (uncurry fw_upd')" ::
+  "[\<lambda> (((_,k),i),j). k \<le> n \<and> i \<le> n \<and> j \<le> n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k
+  \<rightarrow> mtx_assn"
+  unfolding fw_upd'_def by sepref
+
 sepref_definition fw_upd_impl is
   "uncurry2 (uncurry fw_upd')" ::
   "[\<lambda> (((_,k),i),j). k \<le> n \<and> i \<le> n \<and> j \<le> n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k *\<^sub>a node_assn\<^sup>k
   \<rightarrow> mtx_assn"
-unfolding fw_upd'_def[abs_def] by sepref
-
-declare fw_upd_impl.refine[sepref_fr_rules]
+  unfolding fw_upd'_alt_def by sepref
 
 sepref_register fw_upd' :: "'a i_mtx \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 'a i_mtx nres"
 
@@ -92,11 +105,26 @@ begin
 
 sepref_definition fw_impl is
   "fw_impl'" :: "mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
-unfolding fw_impl'_def[abs_def] fw'_def for_rec2_eq by sepref
+  unfolding fw_impl'_def[abs_def] fw'_def for_rec2_eq
+  supply [sepref_fr_rules] = fw_upd_impl.refine
+  by sepref
+
+sepref_definition fw_impl1 is
+  "fw_impl'" :: "mtx_assn\<^sup>d \<rightarrow>\<^sub>a mtx_assn"
+  unfolding fw_impl'_def[abs_def] fw'_def for_rec2_eq
+  supply [sepref_fr_rules] = fw_upd_impl1.refine
+  by sepref
 
 sepref_definition fwi_impl is
   "uncurry fwi_impl'" :: "[\<lambda> (_,k). k \<le> n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a node_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding fwi_impl'_def[abs_def] for_rec2_eq by sepref
+  unfolding fwi_impl'_def[abs_def] for_rec2_eq
+  supply [sepref_fr_rules] = fw_upd_impl.refine
+  by sepref
+
+sepref_definition fwi_impl1 is
+  "uncurry fwi_impl'" :: "[\<lambda> (_,k). k \<le> n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a node_assn\<^sup>k \<rightarrow> mtx_assn"
+  supply [sepref_fr_rules] = fw_upd_impl1.refine
+  unfolding fwi_impl'_def[abs_def] for_rec2_eq by sepref
 
 end (* End of sepref setup *)
 
@@ -117,7 +145,7 @@ definition fw_spec where
 lemma D_diag_nonnegI:
   assumes "cycle_free M n" "i \<le> n"
   shows "D M i i n \<ge> 0"
-using assms D_dest''[OF refl, of M i i n] unfolding cycle_free_def by auto
+  using assms D_dest''[OF refl, of M i i n] unfolding cycle_free_def by auto
 
 lemma fw_fw_spec:
   "RETURN (FW M n) \<le> fw_spec n M"
@@ -143,15 +171,15 @@ declare mtx_curry_assn_def[symmetric, fcomp_norm_unfold]
 
 lemma fw_impl'_correct:
   "(fw_impl', fw_spec) \<in> Id \<rightarrow> br curry (\<lambda> _. True) \<rightarrow> \<langle>br curry (\<lambda> _. True)\<rangle> nres_rel"
-unfolding fw_impl'_def[abs_def] using fw'_spec fw_fw_spec
-by (fastforce simp: in_br_conv pw_le_iff refine_pw_simps intro!: nres_relI)
+  unfolding fw_impl'_def[abs_def] using fw'_spec fw_fw_spec
+  by (fastforce simp: in_br_conv pw_le_iff refine_pw_simps intro!: nres_relI)
 
 subsection \<open>Main Result\<close>
 
 text \<open>This is one way to state that the \<open>fw_impl\<close> fulfills the specification \<open>fw_spec\<close>.\<close>
 theorem fw_impl_correct:
   "(fw_impl n, fw_spec n) \<in> (mtx_curry_assn n)\<^sup>d \<rightarrow>\<^sub>a mtx_curry_assn n"
-using fw_impl.refine[FCOMP fw_impl'_correct[THEN fun_relD, OF IdI]] .
+  using fw_impl.refine[FCOMP fw_impl'_correct[THEN fun_relD, OF IdI]] .
 
 text \<open>An alternative version: a Hoare triple for total correctness.\<close>
 corollary
@@ -159,9 +187,9 @@ corollary
     (if (\<exists> i \<le> n. M' i i < 0)
     then \<not> cyc_free M n
     else \<forall>i \<le> n. \<forall>j \<le> n. M' i j = D M i j n \<and> cyc_free M n)>\<^sub>t"
-unfolding cycle_free_diag_equiv
-by (rule cons_rule[OF _ _ fw_impl_correct[THEN hfrefD, THEN hn_refineD]])
-   (sep_auto simp: fw_spec_def[unfolded cycle_free_diag_equiv])+
+  unfolding cycle_free_diag_equiv
+  by (rule cons_rule[OF _ _ fw_impl_correct[THEN hfrefD, THEN hn_refineD]])
+     (sep_auto simp: fw_spec_def[unfolded cycle_free_diag_equiv])+
 
 
 subsection \<open>Alternative versions for Uncurried Matrices.\<close>
@@ -170,8 +198,8 @@ definition "FWI' = uncurry ooo FWI o curry"
 
 lemma fwi_impl'_refine_FWI':
   "(fwi_impl' n, RETURN oo PR_CONST (\<lambda> M. FWI' M n)) \<in> Id \<rightarrow> Id \<rightarrow> \<langle>Id\<rangle> nres_rel"
-unfolding fwi_impl'_def[abs_def] FWI_def[abs_def] FWI'_def using for_rec2_fwi
-by (force simp: pw_le_iff pw_nres_rel_iff refine_pw_simps)
+  unfolding fwi_impl'_def[abs_def] FWI_def[abs_def] FWI'_def using for_rec2_fwi
+  by (force simp: pw_le_iff pw_nres_rel_iff refine_pw_simps)
 
 lemmas fwi_impl_refine_FWI' = fwi_impl.refine[FCOMP fwi_impl'_refine_FWI']
 
@@ -181,9 +209,10 @@ definition "FW'' n M = FW' M n"
 
 lemma fw_impl'_refine_FW'':
   "(fw_impl' n, RETURN o PR_CONST (FW'' n)) \<in> Id \<rightarrow> \<langle>Id\<rangle> nres_rel"
-unfolding fw_impl'_def[abs_def] FW''_def[abs_def] FW'_def using fw'_spec
-by (force simp: pw_le_iff pw_nres_rel_iff refine_pw_simps)
+  unfolding fw_impl'_def[abs_def] FW''_def[abs_def] FW'_def using fw'_spec
+  by (force simp: pw_le_iff pw_nres_rel_iff refine_pw_simps)
 
 lemmas fw_impl_refine_FW'' = fw_impl.refine[FCOMP fw_impl'_refine_FW'']
+lemmas fw_impl1_refine_FW'' = fw_impl1.refine[FCOMP fw_impl'_refine_FW'']
 
 end

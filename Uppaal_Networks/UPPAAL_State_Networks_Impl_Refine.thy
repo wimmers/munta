@@ -2610,11 +2610,18 @@ definition
 
 definition
   "fw_upd_impl_int n \<equiv> \<lambda>ai bib bia bi. do {
-                      x \<leftarrow> mtx_get (Suc n) ai (bia, bi);
                       xa \<leftarrow> mtx_get (Suc n) ai (bia, bib);
                       xb \<leftarrow> mtx_get (Suc n) ai (bib, bi);
-                      mtx_set (Suc n) ai (bia, bi) (min x (dbm_add_int xa xb))
+                      x \<leftarrow> mtx_get (Suc n) ai (bia, bi);
+                      let e = (dbm_add_int xa xb);
+                      if e < x then mtx_set (Suc n) ai (bia, bi) e else Heap_Monad.return ai
                     }"
+
+lemma fw_upd_impl_int_eq:
+  "fw_upd_impl_int = fw_upd_impl"
+  unfolding fw_upd_impl_int_def fw_upd_impl_def
+  unfolding dbm_add_int add
+  unfolding Let_def ..
 
 definition
   "fw_impl_int n \<equiv>
@@ -2625,8 +2632,7 @@ definition
 lemma fw_impl'_int:
   "fw_impl = fw_impl_int"
   unfolding fw_impl_def fw_impl_int_def
-  unfolding fw_upd_impl_def fw_upd_impl_int_def
-  unfolding dbm_add_int add ..
+  unfolding fw_upd_impl_int_eq ..
 
 context UPPAAL_Reachability_Problem_precompiled_defs'
 begin

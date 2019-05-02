@@ -3436,16 +3436,17 @@ fun fw_upd_impl_integer n a k i j =
     val na = IntInf.+ (n, (1 : IntInf.int));
     val ia = IntInf.+ (IntInf.* (i, na), j);
   in
-    (fn f_ => fn () => f_ (((fn () => Array.sub (a, IntInf.toInt ia))) ()) ())
-      (fn x =>
+    (fn f_ => fn () => f_
+      (((fn () => Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (i, na), k)))))
+      ()) ())
+      (fn y =>
         (fn f_ => fn () => f_
-          (((fn () => Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (i, na), k)))))
+          (((fn () => Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (k, na), j)))))
           ()) ())
-          (fn y =>
-            (fn f_ => fn () => f_
-              (((fn () => Array.sub (a, IntInf.toInt (IntInf.+ (IntInf.* (k, na), j)))))
+          (fn z =>
+            (fn f_ => fn () => f_ (((fn () => Array.sub (a, IntInf.toInt ia)))
               ()) ())
-              (fn z =>
+              (fn x =>
                 let
                   val m = dbm_add_int y z;
                 in
@@ -5596,16 +5597,21 @@ fun show_vars A_ B_ inv_renum_vars =
 fun fw_upd_impl_int n =
   (fn ai => fn bib => fn bia => fn bi =>
     (fn f_ => fn () => f_
-      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
-      (fn x =>
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
+      (fn xa =>
         (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
-          (fn xa =>
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
+          (fn xb =>
             (fn f_ => fn () => f_
-              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
-              (fn xb =>
-                mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
-                  (min_int_entry x (dbm_add_int xa xb))))));
+              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
+              (fn x =>
+                let
+                  val e = dbm_add_int xa xb;
+                in
+                  (if less_DBMEntry linorder_int e x
+                    then mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi) e
+                    else (fn () => ai))
+                end))));
 
 fun fw_impl_int n =
   imp_for_inta zero_nata (plus_nata n one_nata)
@@ -7695,16 +7701,22 @@ fun check_subsumed (A1_, A2_, A3_) n xs i m =
 fun fw_upd_impl_inta x =
   (fn n => fn ai => fn bib => fn bia => fn bi =>
     (fn f_ => fn () => f_
-      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
       (fn xa =>
         (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
           (fn xaa =>
-            (fn f_ => fn () => f_
-              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
-              (fn xb =>
-                mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
-                  (min_int_entry xa (dbm_add_int xaa xb))))))
+            let
+              val xb = dbm_add_int xa xaa;
+            in
+              (fn f_ => fn () => f_
+                ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
+                (fn xab =>
+                  (if less_DBMEntry linorder_int xb xab
+                    then mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
+                           xb
+                    else (fn () => ai)))
+            end)))
     x;
 
 fun fw_impl_inta x =

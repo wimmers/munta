@@ -151,6 +151,42 @@ lemma array_freeze_ht:
   unfolding array_freeze_def amtx_assn_def iarray_mtx_rel_def is_amtx_def
   by (sep_auto intro: iarray_mtx_rel_is_amtx)
 
+
+datatype ('a, 'b) frozen_hm =
+  Frozen_Hash_Map (array_of_hm: "('a, 'b) list_map iarray") (size_of_hm: nat)
+
+definition diff_array_freeze :: "'a array \<Rightarrow> 'a iarray" where
+  "diff_array_freeze a = IArray (list_of_array a)"
+
+definition hm_freeze where
+  "hm_freeze \<equiv> \<lambda>hm. case hm of Impl_Array_Hash_Map.HashMap a _
+    \<Rightarrow> Frozen_Hash_Map (diff_array_freeze a) (array_length a)"
+
+definition frozen_hm_lookup where
+  "frozen_hm_lookup \<equiv> \<lambda>key hm.
+    case hm of Frozen_Hash_Map a n \<Rightarrow>
+      let
+        code = bounded_hashcode_nat n key;
+        bucket = IArray.sub a code
+      in
+        list_map_lookup (=) key bucket
+  "
+
+lemma list_of_array_nth:
+  "list_of_array a ! n = array_get a n"
+  by (cases a) simp
+
+lemma frozen_hm_lookup_hm_freeze:
+  "frozen_hm_lookup k (hm_freeze m) = Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k m"
+proof -
+  obtain a n where "m = Impl_Array_Hash_Map.HashMap a n"
+    by (cases m) auto
+  have "IArray.sub (diff_array_freeze a) i = array_get a i" for i
+    unfolding diff_array_freeze_def by (simp add: list_of_array_nth)
+  then show ?thesis
+    unfolding frozen_hm_lookup_def \<open>m = _\<close> hm_freeze_def by simp
+qed
+
 context
   fixes M :: "('a :: hashable * 'b) list"
 begin
@@ -168,6 +204,9 @@ schematic_goal M_impl:
   done
 
 concrete_definition hashmap_of_list uses M_impl
+
+definition
+  "frozen_hm_of_list \<equiv> hm_freeze hashmap_of_list"
 
 theorem hashmap_of_list_lookup:
   "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k hashmap_of_list, map_of_list)
@@ -191,7 +230,13 @@ proof -
     by simp
 qed
 
+theorem frozen_hm_of_list_lookup:
+  "(\<lambda>k. frozen_hm_lookup k frozen_hm_of_list, map_of_list) \<in> Id \<rightarrow> \<langle>Id\<rangle>option_rel"
+  using hashmap_of_list_lookup unfolding frozen_hm_of_list_def
+  by (simp add: frozen_hm_lookup_hm_freeze)
+
 end
+
 
 definition
   "array_all2 n P as bs \<equiv> \<forall>i < n. P (IArray.sub as i) (IArray.sub bs i)"
