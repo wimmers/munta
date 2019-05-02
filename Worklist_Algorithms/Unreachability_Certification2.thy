@@ -92,6 +92,10 @@ lemma list_all_split:
   shows "list_all P xs = list_all id (map (list_all P) split)"
   unfolding list_all_iff using assms by auto
 
+lemma list_all_default_split:
+  "list_all P xs = list_all id (map P xs)"
+  unfolding list_all_iff by auto
+
 locale Reachability_Impl_pure =
   Reachability_Impl_common _ _ _ _ _ _ _ _ less_eq M
   for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'a set option" +
@@ -431,6 +435,7 @@ schematic_goal certify_unreachable_impl_pure1_alt_def:
     check_invariant_impl_def check_all_pre_impl_def
     check_prop_impl_def check_final_impl_def
     list_all_split
+  apply (subst list_all_default_split[where xs = Li, folded Parallel.map_def])
   .
 
 concrete_definition (in -) certify_unreachable_impl_pure

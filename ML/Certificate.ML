@@ -10588,11 +10588,12 @@ fun certify_unreachable_impl_pure get_succs mi li lei pi l_0i s_0i fi li_split =
               not (is_none (mi l_0i)) andalso
                 (pi (l_0i, s_0i) andalso
                   (list_ex (lei s_0i) xs andalso
-                    list_all
-                      (fn l =>
-                        (case op_map_lookup l mi of NONE => true
-                          | SOME a => list_all (fn s => pi (l, s)) a))
-                      li))));
+                    list_all id
+                      (Par_List.map
+                        (fn l =>
+                          (case op_map_lookup l mi of NONE => true
+                            | SOME a => list_all (fn s => pi (l, s)) a))
+                        li)))));
     val check_final =
       time_it "Time to check final state predicate"
         (fn _ =>
