@@ -4,6 +4,7 @@ theory Normalized_Zone_Semantics_Certification_Impl
     Normalized_Zone_Semantics_Certification
     Collections.Refine_Dflt_ICF
     "Worklist_Algorithms/Unreachability_Certification2"
+    "Worklist_Algorithms/Unreachability_Certification"
     "HOL-Library.IArray"
     Deadlock_Impl
     "TA_Byte_Code.More_Methods"

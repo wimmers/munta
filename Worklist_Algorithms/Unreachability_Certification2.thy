@@ -1,6 +1,6 @@
 theory Unreachability_Certification2
   imports
-    Unreachability_Certification
+    Unreachability_Misc
     TA_Impl.Abstract_Term
     "HOL-Library.Parallel"
 begin
@@ -600,67 +600,6 @@ sublocale pure:
     apply (sep_auto simp: pure_def)
     done
   by (rule full_split)
-
-end
-
-
-paragraph \<open>Experiments with Autoref\<close>
-
-lemma monadic_list_all_ref:
-  assumes "\<And>xi x. (xi, x) \<in> R \<Longrightarrow> RETURN (Pi xi) \<le> P x" "(xsi, xs) \<in> \<langle>R\<rangle>list_rel"
-  shows "RETURN (list_all Pi xsi) \<le> (monadic_list_all P xs)"
-  sorry
-
-lemma monadic_list_all_ref':
-  assumes "\<And>xi x. (xi, x) \<in> R \<Longrightarrow> (RETURN (Pi xi), P x) \<in> \<langle>Id\<rangle>nres_rel" "(xsi, xs) \<in> \<langle>R\<rangle>list_rel"
-  shows "(RETURN (list_all Pi xsi), (monadic_list_all P xs)) \<in> \<langle>Id\<rangle>nres_rel"
-  sorry
-
-lemma monadic_list_all_ref'':
-  "(RETURN oo list_all, monadic_list_all) \<in> (R \<rightarrow> \<langle>Id\<rangle>plain_nres_rel) \<rightarrow> \<langle>R\<rangle>list_rel \<rightarrow> \<langle>Id\<rangle>nres_rel"
-  sorry
-
-lemma monadic_list_all_ref1:
-  "(monadic_list_all, monadic_list_all) \<in> (R \<rightarrow> \<langle>Id\<rangle>nres_rel) \<rightarrow> \<langle>R\<rangle>list_rel \<rightarrow> \<langle>Id\<rangle>nres_rel"
-  sorry
-
-context Reachability_Impl_pure
-begin
-
-lemmas [autoref_rules] =
-  Pi_P' l\<^sub>0i_l\<^sub>0 s\<^sub>0i_s\<^sub>0 Li_L
-
-schematic_goal
-  "RETURN ?f \<le> \<Down>Id (RETURN (P' (l\<^sub>0, s\<^sub>0)))"
-  by (autoref_monadic (trace))
-
-schematic_goal
-  "RETURN ?f \<le> \<Down>Id (do {xs \<leftarrow> list_of_set (PR_CONST L); RETURN (xs = [])})"
-  unfolding PR_CONST_def by (autoref_monadic (trace))
-
-lemma [autoref_itype]:
-  "monadic_list_all ::\<^sub>i (R \<rightarrow>\<^sub>i \<langle>i_bool\<rangle>\<^sub>ii_nres) \<rightarrow>\<^sub>i \<langle>R\<rangle>\<^sub>ii_list \<rightarrow>\<^sub>i \<langle>i_bool\<rangle>\<^sub>ii_nres"
-  by simp
-
-thm Autoref_Id_Ops.autoref_itype(1)
-
-lemmas [autoref_rules] = monadic_list_all_ref1
-
-schematic_goal
-  "?f \<le> \<Down>Id (do {xs \<leftarrow> list_of_set L; monadic_list_all (\<lambda>x. RETURN True) xs})"
-  (* supply [autoref_tyrel] = ty_REL[where 'a='k and R=K] *)
-  apply (autoref_monadic (trace))
-  oops
-
-schematic_goal
-  "RETURN ?f \<le> \<Down>Id (check_prop P')"
-  unfolding check_prop_def list_of_set_def[symmetric] PR_CONST_def
-  oops
-
-schematic_goal
-  "(?f, check_prop) \<in> ?R"
-  unfolding check_prop_def
-  oops
 
 end
 
