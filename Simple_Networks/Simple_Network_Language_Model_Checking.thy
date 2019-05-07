@@ -1227,15 +1227,9 @@ definition
   "trans_map_inner \<equiv> map (\<lambda>i. union_map_of (fst (snd (automata ! i)))) [0..<n_ps]"
 
 lemma trans_map_alt_def:
-  "trans_map = (\<lambda>i j. case (IArray trans_map_inner !! i) j of None \<Rightarrow> [] | Some xs \<Rightarrow> xs)"
-  unfolding trans_map_inner_def trans_map_def
-  apply auto
-  apply (intro ext)
-  subgoal for i j
-    apply (cases "i < n_ps")
-     apply (auto simp: n_ps_def)
-    sorry
-  done
+  "trans_map i j = (case (IArray trans_map_inner !! i) j of None \<Rightarrow> [] | Some xs \<Rightarrow> xs)"
+  if "i < n_ps"
+  using that unfolding trans_map_inner_def trans_map_def by (auto simp: n_ps_def)
 
 schematic_goal succs_impl_alt_def:
   "impl.succs_impl \<equiv> ?impl"
