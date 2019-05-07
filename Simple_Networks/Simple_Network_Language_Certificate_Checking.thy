@@ -28,11 +28,118 @@ end
 definition split_eq_width :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
   "split_eq_width n \<equiv> split_size (\<lambda>_. 1 :: nat) n 0 []"
 
+lemma list_all2_split_size_1:
+  assumes "list_all2 R xs ys" "list_all2 R acc acc'"
+  shows "list_all2 (list_all2 R)
+    (split_size (\<lambda>_. 1 :: nat) k n acc xs) (split_size (\<lambda>_. 1 :: nat) k n acc' ys)"
+  using assms by (induction arbitrary: acc acc' n rule: list_all2_induct) auto
+
+
+thm list_all2_induct
+term zip
+
+fun zip2 where
+  "zip2 [] [] = []"
+| "zip2 [] xs = []"
+| "zip2 ys [] = []"
+| "zip2 (x # xs) (y # ys) = (x, y) # zip2 xs ys"
+
+thm zip2.induct
+
+lemma length_hd_split_size_mono:
+  "length (hd (split_size f k n acc xs)) \<ge> length acc"
+  apply (induction xs arbitrary: acc n)
+   apply auto
+  apply (rule order.trans[rotated])
+   apply rprems
+  apply simp
+  done
+
+lemma split_size_non_empty[simp]:
+  "split_size f k n acc xs = [] \<longleftrightarrow> False"
+  by (induction xs arbitrary: acc n) auto
+
+lemma list_all2_split_size_2:
+  assumes "length acc = length acc'"
+  shows
+  "list_all2 (list_all2 R)
+    (split_size (\<lambda>_. 1 :: nat) k n acc xs) (split_size (\<lambda>_. 1 :: nat) k n acc' ys)
+\<longleftrightarrow> list_all2 R xs ys \<and> list_all2 R acc acc'"
+  using assms
+proof (induction xs ys arbitrary: acc acc' n rule: zip2.induct)
+  case (2 y ys)
+  { assume A: "list_all2 (list_all2 R) [acc] (split_size (\<lambda>_. Suc 0) k (Suc n) (y # acc') ys)"
+    then obtain x where "split_size (\<lambda>_. Suc 0) k (Suc n) (y # acc') ys = [x]"
+      by (cases "split_size (\<lambda>_. Suc 0) k (Suc n) (y # acc') ys") auto
+    with length_hd_split_size_mono[of "y # acc'" "(\<lambda>_. Suc 0)" k "Suc n" ys] have
+      "length x \<ge> length (y # acc')"
+      by auto
+    with A \<open>_ = [x]\<close> \<open>length acc = length acc'\<close> have False
+      by (auto dest: list_all2_lengthD)
+  }
+  with 2 show ?case
+    by clarsimp
+next
+  case (3 y ys)
+  { assume A: "list_all2 (list_all2 R) (split_size (\<lambda>_. Suc 0) k (Suc n) (y # acc) ys) [acc']"
+    then obtain x where "split_size (\<lambda>_. Suc 0) k (Suc n) (y # acc) ys = [x]"
+      by (cases "split_size (\<lambda>_. Suc 0) k (Suc n) (y # acc) ys") auto
+    with length_hd_split_size_mono[of "y # acc" "(\<lambda>_. Suc 0)" k "Suc n" ys] have
+      "length x \<ge> length (y # acc)"
+      by auto
+    with A \<open>_ = [x]\<close> \<open>length acc = length acc'\<close> have False
+      by (auto dest: list_all2_lengthD)
+  }
+  with 3 show ?case
+    by clarsimp
+qed auto
+
+lemma list_all2_split_eq_width:
+  shows "list_all2 R xs ys \<longleftrightarrow> list_all2 (list_all2 R) (split_eq_width k xs) (split_eq_width k ys)"
+  unfolding split_eq_width_def by (subst list_all2_split_size_2; simp)
+
+lemma length_split_size_1:
+  "sum_list (map length (split_size (\<lambda>_. 1 :: nat) k n acc xs)) = length xs + length acc"
+  by (induction xs arbitrary: acc n) auto
+
+lemma length_sum_list:
+  "sum_list (map length (split_eq_width k xs)) = length xs"
+  unfolding split_eq_width_def by (subst length_split_size_1; simp)
+
 definition split_k :: "nat \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
   "split_k k xs \<equiv> let
     width = length xs div k;
     width = (if length xs mod k = 0 then width else width + 1)
   in split_eq_width width xs"
+
+lemma length_hd_split_size:
+  "length (hd (split_size (\<lambda>_. 1 :: nat) k n acc xs))
+  = (if n + length xs < k then n + length xs else max k n)" if "length acc = n"
+  using that by (induction xs arbitrary: n acc) auto
+
+lemma length_hd_split_eq_width:
+  "length (hd (split_eq_width width xs)) = (if length xs < width then length xs else width)"
+  unfolding split_eq_width_def by (subst length_hd_split_size; simp)
+
+lemma list_all2_split_k:
+  "list_all2 R xs ys \<longleftrightarrow> list_all2 (list_all2 R) (split_k k xs) (split_k k ys)"
+proof (cases "length xs = length ys")
+  case True
+  show ?thesis
+    unfolding split_k_def Let_def True by (rule list_all2_split_eq_width)
+next
+  case False
+  { assume "list_all2 (list_all2 R) (split_k k xs) (split_k k ys)"
+    then have "list_all2 R (concat (split_k k xs)) (concat (split_k k ys))"
+      by (meson concat_transfer rel_funD)
+    then have "length (concat (split_k k xs)) = length (concat (split_k k ys))"
+      by (rule list_all2_lengthD)
+    then have "length xs = length ys"
+      unfolding split_k_def by (simp add: length_concat length_sum_list)
+  }
+  with False show ?thesis
+    by (auto dest: list_all2_lengthD)
+qed
 
 definition split_k' :: "nat \<Rightarrow> ('a \<times> 'b list) list \<Rightarrow> 'a list list" where
   "split_k' k xs \<equiv> let
@@ -541,10 +648,7 @@ proof -
     using impl.pure_K by auto
   have "(split_k num_split Li, split_k num_split L) \<in> \<langle>\<langle>the_pure impl.location_assn\<rangle>list_rel\<rangle>list_rel
   \<longleftrightarrow> (Li, L) \<in> \<langle>the_pure impl.location_assn\<rangle>list_rel"
-    apply auto
-    unfolding list_rel_def
-     apply auto
-    sorry
+    unfolding list_rel_def by (auto simp: list_all2_split_k[symmetric])
   then show ?thesis
     apply (subst (2) 1, subst 1)
     unfolding list_assn_pure_conv unfolding pure_def by auto
