@@ -3531,6 +3531,16 @@ fun heap_WHILET b f s =
 fun minus_set A_ a (Coset xs) = Set (filter (fn x => member A_ x a) xs)
   | minus_set A_ a (Set xs) = fold (remove A_) xs a;
 
+fun heap_map copy xs =
+  (fn f_ => fn () => f_
+    ((imp_nfoldli xs (fn _ => (fn () => true))
+       (fn x => fn xsa =>
+         (fn f_ => fn () => f_ ((copy x) ()) ())
+           (fn xa => (fn () => (xa :: xsa))))
+       [])
+    ()) ())
+    (fn xsa => (fn () => (rev xsa)));
+
 fun gi_V0 (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_V0;
 
 fun select_edge_tr (A1_, A2_) s =
@@ -3732,6 +3742,10 @@ fun constraint_pair (LT (x, m)) = (x, m)
 
 fun maxa A_ (Set (x :: xs)) =
   fold (max ((ord_preorder o preorder_order o order_linorder) A_)) xs x;
+
+fun print_check s b = writeln (s ^ ": " ^ (if b then "passed" else "failed"));
+
+fun run_map_heap f xs = Par_List.map ((fn a => (fn f => f ()) a) o f) xs;
 
 fun dbm_lt_0 INF = false
   | dbm_lt_0 (Lt x) = less_eq_int x zero_inta
@@ -3997,19 +4011,11 @@ fun tk_rparen x =
       [Chara (true, false, false, true, false, true, false, false)])
     x;
 
+fun print_check_impl x = (fn ai => fn bi => (fn () => (print_check ai bi))) x;
+
 fun sum_list A_ xs =
   foldr (plus ((plus_semigroup_add o semigroup_add_monoid_add) A_)) xs
     (zero (zero_monoid_add A_));
-
-fun heap_map copy xs =
-  (fn f_ => fn () => f_
-    ((imp_nfoldli xs (fn _ => (fn () => true))
-       (fn x => fn xsa =>
-         (fn f_ => fn () => f_ ((copy x) ()) ())
-           (fn xa => (fn () => (xa :: xsa))))
-       [])
-    ()) ())
-    (fn xsa => (fn () => (rev xsa)));
 
 fun sup_seta A_ (Set xs) = fold (sup_set A_) xs bot_set;
 
@@ -4375,8 +4381,6 @@ and vars_of_bexp A_ (Not e) = vars_of_bexp A_ e
     sup_set A_ (vars_of_exp A_ i) (vars_of_exp A_ x)
   | vars_of_bexp A_ True = bot_set;
 
-fun print_check s b = writeln (s ^ ": " ^ (if b then "passed" else "failed"));
-
 fun parse parser s =
   (case parse_all lx_ws parser s
     of Inl e =>
@@ -4448,8 +4452,6 @@ fun map_sexp uu uv uw Truea = Truea
   | map_sexp f g h (Gea (i, x)) = Gea (g i, h x)
   | map_sexp f g h (Gta (i, x)) = Gta (g i, h x)
   | map_sexp f g h (Loc (i, x)) = Loc (i, f i x);
-
-fun run_map_heap f xs = Par_List.map ((fn a => (fn f => f ()) a) o f) xs;
 
 fun of_nat json =
   (case json of Object _ => Error ["of_nat: expected natural number"]
@@ -5634,8 +5636,6 @@ fun check_final_impl (A1_, A2_, A3_) B_ fi copyi =
                       (fn x_i => (fn () => (not x_i))))
                   true)))
       true);
-
-fun print_check_impl x = (fn ai => fn bi => (fn () => (print_check ai bi))) x;
 
 fun distr (A1_, A2_) xs =
   let

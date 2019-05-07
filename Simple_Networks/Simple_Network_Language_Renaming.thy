@@ -982,8 +982,7 @@ lemma step_single_renumD:
       apply (drule trans_sem_N_renumI', assumption)
       apply (clarsimp simp: renum_act_def)
       apply (drule check_bexp_renumI)
-      apply (drule Simple_Network_Impl_map.InD2[rotated -1, where map_time = real_of_int])
-           apply (intros?, rule inj_id inj_renum_acts real_of_int_inj)+
+      apply (drule InD2[OF inj_renum_acts])
       apply (fastforce dest!: map_u_renum_cconstraint_clock_valD)
       done
 
@@ -1019,7 +1018,7 @@ lemma step_single_renumD:
          apply (tag; fail)
 
         apply (tag keep: TAG[of "''new loc''"])
-        apply (simp add: Simple_Network_Impl_map.map_trans_broad_aux1[symmetric] map_index_update; fail)
+        apply (simp add: map_trans_broad_aux1[symmetric] map_index_update; fail)
        apply (tag keep: TAG[of "''new valuation''"])
        apply (simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def; fail)
       apply (tag keep: TAG[of "''upd''"], erule is_upd_renumD; fail)
@@ -1257,11 +1256,11 @@ proof -
     = renum_states q (fold (\<lambda>p L. L[p := ls' p]) ps L [p := l1] ! q)"
     if "q < n_ps" for q
     using assms(4-) that
-    thm map_index_update Simple_Network_Impl_map.map_trans_broad_aux1[symmetric]
+    thm map_index_update map_trans_broad_aux1[symmetric]
     apply (cases "p = q")
      apply (simp add: fold_upds_aux_length)
     apply (simp
-        add: assms(3) Simple_Network_Impl_map.map_trans_broad_aux1[symmetric] fold_upds_aux_length
+        add: assms(3) map_trans_broad_aux1[symmetric] fold_upds_aux_length
         cong: fold_cong)
     done
   have "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l1] ! q \<in> loc_set" if "q < n_ps" for q
@@ -1528,7 +1527,7 @@ lemma step_single_renumI:
 
         apply (tag, solve_triv)
 
-        apply (tag keep: TAG[of "''new loc''"], simp add:Simple_Network_Impl_map.map_trans_broad_aux1 map_index_update cong: fold_cong; fail)
+        apply (tag keep: TAG[of "''new loc''"], simp add: map_trans_broad_aux1 map_index_update cong: fold_cong; fail)
 
         apply (tag, auto simp: vars_inv_def bij_f_the_inv_f[OF bij_renum_vars]; fail)
 
