@@ -297,7 +297,7 @@ definition
 
 text \<open>Compute pairs of processes with committed initial locations from location vector.\<close>
 definition
-  "get_commited L =
+  "get_committed L =
     List.map_filter (\<lambda>p.
     let l = L ! p in
     if l \<in> set (fst (automata ! p)) then Some (p, l) else None) [0..<n_ps]"
@@ -342,7 +342,7 @@ definition
 
 definition
   "int_trans_from \<equiv> \<lambda> (L, s).
-    let pairs = get_commited L in
+    let pairs = get_committed L in
     if pairs = []
     then int_trans_from_all L s
     else int_trans_from_vec pairs L s
@@ -396,7 +396,7 @@ lemma mem_bin_actions_iff:
 definition
   "bin_trans_from \<equiv> \<lambda>(L, s).
     let
-      pairs = get_commited L;
+      pairs = get_committed L;
       In =  all_actions_by_state trans_in_map L;
       Out = all_actions_by_state trans_out_map L
     in
@@ -474,7 +474,7 @@ definition make_combs_from_pairs where
 definition
   "broad_trans_from \<equiv> \<lambda>(L, s).
     let
-      pairs = get_commited L;
+      pairs = get_committed L;
       In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
       Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps];
       In  = map (map (filter (\<lambda> (b, _). bval (the o s) b))) In;
@@ -515,16 +515,16 @@ definition
       concat (
         map (\<lambda>a.
           let
-            ins_commited =
+            ins_committed =
               List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
-            always_commited = (length ins_commited > 1)
+            always_committed = (length ins_committed > 1)
           in
           concat (map (\<lambda>p.
             let
               outs = Out ! p ! a
             in if outs = [] then []
             else if
-              \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
+              \<not> always_committed \<and> (ins_committed = [p] \<or> ins_committed = [])
               \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
             then []
             else
@@ -564,7 +564,7 @@ begin
 lemma broad_trans_from_alt_def:
   "broad_trans_from \<equiv> \<lambda>(L, s).
     let
-      pairs = get_commited L;
+      pairs = get_committed L;
       In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
       Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps];
       In  = map (map (filter (\<lambda> (b, _). bval (the o s) b))) In;
@@ -604,7 +604,7 @@ lemma broad_trans_from_alt_def:
       concat (
         map (\<lambda>a.
           let
-            ins_commited =
+            ins_committed =
               List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs
           in
           concat (map (\<lambda>p.
@@ -612,7 +612,7 @@ lemma broad_trans_from_alt_def:
               outs = Out ! p ! a
             in if outs = [] then []
             else if
-              (ins_commited = [p] \<or> ins_commited = []) \<and> \<not> list_ex (\<lambda>(q, _). q = p) pairs
+              (ins_committed = [p] \<or> ins_committed = []) \<and> \<not> list_ex (\<lambda>(q, _). q = p) pairs
             then []
             else
               let
@@ -664,38 +664,38 @@ lemma check_bounded_iff:
   unfolding check_bounded_def Simple_Network_Language.bounded_def bounds_map_def bounds_def
   by auto
 
-lemma get_commited_mem_iff:
-  "(p, l) \<in> set (get_commited L) \<longleftrightarrow> (l = L ! p \<and> l \<in> commited (N p) \<and> p < n_ps)"
-  unfolding get_commited_def
+lemma get_committed_mem_iff:
+  "(p, l) \<in> set (get_committed L) \<longleftrightarrow> (l = L ! p \<and> l \<in> committed (N p) \<and> p < n_ps)"
+  unfolding get_committed_def
   unfolding set_map_filter Let_def
   apply clarsimp
   unfolding N_def fst_conv snd_conv
-  unfolding commited_def
+  unfolding committed_def
   by safe
     ((subst nth_map | subst (asm) nth_map);
       auto split: prod.splits simp: automaton_of_def length_automata_eq_n_ps
       )+
 
-lemma get_commited_empty_iff:
-  "(\<forall>p < n_ps. L ! p \<notin> commited (N p)) \<longleftrightarrow> get_commited L = []"
+lemma get_committed_empty_iff:
+  "(\<forall>p < n_ps. L ! p \<notin> committed (N p)) \<longleftrightarrow> get_committed L = []"
   apply safe
   subgoal
   proof (rule ccontr)
     assume prems:
-      "\<forall>p<n_ps. L ! p \<notin> commited (N p)" and
-      "get_commited L \<noteq> []"
-    then obtain p l where "(p, l) \<in> set (get_commited L)"
+      "\<forall>p<n_ps. L ! p \<notin> committed (N p)" and
+      "get_committed L \<noteq> []"
+    then obtain p l where "(p, l) \<in> set (get_committed L)"
       by (metis length_greater_0_conv nth_mem old.prod.exhaust)
-    from this[unfolded get_commited_mem_iff] prems(1)
+    from this[unfolded get_committed_mem_iff] prems(1)
     show "False"
       by auto
   qed
   subgoal for p
-    using get_commited_mem_iff[of p "L ! p" L] by auto
+    using get_committed_mem_iff[of p "L ! p" L] by auto
   done
 
-lemma get_commited_distinct: "distinct (get_commited L)"
-  unfolding get_commited_def by (rule distinct_map_filterI) (auto simp: Let_def)
+lemma get_committed_distinct: "distinct (get_committed L)"
+  unfolding get_committed_def by (rule distinct_map_filterI) (auto simp: Let_def)
 
 lemma is_upd_make_updI2:
   "is_upd s upds (mk_upds s upds)"
@@ -862,9 +862,9 @@ method frules_all =
 
 paragraph \<open>Internal transitions\<close>
 
-lemma get_commited_memI:
-  "(p, L ! p) \<in> set (get_commited L)" if "L ! p  \<in> commited (N p)" "p < n_ps"
-  using that unfolding get_commited_mem_iff by simp
+lemma get_committed_memI:
+  "(p, L ! p) \<in> set (get_committed L)" if "L ! p  \<in> committed (N p)" "p < n_ps"
+  using that unfolding get_committed_mem_iff by simp
 
 lemma check_bexp_bvalI:
   "bval (the o s) b" if "check_bexp s b True"
@@ -891,7 +891,7 @@ qed
 lemmas [forward2] =
   trans_i_mapD
   trans_i_mapI
-  get_commited_memI
+  get_committed_memI
 lemmas [forward3] =
   is_upd_make_updI2
 lemmas [forward4] =
@@ -912,17 +912,17 @@ proof clarsimp
     by (auto simp: check_bounded_iff)
   show "(((L, s), g, a, r, L', s') \<in> trans_int)
     \<longleftrightarrow> ((g, a, r, L', s') \<in> set (int_trans_from (L, s)))"
-  proof (cases "get_commited L = []")
+  proof (cases "get_committed L = []")
     case True
     then have *: "((L, s), g, a, r, L', s') \<in> trans_int \<longleftrightarrow>
       ((L, s), g, a, r, L', s') \<in> {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
         (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
-        (\<forall>p < n_ps. L ! p \<notin> commited (N p)) \<and>
+        (\<forall>p < n_ps. L ! p \<notin> committed (N p)) \<and>
         check_bexp s b True \<and>
         L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
-      unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
+      unfolding get_committed_empty_iff[symmetric] trans_int_def by blast
     from True have **: "int_trans_from (L, s) = int_trans_from_all L s"
       unfolding int_trans_from_def by simp
     from \<open>dom s = _\<close> show ?thesis
@@ -937,7 +937,7 @@ proof clarsimp
       subgoal for p _ a' upds l'
         apply simp
         apply frules
-        using \<open>L \<in> states\<close> \<open>check_bounded s\<close> True[folded get_commited_empty_iff]
+        using \<open>L \<in> states\<close> \<open>check_bounded s\<close> True[folded get_committed_empty_iff]
         unfolding check_bounded_iff by (intros; solve_triv)
       done
   next
@@ -945,12 +945,12 @@ proof clarsimp
     then have *: "((L, s), g, a, r, L', s') \<in> trans_int \<longleftrightarrow>
       ((L, s), g, a, r, L', s') \<in> {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
         (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
-        l \<in> commited (N p) \<and>
+        l \<in> committed (N p) \<and>
         L!p = l \<and> p < length L \<and> check_bexp s b True \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
-      unfolding get_commited_empty_iff[symmetric] trans_int_def by blast
-    from False have **: "int_trans_from (L, s) = int_trans_from_vec (get_commited L) L s"
+      unfolding get_committed_empty_iff[symmetric] trans_int_def by blast
+    from False have **: "int_trans_from (L, s) = int_trans_from_vec (get_committed L) L s"
       unfolding int_trans_from_def by simp
     from \<open>dom s = _\<close> \<open>L \<in> states\<close> show ?thesis
       unfolding * ** int_trans_from_vec_def
@@ -962,7 +962,7 @@ proof clarsimp
         apply frules
         unfolding check_bounded_iff by (intros; solve_triv)
       subgoal for p _ a' upds l'
-        unfolding get_commited_mem_iff
+        unfolding get_committed_mem_iff
         apply (elims; simp)
         apply frules
         unfolding check_bounded_iff by (intros; solve_triv)
@@ -1276,9 +1276,9 @@ proof clarsimp
   note [forward2] = action_setD IN_D OUT_D
   show "(((L, s), g, a, r, L', s') \<in> trans_bin) =
         ((g, a, r, L', s') \<in> set (bin_trans_from (L, s)))"
-  proof (cases "get_commited L = []")
+  proof (cases "get_committed L = []")
     case True
-    with get_commited_empty_iff[of L] have "\<forall>p<n_ps. L ! p \<notin> commited (N p)"
+    with get_committed_empty_iff[of L] have "\<forall>p<n_ps. L ! p \<notin> committed (N p)"
       by simp
     then have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
       {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
@@ -1328,7 +1328,7 @@ proof clarsimp
       done
   next
     case False
-    with get_commited_empty_iff[of L] have "\<exists>p<n_ps. L ! p \<in> commited (N p)"
+    with get_committed_empty_iff[of L] have "\<exists>p<n_ps. L ! p \<in> committed (N p)"
       by simp
     then have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
       {((L, s), g1 @ g2, Bin a, r1 @ r2, (L', s'')) |
@@ -1336,7 +1336,7 @@ proof clarsimp
         a \<notin> local.broadcast \<and>
         (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
         (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
-        (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q)) \<and>
+        (l1 \<in> committed (N p) \<or> l2 \<in> committed (N q)) \<and>
         L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
         check_bexp s b1 True \<and> check_bexp s b2 True \<and>
         L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
@@ -1350,7 +1350,7 @@ proof clarsimp
           a \<notin> local.broadcast \<and>
           (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
           (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
-          l1 \<in> commited (N p) \<and>
+          l1 \<in> committed (N p) \<and>
           L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
           check_bexp s b1 True \<and> check_bexp s b2 True \<and>
           L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
@@ -1362,7 +1362,7 @@ proof clarsimp
           a \<notin> local.broadcast \<and>
           (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
           (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
-          l2 \<in> commited (N q) \<and>
+          l2 \<in> committed (N q) \<and>
           L!p = l1 \<and> L!q = l2 \<and>
           p < length L \<and> q < length L \<and> p \<noteq> q \<and>
           check_bexp s b1 True \<and> check_bexp s b2 True \<and>
@@ -1373,17 +1373,17 @@ proof clarsimp
     have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow>
       ((L, s), g, a, r, L', s') \<in> ?S1 \<or> ((L, s), g, a, r, L', s') \<in> ?S2"
       unfolding * by clarsimp (rule iffI; elims add: disjE; intros add: disjI1 disjI2 HOL.refl)
-    define pairs where "pairs = get_commited L"
+    define pairs where "pairs = get_committed L"
     define In2 where "In2  = all_actions_from_vec trans_in_map pairs"
     define Out2 where "Out2 = all_actions_from_vec trans_out_map pairs"
     have In2_I:
       "(p, b, g, a', f, r, l') \<in> set (In2 ! a')"
       if "(L ! p, b, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
-        "p < n_ps" "a' < num_actions" "L ! p \<in> commited (N p)"
+        "p < n_ps" "a' < num_actions" "L ! p \<in> committed (N p)"
       for p b g a' f r l'
     proof -
-      from \<open>L ! p \<in> commited (N p)\<close> \<open>p < n_ps\<close> have "(p, L ! p) \<in> set pairs"
-        unfolding pairs_def get_commited_mem_iff by blast
+      from \<open>L ! p \<in> committed (N p)\<close> \<open>p < n_ps\<close> have "(p, L ! p) \<in> set pairs"
+        unfolding pairs_def get_committed_mem_iff by blast
       from trans_mapI[OF that(1,2)] have "(b, g, In a', f, r, l') \<in> set (trans_map p (L ! p))"
         by auto
       then have "(b, g, a', f, r, l') \<in> set (trans_in_map p (L ! p))"
@@ -1394,11 +1394,11 @@ proof clarsimp
     have Out2_I:
       "(p, b, g, a', f, r, l') \<in> set (Out2 ! a')"
       if "(L ! p, b, g, Out a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
-        "p < n_ps" "a' < num_actions" "L ! p \<in> commited (N p)"
+        "p < n_ps" "a' < num_actions" "L ! p \<in> committed (N p)"
       for p b g a' f r l'
     proof -
-      from \<open>L ! p \<in> commited (N p)\<close> \<open>p < n_ps\<close> have "(p, L ! p) \<in> set pairs"
-        unfolding pairs_def get_commited_mem_iff by blast
+      from \<open>L ! p \<in> committed (N p)\<close> \<open>p < n_ps\<close> have "(p, L ! p) \<in> set pairs"
+        unfolding pairs_def get_committed_mem_iff by blast
       from trans_mapI[OF that(1,2)] have "(b, g, Out a', f, r, l') \<in> set (trans_map p (L ! p))"
         by auto
       then have "(b, g, a', f, r, l') \<in> set (trans_out_map p (L ! p))"
@@ -1407,14 +1407,14 @@ proof clarsimp
         unfolding Out2_def by (intro in_all_actions_from_vecI)
     qed
     have "distinct (map fst pairs)"
-      unfolding pairs_def get_commited_def distinct_map inj_on_def Let_def
+      unfolding pairs_def get_committed_def distinct_map inj_on_def Let_def
       by (auto simp: set_map_filter intro!: distinct_map_filterI split: if_split_asm)
-    have in_pairsD: "p < n_ps" "l = L ! p" "L ! p \<in> commited (N p)"
+    have in_pairsD: "p < n_ps" "l = L ! p" "L ! p \<in> committed (N p)"
       if "(p, l) \<in> set pairs" for p l
-      using that using get_commited_mem_iff pairs_def by auto
+      using that using get_committed_mem_iff pairs_def by auto
     have In2_D:
       "(L ! p, b, g, In a', f, r, l') \<in> Simple_Network_Language.trans (N p) \<and>
-      p < n_ps \<and> a' = a1 \<and> L ! p \<in> commited (N p)"
+      p < n_ps \<and> a' = a1 \<and> L ! p \<in> committed (N p)"
       if "(p, b, g, a', f, r, l') \<in> set (In2 ! a1)" "a1 < num_actions"
       for p b g a' f r l' a1
       using that
@@ -1429,7 +1429,7 @@ proof clarsimp
       done
     have Out2_D:
       "(L ! p, b, g, Out a', f, r, l') \<in> Simple_Network_Language.trans (N p)
-      \<and> p < n_ps \<and> a' = a1 \<and> L ! p \<in> commited (N p)"
+      \<and> p < n_ps \<and> a' = a1 \<and> L ! p \<in> committed (N p)"
       if "(p, b, g, a', f, r, l') \<in> set (Out2 ! a1)" "a1 < num_actions"
       for p b g a' f r l' a1
       using that
@@ -2044,9 +2044,9 @@ proof clarsimp
   qed
   show "(((L, s), g, a, r, L', s') \<in> trans_broad) =
         ((g, a, r, L', s') \<in> set (broad_trans_from (L, s)))"
-  proof (cases "get_commited L = []")
+  proof (cases "get_committed L = []")
     case True
-    with get_commited_empty_iff[of L] have "\<forall>p<n_ps. L ! p \<notin> commited (N p)"
+    with get_committed_empty_iff[of L] have "\<forall>p<n_ps. L ! p \<notin> committed (N p)"
       by simp
     then have *: "((L, s), g, a, r, L', s') \<in> trans_broad \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
       {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
@@ -2086,7 +2086,7 @@ proof clarsimp
       done
   next
     case False
-    with get_commited_empty_iff[of L] have "\<not> (\<forall>p<n_ps. L ! p \<notin> commited (N p))"
+    with get_committed_empty_iff[of L] have "\<not> (\<forall>p<n_ps. L ! p \<notin> committed (N p))"
       by simp
     then have *: "((L, s), g, a, r, L', s') \<in> trans_broad \<longleftrightarrow> ((L, s), g, a, r, L', s') \<in>
       {((L, s), g @ concat (map gs ps), Broad a, r @ concat (map rs ps), (L', s'')) |
@@ -2094,7 +2094,7 @@ proof clarsimp
         a \<in> set broadcast \<and>
         (l, b, g, Out a, f, r, l') \<in> trans (N p) \<and>
         (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
-        (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))) \<and>
+        (l \<in> committed (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> committed (N p))) \<and>
         (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
           \<not> (\<exists>b g f r l'. (L ! q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
         L!p = l \<and>
@@ -2105,10 +2105,10 @@ proof clarsimp
       }"
       unfolding trans_broad_def broadcast_def[simplified]
       by (intro iffI; elims add: CollectE; intros add: CollectI) blast+
-    have commited_iff: "
-      List.map_filter (\<lambda>(p, _). if IN' ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> [p] \<and>
-      List.map_filter (\<lambda>(p, _). if IN' ! p ! a' = [] then None else Some p) (get_commited L) \<noteq> []
-    \<longleftrightarrow> (\<exists>q<n_ps. IN' ! q ! a' \<noteq> [] \<and> q \<noteq> p \<and> L ! q \<in> commited (N q))"
+    have committed_iff: "
+      List.map_filter (\<lambda>(p, _). if IN' ! p ! a' = [] then None else Some p) (get_committed L) \<noteq> [p] \<and>
+      List.map_filter (\<lambda>(p, _). if IN' ! p ! a' = [] then None else Some p) (get_committed L) \<noteq> []
+    \<longleftrightarrow> (\<exists>q<n_ps. IN' ! q ! a' \<noteq> [] \<and> q \<noteq> p \<and> L ! q \<in> committed (N q))"
       for p a'
     proof -
       have *: "xs \<noteq> [p] \<and> xs \<noteq> [] \<longleftrightarrow> (\<exists>x \<in> set xs. x \<noteq> p)" if "distinct xs" for xs
@@ -2116,8 +2116,8 @@ proof clarsimp
       show ?thesis
         by (subst *)
           (auto
-            intro: distinct_map_filterI get_commited_distinct
-            simp: set_map_filter get_commited_mem_iff split: if_split_asm
+            intro: distinct_map_filterI get_committed_distinct
+            simp: set_map_filter get_committed_mem_iff split: if_split_asm
             )
     qed
     from False have **:
@@ -2125,13 +2125,13 @@ proof clarsimp
       = concat (
         map (\<lambda>a.
           let
-            ins_commited =
-              List.map_filter (\<lambda>(p, _). if IN' ! p ! a \<noteq> [] then Some p else None) (get_commited L)
+            ins_committed =
+              List.map_filter (\<lambda>(p, _). if IN' ! p ! a \<noteq> [] then Some p else None) (get_committed L)
           in
           concat (map (\<lambda>p.
             if
-              (ins_commited = [p] \<or> ins_commited = [])
-              \<and> \<not> list_ex (\<lambda> (q, _). q = p) (get_commited L)
+              (ins_committed = [p] \<or> ins_committed = [])
+              \<and> \<not> list_ex (\<lambda> (q, _). q = p) (get_committed L)
             then []
             else
               make_trans a p
@@ -2158,17 +2158,17 @@ proof clarsimp
          apply (simp; fail)
         apply (simp add: Let_def)
         apply (erule disjE)
-        subgoal \<comment> \<open>The process with the outgoing action label is commited\<close>
-          using get_commited_mem_iff[of p "L ! p" L, simplified, symmetric]
+        subgoal \<comment> \<open>The process with the outgoing action label is committed\<close>
+          using get_committed_mem_iff[of p "L ! p" L, simplified, symmetric]
           by (inst_existentials p) (auto simp add: list_ex_iff)
         apply (erule bexE)
-        subgoal for q \<comment> \<open>One of the processes with an ingoing action label is commited\<close>
+        subgoal for q \<comment> \<open>One of the processes with an ingoing action label is committed\<close>
           apply (inst_existentials p)
            apply assumption
           apply (rule IntI)
            apply (simp; fail)
           apply simp
-          unfolding commited_iff
+          unfolding committed_iff
           apply (rule disjI1; inst_existentials q; force dest!: IN_I IN'_I)
           done
         done
@@ -2181,7 +2181,7 @@ proof clarsimp
                          apply assumption+
                    apply (erule bspec; assumption)
         subgoal for p s'' g' f r' l' gs fs rs ls' ps
-          unfolding commited_iff by (auto simp: get_commited_mem_iff list_ex_iff)
+          unfolding committed_iff by (auto simp: get_committed_mem_iff list_ex_iff)
         apply blast+
         done
       done
@@ -2286,7 +2286,7 @@ definition
 
 definition
   "int_trans_impl \<equiv> \<lambda> (L, s).
-    let pairs = get_commited L in
+    let pairs = get_committed L in
     if pairs = []
     then int_trans_from_all_impl L s
     else int_trans_from_vec_impl pairs L s
@@ -2308,7 +2308,7 @@ definition
 definition
   "bin_trans_from_impl \<equiv> \<lambda>(L, s).
     let
-      pairs = get_commited L;
+      pairs = get_committed L;
       In =  all_actions_by_state trans_in_map L;
       Out = all_actions_by_state trans_out_map L
     in
@@ -2353,7 +2353,7 @@ definition trans_from where
 definition
   "broad_trans_from_impl \<equiv> \<lambda>(L, s).
     let
-      pairs = get_commited L;
+      pairs = get_committed L;
       In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
       Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps];
       In  = map (map (filter (\<lambda>(b, _). bvali s b))) In;
@@ -2384,16 +2384,16 @@ definition
       concat (
         map (\<lambda>a.
           let
-            ins_commited =
+            ins_committed =
               List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
-            always_commited = (length ins_commited > 1)
+            always_committed = (length ins_committed > 1)
           in
           concat (map (\<lambda>p.
             let
               outs = Out ! p ! a
             in if outs = [] then []
             else if
-              \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
+              \<not> always_committed \<and> (ins_committed = [p] \<or> ins_committed = [])
               \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
             then []
             else
@@ -2727,16 +2727,16 @@ lemma int_trans_from_vec_transfer[transfer_rule]:
 
 private definition R where "R \<equiv> (\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps)"
 
-lemma get_commited_transfer[transfer_rule]:
+lemma get_committed_transfer[transfer_rule]:
   "((\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps) ===> list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R (=)))
-    get_commited get_commited"
+    get_committed get_committed"
 proof -
   have [transfer_rule]:
     "R automata automata"
     unfolding R_def by (simp add: n_ps_def list.rel_eq)
   show ?thesis
   supply [transfer_rule] = zero_nat_transfer n_ps_transfer
-  unfolding get_commited_def
+  unfolding get_committed_def
   unfolding Let_def
   apply transfer_prover_start
   using [[goals_limit=15]]
@@ -3044,7 +3044,7 @@ qed
 lemma broad_trans_from_alt_def2:
   "broad_trans_from = (\<lambda>(L, s).
     let
-      pairs = get_commited L;
+      pairs = get_committed L;
       In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
       Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps];
       In = map (map (filter (\<lambda>(b, _). bval (the \<circ> s) b))) In;
@@ -3076,16 +3076,16 @@ lemma broad_trans_from_alt_def2:
       concat (
         map (\<lambda>a.
           let
-            ins_commited =
+            ins_committed =
               List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
-            always_commited = (length ins_commited > 1)
+            always_committed = (length ins_committed > 1)
           in
           concat (map (\<lambda>p.
             let
               outs = Out ! p ! a
             in if outs = [] then []
             else if
-              \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
+              \<not> always_committed \<and> (ins_committed = [p] \<or> ins_committed = [])
               \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
             then []
             else
@@ -3293,23 +3293,23 @@ proof -
   (
   \<lambda>(L, s).
       let
-        pairs = get_commited L;
+        pairs = get_committed L;
         In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
         Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
       in
     concat (
           map (\<lambda>a.
             let
-              ins_commited =
+              ins_committed =
                 List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
-              always_commited = (length ins_commited > 1)
+              always_committed = (length ins_committed > 1)
             in
             concat (map (\<lambda>p.
               let
                 outs = Out ! p ! a
               in if outs = [] then []
               else if
-                \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
+                \<not> always_committed \<and> (ins_committed = [p] \<or> ins_committed = [])
                 \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
               then []
               else
@@ -3330,23 +3330,23 @@ proof -
   (
   \<lambda>(L, s).
       let
-        pairs = get_commited L;
+        pairs = get_committed L;
         In  = map (\<lambda>p. trans_in_broad_grouped p (L ! p)) [0..<n_ps];
         Out = map (\<lambda>p. trans_out_broad_grouped p (L ! p)) [0..<n_ps]
       in
   concat (
           map (\<lambda>a.
             let
-              ins_commited =
+              ins_committed =
                 List.map_filter (\<lambda>(p, _). if In ! p ! a \<noteq> [] then Some p else None) pairs;
-              always_commited = (length ins_commited > 1)
+              always_committed = (length ins_committed > 1)
             in
             concat (map (\<lambda>p.
               let
                 outs = Out ! p ! a
               in if outs = [] then []
               else if
-                \<not> always_commited \<and> (ins_commited = [p] \<or> ins_commited = [])
+                \<not> always_committed \<and> (ins_committed = [p] \<or> ins_committed = [])
                 \<and> \<not> list_ex (\<lambda> (q, _). q = p) pairs
               then []
               else

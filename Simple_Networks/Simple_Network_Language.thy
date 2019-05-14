@@ -8,7 +8,7 @@ begin
 
 paragraph \<open>Tagging\<close>
 
-definition
+definition TAG ("_ \<bar> _" [8, 8] 9) where
   "TAG t x = x"
 
 definition
@@ -39,7 +39,7 @@ lemma
   unfolding TAG_def .
 
 
-section \<open>Simple networks of automata with broadcast channels and commited locations\<close>
+section \<open>Simple networks of automata with broadcast channels and committed locations\<close>
 
 no_notation top_assn ("true")
 
@@ -119,8 +119,8 @@ inductive is_upds where
   "is_upds s [] s" |
   "is_upds s (x # xs) s''" if "is_upd s x s'" "is_upds s' xs s''"
 
-definition commited :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
-  "commited A \<equiv> fst A"
+definition committed :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
+  "committed A \<equiv> fst A"
 
 definition trans :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('a, 's, 'c, 't, 'x, 'v) transition set"
   where
@@ -139,61 +139,71 @@ inductive step_u ::
 where
   step_t:
     "\<lbrakk>
-      \<forall>p < length N. u \<oplus> d \<turnstile> inv (N ! p) (L ! p);
-      d \<ge> 0;
-      bounded B s
+      ''target invariant'' \<bar> \<forall>p < length N. u \<oplus> d \<turnstile> inv (N ! p) (L ! p);
+      ''nonnegative''      \<bar> d \<ge> 0;
+      ''bounded''          \<bar> bounded B s
      \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L, s, u \<oplus> d\<rangle>" |
   step_int:
     "\<lbrakk>
-      (l, b, g, Sil a, f, r, l') \<in> trans (N ! p);
-      l \<in> commited (N ! p) \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
-      check_bexp s b True;
-      u \<turnstile> g;
-      \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
-      L!p = l; p < length L; L' = L[p := l']; u' = [r\<rightarrow>0]u; is_upd s f s';
-      bounded B s'
+      TRANS ''silent'' \<bar> (l, b, g, Sil a, f, r, l') \<in> trans (N ! p);
+      ''committed'' \<bar> l \<in> committed (N ! p) \<or> (\<forall>p < length N. L ! p \<notin> committed (N ! p));
+      ''bexp''      \<bar> check_bexp s b True;
+      ''guard''     \<bar> u \<turnstile> g;
+      ''target invariant'' \<bar> \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
+      ''loc''           \<bar> L!p = l;
+      ''range''         \<bar> p < length L;
+      ''new loc''       \<bar> L' = L[p := l'];
+      ''new valuation'' \<bar> u' = [r\<rightarrow>0]u;
+      ''is_upd''        \<bar> is_upd s f s';
+      ''bounded''       \<bar> bounded B s'
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Internal a\<^esub> \<langle>L', s', u'\<rangle>" |
   step_bin:
     "\<lbrakk>
-      a \<notin> broadcast;
-      (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N ! p);
-      (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N ! q);
-      l1 \<in> commited (N ! p) \<or> l2 \<in> commited (N ! q) \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p));
-      check_bexp s b1 True; check_bexp s b2 True; u \<turnstile> g1; u \<turnstile> g2;
-      \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
-      L!p = l1; L!q = l2; p < length L; q < length L; p \<noteq> q;
-      L' = L[p := l1', q := l2']; u' = [r1@r2\<rightarrow>0]u; is_upd s f1 s'; is_upd s' f2 s'';
-      bounded B s''
+      ''not broadcast'' \<bar> (a \<notin> broadcast);
+      TRANS ''in''  \<bar> (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N ! p);
+      TRANS ''out'' \<bar> (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N ! q);
+      ''committed'' \<bar>
+        l1 \<in> committed (N ! p) \<or> l2 \<in> committed (N ! q) \<or> (\<forall>p < length N. L ! p \<notin> committed (N ! p));
+      ''bexp'' \<bar> check_bexp s b1 True; ''bexp'' \<bar> check_bexp s b2 True;
+      ''guard'' \<bar> u \<turnstile> g1; ''guard'' \<bar> u \<turnstile> g2;
+      ''target invariant'' \<bar> \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
+      RECV ''loc'' \<bar> L!p = l1; SEND ''loc'' \<bar> L!q = l2;
+      RECV ''range'' \<bar> p < length L; SEND ''range'' \<bar> q < length L;
+      ''different'' \<bar> p \<noteq> q;
+      ''new loc''       \<bar> L' = L[p := l1', q := l2'];
+      ''new valuation'' \<bar> u' = [r1@r2\<rightarrow>0]u;
+      ''upd'' \<bar> is_upd s f1 s'; ''upd'' \<bar> is_upd s' f2 s'';
+      ''bounded'' \<bar> bounded B s''
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Bin a\<^esub> \<langle>L', s'', u'\<rangle>" |
   step_broad:
     "\<lbrakk>
-      TAG ''broadcast'' (a \<in> broadcast);
-      TAG (TRANS ''out'') (l, b, g, Out a, f, r, l') \<in> trans (N ! p);
-      TAG (TRANS ''in'') (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p));
-      TAG ''committed'' (l \<in> commited (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N ! p))
-      \<or> (\<forall>p < length N. L ! p \<notin> commited (N ! p)));
-      TAG ''bexp'' (check_bexp s b True);
-      TAG ''bexp'' (\<forall>p \<in> set ps. check_bexp s (bs p) True);
-      TAG ''guard'' (u \<turnstile> g);
-      TAG ''guard'' (\<forall>p \<in> set ps. u \<turnstile> gs p);
-      TAG ''maximal'' (\<forall>q < length N. q \<notin> set ps \<and> p \<noteq> q
+      ''broadcast'' \<bar> a \<in> broadcast;
+      TRANS ''out'' \<bar> (l, b, g, Out a, f, r, l') \<in> trans (N ! p);
+      TRANS ''in''  \<bar> (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N ! p));
+      ''committed'' \<bar> (l \<in> committed (N ! p) \<or> (\<exists>p \<in> set ps. L ! p \<in> committed (N ! p))
+      \<or> (\<forall>p < length N. L ! p \<notin> committed (N ! p)));
+      ''bexp''    \<bar> check_bexp s b True;
+      ''bexp''    \<bar> \<forall>p \<in> set ps. check_bexp s (bs p) True;
+      ''guard''   \<bar> u \<turnstile> g;
+      ''guard''   \<bar> \<forall>p \<in> set ps. u \<turnstile> gs p;
+      ''maximal'' \<bar> \<forall>q < length N. q \<notin> set ps \<and> p \<noteq> q
         \<longrightarrow> (\<forall>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N ! q)
-        \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g));
-      TAG ''target invariant'' (\<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p));
-      TAG (SEND ''loc'') (L!p = l);
-      TAG (SEND ''range'')  (p < length L);
-      TAG (SEL ''range'') (set ps \<subseteq> {0..<length N});
-      TAG (SEL ''not sender'') (p \<notin> set ps);
-      TAG (SEL ''distinct'') distinct ps;
-      TAG (SEL ''sorted'') sorted ps;
-      TAG ''new loc'' (L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l']);
-      TAG ''new valuation'' (u' = [r@concat (map rs ps)\<rightarrow>0]u);
-      TAG ''upd'' (is_upd s f s');
-      TAG ''upds'' (is_upds s' (map fs ps) s'');
-      TAG ''bounded'' bounded B s''
+        \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g);
+      ''target invariant'' \<bar> \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
+      SEND ''loc''       \<bar> L!p = l;
+      SEND ''range''     \<bar> p < length L;
+      SEL ''range''      \<bar> set ps \<subseteq> {0..<length N};
+      SEL ''not sender'' \<bar> p \<notin> set ps;
+      SEL ''distinct''   \<bar> distinct ps;
+      SEL ''sorted''     \<bar> sorted ps;
+      ''new loc'' \<bar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'];
+      ''new valuation'' \<bar> u' = [r@concat (map rs ps)\<rightarrow>0]u;
+      ''upd''     \<bar> is_upd s f s';
+      ''upds''    \<bar> is_upds s' (map fs ps) s'';
+      ''bounded'' \<bar> bounded B s''
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Broad a\<^esub> \<langle>L', s'', u'\<rangle>"
 lemmas [intro?] = step_u.intros[unfolded TAG_def]
@@ -259,7 +269,7 @@ definition
   "trans_int =
     {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
       (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
-      (l \<in> commited (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
+      (l \<in> committed (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
       L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and> check_bexp s b True \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
     }"
@@ -271,7 +281,7 @@ definition
       a \<notin> broadcast \<and>
       (l1, b1, g1, In a,  f1, r1, l1') \<in> trans (N p) \<and>
       (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
-      (l1 \<in> commited (N p) \<or> l2 \<in> commited (N q) \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
+      (l1 \<in> committed (N p) \<or> l2 \<in> committed (N q) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
       L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
       check_bexp s b1 True \<and> check_bexp s b2 True \<and>
       L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
@@ -285,8 +295,8 @@ definition
       a \<in> broadcast  \<and>
       (l, b, g, Out a, f, r, l') \<in> trans (N p) \<and>
       (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
-      (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))
-      \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
+      (l \<in> committed (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> committed (N p))
+      \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
       (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
         \<not> (\<exists>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
       L!p = l \<and>
@@ -383,7 +393,7 @@ lemma prod_invD[dest]:
 lemma delay_sound:
   assumes "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>" "L \<in> states" "bounded bounds s"
     shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
-  apply (subst A_split) using assms by cases (auto intro!: step_t)
+  apply (subst A_split) using assms by cases (auto intro!: step_t simp: TAG_def)
 
 lemma action_sound:
   "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
@@ -401,7 +411,7 @@ proof cases
       unfolding trans_int_def
       apply clarsimp
       using prems \<open>L' \<in> _\<close>
-      by (subst A_split) (intro step_int; simp; elim prod_invD; assumption)
+      by (subst A_split) (intro step_int; simp add: TAG_def; elim prod_invD; assumption)
   next
     assume "((L, s), g, a, r, L', s') \<in> trans_bin"
     then show "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
@@ -436,13 +446,13 @@ proof cases
   with \<open>L \<in> states\<close> show ?thesis
     by simp
 next
-  case prems: (step_int l b g a f r l' N' p B broadcast)
+  case prems[unfolded TAG_def]: (step_int l b g a f r l' N' p B broadcast)
   from \<open>A = _\<close> prems(3) have "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     by force
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems: (step_bin broadcast a l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s' B)
+  case prems[unfolded TAG_def]: (step_bin broadcast a l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s' B)
   from \<open>A = _\<close> prems(4, 5) have
     "l1' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
     "l2' \<in> UNION (trans (N q)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
@@ -476,7 +486,7 @@ using that(1) proof cases
   then show ?thesis
     using that(2) by auto
 next
-  case prems: (step_int l b g a' f r l' N' p B broadcast')
+  case prems[unfolded TAG_def]: (step_int l b g a' f r l' N' p B broadcast')
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
@@ -500,7 +510,8 @@ next
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems: (step_bin a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B)
+  case prems[unfolded TAG_def]:
+    (step_bin a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B)
   have [simp]:
     "B = bounds" "broadcast' = broadcast" "length N' = n_ps"
     unfolding bounds_def broadcast_def n_ps_def unfolding prems(1) by simp+
@@ -576,7 +587,7 @@ proof cases
     "N' ! i = N i" for i
     unfolding N_def unfolding prems(1) by simp
   from prems show ?thesis
-  by (intro that[of d]; unfold \<open>u' = _\<close> \<open>L' = L\<close> \<open>s' = s\<close>)
+  by (intro that[of d]; unfold \<open>u' = _\<close> \<open>L' = L\<close> \<open>s' = s\<close> TAG_def)
      (rule step_t.intros; (unfold inv_of_prod; rule prod_invI)?; simp)
 qed
 

@@ -112,8 +112,8 @@ lemma (in Prod_TA_Defs) trans_broad_alt_def:
       a \<in> broadcast  \<and>
       (l, b, g, Out a, f, r, l') \<in> trans (N p) \<and>
       (\<forall>p \<in> set ps. (L ! p, bs p, gs p, In a, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
-      (l \<in> commited (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> commited (N p))
-      \<or> (\<forall>p < n_ps. L ! p \<notin> commited (N p))) \<and>
+      (l \<in> committed (N p) \<or> (\<exists>p \<in> set ps. L ! p \<in> committed (N p))
+      \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
       (\<forall>q < n_ps. q \<notin> set ps \<and> p \<noteq> q \<longrightarrow>
         \<not> (\<exists>b g f r l'. (L!q, b, g, In a, f, r, l') \<in> trans (N q) \<and> check_bexp s b True)) \<and>
       L!p = l \<and>
@@ -160,14 +160,14 @@ theorem map_of_mapk_SomeI:
 
 
 definition
-  "conv_automaton \<equiv> \<lambda>(commited, trans, inv).
-    (commited,
+  "conv_automaton \<equiv> \<lambda>(committed, trans, inv).
+    (committed,
      map (\<lambda>(l, b, g, a, f, r, l'). (l, b, conv_cc g, a, f, r, l')) trans,
      map (\<lambda>(s, cc). (s, conv_cc cc)) inv)"
 
 definition
   "automaton_of \<equiv>
-    \<lambda>(commited, trans, inv). (set commited, set trans, default_map_of [] inv)"
+    \<lambda>(committed, trans, inv). (set committed, set trans, default_map_of [] inv)"
 
 locale Simple_Network_Impl_Defs =
   fixes automata ::
@@ -282,8 +282,8 @@ lemma conv_alt_def:
   unfolding conv_def by simp
 
 private lemma 2:
-  "Simple_Network_Language.conv_A o automaton_of = (\<lambda>(commited, trans, inv).
-    (set commited,
+  "Simple_Network_Language.conv_A o automaton_of = (\<lambda>(committed, trans, inv).
+    (set committed,
      set (map Simple_Network_Language.conv_t trans),
      default_map_of [] (map (\<lambda> (l, g). (l, conv_cc g)) inv)))"
   apply (rule ext)
@@ -341,9 +341,9 @@ lemma conv_states[simp]:
   by (auto simp add: trans_conv_N_eq Simple_Network_Language.conv_t_def) (fastforce, force)
 
 private lemma 9:
-  "commited (conv.N p) = commited (N p)" if \<open>p < n_ps\<close>
+  "committed (conv.N p) = committed (N p)" if \<open>p < n_ps\<close>
   unfolding conv_N_eq[OF that] unfolding Simple_Network_Language.conv_A_def
-  by (simp split: prod.split add: commited_def)
+  by (simp split: prod.split add: committed_def)
 
 private lemma 10:
   "conv.broadcast = set broadcast"

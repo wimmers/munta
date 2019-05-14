@@ -5318,8 +5318,8 @@ fun parse parser s =
 fun default_map_of B_ a xs = map_default a (map_of B_ xs);
 
 fun automaton_of C_ =
-  (fn (commited, (trans, inv)) =>
-    (Set commited, (Set trans, default_map_of C_ [] inv)));
+  (fn (committed, (trans, inv)) =>
+    (Set committed, (Set trans, default_map_of C_ [] inv)));
 
 fun bvali (A1_, A2_) s True = true
   | bvali (A1_, A2_) s (Not e) = not (bvali (A1_, A2_) s e)
@@ -6638,7 +6638,7 @@ fun actions_by_statea num_actions xs =
          list_update acc (fst (snd (snd t))) (t :: nth acc (fst (snd (snd t)))))
     xs (map (fn _ => []) (upt zero_nata num_actions));
 
-fun get_commited broadcast bounds automata l =
+fun get_committed broadcast bounds automata l =
   map_filter
     (fn p =>
       let
@@ -6907,7 +6907,7 @@ fun deadlock_checker broadcast bounds automata m num_states num_actions k l_0
     val broad_trans_impl =
       (fn (l, s) =>
         let
-          val pairs = get_commited broadcast bounds automata l;
+          val pairs = get_committed broadcast bounds automata l;
           val ina =
             map (fn p => trans_in_broad_grouped p (nth l p))
               (upt zero_nata n_ps);
@@ -6945,23 +6945,23 @@ end)
                    (upt zero_nata num_actions)
             else maps (fn a =>
                         let
-                          val ins_commited =
+                          val ins_committed =
                             map_filter
                               (fn (p, _) =>
                                 (if not (null (nth (nth inb p) a)) then SOME p
                                   else NONE))
                               pairs;
-                          val always_commited =
-                            less_nat one_nata (size_list ins_commited);
+                          val always_committed =
+                            less_nat one_nata (size_list ins_committed);
                         in
                           maps (fn p =>
                                  let
                                    val outs = nth (nth outa p) a;
                                  in
                                    (if null outs then []
-                                     else (if not always_commited andalso
-        ((equal_lista equal_nat ins_commited [p] orelse
-           null ins_commited) andalso
+                                     else (if not always_committed andalso
+        ((equal_lista equal_nat ins_committed [p] orelse
+           null ins_committed) andalso
           not (list_ex (fn (q, _) => equal_nata q p) pairs))
     then []
     else let
@@ -6982,7 +6982,7 @@ end)
     val bin_trans_impl =
       (fn (l, s) =>
         let
-          val pairs = get_commited broadcast bounds automata l;
+          val pairs = get_committed broadcast bounds automata l;
           val ina =
             all_actions_by_state broadcast bounds automata num_actions
               trans_in_map l;
@@ -7013,7 +7013,7 @@ end)
     val int_trans_impl =
       (fn (l, s) =>
         let
-          val pairs = get_commited broadcast bounds automata l;
+          val pairs = get_committed broadcast bounds automata l;
         in
           (if null pairs then int_trans_from_all_impl l s
             else int_trans_from_vec_impl pairs l s)
@@ -7437,7 +7437,7 @@ fun reachability_checker broadcast bounds automata m num_states num_actions k
            val broad_trans_impl =
              (fn (l, s) =>
                let
-                 val pairs = get_commited broadcast bounds automata l;
+                 val pairs = get_committed broadcast bounds automata l;
                  val ina =
                    map (fn p => trans_in_broad_grouped p (nth l p))
                      (upt zero_nata n_ps);
@@ -7477,23 +7477,23 @@ val outs = nth (nth outa p) a;
                           (upt zero_nata num_actions)
                    else maps (fn a =>
                                let
-                                 val ins_commited =
+                                 val ins_committed =
                                    map_filter
                                      (fn (p, _) =>
                                        (if not (null (nth (nth inb p) a))
  then SOME p else NONE))
                                      pairs;
-                                 val always_commited =
-                                   less_nat one_nata (size_list ins_commited);
+                                 val always_committed =
+                                   less_nat one_nata (size_list ins_committed);
                                in
                                  maps (fn p =>
 let
   val outs = nth (nth outa p) a;
 in
   (if null outs then []
-    else (if not always_commited andalso
-               ((equal_lista equal_nat ins_commited [p] orelse
-                  null ins_commited) andalso
+    else (if not always_committed andalso
+               ((equal_lista equal_nat ins_committed [p] orelse
+                  null ins_committed) andalso
                  not (list_ex (fn (q, _) => equal_nata q p) pairs))
            then []
            else let
@@ -7514,7 +7514,7 @@ end)
            val bin_trans_impl =
              (fn (l, s) =>
                let
-                 val pairs = get_commited broadcast bounds automata l;
+                 val pairs = get_committed broadcast bounds automata l;
                  val ina =
                    all_actions_by_state broadcast bounds automata num_actions
                      trans_in_map l;
@@ -7547,7 +7547,7 @@ end)
            val int_trans_impl =
              (fn (l, s) =>
                let
-                 val pairs = get_commited broadcast bounds automata l;
+                 val pairs = get_committed broadcast bounds automata l;
                in
                  (if null pairs then int_trans_from_all_impl l s
                    else int_trans_from_vec_impl pairs l s)
@@ -7872,7 +7872,7 @@ end));
                  val broad_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                        val ina =
                          map (fn p => trans_in_broad_grouped p (nth l p))
                            (upt zero_nata n_ps);
@@ -7912,12 +7912,12 @@ end));
                                 (upt zero_nata num_actions)
                          else maps (fn a =>
                                      let
-                                       val ins_commited =
+                                       val ins_committed =
  map_filter
    (fn (p, _) => (if not (null (nth (nth inb p) a)) then SOME p else NONE))
    pairs;
-                                       val always_commited =
- less_nat one_nata (size_list ins_commited);
+                                       val always_committed =
+ less_nat one_nata (size_list ins_committed);
                                      in
                                        maps
  (fn p =>
@@ -7925,9 +7925,9 @@ end));
      val outs = nth (nth outa p) a;
    in
      (if null outs then []
-       else (if not always_commited andalso
-                  ((equal_lista equal_nat ins_commited [p] orelse
-                     null ins_commited) andalso
+       else (if not always_committed andalso
+                  ((equal_lista equal_nat ins_committed [p] orelse
+                     null ins_committed) andalso
                     not (list_ex (fn (q, _) => equal_nata q p) pairs))
               then []
               else let
@@ -7949,7 +7949,7 @@ end));
                  val bin_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                        val ina =
                          all_actions_by_state broadcast bounds automata
                            num_actions trans_in_map l;
@@ -7982,7 +7982,7 @@ end));
                  val int_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                      in
                        (if null pairs then int_trans_from_all_impl l s
                          else int_trans_from_vec_impl pairs l s)
@@ -8280,7 +8280,7 @@ heap_DBMEntry heap_int)
                  val broad_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                        val ina =
                          map (fn p => trans_in_broad_grouped p (nth l p))
                            (upt zero_nata n_ps);
@@ -8320,12 +8320,12 @@ heap_DBMEntry heap_int)
                                 (upt zero_nata num_actions)
                          else maps (fn a =>
                                      let
-                                       val ins_commited =
+                                       val ins_committed =
  map_filter
    (fn (p, _) => (if not (null (nth (nth inb p) a)) then SOME p else NONE))
    pairs;
-                                       val always_commited =
- less_nat one_nata (size_list ins_commited);
+                                       val always_committed =
+ less_nat one_nata (size_list ins_committed);
                                      in
                                        maps
  (fn p =>
@@ -8333,9 +8333,9 @@ heap_DBMEntry heap_int)
      val outs = nth (nth outa p) a;
    in
      (if null outs then []
-       else (if not always_commited andalso
-                  ((equal_lista equal_nat ins_commited [p] orelse
-                     null ins_commited) andalso
+       else (if not always_committed andalso
+                  ((equal_lista equal_nat ins_committed [p] orelse
+                     null ins_committed) andalso
                     not (list_ex (fn (q, _) => equal_nata q p) pairs))
               then []
               else let
@@ -8357,7 +8357,7 @@ heap_DBMEntry heap_int)
                  val bin_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                        val ina =
                          all_actions_by_state broadcast bounds automata
                            num_actions trans_in_map l;
@@ -8390,7 +8390,7 @@ heap_DBMEntry heap_int)
                  val int_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                      in
                        (if null pairs then int_trans_from_all_impl l s
                          else int_trans_from_vec_impl pairs l s)
@@ -8732,7 +8732,7 @@ fun alw_ev_checker broadcast bounds automata m num_states num_actions k l_0 s_0
                  val broad_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                        val ina =
                          map (fn p => trans_in_broad_grouped p (nth l p))
                            (upt zero_nata n_ps);
@@ -8772,12 +8772,12 @@ fun alw_ev_checker broadcast bounds automata m num_states num_actions k l_0 s_0
                                 (upt zero_nata num_actions)
                          else maps (fn a =>
                                      let
-                                       val ins_commited =
+                                       val ins_committed =
  map_filter
    (fn (p, _) => (if not (null (nth (nth inb p) a)) then SOME p else NONE))
    pairs;
-                                       val always_commited =
- less_nat one_nata (size_list ins_commited);
+                                       val always_committed =
+ less_nat one_nata (size_list ins_committed);
                                      in
                                        maps
  (fn p =>
@@ -8785,9 +8785,9 @@ fun alw_ev_checker broadcast bounds automata m num_states num_actions k l_0 s_0
      val outs = nth (nth outa p) a;
    in
      (if null outs then []
-       else (if not always_commited andalso
-                  ((equal_lista equal_nat ins_commited [p] orelse
-                     null ins_commited) andalso
+       else (if not always_committed andalso
+                  ((equal_lista equal_nat ins_committed [p] orelse
+                     null ins_committed) andalso
                     not (list_ex (fn (q, _) => equal_nata q p) pairs))
               then []
               else let
@@ -8809,7 +8809,7 @@ fun alw_ev_checker broadcast bounds automata m num_states num_actions k l_0 s_0
                  val bin_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                        val ina =
                          all_actions_by_state broadcast bounds automata
                            num_actions trans_in_map l;
@@ -8842,7 +8842,7 @@ fun alw_ev_checker broadcast bounds automata m num_states num_actions k l_0 s_0
                  val int_trans_impl =
                    (fn (l, s) =>
                      let
-                       val pairs = get_commited broadcast bounds automata l;
+                       val pairs = get_committed broadcast bounds automata l;
                      in
                        (if null pairs then int_trans_from_all_impl l s
                          else int_trans_from_vec_impl pairs l s)
@@ -9596,9 +9596,9 @@ fun renum_upd A_ renum_vars =
 fun renum_act A_ renum_acts = map_act renum_acts;
 
 fun renum_automaton A_ B_ C_ D_ renum_acts renum_vars renum_clocks renum_states
-  i = (fn (commited, (trans, inv)) =>
+  i = (fn (committed, (trans, inv)) =>
         let
-          val commiteda = map (renum_states i) commited;
+          val committeda = map (renum_states i) committed;
           val transa =
             map (fn (l, a) =>
                   let
@@ -9620,7 +9620,7 @@ fun renum_automaton A_ B_ C_ D_ renum_acts renum_vars renum_clocks renum_states
                   (renum_states i l, renum_cconstraint C_ renum_clocks g))
               inv;
         in
-          (commiteda, (transa, inva))
+          (committeda, (transa, inva))
         end);
 
 fun rename_network A_ B_ E_ G_ broadcast bounds automata renum_acts renum_vars

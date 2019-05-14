@@ -586,7 +586,7 @@ lemmas [code] =
   Simple_Network_Impl_nat_defs.compute_upds_impl_def
   Simple_Network_Impl_nat_defs.actions_by_state_def
   Simple_Network_Impl_nat_defs.check_boundedi_def
-  Simple_Network_Impl_nat_defs.get_commited_def
+  Simple_Network_Impl_nat_defs.get_committed_def
   Simple_Network_Impl_nat_defs.make_combs_def
   Simple_Network_Impl_nat_defs.trans_map_def
   Simple_Network_Impl_nat_defs.actions_by_state'_def

@@ -23,9 +23,9 @@ lemma TAG_mp':
   shows y
   using assms unfolding TAG_def by blast
 
-method tag uses keep = (tags del: TAG keep: keep, simp only: TAG_def)
+method tag uses keep = (determ \<open>tags del: TAG keep: keep\<close>, (simp only: TAG_def)?)
 
-method auto_tag = match conclusion in "TAG t _" for t \<Rightarrow> \<open>tag keep: TAG[of t]\<close>
+method auto_tag uses keep = match conclusion in "TAG t _" (cut) for t \<Rightarrow> \<open>tag keep: TAG[of t] keep\<close>
 
 
 (* XXX All this stuff is duplicated *)
@@ -148,14 +148,14 @@ definition
   "renum_reset = map renum_clocks"
 
 definition renum_automaton where
-  "renum_automaton i \<equiv> \<lambda>(commited, trans, inv). let
-    commited' = map (renum_states i) commited;
+  "renum_automaton i \<equiv> \<lambda>(committed, trans, inv). let
+    committed' = map (renum_states i) committed;
     trans' = map (\<lambda>(l, b, g, a, upd, r, l').
       (renum_states i l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upd upd,
        renum_reset r,  renum_states i l')
     ) trans;
     inv' = map (\<lambda>(l, g). (renum_states i l, renum_cconstraint g)) inv
-  in (commited', trans', inv')
+  in (committed', trans', inv')
 "
 
 definition
@@ -678,10 +678,10 @@ proof -
     by (fastforce dest!: trans_sem_N_renumI)
 qed
 
-lemma commited_renum_eq:
-  "commited (renum.N p) = renum_states p ` commited (N p)" if "p < n_ps"
+lemma committed_renum_eq:
+  "committed (renum.N p) = renum_states p ` committed (N p)" if "p < n_ps"
   unfolding
-    commited_def N_eq[OF \<open>p < n_ps\<close>] renum.N_eq[unfolded renum_n_ps_simp, OF \<open>p < n_ps\<close>]
+    committed_def N_eq[OF \<open>p < n_ps\<close>] renum.N_eq[unfolded renum_n_ps_simp, OF \<open>p < n_ps\<close>]
   apply (subst nth_map_index)
   subgoal
     using \<open>p < n_ps\<close> by (simp add: n_ps_def)
@@ -840,13 +840,12 @@ lemma step_single_renumD:
     apply (erule step_u_elims')
     apply simp
     apply (rule step_u.intros)
-
     subgoal
-      by (auto 4 3 simp: dest: inv_renum_sem_I[OF _ _ sem_states_loc_setD])
+      by auto_tag (auto 4 3 simp: dest: inv_renum_sem_I[OF _ _ sem_states_loc_setD])
     subgoal
       by assumption
     subgoal
-      by (rule bounded_renumI')
+      by auto_tag (rule bounded_renumI')
     done
 
 (* Internal *)
@@ -856,30 +855,29 @@ lemma step_single_renumD:
     apply (subst renum.A_split)
     apply (simp only: renum_label_def label.map renum_n_ps_simp)
     apply (erule step_u_elims')
+    unfolding TAG_def[of "''range''"]
     apply simp
     apply (rule step_u.intros)
-
-              apply (drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+              apply (auto_tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
     subgoal
-      by (auto simp: commited_renum_eq dest!: inj_renum_states[THEN injD, rotated])
+      by auto_tag (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated])
     subgoal
-      by (erule check_bexp_renumD)
+      by auto_tag (erule check_bexp_renumD)
     subgoal
-      by (rule map_u_renum_cconstraint_clock_valI)
+      by auto_tag (rule map_u_renum_cconstraint_clock_valI)
     subgoal
+      apply (auto_tag keep: TAG[of "''new loc''"] TAG[of "TRANS ''silent''"])
       apply clarsimp
       apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ state_preservation_updI]])
           apply fastforce+
       done
-         apply (simp; fail)
-        apply (simp; fail)
-       apply (rule map_index_update; fail)
-      apply (simp add: renum_reset_map_u; fail)
+         apply (auto_tag, simp; fail)
+        apply (auto_tag, simp; fail)
+       apply (auto_tag, rule map_index_update; fail)
+      apply (auto_tag, simp add: renum_reset_map_u; fail)
     subgoal
-      by (erule is_upd_renumD)
-    subgoal
-      apply (erule bounded_renumI'; fail)
-      done
+      by (auto_tag, erule is_upd_renumD)
+    apply (auto_tag, erule bounded_renumI'; fail)
     done
 
 (* Binary *)
@@ -889,38 +887,41 @@ lemma step_single_renumD:
     apply (subst renum.A_split)
     apply (simp only: renum_label_def label.map renum_n_ps_simp)
     apply (erule step_u_elims')
+    unfolding TAG_def[of "RECV ''range''"] TAG_def[of "SEND ''range''"]
     apply simp
     apply (rule step_u.intros)
     subgoal
+      apply auto_tag
       unfolding renum.broadcast_def
       apply (clarsimp simp: set_map)
       apply (drule injD[OF inj_renum_acts])
       apply (subst (asm) broadcast_def, simp)
       done
 
-                     apply (drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
-                    apply (drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+                     apply (auto_tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+                    apply (auto_tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+    subgoal
+      by auto_tag (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated])
 
     subgoal
-      by (auto simp: commited_renum_eq dest!: inj_renum_states[THEN injD, rotated])
+      by auto_tag (erule check_bexp_renumD)
 
     subgoal
-      by (erule check_bexp_renumD)
+      by auto_tag (erule check_bexp_renumD)
 
     subgoal
-      by (erule check_bexp_renumD)
+      by auto_tag (rule map_u_renum_cconstraint_clock_valI)
 
     subgoal
-      by (rule map_u_renum_cconstraint_clock_valI)
+      by auto_tag (rule map_u_renum_cconstraint_clock_valI)
 
     subgoal
-      by (rule map_u_renum_cconstraint_clock_valI)
-
-    subgoal
+      apply (auto_tag keep: TAG[of "''new loc''"] TAG[of "TRANS _"])
       apply clarsimp
       apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ state_preservation_updI]])
           apply (fastforce intro!: state_preservation_updI)+
       done
+             apply (all \<open>auto_tag\<close>)
              apply (simp; fail)+
         apply (simp add: map_index_update; fail)
        apply (simp add: renum_reset_map_u[symmetric] renum_reset_def; fail)
@@ -947,23 +948,23 @@ lemma step_single_renumD:
       apply (tag keep: TAG[of "''broadcast''"])
       unfolding renum.broadcast_def by (subst (asm) broadcast_def, simp add: set_map)
 
-                       apply (tag, simp, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+                       apply (auto_tag, simp, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
 
                       apply (tag keep: TAG[of "TRANS ''in''"] TAG[of "SEL _"])
                       apply (auto dest!: trans_N_renumD simp add: renum_act_def atLeastLessThan_upperD; fail)
 
-(* Condition for commited locations *)
+(* Condition for committed locations *)
     subgoal
       apply (tag keep: TAG[of "SEL _"] TAG[of "''committed''"])
-      apply (simp add: commited_renum_eq)
+      apply (simp add: committed_renum_eq)
       apply (erule disj_mono[rule_format, rotated 2], (simp; fail))
       apply (erule disj_mono[rule_format, rotated 2])
       subgoal
         apply clarify
         apply (rule rev_bexI, assumption)
-        apply (auto simp: commited_renum_eq)
+        apply (auto simp: committed_renum_eq)
         done
-      apply (auto simp: commited_renum_eq dest!: inj_renum_states[THEN injD, rotated]; fail)
+      apply (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated]; fail)
       done
 
                     apply (tag keep: TAG[of "''bexp''"], erule check_bexp_renumD; fail)
@@ -1014,8 +1015,8 @@ lemma step_single_renumD:
              apply (tag, simp add: TAG_def; fail)
             apply (tag keep: TAG[of "SEL _"], simp add: TAG_def; fail)
            apply (tag keep: TAG[of "SEL _"], simp add: TAG_def; fail)
-          apply (tag; fail)
-         apply (tag; fail)
+          apply (auto_tag; fail)
+         apply (auto_tag; fail)
 
         apply (tag keep: TAG[of "''new loc''"])
         apply (simp add: map_trans_broad_aux1[symmetric] map_index_update; fail)
@@ -1321,15 +1322,17 @@ lemma step_single_renumI:
     apply (erule step_u_elims')
     apply intros
         apply (rule step_u.intros)
-          apply simp
-          apply prop_monos+
-          apply solve_triv+
+    apply (auto_tag keep: TAG[of "''nonnegative''"], simp, prop_monos+, solve_triv+)
+    apply auto_tag
+        apply (auto_tag?, solve_triv)+
     done
 
 (* Internal *)
   subgoal for a'
     apply (simp only:)
     apply (erule step_u_elims')
+    unfolding TAG_def
+    apply (drule sym[of "map_index renum_states L ! _"])
     apply simp
     apply (drule (1) trans_sem_N_renumI')
     apply elims
@@ -1337,10 +1340,10 @@ lemma step_single_renumI:
     apply (rule SilD, assumption)
 
     apply intros
-        apply (rule step_u.intros(2))
+        apply (rule step_u.intros(2), unfold TAG_def)
                   apply solve_triv
 
-                 apply (prop_monos; auto simp: commited_renum_eq dest: injD[OF inj_renum_states]; fail)
+                 apply (prop_monos; auto simp: committed_renum_eq dest: injD[OF inj_renum_states]; fail)
 
                 apply solve_triv
                apply solve_triv
@@ -1379,6 +1382,8 @@ lemma step_single_renumI:
   subgoal for a'
     apply (simp only:)
     apply (erule step_u_elims')
+    unfolding TAG_def
+    apply (drule sym[of "map_index renum_states L ! _"])+
     apply simp
     apply (drule (1) trans_sem_N_renumI')
     apply (drule (1) trans_sem_N_renumI')
@@ -1386,7 +1391,7 @@ lemma step_single_renumI:
     apply (rule In_OutD, assumption, assumption)
 
     apply intros
-        apply (rule step_u.intros(3))
+        apply (rule step_u.intros(3), unfold TAG_def)
 
                         prefer 2
                         apply solve_triv
@@ -1396,7 +1401,7 @@ lemma step_single_renumI:
                         apply solve_triv
 
     subgoal
-      by (auto simp: commited_renum_eq inj_eq_iff[OF inj_renum_states])
+      by (auto simp: committed_renum_eq inj_eq_iff[OF inj_renum_states])
 
                       apply solve_triv+
 
@@ -1408,7 +1413,7 @@ lemma step_single_renumI:
 (* Resulting state is bounded *)
         apply (erule bounded_renumD1)
     subgoal premises prems
-      using prems(2,13-)
+      using prems(2,11-)
       apply -
       apply (drule is_upd_dom)
       subgoal
@@ -1460,16 +1465,16 @@ lemma step_single_renumI:
                             apply (auto_tag, prop_monos)
 
         subgoal
-          by (auto simp: commited_renum_eq inj_eq_iff[OF inj_renum_states])
+          by (auto simp: committed_renum_eq inj_eq_iff[OF inj_renum_states])
 
                             apply prop_monos
 
         subgoal
-          by (clarsimp simp: commited_renum_eq inj_eq_iff[OF inj_renum_states] atLeastLessThan_upperD, fast)
+          by (clarsimp simp: committed_renum_eq inj_eq_iff[OF inj_renum_states] atLeastLessThan_upperD, fast)
 
         subgoal premises prems
           using prems(38-) (* last premise only *)
-          by (auto simp: inj_eq_iff[OF inj_renum_states] commited_renum_eq)
+          by (auto simp: inj_eq_iff[OF inj_renum_states] committed_renum_eq)
 
                             apply (auto_tag, solve_triv)
 
@@ -1497,13 +1502,7 @@ lemma step_single_renumI:
         apply (simp add: atLeastLessThan_upperD)
         apply (erule (2) inv_sem_N_renum_broadcastI, blast, fast, solve_triv; fail)
 
-        apply (auto_tag, solve_triv?)+
-        apply (tag; fail)
-        apply (tag; fail)
-        apply (tag; fail)
-        apply (tag; fail)
-        apply (auto_tag, solve_triv)
-        apply (auto_tag, solve_triv)
+        apply (auto_tag, solve_triv?; fail)+
 
         subgoal
           apply (tag keep: TAG[of "''bounded''"] TAG[of "''upd''"] TAG[of "''upds''"])
@@ -1525,11 +1524,12 @@ lemma step_single_renumI:
           apply (simp, drule dom_comp_vars_inv_eqD, simp)
           done
 
-        apply (tag, solve_triv)
+        apply solve_triv
 
         apply (tag keep: TAG[of "''new loc''"], simp add: map_trans_broad_aux1 map_index_update cong: fold_cong; fail)
 
-        apply (tag, auto simp: vars_inv_def bij_f_the_inv_f[OF bij_renum_vars]; fail)
+        apply (determ \<open>tags del: TAG\<close>, unfold TAG_def)
+        apply (auto simp: vars_inv_def bij_f_the_inv_f[OF bij_renum_vars]; fail)
 
         apply (tag keep: TAG[of "''new valuation''"], simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def cong: map_cong; fail)
         done
@@ -2100,15 +2100,15 @@ definition
   "renum_reset' = map renum_clocks"
 
 definition renum_automaton' where
-  "renum_automaton' i \<equiv> \<lambda>(commited, trans, inv). let
-    commited' = map (renum_states i) commited;
+  "renum_automaton' i \<equiv> \<lambda>(committed, trans, inv). let
+    committed' = map (renum_states i) committed;
     trans' = map (\<lambda>(l, g, a, upd, r, l').
       (renum_states i l,
       map_cconstraint renum_clocks id g, renum_act a, renum_upd' upd, map renum_clocks r, 
       renum_states i l')
     ) trans;
     inv' = map (\<lambda>(l, g). (renum_states i l, map_cconstraint renum_clocks id g)) inv
-  in (commited', trans', inv')
+  in (committed', trans', inv')
 "
 
 lemmas renum_automaton'_alt_def = renum_automaton'_def[unfolded
@@ -2143,7 +2143,7 @@ proof -
     unfolding rename.renum_automaton_def renum_automaton_def
     apply (clarsimp split: prod.split)
     apply safe
-    subgoal commited
+    subgoal committed
       using loc_set_broadcast
       by (subst renum_states_extend; (simp add: n_ps_def)?) (fastforce dest: nth_mem)
     subgoal start_locs
