@@ -1,7 +1,7 @@
-all: munta
+all: muntax
 
 munta: munta.mlb UPPAAL_Model_Checker_patched.sml
-	mlton munta.mlb
+	mlton -output muntab munta.mlb
 	chmod +x munta
 
 munta_int: munta_int.mlb Checker_int.sml UPPAAL_Model_Checker_int.sml
@@ -28,4 +28,4 @@ munta_int.mlb: munta.mlb
 	patch -i munta_int.patch -o munta_int.mlb
 
 muntax: muntax.mlb Muntax.sml Simple_Model_Checker.sml
-	mlton muntax.mlb
+	mlton -output munta muntax.mlb

@@ -89,7 +89,7 @@ type_synonym
 
 type_synonym
   ('a, 's, 'c, 't, 'x, 'v) sta =
-  "'s set \<times> ('a, 's, 'c, 't, 'x, 'v) transition set \<times> ('c, 't, 's) invassn"
+  "'s set \<times> 's set \<times> ('a, 's, 'c, 't, 'x, 'v) transition set \<times> ('c, 't, 's) invassn"
 
 type_synonym
   ('a, 's, 'c, 't, 'x, 'v) nta = "'a set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
@@ -98,7 +98,7 @@ context begin
 
 qualified definition conv_t where "conv_t \<equiv> \<lambda> (l,b,g,a,f,r,l'). (l,b,conv_cc g,a,f,r,l')"
 
-qualified definition conv_A where "conv_A \<equiv> \<lambda> (C, T, I). (C, conv_t ` T, conv_cc o I)"
+qualified definition conv_A where "conv_A \<equiv> \<lambda> (C, U, T, I). (C, U, conv_t ` T, conv_cc o I)"
 
 definition conv where
   "conv \<equiv> \<lambda>(broadcast, automata, bounds). (broadcast, map conv_A automata, bounds)"
@@ -122,12 +122,15 @@ inductive is_upds where
 definition committed :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
   "committed A \<equiv> fst A"
 
+definition urgent :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
+  "urgent A \<equiv> fst (snd A)"
+
 definition trans :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('a, 's, 'c, 't, 'x, 'v) transition set"
   where
-  "trans A \<equiv> fst (snd A)"
+  "trans A \<equiv> fst (snd (snd A))"
 
 definition inv :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('c, 't, 's) invassn" where
-  "inv A \<equiv> snd (snd A)"
+  "inv A \<equiv> snd (snd (snd A))"
 
 no_notation step_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 no_notation steps_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61, 61, 61,61,61] 61)
@@ -141,6 +144,7 @@ where
     "\<lbrakk>
       ''target invariant'' \<bar> \<forall>p < length N. u \<oplus> d \<turnstile> inv (N ! p) (L ! p);
       ''nonnegative''      \<bar> d \<ge> 0;
+      ''urgent''           \<bar> (\<exists>p < length N. L ! p \<in> urgent (N ! p)) \<longrightarrow> d = 0;
       ''bounded''          \<bar> bounded B s
      \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L, s, u \<oplus> d\<rangle>" |
@@ -392,8 +396,14 @@ lemma prod_invD[dest]:
 
 lemma delay_sound:
   assumes "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsup>d\<^esup> \<langle>(L', s'), u'\<rangle>" "L \<in> states" "bounded bounds s"
-    shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
-  apply (subst A_split) using assms by cases (auto intro!: step_t simp: TAG_def)
+          "\<forall>N \<in> set (fst (snd A)). urgent N = {}"
+        shows "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L', s', u'\<rangle>"
+proof -
+  from assms(4) have "l \<notin> urgent (N p)" if "p < n_ps" for p l
+    using that unfolding N_def n_ps_def by auto
+  then show ?thesis
+    by (subst A_split) (use assms in \<open>cases, auto intro!: step_t simp: TAG_def\<close>)
+qed
 
 lemma action_sound:
   "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" if "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>(L', s'), u'\<rangle>"
@@ -593,9 +603,9 @@ qed
 
 lemma step_iff:
   "(\<exists> a. A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>) \<longleftrightarrow> prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
-  if "bounded bounds s" "L \<in> states"
-  using that
-  apply (auto intro: action_sound delay_sound)
+  if "bounded bounds s" "L \<in> states" "\<forall>N \<in> set (fst (snd A)). urgent N = {}"
+  using that(1,2)
+  apply (auto intro: action_sound delay_sound[OF _ _ _ that(3)])
   subgoal for a
     by (cases a; blast dest: action_complete elim: delay_complete)
   done

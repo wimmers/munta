@@ -160,18 +160,19 @@ theorem map_of_mapk_SomeI:
 
 
 definition
-  "conv_automaton \<equiv> \<lambda>(committed, trans, inv).
+  "conv_automaton \<equiv> \<lambda>(committed, urgent, trans, inv).
     (committed,
+     urgent,
      map (\<lambda>(l, b, g, a, f, r, l'). (l, b, conv_cc g, a, f, r, l')) trans,
      map (\<lambda>(s, cc). (s, conv_cc cc)) inv)"
 
 definition
   "automaton_of \<equiv>
-    \<lambda>(committed, trans, inv). (set committed, set trans, default_map_of [] inv)"
+    \<lambda>(committed, urgent, trans, inv). (set committed, set urgent, set trans, default_map_of [] inv)"
 
 locale Simple_Network_Impl_Defs =
   fixes automata ::
-    "('s list \<times> ('a act, 's, 'c, 't, 'x, int) transition list
+    "('s list \<times> 's list \<times> ('a act, 's, 'c, 't, 'x, int) transition list
       \<times> ('s \<times> ('c, 't) cconstraint) list) list"
     and broadcast :: "'a list"
     and bounds' :: "('x \<times> (int \<times> int)) list"
@@ -204,7 +205,7 @@ locale Simple_Network_Impl =
 
 locale Simple_Network_Impl =
   fixes automata ::
-    "('s list \<times> ('a act, 's, 'c, int, 'x, int) transition list
+    "('s list \<times> 's list \<times> ('a act, 's, 'c, int, 'x, int) transition list
       \<times> ('s \<times> ('c, int) cconstraint) list) list"
     and broadcast :: "'a list"
     and bounds' :: "('x \<times> (int \<times> int)) list"
@@ -282,8 +283,9 @@ lemma conv_alt_def:
   unfolding conv_def by simp
 
 private lemma 2:
-  "Simple_Network_Language.conv_A o automaton_of = (\<lambda>(committed, trans, inv).
+  "Simple_Network_Language.conv_A o automaton_of = (\<lambda>(committed, urgent, trans, inv).
     (set committed,
+     set urgent,
      set (map Simple_Network_Language.conv_t trans),
      default_map_of [] (map (\<lambda> (l, g). (l, conv_cc g)) inv)))"
   apply (rule ext)
@@ -483,13 +485,13 @@ end (* Anonymous context for private lemmas *)
 paragraph \<open>Fundamentals\<close>
 
 definition "clkp_set' \<equiv>
-    (\<Union> A \<in> set automata. UNION (set (snd (snd A))) (collect_clock_pairs o snd))
-  \<union> (\<Union> A \<in> set automata. \<Union> (l, b, g, _) \<in> set (fst (snd A)). collect_clock_pairs g)"
+    (\<Union> A \<in> set automata. UNION (set (snd (snd (snd A)))) (collect_clock_pairs o snd))
+  \<union> (\<Union> A \<in> set automata. \<Union> (l, b, g, _) \<in> set (fst (snd (snd A))). collect_clock_pairs g)"
 
 definition clk_set'  where
   \<open>clk_set'  =
   fst ` clkp_set' \<union>
-  (\<Union> A \<in> set automata. \<Union> (_, _, _, _, _, r, _) \<in> set (fst (snd A)). set r)\<close>
+  (\<Union> A \<in> set automata. \<Union> (_, _, _, _, _, r, _) \<in> set (fst (snd (snd A))). set r)\<close>
 
 lemma collect_clock_pairs_invsI:
   "(a, b) \<in> \<Union> ((collect_clock_pairs o snd) ` set invs)"
@@ -517,7 +519,8 @@ proof -
 qed
 
 lemma mem_trans_N_iff:
-  "t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (automata ! i)))" if "i < n_ps"
+  "t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (snd (automata ! i))))"
+  if "i < n_ps"
   unfolding N_eq[OF that] by (auto split: prod.splits simp: automaton_of_def trans_def)
 
 lemma length_automata_eq_n_ps:
@@ -565,7 +568,7 @@ lemma clkp_set'_subs:
 
 lemma collect_clkvt_subs:
   "collect_clkvt (trans_of prod_ta) \<subseteq>
-    (\<Union> A \<in> set automata. \<Union> (_, _, _, _, _, r, _) \<in> set (fst (snd A)). set r)"
+    (\<Union> A \<in> set automata. \<Union> (_, _, _, _, _, r, _) \<in> set (fst (snd (snd A))). set r)"
   apply simp
   unfolding collect_clkvt_def
   apply auto
@@ -848,7 +851,7 @@ definition (in Prod_TA_Defs)
 locale Simple_Network_Impl_nat_defs =
   Simple_Network_Impl automata
   for automata ::
-    "(nat list \<times> (nat act, nat, nat, int, nat, int) transition list
+    "(nat list \<times> nat list \<times> (nat act, nat, nat, int, nat, int) transition list
       \<times> (nat \<times> (nat, int) cconstraint) list) list" +
   fixes m :: nat and num_states :: "nat \<Rightarrow> nat" and num_actions :: nat
 
@@ -858,31 +861,31 @@ locale Simple_Network_Impl_nat =
   assumes non_empty: "0 < length automata"
     (* assumes "length automata = length state_nums" *)
   assumes trans_num_states:
-    "\<forall>i < n_ps. let (_, trans, _) = (automata ! i) in \<forall> (l, _, _, _, _, _, l') \<in> set trans.
+    "\<forall>i < n_ps. let (_, _, trans, _) = (automata ! i) in \<forall> (l, _, _, _, _, _, l') \<in> set trans.
       l < num_states i \<and> l' < num_states i"
     and inv_num_states:
-    "\<forall>i < n_ps. let (_, _, inv) = (automata ! i) in \<forall> (x, _) \<in> set inv. x < num_states i"
+    "\<forall>i < n_ps. let (_, _, _, inv) = (automata ! i) in \<forall> (x, _) \<in> set inv. x < num_states i"
   assumes var_set:
-    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, _, f, _, _) \<in> set trans.
+    "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, _, _, f, _, _) \<in> set trans.
       \<forall>(x, upd) \<in> set f. x < n_vs \<and> (\<forall>i \<in> vars_of_exp upd. i < n_vs)"
-    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, b, _, _, _, _, _) \<in> set trans.
+    "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, b, _, _, _, _, _) \<in> set trans.
       \<forall>i \<in> vars_of_bexp b. i < n_vs"
   assumes bounds:
     "\<forall> i < n_vs. fst (bounds' ! i) = i"
   assumes action_set:
     "\<forall>a \<in> set broadcast. a < num_actions"
-    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, _, a, _, _, _) \<in> set trans.
+    "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, _, a, _, _, _) \<in> set trans.
         pred_act (\<lambda>a. a < num_actions) a"
   assumes clock_set:
-    "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, _, _, r, _) \<in> set trans.
+    "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, g, _, _, r, _) \<in> set trans.
       (\<forall>c \<in> set r. 0 < c \<and> c \<le> m) \<and>
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c \<le> m \<and> x \<in> \<nat>)
       "
-    "\<forall>(_, _, inv) \<in> set automata. \<forall>(l, g) \<in> set inv.
+    "\<forall>(_, _, _, inv) \<in> set automata. \<forall>(l, g) \<in> set inv.
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c \<le> m \<and> x \<in> \<nat>)
       "
   assumes broadcast_receivers:
-  "\<forall>(_, trans, _) \<in> set automata. \<forall>(_, _, g, a, _, _, _) \<in> set trans.
+  "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, g, a, _, _, _) \<in> set trans.
       case a of In a \<Rightarrow> a \<in> set broadcast \<longrightarrow> g = [] | _ \<Rightarrow> True"
 begin
 

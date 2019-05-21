@@ -11,6 +11,7 @@ local
     end
 in
     structure Tracing
+    structure Logging
     structure Model_Checker
 end
 

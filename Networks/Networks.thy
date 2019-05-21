@@ -90,6 +90,16 @@ lemma concat_guard:
   shows "u \<turnstile> g"
 using assms by (auto simp: list_all_iff clock_val_def)
 
+lemma guard_consE:
+  assumes "u \<turnstile> ac # cc"
+  obtains "u \<turnstile>\<^sub>a ac" "u \<turnstile> cc"
+  using assms unfolding clock_val_def by auto
+
+lemma guard_consI:
+  assumes "u \<turnstile>\<^sub>a ac" "u \<turnstile> cc"
+  shows "u \<turnstile> ac # cc"
+  using assms unfolding clock_val_def by auto
+
 lemma collect_clock_pairs_append_cases:
   assumes "x \<in> collect_clock_pairs (g1 @ g2)"
   shows "x \<in> collect_clock_pairs g1 \<or> x \<in> collect_clock_pairs g2"

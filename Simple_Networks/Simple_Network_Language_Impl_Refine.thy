@@ -165,7 +165,7 @@ context Simple_Network_Impl_nat_defs
 begin
 
 definition
-  "states_i i = (\<Union>(l, e, g, a, r, u, l')\<in>set (fst (snd (automata ! i))). {l, l'})"
+  "states_i i = (\<Union>(l, e, g, a, r, u, l')\<in>set (fst (snd (snd (automata ! i)))). {l, l'})"
 
 lemma states_mem_compute[code]:
   "L \<in> states \<longleftrightarrow> length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i i)"
@@ -184,7 +184,8 @@ begin
 paragraph \<open>Fundamentals\<close>
 
 lemma mem_trans_N_iff:
-  \<open>t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (automata ! i)))\<close> if "i < n_ps"
+  \<open>t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (snd (automata ! i))))\<close>
+  if "i < n_ps"
   unfolding N_def fst_conv snd_conv
   unfolding automaton_of_def
   unfolding trans_def
@@ -227,17 +228,17 @@ lemma states'_bounded[intro, dest]:
 paragraph \<open>Implementation of invariants\<close>
 
 definition (in Simple_Network_Impl_nat_defs)
-  "invs i \<equiv> let m = default_map_of [] (snd (snd (automata ! i)));
+  "invs i \<equiv> let m = default_map_of [] (snd (snd (snd (automata ! i))));
     m' = map (\<lambda> j. m j) [0..<num_states i]
   in m'"
 
 definition (in Simple_Network_Impl_nat_defs)
-  "invs1 \<equiv> map (\<lambda> i. let m = default_map_of [] (snd (snd (automata ! i)));
+  "invs1 \<equiv> map (\<lambda> i. let m = default_map_of [] (snd (snd (snd (automata ! i))));
     m' = map (\<lambda> j. m j) [0..<num_states i]
   in m') [0..<n_ps]"
 
 definition (in Simple_Network_Impl_nat_defs)
-  "invs2 \<equiv> IArray (map (\<lambda> i. let m = default_map_of [] (snd (snd (automata ! i)));
+  "invs2 \<equiv> IArray (map (\<lambda> i. let m = default_map_of [] (snd (snd (snd (automata ! i))));
     m' = IArray (map (\<lambda> j. m j) [0..<num_states i])
   in m') [0..<n_ps])"
 
@@ -305,7 +306,7 @@ definition
 text \<open>Given a process and a location, return the corresponding transitions.\<close>
 definition
   "trans_map i \<equiv>
-    let m = union_map_of (fst (snd (automata ! i))) in (\<lambda>j.
+    let m = union_map_of (fst (snd (snd (automata ! i)))) in (\<lambda>j.
       case m j of None \<Rightarrow> [] | Some xs \<Rightarrow> xs)"
 
 text \<open>Filter for internal transitions.\<close>

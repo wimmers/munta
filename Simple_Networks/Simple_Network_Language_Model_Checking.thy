@@ -70,10 +70,16 @@ lemma prod_action_step_not_eq_delay:
   unfolding prod_ta_def trans_prod_def
   by (auto simp: trans_int_def trans_bin_def trans_broad_def)
 
+end
+
+locale Prod_TA_urge =
+  Prod_TA + assumes urgency_removed: "\<forall>N \<in> set (fst (snd A)). urgent N = {}"
+begin
+
 lemma prod_all_prop_inv:
   "all_prop L' s'" if "all_prop L s" "prod_ta \<turnstile> \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
   using that unfolding all_prop_def
-  by (auto elim: bounded_inv states_inv simp: step_iff[symmetric])
+  by (auto elim: bounded_inv states_inv simp: step_iff[symmetric, OF _ _ urgency_removed])
 
 lemma prod_all_prop_inv':
   "all_prop L' s'" if "all_prop L s" "prod_ta \<turnstile>' \<langle>(L, s), u\<rangle> \<rightarrow> \<langle>(L', s'), u'\<rangle>"
@@ -89,7 +95,8 @@ interpretation prod_bisim:
   apply (rule Bisimulation_Invariant_strong_intro; clarsimp)
   subgoal
     by (auto intro: step_u'.intros simp: all_prop_def
-             dest: action_sound prod_action_step_not_eq_delay delay_sound elim!: step'_elims)
+             dest: action_sound prod_action_step_not_eq_delay delay_sound[OF _ _ _ urgency_removed]
+             elim!: step'_elims)
   subgoal
     by (auto 4 4 dest: prod_all_prop_inv action_complete elim: delay_complete elim!: step_u'_elims)
   subgoal
@@ -228,13 +235,16 @@ fun hd_of_formulai :: "(nat, 's, nat, int) formula \<Rightarrow> 's list \<Right
 
 section \<open>Instantiating the Model Checking Locale\<close>
 
+locale Simple_Network_Impl_nat_urge =
+  Simple_Network_Impl_nat + assumes no_urgency: "\<forall> (_, U, _, _) \<in> set automata. U = []"
+
 text \<open>
   This locale certifies that a given local clock ceiling is correct.
   Moreover, we certify that the vector of initial locations has outgoing transitions for
   each automaton, and that all variables of the initial state are in bounds.
 \<close>
 locale Simple_Network_Impl_nat_ceiling_start_state =
-  Simple_Network_Impl_nat +
+  Simple_Network_Impl_nat_urge +
   fixes k :: "nat list list list"
     and L\<^sub>0 :: "nat list"
     and s\<^sub>0 :: "(nat \<times> int) list"
@@ -242,12 +252,12 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
     and show_clock :: "nat \<Rightarrow> string"
     and show_state :: "nat list \<times> int list \<Rightarrow> string"
   assumes k_ceiling:
-    "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd) (automata ! i)).
+    "\<forall>i < n_ps. \<forall>(l, g) \<in> set ((snd o snd o snd) (automata ! i)).
       \<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x)"
-    "\<forall>i < n_ps. \<forall>(l, _, g, _) \<in> set ((fst o snd) (automata ! i)).
+    "\<forall>i < n_ps. \<forall>(l, _, g, _) \<in> set ((fst o snd o snd) (automata ! i)).
       (\<forall>(x, m) \<in> collect_clock_pairs g. m \<le> int (k ! i ! l ! x))"
   and k_resets:
-    "\<forall>i < n_ps. \<forall> (l, b, g, a, upd, r, l') \<in> set ((fst o snd) (automata ! i)).
+    "\<forall>i < n_ps. \<forall> (l, b, g, a, upd, r, l') \<in> set ((fst o snd o snd) (automata ! i)).
        \<forall>c \<in> {0..<m+1} - set r. k ! i ! l' ! c \<le> k ! i ! l ! c"
   and k_length:
     "length k = n_ps" "\<forall> i < n_ps. length (k ! i) = num_states i"
@@ -255,10 +265,10 @@ locale Simple_Network_Impl_nat_ceiling_start_state =
   and k_0:
     "\<forall>i < n_ps. \<forall>l < num_states i. k ! i ! l ! 0 = 0"
   and inv_unambiguous:
-    "\<forall>(_, _, inv) \<in> set automata. distinct (map fst inv)"
+    "\<forall>(_, _, _, inv) \<in> set automata. distinct (map fst inv)"
   and s\<^sub>0_bounded: "bounded bounds (map_of s\<^sub>0)"
   and L\<^sub>0_len: "length L\<^sub>0 = n_ps"
-  and L\<^sub>0_has_trans: "\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd) (automata ! i))"
+  and L\<^sub>0_has_trans: "\<forall>i < n_ps. L\<^sub>0 ! i \<in> fst ` set ((fst o snd o snd) (automata ! i))"
   and vars_of_formula: "vars_of_formula formula \<subseteq> {0..<n_vs}"
   (* and num_states_length: "\<forall>i<n_ps. num_states i = length (fst (snd (automata ! i)))" *)
 begin
@@ -276,13 +286,14 @@ lemma (in -) default_map_of_distinct:
   unfolding default_map_of_alt_def by clarsimp (simp add: map_of_eq_Some_iff[OF that])
 
 lemma N_inv:
-  "(L ! i, inv (N i) (L ! i)) \<in> set ((snd o snd) (automata ! i)) \<union> {(L ! i, [])}" if "i < n_ps"
+  "(L ! i, inv (N i) (L ! i)) \<in> set ((snd o snd o snd) (automata ! i)) \<union> {(L ! i, [])}"
+  if "i < n_ps"
   unfolding N_def comp_def fst_conv snd_conv inv_def
   using that
   apply (subst nth_map)
    apply (simp add: n_ps_def; fail)
   apply (clarsimp split: prod.split simp: automaton_of_def)
-  subgoal for _ _ xs
+  subgoal for _ _ _ xs
     using default_map_of_distinct[of xs "L ! i" "[]"] inv_unambiguous that
     by (auto dest!: nth_mem simp: n_ps_def)
   done
@@ -293,7 +304,8 @@ lemma (in -) subset_nat_0_atLeastLessThan_conv:
 
 lemma k_ceiling_rule:
   "m \<le> int (k ! i ! l ! x)"
-  if "i < n_ps" "(l, b, g, xx) \<in> set ((fst o snd) (automata ! i))" "(x, m) \<in> collect_clock_pairs g"
+  if "i < n_ps" "(l, b, g, xx) \<in> set ((fst o snd o snd) (automata ! i))"
+     "(x, m) \<in> collect_clock_pairs g"
   for i l x g xx
   using that k_ceiling(2) by fastforce
 
@@ -458,7 +470,7 @@ proof safe
           then have **: "fold (\<lambda>p L. L[p := ls' p]) ps L ! i = ls' i"
             using \<open>distinct ps\<close> \<open>i < n_ps\<close> \<open>L \<in> states\<close> by (auto simp: fold_upds_aux2)
           moreover have
-            "(L ! i, bs i, gs i, In aa, fs i, rs i, ls' i) \<in> set (fst (snd (automata ! i)))"
+            "(L ! i, bs i, gs i, In aa, fs i, rs i, ls' i) \<in> set (fst (snd (snd (automata ! i))))"
             using \<open>p \<noteq> i\<close> True prems by fast
           moreover have "c\<in>{0..<Suc m} - set (rs i)"
             using \<open>p \<noteq> i\<close> True prems by force
@@ -505,7 +517,7 @@ lemma state_rel_start:
   using s\<^sub>0_bounded unfolding state_rel_def bounded_def dom_bounds_eq by auto
 
 lemma statesI:
-  "L \<in> states" if "length L = n_ps" "\<forall>i<n_ps. L ! i \<in> fst ` set (fst (snd (automata ! i)))"
+  "L \<in> states" if "length L = n_ps" "\<forall>i<n_ps. L ! i \<in> fst ` set (fst (snd (snd (automata ! i))))"
   using that unfolding states_def by (auto 4 3 simp: mem_trans_N_iff[symmetric])
 
 lemma L\<^sub>0_states[simp, intro]:
@@ -619,8 +631,8 @@ lemma (in Simple_Network_Impl_nat) n_ps_gt_0: "n_ps > 0"
   using length_automata_eq_n_ps non_empty by auto
 
 lemma statesD:
-  "L ! i \<in> fst ` set (fst (snd (automata ! i)))
- \<or> L ! i \<in> (snd o snd o snd o snd o snd o snd) ` set (fst (snd (automata ! i)))"
+  "L ! i \<in> fst ` set (fst (snd (snd (automata ! i))))
+ \<or> L ! i \<in> (snd o snd o snd o snd o snd o snd) ` set (fst (snd (snd (automata ! i))))"
   if "L \<in> states" "length L = n_ps" "i < n_ps"
   using that unfolding states_def
   apply auto
@@ -810,10 +822,13 @@ end (* Reachability Problem Impl *)
 
 
 
-context Simple_Network_Impl_nat
+context Simple_Network_Impl_nat_urge
 begin
 
-
+sublocale conv: Prod_TA_urge
+  "(set broadcast, map (Simple_Network_Language.conv_A o automaton_of) automata, map_of bounds')"
+  by standard
+     (use no_urgency in \<open>auto simp: Simple_Network_Language.conv_A_def automaton_of_def urgent_def\<close>)
 
 abbreviation "A \<equiv> (set broadcast, map automaton_of automata, map_of bounds')"
 
@@ -1224,7 +1239,7 @@ proof -
 qed
 
 definition
-  "trans_map_inner \<equiv> map (\<lambda>i. union_map_of (fst (snd (automata ! i)))) [0..<n_ps]"
+  "trans_map_inner \<equiv> map (\<lambda>i. union_map_of (fst (snd (snd (automata ! i))))) [0..<n_ps]"
 
 lemma trans_map_alt_def:
   "trans_map i j = (case (IArray trans_map_inner !! i) j of None \<Rightarrow> [] | Some xs \<Rightarrow> xs)"
