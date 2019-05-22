@@ -48,7 +48,7 @@ and build the checker as described above.
 After building, you can run the verification server via:
 ```
 cd ML
-python server.py
+python2 server.py
 ```
 The server will run under port 3069 and communicates with the GUI.
 
