@@ -297,11 +297,11 @@ structure Model_Checker : sig
   type nat
   type char
   type 'a act
+  type json
   type ('a, 'b) bexp
   type ('a, 'b) exp
   type ('a, 'b) acconstraint
   type ('a, 'b) sum
-  type json
   datatype 'a result = Result of 'a | Error of string list
   type 'a len_list
   type ('a, 'b, 'c, 'd) formula
@@ -942,19 +942,6 @@ val plus_nat = {plus = plus_nata} : nat plus;
 
 val zero_nat = {zero = zero_nata} : nat zero;
 
-fun times_nata m n = Nat (IntInf.* (integer_of_nat m, integer_of_nat n));
-
-type 'a times = {times : 'a -> 'a -> 'a};
-val times = #times : 'a times -> 'a -> 'a -> 'a;
-
-type 'a power = {one_power : 'a one, times_power : 'a times};
-val one_power = #one_power : 'a power -> 'a one;
-val times_power = #times_power : 'a power -> 'a times;
-
-val times_nat = {times = times_nata} : nat times;
-
-val power_nat = {one_power = one_nat, times_power = times_nat} : nat power;
-
 fun less_eq_nat m n = IntInf.<= (integer_of_nat m, integer_of_nat n);
 
 val ord_nat = {less_eq = less_eq_nat, less = less_nat} : nat ord;
@@ -1019,9 +1006,11 @@ fun show_list A_ =
   {shows_prec = shows_prec_list A_, shows_list = shows_list_list A_} :
   ('a list) show;
 
+fun times_nat m n = Nat (IntInf.* (integer_of_nat m, integer_of_nat n));
+
 fun def_hashmap_size_list A_ =
   (fn _ =>
-    times_nata (nat_of_integer (2 : IntInf.int)) (def_hashmap_size A_ Type));
+    times_nat (nat_of_integer (2 : IntInf.int)) (def_hashmap_size A_ Type));
 
 fun foldl f a [] = a
   | foldl f a (x :: xs) = foldl f (f a x) xs;
@@ -1401,9 +1390,86 @@ val card_UNIV_literal =
   {finite_UNIV_card_UNIV = finite_UNIV_literal, card_UNIV = card_UNIV_literala}
   : string card_UNIV;
 
+datatype fract = Rata of bool * int * int;
+
+fun equal_fract (Rata (x1, x2, x3)) (Rata (y1, y2, y3)) =
+  equal_bool x1 y1 andalso (equal_inta x2 y2 andalso equal_inta x3 y3);
+
+datatype json = Object of (char list * json) list | Arraya of json list |
+  String of char list | Int of int | Nata of nat | Rat of fract |
+  Boolean of bool | Null;
+
 fun equal_proda A_ B_ (x1, x2) (y1, y2) = eq A_ x1 y1 andalso eq B_ x2 y2;
 
 fun equal_prod A_ B_ = {equal = equal_proda A_ B_} : ('a * 'b) equal;
+
+fun equal_JSON () = {equal = equal_JSONa} : json equal
+and equal_JSONa (Boolean x7) Null = false
+  | equal_JSONa Null (Boolean x7) = false
+  | equal_JSONa (Rat x6) Null = false
+  | equal_JSONa Null (Rat x6) = false
+  | equal_JSONa (Rat x6) (Boolean x7) = false
+  | equal_JSONa (Boolean x7) (Rat x6) = false
+  | equal_JSONa (Nata x5) Null = false
+  | equal_JSONa Null (Nata x5) = false
+  | equal_JSONa (Nata x5) (Boolean x7) = false
+  | equal_JSONa (Boolean x7) (Nata x5) = false
+  | equal_JSONa (Nata x5) (Rat x6) = false
+  | equal_JSONa (Rat x6) (Nata x5) = false
+  | equal_JSONa (Int x4) Null = false
+  | equal_JSONa Null (Int x4) = false
+  | equal_JSONa (Int x4) (Boolean x7) = false
+  | equal_JSONa (Boolean x7) (Int x4) = false
+  | equal_JSONa (Int x4) (Rat x6) = false
+  | equal_JSONa (Rat x6) (Int x4) = false
+  | equal_JSONa (Int x4) (Nata x5) = false
+  | equal_JSONa (Nata x5) (Int x4) = false
+  | equal_JSONa (String x3) Null = false
+  | equal_JSONa Null (String x3) = false
+  | equal_JSONa (String x3) (Boolean x7) = false
+  | equal_JSONa (Boolean x7) (String x3) = false
+  | equal_JSONa (String x3) (Rat x6) = false
+  | equal_JSONa (Rat x6) (String x3) = false
+  | equal_JSONa (String x3) (Nata x5) = false
+  | equal_JSONa (Nata x5) (String x3) = false
+  | equal_JSONa (String x3) (Int x4) = false
+  | equal_JSONa (Int x4) (String x3) = false
+  | equal_JSONa (Arraya x2) Null = false
+  | equal_JSONa Null (Arraya x2) = false
+  | equal_JSONa (Arraya x2) (Boolean x7) = false
+  | equal_JSONa (Boolean x7) (Arraya x2) = false
+  | equal_JSONa (Arraya x2) (Rat x6) = false
+  | equal_JSONa (Rat x6) (Arraya x2) = false
+  | equal_JSONa (Arraya x2) (Nata x5) = false
+  | equal_JSONa (Nata x5) (Arraya x2) = false
+  | equal_JSONa (Arraya x2) (Int x4) = false
+  | equal_JSONa (Int x4) (Arraya x2) = false
+  | equal_JSONa (Arraya x2) (String x3) = false
+  | equal_JSONa (String x3) (Arraya x2) = false
+  | equal_JSONa (Object x1) Null = false
+  | equal_JSONa Null (Object x1) = false
+  | equal_JSONa (Object x1) (Boolean x7) = false
+  | equal_JSONa (Boolean x7) (Object x1) = false
+  | equal_JSONa (Object x1) (Rat x6) = false
+  | equal_JSONa (Rat x6) (Object x1) = false
+  | equal_JSONa (Object x1) (Nata x5) = false
+  | equal_JSONa (Nata x5) (Object x1) = false
+  | equal_JSONa (Object x1) (Int x4) = false
+  | equal_JSONa (Int x4) (Object x1) = false
+  | equal_JSONa (Object x1) (String x3) = false
+  | equal_JSONa (String x3) (Object x1) = false
+  | equal_JSONa (Object x1) (Arraya x2) = false
+  | equal_JSONa (Arraya x2) (Object x1) = false
+  | equal_JSONa (Boolean x7) (Boolean y7) = equal_bool x7 y7
+  | equal_JSONa (Rat x6) (Rat y6) = equal_fract x6 y6
+  | equal_JSONa (Nata x5) (Nata y5) = equal_nata x5 y5
+  | equal_JSONa (Int x4) (Int y4) = equal_inta x4 y4
+  | equal_JSONa (String x3) (String y3) = equal_lista equal_char x3 y3
+  | equal_JSONa (Arraya x2) (Arraya y2) = equal_lista (equal_JSON ()) x2 y2
+  | equal_JSONa (Object x1) (Object y1) =
+    equal_lista (equal_prod (equal_list equal_char) (equal_JSON ())) x1 y1
+  | equal_JSONa Null Null = true;
+val equal_JSON = equal_JSON ();
 
 fun typerep_proda A_ B_ t =
   Typerep ("Product_Type.prod", [typerep A_ Type, typerep B_ Type]);
@@ -1644,17 +1710,11 @@ fun show_bexp A_ B_ =
   {shows_prec = shows_prec_bexp A_ B_, shows_list = shows_list_bexp A_ B_} :
   ('a, 'b) bexp show;
 
-datatype rat = Frct of (int * int);
-
 datatype 'a set = Set of 'a list | Coset of 'a list;
 
 datatype ('a, 'b) sum = Inl of 'a | Inr of 'b;
 
 datatype message = ExploredState;
-
-datatype json = Object of (char list * json) list | Arraya of json list |
-  String of char list | Int of int | Nata of nat | Rat of rat | Boolean of bool
-  | Null;
 
 datatype ('a, 'b) hashtable = HashTable of (('a * 'b) list) array * nat;
 
@@ -1731,35 +1791,6 @@ fun take n [] = []
     (if equal_nata n zero_nata then []
       else x :: take (minus_nat n one_nata) xs);
 
-fun divide_int k l =
-  Int_of_integer (divide_integer (integer_of_int k) (integer_of_int l));
-
-val one_int : int = Int_of_integer (1 : IntInf.int);
-
-fun gcd_integer k l =
-  IntInf.abs
-    (if ((l : IntInf.int) = (0 : IntInf.int)) then k
-      else gcd_integer l (modulo_integer (IntInf.abs k) (IntInf.abs l)));
-
-fun gcd_int (Int_of_integer x) (Int_of_integer y) =
-  Int_of_integer (gcd_integer x y);
-
-fun normalize p =
-  (if less_int zero_inta (snd p)
-    then let
-           val a = gcd_int (fst p) (snd p);
-         in
-           (divide_int (fst p) a, divide_int (snd p) a)
-         end
-    else (if equal_inta (snd p) zero_inta then (zero_inta, one_int)
-           else let
-                  val a = uminus_inta (gcd_int (fst p) (snd p));
-                in
-                  (divide_int (fst p) a, divide_int (snd p) a)
-                end));
-
-fun fract a b = Frct (normalize (a, b));
-
 fun image f (Set xs) = Set (map f xs);
 
 fun make A_ n f =
@@ -1775,8 +1806,6 @@ fun sub asa n =
 
 fun map_of A_ ((l, v) :: ps) k = (if eq A_ l k then SOME v else map_of A_ ps k)
   | map_of A_ [] k = NONE;
-
-fun of_int a = Frct (a, one_int);
 
 fun removeAll A_ x [] = []
   | removeAll A_ x (y :: xs) =
@@ -1863,9 +1892,9 @@ fun imp_fora i u f s =
            (imp_fora (plus_nata i one_nata) u f));
 
 fun mtx_set A_ m mtx e v =
-  upd A_ (plus_nata (times_nata (fst e) m) (snd e)) v mtx;
+  upd A_ (plus_nata (times_nat (fst e) m) (snd e)) v mtx;
 
-fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nata (fst e) m) (snd e));
+fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nat (fst e) m) (snd e));
 
 fun fw_upd_impl (A1_, A2_) n =
   (fn ai => fn bib => fn bia => fn bi =>
@@ -1909,8 +1938,6 @@ fun map_filter f [] = []
     (case f x of NONE => map_filter f xs | SOME y => y :: map_filter f xs);
 
 fun cODE_ABORT _ = raise Fail "Misc.CODE_ABORT";
-
-fun quotient_of (Frct x) = x;
 
 fun bind m f = (case m of Inl a => Inl a | Inr a => f a);
 
@@ -2423,8 +2450,7 @@ fun lx_nat_aux acc l =
   bindb (alt (bindb lx_digit
                (fn x =>
                  lx_nat_aux
-                   (plus_nata
-                     (times_nata (nat_of_integer (10 : IntInf.int)) acc)
+                   (plus_nata (times_nat (nat_of_integer (10 : IntInf.int)) acc)
                      (minus_nat (nat_of_char x)
                        (nat_of_char
                          (Chara
@@ -2464,73 +2490,10 @@ fun json_string x =
             (fn _ => return a)))
     x;
 
-fun times_int k l =
-  Int_of_integer (IntInf.* (integer_of_int k, integer_of_int l));
-
-fun minus_rat p q =
-  Frct let
-         val a = quotient_of p;
-         val (aa, c) = a;
-         val b = quotient_of q;
-         val (ba, d) = b;
-       in
-         normalize (minus_inta (times_int aa d) (times_int ba c), times_int c d)
-       end;
-
-fun plus_rat p q =
-  Frct let
-         val a = quotient_of p;
-         val (aa, c) = a;
-         val b = quotient_of q;
-         val (ba, d) = b;
-       in
-         normalize (plus_inta (times_int aa d) (times_int ba c), times_int c d)
-       end;
-
-fun size_list x = gen_length zero_nata x;
-
 fun nats_to_nat x [] = x
   | nats_to_nat x (n :: ns) =
-    nats_to_nat (plus_nata (times_nata (nat_of_integer (10 : IntInf.int)) x) n)
+    nats_to_nat (plus_nata (times_nat (nat_of_integer (10 : IntInf.int)) x) n)
       ns;
-
-fun power A_ a n =
-  (if equal_nata n zero_nata then one (one_power A_)
-    else times (times_power A_) a (power A_ a (minus_nat n one_nata)));
-
-fun lx_rat_fract x =
-  bindb lx_digit
-    (fn xa =>
-      bindb (repeat
-              (bindb lx_digit
-                (fn xb =>
-                  return
-                    (minus_nat (nat_of_char xb)
-                      (nat_of_char
-                        (Chara
-                          (false, false, false, false, true, true, false,
-                            false)))))))
-        (fn xaa =>
-          return
-            (fract
-              (int_of_nat
-                (nats_to_nat zero_nata
-                  (minus_nat (nat_of_char xa)
-                     (nat_of_char
-                       (Chara
-                         (false, false, false, false, true, true, false,
-                           false))) ::
-                    xaa)))
-              (int_of_nat
-                (power power_nat (nat_of_integer (10 : IntInf.int))
-                  (size_list
-                    (minus_nat (nat_of_char xa)
-                       (nat_of_char
-                         (Chara
-                           (false, false, false, false, true, true, false,
-                             false))) ::
-                      xaa)))))))
-    x;
 
 fun lx_rat x =
   bindb lx_int
@@ -2538,11 +2501,32 @@ fun lx_rat x =
       bindb (exactly (equal_char, show_char)
               [Chara (false, true, true, true, false, true, false, false)])
         (fn _ =>
-          bindb lx_rat_fract
+          bindb lx_digit
             (fn xaa =>
-              return
-                (if less_eq_int zero_inta xa then plus_rat (of_int xa) xaa
-                  else minus_rat (of_int xa) xaa))))
+              bindb (repeat
+                      (bindb lx_digit
+                        (fn xb =>
+                          return
+                            (minus_nat (nat_of_char xb)
+                              (nat_of_char
+                                (Chara
+                                  (false, false, false, false, true, true,
+                                    false, false)))))))
+                (fn xb =>
+                  return
+                    (if less_eq_int zero_inta xa
+                      then Rata (true, xa,
+                                  (int_of_nat o nats_to_nat zero_nata)
+                                    (minus_nat (nat_of_char xaa)
+                                       (nat_of_char
+ (Chara (false, false, false, false, true, true, false, false))) ::
+                                      xb))
+                      else Rata (false, xa,
+                                  (int_of_nat o nats_to_nat zero_nata)
+                                    (minus_nat (nat_of_char xaa)
+                                       (nat_of_char
+ (Chara (false, false, false, false, true, true, false, false))) ::
+                                      xb)))))))
     x;
 
 fun atom x =
@@ -2627,6 +2611,8 @@ fun find_index uu [] = zero_nata
 fun index A_ xs = (fn a => find_index (fn x => eq A_ x a) xs);
 
 fun of_phantom (Phantom x) = x;
+
+fun size_list x = gen_length zero_nata x;
 
 fun card (A1_, A2_) (Coset xs) =
   minus_nat (of_phantom (card_UNIV A1_)) (size_list (remdups A2_ xs))
@@ -2822,7 +2808,7 @@ fun ht_rehash (A1_, A2_, A3_) B_ ht =
     (fn n =>
       (fn f_ => fn () => f_
         ((ht_new_sz (A2_, A3_) B_
-           (times_nata (nat_of_integer (2 : IntInf.int)) n))
+           (times_nat (nat_of_integer (2 : IntInf.int)) n))
         ()) ())
         (ht_copy (A1_, A2_, A3_) B_ n ht));
 
@@ -2833,8 +2819,8 @@ fun ht_update (A1_, A2_, A3_) B_ k v ht =
     ())
     (fn m =>
       (fn f_ => fn () => f_
-        ((if less_eq_nat (times_nata m load_factor)
-               (times_nata (the_size ht) (nat_of_integer (100 : IntInf.int)))
+        ((if less_eq_nat (times_nat m load_factor)
+               (times_nat (the_size ht) (nat_of_integer (100 : IntInf.int)))
            then ht_rehash (A1_, A2_, A3_) B_ ht else (fn () => ht))
         ()) ())
         (ht_upd (A1_, A2_, A3_) B_ k v));
@@ -2997,7 +2983,7 @@ fun as_shrink s =
     val a = s;
     val (aa, n) = a;
     val ab =
-      (if less_eq_nat (times_nata (nat_of_integer (128 : IntInf.int)) n)
+      (if less_eq_nat (times_nat (nat_of_integer (128 : IntInf.int)) n)
             (array_length aa) andalso
             less_nat (nat_of_integer (4 : IntInf.int)) n
         then array_shrink aa n else aa);
@@ -3254,10 +3240,10 @@ else (fn f_ => fn () => f_ ((keyi xl) ()) ())
                     (fn (a1, _) => (fn () => a1))))));
 
 fun mtx_tabulate (A1_, A2_, A3_) (B1_, B2_) n m c =
-  (fn f_ => fn () => f_ ((new B2_ (times_nata n m) (zero B1_)) ()) ())
+  (fn f_ => fn () => f_ ((new B2_ (times_nat n m) (zero B1_)) ()) ())
     (fn ma =>
       (fn f_ => fn () => f_
-        ((imp_fora zero_nata (times_nata n m)
+        ((imp_fora zero_nata (times_nat n m)
            (fn k => fn (i, (j, maa)) =>
              (fn f_ => fn () => f_ ((upd B2_ k (c (i, j)) maa) ()) ())
                (fn _ =>
@@ -3313,7 +3299,7 @@ fun as_push s x =
       (if equal_nata n (array_length aa)
         then array_grow aa
                (max ord_nat (nat_of_integer (4 : IntInf.int))
-                 (times_nata (nat_of_integer (2 : IntInf.int)) n))
+                 (times_nat (nat_of_integer (2 : IntInf.int)) n))
                x
         else aa);
     val ac = array_set ab n x;
@@ -3330,6 +3316,8 @@ fun as_take m s = let
 
 fun rev_append [] ac = ac
   | rev_append (x :: xs) ac = rev_append xs (x :: ac);
+
+val one_int : int = Int_of_integer (1 : IntInf.int);
 
 fun ran_of_map_impl (A1_, A2_, A3_) B_ =
   (fn xi =>
@@ -3727,11 +3715,11 @@ fun ahm_rehash bhc (HashMap (a, n)) sz = HashMap (ahm_rehash_aux bhc a sz, n);
 val load_factora : nat = nat_of_integer (75 : IntInf.int);
 
 fun ahm_filled (HashMap (a, n)) =
-  less_eq_nat (times_nata (array_length a) load_factora)
-    (times_nata n (nat_of_integer (100 : IntInf.int)));
+  less_eq_nat (times_nat (array_length a) load_factora)
+    (times_nat n (nat_of_integer (100 : IntInf.int)));
 
 fun hm_grow (HashMap (a, n)) =
-  plus_nata (times_nata (nat_of_integer (2 : IntInf.int)) (array_length a))
+  plus_nata (times_nat (nat_of_integer (2 : IntInf.int)) (array_length a))
     (nat_of_integer (3 : IntInf.int));
 
 fun ahm_update eq bhc k v hm =
@@ -3884,7 +3872,7 @@ fun find_max_nat n uu =
 
 fun amtx_copy A_ = array_copy A_;
 
-fun amtx_dflt A_ n m v = make A_ (times_nata n m) (fn _ => v);
+fun amtx_dflt A_ n m v = make A_ (times_nat n m) (fn _ => v);
 
 fun gen_token ws p = bindb ws (fn _ => p);
 
@@ -3962,6 +3950,9 @@ fun more (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = more;
 fun combine_map f xs = combine (map f xs);
 
 fun as_is_empty s = equal_nata (snd s) zero_nata;
+
+fun times_int k l =
+  Int_of_integer (IntInf.* (integer_of_int k, integer_of_int l));
 
 fun minus_set A_ a (Coset xs) = Set (filter (fn x => member A_ x a) xs)
   | minus_set A_ a (Set xs) = fold (remove A_) xs a;
@@ -4316,7 +4307,7 @@ fun maxa A_ (Set (x :: xs)) =
 
 fun dbm_subset_impla (A1_, A2_) =
   (fn m => fn a => fn b =>
-    imp_for zero_nata (times_nata (plus_nata m one_nata) (plus_nata m one_nata))
+    imp_for zero_nata (times_nat (plus_nata m one_nata) (plus_nata m one_nata))
       (fn aa => (fn () => aa))
       (fn i => fn _ =>
         (fn f_ => fn () => f_ ((ntha A1_ a i) ()) ())
@@ -4822,6 +4813,10 @@ fun geta A_ m x =
       Error ["(Get) key not found: " ^ implode (shows_prec A_ zero_nata x [])]
     | SOME a => Result a);
 
+fun pad m s =
+  replicate m (Chara (false, false, false, false, false, true, false, false)) @
+    s;
+
 fun norm_upd_impl (A1_, A2_) n =
   (fn ai => fn bia => fn bi =>
     (fn f_ => fn () => f_
@@ -5026,6 +5021,9 @@ fun ta_var_ident x =
     x;
 
 fun scan_var x = ta_var_ident x;
+
+fun divide_int k l =
+  Int_of_integer (divide_integer (integer_of_int k) (integer_of_int l));
 
 fun scan_infix_pair a b s =
   bindb (gen_token lx_ws a)
@@ -9770,6 +9768,19 @@ fun rename_mc A_ B_ C_ dc broadcast bounds automata k urge l_0 s_0 formula m
           (case a of NONE => (fn () => Preconds_Unsat)
             | SOME true => (fn () => Sat) | SOME false => (fn () => Unsat))));
 
+fun shows_rat r =
+  let
+    val Rata (s, f, b) = r;
+  in
+    (if s then []
+      else [Chara (true, false, true, true, false, true, false, false)]) @
+      shows_prec_int zero_nata f [] @
+        (if not (equal_inta b zero_inta)
+          then [Chara (false, true, true, true, false, true, false, false)] @
+                 shows_prec_int zero_nata b []
+          else [])
+  end;
+
 fun concat_str x = (implode o concat o map explode) x;
 
 fun n num_states q = num_states q;
@@ -10105,6 +10116,76 @@ fun preproc_mc A_ =
         | Error e => (fn () => (Error e)))
     end);
 
+fun shows_json n (Nata m) = pad n (shows_prec_nat zero_nata m [])
+  | shows_json n (Rat r) = pad n (shows_rat r)
+  | shows_json n (Int r) = pad n (shows_prec_int zero_nata r [])
+  | shows_json n (Boolean b) =
+    pad n (if b then [Chara (false, false, true, false, true, true, true,
+                              false),
+                       Chara (false, true, false, false, true, true, true,
+                               false),
+                       Chara (true, false, true, false, true, true, true,
+                               false),
+                       Chara (true, false, true, false, false, true, true,
+                               false)]
+            else [Chara (false, true, true, false, false, true, true, false),
+                   Chara (true, false, false, false, false, true, true, false),
+                   Chara (false, false, true, true, false, true, true, false),
+                   Chara (true, true, false, false, true, true, true, false),
+                   Chara (true, false, true, false, false, true, true, false)])
+  | shows_json n Null =
+    pad n [Chara (false, true, true, true, false, true, true, false),
+            Chara (true, false, true, false, true, true, true, false),
+            Chara (false, false, true, true, false, true, true, false),
+            Chara (false, false, true, true, false, true, true, false)]
+  | shows_json n (String s) =
+    pad n ([Chara (false, true, false, false, false, true, false, false)] @
+            s @ [Chara (false, true, false, false, false, true, false, false)])
+  | shows_json n (Arraya xs) =
+    (if null xs
+      then pad n [Chara (true, true, false, true, true, false, true, false),
+                   Chara (true, false, true, true, true, false, true, false)]
+      else pad n [Chara (true, true, false, true, true, false, true, false),
+                   Chara (false, true, false, true, false, false, false,
+                           false)] @
+             concat
+               (intersperse
+                 [Chara (false, false, true, true, false, true, false, false),
+                   Chara (false, true, false, true, false, false, false, false)]
+                 (map (shows_json
+                        (plus_nata n (nat_of_integer (2 : IntInf.int))))
+                   xs)) @
+               [Chara (false, true, false, true, false, false, false, false)] @
+                 pad n [Chara (true, false, true, true, true, false, true,
+                                false)])
+  | shows_json n (Object xs) =
+    (if null xs
+      then pad n [Chara (true, true, false, true, true, true, true, false),
+                   Chara (true, false, true, true, true, true, true, false)]
+      else pad n [Chara (true, true, false, true, true, true, true, false),
+                   Chara (false, true, false, true, false, false, false,
+                           false)] @
+             concat
+               (intersperse
+                 [Chara (false, false, true, true, false, true, false, false),
+                   Chara (false, true, false, true, false, false, false, false)]
+                 (map (fn (k, v) =>
+                        pad (plus_nata n (nat_of_integer (2 : IntInf.int)))
+                          ([Chara (false, true, false, false, false, true,
+                                    false, false)] @
+                            k @ [Chara (false, true, false, false, false, true,
+ false, false)]) @
+                          [Chara (false, true, false, true, true, true, false,
+                                   false),
+                            Chara (false, true, false, true, false, false,
+                                    false, false)] @
+                            shows_json
+                              (plus_nata n (nat_of_integer (4 : IntInf.int))) v)
+                   xs)) @
+               [Chara (false, true, false, true, false, false, false, false)] @
+                 pad n [Chara (true, false, true, true, true, true, true,
+                                false)]);
+
 fun do_preproc_mc A_ =
   (fn dc => fn ids_to_names => fn (broadcast, (automata, bounds)) => fn l_0 =>
     fn s_0 => fn formula =>
@@ -10128,16 +10209,22 @@ fun do_preproc_mc A_ =
               err ("Error during preprocessing:\092" ^
                     concat_str (intersperse "\092" es))))));
 
+fun shows_prec_JSON p x rest = shows_json zero_nata x @ rest;
+
 fun parse_convert_run dc s =
   (case binda (parse json s)
           (fn r =>
             let
+              val sa = implode (shows_prec_JSON zero_nata r []);
               val _ =
                 Logging.trace (IntInf.toInt (integer_of_int (Int_of_integer
-                      (2 : IntInf.int)))) ((fn _ =>
-     (fn () => (implode (shows_prec_literal zero_nata s [])))) ());
+                      (2 : IntInf.int)))) ((fn _ => (fn () => sa)) ());
             in
-              convert r
+              binda (parse json sa)
+                (fn ra =>
+                  binda (assert (equal_JSONa r ra)
+                          "Parse-print-parse loop failed!")
+                    (fn _ => convert r))
             end)
     of Result
          (ids_to_names,

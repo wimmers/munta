@@ -290,26 +290,39 @@ instance
 end
 
 definition
-  "test_json \<equiv> Object [(''a'', JSON.Array [Nat 1, Rat 2.0]), (''bbb'', Boolean True)]"
-
-definition
   "pad m s = replicate m CHR '' '' @ s"
+
+definition "shows_rat r \<equiv> case r of fract.Rat s f b \<Rightarrow>
+  (if s then '''' else ''-'') @ show f @ (if b \<noteq> 0 then ''.'' @ show b else '''')"
 
 fun shows_json :: "nat \<Rightarrow> JSON \<Rightarrow> string" where
   "shows_json n (Nat m) = show m |> pad n"
-| "shows_json n (Rat r) = show r |> pad n"
+| "shows_json n (Rat r) = shows_rat r |> pad n"
 | "shows_json n (JSON.Int r) = show r |> pad n"
 | "shows_json n (Boolean b) = (if b then ''true'' else ''false'') |> pad n"
 | "shows_json n Null = ''null'' |> pad n"
-| "shows_json n (String s) = pad n s"
-| "shows_json n (JSON.Array xs) =
-  pad n ''[\<newline>'' @ concat (map (shows_json (n + 2)) xs |> intersperse '',\<newline>'') @ pad n ''\<newline>]''
-  "
-| "shows_json n (JSON.Object xs) =
-  pad n ''{\<newline>''
-  @ concat (map (\<lambda>(k, v). pad (n + 2) k @ '':\<newline>'' @ shows_json (n + 4) v) xs |> intersperse '',\<newline>'')
-  @ pad n ''\<newline>}''
-"
+| "shows_json n (String s) = pad n (''\"'' @ s @ ''\"'')"
+| "shows_json n (JSON.Array xs) = (
+  if xs = Nil then
+    pad n ''[]''
+  else
+    pad n ''[\<newline>''
+    @ concat (map (shows_json (n + 2)) xs |> intersperse '',\<newline>'')
+    @ ''\<newline>''
+    @ pad n '']''
+  )"
+| "shows_json n (JSON.Object xs) = (
+  if xs = Nil then
+    pad n ''{}''
+  else
+    pad n ''{\<newline>''
+    @ concat (
+      map (\<lambda>(k, v). pad (n + 2) (''\"'' @ k @ ''\"'') @ '':\<newline>'' @ shows_json (n + 4) v) xs
+      |> intersperse '',\<newline>''
+    )
+    @ ''\<newline>''
+    @ pad n ''}''
+  )"
 
 instantiation JSON :: "show"
 begin
@@ -322,8 +335,6 @@ instance
   by standard (simp_all add: shows_prec_JSON_def shows_list_JSON_def show_law_simps)
 
 end
-
-value "show test_json"
 
 
 definition rename_network where
@@ -1524,7 +1535,11 @@ definition parse_convert_run where
   "parse_convert_run dc s \<equiv>
    case
       parse json s \<bind> (\<lambda>r.
-      let _ = trace_level 2 (\<lambda>_. show s |> String.implode |> return) in convert r)
+      let
+      s' = show r |> String.implode;
+      _  = trace_level 2 (\<lambda>_. return s')
+      in parse json s' \<bind> (\<lambda>r'.
+      assert (r = r') STR ''Parse-print-parse loop failed!'' \<bind> (\<lambda>_. convert r)))
    of
      Error es \<Rightarrow> return (Error es)
    | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
@@ -1624,6 +1639,7 @@ definition parse_convert_run_test where
       Error es \<Rightarrow> do {let _ = map println es; return (STR ''Fail'')}
     | Result r \<Rightarrow> return r
   }"
+
 
 ML \<open>
   fun assert comp exp =
