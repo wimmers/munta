@@ -9974,7 +9974,7 @@ fun mk_renaminga (A1_, A2_) xs =
 fun list_of_set A_ xs = remdups A_ ((fn Set xs => xs) xs);
 
 fun make_renaming (A1_, A2_) =
-  (fn broadcast => fn automata => fn _ =>
+  (fn broadcast => fn automata => fn bounds =>
     let
       val action_seta =
         list_of_set equal_literal (action_set equal_literal automata broadcast);
@@ -10062,13 +10062,19 @@ fun make_renaming (A1_, A2_) =
                           val inv_renum_states =
                             nth (map snd renum_states_list);
                         in
-                          Result
-                            (m, (num_states,
-                                  (num_actions,
-                                    (renum_acts,
-                                      (renum_vars,
-(renum_clocksa,
-  (renum_states, (inv_renum_states, (inv_renum_vars, inv_renum_clocksa)))))))))
+                          binda (assert
+                                  (subset (card_UNIV_literal, equal_literal)
+                                    (image fst (Set bounds)) (Set var_set))
+                                  "State variables are declared but do not appear in model")
+                            (fn _ =>
+                              Result
+                                (m, (num_states,
+                                      (num_actions,
+(renum_acts,
+  (renum_vars,
+    (renum_clocksa,
+      (renum_states,
+        (inv_renum_states, (inv_renum_vars, inv_renum_clocksa))))))))))
                         end)
                   end)
               end

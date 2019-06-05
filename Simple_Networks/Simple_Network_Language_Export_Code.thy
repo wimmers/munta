@@ -976,6 +976,8 @@ definition "make_renaming \<equiv> \<lambda> broadcast automata bounds.
       (\<lambda>i m. extend_domain m (loc_set_diff i) (length (loc_set' i))) renum_states_list;
     let renum_states = (\<lambda>i. renum_states_list ! i);
     let inv_renum_states = (\<lambda>i. map snd renum_states_list' ! i);
+    assert (fst ` set bounds \<subseteq> set var_set)
+      STR ''State variables are declared but do not appear in model'';
     Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
       inv_renum_states, inv_renum_vars, inv_renum_clocks)
   }"
