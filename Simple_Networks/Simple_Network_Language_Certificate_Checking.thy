@@ -1529,7 +1529,7 @@ do {
   let r = do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
       certificate_checker num_split dc state_space)
-    dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    dc broadcast bounds' automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (* inv_renum_states inv_renum_vars inv_renum_clocks; *)
     (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '');
@@ -1552,7 +1552,7 @@ definition rename_check2 where
   let r = do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list)).
       certificate_checker2 num_split dc state_space)
-    dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    dc broadcast bounds' automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '')
   in case r of
@@ -1569,7 +1569,7 @@ definition rename_check3 where
   let r = do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> string)).
       certificate_checker3 num_split dc state_space)
-    dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    dc broadcast bounds' automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '')
   in case r of
@@ -1588,7 +1588,7 @@ do {
   let r = do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> string)).
       certificate_checker_dbg num_split show_clock show_state state_space)
-    dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    dc broadcast bounds' automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     inv_renum_states inv_renum_vars inv_renum_clocks;
   case r of Some r \<Rightarrow> do {
@@ -1610,7 +1610,9 @@ theorem certificate_check_rename:
     <\<lambda> Sat \<Rightarrow> \<up>(
         (\<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0)
+        broadcast bounds
+        renum_acts renum_vars renum_clocks renum_states STR ''_urge''
+        automata formula s\<^sub>0 L\<^sub>0)
      | Unsat \<Rightarrow> true
      | Preconds_Unsat \<Rightarrow> true
     >\<^sub>t" (is ?A)
@@ -1621,7 +1623,9 @@ and certificate_check_rename2:
     of 
       Sat \<Rightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-          broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+          broadcast bounds
+        renum_acts renum_vars renum_clocks renum_states STR ''_urge''
+        automata formula s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?B)
 and certificate_check_rename3:
@@ -1631,15 +1635,23 @@ and certificate_check_rename3:
     of 
       Sat \<Rightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-          broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds
+        renum_acts renum_vars renum_clocks renum_states STR ''_urge''
+        automata formula s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?C)
 proof -
+  let ?urge = "STR ''_urge''"
+  let ?automata = "map (conv_urge ?urge) automata"
   have *: "
     Simple_Network_Rename_Formula_String
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds
+        renum_acts renum_vars renum_clocks renum_states
+        automata ?urge formula s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds
+        renum_acts renum_vars renum_clocks renum_states
+        ?urge automata formula s\<^sub>0 L\<^sub>0
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
@@ -1649,14 +1661,15 @@ proof -
   define check where "check \<equiv> A,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula"
   define A' where "A' \<equiv> N
     (map renum_acts broadcast)
-    (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
+    (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata)
     (map (\<lambda>(a,p). (renum_vars a, p)) bounds)"
   define check' where "check' \<equiv>
     A',(map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0) \<Turnstile>
     map_formula renum_states renum_vars id formula"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_acts renum_vars renum_clocks renum_states automata formula s\<^sub>0 L\<^sub>0
+      broadcast bounds
+      renum_acts renum_vars renum_clocks renum_states STR ''_urge'' automata formula s\<^sub>0 L\<^sub>0
   "
   have [simp]: "check \<longleftrightarrow> check'" 
     if renaming_valid
@@ -1666,7 +1679,7 @@ proof -
     certificate_check[
     of num_split state_space
     "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
-    "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+    "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
     "map_formula renum_states renum_vars id formula",
     folded A'_def renaming_valid_def, folded check'_def, simplified
@@ -1675,7 +1688,7 @@ proof -
     using certificate_check2[
       of num_split state_space
       "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
-      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id formula",
       folded A'_def renaming_valid_def, folded check'_def
@@ -1683,7 +1696,7 @@ proof -
     using certificate_check3[
       of num_split state_space
       "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
-      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id formula",
       folded A'_def renaming_valid_def, folded check'_def
@@ -1704,7 +1717,7 @@ theorem certificate_deadlock_check_rename:
     state_space
     <\<lambda> Sat \<Rightarrow> \<up>(\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states STR ''_urge'' automata
         (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0)
      | Unsat \<Rightarrow> true
      | Preconds_Unsat \<Rightarrow> true
@@ -1716,7 +1729,7 @@ and certificate_deadlock_check_rename2:
     of 
       Sat \<Rightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states STR ''_urge'' automata
         (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?B)
@@ -1727,17 +1740,19 @@ and certificate_deadlock_check_rename3:
     of 
       Sat \<Rightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)
     | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states STR ''_urge'' automata
         (formula.EX (sexp.not sexp.true)) s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?C)
 proof -
   let ?formula = "formula.EX (sexp.not sexp.true)"
+  let ?urge = "STR ''_urge''"
+  let ?automata = "map (conv_urge ?urge) automata"
   have *: "
     Simple_Network_Rename_Formula_String
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata ?urge ?formula s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states ?urge automata ?formula s\<^sub>0 L\<^sub>0
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
@@ -1747,13 +1762,13 @@ proof -
   define check where "check \<equiv> has_deadlock A (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)"
   define A' where "A' \<equiv> N
     (map renum_acts broadcast)
-    (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata)
+    (map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata)
     (map (\<lambda>(a,p). (renum_vars a, p)) bounds)"
   define check' where "check' \<equiv>
     has_deadlock A' (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0)"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_acts renum_vars renum_clocks renum_states automata ?formula s\<^sub>0 L\<^sub>0
+      broadcast bounds renum_acts renum_vars renum_clocks renum_states ?urge automata ?formula s\<^sub>0 L\<^sub>0
   "
   have **[simp]: "check \<longleftrightarrow> check'" 
     if renaming_valid
@@ -1763,7 +1778,7 @@ proof -
     certificate_deadlock_check[
     of num_split state_space
     "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
-    "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+    "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata"
     m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
     "map_formula renum_states renum_vars id ?formula",
     folded A'_def renaming_valid_def, folded check'_def, simplified
@@ -1772,7 +1787,7 @@ proof -
     using certificate_deadlock_check2[
       of num_split state_space
       "map renum_acts broadcast" "map (\<lambda>(a, p). (renum_vars a, p)) bounds"
-      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id ?formula",
       folded A'_def renaming_valid_def, folded check'_def, simplified
@@ -1780,7 +1795,7 @@ proof -
     using certificate_deadlock_check3[
       of num_split state_space
       "map renum_acts broadcast" "map (\<lambda>(a, p). (renum_vars a, p)) bounds"
-      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) automata"
+      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata"
       m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
       "map_formula renum_states renum_vars id ?formula",
       folded A'_def renaming_valid_def, folded check'_def, simplified

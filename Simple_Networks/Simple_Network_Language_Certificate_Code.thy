@@ -70,7 +70,7 @@ definition "rename_state_space \<equiv> \<lambda>dc ids_to_names (broadcast, aut
       state_space broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
         show_clock show_state ()
     );
-    let r = do_rename_mc f dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+    let r = do_rename_mc f dc broadcast bounds automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
       m num_states num_actions renum_acts renum_vars renum_clocks renum_states
       inv_renum_states' inv_renum_vars inv_renum_clocks;
     let show_clock = show o inv_renum_clocks;

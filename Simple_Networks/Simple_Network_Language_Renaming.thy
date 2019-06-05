@@ -27,6 +27,24 @@ method tag uses keep = (determ \<open>tags del: TAG keep: keep\<close>, (simp on
 
 method auto_tag uses keep = match conclusion in "TAG t _" (cut) for t \<Rightarrow> \<open>tag keep: TAG[of t] keep\<close>
 
+lemmas all_mono_rule = all_mono[THEN mp, OF impI, rotated]
+
+lemma imp_mono_rule:
+  assumes "P1 \<longrightarrow> P2"
+    and "Q1 \<Longrightarrow> P1"
+    and "Q1 \<Longrightarrow> P2 \<Longrightarrow> Q2"
+  shows "Q1 \<longrightarrow> Q2"
+  using assms by blast
+
+lemma Ball_mono:
+  assumes "\<forall>x \<in> S. P x" "\<And>x. x \<in> S \<Longrightarrow> P x \<Longrightarrow> Q x"
+  shows "\<forall>x \<in> S. Q x"
+  using assms by blast
+
+method prop_monos =
+  erule all_mono_rule
+  | erule (1) imp_mono_rule
+  | erule disj_mono[rule_format, rotated 2]
 
 locale Prod_TA_Defs_urge =
   fixes A :: "('a, 's, 'c, 't :: {zero}, 'x, 'v :: linorder) nta" and urge :: 'c
@@ -51,7 +69,6 @@ end
 locale Prod_TA_sem_urge =
   Prod_TA_Defs_urge A urge + Prod_TA_sem A
   for A :: "('a, 's, 'c, 't :: {zero, time}, 'x, 'v :: linorder) nta" and urge :: 'c +
-  assumes at_least_one_automaton: "length (fst (snd A)) > 0"
   assumes urge_not_in_invariants:
     "\<forall>(_, _, _, I) \<in> set (fst (snd A)). \<forall>l. urge \<notin> constraint_clk ` set (I l)"
   assumes urge_not_in_guards:
@@ -209,9 +226,9 @@ proof -
     by (auto simp: cval_add_def)
 qed
 
-lemma trans_urge_updI:
-  assumes "u \<turnstile> g" "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
-  shows "u(urge := d) \<turnstile> g"
+lemma trans_urge_upd_iff:
+  assumes "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
+  shows "u(urge := d) \<turnstile> g \<longleftrightarrow> u \<turnstile> g"
   using assms urge_not_in_guards' by (auto simp: clk_upd_clock_val_simp)
 
 lemma cval_add_0[simp]:
@@ -243,8 +260,29 @@ lemma clock_set_upd_simp:
   done
 
 lemma clock_set_commute_single:
-  "[r \<rightarrow> 0]u(c := d) = ([r \<rightarrow> 0]u)(c := d)" if "c \<notin> set r"
+  "[r \<rightarrow> d]u(c := d') = ([r \<rightarrow> d]u)(c := d')" if "c \<notin> set r"
   using that by (induction r) auto
+
+lemma clock_set_upd_simp2:
+  "([xs @ c # ys \<rightarrow> d]u)(c := d') = ([xs @ ys \<rightarrow> d]u)(c := d')"
+  apply (induction xs)
+   apply (auto; fail)
+  apply (intro ext)
+  subgoal for a xs x
+    by (drule fun_cong[where x = x]) auto
+  done
+
+lemma clock_set_upd_simp3:
+  "([xs \<rightarrow> d]u)(c := d') = ([filter (\<lambda>x. x \<noteq> c) xs \<rightarrow> d]u)(c := d')"
+  apply (induction xs)
+   apply (auto; fail)
+  apply (rule ext)
+  apply auto
+  subgoal for xs x
+    by (drule fun_cong[where x = x]) auto
+  subgoal for a xs x
+    by (drule fun_cong[where x = x]) auto
+  done
 
 interpretation urge: Prod_TA_sem A_urge .
 
@@ -308,13 +346,51 @@ proof ((standard; clarsimp), goal_cases)
                   apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
                  apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
                 apply (auto_tag; fail)
-               apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto intro: trans_urge_updI;
+               apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff;
             fail)
               apply (all \<open>auto_tag; auto intro: inv_N_urgeI\<close>)
         subgoal
           unfolding clock_set.simps(2)[symmetric] clock_set_upd_simp ..
         done
-      sorry
+      subgoal binary for a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B
+        unfolding TAG_def[of "RECV ''range''"] TAG_def[of "SEND ''range''"]
+        apply simp
+        apply (rule step_u.intros)
+                          apply (auto_tag; simp; fail)
+                         apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
+                        apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
+                       apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+                      apply (auto_tag; fail)
+                     apply (auto_tag; fail)
+                    apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
+                   apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
+                  apply (all \<open>auto_tag; auto intro: inv_N_urgeI\<close>)
+        unfolding clock_set.simps(2)[symmetric] clock_set_upd_simp
+        apply (simp add: clock_set_upd_simp2)
+        done
+      subgoal broadcast for a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s'' B
+        unfolding TAG_def[of "SEL ''range''"] TAG_def[of "SEND ''range''"]
+        apply (simp add: subset_nat_0_atLeastLessThan_conv)
+        apply (rule step_u.intros)
+                            apply (auto_tag; simp; fail)
+                           apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
+                          apply (auto_tag, auto 4 3 dest: trans_N_urgeD; fail)
+                         apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+                        apply (auto_tag; fail)
+                       apply (auto_tag; fail)
+                      apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
+                     apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
+                    apply (all \<open>auto_tag; auto intro: inv_N_urgeI\<close>)
+         apply (erule (1) trans_N_urgeE, force simp: trans_urge_upd_iff)
+        subgoal
+          unfolding clock_set.simps(2)[symmetric] clock_set_upd_simp
+          apply simp
+          apply (subst (2) clock_set_upd_simp3)
+          apply (subst clock_set_upd_simp3)
+          apply (simp add: filter_concat comp_def)
+          done
+        done
+      done
     ultimately show "A_urge \<turnstile> \<langle>L, s, u(urge := 0)\<rangle> \<rightarrow> \<langle>L', s', u'(urge := 0)\<rangle>"
       using \<open>a \<noteq> _\<close> by (intro step_u'.intros)
   qed
@@ -329,14 +405,24 @@ next
       by (rule urge.states_inv[unfolded urge_states_eq])
     then have [simp]: "length L'' = n_ps"
       by (rule states_lengthD)
-    have 1: "([r\<rightarrow>0]u'') urge = 0" if "r = urge # tl r" for r
+    have 1: "([r\<rightarrow>0]u'') urge = 0" if "r = urge # xs" for r xs
+      by (subst that) simp
+    have 2: "filter (\<lambda>x. x \<noteq> urge) r = filter (\<lambda>x. x \<noteq> urge) (tl r)" if "r = urge # tl r" for r
       by (subst that) simp
     from steps(3,2) have "u' urge = 0"
       apply (cases; subst (asm) A_urge_split)
-         apply (all \<open>drule sym; simp\<close>)
-        apply (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"] TAG[of "''range''"])
-      apply (auto elim!: trans_N_urgeE simp: 1; fail)
-      sorry
+         apply (all \<open>drule sym\<close>)
+         apply (simp; fail)
+      subgoal delay
+        by (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"] TAG[of "''range''"])
+          (auto elim!: trans_N_urgeE simp: 1; fail)
+      subgoal binary for a' broadcast' l1 b1 g1 f1 r1 l1' N p l2 b2 g2 f2 r2 l2' q s'' B
+        by (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"] TAG[of "RECV ''range''"])
+          (auto elim!: trans_N_urgeE simp: 1[of _ "tl r1 @ r2"])
+      subgoal broadcast for a' broadcast' l b g f r l' N p ps bs gs fs rs ls' s'a B
+        by (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"] TAG[of "SEND ''range''"])
+          (auto elim!: trans_N_urgeE simp: 1[of _ "tl r @ concat (map rs ps)"])
+      done
     have **: "
       ([r\<rightarrow>0]u'')(urge := u'' urge + u urge) = ([tl r\<rightarrow>0]u'')(urge := u'' urge + u urge)"
       if "r = urge # tl r" for r
@@ -369,13 +455,70 @@ next
                   apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
                  apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
                 apply (auto_tag; fail)
-               apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"];
-                      auto intro: trans_N_urgeE trans_urge_updI; fail)
+               apply (auto_tag keep: TAG[of "TRANS _"];
+            auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
               apply (all \<open>auto_tag; auto intro: inv_N_urgeD; fail | succeed\<close>)
-        apply (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"], erule (1) trans_N_urgeE,
+        apply (auto_tag keep: TAG[of "TRANS _"], erule (1) trans_N_urgeE,
             subst clock_set_commute_single, rule urge_not_in_resets', (simp add: **)+; fail)
         done
-      sorry
+      subgoal binary for a' broadcast' l1 b1 g1 f1 r1 l1' Na p l2 b2 g2 f2 r2 l2' q s'' B
+        unfolding TAG_def[of "RECV ''range''"] TAG_def[of "SEND ''range''"]
+        apply simp
+        apply (rule step_u.intros)
+                          apply (auto_tag; simp; fail)
+                         apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
+                        apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
+                       apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+                      apply (auto_tag; fail)
+                     apply (auto_tag; fail)
+                    apply (auto_tag keep: TAG[of "TRANS _"];
+            auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
+                   apply (auto_tag keep: TAG[of "TRANS _"];
+            auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
+                  apply (all \<open>auto_tag; auto intro: inv_N_urgeD; fail | succeed\<close>)
+        apply (auto_tag keep: TAG[of "TRANS _"], erule (1) trans_N_urgeE, erule (1) trans_N_urgeE)
+        apply simp
+        apply (subst clock_set_upd_simp3)
+        apply (subst clock_set_commute_single)
+         apply (simp; rule conjI; erule (1) urge_not_in_resets')
+        apply (rule arg_cong)
+        subgoal premises prems
+          using urge_not_in_resets'[OF prems(7) \<open>p < n_ps\<close>] urge_not_in_resets'[OF prems(9) \<open>q < n_ps\<close>]
+          by (subst \<open>r1 = _\<close>, subst \<open>r2 = _\<close>, simp) (subst filter_True, auto)+
+        done
+      subgoal broadcast for a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s2 B
+        unfolding TAG_def[of "SEL ''range''"] TAG_def[of "SEND ''range''"]
+        apply (simp add: subset_nat_0_atLeastLessThan_conv)
+        apply (rule step_u.intros)
+                            apply (auto_tag; simp; fail)
+                           apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
+                          apply (auto_tag, auto 4 3 elim: trans_N_urgeE; fail)
+                         apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+                        apply (auto_tag; fail)
+                       apply (auto_tag; fail)
+                      apply (auto_tag keep: TAG[of "TRANS _"]; auto elim: trans_N_urgeE simp: trans_urge_upd_iff; fail)
+                     apply (all \<open>auto_tag; auto intro: inv_N_urgeD; fail | succeed\<close>)
+        subgoal guards
+          by (auto_tag keep: TAG[of "TRANS _"]; auto elim!: trans_N_urgeE simp: trans_urge_upd_iff)
+        subgoal maximal
+          by (auto_tag, force simp: trans_urge_upd_iff dest: trans_N_urgeD)
+        subgoal new_valuation
+          apply (auto_tag keep: TAG[of "TRANS _"])
+          apply (subst clock_set_upd_simp3)
+          apply (simp add: filter_concat comp_def)
+          apply (subst clock_set_commute_single[symmetric], (simp; fail))
+          apply (rule arg_cong)
+          apply (fo_rule arg_cong2)
+          subgoal
+            apply (auto simp: 2 urge_not_in_resets' filter_id_conv elim!: trans_N_urgeE)
+            done
+          subgoal
+            apply (fo_rule arg_cong)
+            apply (fastforce elim: trans_N_urgeE simp: 2 urge_not_in_resets' filter_id_conv)+
+            done
+          done
+        done
+      done
     ultimately show ?thesis
       using \<open>a \<noteq> _\<close> \<open>u' urge = 0\<close> by  (intros add: step_u'.intros) auto
   qed
@@ -1654,7 +1797,6 @@ proof -
     = renum_states q (fold (\<lambda>p L. L[p := ls' p]) ps L [p := l1] ! q)"
     if "q < n_ps" for q
     using assms(4-) that
-    thm map_index_update map_trans_broad_aux1[symmetric]
     apply (cases "p = q")
      apply (simp add: fold_upds_aux_length)
     apply (simp
@@ -2450,22 +2592,64 @@ definition
      map (\<lambda>(l, b, g, a, f, r, l'). (l, b, g, a, f, urge # r, l')) trans,
      merge_pairs (map (\<lambda>l. (l, [acconstraint.LE urge 0])) urgent) inv)"
 
+(* XXX Generalized version. Move to library *)
+lemma map_of_distinct_upd2:
+  assumes "x \<notin> set (map fst xs)"
+  shows "map_of (xs @ (x,y) # ys) = (map_of (xs @ ys))(x \<mapsto> y)"
+  using assms by (induction xs) auto
+
+(* XXX Generalized version. Move to library *)
+lemma map_of_distinct_lookup:
+  assumes "x \<notin> set (map fst xs)"
+  shows "map_of (xs @ (x,y) # ys) x = Some y"
+  using map_of_distinct_upd2[OF assms] by auto
+
+lemma find_remove_SomeD:
+  assumes "find_remove P xs = Some (x, ys)"
+  shows "\<exists>as bs. xs = as @ x # bs \<and> ys = as @ bs \<and> (\<forall>x \<in> set as. \<not> P x) \<and> P x"
+  using assms unfolding find_remove_def by (auto dest: extract_SomeE)
+
 lemma find_map:
   "find Q (map f xs) = map_option f (find P xs)" if "\<forall>x \<in> set xs. Q (f x) \<longleftrightarrow> P x"
   using that by (induction xs) auto
+
+lemma find_remove_map:
+  "find_remove Q (map f xs) = map_option (\<lambda>(x, xs). (f x, map f xs)) (find_remove P xs)"
+  if "\<forall>x \<in> set xs. Q (f x) \<longleftrightarrow> P x"
+  using that
+  by (induction xs)
+     (auto simp: find_remove_def extract_Nil_code extract_Cons_code split: option.split)
 
 lemma map_merge_pairs2:
   "map (\<lambda>(k, v). (g k, map f v)) (merge_pairs xs ys)
   = merge_pairs (map (\<lambda>(k, v). (g k, map f v)) xs) (map (\<lambda>(k, v). (g k, map f v)) ys)"
   if inj: "inj_on g (fst ` (set xs \<union> set ys))"
 proof -
-  have "find (\<lambda>(k', _). k' = g k) (map (\<lambda>(k, v). (g k, map f v)) ys)
-  = map_option (\<lambda>(k, v). (g k, map f v)) (find (\<lambda>(k', _). k' = k) ys)" if "k \<in> fst ` set xs" for k
-    using that inj
-    by - (rule find_map[where P = "(\<lambda>(k', _). k' = k)"],
-          auto elim: inj_onD[rotated, where A = "fst ` (set xs \<union> set ys)"])
-  then show ?thesis
-    by (induction xs) (auto split: prod.split option.split)
+  have *:
+    "find_remove (\<lambda>(k', _). k' = g k) (map (\<lambda>(k, v). (g k, map f v)) ys)
+   = map_option
+      (\<lambda>((k, v), ys). ((g k, map f v), map (\<lambda>(k, v). (g k, map f v)) ys))
+      (find_remove (\<lambda>(k', _). k' = k) ys)"
+    if "inj_on g (fst ` (set xs \<union> set ys))" "k \<in> fst ` set xs" for k xs ys
+    using that
+    by (subst find_remove_map[where P = "(\<lambda>(k', _). k' = k)"])
+      (auto elim: inj_onD[rotated, where A = "fst ` (set xs \<union> set ys)"]
+        intro!: arg_cong2[where f = map_option])
+  show ?thesis
+    using inj
+  proof (induction xs arbitrary: ys)
+    case Nil
+    then show ?case
+      by simp
+  next
+    case (Cons x xs)
+    then show ?case
+      apply (auto split: prod.split option.split simp: *[OF Cons(2)])
+      apply (subst Cons.IH)
+       apply (drule find_remove_SomeD)
+       apply auto
+      done
+  qed
 qed
 
 lemma map_merge_pairs:
@@ -2573,10 +2757,56 @@ lemma renum_acts_bij_extends[simp]:
 lemma inj_extend_bij_renum_acts: "inj (extend_bij renum_acts act_set)"
   using renum_acts_inj infinite_types act_set_finite by (intro extend_bij_inj) auto
 
+lemma constraint_clk_conv_ac:
+  "constraint_clk (conv_ac ac) = constraint_clk ac"
+  by (cases ac) auto
+
 interpretation urge: Prod_TA_sem_urge
   "(set broadcast, map (Simple_Network_Language.conv_A o automaton_of) automata, map_of bounds')"
   urge
-  sorry
+  apply (standard; clarsimp)
+  subgoal
+    using urge_not_in_clk_set
+    unfolding conv_automaton_of
+    unfolding automaton_of_def conv_automaton_def
+    apply (clarsimp split: prod.split_asm)
+    apply (drule default_map_of_in_listD)
+    unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
+    apply clarsimp
+    subgoal premises prems
+      using prems(1,7,8,10)
+      unfolding constraint_clk_conv_ac unfolding constraint_clk_constraint_pair
+      by force
+    done
+  subgoal
+    using urge_not_in_clk_set
+    unfolding conv_automaton_of
+    unfolding automaton_of_def conv_automaton_def
+    apply (clarsimp split: prod.split_asm)
+    unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
+    unfolding constraint_clk_conv_ac unfolding constraint_clk_constraint_pair
+    apply force
+    done
+
+  subgoal
+    using urge_not_in_clk_set
+    unfolding conv_automaton_of
+    unfolding automaton_of_def conv_automaton_def
+    apply (clarsimp split: prod.split_asm)
+    unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
+    apply force
+    done
+  done
+
+
+sublocale rename: Simple_Network_Rename_Defs_int
+  broadcast bounds'
+  "extend_bij renum_acts act_set"
+  "extend_bij renum_vars var_set"
+  "extend_bij renum_clocks (insert urge clk_set')"
+  "\<lambda>p. extend_bij (renum_states p) loc_set"
+  "map (conv_urge urge) automata"
+  .
 
 sublocale rename: Simple_Network_Rename_int
   broadcast bounds'
@@ -2587,11 +2817,11 @@ sublocale rename: Simple_Network_Rename_int
   "map (conv_urge urge) automata"
   apply (standard;
       (intro allI impI bij_extend_bij_renum_clocks inj_extend_bij_renum_states
-           inj_extend_bij_renum_acts bij_extend_bij_renum_states bounds'_var_set)?)
+        inj_extend_bij_renum_acts bij_extend_bij_renum_states bounds'_var_set)?)
     apply (simp add: Prod_TA_Defs.n_ps_def; fail)
   subgoal
-    unfolding bounds'_var_set
-    sorry
+    unfolding bounds'_var_set rename.var_set_compute var_set_compute unfolding conv_urge_def
+    by (fo_rule arg_cong2; fastforce)
   subgoal
     unfolding conv_urge_def by auto
   done
@@ -2722,15 +2952,13 @@ lemma renum_urge_automaton_eq1:
   apply safe
   subgoal
     unfolding renum_reset_def by simp
-  using renum_states_inj
   unfolding renum_cconstraint_def map_cconstraint_def
   apply (subst map_merge_pairs2)
   subgoal
-    unfolding inj_on_def
-    apply auto
-    thm loc_set_def
-    sorry
-  apply simp
+    using loc_set_urgent loc_set_invs \<open>p < n_ps\<close> unfolding inj_on_def n_ps_def
+    by (auto; force
+        elim!: renum_states_inj[unfolded n_ps_def, simplified, rule_format, rotated -1]
+        intro: nth_mem)
   apply (fo_rule arg_cong2; simp)
   done
 
@@ -2789,14 +3017,52 @@ lemma rename_N_eq_sem:
     using bounds'_var_set by - (fo_rule arg_cong, auto intro: renum_vars_bij_extends)
   done
 
+lemma map_of_merge_pairs:
+  "map_of (merge_pairs xs ys) = (\<lambda>x.
+  (if x \<in> fst ` set xs \<and> x \<in> fst ` set ys then Some (the (map_of xs x) @ the (map_of ys x))
+   else if x \<in> fst ` set xs then map_of xs x
+   else map_of ys x))"
+proof -
+  have 1: False if "find_remove (\<lambda>(k', _). k' = k) ys = None" "(k, x) \<in> set ys" for k x ys
+    using that unfolding find_remove_def by (auto simp: extract_None_iff)
+  have 2: "map_of xs k = Some x" if
+    "find_remove (\<lambda>(k', _). k' = k) xs = Some ((k', x), ys)" for k k' x xs ys
+    using that
+    by (auto 4 4 split: option.split dest: map_of_SomeD find_remove_SomeD simp: map_add_def)
+  show ?thesis
+    apply (rule ext)
+    apply (induction xs arbitrary: ys)
+     apply (simp; fail)
+    apply (clarsimp split: if_split_asm option.split)
+    apply (auto 4 3 split: option.split simp: map_add_def dest: find_remove_SomeD 2 1)
+    done
+qed
+
+lemma default_map_of_merge_pairs:
+  "default_map_of [] (merge_pairs xs ys) = (\<lambda>x.
+  (if x \<in> fst ` set xs then the (map_of xs x) @ default_map_of [] ys x
+   else default_map_of [] ys x))"
+  unfolding default_map_of_alt_def map_of_merge_pairs
+  by (rule ext) (auto 4 3 dest: map_of_SomeD weak_map_of_SomeI split: if_split_asm)
+
 lemma automaton_of_conv_urge_commute:
   "automaton_of (conv_urge urge A) = urge.add_reset (urge.add_inv (automaton_of A))"
   unfolding conv_urge_def urge.add_reset_def urge.add_inv_def automaton_of_def
-  apply (simp split: prod.splits)
-  apply auto
+  apply (clarsimp split: prod.splits)
   apply (rule ext)
-  thm default_map_of_map_3
-  sorry
+  unfolding default_map_of_merge_pairs
+  apply auto
+  subgoal premises prems for _ urgent _ _ l
+  proof -
+    have *: "map_of (map (\<lambda>x. (x, [acconstraint.LE urge 0])) urgent)
+      = (\<lambda>l. if l \<in> set urgent then Some [acconstraint.LE urge 0] else None)"
+      using map_of_map_keys[where
+          m = "\<lambda>l. if l \<in> set urgent then Some [acconstraint.LE urge 0] else None"]
+      by (force cong: map_cong simp: dom_def)
+    from \<open>l \<in> set urgent\<close> show ?thesis
+      by (subst *) auto
+  qed
+  done
 
 lemma urge_commute:
   "rename.sem = urge.A_urge"
@@ -2890,6 +3156,16 @@ locale Simple_Network_Rename_Formula =
     "vars_of_formula \<Phi> \<subseteq> var_set"
 begin
 
+lemma rename_n_ps_eq:
+  "rename.n_ps = n_ps"
+  unfolding rename.length_automata_eq_n_ps[symmetric] n_ps_def by simp
+
+lemma rename_states_eq:
+  "rename.states = states"
+  unfolding rename.states_def states_def rename_n_ps_eq
+  by (simp add: rename.N_eq[unfolded rename_n_ps_eq] N_eq n_ps_def del: map_map)
+     (auto simp: automaton_of_def conv_urge_def trans_def split: prod.splits)
+
 sublocale rename: Simple_Network_Rename_Formula_int
   broadcast bounds'
   "extend_bij renum_acts act_set"
@@ -2897,9 +3173,8 @@ sublocale rename: Simple_Network_Rename_Formula_int
   "extend_bij renum_clocks (insert urge clk_set')"
   "\<lambda>p. extend_bij (renum_states p) loc_set"
   "map (conv_urge urge) automata"
-  apply (standard; (rule L\<^sub>0_states s\<^sub>0_dom s\<^sub>0_distinct)?)
-  thm L\<^sub>0_states s\<^sub>0_dom s\<^sub>0_distinct
-  sorry
+  apply (standard; (rule L\<^sub>0_states[folded rename_states_eq] s\<^sub>0_distinct)?)
+  unfolding s\<^sub>0_dom rename.bounds'_var_set[symmetric] bounds'_var_set ..
 
 lemma sexp_eq:
   assumes
@@ -2949,10 +3224,6 @@ lemma rename_a\<^sub>0'_eq:
 lemma rename_\<Phi>'_eq:
   "rename.\<Phi>' = \<Phi>'"
   using formula_dom unfolding rename.\<Phi>'_def \<Phi>'_def by (induction \<Phi>; clarsimp simp: sexp_eq)
-
-lemma rename_n_ps_eq:
-  "rename.n_ps = n_ps"
-  unfolding rename.length_automata_eq_n_ps[symmetric] length_automata_eq_n_ps[symmetric] by simp
 
 lemma models_iff1:
   "rename.renum.sem,a\<^sub>0' \<Turnstile> \<Phi>' \<longleftrightarrow> rename.sem,a\<^sub>0 \<Turnstile> \<Phi>"

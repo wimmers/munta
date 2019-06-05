@@ -493,30 +493,22 @@ definition clk_set'  where
   fst ` clkp_set' \<union>
   (\<Union> A \<in> set automata. \<Union> (_, _, _, _, _, r, _) \<in> set (fst (snd (snd A))). set r)\<close>
 
+lemma (in -) default_map_of_in_listD:
+  "x \<in> \<Union> (set ` snd ` set invs)" if "x \<in> set (default_map_of [] invs l)"
+proof -
+  have "[] \<noteq> default_map_of [] invs l"
+    using that by force
+  then have "default_map_of [] invs l \<in> snd ` set invs"
+    by (metis (no_types) UNIV_I Un_insert_right range_default_map_of[of "[]" "invs"]
+          image_eqI insertE subsetCE sup_bot.right_neutral)
+  with that show ?thesis
+    by blast
+qed
+
 lemma collect_clock_pairs_invsI:
   "(a, b) \<in> \<Union> ((collect_clock_pairs o snd) ` set invs)"
   if "(a, b) \<in> collect_clock_pairs (default_map_of [] invs l)"
-proof -
-  from that obtain x where "(a, b) = constraint_pair x" "x \<in> set (default_map_of [] invs l)"
-    unfolding collect_clock_pairs_def by auto
-  then have "x \<in> \<Union> (set ` range (default_map_of [] invs))"
-    by auto
-  then have "x \<in> \<Union> (set ` snd ` (set invs \<union> {}))"
-  proof -
-    have "[] \<noteq> default_map_of [] invs l"
-      using that by force
-    then have "default_map_of [] invs l \<in> snd ` set invs"
-      by (metis (no_types) UNIV_I Un_insert_right range_default_map_of[of "[]" "invs"]
-            image_eqI insertE subsetCE sup_bot.right_neutral)
-    then show ?thesis
-      using \<open>x \<in> set (default_map_of [] invs l)\<close> by blast
-  qed
-  then have "x \<in> \<Union> (set ` snd ` set invs)"
-    by auto
-  with \<open>(a, b) = _\<close> show ?thesis
-    unfolding collect_clock_pairs_def
-    by auto
-qed
+  using that unfolding collect_clock_pairs_def by (auto dest!: default_map_of_in_listD)
 
 lemma mem_trans_N_iff:
   "t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (snd (automata ! i))))"

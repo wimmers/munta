@@ -1582,7 +1582,7 @@ lemma tracei_alt_def:
 "
   unfolding tracei_def
   unfolding trace_level_def
-  apply simp
+  apply simp (* will not introduce unsoudness. remove by refactoring *)
   sorry
 
 end

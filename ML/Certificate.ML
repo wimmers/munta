@@ -1,29 +1,29 @@
 
 structure Uint : sig
-  val set_bit : Word.word -> IntInf.int -> bool -> Word.word
-  val shiftl : Word.word -> IntInf.int -> Word.word
-  val shiftr : Word.word -> IntInf.int -> Word.word
-  val shiftr_signed : Word.word -> IntInf.int -> Word.word
-  val test_bit : Word.word -> IntInf.int -> bool
+  val set_bit : Word.word -> Int.int -> bool -> Word.word
+  val shiftl : Word.word -> Int.int -> Word.word
+  val shiftr : Word.word -> Int.int -> Word.word
+  val shiftr_signed : Word.word -> Int.int -> Word.word
+  val test_bit : Word.word -> Int.int -> bool
 end = struct
 
 fun set_bit x n b =
-  let val mask = Word.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))
+  let val mask = Word.<< (0wx1, Word.fromLargeInt (Int.toLarge n))
   in if b then Word.orb (x, mask)
      else Word.andb (x, Word.notb mask)
   end
 
 fun shiftl x n =
-  Word.<< (x, Word.fromLargeInt (IntInf.toLarge n))
+  Word.<< (x, Word.fromLargeInt (Int.toLarge n))
 
 fun shiftr x n =
-  Word.>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  Word.>> (x, Word.fromLargeInt (Int.toLarge n))
 
 fun shiftr_signed x n =
-  Word.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  Word.~>> (x, Word.fromLargeInt (Int.toLarge n))
 
 fun test_bit x n =
-  Word.andb (x, Word.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))) <> Word.fromInt 0
+  Word.andb (x, Word.<< (0wx1, Word.fromLargeInt (Int.toLarge n))) <> Word.fromInt 0
 
 end; (* struct Uint *)
 
@@ -63,30 +63,30 @@ end
 val _ = if 5 <= Word.wordSize then () else raise (Fail ("wordSize less than 5"));
 
 structure Uint32 : sig
-  val set_bit : Word32.word -> IntInf.int -> bool -> Word32.word
-  val shiftl : Word32.word -> IntInf.int -> Word32.word
-  val shiftr : Word32.word -> IntInf.int -> Word32.word
-  val shiftr_signed : Word32.word -> IntInf.int -> Word32.word
-  val test_bit : Word32.word -> IntInf.int -> bool
+  val set_bit : Word32.word -> Int.int -> bool -> Word32.word
+  val shiftl : Word32.word -> Int.int -> Word32.word
+  val shiftr : Word32.word -> Int.int -> Word32.word
+  val shiftr_signed : Word32.word -> Int.int -> Word32.word
+  val test_bit : Word32.word -> Int.int -> bool
 end = struct
 
 fun set_bit x n b =
-  let val mask = Word32.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))
+  let val mask = Word32.<< (0wx1, Word.fromLargeInt (Int.toLarge n))
   in if b then Word32.orb (x, mask)
      else Word32.andb (x, Word32.notb mask)
   end
 
 fun shiftl x n =
-  Word32.<< (x, Word.fromLargeInt (IntInf.toLarge n))
+  Word32.<< (x, Word.fromLargeInt (Int.toLarge n))
 
 fun shiftr x n =
-  Word32.>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  Word32.>> (x, Word.fromLargeInt (Int.toLarge n))
 
 fun shiftr_signed x n =
-  Word32.~>> (x, Word.fromLargeInt (IntInf.toLarge n))
+  Word32.~>> (x, Word.fromLargeInt (Int.toLarge n))
 
 fun test_bit x n =
-  Word32.andb (x, Word32.<< (0wx1, Word.fromLargeInt (IntInf.toLarge n))) <> Word32.fromInt 0
+  Word32.andb (x, Word32.<< (0wx1, Word.fromLargeInt (Int.toLarge n))) <> Word32.fromInt 0
 
 end; (* struct Uint32 *)
 
@@ -96,6 +96,8 @@ structure Integer: sig
 end = struct
   fun div_mod i j = (i div j, i mod j)
 end
+
+
 
 
 
@@ -150,19 +152,19 @@ fun shrink (aref, sz) = case aref of
 structure IsabelleMapping = struct
 type 'a ArrayType = 'a array;
 
-fun new_array (a:'a) (n:IntInf.int) = array (IntInf.toInt n, a);
+fun new_array (a:'a) (n:Int.int) = array (Int.toInt n, a);
 
-fun array_length (a:'a ArrayType) = IntInf.fromInt (length a);
+fun array_length (a:'a ArrayType) = Int.fromInt (length a);
 
-fun array_get (a:'a ArrayType) (i:IntInf.int) = sub (a, IntInf.toInt i);
+fun array_get (a:'a ArrayType) (i:Int.int) = sub (a, Int.toInt i);
 
-fun array_set (a:'a ArrayType) (i:IntInf.int) (e:'a) = update (a, IntInf.toInt i, e);
+fun array_set (a:'a ArrayType) (i:Int.int) (e:'a) = update (a, Int.toInt i, e);
 
 fun array_of_list (xs:'a list) = fromList xs;
 
-fun array_grow (a:'a ArrayType) (i:IntInf.int) (x:'a) = grow (a, IntInf.toInt i, x);
+fun array_grow (a:'a ArrayType) (i:Int.int) (x:'a) = grow (a, Int.toInt i, x);
 
-fun array_shrink (a:'a ArrayType) (sz:IntInf.int) = shrink (a,IntInf.toInt sz);
+fun array_shrink (a:'a ArrayType) (sz:Int.int) = shrink (a,Int.toInt sz);
 
 end;
 
@@ -253,25 +255,25 @@ structure FArray = struct
 structure IsabelleMapping = struct
 type 'a ArrayType = 'a array;
 
-fun new_array (a:'a) (n:IntInf.int) = array (IntInf.toInt n, a);
+fun new_array (a:'a) (n:Int.int) = array (Int.toInt n, a);
 
-fun array_length (a:'a ArrayType) = IntInf.fromInt (length a);
+fun array_length (a:'a ArrayType) = Int.fromInt (length a);
 
-fun array_get (a:'a ArrayType) (i:IntInf.int) = sub (a, IntInf.toInt i);
+fun array_get (a:'a ArrayType) (i:Int.int) = sub (a, Int.toInt i);
 
-fun array_set (a:'a ArrayType) (i:IntInf.int) (e:'a) = update (a, IntInf.toInt i, e);
+fun array_set (a:'a ArrayType) (i:Int.int) (e:'a) = update (a, Int.toInt i, e);
 
 fun array_of_list (xs:'a list) = fromList xs;
 
-fun array_grow (a:'a ArrayType) (i:IntInf.int) (x:'a) = grow (a, IntInf.toInt i, x);
+fun array_grow (a:'a ArrayType) (i:Int.int) (x:'a) = grow (a, Int.toInt i, x);
 
-fun array_shrink (a:'a ArrayType) (sz:IntInf.int) = shrink (a,IntInf.toInt sz);
+fun array_shrink (a:'a ArrayType) (sz:Int.int) = shrink (a,Int.toInt sz);
 
-fun array_get_oo (d:'a) (a:'a ArrayType) (i:IntInf.int) =
-  sub (a,IntInf.toInt i) handle Subscript => d
+fun array_get_oo (d:'a) (a:'a ArrayType) (i:Int.int) =
+  sub (a,Int.toInt i) handle Subscript => d
 
-fun array_set_oo (d:(unit->'a ArrayType)) (a:'a ArrayType) (i:IntInf.int) (e:'a) =
-  update (a, IntInf.toInt i, e) handle Subscript => d ()
+fun array_set_oo (d:(unit->'a ArrayType)) (a:'a ArrayType) (i:Int.int) (e:'a) =
+  update (a, Int.toInt i, e) handle Subscript => d ()
 
 end;
 end;
@@ -294,7 +296,7 @@ end
 fun imp_for_inner i u c f s =
   let
     fun imp_for1 i u f s =
-      if IntInf.<= (u, i) then (fn () => s)
+      if Int.<= (u, i) then (fn () => s)
       else if c s () then imp_for1 (i + 1) u f (f i s ())
       else (fn () => s)
   in imp_for1 i u f s end;
@@ -302,7 +304,7 @@ fun imp_for_inner i u c f s =
 fun imp_fora_inner i u f s =
   let
     fun imp_for1 i u f s =
-      if IntInf.<= (u, i) then (fn () => s)
+      if Int.<= (u, i) then (fn () => s)
       else imp_for1 (i + 1) u f (f i s ())
   in imp_for1 i u f s end;
 
@@ -311,94 +313,21 @@ fun imp_fora_inner i u f s =
    fun array_blit src si dst di len = (
       src=dst andalso raise Fail ("array_blit: Same arrays");
       ArraySlice.copy {
-        di = IntInf.toInt di,
-        src = ArraySlice.slice (src,IntInf.toInt si,SOME (IntInf.toInt len)),
+        di = Int.toInt di,
+        src = ArraySlice.slice (src,Int.toInt si,SOME (Int.toInt len)),
         dst = dst})
 
-    fun array_nth_oo v a i () = Array.sub(a,IntInf.toInt i) handle Subscript => v | Overflow => v
+    fun array_nth_oo v a i () = Array.sub(a,Int.toInt i) handle Subscript => v | Overflow => v
     fun array_upd_oo f i x a () = 
-      (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
+      (Array.update(a,Int.toInt i,x); a) handle Subscript => f () | Overflow => f ()
 
     
 
 
-  structure Statistics : sig
-    type stat_entry = string * (unit -> bool) * (unit -> string)
-  
-    val register_stat : stat_entry -> unit
-    val get_active_stats : unit -> (string * string) list
-    val pretty_stats : (string * string) list -> string
-
-  end = struct
-    type stat_entry = string * (unit -> bool) * (unit -> string)
-    val stats : stat_entry list Unsynchronized.ref = Unsynchronized.ref []
-  
-    fun register_stat e = stats := e :: !stats
-
-    fun get_active_stats () = let
-      fun flt [] = []
-        | flt ((n,a,s)::l) = if a () then (n,s ()) :: flt l else flt l
-
-    in flt (!stats)
-    end
-
-    fun pretty_stats [] = ""
-      | pretty_stats ((n,s)::l) = "=== " ^ n ^ " ===\n" ^ s ^ "\n" ^ pretty_stats l
-  end
-
-(* Argh! Functors not compatible with ML_val command!
-  functor Timer () : sig 
-    val reset : unit -> unit
-    val start : unit -> unit
-    val stop : unit -> unit
-    val set : Time.time -> unit
-    val get : unit -> Time.time
-    val pretty : unit -> string
-  end = struct
-
-    open Time;
-
-    val time : Time.time Unsynchronized.ref = Unsynchronized.ref Time.zeroTime
-    val running : bool Unsynchronized.ref = Unsynchronized.ref false
-    val start_time : Time.time Unsynchronized.ref = Unsynchronized.ref Time.zeroTime
-        
-    fun reset () = (
-      time := Time.zeroTime;
-      running := false;
-      start_time := Time.zeroTime
-    )
-
-    fun start () = 
-      if !running then 
-        () 
-      else (
-        running := true;
-        start_time := Time.now ()
-      )
-
-    fun this_runs_time () = 
-      if !running then 
-        Time.now () - !start_time 
-      else 
-        Time.zeroTime
-
-    fun stop () = (
-      time := !time + this_runs_time ();
-      running := false
-    )
-
-    fun get () = !time + this_runs_time ()
-    fun set t = time := t - this_runs_time ()
-  
-    fun pretty () = Time.toString (!time) ^ "s"
-  end
-  *)
 
 
 
 
-
-structure Gabow_Skeleton_Statistics = struct end
 
 structure Model_Checker : sig
   datatype inta = Int_of_integer of int
@@ -473,28 +402,28 @@ val heap_int = {countable_heap = countable_int, typerep_heap = typerep_int} :
 
 fun uminus_inta k = Int_of_integer (~ (integer_of_int k));
 
-val zero_inta : inta = Int_of_integer (0 : IntInf.int);
+val zero_inta : inta = Int_of_integer (0 : Int.int);
 
 datatype num = One | Bit0 of num | Bit1 of num;
 
 fun sgn_integer k =
-  (if k = (0 : IntInf.int) then (0 : IntInf.int)
-    else (if k < (0 : IntInf.int) then (~1 : IntInf.int)
-           else (1 : IntInf.int)));
+  (if k = (0 : Int.int) then (0 : Int.int)
+    else (if k < (0 : Int.int) then (~1 : Int.int)
+           else (1 : Int.int)));
 
 fun apsnd f (x, y) = (x, f y);
 
 fun divmod_integer k l =
-  (if k = (0 : IntInf.int) then ((0 : IntInf.int), (0 : IntInf.int))
-    else (if l = (0 : IntInf.int) then ((0 : IntInf.int), k)
+  (if k = (0 : Int.int) then ((0 : Int.int), (0 : Int.int))
+    else (if l = (0 : Int.int) then ((0 : Int.int), k)
            else (apsnd o (fn a => fn b => a * b) o sgn_integer) l
                   (if sgn_integer k = sgn_integer l
                     then Integer.div_mod (abs k) (abs l)
                     else let
                            val (r, s) = Integer.div_mod (abs k) (abs l);
                          in
-                           (if s = (0 : IntInf.int) then (~ r, (0 : IntInf.int))
-                             else (~ r - (1 : IntInf.int), abs l - s))
+                           (if s = (0 : Int.int) then (~ r, (0 : Int.int))
+                             else (~ r - (1 : Int.int), abs l - s))
                          end)));
 
 fun snd (x1, x2) = x2;
@@ -525,11 +454,11 @@ val ord_integer =
   {less_eq = (fn a => fn b => a <= b), less = (fn a => fn b => a < b)} :
   int ord;
 
-fun nat_of_integer k = Nat (max ord_integer (0 : IntInf.int) k);
+fun nat_of_integer k = Nat (max ord_integer (0 : Int.int) k);
 
-val zero_nata : nat = Nat (0 : IntInf.int);
+val zero_nata : nat = Nat (0 : Int.int);
 
-val one_nata : nat = Nat (1 : IntInf.int);
+val one_nata : nat = Nat (1 : Int.int);
 
 datatype char = Chara of bool * bool * bool * bool * bool * bool * bool * bool;
 
@@ -538,25 +467,25 @@ fun string_of_digit n =
     then [Chara (false, false, false, false, true, true, false, false)]
     else (if equal_nata n one_nata
            then [Chara (true, false, false, false, true, true, false, false)]
-           else (if equal_nata n (nat_of_integer (2 : IntInf.int))
+           else (if equal_nata n (nat_of_integer (2 : Int.int))
                   then [Chara (false, true, false, false, true, true, false,
                                 false)]
-                  else (if equal_nata n (nat_of_integer (3 : IntInf.int))
+                  else (if equal_nata n (nat_of_integer (3 : Int.int))
                          then [Chara (true, true, false, false, true, true,
                                        false, false)]
-                         else (if equal_nata n (nat_of_integer (4 : IntInf.int))
+                         else (if equal_nata n (nat_of_integer (4 : Int.int))
                                 then [Chara
 (false, false, true, false, true, true, false, false)]
                                 else (if equal_nata n
-   (nat_of_integer (5 : IntInf.int))
+   (nat_of_integer (5 : Int.int))
                                        then [Chara
        (true, false, true, false, true, true, false, false)]
                                        else (if equal_nata n
-          (nat_of_integer (6 : IntInf.int))
+          (nat_of_integer (6 : Int.int))
       then [Chara (false, true, true, false, true, true, false, false)]
-      else (if equal_nata n (nat_of_integer (7 : IntInf.int))
+      else (if equal_nata n (nat_of_integer (7 : Int.int))
              then [Chara (true, true, true, false, true, true, false, false)]
-             else (if equal_nata n (nat_of_integer (8 : IntInf.int))
+             else (if equal_nata n (nat_of_integer (8 : Int.int))
                     then [Chara (false, false, false, true, true, true, false,
                                   false)]
                     else [Chara (true, false, false, true, true, true, false,
@@ -567,16 +496,16 @@ fun less_nat m n = integer_of_nat m < integer_of_nat n;
 fun shows_string x = (fn a => x @ a);
 
 fun showsp_nat p n =
-  (if less_nat n (nat_of_integer (10 : IntInf.int))
+  (if less_nat n (nat_of_integer (10 : Int.int))
     then shows_string (string_of_digit n)
-    else showsp_nat p (divide_nat n (nat_of_integer (10 : IntInf.int))) o
+    else showsp_nat p (divide_nat n (nat_of_integer (10 : Int.int))) o
            shows_string
              (string_of_digit
-               (modulo_nat n (nat_of_integer (10 : IntInf.int)))));
+               (modulo_nat n (nat_of_integer (10 : Int.int)))));
 
 fun less_int k l = integer_of_int k < integer_of_int l;
 
-fun nat k = Nat (max ord_integer (0 : IntInf.int) (integer_of_int k));
+fun nat k = Nat (max ord_integer (0 : Int.int) (integer_of_int k));
 
 fun showsp_int p i =
   (if less_int i zero_inta
@@ -698,14 +627,14 @@ val group_add_int =
     uminus_group_add = uminus_int}
   : inta group_add;
 
-fun def_hashmap_size_int x = (fn _ => nat_of_integer (16 : IntInf.int)) x;
+fun def_hashmap_size_int x = (fn _ => nat_of_integer (16 : Int.int)) x;
 
 type 'a hashable =
   {hashcode : 'a -> Word32.word, def_hashmap_size : 'a itself -> nat};
 val hashcode = #hashcode : 'a hashable -> 'a -> Word32.word;
 val def_hashmap_size = #def_hashmap_size : 'a hashable -> 'a itself -> nat;
 
-fun uint32_of_int i = Word32.fromLargeInt (IntInf.toLarge (integer_of_int i));
+fun uint32_of_int i = Word32.fromLargeInt (Int.toLarge (integer_of_int i));
 
 fun hashcode_int i = uint32_of_int i;
 
@@ -1065,19 +994,6 @@ val plus_nat = {plus = plus_nata} : nat plus;
 
 val zero_nat = {zero = zero_nata} : nat zero;
 
-fun times_nata m n = Nat (integer_of_nat m * integer_of_nat n);
-
-type 'a times = {times : 'a -> 'a -> 'a};
-val times = #times : 'a times -> 'a -> 'a -> 'a;
-
-type 'a power = {one_power : 'a one, times_power : 'a times};
-val one_power = #one_power : 'a power -> 'a one;
-val times_power = #times_power : 'a power -> 'a times;
-
-val times_nat = {times = times_nata} : nat times;
-
-val power_nat = {one_power = one_nat, times_power = times_nat} : nat power;
-
 fun less_eq_nat m n = integer_of_nat m <= integer_of_nat n;
 
 val ord_nat = {less_eq = less_eq_nat, less = less_nat} : nat ord;
@@ -1092,7 +1008,7 @@ val monoid_add_nat =
   {semigroup_add_monoid_add = semigroup_add_nat, zero_monoid_add = zero_nat} :
   nat monoid_add;
 
-fun def_hashmap_size_nat x = (fn _ => nat_of_integer (16 : IntInf.int)) x;
+fun def_hashmap_size_nat x = (fn _ => nat_of_integer (16 : Int.int)) x;
 
 fun int_of_nat n = Int_of_integer (integer_of_nat n);
 
@@ -1154,18 +1070,20 @@ fun show_list A_ =
   {shows_prec = shows_prec_list A_, shows_list = shows_list_list A_} :
   ('a list) show;
 
+fun times_nat m n = Nat (integer_of_nat m * integer_of_nat n);
+
 fun def_hashmap_size_list A_ =
   (fn _ =>
-    times_nata (nat_of_integer (2 : IntInf.int)) (def_hashmap_size A_ Type));
+    times_nat (nat_of_integer (2 : Int.int)) (def_hashmap_size A_ Type));
 
 fun foldl f a [] = a
   | foldl f a (x :: xs) = foldl f (f a x) xs;
 
 fun hashcode_list A_ =
   foldl (fn h => fn x =>
-          Word32.+ (Word32.* (h, Word32.fromLargeInt (IntInf.toLarge (33 : IntInf.int))), hashcode
+          Word32.+ (Word32.* (h, Word32.fromLargeInt (Int.toLarge (33 : Int.int))), hashcode
             A_ x))
-    (Word32.fromLargeInt (IntInf.toLarge (5381 : IntInf.int)));
+    (Word32.fromLargeInt (Int.toLarge (5381 : Int.int)));
 
 fun hashable_list A_ =
   {hashcode = hashcode_list A_, def_hashmap_size = def_hashmap_size_list A_} :
@@ -1212,9 +1130,9 @@ val zero_zero_neq_one = #zero_zero_neq_one : 'a zero_neq_one -> 'a zero;
 fun of_bool A_ true = one (one_zero_neq_one A_)
   | of_bool A_ false = zero (zero_zero_neq_one A_);
 
-val one_integera : int = (1 : IntInf.int);
+val one_integera : int = (1 : Int.int);
 
-val zero_integer = {zero = (0 : IntInf.int)} : int zero;
+val zero_integer = {zero = (0 : Int.int)} : int zero;
 
 val one_integer = {one = one_integera} : int one;
 
@@ -1223,19 +1141,19 @@ val zero_neq_one_integer =
   int zero_neq_one;
 
 fun integer_of_char (Chara (b0, b1, b2, b3, b4, b5, b6, b7)) =
-  ((((((of_bool zero_neq_one_integer b7 * (2 : IntInf.int) +
+  ((((((of_bool zero_neq_one_integer b7 * (2 : Int.int) +
          of_bool zero_neq_one_integer b6) *
-         (2 : IntInf.int) +
+         (2 : Int.int) +
         of_bool zero_neq_one_integer b5) *
-        (2 : IntInf.int) +
+        (2 : Int.int) +
        of_bool zero_neq_one_integer b4) *
-       (2 : IntInf.int) +
+       (2 : Int.int) +
       of_bool zero_neq_one_integer b3) *
-      (2 : IntInf.int) +
+      (2 : Int.int) +
      of_bool zero_neq_one_integer b2) *
-     (2 : IntInf.int) +
+     (2 : Int.int) +
     of_bool zero_neq_one_integer b1) *
-    (2 : IntInf.int) +
+    (2 : Int.int) +
     of_bool zero_neq_one_integer b0;
 
 fun nat_of_char c = Nat (integer_of_char c);
@@ -1469,11 +1387,11 @@ val equal_literal = {equal = (fn a => fn b => ((a : string) = b))} :
   string equal;
 
 fun bit_cut_integer k =
-  (if k = (0 : IntInf.int) then ((0 : IntInf.int), false)
+  (if k = (0 : Int.int) then ((0 : Int.int), false)
     else let
-           val (r, s) = Integer.div_mod (abs k) (abs (2 : IntInf.int));
+           val (r, s) = Integer.div_mod (abs k) (abs (2 : Int.int));
          in
-           ((if (0 : IntInf.int) < k then r else ~ r - s), s = (1 : IntInf.int))
+           ((if (0 : Int.int) < k then r else ~ r - s), s = (1 : Int.int))
          end);
 
 fun char_of_integer k = let
@@ -1495,7 +1413,7 @@ fun map f [] = []
 
 fun explode s =
   map char_of_integer
-    ((map (fn c => let val k = Char.ord c in if k < 128 then IntInf.fromInt k else raise Fail "Non-ASCII character in literal" end) 
+    ((map (fn c => let val k = Char.ord c in if k < 128 then Int.fromInt k else raise Fail "Non-ASCII character in literal" end) 
        o String.explode)
       s);
 
@@ -1574,7 +1492,7 @@ fun def_hashmap_size_prod A_ B_ =
 
 fun hashcode_prod A_ B_ x =
   Word32.+ (Word32.* (hashcode A_
-                        (fst x), Word32.fromLargeInt (IntInf.toLarge (33 : IntInf.int))), hashcode
+                        (fst x), Word32.fromLargeInt (Int.toLarge (33 : Int.int))), hashcode
             B_ (snd x));
 
 fun hashable_prod A_ B_ =
@@ -1779,17 +1697,17 @@ fun show_bexp A_ B_ =
   {shows_prec = shows_prec_bexp A_ B_, shows_list = shows_list_bexp A_ B_} :
   ('a, 'b) bexp show;
 
-datatype rat = Frct of (inta * inta);
-
 datatype 'a set = Set of 'a list | Coset of 'a list;
 
 datatype ('a, 'b) sum = Inl of 'a | Inr of 'b;
 
 datatype message = ExploredState;
 
+datatype fract = Rata of bool * inta * inta;
+
 datatype json = Object of (char list * json) list | Arraya of json list |
-  String of char list | Int of inta | Nata of nat | Rat of rat | Boolean of bool
-  | Null;
+  String of char list | Int of inta | Nata of nat | Rat of fract |
+  Boolean of bool | Null;
 
 datatype time = Time of inta;
 
@@ -1830,7 +1748,7 @@ fun list_ex p [] = false
 fun bex (Set xs) p = list_ex p xs;
 
 fun minus_nat m n =
-  Nat (max ord_integer (0 : IntInf.int) (integer_of_nat m - integer_of_nat n));
+  Nat (max ord_integer (0 : Int.int) (integer_of_nat m - integer_of_nat n));
 
 fun nth (x :: xs) n =
   (if equal_nata n zero_nata then x else nth xs (minus_nat n one_nata));
@@ -1848,17 +1766,17 @@ fun list_all p [] = true
 fun ball (Set xs) p = list_all p xs;
 
 fun len A_ a =
-  (fn f_ => fn () => f_ (((fn () => IntInf.fromInt (Array.length a))) ()) ())
+  (fn f_ => fn () => f_ (((fn () => Int.fromInt (Array.length a))) ()) ())
     (fn i => (fn () => (nat_of_integer i)));
 
 fun new A_ =
-  (fn a => fn b => (fn () => Array.array (IntInf.toInt a, b))) o integer_of_nat;
+  (fn a => fn b => (fn () => Array.array (Int.toInt a, b))) o integer_of_nat;
 
-fun ntha A_ a n = (fn () => Array.sub (a, IntInf.toInt (integer_of_nat n)));
+fun ntha A_ a n = (fn () => Array.sub (a, Int.toInt (integer_of_nat n)));
 
 fun upd A_ i x a =
   (fn f_ => fn () => f_
-    (((fn () => Array.update (a, IntInf.toInt (integer_of_nat i), x))) ()) ())
+    (((fn () => Array.update (a, Int.toInt (integer_of_nat i), x))) ()) ())
     (fn _ => (fn () => a));
 
 fun maps f [] = []
@@ -1869,51 +1787,21 @@ fun take n [] = []
     (if equal_nata n zero_nata then []
       else x :: take (minus_nat n one_nata) xs);
 
-fun divide_int k l =
-  Int_of_integer (divide_integer (integer_of_int k) (integer_of_int l));
-
-val one_int : inta = Int_of_integer (1 : IntInf.int);
-
-fun gcd_integer k l =
-  abs (if l = (0 : IntInf.int) then k
-        else gcd_integer l (modulo_integer (abs k) (abs l)));
-
-fun gcd_int (Int_of_integer x) (Int_of_integer y) =
-  Int_of_integer (gcd_integer x y);
-
-fun normalize p =
-  (if less_int zero_inta (snd p)
-    then let
-           val a = gcd_int (fst p) (snd p);
-         in
-           (divide_int (fst p) a, divide_int (snd p) a)
-         end
-    else (if equal_inta (snd p) zero_inta then (zero_inta, one_int)
-           else let
-                  val a = uminus_inta (gcd_int (fst p) (snd p));
-                in
-                  (divide_int (fst p) a, divide_int (snd p) a)
-                end));
-
-fun fract a b = Frct (normalize (a, b));
-
 fun image f (Set xs) = Set (map f xs);
 
 fun make A_ n f =
-  (fn () => Array.tabulate (IntInf.toInt (integer_of_nat n),
-    (f o nat_of_integer) o IntInf.fromInt));
+  (fn () => Array.tabulate (Int.toInt (integer_of_nat n),
+    (f o nat_of_integer) o Int.fromInt));
 
 fun inj_on A_ B_ f a =
   ball a
     (fn x => ball a (fn y => (if eq B_ (f x) (f y) then eq A_ x y else true)));
 
 fun sub asa n =
-  (Vector.sub o (fn (a, b) => (a, IntInf.toInt b))) (asa, integer_of_nat n);
+  (Vector.sub o (fn (a, b) => (a, Int.toInt b))) (asa, integer_of_nat n);
 
 fun map_of A_ ((l, v) :: ps) k = (if eq A_ l k then SOME v else map_of A_ ps k)
   | map_of A_ [] k = NONE;
-
-fun of_int a = Frct (a, one_int);
 
 fun removeAll A_ x [] = []
   | removeAll A_ x (y :: xs) =
@@ -1941,6 +1829,12 @@ fun filter p [] = []
 fun foldli [] c f sigma = sigma
   | foldli (x :: xs) c f sigma =
     (if c sigma then foldli xs c f (f x sigma) else sigma);
+
+fun extract p (x :: xs) =
+  (if p x then SOME ([], (x, xs))
+    else (case extract p xs of NONE => NONE
+           | SOME (ys, (y, zs)) => SOME (x :: ys, (y, zs))))
+  | extract p [] = NONE;
 
 fun hd (x21 :: x22) = x21;
 
@@ -1971,7 +1865,7 @@ fun is_none (SOME x) = false
 
 fun implode cs =
   (String.implode
-    o map (fn k => if 0 <= k andalso k < 128 then (Char.chr o IntInf.toInt) k else raise Fail "Non-ASCII character in literal"))
+    o map (fn k => if 0 <= k andalso k < 128 then (Char.chr o Int.toInt) k else raise Fail "Non-ASCII character in literal"))
     (map integer_of_char cs);
 
 fun tracea x = trace ExploredState x;
@@ -1991,8 +1885,6 @@ fun map_filter f [] = []
     (case f x of NONE => map_filter f xs | SOME y => y :: map_filter f xs);
 
 fun cODE_ABORT _ = raise Fail "Misc.CODE_ABORT";
-
-fun quotient_of (Frct x) = x;
 
 fun bind m f = (case m of Inl a => Inl a | Inr a => f a);
 
@@ -2210,7 +2102,7 @@ fun err_expecting_aux A_ msg =
                 Chara (false, false, false, false, false, true, false, false)] o
             shows_quote
               (shows_prec_list A_ zero_nata
-                (take (nat_of_integer (100 : IntInf.int)) ts))));
+                (take (nat_of_integer (100 : Int.int)) ts))));
 
 fun get ll =
   let
@@ -2497,8 +2389,7 @@ fun lx_nat_aux acc l =
   bindb (alt (bindb lx_digit
                (fn x =>
                  lx_nat_aux
-                   (plus_nata
-                     (times_nata (nat_of_integer (10 : IntInf.int)) acc)
+                   (plus_nata (times_nat (nat_of_integer (10 : Int.int)) acc)
                      (minus_nat (nat_of_char x)
                        (nat_of_char
                          (Chara
@@ -2538,72 +2429,10 @@ fun json_string x =
             (fn _ => return a)))
     x;
 
-fun times_int k l = Int_of_integer (integer_of_int k * integer_of_int l);
-
-fun minus_rat p q =
-  Frct let
-         val a = quotient_of p;
-         val (aa, c) = a;
-         val b = quotient_of q;
-         val (ba, d) = b;
-       in
-         normalize (minus_inta (times_int aa d) (times_int ba c), times_int c d)
-       end;
-
-fun plus_rat p q =
-  Frct let
-         val a = quotient_of p;
-         val (aa, c) = a;
-         val b = quotient_of q;
-         val (ba, d) = b;
-       in
-         normalize (plus_inta (times_int aa d) (times_int ba c), times_int c d)
-       end;
-
-fun size_list x = gen_length zero_nata x;
-
 fun nats_to_nat x [] = x
   | nats_to_nat x (n :: ns) =
-    nats_to_nat (plus_nata (times_nata (nat_of_integer (10 : IntInf.int)) x) n)
+    nats_to_nat (plus_nata (times_nat (nat_of_integer (10 : Int.int)) x) n)
       ns;
-
-fun power A_ a n =
-  (if equal_nata n zero_nata then one (one_power A_)
-    else times (times_power A_) a (power A_ a (minus_nat n one_nata)));
-
-fun lx_rat_fract x =
-  bindb lx_digit
-    (fn xa =>
-      bindb (repeat
-              (bindb lx_digit
-                (fn xb =>
-                  return
-                    (minus_nat (nat_of_char xb)
-                      (nat_of_char
-                        (Chara
-                          (false, false, false, false, true, true, false,
-                            false)))))))
-        (fn xaa =>
-          return
-            (fract
-              (int_of_nat
-                (nats_to_nat zero_nata
-                  (minus_nat (nat_of_char xa)
-                     (nat_of_char
-                       (Chara
-                         (false, false, false, false, true, true, false,
-                           false))) ::
-                    xaa)))
-              (int_of_nat
-                (power power_nat (nat_of_integer (10 : IntInf.int))
-                  (size_list
-                    (minus_nat (nat_of_char xa)
-                       (nat_of_char
-                         (Chara
-                           (false, false, false, false, true, true, false,
-                             false))) ::
-                      xaa)))))))
-    x;
 
 fun lx_rat x =
   bindb lx_int
@@ -2611,11 +2440,32 @@ fun lx_rat x =
       bindb (exactly (equal_char, show_char)
               [Chara (false, true, true, true, false, true, false, false)])
         (fn _ =>
-          bindb lx_rat_fract
+          bindb lx_digit
             (fn xaa =>
-              return
-                (if less_eq_int zero_inta xa then plus_rat (of_int xa) xaa
-                  else minus_rat (of_int xa) xaa))))
+              bindb (repeat
+                      (bindb lx_digit
+                        (fn xb =>
+                          return
+                            (minus_nat (nat_of_char xb)
+                              (nat_of_char
+                                (Chara
+                                  (false, false, false, false, true, true,
+                                    false, false)))))))
+                (fn xb =>
+                  return
+                    (if less_eq_int zero_inta xa
+                      then Rata (true, xa,
+                                  (int_of_nat o nats_to_nat zero_nata)
+                                    (minus_nat (nat_of_char xaa)
+                                       (nat_of_char
+ (Chara (false, false, false, false, true, true, false, false))) ::
+                                      xb))
+                      else Rata (false, xa,
+                                  (int_of_nat o nats_to_nat zero_nata)
+                                    (minus_nat (nat_of_char xaa)
+                                       (nat_of_char
+ (Chara (false, false, false, false, true, true, false, false))) ::
+                                      xb)))))))
     x;
 
 fun atom x =
@@ -2701,6 +2551,8 @@ fun index A_ xs = (fn a => find_index (fn x => eq A_ x a) xs);
 
 fun of_phantom (Phantom x) = x;
 
+fun size_list x = gen_length zero_nata x;
+
 fun card (A1_, A2_) (Coset xs) =
   minus_nat (of_phantom (card_UNIV A1_)) (size_list (remdups A2_ xs))
   | card (A1_, A2_) (Set xs) = size_list (remdups A2_ xs);
@@ -2716,7 +2568,7 @@ fun ht_new_sz (A1_, A2_) B_ n =
 fun ht_new (A1_, A2_) B_ = ht_new_sz (A1_, A2_) B_ (def_hashmap_size A1_ Type);
 
 fun nat_of_uint32 x =
-  nat_of_integer (IntInf.fromLarge (Word32.toLargeInt x) : IntInf.int);
+  nat_of_integer (Int.fromLarge (Word32.toLargeInt x) : Int.int);
 
 fun nat_of_hashcode x = nat_of_uint32 x;
 
@@ -2902,19 +2754,19 @@ fun ht_rehash (A1_, A2_, A3_) B_ ht =
     (fn n =>
       (fn f_ => fn () => f_
         ((ht_new_sz (A2_, A3_) B_
-           (times_nata (nat_of_integer (2 : IntInf.int)) n))
+           (times_nat (nat_of_integer (2 : Int.int)) n))
         ()) ())
         (ht_copy (A1_, A2_, A3_) B_ n ht));
 
-val load_factor : nat = nat_of_integer (75 : IntInf.int);
+val load_factor : nat = nat_of_integer (75 : Int.int);
 
 fun ht_update (A1_, A2_, A3_) B_ k v ht =
   (fn f_ => fn () => f_ ((len (heap_list (heap_prod A3_ B_)) (the_array ht)) ())
     ())
     (fn m =>
       (fn f_ => fn () => f_
-        ((if less_eq_nat (times_nata m load_factor)
-               (times_nata (the_size ht) (nat_of_integer (100 : IntInf.int)))
+        ((if less_eq_nat (times_nat m load_factor)
+               (times_nat (the_size ht) (nat_of_integer (100 : Int.int)))
            then ht_rehash (A1_, A2_, A3_) B_ ht else (fn () => ht))
         ()) ())
         (ht_upd (A1_, A2_, A3_) B_ k v));
@@ -3031,9 +2883,9 @@ fun as_shrink s =
     val a = s;
     val (aa, n) = a;
     val ab =
-      (if less_eq_nat (times_nata (nat_of_integer (128 : IntInf.int)) n)
+      (if less_eq_nat (times_nat (nat_of_integer (128 : Int.int)) n)
             (array_length aa) andalso
-            less_nat (nat_of_integer (4 : IntInf.int)) n
+            less_nat (nat_of_integer (4 : Int.int)) n
         then array_shrink aa n else aa);
   in
     (ab, n)
@@ -3080,17 +2932,17 @@ fun min A_ a b = (if less_eq A_ a b then a else b);
 fun imp_for_int_innera i u f s =
   (if u <= i then (fn () => s)
     else (fn f_ => fn () => f_ ((f i s) ()) ())
-           (imp_for_int_innera (i + (1 : IntInf.int)) u f));
+           (imp_for_int_innera (i + (1 : Int.int)) u f));
 
 fun imp_for_inta i u f s =
   imp_for_int_innera (integer_of_nat i) (integer_of_nat u) (f o nat_of_integer)
     s;
 
 fun mtx_tabulate (A1_, A2_, A3_) (B1_, B2_) n m c =
-  (fn f_ => fn () => f_ ((new B2_ (times_nata n m) (zero B1_)) ()) ())
+  (fn f_ => fn () => f_ ((new B2_ (times_nat n m) (zero B1_)) ()) ())
     (fn ma =>
       (fn f_ => fn () => f_
-        ((imp_for_inta zero_nata (times_nata n m)
+        ((imp_for_inta zero_nata (times_nat n m)
            (fn k => fn (i, (j, maa)) =>
              (fn f_ => fn () => f_ ((upd B2_ k (c (i, j)) maa) ()) ())
                (fn _ =>
@@ -3153,8 +3005,8 @@ fun as_push s x =
     val ab =
       (if equal_nata n (array_length aa)
         then array_grow aa
-               (max ord_nat (nat_of_integer (4 : IntInf.int))
-                 (times_nata (nat_of_integer (2 : IntInf.int)) n))
+               (max ord_nat (nat_of_integer (4 : Int.int))
+                 (times_nat (nat_of_integer (2 : Int.int)) n))
                x
         else aa);
     val ac = array_set ab n x;
@@ -3172,6 +3024,11 @@ fun as_take m s = let
 fun rev_append [] ac = ac
   | rev_append (x :: xs) ac = rev_append xs (x :: ac);
 
+val one_int : inta = Int_of_integer (1 : Int.int);
+
+fun map_option f NONE = NONE
+  | map_option f (SOME x2) = SOME (f x2);
+
 fun sup_set A_ (Coset xs) a = Coset (filter (fn x => not (member A_ x a)) xs)
   | sup_set A_ (Set xs) a = fold (insert A_) xs a;
 
@@ -3185,10 +3042,10 @@ fun hms_extract lookup delete k m =
           (fn f_ => fn () => f_ ((delete k m) ()) ())
             (fn ma => (fn () => (SOME v, ma)))));
 
-fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nata (fst e) m) (snd e));
+fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nat (fst e) m) (snd e));
 
 fun mtx_set A_ m mtx e v =
-  upd A_ (plus_nata (times_nata (fst e) m) (snd e)) v mtx;
+  upd A_ (plus_nata (times_nat (fst e) m) (snd e)) v mtx;
 
 fun op_list_prepend x = (fn a => x :: a);
 
@@ -3263,15 +3120,15 @@ fun ahm_rehash_aux bhc a sz =
 
 fun ahm_rehash bhc (HashMap (a, n)) sz = HashMap (ahm_rehash_aux bhc a sz, n);
 
-val load_factora : nat = nat_of_integer (75 : IntInf.int);
+val load_factora : nat = nat_of_integer (75 : Int.int);
 
 fun ahm_filled (HashMap (a, n)) =
-  less_eq_nat (times_nata (array_length a) load_factora)
-    (times_nata n (nat_of_integer (100 : IntInf.int)));
+  less_eq_nat (times_nat (array_length a) load_factora)
+    (times_nat n (nat_of_integer (100 : Int.int)));
 
 fun hm_grow (HashMap (a, n)) =
-  plus_nata (times_nata (nat_of_integer (2 : IntInf.int)) (array_length a))
-    (nat_of_integer (3 : IntInf.int));
+  plus_nata (times_nat (nat_of_integer (2 : Int.int)) (array_length a))
+    (nat_of_integer (3 : Int.int));
 
 fun ahm_update eq bhc k v hm =
   let
@@ -3348,7 +3205,7 @@ fun find_max_nat n uu =
 
 fun amtx_copy A_ = array_copy A_;
 
-fun amtx_dflt A_ n m v = make A_ (times_nata n m) (fn _ => v);
+fun amtx_dflt A_ n m v = make A_ (times_nat n m) (fn _ => v);
 
 fun lso_bex_impl pi li =
   imp_nfoldli li (fn sigma => (fn () => (not sigma))) (fn xa => fn _ => pi xa)
@@ -3431,23 +3288,23 @@ fun dbm_add_int INF uu = INF
 
 fun fw_upd_impl_integer n a k i j =
   let
-    val na = n + (1 : IntInf.int);
+    val na = n + (1 : Int.int);
     val ia = i * na + j;
   in
-    (fn f_ => fn () => f_ (((fn () => Array.sub (a, IntInf.toInt (i * na + k))))
+    (fn f_ => fn () => f_ (((fn () => Array.sub (a, Int.toInt (i * na + k))))
       ()) ())
       (fn y =>
         (fn f_ => fn () => f_
-          (((fn () => Array.sub (a, IntInf.toInt (k * na + j)))) ()) ())
+          (((fn () => Array.sub (a, Int.toInt (k * na + j)))) ()) ())
           (fn z =>
-            (fn f_ => fn () => f_ (((fn () => Array.sub (a, IntInf.toInt ia)))
+            (fn f_ => fn () => f_ (((fn () => Array.sub (a, Int.toInt ia)))
               ()) ())
               (fn x =>
                 let
                   val m = dbm_add_int y z;
                 in
                   (if dbm_lt_int m x
-                    then (fn a => fn () => (Array.update (a, IntInf.toInt ia, m); a)) a
+                    then (fn a => fn () => (Array.update (a, Int.toInt ia, m); a)) a
                     else (fn () => a))
                 end)))
   end;
@@ -3455,11 +3312,11 @@ fun fw_upd_impl_integer n a k i j =
 fun fwi_impl_int n a k =
   let
     val na = integer_of_nat n;
-    val n_plus_1 = na + (1 : IntInf.int);
+    val n_plus_1 = na + (1 : Int.int);
   in
-    imp_for_int_innera (0 : IntInf.int) n_plus_1
+    imp_for_int_innera (0 : Int.int) n_plus_1
       (fn i =>
-        imp_for_int_innera (0 : IntInf.int) n_plus_1
+        imp_for_int_innera (0 : Int.int) n_plus_1
           (fn ia => fn xa => fw_upd_impl_integer na xa (integer_of_nat k) i ia))
       a
   end;
@@ -3492,6 +3349,8 @@ fun combine_map f xs = combine (map f xs);
 
 fun as_is_empty s = equal_nata (snd s) zero_nata;
 
+fun times_int k l = Int_of_integer (integer_of_int k * integer_of_int l);
+
 fun part B_ f pivot (x :: xs) =
   let
     val (lts, (eqs, gts)) = part B_ f pivot xs;
@@ -3516,7 +3375,7 @@ fun sort_key B_ f xs =
         val (lts, (eqs, gts)) =
           part B_ f
             (f (nth xs
-                 (divide_nat (size_list xs) (nat_of_integer (2 : IntInf.int)))))
+                 (divide_nat (size_list xs) (nat_of_integer (2 : Int.int)))))
             xs;
       in
         sort_key B_ f lts @ eqs @ sort_key B_ f gts
@@ -3757,7 +3616,7 @@ fun imp_for_int_inner i u c f s =
            (fn ctn =>
              (if ctn
                then (fn f_ => fn () => f_ ((f i s) ()) ())
-                      (imp_for_int_inner (i + (1 : IntInf.int)) u c f)
+                      (imp_for_int_inner (i + (1 : Int.int)) u c f)
                else (fn () => s))));
 
 fun imp_for_int i u c f s =
@@ -3785,7 +3644,7 @@ fun dbm_le_int (Lt a) (Lt b) = less_eq_int a b
 fun dbm_subset_impl_inta x =
   (fn m => fn a => fn b =>
     imp_for_int zero_nata
-      (times_nata (plus_nata m one_nata) (plus_nata m one_nata))
+      (times_nat (plus_nata m one_nata) (plus_nata m one_nata))
       (fn aa => (fn () => aa))
       (fn i => fn _ =>
         (fn f_ => fn () => f_ ((ntha (heap_DBMEntry heap_int) a i) ()) ())
@@ -4184,6 +4043,9 @@ fun ta_var_ident x =
 
 fun scan_var x = ta_var_ident x;
 
+fun divide_int k l =
+  Int_of_integer (divide_integer (integer_of_int k) (integer_of_int l));
+
 fun scan_infix_pair a b s =
   bindb (gen_token lx_ws a)
     (fn aa =>
@@ -4405,9 +4267,9 @@ fun parse parser s =
 
 fun default_map_of B_ a xs = map_default a (map_of B_ xs);
 
-fun automaton_of C_ =
-  (fn (commited, (trans, inv)) =>
-    (Set commited, (Set trans, default_map_of C_ [] inv)));
+fun automaton_of D_ =
+  (fn (committed, (urgent, (trans, inv))) =>
+    (Set committed, (Set urgent, (Set trans, default_map_of D_ [] inv))));
 
 fun bvali (A1_, A2_) s True = true
   | bvali (A1_, A2_) s (Not e) = not (bvali (A1_, A2_) s e)
@@ -4461,6 +4323,28 @@ fun of_nat json =
     | Rat _ => Error ["of_nat: expected natural number"]
     | Boolean _ => Error ["of_nat: expected natural number"]
     | Null => Error ["of_nat: expected natural number"]);
+
+fun find_remove p = map_option (fn (xs, (x, ys)) => (x, xs @ ys)) o extract p;
+
+fun merge_pairs A_ [] ys = ys
+  | merge_pairs A_ ((k, v) :: xs) ys =
+    (case find_remove (fn (ka, _) => eq A_ ka k) ys
+      of NONE => (k, v) :: merge_pairs A_ xs ys
+      | SOME ((_, va), ysa) => (k, v @ va) :: merge_pairs A_ xs ysa);
+
+fun conv_urge C_ J_ urge =
+  (fn (committed, (urgent, (trans, inv))) =>
+    (committed,
+      ([], (map (fn (l, a) => let
+                                val (b, aa) = a;
+                                val (g, ab) = aa;
+                                val (ac, (f, (r, la))) = ab;
+                              in
+                                (l, (b, (g, (ac, (f, (urge :: r, la))))))
+                              end)
+              trans,
+             merge_pairs C_ (map (fn l => (l, [LE (urge, zero J_)])) urgent)
+               inv))));
 
 fun dbm_subset_impl (A1_, A2_, A3_) n =
   (fn ai => fn bi =>
@@ -5137,13 +5021,27 @@ fun convert_automaton clocks vars a =
                         in
                           binda (combine_map of_nat committed)
                             (fn committeda =>
-                              binda (combine_map (convert_edge clocks vars)
-                                      edges)
-                                (fn edgesa =>
-                                  Result
-                                    (names_to_idsa,
-                                      (ids_to_names,
-(committeda, (edgesa, invs))))))
+                              let
+                                val urgent =
+                                  default []
+                                    (binda
+                                      (geta (show_list show_char) a
+[Chara (true, false, true, false, true, true, true, false),
+  Chara (false, true, false, false, true, true, true, false),
+  Chara (true, true, true, false, false, true, true, false),
+  Chara (true, false, true, false, false, true, true, false),
+  Chara (false, true, true, true, false, true, true, false),
+  Chara (false, false, true, false, true, true, true, false)])
+                                      of_array);
+                              in
+                                binda (combine_map of_nat urgent)
+                                  (fn urgenta =>
+                                    binda (combine_map
+    (convert_edge clocks vars) edges)
+                                      (fn edgesa =>
+Result
+  (names_to_idsa, (ids_to_names, (committeda, (urgenta, (edgesa, invs)))))))
+                              end)
                         end))
               end)));
 
@@ -5300,10 +5198,11 @@ fun convert json =
                   (fn broadcasta =>
                     let
                       val _ =
-                        writeln ("Broadcast channels " ^
-                                  implode
-                                    (shows_prec_list show_literal zero_nata
-                                      broadcasta []));
+                        (fn _ => fn s => writeln (s ())) (Int_of_integer
+                   (3 : Int.int)) ((fn _ =>
+(fn () =>
+  ("Broadcast channels " ^
+    implode (shows_prec_list show_literal zero_nata broadcasta [])))) ());
                       val bounds =
                         default ""
                           (binda
@@ -5729,7 +5628,7 @@ fun actions_by_statea num_actions xs =
          list_update acc (fst (snd (snd t))) (t :: nth acc (fst (snd (snd t)))))
     xs (map (fn _ => []) (upt zero_nata num_actions));
 
-fun get_commited broadcast bounds automata l =
+fun get_committed broadcast bounds automata l =
   map_filter
     (fn p =>
       let
@@ -5765,7 +5664,7 @@ fun union_map_of A_ xs =
 
 fun trans_map automata i =
   let
-    val m = union_map_of equal_nat (fst (snd (nth automata i)));
+    val m = union_map_of equal_nat (fst (snd (snd (nth automata i))));
   in
     (fn j => (case m j of NONE => [] | SOME xs => xs))
   end;
@@ -5909,7 +5808,8 @@ fun state_space broadcast bounds automata m num_states num_actions k l_0 s_0
             (map (fn i =>
                    let
                      val ma =
-                       default_map_of equal_nat [] (snd (snd (nth automata i)));
+                       default_map_of equal_nat []
+                         (snd (snd (snd (nth automata i))));
                      val mb =
                        Vector.fromList (map ma (upt zero_nata (num_states i)));
                    in
@@ -6018,7 +5918,7 @@ fun state_space broadcast bounds automata m num_states num_actions k l_0 s_0
         val broad_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 map (fn p => trans_in_broad_grouped p (nth l p))
                   (upt zero_nata n_ps);
@@ -6056,23 +5956,23 @@ fun state_space broadcast bounds automata m num_states num_actions k l_0 s_0
                        (upt zero_nata num_actions)
                 else maps (fn a =>
                             let
-                              val ins_commited =
+                              val ins_committed =
                                 map_filter
                                   (fn (p, _) =>
                                     (if not (null (nth (nth inb p) a))
                                       then SOME p else NONE))
                                   pairs;
-                              val always_commited =
-                                less_nat one_nata (size_list ins_commited);
+                              val always_committed =
+                                less_nat one_nata (size_list ins_committed);
                             in
                               maps (fn p =>
                                      let
                                        val outs = nth (nth outa p) a;
                                      in
                                        (if null outs then []
- else (if not always_commited andalso
-            ((equal_lista equal_nat ins_commited [p] orelse
-               null ins_commited) andalso
+ else (if not always_committed andalso
+            ((equal_lista equal_nat ins_committed [p] orelse
+               null ins_committed) andalso
               not (list_ex (fn (q, _) => equal_nata q p) pairs))
         then []
         else let
@@ -6093,7 +5993,7 @@ fun state_space broadcast bounds automata m num_states num_actions k l_0 s_0
         val bin_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 all_actions_by_state broadcast bounds automata num_actions
                   trans_in_map l;
@@ -6125,7 +6025,7 @@ fun state_space broadcast bounds automata m num_states num_actions k l_0 s_0
         val int_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
             in
               (if null pairs then int_trans_from_all_impl l s
                 else int_trans_from_vec_impl pairs l s)
@@ -6320,14 +6220,14 @@ fun clkp_set C_ automata =
       (image
         (fn a =>
           sup_seta (equal_prod C_ equal_int)
-            (image (collect_clock_pairs o snd) (Set (snd (snd a)))))
+            (image (collect_clock_pairs o snd) (Set (snd (snd (snd a))))))
         (Set automata)))
     (sup_seta (equal_prod C_ equal_int)
       (image
         (fn a =>
           sup_seta (equal_prod C_ equal_int)
             (image (fn (_, (_, (g, _))) => collect_clock_pairs g)
-              (Set (fst (snd a)))))
+              (Set (fst (snd (snd a))))))
         (Set automata)));
 
 fun clk_set C_ automata =
@@ -6337,7 +6237,7 @@ fun clk_set C_ automata =
         (fn a =>
           sup_seta C_
             (image (fn (_, (_, (_, (_, (_, (r, _)))))) => Set r)
-              (Set (fst (snd a)))))
+              (Set (fst (snd (snd a))))))
         (Set automata)));
 
 fun vars_of_sexp C_ (Nota e) = vars_of_sexp C_ e
@@ -6363,14 +6263,14 @@ fun vars_of_formula C_ (EX phi) = vars_of_sexp C_ phi
     sup_set C_ (vars_of_sexp C_ phi) (vars_of_sexp C_ psi);
 
 fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
-  renum_states automata phi l_0 s_0 =
+  renum_states automata urge phi l_0 s_0 =
   combine
     [assert
        (all_interval_nat
          (fn i =>
            ball (sup_seta equal_nat
                   (image
-                    (fn (_, (t, _)) =>
+                    (fn (_, (_, (t, _))) =>
                       sup_seta equal_nat
                         (image
                           (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -6380,7 +6280,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
              (fn x =>
                ball (sup_seta equal_nat
                       (image
-                        (fn (_, (t, _)) =>
+                        (fn (_, (_, (t, _))) =>
                           sup_seta equal_nat
                             (image
                               (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -6395,7 +6295,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
        "Location renamings are injective",
       assert
         (inj_on equal_literal equal_nat renum_clocks
-          (clk_set equal_literal automata))
+          (insert equal_literal urge (clk_set equal_literal automata)))
         "Clock renaming is injective",
       assert
         (inj_on equal_literal equal_nat renum_vars
@@ -6405,7 +6305,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                 (fn s =>
                   sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
                 (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))
             (sup_seta equal_literal
               (image
                 (fn s =>
@@ -6421,14 +6321,14 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                             (Set f)))
                       s))
                 (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))))
         "Variable renaming is injective",
       assert
         (inj_on equal_literal equal_nat renum_acts
           (sup_set equal_literal
             (sup_seta equal_literal
               (image
-                (fn (_, (t, _)) =>
+                (fn (_, (_, (t, _))) =>
                   sup_seta equal_literal
                     (image (fn (_, a) => let
    val (_, aa) = a;
@@ -6449,7 +6349,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                 (fn s =>
                   sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
                 (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))
             (sup_seta equal_literal
               (image
                 (fn s =>
@@ -6465,16 +6365,16 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                             (Set f)))
                       s))
                 (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))))
         "Bound set is exactly the variable set",
       assert
         (subset (card_UNIV_nat, equal_nat)
           (sup_seta equal_nat
             (image (fn g => image fst (Set g))
-              (Set (map (snd o snd) automata))))
+              (Set (map (snd o snd o snd) automata))))
           (sup_seta equal_nat
             (image
-              (fn (_, (t, _)) =>
+              (fn (_, (_, (t, _))) =>
                 sup_seta equal_nat
                   (image
                     (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -6487,7 +6387,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
           (sup_seta equal_nat (image (Set o fst) (Set automata)))
           (sup_seta equal_nat
             (image
-              (fn (_, (t, _)) =>
+              (fn (_, (_, (t, _))) =>
                 sup_seta equal_nat
                   (image
                     (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -6496,13 +6396,29 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
               (Set automata))))
         "Broadcast locations are containted in the location set",
       assert
+        (subset (card_UNIV_nat, equal_nat)
+          (sup_seta equal_nat
+            (image (fn x => Set (fst (snd x))) (Set automata)))
+          (sup_seta equal_nat
+            (image
+              (fn (_, (_, (t, _))) =>
+                sup_seta equal_nat
+                  (image
+                    (fn (l, (_, (_, (_, (_, (_, la)))))) =>
+                      insert equal_nat l (insert equal_nat la bot_set))
+                    (Set t)))
+              (Set automata))))
+        "Urgent locations are containted in the location set",
+      assert (not (member equal_literal urge (clk_set equal_literal automata)))
+        "Urge not in clock set",
+      assert
         (equal_nata (size_list l_0) (size_list automata) andalso
           all_interval_nat
             (fn i =>
-              bex (fst (snd (nth (fst (snd
-(Set broadcast,
-  (map (automaton_of equal_nat) automata, map_of equal_literal bounds))))
-                              i)))
+              bex (fst (snd (snd (nth (fst
+(snd (Set broadcast,
+       (map (automaton_of equal_nat) automata, map_of equal_literal bounds))))
+                                   i))))
                 (fn (l, (_, (_, (_, (_, (_, la)))))) =>
                   equal_nata (nth l_0 i) l orelse equal_nata (nth l_0 i) la))
             zero_nata (size_list automata))
@@ -6515,7 +6431,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                 (fn s =>
                   sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
                 (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))
             (sup_seta equal_literal
               (image
                 (fn s =>
@@ -6531,7 +6447,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                             (Set f)))
                       s))
                 (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))))
         "Initial state has the correct domain",
       assert (distinct equal_literal (map fst s_0))
         "Initial state is unambiguous",
@@ -6539,7 +6455,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
         (subset (card_UNIV_nat, equal_nat) (set2_formula equal_nat phi)
           (sup_seta equal_nat
             (image
-              (fn (_, (t, _)) =>
+              (fn (_, (_, (t, _))) =>
                 sup_seta equal_nat
                   (image
                     (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -6560,7 +6476,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                 (fn s =>
                   sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
                 (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))
             (sup_seta equal_literal
               (image
                 (fn s =>
@@ -6576,100 +6492,93 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                             (Set f)))
                       s))
                 (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))))
         "Variables of the formula are contained in the variable set"];
 
 fun check_precond2 broadcast bounds automata m num_states k l_0 s_0 formula =
-  let
-    val _ =
-      writeln (implode
-                (shows_prec_list (show_list (show_list show_nat)) zero_nata k
-                  []));
-  in
-    combine
-      [assert
-         (all_interval_nat
-           (fn i =>
-             list_all
-               (fn (l, g) =>
-                 ball (collect_clock_pairs g)
-                   (fn (x, ma) =>
-                     less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
-               ((snd o snd) (nth automata i)))
-           zero_nata (size_list automata))
-         "Ceiling invariants",
-        assert
-          (all_interval_nat
-            (fn i =>
-              list_all
-                (fn (l, (_, (g, _))) =>
-                  ball (collect_clock_pairs g)
-                    (fn (x, ma) =>
-                      less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
-                ((fst o snd) (nth automata i)))
-            zero_nata (size_list automata))
-          "Ceiling transitions",
-        assert
-          (all_interval_nat
-            (fn i =>
-              list_all
-                (fn (l, (_, (_, (_, (_, (r, la)))))) =>
-                  ball (minus_set equal_nat
-                         (Set (upt zero_nata (plus_nata m one_nata))) (Set r))
-                    (fn c =>
-                      less_eq_nat (nth (nth (nth k i) la) c)
-                        (nth (nth (nth k i) l) c)))
-                ((fst o snd) (nth automata i)))
-            zero_nata (size_list automata))
-          "Ceiling resets",
-        assert (equal_nata (size_list k) (size_list automata)) "Ceiling length",
-        assert
-          (all_interval_nat
-            (fn i => equal_nata (size_list (nth k i)) (num_states i)) zero_nata
-            (size_list automata))
-          "Ceiling length automata)",
-        assert
+  combine
+    [assert
+       (all_interval_nat
+         (fn i =>
+           list_all
+             (fn (l, g) =>
+               ball (collect_clock_pairs g)
+                 (fn (x, ma) =>
+                   less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
+             ((snd o snd o snd) (nth automata i)))
+         zero_nata (size_list automata))
+       "Ceiling invariants",
+      assert
+        (all_interval_nat
+          (fn i =>
+            list_all
+              (fn (l, (_, (g, _))) =>
+                ball (collect_clock_pairs g)
+                  (fn (x, ma) =>
+                    less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
+              ((fst o snd o snd) (nth automata i)))
+          zero_nata (size_list automata))
+        "Ceiling transitions",
+      assert
+        (all_interval_nat
+          (fn i =>
+            list_all
+              (fn (l, (_, (_, (_, (_, (r, la)))))) =>
+                ball (minus_set equal_nat
+                       (Set (upt zero_nata (plus_nata m one_nata))) (Set r))
+                  (fn c =>
+                    less_eq_nat (nth (nth (nth k i) la) c)
+                      (nth (nth (nth k i) l) c)))
+              ((fst o snd o snd) (nth automata i)))
+          zero_nata (size_list automata))
+        "Ceiling resets",
+      assert (equal_nata (size_list k) (size_list automata)) "Ceiling length",
+      assert
+        (all_interval_nat
+          (fn i => equal_nata (size_list (nth k i)) (num_states i)) zero_nata
+          (size_list automata))
+        "Ceiling length automata)",
+      assert
+        (list_all
           (list_all
-            (list_all
-              (fn xxs => equal_nata (size_list xxs) (plus_nata m one_nata)))
-            k)
-          "Ceiling length clocks",
-        assert
-          (all_interval_nat
-            (fn i =>
-              all_interval_nat
-                (fn l => equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
-                zero_nata (num_states i))
-            zero_nata (size_list automata))
-          "Ceiling zero clock",
-        assert
-          (list_all (fn (_, (_, inv)) => distinct equal_nat (map fst inv))
-            automata)
-          "Unambiguous invariants",
-        assert
-          (eq_set (card_UNIV_nat, equal_nat) (image fst (Set s_0))
-             (image fst (Set bounds)) andalso
-            ball (image fst (Set s_0))
-              (fn x =>
-                less_eq_int (fst (the (map_of equal_nat bounds x)))
-                  (the (map_of equal_nat s_0 x)) andalso
-                  less_eq_int (the (map_of equal_nat s_0 x))
-                    (snd (the (map_of equal_nat bounds x)))))
-          "Initial state bounded",
-        assert (equal_nata (size_list l_0) (size_list automata))
-          "Length of initial state",
-        assert
-          (all_interval_nat
-            (fn i =>
-              member equal_nat (nth l_0 i)
-                (image fst (Set ((fst o snd) (nth automata i)))))
-            zero_nata (size_list automata))
-          "Initial state has outgoing transitions",
-        assert
-          (subset (card_UNIV_nat, equal_nat) (vars_of_formula equal_nat formula)
-            (Set (upt zero_nata (n_vs bounds))))
-          "Variable set of formula"]
-  end;
+            (fn xxs => equal_nata (size_list xxs) (plus_nata m one_nata)))
+          k)
+        "Ceiling length clocks",
+      assert
+        (all_interval_nat
+          (fn i =>
+            all_interval_nat
+              (fn l => equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
+              zero_nata (num_states i))
+          zero_nata (size_list automata))
+        "Ceiling zero clock",
+      assert
+        (list_all (fn (_, (_, (_, inv))) => distinct equal_nat (map fst inv))
+          automata)
+        "Unambiguous invariants",
+      assert
+        (eq_set (card_UNIV_nat, equal_nat) (image fst (Set s_0))
+           (image fst (Set bounds)) andalso
+          ball (image fst (Set s_0))
+            (fn x =>
+              less_eq_int (fst (the (map_of equal_nat bounds x)))
+                (the (map_of equal_nat s_0 x)) andalso
+                less_eq_int (the (map_of equal_nat s_0 x))
+                  (snd (the (map_of equal_nat bounds x)))))
+        "Initial state bounded",
+      assert (equal_nata (size_list l_0) (size_list automata))
+        "Length of initial state",
+      assert
+        (all_interval_nat
+          (fn i =>
+            member equal_nat (nth l_0 i)
+              (image fst (Set ((fst o snd o snd) (nth automata i)))))
+          zero_nata (size_list automata))
+        "Initial state has outgoing transitions",
+      assert
+        (subset (card_UNIV_nat, equal_nat) (vars_of_formula equal_nat formula)
+          (Set (upt zero_nata (n_vs bounds))))
+        "Variable set of formula"];
 
 fun check_precond1 broadcast bounds automata m num_states num_actions =
   combine
@@ -6679,7 +6588,7 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
         (all_interval_nat
           (fn i =>
             let
-              val (_, (trans, _)) = nth automata i;
+              val (_, (_, (trans, _))) = nth automata i;
             in
               list_all
                 (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -6694,14 +6603,15 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
                      val a = nth automata i;
                      val (_, aa) = a;
                      val (_, ab) = aa;
+                     val (_, ac) = ab;
                    in
-                     list_all (fn (x, _) => less_nat x (num_states i)) ab
+                     list_all (fn (x, _) => less_nat x (num_states i)) ac
                    end)
           zero_nata (size_list automata))
         "Number of states is correct (invariants)",
       assert
         (list_all
-          (fn (_, (trans, _)) =>
+          (fn (_, (_, (trans, _))) =>
             list_all
               (fn (_, (_, (_, (_, (f, (_, _)))))) =>
                 list_all
@@ -6715,7 +6625,7 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
         "Variable set bounded (updates)",
       assert
         (list_all
-          (fn (_, (trans, _)) =>
+          (fn (_, (_, (trans, _))) =>
             list_all
               (fn (_, (b, (_, (_, (_, (_, _)))))) =>
                 ball (vars_of_bexp equal_nat b)
@@ -6731,7 +6641,7 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
         "Broadcast actions bounded",
       assert
         (list_all
-          (fn (_, (trans, _)) =>
+          (fn (_, (_, (trans, _))) =>
             list_all
               (fn (_, a) =>
                 let
@@ -6746,7 +6656,7 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
         "Actions bounded (transitions)",
       assert
         (list_all
-          (fn (_, (trans, _)) =>
+          (fn (_, (_, (trans, _))) =>
             list_all
               (fn (_, (_, (g, (_, (_, (r, _)))))) =>
                 list_all (fn c => less_nat zero_nata c andalso less_eq_nat c m)
@@ -6763,6 +6673,7 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
           (fn (_, a) =>
             let
               val (_, aa) = a;
+              val (_, ab) = aa;
             in
               list_all
                 (fn (_, g) =>
@@ -6770,13 +6681,13 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
                     (fn (c, x) =>
                       less_nat zero_nata c andalso
                         (less_eq_nat c m andalso less_eq_int zero_inta x)))
-                aa
+                ab
             end)
           automata)
         "Clock set bounded (invariants)",
       assert
         (list_all
-          (fn (_, (trans, _)) =>
+          (fn (_, (_, (trans, _))) =>
             list_all
               (fn (_, a) =>
                 let
@@ -6791,7 +6702,9 @@ fun check_precond1 broadcast bounds automata m num_states num_actions =
                 end)
               trans)
           automata)
-        "Broadcast receivers are unguarded"];
+        "Broadcast receivers are unguarded",
+      assert (list_all (fn (_, (u, (_, _))) => null u) automata)
+        "Urgency was removed"];
 
 fun check_precond broadcast bounds automata m num_states num_actions k l_0 s_0
   formula =
@@ -6814,9 +6727,10 @@ fun renum_upd A_ renum_vars =
 fun renum_act A_ renum_acts = map_act renum_acts;
 
 fun renum_automaton A_ B_ C_ D_ renum_acts renum_vars renum_clocks renum_states
-  i = (fn (commited, (trans, inv)) =>
+  i = (fn (committed, (urgent, (trans, inv))) =>
         let
-          val commiteda = map (renum_states i) commited;
+          val committeda = map (renum_states i) committed;
+          val urgenta = map (renum_states i) urgent;
           val transa =
             map (fn (l, a) =>
                   let
@@ -6838,7 +6752,7 @@ fun renum_automaton A_ B_ C_ D_ renum_acts renum_vars renum_clocks renum_states
                   (renum_states i l, renum_cconstraint C_ renum_clocks g))
               inv;
         in
-          (commiteda, (transa, inva))
+          (committeda, (urgenta, (transa, inva)))
         end);
 
 fun rename_network A_ B_ E_ G_ broadcast bounds automata renum_acts renum_vars
@@ -6860,43 +6774,43 @@ fun rename_network A_ B_ E_ G_ broadcast bounds automata renum_acts renum_vars
     (broadcasta, (automataa, boundsa))
   end;
 
-fun do_rename_mc C_ E_ F_ G_ f dc broadcast bounds automata k l_0 s_0 formula m
-  num_states num_actions renum_acts renum_vars renum_clocks renum_states
-  inv_renum_states inv_renum_vars inv_renum_clocks =
+fun do_rename_mc C_ E_ F_ G_ f dc broadcast bounds automata k urge l_0 s_0
+  formula m num_states num_actions renum_acts renum_vars renum_clocks
+  renum_states inv_renum_states inv_renum_vars inv_renum_clocks =
   let
     val _ = writeln "Checking renaming";
     val formulaa = (if dc then EX (Nota Truea) else formula);
     val renaming_valid =
       check_renaming broadcast bounds renum_acts renum_vars renum_clocks
-        renum_states automata formulaa l_0 s_0;
+        renum_states automata urge formulaa l_0 s_0;
     val _ = writeln "Renaming network";
     val (broadcasta, (automataa, boundsa)) =
       rename_network countable_literal countable_literal countable_nat
-        countable_literal broadcast bounds automata renum_acts renum_vars
+        countable_literal broadcast bounds
+        (map (conv_urge equal_nat zero_int urge) automata) renum_acts renum_vars
         renum_clocks renum_states;
-    val _ = writeln "Automata after renaming";
+    val _ =
+      (fn _ => fn s => writeln (s ())) (Int_of_integer
+ (4 : Int.int)) ((fn _ => (fn () => "Automata after renaming")) ());
     val _ =
       map (fn a =>
-            writeln (implode
-                      (shows_prec_prod (show_list show_nat)
-                        (show_prod
-                          (show_list
-                            (show_prod show_nat
-                              (show_prod (show_bexp show_nat show_int)
-                                (show_prod
-                                  (show_list
-                                    (show_acconstraint show_nat show_int))
-                                  (show_prod (show_act show_nat)
+            (fn _ => fn s => writeln (s ())) (Int_of_integer
+       (4 : Int.int)) ((fn _ =>
+                            (fn () =>
+                              (implode
+                                (shows_prec_prod (show_list show_nat)
+                                  (show_prod (show_list show_nat)
                                     (show_prod
                                       (show_list
-(show_prod show_nat (show_exp show_nat show_int)))
-                                      (show_prod (show_list show_nat)
-show_nat)))))))
-                          (show_list
-                            (show_prod show_nat
-                              (show_list
-                                (show_acconstraint show_nat show_int)))))
-                        zero_nata a [])))
+(show_prod show_nat
+  (show_prod (show_bexp show_nat show_int)
+    (show_prod (show_list (show_acconstraint show_nat show_int))
+      (show_prod (show_act show_nat)
+        (show_prod (show_list (show_prod show_nat (show_exp show_nat show_int)))
+          (show_prod (show_list show_nat) show_nat)))))))
+                                      (show_list
+(show_prod show_nat (show_list (show_acconstraint show_nat show_int))))))
+                                  zero_nata a [])))) ()))
         automataa;
     val _ = writeln "Renaming formula";
     val formulab =
@@ -6915,13 +6829,15 @@ show_nat)))))))
                check_precond broadcasta boundsa automataa m num_states
                  num_actions k l_0a s_0a formulab;
              val _ =
-               (case r of Result _ => [()]
+               (case r of Result _ => ()
                  | Error es =>
                    let
+                     val _ = writeln "";
                      val _ =
-                       writeln "The following pre-conditions were not satisified";
+                       writeln "The following pre-conditions were not satisified:";
+                     val _ = map (fn a => writeln a) es;
                    in
-                     map (fn a => writeln a) es
+                     writeln ""
                    end);
              val _ = writeln "Running precond_mc";
              val a =
@@ -6968,7 +6884,7 @@ fun action_set D_ automata broadcast =
   sup_set D_
     (sup_seta D_
       (image
-        (fn (_, (trans, _)) =>
+        (fn (_, (_, (trans, _))) =>
           sup_seta D_
             (image (fn (_, a) => let
                                    val (_, aa) = a;
@@ -6986,7 +6902,7 @@ fun loc_set A_ automata p =
     (image
       (fn (l, (_, (_, (_, (_, (_, la)))))) =>
         insert A_ l (insert A_ la bot_set))
-      (Set (fst (snd (nth automata p)))));
+      (Set (fst (snd (snd (nth automata p))))));
 
 fun make_renaming (A1_, A2_) =
   (fn broadcast => fn automata => fn _ =>
@@ -6994,11 +6910,12 @@ fun make_renaming (A1_, A2_) =
       val action_seta =
         list_of_set equal_literal (action_set equal_literal automata broadcast);
       val clk_seta = list_of_set equal_literal (clk_set equal_literal automata);
+      val clk_setb = clk_seta @ ["_urge"];
       val loc_seta = (fn i => list_of_set A1_ (loc_set A1_ automata i));
       val loc_setaa =
         sup_seta A1_
           (image
-            (fn (_, (t, _)) =>
+            (fn (_, (_, (t, _))) =>
               sup_seta A1_
                 (image
                   (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -7017,7 +6934,7 @@ fun make_renaming (A1_, A2_) =
                 (fn s =>
                   sup_seta equal_literal (image (vars_of_bexp equal_literal) s))
                 (image (fn t => image (fst o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata)))))
+                  (image (fn (_, (_, (t, _))) => t) (Set automata)))))
             (sup_seta equal_literal
               (image
                 (fn s =>
@@ -7033,17 +6950,17 @@ fun make_renaming (A1_, A2_) =
                             (Set f)))
                       s))
                 (image (fn t => image (fst o snd o snd o snd o snd) (Set t))
-                  (image (fn (_, (t, _)) => t) (Set automata))))));
+                  (image (fn (_, (_, (t, _))) => t) (Set automata))))));
       val n_ps = size_list automata;
       val num_actions = size_list action_seta;
-      val m = size_list (remdups equal_literal clk_seta);
+      val m = size_list (remdups equal_literal clk_setb);
       val num_states_list =
         map (fn i => size_list (remdups A1_ (loc_seta i))) (upt zero_nata n_ps);
       val num_states = nth num_states_list;
       val mk_renamingb = mk_renaming equal_literal (fn x => x);
     in
       binda (combine2 (mk_renamingb action_seta)
-              (combine2 (mk_renamingb clk_seta) (mk_renamingb var_set)))
+              (combine2 (mk_renamingb clk_setb) (mk_renamingb var_set)))
         (fn (a, b) =>
           let
             val (renum_acts, _) = a;
@@ -7129,7 +7046,7 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
       all_interval_nat
         (fn i =>
           let
-            val (_, (trans, _)) = nth automata i;
+            val (_, (_, (trans, _))) = nth automata i;
           in
             list_all
               (fn (l, (_, (_, (_, (_, (_, la)))))) =>
@@ -7142,12 +7059,13 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
                   val a = nth automata i;
                   val (_, aa) = a;
                   val (_, ab) = aa;
+                  val (_, ac) = ab;
                 in
-                  list_all (fn (x, _) => less_nat x (num_states i)) ab
+                  list_all (fn (x, _) => less_nat x (num_states i)) ac
                 end)
        zero_nata (size_list automata) andalso
       (list_all
-         (fn (_, (trans, _)) =>
+         (fn (_, (_, (trans, _))) =>
            list_all
              (fn (_, (_, (_, (_, (f, (_, _)))))) =>
                list_all
@@ -7159,7 +7077,7 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
              trans)
          automata andalso
         list_all
-          (fn (_, (trans, _)) =>
+          (fn (_, (_, (trans, _))) =>
             list_all
               (fn (_, (b, (_, (_, (_, (_, _)))))) =>
                 ball (vars_of_bexp equal_nat b)
@@ -7170,7 +7088,7 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
        (n_vs bounds) andalso
        (list_all (fn a => less_nat a num_actions) broadcast andalso
          list_all
-           (fn (_, (trans, _)) =>
+           (fn (_, (_, (trans, _))) =>
              list_all
                (fn (_, a) =>
                  let
@@ -7183,7 +7101,7 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
                trans)
            automata) andalso
       (list_all
-         (fn (_, (trans, _)) =>
+         (fn (_, (_, (trans, _))) =>
            list_all
              (fn (_, (_, (g, (_, (_, (r, _)))))) =>
                list_all (fn c => less_nat zero_nata c andalso less_eq_nat c m)
@@ -7198,6 +7116,7 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
            (fn (_, a) =>
              let
                val (_, aa) = a;
+               val (_, ab) = aa;
              in
                list_all
                  (fn (_, g) =>
@@ -7205,11 +7124,11 @@ fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
                      (fn (c, x) =>
                        less_nat zero_nata c andalso
                          (less_eq_nat c m andalso less_eq_int zero_inta x)))
-                 aa
+                 ab
              end)
            automata andalso
           list_all
-            (fn (_, (trans, _)) =>
+            (fn (_, (_, (trans, _))) =>
               list_all
                 (fn (_, a) =>
                   let
@@ -7526,7 +7445,7 @@ fun succs_impl broadcast bounds automata m num_actions =
         val broad_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 map (fn p => trans_in_broad_grouped p (nth l p))
                   (upt zero_nata (size_list automata));
@@ -7564,23 +7483,23 @@ fun succs_impl broadcast bounds automata m num_actions =
                        (upt zero_nata num_actions)
                 else maps (fn a =>
                             let
-                              val ins_commited =
+                              val ins_committed =
                                 map_filter
                                   (fn (p, _) =>
                                     (if not (null (nth (nth inb p) a))
                                       then SOME p else NONE))
                                   pairs;
-                              val always_commited =
-                                less_nat one_nata (size_list ins_commited);
+                              val always_committed =
+                                less_nat one_nata (size_list ins_committed);
                             in
                               maps (fn p =>
                                      let
                                        val outs = nth (nth outa p) a;
                                      in
                                        (if null outs then []
- else (if not always_commited andalso
-            ((equal_lista equal_nat ins_commited [p] orelse
-               null ins_commited) andalso
+ else (if not always_committed andalso
+            ((equal_lista equal_nat ins_committed [p] orelse
+               null ins_committed) andalso
               not (list_ex (fn (q, _) => equal_nata q p) pairs))
         then []
         else let
@@ -7601,7 +7520,7 @@ fun succs_impl broadcast bounds automata m num_actions =
         val bin_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 all_actions_by_state broadcast bounds automata num_actions
                   trans_in_map l;
@@ -7633,7 +7552,7 @@ fun succs_impl broadcast bounds automata m num_actions =
         val int_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
             in
               (if null pairs then int_trans_from_all_impl l s
                 else int_trans_from_vec_impl pairs l s)
@@ -7805,7 +7724,7 @@ fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
           ball (collect_clock_pairs g)
             (fn (x, ma) =>
               less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
-        ((snd o snd) (nth automata i)))
+        ((snd o snd o snd) (nth automata i)))
     zero_nata (size_list automata) andalso
     (all_interval_nat
        (fn i =>
@@ -7814,7 +7733,7 @@ fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
              ball (collect_clock_pairs g)
                (fn (x, ma) =>
                  less_eq_int ma (int_of_nat (nth (nth (nth k i) l) x))))
-           ((fst o snd) (nth automata i)))
+           ((fst o snd o snd) (nth automata i)))
        zero_nata (size_list automata) andalso
       all_interval_nat
         (fn i =>
@@ -7825,7 +7744,7 @@ fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
                 (fn c =>
                   less_eq_nat (nth (nth (nth k i) la) c)
                     (nth (nth (nth k i) l) c)))
-            ((fst o snd) (nth automata i)))
+            ((fst o snd o snd) (nth automata i)))
         zero_nata (size_list automata)) andalso
     (equal_nata (size_list k) (size_list automata) andalso
       (all_interval_nat
@@ -7841,7 +7760,7 @@ fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
            (fn l => equal_nata (nth (nth (nth k i) l) zero_nata) zero_nata)
            zero_nata (num_states i))
        zero_nata (size_list automata) andalso
-       (list_all (fn (_, (_, inv)) => distinct equal_nat (map fst inv))
+       (list_all (fn (_, (_, (_, inv))) => distinct equal_nat (map fst inv))
           automata andalso
          (eq_set (card_UNIV_nat, equal_nat) (image fst (Set s_0))
             (image fst (Set bounds)) andalso
@@ -7855,14 +7774,23 @@ fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
         (all_interval_nat
            (fn i =>
              member equal_nat (nth l_0 i)
-               (image fst (Set ((fst o snd) (nth automata i)))))
+               (image fst (Set ((fst o snd o snd) (nth automata i)))))
            zero_nata (size_list automata) andalso
           subset (card_UNIV_nat, equal_nat) (vars_of_formula equal_nat formula)
             (Set (upt zero_nata (n_vs bounds))))));
 
+fun simple_Network_Impl_nat_urge_axioms automata =
+  list_all (fn (_, (u, (_, _))) => null u) automata;
+
+fun simple_Network_Impl_nat_urge broadcast bounds automata m num_states
+  num_actions =
+  simple_Network_Impl_nat broadcast bounds automata m num_states
+    num_actions andalso
+    simple_Network_Impl_nat_urge_axioms automata;
+
 fun simple_Network_Impl_nat_ceiling_start_state broadcast bounds automata m
   num_states num_actions k l_0 s_0 formula =
-  simple_Network_Impl_nat broadcast bounds automata m num_states
+  simple_Network_Impl_nat_urge broadcast bounds automata m num_states
     num_actions andalso
     simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
       m num_states k l_0 s_0 formula;
@@ -7872,7 +7800,7 @@ fun states_i automata i =
     (image
       (fn (l, (_, (_, (_, (_, (_, la)))))) =>
         insert equal_nat l (insert equal_nat la bot_set))
-      (Set (fst (snd (nth automata i)))));
+      (Set (fst (snd (snd (nth automata i))))));
 
 fun certificate_checker_pre l_list m_list broadcast bounds automata m num_states
   num_actions k l_0 s_0 formula =
@@ -7897,7 +7825,7 @@ fun certificate_checker_pre l_list m_list broadcast bounds automata m num_states
         l_list;
     val _ = Timing.save_time "Time to check states";
     val _ = Timing.start_timer ();
-    val n_sq = times_nata (suc m) (suc m);
+    val n_sq = times_nat (suc m) (suc m);
     val check3 =
       list_all
         (fn (_, a) => list_all (fn ma => equal_nata (size_list ma) n_sq) a)
@@ -8163,7 +8091,8 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
             (map (fn i =>
                    let
                      val ma =
-                       default_map_of equal_nat [] (snd (snd (nth automata i)));
+                       default_map_of equal_nat []
+                         (snd (snd (snd (nth automata i))));
                      val mb =
                        Vector.fromList (map ma (upt zero_nata (num_states i)));
                    in
@@ -8272,7 +8201,7 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
         val broad_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 map (fn p => trans_in_broad_grouped p (nth l p))
                   (upt zero_nata n_ps);
@@ -8310,23 +8239,23 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
                        (upt zero_nata num_actions)
                 else maps (fn a =>
                             let
-                              val ins_commited =
+                              val ins_committed =
                                 map_filter
                                   (fn (p, _) =>
                                     (if not (null (nth (nth inb p) a))
                                       then SOME p else NONE))
                                   pairs;
-                              val always_commited =
-                                less_nat one_nata (size_list ins_commited);
+                              val always_committed =
+                                less_nat one_nata (size_list ins_committed);
                             in
                               maps (fn p =>
                                      let
                                        val outs = nth (nth outa p) a;
                                      in
                                        (if null outs then []
- else (if not always_commited andalso
-            ((equal_lista equal_nat ins_commited [p] orelse
-               null ins_commited) andalso
+ else (if not always_committed andalso
+            ((equal_lista equal_nat ins_committed [p] orelse
+               null ins_committed) andalso
               not (list_ex (fn (q, _) => equal_nata q p) pairs))
         then []
         else let
@@ -8347,7 +8276,7 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
         val bin_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 all_actions_by_state broadcast bounds automata num_actions
                   trans_in_map l;
@@ -8379,7 +8308,7 @@ fun unreachability_checker broadcast bounds automata m num_states num_actions
         val int_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
             in
               (if null pairs then int_trans_from_all_impl l s
                 else int_trans_from_vec_impl pairs l s)
@@ -8558,7 +8487,7 @@ fun no_deadlock_certifier broadcast bounds automata m num_states num_actions l_0
                          let
                            val mb =
                              default_map_of equal_nat []
-                               (snd (snd (nth automata i)));
+                               (snd (snd (snd (nth automata i))));
                            val mc =
                              Vector.fromList
                                (map mb (upt zero_nata (num_states i)));
@@ -8675,7 +8604,7 @@ fun no_deadlock_certifier broadcast bounds automata m num_states num_actions l_0
                   val broad_trans_impl =
                     (fn (la, s) =>
                       let
-                        val pairs = get_commited broadcast bounds automata la;
+                        val pairs = get_committed broadcast bounds automata la;
                         val ina =
                           map (fn p => trans_in_broad_grouped p (nth la p))
                             (upt zero_nata n_ps);
@@ -8716,20 +8645,20 @@ fun no_deadlock_certifier broadcast bounds automata m num_states num_actions l_0
                                  (upt zero_nata num_actions)
                           else maps (fn a =>
                                       let
-val ins_commited =
+val ins_committed =
   map_filter
     (fn (p, _) => (if not (null (nth (nth inb p) a)) then SOME p else NONE))
     pairs;
-val always_commited = less_nat one_nata (size_list ins_commited);
+val always_committed = less_nat one_nata (size_list ins_committed);
                                       in
 maps (fn p =>
        let
          val outs = nth (nth outa p) a;
        in
          (if null outs then []
-           else (if not always_commited andalso
-                      ((equal_lista equal_nat ins_commited [p] orelse
-                         null ins_commited) andalso
+           else (if not always_committed andalso
+                      ((equal_lista equal_nat ins_committed [p] orelse
+                         null ins_committed) andalso
                         not (list_ex (fn (q, _) => equal_nata q p) pairs))
                   then []
                   else let
@@ -8752,7 +8681,7 @@ maps (fn p =>
                   val bin_trans_impl =
                     (fn (la, s) =>
                       let
-                        val pairs = get_commited broadcast bounds automata la;
+                        val pairs = get_committed broadcast bounds automata la;
                         val ina =
                           all_actions_by_state broadcast bounds automata
                             num_actions trans_in_map la;
@@ -8784,7 +8713,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                   val int_trans_impl =
                     (fn (la, s) =>
                       let
-                        val pairs = get_commited broadcast bounds automata la;
+                        val pairs = get_committed broadcast bounds automata la;
                       in
                         (if null pairs then int_trans_from_all_impl la s
                           else int_trans_from_vec_impl pairs la s)
@@ -8905,7 +8834,8 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
             (map (fn i =>
                    let
                      val ma =
-                       default_map_of equal_nat [] (snd (snd (nth automata i)));
+                       default_map_of equal_nat []
+                         (snd (snd (snd (nth automata i))));
                      val mb =
                        Vector.fromList (map ma (upt zero_nata (num_states i)));
                    in
@@ -9014,7 +8944,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
         val broad_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 map (fn p => trans_in_broad_grouped p (nth l p))
                   (upt zero_nata n_ps);
@@ -9052,23 +8982,23 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                        (upt zero_nata num_actions)
                 else maps (fn a =>
                             let
-                              val ins_commited =
+                              val ins_committed =
                                 map_filter
                                   (fn (p, _) =>
                                     (if not (null (nth (nth inb p) a))
                                       then SOME p else NONE))
                                   pairs;
-                              val always_commited =
-                                less_nat one_nata (size_list ins_commited);
+                              val always_committed =
+                                less_nat one_nata (size_list ins_committed);
                             in
                               maps (fn p =>
                                      let
                                        val outs = nth (nth outa p) a;
                                      in
                                        (if null outs then []
- else (if not always_commited andalso
-            ((equal_lista equal_nat ins_commited [p] orelse
-               null ins_commited) andalso
+ else (if not always_committed andalso
+            ((equal_lista equal_nat ins_committed [p] orelse
+               null ins_committed) andalso
               not (list_ex (fn (q, _) => equal_nata q p) pairs))
         then []
         else let
@@ -9089,7 +9019,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
         val bin_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 all_actions_by_state broadcast bounds automata num_actions
                   trans_in_map l;
@@ -9121,7 +9051,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
         val int_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
             in
               (if null pairs then int_trans_from_all_impl l s
                 else int_trans_from_vec_impl pairs l s)
@@ -9274,8 +9204,8 @@ fun rename_check num_split dc broadcast bounds automata k l_0 s_0 formula m
   (case do_rename_mc show_int (show_list show_char) (show_list show_char)
           (show_list show_char)
           (fn _ => fn _ => certificate_checker num_split dc state_space) dc
-          broadcast bounds automata k l_0 s_0 formula m num_states num_actions
-          renum_acts renum_vars renum_clocks renum_states
+          broadcast bounds automata k "_urge" l_0 s_0 formula m num_states
+          num_actions renum_acts renum_vars renum_clocks renum_states
           (fn _ => fn _ =>
             [Chara (false, false, false, false, false, true, false, false)])
           (fn _ =>
@@ -9399,7 +9329,7 @@ Chara (true, true, false, false, true, true, true, false)])
               ("Process renamings do not agree on " ^ implode name))
         (fn _ =>
           let
-            val max_id = nat_of_integer (1000 : IntInf.int);
+            val max_id = nat_of_integer (1000 : Int.int);
           in
             binda (nat_renaming_of_json max_id renaming)
               (fn renaminga => Result (p_num, renaminga))
@@ -9507,7 +9437,8 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
             (map (fn i =>
                    let
                      val ma =
-                       default_map_of equal_nat [] (snd (snd (nth automata i)));
+                       default_map_of equal_nat []
+                         (snd (snd (snd (nth automata i))));
                      val mb =
                        Vector.fromList (map ma (upt zero_nata (num_states i)));
                    in
@@ -9616,7 +9547,7 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
         val broad_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 map (fn p => trans_in_broad_grouped p (nth l p))
                   (upt zero_nata n_ps);
@@ -9654,23 +9585,23 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
                        (upt zero_nata num_actions)
                 else maps (fn a =>
                             let
-                              val ins_commited =
+                              val ins_committed =
                                 map_filter
                                   (fn (p, _) =>
                                     (if not (null (nth (nth inb p) a))
                                       then SOME p else NONE))
                                   pairs;
-                              val always_commited =
-                                less_nat one_nata (size_list ins_commited);
+                              val always_committed =
+                                less_nat one_nata (size_list ins_committed);
                             in
                               maps (fn p =>
                                      let
                                        val outs = nth (nth outa p) a;
                                      in
                                        (if null outs then []
- else (if not always_commited andalso
-            ((equal_lista equal_nat ins_commited [p] orelse
-               null ins_commited) andalso
+ else (if not always_committed andalso
+            ((equal_lista equal_nat ins_committed [p] orelse
+               null ins_committed) andalso
               not (list_ex (fn (q, _) => equal_nata q p) pairs))
         then []
         else let
@@ -9691,7 +9622,7 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
         val bin_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 all_actions_by_state broadcast bounds automata num_actions
                   trans_in_map l;
@@ -9723,7 +9654,7 @@ fun unreachability_checker2 broadcast bounds automata m num_states num_actions
         val int_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
             in
               (if null pairs then int_trans_from_all_impl l s
                 else int_trans_from_vec_impl pairs l s)
@@ -9863,7 +9794,7 @@ fun no_deadlock_certifier2 broadcast bounds automata m num_states num_actions
                          let
                            val mb =
                              default_map_of equal_nat []
-                               (snd (snd (nth automata i)));
+                               (snd (snd (snd (nth automata i))));
                            val mc =
                              Vector.fromList
                                (map mb (upt zero_nata (num_states i)));
@@ -9980,7 +9911,7 @@ fun no_deadlock_certifier2 broadcast bounds automata m num_states num_actions
                   val broad_trans_impl =
                     (fn (la, s) =>
                       let
-                        val pairs = get_commited broadcast bounds automata la;
+                        val pairs = get_committed broadcast bounds automata la;
                         val ina =
                           map (fn p => trans_in_broad_grouped p (nth la p))
                             (upt zero_nata n_ps);
@@ -10021,20 +9952,20 @@ fun no_deadlock_certifier2 broadcast bounds automata m num_states num_actions
                                  (upt zero_nata num_actions)
                           else maps (fn a =>
                                       let
-val ins_commited =
+val ins_committed =
   map_filter
     (fn (p, _) => (if not (null (nth (nth inb p) a)) then SOME p else NONE))
     pairs;
-val always_commited = less_nat one_nata (size_list ins_commited);
+val always_committed = less_nat one_nata (size_list ins_committed);
                                       in
 maps (fn p =>
        let
          val outs = nth (nth outa p) a;
        in
          (if null outs then []
-           else (if not always_commited andalso
-                      ((equal_lista equal_nat ins_commited [p] orelse
-                         null ins_commited) andalso
+           else (if not always_committed andalso
+                      ((equal_lista equal_nat ins_committed [p] orelse
+                         null ins_committed) andalso
                         not (list_ex (fn (q, _) => equal_nata q p) pairs))
                   then []
                   else let
@@ -10057,7 +9988,7 @@ maps (fn p =>
                   val bin_trans_impl =
                     (fn (la, s) =>
                       let
-                        val pairs = get_commited broadcast bounds automata la;
+                        val pairs = get_committed broadcast bounds automata la;
                         val ina =
                           all_actions_by_state broadcast bounds automata
                             num_actions trans_in_map la;
@@ -10089,7 +10020,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                   val int_trans_impl =
                     (fn (la, s) =>
                       let
-                        val pairs = get_commited broadcast bounds automata la;
+                        val pairs = get_committed broadcast bounds automata la;
                       in
                         (if null pairs then int_trans_from_all_impl la s
                           else int_trans_from_vec_impl pairs la s)
@@ -10210,7 +10141,8 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
             (map (fn i =>
                    let
                      val ma =
-                       default_map_of equal_nat [] (snd (snd (nth automata i)));
+                       default_map_of equal_nat []
+                         (snd (snd (snd (nth automata i))));
                      val mb =
                        Vector.fromList (map ma (upt zero_nata (num_states i)));
                    in
@@ -10319,7 +10251,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
         val broad_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 map (fn p => trans_in_broad_grouped p (nth l p))
                   (upt zero_nata n_ps);
@@ -10357,23 +10289,23 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
                        (upt zero_nata num_actions)
                 else maps (fn a =>
                             let
-                              val ins_commited =
+                              val ins_committed =
                                 map_filter
                                   (fn (p, _) =>
                                     (if not (null (nth (nth inb p) a))
                                       then SOME p else NONE))
                                   pairs;
-                              val always_commited =
-                                less_nat one_nata (size_list ins_commited);
+                              val always_committed =
+                                less_nat one_nata (size_list ins_committed);
                             in
                               maps (fn p =>
                                      let
                                        val outs = nth (nth outa p) a;
                                      in
                                        (if null outs then []
- else (if not always_commited andalso
-            ((equal_lista equal_nat ins_commited [p] orelse
-               null ins_commited) andalso
+ else (if not always_committed andalso
+            ((equal_lista equal_nat ins_committed [p] orelse
+               null ins_committed) andalso
               not (list_ex (fn (q, _) => equal_nata q p) pairs))
         then []
         else let
@@ -10394,7 +10326,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
         val bin_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
               val ina =
                 all_actions_by_state broadcast bounds automata num_actions
                   trans_in_map l;
@@ -10426,7 +10358,7 @@ pairs_by_action_impl bounds la s (nth out a) (nth in2 a))
         val int_trans_impl =
           (fn (l, s) =>
             let
-              val pairs = get_commited broadcast bounds automata l;
+              val pairs = get_committed broadcast bounds automata l;
             in
               (if null pairs then int_trans_from_all_impl l s
                 else int_trans_from_vec_impl pairs l s)
@@ -10564,8 +10496,8 @@ fun rename_check2 num_split dc broadcast bounds automata k l_0 s_0 formula m
   (case do_rename_mc show_int (show_list show_char) (show_list show_char)
           (show_list show_char)
           (fn _ => fn _ => certificate_checker2 num_split dc state_space) dc
-          broadcast bounds automata k l_0 s_0 formula m num_states num_actions
-          renum_acts renum_vars renum_clocks renum_states
+          broadcast bounds automata k "_urge" l_0 s_0 formula m num_states
+          num_actions renum_acts renum_vars renum_clocks renum_states
           (fn _ => fn _ =>
             [Chara (false, false, false, false, false, true, false, false)])
           (fn _ =>
@@ -10648,7 +10580,8 @@ fun unreachability_checker3 broadcast bounds automata m num_states num_actions
         (map (fn i =>
                let
                  val ma =
-                   default_map_of equal_nat [] (snd (snd (nth automata i)));
+                   default_map_of equal_nat []
+                     (snd (snd (snd (nth automata i))));
                  val mb =
                    Vector.fromList (map ma (upt zero_nata (num_states i)));
                in
@@ -10704,9 +10637,9 @@ fun unreachability_checker3 broadcast bounds automata m num_states num_actions
               (not o
                 (fn i =>
                   dbm_lt_0
-                    (sub asa (plus_nata (plus_nata i (times_nata i m)) i))))
+                    (sub asa (plus_nata (plus_nata i (times_nat i m)) i))))
               zero_nata (suc m)) orelse
-          array_all2 (times_nata (suc m) (suc m)) dbm_le_int asa bs)
+          array_all2 (times_nat (suc m) (suc m)) dbm_le_int asa bs)
       (fn a =>
         (fn f => f ()) ((fn f_ => fn () => f_
                           (let
@@ -10802,7 +10735,8 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
         (map (fn i =>
                let
                  val ma =
-                   default_map_of equal_nat [] (snd (snd (nth automata i)));
+                   default_map_of equal_nat []
+                     (snd (snd (snd (nth automata i))));
                  val mb =
                    Vector.fromList (map ma (upt zero_nata (num_states i)));
                in
@@ -10824,9 +10758,9 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
               (not o
                 (fn i =>
                   dbm_lt_0
-                    (sub asa (plus_nata (plus_nata i (times_nata i m)) i))))
+                    (sub asa (plus_nata (plus_nata i (times_nat i m)) i))))
               zero_nata (suc m)) orelse
-          array_all2 (times_nata (suc m) (suc m)) dbm_le_int asa bs);
+          array_all2 (times_nat (suc m) (suc m)) dbm_le_int asa bs);
     val p_impl =
       (fn (a1, a2) =>
         (fn f_ => fn () => f_
@@ -10917,7 +10851,8 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
             (map (fn i =>
                    let
                      val ma =
-                       default_map_of equal_nat [] (snd (snd (nth automata i)));
+                       default_map_of equal_nat []
+                         (snd (snd (snd (nth automata i))));
                      val mb =
                        Vector.fromList (map ma (upt zero_nata (num_states i)));
                    in
@@ -11029,7 +10964,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
             val broad_trans_impl =
               (fn (l, s) =>
                 let
-                  val pairs = get_commited broadcast bounds automata l;
+                  val pairs = get_committed broadcast bounds automata l;
                   val ina =
                     map (fn pa => trans_in_broad_grouped pa (nth l pa))
                       (upt zero_nata n_psa);
@@ -11069,22 +11004,22 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                            (upt zero_nata num_actions)
                     else maps (fn a =>
                                 let
-                                  val ins_commited =
+                                  val ins_committed =
                                     map_filter
                                       (fn (pa, _) =>
 (if not (null (nth (nth inb pa) a)) then SOME pa else NONE))
                                       pairs;
-                                  val always_commited =
-                                    less_nat one_nata (size_list ins_commited);
+                                  val always_committed =
+                                    less_nat one_nata (size_list ins_committed);
                                 in
                                   maps (fn pa =>
  let
    val outs = nth (nth outa pa) a;
  in
    (if null outs then []
-     else (if not always_commited andalso
-                ((equal_lista equal_nat ins_commited [pa] orelse
-                   null ins_commited) andalso
+     else (if not always_committed andalso
+                ((equal_lista equal_nat ins_committed [pa] orelse
+                   null ins_committed) andalso
                   not (list_ex (fn (q, _) => equal_nata q pa) pairs))
             then []
             else let
@@ -11105,7 +11040,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
             val bin_trans_impl =
               (fn (l, s) =>
                 let
-                  val pairs = get_commited broadcast bounds automata l;
+                  val pairs = get_committed broadcast bounds automata l;
                   val ina =
                     all_actions_by_state broadcast bounds automata num_actions
                       trans_in_map l;
@@ -11139,7 +11074,7 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
             val int_trans_impl =
               (fn (l, s) =>
                 let
-                  val pairs = get_commited broadcast bounds automata l;
+                  val pairs = get_committed broadcast bounds automata l;
                 in
                   (if null pairs then int_trans_from_all_impl l s
                     else int_trans_from_vec_impl pairs l s)
@@ -11253,8 +11188,8 @@ fun rename_check3 num_split dc broadcast bounds automata k l_0 s_0 formula m
   (case do_rename_mc show_int (show_list show_char) (show_list show_char)
           (show_list show_char)
           (fn _ => fn _ => certificate_checker3 num_split dc state_space) dc
-          broadcast bounds automata k l_0 s_0 formula m num_states num_actions
-          renum_acts renum_vars renum_clocks renum_states
+          broadcast bounds automata k "_urge" l_0 s_0 formula m num_states
+          num_actions renum_acts renum_vars renum_clocks renum_states
           (fn _ => fn _ =>
             [Chara (false, false, false, false, false, true, false, false)])
           (fn _ =>
@@ -11269,7 +11204,7 @@ fun clkp_inv automata i l =
   sup_seta (equal_prod equal_nat equal_int)
     (image (collect_clock_pairs o snd)
       (Set (filter (fn (a, _) => equal_nata a l)
-             (snd (snd (nth automata i))))));
+             (snd (snd (snd (nth automata i)))))));
 
 fun bound_inv automata q c l =
   maxa linorder_int
@@ -11286,7 +11221,7 @@ fun clkp_seta automata i l =
       (image
         (fn (la, (_, (g, _))) =>
           (if equal_nata la l then collect_clock_pairs g else bot_set))
-        (Set (fst (snd (nth automata i))))));
+        (Set (fst (snd (snd (nth automata i)))))));
 
 fun bound_g automata q c l =
   maxa linorder_int
@@ -11311,7 +11246,7 @@ fun resets automata q c l =
          (if not (equal_nata l1 l) orelse
                (membera equal_nat xs la orelse membera equal_nat r c)
            then xs else la :: xs))
-    (fst (snd (nth automata q))) [];
+    (fst (snd (snd (nth automata q)))) [];
 
 fun ea automata q c l = resets automata q c l;
 
@@ -11425,8 +11360,8 @@ fun rename_state_space A_ =
                   num_actionsa ka l_0a s_0a formulaa show_clock show_statea ());
             val r =
               do_rename_mc show_int A_ show_literal show_literal f dc broadcast
-                bounds automata k l_0 s_0 formula m num_states num_actions
-                renum_acts renum_vars renum_clocks renum_states
+                bounds automata k "_urge" l_0 s_0 formula m num_states
+                num_actions renum_acts renum_vars renum_clocks renum_states
                 inv_renum_statesa inv_renum_vars inv_renum_clocks;
             val show_clock =
               (fn x => shows_prec_literal zero_nata x []) o inv_renum_clocks;
