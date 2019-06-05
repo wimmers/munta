@@ -6933,7 +6933,7 @@ fun loc_set A_ automata p =
       (Set (fst (snd (snd (nth automata p))))));
 
 fun make_renaming (A1_, A2_) =
-  (fn broadcast => fn automata => fn _ =>
+  (fn broadcast => fn automata => fn bounds =>
     let
       val action_seta =
         list_of_set equal_literal (action_set equal_literal automata broadcast);
@@ -7021,13 +7021,19 @@ fun make_renaming (A1_, A2_) =
                           val inv_renum_states =
                             nth (map snd renum_states_list);
                         in
-                          Result
-                            (m, (num_states,
-                                  (num_actions,
-                                    (renum_acts,
-                                      (renum_vars,
-(renum_clocksa,
-  (renum_states, (inv_renum_states, (inv_renum_vars, inv_renum_clocksa)))))))))
+                          binda (assert
+                                  (subset (card_UNIV_literal, equal_literal)
+                                    (image fst (Set bounds)) (Set var_set))
+                                  "State variables are declared but do not appear in model")
+                            (fn _ =>
+                              Result
+                                (m, (num_states,
+                                      (num_actions,
+(renum_acts,
+  (renum_vars,
+    (renum_clocksa,
+      (renum_states,
+        (inv_renum_states, (inv_renum_vars, inv_renum_clocksa))))))))))
                         end)
                   end)
               end
@@ -9275,14 +9281,25 @@ fun nat_renaming_of_json max_id json =
             Result a
           end));
 
-fun renaming_of_json json =
+fun renaming_of_jsona opt json =
   binda (list_of_json_object json)
     (fn vars =>
       binda (combine_map
               (fn (a, b) => binda (of_nat b) (fn ba => Result (implode a, ba)))
               vars)
         (fn varsa =>
-          Result (the o map_of_debug (equal_literal, show_literal) varsa)));
+          let
+            val varsb =
+              varsa @
+                (case opt of NONE => []
+                  | SOME x =>
+                    [(x, plus_nata (fold (max ord_nat o snd) varsa zero_nata)
+                           one_nata)]);
+          in
+            Result (the o map_of_debug (equal_literal, show_literal) varsb)
+          end));
+
+fun renaming_of_json x = renaming_of_jsona NONE x;
 
 fun convert_renaming ids_to_names process_names_to_index json =
   binda (of_object json)
@@ -9309,7 +9326,7 @@ fun convert_renaming ids_to_names process_names_to_index json =
                         Chara (true, true, false, false, true, true, true,
                                 false)])
                 (fn clocks =>
-                  binda (renaming_of_json clocks)
+                  binda (renaming_of_jsona (SOME "_urge") clocks)
                     (fn clock_renaming =>
                       binda (geta (show_list show_char) jsona
                               [Chara (false, false, false, false, true, true,

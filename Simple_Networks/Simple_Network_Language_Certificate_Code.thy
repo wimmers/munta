@@ -395,12 +395,15 @@ definition
       | Some v \<Rightarrow> Some v)"
 
 definition
-  "renaming_of_json json \<equiv> do {
+  "renaming_of_json' opt json \<equiv> do {
     vars \<leftarrow> list_of_json_object json;
     vars \<leftarrow> combine_map (\<lambda> (a, b). do {b \<leftarrow> of_nat b; Result (String.implode a, b)}) vars;
+    let vars = vars @ (case opt of Some x \<Rightarrow> [(x, fold max (map snd vars) 0 + 1)] | _ \<Rightarrow> []);
     Result (the o map_of_debug vars)
   }
   " for json
+
+definition "renaming_of_json \<equiv> renaming_of_json' None"
 
 definition
   "nat_renaming_of_json max_id json \<equiv> do {
@@ -425,7 +428,7 @@ definition convert_renaming ::
     vars \<leftarrow> get json ''vars'';
     var_renaming \<leftarrow> renaming_of_json vars;
     clocks \<leftarrow> get json ''clocks'';
-    clock_renaming \<leftarrow> renaming_of_json clocks;
+    clock_renaming \<leftarrow> renaming_of_json' (Some STR ''_urge'') clocks;
     processes \<leftarrow> get json ''processes'';
     process_renaming \<leftarrow> renaming_of_json processes;
     locations \<leftarrow> get json ''locations'';
