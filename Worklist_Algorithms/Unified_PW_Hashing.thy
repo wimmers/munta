@@ -1,5 +1,9 @@
 theory Unified_PW_Hashing
-  imports Unified_PW Refine_Imperative_HOL.IICF_List_Mset "../library/Tracing"
+  imports
+    Unified_PW
+    Refine_Imperative_HOL.IICF_List_Mset
+    Worklist_Algorithms_Misc
+    "../library/Tracing"
 begin
 
 subsection \<open>Towards an Implementation of the Unified Passed-Wait List\<close>
@@ -42,26 +46,14 @@ lemma add_pw_unified_spec_ref:
   unfolding add_pw_unified_spec_def add_pw_spec_def
   apply simp
   apply safe
-                      apply (auto simp: empty_subsumes)
+                      apply (all \<open>auto simp: empty_subsumes; fail | succeed\<close>)
   using mset_subset_eqD apply force
     using mset_subset_eqD apply force
   subgoal premises prems
-    using prems (1,6,7,11)
-    by (subst (asm) filter_False; fastforce intro: trans)
+    using prems
+    by (auto 4 5 simp: filter_mset_eq_empty_iff intro: trans elim!: subset_mset.ord_le_eq_trans)
       (* s/h *)
-proof -
-  fix aa :: "'a set" and aaa :: "'a multiset" and b :: bool and x :: 'a
-  assume a1: "\<forall>x\<in>aa. \<exists>xa\<in>passed. x \<preceq> xa"
-  assume a2: "x \<in> aa"
-  assume a3: "aa \<subseteq> passed \<union> {x. E a x \<and> (\<forall>xa\<in>passed. \<not> x \<preceq> xa)}"
-  obtain aab :: "'a \<Rightarrow> 'a" where
-    "\<forall>a. a \<notin> aa \<or> aab a \<in> passed \<and> a \<preceq> aab a"
-    using a1 by moura
-  then show "x \<in> passed"
-    using a3 a2 by blast
-qed
-  (* by (smt UnE mem_Collect_eq subsetCE) *)
-
+  by (clarsimp, smt UnE mem_Collect_eq subsetCE)
 
 lemma add_pw_ref:
   "add_pw passed wait a \<le> \<Down> Id (add_pw_unified_spec passed wait a)"
@@ -223,7 +215,7 @@ begin
 definition
   "map_set_rel =
     {(m, s).
-      \<Union> ran m = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k)) \<and>
+      \<Union>(ran m) = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k)) \<and>
       finite (dom m) \<and> (\<forall> k S. m k = Some S \<longrightarrow> finite S)
     }"
 
@@ -232,7 +224,6 @@ definition
    nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
     (\<lambda>a (passed, wait, _).
       do {
-      (* ASSERT (\<forall> wait \<in> ran wait. \<forall> x \<in> set wait. \<not> empty x); *)
       RETURN (
         if F a then (passed, wait, True) else
         let k = key a; passed' = (case passed k of Some passed' \<Rightarrow> passed' | None \<Rightarrow> {})
@@ -303,14 +294,14 @@ lemma add_pw'_map_ref[refine]:
   proof -
     from assms have [simp]: "a' = a" "f = f'" by simp+
     from assms have rel_passed: "(passed, passed') \<in> map_set_rel" by simp
-    then have union: "passed' = (\<Union> ran passed)"
+    then have union: "passed' = \<Union>(ran passed)"
       unfolding map_set_rel_def by auto
     from assms have rel_wait: "(wait, wait') \<in> list_mset_rel" by simp
     from rel_passed have keys[simp]: "key v = k" if "passed k = Some xs" "v \<in> xs" for k xs v
       using that unfolding map_set_rel_def by auto
     define k where "k \<equiv> key a"
     define xs where "xs \<equiv> case passed k of None \<Rightarrow> {} | Some p \<Rightarrow> p"
-    have xs_ran: "x \<in> \<Union> ran passed" if "x \<in> xs" for x
+    have xs_ran: "x \<in> \<Union>(ran passed)" if "x \<in> xs" for x
       using that unfolding xs_def ran_def by (auto split: option.split_asm)
     have *:
       "(\<exists>x \<in> xs. a \<unlhd> x) \<longleftrightarrow> (\<exists>x\<in>passed'. a' \<unlhd> x)"
@@ -373,7 +364,6 @@ definition
    nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
     (\<lambda>a (passed, wait, _).
       do {
-      (* ASSERT (\<forall> wait \<in> ran wait. \<forall> x \<in> set wait. \<not> empty x); *)
       RETURN (
         if empty a then
             (passed, wait, False)

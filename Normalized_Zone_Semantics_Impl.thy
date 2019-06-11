@@ -4459,11 +4459,10 @@ lemma clkp_set_simp_1':
 lemma clk_set_simp_2:
   "\<Union> ((\<lambda> (g, r, _). set r) ` set (concat trans)) = collect_clkvt (trans_of A)"
   unfolding A_def trans_of_def collect_clkvt_def T_def[abs_def] label_def using trans_length
-  apply (auto simp add: image_Union dest: nth_mem)
-   apply (drule aux)
-   apply (drule aux)
-   apply force
-  apply (auto dest!: nth_mem)
+  apply (clarsimp simp add: image_Union dest: nth_mem)
+  apply safe
+   apply ((drule aux)+, force)
+  apply (drule nth_mem, simp)
     (* XXX Find these instances automatically *)
   apply (rule_tac x = "trans ! a" in bexI)
    apply (rule_tac x = "trans ! a ! i" in bexI)

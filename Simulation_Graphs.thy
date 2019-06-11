@@ -441,7 +441,7 @@ context Double_Simulation
 begin
 
 lemma closure_involutive:
-  "closure (\<Union> closure x) = closure x"
+  "closure (\<Union> (closure x)) = closure x"
   unfolding closure_def by (auto dest: P1_distinct)
 
 lemma closure_finite:
@@ -519,7 +519,7 @@ proof -
 qed
 
 lemma Steps_run_cycle:
-  "\<exists> xs. run xs \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> \<Union> closure a) \<and> shd xs \<in> \<Union> closure a"
+  "\<exists> xs. run xs \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> \<Union> (closure a)) \<and> shd xs \<in> \<Union> (closure a)"
   if assms: "Steps (a # as @ [a])" "P2 a"
 proof -
   from Steps_Union[OF assms(1)] have "post_defs.Steps (closure a # map closure as @ [closure a])"
@@ -529,7 +529,7 @@ proof -
 qed
 
 lemma Steps_run_cycle2:
-  "\<exists> x xs. run (x ## xs) \<and> x \<in> \<Union> closure a\<^sub>0
+  "\<exists> x xs. run (x ## xs) \<and> x \<in> \<Union> (closure a\<^sub>0)
   \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a} \<union> set bs. x \<in> \<Union> a)
   \<and> infs (\<Union> a) (x ## xs)"
   if assms: "post_defs.Steps (closure a\<^sub>0 # as @ a # bs @ [a])" "a \<noteq> {}"
@@ -582,9 +582,9 @@ proof -
 qed
 
 lemma Steps_run_cycle'':
-  "\<exists> x xs. run (x ## xs) \<and> x \<in> \<Union> closure a\<^sub>0
-  \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a} \<union> set bs. x \<in> \<Union> closure a)
-  \<and> infs (\<Union> closure a) (x ## xs)"
+  "\<exists> x xs. run (x ## xs) \<and> x \<in> \<Union> (closure a\<^sub>0)
+  \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a} \<union> set bs. x \<in> \<Union> (closure a))
+  \<and> infs (\<Union> (closure a)) (x ## xs)"
   if assms: "Steps (a\<^sub>0 # as @ a # bs @ [a])" "P2 a"
 proof -
   from Steps_Union[OF assms(1)] have "post_defs.Steps (map closure (a\<^sub>0 # as @ a # bs @ [a]))"
@@ -608,7 +608,7 @@ qed
 
 lemma strong_compatibility_impl_weak:
   fixes \<phi> :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
-  assumes \<phi>_closure_compatible: "\<And> x a. x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
+  assumes \<phi>_closure_compatible: "\<And> x a. x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> (closure a). \<phi> x)"
   shows "\<phi> x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> \<phi> y"
   by (auto simp: closure_def dest: \<phi>_closure_compatible)
 
@@ -939,9 +939,9 @@ proof
 qed
 
 theorem infinite_run_cycle_iff':
-  assumes "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>closure a\<^sub>0 \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys)"
+  assumes "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>(closure a\<^sub>0) \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys)"
   shows
-    "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> \<Union> closure a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow>
+    "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> \<Union> (closure a\<^sub>0) \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow>
      (\<exists> as a bs. post_defs.Steps (closure a\<^sub>0 # as @ a # bs @ [a]) \<and> a \<noteq> {})"
 proof (safe, goal_cases)
   case prems: (1 x\<^sub>0 X xs)
@@ -965,12 +965,12 @@ qed
 corollary infinite_run_cycle_iff:
   "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow>
    (\<exists> as a bs. post_defs.Steps (closure a\<^sub>0 # as @ a # bs @ [a]) \<and> a \<noteq> {})"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
+  if "\<Union>(closure a\<^sub>0) = a\<^sub>0" "P2 a\<^sub>0"
   by (subst \<open>_ = a\<^sub>0\<close>[symmetric]) (rule infinite_run_cycle_iff', auto simp: that)
 
 context
   fixes \<phi> :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
-  assumes \<phi>_closure_compatible: "P2 a \<Longrightarrow> x \<in> \<Union> closure a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
+  assumes \<phi>_closure_compatible: "P2 a \<Longrightarrow> x \<in> \<Union> (closure a) \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> (closure a). \<phi> x)"
 begin
 
 text \<open>
@@ -986,11 +986,11 @@ text \<open>One possible fist would be to add the stronger assumption \<open>A2 
 
 theorem infinite_buechi_run_cycle_iff_closure:
   assumes
-    "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>closure a\<^sub>0 \<Longrightarrow> alw (ev (holds \<phi>)) xs
+    "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>(closure a\<^sub>0) \<Longrightarrow> alw (ev (holds \<phi>)) xs
       \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys) \<and> alw (ev (holds \<phi>)) ys"
-      and "\<And> a. P2 a \<Longrightarrow> a \<subseteq> \<Union> closure a"
+      and "\<And> a. P2 a \<Longrightarrow> a \<subseteq> \<Union> (closure a)"
   shows
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> \<Union> closure a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> \<Union> (closure a\<^sub>0) \<and> run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
   \<longleftrightarrow> (\<exists> as a bs. a \<noteq> {} \<and> post_defs.Steps (closure a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> a. \<phi> x))"
 proof (safe, goal_cases)
   case prems: (1 x\<^sub>0 xs)
@@ -1079,7 +1079,7 @@ begin
 lemmas P2_invariant_Steps = P2_invariant.invariant_steps
 
 theorem infinite_run_cycle_iff':
-  assumes "P2 a\<^sub>0" "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>closure a\<^sub>0 \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys)"
+  assumes "P2 a\<^sub>0" "\<And> x xs. run (x ## xs) \<Longrightarrow> x \<in> \<Union>(closure a\<^sub>0) \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys)"
   shows "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
 proof (safe, goal_cases)
   case (1 x\<^sub>0 xs)
@@ -1093,18 +1093,18 @@ qed
 
 corollary infinite_run_cycle_iff:
   "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs)) \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "P2 a\<^sub>0"
+  if "\<Union>(closure a\<^sub>0) = a\<^sub>0" "P2 a\<^sub>0"
   by (rule infinite_run_cycle_iff', auto simp: that)
 
 context
   fixes \<phi> :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
-  assumes \<phi>_closure_compatible: "x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. \<phi> x)"
+  assumes \<phi>_closure_compatible: "x \<in> a \<Longrightarrow> \<phi> x \<longleftrightarrow> (\<forall> x \<in> \<Union>(closure a). \<phi> x)"
 begin
 
 theorem infinite_buechi_run_cycle_iff:
   "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> alw (ev (holds \<phi>)) (x\<^sub>0 ## xs))
-  \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> closure a. \<phi> x))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  \<longleftrightarrow> (\<exists> as a bs. Steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union>(closure a). \<phi> x))"
+  if "\<Union>(closure a\<^sub>0) = a\<^sub>0"
 proof (safe, goal_cases)
   case (1 x\<^sub>0 xs)
   from buechi_run_finite_state_set_cycle_steps[OF this(2,1) P2_a\<^sub>0, of \<phi>] this(3) guess a ys zs
@@ -1114,12 +1114,12 @@ proof (safe, goal_cases)
   proof (standard, goal_cases)
     case 1
     then obtain x where "x \<in> a" "\<phi> x" by auto
-    with \<phi>_closure_compatible have "\<forall> x \<in> \<Union> closure a. \<phi> x" by blast
+    with \<phi>_closure_compatible have "\<forall> x \<in> \<Union>(closure a). \<phi> x" by blast
     with guessed(1,2) show ?case by auto
   next
     case 2
     then obtain b x where "x \<in> b" "b \<in> set zs" "\<phi> x" by auto
-    with \<phi>_closure_compatible have *: "\<forall> x \<in> \<Union> closure b. \<phi> x" by blast
+    with \<phi>_closure_compatible have *: "\<forall> x \<in> \<Union>(closure b). \<phi> x" by blast
     from \<open>b \<in> set zs\<close> obtain zs1 zs2 where "zs = zs1 @ b # zs2" by (force simp: split_list)
     with guessed(1) have "Steps ((a\<^sub>0 # ys) @ (a # zs1 @ [b]) @ zs2 @ [a])" by simp
     then have "Steps (a # zs1 @ [b])" by (blast dest!: Steps.steps_decomp)
@@ -1243,13 +1243,13 @@ qed
 corollary infinite_run_cycle_iff:
   "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> pred_stream \<phi> (x\<^sub>0 ## xs)) \<longleftrightarrow>
    (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  if "\<Union>(closure a\<^sub>0) = a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
   unfolding phi.infinite_run_cycle_iff[OF that(1) P2_a\<^sub>0, symmetric] phi_run_iff[symmetric]
   using that(2) by auto
 
 theorem Alw_ev_mc:
   "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev (Not o \<phi>) x\<^sub>0) \<longleftrightarrow> \<not> (\<exists> as a bs. phi.Steps (a\<^sub>0 # as @ a # bs @ [a]))"
-  if "\<Union>closure a\<^sub>0 = a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
+  if "\<Union>(closure a\<^sub>0) = a\<^sub>0" "a\<^sub>0 \<subseteq> {x. \<phi> x}"
   unfolding Alw_ev alw_holds_pred_stream_iff infinite_run_cycle_iff[OF that, symmetric]
   by (auto simp: comp_def)
 
@@ -1399,7 +1399,7 @@ sublocale sim_complete: Simulation_Graph_Complete_Prestable C_\<phi> A1_\<phi> P
   by (standard; force dest: P1_invariant \<phi>_A1_compatible A1_complete simp: C_\<phi>_def A1_\<phi>_def)
 
 lemma runs_closure_bisim:
-  "\<exists>y ys. y \<in> a\<^sub>0 \<and> phi.run (y ## ys)" if "phi.run (x ## xs)" "x \<in> \<Union>phi.closure a\<^sub>0"
+  "\<exists>y ys. y \<in> a\<^sub>0 \<and> phi.run (y ## ys)" if "phi.run (x ## xs)" "x \<in> \<Union>(phi.closure a\<^sub>0)"
   using that(2) sim_complete.runs_bisim'[OF that(1)] unfolding phi.closure_def by auto
 
 lemma infinite_run_cycle_iff':
@@ -1454,7 +1454,7 @@ context Double_Simulation_Complete_Bisim_Cover
 begin
 
 lemma P2_closure_subs:
-  "a \<subseteq> \<Union> closure a" if "P2 a"
+  "a \<subseteq> \<Union>(closure a)" if "P2 a"
   using P2_P1_cover[OF that] unfolding closure_def by fastforce
 
 lemma (in Double_Simulation_Complete) P2_Steps_last:
@@ -1464,21 +1464,21 @@ lemma (in Double_Simulation_Complete) P2_Steps_last:
 lemma (in Double_Simulation) compatible_closure:
   assumes compatible: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
       and "\<forall> x \<in> a. P x"
-    shows "\<forall> x \<in> \<Union> closure a. P x"
+    shows "\<forall> x \<in> \<Union>(closure a). P x"
   unfolding closure_def using assms(2) by (auto dest: compatible)
 
 lemma compatible_closure_all_iff:
   assumes compatible: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y" and "P2 a"
-  shows "(\<forall> x \<in> a. P x) \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. P x)"
+  shows "(\<forall> x \<in> a. P x) \<longleftrightarrow> (\<forall> x \<in> \<Union>(closure a). P x)"
   using \<open>P2 a\<close> by (auto dest!: P2_closure_subs dest: compatible simp: closure_def)
 
 lemma compatible_closure_ex_iff:
   assumes compatible: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y" and "P2 a"
-  shows "(\<exists> x \<in> a. P x) \<longleftrightarrow> (\<exists> x \<in> \<Union> closure a. P x)"
+  shows "(\<exists> x \<in> a. P x) \<longleftrightarrow> (\<exists> x \<in> \<Union>(closure a). P x)"
   using \<open>P2 a\<close> by (auto 4 3 dest!: P2_closure_subs dest: compatible P2_cover simp: closure_def)
 
 lemma (in Double_Simulation_Complete_Bisim) no_deadlock_closureI:
-  "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0" if "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0"
+  "\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). \<not> deadlock x\<^sub>0" if "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0"
   using that by - (rule compatible_closure, simp, rule bisim.steps_bisim.deadlock_iff, auto)
 
 context
@@ -1488,7 +1488,7 @@ begin
 
 lemma reaches_all_1:
   fixes b :: "'a set" and y :: "'a" and as :: "'a set list"
-  assumes A: "\<forall>y. (\<exists>x\<^sub>0\<in>\<Union>closure (hd as). \<exists>xs. hd xs = x\<^sub>0 \<and> last xs = y \<and> steps xs) \<longrightarrow> P y"
+  assumes A: "\<forall>y. (\<exists>x\<^sub>0\<in>\<Union>(closure (hd as)). \<exists>xs. hd xs = x\<^sub>0 \<and> last xs = y \<and> steps xs) \<longrightarrow> P y"
      and "y \<in> last as" and "a\<^sub>0 = hd as" and "Steps as"
   shows "P y"
 proof -
@@ -1510,7 +1510,7 @@ proof -
   from pre.Steps_prestable[OF \<open>pre_defs.Steps _\<close> \<open>x\<^sub>0 \<in> _\<close>] obtain xs where
     "steps (x\<^sub>0 # xs)" "list_all2 (\<in>) (x\<^sub>0 # xs) as'"
     by auto
-  from \<open>x\<^sub>0 \<in> _\<close> \<open>list_all2 (\<in>) as' _\<close> have "x\<^sub>0 \<in> \<Union> closure a\<^sub>0"
+  from \<open>x\<^sub>0 \<in> _\<close> \<open>list_all2 (\<in>) as' _\<close> have "x\<^sub>0 \<in> \<Union>(closure a\<^sub>0)"
     by (cases as') auto
   with A \<open>steps _\<close> have "P (last (x\<^sub>0 # xs))"
     by fastforce
@@ -1556,17 +1556,17 @@ proof -
 qed
 
 lemma reaches_all:
-  "(\<forall> y. (\<exists> x\<^sub>0\<in>\<Union>closure a\<^sub>0. reaches x\<^sub>0 y) \<longrightarrow> P y) \<longleftrightarrow> (\<forall> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> P y)"
+  "(\<forall> y. (\<exists> x\<^sub>0\<in>\<Union>(closure a\<^sub>0). reaches x\<^sub>0 y) \<longrightarrow> P y) \<longleftrightarrow> (\<forall> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> P y)"
   unfolding reaches_steps_iff Steps.reaches_steps_iff using reaches_all_1 reaches_all_2 by auto
 
 lemma reaches_all':
-  "(\<forall>x\<^sub>0\<in>\<Union>closure a\<^sub>0. \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y) = (\<forall>y. Steps.reaches a\<^sub>0 y \<longrightarrow> (\<forall>x\<in>y. P x))"
+  "(\<forall>x\<^sub>0\<in>\<Union>(closure a\<^sub>0). \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y) = (\<forall>y. Steps.reaches a\<^sub>0 y \<longrightarrow> (\<forall>x\<in>y. P x))"
   using reaches_all by auto
 
 lemma reaches_all'':
   "(\<forall> y. \<forall> x\<^sub>0\<in>a\<^sub>0. reaches x\<^sub>0 y \<longrightarrow> P y) \<longleftrightarrow> (\<forall> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> P y)"
 proof -
-  have "(\<forall>x\<^sub>0\<in>a\<^sub>0. \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y) \<longleftrightarrow> (\<forall>x\<^sub>0\<in>\<Union>closure a\<^sub>0. \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y)"
+  have "(\<forall>x\<^sub>0\<in>a\<^sub>0. \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y) \<longleftrightarrow> (\<forall>x\<^sub>0\<in>\<Union>(closure a\<^sub>0). \<forall>y. reaches x\<^sub>0 y \<longrightarrow> P y)"
     apply (rule compatible_closure_all_iff[OF _ P2_a\<^sub>0])
     apply safe
     subgoal for a x y y'
@@ -1579,7 +1579,7 @@ proof -
 qed
 
 lemma reaches_ex:
-  "(\<exists>y. \<exists>x\<^sub>0\<in>\<Union>closure a\<^sub>0. reaches x\<^sub>0 y \<and> P y) = (\<exists>b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<and> P y)"
+  "(\<exists>y. \<exists>x\<^sub>0\<in>\<Union>(closure a\<^sub>0). reaches x\<^sub>0 y \<and> P y) = (\<exists>b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<and> P y)"
 proof (safe, goal_cases)
   case (1 y x\<^sub>0 X)
   then obtain x where "x \<in> X" "x \<in> a\<^sub>0" "P1 X"
@@ -1612,7 +1612,7 @@ lemma reaches_ex':
   "(\<exists> y. \<exists> x\<^sub>0\<in>a\<^sub>0. reaches x\<^sub>0 y \<and> P y) \<longleftrightarrow> (\<exists> b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<and> P y)"
 proof -
   (* XXX Move this one and others *)
-  have "(\<exists>x\<^sub>0\<in>a\<^sub>0. \<exists>y. reaches x\<^sub>0 y \<and> P y) \<longleftrightarrow> (\<exists>x\<^sub>0\<in>\<Union>closure a\<^sub>0. \<exists>y. reaches x\<^sub>0 y \<and> P y)"
+  have "(\<exists>x\<^sub>0\<in>a\<^sub>0. \<exists>y. reaches x\<^sub>0 y \<and> P y) \<longleftrightarrow> (\<exists>x\<^sub>0\<in>\<Union>(closure a\<^sub>0). \<exists>y. reaches x\<^sub>0 y \<and> P y)"
     apply (rule compatible_closure_ex_iff[OF _ P2_a\<^sub>0])
     apply safe
     subgoal for a x y y'
@@ -1636,10 +1636,10 @@ lemma (in Double_Simulation_Complete_Bisim) P1_deadlocked_compatible:
 
 lemma steps_Steps_no_deadlock:
   "\<not> Steps.deadlock a\<^sub>0"
-  if no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0"
+  if no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). \<not> deadlock x\<^sub>0"
 proof -
   from P1_deadlocked_compatible have
-    "(\<forall>y. (\<exists>x\<^sub>0\<in>\<Union>closure a\<^sub>0. reaches x\<^sub>0 y) \<longrightarrow> (Not \<circ> deadlocked) y) =
+    "(\<forall>y. (\<exists>x\<^sub>0\<in>\<Union>(closure a\<^sub>0). reaches x\<^sub>0 y) \<longrightarrow> (Not \<circ> deadlocked) y) =
      (\<forall>b y. Steps.reaches a\<^sub>0 b \<and> y \<in> b \<longrightarrow> (Not \<circ> deadlocked) y)"
     using reaches_all[of "Not o deadlocked"] unfolding comp_def by blast
   then show "\<not> Steps.deadlock a\<^sub>0"
@@ -1656,13 +1656,13 @@ qed
 
 lemma steps_Steps_no_deadlock1:
   "\<not> Steps.deadlock a\<^sub>0"
-  if no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  if no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>(closure a\<^sub>0) = a\<^sub>0"
   using steps_Steps_no_deadlock[unfolded closure_simp, OF no_deadlock] .
 
 lemma Alw_alw_iff:
-  "(\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
+  "(\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). Alw_alw P x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
   if P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
-  and no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). \<not> deadlock x\<^sub>0"
 proof -
   from steps_Steps_no_deadlock[OF no_deadlock] show ?thesis
   by (simp add: Alw_alw_iff Steps.Alw_alw_iff no_deadlock  Steps.Ex_ev Ex_ev)
@@ -1672,7 +1672,7 @@ qed
 lemma Alw_alw_iff1:
   "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
   if P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
-  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>(closure a\<^sub>0) = a\<^sub>0"
   using Alw_alw_iff[OF P1_P] no_deadlock unfolding closure_simp by auto
 
 lemma Alw_alw_iff2:
@@ -1680,7 +1680,7 @@ lemma Alw_alw_iff2:
   if P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0"
 proof -
-  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_alw P x\<^sub>0)"
+  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_alw P x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). Alw_alw P x\<^sub>0)"
     apply -
     apply (rule compatible_closure_all_iff, rule bisim.steps_bisim.Alw_alw_iff_strong)
     unfolding bisim.steps_bisim.A_B.equiv'_def
@@ -1721,10 +1721,10 @@ lemma (in -) compatible_imp:
   using assms by metis
 
 lemma Leadsto_iff:
-  "(\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. P c \<longrightarrow> Alw_ev Q c) a\<^sub>0"
+  "(\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). leadsto P Q x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. P c \<longrightarrow> Alw_ev Q c) a\<^sub>0"
   if  P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
-  and no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. \<not> deadlock x\<^sub>0"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). \<not> deadlock x\<^sub>0"
   unfolding leadsto_def
   by (subst Alw_alw_iff[OF _ no_deadlock],
       intro compatible_imp bisim.Alw_ev_compatible,
@@ -1735,7 +1735,7 @@ lemma Leadsto_iff1:
   "(\<forall> x\<^sub>0 \<in> a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> Steps.Alw_alw (\<lambda>a. \<forall>c\<in>a. P c \<longrightarrow> Alw_ev Q c) a\<^sub>0"
   if  P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
-  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+  and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>(closure a\<^sub>0) = a\<^sub>0"
   by (subst closure_simp[symmetric], rule Leadsto_iff)
      (auto simp: closure_simp no_deadlock dest: P1_Q P1_P)
 
@@ -1745,7 +1745,7 @@ lemma Leadsto_iff2:
   and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
   and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0"
 proof -
-  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. leadsto P Q x\<^sub>0)"
+  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. leadsto P Q x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). leadsto P Q x\<^sub>0)"
     apply -
     apply (rule compatible_closure_all_iff, rule bisim.steps_bisim.Leadsto_iff)
     unfolding bisim.steps_bisim.A_B.equiv'_def by (blast intro: P2_a\<^sub>0 dest: P1_P P1_Q)+
@@ -1767,7 +1767,7 @@ lemma (in -) compatible_convert2:
 lemma (in Double_Simulation_Defs)
   assumes compatible: "\<And> x y a. P x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P y"
     and that: "\<forall> x \<in> a. P x"
-  shows "\<forall> x \<in> \<Union> closure a. P x"
+  shows "\<forall> x \<in> \<Union>(closure a). P x"
   using that unfolding closure_def by (auto dest: compatible)
 
 end (* Double Simulation Finite Complete Bisim *)
@@ -1776,8 +1776,8 @@ context Double_Simulation_Finite_Complete_Bisim_Cover
 begin
 
 lemma Alw_ev_Steps_ex:
-  "(\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
-  if closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  "(\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
+  if closure_P: "\<And> a x y. x \<in> \<Union>(closure a) \<Longrightarrow> y \<in> \<Union>(closure a) \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   unfolding Alw_ev Steps.Alw_ev
   apply safe
   apply (frule Steps_finite.run_finite_state_set_cycle_steps)
@@ -1788,36 +1788,36 @@ lemma Alw_ev_Steps_ex:
    apply clarify
   subgoal premises prems for xs x ys zs x' xs' R
   proof -
-    from \<open>x' \<in> R\<close> \<open>R \<in> _\<close> that have \<open>x' \<in> \<Union> closure a\<^sub>0\<close>
+    from \<open>x' \<in> R\<close> \<open>R \<in> _\<close> that have \<open>x' \<in> \<Union>(closure a\<^sub>0)\<close>
       by auto
     with prems(5,9) have
-      "\<forall> c \<in> {x'} \<union> sset xs'. \<exists> y \<in> {a\<^sub>0} \<union> sset xs. c \<in> \<Union> closure y"
+      "\<forall> c \<in> {x'} \<union> sset xs'. \<exists> y \<in> {a\<^sub>0} \<union> sset xs. c \<in> \<Union>(closure y)"
       by fast
     with prems(3) have *:
-      "\<forall> c \<in> {x'} \<union> sset xs'. \<exists> y \<in> {a\<^sub>0} \<union> sset xs. c \<in> \<Union> closure y \<and> (\<forall> c \<in> y. \<not> P c)"
+      "\<forall> c \<in> {x'} \<union> sset xs'. \<exists> y \<in> {a\<^sub>0} \<union> sset xs. c \<in> \<Union>(closure y) \<and> (\<forall> c \<in> y. \<not> P c)"
       unfolding alw_holds_sset by simp
     from \<open>Run _\<close> have **: "P2 y" if "y \<in> {a\<^sub>0} \<union> sset xs" for y
       using that by (auto dest!: P2_invariant.invariant_run simp: stream.pred_set)
-    have ***: "\<not> P c" if "c \<in> \<Union> closure y" "\<forall> d \<in> y. \<not> P d" "P2 y" for c y
+    have ***: "\<not> P c" if "c \<in> \<Union>(closure y)" "\<forall> d \<in> y. \<not> P d" "P2 y" for c y
     proof -
-      from that P2_cover[OF \<open>P2 y\<close>] obtain d where "d \<in> y" "d \<in> \<Union> closure y"
+      from that P2_cover[OF \<open>P2 y\<close>] obtain d where "d \<in> y" "d \<in> \<Union>(closure y)"
         by (fastforce dest!: P2_closure_subs)
       with that closure_P show ?thesis
         by blast
     qed
     from * have "\<forall> c \<in> {x'} \<union> sset xs'. \<not> P c"
       by (fastforce intro: ** dest!: ***[rotated])
-    with prems(1) \<open>run _\<close> \<open>x' \<in> \<Union> closure _\<close> show ?thesis
+    with prems(1) \<open>run _\<close> \<open>x' \<in> \<Union>(closure _)\<close> show ?thesis
       unfolding alw_holds_sset by auto
   qed
   done
 
 lemma Alw_ev_Steps_ex2:
   "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
-  if  closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  if  closure_P: "\<And> a x y. x \<in> \<Union>(closure a) \<Longrightarrow> y \<in> \<Union>(closure a) \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   and P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
 proof -
-  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union> closure a\<^sub>0. Alw_ev P x\<^sub>0)"
+  have "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longleftrightarrow> (\<forall> x\<^sub>0 \<in> \<Union>(closure a\<^sub>0). Alw_ev P x\<^sub>0)"
     by (intro compatible_closure_all_iff bisim.Alw_ev_compatible; auto dest: P1_P simp: P2_a\<^sub>0)
   also have "\<dots> \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0"
     by (intro Alw_ev_Steps_ex that)
@@ -1825,13 +1825,13 @@ proof -
 qed
 
 lemma Alw_ev_Steps_ex1:
-  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0" if "\<Union> closure a\<^sub>0 = a\<^sub>0"
-  and closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<exists> c \<in> a. P c) a\<^sub>0" if "\<Union>(closure a\<^sub>0) = a\<^sub>0"
+  and closure_P: "\<And> a x y. x \<in> \<Union>(closure a) \<Longrightarrow> y \<in> \<Union>(closure a) \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   by (subst that(1)[symmetric]) (intro Alw_ev_Steps_ex closure_P; assumption)
 
 lemma closure_compatible_Alw_ev_Steps_iff:
   "(\<forall> x\<^sub>0 \<in> a\<^sub>0. Alw_ev P x\<^sub>0) \<longleftrightarrow> Steps.Alw_ev (\<lambda> a. \<forall> c \<in> a. P c) a\<^sub>0"
-  if closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  if closure_P: "\<And> a x y. x \<in> \<Union>(closure a) \<Longrightarrow> y \<in> \<Union>(closure a) \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
     and P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   apply standard
   subgoal
@@ -1846,9 +1846,9 @@ lemma Leadsto_iff':
    \<longleftrightarrow> Steps.Alw_alw (\<lambda> a. (\<forall> c \<in> a. P c) \<longrightarrow> Steps.Alw_ev (\<lambda> a. \<forall> c \<in> a. Q c) a) a\<^sub>0"
   if  P1_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P x \<longleftrightarrow> P y"
     and P1_Q: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
-    and closure_Q: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
+    and closure_Q: "\<And> a x y. x \<in> \<Union>(closure a) \<Longrightarrow> y \<in> \<Union>(closure a) \<Longrightarrow> P2 a \<Longrightarrow> Q x \<longleftrightarrow> Q y"
     and closure_P: "\<And> a x y. x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
-    and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>closure a\<^sub>0 = a\<^sub>0"
+    and no_deadlock: "\<forall> x\<^sub>0 \<in> a\<^sub>0. \<not> deadlock x\<^sub>0" and closure_simp: "\<Union>(closure a\<^sub>0) = a\<^sub>0"
   apply (subst Leadsto_iff1, (rule that; assumption)+)
   subgoal
     apply (rule P2_invariant.Alw_alw_iff_default)
@@ -1884,12 +1884,12 @@ lemma Leadsto_iff':
 
 context
   fixes P :: "'a \<Rightarrow> bool" \<comment> \<open>The property we want to check\<close>
-  assumes closure_P: "\<And> a x y. x \<in> \<Union> closure a \<Longrightarrow> y \<in> \<Union> closure a \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
+  assumes closure_P: "\<And> a x y. x \<in> \<Union>(closure a) \<Longrightarrow> y \<in> \<Union>(closure a) \<Longrightarrow> P2 a \<Longrightarrow> P x \<longleftrightarrow> P y"
   and P1_P: "\<And> a x y. P x \<Longrightarrow> x \<in> a \<Longrightarrow> y \<in> a \<Longrightarrow> P1 a \<Longrightarrow> P y"
 begin
 
 lemma run_alw_ev_bisim:
-  "run (x ## xs) \<Longrightarrow> x \<in> \<Union>closure a\<^sub>0 \<Longrightarrow> alw (ev (holds P)) xs
+  "run (x ## xs) \<Longrightarrow> x \<in> \<Union>(closure a\<^sub>0) \<Longrightarrow> alw (ev (holds P)) xs
       \<Longrightarrow> \<exists> y ys. y \<in> a\<^sub>0 \<and> run (y ## ys) \<and> alw (ev (holds P)) ys"
   unfolding closure_def
   apply safe
@@ -1899,11 +1899,11 @@ lemma run_alw_ev_bisim:
   done
 
 lemma \<phi>_closure_compatible:
-  "P2 a \<Longrightarrow> x \<in> \<Union> closure a \<Longrightarrow> P x \<longleftrightarrow> (\<forall> x \<in> \<Union> closure a. P x)"
+  "P2 a \<Longrightarrow> x \<in> \<Union>(closure a) \<Longrightarrow> P x \<longleftrightarrow> (\<forall> x \<in> \<Union>(closure a). P x)"
   using closure_P by blast
 
 theorem infinite_buechi_run_cycle_iff:
-  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> \<Union> closure a\<^sub>0 \<and> run (x\<^sub>0 ## xs) \<and> alw (ev (holds P)) (x\<^sub>0 ## xs))
+  "(\<exists> x\<^sub>0 xs. x\<^sub>0 \<in> \<Union>(closure a\<^sub>0) \<and> run (x\<^sub>0 ## xs) \<and> alw (ev (holds P)) (x\<^sub>0 ## xs))
   \<longleftrightarrow> (\<exists> as a bs. a \<noteq> {} \<and> post_defs.Steps (closure a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall> x \<in> \<Union> a. P x))"
   by (rule
       infinite_buechi_run_cycle_iff_closure[OF
@@ -2459,7 +2459,7 @@ lemma reaches_all:
   assumes
     "\<And> u u' R l. u \<in> R \<Longrightarrow> u' \<in> R \<Longrightarrow> P1 (l, R) \<Longrightarrow> P l u \<longleftrightarrow> P l u'"
   shows
-    "(\<forall> u. (\<exists> x\<^sub>0\<in>\<Union>sim.closure (from_R l\<^sub>0 a\<^sub>0). sim.reaches x\<^sub>0 (l, u)) \<longrightarrow> P l u) \<longleftrightarrow>
+    "(\<forall> u. (\<exists> x\<^sub>0\<in>\<Union>(sim.closure (from_R l\<^sub>0 a\<^sub>0)). sim.reaches x\<^sub>0 (l, u)) \<longrightarrow> P l u) \<longleftrightarrow>
      (\<forall> Z u. P2_invariant'.reaches (l\<^sub>0, a\<^sub>0) (l, Z) \<and> u \<in> Z \<longrightarrow> P l u)"
 proof -
   let ?P = "\<lambda> (l, u). P l u"

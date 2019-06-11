@@ -37,7 +37,6 @@ begin
      nfoldli (succs a) (\<lambda>(_, _, brk). \<not>brk)
       (\<lambda>a (passed, wait, _).
         do {
-        (* ASSERT (\<forall> wait \<in> ran wait. \<forall> x \<in> set wait. \<not> empty x); *)
         RETURN (
           if empty a then
               (passed, wait, False)

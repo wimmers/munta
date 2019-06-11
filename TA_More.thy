@@ -119,7 +119,7 @@ lemma collect_clks_inv_clk_set:
   "collect_clks (inv_of A l) \<subseteq> clk_set A"
   unfolding
     clkp_set_def collect_clki_def collect_clks_def collect_clock_pairs_def
-  by (auto simp: constraint_clk_constraint_pair) blast
+  by (auto simp: constraint_clk_constraint_pair)
 
 lemma collect_clocks_clk_set:
   assumes

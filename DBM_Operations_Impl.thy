@@ -583,7 +583,7 @@ definition
   "reset_canonical_upd
     (M :: ('a :: {linordered_cancel_ab_monoid_add,uminus}) DBM') (n:: nat) (k:: nat) d =
       fold (\<lambda> i M. if i = k then M else M((k, i) := Le d + M(0,i), (i, k) := Le (-d) + M(i, 0)))
-        (* [1..<n+1] *) (map nat [1..n])
+        (map nat [1..n])
         (M((k, 0) := Le d, (0, k) := Le (-d)))
   "
 

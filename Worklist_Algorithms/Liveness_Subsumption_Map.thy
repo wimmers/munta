@@ -62,7 +62,7 @@ begin
 definition
   "map_set_rel =
     {(m, s).
-      \<Union> ran m = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k)) \<and>
+      \<Union>(ran m) = s \<and> (\<forall> k. \<forall> x. m k = Some x \<longrightarrow> (\<forall> v \<in> x. key v = k)) \<and>
       finite (dom m) \<and> (\<forall> k S. m k = Some S \<longrightarrow> finite S)
     }"
 

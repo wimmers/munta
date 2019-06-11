@@ -1440,7 +1440,7 @@ begin
       with k_length have "length (k ! j) = m + 1" by simp
       with k_length(2) have
         "map (\<lambda>i. if i \<le> m then k ! j ! i else 0) [0..<Suc m] = map (\<lambda>i. k ! j ! i) [0..<Suc m]"
-        by simp thm strong_ball_cong
+        by simp
       also have "\<dots> = k ! j" using \<open>length (k ! j) = _\<close> by (simp del: upt_Suc) (metis List.map_nth)
       also show ?thesis using \<open>j < n\<close> k_length(1)
           apply simp
