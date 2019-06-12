@@ -8,24 +8,19 @@ session "TA_Library" = "Refine_Imperative_HOL" +
     "library/Error_List_Monad"
     "library/Imperative_Loops"
 
-
-(* Use this to get document output for the abstract formalization of Reachability Checking *)
+(* Use this to get document output for the abstract formalization of reachability checking *)
 session "TA" = "TA_Library" +
-(*
   options
     [document = pdf, document_output = "output",
      document_variants = "abstract_reachability_proofs:abstract_reachability=/proof,/ML"]
-*)
   theories [document = false]
     Main HOL.Real Floyd_Warshall FW_Code
   theories
     Normalized_Zone_Semantics
-(*
   document_files
     "root.bib" "wasysym.sty"
   document_files (in "document/abstract_reachability")
     "root.tex"
-*)
 
 session "TA_Impl" = "TA" +
   sessions
@@ -36,28 +31,10 @@ session "TA_Impl" = "TA" +
   theories
     Normalized_Zone_Semantics_Impl_Refine
 
-(*
-session "TA_Impl_Calc_Prereq" = "TA_Impl" +
-  sessions
-    Gabow_SCC
-  theories [document = false]
-    "Gabow_SCC.Gabow_SCC_Code"
-
-session "TA_Impl_Refine_Calc_Prereq" = "TA_Impl" +
-  theories
-    UPPAAL_State_Networks_Impl
-
-session "TA_All_Pre" = "TA_Impl_Refine_Calc_Prereq" +
-  theories [document = false]
-    "library/ML_Util"
-  theories
-    "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
-*)
-
 session "TA_Byte_Code" = "TA_Impl" +
   theories UPPAAL_Model_Checking
 
-(* Use this to get document output for the implementation of Reachability Checking *)
+(* Use this to get document output for the implementation of reachability checking with byte code *)
 session "TA_All" = "TA_Impl" +
   options
     [document = pdf, document_output = "output",
@@ -75,12 +52,13 @@ session "TA_All" = "TA_Impl" +
     Infinite_TA_Runs
     "Worklist_Algorithms/Worklist_Subsumption_Impl1"
     "Worklist_Algorithms/Worklist_Subsumption_Multiset"
-    (* Worklist_Subsumption_PW_Multiset *)
   document_files (in "document/model_checking")
     "root.tex"
 
 session "TA_Code" = "TA_Byte_Code" +
   sessions
+    Certification_Monads
+    FinFun
     Gabow_SCC
   theories [document = false]
     "Simple_Networks/Simple_Network_Language_Export_Code"
