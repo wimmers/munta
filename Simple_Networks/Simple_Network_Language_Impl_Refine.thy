@@ -6,7 +6,7 @@ paragraph \<open>Notation\<close>
 
 no_notation Ref.update ("_ := _" 62)
 no_notation Stream.snth (infixl "!!" 100)
-no_notation Bits.bits_class.test_bit (infixl "!!" 100)
+no_notation Bits.bit_operations_class.test_bit (infixl "!!" 100)
 
 paragraph \<open>Expression evaluation\<close>
 
@@ -511,7 +511,6 @@ definition
           [0..<n_ps])
         )
       [0..<num_actions])
-      (* concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) [0..<num_actions]) *)
     else
       concat (
         map (\<lambda>a.
@@ -600,7 +599,6 @@ lemma broad_trans_from_alt_def:
           [0..<n_ps])
         )
       [0..<num_actions])
-      (* concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) [0..<num_actions]) *)
     else
       concat (
         map (\<lambda>a.
@@ -1808,7 +1806,6 @@ proof clarsimp
     have "xs = map (\<lambda> p. (p, bs p, gs p, a', fs p, rs p, ls' p)) ps"
       apply (intro nth_equalityI)
        apply (simp add: defs; fail)
-      apply intros
       subgoal for i
         by (cases "xs ! i") (auto 4 4 simp: defs dest: to_map nth_mem)
       done
@@ -1845,19 +1842,19 @@ proof clarsimp
     " for ps bs gs a' fs rs ls' g a r L s
     by (induction ps arbitrary: g a r L s; simp)
   have upd_swap:
-    "fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] = fold (\<lambda>p L . L[p := ls' p]) ps (L[p := l'])"
+    "(fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] = fold (\<lambda>p L . L[p := ls' p]) ps (L[p := l'])"
     if "p \<notin> set ps" for ps ls' p l'
     using that by (induction ps arbitrary: L) (auto simp: list_update_swap)
   have make_transI:
     "a' < num_actions \<and> p < n_ps \<and>
        (g1 @ concat (map gs ps), Broad a', r1 @ concat (map rs ps),
-        fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'], s') \<in> set (make_trans a' p)"
+        (fold (\<lambda>p L. L[p := ls' p]) ps L)[p := l'], s') \<in> set (make_trans a' p)"
     if 
       "L \<in> states" and
       "g = g1 @ concat (map gs ps)" and
       "a = Broad a'" and
       "r = r1 @ concat (map rs ps)" and
-      "L' = fold (\<lambda>p L. L[p := ls' p]) ps L[p := l']" and
+      "L' = (fold (\<lambda>p L. L[p := ls' p]) ps L)[p := l']" and
       "a' \<in> set broadcast" and
       "(L ! p, b1, g1, Out a', f1, r1, l') \<in> trans (N p)" and
       "\<forall>p\<in>set ps. (L ! p, bs p, gs p, In a', fs p, rs p, ls' p) \<in> trans (N p)"
@@ -1910,7 +1907,7 @@ proof clarsimp
          g = ga @ concat (map gs ps) \<and>
          a = Broad a' \<and>
          r = ra @ concat (map rs ps) \<and>
-         L' = fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] \<and>
+         L' = (fold (\<lambda>p L. L[p := ls' p]) ps L)[p := l'] \<and>
          a' \<in> set broadcast \<and>
          (L ! p, b, ga, Out a', f, ra, l') \<in> trans (N p) \<and>
          (\<forall>p\<in>set ps. (L ! p, bs p, gs p, In a', fs p, rs p, ls' p) \<in> trans (N p)) \<and>
@@ -2002,7 +1999,7 @@ proof clarsimp
           g = ga @ concat (map gs ps) \<and>
           a = Broad aa \<and>
           r = ra @ concat (map rs ps) \<and>
-          L' = fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] \<and>
+          L' = (fold (\<lambda>p L. L[p := ls' p]) ps L)[p := l'] \<and>
           aa \<in> set broadcast \<and>
           (L ! p, b, ga, Out aa, f, ra, l') \<in> Simple_Network_Language.trans (N p) \<and>
           (\<forall>p\<in>set ps.
@@ -2060,7 +2057,7 @@ proof clarsimp
         L!p = l \<and>
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
-        L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and>
+        L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
         is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }
@@ -2101,7 +2098,8 @@ proof clarsimp
         L!p = l \<and>
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
-        L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+        L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
+        is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
       unfolding trans_broad_def broadcast_def[simplified]
@@ -3072,7 +3070,6 @@ lemma broad_trans_from_alt_def2:
           [0..<n_ps])
         )
       [0..<num_actions])
-      (* concat (map (\<lambda>a. pairs_by_action L s (Out ! a) (In ! a)) [0..<num_actions]) *)
     else
       concat (
         map (\<lambda>a.

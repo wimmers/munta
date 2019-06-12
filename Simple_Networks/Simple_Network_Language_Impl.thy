@@ -85,7 +85,7 @@ proof (intros add: nth_equalityI)
 qed
 
 lemma map_index_update:
-  "map_index f (xs[i := a]) = map_index f xs[i := f i a]"
+  "map_index f (xs[i := a]) = (map_index f xs)[i := f i a]"
   by (rule nth_equalityI) (auto simp: nth_list_update')
 
 lemma map_trans_broad_aux1:
@@ -119,7 +119,8 @@ lemma (in Prod_TA_Defs) trans_broad_alt_def:
       L!p = l \<and>
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
       check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
-      L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+      L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
+      is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'' \<and>
       (\<forall>p. p\<notin>set ps \<longrightarrow> bs p = bexp.true) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> gs p = []) \<and>
       (\<forall>p. p\<notin>set ps \<longrightarrow> fs p = []) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> rs p = [])

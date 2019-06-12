@@ -83,4 +83,4 @@ session "TA_Code" = "TA_Byte_Code" +
   sessions
     Gabow_SCC
   theories [document = false]
-    Export_Checker
+    "Simple_Networks/Simple_Network_Language_Export_Code"

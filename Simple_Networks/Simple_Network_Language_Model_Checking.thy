@@ -455,13 +455,13 @@ proof safe
       subgoal premises prems for s'a aa p b ga f ra l' bs gs fs rs ls' ps i
       proof (cases "p = i")
         case True
-        with \<open>p \<notin> _\<close> \<open>i < _\<close> \<open>L \<in> states\<close> have "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] ! i = l'"
+        with \<open>p \<notin> _\<close> \<open>i < _\<close> \<open>L \<in> states\<close> have "(fold (\<lambda>p L. L[p := ls' p]) ps L)[p := l'] ! i = l'"
           by (simp add: L_len fold_upds_aux_length)
         with prems \<open>p = i\<close> show ?thesis
           by (fastforce simp add: L_len)
       next
         case False
-        then have *: "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l'] ! i
+        then have *: "(fold (\<lambda>p L. L[p := ls' p]) ps L)[p := l'] ! i
           = fold (\<lambda>p L. L[p := ls' p]) ps L ! i"
           by simp
         show ?thesis

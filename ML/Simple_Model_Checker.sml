@@ -283,7 +283,7 @@ end
     fun array_upd_oo f i x a () = 
       (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
 
-    
+
 
 
 
@@ -345,31 +345,40 @@ fun uminus_inta k = Int_of_integer (IntInf.~ (integer_of_int k));
 
 val zero_inta : int = Int_of_integer (0 : IntInf.int);
 
-datatype num = One | Bit0 of num | Bit1 of num;
-
-fun sgn_integer k =
-  (if ((k : IntInf.int) = (0 : IntInf.int)) then (0 : IntInf.int)
-    else (if IntInf.< (k, (0 : IntInf.int)) then (~1 : IntInf.int)
-           else (1 : IntInf.int)));
-
 fun apsnd f (x, y) = (x, f y);
+
+datatype num = One | Bit0 of num | Bit1 of num;
 
 fun divmod_integer k l =
   (if ((k : IntInf.int) = (0 : IntInf.int))
     then ((0 : IntInf.int), (0 : IntInf.int))
-    else (if ((l : IntInf.int) = (0 : IntInf.int)) then ((0 : IntInf.int), k)
-           else (apsnd o (fn a => fn b => IntInf.* (a, b)) o sgn_integer) l
-                  (if (((sgn_integer k) : IntInf.int) = (sgn_integer l))
-                    then IntInf.divMod (IntInf.abs k, IntInf.abs l)
-                    else let
-                           val (r, s) =
-                             IntInf.divMod (IntInf.abs k, IntInf.abs l);
-                         in
-                           (if ((s : IntInf.int) = (0 : IntInf.int))
-                             then (IntInf.~ r, (0 : IntInf.int))
-                             else (IntInf.- (IntInf.~ r, (1 : IntInf.int)),
-                                    IntInf.- (IntInf.abs l, s)))
-                         end)));
+    else (if IntInf.< ((0 : IntInf.int), l)
+           then (if IntInf.< ((0 : IntInf.int), k)
+                  then IntInf.divMod (IntInf.abs k, IntInf.abs l)
+                  else let
+                         val (r, s) =
+                           IntInf.divMod (IntInf.abs k, IntInf.abs l);
+                       in
+                         (if ((s : IntInf.int) = (0 : IntInf.int))
+                           then (IntInf.~ r, (0 : IntInf.int))
+                           else (IntInf.- (IntInf.~ r, (1 : IntInf.int)),
+                                  IntInf.- (l, s)))
+                       end)
+           else (if ((l : IntInf.int) = (0 : IntInf.int))
+                  then ((0 : IntInf.int), k)
+                  else apsnd IntInf.~
+                         (if IntInf.< (k, (0 : IntInf.int))
+                           then IntInf.divMod (IntInf.abs k, IntInf.abs l)
+                           else let
+                                  val (r, s) =
+                                    IntInf.divMod (IntInf.abs k, IntInf.abs l);
+                                in
+                                  (if ((s : IntInf.int) = (0 : IntInf.int))
+                                    then (IntInf.~ r, (0 : IntInf.int))
+                                    else (IntInf.- (IntInf.~
+              r, (1 : IntInf.int)),
+   IntInf.- (IntInf.~ l, s)))
+                                end))));
 
 fun snd (x1, x2) = x2;
 
@@ -1349,29 +1358,16 @@ fun map f [] = []
 
 fun explode s =
   map char_of_integer
-    ((map (fn c => let val k = Char.ord c in if k < 128 then IntInf.fromInt k else raise Fail "Non-ASCII character in literal" end) 
+    ((List.map (fn c => let val k = Char.ord c in if k < 128 then IntInf.fromInt k else raise Fail "Non-ASCII character in literal" end) 
        o String.explode)
       s);
 
-fun shows_prec_literal p s rest = explode s @ rest;
-
-fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
-  | intersperse uu [] = []
-  | intersperse uu [v] = [v];
+fun shows_prec_literal p s = shows_string (explode s);
 
 fun foldr f [] = id
   | foldr f (x :: xs) = f x o foldr f xs;
 
-fun concat xss = foldr (fn a => fn b => a @ b) xss [];
-
-fun shows_list_literal cs s =
-  [Chara (true, true, false, true, true, false, true, false)] @
-    concat
-      (intersperse
-        [Chara (false, false, true, true, false, true, false, false),
-          Chara (false, false, false, false, false, true, false, false)]
-        (map explode cs)) @
-      [Chara (true, false, true, true, true, false, true, false)] @ s;
+fun shows_list_literal x = foldr (fn s => shows_string (explode s)) x;
 
 val show_literal =
   {shows_prec = shows_prec_literal, shows_list = shows_list_literal} :
@@ -1396,7 +1392,7 @@ fun equal_fract (Rata (x1, x2, x3)) (Rata (y1, y2, y3)) =
   equal_bool x1 y1 andalso (equal_inta x2 y2 andalso equal_inta x3 y3);
 
 datatype json = Object of (char list * json) list | Arraya of json list |
-  String of char list | Int of int | Nata of nat | Rat of fract |
+  Stringa of char list | Int of int | Nata of nat | Rat of fract |
   Boolean of bool | Null;
 
 fun equal_proda A_ B_ (x1, x2) (y1, y2) = eq A_ x1 y1 andalso eq B_ x2 y2;
@@ -1424,16 +1420,16 @@ and equal_JSONa (Boolean x7) Null = false
   | equal_JSONa (Rat x6) (Int x4) = false
   | equal_JSONa (Int x4) (Nata x5) = false
   | equal_JSONa (Nata x5) (Int x4) = false
-  | equal_JSONa (String x3) Null = false
-  | equal_JSONa Null (String x3) = false
-  | equal_JSONa (String x3) (Boolean x7) = false
-  | equal_JSONa (Boolean x7) (String x3) = false
-  | equal_JSONa (String x3) (Rat x6) = false
-  | equal_JSONa (Rat x6) (String x3) = false
-  | equal_JSONa (String x3) (Nata x5) = false
-  | equal_JSONa (Nata x5) (String x3) = false
-  | equal_JSONa (String x3) (Int x4) = false
-  | equal_JSONa (Int x4) (String x3) = false
+  | equal_JSONa (Stringa x3) Null = false
+  | equal_JSONa Null (Stringa x3) = false
+  | equal_JSONa (Stringa x3) (Boolean x7) = false
+  | equal_JSONa (Boolean x7) (Stringa x3) = false
+  | equal_JSONa (Stringa x3) (Rat x6) = false
+  | equal_JSONa (Rat x6) (Stringa x3) = false
+  | equal_JSONa (Stringa x3) (Nata x5) = false
+  | equal_JSONa (Nata x5) (Stringa x3) = false
+  | equal_JSONa (Stringa x3) (Int x4) = false
+  | equal_JSONa (Int x4) (Stringa x3) = false
   | equal_JSONa (Arraya x2) Null = false
   | equal_JSONa Null (Arraya x2) = false
   | equal_JSONa (Arraya x2) (Boolean x7) = false
@@ -1444,8 +1440,8 @@ and equal_JSONa (Boolean x7) Null = false
   | equal_JSONa (Nata x5) (Arraya x2) = false
   | equal_JSONa (Arraya x2) (Int x4) = false
   | equal_JSONa (Int x4) (Arraya x2) = false
-  | equal_JSONa (Arraya x2) (String x3) = false
-  | equal_JSONa (String x3) (Arraya x2) = false
+  | equal_JSONa (Arraya x2) (Stringa x3) = false
+  | equal_JSONa (Stringa x3) (Arraya x2) = false
   | equal_JSONa (Object x1) Null = false
   | equal_JSONa Null (Object x1) = false
   | equal_JSONa (Object x1) (Boolean x7) = false
@@ -1456,15 +1452,15 @@ and equal_JSONa (Boolean x7) Null = false
   | equal_JSONa (Nata x5) (Object x1) = false
   | equal_JSONa (Object x1) (Int x4) = false
   | equal_JSONa (Int x4) (Object x1) = false
-  | equal_JSONa (Object x1) (String x3) = false
-  | equal_JSONa (String x3) (Object x1) = false
+  | equal_JSONa (Object x1) (Stringa x3) = false
+  | equal_JSONa (Stringa x3) (Object x1) = false
   | equal_JSONa (Object x1) (Arraya x2) = false
   | equal_JSONa (Arraya x2) (Object x1) = false
   | equal_JSONa (Boolean x7) (Boolean y7) = equal_bool x7 y7
   | equal_JSONa (Rat x6) (Rat y6) = equal_fract x6 y6
   | equal_JSONa (Nata x5) (Nata y5) = equal_nata x5 y5
   | equal_JSONa (Int x4) (Int y4) = equal_inta x4 y4
-  | equal_JSONa (String x3) (String y3) = equal_lista equal_char x3 y3
+  | equal_JSONa (Stringa x3) (Stringa y3) = equal_lista equal_char x3 y3
   | equal_JSONa (Arraya x2) (Arraya y2) = equal_lista (equal_JSON ()) x2 y2
   | equal_JSONa (Object x1) (Object y1) =
     equal_lista (equal_prod (equal_list equal_char) (equal_JSON ())) x1 y1
@@ -1616,6 +1612,12 @@ and shows_bexp A_ B_ (Lta (a, b)) =
         shows_bexp A_ B_ b;
 
 fun shows_prec_exp A_ B_ p e rest = shows_exp A_ B_ e @ rest;
+
+fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
+  | intersperse uu [] = []
+  | intersperse uu [v] = [v];
+
+fun concat xss = foldr (fn a => fn b => a @ b) xss [];
 
 fun shows_list_exp A_ B_ es s =
   [Chara (true, true, false, true, true, false, true, false)] @
@@ -1869,7 +1871,7 @@ fun is_none (SOME x) = false
 
 fun implode cs =
   (String.implode
-    o map (fn k => if 0 <= k andalso k < 128 then (Char.chr o IntInf.toInt) k else raise Fail "Non-ASCII character in literal"))
+    o List.map (fn k => if 0 <= k andalso k < 128 then (Char.chr o IntInf.toInt) k else raise Fail "Non-ASCII character in literal"))
     (map integer_of_char cs);
 
 fun tracea x = trace ExploredState x;
@@ -2532,7 +2534,7 @@ fun lx_rat x =
 fun atom x =
   bindb lx_ws
     (fn _ =>
-      bindb (alt (bindb json_string (fn xa => return (String xa)))
+      bindb (alt (bindb json_string (fn xa => return (Stringa xa)))
               (bindb
                 (alt (bindb lx_rat (fn xa => return (Rat xa)))
                   (bindb
@@ -5318,7 +5320,7 @@ fun check_diag_impl (A1_, A2_) n =
 fun of_nat json =
   (case json of Object _ => Error ["of_nat: expected natural number"]
     | Arraya _ => Error ["of_nat: expected natural number"]
-    | String _ => Error ["of_nat: expected natural number"]
+    | Stringa _ => Error ["of_nat: expected natural number"]
     | Int _ => Error ["of_nat: expected natural number"] | Nata a => Result a
     | Rat _ => Error ["of_nat: expected natural number"]
     | Boolean _ => Error ["of_nat: expected natural number"]
@@ -5717,7 +5719,7 @@ fun compile_invarianta clocks vars inv =
 fun of_string json =
   (case json of Object _ => Error ["of_array: expected sequence"]
     | Arraya _ => Error ["of_array: expected sequence"]
-    | String s => Result (implode s)
+    | Stringa s => Result (implode s)
     | Int _ => Error ["of_array: expected sequence"]
     | Nata _ => Error ["of_array: expected sequence"]
     | Rat _ => Error ["of_array: expected sequence"]
@@ -5727,7 +5729,7 @@ fun of_string json =
 fun of_object json =
   (case json of Object asa => Result (map_of (equal_list equal_char) asa)
     | Arraya _ => Error ["json_to_map: expected object"]
-    | String _ => Error ["json_to_map: expected object"]
+    | Stringa _ => Error ["json_to_map: expected object"]
     | Int _ => Error ["json_to_map: expected object"]
     | Nata _ => Error ["json_to_map: expected object"]
     | Rat _ => Error ["json_to_map: expected object"]
@@ -5926,7 +5928,7 @@ binda (assert (list_all (fn (_, Const x) => equal_inta x zero_inta) resets)
 
 fun of_array json =
   (case json of Object _ => Error ["of_array: expected sequence"]
-    | Arraya a => Result a | String _ => Error ["of_array: expected sequence"]
+    | Arraya a => Result a | Stringa _ => Error ["of_array: expected sequence"]
     | Int _ => Error ["of_array: expected sequence"]
     | Nata _ => Error ["of_array: expected sequence"]
     | Rat _ => Error ["of_array: expected sequence"]
@@ -10144,7 +10146,7 @@ fun shows_json n (Nata m) = pad n (shows_prec_nat zero_nata m [])
             Chara (true, false, true, false, true, true, true, false),
             Chara (false, false, true, true, false, true, true, false),
             Chara (false, false, true, true, false, true, true, false)]
-  | shows_json n (String s) =
+  | shows_json n (Stringa s) =
     pad n ([Chara (false, true, false, false, false, true, false, false)] @
             s @ [Chara (false, true, false, false, false, true, false, false)])
   | shows_json n (Arraya xs) =
@@ -10212,8 +10214,8 @@ fun do_preproc_mc A_ =
                 (if dc then "Model has no deadlock!"
                   else "Property is not satisfied!")
             | Error es =>
-              err ("Error during preprocessing:\092" ^
-                    concat_str (intersperse "\092" es))))));
+              err ("Error during preprocessing:\n" ^
+                    concat_str (intersperse "\n" es))))));
 
 fun shows_prec_JSON p x rest = shows_json zero_nata x @ rest;
 

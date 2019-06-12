@@ -203,7 +203,7 @@ where
       SEL ''not sender'' \<bar> p \<notin> set ps;
       SEL ''distinct''   \<bar> distinct ps;
       SEL ''sorted''     \<bar> sorted ps;
-      ''new loc'' \<bar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'];
+      ''new loc'' \<bar> L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'];
       ''new valuation'' \<bar> u' = [r@concat (map rs ps)\<rightarrow>0]u;
       ''upd''     \<bar> is_upd s f s';
       ''upds''    \<bar> is_upds s' (map fs ps) s'';
@@ -306,7 +306,8 @@ definition
       L!p = l \<and>
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
       check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
-      L' = fold (\<lambda>p L . L[p := ls' p]) ps L[p := l'] \<and> is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+      L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
+      is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
     }"
 

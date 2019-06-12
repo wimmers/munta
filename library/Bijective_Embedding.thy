@@ -105,9 +105,9 @@ next
       finally have "?S = ({x \<in> A. ordX x \<le> ordX a \<and> x \<notin> F} - {x}) \<union> {?a}"
         by auto
       moreover have "?a \<noteq> x"
-        using True \<open>ordX ?a = max (MAXIMUM F ordX) (ordX a) + 1\<close> by auto
+        using True \<open>ordX ?a = max (MAX x \<in> F. ordX x) (ordX a) + 1\<close> by auto
       moreover have "?a \<notin> {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> F}"
-        using \<open>ordX ?a = max (MAXIMUM F ordX) (ordX a) + 1\<close> by auto
+        using \<open>ordX ?a = max (MAX x \<in> F. ordX x) (ordX a) + 1\<close> by auto
       moreover have "x \<in> {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> F}"
         using \<open>ordX x \<le> _\<close> \<open>insert x _ \<subseteq> A\<close> \<open>x \<notin> F\<close> by auto
       ultimately have "card ?S = card {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> F}"

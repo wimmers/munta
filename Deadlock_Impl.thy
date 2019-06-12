@@ -805,7 +805,7 @@ proof -
             (* by (metis Sup_insert Un_insert_left insert_iff subset_Collect_conv) *)
         proof -
           assume a1: "insert (insert x (set l1 \<union> set l2)) (set done \<union> set todo) = ran passed"
-          assume a2: "\<Union>ran passed \<subseteq> {a. reachable a \<and> \<not> empty a}"
+          assume a2: "\<Union>(ran passed) \<subseteq> {a. reachable a \<and> \<not> empty a}"
           assume "\<forall>x\<in>set l1. \<not> Q x"
           assume a3: "Q x"
           have "reachable x \<and> \<not> empty x"

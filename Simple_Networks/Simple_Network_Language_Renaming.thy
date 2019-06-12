@@ -1779,7 +1779,7 @@ lemma inv_sem_N_renum_broadcastI:
 "\<forall>pa<n_ps.
   [renum_reset r @ concat (map rs ps)\<rightarrow>0]map_u u
     \<turnstile> inv (renum.N pa)
-        (fold (\<lambda>p L. L[p := ls p]) ps (map_index renum_states L) [p := renum_states p l1] ! pa)"
+        ((fold (\<lambda>p L. L[p := ls p]) ps (map_index renum_states L)) [p := renum_states p l1] ! pa)"
 "\<forall>p\<in>set ps. rs p = renum_reset (rs' p)"
 "\<forall>p\<in>set ps. ls p = renum_states p (ls' p)"
 "\<forall>p\<in>set ps. ls' p \<in> (\<Union>(l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})"
@@ -1787,14 +1787,15 @@ lemma inv_sem_N_renum_broadcastI:
 "L \<in> states"
 shows
 "\<forall>pa<n_ps.
-  [r @ concat (map rs' ps)\<rightarrow>0]u \<turnstile> inv (N pa) (fold (\<lambda>p L. L[p := ls' p]) ps L [p := l1] ! pa)"
+  [r @ concat (map rs' ps)\<rightarrow>0]u \<turnstile> inv (N pa) ((fold (\<lambda>p L. L[p := ls' p]) ps L) [p := l1] ! pa)"
 proof -
   have [simp]: "renum_reset r @ concat (map rs ps) = renum_reset (r @ concat (map rs' ps))"
     using assms(2) by (simp cong: map_cong add: map_concat renum_reset_def)
   have [simp]: "length L = n_ps"
     using \<open>L \<in> states\<close> by auto
-  have [simp]: "(fold (\<lambda>p L. L[p := ls p]) ps (map_index renum_states L) [p := renum_states p l1] ! q)
-    = renum_states q (fold (\<lambda>p L. L[p := ls' p]) ps L [p := l1] ! q)"
+  have [simp]:
+    "((fold (\<lambda>p L. L[p := ls p]) ps (map_index renum_states L)) [p := renum_states p l1] ! q)
+    = renum_states q ((fold (\<lambda>p L. L[p := ls' p]) ps L) [p := l1] ! q)"
     if "q < n_ps" for q
     using assms(4-) that
     apply (cases "p = q")
@@ -1803,7 +1804,7 @@ proof -
         add: assms(3) map_trans_broad_aux1[symmetric] fold_upds_aux_length
         cong: fold_cong)
     done
-  have "fold (\<lambda>p L. L[p := ls' p]) ps L[p := l1] ! q \<in> loc_set" if "q < n_ps" for q
+  have "(fold (\<lambda>p L. L[p := ls' p]) ps L)[p := l1] ! q \<in> loc_set" if "q < n_ps" for q
     using assms(4-)
     apply (intro sem_states_loc_setD)
     subgoal
@@ -1964,10 +1965,9 @@ lemma step_single_renumI:
         using assms(4) by - (drule trans_sem_upd_domI; simp split: prod.splits)
       apply (simp, drule dom_comp_vars_inv_eqD, simp)
       done
-
-       apply solve_triv+
-     apply (rule ext)
-     apply solve_triv+
+    apply (solve_triv, solve_triv)
+     apply (rule ext; solve_triv)
+     apply solve_triv
     done
 
 (* Broadcast *)
