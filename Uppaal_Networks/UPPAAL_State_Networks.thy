@@ -1016,7 +1016,7 @@ lemma states'_updI':
   unfolding Product_TA_Defs.states_def
   apply clarsimp
   subgoal for p
-    by (cases "p = q"; force simp: prod.trans_of_N_s_2 Prod_TA_Defs.N_s_length)
+    by (cases "p = q"; force simp: prod.trans_of_N_s_2[simplified] Prod_TA_Defs.N_s_length)
   done
 
 lemma states'_updI:

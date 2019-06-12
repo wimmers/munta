@@ -575,7 +575,7 @@ begin
                 \<or> L ! q \<in> (snd o snd o snd o snd) ` fst (equiv.N ! q))}"
     unfolding Product_TA_Defs.states_def
     unfolding equiv.defs.N_s_def trans_of_def
-    by (simp add: T_s_unfold_1 T_s_unfold_2)
+    using T_s_unfold_1 T_s_unfold_2 by simp
 
   lemma init_states:
     "init \<in> equiv.defs.states' s\<^sub>0"
@@ -661,7 +661,7 @@ begin
     using assms unfolding Product_TA_Defs.states_def
     apply simp
     unfolding trans_of_def equiv.defs.N_s_def
-    apply (simp add: T_s_unfold_1 T_s_unfold_2)
+    apply (simp add: T_s_unfold_1[simplified] T_s_unfold_2[simplified])
     unfolding N_def
     apply simp
     unfolding T_def
@@ -774,7 +774,6 @@ done
 
 lemma k_ceiling_2:
     "\<forall> l g a r l' c. A \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> c \<notin> set r \<longrightarrow> k_fun l' c \<le> k_fun l c"
-
   unfolding trans_of_def equiv.defs.prod_ta_def equiv.defs.prod_trans_def
   apply clarsimp
   apply safe
@@ -957,7 +956,7 @@ lemma k_ceiling_2:
         by auto
       with ** k_resets \<open>p1 < _\<close> \<open>p2 < _\<close> have
         "k ! p1 ! l1 ! c \<le> k ! p1 ! (l ! p1) ! c" "k ! p2 ! l2 ! c \<le> k ! p2 ! (l ! p2) ! c"
-        unfolding k_fun_def by force+
+        by (auto split: prod.split_asm)
       with \<open>l' = _\<close> show ?thesis
         unfolding k_fun_def
         apply clarsimp
@@ -1870,8 +1869,8 @@ begin
     apply safe
        apply (subst fst_product_state_indep; force)
       apply (subst fst_product_state_indep; force)
-     apply (subst (asm) last_product_state_indep; force)
-    by (subst (asm) last_product_state_indep; force)
+     apply (subst (asm) last_product_state_indep[simplified]; force)
+    by (subst (asm) last_product_state_indep[simplified]; force)
 
   lemma state_set_T'2[simplified]:
     "length L = equiv.defs.p"

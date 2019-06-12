@@ -496,7 +496,7 @@ lemma
 
 lemma states'_simp:
   "states' s = states' s'"
-  unfolding Product_TA_Defs.states_def by (simp add: N_s_length trans_of_N_s_1 trans_of_N_s_2)
+  unfolding Product_TA_Defs.states_def using trans_of_N_s_1 trans_of_N_s_2 by (simp add: N_s_length)
 
   lemma states_step:
     "L' \<in> states' s" if "A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>" "L \<in> states' s"
