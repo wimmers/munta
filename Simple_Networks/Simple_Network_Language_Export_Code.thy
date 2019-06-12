@@ -350,9 +350,6 @@ definition
   let L = show_locs inv_renum_states L; vs = show_vars inv_renum_vars vs in
   ''<'' @ L @ ''>, <'' @ vs @ ''>''"
 
-definition
-  "trace_level (i :: int) (f :: unit \<Rightarrow> String.literal Heap) = ()"
-
 definition do_rename_mc where
   "do_rename_mc f dc broadcast bounds' automata k urge L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
@@ -1549,30 +1546,6 @@ code_printing
 (* XXX Add this fix to IArray theory *)
 code_printing
   constant IArray.sub' \<rightharpoonup> (SML) "(Vector.sub o (fn (a, b) => (a, IntInf.toInt b)))"
-
-context Show_State_Defs
-begin
-
-lemma tracei_alt_def:
-  "tracei type \<equiv> \<lambda> (l, M).
-   let _ = trace_level 5 (
-    \<lambda>_. do {
-      let st = show_state l;
-      m \<leftarrow> show_dbm_impl n show_clock show M;
-      let s = type @ '': (''  @ st @ '', <'' @ m @ ''>)''; 
-      let s = String.implode s;
-      return s
-    })
-  in return ()
-"
-  unfolding tracei_def
-  unfolding trace_level_def
-  apply simp (* will not introduce unsoudness. remove by refactoring *)
-  sorry
-
-end
-
-lemmas [code] = Show_State_Defs.tracei_alt_def
 
 code_thms Show_State_Defs.tracei
 

@@ -103,20 +103,24 @@ begin
   definition state_set :: "('a, 'c, 'time, 's) transition set \<Rightarrow> 's set" where
     "state_set T = fst ` T \<union> (snd o snd o snd o snd) ` T"
 
+definition
+  "trace_level (i :: int) (f :: unit \<Rightarrow> String.literal Heap) = ()"
+
 locale Show_State_Defs =
   fixes n :: nat and show_state :: "'si \<Rightarrow> string" and show_clock :: "nat \<Rightarrow> string"
 begin
 
-definition tracei where
-  "tracei type \<equiv>
-  \<lambda> (l, M). do {
+definition
+  "tracei type \<equiv> \<lambda> (l, M).
+   let _ = trace_level 5 (
+    \<lambda>_. do {
       let st = show_state l;
       m \<leftarrow> show_dbm_impl n show_clock show M;
       let s = type @ '': (''  @ st @ '', <'' @ m @ ''>)''; 
       let s = String.implode s;
-      let _ = println s;
-      return ()
-  }
+      return s
+    })
+  in return ()
 "
 
 end
