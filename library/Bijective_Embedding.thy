@@ -22,24 +22,24 @@ begin
 
 private lemma finiteI: "finite {x. x \<in> A \<and> ordX x \<le> ordX a \<and> Q x}" (is "finite ?S")
     if "inj_on ordX A" for A a Q and ordX :: "_ \<Rightarrow> nat"
+proof -
+  have "?S \<subseteq> {x. x \<in> A \<and> ordX x \<le> ordX a}"
+    by blast
+  moreover have "finite \<dots>"
   proof -
-    have "?S \<subseteq> {x. x \<in> A \<and> ordX x \<le> ordX a}"
-      by blast
-    moreover have "finite \<dots>"
-    proof -
-      have "\<dots> = ordX -` {n. n \<le> ordX a} \<inter> A"
-        by auto
-      moreover from \<open>inj_on ordX A\<close> have "finite \<dots>"
-        by (intro finite_vimage_IntI) auto
-      ultimately show ?thesis
-        by simp
-    qed
+    have "\<dots> = ordX -` {n. n \<le> ordX a} \<inter> A"
+      by auto
+    moreover from \<open>inj_on ordX A\<close> have "finite \<dots>"
+      by (intro finite_vimage_IntI) auto
     ultimately show ?thesis
-      by (rule finite_subset)
+      by simp
   qed
+  ultimately show ?thesis
+    by (rule finite_subset)
+qed
 
 qualified lemma enumeration_skip_finite_set_surj:
-  "\<exists>a \<in> A. a \<notin> S \<and> card {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> S} = n"
+  "\<exists>a. a \<in> A \<and> a \<notin> S \<and> card {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> S} = n"
   if "n > 0" "inj_on ordX A" "ordX ` A = \<nat>" "finite S" "S \<subseteq> A" for ordX :: "_ \<Rightarrow> nat"
   using \<open>finite S\<close> \<open>n > 0\<close> \<open>S \<subseteq> A\<close>
 proof (induction arbitrary: n)
@@ -62,7 +62,7 @@ proof (induction arbitrary: n)
     by (intro bexI[where x = "the_inv_into A ordX (n - 1)"])
        (auto intro: the_inv_into_into simp: f_the_inv_into_f[where f = ordX])
   then show ?case
-    by simp
+    by auto
 next
   case (insert x F)
   then obtain a where a: "a \<in> A" "a \<notin> F" "card {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> F} = n"
@@ -125,9 +125,7 @@ next
       finally show ?thesis
         using \<open>inj_on ordX A\<close> \<open>ordX ` A = \<nat>\<close> unfolding Nats_def
         apply -
-        apply (rule bexI[where x = ?a])
-         apply (subst f_the_inv_into_f[where f = ordX])
-           apply force+
+        apply (rule exI[where x = ?a], rule conjI)
          apply (auto intro: the_inv_into_into)
         using \<open>ordX x \<le> _\<close>
           apply (subgoal_tac "ordX x = Suc (ordX a)"; simp add: f_the_inv_into_f[where f = ordX])
@@ -140,7 +138,7 @@ next
         using \<open>finite F\<close> apply (rule finite_imageI)
          apply (rule imageI)
          apply (simp add: f_the_inv_into_f[where f = ordX])
-        using \<open>ordX ?a = _\<close> by simp
+        done
     next
       case True
       let ?M = "{b \<in> A. ordX a < ordX b \<and> ordX b \<le> ?m \<and> b \<notin> F}"
@@ -189,7 +187,7 @@ next
         apply assumption
         done
       then show ?thesis
-        using a(1) \<open>ordX x \<le> _\<close> by (intro bexI[where x = ?a]) auto
+        using a(1) \<open>ordX x \<le> _\<close> by (intro exI[where x = ?a]) auto
     qed
   next
     case False
@@ -197,9 +195,16 @@ next
       "{xa \<in> A. ordX xa \<le> ordX a \<and> xa \<notin> insert x F} = {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> F}"
       by auto
     with a False show ?thesis
-      by (intro bexI[where x = a]) auto
+      by (intro exI[where x = a]) auto
   qed
 qed
+
+lemma bij_betw_relI:
+  assumes "\<And>x y z. x \<in> A \<Longrightarrow> y \<in> B \<Longrightarrow> z \<in> B \<Longrightarrow> R x y \<Longrightarrow> R x z \<Longrightarrow> y = z"
+      and "\<And>x y z. x \<in> A \<Longrightarrow> y \<in> A \<Longrightarrow> z \<in> B \<Longrightarrow> R x z \<Longrightarrow> R y z \<Longrightarrow> x = y"
+      and "\<And>x. x \<in> A \<Longrightarrow> \<exists>y \<in> B. R x y" "\<And>y. y \<in> B \<Longrightarrow> \<exists>x \<in> A. R x y"
+  shows "bij_betw (\<lambda>a. SOME b. R a b \<and> b \<in> B) A B"
+  by (rule bij_betwI'; smt assms someI)
 
 lemma bijective_embedding:
   fixes f :: "'a \<Rightarrow> 'b"
@@ -219,182 +224,99 @@ proof -
   define P where "P a b \<equiv> a \<in> A \<and> b \<in> B \<and> a \<notin> S \<and> b \<notin> f ` S \<and>
     card {x. x \<in> A \<and> ordX x \<le> ordX a \<and> x \<notin> S} = card {x. x \<in> B \<and> ordY x \<le> ordY b \<and> x \<notin> f ` S}"
     for a b
+  let ?f = "\<lambda>a. card {x. x \<in> A \<and> ordX x \<le> ordX a \<and> x \<notin> S}"
+  let ?g = "\<lambda>a. card {x. x \<in> B \<and> ordY x \<le> ordY a \<and> x \<notin> f ` S}"
   have P_right: "\<exists> b. P a b" if "a \<in> A" "a \<notin> S" for a
   proof -
-    have *: "\<exists>b \<in> B. b \<notin> f ` S \<and> card {x \<in> B. ordY x \<le> ordY b \<and> x \<notin> f ` S} = n" if "n > 0" for n
+    have *: "\<exists>b. b \<in> B \<and> b \<notin> f ` S \<and> ?g b = n" if "n > 0" for n
       using \<open>n > 0\<close> \<open>finite S\<close> \<open>f ` S \<subseteq> B\<close> \<open>inj_on ordY B\<close> \<open>ordY ` B = \<nat>\<close>
       by (intro enumeration_skip_finite_set_surj) auto
-    from that have "card {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> S} > 0"
+    from that have "?f a > 0"
       unfolding card_gt_0_iff by (auto intro: finiteI[OF \<open>inj_on ordX A\<close>])
     from *[OF this] show ?thesis
       unfolding P_def using that by auto
   qed
   have P_left: "\<exists>a. P a b" if "b \<in> B" "b \<notin> f ` S" for b
-  proof -
-    have "\<exists>a \<in> A. a \<notin> S \<and> card {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> S} = n" if "n > 0" for n
-      using \<open>n > 0\<close> \<open>finite S\<close> \<open>S \<subseteq> A\<close> \<open>inj_on ordX A\<close> \<open>ordX ` A = \<nat>\<close>
-      by (intro enumeration_skip_finite_set_surj)
-    moreover from that have "card {x \<in> B. ordY x \<le> ordY b \<and> x \<notin> f ` S} > 0"
-      unfolding card_gt_0_iff by (auto intro: finiteI[OF \<open>inj_on ordY B\<close>])
-    ultimately show ?thesis
-      unfolding P_def using that by auto
-  qed
+    using that \<open>finite S\<close> \<open>S \<subseteq> A\<close> \<open>inj_on ordX A\<close> \<open>inj_on ordY B\<close> \<open>ordX ` A = \<nat>\<close> unfolding P_def
+    by (auto 4 3 intro: enumeration_skip_finite_set_surj finiteI simp: card_gt_0_iff)
   have P_surj: "a = b" if "P a c" "P b c" for a b c
   proof -
-    from that have
-      "c \<in> B"
-      "card {x. x \<in> A \<and> ordX x \<le> ordX a \<and> x \<notin> S} = card {x. x \<in> B \<and> ordY x \<le> ordY c \<and> x \<notin> f ` S}"
-      "card {x. x \<in> A \<and> ordX x \<le> ordX b \<and> x \<notin> S} = card {x. x \<in> B \<and> ordY x \<le> ordY c \<and> x \<notin> f ` S}"
+    from that have "?f a = ?f b" (is "card ?A = card ?B")
       unfolding P_def by auto
-    then have
-      "card {x. x \<in> A \<and> ordX x \<le> ordX a \<and> x \<notin> S} = card {x. x \<in> A \<and> ordX x \<le> ordX b \<and> x \<notin> S}"
-      (is "card ?A = card ?B")
-      by simp
+    have fin: "finite ?A" "finite ?B"
+      by (intro finiteI \<open>inj_on ordX A\<close>)+
     have *: "a \<in> A" "b \<in> A" "a \<notin> S" "b \<notin> S"
       using that unfolding P_def by auto
-    consider "ordX a < ordX b" | "ordX a = ordX b" | "ordX a > ordX b"
+    consider (lt) "ordX a < ordX b" | (eq) "ordX a = ordX b" | (gt) "ordX a > ordX b"
       by force
     then show ?thesis
     proof cases
-      case 1
-      then have "?A \<subseteq> ?B"
+      case lt
+      with * have "?f a < ?f b"
+        using leD by (intro psubset_card_mono fin) auto
+      with \<open>?f a = ?f b\<close> show ?thesis
         by auto
-      moreover have "finite ?B"
-        by (intro finiteI \<open>inj_on ordX A\<close>)
-      ultimately have "?A = ?B"
-        using \<open>card ?A = card ?B\<close> by (intro card_subset_eq) auto
-      with 1 show ?thesis
-        using * linorder_not_le by blast
     next
-      case 2
+      case eq
       then show ?thesis
         using \<open>inj_on ordX A\<close> \<open>a \<in> A\<close> \<open>b \<in> A\<close> by (auto dest: inj_onD)
     next
-      case 3
-      then have "?B \<subseteq> ?A"
+      case gt
+      with * have "?f a > ?f b"
+        using leD by (intro psubset_card_mono fin) auto
+      with \<open>?f a = ?f b\<close> show ?thesis
         by auto
-      moreover have "finite ?A"
-        by (intro finiteI \<open>inj_on ordX A\<close>)
-      ultimately have "?B = ?A"
-        using \<open>card ?A = card ?B\<close> by (intro card_subset_eq) auto
-      with 3 show ?thesis
-        using * linorder_not_le by blast
     qed
   qed
   have P_inj: "b = c" if "P a b" "P a c" for a b c
   proof -
-    from that have
-      "a \<in> A"
-      "card {x. x \<in> A \<and> ordX x \<le> ordX a \<and> x \<notin> S} = card {x. x \<in> B \<and> ordY x \<le> ordY b \<and> x \<notin> f ` S}"
-      "card {x. x \<in> A \<and> ordX x \<le> ordX a \<and> x \<notin> S} = card {x. x \<in> B \<and> ordY x \<le> ordY c \<and> x \<notin> f ` S}"
+    from that have "?g b = ?g c" (is "card ?A = card ?B")
       unfolding P_def by auto
-    then have
-      "card {x. x \<in> B \<and> ordY x \<le> ordY b \<and> x \<notin> f ` S}
-     = card {x. x \<in> B \<and> ordY x \<le> ordY c \<and> x \<notin> f ` S}" (is "card ?A = card ?B")
-      by simp
+    have fin: "finite ?A" "finite ?B"
+      by (intro finiteI \<open>inj_on ordY B\<close>)+
     have *: "b \<in> B" "c \<in> B" "b \<notin> f ` S" "c \<notin> f ` S"
       using that unfolding P_def by auto
-    consider "ordY b < ordY c" | "ordY b = ordY c" | "ordY b > ordY c"
+    consider (lt) "ordY b < ordY c" | (eq) "ordY b = ordY c" | (gt) "ordY b > ordY c"
       by force
     then show ?thesis
     proof cases
-      case 1
-      then have "?A \<subseteq> ?B"
+      case lt
+      with * have "?g b < ?g c"
+        using leD by (intro psubset_card_mono fin) (auto, blast)
+      with \<open>?g b = ?g c\<close> show ?thesis
         by auto
-      moreover have "finite ?B"
-        by (intro finiteI \<open>inj_on ordY B\<close>)
-      ultimately have "?A = ?B"
-        using \<open>card ?A = card ?B\<close> by (intro card_subset_eq) auto
-      with 1 show ?thesis
-        using * linorder_not_le by (metis (no_types, lifting) mem_Collect_eq order_refl)
     next
-      case 2
+      case eq
       then show ?thesis
         using \<open>inj_on ordY B\<close> \<open>b \<in> B\<close> \<open>c \<in> B\<close> by (auto dest: inj_onD)
     next
-      case 3
-      then have "?B \<subseteq> ?A"
+      case gt
+      with * have "?g b > ?g c"
+        using leD by (intro psubset_card_mono fin) (auto, blast)
+      with \<open>?g b = ?g c\<close> show ?thesis
         by auto
-      moreover have "finite ?A"
-        by (intro finiteI \<open>inj_on ordY B\<close>)
-      ultimately have "?B = ?A"
-        using \<open>card ?A = card ?B\<close> by (intro card_subset_eq) auto
-      with 3 show ?thesis
-        using * linorder_not_le by (metis (no_types, lifting) mem_Collect_eq order_refl)
     qed
   qed
-  define g where "g a \<equiv> SOME b. P a b" for a
-  define h where "h a \<equiv> if a \<in> S then f a else g a" for a
-  have P_g: "P a (g a)" if "a \<in> A" "a \<notin> S" for a
-    using that unfolding g_def by (rule someI_ex[OF P_right])
-  have "inj_on g (A - S)"
-  proof
-    fix x y assume "x \<in> A - S" "y \<in> A - S" "g x = g y"
-    then have "P x (g x)" "P y (g y)"
-      by (intro P_g; auto)+
-    then show "x = y"
-      unfolding \<open>g x = _\<close> by (rule P_surj)
-  qed
-  have P_g_inv: "P (the_inv_into (A - S) g b) b" if "b \<in> B" "b \<notin> f ` S" for b
-  proof -
-    from P_left[OF that] obtain a where "P a b" ..
-    then have "P a (g a)"
-      unfolding g_def by (rule someI)
-    from P_inj[OF \<open>P a b\<close> this] have "g a = b" ..
-    with \<open>P a b\<close> \<open>inj_on g _\<close> have "the_inv_into (A - S) g b = a"
-      by (intro the_inv_into_f_eq ) (auto simp: P_def)
-    with \<open>P a b\<close> show ?thesis
-      by simp
-  qed
-  have g_surj: "B - f ` S \<subseteq> g ` (A - S)"
-  proof safe
-    fix x :: \<open>'b\<close> assume  \<open>x \<in> B\<close> and \<open>x \<notin> f ` S\<close>
-    from P_left[OF this] obtain a where "P a x"
-      by auto
-    then have "P a (g a)"
-      unfolding g_def by (rule someI)
-    from P_inj[OF \<open>P a x\<close> this] have "x = g a" .
-    from \<open>P a x\<close> show \<open>x \<in> g ` (A - S)\<close>
-      unfolding \<open>x = _\<close> by (intro imageI; simp add: P_def)
-  qed
-  have "bij_betw h A B"
-    apply (rule bij_betwI')
-    subgoal for x y
-      unfolding h_def
-      apply auto
-      using \<open>inj_on f S\<close>
-         apply (auto dest: inj_onD)
-      subgoal
-        apply (frule (1) P_g)
-        unfolding P_def by force
-      subgoal
-        by (force dest: P_g simp: P_def)
-      apply (drule (1) P_g)+
-      apply (rule P_surj; simp)
-      done
-    subgoal for x
-      using \<open>f ` S \<subseteq> B\<close> by (auto simp: h_def P_def dest: P_g)
-    subgoal for y
-      apply (cases "y \<in> f ` S")
-      subgoal
-        by (rule bexI[where x = "the_inv_into S f y"])
-           (auto simp:
-            h_def \<open>inj_on f S\<close> assms(2) the_inv_into_f_eq the_inv_into_f_f the_inv_into_into
-            )
-      subgoal
-        apply (rule bexI[where x = "the_inv_into (A - S) g y"])
-         apply (frule (1) P_g_inv)
-         apply (auto simp: h_def P_def)
-         apply (subst f_the_inv_into_f[where f = g])
-        using \<open>inj_on g _\<close> g_surj
-           apply (auto intro: the_inv_into_into)
-        done
-      done
-    done
-  moreover have "\<forall>x\<in>S. h x = f x"
-    unfolding h_def by auto
+
+  define R where "R a b \<equiv> if a \<in> S then b = f a else P a b" for a b
+  have R_A: "a \<in> A" and R_B: "b \<in> B" if "R a b" for a b
+    using that \<open>f ` S \<subseteq> B\<close> \<open>S \<subseteq> A\<close> unfolding R_def by (auto split: if_split_asm simp: P_def)
+  have R_inj: "b = c" if "R a b" "R a c" for a b c
+    using that unfolding R_def by (auto split: if_split_asm dest: P_inj)
+  moreover have R_surj: "a = b" if "R a c" "R b c" for a b c
+    using that unfolding R_def
+    by (auto split: if_split_asm dest: P_surj inj_onD[OF \<open>inj_on f S\<close>]) (auto simp: P_def)
+  moreover have R_right: "\<exists>b. R a b" if "a \<in> A" for a
+    unfolding R_def by (auto dest: P_right[OF \<open>a \<in> A\<close>])
+  moreover have R_left: "\<exists>a. R a b" if "b \<in> B" for b
+    unfolding R_def
+    by (cases "b \<in> f ` S", (auto; fail), (frule P_left[OF \<open>b \<in> B\<close>], auto simp: P_def))
   ultimately show ?thesis
-    by (intro exI conjI)
+    apply (intro exI[of _ "\<lambda>a. SOME b. R a b \<and> b \<in> B"] conjI)
+     apply (rule bij_betw_relI)
+        apply assumption+
+      apply (smt R_A R_B)+
+    using assms(3) by (subst R_def) (simp, blast)
 qed
 
 end
