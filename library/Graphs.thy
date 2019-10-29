@@ -372,6 +372,117 @@ lemma steps_last_step:
   "\<exists> a. a \<rightarrow> last xs" if "steps xs" "length xs > 1"
   using that by induction auto
 
+lemma steps_remove_cycleE:
+  assumes "steps (a # xs @ [b])"
+  obtains xs where "steps (a # xs @ [b])" "distinct xs" "a \<notin> set xs" "b \<notin> set xs"
+  using assms
+proof (induction "length xs" arbitrary: xs rule: less_induct)
+  case less
+  note prems = less.prems(2) and intro = less.prems(1) and IH = less.hyps
+  consider
+    "distinct xs" "a \<notin> set xs" "b \<notin> set xs" | "a \<in> set xs" | "b \<in> set xs" | "\<not> distinct xs"
+    by auto
+  then consider (goal) ?case
+    | (a) as bs where "xs = as @ a # bs" | (b) as bs where "xs = as @ b # bs"
+    | (between) x as bs cs where "xs = as @ x # bs @ x # cs"
+    using prems by (cases; fastforce dest: not_distinct_decomp simp: split_list intro: intro)
+  then show ?case
+  proof cases
+    case a
+    with prems show ?thesis
+      by - (rule IH[where xs = bs], auto intro: intro dest: stepsD)
+  next
+    case b
+    with prems have "steps (a # as @ b # [] @ (bs @ [b]))"
+      by simp
+    then have "steps (a # as @ [b])"
+      by (metis Cons_eq_appendI Graph_Defs.steps_appendD1 append_eq_appendI neq_Nil_conv)
+    with b show ?thesis
+      by - (rule IH[where xs = as], auto dest: stepsD intro: intro)
+  next
+    case between
+    with prems have "steps (a # as @ x # cs @ [b])"
+      by simp (metis
+          stepsI append_Cons list.distinct(1) list.sel(1) list.sel(3) steps_append steps_decomp)
+    with between show ?thesis
+      by - (rule IH[where xs = "as @ x # cs"], auto intro: intro dest: stepsD)
+  qed
+qed
+
+lemma reaches1_stepsE:
+  assumes "a \<rightarrow>\<^sup>+ b"
+  obtains xs where "steps (a # xs @ [b])" "distinct xs" "a \<notin> set xs" "b \<notin> set xs"
+proof -
+  from assms obtain xs where "steps (a # xs @ [b])"
+    by (auto dest: reaches1_steps)
+  then show ?thesis
+    by - (erule steps_remove_cycleE, rule that)
+qed
+
+lemma reaches_stepsE:
+  assumes "a \<rightarrow>* b"
+  obtains "a = b" | xs where "steps (a # xs @ [b])" "distinct xs" "a \<notin> set xs" "b \<notin> set xs"
+proof -
+  from assms consider "a = b" | xs where "a \<rightarrow>\<^sup>+ b"
+    by (meson rtranclpD)
+  then show ?thesis
+    by cases ((erule reaches1_stepsE)?; rule that; assumption)+
+qed
+
+definition sink where
+  "sink a \<equiv> \<nexists>b. a \<rightarrow> b"
+
+lemma sink_or_cycle:
+  assumes "finite {b. reaches a b}"
+  obtains b where "reaches a b" "sink b" | b where "reaches a b" "reaches1 b b"
+proof -
+  let ?S = "{b. reaches1 a b}"
+  have "?S \<subseteq> {b. reaches a b}"
+    by auto
+  then have "finite ?S"
+    using assms by (rule finite_subset)
+  then show ?thesis
+    using that
+  proof (induction ?S arbitrary: a rule: finite_psubset_induct)
+    case psubset
+    consider (empty) "Collect (reaches1 a) = {}" | b where "reaches1 a b"
+      by auto
+    then show ?case
+    proof cases
+      case empty
+      then have "sink a"
+        unfolding sink_def by auto
+      with psubset.prems show ?thesis
+        by auto
+    next
+      case 2
+      show ?thesis
+      proof (cases "reaches b a")
+        case True
+        with \<open>reaches1 a b\<close> have "reaches1 a a"
+          by auto
+        with psubset.prems show ?thesis
+          by auto
+      next
+        case False
+        show ?thesis
+        proof (cases "reaches1 b b")
+          case True
+          with \<open>reaches1 a b\<close> psubset.prems show ?thesis
+            by (auto intro: tranclp_into_rtranclp)
+        next
+          case False
+          with \<open>\<not> reaches b a\<close> \<open>reaches1 a b\<close> have "Collect (reaches1 b) \<subset> Collect (reaches1 a)"
+            by (intro psubsetI) auto
+          then show ?thesis
+            using \<open>reaches1 a b\<close> psubset.prems
+            by - (erule psubset.hyps; meson tranclp_into_rtranclp tranclp_rtranclp_tranclp)
+        qed
+      qed
+    qed
+  qed
+qed
+
 lemmas graphI =
   steps.intros
   steps_append_single
