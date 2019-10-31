@@ -162,7 +162,7 @@ private lemma s'_2:
   "(case (l\<^sub>0, s\<^sub>0) of (l, s) \<Rightarrow> \<lambda>(l', s'). l' = l \<and> s \<preceq> s') (l\<^sub>0, s')"
   using s'_correct start by auto
 
-lemma final_unreachable:
+theorem final_unreachable:
   assumes "\<And> a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
   assumes "\<forall>s'\<in>{(l, s) |l s. l \<in> L \<and> s \<in> M l}. \<not> F s'"
   shows "\<nexists>s'. (l\<^sub>0, s\<^sub>0) \<rightarrow>* s' \<and> F s'"
@@ -483,7 +483,7 @@ proof -
     by (auto simp: G_mix.steps_reaches1)
 qed
 
-lemma no_accepting_cycleI:
+theorem no_accepting_cycleI:
   assumes "\<nexists> x. G_mix.reachable x \<and> G_mix.reaches1 x x \<and> F x"
   shows "\<nexists> x. reachable x \<and> x \<rightarrow>\<^sup>+ x \<and> F x"
   using cycle_G_mix_cycle assms F_mono by auto
@@ -497,7 +497,6 @@ end
 
 locale Contract =
   fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
-  (* assumes A_sink: "\<And>a. \<not> G a \<Longrightarrow> \<nexists>b. A a b" *)
 begin
 
 sublocale A: Graph_Defs A .
@@ -660,7 +659,7 @@ lemma reaches_f_mono:
   shows "f a \<le> f b"
   using assms by induction (auto intro: f_forward order.trans)
 
-lemma no_accepting_cycle:
+theorem no_accepting_cycle:
   assumes "E'\<^sup>+\<^sup>+ x x"
   shows "\<not> F x"
 proof (rule ccontr, simp)
@@ -989,7 +988,7 @@ end
 sublocale Reachability_Compatible_Subsumption_Graph_Final''
   using subsumption_step by - (standard, auto)
 
-lemma no_accepting_cycleI:
+theorem no_accepting_cycleI:
   assumes "\<nexists> x. G_mix.reachable x \<and> G_mix.reaches1 x x \<and> F x"
   shows "\<nexists> x. reachable x \<and> x \<rightarrow>\<^sup>+ x \<and> F x"
   using cycle_G_mix_cycle assms F_mono by auto
@@ -1035,7 +1034,7 @@ end
 sublocale Reachability_Compatible_Subsumption_Graph_Final''
   using subsumption_step by - (standard, auto)
 
-lemma no_accepting_cycleI:
+theorem no_accepting_cycleI:
   assumes "\<nexists> x. G_mix.reachable x \<and> G_mix.reaches1 x x \<and> F x"
   shows "\<nexists> x. reachable x \<and> x \<rightarrow>\<^sup>+ x \<and> F x"
   using cycle_G_mix_cycle assms F_mono by auto
@@ -1218,8 +1217,6 @@ interpretation c: Contract
 
 interpretation s2: Subgraph c.E E'
   unfolding c.E_def E'_def  by standard auto
-
-term G
 
 context
   fixes f :: "'l \<times> 's \<Rightarrow> nat"
