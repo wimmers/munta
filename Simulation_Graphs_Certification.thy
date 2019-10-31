@@ -497,7 +497,7 @@ end
 
 locale Contract =
   fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
-  assumes A_sink: "\<And>a. \<not> G a \<Longrightarrow> \<nexists>b. A a b"
+  (* assumes A_sink: "\<And>a. \<not> G a \<Longrightarrow> \<nexists>b. A a b" *)
 begin
 
 sublocale A: Graph_Defs A .
@@ -634,28 +634,31 @@ proof -
 text \<open>Certifying cycle-freeness with a topological ordering of graph components\<close>
 context
   fixes f :: "'a \<Rightarrow> nat" and F :: "'a \<Rightarrow> bool"
-  assumes f_final_inj[unfolded imp_conjL, rule_format]:
-    "\<forall> a b. F a \<and> G a \<and> G b \<and> f a = f b \<longrightarrow> a = b"
-      and f_topo1: "\<forall>a b. G a \<and> A a b \<and> G b \<longrightarrow> f a \<le> f b"
-      and f_topo2: "\<forall>a b c. G a \<and> A a b \<and> \<not> G b \<and> G c \<and> B b c \<longrightarrow> f a \<le> f c"
-      and no_trivial_lasso1: "\<forall> a. F a \<and> G a \<longrightarrow> \<not> A a a"
-      and no_trivial_lasso2: "\<forall> a b. F a \<and> G a \<and> A a b \<and> \<not> G b \<longrightarrow> \<not> B b a"
+  assumes f_topo1: "\<forall>a b. G a \<and> A a b \<and> G b \<longrightarrow> (if F a then f a < f b else f a \<le> f b)"
+      and f_topo2:
+      "\<forall>a b c. G a \<and> A a b \<and> \<not> G b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
 begin
 
-lemma f_topo:
+lemma f_forward:
   assumes "E' a b"
   shows "f a \<le> f b"
-  using assms f_topo1 f_topo2 unfolding E'_def by auto
+  using assms f_topo1 f_topo2 unfolding E'_def by (cases "F a") (auto simp: less_imp_le)
 
+lemma f_strict:
+  assumes "E' a b" "F a"
+  shows "f a < f b"
+  using assms f_topo1 f_topo2 unfolding E'_def by (auto simp: less_imp_le)
+
+text \<open>We do not even need this property any more.\<close>
 lemma no_trivial_lasso:
   assumes "F a" "G a" "E' a a"
   shows False
-  using assms no_trivial_lasso1 no_trivial_lasso2 unfolding E'_def by auto
+  using assms f_topo1 f_topo2 unfolding E'_def by (meson less_irrefl)
 
 lemma reaches_f_mono:
   assumes "E'\<^sup>*\<^sup>* a b"
   shows "f a \<le> f b"
-  using assms by induction (auto intro: f_topo order.trans)
+  using assms by induction (auto intro: f_forward order.trans)
 
 lemma no_accepting_cycle:
   assumes "E'\<^sup>+\<^sup>+ x x"
@@ -664,14 +667,8 @@ proof (rule ccontr, simp)
   assume "F x"
   from \<open>E'\<^sup>+\<^sup>+ x x\<close> obtain y where "E' x y" "E'\<^sup>*\<^sup>* y x"
     including graph_automation_aggressive by auto
-  with \<open>F x\<close> have "x \<noteq> y" 
-    by (auto intro: no_trivial_lasso)
-  moreover from \<open>E' x y\<close> have "G x" "G y"
-    by auto
-  moreover from \<open>E' x y\<close> have "f x \<le> f y"
-    by (rule f_topo)
-  ultimately have "f x < f y"
-    using \<open>F x\<close> by (auto intro: f_final_inj)
+  from \<open>E' x y\<close> \<open>F x\<close> have "f x < f y"
+    by (rule f_strict)
   moreover from \<open>E'\<^sup>*\<^sup>* y x\<close> have "f y \<le> f x"
     by (rule reaches_f_mono)
   ultimately show False
@@ -681,15 +678,6 @@ qed
 end
 
 end
-
-
-
-
-
-
-
-
-
 
 
 
@@ -922,7 +910,7 @@ qed
 
 lemma cycle_G_mix_cycle':
   assumes "steps (s\<^sub>0 # ws @ x # xs @ [x])"
-  shows "\<exists> y ys. x \<preceq> y \<and> G_mix.steps (y # ys @ [y]) \<and> G_mix.reachable y"
+  shows "\<exists>y ys. x \<preceq> y \<and> G_mix.steps (y # ys @ [y]) \<and> G_mix.reachable y"
 proof -
   from cycle_G_mix_cycle''[OF assms] obtain x' xs' ys' where
     "x \<preceq> x'" "G_mix.steps (s\<^sub>0 # xs' @ x' # ys' @ [x'])"
@@ -936,7 +924,7 @@ qed
 
 lemma cycle_G_mix_cycle:
   assumes "reachable x" "x \<rightarrow>\<^sup>+ x"
-  shows "\<exists> y ys. x \<preceq> y \<and> G_mix.reachable y \<and> G_mix.reaches1 y y"
+  shows "\<exists>y. x \<preceq> y \<and> G_mix.reachable y \<and> G_mix.reaches1 y y"
 proof -
   from assms(2) obtain xs where *: "steps (x # xs @ x # xs @ [x])"
     by (fastforce intro: graphI_aggressive1)
@@ -1217,18 +1205,43 @@ definition
 interpretation s1: Subgraph E' live2.E_mix
   unfolding E'_def RE''_def by standard auto
 
+text \<open>
+  It seems like there could be a problem because we define B on all subsumptions.
+  Thus there might be 'spurious' subsumptions that were not actually used during the NDFS.
+  However, it seems like we can restrict everything to only consider subsumptions that we choose.
+\<close>
 interpretation c: Contract
   where A = "\<lambda>(l, s) (l', s'). l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s')"
     and B = "\<lambda>(l, s) (l', s'). l' = l \<and> s \<prec> s'"
     and G = "\<lambda>(l, s). l \<in> L \<and> s \<in> M l"
-  by standard auto
+  .
 
 interpretation s2: Subgraph c.E E'
   unfolding c.E_def E'_def  by standard auto
 
-end
+term G
 
-thm no_accepting_cycleI no_accepting_cycleI'
+context
+  fixes f :: "'l \<times> 's \<Rightarrow> nat"
+  fixes G assumes G_def: "G \<equiv> \<lambda>(l, s). l \<in> L \<and> s \<in> M l"
+  fixes A assumes A_def: "A \<equiv> (\<lambda>(l, s) (l', s'). (l, s) \<rightarrow> (l', s'))"
+  fixes B assumes B_def: "B \<equiv> \<lambda>(l, s) (l', s'). l' = l \<and> s \<prec> s'"
+  assumes f_topo1: "\<forall>a b. G a \<and> A a b \<and> G b \<longrightarrow> (if F a then f a < f b else f a \<le> f b)"
+      and f_topo2:
+      "\<forall>a b c. G a \<and> A a b \<and> \<not> G b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
+begin
+
+thm no_accepting_cycleI' c.no_accepting_cycle[of F f]
+
+lemma no_accepting_cycleI'':
+  "c.E'.reaches1 x x \<Longrightarrow> \<not> F x"
+  using f_topo1 f_topo2 unfolding A_def B_def G_def by (intro c.no_accepting_cycle[of F f]) auto
+
+end (* Fix topo ordering *)
+
+end (* Unreachability_Invariant_paired *)
+
+thm no_accepting_cycleI no_accepting_cycleI' no_accepting_cycleI''
 
 context
   fixes F :: "'l \<times> 's \<Rightarrow> bool" \<comment> \<open>Final states\<close>
