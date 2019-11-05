@@ -966,6 +966,8 @@ sublocale Simulation A B equiv' by standard (auto dest: A_B_step simp: equiv'_de
 
 sublocale PA_invariant: Graph_Invariant A PA by standard blast
 
+sublocale PB_invariant: Graph_Invariant B PB by standard blast
+
 lemma simulation_reaches:
   "\<exists> b'. B\<^sup>*\<^sup>* b b' \<and> a' \<sim> b' \<and> PA a' \<and> PB b'" if "A\<^sup>*\<^sup>* a a'" "a \<sim> b" "PA a" "PB b"
   using simulation_reaches[of a a' b] that unfolding equiv'_def by simp

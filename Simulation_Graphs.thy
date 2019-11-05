@@ -787,6 +787,32 @@ proof -
     by auto
 qed
 
+lemma buechi_run_lasso:
+  assumes "run (x\<^sub>0 ## xs)" "alw (ev (holds \<phi>)) (x\<^sub>0 ## xs)"
+  obtains x where "reaches x\<^sub>0 x" "reaches1 x x" "\<phi> x"
+proof -
+  from buechi_run_finite_state_set_cycle_steps[OF assms] obtain x ys zs y where
+    "steps (x\<^sub>0 # ys @ x # zs @ [x])" "y \<in> set (x # zs)" "\<phi> y"
+    by safe
+  from \<open>y \<in> _\<close> consider "y = x" | as bs where "zs = as @ y # bs"
+    by (meson set_ConsD split_list)
+  then have "\<exists> as bs. steps (x\<^sub>0 # as @ [y]) \<and> steps (y # bs @ [y])"
+  proof cases
+    case 1
+    (* XXX Decision procedure *)
+    with \<open>steps _\<close> show ?thesis
+      by simp (metis Graph_Defs.steps_appendD2 append.assoc append_Cons list.distinct(1))
+next
+  case 2
+  with \<open>steps _\<close> show ?thesis
+    by simp (metis (no_types)
+        reaches1_steps steps_reaches append_Cons last_appendR list.distinct(1) list.sel(1)
+        reaches1_reaches_iff2 reaches1_steps_append steps_decomp)
+qed
+  with \<open>\<phi> y\<close> show ?thesis
+    including graph_automation by (intro that[of y]) (auto intro: steps_reaches1)
+qed
+
 end (* Finite Graph *)
 
 
@@ -808,8 +834,7 @@ begin
 
 lemma steps_complete:
   "\<exists> as. Steps (a # as) \<and> list_all2 (\<in>) xs as" if "steps (x # xs)" "x \<in> a" "P a"
-  using that
-  by (induction xs arbitrary: x a) (erule steps.cases; fastforce dest!: complete intro: P_invariant)+
+  using that by (induction xs arbitrary: x a) (erule steps.cases; fastforce dest!: complete)+
 
 lemma abstract_run_Run:
   "Run (abstract_run a xs)" if "run (x ## xs)" "x \<in> a" "P a"
@@ -886,6 +911,35 @@ lemma buechi_run_finite_state_set_cycle_steps:
     apply (inst_existentials x ys zs)
     using assms(2) by (auto dest: stream_all2_sset2)
   done
+
+lemma buechi_run_finite_state_set_cycle_lasso:
+  assumes "run (x\<^sub>0 ## xs)" "x\<^sub>0 \<in> a\<^sub>0" "P a\<^sub>0" "alw (ev (holds \<phi>)) (x\<^sub>0 ## xs)"
+  shows "\<exists>a. Steps.reaches a\<^sub>0 a \<and> Steps.reaches1 a a \<and> (\<exists>y \<in> a. \<phi> y)"
+proof -
+  from buechi_run_finite_state_set_cycle_steps[OF assms] obtain b as bs a y where lasso:
+    "Steps (a\<^sub>0 # as @ b # bs @ [b])" "a \<in> set (b # bs)" "y \<in> a" "\<phi> y"
+    by safe
+  from \<open>a \<in> set _\<close> consider "b = a" | bs1 bs2 where "bs = bs1 @ a # bs2"
+    using split_list by fastforce
+  then have "Steps.reaches a\<^sub>0 a \<and> Steps.reaches1 a a"
+    using \<open>Steps _\<close>
+    apply cases
+     apply safe
+    subgoal
+      by (simp add: Steps.steps_reaches')
+    subgoal
+      by (blast dest: Steps.stepsD intro: Steps.steps_reaches1)
+    subgoal for bs1 bs2
+      by (subgoal_tac "Steps ((a\<^sub>0 # as @ b # bs1 @ [a]) @ (bs2 @ [b]))")
+        (drule Steps.stepsD, auto elim: Steps.steps_reaches')
+    subgoal
+      by (metis (no_types)
+          Steps.steps_reaches1 Steps.steps_rotate Steps_appendD2 append_Cons append_eq_append_conv2
+          list.distinct(1))
+    done
+  with lasso show ?thesis
+    by auto
+qed
 
 end (* Simulation Graph Finite Complete Abstraction *)
 
@@ -2315,7 +2369,7 @@ interpretation Bisimulation_Invariant "\<lambda> (l, Z) (l', Z'). A2 (l, Z) (l',
     prefer 3
        apply assumption
       apply safe
-    apply (frule P2_invariant.invariant, assumption+)
+    apply (frule P_invariant, assumption+)
     using from_R_fst by (fastforce simp: \<phi>_def P2'_def dest!: P2'_non_empty)+
   subgoal for a a' b'
     apply clarify
@@ -2374,7 +2428,7 @@ interpretation Bisimulation_Invariant "\<lambda> (l, Z) (l', Z'). A2 (l, Z) (l',
     prefer 3
        apply assumption
       apply safe
-    apply (frule P2_invariant.invariant, assumption+)
+    apply (frule P_invariant, assumption+)
     using from_R_fst by (fastforce simp: \<phi>_def P2'_def dest!: P2'_non_empty)+
   subgoal for a a' b'
     apply clarify
@@ -2632,9 +2686,7 @@ end (* State *)
 
 end (* Double Simulation Finite Complete Bisim Cover paired *)
 
-paragraph \<open>
-  The second bisimulation property in prestable and complete simulation graphs.
-\<close>
+paragraph \<open>The second bisimulation property in prestable and complete simulation graphs.\<close>
 
 context Simulation_Graph_Complete_Prestable
 begin
@@ -2672,5 +2724,72 @@ text \<open>
 \<^item> \<open>\<phi>\<close>-construction can be done on an automaton too (also for disjunctions)
 \<^item> Büchi properties are nothing but \<open>\<box>\<diamond>\<close>-properties (@{term \<open>alw (ev \<phi>)\<close>}
 \<close>
+
+
+locale Graph_Abstraction =
+  Graph_Defs A for A :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" +
+fixes \<alpha> :: "'a set \<Rightarrow> 'a set"
+assumes idempotent: "\<alpha>(\<alpha>(x)) = \<alpha>(x)"
+assumes enlarging: "x \<subseteq> \<alpha>(x)"
+assumes \<alpha>_mono: "x \<subseteq> y \<Longrightarrow> \<alpha>(x) \<subseteq> \<alpha>(y)"
+assumes mono: "a \<subseteq> a' \<Longrightarrow> A a b \<Longrightarrow> \<exists>b'. b \<subseteq> b' \<and> A a' b'"
+assumes finite_abstraction: "finite (\<alpha> ` UNIV)"
+begin
+
+definition E where "E a b \<equiv> \<exists>b'. A a b' \<and> b = \<alpha>(b')"
+
+interpretation sim1: Simulation_Invariant A E "\<lambda>a b. \<alpha>(a) \<subseteq> b" "\<lambda>_. True" "\<lambda>_. True"
+  apply standard
+  unfolding E_def
+    apply auto
+  apply (frule mono[rotated])
+   apply (erule order.trans[rotated], rule enlarging)
+  apply (auto intro!: \<alpha>_mono)
+  done
+
+interpretation sim2: Simulation_Invariant A E "\<lambda>a b. a \<subseteq> b" "\<lambda>_. True" "\<lambda>x. \<alpha>(x) = x"
+  apply standard
+  subgoal
+    unfolding E_def
+    apply auto
+    apply (drule (1) mono)
+    apply safe
+    apply (intro conjI exI)
+      apply assumption
+     apply (rule HOL.refl)
+    apply (erule order.trans, rule enlarging)
+    done
+   apply assumption
+  unfolding E_def
+  apply (elim exE conjE)
+  apply (simp add: idempotent)
+  done
+
+text \<open>This variant needs the least assumptions.\<close>
+interpretation sim3: Simulation_Invariant A E "\<lambda>a b. a \<subseteq> b" "\<lambda>_. True" "\<lambda>_. True"
+  apply standard
+  unfolding E_def
+    apply auto
+  apply (drule (1) mono)
+  apply safe
+  apply (intro conjI exI)
+    apply assumption
+   apply (rule HOL.refl)
+  apply (erule order.trans, rule enlarging)
+  done
+
+interpretation sim4: Simulation_Invariant A E "\<lambda>a b. a \<subseteq> b" "\<lambda>_. True" "\<lambda>a. \<exists>a'. \<alpha> a' = a"
+  apply standard
+  unfolding E_def
+    apply auto
+  apply (drule (1) mono)
+  apply safe
+  apply (intro conjI exI)
+    apply assumption
+   apply (rule HOL.refl)
+  apply (erule order.trans, rule enlarging)
+  done
+
+end (* Abstraction Operators *)
 
 end (* Theory *)

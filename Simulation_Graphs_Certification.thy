@@ -1,10 +1,10 @@
 theory Simulation_Graphs_Certification
-  imports TA_Impl.Subsumption_Graphs "library/Explorer"
+  imports TA_Impl.Subsumption_Graphs "library/Explorer" TA.Simulation_Graphs
 begin
 
 section \<open>Certification Theorems Based on Subsumption and Simulation Graphs\<close>
 
-paragraph \<open>Misc\<close>
+subsection \<open>Misc\<close>
 
 lemma finite_ImageI:
   assumes "finite S" "\<forall>a \<in> S. finite {b. (a, b) \<in> R}"
@@ -16,6 +16,238 @@ proof -
     using assms by auto
   finally show ?thesis .
 qed
+
+lemma (in Graph_Defs) steps_two_iff[simp]:
+  "steps [a, b] \<longleftrightarrow> E a b"
+  by (auto elim!: steps.cases)
+
+lemma (in Graph_Defs) steps_Cons_two_iff:
+  "steps (a # b # as) \<longleftrightarrow> E a b \<and> steps (b # as)"
+  by (auto elim: steps.cases)
+
+
+subsection \<open>Certifying Cycle-Freeness in Graphs\<close>
+
+locale Contract =
+  fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
+begin
+
+definition "E a b \<equiv> A a b \<and> G a \<or> \<not> G a \<and> B a b \<and> G b"
+definition "E' a b \<equiv> G a \<and> G b \<and> (A a b \<or> (\<exists> c. A a c \<and> \<not> G c \<and> B c b))"
+
+sublocale E: Graph_Defs E .
+sublocale E': Graph_Defs E' .
+
+lemma steps_contract:
+  assumes "E.steps (a # xs @ [b])" "G a" "G b"
+  shows "\<exists>as. E'.steps (a # as @ [b])"
+  using assms
+proof (induction xs arbitrary: a rule: length_induct)
+  case prems: (1 xs)
+  show ?case
+  proof (cases xs)
+    case Nil
+    with prems show ?thesis
+      apply (inst_existentials "[] :: 'a list")
+      apply (auto elim!: E.steps.cases)
+      apply (auto simp: E_def E'_def)
+      done
+  next
+    case (Cons y ys)
+    with \<open>E.steps (a # xs @ [b])\<close> have "E a y" "E.steps (y # ys @ [b])"
+      by (cases, auto)+
+    from this(1) \<open>G a\<close> consider (graph) "A a y" "G a" "G y" | (non_graph) "A a y" "G a" "\<not> G y"
+      unfolding E_def by auto
+    then show ?thesis
+    proof cases
+      case graph
+      with \<open>E.steps (y # ys @ [b])\<close> prems(1) \<open>G b\<close> obtain as where "E'.steps (y # as @ [b])"
+        unfolding \<open>xs = _\<close> by auto
+      also from graph have "E' a y"
+        unfolding E'_def by auto
+      finally (E'.steps.Cons[rotated]) show ?thesis
+        by (inst_existentials "y # as") auto
+    next
+      case non_graph
+      show ?thesis
+      proof (cases ys)
+        case Nil
+        with \<open>E.steps (y # ys @ [b])\<close> have "E y b"
+          by auto
+        with \<open>\<not> G y\<close> have "B y b" "G b"
+          unfolding E_def by auto
+        with \<open>A a y\<close> \<open>G a\<close> \<open>\<not> G y\<close> have "E'.steps [a, b]"
+          by (auto simp: E'_def)
+        then show ?thesis
+          by (inst_existentials "[] :: 'a list") auto
+      next
+        case (Cons z zs)
+        with \<open>E.steps (y # ys @ [b])\<close> have "E y z" "E.steps (z # zs @ [b])"
+          by (auto simp: E.steps_Cons_two_iff)
+        with \<open>\<not> G y\<close> have "B y z" "G z"
+          unfolding E_def by auto
+        with \<open>A a y\<close> \<open>G a\<close> \<open>\<not> G y\<close> have "E' a z"
+          by (auto simp: E'_def)
+        also from \<open>E.steps (z # zs @ [b])\<close> prems(1) obtain as where "E'.steps (z # as @ [b])"
+          unfolding \<open>xs = _\<close> \<open>ys = _\<close> using \<open>G z\<close> \<open>G b\<close> by force
+        finally (E'.steps.Cons) show ?thesis
+          by (inst_existentials "z # as") auto
+      qed
+    qed
+  qed
+qed
+
+lemma E'_G[dest, intro]:
+  assumes "E' x y"
+  shows "G x" "G y"
+  using assms unfolding E'_def by auto
+
+lemma E'_steps_G:
+  assumes "E'.steps (x # xs)" "xs \<noteq> []"
+  shows "G x"
+proof -
+  from \<open>E'.steps _\<close> \<open>xs \<noteq> []\<close> obtain y where "E' x y"
+    by (auto elim: E'.steps.cases)
+  then show ?thesis
+    by auto
+qed
+
+lemma E_E'_cycle:
+  assumes "E\<^sup>+\<^sup>+ x x" "G x"
+  shows "E'\<^sup>+\<^sup>+ x x"
+proof -
+  from \<open>E\<^sup>+\<^sup>+ x x\<close> obtain xs where "E.steps (x # xs @ [x])"
+    including graph_automation by auto
+  with \<open>G x\<close> obtain ys where "E'.steps (x # ys @ [x])"
+    by (auto dest: steps_contract)
+  then show ?thesis
+    using E'.reaches1_steps_iff by blast
+qed
+
+text \<open>This can be proved by rotating the cycle if \<open>\<not> G x\<close>\<close>
+lemma
+  assumes "E\<^sup>*\<^sup>* s x" "E\<^sup>+\<^sup>+ x x" "G s"
+  shows "E'\<^sup>*\<^sup>* s x \<and> E'\<^sup>+\<^sup>+ x x"
+proof -
+  show ?thesis
+  proof (cases "G x")
+    case True
+    with \<open>E\<^sup>+\<^sup>+ x x\<close> have "E'\<^sup>+\<^sup>+ x x"
+      by (auto dest: E_E'_cycle)
+  from \<open>E\<^sup>*\<^sup>* s x\<close> consider (refl) "s = x" | (steps) "E\<^sup>+\<^sup>+ s x"
+    by cases (auto simp: E.reaches1_reaches_iff2)
+  then show ?thesis
+  proof cases
+    case refl
+    with \<open>E'\<^sup>+\<^sup>+ x x\<close> show ?thesis
+      by simp
+  next
+    case steps
+    then obtain xs where "E.steps (s # xs @ [x])"
+      including graph_automation by auto
+    with \<open>G s\<close> \<open>G x\<close> obtain ys where "E'.steps (s # ys @ [x])"
+      by (auto dest: steps_contract)
+    with \<open>E'\<^sup>+\<^sup>+ x x\<close> show ?thesis
+      including graph_automation by auto
+  next
+    oops
+
+text \<open>Certifying cycle-freeness with a topological ordering of graph components\<close>
+context
+  fixes f :: "'a \<Rightarrow> nat" and F :: "'a \<Rightarrow> bool"
+  assumes f_topo1: "\<forall>a b. G a \<and> A a b \<and> G b \<longrightarrow> (if F a then f a < f b else f a \<le> f b)"
+      and f_topo2:
+      "\<forall>a b c. G a \<and> A a b \<and> \<not> G b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
+begin
+
+lemma f_forward:
+  assumes "E' a b"
+  shows "f a \<le> f b"
+  using assms f_topo1 f_topo2 unfolding E'_def by (cases "F a") (auto simp: less_imp_le)
+
+lemma f_strict:
+  assumes "E' a b" "F a"
+  shows "f a < f b"
+  using assms f_topo1 f_topo2 unfolding E'_def by (auto simp: less_imp_le)
+
+text \<open>We do not even need this property any more.\<close>
+lemma no_trivial_lasso:
+  assumes "F a" "G a" "E' a a"
+  shows False
+  using assms f_topo1 f_topo2 unfolding E'_def by (meson less_irrefl)
+
+lemma reaches_f_mono:
+  assumes "E'\<^sup>*\<^sup>* a b"
+  shows "f a \<le> f b"
+  using assms by induction (auto intro: f_forward order.trans)
+
+theorem no_accepting_cycle:
+  assumes "E'\<^sup>+\<^sup>+ x x"
+  shows "\<not> F x"
+proof (rule ccontr, simp)
+  assume "F x"
+  from \<open>E'\<^sup>+\<^sup>+ x x\<close> obtain y where "E' x y" "E'\<^sup>*\<^sup>* y x"
+    including graph_automation_aggressive by auto
+  from \<open>E' x y\<close> \<open>F x\<close> have "f x < f y"
+    by (rule f_strict)
+  moreover from \<open>E'\<^sup>*\<^sup>* y x\<close> have "f y \<le> f x"
+    by (rule reaches_f_mono)
+  ultimately show False
+    by simp
+qed
+
+end (* Context for 'topological' ordering *)
+
+end (* Contract *)
+
+locale Contract2 =
+  fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
+  fixes f :: "'a \<Rightarrow> nat" and F :: "'a \<Rightarrow> bool"
+  assumes f_topo:
+      "\<forall>a b c. G a \<and> A a b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
+begin
+
+definition "E a c \<equiv> \<exists>b. G a \<and> G c \<and> A a b \<and> B b c"
+
+sublocale E: Graph_Defs E .
+
+lemma f_forward:
+  assumes "E a b"
+  shows "f a \<le> f b"
+  using assms f_topo unfolding E_def by (cases "F a") (auto simp: less_imp_le)
+
+lemma f_strict:
+  assumes "E a b" "F a"
+  shows "f a < f b"
+  using assms f_topo unfolding E_def by (auto simp: less_imp_le)
+
+text \<open>We do not even need this property any more.\<close>
+lemma no_trivial_lasso:
+  assumes "F a" "G a" "E a a"
+  shows False
+  using assms f_topo unfolding E_def by (meson less_irrefl)
+
+lemma reaches_f_mono:
+  assumes "E\<^sup>*\<^sup>* a b"
+  shows "f a \<le> f b"
+  using assms by induction (auto intro: f_forward order.trans)
+
+theorem no_accepting_cycle:
+  assumes "E\<^sup>+\<^sup>+ x x"
+  shows "\<not> F x"
+proof (rule ccontr, simp)
+  assume "F x"
+  from \<open>E\<^sup>+\<^sup>+ x x\<close> obtain y where "E x y" "E\<^sup>*\<^sup>* y x"
+    including graph_automation_aggressive by auto
+  from \<open>E x y\<close> \<open>F x\<close> have "f x < f y"
+    by (rule f_strict)
+  moreover from \<open>E\<^sup>*\<^sup>* y x\<close> have "f y \<le> f x"
+    by (rule reaches_f_mono)
+  ultimately show False
+    by simp
+qed
+
+end (* Contract *)
 
 
 subsection \<open>Reachability and Over-approximation\<close>
@@ -65,15 +297,17 @@ end (* Context for property *)
 
 end (* Simulation Invariant *)
 
+
 subsection \<open>Invariants for Un-reachability\<close>
 
 locale Unreachability_Invariant = Subsumption_Graph_Pre_Defs + preorder less_eq less +
   fixes s\<^sub>0
-  fixes S :: "'a set"
+  fixes S :: "'a set" and SE :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
   assumes mono:
     "s \<preceq> s' \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> s \<in> S \<or> reaches s\<^sub>0 s \<Longrightarrow> s' \<in> S \<or> reaches s\<^sub>0 s'
   \<Longrightarrow> \<exists> t'. t \<preceq> t' \<and> s' \<rightarrow> t'"
-  assumes S_E_subsumed: "s \<in> S \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> \<exists> t' \<in> S. t \<preceq> t'"
+  assumes S_E_subsumed: "s \<in> S \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> \<exists> t' \<in> S. SE t t'"
+  assumes subsumptions_subsume: "SE s t \<Longrightarrow> s \<preceq> t"
 begin
 
 lemma reachable_S_subsumed:
@@ -84,7 +318,42 @@ lemma reachable_S_subsumed:
     using that(1,2) by blast
   apply clarify
   apply (drule mono)
-  using S_E_subsumed by blast+
+  using S_E_subsumed subsumptions_subsume by blast+
+
+definition E' where
+  "E' s t \<equiv> \<exists>s'. E s s' \<and> SE s' t \<and> t \<in> S"
+
+sublocale G: Graph_Defs E' .
+
+context
+  fixes s\<^sub>0'
+  assumes "s\<^sub>0 \<preceq> s\<^sub>0'" "s\<^sub>0' \<in> S"
+begin
+
+interpretation Simulation_Invariant E E' "(\<preceq>)" "\<lambda>s. reaches s\<^sub>0 s" "\<lambda>x. x \<in> S"
+proof standard
+  fix a b a' :: \<open>'a\<close>
+  assume \<open>a \<rightarrow> b\<close> \<open>s\<^sub>0 \<rightarrow>* a\<close> \<open>a' \<in> S\<close> \<open>a \<preceq> a'\<close>
+  with mono[OF \<open>a \<preceq> a'\<close> \<open>a \<rightarrow> b\<close>] obtain b' where "b \<preceq> b'" "a' \<rightarrow> b'"
+    by auto
+  with S_E_subsumed[OF \<open>a' \<in> S\<close>] obtain c where "c \<in> S" "SE b' c"
+    by auto
+  with \<open>a' \<rightarrow> b'\<close> have "E' a' c"
+    unfolding E'_def by auto
+  with \<open>b \<preceq> b'\<close> \<open>SE b' c\<close> subsumptions_subsume show \<open>\<exists>b'. E' a' b' \<and> b \<preceq> b'\<close>
+    by (blast intro: order_trans)
+qed (auto simp: E'_def)
+
+lemma run_subsumed:
+  assumes "run (s\<^sub>0 ## xs)"
+  obtains ys where "G.run (s\<^sub>0' ## ys)" "stream_all2 (\<preceq>) xs ys" "pred_stream (\<lambda>x. x \<in> S) ys"
+proof -
+  from \<open>s\<^sub>0 \<preceq> _\<close> \<open>s\<^sub>0' \<in> S\<close> have "equiv' s\<^sub>0 s\<^sub>0'"
+    unfolding equiv'_def by auto
+  with assms show ?thesis
+    by - (drule simulation_run, auto
+          dest: PB_invariant.invariant_run elim: stream_all2_weaken intro!: that simp: equiv'_def)
+qed
 
 context
   fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
@@ -92,10 +361,31 @@ context
 begin
 
 corollary final_unreachable:
-  "\<nexists> s'. reaches s\<^sub>0 s' \<and> F s'" if "s' \<in> S" "s\<^sub>0 \<preceq> s'" "\<forall> s' \<in> S. \<not> F s'"
-  using that by (auto 4 3 dest: reachable_S_subsumed)
+  "\<nexists> s'. reaches s\<^sub>0 s' \<and> F s'" if "\<forall> s' \<in> S. \<not> F s'"
+  using that \<open>s\<^sub>0 \<preceq> s\<^sub>0'\<close> \<open>s\<^sub>0' \<in> S\<close> by (auto 4 3 dest: reachable_S_subsumed)
+
+lemma buechi_run_lasso:
+  assumes "finite S" "run (s\<^sub>0 ## xs)" "alw (ev (holds F)) (s\<^sub>0 ## xs)"
+  obtains s where "G.reaches s\<^sub>0' s" "G.reaches1 s s" "F s"
+proof -
+  interpret Finite_Graph E' s\<^sub>0'
+    by (standard, rule finite_subset[OF _ assms(1)])
+       (auto intro: PB_invariant.invariant_reaches \<open>s\<^sub>0' \<in> S\<close>)
+  from run_subsumed[OF assms(2)] obtain ys where ys:
+    "G.run (s\<^sub>0' ## ys)" "stream_all2 (\<preceq>) xs ys" "pred_stream (\<lambda>x. x \<in> S) ys" .
+  moreover from \<open>run _\<close> have "pred_stream (reaches s\<^sub>0) xs"
+    using run_reachable by blast
+  ultimately have "stream_all2 (\<lambda>x y. x \<preceq> y \<and> reaches s\<^sub>0 x \<and> y \<in> S) xs ys"
+    by (smt stream.pred_set stream.rel_mono_strong)
+  with assms(3) \<open>s\<^sub>0 \<preceq> _\<close> \<open>s\<^sub>0' \<in> S\<close> have "alw (ev (holds F)) (s\<^sub>0' ## ys)"
+    by (elim alw_ev_lockstep) (erule stream.rel_intros[rotated], auto)
+  from buechi_run_lasso[OF ys(1) this] show ?thesis
+    using that .
+qed
 
 end (* Context for property *)
+
+end (* Start state *)
 
 end (* Unreachability Invariant *)
 
@@ -125,14 +415,16 @@ locale Unreachability_Invariant_paired_pre =
   assumes P_invariant: "P (l, s) \<Longrightarrow> E (l, s) (l', s') \<Longrightarrow> P (l', s')"
 
 locale Unreachability_Invariant_paired =
-  Unreachability_Invariant_paired_pre _ _ M L l\<^sub>0 s\<^sub>0 E P for M :: "'l \<Rightarrow> 's set" and L l\<^sub>0 s\<^sub>0 E P+
+  Unreachability_Invariant_paired_pre _ _ M L l\<^sub>0 s\<^sub>0 E P for M :: "'l \<Rightarrow> 's set" and L l\<^sub>0 s\<^sub>0 E P +
+  fixes SE :: "'l \<times> 's \<Rightarrow> 'l \<times> 's \<Rightarrow> bool"
+  assumes subsumption_edges_subsume: "SE (l, s) (l', s') \<Longrightarrow> l' = l \<and> s \<preceq> s'"
   assumes M_invariant: "l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> P (l, s)"
-  assumes start: "l\<^sub>0 \<in> L" "\<exists> s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s'" "P (l\<^sub>0, s\<^sub>0)"
+  assumes start: "l\<^sub>0 \<in> L" "\<exists>s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s'" "P (l\<^sub>0, s\<^sub>0)"
   assumes closed:
-    "\<forall> l \<in> L. \<forall> s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')"
+    "\<forall>l \<in> L. \<forall>s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s'' \<in> M l'. SE (l', s') (l', s''))"
 begin
 
-interpretation P_invariant: Graph_Invariant E P
+interpretation Graph_Invariant E P
   by standard (auto intro: P_invariant)
 
 interpretation Unreachability_Invariant
@@ -141,10 +433,21 @@ interpretation Unreachability_Invariant
   supply [intro] = order_trans less_trans less_imp_le
   apply standard
       apply (auto simp: less_le_not_le; fail)+
-   apply (fastforce intro: P_invariant.invariant_reaches[OF _ start(3)] M_invariant dest: mono)
-  using closed by fastforce
+    apply (fastforce intro: invariant_reaches[OF _ start(3)] M_invariant dest: mono)
+  subgoal for s t
+    using closed by (cases s; cases t) fastforce
+  subgoal
+    using subsumption_edges_subsume by auto
+  done
+
+lemma E_L:
+  assumes "l \<in> L" "s \<in> M l" "E (l, s) (l', s')"
+  shows "l' \<in> L"
+  using assms closed by simp
 
 context
+  fixes F
+  assumes F_mono: "\<And> a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
 begin
 
 private definition
@@ -163,37 +466,71 @@ private lemma s'_2:
   using s'_correct start by auto
 
 theorem final_unreachable:
-  assumes "\<And> a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
   assumes "\<forall>s'\<in>{(l, s) |l s. l \<in> L \<and> s \<in> M l}. \<not> F s'"
   shows "\<nexists>s'. (l\<^sub>0, s\<^sub>0) \<rightarrow>* s' \<and> F s'"
-  apply (rule final_unreachable[OF _ s'_1 s'_2])
-  subgoal for a b
-    using P_invariant.invariant_reaches start(3) M_invariant by (auto intro: assms(1)[of a])
-  apply (rule assms(2))
-  done
+  using invariant_reaches start(3) M_invariant F_mono assms
+  by - (simp, rule final_unreachable[OF s'_2 s'_1, simplified], blast+)
 
-end (* Anonymous Context *)
+lemma buechi_run_lasso:
+  assumes "finite {(l, s) |l s. l \<in> L \<and> s \<in> M l}"
+  assumes "run ((l\<^sub>0, s\<^sub>0) ## xs)" "alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)"
+  obtains s\<^sub>0' l s where
+    "G.reaches (l\<^sub>0, s\<^sub>0') (l, s)" "G.reaches1 (l, s) (l, s)" "F (l, s)" "s\<^sub>0' \<in> M l\<^sub>0" "s\<^sub>0 \<preceq> s\<^sub>0'"
+  using F_mono assms M_invariant invariant_reaches start(3) s'_correct
+  by - (rule buechi_run_lasso[OF s'_2 s'_1, of F]; clarsimp; blast)
 
-thm final_unreachable
+context
+  fixes f :: "'l \<times> 's \<Rightarrow> nat"
+  assumes finite: "finite L" "\<forall> l \<in> L. finite (M l)"
+  assumes f_topo: "\<And>l s l1 s1 l2 s2.
+    l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> l2 \<in> L \<Longrightarrow> s2 \<in> M l2 \<Longrightarrow> E (l, s) (l1, s1) \<Longrightarrow> SE (l1, s1) (l2, s2) \<Longrightarrow>
+    if F (l, s) then f (l, s) < f (l2, s2) else f (l, s) \<le> f (l2, s2)"
+begin
+
+interpretation c: Contract2
+  where A = "\<lambda>(l, s) (l', s'). l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s')"
+    and B = SE
+    and G = "\<lambda>(l, s). l \<in> L \<and> s \<in> M l"
+  using f_topo by - (standard, auto)
+
+lemma no_buechi_run:
+  assumes "Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs)" "alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)"
+  shows False
+proof -
+  have finite: "finite {(l, s). l \<in> L \<and> s \<in> M l}" (is "finite ?S")
+  proof -
+    have "?S \<subseteq> L \<times> \<Union> (M ` L)"
+      by auto
+    also from finite have "finite \<dots>"
+      by auto
+    finally show ?thesis .
+  qed
+  interpret sim: Simulation E' c.E "\<lambda>(l, s) (l', s'). l = l' \<and> s' = s \<and> l \<in> L \<and> s \<in> M l"
+    unfolding E'_def c.E_def by standard auto
+  obtain s\<^sub>0' l s where
+    "s\<^sub>0 \<preceq> s\<^sub>0'" "s\<^sub>0' \<in> M l\<^sub>0" "G.reaches (l\<^sub>0, s\<^sub>0') (l, s)" "G.reaches1 (l, s) (l, s)" "F (l, s)"
+    using finite assms by - (rule buechi_run_lasso, auto)
+  then have "c.E.reaches1 (l, s) (l, s)"
+    using E'_def G.reaches1_reaches_iff2 by - (frule sim.simulation_reaches1, auto)
+  then have "\<not> F (l, s)"
+    by (rule c.no_accepting_cycle)
+  from this \<open>F (l, s)\<close> show ?thesis ..
+qed
+
+end (* 'Topological' numbering *)
+
+end (* Final state predicate *)
 
 end (* Unreachability Invariant paired *)
 
-locale Buechi_Unreachability =
-  Reachability_Compatible_Subsumption_Graph_Final
-begin
 
-lemma no_accepting_cycleI:
+
+subsection \<open>Unused\<close>
+
+lemma (in Reachability_Compatible_Subsumption_Graph_Final) no_accepting_cycleI:
   assumes "\<nexists> x. G'.reachable x \<and> x \<rightarrow>\<^sub>G\<^sup>+' x \<and> F x"
   shows "\<nexists> x. reachable x \<and> x \<rightarrow>\<^sup>+ x \<and> F x"
   using cycle_G'_cycle assms F_mono by auto
-
-end
-
-
-
-
-
-
 
 
 locale Reachability_Compatible_Subsumption_Graph_Final2_pre =
@@ -493,194 +830,6 @@ end
 end
 
 
-
-
-locale Contract =
-  fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
-begin
-
-sublocale A: Graph_Defs A .
-sublocale B: Graph_Defs B .
-
-definition "E a b \<equiv> A a b \<and> G a \<or> \<not> G a \<and> B a b \<and> G b"
-definition "E' a b \<equiv> G a \<and> G b \<and> (A a b \<or> (\<exists> c. A a c \<and> \<not> G c \<and> B c b))"
-
-sublocale E: Graph_Defs E .
-sublocale E': Graph_Defs E' .
-
-lemma (in Graph_Defs) steps_two_iff[simp]:
-  "steps [a, b] \<longleftrightarrow> E a b"
-  by (auto elim!: steps.cases)
-
-lemma (in Graph_Defs) steps_Cons_two_iff:
-  "steps (a # b # as) \<longleftrightarrow> E a b \<and> steps (b # as)"
-  by (auto elim: steps.cases)
-
-lemma steps_contract:
-  assumes "E.steps (a # xs @ [b])" "G a" "G b"
-  shows "\<exists>as. E'.steps (a # as @ [b])"
-  using assms
-proof (induction xs arbitrary: a rule: length_induct)
-  case prems: (1 xs)
-  show ?case
-  proof (cases xs)
-    case Nil
-    with prems show ?thesis
-      apply (inst_existentials "[] :: 'a list")
-      apply (auto elim!: E.steps.cases)
-      apply (auto simp: E_def E'_def)
-      done
-  next
-    case (Cons y ys)
-    with \<open>E.steps (a # xs @ [b])\<close> have "E a y" "E.steps (y # ys @ [b])"
-      by (cases, auto)+
-    from this(1) \<open>G a\<close> consider (graph) "A a y" "G a" "G y" | (non_graph) "A a y" "G a" "\<not> G y"
-      unfolding E_def by auto
-    then show ?thesis
-    proof cases
-      case graph
-      with \<open>E.steps (y # ys @ [b])\<close> prems(1) \<open>G b\<close> obtain as where "E'.steps (y # as @ [b])"
-        unfolding \<open>xs = _\<close> by auto
-      also from graph have "E' a y"
-        unfolding E'_def by auto
-      finally (E'.steps.Cons[rotated]) show ?thesis
-        by (inst_existentials "y # as") auto
-    next
-      case non_graph
-      show ?thesis
-      proof (cases ys)
-        case Nil
-        with \<open>E.steps (y # ys @ [b])\<close> have "E y b"
-          by auto
-        with \<open>\<not> G y\<close> have "B y b" "G b"
-          unfolding E_def by auto
-        with \<open>A a y\<close> \<open>G a\<close> \<open>\<not> G y\<close> have "E'.steps [a, b]"
-          by (auto simp: E'_def)
-        then show ?thesis
-          by (inst_existentials "[] :: 'a list") auto
-      next
-        case (Cons z zs)
-        with \<open>E.steps (y # ys @ [b])\<close> have "E y z" "E.steps (z # zs @ [b])"
-          by (auto simp: E.steps_Cons_two_iff)
-        with \<open>\<not> G y\<close> have "B y z" "G z"
-          unfolding E_def by auto
-        with \<open>A a y\<close> \<open>G a\<close> \<open>\<not> G y\<close> have "E' a z"
-          by (auto simp: E'_def)
-        also from \<open>E.steps (z # zs @ [b])\<close> prems(1) obtain as where "E'.steps (z # as @ [b])"
-          unfolding \<open>xs = _\<close> \<open>ys = _\<close> using \<open>G z\<close> \<open>G b\<close> by force
-        finally (E'.steps.Cons) show ?thesis
-          by (inst_existentials "z # as") auto
-      qed
-    qed
-  qed
-qed
-
-lemma E'_G[dest, intro]:
-  assumes "E' x y"
-  shows "G x" "G y"
-  using assms unfolding E'_def by auto
-
-lemma E'_steps_G:
-  assumes "E'.steps (x # xs)" "xs \<noteq> []"
-  shows "G x"
-proof -
-  from \<open>E'.steps _\<close> \<open>xs \<noteq> []\<close> obtain y where "E' x y"
-    by (auto elim: E'.steps.cases)
-  then show ?thesis
-    by auto
-qed
-
-lemma E_E'_cycle:
-  assumes "E\<^sup>+\<^sup>+ x x" "G x"
-  shows "E'\<^sup>+\<^sup>+ x x"
-proof -
-  from \<open>E\<^sup>+\<^sup>+ x x\<close> obtain xs where "E.steps (x # xs @ [x])"
-    including graph_automation by auto
-  with \<open>G x\<close> obtain ys where "E'.steps (x # ys @ [x])"
-    by (auto dest: steps_contract)
-  then show ?thesis
-    using E'.reaches1_steps_iff by blast
-qed
-
-text \<open>This can be proved by rotating the cycle if \<open>\<not> G x\<close>\<close>
-lemma
-  assumes "E\<^sup>*\<^sup>* s x" "E\<^sup>+\<^sup>+ x x" "G s"
-  shows "E'\<^sup>*\<^sup>* s x \<and> E'\<^sup>+\<^sup>+ x x"
-proof -
-  show ?thesis
-  proof (cases "G x")
-    case True
-    with \<open>E\<^sup>+\<^sup>+ x x\<close> have "E'\<^sup>+\<^sup>+ x x"
-      by (auto dest: E_E'_cycle)
-  from \<open>E\<^sup>*\<^sup>* s x\<close> consider (refl) "s = x" | (steps) "E\<^sup>+\<^sup>+ s x"
-    by cases (auto simp: E.reaches1_reaches_iff2)
-  then show ?thesis
-  proof cases
-    case refl
-    with \<open>E'\<^sup>+\<^sup>+ x x\<close> show ?thesis
-      by simp
-  next
-    case steps
-    then obtain xs where "E.steps (s # xs @ [x])"
-      including graph_automation by auto
-    with \<open>G s\<close> \<open>G x\<close> obtain ys where "E'.steps (s # ys @ [x])"
-      by (auto dest: steps_contract)
-    with \<open>E'\<^sup>+\<^sup>+ x x\<close> show ?thesis
-      including graph_automation by auto
-  next
-    oops
-
-text \<open>Certifying cycle-freeness with a topological ordering of graph components\<close>
-context
-  fixes f :: "'a \<Rightarrow> nat" and F :: "'a \<Rightarrow> bool"
-  assumes f_topo1: "\<forall>a b. G a \<and> A a b \<and> G b \<longrightarrow> (if F a then f a < f b else f a \<le> f b)"
-      and f_topo2:
-      "\<forall>a b c. G a \<and> A a b \<and> \<not> G b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
-begin
-
-lemma f_forward:
-  assumes "E' a b"
-  shows "f a \<le> f b"
-  using assms f_topo1 f_topo2 unfolding E'_def by (cases "F a") (auto simp: less_imp_le)
-
-lemma f_strict:
-  assumes "E' a b" "F a"
-  shows "f a < f b"
-  using assms f_topo1 f_topo2 unfolding E'_def by (auto simp: less_imp_le)
-
-text \<open>We do not even need this property any more.\<close>
-lemma no_trivial_lasso:
-  assumes "F a" "G a" "E' a a"
-  shows False
-  using assms f_topo1 f_topo2 unfolding E'_def by (meson less_irrefl)
-
-lemma reaches_f_mono:
-  assumes "E'\<^sup>*\<^sup>* a b"
-  shows "f a \<le> f b"
-  using assms by induction (auto intro: f_forward order.trans)
-
-theorem no_accepting_cycle:
-  assumes "E'\<^sup>+\<^sup>+ x x"
-  shows "\<not> F x"
-proof (rule ccontr, simp)
-  assume "F x"
-  from \<open>E'\<^sup>+\<^sup>+ x x\<close> obtain y where "E' x y" "E'\<^sup>*\<^sup>* y x"
-    including graph_automation_aggressive by auto
-  from \<open>E' x y\<close> \<open>F x\<close> have "f x < f y"
-    by (rule f_strict)
-  moreover from \<open>E'\<^sup>*\<^sup>* y x\<close> have "f y \<le> f x"
-    by (rule reaches_f_mono)
-  ultimately show False
-    by simp
-qed
-
-end
-
-end
-
-
-
-
 locale Reachability_Compatible_Subsumption_Graph_Final'_pre =
   Subsumption_Graph_Defs + preorder less_eq less +
   fixes P :: "'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
@@ -718,6 +867,7 @@ lemma mix_finite_reachable: "finite {a. G_mix.reachable a}"
   by (blast intro: finite_subset[OF _ G_finite])
 
 end
+
 
 locale Reachability_Compatible_Subsumption_Graph_Final'' =
   Reachability_Compatible_Subsumption_Graph_Final'_pre +
@@ -996,9 +1146,6 @@ theorem no_accepting_cycleI:
 end
 
 
-
-
-
 locale Reachability_Compatible_Subsumption_Graph_Final1 =
   Reachability_Compatible_Subsumption_Graph_Final'_pre +
   assumes reachable_has_surrogate:
@@ -1041,298 +1188,6 @@ theorem no_accepting_cycleI:
 
 end
 
-
-
-context Unreachability_Invariant_paired
-begin
-
-lemma E_L:
-  assumes "l \<in> L" "s \<in> M l" "E (l, s) (l', s')"
-  shows "l' \<in> L"
-  using assms closed by simp
-
-context
-  fixes F :: "'l \<times> 's \<Rightarrow> bool" \<comment> \<open>Final states\<close>
-  assumes F_mono[intro]: "F (l, a) \<Longrightarrow> a \<preceq> b \<Longrightarrow> F (l, b)"
-  assumes finitely_branching: "\<And> a b. finite (Collect (E (a, b)))"
-  assumes finite: "finite L" "\<forall> l \<in> L. finite (M l)"
-  assumes start': "s\<^sub>0 \<in> M l\<^sub>0"
-  assumes anti_sym: "P (l, s) \<Longrightarrow> P (l', s') \<Longrightarrow> s \<preceq> s' \<Longrightarrow> s' \<preceq> s \<Longrightarrow> s = s'"
-begin
-
-definition "RE' = (\<lambda>(l, s) ab. l \<in> L \<and> s \<in> M l \<and> E (l, s) ab)"
-
-private lemma RE'_I:
-  assumes "l \<in> L" "s \<in> M l" "E (l, s) (l', s')"
-  shows "RE' (l, s) (l', s')"
-  unfolding RE'_def using assms by simp
-
-interpretation live1: Reachability_Compatible_Subsumption_Graph_Final1
-  "\<lambda>(l, s) (l', s'). l = l' \<and> s \<preceq> s'" "\<lambda>(l, s) (l', s'). l = l' \<and> s \<prec> s'"
-  E "(l\<^sub>0, s\<^sub>0)"
-  RE'
-  P
-  "\<lambda>(l, s). l \<in> L \<and> (s \<in> M l \<or> (\<exists> l' s'. l' \<in> L \<and> s' \<in> M l' \<and> RE' (l', s') (l, s)))"
-  F
-  supply [intro] = order_trans less_trans less_imp_le
-  apply standard
-  subgoal
-    by (auto simp: local.less_le_not_le)
-  subgoal
-    by auto
-  subgoal
-    by auto
-  subgoal
-    by (auto split: prod.splits dest: mono)
-  subgoal
-    using P_invariant by (metis prod.exhaust)
-  subgoal for a
-    using M_invariant unfolding RE'_def by (auto intro: P_invariant)
-  subgoal
-    by (simp add: RE'_def)
-  subgoal
-  proof -
-    let ?S = "{(l, s). l \<in> L \<and> (s \<in> M l \<or> (\<exists>l' s'. l' \<in> L \<and> s' \<in> M l' \<and> RE' (l', s') (l, s)))}"
-    let ?S1 = "{(l, s). l \<in> L \<and> s \<in> M l}"
-      and ?S2 = "{(l, s). \<exists>l' s'. l' \<in> L \<and> s' \<in> M l' \<and> RE' (l', s') (l, s)}"
-    have "?S \<subseteq> ?S1 \<union> ?S2"
-      by auto
-    have "?S1 \<subseteq> (\<Union> l \<in> L. (\<lambda>s. (l, s)) ` M l)"
-      by auto
-    also have "finite ..."
-      using finite by auto
-    finally have "finite ?S1" .
-    have "?S2 \<subseteq> {(a, b). E a b} `` ?S1"
-      unfolding RE'_def by auto
-    also have "finite \<dots>"
-      using \<open>finite ?S1\<close> finitely_branching by (intro finite_ImageI) auto
-    finally have "finite ?S"
-      using \<open>finite ?S1\<close> by (intro finite_subset[OF \<open>?S \<subseteq> _\<close>]) auto
-    then show ?thesis
-      by simp
-  qed
-  subgoal
-    using start start' by clarsimp
-  subgoal
-    by blast
-  subgoal
-    unfolding RE'_def using anti_sym M_invariant P_invariant by blast
-  subgoal
-    apply (intro allI impI)
-    apply (simp split: prod.splits)
-    using closed unfolding RE'_def by (elim disjE conjE; force intro: RE'_I E_L) (* slow *)
-  done
-
-lemmas no_accepting_cycleI = live1.no_accepting_cycleI
-
-lemma not_in_M_sink:
-  assumes "s \<notin> M l" "RE' (l, s) (l', s')"
-  shows False
-  using assms unfolding RE'_def by auto
-
-lemma
-  defines "EE \<equiv> \<lambda>(l, s) (l', s'). l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s') \<and> l' \<in> L \<and> s' \<in> M l'
-    \<or> l \<in> L \<and> s \<in> M l \<and> (\<exists> s''. E (l, s) (l', s'') \<and> s'' \<notin> M l' \<and> s'' \<preceq> s' \<and> s' \<in> M l')"
-  assumes "\<nexists>x. EE\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) x \<and> EE\<^sup>+\<^sup>+ x x"
-  shows "\<nexists>x. live1.G_mix.reachable x \<and> live1.G_mix.reaches1 x x"
-  oops
-
-
-
-
-definition "RE'' = (\<lambda>(l, s) (l', s'). l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s') \<and> l' \<in> L \<and> s' \<in> M l')"
-
-
-interpretation live2: Reachability_Compatible_Subsumption_Graph_Final2
-  "\<lambda>(l, s) (l', s'). l = l' \<and> s \<preceq> s'" "\<lambda>(l, s) (l', s'). l = l' \<and> s \<prec> s'"
-  E "(l\<^sub>0, s\<^sub>0)"
-  RE''
-  P
-  "\<lambda>(l, s). l \<in> L \<and> s \<in> M l"
-  F
-  supply [intro] = order_trans less_trans less_imp_le
-  apply standard
-  subgoal
-    using live1.mono .
-  subgoal
-    using live1.P_invariant .
-  subgoal for a
-    by (auto intro: P_invariant)
-  subgoal
-    by (simp add: RE''_def)
-  subgoal
-  proof -
-    have "{a. case a of (l, s) \<Rightarrow> l \<in> L \<and> s \<in> M l} \<subseteq> (\<Union> l \<in> L. (\<lambda>s. (l, s)) ` M l)"
-      by auto
-    also have "finite \<dots>"
-      using finite by auto
-    finally show ?thesis .
-  qed
-  subgoal
-    using finitely_branching by auto
-  subgoal
-    using start start' by clarsimp
-  subgoal
-    by blast
-  subgoal
-    using anti_sym M_invariant P_invariant by blast
-  subgoal
-    apply (intro allI impI)
-    apply (clarsimp split: prod.splits)
-    apply safe
-    subgoal
-      by (meson E_L M_invariant mono)
-    subgoal for l t s l' s'
-      apply (frule (2) mono)
-      using M_invariant apply blast
-      apply (elim exE conjE)
-      subgoal for t'
-        apply (cases "t' \<in> M l'")
-        subgoal
-          unfolding RE''_def by (auto intro: E_L)
-        by (metis M_invariant anti_sym closed live1.P_invariant.invariant local.less_le_not_le)
-      done
-    done
-  done
-
-lemmas no_accepting_cycleI' = live2.no_accepting_cycleI
-
-definition
-  "E' \<equiv> \<lambda>(l, s) (l', s').
-    l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s') \<or> \<not> s \<in> M l \<and> s \<prec> s' \<and> l \<in> L \<and> s' \<in> M l \<and> l' = l"
-
-interpretation s1: Subgraph E' live2.E_mix
-  unfolding E'_def RE''_def by standard auto
-
-text \<open>
-  It seems like there could be a problem because we define B on all subsumptions.
-  Thus there might be 'spurious' subsumptions that were not actually used during the NDFS.
-  However, it seems like we can restrict everything to only consider subsumptions that we choose.
-\<close>
-interpretation c: Contract
-  where A = "\<lambda>(l, s) (l', s'). l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s')"
-    and B = "\<lambda>(l, s) (l', s'). l' = l \<and> s \<prec> s'"
-    and G = "\<lambda>(l, s). l \<in> L \<and> s \<in> M l"
-  .
-
-interpretation s2: Subgraph c.E E'
-  unfolding c.E_def E'_def  by standard auto
-
-context
-  fixes f :: "'l \<times> 's \<Rightarrow> nat"
-  fixes G assumes G_def: "G \<equiv> \<lambda>(l, s). l \<in> L \<and> s \<in> M l"
-  fixes A assumes A_def: "A \<equiv> (\<lambda>(l, s) (l', s'). (l, s) \<rightarrow> (l', s'))"
-  fixes B assumes B_def: "B \<equiv> \<lambda>(l, s) (l', s'). l' = l \<and> s \<prec> s'"
-  assumes f_topo1: "\<forall>a b. G a \<and> A a b \<and> G b \<longrightarrow> (if F a then f a < f b else f a \<le> f b)"
-      and f_topo2:
-      "\<forall>a b c. G a \<and> A a b \<and> \<not> G b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
-begin
-
-thm no_accepting_cycleI' c.no_accepting_cycle[of F f]
-
-lemma no_accepting_cycleI'':
-  "c.E'.reaches1 x x \<Longrightarrow> \<not> F x"
-  using f_topo1 f_topo2 unfolding A_def B_def G_def by (intro c.no_accepting_cycle[of F f]) auto
-
-end (* Fix topo ordering *)
-
-end (* Unreachability_Invariant_paired *)
-
-thm no_accepting_cycleI no_accepting_cycleI' no_accepting_cycleI''
-
-context
-  fixes F :: "'l \<times> 's \<Rightarrow> bool" \<comment> \<open>Final states\<close>
-  assumes F_mono[intro]: "F (l, a) \<Longrightarrow> a \<preceq> b \<Longrightarrow> F (l, b)"
-  assumes anti_sym: "P (l, s) \<Longrightarrow> P (l', s') \<Longrightarrow> s \<preceq> s' \<Longrightarrow> s' \<preceq> s \<Longrightarrow> s = s'"
-begin
-
-lemma 11:
-  assumes "l \<in> L" "s \<in> M l" "E (l, s) (l', s')" "\<not> covered (l, s)"
-  shows "RE (l, s) (l', s')"
-  unfolding RE_def using assms by simp
-
-interpretation Reachability_Compatible_Subsumption_Graph_Final'
-  "\<lambda>(l, s) (l', s'). l = l' \<and> s \<preceq> s'" "\<lambda>(l, s) (l', s'). l = l' \<and> s \<prec> s'"
-  E "(l\<^sub>0, s\<^sub>0)"
-  RE
-  P
-  (* "\<lambda>(l, s). l \<in> L \<and> (\<exists> s'. s \<preceq> s' \<and> s' \<in> M l)" *)
-  "\<lambda>(l, s). l \<in> L \<and> (s \<in> M l \<or> (\<exists> l' s'. l' \<in> L \<and> s' \<in> M l' \<and> RE (l', s') (l, s)))"
-  F
-  supply [intro] = order_trans less_trans less_imp_le
-  apply standard
-  subgoal
-    by (auto simp: local.less_le_not_le)
-  subgoal
-    by auto
-  subgoal
-    by auto
-  subgoal
-    by (auto split: prod.splits dest: mono)
-  subgoal
-    using P_invariant by (metis prod.exhaust)
-  subgoal for a
-    using M_invariant unfolding RE_def by (auto intro: P_invariant)
-  subgoal
-    by (simp add: RE_def)
-  defer
-  defer
-  subgoal
-    by blast
-  subgoal
-    unfolding RE_def using anti_sym M_invariant P_invariant by blast (* slow *)
-  subgoal
-    apply (intro allI impI)
-    apply (simp split: prod.splits, erule conjE)
-    subgoal for _ l s
-      apply (erule disjE)
-      subgoal
-        apply (cases "covered (l, s)")
-        subgoal
-          unfolding covered_def by auto
-        subgoal
-          apply (rule disjI1)
-          apply (auto intro: 11 E_L)
-          done
-        done
-      apply (cases "covered (l, s)")
-      subgoal
-        apply (rule disjI2)
-        unfolding covered_def
-        apply auto
-        done
-      subgoal
-        apply (rule disjI1)
-        apply (elim exE conjE)
-        subgoal for l' s'
-          apply (subgoal_tac "s \<in> M l")
-           apply (intro disjI2 conjI allI impI)
-             apply (auto intro: 11 E_L; fail)+
-          using closed
-          unfolding covered_def
-          apply auto
-          apply (drule (1) bspec, drule (1) bspec)
-          unfolding RE_def
-          apply simp
-          apply (elim allE impE conjE exE, assumption)
-          apply (auto simp: covered_def less_le_not_le)
-          subgoal for x
-            apply (frule anti_sym[rotated 2, of s x])
-               apply blast
-              apply (erule P_invariant[rotated])
-            using M_invariant apply blast
-            using M_invariant apply blast
-            apply auto
-            done
-          done
-        done
-      done
-    done
-  oops
-
-end
-
-end
 
 
 subsection \<open>Instantiating Reachability Compatible Subsumption Graphs\<close>
@@ -1430,7 +1285,7 @@ text \<open>
 
 end (* Final states and liveness compatibility *)
 
-end (* Unreachability Invariant paired *)
+end (* Reachability Invariant paired *)
 
 
 subsection \<open>Certifying Cycle-Freeness with Graph Components\<close>
