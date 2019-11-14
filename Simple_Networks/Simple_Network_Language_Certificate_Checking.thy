@@ -34,10 +34,6 @@ lemma list_all2_split_size_1:
     (split_size (\<lambda>_. 1 :: nat) k n acc xs) (split_size (\<lambda>_. 1 :: nat) k n acc' ys)"
   using assms by (induction arbitrary: acc acc' n rule: list_all2_induct) auto
 
-
-thm list_all2_induct
-term zip
-
 fun zip2 where
   "zip2 [] [] = []"
 | "zip2 [] xs = []"
@@ -1163,6 +1159,7 @@ definition
     Heap_Monad.return ()
   }" for M_table
 
+
 definition
   "check_prop_fail L_list M_list \<equiv> let
     P_impl = impl.P_impl;
@@ -1332,15 +1329,15 @@ definition
 definition
   "certificate_checker num_split dc
     M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
-    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+    \<^cancel>\<open>inv_renum_states inv_renum_vars inv_renum_clocks\<close>
   \<equiv>
   let
     L_list = map fst M_list;
     check = certificate_checker_pre
       L_list M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
-    (*;
+    \<^cancel>\<open>;
     show_c = show_clock inv_renum_clocks;
-    show_st = show_state inv_renum_states inv_renum_vars *)
+    show_st = show_state inv_renum_states inv_renum_vars\<close>
   in if check then
   do {
     r \<leftarrow>
@@ -1420,7 +1417,7 @@ definition
 theorem certificate_check:
   "<emp> certificate_checker num_split False
     M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
-    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+    \<^cancel>\<open>inv_renum_states inv_renum_vars inv_renum_clocks\<close>
    <\<lambda> Some r \<Rightarrow> \<up>(r \<longrightarrow> \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula)
     | None \<Rightarrow> true>\<^sub>t"
 proof -
@@ -1447,7 +1444,7 @@ qed
 theorem certificate_deadlock_check:
   "<emp> certificate_checker num_split True
     M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
-    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+    \<^cancel>\<open>inv_renum_states inv_renum_vars inv_renum_clocks\<close>
    <\<lambda> Some r \<Rightarrow> \<up>(r \<longrightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0))
     | None \<Rightarrow> true>\<^sub>t"
 proof -
@@ -1522,7 +1519,7 @@ theorem certificate_deadlock_check3:
 definition rename_check where
   "rename_check num_split dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+    \<^cancel>\<open>inv_renum_states inv_renum_vars inv_renum_clocks\<close>
     state_space
 \<equiv>
 do {
@@ -1531,7 +1528,7 @@ do {
       certificate_checker num_split dc state_space)
     dc broadcast bounds' automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-    (* inv_renum_states inv_renum_vars inv_renum_clocks; *)
+    \<^cancel>\<open>inv_renum_states inv_renum_vars inv_renum_clocks;\<close>
     (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '');
   case r of Some r \<Rightarrow> do {
     r \<leftarrow> r;
@@ -1605,7 +1602,7 @@ do {
 theorem certificate_check_rename:
   "<emp> rename_check num_split False broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+    \<^cancel>\<open>inv_renum_states inv_renum_vars inv_renum_clocks\<close>
     state_space
     <\<lambda> Sat \<Rightarrow> \<up>(
         (\<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula))
@@ -1713,7 +1710,7 @@ qed
 theorem certificate_deadlock_check_rename:
   "<emp> rename_check num_split True broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-    (* inv_renum_states inv_renum_vars inv_renum_clocks *)
+    \<^cancel>\<open>inv_renum_states inv_renum_vars inv_renum_clocks\<close>
     state_space
     <\<lambda> Sat \<Rightarrow> \<up>(\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
