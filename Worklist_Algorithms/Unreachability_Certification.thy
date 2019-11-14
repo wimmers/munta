@@ -894,7 +894,9 @@ definition check_prop_fail where
         RETURN (PR_CONST P' (l, s))
       ) xs;
       RETURN (case r of None \<Rightarrow> None | Some r \<Rightarrow> Some (l, r))
-      (* case r of None \<Rightarrow> RETURN None | Some r \<Rightarrow> RETURN (Some (l, r)) *)
+
+
+       \<^cancel>\<open>case r of None \<Rightarrow> RETURN None | Some r \<Rightarrow> RETURN (Some (l, r))\<close>
     }
     }
   ) l;
@@ -926,7 +928,7 @@ definition
       xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
       if xs = [] then RETURN None
       else do {
-        b1 \<leftarrow> RETURN (l' \<in> L'); (* XXX Optimize this *)
+        b1 \<leftarrow> RETURN (l' \<in> L'); \<comment> \<open>XXX Optimize this\<close>
         if b1 then do {
         case op_map_lookup l' M' of None \<Rightarrow> RETURN (Some (Inl (Inr (l, l', xs)))) | Some ys \<Rightarrow> do {
           ys \<leftarrow> SPEC (\<lambda>xs.  set xs  = ys);
