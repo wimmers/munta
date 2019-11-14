@@ -456,11 +456,12 @@ lemma check_all_pre_correct:
 
 lemma Unreachability_Invariant_pairedI[rule_format]:
   "check_all_pre_spec \<and> check_invariant_spec L
-  \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P"
+  \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P (\<lambda>(l, u) (l', u'). l' = l \<and> u \<preceq> u')"
   unfolding check_all_pre_spec_def check_invariant_spec_def by clarsimp (standard, auto dest: P'_P)
 
 lemma check_all_correct:
-  "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P)"
+  "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow>
+    Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P (\<lambda>(l, u) (l', u'). l' = l \<and> u \<preceq> u'))"
   unfolding check_all_def check_all_pre_def check_invariant_spec_def
   by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule;
       standard; auto simp: list_ex_iff dest: P'_P)
