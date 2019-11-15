@@ -9,6 +9,21 @@ theory Unreachability_Misc
     "../library/Trace_Timing"
 begin
 
+paragraph \<open>Misc\<close>
+
+theorem (in -) arg_max_nat_lemma2:
+  fixes f :: "'a \<Rightarrow> nat"
+  assumes "P k"
+    and "finite (Collect P)"
+  shows "P (arg_max f P) \<and> (\<forall>y. P y \<longrightarrow> f y \<le> f (arg_max f P))"
+proof -
+  let ?b = "Max (f ` Collect P) + 1"
+  from assms(2) have "\<forall>y. P y \<longrightarrow> f y < ?b"
+    by (auto intro: Max_ge le_imp_less_Suc)
+  with assms(1) show ?thesis
+    by (rule arg_max_nat_lemma)
+qed
+
 paragraph \<open>Misc \<open>heap\<close>\<close>
 
 lemma hoare_triple_success:
@@ -309,8 +324,8 @@ end
 end
 
 locale Reachability_Impl_pre =
-  Unreachability_Invariant_paired_pre _ _ +
-  fixes succs :: "_ \<Rightarrow> _" and P'
+  Unreachability_Invariant_paired_pre where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes succs and P'
   assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
   assumes succs_correct:
     "\<And> l. \<forall> s \<in> xs. P (l, s)
@@ -389,6 +404,59 @@ proof -
 qed
 
 
+definition "check_invariant_buechi R L' \<equiv>
+  monadic_list_all (\<lambda>l.
+    do {
+      let as = M l;
+      as \<leftarrow> SPEC (\<lambda>xs'. set xs' = as);
+      monadic_list_all (\<lambda>x. do {
+        let succs = succs l {x};
+        monadic_list_all (\<lambda>(l', xs). do {
+          xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
+          if xs = [] then RETURN True else do {
+            b1 \<leftarrow> RETURN (l' \<in> L);
+            ys \<leftarrow> SPEC (\<lambda>xs. set xs = M l');
+            b2 \<leftarrow> monadic_list_all (\<lambda>y.
+              monadic_list_ex (\<lambda>z. RETURN (R l l' x y z)) ys
+            ) xs;
+            RETURN (b1 \<and> b2)
+          }
+        }) succs
+      }) as
+    }) L'"
+
+definition
+  "check_invariant_buechi_spec R L' \<equiv>
+  \<forall> l \<in> L'. \<forall> s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists> s'' \<in> M l'. R l l' s s' s'')"
+
+lemma check_invariant_buechi_correct:
+  "check_invariant_buechi R L' \<le> SPEC (\<lambda>r. r \<longrightarrow> check_invariant_buechi_spec R (set L'))"
+  (is "_ \<le> ?rhs")
+  if assms: "\<forall>l \<in> L. \<forall>s \<in> M l. P (l, s)" "set L' \<subseteq> L"
+proof -
+  have *: "(\<forall>(l',ys) \<in> set (succs l {s}). \<forall>s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. R l l' s s' s'')) =
+       (\<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. R l l' s s' s''))"
+    if "s \<in> M l" "l \<in> L"
+     for l s
+    using succs_correct[of "{s}" l] assms(1) that
+    apply clarsimp
+    apply safe
+       apply clarsimp_all
+       apply fastforce
+      apply fastforce
+     apply force
+    apply fastforce
+    done
+  have "check_invariant_buechi R L' \<le> SPEC (\<lambda>r. r \<longleftrightarrow>
+    (\<forall>l \<in> set L'. \<forall>s \<in> M l. \<forall>(l',ys) \<in> set (succs l {s}). \<forall>s' \<in> ys.
+      l' \<in> L \<and> (\<exists> s'' \<in> M l'. R l l' s s' s'')))"
+    unfolding check_invariant_buechi_def
+    by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff list_ex_iff)
+  also have "\<dots> \<le> ?rhs"
+    unfolding check_invariant_buechi_spec_def by (auto simp: * assms(2)[THEN subsetD])
+  finally show ?thesis .
+qed
+
 
 definition
   "check_all_pre \<equiv> do {
@@ -398,15 +466,27 @@ definition
   b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (s\<^sub>0 \<preceq> s)) xs;
   b4 \<leftarrow> check_prop P';
   RETURN (b1 \<and> b2 \<and> b3 \<and> b4)
-  }
-"
+  }"
 
 definition
   "check_all \<equiv> do {
   b \<leftarrow> check_all_pre;
   if b then RETURN (check_invariant_spec L) else RETURN False
-  }
-"
+  }"
+
+definition
+  "buechi_prop F f l l' s s' s'' \<equiv> l' \<in> L \<and> s' \<preceq> s'' \<and>
+    (if F (l, s) then f (l, s) < f (l', s'') else f (l, s) \<le> f (l', s''))"
+
+lemma buechi_prop_subsumed:
+  "s' \<preceq> s''" if "buechi_prop F f l l' s s' s''"
+  using that unfolding buechi_prop_def by (elim conjE)
+
+definition
+  "check_buechi F f \<equiv> do {
+  b \<leftarrow> check_all_pre;
+  if b then RETURN (check_invariant_buechi_spec (buechi_prop F f) L) else RETURN False
+  }"
 
 definition
   "check_final F \<equiv> do {
@@ -480,7 +560,68 @@ lemma certify_unreachableI:
   by (intro impI conjI Unreachability_Invariant_paired.final_unreachable)
      (rule Unreachability_Invariant_pairedI, auto intro: F_mono simp: check_final_spec_def)
 
+
+context
+  fixes F :: "'l \<times> 's \<Rightarrow> bool" and f :: "'l \<times> 's \<Rightarrow> nat"
+  assumes finite: "finite L" "\<forall>l \<in> L. finite (M l)"
+begin
+
+definition
+  "SE \<equiv> \<lambda>(l, s) (l', s'). l' = l \<and> is_arg_max (\<lambda>s. f (l, s)) (\<lambda>s'. s \<preceq> s' \<and> s' \<in> M l) s'"
+
+lemma SE_subsumes:
+  assumes "SE (l, s) (l', s')"
+  shows "l' = l \<and> s \<preceq> s'"
+  using assms unfolding SE_def is_arg_max_def by auto
+
+lemma SE_I:
+  assumes "s'' \<in> M l'" "buechi_prop F f l l' s s' s''"
+  shows "\<exists>s''\<in>M l'. SE (l', s') (l', s'')"
+proof -
+  let ?P = "\<lambda>s1. s' \<preceq> s1 \<and> s1 \<in> M l'"
+  let ?f = "\<lambda>s. f (l', s)"
+  from assms have "?P s''" "l' \<in> L"
+    unfolding buechi_prop_def by auto
+  have "finite (Collect ?P)"
+    using finite \<open>l' \<in> L\<close> by auto
+  from arg_max_nat_lemma2[OF \<open>?P s'' \<close> this, of ?f] assms show ?thesis
+    unfolding SE_def is_arg_max_linorder by auto
+qed
+
+definition
+  "check_buechi_spec \<equiv>
+  Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L l\<^sub>0 s\<^sub>0 E P SE
+  \<and> (\<forall>l \<in> L. \<forall>s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> (\<exists>s'' \<in> M l'. buechi_prop F f l l' s s' s''))"
+
+lemma check_buechi_correct:
+  "check_buechi F f \<le> SPEC (\<lambda>r. r \<longrightarrow> check_buechi_spec)"
+  unfolding check_buechi_def check_all_pre_def check_invariant_buechi_spec_def check_buechi_spec_def
+  by (refine_vcg check_prop_correct check_invariant_buechi_correct monadic_list_ex_rule; standard)
+     (use SE_I SE_subsumes in \<open>auto 15 2 simp: list_ex_iff dest: P'_P\<close>)
+
+lemma no_buechi_run:
+  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
+  assumes check: check_buechi_spec
+  assumes accepting_run: "Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs)" "alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)"
+  shows False
+proof -
+  interpret Unreachability_Invariant_paired "(\<preceq>)" "(\<prec>)" M L l\<^sub>0 s\<^sub>0 E P SE
+    using check unfolding check_buechi_spec_def ..
+  show ?thesis
+    apply (rule no_buechi_run[where F = F and f = f])
+         apply (rule F_mono; assumption)
+        apply (rule finite)+
+    subgoal
+      using check unfolding check_buechi_spec_def buechi_prop_def SE_def is_arg_max_def
+      by fastforce
+     apply (rule accepting_run)+
+    done
+qed
+
 end
+end
+
+
 
 locale Reachability_Impl_common =
   Reachability_Impl_pre less_eq _ "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
