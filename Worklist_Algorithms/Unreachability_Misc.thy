@@ -714,9 +714,9 @@ lemma check_prop'_alt_def:
 end
 
 
-locale Reachability_Impl = Reachability_Impl_common less L
-  for less :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<prec>" 50) and L :: "'k set" +
-  fixes A :: "'b \<Rightarrow> ('bi :: heap) \<Rightarrow> assn"
+locale Reachability_Impl_base = Reachability_Impl_pre where less = less and L = L
+  for less :: "'s \<Rightarrow> 's \<Rightarrow> bool" (infix "\<prec>" 50) and L :: "'k set" +
+  fixes A :: "'s \<Rightarrow> ('si :: heap) \<Rightarrow> assn"
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn"
     and Fi and keyi and Pi and copyi and Lei and l\<^sub>0i and s\<^sub>0i and succsi
   assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
@@ -735,6 +735,11 @@ locale Reachability_Impl = Reachability_Impl_common less L
   assumes pure_K: "is_pure K"
   assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
   assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
+
+locale Reachability_Impl =
+  Reachability_Impl_common where M = M +
+  Reachability_Impl_base where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  for M
 
 
 
