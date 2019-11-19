@@ -325,9 +325,11 @@ locale Reachability_Impl_pre =
   fixes succs and P'
   assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
   assumes succs_correct:
-    "\<And> l. \<forall> s \<in> xs. P (l, s)
+    "\<And>l. \<forall>s \<in> xs. P (l, s)
   \<Longrightarrow> {(l', s')| l' ys s'. (l', ys) \<in> set (succs l xs) \<and> s' \<in> ys}
     = (\<Union> s \<in> xs. Collect (E (l, s)))"
+  fixes F
+  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
 begin
 
 definition "check_invariant L' \<equiv>
@@ -417,7 +419,7 @@ definition
   }"
 
 definition
-  "check_final F \<equiv> do {
+  "check_final \<equiv> do {
   l \<leftarrow> SPEC (\<lambda>xs. set xs = L);
   monadic_list_all (\<lambda>l. do {
     xs \<leftarrow> SPEC (\<lambda>xs. set xs = M l);
@@ -430,25 +432,25 @@ definition
 "
 
 definition
-  "check_final_spec F = (\<forall>s'\<in>{(l, s) |l s. l \<in> L \<and> s \<in> M l}. \<not> F s')"
+  "check_final_spec = (\<forall>s'\<in>{(l, s) |l s. l \<in> L \<and> s \<in> M l}. \<not> F s')"
 
 lemma check_final_correct:
-  "check_final F \<le> SPEC (\<lambda>r. r \<longleftrightarrow> check_final_spec F)"
+  "check_final \<le> SPEC (\<lambda>r. r \<longleftrightarrow> check_final_spec)"
   unfolding check_final_def check_final_spec_def
   by (refine_vcg monadic_list_all_rule) (auto simp: list_all_iff list_ex_iff)
 
 definition
-  "certify_unreachable F = do {
+  "certify_unreachable = do {
     b1 \<leftarrow> check_all;
-    b2 \<leftarrow> check_final F;
+    b2 \<leftarrow> check_final;
     RETURN (b1 \<and> b2)
   }"
 
 lemma certify_unreachable_alt_def:
-  "certify_unreachable F = do {
+  "certify_unreachable = do {
     b1 \<leftarrow> check_all_pre;
     b2 \<leftarrow> RETURN (check_invariant_spec L);
-    b3 \<leftarrow> check_final F;
+    b3 \<leftarrow> check_final;
     RETURN (b1 \<and> b2 \<and> b3)
   }"
   unfolding certify_unreachable_def check_all_def by simp (fo_rule arg_cong2, auto)
@@ -475,15 +477,13 @@ lemma check_all_correct:
       standard; auto simp: list_ex_iff dest: P'_P)
 
 lemma certify_unreachable_correct:
-  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
-  shows "certify_unreachable F \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))"
+  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))"
   unfolding certify_unreachable_def
   by (refine_vcg check_all_correct check_final_correct[unfolded check_final_spec_def])
      (rule Unreachability_Invariant_paired.final_unreachable, simp, auto intro: F_mono)
 
 lemma certify_unreachableI:
-  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
-  shows "check_all_pre_spec \<and> check_invariant_spec L \<and> check_final_spec F
+  "check_all_pre_spec \<and> check_invariant_spec L \<and> check_final_spec
   \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
   by (intro impI conjI Unreachability_Invariant_paired.final_unreachable)
      (rule Unreachability_Invariant_pairedI, auto intro: F_mono simp: check_final_spec_def)
@@ -495,7 +495,6 @@ end
 locale Buechi_Impl_pre =
   Reachability_Impl_pre where M = "\<lambda>l. fst ` M l"
   for M :: "'l \<Rightarrow> ('s \<times> nat) set" +
-  fixes F :: "'l \<times> 's \<Rightarrow> bool"
   assumes finite: "finite L" "\<forall>l \<in> L. finite (M l)"
 begin
 
@@ -595,8 +594,11 @@ qed
 
 definition
   "check_buechi \<equiv> do {
-  b \<leftarrow> check_all_pre;
-  if b then RETURN (check_invariant_buechi_spec (buechi_prop ) L) else RETURN False
+  b \<leftarrow> SPEC (\<lambda>r. r \<longrightarrow> check_all_pre_spec);
+  if b then do {
+    ASSERT check_all_pre_spec;
+    SPEC (\<lambda>r. r \<longrightarrow> check_invariant_buechi_spec (buechi_prop ) L)
+  } else RETURN False
   }"
 
 definition
@@ -608,9 +610,8 @@ definition
 lemma check_buechi_correct:
   "check_buechi \<le> SPEC (\<lambda>r. r \<longrightarrow> check_buechi_spec)"
   unfolding check_buechi_def check_all_pre_def check_invariant_buechi_spec_def check_buechi_spec_def
-  apply (refine_vcg check_prop_correct check_invariant_buechi_correct monadic_list_ex_rule; standard)
-               apply (use SE_I SE_subsumes in \<open>auto 10 2 simp: list_ex_iff dest: P'_P\<close>)
-   apply blast
+  apply (refine_vcg; (standard | erule impE))
+  apply (use SE_I SE_subsumes in \<open>auto 4 3 dest!: P'_P simp: list_ex_iff check_all_pre_spec_def\<close>)
   by (smt case_prodE fst_conv)
 
 definition f where
@@ -660,7 +661,6 @@ proof -
 qed
 
 lemma no_buechi_run:
-  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
   assumes check: check_buechi_spec
   assumes accepting_run: "Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs)" "alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)"
   shows False
@@ -682,14 +682,11 @@ end (* Buechi Impl pre *)
 locale Reachability_Impl_common =
   Reachability_Impl_pre less_eq _ "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'b set option" +
-  fixes F
   assumes L_finite: "finite L"
       and M_ran_finite: "\<forall>S \<in> ran M. finite S"
       and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
       and succs_empty: "\<And>l. succs l {} = []"
       (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
-  assumes F_mono:
-    "\<And>a b. F a \<Longrightarrow> P a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> less_eq s s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
 begin
 
 lemma M_listD:
@@ -724,7 +721,7 @@ definition
   }"
 
 lemma check_final_alt_def:
-  "check_final' L M = check_final F"
+  "check_final' L M = check_final"
   unfolding check_final'_def check_final_def
   by (fo_rule arg_cong2, simp, fo_rule arg_cong) (auto split: option.split simp: bind_RES)
 
