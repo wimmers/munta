@@ -338,7 +338,7 @@ lemmas [sepref_fr_rules] =
 *)
 
 definition
-  "lookup (M' :: 'k \<Rightarrow> 'b set option) = op_map_lookup (PR_CONST l\<^sub>0) M'"
+  "lookup (M' :: 'k \<Rightarrow> 'a set option) = op_map_lookup (PR_CONST l\<^sub>0) M'"
 
 lemma looukp_fold:
   "op_map_lookup (PR_CONST l\<^sub>0) = PR_CONST lookup"
@@ -547,9 +547,9 @@ lemmas [sepref_fr_rules] =
 *)
 
 lemma certify_unreachable_alt_def:
-  "certify_unreachable F \<equiv> do {
+  "certify_unreachable \<equiv> do {
   b1 \<leftarrow> PR_CONST check_all;
-  b2 \<leftarrow> PR_CONST (check_final F);
+  b2 \<leftarrow> PR_CONST check_final;
   RETURN (b1 \<and> b2)
   }"
   unfolding certify_unreachable_def PR_CONST_def .
@@ -568,7 +568,7 @@ definition certify_unreachable' where
   }"
 
 lemma certify_unreachable'_refine:
-  "certify_unreachable' L M \<le> certify_unreachable F" if "L = dom M"
+  "certify_unreachable' L M \<le> certify_unreachable" if "L = dom M"
   supply [refine_mono] =
     order.trans[OF check_all''_refine[OF that[symmetric] subset_refl] check_all'_refine]
   unfolding certify_unreachable'_def certify_unreachable_def PR_CONST_def check_final_alt_def
@@ -577,7 +577,7 @@ lemma certify_unreachable'_refine:
 
 sepref_register
   "PR_CONST check_all''" :: "'k set \<Rightarrow> (('k, 'b set) i_map) \<Rightarrow> bool nres"
-  "PR_CONST (check_final F)"
+  "PR_CONST check_final"
 
 lemmas [sepref_fr_rules] =
   check_all_impl.refine_raw
@@ -591,7 +591,7 @@ sepref_thm certify_unreachable_impl' is
 lemma certify_unreachable_correct':
   "(uncurry0 (certify_unreachable' L M), uncurry0 (SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))))
     \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel" if "L = dom M"
-  using certify_unreachable_correct[OF F_mono] certify_unreachable'_refine[OF that]
+  using certify_unreachable_correct certify_unreachable'_refine[OF that]
   by (clarsimp simp: pw_le_iff pw_nres_rel_iff) fast
 
 lemmas certify_unreachable_impl'_refine =
@@ -720,7 +720,7 @@ proof -
   have 3: "
     <emp>
       do {M' \<leftarrow> M_table; check_final_impl Fi copyi L_list M'}
-    <\<lambda>r. \<up>(r \<longrightarrow> check_final_spec F)>\<^sub>t"
+    <\<lambda>r. \<up>(r \<longrightarrow> check_final_spec)>\<^sub>t"
     apply (sep_auto)
     subgoal for Mi
       apply (rule cons_rule[rotated 2])
@@ -803,8 +803,6 @@ proof -
   show ?thesis
     apply standard
     apply (rule certify_unreachableI[rule_format])
-    subgoal
-      by (rule F_mono)
     using hoare_triple_run_heapD[OF 1] hoare_triple_run_heapD[OF 3]
     unfolding certify_unreachable_new_def[OF full_split same_split] by (auto intro: 2)
 qed
@@ -856,7 +854,7 @@ sepref_register (in -) PRINTLN
 lemmas [sepref_fr_rules] = print_line_impl.refine
 
 context
-  fixes show_loc :: "'k \<Rightarrow> String.literal nres" and show_dbm :: "'b \<Rightarrow> String.literal nres"
+  fixes show_loc :: "'k \<Rightarrow> String.literal nres" and show_dbm :: "'a \<Rightarrow> String.literal nres"
     and show_dbm_impl and show_loc_impl
   assumes show_dbm_impl: "(show_dbm_impl, show_dbm) \<in> A\<^sup>d \<rightarrow>\<^sub>a id_assn"
   assumes show_loc_impl: "(show_loc_impl, show_loc) \<in> K\<^sup>d \<rightarrow>\<^sub>a id_assn"

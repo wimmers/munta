@@ -836,6 +836,8 @@ interpretation
     apply (intro exI conjI, erule image_eqI[rotated])
      apply auto
     done
+  subgoal (* F mono *)
+    by (rule F_mono)
   subgoal (* L finite *)
     ..
   subgoal (* M finite *)
@@ -844,8 +846,6 @@ interpretation
     by (rule succs_precise_finite)
   subgoal (* succs empty *)
     unfolding succs_precise_def by auto
-  subgoal (* F mono *)
-    by (rule F_mono)
     (* using op.F_mono subsumes_simp_1 by fastforce *)
       (* subgoal (* L refine *)
     by (rule L_list_hnr) *)
@@ -1000,8 +1000,6 @@ interpretation Reachability_Impl_imp_to_pure
     by (rule L_list_rel)
   subgoal
     ..
-  subgoal
-    using Mi_M .
   subgoal for s1 s
     by (rule array_unfreeze_ht) simp
   subgoal for si s
@@ -1019,6 +1017,8 @@ interpretation Reachability_Impl_imp_to_pure
     by (auto simp: array_all2_iff_pointwise_cmp[symmetric] iarray_mtx_relD)
   subgoal
     using full_split .
+  subgoal
+    using Mi_M .
   done
 
 concrete_definition certify_unreachable_pure

@@ -980,8 +980,8 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl where
   and K_rel = K_rel and A_rel = A_rel
   and M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for l\<^sub>0 :: 'k and s\<^sub>0 :: 'a and l\<^sub>0i :: "('ki :: {hashable,heap}) Heap" and s\<^sub>0i :: "('ai :: heap) Heap"
-  and M and K_rel :: "('ki \<times> 'k) set" and A_rel :: "('ai \<times> 'a) set" +
-  fixes Mi :: "'ki \<Rightarrow> 'ai list option"
+  and M and K_rel :: "('k1 \<times> 'k) set" and A_rel :: "('a1 \<times> 'a) set" +
+  fixes Mi :: "'k1 \<Rightarrow> 'a1 list option"
   assumes Mi_M: "(Mi, M) \<in> K_rel \<rightarrow> \<langle>\<langle>A_rel\<rangle>list_set_rel\<rangle>option_rel"
 begin
 

@@ -791,8 +791,9 @@ locale Reachability_Impl_base = Reachability_Impl_pre where less = less and L = 
 
 locale Reachability_Impl =
   Reachability_Impl_common where M = M +
-  Reachability_Impl_base where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
-  for M
+  Reachability_Impl_base where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" and K = K and A = A
+  for M :: "'k \<Rightarrow> 'a set option"
+  and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn" and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn"
 
 
 
