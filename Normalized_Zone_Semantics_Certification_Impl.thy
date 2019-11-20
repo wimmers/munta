@@ -783,26 +783,39 @@ lemma IArray_list_to_dbm_rel':
   if "list_all (\<lambda>xs. length xs = Suc n * Suc n) xs"
   using that by (rule map_set_rel) (rule IArray_list_to_dbm_rel)
 
+
+
 context
-  fixes M_list :: "('si \<times> int DBMEntry list list) list"
-  assumes M_list_covered: "fst ` set M_list \<subseteq> set L_list"
-      and M_dbm_len: "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
+  fixes M_list :: "('si \<times> 'v list) list" and g :: "'v \<Rightarrow> 'v1" and h :: "'v \<Rightarrow> 'v2"
+    and P :: "'v \<Rightarrow> bool" and R :: "('v2 \<times> 'v1) set"
 begin
 
 definition
-  "M_list' \<equiv> map (\<lambda>(li, xs). (SOME l. (li, l) \<in> loc_rel, xs)) M_list"
+  "M_list1 \<equiv> map (\<lambda>(li, xs). (SOME l. (li, l) \<in> loc_rel, xs)) M_list"
 
 definition
-  "M = fold (\<lambda>p M.
-    let s = fst p; xs = snd p; xs = rev (map (list_to_dbm n) xs); S = set xs in fun_upd M s (Some S)
-  ) (PR_CONST M_list') IICF_Map.op_map_empty"
+  "M1 = fold (\<lambda>p M.
+    let
+      s = fst p; xs = snd p;
+      xs = rev (map g xs);
+      S = set xs in fun_upd M s (Some S)
+  ) (PR_CONST M_list1) IICF_Map.op_map_empty"
 
-lemma M_finite:
-  "\<forall>S\<in>ran M. finite S"
-  unfolding M_def
+definition
+  "M1i = hashmap_of_list (map (\<lambda>(k, dbms). (k, map h dbms)) M_list)"
+
+context
+  assumes M_list_covered: "fst ` set M_list \<subseteq> set L_list"
+      and M_P: "list_all (\<lambda>(l, xs). list_all P xs) M_list"
+    assumes g_h_param: "(h, g) \<in> {(x, y). x = y \<and> P x} \<rightarrow> R"
+begin
+
+lemma M1_finite:
+  "\<forall>S\<in>ran M1. finite S"
+  unfolding M1_def
   apply (rule fold_generalize_start[where P = "\<lambda>M. \<forall>S\<in>ran M. finite S"])
   subgoal for a
-    unfolding M_list'_def
+    unfolding M_list1_def
     apply (induction M_list arbitrary: a)
      apply (simp; fail)
     apply (simp, rprem, auto dest: ran_upd_cases)
@@ -810,15 +823,15 @@ lemma M_finite:
   apply (simp; fail)
   done
 
-lemma P_loc':
+lemma P_loc1:
   "list_all
-    (\<lambda>(l, xs). P_loc l \<and> states_mem_impl l \<and> list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
-  using P_loc \<open>_ \<subseteq> set L_list\<close> M_dbm_len unfolding list_all_iff by auto
+    (\<lambda>(l, xs). P_loc l \<and> states_mem_impl l \<and> list_all P xs) M_list"
+  using P_loc \<open>_ \<subseteq> set L_list\<close> M_P unfolding list_all_iff by auto
 
-lemma M_list_rel:
-  "(M_list, M_list') \<in> \<langle>location_rel \<times>\<^sub>r \<langle>br id (\<lambda>xs. length xs = Suc n * Suc n)\<rangle>list_rel\<rangle>list_rel"
-  unfolding list_rel_def M_list'_def
-  using P_loc'
+lemma M_list_rel1:
+  "(M_list, M_list1) \<in> \<langle>location_rel \<times>\<^sub>r \<langle>br id P\<rangle>list_rel\<rangle>list_rel"
+  unfolding list_rel_def M_list1_def
+  using P_loc1
   apply (clarsimp simp: list.pred_rel list.rel_map br_def)
   apply (elim list_all2_mono)
   apply (clarsimp simp: eq_onp_def)
@@ -826,6 +839,145 @@ lemma M_list_rel:
    apply (erule mem_states'I, meson someI_ex state_impl_abstract)
   apply (elim list_all2_mono, clarsimp)
   done
+
+lemma dom_M_eq1_aux:
+  "dom (fold (\<lambda>p M.
+    let s = fst p; xs = snd p;
+    xs = rev (map g xs); S = set xs in fun_upd M s (Some S)
+  ) xs m) = dom m \<union> fst ` set xs" for xs m
+    by (induction xs arbitrary: m) auto
+
+lemma dom_M_eq1:
+  "dom M1 = fst ` set M_list1"
+  unfolding dom_M_eq1_aux M1_def by simp
+
+lemma L_dom_M_eqI1:
+  assumes "fst ` set M_list = set L_list"
+  shows "set L = dom M1"
+proof -
+  show ?thesis
+    unfolding dom_M_eq1
+  proof (safe; clarsimp?)
+    fix l assume "l \<in> set L"
+    with L_list_rel assms obtain l' where "l' \<in> fst ` set M_list" "(l', l) \<in> location_rel"
+      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
+    with M_list_rel1 obtain l1 where "l1 \<in> fst ` set M_list1" "(l', l1) \<in> location_rel"
+      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
+    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> fst ` set M_list1"
+      using loc_rel_right_unique by auto
+  next
+    fix l M assume "(l, M) \<in> set M_list1"
+    with M_list_rel1 assms obtain l' where "l' \<in> set L_list" "(l', l) \<in> location_rel"
+      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
+    with L_list_rel obtain l1 where "l1 \<in> set L" "(l', l1) \<in> location_rel"
+      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
+    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> set L"
+      using loc_rel_right_unique by auto
+  qed
+qed
+
+lemma map_of_M_list_M_rel1:
+  "(map_of_list (map (\<lambda>(k, dbms). (k, map h dbms)) M_list), M1)
+\<in> location_rel \<rightarrow> \<langle>\<langle>R\<rangle>list_set_rel\<rangle>option_rel"
+  unfolding M1_def M_list1_def
+  unfolding map_of_list_def
+  unfolding PR_CONST_def
+proof goal_cases
+  case 1
+  let "(fold ?f ?xs Map.empty, fold ?g ?ys _) \<in> ?R" = ?case
+  have *: "l' = (SOME l'. (l, l') \<in> loc_rel)"
+    if "(l, l') \<in> loc_rel" "states_mem_impl l" "l' \<in> states'" for l l'
+  proof -
+    from that have "(l, SOME l'. (l, l') \<in> loc_rel) \<in> loc_rel"
+      by (intro someI)
+    moreover then have "(SOME l'. (l, l') \<in> loc_rel) \<in> states'"
+      using that(2) by (elim mem_states'I)
+    ultimately show ?thesis
+      using that right_unique_location_rel unfolding single_valued_def by auto
+  qed
+  have "(fold ?f ?xs m, fold ?g ?ys m') \<in> ?R"
+    if "(m, m') \<in> ?R" for m m'
+    using that P_loc1
+  proof (induction M_list arbitrary: m m')
+    case Nil
+    then show ?case
+      by simp
+  next
+    case (Cons x M_list)
+    obtain l M where "x = (l, M)"
+      by force
+    from Cons.IH \<open>list_all _ (x # M_list)\<close> show ?case
+      apply (simp split:)
+      apply rprems
+      unfolding \<open>x = _\<close>
+      apply simp
+      apply (rule fun_relI)
+      apply (clarsimp; safe)
+      subgoal
+        using g_h_param by (auto dest!: fun_relD intro!: map_set_rel)
+      subgoal
+        by (frule *) auto
+      subgoal
+        using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def single_valued_def
+        by (auto dest: someI_ex[OF state_impl_abstract])
+      subgoal
+        using Cons.prems(1)
+        apply -
+        apply (drule fun_relD)
+        by simp
+      done
+  qed
+  then show ?case
+    by rprems auto
+qed
+
+lemma Mi_M1:
+  "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k M1i, M1)
+  \<in> location_rel \<rightarrow> \<langle>\<langle>R\<rangle>list_set_rel\<rangle>option_rel"
+(is "(?f, M1) \<in> ?R")
+proof -
+  let ?g = "map_of_list (map (\<lambda>(k, dbms). (k, map h dbms)) M_list)"
+  have "(?f, ?g) \<in> Id \<rightarrow> \<langle>Id\<rangle>option_rel"
+    unfolding M1i_def by (rule hashmap_of_list_lookup)
+  moreover have "(?g, M1) \<in> ?R"
+    by (rule map_of_M_list_M_rel1)
+  ultimately show ?thesis
+    by auto
+qed
+
+end (* Assumptions *)
+
+end (* Defs *)
+
+
+
+context
+  fixes M_list :: "('si \<times> int DBMEntry list list) list"
+  assumes M_list_covered: "fst ` set M_list \<subseteq> set L_list"
+      and M_dbm_len: "list_all (\<lambda>(l, xs). list_all (\<lambda>M. length M = Suc n * Suc n) xs) M_list"
+begin
+
+lemmas M_assms = M_list_covered M_dbm_len IArray_list_to_dbm_rel
+
+definition
+  "M_list' \<equiv> M_list1 M_list"
+
+definition
+  "M = fold (\<lambda>p M.
+    let s = fst p; xs = snd p; xs = rev (map (list_to_dbm n) xs); S = set xs in fun_upd M s (Some S)
+  ) (PR_CONST M_list') IICF_Map.op_map_empty"
+
+lemma M_alt_def:
+  "M = M1 TYPE(int DBMEntry list) M_list (list_to_dbm n)"
+  unfolding M_def M1_def M_list'_def ..
+
+lemma M_finite:
+  "\<forall>S\<in>ran M. finite S"
+  unfolding M_alt_def by (rule M1_finite[OF M_assms])
+
+lemma M_list_rel:
+  "(M_list, M_list') \<in> \<langle>location_rel \<times>\<^sub>r \<langle>br id (\<lambda>xs. length xs = Suc n * Suc n)\<rangle>list_rel\<rangle>list_rel"
+  unfolding M_list'_def by (rule M_list_rel1[OF M_assms])
 
 lemma M_list_hnr[sepref_fr_rules]:
   "(uncurry0 (return M_list), uncurry0 (RETURN (PR_CONST M_list')))
@@ -863,39 +1015,7 @@ sepref_definition M_table is
 
 lemma dom_M_eq:
   "dom M = fst ` set M_list'"
-proof -
-  have *: "dom (fold (\<lambda>p M.
-    let s = fst p; xs = snd p; xs = rev (map (list_to_dbm n) xs); S = set xs in fun_upd M s (Some S)
-  ) xs m) = dom m \<union> fst ` set xs" for xs m
-    by (induction xs arbitrary: m) auto
-  show ?thesis
-    unfolding M_def * by simp
-qed
-
-lemma L_dom_M_eqI:
-  assumes "fst ` set M_list = set L_list"
-  shows "set L = dom M"
-proof -
-  show ?thesis
-    unfolding dom_M_eq
-  proof (safe; clarsimp?)
-    fix l assume "l \<in> set L"
-    with L_list_rel assms obtain l' where "l' \<in> fst ` set M_list" "(l', l) \<in> location_rel"
-      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
-    with M_list_rel obtain l1 where "l1 \<in> fst ` set M_list'" "(l', l1) \<in> location_rel"
-      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
-    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> fst ` set M_list'"
-      using loc_rel_right_unique by auto
-  next
-    fix l M assume "(l, M) \<in> set M_list'"
-    with M_list_rel assms obtain l' where "l' \<in> set L_list" "(l', l) \<in> location_rel"
-      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
-    with L_list_rel obtain l1 where "l1 \<in> set L" "(l', l1) \<in> location_rel"
-      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
-    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> set L"
-      using loc_rel_right_unique by auto
-  qed
-qed
+  unfolding M_alt_def M_list'_def by (rule dom_M_eq1[OF M_assms])
 
 interpretation
   Reachability_Impl
@@ -972,74 +1092,21 @@ interpretation
 definition
   "Mi = hashmap_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
 
+lemma Mi_alt_def:
+  "Mi = M1i TYPE(int DBMEntry list) M_list IArray"
+  unfolding Mi_def M1i_def ..
+
 lemma map_of_M_list_M_rel:
   "(map_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list), M)
 \<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel\<rangle>option_rel"
-  unfolding M_def M_list'_def
-  unfolding map_of_list_def
-  unfolding PR_CONST_def
-proof goal_cases
-  case 1
-  let "(fold ?f ?xs Map.empty, fold ?g ?ys _) \<in> ?R" = ?case
-  have *: "l' = (SOME l'. (l, l') \<in> loc_rel)"
-    if "(l, l') \<in> loc_rel" "states_mem_impl l" "l' \<in> states'" for l l'
-  proof -
-    from that have "(l, SOME l'. (l, l') \<in> loc_rel) \<in> loc_rel"
-      by (intro someI)
-    moreover then have "(SOME l'. (l, l') \<in> loc_rel) \<in> states'"
-      using that(2) by (elim mem_states'I)
-    ultimately show ?thesis
-      using that right_unique_location_rel unfolding single_valued_def by auto
-  qed
-  have "(fold ?f ?xs m, fold ?g ?ys m') \<in> ?R"
-    if "(m, m') \<in> ?R" for m m'
-    using that P_loc'
-  proof (induction M_list arbitrary: m m')
-    case Nil
-    then show ?case
-      by simp
-  next
-    case (Cons x M_list)
-    obtain l M where "x = (l, M)"
-      by force
-    from Cons.IH \<open>list_all _ (x # M_list)\<close> show ?case
-      apply (simp split:)
-      apply rprems
-      unfolding \<open>x = _\<close>
-      apply simp
-      apply (rule fun_relI)
-      apply (clarsimp; safe)
-      subgoal
-        by (rule IArray_list_to_dbm_rel') simp
-      subgoal
-        by (frule *) auto
-      subgoal
-        using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def single_valued_def
-        by (auto dest: someI_ex[OF state_impl_abstract])
-      subgoal
-        using Cons.prems(1)
-        apply -
-        apply (drule fun_relD)
-        by simp
-      done
-  qed
-  then show ?case
-    by rprems auto
-qed
+  unfolding M_alt_def by (rule map_of_M_list_M_rel1[OF M_assms])
 
 lemma Mi_M:
   "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k Mi, M)
 \<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel\<rangle>option_rel"
-(is "(?f, M) \<in> ?R")
-proof -
-  let ?g = "map_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
-  have "(?f, ?g) \<in> Id \<rightarrow> \<langle>Id\<rangle>option_rel"
-    unfolding Mi_def by (rule hashmap_of_list_lookup)
-  moreover have "(?g, M) \<in> ?R"
-    by (rule map_of_M_list_M_rel)
-  ultimately show ?thesis
-    by auto
-qed
+  unfolding M_alt_def Mi_alt_def by (rule Mi_M1[OF M_assms])
+
+lemmas L_dom_M_eqI = L_dom_M_eqI1[OF M_assms, folded M_alt_def]
 
 context
   fixes Li_split :: "'si list list"
@@ -1241,116 +1308,50 @@ context
       and M_dbm_len: "list_all (\<lambda>(l, xs). list_all (\<lambda>(M, _). length M = Suc n * Suc n) xs) M_list"
 begin
 
-definition
-  "M_list1 \<equiv> map (\<lambda>(li, xs). (SOME l. (li, l) \<in> loc_rel, xs)) M_list"
+lemma conversions_param:
+  "(\<lambda>(M, i). (IArray M, i), \<lambda>(M, i). (list_to_dbm n M, i))
+\<in> {(x, y). x = y \<and> (\<lambda>(M, _). length M = Suc n * Suc n) x} \<rightarrow>
+   {(a, b). iarray_mtx_rel (Suc n) (Suc n) b a} \<times>\<^sub>r Id"
+  using IArray_list_to_dbm_rel by (auto dest!: fun_relD)
+
+lemmas M2_assms =
+  M_list_covered
+  M_dbm_len
+  conversions_param
 
 definition
-  "M1 = fold (\<lambda>p M.
+  "M_list2 \<equiv> map (\<lambda>(li, xs). (SOME l. (li, l) \<in> loc_rel, xs)) M_list"
+
+definition
+  "M2 = fold (\<lambda>p M.
     let
       s = fst p; xs = snd p;
       xs = rev (map (\<lambda>(M, i). (list_to_dbm n M, i)) xs);
       S = set xs in fun_upd M s (Some S)
-  ) (PR_CONST M_list1) IICF_Map.op_map_empty"
+  ) (PR_CONST M_list2) IICF_Map.op_map_empty"
 
-lemma M1_finite:
-  "\<forall>S\<in>ran M1. finite S"
-  unfolding M1_def
-  apply (rule fold_generalize_start[where P = "\<lambda>M. \<forall>S\<in>ran M. finite S"])
-  subgoal for a
-    unfolding M_list1_def
-    apply (induction M_list arbitrary: a)
-     apply (simp; fail)
-    apply (simp, rprem, auto dest: ran_upd_cases)
-    done
-  apply (simp; fail)
-  done
+lemma M_list2_alt_def:
+  "M_list2 = M_list1 M_list"
+  unfolding M_list2_def M_list1_def ..
 
-lemma P_loc1:
-  "list_all
-    (\<lambda>(l, xs). P_loc l \<and> states_mem_impl l \<and> list_all (\<lambda>(M, _). length M = Suc n * Suc n) xs) M_list"
-  using P_loc \<open>_ \<subseteq> set L_list\<close> M_dbm_len unfolding list_all_iff by auto
+lemma M2_alt_def:
+  "M2 = M1 TYPE(int DBMEntry list \<times> nat) M_list (\<lambda>(M, i). (list_to_dbm n M, i))"
+  unfolding M1_def M2_def M_list1_def M_list2_def ..
 
-lemma M_list_rel1:
-  "(M_list, M_list1) \<in> \<langle>location_rel \<times>\<^sub>r \<langle>br id (\<lambda>xs. length xs = Suc n * Suc n) \<times>\<^sub>r Id\<rangle>list_rel\<rangle>list_rel"
-  unfolding list_rel_def M_list1_def
-  using P_loc1
-  apply (clarsimp simp: list.pred_rel list.rel_map br_def)
-  apply (elim list_all2_mono)
-  apply (clarsimp simp: eq_onp_def)
-  apply (meson someI_ex state_impl_abstract)
-   apply (erule mem_states'I, meson someI_ex state_impl_abstract)
-  apply (elim list_all2_mono, clarsimp)
-  done
+lemmas M2_finite = M1_finite[OF M2_assms, folded M2_alt_def]
 
-(*lemma M_list_hnr[sepref_fr_rules]:
-  "(uncurry0 (return M_list), uncurry0 (RETURN (PR_CONST M_list')))
-    \<in> id_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (
-        location_assn \<times>\<^sub>a list_assn (pure (b_rel Id (\<lambda>xs. length xs = Suc n * Suc n))))"
-proof -
-  let ?R1 = "\<langle>br id (\<lambda>xs. length xs = Suc n * Suc n)\<rangle>list_rel"
-  let ?R2 = "\<lambda>a c. \<up> (a = c \<and> length c = Suc (n + (n + n * n)))"
-  let ?R = "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) \<times>\<^sub>a list_assn ?R2"
-  have "b_rel Id = br id"
-    unfolding br_def b_rel_def by auto
-  have *: "list_assn (\<lambda>a c. \<up> (a = c \<and> length c = Suc (n + (n + n * n)))) = pure ?R1"
-    unfolding fcomp_norm_unfold by (simp add: pure_def br_def)
-  have "?R = pure (location_rel \<times>\<^sub>r ?R1)"
-    unfolding * pure_def prod_assn_def by (intro ext) auto
-  then have **: "list_assn ?R = pure (\<langle>location_rel \<times>\<^sub>r ?R1\<rangle>list_rel)"
-    unfolding fcomp_norm_unfold
-    apply simp
-    apply (rule HOL.arg_cong[where f = list_assn])
-    apply assumption
-    done
-  have "emp \<Longrightarrow>\<^sub>A list_assn ?R M_list' M_list * true"
-    using M_list_rel unfolding ** by (sep_auto simp: pure_def)
-  then show ?thesis
-    by sepref_to_hoare (sep_auto simp: lso_assn_def hr_comp_def br_def \<open>b_rel Id = br id\<close>)
-qed
+lemmas L_dom_M_eqI2 = L_dom_M_eqI1[OF M2_assms, folded M2_alt_def M_list2_alt_def]
 
-sepref_register "PR_CONST M_list'"
+definition
+  "M2i = hashmap_of_list (map (\<lambda>(k, dbms). (k, map (\<lambda>(M, i). (IArray M, i)) dbms)) M_list)"
 
-sepref_definition M_table is
-  "uncurry0 (RETURN M)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' location_assn (lso_assn (mtx_assn n))"
-  unfolding M_def set_of_list_def[symmetric] rev_map_fold
-    HOL_list.fold_custom_empty hm.op_hms_empty_def[symmetric]
-  by sepref*)
+lemma M2i_alt_def:
+  "M2i = M1i TYPE(int DBMEntry list \<times> nat) M_list (\<lambda>(M, i). (IArray M, i))"
+  unfolding M2i_def M1i_def ..
 
-lemma dom_M_eq1_aux:
-  "dom (fold (\<lambda>p M.
-    let s = fst p; xs = snd p;
-    xs = rev (map (\<lambda>(M, i). (list_to_dbm n M, i::nat)) xs); S = set xs in fun_upd M s (Some S)
-  ) xs m) = dom m \<union> fst ` set xs" for xs m
-    by (induction xs arbitrary: m) auto
+lemmas map_of_M_list_M_rel2 = map_of_M_list_M_rel1[OF M2_assms, folded M2_alt_def]
 
-lemma dom_M_eq1:
-  "dom M1 = fst ` set M_list1"
-  unfolding dom_M_eq1_aux M1_def by simp
-
-lemma L_dom_M_eqI1:
-  assumes "fst ` set M_list = set L_list"
-  shows "set L = dom M1"
-proof -
-  show ?thesis
-    unfolding dom_M_eq1
-  proof (safe; clarsimp?)
-    fix l assume "l \<in> set L"
-    with L_list_rel assms obtain l' where "l' \<in> fst ` set M_list" "(l', l) \<in> location_rel"
-      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
-    with M_list_rel1 obtain l1 where "l1 \<in> fst ` set M_list1" "(l', l1) \<in> location_rel"
-      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
-    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> fst ` set M_list1"
-      using loc_rel_right_unique by auto
-  next
-    fix l M assume "(l, M) \<in> set M_list1"
-    with M_list_rel1 assms obtain l' where "l' \<in> set L_list" "(l', l) \<in> location_rel"
-      by (fastforce simp: list_all2_append2 list_all2_Cons2 list_rel_def elim!: in_set_list_format)
-    with L_list_rel obtain l1 where "l1 \<in> set L" "(l', l1) \<in> location_rel"
-      by (fastforce simp: list_all2_append1 list_all2_Cons1 list_rel_def elim!: in_set_list_format)
-    with \<open>(l', l) \<in> location_rel\<close> show "l \<in> set L"
-      using loc_rel_right_unique by auto
-  qed
-qed
+lemmas Mi_M2 = Mi_M1[OF M2_assms, folded M2i_alt_def M2_alt_def]
 
 interpretation
   Buechi_Impl_pre
@@ -1363,7 +1364,7 @@ interpretation
     and P = "\<lambda>(l, M). l \<in> states' \<and> wf_dbm M"
     and P' = P
     and L = "set L"
-    and M = "\<lambda>x. case M1 x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+    and M = "\<lambda>x. case M2 x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   apply standard
                       apply (rule HOL.refl; fail)
                       apply (rule dbm_subset_refl; fail)
@@ -1388,80 +1389,9 @@ interpretation
   subgoal (* L finite *)
     ..
   subgoal (* M finite *)
-    using M1_finite by (auto split: option.split intro: ranI)
+    using M2_finite by (auto split: option.split intro: ranI)
   done
 
-definition
-  "M1i = hashmap_of_list (map (\<lambda>(k, dbms). (k, map (\<lambda>(M, i). (IArray M, i)) dbms)) M_list)"
-
-lemma map_of_M_list_M_rel1:
-  "(map_of_list (map (\<lambda>(k, dbms). (k, map (\<lambda>(M, i). (IArray M, i)) dbms)) M_list), M1)
-\<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a} \<times>\<^sub>r Id\<rangle>list_set_rel\<rangle>option_rel"
-  unfolding M1_def M_list1_def
-  unfolding map_of_list_def
-  unfolding PR_CONST_def
-proof goal_cases
-  case 1
-  let "(fold ?f ?xs Map.empty, fold ?g ?ys _) \<in> ?R" = ?case
-  have *: "l' = (SOME l'. (l, l') \<in> loc_rel)"
-    if "(l, l') \<in> loc_rel" "states_mem_impl l" "l' \<in> states'" for l l'
-  proof -
-    from that have "(l, SOME l'. (l, l') \<in> loc_rel) \<in> loc_rel"
-      by (intro someI)
-    moreover then have "(SOME l'. (l, l') \<in> loc_rel) \<in> states'"
-      using that(2) by (elim mem_states'I)
-    ultimately show ?thesis
-      using that right_unique_location_rel unfolding single_valued_def by auto
-  qed
-  have "(fold ?f ?xs m, fold ?g ?ys m') \<in> ?R"
-    if "(m, m') \<in> ?R" for m m'
-    using that P_loc1
-  proof (induction M_list arbitrary: m m')
-    case Nil
-    then show ?case
-      by simp
-  next
-    case (Cons x M_list)
-    obtain l M where "x = (l, M)"
-      by force
-    from Cons.IH \<open>list_all _ (x # M_list)\<close> show ?case
-      apply (simp split:)
-      apply rprems
-      unfolding \<open>x = _\<close>
-      apply simp
-      apply (rule fun_relI)
-      apply (clarsimp; safe)
-      subgoal
-        using IArray_list_to_dbm_rel by (auto dest!: fun_relD intro!: map_set_rel)
-      subgoal
-        by (frule *) auto
-      subgoal
-        using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def single_valued_def
-        by (auto dest: someI_ex[OF state_impl_abstract])
-      subgoal
-        using Cons.prems(1)
-        apply -
-        apply (drule fun_relD)
-        by simp
-      done
-  qed
-  then show ?case
-    by rprems auto
-qed
-
-lemma Mi_M1:
-  "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k M1i, M1)
-\<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a} \<times>\<^sub>r Id\<rangle>list_set_rel\<rangle>option_rel"
-(is "(?f, M1) \<in> ?R")
-proof -
-  let ?g = "map_of_list (map (\<lambda>(k, dbms). (k, map (\<lambda>(M, i). (IArray M, i)) dbms)) M_list)"
-  have "(?f, ?g) \<in> Id \<rightarrow> \<langle>Id\<rangle>option_rel"
-    unfolding M1i_def by (rule hashmap_of_list_lookup)
-  moreover have "(?g, M1) \<in> ?R"
-    by (rule map_of_M_list_M_rel1)
-  ultimately show ?thesis
-    by auto
-qed
 
 context
   fixes Li_split :: "'si list list"
@@ -1490,7 +1420,7 @@ interpretation Buechi_Impl_imp_to_pure
     and P' = P
     and Pi = P_impl
     and L = "set L"
-    and M = M1
+    and M = M2
     and to_loc = id
     and from_loc = id
     and L_list = L_list
@@ -1500,7 +1430,7 @@ interpretation Buechi_Impl_imp_to_pure
     and to_state = array_unfreeze
     and from_state = array_freeze
     and A_rel = "{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}"
-    and Mi = "\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k M1i"
+    and Mi = "\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k M2i"
   apply standard
   subgoal (* key refine *)
     by sepref_to_hoare sep_auto
@@ -1540,7 +1470,7 @@ interpretation Buechi_Impl_imp_to_pure
   subgoal
     using full_split .
   subgoal
-    using Mi_M1 .
+    using Mi_M2 .
   done
 
 concrete_definition certify_no_buechi_run_pure
@@ -1550,7 +1480,7 @@ concrete_definition certify_no_buechi_run_pure
 lemma certify_no_buechi_run_pure_refine:
   assumes "fst ` set M_list = set L_list" certify_no_buechi_run_pure
   shows "\<nexists>u xs. (\<forall>c\<le>n. u c = 0) \<and> run ((l\<^sub>0, u) ## xs) \<and> alw (ev (holds F')) ((l\<^sub>0, u) ## xs)"
-  using certify_no_buechi_run_pure.refine[OF L_dom_M_eqI1] assms op_precise_buechi_run_correct
+  using certify_no_buechi_run_pure.refine[OF L_dom_M_eqI2] assms op_precise_buechi_run_correct
   by simp
 
 end (* Fixed splitter *)
