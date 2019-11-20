@@ -817,7 +817,7 @@ schematic_goal certify_no_buechi_run_pure1_alt_def:
 concrete_definition (in -) certify_no_buechi_run_pure
   uses Buechi_Impl_pure.certify_no_buechi_run_pure1_alt_def is "_ \<equiv> ?f"
 
-theorem certify_unreachable_impl_pure_correct:
+theorem certify_no_buechi_run_impl_pure_correct:
   "certify_no_buechi_run_pure get_succs Li lei Pi l\<^sub>0i s\<^sub>0i Fi Li_split Mi
   \<longrightarrow> (\<nexists>xs. Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs) \<and> alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs))"
   if "L = dom M"
