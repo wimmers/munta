@@ -975,9 +975,7 @@ lemma M_finite:
   "\<forall>S\<in>ran M. finite S"
   unfolding M_alt_def by (rule M1_finite[OF M_assms])
 
-lemma M_list_rel:
-  "(M_list, M_list') \<in> \<langle>location_rel \<times>\<^sub>r \<langle>br id (\<lambda>xs. length xs = Suc n * Suc n)\<rangle>list_rel\<rangle>list_rel"
-  unfolding M_list'_def by (rule M_list_rel1[OF M_assms])
+lemmas M_list_rel = M_list_rel1[OF M_assms, folded M_list'_def]
 
 lemma M_list_hnr[sepref_fr_rules]:
   "(uncurry0 (return M_list), uncurry0 (RETURN (PR_CONST M_list')))
@@ -994,11 +992,7 @@ proof -
   have "?R = pure (location_rel \<times>\<^sub>r ?R1)"
     unfolding * pure_def prod_assn_def by (intro ext) auto
   then have **: "list_assn ?R = pure (\<langle>location_rel \<times>\<^sub>r ?R1\<rangle>list_rel)"
-    unfolding fcomp_norm_unfold
-    apply simp
-    apply (rule HOL.arg_cong[where f = list_assn])
-    apply assumption
-    done
+    unfolding fcomp_norm_unfold by simp (fo_rule HOL.arg_cong)
   have "emp \<Longrightarrow>\<^sub>A list_assn ?R M_list' M_list * true"
     using M_list_rel unfolding ** by (sep_auto simp: pure_def)
   then show ?thesis
@@ -1013,9 +1007,7 @@ sepref_definition M_table is
     HOL_list.fold_custom_empty hm.op_hms_empty_def[symmetric]
   by sepref
 
-lemma dom_M_eq:
-  "dom M = fst ` set M_list'"
-  unfolding M_alt_def M_list'_def by (rule dom_M_eq1[OF M_assms])
+lemmas dom_M_eq = dom_M_eq1[OF M_assms, folded M_alt_def M_list'_def]
 
 interpretation
   Reachability_Impl
@@ -1096,15 +1088,9 @@ lemma Mi_alt_def:
   "Mi = M1i TYPE(int DBMEntry list) M_list IArray"
   unfolding Mi_def M1i_def ..
 
-lemma map_of_M_list_M_rel:
-  "(map_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list), M)
-\<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel\<rangle>option_rel"
-  unfolding M_alt_def by (rule map_of_M_list_M_rel1[OF M_assms])
+lemmas map_of_M_list_M_rel = map_of_M_list_M_rel1[OF M_assms, folded M_alt_def]
 
-lemma Mi_M:
-  "(\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k Mi, M)
-\<in> location_rel \<rightarrow> \<langle>\<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel\<rangle>option_rel"
-  unfolding M_alt_def Mi_alt_def by (rule Mi_M1[OF M_assms])
+lemmas Mi_M = Mi_M1[OF M_assms, folded M_alt_def Mi_alt_def]
 
 lemmas L_dom_M_eqI = L_dom_M_eqI1[OF M_assms, folded M_alt_def]
 
@@ -1112,64 +1098,6 @@ context
   fixes Li_split :: "'si list list"
   assumes full_split: "set L_list = (\<Union>xs \<in> set Li_split. set xs)"
 begin
-
-interpretation Reachability_Impl_imp_to_pure_base
-  where A = "mtx_assn n"
-    and M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
-    and F = F
-    and l\<^sub>0i = "return l\<^sub>0i"
-    and s\<^sub>0 = init_dbm
-    and s\<^sub>0i = init_dbm_impl
-    and succs = succs_precise
-    and succsi = succs_precise'_impl
-    and less = "\<lambda> x y. dbm_subset n x y \<and> \<not> dbm_subset n y x"
-    and less_eq = "dbm_subset n"
-    and Lei = "dbm_subset_impl n"
-    and lei = "\<lambda>as bs.
-      (\<exists>i\<le>n. IArray.sub as (i + i * n + i) < Le 0) \<or> array_all2 (Suc n * Suc n) (\<le>) as bs"
-    and E = op_precise.E_from_op_empty
-    and Fi = F_impl
-    and K = location_assn
-    and keyi = "return o fst"
-    and copyi = amtx_copy
-    and P = "\<lambda>(l, M). l \<in> states' \<and> wf_dbm M"
-    and P' = P
-    and Pi = P_impl
-    and L = "set L"
-    and to_loc = id
-    and from_loc = id
-    and L_list = L_list
-    and K_rel = location_rel
-    and L' = L
-    and Li = L_list
-    and to_state = array_unfreeze
-    and from_state = array_freeze
-    and A_rel = "{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}"
-  apply standard
-  subgoal
-    using L_list_rel by simp
-  subgoal
-    by (rule L_list_rel)
-  subgoal
-    ..
-  subgoal for s1 s
-    by (rule array_unfreeze_ht) simp
-  subgoal for si s
-    by (sep_auto heap: array_freeze_ht)
-  subgoal
-    by simp
-  subgoal
-    by simp
-  subgoal
-    by (rule right_unique_location_rel)
-  subgoal
-    using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def .
-  subgoal
-    unfolding dbm_subset_def check_diag_def
-    by (auto simp: array_all2_iff_pointwise_cmp[symmetric] iarray_mtx_relD)
-  subgoal
-    using full_split .
-  done
 
 interpretation Reachability_Impl_imp_to_pure
   where A = "mtx_assn n"
@@ -1205,6 +1133,29 @@ interpretation Reachability_Impl_imp_to_pure
     and A_rel = "{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}"
     and Mi = "\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k Mi"
   apply standard
+  subgoal
+    using L_list_rel by simp
+  subgoal
+    by (rule L_list_rel)
+  subgoal
+    ..
+  subgoal for s1 s
+    by (rule array_unfreeze_ht) simp
+  subgoal for si s
+    by (sep_auto heap: array_freeze_ht)
+  subgoal
+    by simp
+  subgoal
+    by simp
+  subgoal
+    by (rule right_unique_location_rel)
+  subgoal
+    using left_unique_location_rel unfolding IS_LEFT_UNIQUE_def .
+  subgoal
+    unfolding dbm_subset_def check_diag_def
+    by (auto simp: array_all2_iff_pointwise_cmp[symmetric] iarray_mtx_relD)
+  subgoal
+    using full_split .
   using Mi_M .
 
 concrete_definition certify_unreachable_pure
@@ -1216,12 +1167,6 @@ lemma certify_unreachable_pure_refine:
   using certify_unreachable_pure.refine[OF L_dom_M_eqI] assms op_precise_unreachable_correct by simp
 
 end (* Fixed splitter *)
-
-thm
-  certify_unreachable_impl.refine[
-    OF Reachability_Impl_axioms L_list_hnr, unfolded PR_CONST_def, OF M_table.refine
-    ]
-  op_precise_unreachable_correct'
 
 context
   fixes splitter :: "'s list \<Rightarrow> 's list list" and splitteri :: "'si list \<Rightarrow> 'si list list"
@@ -1298,8 +1243,6 @@ lemmas unreachability_checker2_refine = certify_unreachable_impl2_refine[
 end (* Splitter *)
 
 end (* M *)
-
-
 
 
 context
