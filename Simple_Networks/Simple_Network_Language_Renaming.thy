@@ -2,13 +2,6 @@ theory Simple_Network_Language_Renaming
   imports Simple_Network_Language_Model_Checking
 begin
 
-(* XXX This is missing from the standard library *)
-lemma image_cong_simp:
-  fixes N :: "'b set"
-  assumes "M = N" and "\<And>x. x \<in> N =simp=> f x = g x"
-  shows "f ` M = g ` N"
-  using assms by (simp cong: image_cong add: simp_implies_def)
-
 text \<open>Helpful methods and theorems to work with tags:\<close>
 
 lemmas TAG_cong = arg_cong[where f = "TAG t" for t]
@@ -2262,33 +2255,12 @@ lemma check_sexp_equiv:
 
 lemma models_iff:
   "sem,a\<^sub>0 \<Turnstile> \<Phi> = renum.sem,a\<^sub>0' \<Turnstile> \<Phi>'" if "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
-proof (cases \<Phi>)
-  case (EX x1)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps EX formula.case) (rule Ex_ev_iff, auto)
-next
-  case (EG x2)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps EG formula.case Graph_Defs.Ex_alw_iff Not_eq_iff)
-       (rule Alw_ev_iff, auto)
-next
-  case (AX x3)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps AX formula.case) (rule Alw_ev_iff, auto)
-next
-  case (AG x4)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps AG formula.case Graph_Defs.Alw_alw_iff Not_eq_iff)
-       (rule Ex_ev_iff, auto)
-next
-  case (Leadsto x51 x52)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps Leadsto formula.case) (rule Leadsto_iff, auto)
+proof -
+  have "rel_ctl_formula compatible (ctl_of \<Phi>) (ctl_of \<Phi>')"
+    using that unfolding \<Phi>'_def
+    by (cases \<Phi>; auto simp: check_sexp_equiv prop_of_def rel_fun_def)
+  with start_equiv show ?thesis
+    by (simp add: models_ctl_iff CTL_compatible[THEN rel_funD, symmetric])
 qed
 
 lemma has_deadlock_iff:
@@ -2501,40 +2473,43 @@ lemma check_sexp_equiv:
      (simp add:
        inj_eq sem.states_lengthD renum_states_inj vars_inv_def the_inv_f_f[OF real.inj_renum_vars])+
 
+lemma check_sexp_compatible:
+  assumes "locs_of_sexp e \<subseteq> {0..<n_ps}"
+  shows "compatible
+    (\<lambda>(L, s, u). check_sexp e L (the \<circ> s))
+    (\<lambda>(L', s', u'). check_sexp (map_sexp renum_states renum_vars id e) L' (the \<circ> s'))"
+  using check_sexp_equiv[OF _ assms] by auto
+
 lemma models_iff:
   "sem,a\<^sub>0 \<Turnstile> \<Phi> = renum.sem,a\<^sub>0' \<Turnstile> \<Phi>'" if "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
-proof (cases \<Phi>)
-  case (EX x1)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps EX formula.case) (rule Ex_ev_iff, auto)
-next
-  case (EG x2)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps EG formula.case Graph_Defs.Ex_alw_iff Not_eq_iff)
-       (rule Alw_ev_iff, auto)
-next
-  case (AX x3)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps AX formula.case) (rule Alw_ev_iff, auto)
-next
-  case (AG x4)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps AG formula.case Graph_Defs.Alw_alw_iff Not_eq_iff)
-       (rule Ex_ev_iff, auto)
-next
-  case (Leadsto x51 x52)
-  show ?thesis
-    using that check_sexp_equiv start_equiv unfolding models_def \<Phi>'_def
-    by (simp only: map_formula.simps Leadsto formula.case) (rule Leadsto_iff, auto)
+proof -
+  have "rel_ctl_formula compatible (ctl_of \<Phi>) (ctl_of \<Phi>')"
+    using that unfolding \<Phi>'_def
+    by (cases \<Phi>; auto simp: check_sexp_equiv prop_of_def rel_fun_def)
+  with start_equiv show ?thesis
+    by (simp add: models_ctl_iff CTL_compatible[THEN rel_funD, symmetric])
 qed
 
 lemma has_deadlock_iff:
   "has_deadlock sem a\<^sub>0 \<longleftrightarrow> has_deadlock renum.sem a\<^sub>0'"
   unfolding has_deadlock_def using start_equiv by (intro deadlock_iff, unfold A_B.equiv'_def) auto
+
+lemma state_formula_compatible:
+  "(\<Union>x \<in> set_state_formula \<phi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
+  rel_state_formula compatible
+    (map_state_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<phi>)
+    (map_state_formula (\<lambda>P (L, s, _).
+      check_sexp (map_sexp (\<lambda>p. renum_states p) renum_vars id P) L (the o s))
+     \<phi>)" and path_formula_compatible:
+  "(\<Union>x \<in> set_path_formula \<psi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
+  rel_path_formula compatible
+    (map_path_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<psi>)
+    (map_path_formula (\<lambda>P (L, s, _).
+      check_sexp (map_sexp (\<lambda>p. renum_states p) renum_vars id P) L (the o s))
+     \<psi>)"
+   by (induction \<phi> and \<psi>) (auto simp: check_sexp_equiv prop_of_def rel_fun_def)
+
+lemmas models_state_compatible = models_state_compatible[OF state_formula_compatible]
 
 end (* Simple Network Rename Formula int *)
 
@@ -3097,42 +3072,29 @@ lemma start_equiv: "A_B.equiv' a\<^sub>0 a\<^sub>0"
 
 lemma urge_models_iff:
   "sem,a\<^sub>0 \<Turnstile> \<Phi> \<longleftrightarrow> rename.sem,a\<^sub>0 \<Turnstile> \<Phi>"
-  if "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
 proof -
-  show ?thesis
-  proof (cases \<Phi>)
-    case (EX x1)
-    show ?thesis
-      using that check_sexp_equiv start_equiv unfolding models_def
-      by (simp only: map_formula.simps EX formula.case) (rule Ex_ev_iff, auto)
-  next
-    case (EG x2)
-    show ?thesis
-      using that check_sexp_equiv start_equiv unfolding models_def
-      by (simp only: map_formula.simps EG formula.case Graph_Defs.Ex_alw_iff Not_eq_iff)
-        (rule Alw_ev_iff, auto)
-  next
-    case (AX x3)
-    show ?thesis
-      using that check_sexp_equiv start_equiv unfolding models_def
-      by (simp only: map_formula.simps AX formula.case) (rule Alw_ev_iff, auto)
-  next
-    case (AG x4)
-    show ?thesis
-      using that check_sexp_equiv start_equiv unfolding models_def
-      by (simp only: map_formula.simps AG formula.case Graph_Defs.Alw_alw_iff Not_eq_iff)
-        (rule Ex_ev_iff, auto)
-  next
-    case (Leadsto x51 x52)
-    show ?thesis
-      using that check_sexp_equiv start_equiv unfolding models_def
-      by (simp only: map_formula.simps Leadsto formula.case) (rule Leadsto_iff, auto)
-  qed
+  have "rel_ctl_formula compatible (ctl_of \<Phi>) (ctl_of \<Phi>)"
+    by (cases \<Phi>) (auto simp: prop_of_def rel_fun_def check_sexp_equiv)
+  with start_equiv show ?thesis
+    by (simp only: models_ctl_iff CTL_compatible[THEN rel_funD, symmetric])
 qed
 
 lemma urge_has_deadlock_iff:
   "has_deadlock sem a\<^sub>0 \<longleftrightarrow> has_deadlock rename.sem a\<^sub>0"
   unfolding has_deadlock_def using start_equiv by (intro deadlock_iff, unfold A_B.equiv'_def) auto
+
+lemma state_formula_compatible:
+  "(\<Union>x \<in> set_state_formula \<phi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
+  rel_state_formula compatible
+    (map_state_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<phi>)
+    (map_state_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<phi>)" and path_formula_compatible:
+  "(\<Union>x \<in> set_path_formula \<psi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
+  rel_path_formula compatible
+    (map_path_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<psi>)
+    (map_path_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<psi>)"
+   by (induction \<phi> and \<psi>) (auto simp: check_sexp_equiv prop_of_def rel_fun_def)
+
+lemmas urge_models_state_compatible = models_state_compatible[OF state_formula_compatible]
 
 end (* Start State *)
 
@@ -3267,7 +3229,22 @@ lemmas models_iff' =
   models_iff[unfolded rename_N_eq_sem, folded N_eq_sem, unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
 
 lemmas has_deadlock_iff' =
-  has_deadlock_iff[unfolded rename_N_eq_sem, folded N_eq_sem,unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
+  has_deadlock_iff[unfolded rename_N_eq_sem, folded N_eq_sem, unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
+
+lemmas start_equiv = start_equiv[of a\<^sub>0, unfolded a\<^sub>0_def, simplified, OF L\<^sub>0_states]
+
+lemmas urge_models_state_compatible =
+  urge_models_state_compatible[THEN rel_funD, OF _ _ _ start_equiv,
+    of a\<^sub>0, unfolded a\<^sub>0_def, simplified, OF L\<^sub>0_states]
+
+lemmas rename_models_state_compatible =
+  rename.models_state_compatible[THEN rel_funD, OF _ rename.start_equiv,
+    unfolded rename_a\<^sub>0_eq a\<^sub>0_def rename_n_ps_eq rename_a\<^sub>0'_eq a\<^sub>0'_def]
+
+lemmas models_state_compatible =
+  transp_equality[THEN transpD, OF urge_models_state_compatible rename_models_state_compatible]
+
+lemmas models_state_compatible' = models_state_compatible[unfolded rename_N_eq_sem, folded N_eq_sem]
 
 end (* Simple_Network_Rename_Formula *)
 

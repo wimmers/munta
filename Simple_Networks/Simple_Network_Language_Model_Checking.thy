@@ -1,5 +1,5 @@
 theory Simple_Network_Language_Model_Checking
-  imports Simple_Network_Language_Impl_Refine
+  imports "../library/Temporal_Logics" Simple_Network_Language_Impl_Refine
     "TA_Byte_Code.UPPAAL_Model_Checking" "TA_Impl.Abstract_Term"
 begin
 
@@ -58,6 +58,7 @@ lemma all_prop_statesD[dest]:
   using that unfolding all_prop_def ..
 
 end (* Prod TA Defs *)
+
 
 context Prod_TA
 begin
@@ -207,10 +208,32 @@ definition models ("_,_ \<Turnstile> _" [61,61] 61) where
         (\<lambda> (L, s, u) (L', s', u'). A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
         (\<lambda> (L, s, _). check_sexp \<phi> L (the o s))
         (\<lambda> (L, s, _). check_sexp \<psi> L (the o s))
-  ) a\<^sub>0
-  "
+  ) a\<^sub>0"
 
 lemmas models_iff = models_def[unfolded Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff]
+
+definition prop_of where
+  "prop_of \<phi> = PropC (\<lambda>(L, s, _). check_sexp \<phi> L (the o s))"
+
+fun ctl_of where
+  "ctl_of (formula.EX \<phi>) = ctl_formula.EX (prop_of \<phi>)"
+| "ctl_of (formula.EG \<phi>) = ctl_formula.EG (prop_of \<phi>)"
+| "ctl_of (formula.AX \<phi>) = ctl_formula.AX (prop_of \<phi>)"
+| "ctl_of (formula.AG \<phi>) = ctl_formula.AG (prop_of \<phi>)"
+| "ctl_of (formula.Leadsto \<phi> \<psi>) =
+  ctl_formula.AG (ctl_formula.ImpliesC (prop_of \<phi>) (ctl_formula.AX (prop_of \<psi>)))"
+
+context
+  fixes A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta"
+begin
+
+interpretation Graph_Defs "\<lambda> (L, s, u) (L', s', u'). A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>" .
+
+lemma models_ctl_iff:
+  "A,a\<^sub>0 \<Turnstile> \<Phi> \<longleftrightarrow> models_ctl (ctl_of \<Phi>) a\<^sub>0"
+  by (cases \<Phi>) (simp_all add: models_def prop_of_def leadsto_def)
+
+end
 
 fun check_sexpi :: "(nat, 's, nat, int) sexp \<Rightarrow> 's list \<Rightarrow> int list \<Rightarrow> bool" where
   "check_sexpi sexp.true _ _ \<longleftrightarrow> True" |
@@ -231,6 +254,36 @@ fun hd_of_formulai :: "(nat, 's, nat, int) formula \<Rightarrow> 's list \<Right
   "hd_of_formulai (AX \<phi>) L s = Not (check_sexpi \<phi> L s)" |
   "hd_of_formulai (AG \<phi>) L s = Not (check_sexpi \<phi> L s)" |
   "hd_of_formulai (Leadsto \<phi> _) L s = check_sexpi \<phi> L s"
+
+
+
+(* XXX Stop locale constant unfolding in simplifier *)
+lemma all_prop_weak_cong[cong]:
+  "Prod_TA_Defs.all_prop A = Prod_TA_Defs.all_prop A" for A
+  by(rule HOL.refl)
+lemma equiv'_weak_cong[cong]:
+  "Bisimulation_Invariant.equiv' R P Q = Bisimulation_Invariant.equiv' R P Q" for R P Q
+  by (rule HOL.refl)
+lemma equiv'_weak_cong2[cong]:
+  "Simulation_Invariant.equiv' R P Q = Simulation_Invariant.equiv' R P Q" for R P Q
+  by (rule HOL.refl)
+lemma models_ctl_weak_cong[cong]:
+  "Graph_Defs.models_ctl E = Graph_Defs.models_ctl E" for E
+  by (rule HOL.refl)
+lemma models_path_weak_cong[cong]:
+  "Graph_Defs.models_path E = Graph_Defs.models_path E" for E
+  by (rule HOL.refl)
+lemma models_state_weak_cong[cong]:
+  "Graph_Defs.models_state E = Graph_Defs.models_state E" for E
+  by (rule HOL.refl)
+lemma models_ltl_weak_cong[cong]:
+  "Graph_Defs.models_ltl E = Graph_Defs.models_ltl E" for E
+  by (rule HOL.refl)
+lemma models_weak_cong[cong]:
+  "models E = models E"
+  for E by (rule HOL.refl)
+
+
 
 
 section \<open>Instantiating the Model Checking Locale\<close>
@@ -490,7 +543,7 @@ qed
 
 
 
-abbreviation "F \<equiv> \<lambda>(L, s). hd_of_formula formula L (the o s)"
+abbreviation F where "F \<equiv> \<lambda>(L, s). hd_of_formula formula L (the o s)"
 abbreviation "Fi \<equiv> \<lambda>(L, s). hd_of_formulai formula L s"
 
 lemma (in Simple_Network_Impl_nat) check_sexp_check_sexpi:
@@ -873,6 +926,20 @@ lemma conv_all_prop:
   "conv.all_prop = all_prop"
   unfolding conv.all_prop_def all_prop_def by simp
 
+thm Ex_ev_iff
+thm CTL_compatible[THEN rel_funD, symmetric]
+
+definition prop_of2 where
+  "prop_of2 \<phi> = PropC (\<lambda>((L, s), _). check_sexp \<phi> L (the o s))"
+
+fun ctl_of2 where
+  "ctl_of2 (formula.EX \<phi>) = ctl_formula.EX (prop_of2 \<phi>)"
+| "ctl_of2 (formula.EG \<phi>) = ctl_formula.EG (prop_of2 \<phi>)"
+| "ctl_of2 (formula.AX \<phi>) = ctl_formula.AX (prop_of2 \<phi>)"
+| "ctl_of2 (formula.AG \<phi>) = ctl_formula.AG (prop_of2 \<phi>)"
+| "ctl_of2 (formula.Leadsto \<phi> \<psi>) =
+  ctl_formula.AG (ctl_formula.ImpliesC (prop_of2 \<phi>) (ctl_formula.AX (prop_of2 \<psi>)))"
+
 lemma models_correct:
   "Simple_Network_Language.conv A,(L\<^sub>0, s\<^sub>0, u\<^sub>0) \<Turnstile> \<Phi> = (case \<Phi> of
     formula.EX \<phi> \<Rightarrow>
@@ -899,41 +966,20 @@ lemma models_correct:
   ) ((L\<^sub>0, s\<^sub>0), u\<^sub>0)
   " if "L\<^sub>0 \<in> states" "Simple_Network_Language.bounded bounds s\<^sub>0"
 proof -
-  have all_prop_start[intro]:
-  "conv.all_prop L\<^sub>0 s\<^sub>0"
-  unfolding conv_all_prop all_prop_def using that ..
-
   have *: "((Not \<circ>\<circ> case_prod) (\<lambda>(L, s) _. check_sexp \<phi> L (the o s)))
     = (\<lambda>((L, s), _). \<not> check_sexp \<phi> L (the o s))"
     for \<phi> by (auto simp: comp_def)
-
-  show ?thesis
-    unfolding models_def
-    apply (cases \<Phi>)
-
-    subgoal for \<phi>
-      by (auto intro!: Ex_ev_iff[symmetric, unfolded A_B.equiv'_def])
-    subgoal for \<phi>
-      apply simp
-      apply (subst Ex_alw_iff[symmetric,
-            where a = "((L\<^sub>0, s\<^sub>0), u\<^sub>0)" and \<phi> = "\<lambda>((L, s), _). check_sexp \<phi> L (the o s)"])
-        apply (unfold A_B.equiv'_def, auto simp: Graph_Defs.Ex_alw_iff *)
-      done
-    subgoal for \<phi>
-      apply (auto intro!: Alw_ev_iff[symmetric, unfolded A_B.equiv'_def])
-      done
-    subgoal for \<phi>
-      apply simp
-        (* XXX Rename Alw_alw_iff_strong in CTL *)
-      apply (subst Alw_alw_iff_strong[symmetric,
-            where a = "((L\<^sub>0, s\<^sub>0), u\<^sub>0)" and \<phi> = "\<lambda>((L, s), _). check_sexp \<phi> L (the o s)"])
-        apply (unfold A_B.equiv'_def, auto simp: Graph_Defs.Alw_alw_iff *)
-      done
-    subgoal for \<phi> \<psi>
-      apply simp
-      apply (rule Leadsto_iff[symmetric])
-        apply (unfold A_B.equiv'_def, auto)
-      done
+  have "rel_ctl_formula compatible (ctl_of2 \<Phi>) (ctl_of \<Phi>)"
+    by (cases \<Phi>; simp add: prop_of_def prop_of2_def rel_fun_def A_B.equiv'_def)
+  moreover have "A_B.equiv' ((L\<^sub>0, s\<^sub>0), u\<^sub>0) (L\<^sub>0, s\<^sub>0, u\<^sub>0)"
+    unfolding A_B.equiv'_def unfolding conv_all_prop all_prop_def using that by simp
+  ultimately show ?thesis
+    apply (subst models_ctl_iff)
+    apply (subst CTL_compatible[THEN rel_funD, symmetric])
+      apply assumption+
+    apply (cases \<Phi>; simp add:
+        Graph_Defs.models_ctl.simps prop_of2_def
+        Graph_Defs.Ex_alw_iff Graph_Defs.Alw_alw_iff Graph_Defs.leadsto_def *)
     done
 qed
 

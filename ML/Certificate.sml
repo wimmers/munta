@@ -332,7 +332,7 @@ fun imp_fora_inner i u f s =
     fun array_upd_oo f i x a () = 
       (Array.update(a,IntInf.toInt i,x); a) handle Subscript => f () | Overflow => f ()
 
-    
+
 
 
 
@@ -415,31 +415,40 @@ fun uminus_inta k = Int_of_integer (IntInf.~ (integer_of_int k));
 
 val zero_inta : int = Int_of_integer (0 : IntInf.int);
 
-datatype num = One | Bit0 of num | Bit1 of num;
-
-fun sgn_integer k =
-  (if ((k : IntInf.int) = (0 : IntInf.int)) then (0 : IntInf.int)
-    else (if IntInf.< (k, (0 : IntInf.int)) then (~1 : IntInf.int)
-           else (1 : IntInf.int)));
-
 fun apsnd f (x, y) = (x, f y);
+
+datatype num = One | Bit0 of num | Bit1 of num;
 
 fun divmod_integer k l =
   (if ((k : IntInf.int) = (0 : IntInf.int))
     then ((0 : IntInf.int), (0 : IntInf.int))
-    else (if ((l : IntInf.int) = (0 : IntInf.int)) then ((0 : IntInf.int), k)
-           else (apsnd o (fn a => fn b => IntInf.* (a, b)) o sgn_integer) l
-                  (if (((sgn_integer k) : IntInf.int) = (sgn_integer l))
-                    then IntInf.divMod (IntInf.abs k, IntInf.abs l)
-                    else let
-                           val (r, s) =
-                             IntInf.divMod (IntInf.abs k, IntInf.abs l);
-                         in
-                           (if ((s : IntInf.int) = (0 : IntInf.int))
-                             then (IntInf.~ r, (0 : IntInf.int))
-                             else (IntInf.- (IntInf.~ r, (1 : IntInf.int)),
-                                    IntInf.- (IntInf.abs l, s)))
-                         end)));
+    else (if IntInf.< ((0 : IntInf.int), l)
+           then (if IntInf.< ((0 : IntInf.int), k)
+                  then IntInf.divMod (IntInf.abs k, IntInf.abs l)
+                  else let
+                         val (r, s) =
+                           IntInf.divMod (IntInf.abs k, IntInf.abs l);
+                       in
+                         (if ((s : IntInf.int) = (0 : IntInf.int))
+                           then (IntInf.~ r, (0 : IntInf.int))
+                           else (IntInf.- (IntInf.~ r, (1 : IntInf.int)),
+                                  IntInf.- (l, s)))
+                       end)
+           else (if ((l : IntInf.int) = (0 : IntInf.int))
+                  then ((0 : IntInf.int), k)
+                  else apsnd IntInf.~
+                         (if IntInf.< (k, (0 : IntInf.int))
+                           then IntInf.divMod (IntInf.abs k, IntInf.abs l)
+                           else let
+                                  val (r, s) =
+                                    IntInf.divMod (IntInf.abs k, IntInf.abs l);
+                                in
+                                  (if ((s : IntInf.int) = (0 : IntInf.int))
+                                    then (IntInf.~ r, (0 : IntInf.int))
+                                    else (IntInf.- (IntInf.~
+              r, (1 : IntInf.int)),
+   IntInf.- (IntInf.~ l, s)))
+                                end))));
 
 fun snd (x1, x2) = x2;
 
@@ -1431,29 +1440,16 @@ fun map f [] = []
 
 fun explode s =
   map char_of_integer
-    ((map (fn c => let val k = Char.ord c in if k < 128 then IntInf.fromInt k else raise Fail "Non-ASCII character in literal" end) 
+    ((List.map (fn c => let val k = Char.ord c in if k < 128 then IntInf.fromInt k else raise Fail "Non-ASCII character in literal" end) 
        o String.explode)
       s);
 
-fun shows_prec_literal p s rest = explode s @ rest;
-
-fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
-  | intersperse uu [] = []
-  | intersperse uu [v] = [v];
+fun shows_prec_literal p s = shows_string (explode s);
 
 fun foldr f [] = id
   | foldr f (x :: xs) = f x o foldr f xs;
 
-fun concat xss = foldr (fn a => fn b => a @ b) xss [];
-
-fun shows_list_literal cs s =
-  [Chara (true, true, false, true, true, false, true, false)] @
-    concat
-      (intersperse
-        [Chara (false, false, true, true, false, true, false, false),
-          Chara (false, false, false, false, false, true, false, false)]
-        (map explode cs)) @
-      [Chara (true, false, true, true, true, false, true, false)] @ s;
+fun shows_list_literal x = foldr (fn s => shows_string (explode s)) x;
 
 val show_literal =
   {shows_prec = shows_prec_literal, shows_list = shows_list_literal} :
@@ -1622,6 +1618,12 @@ and shows_bexp A_ B_ (Lta (a, b)) =
 
 fun shows_prec_exp A_ B_ p e rest = shows_exp A_ B_ e @ rest;
 
+fun intersperse sep (x :: y :: xs) = x :: sep :: intersperse sep (y :: xs)
+  | intersperse uu [] = []
+  | intersperse uu [v] = [v];
+
+fun concat xss = foldr (fn a => fn b => a @ b) xss [];
+
 fun shows_list_exp A_ B_ es s =
   [Chara (true, true, false, true, true, false, true, false)] @
     concat
@@ -1724,7 +1726,7 @@ datatype message = ExploredState;
 datatype fract = Rata of bool * int * int;
 
 datatype json = Object of (char list * json) list | Arraya of json list |
-  String of char list | Int of int | Nata of nat | Rat of fract |
+  Stringa of char list | Int of int | Nata of nat | Rat of fract |
   Boolean of bool | Null;
 
 datatype time = Time of int;
@@ -1884,7 +1886,7 @@ fun is_none (SOME x) = false
 
 fun implode cs =
   (String.implode
-    o map (fn k => if 0 <= k andalso k < 128 then (Char.chr o IntInf.toInt) k else raise Fail "Non-ASCII character in literal"))
+    o List.map (fn k => if 0 <= k andalso k < 128 then (Char.chr o IntInf.toInt) k else raise Fail "Non-ASCII character in literal"))
     (map integer_of_char cs);
 
 fun tracea x = trace ExploredState x;
@@ -2490,7 +2492,7 @@ fun lx_rat x =
 fun atom x =
   bindb lx_ws
     (fn _ =>
-      bindb (alt (bindb json_string (fn xa => return (String xa)))
+      bindb (alt (bindb json_string (fn xa => return (Stringa xa)))
               (bindb
                 (alt (bindb lx_rat (fn xa => return (Rat xa)))
                   (bindb
@@ -4340,7 +4342,7 @@ fun map_sexp uu uv uw Truea = Truea
 fun of_nat json =
   (case json of Object _ => Error ["of_nat: expected natural number"]
     | Arraya _ => Error ["of_nat: expected natural number"]
-    | String _ => Error ["of_nat: expected natural number"]
+    | Stringa _ => Error ["of_nat: expected natural number"]
     | Int _ => Error ["of_nat: expected natural number"] | Nata a => Result a
     | Rat _ => Error ["of_nat: expected natural number"]
     | Boolean _ => Error ["of_nat: expected natural number"]
@@ -4752,7 +4754,7 @@ fun compile_invarianta clocks vars inv =
 fun of_string json =
   (case json of Object _ => Error ["of_array: expected sequence"]
     | Arraya _ => Error ["of_array: expected sequence"]
-    | String s => Result (implode s)
+    | Stringa s => Result (implode s)
     | Int _ => Error ["of_array: expected sequence"]
     | Nata _ => Error ["of_array: expected sequence"]
     | Rat _ => Error ["of_array: expected sequence"]
@@ -4762,7 +4764,7 @@ fun of_string json =
 fun of_object json =
   (case json of Object asa => Result (map_of (equal_list equal_char) asa)
     | Arraya _ => Error ["json_to_map: expected object"]
-    | String _ => Error ["json_to_map: expected object"]
+    | Stringa _ => Error ["json_to_map: expected object"]
     | Int _ => Error ["json_to_map: expected object"]
     | Nata _ => Error ["json_to_map: expected object"]
     | Rat _ => Error ["json_to_map: expected object"]
@@ -4961,7 +4963,7 @@ binda (assert (list_all (fn (_, Const x) => equal_inta x zero_inta) resets)
 
 fun of_array json =
   (case json of Object _ => Error ["of_array: expected sequence"]
-    | Arraya a => Result a | String _ => Error ["of_array: expected sequence"]
+    | Arraya a => Result a | Stringa _ => Error ["of_array: expected sequence"]
     | Int _ => Error ["of_array: expected sequence"]
     | Nata _ => Error ["of_array: expected sequence"]
     | Rat _ => Error ["of_array: expected sequence"]
@@ -9255,7 +9257,7 @@ fun rename_check num_split dc broadcast bounds automata k l_0 s_0 formula m
 
 fun list_of_json_object obj =
   (case obj of Object a => Result a | Arraya _ => Error ["Not an object"]
-    | String _ => Error ["Not an object"] | Int _ => Error ["Not an object"]
+    | Stringa _ => Error ["Not an object"] | Int _ => Error ["Not an object"]
     | Nata _ => Error ["Not an object"] | Rat _ => Error ["Not an object"]
     | Boolean _ => Error ["Not an object"] | Null => Error ["Not an object"]);
 
@@ -10555,7 +10557,7 @@ fun hashmap_of_list (A1_, A2_) m =
   fold (fn (a, b) => ahm_update (eq A1_) (bounded_hashcode_nat A2_) a b) m
     (ahm_empty (def_hashmap_size A2_ Type));
 
-fun certify_unreachable_impl_pure get_succs mi li lei pi l_0i s_0i fi li_split =
+fun certify_unreachable_impl_pure get_succs li lei pi l_0i s_0i fi li_split mi =
   let
     val check_all_pre_impl =
       time_it "Time for state set preconditions check"
@@ -10670,12 +10672,6 @@ fun unreachability_checker3 broadcast bounds automata m num_states num_actions
                           ()) ())
                           (fn xsa => (fn () => (id lia, xsa))))))
             end))
-      (fn k =>
-        ahm_lookup (equal_proda (equal_list equal_nat) (equal_list equal_int))
-          (bounded_hashcode_nat
-            (hashable_prod (hashable_list hashable_nat)
-              (hashable_list hashable_int)))
-          k mi)
       l_list
       (fn asa => fn bs =>
         not (all_interval_nat
@@ -10768,6 +10764,12 @@ true)
                                        hd_of_formulai equal_nat formula aa b
                                      end))))
       (split_kb num_split m_list)
+      (fn k =>
+        ahm_lookup (equal_proda (equal_list equal_nat) (equal_list equal_int))
+          (bounded_hashcode_nat
+            (hashable_prod (hashable_list hashable_nat)
+              (hashable_list hashable_int)))
+          k mi)
   end;
 
 fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
@@ -11196,12 +11198,6 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
                           ()) ())
                           (fn xsa => (fn () => (id lia, xsa))))))
             end))
-      (fn k =>
-        ahm_lookup (equal_proda (equal_list equal_nat) (equal_list equal_int))
-          (bounded_hashcode_nat
-            (hashable_prod (hashable_list hashable_nat)
-              (hashable_list hashable_int)))
-          k mi)
       l_list subsumption p
       (id ((fn f => f ()) (fn () =>
                             (l_0, map (the o map_of equal_nat s_0)
@@ -11209,6 +11205,12 @@ fun no_deadlock_certifier3 broadcast bounds automata m num_states num_actions
       ((fn f => f ()) ((fn f_ => fn () => f_ (init_dbm ()) ())
                         (array_freeze (heap_DBMEntry heap_int))))
       check_deadlock1 (split_kb num_split m_list)
+      (fn k =>
+        ahm_lookup (equal_proda (equal_list equal_nat) (equal_list equal_int))
+          (bounded_hashcode_nat
+            (hashable_prod (hashable_list hashable_nat)
+              (hashable_list hashable_int)))
+          k mi)
   end;
 
 fun certificate_checker3 num_split dc m_list broadcast bounds automata m

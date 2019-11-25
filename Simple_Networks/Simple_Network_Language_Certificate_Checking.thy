@@ -6,6 +6,88 @@ theory Simple_Network_Language_Certificate_Checking
     "../library/Trace_Timing"
 begin
 
+paragraph \<open>Misc\<close>
+
+definition (in Graph_Defs)
+  "alw_ev \<phi> x \<equiv> \<forall>xs. run (x ## xs) \<longrightarrow> alw (ev (holds \<phi>)) (x ## xs)"
+
+lemma (in Graph_Defs) alw_ev_to_ctl_star:
+  "alw_ev \<phi> x \<longleftrightarrow> models_state (All (G (F (State (PropS \<phi>))))) x"
+  (* XXX Fix abs_def *)
+  unfolding alw_ev_def by (simp add: models_state.simps[abs_def])
+
+context Simple_Network_Rename_Formula
+begin
+
+(* XXX Give this some syntax? *)
+lemma buechi_models_state_compatible:
+  assumes "\<Phi> = formula.EX \<phi>"
+  shows
+  "Graph_Defs.models_state
+    (\<lambda> (L, s, u) (L', s', u'). rename.renum.sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+    (map_state_formula (\<lambda>\<phi> (L, s, _).
+      check_sexp (map_sexp (\<lambda>p. renum_states p) renum_vars id \<phi>) L (the o s))
+      (All (G (F (State (PropS \<phi>))))))
+    a\<^sub>0'
+\<longleftrightarrow> Graph_Defs.models_state
+    (\<lambda> (L, s, u) (L', s', u'). sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+    (map_state_formula (\<lambda>\<phi> (L, s, _). check_sexp \<phi> L (the o s)) (All (G (F (State (PropS \<phi>))))))
+    a\<^sub>0" (is "Graph_Defs.models_state _ ?\<phi> _ \<longleftrightarrow> _")
+proof -
+  have "?\<phi> = map_state_formula
+   (\<lambda>P (L, s, _).
+       check_sexp
+        (map_sexp (\<lambda>p. extend_bij (renum_states p) loc_set) (extend_bij renum_vars var_set) id P)
+        L (the \<circ> s))
+   (All (G (F (State (PropS \<phi>)))))"
+    using assms formula_dom by (auto simp: sexp_eq)
+  show ?thesis
+  unfolding a\<^sub>0_def a\<^sub>0'_def \<open>?\<phi> = _\<close> using assms formula_dom
+  by - (rule sym, rule models_state_compatible, auto)
+qed
+
+lemma buechi_compatible:
+  assumes "\<Phi> = formula.EX \<phi>"
+  shows
+  "Graph_Defs.alw_ev
+    (\<lambda> (L, s, u) (L', s', u'). rename.renum.sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+    (\<lambda> (L, s, _). check_sexp (map_sexp (\<lambda>p. renum_states p) renum_vars id \<phi>) L (the o s)) a\<^sub>0'
+\<longleftrightarrow> Graph_Defs.alw_ev
+    (\<lambda> (L, s, u) (L', s', u'). sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+    (\<lambda> (L, s, _). check_sexp \<phi> L (the o s)) a\<^sub>0"
+  using buechi_models_state_compatible[OF assms] unfolding Graph_Defs.alw_ev_to_ctl_star by simp
+
+lemmas buechi_compatible' =
+  buechi_compatible[unfolded rename_N_eq_sem, folded N_eq_sem, unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
+
+end
+
+lemma stream_all2_flip:
+  assumes "stream_all2 R xs ys"
+  shows "stream_all2 (\<lambda>y x. R x y) ys xs"
+  using assms by (coinduction arbitrary: xs ys) auto
+
+lemma (in Bisimulation_Invariant) alw_ev_iff:
+  fixes \<phi> :: "'a \<Rightarrow> bool" and \<psi> :: "'b \<Rightarrow> bool"
+  assumes compatible: "\<And>a b. A_B.equiv' a b \<Longrightarrow> \<phi> a \<longleftrightarrow> \<psi> b"
+    and that: "A_B.equiv' a b"
+  shows "A.alw_ev \<phi> a \<longleftrightarrow> B.alw_ev \<psi> b"
+  unfolding Graph_Defs.alw_ev_def
+  apply safe
+  subgoal
+    using that
+    by - (
+      drule B_A.simulation_run,
+      auto simp: compatible intro: equiv'_rotate_1 dest!: equiv'_rotate_2
+      elim!: alw_ev_lockstep stream_all2_flip)
+  subgoal for xs
+    using that
+    by - (
+        drule A_B.simulation_run,
+        auto simp: compatible intro: equiv'_rotate_2 elim!: alw_ev_lockstep stream_all2_flip)
+  done
+
+
 no_notation test_bit (infixl "!!" 100)
 
 paragraph \<open>Splitters\<close>
@@ -631,6 +713,42 @@ proof -
     using assms unfolding models_def by simp
 qed
 
+term "\<not> Graph_Defs.models_state (\<lambda> (L, s, u) (L', s', u').
+  Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+  (state_formula.All (path_formula.G (path_formula.F (path_formula.State (PropS (\<lambda> (L, s, _). check_sexp \<phi> L (the o s)))))))
+  (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+
+lemma no_buechi_run_prod:
+  assumes
+    "formula = formula.EX \<phi>"
+    "\<not> has_deadlock (Simple_Network_Language.conv A) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+    "\<nexists>u xs. (\<forall>c\<le>m. u c = 0) \<and> reach.run ((l\<^sub>0, u) ## xs) \<and> alw (ev (holds (F \<circ> fst))) ((l\<^sub>0, u) ## xs)"
+  shows "\<not> Graph_Defs.alw_ev
+    (\<lambda> (L, s, u) (L', s', u'). Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+    (\<lambda> (L, s, _). check_sexp \<phi> L (the o s)) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+proof -
+  let ?F = "\<lambda>((L, s), _). check_sexp \<phi> L (the o s)"
+  have *: "?F = (F \<circ> fst)"
+    using assms(1) by auto
+  have "conv.all_prop L\<^sub>0 (map_of s\<^sub>0)"
+    using all_prop_start unfolding conv_all_prop .
+  then have
+    "\<not> B.alw_ev (\<lambda>(L, s, _). check_sexp \<phi> L (the \<circ> s)) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)
+    \<longleftrightarrow> \<not> reach.alw_ev ?F (l\<^sub>0, u\<^sub>0)"
+    by (auto intro!: alw_ev_iff[symmetric, unfolded A_B.equiv'_def])
+  also have "\<dots>"
+  proof -
+    from assms(2) have "\<not> reach.deadlock (l\<^sub>0, \<lambda>_. 0)"
+      unfolding has_deadlock_def deadlock_start_iff .
+    then obtain xs where "reach.run ((l\<^sub>0, \<lambda>_. 0) ## xs)"
+      using reach.no_deadlock_run_extend[of "(l\<^sub>0, \<lambda>_. 0)" "[]"] by auto
+    with assms(3) show ?thesis
+      unfolding reach.alw_ev_def \<open>?F = _\<close> by force
+  qed
+  finally show ?thesis
+    using assms by simp
+qed
+
 lemma deadlock_prod:
   "\<not> reach.deadlock (l\<^sub>0, \<lambda>_. 0)
   \<longleftrightarrow> \<not> has_deadlock (Simple_Network_Language.conv A) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
@@ -707,6 +825,24 @@ theorem unreachability_checker3_refine:
       ]
     unreachability_prod[OF assms(5)]
   by auto
+
+theorem no_buechi_run_checker_refine:
+  assumes "\<And>li. P_loc li \<Longrightarrow> states'_memi li"
+    and "list_all (\<lambda>x. P_loc x \<and> states'_memi x) L_list"
+    and "list_all (\<lambda>(l, y). list_all (\<lambda>(M, _). length M = Suc m * Suc m) y) M_list"
+    and "fst ` set M_list = set L_list"
+    and "formula = formula.EX \<phi>"
+    and "\<not> has_deadlock (Simple_Network_Language.conv A) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+  shows "
+  impl.certify_no_buechi_run_pure L_list M_list (split_k' num_split M_list) \<longrightarrow>
+  \<not> Graph_Defs.alw_ev
+    (\<lambda> (L, s, u) (L', s', u'). Simple_Network_Language.conv A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', s', u'\<rangle>)
+    (\<lambda> (L, s, _). check_sexp \<phi> L (the o s)) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+  using impl.certify_no_buechi_run_pure_refine[
+      OF state_impl_abstract', OF assms(1,2) assms(4)[THEN equalityD1] assms(3)
+         split_k'_full_split[of M_list, unfolded assms(4)] assms(4)
+      ]
+  using no_buechi_run_prod[OF assms(5, 6)] by auto
 
 lemma abstr_repair_impl_refine:
   "impl.abstr_repair_impl = abstr_repair_impl m"
@@ -817,16 +953,21 @@ context Simple_Network_Impl_nat_ceiling_start_state
 begin
 
 context
-  fixes L_list and M_list :: "((nat list \<times> int list) \<times> int DBMEntry list list) list"
-  assumes assms:
-    "list_all states'_memi L_list"
-    "fst ` set M_list \<subseteq> set L_list"
-    "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
+  fixes L_list
+  assumes L_list: "list_all states'_memi L_list"
 begin
 
 private lemma A:
   "list_all (\<lambda>x. states'_memi x \<and> states'_memi x) L_list"
-  using assms by simp
+  using L_list by simp
+
+context
+  fixes M_list :: "((nat list \<times> int list) \<times> int DBMEntry list list) list"
+  assumes assms: "fst ` set M_list \<subseteq> set L_list"
+    "list_all (\<lambda>(l, y). list_all (\<lambda>M. length M = Suc m * Suc m) y) M_list"
+begin
+
+lemmas assms = L_list assms
 
 lemma unreachability_checker_def:
   "impl.unreachability_checker L_list M_list (split_k num_split) \<equiv>
@@ -1088,7 +1229,41 @@ lemma no_deadlock_certifier3_refine':
     folded no_deadlock_certifier3_def, OF state_impl_abstract' A assms(3)
   ]) (simp add: that split_k'_full_split[symmetric])+
 
-end (* Anonymous context *)
+end (* Fixed M *)
+
+context
+  fixes M_list :: "((nat list \<times> int list) \<times> (int DBMEntry list \<times> nat) list) list"
+  assumes assms:
+    "fst ` set M_list \<subseteq> set L_list"
+    "list_all (\<lambda>(l, y). list_all (\<lambda>(M, _). length M = Suc m * Suc m) y) M_list"
+begin
+
+schematic_goal no_buechi_run_checker_alt_def:
+  "impl.certify_no_buechi_run_pure L_list M_list (split_k' num_split M_list) \<equiv> ?x"
+  if "fst ` set M_list = set L_list"
+  apply (subst impl.certify_no_buechi_run_pure_def[
+      OF state_impl_abstract', OF _ A assms(1,2) split_k'_full_split[of M_list, unfolded that]
+      ], (simp; fail))
+  apply (abstract_let "impl.init_dbm_impl :: int DBMEntry Heap.array Heap" init_dbm)
+  unfolding impl.init_dbm_impl_def
+  apply (abstract_let "impl.M2i M_list" Mi)
+  apply (subst impl.M2i_def[OF state_impl_abstract', of states'_memi, OF _ A assms(1,2)])
+   apply assumption
+  unfolding check_deadlock_impl_alt_def impl.P_impl_def impl.F_impl_def
+  apply (abstract_let states'_memi check_state)
+  unfolding states'_memi_def states_mem_compute'
+  apply (abstract_let "map states_i [0..<n_ps]" states_i)
+  apply (abstract_let "impl.succs_precise'_impl" succsi)
+  unfolding succs_impl.refine[OF Simple_Network_Impl_nat_ceiling_start_state_axioms] succs1_refine
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  apply (abstract_let n_ps n_ps)
+  apply (abstract_let n_vs n_vs)
+  .
+
+end (* Fixed M *)
+
+end (* Fixed L *)
 
 theorem no_deadlock_certifier_hnr:
   assumes "list_all states'_memi L_list"
@@ -1279,6 +1454,9 @@ concrete_definition unreachability_checker3 uses
 concrete_definition no_deadlock_certifier3 uses
   Simple_Network_Impl_nat_ceiling_start_state.no_deadlock_certifier3_alt_def
 
+concrete_definition no_buechi_run_checker uses
+  Simple_Network_Impl_nat_ceiling_start_state.no_buechi_run_checker_alt_def
+
 concrete_definition check_prop_fail uses
   Simple_Network_Impl_nat_ceiling_start_state.check_prop_fail_alt_def
 
@@ -1414,6 +1592,43 @@ definition
     Heap_Monad.return (Some r)
   } else Heap_Monad.return None" for show_clock show_state
 
+definition
+  "certificate_checker_pre1
+    L_list M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+  \<equiv>
+  let
+    _ = start_timer ();
+    check1 = Simple_Network_Impl_nat_ceiling_start_state
+      broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
+    _ = save_time STR ''Time to check ceiling'';
+    n_ps = length automata;
+    n_vs = Simple_Network_Impl_Defs.n_vs bounds';
+    states_i = map (Simple_Network_Impl_nat_defs.states_i automata) [0..<n_ps];
+    _ = start_timer ();
+    check2 = list_all (\<lambda>(L, s). length L = n_ps \<and> (\<forall>i<n_ps. L ! i \<in> states_i ! i) \<and>
+      length s = n_vs \<and> Simple_Network_Impl_nat_defs.check_boundedi bounds' s
+    ) L_list;
+    _ = save_time STR ''Time to check states'';
+    _ = start_timer ();
+    n_sq = Suc m * Suc m;
+    check3 = list_all (\<lambda>(l, xs). list_all (\<lambda>(M, _). length M = n_sq) xs) M_list;
+    _ = save_time STR ''Time to check DBMs'';
+    check4 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False)
+  in check1 \<and> check2 \<and> check3 \<and> check4"
+
+definition
+  "buechi_certificate_checker num_split
+    M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+  \<equiv>
+  let
+    L_list = map fst M_list;
+    check = certificate_checker_pre1
+      L_list M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+  in if check then
+    no_buechi_run_checker
+          broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list num_split
+  else False"
+
 theorem certificate_check:
   "<emp> certificate_checker num_split False
     M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
@@ -1516,6 +1731,28 @@ theorem certificate_deadlock_check3:
   unfolding states'_memi_alt_def[unfolded Let_def, symmetric, of automata bounds broadcast]
   by (clarsimp simp: no_deadlock_certifier3.refine[symmetric])
 
+fun sexp_of_Ex where
+  "sexp_of_Ex (formula.EX s) = s"
+
+theorem buechi_certificate_check:
+  "buechi_certificate_checker num_split
+    M_list broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+   \<longrightarrow> \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)
+   \<longrightarrow> (\<exists>\<phi>. formula = formula.EX \<phi>) \<and> \<not> Graph_Defs.alw_ev
+                  (\<lambda>(L, s, u) (L', x, y).
+                      (N broadcast automata bounds) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', x, y\<rangle>)
+                  (\<lambda>(L, s, _). check_sexp (sexp_of_Ex formula) L (the \<circ> s))
+                  (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+  using Simple_Network_Impl_nat_ceiling_start_state.no_buechi_run_checker_refine[
+      of broadcast bounds automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
+         "Simple_Network_Impl_nat_defs.states'_memi broadcast bounds automata"
+         "map fst M_list" M_list
+         ]
+  unfolding buechi_certificate_checker_def certificate_checker_pre1_def
+  unfolding Let_def
+  unfolding states'_memi_alt_def[unfolded Let_def, symmetric, of automata bounds broadcast]
+  by (clarsimp split: formula.split_asm simp: no_buechi_run_checker.refine[symmetric])
+
 definition rename_check where
   "rename_check num_split dc broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
@@ -1599,6 +1836,23 @@ do {
 }
 "
 
+definition rename_check_buechi where
+  "rename_check_buechi num_split broadcast bounds' automata k L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    state_space
+\<equiv>
+  let r = do_rename_mc (
+      \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> string)).
+      buechi_certificate_checker num_split state_space)
+    False broadcast bounds' automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
+    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+    (\<lambda>_ _. '' '') (\<lambda>_. '' '') (\<lambda>_. '' '')
+  in case r of
+    Some False \<Rightarrow> Unsat
+  | Some True \<Rightarrow> Sat
+  | None \<Rightarrow> Renaming_Failed
+"
+
 theorem certificate_check_rename:
   "<emp> rename_check num_split False broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
@@ -1637,6 +1891,23 @@ and certificate_check_rename3:
         automata formula s\<^sub>0 L\<^sub>0
     | Unsat \<Rightarrow> True
     | Preconds_Unsat \<Rightarrow> True" (is ?C)
+and buechi_check_rename:
+  "case rename_check_buechi num_split broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+      m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+      certificate
+    of 
+      Sat \<Rightarrow>
+        \<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0) \<longrightarrow>
+        \<not> Graph_Defs.alw_ev
+            (\<lambda>(L, s, u) (L', x, y). (N broadcast automata bounds) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', x, y\<rangle>)
+            (\<lambda>(L, s, _). check_sexp (sexp_of_Ex formula) L (the \<circ> s))
+            (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)
+    | Renaming_Failed \<Rightarrow> \<not> Simple_Network_Rename_Formula
+        broadcast bounds
+        renum_acts renum_vars renum_clocks renum_states STR ''_urge''
+        automata formula s\<^sub>0 L\<^sub>0
+    | Unsat \<Rightarrow> True
+    | Preconds_Unsat \<Rightarrow> True" (is ?D)
 proof -
   let ?urge = "STR ''_urge''"
   let ?automata = "map (conv_urge ?urge) automata"
@@ -1663,15 +1934,40 @@ proof -
   define check' where "check' \<equiv>
     A',(map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0) \<Turnstile>
     map_formula renum_states renum_vars id formula"
+  define deadlock_check where "deadlock_check \<equiv> has_deadlock A (L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0)"
+  define deadlock_check' where "deadlock_check' \<equiv>
+    has_deadlock A' (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0)"
+  define buechi_check where "buechi_check \<equiv>
+  \<not> Graph_Defs.alw_ev
+      (\<lambda>(L, s, u) (L', x, y). A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', x, y\<rangle>)
+      (\<lambda>(L, s, _). check_sexp (sexp_of_Ex formula) L (the \<circ> s))
+      (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
+  define buechi_check' where "buechi_check' \<equiv>
+  \<not> Graph_Defs.alw_ev
+      (\<lambda>(L, s, u) (L', x, y). A' \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow> \<langle>L', x, y\<rangle>)
+      (\<lambda>(L, s, _). check_sexp (sexp_of_Ex (map_formula renum_states renum_vars id formula)) L (the \<circ> s))
+      (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0), \<lambda>_ . 0)"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
       broadcast bounds
-      renum_acts renum_vars renum_clocks renum_states STR ''_urge'' automata formula s\<^sub>0 L\<^sub>0
-  "
-  have [simp]: "check \<longleftrightarrow> check'" 
-    if renaming_valid
+      renum_acts renum_vars renum_clocks renum_states STR ''_urge'' automata formula s\<^sub>0 L\<^sub>0"
+  define formula_is_ex where
+    "formula_is_ex \<equiv> \<exists>\<phi>. map_formula renum_states renum_vars id formula = formula.EX \<phi>"
+  have [simp]: "check \<longleftrightarrow> check'" if renaming_valid
     using that unfolding check_def check'_def A_def A'_def renaming_valid_def
     by (rule Simple_Network_Rename_Formula.models_iff'[symmetric])
+  have [simp]: "buechi_check \<longleftrightarrow> buechi_check'" if renaming_valid formula_is_ex
+  proof -
+    from that(2) obtain \<phi> where "formula = formula.EX \<phi>"
+      unfolding formula_is_ex_def by (cases formula) auto
+    with that(1) show ?thesis
+      unfolding
+        buechi_check_def buechi_check'_def check_def check'_def A_def A'_def renaming_valid_def
+      by (simp add: Simple_Network_Rename_Formula.buechi_compatible'[symmetric])
+  qed
+  have **[simp]: "deadlock_check \<longleftrightarrow> deadlock_check'" if renaming_valid
+    using that unfolding deadlock_check_def deadlock_check'_def A_def A'_def renaming_valid_def
+    by (rule Simple_Network_Rename_Formula.has_deadlock_iff'[symmetric])
   note [sep_heap_rules] =
     certificate_check[
     of num_split state_space
@@ -1681,7 +1977,7 @@ proof -
     "map_formula renum_states renum_vars id formula",
     folded A'_def renaming_valid_def, folded check'_def, simplified
     ]
-  show ?A ?B ?C
+  show ?A ?B ?C ?D
     using certificate_check2[
       of num_split state_space
       "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
@@ -1698,13 +1994,24 @@ proof -
       "map_formula renum_states renum_vars id formula",
       folded A'_def renaming_valid_def, folded check'_def
     ]
+    using buechi_certificate_check[
+      of num_split certificate
+      "map renum_acts broadcast" "map (\<lambda>(a,p). (renum_vars a, p)) bounds"
+      "map_index (renum_automaton renum_acts renum_vars renum_clocks renum_states) ?automata"
+      m num_states num_actions k "map_index renum_states L\<^sub>0" "map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0"
+      "map_formula renum_states renum_vars id formula",
+      folded A'_def renaming_valid_def,
+      folded buechi_check'_def deadlock_check'_def formula_is_ex_def
+    ]
     unfolding
-      rename_check_def rename_check2_def rename_check3_def
+      rename_check_def rename_check2_def rename_check3_def rename_check_buechi_def
       do_rename_mc_def rename_network_def
     unfolding if_False
     unfolding Simple_Network_Rename_Formula_String_Defs.check_renaming[symmetric] * Let_def
-    unfolding A_def[symmetric] check_def[symmetric] renaming_valid_def[symmetric]
-    by (sep_auto simp: split: bool.splits)+
+    unfolding
+      A_def[symmetric] renaming_valid_def[symmetric]
+      check_def[symmetric] buechi_check_def[symmetric] deadlock_check_def[symmetric]
+    by (sep_auto split: bool.splits)+
 qed
 
 theorem certificate_deadlock_check_rename:
@@ -1767,8 +2074,7 @@ proof -
     Simple_Network_Rename_Formula
       broadcast bounds renum_acts renum_vars renum_clocks renum_states ?urge automata ?formula s\<^sub>0 L\<^sub>0
   "
-  have **[simp]: "check \<longleftrightarrow> check'" 
-    if renaming_valid
+  have **[simp]: "check \<longleftrightarrow> check'" if renaming_valid
     using that unfolding check_def check'_def A_def A'_def renaming_valid_def
     by (rule Simple_Network_Rename_Formula.has_deadlock_iff'[symmetric])
   note [sep_heap_rules] =
@@ -1808,7 +2114,7 @@ qed
 
 lemmas [code] = Simple_Network_Impl_nat_defs.states_i_def
 
-export_code rename_check rename_check2 rename_check3 in SML module_name Test
+export_code rename_check rename_check2 rename_check3 rename_check_buechi in SML module_name Test
 
 export_code rename_check_dbg in SML module_name Test
 
