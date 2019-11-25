@@ -790,7 +790,7 @@ definition "
   W l l' \<equiv> if l = n then - bound l' else 0
 "
 
-definition "
+definition G where "
   G \<equiv> \<lparr> gi_V = V, gi_E = E, gi_V0 = [n], \<dots> = W \<rparr>
 "
 
@@ -1528,6 +1528,20 @@ definition parse_convert_run where
       do_preproc_mc dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
 "
 
+definition convert_run where
+  "convert_run dc json_data \<equiv>
+   case (
+      let
+      s' = show json_data |> String.implode;
+      _  = trace_level 2 (\<lambda>_. return s')
+      in parse json s' \<bind> (\<lambda>r'.
+      assert (json_data = r') STR ''Parse-print-parse loop failed!'' \<bind> (\<lambda>_. convert json_data)))
+   of
+     Error es \<Rightarrow> return (Error es)
+   | Result (ids_to_names, _, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
+      do_preproc_mc dc ids_to_names (broadcast, automata, bounds) L\<^sub>0 s\<^sub>0 formula
+"
+
 text \<open>Eliminate Gabow statistics\<close>
 code_printing
   code_module Gabow_Skeleton_Statistics \<rightharpoonup> (SML) \<open>\<close>
@@ -1589,6 +1603,12 @@ text \<open>To disable state tracing:\<close>
 
 export_code parse_convert_run Result Error
 in SML module_name Model_Checker file "../ML/Simple_Model_Checker.sml"
+
+export_code
+  convert_run Result Error String.explode int_of_integer nat_of_integer
+  JSON.Object JSON.Array JSON.String JSON.Int JSON.Nat JSON.Rat JSON.Boolean JSON.Null fract.Rat
+in OCaml module_name Model_Checker file "../OCaml/Simple_Model_Checker.ml"
+
 
 definition parse_convert_run_test where
   "parse_convert_run_test dc s \<equiv> do {
