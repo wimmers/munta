@@ -20,5 +20,6 @@ ann "nonexhaustiveMatch ignore" in
     library.ML
 end
 Unsynchronized.sml
+Util.sml
 Muntax.sml
 Mlton_Main.sml

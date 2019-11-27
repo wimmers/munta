@@ -1,22 +1,15 @@
 open Model_Checker;
-
-(*** Printing utilites ***)
-fun println s = print (s ^ "\n")
-
-fun list_to_string f = (fn x => "[" ^ x ^ "]") o String.concatWith ", " o map f;
-
-fun print_result NONE = println("Invalid input\n")
-    | print_result (SOME true) = println("Property is satisfied\n")
-    | print_result (SOME false) = println("Property is not satisfied\n")
+open Util;
 
 fun print_timings () =
   let
     val tab = Timing.get_timings ();
     fun print_time (s, t) = println(s ^ ": " ^ Time.toString t);
-  in map print_time tab; () end;
+  in map print_time tab; () end
 
 (*** Wrapping up the checker ***)
-fun run_and_print implementation num_threads check_deadlock s =
+fun 
+ implementation num_threads check_deadlock s =
   let
     val debug_level: Int32.int Unsynchronized.ref = ref 0
     val _ = debug_level := 2
@@ -44,16 +37,6 @@ fun run_and_print implementation num_threads check_deadlock s =
   *)
   end;
 
-fun read_lines stream =
-  let
-    val input = TextIO.inputLine stream
-      handle Size => (println "Input line too long!"; raise Size)
-  in
-    case input of
-      NONE => ""
-    | SOME input => input ^ read_lines stream
-  end;
-
 fun check_and_verify_from_stream implementation num_threads model check_deadlock =
   let
     val stream = TextIO.openIn model
@@ -63,19 +46,9 @@ fun check_and_verify_from_stream implementation num_threads model check_deadlock
     if input = ""
     then println "Failed to read line from input!"
       (* We append a space to terminate the input for the parser *)
-    else input ^ " " |> run_and_print implementation num_threads check_deadlock
+    else input ^ " " |> 
+     implementation num_threads check_deadlock
   end;
-
-fun find_with_arg P [] = NONE
-  | find_with_arg P [_] = NONE
-  | find_with_arg P (x :: y :: xs) = if P x then SOME y else find_with_arg P (y :: xs)
-
-fun read_file f =
-  let
-    val file = TextIO.openIn f
-    val s = read_lines file
-    val _ = TextIO.closeIn file
-  in s end;
 
 (* For IntInf as the default int type *)
 (* val to_large_int = IntInf.fromInt; *)

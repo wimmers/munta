@@ -29,5 +29,6 @@ Unsynchronized.sml
 $(MLUNTA_CERT)/prelude.sml
 $(MLUNTA_CERT)/serializable.sml
 $(MLUNTA_CERT)/certificate.sml
+Util.sml
 Muntac.sml
 Mlton_Main.sml
