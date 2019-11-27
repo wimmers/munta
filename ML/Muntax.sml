@@ -24,7 +24,7 @@ fun run_and_print check_deadlock s =
           val _ = println("")
         in () end else ()
       in println r end
-  end;
+  end
 
 fun check_and_verify_from_stream stream _ =
   let
@@ -36,27 +36,18 @@ fun check_and_verify_from_stream stream _ =
     then println "Failed to read line from input!"
       (* We append a space to terminate the input for the parser *)
     else input ^ " " |> run_and_print check_deadlock
-  end;
+  end
 
 val to_large_int = fn x => x;
 
-fun print_usage () =
+fun print_json () =
   let
-    val prelude = "Usage:\n"
-    val usage = [
-      ("m ", "Input file for the model & formula. "
-          ^ "If this is not specified, the input is read from stdin."),
-      ("dc", "Ignore formula and run deadlock check."),
-      ("e ", "Report set of explored states (only works for reachability formulas)."),
-      ("s ", "Print back the JSON that was parsed from the input.")
-    ]
-  in
-    usage
-    |> map (fn (opt, s) => "-" ^ opt ^ ": " ^ s ^ "\n")
-    |> String.concat
-    |> (fn s => prelude ^ s)
-    |> println
- end
+    val messages = Logging.get_trace ()
+    val jsons = filter (fn (i, s) => i = 2) messages |> map snd
+    val _ = println ""
+    val _ = println "The following JSON was read by the parser:"
+    val _ = if length jsons > 0 then println (hd jsons) else ()
+  in () end
 
 fun print_explored () =
   let
@@ -72,16 +63,21 @@ fun print_explored () =
     val _ = if length final > 0 then map println final else [()]
   in () end
 
+val arguments = common_arguments @ [
+  (["explored", "e"], "Report set of explored states (only works for reachability formulas).", Flag),
+  (["show", "s"], "Print back the JSON that was parsed from the input.", Flag)
+]
+
 fun main () =
   let
-    val args = CommandLine.arguments()
-    val check_deadlock = List.find (fn x => x = "-deadlock" orelse x = "-dc") args <> NONE
-    val cpu_time = List.find (fn x => x = "-cpu-time" orelse x = "-cpu") args <> NONE
-    val trace_explored = List.find (fn x => x = "-explored" orelse x = "-e") args <> NONE
-    val model = find_with_arg (fn x => x = "-model" orelse x = "-m") args
-    val num_threads = find_with_arg (fn x => x = "-num-threads" orelse x = "-n") args
-    val show_json = List.find (fn x => x = "-show" orelse x = "-s") args <> NONE
-    val show_help = List.find (fn x => x = "-help" orelse x = "-h" orelse x = "-?") args <> NONE
+    val _ = read_arguments arguments
+    val check_deadlock = is_present "deadlock"
+    val cpu_time = is_present "cpu-time"
+    val trace_explored = is_present "explored"
+    val model = find_arg "model"
+    val num_threads = find_arg "num-threads"
+    val show_json = is_present "show"
+    val show_help = is_present "help"
     fun convert f NONE = NONE
       | convert f (SOME x) = SOME (f x)
         handle Fail msg => (println ("Argument error: " ^ msg); OS.Process.exit OS.Process.failure)
@@ -107,7 +103,7 @@ fun main () =
     val input = ref ""
   in
     if show_help then
-      print_usage ()
+      print_usage arguments
     else (case model of
       NONE => input := read_lines TextIO.stdIn |
       SOME f =>

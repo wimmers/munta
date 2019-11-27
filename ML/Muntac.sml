@@ -8,7 +8,7 @@ fun print_timings () =
   in map print_time tab; () end
 
 (*** Wrapping up the checker ***)
-fun 
+fun run_and_print
  implementation num_threads check_deadlock s =
   let
     val debug_level: Int32.int Unsynchronized.ref = ref 0
@@ -46,7 +46,7 @@ fun check_and_verify_from_stream implementation num_threads model check_deadlock
     if input = ""
     then println "Failed to read line from input!"
       (* We append a space to terminate the input for the parser *)
-    else input ^ " " |> 
+    else input ^ " " |> run_and_print
      implementation num_threads check_deadlock
   end;
 
@@ -105,17 +105,25 @@ fun read_and_check check_deadlock (model, certificate, renaming, implementation,
           )
     end
 
+val arguments = common_arguments @ [
+  (["show-cert", "sc"], "Print the certificate.", Flag),
+  (["renaming", "r"], "Path to renaming JSON.", Arg),
+  (["certificate", "c"], "Path to binary certificate.", Arg),
+  (["implementation", "i"], "The certifier variant to choose.", Arg)
+]
+
 fun main () =
   let
-    val args = CommandLine.arguments()
-    val check_deadlock = List.find (fn x => x = "-deadlock" orelse x = "-dc") args <> NONE
-    val cpu_time = List.find (fn x => x = "-cpu-time" orelse x = "-cpu") args <> NONE
-    val model = find_with_arg (fn x => x = "-model" orelse x = "-m") args
-    val certificate = find_with_arg (fn x => x = "-certificate" orelse x = "-c") args
-    val renaming = find_with_arg (fn x => x = "-renaming" orelse x = "-r") args
-    val num_threads = find_with_arg (fn x => x = "-num-threads" orelse x = "-n") args
-    val implementation = find_with_arg (fn x => x = "-implementation" orelse x = "-i") args
-    val show_cert = List.find (fn x => x = "-explored" orelse x = "-e") args <> NONE
+    val _ = read_arguments arguments
+    val check_deadlock = is_present "deadlock"
+    val cpu_time = is_present "cpu-time"
+    val model = find_arg "model"
+    val num_threads = find_arg "num-threads"
+    val show_help = is_present "help"
+    val certificate = find_arg "certificate"
+    val renaming = find_arg "renaming"
+    val implementation = find_arg "implementation"
+    val show_cert = is_present "show-cert"
     fun convert f NONE = NONE
       | convert f (SOME x) = SOME (f x)
         handle Fail msg => (println ("Argument error: " ^ msg); OS.Process.exit OS.Process.failure)
@@ -151,17 +159,21 @@ fun main () =
     val args = [model, certificate, renaming]
     val _ = if cpu_time then Timing.set_cpu true else ()
   in
-    if certificate = NONE andalso renaming = NONE andalso model <> NONE then
-      (
-        println "Falling back to munta!";
-        check_and_verify_from_stream implementation num_threads (the model) check_deadlock
+    if show_help then
+      print_usage arguments
+    else (
+      if certificate = NONE andalso renaming = NONE andalso model <> NONE then
+        (
+          println "Falling back to munta!";
+          check_and_verify_from_stream implementation num_threads (the model) check_deadlock
+        )
+      else if exists (fn x => x = NONE) args then
+        println "Missing command line arguments!"
+      else
+        let
+          val [model, certificate, renaming] = map the args
+        in
+          read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads, show_cert)
+        end
       )
-    else if exists (fn x => x = NONE) args then
-      println "Missing command line arguments!"
-    else
-      let
-        val [model, certificate, renaming] = map the args
-      in
-        read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads, show_cert)
-      end
   end
