@@ -357,8 +357,11 @@ structure Model_Checker : sig
   datatype 'a result = Result of 'a | Error of string list
   type 'a len_list
   type resulta
-  datatype mode = Impl1 | Impl2 | Impl3
+  datatype mode = Impl1 | Impl2 | Impl3 | Buechi
   type ('a, 'b, 'c, 'd) formula
+  datatype 'a state_space =
+    Reachable_Set of (('a list * int list) * (int dBMEntry list) list) list |
+    Buechi_Set of (('a list * int list) * (int dBMEntry list * nat) list) list
   val e_op_impl :
     nat ->
       (nat, int) acconstraint list ->
@@ -369,11 +372,7 @@ structure Model_Checker : sig
   val parse_convert_check :
     mode ->
       nat ->
-        bool ->
-          string ->
-            string ->
-              ((int list * int list) * (int dBMEntry list) list) list ->
-                (unit -> unit)
+        bool -> string -> string -> int state_space -> bool -> (unit -> unit)
   val parse_convert_run_check : mode -> nat -> bool -> string -> (unit -> unit)
   val parse_convert_run_print : bool -> string -> (unit -> unit)
 end = struct
@@ -1753,12 +1752,16 @@ datatype ('a, 'b, 'c, 'd) sexp = Truea | Nota of ('a, 'b, 'c, 'd) sexp |
   Leb of 'c * 'd | Ltb of 'c * 'd | Gea of 'c * 'd | Gta of 'c * 'd |
   Loc of 'a * 'b;
 
-datatype mode = Impl1 | Impl2 | Impl3;
+datatype mode = Impl1 | Impl2 | Impl3 | Buechi;
 
 datatype ('a, 'b, 'c, 'd) formula = EX of ('a, 'b, 'c, 'd) sexp |
   EG of ('a, 'b, 'c, 'd) sexp | AX of ('a, 'b, 'c, 'd) sexp |
   AG of ('a, 'b, 'c, 'd) sexp |
   Leadsto of ('a, 'b, 'c, 'd) sexp * ('a, 'b, 'c, 'd) sexp;
+
+datatype 'a state_space =
+  Reachable_Set of (('a list * int list) * (int dBMEntry list) list) list |
+  Buechi_Set of (('a list * int list) * (int dBMEntry list * nat) list) list;
 
 fun suc n = plus_nata n one_nata;
 
@@ -1799,6 +1802,11 @@ fun upd A_ i x a =
   (fn f_ => fn () => f_
     (((fn () => Array.update (a, IntInf.toInt (integer_of_nat i), x))) ()) ())
     (fn _ => (fn () => a));
+
+fun drop n [] = []
+  | drop n (x :: xs) =
+    (if equal_nata n zero_nata then x :: xs
+      else drop (minus_nat n one_nata) xs);
 
 fun maps f [] = []
   | maps f (x :: xs) = f x @ maps f xs;
@@ -1846,6 +1854,17 @@ fun fun_upd A_ f a b = (fn x => (if eq A_ x a then b else f x));
 
 fun filter p [] = []
   | filter p (x :: xs) = (if p x then x :: filter p xs else filter p xs);
+
+fun fold_map f [] = (fn () => [])
+  | fold_map f (x :: xs) =
+    (fn f_ => fn () => f_ ((f x) ()) ())
+      (fn y =>
+        (fn f_ => fn () => f_ ((fold_map f xs) ()) ())
+          (fn ys => (fn () => (y :: ys))));
+
+fun freeze A_ a =
+  (fn f_ => fn () => f_ ((len A_ a) ()) ())
+    (fn n => fold_map (ntha A_ a) (upt zero_nata n));
 
 fun foldli [] c f sigma = sigma
   | foldli (x :: xs) c f sigma =
@@ -2702,13 +2721,6 @@ fun subset (A1_, A2_) (Coset xs) (Set ys) =
   | subset (A1_, A2_) a (Coset ys) = list_all (fn y => not (member A2_ y a)) ys;
 
 fun hm_isEmpty ht = (fn () => (equal_nata (the_size ht) zero_nata));
-
-fun fold_map f [] = (fn () => [])
-  | fold_map f (x :: xs) =
-    (fn f_ => fn () => f_ ((f x) ()) ())
-      (fn y =>
-        (fn f_ => fn () => f_ ((fold_map f xs) ()) ())
-          (fn ys => (fn () => (y :: ys))));
 
 val tRACE_impl : (unit -> unit) = (fn () => (tracea ()));
 
@@ -3901,6 +3913,128 @@ fun sum_list A_ xs =
     (zero (zero_monoid_add A_));
 
 fun sup_seta A_ (Set xs) = fold (sup_set A_) xs bot_set;
+
+fun make_string (A1_, A2_, A3_) show_clock show_num e i j =
+  (if equal_nata i j
+    then (if less_DBMEntry
+               ((linorder_linordered_ab_semigroup_add o
+                  linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                  linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
+                  linordered_cancel_ab_monoid_add_linordered_ab_group_add)
+                 A1_)
+               e (zero_DBMEntrya
+                   ((zero_monoid_add o monoid_add_group_add o
+                      group_add_ab_group_add o
+                      ab_group_add_ordered_ab_group_add o
+                      ordered_ab_group_add_linordered_ab_group_add)
+                     A1_))
+           then SOME [Chara (true, false, true, false, false, false, true,
+                              false),
+                       Chara (true, false, true, true, false, false, true,
+                               false),
+                       Chara (false, false, false, false, true, false, true,
+                               false),
+                       Chara (false, false, true, false, true, false, true,
+                               false),
+                       Chara (true, false, false, true, true, false, true,
+                               false)]
+           else NONE)
+    else (if equal_nata i zero_nata
+           then (case e
+                  of Le a =>
+                    (if eq A2_ a
+                          (zero ((zero_monoid_add o monoid_add_group_add o
+                                   group_add_ab_group_add o
+                                   ab_group_add_ordered_ab_group_add o
+                                   ordered_ab_group_add_linordered_ab_group_add)
+                                  A1_))
+                      then NONE
+                      else SOME (show_clock j @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (false, true, true, true, true, true,
+    false, false),
+                                    Chara (true, false, true, true, true, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_num
+                                      (uminus
+((uminus_group_add o group_add_ab_group_add o
+   ab_group_add_ordered_ab_group_add o
+   ordered_ab_group_add_linordered_ab_group_add)
+  A1_)
+a)))
+                  | Lt a =>
+                    SOME (show_clock j @
+                           [Chara (false, false, false, false, false, true,
+                                    false, false),
+                             Chara (false, true, true, true, true, true, false,
+                                     false),
+                             Chara (false, false, false, false, false, true,
+                                     false, false)] @
+                             show_num
+                               (uminus
+                                 ((uminus_group_add o group_add_ab_group_add o
+                                    ab_group_add_ordered_ab_group_add o
+                                    ordered_ab_group_add_linordered_ab_group_add)
+                                   A1_)
+                                 a))
+                  | INF => NONE)
+           else (if equal_nata j zero_nata
+                  then (case e
+                         of Le a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (false, false, true, true, true, true,
+    false, false),
+                                    Chara (true, false, true, true, true, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_num a)
+                         | Lt a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (false, false, true, true, true, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_num a)
+                         | INF => NONE)
+                  else (case e
+                         of Le a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (true, false, true, true, false, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_clock j @
+                                      [Chara
+ (false, false, false, false, false, true, false, false),
+Chara (false, false, true, true, true, true, false, false),
+Chara (true, false, true, true, true, true, false, false),
+Chara (false, false, false, false, false, true, false, false)] @
+show_num a)
+                         | Lt a =>
+                           SOME (show_clock i @
+                                  [Chara (false, false, false, false, false,
+   true, false, false),
+                                    Chara (true, false, true, true, false, true,
+    false, false),
+                                    Chara (false, false, false, false, false,
+    true, false, false)] @
+                                    show_clock j @
+                                      [Chara
+ (false, false, false, false, false, true, false, false),
+Chara (false, false, true, true, true, true, false, false),
+Chara (false, false, false, false, false, true, false, false)] @
+show_num a)
+                         | INF => NONE))));
 
 fun geta A_ m x =
   (case m x
@@ -5503,6 +5637,26 @@ fun map_acconstraint f1 f2 (LT (x11, x12)) = LT (f1 x11, f2 x12)
 
 fun print_line_impl x = (fn xi => (fn () => (writeln xi))) x;
 
+fun dbm_list_to_string (A1_, A2_, A3_) n show_clock show_num xs =
+  app (concat o
+         intersperse
+           [Chara (false, false, true, true, false, true, false, false),
+             Chara (false, false, false, false, false, true, false, false)] o
+         rev o
+         snd o
+        snd)
+    (fold (fn e => fn (i, (j, acc)) =>
+            let
+              val v = make_string (A1_, A2_, A3_) show_clock show_num e i j;
+              val ja = modulo_nat (plus_nata j one_nata) (plus_nata n one_nata);
+              val ia =
+                (if equal_nata ja zero_nata then plus_nata i one_nata else i);
+            in
+              (case v of NONE => (ia, (ja, acc))
+                | SOME s => (ia, (ja, s :: acc)))
+            end)
+      xs (zero_nata, (zero_nata, [])));
+
 fun mem_assoc A_ x = list_ex (fn (y, _) => eq A_ x y);
 
 fun show_locs B_ inv_renum_states =
@@ -5572,6 +5726,9 @@ fun distr (A1_, A2_) xs =
   in
     map (fn x => (x, the (m x))) (sort_key A2_ (fn x => x) d)
   end;
+
+fun show_clock B_ inv_renum_clocks =
+  (fn x => shows_prec B_ zero_nata x []) o inv_renum_clocks;
 
 fun show_state B_ C_ D_ inv_renum_states inv_renum_vars =
   (fn (l, vs) =>
@@ -6217,6 +6374,9 @@ fun imp_map f (x :: xs) =
       (fn f_ => fn () => f_ ((imp_map f xs) ()) ())
         (fn ys => (fn () => (y :: ys))))
   | imp_map f [] = (fn () => []);
+
+fun show_st A_ inv_renum_states inv_renum_vars =
+  show_state show_nat show_literal A_ inv_renum_states inv_renum_vars;
 
 fun set2_sexp B_ Truea = bot_set
   | set2_sexp B_ (Nota x2) = set2_sexp B_ x2
@@ -6893,6 +7053,11 @@ fun do_rename_mc C_ E_ F_ G_ f dc broadcast bounds automata k urge l_0 s_0
 fun mk_renaminga (A1_, A2_) xs =
   mk_renaming A1_ (implode o (fn x => shows_prec A2_ zero_nata x [])) xs;
 
+fun show_dbm num_clocks inv_renum_clocks =
+  dbm_list_to_string (linordered_ab_group_add_int, equal_int, heap_int)
+    num_clocks (show_clock show_literal inv_renum_clocks)
+    (fn x => shows_prec_int zero_nata x []);
+
 fun show_lit A_ = implode o (fn x => shows_prec A_ zero_nata x []);
 
 fun show_str A_ = implode o (fn x => shows_prec A_ zero_nata x []);
@@ -7044,6 +7209,13 @@ fun make_renaming (A1_, A2_) =
             b)
     end);
 
+fun print_sep x =
+  (fn () =>
+    writeln (implode
+              (replicate (nat_of_integer (100 : IntInf.int))
+                (Chara (true, false, true, true, false, true, false, false)))))
+    x;
+
 fun split_size f width uu acc [] = [acc]
   | split_size f width n acc (x :: xs) =
     let
@@ -7075,6 +7247,57 @@ fun split_ka k xs =
   in
     split_eq_width widtha xs
   end;
+
+fun insert_every_nth n a xs =
+  rev (snd (fold (fn x => fn (i, xsa) =>
+                   (if equal_nata i n then (one_nata, a :: x :: xsa)
+                     else (plus_nata i one_nata, x :: xsa)))
+             xs (one_nata, [])));
+
+fun fw_upd_impl_inta x =
+  (fn n => fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_
+      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
+      (fn xa =>
+        (fn f_ => fn () => f_
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
+          (fn xaa =>
+            let
+              val xb = dbm_add_int xa xaa;
+            in
+              (fn f_ => fn () => f_
+                ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
+                (fn xab =>
+                  (if less_DBMEntry linorder_int xb xab
+                    then mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
+                           xb
+                    else (fn () => ai)))
+            end)))
+    x;
+
+fun fw_impl_inta x =
+  (fn n =>
+    imp_for_inta zero_nata (plus_nata n one_nata)
+      (fn xb =>
+        imp_for_inta zero_nata (plus_nata n one_nata)
+          (fn xd =>
+            imp_for_inta zero_nata (plus_nata n one_nata)
+              (fn xf => fn sigma => fw_upd_impl_inta n sigma xb xd xf))))
+    x;
+
+fun normalize_dbm m xs =
+  (fn f => f ()) ((fn f_ => fn () => f_ (((fn () => Array.fromList xs)) ()) ())
+                   (fn dbm =>
+                     (fn f_ => fn () => f_ ((fw_impl_inta m dbm) ()) ())
+                       (freeze (heap_DBMEntry heap_int))));
+
+fun convert_dbm urge m dbm =
+  normalize_dbm m
+    (take m dbm @
+      Le zero_inta ::
+        insert_every_nth m INF (drop m dbm) @
+          (if urge then Le zero_inta else INF) ::
+            replicate (minus_nat m one_nata) INF @ [Le zero_inta]);
 
 fun simple_Network_Impl_nat broadcast bounds automata m num_states num_actions =
   less_nat zero_nata m andalso
@@ -7192,16 +7415,18 @@ fun split_kb k xs =
     map (map fst) (split_size (size_list o snd) widtha zero_nata [] xs)
   end;
 
-fun map_of_debug (A1_, A2_) m =
+fun map_of_debug (A1_, A2_) prefix m =
   let
     val ma = map_of A1_ m;
   in
     (fn x =>
-      (case ma x of NONE => let
-                              val _ = writeln ("Key error: " ^ show_lit A2_ x);
-                            in
-                              NONE
-                            end
+      (case ma x
+        of NONE =>
+          let
+            val _ = writeln ("Key error(" ^ prefix ^ "): " ^ show_lit A2_ x);
+          in
+            NONE
+          end
         | SOME a => SOME a))
   end;
 
@@ -7377,6 +7602,9 @@ fun certify_unreachable_impl2 (A1_, A2_, A3_) B_ fi pi copyi lei l_0i s_0i
 
 fun array_all2 n p asa bs =
   all_interval_nat (fn i => p (sub asa i) (sub bs i)) zero_nata n;
+
+fun print_fail s b =
+  (if b then () else writeln (s ^ " precondition check failed!"));
 
 fun succs_impl broadcast bounds automata m num_actions =
   let
@@ -7649,37 +7877,6 @@ fun check_subsumed (A1_, A2_, A3_) n xs i m =
     ()) ())
     (fn (_, a) => (fn () => a));
 
-fun fw_upd_impl_inta x =
-  (fn n => fn ai => fn bib => fn bia => fn bi =>
-    (fn f_ => fn () => f_
-      ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
-      (fn xa =>
-        (fn f_ => fn () => f_
-          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
-          (fn xaa =>
-            let
-              val xb = dbm_add_int xa xaa;
-            in
-              (fn f_ => fn () => f_
-                ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
-                (fn xab =>
-                  (if less_DBMEntry linorder_int xb xab
-                    then mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
-                           xb
-                    else (fn () => ai)))
-            end)))
-    x;
-
-fun fw_impl_inta x =
-  (fn n =>
-    imp_for_inta zero_nata (plus_nata n one_nata)
-      (fn xb =>
-        imp_for_inta zero_nata (plus_nata n one_nata)
-          (fn xd =>
-            imp_for_inta zero_nata (plus_nata n one_nata)
-              (fn xf => fn sigma => fw_upd_impl_inta n sigma xb xd xf))))
-    x;
-
 fun imp_filter_index p xs =
   (fn f_ => fn () => f_
     ((imp_nfoldli xs (fn _ => (fn () => true))
@@ -7699,9 +7896,55 @@ fun filter_dbm_list (A1_, A2_, A3_) n xs =
         (fn b => (fn () => (not b))))
     xs;
 
+fun certify_no_buechi_run_pure get_succs li lei pi l_0i s_0i fi li_split mi =
+  let
+    val check_all_pre_impl =
+      time_it "Time for state set preconditions check"
+        (fn _ =>
+          (case mi l_0i of NONE => false
+            | SOME xs =>
+              not (is_none (mi l_0i)) andalso
+                (pi (l_0i, s_0i) andalso
+                  (list_ex (fn (s, _) => lei s_0i s) xs andalso
+                    list_all id
+                      (Par_List.map
+                        (fn l =>
+                          (case op_map_lookup l mi of NONE => true
+                            | SOME a => list_all (fn (s, _) => pi (l, s)) a))
+                        li)))));
+    val check_invariant =
+      time_it "Time for state space invariant check"
+        (fn _ =>
+          list_all id
+            (Par_List.map
+              (list_all
+                (fn l =>
+                  (case mi l of NONE => true
+                    | SOME a =>
+                      list_all
+                        (fn (x, i) =>
+                          list_all
+                            (fn (la, xs) =>
+                              (if null xs then true
+                                else (case mi la of NONE => false
+                                       | SOME ys =>
+ list_all
+   (fn y =>
+     list_ex
+       (fn (z, j) =>
+         lei y z andalso (if fi (l, x) then less_nat i else less_eq_nat i) j)
+       ys)
+   xs)))
+                            (get_succs l [x]))
+                        a)))
+              li_split));
+  in
+    (if check_all_pre_impl then check_invariant else false)
+  end;
+
 fun array_freeze A_ a = (fn () => Array.vector a);
 
-fun make_string (A1_, A2_) show_clock show_num e i j =
+fun make_stringa (A1_, A2_) show_clock show_num e i j =
   let
     val ia =
       (if less_nat zero_nata i then show_clock i
@@ -9261,7 +9504,7 @@ fun list_of_json_object obj =
     | Nata _ => Error ["Not an object"] | Rat _ => Error ["Not an object"]
     | Boolean _ => Error ["Not an object"] | Null => Error ["Not an object"]);
 
-fun nat_renaming_of_json max_id json =
+fun nat_renaming_of_json prefix max_id json =
   binda (list_of_json_object json)
     (fn vars =>
       binda (combine_map
@@ -9275,15 +9518,17 @@ fun nat_renaming_of_json max_id json =
             val missing =
               filter (fn i => not (member equal_nat i ids))
                 (upt zero_nata max_id);
-            val m = the o map_of_debug (equal_nat, show_nat) varsa;
-            val a =
+            val m = the o map_of_debug (equal_nat, show_nat) prefix varsa;
+            val ma =
               extend_domain equal_nat (one_nat, plus_nat) m missing
                 (size_list varsa);
           in
-            Result a
+            Result
+              (ma, the o map_of_debug (equal_nat, show_nat) prefix
+                           (map swap varsa))
           end));
 
-fun renaming_of_jsona opt json =
+fun renaming_of_jsona opt prefix json =
   binda (list_of_json_object json)
     (fn vars =>
       binda (combine_map
@@ -9298,7 +9543,10 @@ fun renaming_of_jsona opt json =
                     [(x, plus_nata (fold (max ord_nat o snd) varsa zero_nata)
                            one_nata)]);
           in
-            Result (the o map_of_debug (equal_literal, show_literal) varsb)
+            Result
+              (the o map_of_debug (equal_literal, show_literal) prefix varsb,
+                the o map_of_debug (equal_nat, show_nat) prefix
+                        (map swap varsb))
           end));
 
 fun renaming_of_json x = renaming_of_jsona NONE x;
@@ -9312,8 +9560,8 @@ fun convert_renaming ids_to_names process_names_to_index json =
                 Chara (false, true, false, false, true, true, true, false),
                 Chara (true, true, false, false, true, true, true, false)])
         (fn vars =>
-          binda (renaming_of_json vars)
-            (fn var_renaming =>
+          binda (renaming_of_json "var renaming" vars)
+            (fn (var_renaming, var_inv) =>
               binda (geta (show_list show_char) jsona
                       [Chara (true, true, false, false, false, true, true,
                                false),
@@ -9328,8 +9576,9 @@ fun convert_renaming ids_to_names process_names_to_index json =
                         Chara (true, true, false, false, true, true, true,
                                 false)])
                 (fn clocks =>
-                  binda (renaming_of_jsona (SOME "_urge") clocks)
-                    (fn clock_renaming =>
+                  binda (renaming_of_jsona (SOME "_urge") "clock renaming"
+                          clocks)
+                    (fn (clock_renaming, clock_inv) =>
                       binda (geta (show_list show_char) jsona
                               [Chara (false, false, false, false, true, true,
                                        true, false),
@@ -9350,8 +9599,8 @@ true, false),
                                 Chara (true, true, false, false, true, true,
 true, false)])
                         (fn processes =>
-                          binda (renaming_of_json processes)
-                            (fn process_renaming =>
+                          binda (renaming_of_json "process renaming" processes)
+                            (fn (process_renaming, _) =>
                               binda (geta (show_list show_char) jsona
                                       [Chara
  (false, false, true, true, false, true, true, false),
@@ -9378,17 +9627,80 @@ Chara (true, true, false, false, true, true, true, false)])
           let
             val max_id = nat_of_integer (1000 : IntInf.int);
           in
-            binda (nat_renaming_of_json max_id renaming)
+            binda (nat_renaming_of_json ("process" ^ show_str show_nat p_num)
+                    max_id renaming)
               (fn renaminga => Result (p_num, renaminga))
           end)
     end)
   locationsa)
 (fn locationsb =>
   let
-    val location_renaming = the o map_of equal_nat locationsb;
+    val location_renaming =
+      the o map_of_debug (equal_nat, show_nat) "location"
+              (map (fn (i, (f, _)) => (i, f)) locationsb);
+    val location_inv =
+      the o map_of_debug (equal_nat, show_nat) "location inv"
+              (map (fn (i, a) => let
+                                   val (_, aa) = a;
+                                 in
+                                   (i, aa)
+                                 end)
+                locationsb);
   in
-    Result (var_renaming, (clock_renaming, location_renaming))
+    Result
+      (var_renaming,
+        (clock_renaming,
+          (location_renaming, (var_inv, (clock_inv, location_inv)))))
   end))))))))));
+
+fun show_state_space num_clocks inv_renum_states inv_renum_vars inv_renum_clocks
+  (Reachable_Set xs) =
+  map (fn (l, a) =>
+        map (fn x =>
+              writeln (implode
+                        ([Chara (false, false, false, true, false, true, false,
+                                  false)] @
+                          show_st show_int inv_renum_states inv_renum_vars l @
+                            [Chara (false, false, true, true, false, true,
+                                     false, false),
+                              Chara (false, false, false, false, false, true,
+                                      false, false),
+                              Chara (false, false, true, true, true, true,
+                                      false, false)] @
+                              show_dbm num_clocks inv_renum_clocks x @
+                                [Chara (false, true, true, true, true, true,
+ false, false),
+                                  Chara (true, false, false, true, false, true,
+  false, false)])))
+          a)
+    xs
+  | show_state_space num_clocks inv_renum_states inv_renum_vars inv_renum_clocks
+    (Buechi_Set xs) =
+    map (fn (l, a) =>
+          map (fn (x, i) =>
+                writeln (implode
+                          (shows_prec_nat zero_nata i [] @
+                            [Chara (false, true, false, true, true, true, false,
+                                     false),
+                              Chara (false, false, false, false, false, true,
+                                      false, false),
+                              Chara (false, false, false, true, false, true,
+                                      false, false)] @
+                              show_st show_int inv_renum_states inv_renum_vars
+                                l @
+                                [Chara (false, false, true, true, false, true,
+ false, false),
+                                  Chara (false, false, false, false, false,
+  true, false, false),
+                                  Chara (false, false, true, true, true, true,
+  false, false)] @
+                                  show_dbm num_clocks inv_renum_clocks x @
+                                    [Chara (false, true, true, true, true, true,
+     false, false),
+                                      Chara
+(true, false, false, true, false, true, false, false)])))
+            a)
+      xs;
 
 fun unreachability_checker2 broadcast bounds automata m num_states num_actions
   l_0 s_0 formula l_list m_list num_split =
@@ -11245,6 +11557,9 @@ fun rename_check3 num_split dc broadcast bounds automata k l_0 s_0 formula m
             [Chara (false, false, false, false, false, true, false, false)])
     of NONE => Renaming_Failed | SOME true => Sat | SOME false => Unsat);
 
+fun len_of_state_space (Reachable_Set xs) = size_list xs
+  | len_of_state_space (Buechi_Set xs) = size_list xs;
+
 fun n num_states q = num_states q;
 
 fun clkp_inv automata i l =
@@ -11429,16 +11744,268 @@ fun rename_state_space A_ =
           end)
     end);
 
-fun convert_state_space state_space =
-  map (fn (a, b) => let
-                      val (locs, vars) = a;
-                    in
-                      (fn aa => ((map nat locs, vars), aa))
-                    end
-                      b)
-    state_space;
+fun convert_state_space m is_urgent (Reachable_Set xs) =
+  Reachable_Set
+    (map (fn (a, b) =>
+           let
+             val (locs, vars) = a;
+           in
+             (fn dbms =>
+               ((map nat locs, vars),
+                 map (convert_dbm (is_urgent (locs, vars)) m) dbms))
+           end
+             b)
+      xs)
+  | convert_state_space m is_urgent (Buechi_Set xs) =
+    Buechi_Set
+      (map (fn (a, b) =>
+             let
+               val (locs, vars) = a;
+             in
+               (fn dbms =>
+                 ((map nat locs, vars),
+                   map (fn (dbm, aa) =>
+                         (convert_dbm (is_urgent (locs, vars)) m dbm, aa))
+                     dbms))
+             end
+               b)
+        xs);
 
-fun parse_convert_check1 model renaming state_space =
+fun certificate_checker_pre1 l_list m_list broadcast bounds automata m
+  num_states num_actions k l_0 s_0 formula =
+  let
+    val _ = Timing.start_timer ();
+    val check1 =
+      simple_Network_Impl_nat_ceiling_start_state broadcast bounds automata m
+        num_states num_actions k l_0 s_0 formula;
+    val _ = Timing.save_time "Time to check ceiling";
+    val n_ps = size_list automata;
+    val n_vsa = n_vs bounds;
+    val states_ia = map (states_i automata) (upt zero_nata n_ps);
+    val _ = Timing.start_timer ();
+    val check2 =
+      list_all
+        (fn (l, s) =>
+          equal_nata (size_list l) n_ps andalso
+            (all_interval_nat
+               (fn i => member equal_nat (nth l i) (nth states_ia i)) zero_nata
+               n_ps andalso
+              (equal_nata (size_list s) n_vsa andalso check_boundedi bounds s)))
+        l_list;
+    val _ = Timing.save_time "Time to check states";
+    val _ = Timing.start_timer ();
+    val n_sq = times_nat (suc m) (suc m);
+    val check3 =
+      list_all
+        (fn (_, a) => list_all (fn (ma, _) => equal_nata (size_list ma) n_sq) a)
+        m_list;
+    val _ = Timing.save_time "Time to check DBMs";
+    val check4 =
+      (case formula of EX _ => true | EG _ => false | AX _ => false
+        | AG _ => false | Leadsto (_, _) => false);
+    val _ =
+      map (fn (a, b) => print_fail a b)
+        [("Ceiling", check1), ("States", check2), ("DBM", check3),
+          ("Formula", check4)];
+  in
+    check1 andalso (check2 andalso (check3 andalso check4))
+  end;
+
+fun no_buechi_run_checker broadcast bounds automata m num_states num_actions l_0
+  s_0 formula l_list m_list num_split =
+  let
+    val n_vsa = n_vs bounds;
+    val n_ps = size_list automata;
+    val invs =
+      Vector.fromList
+        (map (fn i =>
+               let
+                 val ma =
+                   default_map_of equal_nat []
+                     (snd (snd (snd (nth automata i))));
+                 val mb =
+                   Vector.fromList (map ma (upt zero_nata (num_states i)));
+               in
+                 mb
+               end)
+          (upt zero_nata n_ps));
+    val succsi = succs_impl broadcast bounds automata m num_actions n_ps invs;
+    val states_ia = map (states_i automata) (upt zero_nata n_ps);
+    val check_state =
+      (fn (l, s) =>
+        equal_nata (size_list l) n_ps andalso
+          all_interval_nat
+            (fn i => member equal_nat (nth l i) (nth states_ia i)) zero_nata
+            n_ps andalso
+          (equal_nata (size_list s) n_vsa andalso check_boundedi bounds s));
+    val mi =
+      hashmap_of_list
+        (equal_prod (equal_list equal_nat) (equal_list equal_int),
+          hashable_prod (hashable_list hashable_nat)
+            (hashable_list hashable_int))
+        (map (fn (k, dbms) =>
+               (k, map (fn (ma, a) => (Vector.fromList ma, a)) dbms))
+          m_list);
+    val init_dbm =
+      amtx_dflt (heap_DBMEntry heap_int) (suc m) (suc m) (Le zero_inta);
+  in
+    certify_no_buechi_run_pure
+      (fn x =>
+        (fn a => (fn f => f ()) a) o
+          (fn xs =>
+            let
+              val li = id x;
+            in
+              (fn f_ => fn () => f_
+                ((fold_map (array_unfreeze (heap_DBMEntry heap_int)) xs) ()) ())
+                (fn xsi =>
+                  (fn f_ => fn () => f_ ((succsi li xsi) ()) ())
+                    (fold_map
+                      (fn (lia, xsia) =>
+                        (fn f_ => fn () => f_
+                          ((fold_map (array_freeze (heap_DBMEntry heap_int))
+                             xsia)
+                          ()) ())
+                          (fn xsa => (fn () => (id lia, xsa))))))
+            end))
+      l_list
+      (fn asa => fn bs =>
+        not (all_interval_nat
+              (not o
+                (fn i =>
+                  dbm_lt_0
+                    (sub asa (plus_nata (plus_nata i (times_nat i m)) i))))
+              zero_nata (suc m)) orelse
+          array_all2 (times_nat (suc m) (suc m)) dbm_le_int asa bs)
+      (fn a =>
+        (fn f => f ()) ((fn f_ => fn () => f_
+                          (let
+                             val (l, s) = a;
+                           in
+                             (fn f_ => fn () => f_
+                               ((array_unfreeze (heap_DBMEntry heap_int) s) ())
+                               ())
+                               (fn sa => (fn () => (id l, sa)))
+                           end
+                          ()) ())
+                         (fn (a1, a2) =>
+                           (fn f_ => fn () => f_
+                             ((imp_for_int zero_nata (plus_nata m one_nata)
+                                (fn aa => (fn () => aa))
+                                (fn xc => fn _ =>
+                                  imp_for_int zero_nata (plus_nata m one_nata)
+                                    (fn aa => (fn () => aa))
+                                    (fn xf => fn _ =>
+                                      imp_for_int zero_nata
+(plus_nata m one_nata) (fn aa => (fn () => aa))
+(fn xj => fn _ =>
+  (fn f_ => fn () => f_ ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xj))
+    ()) ())
+    (fn x_i =>
+      (fn f_ => fn () => f_
+        ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xf)) ()) ())
+        (fn x =>
+          (fn f_ => fn () => f_
+            ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xf, xj)) ()) ())
+            (fn xa => (fn () => (dbm_le_int x_i (dbm_add_int x xa)))))))
+true)
+                                    true)
+                                true)
+                             ()) ())
+                             (fn x =>
+                               (fn f_ => fn () => f_ ((check_diag_impl_int m a2)
+                                 ()) ())
+                                 (fn xa =>
+                                   (fn f_ => fn () => f_
+                                     ((imp_for_int zero_nata
+(plus_nata m one_nata) (fn aa => (fn () => aa))
+(fn xc => fn _ =>
+  (fn f_ => fn () => f_ ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (xc, xc))
+    ()) ())
+    (fn x_d => (fn () => (dbm_le_int x_d (Le zero_inta)))))
+true)
+                                     ()) ())
+                                     (fn xb =>
+                                       (fn f_ => fn () => f_
+ ((imp_for_int zero_nata (plus_nata m one_nata) (fn aa => (fn () => aa))
+    (fn xc => fn _ =>
+      (fn f_ => fn () => f_
+        ((mtx_get (heap_DBMEntry heap_int) (suc m) a2 (zero_nata, xc)) ()) ())
+        (fn x_e => (fn () => (dbm_le_int x_e (Le zero_inta)))))
+    true)
+ ()) ())
+ (fn xc =>
+   (fn () =>
+     (check_state a1 andalso ((x orelse xa) andalso (xb andalso xc)))))))))))
+      (id ((fn f => f ()) (fn () =>
+                            (l_0, map (the o map_of equal_nat s_0)
+                                    (upt zero_nata n_vsa)))))
+      ((fn f => f ()) ((fn f_ => fn () => f_ (init_dbm ()) ())
+                        (array_freeze (heap_DBMEntry heap_int))))
+      (fn a =>
+        (fn f => f ()) ((fn f_ => fn () => f_
+                          (let
+                             val (l, s) = a;
+                           in
+                             (fn f_ => fn () => f_
+                               ((array_unfreeze (heap_DBMEntry heap_int) s) ())
+                               ())
+                               (fn sa => (fn () => (id l, sa)))
+                           end
+                          ()) ())
+                         (fn xi =>
+                           (fn () => let
+                                       val ((aa, b), _) = xi;
+                                     in
+                                       hd_of_formulai equal_nat formula aa b
+                                     end))))
+      (split_kb num_split m_list)
+      (fn k =>
+        ahm_lookup (equal_proda (equal_list equal_nat) (equal_list equal_int))
+          (bounded_hashcode_nat
+            (hashable_prod (hashable_list hashable_nat)
+              (hashable_list hashable_int)))
+          k mi)
+  end;
+
+fun buechi_certificate_checker num_split m_list broadcast bounds automata m
+  num_states num_actions k l_0 s_0 formula =
+  let
+    val l_list = map fst m_list;
+  in
+    (case certificate_checker_pre1 l_list m_list broadcast bounds automata m
+            num_states num_actions k l_0 s_0 formula
+      of true =>
+        no_buechi_run_checker broadcast bounds automata m num_states num_actions
+          l_0 s_0 formula l_list m_list num_split
+      | false => let
+                   val _ = writeln "Checking Buechi preconditions failed";
+                 in
+                   false
+                 end)
+  end;
+
+fun rename_check_buechi num_split broadcast bounds automata k l_0 s_0 formula m
+  num_states num_actions renum_acts renum_vars renum_clocks renum_states
+  state_space =
+  (case do_rename_mc show_int (show_list show_char) (show_list show_char)
+          (show_list show_char)
+          (fn _ => fn _ => buechi_certificate_checker num_split state_space)
+          false broadcast bounds automata k "_urge" l_0 s_0 formula m num_states
+          num_actions renum_acts renum_vars renum_clocks renum_states
+          (fn _ => fn _ =>
+            [Chara (false, false, false, false, false, true, false, false)])
+          (fn _ =>
+            [Chara (false, false, false, false, false, true, false, false)])
+          (fn _ =>
+            [Chara (false, false, false, false, false, true, false, false)])
+    of NONE => Renaming_Failed | SOME true => Sat | SOME false => Unsat);
+
+fun buechi_of (Buechi_Set x2) = x2;
+
+fun reach_of (Reachable_Set x1) = x1;
+
+fun parse_convert_check1 model renaming =
   binda (parse json model)
     (fn modela =>
       binda (convert modela)
@@ -11450,52 +12017,62 @@ fun parse_convert_check1 model renaming state_space =
             (fn renaminga =>
               binda (convert_renaming ids_to_names process_names_to_index
                       renaminga)
-                (fn (var_renaming, (clock_renaming, location_renaming)) =>
-                  let
-                    val t = Time.now ();
-                    val state_spacea = convert_state_space state_space;
-                    val ta = (fn x => fn y => Time.- (x, y)) (Time.now ()) t;
-                    val _ =
-                      writeln ("Time for converting state space: " ^
-                                (fn x => Time.toString x) ta);
-                  in
-                    binda (make_renaming (equal_nat, show_nat) broadcast
-                            automata bounds)
-                      (fn (m, (num_states,
-                                (num_actions,
-                                  (renum_acts, (_, (_, (_, (_, (_, _)))))))))
-                         =>
-                        let
-                          val renum_vars = var_renaming;
-                          val renum_clocks = clock_renaming;
-                          val renum_states = location_renaming;
-                          val _ = writeln "Renaming";
-                          val (broadcasta, (automataa, boundsa)) =
-                            rename_network countable_literal countable_literal
-                              countable_nat countable_literal broadcast bounds
-                              automata renum_acts renum_vars renum_clocks
-                              renum_states;
-                          val _ = writeln "Calculating ceiling";
-                          val k =
-                            local_ceiling broadcasta boundsa automataa m
-                              num_states;
-                        in
-                          Result
-                            (broadcast,
-                              (bounds,
-                                (automata,
-                                  (k, (l_0,
-(s_0, (formula,
-        (m, (num_states,
-              (num_actions,
-                (renum_acts,
-                  (renum_vars,
-                    (renum_clocks, (renum_states, state_spacea))))))))))))))
-                        end)
-                  end))));
+                (fn (var_renaming,
+                      (clock_renaming,
+                        (location_renaming,
+                          (inv_renum_vars,
+                            (inv_renum_clocks, inv_renum_states)))))
+                   =>
+                  binda (make_renaming (equal_nat, show_nat) broadcast automata
+                          bounds)
+                    (fn (m, (num_states,
+                              (num_actions,
+                                (renum_acts,
+                                  (_, (renum_clocks, (_, (_, (_, _)))))))))
+                       =>
+                      binda (assert (equal_nata (renum_clocks "_urge") m)
+                              "Computed renaming: _urge is not last clock!")
+                        (fn _ =>
+                          let
+                            val renum_vars = var_renaming;
+                            val renum_clocksa = clock_renaming;
+                            val renum_states = location_renaming;
+                          in
+                            binda (assert (equal_nata (renum_clocksa "_urge") m)
+                                    "Given renaming: _urge is not last clock!")
+                              (fn _ =>
+                                let
+                                  val _ = writeln "Renaming";
+                                  val (broadcasta, (automataa, boundsa)) =
+                                    rename_network countable_literal
+                                      countable_literal countable_nat
+                                      countable_literal broadcast bounds
+                                      automata renum_acts renum_vars
+                                      renum_clocksa renum_states;
+                                  val _ = writeln "Calculating ceiling";
+                                  val k =
+                                    local_ceiling broadcasta boundsa automataa m
+                                      num_states;
+                                in
+                                  Result
+                                    (broadcast,
+                                      (bounds,
+(automata,
+  (k, (l_0, (s_0, (formula,
+                    (m, (num_states,
+                          (num_actions,
+                            (renum_acts,
+                              (renum_vars,
+                                (renum_clocksa,
+                                  (renum_states,
+                                    (inv_renum_states,
+                                      (inv_renum_vars,
+inv_renum_clocks))))))))))))))))
+                                end)
+                          end))))));
 
-fun parse_convert_check mode num_split dc model renaming state_space =
-  (case parse_convert_check1 model renaming state_space
+fun parse_convert_check mode num_split dc model renaming state_space show_cert =
+  (case parse_convert_check1 model renaming
     of Result
          (broadcast,
            (bounds,
@@ -11504,38 +12081,69 @@ fun parse_convert_check mode num_split dc model renaming state_space =
                                  (m, (num_states,
                                        (num_actions,
  (renum_acts,
-   (renum_vars, (renum_clocks, (renum_states, state_spacea))))))))))))))
+   (renum_vars,
+     (renum_clocks,
+       (renum_states,
+         (inv_renum_states, (inv_renum_vars, inv_renum_clocks))))))))))))))))
       => let
+           val inv_renum_clocksa =
+             (fn i => (if equal_nata i m then "_urge" else inv_renum_clocks i));
+           val t = Time.now ();
+           val state_spacea = convert_state_space m (fn _ => false) state_space;
+           val ta = (fn x => fn y => Time.- (x, y)) (Time.now ()) t;
+           val _ =
+             writeln ("Time for converting state space: " ^
+                       (fn x => Time.toString x) ta);
            val _ = Timing.start_timer ();
            val _ = Timing.save_time "Time for converting DBMs in certificate";
            val _ =
              writeln ("Number of discrete states: " ^
-                       show_lit show_nat (size_list state_spacea));
-           val t = Time.now ();
+                       show_lit show_nat (len_of_state_space state_spacea));
+           val _ =
+             (if show_cert
+               then let
+                      val _ = print_sep ();
+                      val _ = writeln "Certificate";
+                      val _ = print_sep ();
+                      val _ =
+                        show_state_space m inv_renum_states inv_renum_vars
+                          inv_renum_clocksa state_spacea;
+                      val _ = print_sep ();
+                    in
+                      (fn () => ())
+                    end
+               else (fn () => ()));
+           val tb = Time.now ();
          in
            (fn f_ => fn () => f_
              ((case mode
                 of Impl1 =>
                   rename_check num_split dc broadcast bounds automata k l_0 s_0
                     formula m num_states num_actions renum_acts renum_vars
-                    renum_clocks renum_states state_spacea
+                    renum_clocks renum_states (reach_of state_spacea)
                 | Impl2 =>
                   (fn () =>
                     (rename_check2 num_split dc broadcast bounds automata k l_0
                       s_0 formula m num_states num_actions renum_acts renum_vars
-                      renum_clocks renum_states state_spacea))
+                      renum_clocks renum_states (reach_of state_spacea)))
                 | Impl3 =>
                   (fn () =>
                     (rename_check3 num_split dc broadcast bounds automata k l_0
                       s_0 formula m num_states num_actions renum_acts renum_vars
-                      renum_clocks renum_states state_spacea)))
+                      renum_clocks renum_states (reach_of state_spacea)))
+                | Buechi =>
+                  (fn () =>
+                    (rename_check_buechi num_split broadcast bounds automata k
+                      l_0 s_0 formula m num_states num_actions renum_acts
+                      renum_vars renum_clocks renum_states
+                      (buechi_of state_spacea))))
              ()) ())
              (fn check =>
                let
-                 val ta = (fn x => fn y => Time.- (x, y)) (Time.now ()) t;
+                 val tc = (fn x => fn y => Time.- (x, y)) (Time.now ()) tb;
                  val _ =
                    writeln ("Time for certificate checking: " ^
-                             (fn x => Time.toString x) ta);
+                             (fn x => Time.toString x) tc);
                in
                  (case check
                    of Renaming_Failed => let
@@ -11567,7 +12175,7 @@ fun parse_convert_check mode num_split dc model renaming state_space =
                     (fn () => ())
                   end);
 
-fun dbm_list_to_string (A1_, A2_) n show_clock show_num xs =
+fun dbm_list_to_stringa (A1_, A2_) n show_clock show_num xs =
   app (concat o
          intersperse
            [Chara (false, false, true, true, false, true, false, false),
@@ -11577,7 +12185,7 @@ fun dbm_list_to_string (A1_, A2_) n show_clock show_num xs =
         snd)
     (fold (fn e => fn (i, (j, acc)) =>
             let
-              val s = make_string (A1_, A2_) show_clock show_num e i j;
+              val s = make_stringa (A1_, A2_) show_clock show_num e i j;
               val ja = modulo_nat (plus_nata j one_nata) (plus_nata n one_nata);
               val ia =
                 (if equal_nata ja zero_nata then plus_nata i one_nata else i);
@@ -11596,14 +12204,21 @@ fun show_dbm_impl_all (A1_, A2_, A3_) n show_clock show_num =
          n xi)
       ()) ())
       (fn x =>
-        (fn () => (dbm_list_to_string (A1_, A3_) n show_clock show_num x))));
+        (fn () => (dbm_list_to_stringa (A1_, A3_) n show_clock show_num x))));
 
-fun equal_mode Impl2 Impl3 = false
+fun equal_mode Impl3 Buechi = false
+  | equal_mode Buechi Impl3 = false
+  | equal_mode Impl2 Buechi = false
+  | equal_mode Buechi Impl2 = false
+  | equal_mode Impl2 Impl3 = false
   | equal_mode Impl3 Impl2 = false
+  | equal_mode Impl1 Buechi = false
+  | equal_mode Buechi Impl1 = false
   | equal_mode Impl1 Impl3 = false
   | equal_mode Impl3 Impl1 = false
   | equal_mode Impl1 Impl2 = false
   | equal_mode Impl2 Impl1 = false
+  | equal_mode Buechi Buechi = true
   | equal_mode Impl3 Impl3 = true
   | equal_mode Impl2 Impl2 = true
   | equal_mode Impl1 Impl1 = true;

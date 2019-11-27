@@ -1593,6 +1593,9 @@ definition
   } else Heap_Monad.return None" for show_clock show_state
 
 definition
+  "print_fail s b \<equiv> if b then () else println (s + STR '' precondition check failed!'')"
+
+definition
   "certificate_checker_pre1
     L_list M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
   \<equiv>
@@ -1613,7 +1616,13 @@ definition
     n_sq = Suc m * Suc m;
     check3 = list_all (\<lambda>(l, xs). list_all (\<lambda>(M, _). length M = n_sq) xs) M_list;
     _ = save_time STR ''Time to check DBMs'';
-    check4 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False)
+    check4 = (case formula of formula.EX _ \<Rightarrow> True | _ \<Rightarrow> False);
+    _ = map (\<lambda>(a, b). print_fail a b) [
+      (STR ''Ceiling'', check1),
+      (STR ''States'',  check2),
+      (STR ''DBM'',     check3),
+      (STR ''Formula'', check4)
+    ]
   in check1 \<and> check2 \<and> check3 \<and> check4"
 
 definition
@@ -1627,7 +1636,7 @@ definition
   in if check then
     no_buechi_run_checker
           broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list num_split
-  else False"
+  else let _ = println STR ''Checking Buechi preconditions failed'' in False"
 
 theorem certificate_check:
   "<emp> certificate_checker num_split False

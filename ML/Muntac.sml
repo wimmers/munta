@@ -91,7 +91,9 @@ type isabelle_int = int; *)
 (* For Int as the default int type *)
 type bound = inta dBMEntry;
 type isabelle_int = inta;
+type isabelle_nat = nat;
 val isabelle_int = Int_of_integer o to_large_int;
+val isabelle_nat = nat_of_integer o to_large_int;
 val magic_number = 42;
 val lte = Le o Int_of_integer o to_large_int;
 val lt  = Lt o Int_of_integer o to_large_int;
@@ -101,25 +103,31 @@ end
 
 structure Deserialize = Deserializer64Bit(Bound);
 
-fun read_certificate_from_file f =
+fun read_certificate_from_file is_buechi f =
   let
     val file = BinIO.openIn f
-    val r = Deserialize.deserialize file
+    val r = Deserialize.deserialize file is_buechi
     val _ = BinIO.closeIn file
-  in r end;
+  in
+    case r of
+      SOME (Deserialize.Reachable_Set x) => SOME (Reachable_Set x)
+    | SOME (Deserialize.Buechi_Set x)    => SOME (Buechi_Set x)
+    | NONE => NONE
+  end
 
-fun read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads) =
+fun read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads, show_cert) =
   let
       val model = read_file model
       val renaming = read_file renaming
+      val is_buechi = implementation = Buechi
       val _ = Timing.start_timer ()
-      val certificate = read_certificate_from_file certificate
+      val certificate = read_certificate_from_file is_buechi certificate
       val _ = Timing.save_time "Time to deserialize certificate"
     in
       case certificate of
         NONE => println "Failed to read certificate! (malformed)"
       | SOME certificate => (
-          parse_convert_check implementation num_threads check_deadlock model renaming certificate ();
+          parse_convert_check implementation num_threads check_deadlock model renaming certificate show_cert ();
           print_timings ()
           )
     end
@@ -134,6 +142,7 @@ fun main () =
     val renaming = find_with_arg (fn x => x = "-renaming" orelse x = "-r") args
     val num_threads = find_with_arg (fn x => x = "-num-threads" orelse x = "-n") args
     val implementation = find_with_arg (fn x => x = "-implementation" orelse x = "-i") args
+    val show_cert = List.find (fn x => x = "-explored" orelse x = "-e") args <> NONE
     fun convert f NONE = NONE
       | convert f (SOME x) = SOME (f x)
         handle Fail msg => (println ("Argument error: " ^ msg); OS.Process.exit OS.Process.failure)
@@ -141,11 +150,12 @@ fun main () =
         NONE => raise Fail (err_msg ^ " should be an integer")
       | SOME x => x
     fun int_to_impl n =
-      if n < 1 orelse n > 4 then
-        raise Fail "Implementation needs to be in the range 1 to 4"
+      if n < 1 orelse n > 5 then
+        raise Fail "Implementation needs to be in the range 1 to 5"
       else if n = 1 then Impl1
       else if n = 2 then Impl2
-      else Impl3
+      else if n = 3 then Impl3
+      else Buechi
     fun the_default x NONE = x
       | the_default _ (SOME x) = x
     val implementation = implementation
@@ -179,6 +189,6 @@ fun main () =
       let
         val [model, certificate, renaming] = map the args
       in
-        read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads)
+        read_and_check check_deadlock (model, certificate, renaming, implementation, num_threads, show_cert)
       end
   end

@@ -200,7 +200,7 @@ code_printing
       (SML)   "(fn n => fn show_state => fn show_clock => fn typ => fn x => ()) _ _ _"
   and (OCaml) "(fun n show_state show_clock ty x -> ()) _ _ _"
 
-datatype mode = Impl1 | Impl2 | Impl3
+datatype mode = Impl1 | Impl2 | Impl3 | Buechi
 
 definition
   "distr xs \<equiv>
@@ -387,64 +387,68 @@ definition
 "
 
 definition
-  "map_of_debug m \<equiv>
+  "map_of_debug prefix m \<equiv>
     let m = map_of m in
     (\<lambda>x.
       case m x of
-        None \<Rightarrow> let _ = println (STR ''Key error: '' + show_lit x) in None
-      | Some v \<Rightarrow> Some v)"
+        None \<Rightarrow> let _ = println (STR ''Key error('' + prefix + STR ''): '' + show_lit x) in None
+      | Some v \<Rightarrow> Some v)" for prefix
 
 definition
-  "renaming_of_json' opt json \<equiv> do {
+  "renaming_of_json' opt prefix json \<equiv> do {
     vars \<leftarrow> list_of_json_object json;
     vars \<leftarrow> combine_map (\<lambda> (a, b). do {b \<leftarrow> of_nat b; Result (String.implode a, b)}) vars;
     let vars = vars @ (case opt of Some x \<Rightarrow> [(x, fold max (map snd vars) 0 + 1)] | _ \<Rightarrow> []);
-    Result (the o map_of_debug vars)
+    Result (the o map_of_debug prefix vars, the o map_of_debug prefix (map prod.swap vars))
   }
-  " for json
+  " for json prefix
 
 definition "renaming_of_json \<equiv> renaming_of_json' None"
 
 definition
-  "nat_renaming_of_json max_id json \<equiv> do {
+  "nat_renaming_of_json prefix max_id json \<equiv> do {
     vars \<leftarrow> list_of_json_object json;
-    vars \<leftarrow> combine_map (\<lambda> (a, b). do {
+    vars \<leftarrow> combine_map (\<lambda>(a, b). do {
       a \<leftarrow> parse lx_nat (String.implode a);
       b \<leftarrow> of_nat b;
       Result (a, b)
     }) vars;
     let ids = fst ` set vars;
     let missing = filter (\<lambda>i. i \<notin> ids) [0..<max_id];
-    let m = the o map_of_debug vars;
+    let m = the o map_of_debug prefix vars;
     let m = extend_domain m missing (length vars);
-    Result m
+    Result (m, the o map_of_debug prefix (map prod.swap vars))
   }
-  " for json
+  " for json prefix
 
 definition convert_renaming ::
   "(nat \<Rightarrow> nat \<Rightarrow> String.literal) \<Rightarrow> (String.literal \<Rightarrow> nat) \<Rightarrow> JSON \<Rightarrow> _" where
   "convert_renaming ids_to_names process_names_to_index json \<equiv> do {
     json \<leftarrow> of_object json;
     vars \<leftarrow> get json ''vars'';
-    var_renaming \<leftarrow> renaming_of_json vars;
+    (var_renaming, var_inv) \<leftarrow> renaming_of_json STR ''var renaming'' vars;
     clocks \<leftarrow> get json ''clocks'';
-    clock_renaming \<leftarrow> renaming_of_json' (Some STR ''_urge'') clocks;
+    (clock_renaming, clock_inv)
+      \<leftarrow> renaming_of_json' (Some STR ''_urge'') STR ''clock renaming'' clocks;
     processes \<leftarrow> get json ''processes'';
-    process_renaming \<leftarrow> renaming_of_json processes;
+    (process_renaming, process_inv) \<leftarrow> renaming_of_json STR ''process renaming'' processes;
     locations \<leftarrow> get json ''locations'';
     locations \<leftarrow> list_of_json_object locations; \<comment>\<open>process name \<rightarrow> json\<close>
-    locations \<leftarrow> combine_map (\<lambda> (name, renaming). do {
+    locations \<leftarrow> combine_map (\<lambda>(name, renaming). do {
         let p_num = process_names_to_index (String.implode name);
         assert
           (process_renaming (String.implode name) = p_num)
           (STR ''Process renamings do not agree on '' + String.implode name);
         let max_id = 1000;
-        renaming \<leftarrow> nat_renaming_of_json max_id renaming; \<comment>\<open>location id \<rightarrow> nat\<close>
+        renaming \<leftarrow> nat_renaming_of_json (STR ''process'' + show_str p_num) max_id renaming;
+          \<comment>\<open>location id \<rightarrow> nat\<close>
         Result (p_num, renaming)
       }
       ) locations;
-    let location_renaming = the o map_of locations; \<comment>\<open>process id \<rightarrow> location id \<rightarrow> nat\<close>
-    Result (var_renaming, clock_renaming, location_renaming)
+    \<comment>\<open>process id \<rightarrow> location id \<rightarrow> nat\<close>
+    let location_renaming = the o map_of_debug STR ''location'' (map (\<lambda>(i, f, _). (i, f)) locations);
+    let location_inv = the o map_of_debug STR ''location inv''  (map (\<lambda>(i, _, f). (i, f)) locations);
+    Result (var_renaming, clock_renaming, location_renaming, var_inv, clock_inv, location_inv)
   }
   "
   for json
@@ -462,7 +466,7 @@ definition
   of
     Error e \<Rightarrow> return (Error e)
   | Result r \<Rightarrow> do {
-    let (var_renaming, clock_renaming, location_renaming) = r;
+    let (var_renaming, clock_renaming, location_renaming, _, _, _) = r;
     let _ = map (\<lambda>p. map (\<lambda>n. location_renaming p n |> show_lit |> println) [0..<8]) [0..<6];
     return (Result ())
   }
@@ -485,31 +489,23 @@ ML_val \<open>
     ()
 \<close>
 
-
-definition convert_state_space :: "_ \<Rightarrow> ((nat list \<times> _) \<times> _) list" where
-  "convert_state_space state_space \<equiv>
-    map (\<lambda>((locs, vars), dbms). ((map nat locs, vars), dbms)) state_space"
-  for state_space :: "((int list \<times> int list) \<times> int DBMEntry list list) list"
-
 definition parse_convert_check1 where
-  "parse_convert_check1 model renaming state_space \<equiv>
+  "parse_convert_check1 model renaming \<equiv>
    do {
     model \<leftarrow> parse json model;
     (ids_to_names, process_names_to_index, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0)
       \<leftarrow> convert model;
     renaming \<leftarrow> parse json renaming;
-    (var_renaming, clock_renaming, location_renaming) \<leftarrow>
-        convert_renaming ids_to_names process_names_to_index renaming;
-    let t = now ();
-    let state_space = convert_state_space state_space;
-    let t = now () - t;
-    let _ = println (STR ''Time for converting state space: '' + time_to_string t);
-    (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
-      inv_renum_states, inv_renum_vars, inv_renum_clocks) \<leftarrow>
-      make_renaming broadcast automata bounds;
+    (var_renaming, clock_renaming, location_renaming,
+     inv_renum_vars, inv_renum_clocks, inv_renum_states)
+      \<leftarrow> convert_renaming ids_to_names process_names_to_index renaming;
+    (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states, _, _, _)
+      \<leftarrow> make_renaming broadcast automata bounds;
+    assert (renum_clocks STR ''_urge'' = m) STR ''Computed renaming: _urge is not last clock!'';
     let renum_vars = var_renaming;
     let renum_clocks = clock_renaming;
     let renum_states = location_renaming;
+    assert (renum_clocks STR ''_urge'' = m) STR ''Given renaming: _urge is not last clock!'';
     let _ = println (STR ''Renaming'');
     let (broadcast', automata', bounds') = rename_network
       broadcast bounds automata renum_acts renum_vars renum_clocks renum_states;
@@ -517,41 +513,128 @@ definition parse_convert_check1 where
     let k = Simple_Network_Impl_nat_defs.local_ceiling broadcast' bounds' automata' m num_states;
     Result (broadcast, bounds, automata, k, L\<^sub>0, s\<^sub>0, formula,
           m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
-          state_space)
-   }" for num_split and state_space :: "((int list \<times> int list) \<times> int DBMEntry list list) list"
+          inv_renum_states, inv_renum_vars, inv_renum_clocks)
+   }" for num_split
+
+datatype 'l state_space =
+    Reachable_Set (reach_of: "(('l list \<times> int list) \<times> int DBMEntry list list) list")
+  | Buechi_Set    (buechi_of: "(('l list \<times> int list) \<times> (int DBMEntry list \<times> nat) list) list")
+
+definition normalize_dbm :: "nat \<Rightarrow> int DBMEntry list \<Rightarrow> int DBMEntry list" where
+  "normalize_dbm m xs = do {
+    dbm \<leftarrow> Array.of_list xs;
+    dbm \<leftarrow> fw_impl_int m dbm;
+    Array.freeze dbm
+  } |> run_heap
+  "
+
+definition insert_every_nth :: "nat \<Rightarrow> 'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
+  "insert_every_nth n a xs \<equiv>
+    fold (\<lambda>x (i, xs). if i = n then (1, a # x # xs) else (i + 1, x # xs)) xs (1, []) |> snd |> rev"
+
+definition convert_dbm where
+  "convert_dbm urge m dbm =
+    take m dbm @ Le 0 #
+    insert_every_nth m DBMEntry.INF (drop m dbm)
+    @ (if urge then Le 0 else DBMEntry.INF) # replicate (m - 1) DBMEntry.INF @ [Le 0]
+  |> normalize_dbm m"
+
+fun convert_state_space :: "_ \<Rightarrow> _ \<Rightarrow> int state_space \<Rightarrow> nat state_space" where
+  "convert_state_space m is_urgent (Reachable_Set xs) = Reachable_Set (
+    map (\<lambda>((locs, vars), dbms).
+      ((map nat locs, vars), map (convert_dbm (is_urgent (locs, vars)) m) dbms))
+    xs)"
+| "convert_state_space m is_urgent (Buechi_Set xs) = Buechi_Set (
+    map (\<lambda>((locs, vars), dbms).
+      ((map nat locs, vars), map (\<lambda>(dbm, i). (convert_dbm (is_urgent (locs, vars)) m dbm, i)) dbms))
+    xs)"
+
+fun len_of_state_space where
+  "len_of_state_space (Reachable_Set xs) = length xs"
+| "len_of_state_space (Buechi_Set xs) = length xs"
+
+context
+  fixes num_clocks :: nat
+  fixes inv_renum_states :: "nat \<Rightarrow> nat \<Rightarrow> nat"
+    and inv_renum_vars   :: "nat \<Rightarrow> String.literal"
+    and inv_renum_clocks :: "nat \<Rightarrow> String.literal"
+begin
+
+private definition show_st where
+  "show_st = show_state inv_renum_states inv_renum_vars"
+
+private definition show_dbm :: "int DBMEntry list \<Rightarrow> char list" where
+  "show_dbm = dbm_list_to_string num_clocks (show_clock inv_renum_clocks) show"
+
+fun show_state_space where
+  "show_state_space (Reachable_Set xs) =
+    map (\<lambda>(l, xs).
+      map (\<lambda>x. ''('' @ show_st l @ '', <'' @ show_dbm x @ ''>)'' |> String.implode |> println) xs)
+    xs"
+| "show_state_space (Buechi_Set xs) =
+    map (\<lambda>(l, xs).
+      map (\<lambda>(x, i). show i @ '': ('' @ show_st l @ '', <'' @ show_dbm x @ ''>)''
+            |> String.implode |> println)
+      xs)
+    xs"
+
+end
+
+definition
+  "print_sep \<equiv> \<lambda>(). println (String.implode (replicate 100 CHR ''-''))"
 
 definition parse_convert_check where
-  "parse_convert_check mode num_split dc model renaming state_space \<equiv>
+  "parse_convert_check mode num_split dc model renaming state_space show_cert \<equiv>
    let
-     r = parse_convert_check1 model renaming state_space
+     r = parse_convert_check1 model renaming
    in case r of Error es \<Rightarrow> do {let _ = map println es; return ()}
    | Result r \<Rightarrow> do {
-     let (broadcast, bounds, automata, k, L\<^sub>0, s\<^sub>0, formula,
-          m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
-          state_space) = r;
-        let _ = start_timer ();
-        let _ = save_time STR ''Time for converting DBMs in certificate'';
-        let _ = println (STR ''Number of discrete states: '' + show_lit (length state_space));
-        let t = now ();
-        check \<leftarrow> case mode of
-          Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
-            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-            state_space
-        | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
-            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-            state_space |> return
-        | Impl3 \<Rightarrow> rename_check3 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
-            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-            state_space |> return;
-        let t = now () - t;
-        let _ = println (STR ''Time for certificate checking: '' + time_to_string t);
-        case check of
-          Renaming_Failed \<Rightarrow> do {let _ = println STR ''Renaming failed''; return ()}
-        | Preconds_Unsat \<Rightarrow> do {let _ = println STR ''Preconditions were not met''; return ()}
-        | Sat \<Rightarrow> do {let _ = println STR ''Certificate was accepted''; return ()}
-        | Unsat \<Rightarrow> do {let _ = println STR ''Certificate was rejected''; return ()}
+      let (broadcast, bounds, automata, k, L\<^sub>0, s\<^sub>0, formula,
+        m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
+        inv_renum_states, inv_renum_vars, inv_renum_clocks) = r;
+      let inv_renum_clocks = (\<lambda>i. if i = m then STR ''_urge'' else inv_renum_clocks i);
+      let t = now ();
+      let state_space = convert_state_space m (\<lambda>_. False) state_space;
+      let t = now () - t;
+      let _ = println (STR ''Time for converting state space: '' + time_to_string t);
+      let _ = start_timer ();
+      \<comment> \<open>XXX: What is going on here?\<close>
+      let _ = save_time STR ''Time for converting DBMs in certificate'';
+      let _ =
+        println (STR ''Number of discrete states: ''+ show_lit (len_of_state_space state_space));
+      let _ = do {
+        if show_cert then do {
+          let _ = print_sep ();
+          let _ = println (STR ''Certificate'');
+          let _ = print_sep ();
+          let _ = show_state_space m inv_renum_states inv_renum_vars inv_renum_clocks state_space;
+          let _ = print_sep ();
+          return ()}
+        else return ()
+      };
+      let t = now ();
+      check \<leftarrow> case mode of
+        Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+          m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+          (reach_of state_space)
+      | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+          m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+          (reach_of state_space) |> return
+      | Impl3 \<Rightarrow> rename_check3 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+          m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+          (reach_of state_space) |> return
+      | Buechi \<Rightarrow> rename_check_buechi num_split broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+          m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+          (buechi_of state_space) |> return;
+      let t = now () - t;
+      let _ = println (STR ''Time for certificate checking: '' + time_to_string t);
+      case check of
+        Renaming_Failed \<Rightarrow> do {let _ = println STR ''Renaming failed''; return ()}
+      | Preconds_Unsat \<Rightarrow> do {let _ = println STR ''Preconditions were not met''; return ()}
+      | Sat \<Rightarrow> do {let _ = println STR ''Certificate was accepted''; return ()}
+      | Unsat \<Rightarrow> do {let _ = println STR ''Certificate was rejected''; return ()}
     }
-" for num_split and state_space :: "((int list \<times> int list) \<times> int DBMEntry list list) list"
+" for num_split and state_space :: "int state_space"
 
 (* XXX This is a bug fix. Fix in Isabelle distribution *)
 code_printing
@@ -965,13 +1048,13 @@ lemmas [code] = imp_for'_int_inner.simps imp_for_int_inner.simps
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
-  Impl1 Impl2 Impl3
+  Impl1 Impl2 Impl3 Buechi Reachable_Set Buechi_Set
   E_op_impl
   in Eval module_name Model_Checker file "../ML/Certificate.ML"
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
-  Impl1 Impl2 Impl3
+  Impl1 Impl2 Impl3 Buechi Reachable_Set Buechi_Set
   E_op_impl
   in SML module_name Model_Checker file "../ML/Certificate.sml"
 
@@ -1021,6 +1104,7 @@ code_printing
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
-  Impl1 Impl2 Impl3 in Haskell module_name Model_Checker file "../Haskell/"
+  Impl1 Impl2 Impl3 Buechi Reachable_Set Buechi_Set
+  in Haskell module_name Model_Checker file "../Haskell/"
 
 end
