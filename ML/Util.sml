@@ -1,7 +1,7 @@
 structure Util =
 struct
 
-(*** Printing utilites ***)
+(** Printing utilites **)
 fun println s = print (s ^ "\n")
 
 fun list_to_string f = (fn x => "[" ^ x ^ "]") o String.concatWith ", " o map f
@@ -10,6 +10,7 @@ fun print_result NONE = println("Invalid input\n")
     | print_result (SOME true) = println("Property is satisfied\n")
     | print_result (SOME false) = println("Property is not satisfied\n")
 
+(** File reading **)
 fun read_lines stream =
   let
     val input = TextIO.inputLine stream
@@ -20,15 +21,32 @@ fun read_lines stream =
     | SOME input => input ^ read_lines stream
   end
 
-fun find_with_arg P [] = NONE
-  | find_with_arg P [_] = NONE
-  | find_with_arg P (x :: y :: xs) = if P x then SOME y else find_with_arg P (y :: xs)
+fun read_file f =
+  let
+    val file = TextIO.openIn f
+    val s = read_lines file
+    val _ = TextIO.closeIn file
+  in s end
 
+(** Processing command line arguments **)
 datatype 'a argument = Is_Present | Is_Not_Present | Has_Val of 'a
 
 type arguments = string argument list
 
 exception Unknown_Argument of string
+
+datatype argument_type = Arg | Flag
+
+val common_arguments = [
+  (["deadlock", "dc"], "Ignore formula and run deadlock check.", Flag),
+  (["model", "m"],
+    "Input file for the model & formula. "
+    ^ "If this is not specified, the input is read from stdin.",     
+    Arg),
+  (["help", "h", "?"], "Show this help string.", Flag),
+  (["cpu-time", "cpu"], "Report CPU time.", Flag),
+  (["num-threads", "n"], "Number of threads.", Arg)
+]
 
 val the_args = ref []
 
@@ -44,18 +62,9 @@ fun find_arg arg = case List.find (fn (k, v) => k = arg) (!the_args) of
 
 val get_arg = the o find_arg
 
-datatype argument_type = Arg | Flag
-
-val common_arguments = [
-  (["deadlock", "dc"], "Ignore formula and run deadlock check.", Flag),
-  (["model", "m"],
-    "Input file for the model & formula. "
-    ^ "If this is not specified, the input is read from stdin.",     
-    Arg),
-  (["help", "h", "?"], "Show this help string.", Flag),
-  (["cpu-time", "cpu"], "Report CPU time.", Flag),
-  (["num-threads", "n"], "Number of threads.", Arg)
-]
+fun find_with_arg P [] = NONE
+  | find_with_arg P [_] = NONE
+  | find_with_arg P (x :: y :: xs) = if P x then SOME y else find_with_arg P (y :: xs)
 
 fun read_arguments arguments =
   let
@@ -81,12 +90,5 @@ fun print_usage arguments =
   |> String.concat
   |> (fn s => "Usage:\n" ^ s)
   |> println
-
-fun read_file f =
-  let
-    val file = TextIO.openIn f
-    val s = read_lines file
-    val _ = TextIO.closeIn file
-  in s end
 
 end
