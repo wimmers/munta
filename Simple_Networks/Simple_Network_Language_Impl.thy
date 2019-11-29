@@ -3,8 +3,8 @@ theory Simple_Network_Language_Impl
     Simple_Network_Language
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     "HOL-Library.IArray" "HOL-Library.AList"
-    "TA_Byte_Code.More_Methods"
-    "../library/Bijective_Embedding"
+    TA_Library.More_Methods
+    TA_Library.Bijective_Embedding
     TA_Impl_Misc2
     TA_More2
     TA_Equivalences

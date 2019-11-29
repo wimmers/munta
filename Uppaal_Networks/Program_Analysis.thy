@@ -1,7 +1,7 @@
 theory Program_Analysis
   imports
     UPPAAL_State_Networks_Impl
-    "../library/More_Methods"
+    TA_Library.More_Methods
     "HOL-Library.Lattice_Syntax"
 begin
 

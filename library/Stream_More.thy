@@ -1,7 +1,7 @@
 theory Stream_More
 imports
   Sequence_LTL
-  TA_Library.Instantiate_Existentials
+  Instantiate_Existentials
   "HOL-Library.Rewrite"
 begin
 

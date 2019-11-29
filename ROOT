@@ -1,12 +1,17 @@
-session "TA_Library" = "Refine_Imperative_HOL" +
+session "TA_Library" in "library" = "Refine_Imperative_HOL" +
   theories
-    "library/More_Methods"
-    "library/Abstract_Term"
-    "library/Instantiate_Existentials"
-    "library/Tracing"
-    "library/Printing"
-    "library/Error_List_Monad"
-    "library/Imperative_Loops"
+    More_Methods
+    Abstract_Term
+    Instantiate_Existentials
+    Tracing
+    Printing
+    Error_List_Monad
+    Imperative_Loops
+    More_Methods
+    Temporal_Logics
+    CTL
+    Reordering_Quantifiers
+    Bijective_Embedding
 
 (* Use this to get document output for the abstract formalization of reachability checking *)
 session "TA" = "TA_Library" +
@@ -39,6 +44,8 @@ session "TA_All" = "TA_Impl" +
   options
     [document = pdf, document_output = "output",
      document_variants = "model_checking_proofs:model_checking=/proof,/ML"]
+  sessions
+    TA_Byte_Code
   theories [document = false]
     Refine_Imperative_HOL.IICF
     TA_Library.Instantiate_Existentials
@@ -46,7 +53,7 @@ session "TA_All" = "TA_Impl" +
     TA.Stream_More
     "HOL-Library.IArray"
   theories
-    "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
+    TA_Byte_Code.UPPAAL_State_Networks_Impl_Refine
     TA.Simulation_Graphs
     TA_More
     Infinite_TA_Runs
@@ -60,5 +67,9 @@ session "TA_Code" = "TA_Byte_Code" +
     Certification_Monads
     FinFun
     Gabow_SCC
-  theories [document = false]
+  theories
     "Simple_Networks/Simple_Network_Language_Export_Code"
+
+session TA_Certificates = "TA_Code" +
+  theories
+    "Simple_Networks/Simple_Network_Language_Certificate_Code"

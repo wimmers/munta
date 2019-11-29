@@ -7,7 +7,7 @@ theory Normalized_Zone_Semantics_Certification_Impl
     "Worklist_Algorithms/Unreachability_Certification"
     "HOL-Library.IArray"
     Deadlock_Impl
-    "TA_Byte_Code.More_Methods"
+    TA_Library.More_Methods
 begin
 
 paragraph \<open>Misc\<close>

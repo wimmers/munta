@@ -1,6 +1,6 @@
 theory Deadlock
   imports
-    TA.Timed_Automata TA.CTL TA.DBM_Operations TA.Normalized_Zone_Semantics
+    TA.Timed_Automata TA_Library.CTL TA.DBM_Operations TA.Normalized_Zone_Semantics
     TA_Impl.Normalized_Zone_Semantics_Impl
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     TA_Impl.FW_More

@@ -1,6 +1,6 @@
 theory Networks
   imports TA.Timed_Automata TA_Impl.Normalized_Zone_Semantics_Impl
-    "../library/Reordering_Quantifiers"
+    TA_Library.Reordering_Quantifiers
 begin
 
 chapter \<open>Networks of Timed Automata\<close>

@@ -1,5 +1,5 @@
 theory Simulation_Graphs_Certification
-  imports TA_Impl.Subsumption_Graphs "library/Explorer" TA.Simulation_Graphs
+  imports TA_Impl.Subsumption_Graphs TA.Simulation_Graphs
 begin
 
 section \<open>Certification Theorems Based on Subsumption and Simulation Graphs\<close>

@@ -1,8 +1,7 @@
 theory Simple_Network_Language
   imports Main
-    "TA_Byte_Code.State_Networks"
-    "TA_Byte_Code.UPPAAL_State_Networks_Impl"
-    "../library/Explorer"
+    TA_Byte_Code.State_Networks
+    TA_Byte_Code.UPPAAL_State_Networks_Impl
     FinFun.FinFun
 begin
 
