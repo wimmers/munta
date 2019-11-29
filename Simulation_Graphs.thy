@@ -1,7 +1,7 @@
 theory Simulation_Graphs
   imports
-    "library/CTL"
-    "library/More_List"
+    TA_Library.CTL
+    TA_Library.More_List
 begin
 
 chapter \<open>Simulation Graphs\<close>

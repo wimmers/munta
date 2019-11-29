@@ -4,7 +4,7 @@ theory Simple_Network_Language_Export_Code
     Simple_Network_Language_Renaming
     Simple_Network_Language_Deadlock_Checking
     "../UPPAAL_State_Networks_Impl_Refine_Calc"
-    "../library/Error_List_Monad"
+    TA_Library.Error_List_Monad
 begin
 
 datatype result =

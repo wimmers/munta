@@ -3,7 +3,7 @@ theory UPPAAL_Model_Checking
     "Uppaal_Networks/UPPAAL_State_Networks_Impl_Refine"
     (* "HOL-Library.BNF_Corec" *)
     TA_Impl.TA_More
-    TA_Impl.Abstract_Term
+    TA_Library.Abstract_Term
 begin
 
 hide_const models

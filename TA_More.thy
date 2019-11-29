@@ -1,5 +1,5 @@
 theory TA_More
-  imports TA.Timed_Automata TA.DBM_Operations Refine_Imperative_HOL.IICF TA.Graphs
+  imports TA.Timed_Automata TA.DBM_Operations Refine_Imperative_HOL.IICF TA_Library.Graphs
 begin
 
 chapter \<open>Mixed Additional Material on Timed Automata\<close>

@@ -1,5 +1,5 @@
 theory Timed_Automata
-  imports "library/Graphs"
+  imports "TA_Library.Graphs"
 begin
 
 chapter \<open>Basic Definitions and Semantics\<close>

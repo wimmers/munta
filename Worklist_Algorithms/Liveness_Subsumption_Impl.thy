@@ -1,5 +1,5 @@
 theory Liveness_Subsumption_Impl
-  imports Liveness_Subsumption_Map Heap_Hash_Map "../library/Tracing"
+  imports Liveness_Subsumption_Map Heap_Hash_Map TA_Library.Tracing
 begin
 
 locale Liveness_Search_Space_Key_Impl_Defs =

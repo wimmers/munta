@@ -1,7 +1,7 @@
 theory Unreachability_Certification2
   imports
     Unreachability_Misc
-    TA_Impl.Abstract_Term
+    TA_Library.Abstract_Term
     "HOL-Library.Parallel"
 begin
 

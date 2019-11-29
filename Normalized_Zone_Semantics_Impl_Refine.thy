@@ -6,8 +6,8 @@ theory Normalized_Zone_Semantics_Impl_Refine
     "Worklist_Algorithms/Worklist_Subsumption_Impl1" "Worklist_Algorithms/Unified_PW_Impl"
     "Worklist_Algorithms/Liveness_Subsumption_Impl" "Worklist_Algorithms/Leadsto_Impl"
     Normalized_Zone_Semantics_Impl_Semantic_Refinement
-    "library/Printing" Show.Show_Instances
-    "library/Abstract_Term"
+    TA_Library.Printing Show.Show_Instances
+    TA_Library.Abstract_Term
 begin
 
   chapter \<open>Imperative Implementation of Reachability Checking\<close>

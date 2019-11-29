@@ -1,17 +1,22 @@
 session "TA_Library" in "library" = "Refine_Imperative_HOL" +
   theories
+    ML_Util
     More_Methods
     Abstract_Term
     Instantiate_Existentials
+    Reordering_Quantifiers
+    More_List
+    Sequence
+    Sequence_LTL
+    Stream_More
+    Bijective_Embedding
     Tracing
     Printing
+    Trace_Timing
     Error_List_Monad
     Imperative_Loops
-    More_Methods
     Temporal_Logics
     CTL
-    Reordering_Quantifiers
-    Bijective_Embedding
 
 (* Use this to get document output for the abstract formalization of reachability checking *)
 session "TA" = "TA_Library" +
@@ -49,8 +54,8 @@ session "TA_All" = "TA_Impl" +
   theories [document = false]
     Refine_Imperative_HOL.IICF
     TA_Library.Instantiate_Existentials
-    TA.Sequence
-    TA.Stream_More
+    TA_Library.Sequence
+    TA_Library.Stream_More
     "HOL-Library.IArray"
   theories
     TA_Byte_Code.UPPAAL_State_Networks_Impl_Refine
@@ -71,5 +76,7 @@ session "TA_Code" = "TA_Byte_Code" +
     "Simple_Networks/Simple_Network_Language_Export_Code"
 
 session TA_Certificates = "TA_Code" +
+  options
+    [quick_and_dirty]
   theories
     "Simple_Networks/Simple_Network_Language_Certificate_Code"

@@ -4,9 +4,9 @@ theory Unreachability_Misc
     "../Simulation_Graphs_Certification"
     TA_Impl.Unified_PW_Impl
     TA_Impl.Leadsto_Impl
-    TA_Impl.Printing
+    TA_Library.Printing
     TA_Library.Imperative_Loops
-    "../library/Trace_Timing"
+    TA_Library.Trace_Timing
 begin
 
 paragraph \<open>Misc\<close>

@@ -1,7 +1,7 @@
 theory State_Networks_Impl_Refine
   imports
     Normalized_Zone_Semantics_Impl_Refine State_Networks_Impl Networks_Impl_Refine
-    "~/Isabelle/Util/ML_Util"
+    TA_Library.ML_Util
 begin
 
 subsection \<open>Method setup for quantifier trickery\<close>

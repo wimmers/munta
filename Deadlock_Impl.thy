@@ -1,5 +1,5 @@
 theory Deadlock_Impl
-  imports Deadlock TA_Impl.Abstract_Term
+  imports Deadlock TA_Library.Abstract_Term
 begin
 
 paragraph \<open>Misc\<close>

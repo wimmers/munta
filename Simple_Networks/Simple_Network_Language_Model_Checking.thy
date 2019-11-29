@@ -1,6 +1,6 @@
 theory Simple_Network_Language_Model_Checking
-  imports "../library/Temporal_Logics" Simple_Network_Language_Impl_Refine
-    TA_Byte_Code.UPPAAL_Model_Checking TA_Impl.Abstract_Term
+  imports TA_Library.Temporal_Logics Simple_Network_Language_Impl_Refine
+    TA_Byte_Code.UPPAAL_Model_Checking TA_Library.Abstract_Term
 begin
 
 section \<open>Product Bisimulation\<close>

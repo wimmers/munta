@@ -3,7 +3,7 @@ theory Simple_Network_Language_Certificate_Checking
     "../Extract_Certificate"
     "../Normalized_Zone_Semantics_Certification_Impl"
     Simple_Network_Language_Export_Code
-    "../library/Trace_Timing"
+    TA_Library.Trace_Timing
 begin
 
 paragraph \<open>Misc\<close>

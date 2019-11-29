@@ -3,7 +3,7 @@ theory Unified_PW_Hashing
     Unified_PW
     Refine_Imperative_HOL.IICF_List_Mset
     Worklist_Algorithms_Misc
-    "../library/Tracing"
+    TA_Library.Tracing
 begin
 
 subsection \<open>Towards an Implementation of the Unified Passed-Wait List\<close>
