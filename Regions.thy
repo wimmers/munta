@@ -1901,6 +1901,11 @@ definition acompatible
 where
   "acompatible \<R> ac \<equiv> \<forall> R \<in> \<R>. R \<subseteq> {v. v \<turnstile>\<^sub>a ac} \<or> {v. v \<turnstile>\<^sub>a ac} \<inter> R = {}"
 
+lemma acompatibleD:
+  assumes "acompatible \<R> ac" "R \<in> \<R>" "u \<in> R" "v \<in> R" "u \<turnstile>\<^sub>a ac"
+  shows "v \<turnstile>\<^sub>a ac"
+  using assms unfolding acompatible_def by auto
+
 lemma ccompatible1:
   fixes X k fixes c :: real
   defines "\<R> \<equiv> {region X I r |I r. valid_region X k I r}"
@@ -2920,8 +2925,8 @@ lemma emptiness_preservance_steps: "A,\<R> \<turnstile> \<langle>l, R\<rangle> \
 by blast+
 
 text \<open>
-  Note how it is important to define the multi-step semantics "the right way round".
-  This also the direction Bouyer implies for her implicit induction.
+  Note how it is important to define the multi-step semantics ``the right way round".
+  This is also the direction Bouyer implies for her implicit induction.
 \<close>
 
 lemma steps_r_sound:
