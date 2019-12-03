@@ -8,8 +8,6 @@ session "TA_Library" in "library" = "Refine_Imperative_HOL" +
     Instantiate_Existentials
     Reordering_Quantifiers
     More_List
-    Sequence
-    Sequence_LTL
     Stream_More
     Bijective_Embedding
     Tracing
@@ -56,7 +54,6 @@ session "TA_All" = "TA_Impl" +
   theories [document = false]
     Refine_Imperative_HOL.IICF
     TA_Library.Instantiate_Existentials
-    TA_Library.Sequence
     TA_Library.Stream_More
     "HOL-Library.IArray"
   theories
