@@ -4,6 +4,8 @@ theory Simulation_Graphs
     TA_Library.More_List
 begin
 
+lemmas [simp] = holds.simps
+
 chapter \<open>Simulation Graphs\<close>
 
 paragraph \<open>Misc\<close>
@@ -365,7 +367,7 @@ proof -
 qed
 
 lemma Steps_run_cycle_buechi'':
-  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> infs b (x ## xs)"
+  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> infs (\<lambda>x. x \<in> b) (x ## xs)"
   if assms: "Steps (a # as @ [a])" "x \<in> a" "b \<in> set (a # as @ [a])"
   using Steps_run_cycle_buechi[OF that(1,2)] that(2,3)
   apply safe
@@ -375,7 +377,7 @@ lemma Steps_run_cycle_buechi'':
   by (force dest: alw_ev_HLD_cycle[of _ _ b] stream_all2_sset1)
 
 lemma Steps_run_cycle_buechi':
-  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> infs a (x ## xs)"
+  "\<exists> xs. run (x ## xs) \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> a) \<and> infs (\<lambda>x. x \<in> a) (x ## xs)"
   if assms: "Steps (a # as @ [a])" "x \<in> a"
   using Steps_run_cycle_buechi''[OF that] \<open>x \<in> a\<close> by auto
 
@@ -531,7 +533,7 @@ qed
 lemma Steps_run_cycle2:
   "\<exists> x xs. run (x ## xs) \<and> x \<in> \<Union> (closure a\<^sub>0)
   \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a} \<union> set bs. x \<in> \<Union> a)
-  \<and> infs (\<Union> a) (x ## xs)"
+  \<and> infs (\<lambda>x. x \<in> \<Union> a) (x ## xs)"
   if assms: "post_defs.Steps (closure a\<^sub>0 # as @ a # bs @ [a])" "a \<noteq> {}"
 proof -
   note as1 = assms
@@ -563,9 +565,9 @@ proof -
     unfolding list_all2_Cons1 by (auto intro: list_all2_last)
   with pre.prestable[OF \<open>A1 a2 a1\<close>] obtain y where "C (last (x\<^sub>0 # xs)) y" "y \<in> a1" by auto
   from pre.Steps_run_cycle_buechi'[OF as1(1) \<open>y \<in> a1\<close>] obtain ys where ys:
-    "run (y ## ys)" "\<forall>x\<in>sset ys. \<exists>a\<in>set as1 \<union> {a1}. x \<in> a" "infs a1 (y ## ys)"
+    "run (y ## ys)" "\<forall>x\<in>sset ys. \<exists>a\<in>set as1 \<union> {a1}. x \<in> a" "infs (\<lambda>x. x \<in> a1) (y ## ys)"
     by auto
-  from ys(3) \<open>a1 \<in> a\<close> have "infs (\<Union> a) (y ## ys)"
+  from ys(3) \<open>a1 \<in> a\<close> have "infs (\<lambda>x. x \<in> \<Union> a) (y ## ys)"
     by (auto simp: HLD_iff elim!: alw_ev_mono)
   from extend_run[OF xs(1) \<open>C _ _\<close> \<open>run (y ## ys)\<close>] have "run ((x\<^sub>0 # xs) @- y ## ys)" by simp
   then show ?thesis
@@ -577,14 +579,14 @@ proof -
       apply auto
        apply (fastforce dest!: list_all2_set1)
      apply blast
-    using \<open>infs (\<Union> a) (y ## ys)\<close>
+    using \<open>infs (\<lambda>x. x \<in> \<Union> a) (y ## ys)\<close>
     by (simp add: sdrop_shift)
 qed
 
 lemma Steps_run_cycle'':
   "\<exists> x xs. run (x ## xs) \<and> x \<in> \<Union> (closure a\<^sub>0)
   \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a} \<union> set bs. x \<in> \<Union> (closure a))
-  \<and> infs (\<Union> (closure a)) (x ## xs)"
+  \<and> infs (\<lambda>x. x \<in> \<Union> (closure a)) (x ## xs)"
   if assms: "Steps (a\<^sub>0 # as @ a # bs @ [a])" "P2 a"
 proof -
   from Steps_Union[OF assms(1)] have "post_defs.Steps (map closure (a\<^sub>0 # as @ a # bs @ [a]))"
@@ -1189,7 +1191,7 @@ next
   from Steps_run_cycle''[OF prems(1) this] prems this that show ?case
     apply safe
     subgoal for x xs b
-      unfolding HLD_iff by (inst_existentials x xs) (auto intro: alw_ev_mono) (* Slow *)
+      by (inst_existentials x xs) (auto elim!: alw_ev_mono)
     done
 qed
 
@@ -2791,5 +2793,7 @@ interpretation sim4: Simulation_Invariant A E "\<lambda>a b. a \<subseteq> b" "\
   done
 
 end (* Abstraction Operators *)
+
+lemmas [simp del] = holds.simps
 
 end (* Theory *)

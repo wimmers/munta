@@ -1,4 +1,6 @@
 session "TA_Library" in "library" = "Refine_Imperative_HOL" +
+  sessions
+    Transition_Systems_and_Automata
   theories
     ML_Util
     More_Methods

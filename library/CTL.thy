@@ -2,6 +2,8 @@ theory CTL
   imports Graphs
 begin
 
+lemmas [simp] = holds.simps
+
 context Graph_Defs
 begin
 
@@ -105,7 +107,7 @@ proof safe
     case False
     with prems obtain y ys zs where
       "\<phi> y" "xs = ys @- y ## zs" "y \<notin> set ys"
-      unfolding ev_holds_sset by (auto elim!:split_stream_first)
+      unfolding ev_holds_sset by (auto elim!:split_stream_first')
     with prems have "steps (x # ys @ [y])"
       by (auto intro: run_decomp[THEN conjunct1]) (* XXX *)
     with \<open>\<phi> y\<close> show ?thesis
@@ -277,5 +279,7 @@ lemma deadlock_iff:
   by (force dest: A_B_step B_A_step B_A.simulation_reaches A_B.simulation_reaches)
 
 end
+
+lemmas [simp del] = holds.simps
 
 end (* Theory *)

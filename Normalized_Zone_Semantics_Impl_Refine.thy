@@ -1227,7 +1227,7 @@ section \<open>Instantiation for the Concrete DBM Successor Operations\<close>
 (* XXX Move *)
 lemma (in Graph_Defs) Alw_ev:
   "Alw_ev \<phi> x" if "\<phi> x"
-  using that unfolding Alw_ev_def by auto
+  using that unfolding Alw_ev_def by (auto simp: holds.simps)
 
 context TA_Impl
 begin
