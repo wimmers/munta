@@ -404,12 +404,6 @@ lemma ta_zone_sim:
     (\<lambda>(l, u) (l', Z). u \<in> Z \<and> l = l')"
   by standard (auto dest!: step_z_complete')
 
-interpretation Simulation
-  "\<lambda> (l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
-  "\<lambda> (l, Z) (l', Z''). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z''\<rangle>"
-  "\<lambda> (l, u) (l', Z). u \<in> Z \<and> l = l'"
-  by (fact ta_zone_sim)
-
 lemma steps'_iff:
   "(\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>)\<^sup>*\<^sup>* (l, u) (l', u') \<longleftrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle>"
   apply standard
@@ -421,6 +415,7 @@ lemma steps'_iff:
 
 lemma steps_z_complete:
   "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<Longrightarrow> u \<in> Z \<Longrightarrow> \<exists> Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle> \<and> u' \<in> Z'"
-  using simulation_reaches[of A "(l, u)" "(l', u')", unfolded steps'_iff] by auto
+  using Simulation.simulation_reaches[OF ta_zone_sim, of A "(l, u)" "(l', u')"]
+  unfolding steps'_iff by auto
 
 end (* Theory *)
