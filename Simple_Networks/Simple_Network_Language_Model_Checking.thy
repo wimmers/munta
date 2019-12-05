@@ -277,7 +277,7 @@ lemma models_state_weak_cong[cong]:
   "Graph_Defs.models_state E = Graph_Defs.models_state E" for E
   by (rule HOL.refl)
 lemma models_ltl_weak_cong[cong]:
-  "Graph_Defs.models_ltl E = Graph_Defs.models_ltl E" for E
+  "Graph_Defs.models_ltlc E = Graph_Defs.models_ltlc E" for E
   by (rule HOL.refl)
 lemma models_weak_cong[cong]:
   "models E = models E"
@@ -1456,7 +1456,7 @@ lemma model_checker_unfold_leadsto:
     | Simple_Network_Language_Model_Checking.formula.EG xa \<Rightarrow>
       if PR_CONST F l\<^sub>0 then Alw_ev_checker else return False
     | Simple_Network_Language_Model_Checking.formula.AX xa \<Rightarrow>
-      (if PR_CONST F l\<^sub>0 then local.Alw_ev_checker else return False) \<bind> (\<lambda>r. return (\<not> r))
+      (if PR_CONST F l\<^sub>0 then Alw_ev_checker else return False) \<bind> (\<lambda>r. return (\<not> r))
     | Simple_Network_Language_Model_Checking.formula.AG xa \<Rightarrow>
       reachability_checker \<bind> (\<lambda>r. return (\<not> r))
     | Simple_Network_Language_Model_Checking.formula.Leadsto \<phi> \<psi> \<Rightarrow>
