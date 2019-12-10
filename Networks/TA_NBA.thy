@@ -1,5 +1,6 @@
 theory TA_NBA
-  imports Transition_Systems_and_Automata.NBA TA.Timed_Automata
+  imports Transition_Systems_and_Automata.NBA TA.Timed_Automata TA_Library.Temporal_Logics
+    \<comment> \<open>"LTL_to_GBA.LTL_to_GBA"\<close>
 begin
 
 locale TA_NBA_Product_Defs =
@@ -147,5 +148,203 @@ proof -
 qed
 
 end
+
+
+
+locale TA_NBA_LTL_Product1 =
+  TA_NBA_Product where A = A and B = B
+  for A :: "('a, 'c, 't :: time, 'l) ta" and B :: "('p, 's) nba" +
+  fixes \<phi> :: "('l \<Rightarrow> bool) ltlc"
+  assumes B_\<phi>: "language B = smap label ` {xs. Graph_Defs.models_ltlc \<phi> xs}"
+      and label_formula_compatible: "\<And>xs ys. smap label xs = smap label ys
+    \<Longrightarrow> Graph_Defs.models_ltlc \<phi> xs \<longleftrightarrow> Graph_Defs.models_ltlc \<phi> ys"
+begin
+
+lemma smap_project:
+  "smap (\<lambda>(l, u). label l) xs = smap label (smap fst xs)"
+  by (coinduction arbitrary: xs) (auto split: prod.split)
+
+theorem
+  "(\<exists>q \<in> inits. \<exists>xs. prod.run (((l\<^sub>0, q), u) ## xs) \<and> infs accept (((l\<^sub>0, q), u) ## xs))
+\<longleftrightarrow> (\<exists>xs. A.run ((l\<^sub>0, u) ## xs) \<and> Graph_Defs.models_ltlc \<phi> (l\<^sub>0 ## smap fst xs))"
+  unfolding prod_Buechi_run_iff B_\<phi>
+  apply safe
+  subgoal for xs ys
+    apply (intro exI conjI)
+     apply assumption
+    apply (subst label_formula_compatible)
+     apply (auto simp add: smap_project)
+    done
+  apply (force simp: smap_project)
+  done
+
+end
+
+locale TA_NBA_LTL_Product2 =
+  TA_NBA_Product where A = A and B = B
+  for A :: "('a, 'c, 't :: time, 'l) ta" and B :: "('p, 's) nba" +
+  fixes \<phi> :: "('l \<Rightarrow> bool) ltlc" and \<psi> :: "('p \<Rightarrow> bool) ltlc"
+  assumes B_\<phi>: "language B = {xs. Graph_Defs.models_ltlc \<psi> xs}"
+      and label_formula_compatible:
+      "\<And>xs. Graph_Defs.models_ltlc \<phi> xs \<longleftrightarrow> Graph_Defs.models_ltlc \<psi> (smap label xs)"
+begin
+
+lemma smap_project:
+  "smap (\<lambda>(l, u). label l) xs = smap label (smap fst xs)"
+  by (coinduction arbitrary: xs) (auto split: prod.split)
+
+theorem
+  "(\<exists>q \<in> inits. \<exists>xs. prod.run (((l\<^sub>0, q), u) ## xs) \<and> infs accept (((l\<^sub>0, q), u) ## xs))
+\<longleftrightarrow> (\<exists>xs. A.run ((l\<^sub>0, u) ## xs) \<and> Graph_Defs.models_ltlc \<phi> (l\<^sub>0 ## smap fst xs))"
+  unfolding prod_Buechi_run_iff B_\<phi> by (auto simp: label_formula_compatible smap_project)
+
+end
+
+context
+  fixes \<phi> :: "'a ltlc" and f :: "'a \<Rightarrow> 'p" and interp :: "'a \<Rightarrow> ('l \<Rightarrow> bool)"
+begin
+
+lemma semantics_ltlc_map_prop:
+  "(\<lambda>i. {a \<in> interp ` atoms_ltlc \<phi>. a (w i)}) \<Turnstile>\<^sub>c map_ltlc interp \<phi> \<longleftrightarrow>
+   (\<lambda>i. {a \<in> atoms_ltlc \<phi>. interp a (w i)}) \<Turnstile>\<^sub>c \<phi>"
+proof -
+  have [simp]:
+    "(\<lambda>i. {a. (a \<in> atoms_ltlc \<phi>1 \<or> a \<in> atoms_ltlc \<phi>2) \<and> interp a (w i)}) \<Turnstile>\<^sub>c \<phi>1
+    \<longleftrightarrow> ((\<lambda>i. {a \<in> atoms_ltlc \<phi>1. interp a (w i)}) \<Turnstile>\<^sub>c \<phi>1)"
+    "(\<lambda>i. {a. (a \<in> atoms_ltlc \<phi>1 \<or> a \<in> atoms_ltlc \<phi>2) \<and> interp a (w i)}) \<Turnstile>\<^sub>c \<phi>2
+    \<longleftrightarrow> ((\<lambda>i. {a \<in> atoms_ltlc \<phi>2. interp a (w i)}) \<Turnstile>\<^sub>c \<phi>2)" for w \<phi>1 \<phi>2
+    by (rule ltlc_eq_on; auto simp: pw_eq_on_def)+
+  have [simp]:
+    "(\<lambda>i. {a \<in> interp ` (atoms_ltlc \<phi>1 \<union> atoms_ltlc \<phi>2). a (w i)}) \<Turnstile>\<^sub>c map_ltlc interp \<phi>1
+    \<longleftrightarrow> (\<lambda>i. {a \<in> interp ` atoms_ltlc \<phi>1. a (w i)}) \<Turnstile>\<^sub>c map_ltlc interp \<phi>1"
+    "(\<lambda>i. {a \<in> interp ` (atoms_ltlc \<phi>1 \<union> atoms_ltlc \<phi>2). a (w i)}) \<Turnstile>\<^sub>c map_ltlc interp \<phi>2
+    \<longleftrightarrow> (\<lambda>i. {a \<in> interp ` atoms_ltlc \<phi>2. a (w i)}) \<Turnstile>\<^sub>c map_ltlc interp \<phi>2" for w \<phi>1 \<phi>2
+    by (rule ltlc_eq_on; auto simp: pw_eq_on_def ltlc.set_map)+
+  show ?thesis
+    by (induction \<phi> arbitrary: w) (simp_all add: suffix_def)
+qed
+
+lemma prop_ltlc_abstract:
+  assumes f_inj: "inj_on f (atoms_ltlc \<phi>)"
+  shows
+  "w \<Turnstile>\<^sub>c' map_ltlc interp \<phi> \<longleftrightarrow>
+  ((\<lambda>s. f ` {a \<in> atoms_ltlc \<phi>. interp a s}) o w) \<Turnstile>\<^sub>c map_ltlc f \<phi>" (is "?l \<longleftrightarrow> ?r")
+proof -
+  have "?l \<longleftrightarrow> (\<lambda>i. {a \<in> atoms_ltlc \<phi>. interp a (w i)}) \<Turnstile>\<^sub>c \<phi>"
+    by (simp add: semantics_ltlc'_semantics_ltlc_atoms_iff ltlc.set_map semantics_ltlc_map_prop)
+  also have "\<dots> \<longleftrightarrow> ?r"
+    by (subst map_semantics_ltlc_aux[OF f_inj]) (auto simp: comp_def)
+  finally show ?thesis .
+qed
+
+end
+
+
+locale TA_NBA_LTL_Product =
+  TA_NBA_Product where A = A and B = B
+  for A :: "('a, 'c, 't :: time, 'l) ta" and B :: "('p set, 's) nba" +
+  fixes \<phi> :: "'x ltlc" and interp :: "'x \<Rightarrow> ('l \<Rightarrow> bool)" and f :: "'x \<Rightarrow> 'p"
+  assumes B_\<phi>: "to_omega ` language B = {w. w \<Turnstile>\<^sub>c map_ltlc f \<phi>}"
+      and f_inj: "inj_on f (atoms_ltlc \<phi>)"
+      and label: "label s = f ` {a \<in> atoms_ltlc \<phi>. interp a s}"
+begin
+
+lemma smap_project:
+  "smap (\<lambda>(l, u). label l) xs = smap label (smap fst xs)"
+  by (coinduction arbitrary: xs) (auto split: prod.split)
+
+lemma B_\<phi>':
+  "language B = {w. to_omega w \<Turnstile>\<^sub>c map_ltlc f \<phi>}"
+  using B_\<phi> by auto (metis in_image(1) mem_Collect_eq to_stream_to_omega)
+
+lemma comp_to_omega_is_smap:
+  "g o to_omega xs = to_omega (smap g xs)"
+  unfolding to_omega_def comp_def by auto
+
+theorem prod_formula_run_iff:
+  "(\<exists>q \<in> inits. \<exists>xs. prod.run (((l\<^sub>0, q), u) ## xs) \<and> infs accept (((l\<^sub>0, q), u) ## xs))
+\<longleftrightarrow> (\<exists>xs. A.run ((l\<^sub>0, u) ## xs) \<and> Graph_Defs.models_ltlc (map_ltlc interp \<phi>) (l\<^sub>0 ## smap fst xs))"
+  unfolding prod_Buechi_run_iff Graph_Defs.models_ltlc_def B_\<phi>'
+  by (simp add: prop_ltlc_abstract[OF f_inj] smap_project label[symmetric] comp_to_omega_is_smap)
+
+end
+
+
+
+
+
+context
+  fixes \<phi> :: "('l \<Rightarrow> bool) ltlc" and f :: "('l \<Rightarrow> bool) \<Rightarrow> 'p"
+  assumes f_inj: "inj_on f (atoms_ltlc \<phi>)"
+begin
+
+lemma
+  "w \<Turnstile>\<^sub>c' \<phi> \<longleftrightarrow> (\<lambda>i. (\<lambda>s. f ` {a \<in> atoms_ltlc \<phi>. a s}) (w i)) \<Turnstile>\<^sub>c map_ltlc f \<phi>"
+  using f_inj
+  apply (subst semantics_ltlc'_semantics_ltlc_atoms_iff)
+  apply (subst map_semantics_ltlc_aux[where f = f])
+     apply auto
+  done
+
+end
+
+
+context
+  fixes collision sent :: "'l \<Rightarrow> bool"
+begin
+
+private definition
+  "edges = (\<lambda>s n.
+    if n = 0 then
+      if collision s \<and> sent s then {0}
+      else if collision s \<and> \<not> sent s then {0}
+      else if \<not> collision s then {1}
+      else {}
+    else if n = 1 then
+      if collision s \<and> sent s then {0}
+      else if \<not> collision s then {1}
+      else if collision s \<and> \<not> sent s then {2}
+      else {}
+    else if n = 2 then
+      if sent s then {0}
+      else {2}
+    else {}
+   )"
+
+lemma edges_determ:
+  "\<exists>x \<in> {0,1,2}. edges s l = {x}" if "l \<in> {0,1,2}"
+  using that unfolding edges_def by auto
+
+definition
+  "not_fg_collision_impl_g_not_sent = nba
+    UNIV {0,1,2} edges (\<lambda>l. l = 0)"
+
+definition
+  "formula = not\<^sub>c (F\<^sub>c (G\<^sub>c (prop\<^sub>c(collision) implies\<^sub>c G\<^sub>c (not\<^sub>c(prop\<^sub>c(sent))))))"
+
+schematic_goal
+  "formula = TT ?x"
+  unfolding formula_def
+  oops
+
+lemma
+  "\<xi> \<Turnstile>\<^sub>c' formula = \<xi> \<Turnstile>\<^sub>c' G\<^sub>c (F\<^sub>c (prop\<^sub>c(collision) and\<^sub>c F\<^sub>c (prop\<^sub>c(sent))))"
+  unfolding semantics_ltlc'_semantics_ltlc_atoms_iff
+  unfolding formula_def
+  by simp
+
+lemma
+  "language not_fg_collision_impl_g_not_sent =
+    {xs. Graph_Defs.models_ltlc formula xs}
+"
+  unfolding Graph_Defs.models_ltlc_def
+  apply auto
+  oops
+
+end
+
+
+
+
 
 end
