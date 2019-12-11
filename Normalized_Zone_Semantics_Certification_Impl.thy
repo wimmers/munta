@@ -8,6 +8,7 @@ theory Normalized_Zone_Semantics_Certification_Impl
     "HOL-Library.IArray"
     Deadlock_Impl
     TA_Library.More_Methods
+    "HOL-Library.Rewrite"
 begin
 
 paragraph \<open>Misc\<close>
@@ -646,12 +647,14 @@ interpretation
 lemma op_precise_buechi_run_correct:
   assumes
     "(\<nexists>xs.
-    Graph_Defs.run op_precise.E_from_op_empty ((l\<^sub>0, init_dbm) ## xs)
-    \<and> alw (ev (holds F)) ((l\<^sub>0, init_dbm) ## xs))"
+    Graph_Defs.run op_precise.E_from_op_empty ((l\<^sub>0', init_dbm) ## xs)
+    \<and> alw (ev (holds F)) ((l\<^sub>0', init_dbm) ## xs))"
+  and F_F1: "\<And>l D Z. op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0', init_dbm) (l, D)
+          \<Longrightarrow> dbm.zone_of (curry (conv_M D)) = Z \<Longrightarrow> F (l, D) = F1 (l, Z)"
   shows
     "\<nexists>u xs. (\<forall>c \<le> n. u c = 0)
-    \<and> Graph_Defs.run (\<lambda>(l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>) ((l\<^sub>0, u) ## xs)
-    \<and> alw (ev (holds F')) ((l\<^sub>0, u) ## xs)"
+    \<and> Graph_Defs.run (\<lambda>(l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>) ((l\<^sub>0', u) ## xs)
+    \<and> alw (ev (holds F')) ((l\<^sub>0', u) ## xs)"
 proof -
   let ?E = "\<lambda>(l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
   define E where "E \<equiv> \<lambda>(l, M) (l', M'). \<exists>a. conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
@@ -668,30 +671,30 @@ proof -
   have "alw (ev (holds F)) ys"
     if "stream_all2 equiv' xs ys"
       "alw (ev (holds (\<lambda>(l, M). F1 (l, dbm.zone_of M)))) xs"
-      "B.run ((l\<^sub>0, init_dbm) ## ys)"
+      "B.run ((l\<^sub>0', init_dbm) ## ys)"
     for xs ys
   proof -
-    from that(3) have "pred_stream (B.reaches (l\<^sub>0, init_dbm)) ys"
+    from that(3) have "pred_stream (B.reaches (l\<^sub>0', init_dbm)) ys"
       by (rule B.run_first_reaches)
-    with that(1) have "stream_all2 (\<lambda>x y. equiv' x y \<and> B.reaches (l\<^sub>0, init_dbm) y) xs ys"
+    with that(1) have "stream_all2 (\<lambda>x y. equiv' x y \<and> B.reaches (l\<^sub>0', init_dbm) y) xs ys"
       by (rule stream_all2_pred_stream_combine) (rule conjI)
     with that(2) show ?thesis
       apply (rule alw_ev_lockstep)
       unfolding equiv'_def using F_F1 by blast
   qed
   with assms have "\<nexists>xs.
-    Graph_Defs.run E ((l\<^sub>0, curry (conv_M init_dbm)) ## xs)
-  \<and> alw (ev (holds ?F1)) ((l\<^sub>0, curry (conv_M init_dbm)) ## xs)"
+    Graph_Defs.run E ((l\<^sub>0', curry (conv_M init_dbm)) ## xs)
+  \<and> alw (ev (holds ?F1)) ((l\<^sub>0', curry (conv_M init_dbm)) ## xs)"
     apply safe
-    apply (drule bisim.A_B.simulation_run[where y = "(l\<^sub>0, init_dbm)"])
+    apply (drule bisim.A_B.simulation_run[where y = "(l\<^sub>0', init_dbm)"])
     using valid_init_dbm unfolding equiv'_def
-    by (auto simp: wf_state_def dest: bisim.A_B.simulation_run[where y = "(l\<^sub>0, init_dbm)"])
+    by (auto simp: wf_state_def dest: bisim.A_B.simulation_run[where y = "(l\<^sub>0', init_dbm)"])
   then show ?thesis
     unfolding E_def
     by (auto
         intro: F'_F1
         dest: alw_ev_lockstep[where R = ?F1]
-        dest!: simulation_run[where y = "(l\<^sub>0, curry init_dbm)"] init
+        dest!: simulation_run[where y = "(l\<^sub>0', curry init_dbm)"] init
         )
 qed
 
@@ -1075,10 +1078,10 @@ interpretation
   subgoal (* succs refine *)
     using succs_precise_impl_refine unfolding b_assn_pure_conv .
        apply (rule dbm_subset_impl.refine; fail)
+  apply (rule location_assn_constraints; fail)+
   subgoal (* init loc refine *)
     using init_impl states'_states by sepref_to_hoare sep_auto
      apply (unfold PR_CONST_def, rule init_dbm_impl.refine; fail)
-    apply (rule location_assn_constraints; fail)+
   done
 
 definition
@@ -1195,7 +1198,7 @@ definition
     succsi = succs_precise'_impl;
     M_table = M_table
   in
-    certify_unreachable_impl Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi L_list M_table splitteri"
+    certify_unreachable_impl Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i L_list M_table splitteri"
 
 lemma unreachability_checker_alt_def:
   "unreachability_checker \<equiv>
@@ -1209,7 +1212,7 @@ lemma unreachability_checker_alt_def:
     succsi = succs_precise'_impl
   in do {
     M_table \<leftarrow> M_table;
-    certify_unreachable_impl_inner Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi splitteri L_list M_table
+    certify_unreachable_impl_inner Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i splitteri L_list M_table
   }"
   unfolding unreachability_checker_def certify_unreachable_impl_def Let_def .
 
@@ -1230,7 +1233,7 @@ definition
     succsi = succs_precise'_impl;
     M_table = M_table
   in
-    certify_unreachable_impl2 Fi Pi copyi Lei l\<^sub>0i s\<^sub>0i succsi splitteri L_list M_table"
+    certify_unreachable_impl2 Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i splitteri L_list M_table"
 
 lemmas unreachability_checker2_refine = certify_unreachable_impl2_refine[
     of L_list M_table splitter splitteri,
@@ -1299,7 +1302,6 @@ lemmas Mi_M2 = Mi_M1[OF M2_assms, folded M2i_alt_def M2_alt_def]
 interpretation
   Buechi_Impl_pre
   where F = F
-    and s\<^sub>0 = init_dbm
     and succs = succs_precise
     and less = "\<lambda> x y. dbm_subset n x y \<and> \<not> dbm_subset n y x"
     and less_eq = "dbm_subset n"
@@ -1339,14 +1341,57 @@ interpretation
 context
   fixes Li_split :: "'si list list"
   assumes full_split: "set L_list = (\<Union>xs \<in> set Li_split. set xs)"
+  fixes init_locsi :: "'si list" and init_locs :: "'s set"
+  assumes init_locs_in_states: "init_locs \<subseteq> states'"
+  assumes initsi_inits:
+    "(init_locsi, init_locs) \<in> \<langle>location_rel\<rangle>list_set_rel"
 begin
+
+definition
+  "init_locs1 = (SOME xs. set xs = init_locs \<and> (init_locsi, xs) \<in> \<langle>location_rel\<rangle>list_rel)"
+
+lemma init_locs1:
+  "set init_locs1 = init_locs \<and> (init_locsi, init_locs1) \<in> \<langle>location_rel\<rangle>list_rel"
+  using initsi_inits unfolding list_set_rel_def
+  apply (elim relcompE)
+  unfolding init_locs1_def
+  apply (rule someI)
+  apply auto
+  done
+
+lemma [sepref_fr_rules]:
+  "(uncurry0 (return li), uncurry0 (RETURN (PR_CONST l)))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a location_assn" if "(li, l) \<in> loc_rel" "l \<in> states'"
+  using that by sepref_to_hoare sep_auto
+
+lemma init_locsi_refine[sepref_fr_rules]:
+  "(uncurry0 (return init_locsi), uncurry0 (RETURN (PR_CONST init_locs1)))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a list_assn location_assn"
+proof -
+  let ?x = "list_assn (\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states'))"
+  have "?x = pure (\<langle>location_rel\<rangle>list_rel)"
+    unfolding fcomp_norm_unfold unfolding b_assn_def pure_def by simp
+  then have "emp \<Longrightarrow>\<^sub>A ?x init_locs1 init_locsi * true"
+    using init_locs1 by (simp add: pure_app_eq)
+  then show ?thesis
+    by sepref_to_hoare sep_auto
+qed
+
+definition
+  "inits = map (\<lambda>l. (l, init_dbm)) init_locs1"
+
+sepref_register init_locs1
+
+sepref_definition initsi
+  is "uncurry0 (RETURN (PR_CONST inits))"
+  :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (prod_assn location_assn (mtx_assn n))"
+  unfolding inits_def PR_CONST_def
+  unfolding map_by_foldl[symmetric] foldl_conv_fold HOL_list.fold_custom_empty
+  by sepref
 
 interpretation Buechi_Impl_imp_to_pure
   where A = "mtx_assn n"
     and F = F
-    and l\<^sub>0i = "return l\<^sub>0i"
-    and s\<^sub>0 = init_dbm
-    and s\<^sub>0i = init_dbm_impl
     and succs = succs_precise
     and succsi = succs_precise'_impl
     and less = "\<lambda> x y. dbm_subset n x y \<and> \<not> dbm_subset n y x"
@@ -1374,6 +1419,8 @@ interpretation Buechi_Impl_imp_to_pure
     and from_state = array_freeze
     and A_rel = "{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}"
     and Mi = "\<lambda>k. Impl_Array_Hash_Map.ahm_lookup (=) bounded_hashcode_nat k M2i"
+    and inits = inits
+    and initsi = "initsi"
   apply standard
   subgoal (* key refine *)
     by sepref_to_hoare sep_auto
@@ -1385,9 +1432,6 @@ interpretation Buechi_Impl_imp_to_pure
   subgoal (* succs refine *)
     using succs_precise_impl_refine unfolding b_assn_pure_conv .
        apply (rule dbm_subset_impl.refine; fail)
-  subgoal (* init loc refine *)
-    using init_impl states'_states by sepref_to_hoare sep_auto
-     apply (unfold PR_CONST_def, rule init_dbm_impl.refine; fail)
     apply (rule location_assn_constraints; fail)+
   subgoal
     using L_list_rel by simp
@@ -1413,18 +1457,23 @@ interpretation Buechi_Impl_imp_to_pure
   subgoal
     using full_split .
   subgoal
+    using initsi.refine .
+  subgoal
     using Mi_M2 .
   done
 
 concrete_definition certify_no_buechi_run_pure
   uses pure.certify_no_buechi_run_impl_pure_correct[unfolded to_pair_def get_succs_def]
   is "?f \<longrightarrow> _"
-
+thm op_precise_buechi_run_correct
 lemma certify_no_buechi_run_pure_refine:
   assumes "fst ` set M_list = set L_list" certify_no_buechi_run_pure
-  shows "\<nexists>u xs. (\<forall>c\<le>n. u c = 0) \<and> run ((l\<^sub>0, u) ## xs) \<and> alw (ev (holds F')) ((l\<^sub>0, u) ## xs)"
-  using certify_no_buechi_run_pure.refine[OF L_dom_M_eqI2] assms op_precise_buechi_run_correct
-  by simp
+  and F_F1: "\<And>l\<^sub>0 l D Z. l\<^sub>0 \<in> init_locs \<Longrightarrow> op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) (l, D)
+          \<Longrightarrow> dbm.zone_of (curry (conv_M D)) = Z \<Longrightarrow> F (l, D) = F1 (l, Z)"
+  shows "\<nexists>l\<^sub>0 u xs. l\<^sub>0 \<in> init_locs \<and> (\<forall>c\<le>n. u c = 0) \<and> run ((l\<^sub>0, u) ## xs) \<and> alw (ev (holds F')) ((l\<^sub>0, u) ## xs)"
+  using certify_no_buechi_run_pure.refine[OF L_dom_M_eqI2] assms(1,2)
+    op_precise_buechi_run_correct[OF _ F_F1]
+  unfolding inits_def using init_locs1 by simp
 
 end (* Fixed splitter *)
 

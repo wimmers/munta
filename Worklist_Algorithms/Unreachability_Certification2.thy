@@ -1032,11 +1032,16 @@ locale Buechi_Impl_imp_to_pure = Buechi_Impl_pre where
   and K_rel = K_rel and A_rel = A_rel
   for M :: "'k \<Rightarrow> ('a \<times> nat) set option"
   and K_rel :: "('ki \<times> 'k) set" and A_rel :: "('ai \<times> 'a) set" +
-  fixes inits :: "('k \<times> 'a) set" and initsi :: "('ki \<times> 'ai) list"
-  assumes inits_initsi: "(initsi, inits) \<in> \<langle>K_rel \<times>\<^sub>r A_rel\<rangle> list_set_rel"
+  fixes inits initsi
+  assumes initsi_inits: "(uncurry0 initsi, uncurry0 (RETURN (PR_CONST inits)))
+    \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a A)"
   fixes Mi :: "'ki \<Rightarrow> ('ai \<times> nat) list option"
   assumes Mi_M: "(Mi, M) \<in> K_rel \<rightarrow> \<langle>\<langle>A_rel \<times>\<^sub>r Id\<rangle>list_set_rel\<rangle>option_rel"
 begin
+
+lemma (in -) list_all2_flip:
+  "list_all2 P xs ys" if "list_all2 Q ys xs" "(\<And>x y. Q y x \<Longrightarrow> P x y)"
+  using that by (simp add: list_all2_conv_all_nth)
 
 sublocale pure:
   Buechi_Impl_pure
@@ -1048,8 +1053,52 @@ sublocale pure:
     A = A_rel and
     lei = lei and
     Pi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Pi a})" and
-    Fi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Fi a})"
-  by (standard; rule Mi_M F_mono inits_initsi)
+    Fi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Fi a})" and
+    inits = "set inits" and
+    \<^cancel>\<open>initsi = "
+      map (\<lambda>(l, s). (from_loc l, from_state s)) (run_heap initsi)"\<close>
+    initsi = "
+      run_heap (do {
+        xs \<leftarrow> initsi;
+        Heap_Monad.fold_map (\<lambda>(l, s). do {s \<leftarrow> from_state s; return (from_loc l, s)}) xs})"
+  apply standard
+    apply (rule Mi_M F_mono; assumption)+
+
+  apply (rule hoare_triple_run_heapD)
+  subgoal
+  proof -
+    have ***: "<\<up>((li, l) \<in> the_pure K) * \<up> ((s1, s) \<in> A_rel) * true> return (from_loc li, s1)
+          <\<lambda>(l1, s1). \<up> ((l1, l) \<in> K_rel) * \<up>((s1, s) \<in> A_rel)>\<^sub>t" for li l s1 s
+      by (sep_auto intro: from_loc)
+        (* XXX Why do we need this? Could e-matching help? *)
+    have 1: "(l, fst (a, b)) \<in> R" if "(l, a) \<in> R" for l a b R
+      using that by auto
+    have 2: "(l, snd (a, b)) \<in> R" if "(l, b) \<in> R" for l a b R
+      using that by auto
+        (* XXX Any way to improve this? *)
+    have "
+      <emp> (do {
+        xs \<leftarrow> initsi;
+        Heap_Monad.fold_map (\<lambda>(l, s). do {s \<leftarrow> from_state s; return (from_loc l, s)}) xs})
+      <\<lambda>r. \<up> ((r, inits) \<in> \<langle>K_rel \<times>\<^sub>r A_rel\<rangle>list_rel)>\<^sub>t"
+      using initsi_inits[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified]
+      apply (subst (asm) pure_the_pure[symmetric, OF pure_K])
+
+      apply (sep_auto simp: pure_def list_rel_def heap: fold_map_ht1)
+
+        prefer 3
+        apply (sep_auto elim: list_all2_flip)
+       prefer 2
+       apply (rule cons_post_rule)
+        apply (rule ***)
+       prefer 2
+       apply (sep_auto heap: from_state_ht elim: 1 2)+
+      done
+
+    then show ?thesis
+      by (sep_auto simp: pure_def list_set_rel_def relcomp.simps elim!: cons_post_rule)
+  qed
+  done
 
 end
 
