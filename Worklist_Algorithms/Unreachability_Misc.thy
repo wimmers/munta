@@ -838,7 +838,12 @@ locale Reachability_Impl =
   Reachability_Impl_base where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" and K = K and A = A +
   Reachability_Impl_pre_start where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for M :: "'k \<Rightarrow> 'a set option"
-  and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn" and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn"
+  and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn" and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn" +
+  fixes l\<^sub>0i :: "'ki Heap" and s\<^sub>0i :: "'ai Heap"
+  assumes l\<^sub>0i_l\<^sub>0[sepref_fr_rules]:
+    "(uncurry0 l\<^sub>0i, uncurry0 (RETURN (PR_CONST l\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a K"
+  assumes s\<^sub>0i_s\<^sub>0[sepref_fr_rules]:
+    "(uncurry0 s\<^sub>0i, uncurry0 (RETURN (PR_CONST s\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
 
 
 

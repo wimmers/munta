@@ -992,11 +992,6 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl where
   for l\<^sub>0 :: 'k and s\<^sub>0 :: 'a
   and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and A :: "'a \<Rightarrow> ('ai :: heap) \<Rightarrow> assn"
   and M and K_rel :: "('k1 \<times> 'k) set" and A_rel :: "('a1 \<times> 'a) set" +
-  fixes l\<^sub>0i :: "'ki Heap" and s\<^sub>0i :: "'ai Heap"
-  assumes l\<^sub>0i_l\<^sub>0[sepref_fr_rules]:
-    "(uncurry0 l\<^sub>0i, uncurry0 (RETURN (PR_CONST l\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a K"
-  assumes s\<^sub>0i_s\<^sub>0[sepref_fr_rules]:
-    "(uncurry0 s\<^sub>0i, uncurry0 (RETURN (PR_CONST s\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
   fixes Mi :: "'k1 \<Rightarrow> 'a1 list option"
   assumes Mi_M: "(Mi, M) \<in> K_rel \<rightarrow> \<langle>\<langle>A_rel\<rangle>list_set_rel\<rangle>option_rel"
 begin
