@@ -265,8 +265,8 @@ definition
   }
 "
 
-definition check_init where
-  "check_init S \<equiv>
+definition check_init' where
+  "check_init' S \<equiv>
   case S of None \<Rightarrow> RETURN False | Some S \<Rightarrow> do {
     xs \<leftarrow> SPEC (\<lambda>xs. set xs = S);
     monadic_list_ex (\<lambda>s. RETURN (PR_CONST less_eq (PR_CONST s\<^sub>0) s)) xs
@@ -274,7 +274,7 @@ definition check_init where
 "
 
 lemma check_all_pre'_refine:
-  "check_all_pre' L M \<le> check_all_pre"
+  "check_all_pre' L M \<le> check_all_pre l\<^sub>0 s\<^sub>0"
   unfolding check_all_pre_def check_all_pre'_def PR_CONST_def Let_def
   using check_prop_gt_SUCCEED
   apply (cases "op_map_lookup l\<^sub>0 M"; simp add: bind_RES)
@@ -315,8 +315,8 @@ sepref_register
   "PR_CONST l\<^sub>0" "PR_CONST s\<^sub>0"
 
 sepref_definition check_init_impl is
-  "check_init" :: "(option_assn (lso_assn A))\<^sup>d \<rightarrow>\<^sub>a bool_assn"
-  unfolding check_init_def list_of_set_def[symmetric]
+  "check_init'" :: "(option_assn (lso_assn A))\<^sup>d \<rightarrow>\<^sub>a bool_assn"
+  unfolding check_init'_def list_of_set_def[symmetric]
   unfolding monadic_list_all_def monadic_list_ex_def
   by sepref
 
@@ -347,10 +347,10 @@ lemma looukp_fold:
 sepref_register L_member lookup :: "('k, 'b set) i_map \<Rightarrow> 'b set option"
 
 definition check2 where
-  "check2 b = PR_CONST check_init (PR_CONST lookup b)"
+  "check2 b = PR_CONST check_init' (PR_CONST lookup b)"
 
 lemma check2_fold:
-  "PR_CONST check_init (PR_CONST lookup b) = PR_CONST check2 b"
+  "PR_CONST check_init' (PR_CONST lookup b) = PR_CONST check2 b"
   unfolding check2_def PR_CONST_def ..
 
 sepref_register check2 :: "('k, 'b set) i_map \<Rightarrow> bool nres"
@@ -373,7 +373,7 @@ sepref_thm check2_impl is
   unfolding PR_CONST_def
   unfolding check2_def
   unfolding PR_CONST_def
-  unfolding check_init_def lookup_def
+  unfolding check_init'_def lookup_def
   unfolding list_of_set_def[symmetric]
   unfolding monadic_list_all_def monadic_list_ex_def
   by sepref
@@ -693,14 +693,14 @@ proof -
     done
   then have *: "true \<Longrightarrow>\<^sub>A lso_assn K L L_list * true"
     by (subst true_emp) (erule ent_true_drop)
-  have check_all_pre'_refine: "check_all_pre' L M \<le> RETURN check_all_pre_spec"
+  have check_all_pre'_refine: "check_all_pre' L M \<le> RETURN (check_all_pre_spec l\<^sub>0 s\<^sub>0)"
     by (blast intro: check_all_pre_correct check_all_pre'_refine order.trans)
   have list_assn_K_eq: "list_assn K = pure (\<langle>the_pure K\<rangle>list_rel)"
     using pure_K by (simp add: list_assn_pure_conv[symmetric])
   have 1: "
     <emp>
       do {M' \<leftarrow> M_table; check_all_pre_impl L_list M'}
-    <\<lambda>r. \<up> (r \<longrightarrow> check_all_pre_spec)>\<^sub>t"
+    <\<lambda>r. \<up> (r \<longrightarrow> check_all_pre_spec l\<^sub>0 s\<^sub>0)>\<^sub>t"
     apply sep_auto
     subgoal for Mi
       apply (rule cons_rule[rotated 2])
@@ -771,14 +771,15 @@ proof -
     using L_finite L_listD by blast
   have 2:
     "check_invariant_spec L"
-    if check_all_pre_spec
+    if "check_all_pre_spec l\<^sub>0 s\<^sub>0"
       "list_all id
      (run_map_heap (\<lambda>Li. M_table \<bind> check_invariant_impl Li)
        (splitteri L_list))"
   proof -
     let ?c = "(\<lambda>Li. M_table \<bind> check_invariant_impl Li)"
     have A: "\<forall>l\<in>L. \<forall>s\<in>the (M l). P (l, s)"
-      using \<open>check_all_pre_spec\<close> \<open>dom M = L\<close> unfolding check_all_pre_spec_def by (force intro: P'_P)
+      using \<open>check_all_pre_spec l\<^sub>0 s\<^sub>0\<close> \<open>dom M = L\<close>
+      unfolding check_all_pre_spec_def by (force intro: P'_P)
     have
       "list_all2 (\<lambda>L' r. r \<longrightarrow> check_invariant_spec (set L'))
         (splitter LL) (run_map_heap ?c (splitteri L_list))"
