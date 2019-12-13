@@ -2361,7 +2361,7 @@ lemma sem_unfold2:
   "real.renum.sem = renum.sem"
   by (simp add: Simple_Network_Impl.sem_def rename_conv_automaton_commute)
 
-interpretation Bisimulation_Invariant
+sublocale renum_bisim: Bisimulation_Invariant
   "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
@@ -2373,25 +2373,32 @@ interpretation Bisimulation_Invariant
    apply auto
   done
 
-lemmas renum_bisim = Bisimulation_Invariant_axioms
+lemmas renum_bisim = renum_bisim.Bisimulation_Invariant_axioms
 
 end
 
-locale Simple_Network_Rename_Formula_int =
-  Simple_Network_Rename_int where automata = automata
+locale Simple_Network_Rename_Start' =
+  Simple_Network_Rename' where automata = automata
   for automata ::
     "('s list \<times> 's list
-      \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
-      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
-  fixes \<Phi> :: "(nat, 's, 'x, int) formula"
-    and s\<^sub>0 :: "('x \<times> int) list"
+      \<times> (('a :: countable) act, 's, 'c, 't, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, 't) cconstraint) list) list" +
+  fixes s\<^sub>0 :: "('x \<times> int) list"
     and L\<^sub>0 :: "'s list"
   assumes L\<^sub>0_states: "L\<^sub>0 \<in> states"
   assumes s\<^sub>0_dom: "fst ` set s\<^sub>0 = var_set" and s\<^sub>0_distinct: "distinct (map fst s\<^sub>0)"
 begin
 
-definition \<Phi>' where
-  "\<Phi>' = map_formula renum_states renum_vars id \<Phi>"
+end
+
+locale Simple_Network_Rename_Start_int =
+  Simple_Network_Rename_int where automata = automata +
+  Simple_Network_Rename_Start' where automata = automata
+  for automata ::
+    "('s list \<times> 's list
+      \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list"
+begin
 
 definition a\<^sub>0 where
   "a\<^sub>0 = (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)"
@@ -2442,16 +2449,9 @@ proof (rule ext)
   qed
 qed
 
-interpretation Bisimulation_Invariant
-  "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
-  "\<lambda>(L, s, u) (L', s', u'). step_u' renum.sem L s u L' s' u'"
-  "\<lambda>(L, s, u) (L', s', u'). L' = map_index renum_states L \<and> s' = s o vars_inv \<and> u' = map_u u"
-  "\<lambda> (L, s, u). L \<in> sem.states \<and> dom s = var_set" "\<lambda>_. True"
-  by (rule renum_bisim)
-
 lemma start_equiv:
-  "A_B.equiv' a\<^sub>0 a\<^sub>0'"
-  unfolding A_B.equiv'_def a\<^sub>0_def a\<^sub>0'_def
+  "renum_bisim.A_B.equiv' a\<^sub>0 a\<^sub>0'"
+  unfolding renum_bisim.A_B.equiv'_def a\<^sub>0_def a\<^sub>0'_def
   apply (clarsimp simp: vars_inv_def, intro conjI)
   subgoal
     by (intro state_eq s\<^sub>0_dom s\<^sub>0_distinct)
@@ -2464,52 +2464,67 @@ lemma start_equiv:
   done
 
 lemma check_sexp_equiv:
-  assumes "A_B.equiv' (L, s, u) (L', s', u')" "locs_of_sexp e \<subseteq> {0..<n_ps}"
+  assumes "renum_bisim.A_B.equiv' (L, s, u) (L', s', u')" "locs_of_sexp e \<subseteq> {0..<n_ps}"
   shows
   "check_sexp e L (the \<circ> s) \<longleftrightarrow>
    check_sexp (map_sexp renum_states renum_vars id e) L' (the \<circ> s')"
-  using assms unfolding A_B.equiv'_def
+  using assms unfolding renum_bisim.A_B.equiv'_def
   by (induction e)
      (simp add:
        inj_eq sem.states_lengthD renum_states_inj vars_inv_def the_inv_f_f[OF real.inj_renum_vars])+
 
 lemma check_sexp_compatible:
   assumes "locs_of_sexp e \<subseteq> {0..<n_ps}"
-  shows "compatible
+  shows "renum_bisim.compatible
     (\<lambda>(L, s, u). check_sexp e L (the \<circ> s))
     (\<lambda>(L', s', u'). check_sexp (map_sexp renum_states renum_vars id e) L' (the \<circ> s'))"
   using check_sexp_equiv[OF _ assms] by auto
 
-lemma models_iff:
-  "sem,a\<^sub>0 \<Turnstile> \<Phi> = renum.sem,a\<^sub>0' \<Turnstile> \<Phi>'" if "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
-proof -
-  have "rel_ctl_formula compatible (ctl_of \<Phi>) (ctl_of \<Phi>')"
-    using that unfolding \<Phi>'_def
-    by (cases \<Phi>; auto simp: check_sexp_equiv prop_of_def rel_fun_def)
-  with start_equiv show ?thesis
-    by (simp add: models_ctl_iff CTL_compatible[THEN rel_funD, symmetric])
-qed
-
 lemma has_deadlock_iff:
   "has_deadlock sem a\<^sub>0 \<longleftrightarrow> has_deadlock renum.sem a\<^sub>0'"
-  unfolding has_deadlock_def using start_equiv by (intro deadlock_iff, unfold A_B.equiv'_def) auto
+  unfolding has_deadlock_def using start_equiv
+  by (intro renum_bisim.deadlock_iff, unfold renum_bisim.A_B.equiv'_def) auto
 
 lemma state_formula_compatible:
   "(\<Union>x \<in> set_state_formula \<phi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
-  rel_state_formula compatible
+  rel_state_formula renum_bisim.compatible
     (map_state_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<phi>)
     (map_state_formula (\<lambda>P (L, s, _).
       check_sexp (map_sexp (\<lambda>p. renum_states p) renum_vars id P) L (the o s))
      \<phi>)" and path_formula_compatible:
   "(\<Union>x \<in> set_path_formula \<psi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
-  rel_path_formula compatible
+  rel_path_formula renum_bisim.compatible
     (map_path_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<psi>)
     (map_path_formula (\<lambda>P (L, s, _).
       check_sexp (map_sexp (\<lambda>p. renum_states p) renum_vars id P) L (the o s))
      \<psi>)"
    by (induction \<phi> and \<psi>) (auto simp: check_sexp_equiv prop_of_def rel_fun_def)
 
-lemmas models_state_compatible = models_state_compatible[OF state_formula_compatible]
+lemmas models_state_compatible = renum_bisim.models_state_compatible[OF state_formula_compatible]
+
+end
+
+locale Simple_Network_Rename_Formula_int =
+  Simple_Network_Rename_Start_int where automata = automata
+  for automata ::
+    "('s list \<times> 's list
+      \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
+  fixes \<Phi> :: "(nat, 's, 'x, int) formula"
+begin
+
+definition \<Phi>' where
+  "\<Phi>' = map_formula renum_states renum_vars id \<Phi>"
+
+lemma models_iff:
+  "sem,a\<^sub>0 \<Turnstile> \<Phi> = renum.sem,a\<^sub>0' \<Turnstile> \<Phi>'" if "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
+proof -
+  have "rel_ctl_formula renum_bisim.compatible (ctl_of \<Phi>) (ctl_of \<Phi>')"
+    using that unfolding \<Phi>'_def
+    by (cases \<Phi>; auto simp: check_sexp_equiv prop_of_def rel_fun_def)
+  with start_equiv show ?thesis
+    by (simp add: models_ctl_iff renum_bisim.CTL_compatible[THEN rel_funD, symmetric])
+qed
 
 end (* Simple Network Rename Formula int *)
 
@@ -3050,7 +3065,7 @@ lemma conv_automaton_of':
   "automaton_of \<circ> conv_automaton = Simple_Network_Language.conv_A o automaton_of"
   unfolding comp_def conv_automaton_of ..
 
-interpretation Bisimulation_Invariant
+sublocale urge_bisim: Bisimulation_Invariant
   "\<lambda>(L, s, u) (L', s', u'). step_u' sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). step_u' rename.sem L s u L' s' u'"
   "\<lambda>(L, s, u) (L', s', u'). L' = L \<and> s' = s \<and> u' = u(urge := 0)"
@@ -3058,64 +3073,61 @@ interpretation Bisimulation_Invariant
   unfolding urge_commute sem_def conv_automaton_of' by (rule urge.urge_bisim[unfolded conv_states])
 
 lemma check_sexp_equiv:
-  assumes "A_B.equiv' (L, s, u) (L', s', u')"
+  assumes "urge_bisim.A_B.equiv' (L, s, u) (L', s', u')"
   shows "check_sexp e L (the o s) = check_sexp e L' (the o s')"
-  using assms unfolding A_B.equiv'_def by simp
+  using assms unfolding urge_bisim.A_B.equiv'_def by simp
 
 context
   fixes a\<^sub>0 :: "'s list \<times> ('x \<Rightarrow> int option) \<times> ('c \<Rightarrow> real)"
   assumes start: "fst a\<^sub>0 \<in> states" "snd (snd a\<^sub>0) urge = 0"
 begin
 
-lemma start_equiv: "A_B.equiv' a\<^sub>0 a\<^sub>0"
-  using start unfolding A_B.equiv'_def by auto
+lemma start_equiv: "urge_bisim.A_B.equiv' a\<^sub>0 a\<^sub>0"
+  using start unfolding urge_bisim.A_B.equiv'_def by auto
 
 lemma urge_models_iff:
   "sem,a\<^sub>0 \<Turnstile> \<Phi> \<longleftrightarrow> rename.sem,a\<^sub>0 \<Turnstile> \<Phi>"
 proof -
-  have "rel_ctl_formula compatible (ctl_of \<Phi>) (ctl_of \<Phi>)"
+  have "rel_ctl_formula urge_bisim.compatible (ctl_of \<Phi>) (ctl_of \<Phi>)"
     by (cases \<Phi>) (auto simp: prop_of_def rel_fun_def check_sexp_equiv)
   with start_equiv show ?thesis
-    by (simp only: models_ctl_iff CTL_compatible[THEN rel_funD, symmetric])
+    by (simp only: models_ctl_iff urge_bisim.CTL_compatible[THEN rel_funD, symmetric])
 qed
 
 lemma urge_has_deadlock_iff:
   "has_deadlock sem a\<^sub>0 \<longleftrightarrow> has_deadlock rename.sem a\<^sub>0"
-  unfolding has_deadlock_def using start_equiv by (intro deadlock_iff, unfold A_B.equiv'_def) auto
+  unfolding has_deadlock_def using start_equiv
+  by (intro urge_bisim.deadlock_iff, unfold urge_bisim.A_B.equiv'_def) auto
 
 lemma state_formula_compatible:
   "(\<Union>x \<in> set_state_formula \<phi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
-  rel_state_formula compatible
+  rel_state_formula urge_bisim.compatible
     (map_state_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<phi>)
     (map_state_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<phi>)" and path_formula_compatible:
   "(\<Union>x \<in> set_path_formula \<psi>. locs_of_sexp x) \<subseteq> {0..<n_ps} \<Longrightarrow>
-  rel_path_formula compatible
+  rel_path_formula urge_bisim.compatible
     (map_path_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<psi>)
     (map_path_formula (\<lambda>P (L, s, _). check_sexp P L (the o s)) \<psi>)"
    by (induction \<phi> and \<psi>) (auto simp: check_sexp_equiv prop_of_def rel_fun_def)
 
-lemmas urge_models_state_compatible = models_state_compatible[OF state_formula_compatible]
+lemmas urge_models_state_compatible =
+  urge_bisim.models_state_compatible[OF state_formula_compatible]
 
 end (* Start State *)
 
 end (* Simple_Network_Rename *)
 
 
-locale Simple_Network_Rename_Formula =
+locale Simple_Network_Rename_Start =
   Simple_Network_Rename where automata = automata
   for automata ::
     "('s list \<times> 's list
       \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
       \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
-  fixes \<Phi> :: "(nat, 's, 'x, int) formula"
-    and s\<^sub>0 :: "('x \<times> int) list"
+  fixes s\<^sub>0 :: "('x \<times> int) list"
     and L\<^sub>0 :: "'s list"
   assumes L\<^sub>0_states: "L\<^sub>0 \<in> states"
       and s\<^sub>0_dom: "fst ` set s\<^sub>0 = var_set" and s\<^sub>0_distinct: "distinct (map fst s\<^sub>0)"
-  assumes formula_dom:
-    "set2_formula \<Phi> \<subseteq> loc_set"
-    "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
-    "vars_of_formula \<Phi> \<subseteq> var_set"
 begin
 
 lemma rename_n_ps_eq:
@@ -3128,15 +3140,10 @@ lemma rename_states_eq:
   by (simp add: rename.N_eq[unfolded rename_n_ps_eq] N_eq n_ps_def del: map_map)
      (auto simp: automaton_of_def conv_urge_def trans_def split: prod.splits)
 
-sublocale rename: Simple_Network_Rename_Formula_int
-  broadcast bounds'
-  "extend_bij renum_acts act_set"
-  "extend_bij renum_vars var_set"
-  "extend_bij renum_clocks (insert urge clk_set')"
-  "\<lambda>p. extend_bij (renum_states p) loc_set"
-  "map (conv_urge urge) automata"
-  apply (standard; (rule L\<^sub>0_states[folded rename_states_eq] s\<^sub>0_distinct)?)
-  unfolding s\<^sub>0_dom rename.bounds'_var_set[symmetric] bounds'_var_set ..
+lemma state_eq:
+  "map_of (map (\<lambda>(x, y). (extend_bij renum_vars var_set x, y)) s\<^sub>0) =
+    map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0)"
+  using s\<^sub>0_dom by - (rule arg_cong, auto intro: renum_vars_bij_extends)
 
 lemma sexp_eq:
   assumes
@@ -3146,11 +3153,6 @@ lemma sexp_eq:
   shows \<open>map_sexp (\<lambda>p. extend_bij (renum_states p) loc_set) (extend_bij renum_vars var_set) id e =
          map_sexp renum_states renum_vars id e\<close>
   using assms by (induction e; clarsimp simp: renum_states_extend)
-
-lemma state_eq:
-  "map_of (map (\<lambda>(x, y). (extend_bij renum_vars var_set x, y)) s\<^sub>0) =
-    map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0)"
-  using s\<^sub>0_dom by - (rule arg_cong, auto intro: renum_vars_bij_extends)
 
 lemma L\<^sub>0_dom:
   "length L\<^sub>0 = n_ps" "set L\<^sub>0 \<subseteq> loc_set"
@@ -3165,8 +3167,16 @@ definition
     map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0),
     \<lambda>_. 0)"
 
-definition
-  "\<Phi>' = map_formula (\<lambda>p. renum_states p) renum_vars id \<Phi>"
+sublocale rename: Simple_Network_Rename_Start_int
+  broadcast bounds'
+  "extend_bij renum_acts act_set"
+  "extend_bij renum_vars var_set"
+  "extend_bij renum_clocks (insert urge clk_set')"
+  "\<lambda>p. extend_bij (renum_states p) loc_set"
+  s\<^sub>0 L\<^sub>0
+  "map (conv_urge urge) automata"
+  apply (standard; (rule L\<^sub>0_states[folded rename_states_eq] s\<^sub>0_distinct)?)
+  unfolding s\<^sub>0_dom rename.bounds'_var_set[symmetric] bounds'_var_set ..
 
 lemma rename_a\<^sub>0_eq:
   "rename.a\<^sub>0 = a\<^sub>0"
@@ -3182,23 +3192,6 @@ lemma rename_a\<^sub>0'_eq:
     unfolding vars_inv_def using s\<^sub>0_dom s\<^sub>0_distinct
     by (auto simp: state_eq Simple_Network_Rename_Defs.vars_inv_def)
   done
-
-lemma rename_\<Phi>'_eq:
-  "rename.\<Phi>' = \<Phi>'"
-  using formula_dom unfolding rename.\<Phi>'_def \<Phi>'_def by (induction \<Phi>; clarsimp simp: sexp_eq)
-
-lemma models_iff1:
-  "rename.renum.sem,a\<^sub>0' \<Turnstile> \<Phi>' \<longleftrightarrow> rename.sem,a\<^sub>0 \<Turnstile> \<Phi>"
-  by (intro rename.models_iff[unfolded rename_a\<^sub>0_eq rename_a\<^sub>0'_eq rename_\<Phi>'_eq rename_n_ps_eq]
-       formula_dom sym)
-
-lemma models_iff2:
-  "rename.sem,a\<^sub>0 \<Turnstile> \<Phi> \<longleftrightarrow> sem,a\<^sub>0 \<Turnstile> \<Phi>"
-  by (rule sym, intro urge_models_iff formula_dom) (auto intro: formula_dom L\<^sub>0_states simp: a\<^sub>0_def)
-
-lemma models_iff:
-  "rename.renum.sem,a\<^sub>0' \<Turnstile> \<Phi>' \<longleftrightarrow> sem,a\<^sub>0 \<Turnstile> \<Phi>"
-  unfolding models_iff1 models_iff2 ..
 
 lemma has_deadlock_iff:
   "has_deadlock rename.renum.sem a\<^sub>0' \<longleftrightarrow> has_deadlock sem a\<^sub>0"
@@ -3225,11 +3218,8 @@ lemma rename_N_eq_sem':
   unfolding renum.conv_alt_def
   by safe (rule nth_equalityI; simp add: conv_N_eq N_eq sem_N_eq conv_automaton_of n_ps_def)
 
-lemmas models_iff' =
-  models_iff[unfolded rename_N_eq_sem, folded N_eq_sem, unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
-
 lemmas has_deadlock_iff' =
-  has_deadlock_iff[unfolded rename_N_eq_sem, folded N_eq_sem, unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
+  has_deadlock_iff[unfolded rename_N_eq_sem, folded N_eq_sem, unfolded a\<^sub>0_def a\<^sub>0'_def]
 
 lemmas start_equiv = start_equiv[of a\<^sub>0, unfolded a\<^sub>0_def, simplified, OF L\<^sub>0_states]
 
@@ -3245,6 +3235,55 @@ lemmas models_state_compatible =
   transp_equality[THEN transpD, OF urge_models_state_compatible rename_models_state_compatible]
 
 lemmas models_state_compatible' = models_state_compatible[unfolded rename_N_eq_sem, folded N_eq_sem]
+
+end
+
+locale Simple_Network_Rename_Formula =
+  Simple_Network_Rename_Start where automata = automata
+  for automata ::
+    "('s list \<times> 's list
+      \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list" +
+  fixes \<Phi> :: "(nat, 's, 'x, int) formula"
+  assumes formula_dom:
+    "set2_formula \<Phi> \<subseteq> loc_set"
+    "locs_of_formula \<Phi> \<subseteq> {0..<n_ps}"
+    "vars_of_formula \<Phi> \<subseteq> var_set"
+begin
+
+sublocale rename: Simple_Network_Rename_Formula_int
+  broadcast bounds'
+  "extend_bij renum_acts act_set"
+  "extend_bij renum_vars var_set"
+  "extend_bij renum_clocks (insert urge clk_set')"
+  "\<lambda>p. extend_bij (renum_states p) loc_set"
+  s\<^sub>0 L\<^sub>0
+  "map (conv_urge urge) automata"
+  apply (standard; (rule L\<^sub>0_states[folded rename_states_eq] s\<^sub>0_distinct)?)
+  unfolding s\<^sub>0_dom rename.bounds'_var_set[symmetric] bounds'_var_set .
+
+definition
+  "\<Phi>' = map_formula (\<lambda>p. renum_states p) renum_vars id \<Phi>"
+
+lemma rename_\<Phi>'_eq:
+  "rename.\<Phi>' = \<Phi>'"
+  using formula_dom unfolding rename.\<Phi>'_def \<Phi>'_def by (induction \<Phi>; clarsimp simp: sexp_eq)
+
+lemma models_iff1:
+  "rename.renum.sem,a\<^sub>0' \<Turnstile> \<Phi>' \<longleftrightarrow> rename.sem,a\<^sub>0 \<Turnstile> \<Phi>"
+  by (intro rename.models_iff[unfolded rename_a\<^sub>0_eq rename_a\<^sub>0'_eq rename_\<Phi>'_eq rename_n_ps_eq]
+       formula_dom sym)
+
+lemma models_iff2:
+  "rename.sem,a\<^sub>0 \<Turnstile> \<Phi> \<longleftrightarrow> sem,a\<^sub>0 \<Turnstile> \<Phi>"
+  by (rule sym, intro urge_models_iff formula_dom) (auto intro: formula_dom L\<^sub>0_states simp: a\<^sub>0_def)
+
+lemma models_iff:
+  "rename.renum.sem,a\<^sub>0' \<Turnstile> \<Phi>' \<longleftrightarrow> sem,a\<^sub>0 \<Turnstile> \<Phi>"
+  unfolding models_iff1 models_iff2 ..
+
+lemmas models_iff' =
+  models_iff[unfolded rename_N_eq_sem, folded N_eq_sem, unfolded a\<^sub>0_def a\<^sub>0'_def \<Phi>'_def]
 
 end (* Simple_Network_Rename_Formula *)
 

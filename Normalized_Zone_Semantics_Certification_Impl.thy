@@ -1344,20 +1344,25 @@ context
   fixes init_locsi :: "'si list" and init_locs :: "'s set"
   assumes init_locs_in_states: "init_locs \<subseteq> states'"
   assumes initsi_inits:
-    "(init_locsi, init_locs) \<in> \<langle>location_rel\<rangle>list_set_rel"
+    "(init_locsi, init_locs) \<in> \<langle>loc_rel\<rangle>list_set_rel"
 begin
 
 definition
-  "init_locs1 = (SOME xs. set xs = init_locs \<and> (init_locsi, xs) \<in> \<langle>location_rel\<rangle>list_rel)"
+  "init_locs1 = (SOME xs. set xs = init_locs \<and> (init_locsi, xs) \<in> \<langle>loc_rel\<rangle>list_rel)"
 
 lemma init_locs1:
-  "set init_locs1 = init_locs \<and> (init_locsi, init_locs1) \<in> \<langle>location_rel\<rangle>list_rel"
+  "set init_locs1 = init_locs \<and> (init_locsi, init_locs1) \<in> \<langle>loc_rel\<rangle>list_rel"
   using initsi_inits unfolding list_set_rel_def
   apply (elim relcompE)
   unfolding init_locs1_def
   apply (rule someI)
   apply auto
   done
+
+lemma init_locsi_init_locs1:
+  "(init_locsi, init_locs1) \<in> \<langle>location_rel\<rangle>list_rel"
+  using init_locs1 init_locs_in_states unfolding b_rel_def
+  unfolding list_rel_def by (auto elim!: list.rel_mono_strong)
 
 lemma [sepref_fr_rules]:
   "(uncurry0 (return li), uncurry0 (RETURN (PR_CONST l)))
@@ -1372,7 +1377,7 @@ proof -
   have "?x = pure (\<langle>location_rel\<rangle>list_rel)"
     unfolding fcomp_norm_unfold unfolding b_assn_def pure_def by simp
   then have "emp \<Longrightarrow>\<^sub>A ?x init_locs1 init_locsi * true"
-    using init_locs1 by (simp add: pure_app_eq)
+    using init_locsi_init_locs1 by (simp add: pure_app_eq)
   then show ?thesis
     by sepref_to_hoare sep_auto
 qed
@@ -1465,7 +1470,7 @@ interpretation Buechi_Impl_imp_to_pure
 concrete_definition certify_no_buechi_run_pure
   uses pure.certify_no_buechi_run_impl_pure_correct[unfolded to_pair_def get_succs_def]
   is "?f \<longrightarrow> _"
-thm op_precise_buechi_run_correct
+
 lemma certify_no_buechi_run_pure_refine:
   assumes "fst ` set M_list = set L_list" certify_no_buechi_run_pure
   and F_F1: "\<And>l\<^sub>0 l D Z. l\<^sub>0 \<in> init_locs \<Longrightarrow> op_precise.E_from_op_empty\<^sup>*\<^sup>* (l\<^sub>0, init_dbm) (l, D)

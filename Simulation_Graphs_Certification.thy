@@ -397,7 +397,6 @@ locale Reachability_Invariant_paired_defs =
   Reachability_Invariant_paired_pre_defs _ _ E for E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool" +
   fixes M :: "'l \<Rightarrow> 's set"
     and L :: "'l set"
-  fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
 begin
 
 definition "covered \<equiv> \<lambda> (l, s). \<exists> s' \<in> M l. s \<prec> s'"
@@ -415,7 +414,8 @@ locale Unreachability_Invariant_paired_pre =
   assumes P_invariant: "P (l, s) \<Longrightarrow> E (l, s) (l', s') \<Longrightarrow> P (l', s')"
 
 locale Unreachability_Invariant_paired =
-  Unreachability_Invariant_paired_pre _ _ M L l\<^sub>0 s\<^sub>0 E P for M :: "'l \<Rightarrow> 's set" and L l\<^sub>0 s\<^sub>0 E P +
+  Unreachability_Invariant_paired_pre _ _ M L E P for M :: "'l \<Rightarrow> 's set" and L E P +
+  fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
   fixes SE :: "'l \<times> 's \<Rightarrow> 'l \<times> 's \<Rightarrow> bool"
   assumes subsumption_edges_subsume: "SE (l, s) (l', s') \<Longrightarrow> l' = l \<and> s \<preceq> s'"
   assumes M_invariant: "l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> P (l, s)"
@@ -1192,7 +1192,10 @@ end
 
 subsection \<open>Instantiating Reachability Compatible Subsumption Graphs\<close>
 
-locale Reachability_Invariant_paired = Reachability_Invariant_paired_defs + preorder less_eq less +
+locale Reachability_Invariant_paired =
+  Reachability_Invariant_paired_defs where M = M +
+  preorder less_eq less for M :: "'l \<Rightarrow> 's set" +
+  fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
   assumes E_T: "\<forall> l s l' s'. E (l, s) (l', s') \<longleftrightarrow> (\<exists> f. (l', f) \<in> T l \<and> s' = f s)"
   assumes mono:
     "s \<preceq> s' \<Longrightarrow> E (l, s) (l', t) \<Longrightarrow> E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) (l, s) \<Longrightarrow> E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) (l, s')
@@ -1259,7 +1262,7 @@ interpretation Reachability_Compatible_Subsumption_Graph_View
 
 context
   assumes no_subsumption_cycle: "G'.reachable x \<Longrightarrow> x \<rightarrow>\<^sub>G\<^sup>+' x \<Longrightarrow> x \<rightarrow>\<^sub>G\<^sup>+ x"
-  fixes F :: "'b \<times> 'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
+  fixes F :: "'l \<times> 's \<Rightarrow> bool" \<comment> \<open>Final states\<close>
   assumes F_mono[intro]: "F (l, a) \<Longrightarrow> a \<preceq> b \<Longrightarrow> F (l, b)"
 begin
 

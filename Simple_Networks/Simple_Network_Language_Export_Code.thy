@@ -481,7 +481,7 @@ theorem model_check_rename:
           \<not> N broadcast automata bounds,(L\<^sub>0, map_of s\<^sub>0, \<lambda>_ . 0) \<Turnstile> formula
         ))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge automata formula s\<^sub>0 L\<^sub>0)
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge s\<^sub>0 L\<^sub>0 automata formula)
      | Preconds_Unsat \<Rightarrow> \<up>(\<not> Simple_Network_Impl_nat_ceiling_start_state
         (map renum_acts broadcast)
         (map (\<lambda>(a,p). (renum_vars a, p)) bounds)
@@ -496,10 +496,11 @@ proof -
     Simple_Network_Rename_Formula_String
         broadcast bounds renum_acts renum_vars renum_clocks renum_states automata urge formula s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge automata formula s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge s\<^sub>0 L\<^sub>0 automata formula
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
+      Simple_Network_Rename_Start_def Simple_Network_Rename_Start_axioms_def
       Simple_Network_Rename_def Simple_Network_Rename_Formula_axioms_def
     using infinite_literal by auto
   define A where "A \<equiv> N broadcast automata bounds"
@@ -523,7 +524,7 @@ proof -
       (map_formula renum_states renum_vars id formula)"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_acts renum_vars renum_clocks renum_states urge automata formula s\<^sub>0 L\<^sub>0
+      broadcast bounds renum_acts renum_vars renum_clocks renum_states urge s\<^sub>0 L\<^sub>0 automata formula
   "
   have [simp]: "check \<longleftrightarrow> check'" 
     if renaming_valid
@@ -535,7 +536,8 @@ proof -
      (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0), \<lambda>_. 0)
   " if renaming_valid
     using that unfolding check_def check'_def A_def A'_def renaming_valid_def
-    by (rule Simple_Network_Rename_Formula.has_deadlock_iff'[symmetric])
+    unfolding Simple_Network_Rename_Formula_def
+    by (elim conjE) (rule Simple_Network_Rename_Start.has_deadlock_iff'[symmetric])
   note [sep_heap_rules] =
     model_check[
     of _ _
@@ -563,8 +565,8 @@ theorem deadlock_check_rename:
     <\<lambda> Sat   \<Rightarrow> \<up>(  has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_.  0))
      | Unsat \<Rightarrow> \<up>(\<not> has_deadlock (N broadcast automata bounds) (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0))
      | Renaming_Failed \<Rightarrow> \<up>(\<not> Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge automata
-        (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0)
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge s\<^sub>0 L\<^sub>0 automata
+        (formula.EX (not sexp.true)))
      | Preconds_Unsat \<Rightarrow> \<up>(\<not> Simple_Network_Impl_nat_ceiling_start_state
         (map renum_acts broadcast)
         (map (\<lambda>(a,p). (renum_vars a, p)) bounds)
@@ -580,11 +582,12 @@ proof -
         broadcast bounds renum_acts renum_vars renum_clocks renum_states automata urge
         (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0
   = Simple_Network_Rename_Formula
-        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge automata
-        (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0
+        broadcast bounds renum_acts renum_vars renum_clocks renum_states urge s\<^sub>0 L\<^sub>0 automata
+        (formula.EX (not sexp.true))
   "
     unfolding
       Simple_Network_Rename_Formula_String_def Simple_Network_Rename_Formula_def
+      Simple_Network_Rename_Start_def Simple_Network_Rename_Start_axioms_def
       Simple_Network_Rename_def Simple_Network_Rename_Formula_axioms_def
     using infinite_literal by auto
   define A where "A \<equiv> N broadcast automata bounds"
@@ -604,15 +607,15 @@ proof -
       (formula.EX (not sexp.true))"
   define renaming_valid where "renaming_valid \<equiv>
     Simple_Network_Rename_Formula
-      broadcast bounds renum_acts renum_vars renum_clocks renum_states urge automata
-      (formula.EX (not sexp.true)) s\<^sub>0 L\<^sub>0"
+      broadcast bounds renum_acts renum_vars renum_clocks renum_states urge s\<^sub>0 L\<^sub>0 automata
+      (formula.EX (not sexp.true))"
  have test[symmetric, simp]:
     "Simple_Network_Language_Model_Checking.has_deadlock A (L\<^sub>0, map_of s\<^sub>0, \<lambda>_. 0)
   \<longleftrightarrow>Simple_Network_Language_Model_Checking.has_deadlock A'
      (map_index renum_states L\<^sub>0, map_of (map (\<lambda>(x, y). (renum_vars x, y)) s\<^sub>0), \<lambda>_. 0)
   " if renaming_valid
-    using that unfolding check_def A_def A'_def renaming_valid_def
-    by (rule Simple_Network_Rename_Formula.has_deadlock_iff'[symmetric])
+    using that unfolding check_def A_def A'_def renaming_valid_def Simple_Network_Rename_Formula_def
+    by (elim conjE) (rule Simple_Network_Rename_Start.has_deadlock_iff'[symmetric])
   note [sep_heap_rules] =
     deadlock_check[
     of _ _
