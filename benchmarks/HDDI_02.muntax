@@ -247,5 +247,5 @@
     ], 
     "clocks": "RING_x, ST1_x, ST1_y, ST1_z, ST2_x, ST2_y, ST2_z", 
     "vars": "",
-    "formula": "E<> ((ST1.station_z_sync || ST1.station_z_async || ST1.station_y_sync || ST1.station_y_async) && 	(ST2.station_z_sync || ST2.station_z_async || ST2.station_y_sync || ST2.station_y_async) )"
+    "formula": "E<> ((ST1.station_z_sync || ST1.station_z_async || ST1.station_y_sync || ST1.station_y_async) && (ST2.station_z_sync || ST2.station_z_async || ST2.station_y_sync || ST2.station_y_async) )"
 }
