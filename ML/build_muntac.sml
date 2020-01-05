@@ -16,5 +16,6 @@ map (fn f => use (mlunta_dir ^ "/" ^ f)) [
   "serializable.sml",
   "certificate.sml"
 ];
+use "Util.sml";
 use "Muntac.sml";
 case OS.Process.getEnv "PROFILE_POLY" of SOME _ => use "profile_poly.sml" | NONE => ()
