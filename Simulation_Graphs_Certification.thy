@@ -394,7 +394,7 @@ locale Reachability_Invariant_paired_pre_defs =
   fixes E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"
 
 locale Reachability_Invariant_paired_defs =
-  Reachability_Invariant_paired_pre_defs _ _ E for E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool" +
+  Reachability_Invariant_paired_pre_defs where E = E for E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool" +
   fixes M :: "'l \<Rightarrow> 's set"
     and L :: "'l set"
 begin
@@ -405,16 +405,26 @@ definition "RE = (\<lambda>(l, s) ab. s \<in> M l \<and> \<not> covered (l, s) \
 
 end (* Reachability Invariant paired defs *)
 
-locale Unreachability_Invariant_paired_pre =
-  Reachability_Invariant_paired_defs _ _ E +
+locale Unreachability_Invariant_paired_pre_defs =
+  Reachability_Invariant_paired_pre_defs _ _ E +
   preorder less_eq less for E :: "('l \<times> 's) \<Rightarrow> _" +
   fixes P :: "('l \<times> 's) \<Rightarrow> bool"
+
+locale Unreachability_Invariant_paired_defs =
+  Unreachability_Invariant_paired_pre_defs where E = E +
+  Reachability_Invariant_paired_defs where E = E
+  for E :: "('l \<times> 's) \<Rightarrow> _"
+
+locale Unreachability_Invariant_paired_pre =
+  Unreachability_Invariant_paired_pre_defs +
   assumes mono:
     "s \<preceq> s' \<Longrightarrow> E (l, s) (l', t) \<Longrightarrow> P (l, s) \<Longrightarrow> P (l, s') \<Longrightarrow> \<exists> t'. t \<preceq> t' \<and> E (l, s') (l', t')"
   assumes P_invariant: "P (l, s) \<Longrightarrow> E (l, s) (l', s') \<Longrightarrow> P (l', s')"
 
 locale Unreachability_Invariant_paired =
-  Unreachability_Invariant_paired_pre _ _ M L E P for M :: "'l \<Rightarrow> 's set" and L E P +
+  Unreachability_Invariant_paired_pre where E = E and P = P +
+  Unreachability_Invariant_paired_defs where M = M and L = L and E = E and P = P
+  for M :: "'l \<Rightarrow> 's set" and L E P +
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
   fixes SE :: "'l \<times> 's \<Rightarrow> 'l \<times> 's \<Rightarrow> bool"
   assumes subsumption_edges_subsume: "SE (l, s) (l', s') \<Longrightarrow> l' = l \<and> s \<preceq> s'"

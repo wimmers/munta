@@ -3,7 +3,6 @@ theory Unreachability_Certification2
     Unreachability_Misc
     TA_Library.Abstract_Term
     "HOL-Library.Parallel"
-    "HOL-ex.Sketch_and_Explore"
 begin
 
 hide_const (open) list_set_rel
@@ -110,9 +109,9 @@ lemma list_all_default_split:
 
 
 locale Reachability_Impl_pure_base =
-  Reachability_Impl_pre where less_eq = less_eq and M = M
-  for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'a set" +
-  fixes get_succs and K and A and Li and lei and Pi and Fi
+  Reachability_Impl_base where less_eq = less_eq
+  for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) +
+  fixes get_succs and K and A and L and Li and lei
     and Li_split :: "'ki list list"
   assumes K_right_unique: "single_valued K"
   assumes K_left_unique:  "single_valued (K\<inverse>)"
@@ -120,8 +119,6 @@ locale Reachability_Impl_pure_base =
   assumes lei_less_eq: "(lei, less_eq) \<in> A \<rightarrow> A \<rightarrow> bool_rel"
   assumes get_succs_succs[param]:
     "(get_succs, succs) \<in> K \<rightarrow> \<langle>A\<rangle>list_set_rel \<rightarrow> \<langle>K \<times>\<^sub>r \<langle>A\<rangle>list_set_rel\<rangle>list_rel"
-  assumes Pi_P'[refine,param]: "(Pi, P') \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
-  assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
   assumes full_split: "set Li = (\<Union>xs \<in> set Li_split. set xs)"
 begin
 
@@ -148,9 +145,32 @@ lemma list_all_split:
 end
 
 
+locale Reachability_Impl_pure_invariant =
+  Reachability_Impl_invariant where M = M +
+  Reachability_Impl_pure_base where Li_split = Li_split
+  for M :: "'k \<Rightarrow> 'a set" and Li_split :: "'ki list list"
+
+locale Reachability_Impl_pure_base2 =
+  Reachability_Impl_pure_base where less_eq = less_eq and Li_split = Li_split +
+  Reachability_Impl_base2 where less_eq = less_eq
+  for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and Li_split :: "'ki list list" +
+  fixes Pi and Fi
+  assumes Pi_P'[refine,param]: "(Pi, P') \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
+  assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
+
+\<^cancel>\<open>locale Reachability_Impl_pure_base =
+  Reachability_Impl_pure_invariant where less_eq = less_eq and M = M and Li_split = Li_split +
+  Reachability_Impl_pre where less_eq = less_eq and M = M
+  for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'a set"
+  and Li_split :: "'ki list list" +
+  fixes Pi and Fi
+  assumes Pi_P'[refine,param]: "(Pi, P') \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
+  assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"\<close>
+
+
 locale Reachability_Impl_pure =
   Reachability_Impl_common where M = M +
-  Reachability_Impl_pure_base where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" +
+  Reachability_Impl_pure_base2 +
   Reachability_Impl_pre_start where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for M :: "'k \<Rightarrow> 'a set option" +
   fixes Mi l\<^sub>0i s\<^sub>0i
@@ -465,7 +485,7 @@ concrete_definition (in -) certify_unreachable_impl_pure
   uses Reachability_Impl_pure.certify_unreachable_impl_pure1_alt_def is "_ \<equiv> ?f"
 
 theorem certify_unreachable_impl_pure_correct:
-  "certify_unreachable_impl_pure get_succs Li lei Pi Fi Li_split Mi l\<^sub>0i s\<^sub>0i
+  "certify_unreachable_impl_pure get_succs Li lei Li_split Pi Fi Mi l\<^sub>0i s\<^sub>0i
   \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
   if "L = dom M"
   using certify_unreachable1_correct that
@@ -479,7 +499,7 @@ end (* Reachability_Impl_pure *)
 
 locale Buechi_Impl_pure =
   Buechi_Impl_pre where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" +
-  Reachability_Impl_pure_base where M = "\<lambda>l. fst ` (\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S) l"
+  Reachability_Impl_pure_base2
   for M :: "'k \<Rightarrow> ('a \<times> nat) set option" +
   fixes Mi :: "'ki \<Rightarrow> ('ai \<times> nat) list option"
   assumes Mi_M[param]: "(Mi, M) \<in> K \<rightarrow> \<langle>\<langle>A \<times>\<^sub>r Id\<rangle>list_set_rel\<rangle>option_rel"
@@ -651,15 +671,18 @@ lemma check_prop1_refine:
    apply refine_mono+
   using Pi_P' by (auto simp add: prod_rel_def dest!: fun_relD)
 
+sublocale reachability:
+  Reachability_Impl_pre where M = "image fst o (\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S)" ..
+
 lemma check_prop_gt_SUCCEED:
-  "check_prop P' > SUCCEED" if "L = dom M"
-  using finite that unfolding check_prop_def
+  "reachability.check_prop P' > SUCCEED" if "L = dom M"
+  using finite that unfolding reachability.check_prop_def
   by (intro monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I)
      (auto split: option.split simp: dom_def intro!: finite_list)
 
 lemma check_prop_alt_def:
-  "check_prop' L M = check_prop P'" if "L = dom M"
-  unfolding check_prop_def check_prop'_def
+  "check_prop' L M = reachability.check_prop P'" if "L = dom M"
+  unfolding reachability.check_prop_def check_prop'_def
   apply (fo_rule arg_cong2, simp, fo_rule arg_cong)
   apply (clarsimp split: option.split simp: bind_RES)
   apply (rule ext)
@@ -685,7 +708,7 @@ next
 qed
 
 lemma check_init1_refine:
-  "(check_init1, check_init) \<in> K \<rightarrow> A \<rightarrow> \<langle>bool_rel\<rangle>nres_rel" if "L = dom M"
+  "(check_init1, reachability.check_init) \<in> K \<rightarrow> A \<rightarrow> \<langle>bool_rel\<rangle>nres_rel" if "L = dom M"
 proof (intro fun_relI)
   fix l\<^sub>0 l\<^sub>0i s\<^sub>0 s\<^sub>0i
   assume l\<^sub>0i_l\<^sub>0: "(l\<^sub>0i, l\<^sub>0) \<in> K" and s\<^sub>0i_s\<^sub>0: "(s\<^sub>0i, s\<^sub>0) \<in> A"
@@ -695,11 +718,11 @@ proof (intro fun_relI)
   have [refine]:
     "(Mi l\<^sub>0i \<noteq> None, l\<^sub>0 \<in> L) \<in> bool_rel"
     using that by (auto simp: Mi_M_None_iff[symmetric, OF \<open>_ \<in> K\<close>])
-  show "(check_init1 l\<^sub>0i s\<^sub>0i, check_init l\<^sub>0 s\<^sub>0) \<in> \<langle>bool_rel\<rangle>nres_rel"
+  show "(check_init1 l\<^sub>0i s\<^sub>0i, reachability.check_init l\<^sub>0 s\<^sub>0) \<in> \<langle>bool_rel\<rangle>nres_rel"
   proof (cases "M l\<^sub>0")
     case None
     then show ?thesis
-      using that l\<^sub>0i_l\<^sub>0 unfolding check_init1_def check_init_def
+      using that l\<^sub>0i_l\<^sub>0 unfolding check_init1_def reachability.check_init_def
       by refine_rcg (simp flip: Mi_M_None_iff add: bind_RES; simp)
   next
     case (Some S)
@@ -711,7 +734,7 @@ proof (intro fun_relI)
     then have "(xs, map fst ys) \<in> \<langle>{((x, i), y). (x, y) \<in> A}\<rangle>list_rel"
       unfolding list_rel_def by (auto elim: list_all2_induct)
     with * \<open>M l\<^sub>0 = _\<close> show ?thesis
-      unfolding check_init1_def check_init_def
+      unfolding check_init1_def reachability.check_init_def
       apply (refine_rcg that; simp)
       supply [refine_mono] = monadic_list_ex_mono' specify_right Li_L Mi_M
       apply refine_mono
@@ -724,8 +747,9 @@ lemma check_all_pre1_correct[refine]:
   "check_all_pre1 \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_pre_spec1 inits)"  if "L = dom M"
 proof -
   note check_init1_refine[THEN fun_relD, THEN fun_relD, THEN nres_relD, OF that]
-  also note check_init_correct
-  finally have [refine_mono, refine]: "check_init1 l\<^sub>0i s\<^sub>0i \<le> SPEC (\<lambda>r. r = check_init_spec l\<^sub>0 s\<^sub>0)"
+  also note reachability.check_init_correct
+  finally have [refine_mono, refine]:
+    "check_init1 l\<^sub>0i s\<^sub>0i \<le> SPEC (\<lambda>r. r = reachability.check_init_spec l\<^sub>0 s\<^sub>0)"
     if l\<^sub>0i_l\<^sub>0: "(l\<^sub>0i, l\<^sub>0) \<in> K" and s\<^sub>0i_s\<^sub>0: "(s\<^sub>0i, s\<^sub>0) \<in> A" for l\<^sub>0 l\<^sub>0i s\<^sub>0 s\<^sub>0i
     using that by (force intro: order.trans)
   from initsi_inits obtain inits' where
@@ -734,17 +758,17 @@ proof -
   note [refine_mono] = case_prod_mono monadic_list_all_mono'
     (* NB: if the rhs is phrased with RETURN, refine_vcg will fail *)
   have [refine]: "monadic_list_all (\<lambda>(l\<^sub>0, s\<^sub>0). check_init1 l\<^sub>0 s\<^sub>0) initsi
-    \<le> SPEC (\<lambda>r. r = list_all (\<lambda>(l\<^sub>0, s\<^sub>0). check_init_spec l\<^sub>0 s\<^sub>0) inits')"
+    \<le> SPEC (\<lambda>r. r = list_all (\<lambda>(l\<^sub>0, s\<^sub>0). reachability.check_init_spec l\<^sub>0 s\<^sub>0) inits')"
     by (rule order.trans, refine_mono) (refine_vcg monadic_list_all_rule; auto)
   note check_prop1_refine[THEN fun_relD, THEN fun_relD, THEN nres_relD, THEN refine_IdD,
       OF Li_L Mi_M, unfolded check_prop_alt_def[OF \<open>L =  _\<close>]]
-  also note check_prop_correct
+  also note reachability.check_prop_correct
   also note [refine] = calculation
   show ?thesis
     unfolding check_all_pre1_def
-    apply refine_vcg
-    unfolding check_all_pre_spec1_def check_init_spec_def list_all_iff \<open>inits = set inits'\<close>
-    by fastforce
+    by refine_vcg
+       (fastforce simp:
+         check_all_pre_spec1_def reachability.check_init_spec_def list_all_iff \<open>inits = set inits'\<close>)
 qed
 
 definition
@@ -838,7 +862,7 @@ concrete_definition (in -) certify_no_buechi_run_pure
   uses Buechi_Impl_pure.certify_no_buechi_run_pure1_alt_def is "_ \<equiv> ?f"
 
 theorem certify_no_buechi_run_impl_pure_correct:
-  "certify_no_buechi_run_pure get_succs Li lei Pi Fi Li_split Mi initsi \<longrightarrow> (\<nexists>xs l\<^sub>0 s\<^sub>0.
+  "certify_no_buechi_run_pure get_succs Li lei Li_split Pi Fi Mi initsi \<longrightarrow> (\<nexists>xs l\<^sub>0 s\<^sub>0.
     (l\<^sub>0, s\<^sub>0) \<in> inits \<and> Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs) \<and> alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs))"
   if "L = dom M"
   using certify_no_buechi_run_correct that
@@ -850,7 +874,7 @@ theorem certify_no_buechi_run_impl_pure_correct:
 end (* Reachability_Impl_pure *)
 
 
-locale Reachability_Impl_imp_to_pure_base = Reachability_Impl_base
+locale Reachability_Impl_imp_to_pure_base = Certification_Impl_base
   where K = K and A = A
   for K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and A :: "'s \<Rightarrow> ('si :: heap) \<Rightarrow> assn"
   +
@@ -941,8 +965,8 @@ lemma to_pair_ht:
      (sep_auto heap: to_state_ht simp: pure_def to_loc prod_assn_def split: prod.splits)
 
 sublocale pure:
-  Reachability_Impl_pure_base
-  where           
+  Reachability_Impl_pure_base2
+  where
     get_succs = "run_heap oo get_succs" and
     K = K_rel and
     A = A_rel and
@@ -963,6 +987,8 @@ sublocale pure:
   subgoal
     using get_succs .
   subgoal
+    by (rule full_split)
+  subgoal
     apply standard
     apply (rule hoare_triple_run_heapD)
     apply (sep_auto heap: to_pair_ht simp del: prod_rel_simp prod_assn_pair_conv)
@@ -978,8 +1004,6 @@ sublocale pure:
       apply (rule Fi_F[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified], rule ent_refl)
     apply (sep_auto simp: pure_def)
     done
-  subgoal
-    by (rule full_split)
   done
 
 end
@@ -988,7 +1012,6 @@ locale Reachability_Impl_imp_to_pure = Reachability_Impl where
   l\<^sub>0 = l\<^sub>0 and s\<^sub>0 = s\<^sub>0 and M = M and K = K and A = A
   + Reachability_Impl_imp_to_pure_base
   where K_rel = K_rel and A_rel = A_rel and K = K and A = A
-  and M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for l\<^sub>0 :: 'k and s\<^sub>0 :: 'a
   and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and A :: "'a \<Rightarrow> ('ai :: heap) \<Rightarrow> assn"
   and M and K_rel :: "('k1 \<times> 'k) set" and A_rel :: "('a1 \<times> 'a) set" +
@@ -1028,8 +1051,7 @@ end
 locale Buechi_Impl_imp_to_pure = Buechi_Impl_pre where
   M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   + Reachability_Impl_imp_to_pure_base
-  where M = "\<lambda>l. fst ` (\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S) l"
-  and K_rel = K_rel and A_rel = A_rel
+  where K_rel = K_rel and A_rel = A_rel
   for M :: "'k \<Rightarrow> ('a \<times> nat) set option"
   and K_rel :: "('ki \<times> 'k) set" and A_rel :: "('ai \<times> 'a) set" +
   fixes inits initsi

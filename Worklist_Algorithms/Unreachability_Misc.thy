@@ -320,16 +320,18 @@ end
 
 end
 
-locale Reachability_Impl_pre =
-  Unreachability_Invariant_paired_pre where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
-  fixes succs and P'
-  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
+
+locale Reachability_Impl_base =
+  Unreachability_Invariant_paired_pre_defs where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes succs :: "'l \<Rightarrow> 's set \<Rightarrow> ('l \<times> 's set) list"
   assumes succs_correct:
     "\<And>l. \<forall>s \<in> xs. P (l, s)
   \<Longrightarrow> {(l', s')| l' ys s'. (l', ys) \<in> set (succs l xs) \<and> s' \<in> ys}
     = (\<Union> s \<in> xs. Collect (E (l, s)))"
-  fixes F
-  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
+
+locale Reachability_Impl_invariant =
+  Reachability_Impl_base where E = E +
+  Unreachability_Invariant_paired_defs where E = E for E :: "'l \<times> 's \<Rightarrow> _"
 begin
 
 definition "check_invariant L' \<equiv>
@@ -402,6 +404,22 @@ proof -
   finally show ?thesis .
 qed
 
+end (* Reachability Impl Invariant *)
+
+
+locale Reachability_Impl_base2 =
+  Reachability_Impl_base where E = E +
+  Unreachability_Invariant_paired_pre where E = E
+  for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes P' and F
+  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
+  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
+
+locale Reachability_Impl_pre =
+  Reachability_Impl_invariant where E = E +
+  Reachability_Impl_base2 where E = E for E :: "'l \<times> 's \<Rightarrow> _"
+begin
+
 definition
   "check_final \<equiv> do {
   l \<leftarrow> SPEC (\<lambda>xs. set xs = L);
@@ -471,7 +489,7 @@ end
 
 locale Reachability_Impl_pre_start =
   Reachability_Impl_pre where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
-fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
+  fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
 begin
 
 definition
@@ -523,14 +541,12 @@ lemma certify_unreachableI:
 end
 
 
-
-locale Buechi_Impl_pre =
-  Reachability_Impl_pre where M = "\<lambda>l. fst ` M l"
-  for M :: "'l \<Rightarrow> ('s \<times> nat) set" +
-  assumes finite: "finite L" "\<forall>l \<in> L. finite (M l)"
+locale Buechi_Impl_invariant =
+  Reachability_Impl_base where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes L :: "'l set" and M :: "'l \<Rightarrow> ('s \<times> nat) set"
 begin
 
-
+(* Move into defs locale *)
 definition "check_invariant_buechi R L' \<equiv>
   monadic_list_all (\<lambda>l.
     do {
@@ -596,6 +612,14 @@ proof -
   finally show ?thesis .
 qed
 
+end
+
+
+locale Buechi_Impl_pre =
+  Buechi_Impl_invariant where M = M +
+  Reachability_Impl_base2 for M :: "'l \<Rightarrow> ('s \<times> nat) set" +
+  assumes finite: "finite L" "\<forall>l \<in> L. finite (M l)"
+begin
 
 definition
   "buechi_prop l l' i j s s' s'' \<equiv> l' \<in> L \<and> s' \<preceq> s'' \<and>
@@ -728,7 +752,7 @@ end (* Buechi Impl pre *)
 
 
 locale Reachability_Impl_common =
-  Reachability_Impl_pre less_eq _ "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  Reachability_Impl_pre where less_eq = less_eq and M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'b set option" +
   assumes L_finite: "finite L"
       and M_ran_finite: "\<forall>S \<in> ran M. finite S"
@@ -815,8 +839,8 @@ lemma check_prop'_alt_def:
 end
 
 
-locale Reachability_Impl_base = Reachability_Impl_pre where less = less and L = L
-  for less :: "'s \<Rightarrow> 's \<Rightarrow> bool" (infix "\<prec>" 50) and L :: "'k set" +
+locale Certification_Impl_base = Reachability_Impl_base2 where less = less
+  for less :: "'s \<Rightarrow> 's \<Rightarrow> bool" (infix "\<prec>" 50) +
   fixes A :: "'s \<Rightarrow> ('si :: heap) \<Rightarrow> assn"
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn"
     and Fi and keyi and Pi and copyi and Lei and succsi
@@ -835,7 +859,7 @@ locale Reachability_Impl_base = Reachability_Impl_pre where less = less and L = 
 
 locale Reachability_Impl =
   Reachability_Impl_common where M = M +
-  Reachability_Impl_base where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" and K = K and A = A +
+  Certification_Impl_base where K = K and A = A +
   Reachability_Impl_pre_start where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for M :: "'k \<Rightarrow> 'a set option"
   and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn" and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn" +
