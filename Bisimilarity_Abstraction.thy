@@ -1,5 +1,5 @@
 theory Bisimilarity_Abstraction
-  imports Timed_Automata Closure
+  imports "TA.Timed_Automata" "TA.Closure"
 begin
 
 inductive ta_bisim where
