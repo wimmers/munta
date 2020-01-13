@@ -2,7 +2,7 @@ theory Simple_Network_Language_Certificate_Checking
   imports
     "../Extract_Certificate"
     "../Normalized_Zone_Semantics_Certification_Impl"
-    Simple_Network_Language_Export_Code
+    TA_Code.Simple_Network_Language_Export_Code
     TA_Library.Trace_Timing
 begin
 

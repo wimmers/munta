@@ -1,7 +1,7 @@
 theory Simple_Network_Language_Certificate_Code
   imports
     Simple_Network_Language_Certificate
-    Simple_Network_Language_Export_Code
+    TA_Code.Simple_Network_Language_Export_Code
     Simple_Network_Language_Certificate_Checking
 begin
 
