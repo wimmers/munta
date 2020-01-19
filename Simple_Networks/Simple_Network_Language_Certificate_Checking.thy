@@ -963,6 +963,18 @@ concrete_definition (in -) succs_impl
 context Simple_Network_Impl_nat_ceiling_start_state
 begin
 
+schematic_goal check_deadlock_impl_alt_def:
+  "impl.check_deadlock_impl \<equiv> ?impl"
+  unfolding impl.check_deadlock_impl_def
+  apply (abstract_let trans_impl trans_impl)
+  unfolding trans_impl_alt_def
+  apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> _" inv_fun)
+  unfolding inv_fun_alt_def
+  apply (abstract_let invs2 invs)
+  unfolding invs2_def
+  apply (abstract_let n_ps n_ps)
+  .
+
 context
   fixes L_list
   assumes L_list: "list_all states'_memi L_list"
@@ -1044,18 +1056,6 @@ lemma no_deadlock_certifier_alt_def1:
         OF state_impl_abstract', OF _ A assms(2,3) split_k_full_split list_assn_split
         ];
       simp)
-
-schematic_goal check_deadlock_impl_alt_def:
-  "impl.check_deadlock_impl \<equiv> ?impl"
-  unfolding impl.check_deadlock_impl_def
-  apply (abstract_let trans_impl trans_impl)
-  unfolding trans_impl_alt_def
-  apply (abstract_let "inv_fun :: nat list \<times> int list \<Rightarrow> _" inv_fun)
-  unfolding inv_fun_alt_def
-  apply (abstract_let invs2 invs)
-  unfolding invs2_def
-  apply (abstract_let n_ps n_ps)
-  .
 
 schematic_goal no_deadlock_certifier_alt_def:
   "no_deadlock_certifier L_list M_list (split_k num_split) \<equiv> ?x"
@@ -1362,7 +1362,7 @@ definition
    in do {
     M_table \<leftarrow> M_table M_list;
 
-    trace_table M_table;
+    \<^cancel>\<open>trace_table M_table;\<close>
 
     r \<leftarrow> check_prop_fail_impl P_impl copy show_dbm show_state L_list M_table;
     case r of None \<Rightarrow> Heap_Monad.return () | Some (l, M) \<Rightarrow> do {
@@ -1379,6 +1379,27 @@ definition
       Heap_Monad.return ()
     }
    }"
+
+
+definition
+  "check_deadlock_fail L_list M_list \<equiv> let
+    P_impl = (\<lambda>(l, M). impl.check_deadlock_impl l M);
+    copy = amtx_copy;
+    show_dbm = show_dbm_impl';
+    show_state = show_state_impl
+   in do {
+    M_table \<leftarrow> M_table M_list;
+    r \<leftarrow> check_prop_fail_impl P_impl copy show_dbm show_state L_list M_table;
+    case r of None \<Rightarrow> Heap_Monad.return () | Some (l, M) \<Rightarrow> do {
+      let _ = println (STR ''\<newline>The following state is deadlocked'');
+      s \<leftarrow> show_state l;
+      let _ = println s;
+      s \<leftarrow> show_dbm_impl_all m show_clock show M;
+      let _ = println (String.implode s);
+      Heap_Monad.return ()
+    }
+   }"
+
 
 definition 
   "check_invariant_fail \<equiv> \<lambda>L_list M_list. let
@@ -1417,11 +1438,20 @@ definition
         }) xs;
         Heap_Monad.return ()
       }
-    | Some (Inr (l, M)) \<Rightarrow> do {
+    | Some (Inr (l, l', M, xs)) \<Rightarrow> do {
         s1 \<leftarrow> show_state l;
-        s2 \<leftarrow> show_dbm M;
-        let _ = println (STR ''A pair failed: '' + s1);
-        let _ = println (STR ''  '' + String.implode s2);
+        s2 \<leftarrow> show_state l';
+        s3 \<leftarrow> show_dbm M;
+        let _ = println (STR ''\<newline>A successor of the zones for:\<newline>  '' + s1);
+        let _ = println (STR ''is not subsumed:\<newline>  '' + s2);
+        let _ = println (String.implode s3 + STR ''\<newline>'');
+        let _ = println (STR ''These are the candidate dbms:'');
+        Heap_Monad.fold_map (\<lambda>M. do {
+          s \<leftarrow> show_dbm M;
+          let _ = println (STR ''\<newline>'' + String.implode s);
+          Heap_Monad.return ()
+        }) xs;
+        let _ = println (STR '''');
         Heap_Monad.return ()
       }
   }
@@ -1438,6 +1468,23 @@ schematic_goal check_prop_fail_alt_def:
   unfolding states'_memi_def states_mem_compute'
   apply (abstract_let "map states_i [0..<n_ps]" states_i)
   by (rule Pure.reflexive)
+
+schematic_goal check_deadlock_fail_alt_def:
+  "check_deadlock_fail \<equiv> ?t"
+  unfolding check_deadlock_fail_def
+  unfolding M_table_def trace_table_def
+  unfolding check_deadlock_impl_alt_def
+  unfolding succs_impl_alt_def
+  unfolding k_impl_alt_def k_i_def
+  (* The following are just to unfold things that should have been defined in a defs locale *)
+  unfolding impl.E_op''_impl_def impl.abstr_repair_impl_def impl.abstra_repair_impl_def
+  unfolding
+    impl.unbounded_dbm_impl_def impl.unbounded_dbm'_def
+  unfolding impl.emptiness_check_impl_def
+  unfolding impl.state_copy_impl_def
+  unfolding show_dbm_impl'_def
+  unfolding show_state_impl_def
+  .
 
 schematic_goal check_invariant_fail_alt_def:
   "check_invariant_fail \<equiv> ?t"
@@ -1477,6 +1524,9 @@ concrete_definition no_buechi_run_checker uses
 
 concrete_definition check_prop_fail uses
   Simple_Network_Impl_nat_ceiling_start_state.check_prop_fail_alt_def
+
+concrete_definition check_deadlock_fail uses
+  Simple_Network_Impl_nat_ceiling_start_state.check_deadlock_fail_alt_def
 
 concrete_definition check_invariant_fail uses
   Simple_Network_Impl_nat_ceiling_start_state.check_invariant_fail_alt_def
@@ -1581,7 +1631,7 @@ definition
   else False"
 
 definition
-  "certificate_checker_dbg num_split
+  "certificate_checker_dbg num_split dc
     (show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> char list))
     M_list broadcast bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
   \<equiv>
@@ -1605,6 +1655,10 @@ definition
     check_prop_fail broadcast bounds' automata m show_clock show_state L_list M_list;
     check_invariant_fail broadcast bounds' automata m
       num_states num_actions show_clock show_state L_list M_list;
+    (if dc then
+      check_deadlock_fail broadcast bounds' automata m
+        num_states num_actions show_clock show_state L_list M_list
+    else Heap_Monad.return ());
     r \<leftarrow> unreachability_checker
       broadcast bounds' automata m num_states num_actions L\<^sub>0 s\<^sub>0 formula L_list M_list num_split;
     Heap_Monad.return (Some r)
@@ -1848,7 +1902,7 @@ definition rename_check_dbg where
 do {
   let r = do_rename_mc (
       \<lambda>(show_clock :: (nat \<Rightarrow> string)) (show_state :: (nat list \<times> int list \<Rightarrow> string)).
-      certificate_checker_dbg num_split show_clock show_state state_space)
+      certificate_checker_dbg num_split dc show_clock show_state state_space)
     dc broadcast bounds' automata k STR ''_urge'' L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
     inv_renum_states inv_renum_vars inv_renum_clocks;
