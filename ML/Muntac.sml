@@ -131,8 +131,9 @@ fun main () =
         NONE => raise Fail (err_msg ^ " should be an integer")
       | SOME x => x
     fun int_to_impl n =
-      if n < 1 orelse n > 5 then
-        raise Fail "Implementation needs to be in the range 1 to 5"
+      if n > 5 then
+        raise Fail "Implementation needs to be in the range 0 to 5"
+      else if n = 0 then Debug
       else if n = 1 then Impl1
       else if n = 2 then Impl2
       else if n = 3 then Impl3
