@@ -200,7 +200,7 @@ code_printing
       (SML)   "(fn n => fn show_state => fn show_clock => fn typ => fn x => ()) _ _ _"
   and (OCaml) "(fun n show_state show_clock ty x -> ()) _ _ _"
 
-datatype mode = Impl1 | Impl2 | Impl3 | Buechi
+datatype mode = Impl1 | Impl2 | Impl3 | Buechi | Debug
 
 definition
   "distr xs \<equiv>
@@ -259,7 +259,11 @@ definition parse_convert_run_check where
           |> print_line_impl;
         let t = now ();
         check \<leftarrow> case mode of
-          Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+          Debug \<Rightarrow> rename_check_dbg num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+            inv_renum_states inv_renum_vars inv_renum_clocks
+            state_space
+        | Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
             m num_states num_actions renum_acts renum_vars renum_clocks renum_states
             state_space
         | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
@@ -489,8 +493,8 @@ ML_val \<open>
     ()
 \<close>
 
-definition parse_convert_check1 where
-  "parse_convert_check1 model renaming \<equiv>
+definition parse_compute where
+  "parse_compute model renaming \<equiv>
    do {
     model \<leftarrow> parse json model;
     (ids_to_names, process_names_to_index, broadcast, automata, bounds, formula, L\<^sub>0, s\<^sub>0)
@@ -511,7 +515,8 @@ definition parse_convert_check1 where
       broadcast bounds automata renum_acts renum_vars renum_clocks renum_states;
     let _ = println (STR ''Calculating ceiling'');
     let k = Simple_Network_Impl_nat_defs.local_ceiling broadcast' bounds' automata' m num_states;
-    Result (broadcast, bounds, automata, k, L\<^sub>0, s\<^sub>0, formula,
+    let urgent_locations = map (\<lambda>(_, urgent, _, _). urgent) automata';
+    Result (broadcast, bounds, automata, urgent_locations, k, L\<^sub>0, s\<^sub>0, formula,
           m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
           inv_renum_states, inv_renum_vars, inv_renum_clocks)
    }" for num_split
@@ -586,15 +591,16 @@ definition
 definition parse_convert_check where
   "parse_convert_check mode num_split dc model renaming state_space show_cert \<equiv>
    let
-     r = parse_convert_check1 model renaming
+     r = parse_compute model renaming
    in case r of Error es \<Rightarrow> do {let _ = map println es; return ()}
    | Result r \<Rightarrow> do {
-      let (broadcast, bounds, automata, k, L\<^sub>0, s\<^sub>0, formula,
+      let (broadcast, bounds, automata, urgent_locations, k, L\<^sub>0, s\<^sub>0, formula,
         m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
         inv_renum_states, inv_renum_vars, inv_renum_clocks) = r;
+      let is_urgent = (\<lambda>(L, _). list_ex (\<lambda>(l, urgent). l \<in> set urgent) (zip L urgent_locations));
       let inv_renum_clocks = (\<lambda>i. if i = m then STR ''_urge'' else inv_renum_clocks i);
       let t = now ();
-      let state_space = convert_state_space m (\<lambda>_. False) state_space;
+      let state_space = convert_state_space m is_urgent state_space;
       let t = now () - t;
       let _ = println (STR ''Time for converting state space: '' + time_to_string t);
       let _ = start_timer ();
@@ -614,7 +620,11 @@ definition parse_convert_check where
       };
       let t = now ();
       check \<leftarrow> case mode of
-        Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+        Debug \<Rightarrow> rename_check_dbg num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
+            m num_states num_actions renum_acts renum_vars renum_clocks renum_states
+            inv_renum_states inv_renum_vars inv_renum_clocks
+            (reach_of state_space)
+      | Impl1 \<Rightarrow> rename_check num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
           m num_states num_actions renum_acts renum_vars renum_clocks renum_states
           (reach_of state_space)
       | Impl2 \<Rightarrow> rename_check2 num_split dc broadcast bounds automata k L\<^sub>0 s\<^sub>0 formula
@@ -1048,7 +1058,7 @@ lemmas [code] = imp_for'_int_inner.simps imp_for_int_inner.simps
 
 export_code parse_convert_check parse_convert_run_print parse_convert_run_check Result Error
   nat_of_integer int_of_integer DBMEntry.Le DBMEntry.Lt DBMEntry.INF
-  Impl1 Impl2 Impl3 Buechi Reachable_Set Buechi_Set
+  Impl1 Impl2 Impl3 Buechi Debug Reachable_Set Buechi_Set
   E_op_impl
   in Eval module_name Model_Checker file "../ML/Certificate.ML"
 
