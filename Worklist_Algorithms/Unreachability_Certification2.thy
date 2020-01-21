@@ -411,14 +411,13 @@ definition
   }"
 
 lemma certify_unreachable1_correct:
-  "certify_unreachable1 \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))" if "L = dom M"
+  "certify_unreachable1 \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec \<and> check_final_spec)" if "L = dom M"
 proof -
   note check_final1_refine[unfolded check_final_alt_def]
   also note check_final_correct
   finally have [refine]: "check_final1 Li \<le> SPEC (\<lambda>r. r = check_final_spec)" .
   show ?thesis
-    unfolding certify_unreachable1_def
-    by (refine_vcg that certify_unreachableI[THEN mp]; simp)
+    unfolding certify_unreachable1_def check_all_spec_def by (refine_vcg that; fast)
 qed
 
 paragraph \<open>Synthesizing a pure program via rewriting\<close>
@@ -484,6 +483,18 @@ schematic_goal certify_unreachable_impl_pure1_alt_def:
 concrete_definition (in -) certify_unreachable_impl_pure
   uses Reachability_Impl_pure.certify_unreachable_impl_pure1_alt_def is "_ \<equiv> ?f"
 
+sublocale correct: Reachability_Impl_correct where
+  M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> abs_s ` S"
+  apply standard
+  oops
+
+end (* Reachability_Impl_pure *)
+
+locale Reachability_Impl_pure_correct =
+  Reachability_Impl_pure where M = M +
+  Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" for M
+begin
+
 theorem certify_unreachable_impl_pure_correct:
   "certify_unreachable_impl_pure get_succs Li lei Li_split Pi Fi Mi l\<^sub>0i s\<^sub>0i
   \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
@@ -492,9 +503,55 @@ theorem certify_unreachable_impl_pure_correct:
   unfolding
     certify_unreachable_impl_pure1.refine
     certify_unreachable_impl_pure.refine[OF Reachability_Impl_pure_axioms]
-  by simp
+  using certify_unreachableI by simp
 
-end (* Reachability_Impl_pure *)
+end (* Reachability_Impl_pure correct *)
+
+
+locale Reachability_Impl_simulation =
+  Reachability_Impl_pure where E = E +
+  Unreachability_Invariant_paired_pre where E = E' and less_eq = less_eq' and less = less'
+  and P = P''
+  for E :: "'l \<times> 's \<Rightarrow> 'l \<times> 's \<Rightarrow> bool"
+  \<comment> \<open>and E' :: "'l' \<times> 's' \<Rightarrow> 'l' \<times> 's' \<Rightarrow> bool"\<close>
+  and E' :: "'l \<times> 's' \<Rightarrow> 'l \<times> 's' \<Rightarrow> bool"
+  and less' :: "'s' \<Rightarrow> 's' \<Rightarrow> bool"  (infix \<open>\<prec>\<close> 50)
+  and less_eq' :: "'s' \<Rightarrow> 's' \<Rightarrow> bool"  (infix \<open>\<preceq>\<close> 50)
+  \<comment> \<open>and P'' :: "('l' \<times> 's') \<Rightarrow> bool"
+  and abs_l :: "'l \<Rightarrow> 'l'" and abs_s :: "'s \<Rightarrow> 's'"\<close>
+  and P'' :: "('l \<times> 's') \<Rightarrow> bool"
+  \<comment> \<open>and abs_l :: "'l \<Rightarrow> 'l" \<close>and abs_s :: "'s \<Rightarrow> 's'"
+  and F' :: "('l \<times> 's') \<Rightarrow> bool"
+begin
+
+sublocale correct: Reachability_Impl_correct where
+  M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> abs_s ` S"
+  and E = "\<lambda>(l, s) (l', s'). True"
+  and P' = P''
+  and P = P''
+  and less_eq = less_eq'
+  and less = less'
+  and succs = "\<lambda>l S. map (\<lambda>(l, S). (l, abs_s ` S)) (succs l {s. abs_s s \<in> S})"
+  and F = F'
+  and s\<^sub>0 = "abs_s s\<^sub>0'"
+  apply standard
+  subgoal for xs l
+    apply (auto simp: succs_empty)
+    oops
+
+lemma certify_unreachable1_correct:
+  "certify_unreachable1 \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E'\<^sup>*\<^sup>* (abs_l l\<^sub>0, abs_s s\<^sub>0) s' \<and> F' s'))" if "L = dom M"
+proof -
+  note check_final1_refine[unfolded check_final_alt_def]
+  also note check_final_correct
+  finally have [refine]: "check_final1 Li \<le> SPEC (\<lambda>r. r = check_final_spec)" .
+  show ?thesis
+    unfolding certify_unreachable1_def
+    by (refine_vcg that certify_unreachableI[THEN mp]; simp)
+qed
+
+end
+
 
 
 locale Buechi_Impl_pure =
@@ -772,13 +829,15 @@ proof -
 qed
 
 definition
+  "PRINT_CHECK' s b \<equiv> RETURN (let b = b; x = print_check s b in b)"
+
+definition
   "certify_no_buechi_run \<equiv> do {
     b \<leftarrow> check_all_pre1;
     if b
     then do {
       r \<leftarrow> check_invariant_buechi' Li;
-      PRINT_CHECK STR ''State set invariant check'' r;
-      RETURN r
+      PRINT_CHECK' STR ''State space invariant check'' r
     }
     else RETURN False
   }"
@@ -796,18 +855,11 @@ proof -
     if "\<forall>l\<in>L. \<forall>(s, _)\<in>case M l of None \<Rightarrow> {} | Some S \<Rightarrow> S. P (l, s)"
     using aux that \<open>L = dom M\<close> by refine_vcg simp+
   show ?thesis
-    using P'_P that unfolding certify_no_buechi_run_def check_buechi_def PRINT_CHECK_def comp_def
+    using P'_P that unfolding certify_no_buechi_run_def check_buechi_def PRINT_CHECK'_def comp_def
     by (refine_mono; refine_vcg;
         unfold check_all_pre_spec1_def; fastforce split: prod.splits simp: check_all_pre_spec1_def)
 qed
 
-
-theorem certify_no_buechi_run_correct:
-  "certify_no_buechi_run \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>xs l\<^sub>0 s\<^sub>0.
-    (l\<^sub>0, s\<^sub>0) \<in> inits \<and> Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs) \<and> alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)))"
-  if "L = dom M"
-  by (rule order.trans[OF check_all1_refine[OF that]], refine_vcg that check_buechi_correct)
-     (auto intro: no_buechi_run)
 
 paragraph \<open>Synthesizing a pure program via rewriting\<close>
 
@@ -817,9 +869,20 @@ schematic_goal check_prop1_alt_def:
 
 concrete_definition check_prop_impl uses check_prop1_alt_def is "_ \<equiv> RETURN ?f"
 
+lemma check_all_pre1_printing:
+  "check_all_pre1 \<equiv> do {
+    b1 \<leftarrow> monadic_list_all (\<lambda>(l\<^sub>0, s\<^sub>0). check_init1 l\<^sub>0 s\<^sub>0) initsi;
+    b1 \<leftarrow> PRINT_CHECK' STR ''Initial state check'' b1;
+    b2 \<leftarrow> check_prop1 Li Mi;
+    b2 \<leftarrow> PRINT_CHECK' STR ''State set preconditions check'' b2;
+    RETURN (b1 \<and> b2)
+  }"
+  unfolding check_all_pre1_def PRINT_CHECK'_def Let_def pure_unfolds .
+
 schematic_goal check_all_pre1_alt_def:
   "check_all_pre1 \<equiv> RETURN ?f"
-  unfolding check_all_pre1_def check_init1_def check_prop_impl.refine pure_unfolds .
+  unfolding
+    check_all_pre1_printing check_init1_def check_prop_impl.refine pure_unfolds PRINT_CHECK'_def .
 
 concrete_definition check_all_pre_impl uses check_all_pre1_alt_def is "_ \<equiv> RETURN ?f" 
 
@@ -827,16 +890,20 @@ schematic_goal check_invariant_buechi'_alt_def:
   "check_invariant_buechi' Li \<equiv> RETURN ?f"
   unfolding check_invariant_buechi'_def Let_def pure_unfolds .
 
+lemma PRINT_CHECK_unfold:
+  "PRINT_CHECK s x =  RETURN (print_check s x)"
+  unfolding PRINT_CHECK_def comp_def ..
+
 concrete_definition check_invariant_buechi_impl
   uses check_invariant_buechi'_alt_def is "_ \<equiv> RETURN ?f"
 
 schematic_goal certify_no_buechi_run_alt_def:
   "certify_no_buechi_run \<equiv> RETURN ?f"
-  unfolding certify_no_buechi_run_def
   unfolding
     certify_no_buechi_run_def check_all_pre_impl.refine
     check_invariant_buechi_impl.refine
-    pure_unfolds PRINT_CHECK_def comp_def short_circuit_conv if_bool_simps
+    PRINT_CHECK'_def pure_unfolds
+    short_circuit_conv if_bool_simps
   .
 
 concrete_definition certify_no_buechi_run_pure1
@@ -861,6 +928,20 @@ schematic_goal certify_no_buechi_run_pure1_alt_def:
 concrete_definition (in -) certify_no_buechi_run_pure
   uses Buechi_Impl_pure.certify_no_buechi_run_pure1_alt_def is "_ \<equiv> ?f"
 
+end (* Reachability_Impl_pure *)
+
+locale Buechi_Impl_pure_correct =
+  Buechi_Impl_pure where M = M +
+  Buechi_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S" for M
+begin
+
+theorem certify_no_buechi_run_correct:
+  "certify_no_buechi_run \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>xs l\<^sub>0 s\<^sub>0.
+    (l\<^sub>0, s\<^sub>0) \<in> inits \<and> Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs) \<and> alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)))"
+  if "L = dom M"
+  by (rule order.trans[OF check_all1_refine[OF that]], refine_vcg that check_buechi_correct')
+     (auto intro: no_buechi_run)
+
 theorem certify_no_buechi_run_impl_pure_correct:
   "certify_no_buechi_run_pure get_succs Li lei Li_split Pi Fi Mi initsi \<longrightarrow> (\<nexists>xs l\<^sub>0 s\<^sub>0.
     (l\<^sub>0, s\<^sub>0) \<in> inits \<and> Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs) \<and> alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs))"
@@ -882,7 +963,7 @@ locale Reachability_Impl_imp_to_pure_base = Certification_Impl_base
     and to_loc :: "'k1 \<Rightarrow> 'ki" and from_loc :: "'ki \<Rightarrow> 'k1"
   fixes lei
   fixes K_rel and A_rel
-  fixes L_list :: "'ki list" and Li :: "'k1 list" and L' :: "'k list"
+  fixes L_list :: "'ki list" and Li :: "'k1 list" and L :: "'k set" and L' :: "'k list"
   fixes Li_split :: "'k1 list list"
   assumes Li: "(L_list, L') \<in> \<langle>the_pure K\<rangle>list_rel" "(Li, L') \<in> \<langle>K_rel\<rangle>list_rel" "set L' = L"
   assumes to_state_ht: "(s1, s) \<in> A_rel \<Longrightarrow> <emp> to_state s1 <\<lambda>si. A s si>"
@@ -1048,6 +1129,29 @@ sublocale pure:
 
 end
 
+locale Reachability_Impl_imp_to_pure_correct =
+  Reachability_Impl_imp_to_pure where M = M
+  + Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  for M
+begin
+
+sublocale pure:
+  Reachability_Impl_pure_correct
+  where           
+    M = M and
+    Mi = Mi and
+    get_succs = "run_heap oo get_succs" and
+    K = K_rel and
+    A = A_rel and
+    lei = lei and
+    Pi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Pi a})" and
+    Fi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Fi a})" and
+    l\<^sub>0i = "from_loc (run_heap l\<^sub>0i)" and
+    s\<^sub>0i = "run_heap (do {s \<leftarrow> s\<^sub>0i; from_state s})"
+  by standard
+
+end
+
 locale Buechi_Impl_imp_to_pure = Buechi_Impl_pre where
   M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   + Reachability_Impl_imp_to_pure_base
@@ -1121,6 +1225,34 @@ sublocale pure:
       by (sep_auto simp: pure_def list_set_rel_def relcomp.simps elim!: cons_post_rule)
   qed
   done
+
+end
+
+locale Buechi_Impl_imp_to_pure_correct =
+  Buechi_Impl_imp_to_pure where M = M +
+  Buechi_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  for M
+begin
+
+sublocale pure:
+  Buechi_Impl_pure_correct
+  where
+    M = M and
+    Mi = Mi and
+    get_succs = "run_heap oo get_succs" and
+    K = K_rel and
+    A = A_rel and
+    lei = lei and
+    Pi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Pi a})" and
+    Fi = "\<lambda>a. run_heap (do {a \<leftarrow> to_pair a; Fi a})" and
+    inits = "set inits" and
+    \<^cancel>\<open>initsi = "
+      map (\<lambda>(l, s). (from_loc l, from_state s)) (run_heap initsi)"\<close>
+    initsi = "
+      run_heap (do {
+        xs \<leftarrow> initsi;
+        Heap_Monad.fold_map (\<lambda>(l, s). do {s \<leftarrow> from_state s; return (from_loc l, s)}) xs})"
+  ..
 
 end
 

@@ -6,7 +6,7 @@ theory Normalized_Zone_Semantics_Certification_Impl
     "Worklist_Algorithms/Unreachability_Certification2"
     "Worklist_Algorithms/Unreachability_Certification"
     "HOL-Library.IArray"
-    Deadlock_Impl
+    TA_Code.Deadlock_Impl
     TA_Library.More_Methods
     "HOL-Library.Rewrite"
 begin
@@ -1038,14 +1038,6 @@ interpretation
                       apply (rule HOL.refl; fail)
                       apply (rule dbm_subset_refl; fail)
                       apply (rule dbm_subset_trans; assumption)
-    (* E_precise mono *)
-  subgoal
-    by (auto dest: op_precise.E_from_op_empty_mono')
-  subgoal (* E_precise invariant *)
-    by (clarsimp simp: op_precise.E_from_op_empty_def, frule op_precise.E_from_op_wf_state[rotated])
-      (auto dest: E_from_op_states simp: wf_state_def)
-  subgoal (* P correct *)
-    by (auto dest: P_correct)
   subgoal (* succs correct *)
     unfolding succs_precise_def op_precise.E_from_op_empty_def op_precise.E_from_op_def
     apply (auto dest!: trans_impl_trans_of)
@@ -1053,6 +1045,8 @@ interpretation
     apply (intro exI conjI, erule image_eqI[rotated])
      apply auto
     done
+  subgoal (* P correct *)
+    by (auto dest: P_correct)
   subgoal (* F mono *)
     by (rule F_mono)
   subgoal (* L finite *)
@@ -1078,7 +1072,12 @@ interpretation
   subgoal (* succs refine *)
     using succs_precise_impl_refine unfolding b_assn_pure_conv .
        apply (rule dbm_subset_impl.refine; fail)
-  apply (rule location_assn_constraints; fail)+
+        apply (rule location_assn_constraints; fail)+
+  subgoal (* E_precise mono *)
+    by (auto dest: op_precise.E_from_op_empty_mono')
+  subgoal (* E_precise invariant *)
+    by (clarsimp simp: op_precise.E_from_op_empty_def, frule op_precise.E_from_op_wf_state[rotated])
+      (auto dest: E_from_op_states simp: wf_state_def)
   subgoal (* init loc refine *)
     using init_impl states'_states by sepref_to_hoare sep_auto
      apply (unfold PR_CONST_def, rule init_dbm_impl.refine; fail)
@@ -1102,7 +1101,7 @@ context
   assumes full_split: "set L_list = (\<Union>xs \<in> set Li_split. set xs)"
 begin
 
-interpretation Reachability_Impl_imp_to_pure
+interpretation Reachability_Impl_imp_to_pure_correct
   where A = "mtx_assn n"
     and F = F
     and l\<^sub>0i = "return l\<^sub>0i"
@@ -1314,14 +1313,6 @@ interpretation
                       apply (rule HOL.refl; fail)
                       apply (rule dbm_subset_refl; fail)
                       apply (rule dbm_subset_trans; assumption)
-    (* E_precise mono *)
-  subgoal
-    by (auto dest: op_precise.E_from_op_empty_mono')
-  subgoal (* E_precise invariant *)
-    by (clarsimp simp: op_precise.E_from_op_empty_def, frule op_precise.E_from_op_wf_state[rotated])
-      (auto dest: E_from_op_states simp: wf_state_def)
-  subgoal (* P correct *)
-    by (auto dest: P_correct)
   subgoal (* succs correct *)
     unfolding succs_precise_def op_precise.E_from_op_empty_def op_precise.E_from_op_def
     apply (auto dest!: trans_impl_trans_of)
@@ -1329,6 +1320,8 @@ interpretation
     apply (intro exI conjI, erule image_eqI[rotated])
      apply auto
     done
+  subgoal (* P correct *)
+    by (auto dest: P_correct)
   subgoal (* F mono *)
     by (rule F_mono)
   subgoal (* L finite *)
@@ -1394,7 +1387,7 @@ sepref_definition initsi
   unfolding map_by_foldl[symmetric] foldl_conv_fold HOL_list.fold_custom_empty
   by sepref
 
-interpretation Buechi_Impl_imp_to_pure
+interpretation Buechi_Impl_imp_to_pure_correct
   where A = "mtx_assn n"
     and F = F
     and succs = succs_precise
@@ -1465,6 +1458,11 @@ interpretation Buechi_Impl_imp_to_pure
     using initsi.refine .
   subgoal
     using Mi_M2 .
+  subgoal (* E_precise mono *)
+    by (auto dest: op_precise.E_from_op_empty_mono')
+  subgoal (* E_precise invariant *)
+    by (clarsimp simp: op_precise.E_from_op_empty_def, frule op_precise.E_from_op_wf_state[rotated])
+       (auto dest: E_from_op_states simp: wf_state_def)
   done
 
 concrete_definition certify_no_buechi_run_pure

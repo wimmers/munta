@@ -29,3 +29,12 @@ munta_int.mlb: munta.mlb
 
 muntax: muntax.mlb Muntax.sml Simple_Model_Checker.sml
 	mlton -output munta muntax.mlb
+
+convert_int: Certificate.ML
+	sed -i -e 's/IntInf/Int/g' Certificate.ML
+
+muntac_poly: convert_int
+	polyc -o muntac_poly build_muntac.sml
+
+muntac_mlton: convert_int
+	mlton -mlb-path-var "MLUNTA_CERT $(MLUNTA_CERT)" -output muntac_mlton muntac.mlb

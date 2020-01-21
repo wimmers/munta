@@ -591,7 +591,7 @@ sepref_thm certify_unreachable_impl' is
 lemma certify_unreachable_correct':
   "(uncurry0 (certify_unreachable' L M), uncurry0 (SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))))
     \<in> Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel" if "L = dom M"
-  using certify_unreachable_correct certify_unreachable'_refine[OF that]
+  using certify_unreachable_correct' certify_unreachable'_refine[OF that]
   by (clarsimp simp: pw_le_iff pw_nres_rel_iff) fast
 
 lemmas certify_unreachable_impl'_refine =
@@ -805,7 +805,8 @@ proof -
     apply standard
     apply (rule certify_unreachableI[rule_format])
     using hoare_triple_run_heapD[OF 1] hoare_triple_run_heapD[OF 3]
-    unfolding certify_unreachable_new_def[OF full_split same_split] by (auto intro: 2)
+    unfolding certify_unreachable_new_def[OF full_split same_split] check_all_spec_def
+    by (auto intro: 2)
 qed
 
 lemmas certify_unreachable_impl2_refine =
@@ -934,7 +935,7 @@ definition
           b2 \<leftarrow> monadic_list_all_fail (\<lambda>x'.
             monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
           ) xs;
-          case b2 of None \<Rightarrow> RETURN None | Some M \<Rightarrow> RETURN (Some (Inr (l, M)))
+          case b2 of None \<Rightarrow> RETURN None | Some M \<Rightarrow> RETURN (Some (Inr (l, l', M, ys)))
         }
       }
       else RETURN (Some (Inl (Inl (l, l', xs))))
@@ -948,7 +949,7 @@ definition
 sepref_thm check_invariant_fail_impl is
   "uncurry check_invariant_fail"
   :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a
-      option_assn ((K \<times>\<^sub>a K \<times>\<^sub>a list_assn A +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a list_assn A) +\<^sub>a K \<times>\<^sub>a A)"
+      option_assn ((K \<times>\<^sub>a K \<times>\<^sub>a list_assn A +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a list_assn A) +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a A \<times>\<^sub>a list_assn A)"
   unfolding PR_CONST_def
   unfolding check_invariant_fail_def list_of_set_def[symmetric]
   unfolding monadic_list_all_fail'_alt_def monadic_list_all_fail_alt_def

@@ -28,7 +28,7 @@ lemma (in Graph_Defs) steps_Cons_two_iff:
 
 subsection \<open>Certifying Cycle-Freeness in Graphs\<close>
 
-locale Contract =
+locale Contract1 =
   fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
 begin
 
@@ -200,32 +200,30 @@ end (* Context for 'topological' ordering *)
 
 end (* Contract *)
 
-locale Contract2 =
-  fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
+locale Contract =
+  fixes E :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
   fixes f :: "'a \<Rightarrow> nat" and F :: "'a \<Rightarrow> bool"
   assumes f_topo:
-      "\<forall>a b c. G a \<and> A a b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
+      "\<forall>a b. E a b \<longrightarrow> (if F a then f a < f b else f a \<le> f b)"
 begin
-
-definition "E a c \<equiv> \<exists>b. G a \<and> G c \<and> A a b \<and> B b c"
 
 sublocale E: Graph_Defs E .
 
 lemma f_forward:
   assumes "E a b"
   shows "f a \<le> f b"
-  using assms f_topo unfolding E_def by (cases "F a") (auto simp: less_imp_le)
+  using assms f_topo by (cases "F a") (auto simp: less_imp_le)
 
 lemma f_strict:
   assumes "E a b" "F a"
   shows "f a < f b"
-  using assms f_topo unfolding E_def by (auto simp: less_imp_le)
+  using assms f_topo by (auto simp: less_imp_le)
 
 text \<open>We do not even need this property any more.\<close>
 lemma no_trivial_lasso:
   assumes "F a" "G a" "E a a"
   shows False
-  using assms f_topo unfolding E_def by (meson less_irrefl)
+  using assms f_topo by (meson less_irrefl)
 
 lemma reaches_f_mono:
   assumes "E\<^sup>*\<^sup>* a b"
@@ -246,6 +244,25 @@ proof (rule ccontr, simp)
   ultimately show False
     by simp
 qed
+
+end (* Contract *)
+
+locale Contract2 =
+  fixes A B :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a \<Rightarrow> bool"
+  fixes f :: "'a \<Rightarrow> nat" and F :: "'a \<Rightarrow> bool"
+  assumes f_topo:
+      "\<forall>a b c. G a \<and> A a b \<and> G c \<and> B b c \<longrightarrow> (if F a then f a < f c else f a \<le> f c)"
+begin
+
+definition "E a c \<equiv> \<exists>b. G a \<and> G c \<and> A a b \<and> B b c"
+
+sublocale Contract E f F
+  by standard (auto simp: E_def f_topo)
+
+theorem no_accepting_cycle:
+  assumes "E\<^sup>+\<^sup>+ x x"
+  shows "\<not> F x"
+  using assms by (rule no_accepting_cycle)
 
 end (* Contract *)
 
@@ -300,6 +317,178 @@ end (* Simulation Invariant *)
 
 subsection \<open>Invariants for Un-reachability\<close>
 
+locale Unreachability_Invariant0 = Subsumption_Graph_Pre_Defs + preorder less_eq less +
+  fixes S :: "'a set" and SE :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  assumes mono:
+    "s \<preceq> s' \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> \<exists> t'. t \<preceq> t' \<and> s' \<rightarrow> t'"
+  assumes S_E_subsumed: "s \<in> S \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> \<exists> t' \<in> S. SE t t'"
+  assumes subsumptions_subsume: "SE s t \<Longrightarrow> s \<preceq> t"
+begin
+
+definition E' where
+  "E' s t \<equiv> \<exists>s'. E s s' \<and> SE s' t \<and> t \<in> S"
+
+sublocale G: Graph_Defs E' .
+
+interpretation Simulation_Invariant E E' "(\<preceq>)" "\<lambda>s. True" "\<lambda>x. x \<in> S"
+proof standard
+  fix a b a' :: \<open>'a\<close>
+  assume \<open>a \<rightarrow> b\<close> \<open>a' \<in> S\<close> \<open>a \<preceq> a'\<close>
+  with mono[OF \<open>a \<preceq> a'\<close> \<open>a \<rightarrow> b\<close>] obtain b' where "b \<preceq> b'" "a' \<rightarrow> b'"
+    by auto
+  with S_E_subsumed[OF \<open>a' \<in> S\<close>] obtain c where "c \<in> S" "SE b' c"
+    by auto
+  with \<open>a' \<rightarrow> b'\<close> have "E' a' c"
+    unfolding E'_def by auto
+  with \<open>b \<preceq> b'\<close> \<open>SE b' c\<close> subsumptions_subsume show \<open>\<exists>b'. E' a' b' \<and> b \<preceq> b'\<close>
+    by (blast intro: order_trans)
+qed (auto simp: E'_def)
+
+context
+  fixes s\<^sub>0 s\<^sub>0'
+  assumes "s\<^sub>0 \<preceq> s\<^sub>0'" "s\<^sub>0' \<in> S"
+begin
+
+lemma run_subsumed:
+  assumes "run (s\<^sub>0 ## xs)"
+  obtains ys where "G.run (s\<^sub>0' ## ys)" "stream_all2 (\<preceq>) xs ys" "pred_stream (\<lambda>x. x \<in> S) ys"
+proof -
+  from \<open>s\<^sub>0 \<preceq> _\<close> \<open>s\<^sub>0' \<in> S\<close> have "equiv' s\<^sub>0 s\<^sub>0'"
+    unfolding equiv'_def by auto
+  with assms show ?thesis
+    by - (drule simulation_run, auto
+          dest: PB_invariant.invariant_run elim: stream_all2_weaken intro!: that simp: equiv'_def)
+qed
+
+context
+  fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
+  assumes F_mono[intro]: "reaches s\<^sub>0 a \<Longrightarrow> F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> b \<in> S \<Longrightarrow> F b"
+begin
+
+corollary final_unreachable:
+  "\<nexists> s'. reaches s\<^sub>0 s' \<and> F s'" if "\<forall> s' \<in> S. \<not> F s'"
+  using \<open>s\<^sub>0 \<preceq> s\<^sub>0'\<close> \<open>s\<^sub>0' \<in> S\<close> simulation_reaches that by blast
+
+lemma buechi_run_lasso:
+  assumes "finite S" "run (s\<^sub>0 ## xs)" "alw (ev (holds F)) (s\<^sub>0 ## xs)"
+  obtains s where "G.reaches s\<^sub>0' s" "G.reaches1 s s" "F s"
+proof -
+  interpret Finite_Graph E' s\<^sub>0'
+    by (standard, rule finite_subset[OF _ assms(1)])
+       (auto intro: PB_invariant.invariant_reaches \<open>s\<^sub>0' \<in> S\<close>)
+  from run_subsumed[OF assms(2)] obtain ys where ys:
+    "G.run (s\<^sub>0' ## ys)" "stream_all2 (\<preceq>) xs ys" "pred_stream (\<lambda>x. x \<in> S) ys" .
+  moreover from \<open>run _\<close> have "pred_stream (reaches s\<^sub>0) xs"
+    using run_reachable by blast
+  ultimately have "stream_all2 (\<lambda>x y. x \<preceq> y \<and> reaches s\<^sub>0 x \<and> y \<in> S) xs ys"
+    by (smt stream.pred_set stream.rel_mono_strong)
+  with assms(3) \<open>s\<^sub>0 \<preceq> _\<close> \<open>s\<^sub>0' \<in> S\<close> have "alw (ev (holds F)) (s\<^sub>0' ## ys)"
+    by (elim alw_ev_lockstep) (erule stream.rel_intros[rotated], auto)
+  from buechi_run_lasso[OF ys(1) this] show ?thesis
+    using that .
+qed
+
+end (* Context for property *)
+
+end (* Start state *)
+
+end (* Unreachability Invariant *)
+
+
+locale Unreachability_Invariant1 = Subsumption_Graph_Pre_Defs + preorder less_eq less +
+  fixes I and SE :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and P
+  assumes mono:
+    "s \<preceq> s' \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> P s \<Longrightarrow> P s' \<Longrightarrow> \<exists> t'. t \<preceq> t' \<and> s' \<rightarrow> t'"
+  assumes S_E_subsumed: "I s \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> \<exists> t'. I t' \<and> SE t t'"
+  assumes subsumptions_subsume: "SE s t \<Longrightarrow> s \<preceq> t"
+  assumes I_P[intro]: "I s \<Longrightarrow> P s"
+  assumes P_invariant: "P s \<Longrightarrow> s \<rightarrow> s' \<Longrightarrow> P s'"
+begin
+
+context
+  assumes subsumes_P: "\<And>s s'. s \<preceq> s' \<Longrightarrow> P s'"
+begin
+
+interpretation E: Unreachability_Invariant0
+  where E = "\<lambda> x y. E x y \<and> P y"
+    and S = "{s. I s}"
+  apply standard
+  subgoal for s s' t
+    using subsumes_P mono by blast
+  using S_E_subsumed subsumptions_subsume by auto
+
+end
+
+definition E' where
+  "E' s t \<equiv> \<exists>s'. E s s' \<and> SE s' t \<and> I t"
+
+sublocale G: Graph_Defs E' .
+
+interpretation Simulation_Invariant E E' "(\<preceq>)" P I
+proof standard
+  fix a b a' :: \<open>'a\<close>
+  assume \<open>a \<rightarrow> b\<close> \<open>P a\<close> \<open>I a'\<close> \<open>a \<preceq> a'\<close>
+  with mono[OF \<open>a \<preceq> a'\<close> \<open>a \<rightarrow> b\<close>] obtain b' where "b \<preceq> b'" "a' \<rightarrow> b'"
+    by auto
+  with S_E_subsumed[OF \<open>I a'\<close>] obtain c where "I c" "SE b' c"
+    by auto
+  with \<open>a' \<rightarrow> b'\<close> have "E' a' c"
+    unfolding E'_def by auto
+  with \<open>b \<preceq> b'\<close> \<open>SE b' c\<close> subsumptions_subsume show \<open>\<exists>b'. E' a' b' \<and> b \<preceq> b'\<close>
+    by (blast intro: order_trans)
+qed (auto simp: E'_def P_invariant)
+
+context
+  fixes s\<^sub>0 s\<^sub>0'
+  assumes "s\<^sub>0 \<preceq> s\<^sub>0'" "P s\<^sub>0" "I s\<^sub>0'"
+begin
+
+lemma run_subsumed:
+  assumes "run (s\<^sub>0 ## xs)"
+  obtains ys where "G.run (s\<^sub>0' ## ys)" "stream_all2 (\<preceq>) xs ys" "pred_stream I ys"
+proof -
+  from \<open>s\<^sub>0 \<preceq> _\<close> \<open>P s\<^sub>0\<close> \<open>I s\<^sub>0'\<close> have "equiv' s\<^sub>0 s\<^sub>0'"
+    unfolding equiv'_def by auto
+  with assms show ?thesis
+    by - (drule simulation_run, auto
+          dest: PB_invariant.invariant_run elim: stream_all2_weaken intro!: that simp: equiv'_def)
+qed
+
+context
+  fixes F :: "'a \<Rightarrow> bool" \<comment> \<open>Final states\<close>
+  assumes F_mono[intro]: "P a \<Longrightarrow> F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> P b \<Longrightarrow> F b"
+begin
+
+corollary final_unreachable:
+  "\<nexists> s'. reaches s\<^sub>0 s' \<and> F s'" if "\<forall>s'. I s' \<longrightarrow> \<not> F s'"
+  using \<open>s\<^sub>0 \<preceq> s\<^sub>0'\<close> \<open>P s\<^sub>0\<close> \<open>I s\<^sub>0'\<close> simulation_reaches that I_P by blast
+
+lemma buechi_run_lasso:
+  assumes "finite {s. I s}" "run (s\<^sub>0 ## xs)" "alw (ev (holds F)) (s\<^sub>0 ## xs)"
+  obtains s where "G.reaches s\<^sub>0' s" "G.reaches1 s s" "F s"
+proof -
+  interpret Finite_Graph E' s\<^sub>0'
+    by (standard, rule finite_subset[OF _ assms(1)])
+       (auto intro: PB_invariant.invariant_reaches \<open>I s\<^sub>0'\<close>)
+  from run_subsumed[OF assms(2)] obtain ys where ys:
+    "G.run (s\<^sub>0' ## ys)" "stream_all2 (\<preceq>) xs ys" "pred_stream I ys" .
+  moreover from \<open>run _\<close> have "pred_stream P xs"
+    using PA_invariant.invariant_run \<open>P s\<^sub>0\<close> by auto
+  ultimately have "stream_all2 (\<lambda>x y. x \<preceq> y \<and> P x \<and> I y) xs ys"
+    by (smt stream.pred_set stream.rel_mono_strong)
+  with assms(3) \<open>s\<^sub>0 \<preceq> _\<close> \<open>P s\<^sub>0\<close> \<open>I s\<^sub>0'\<close> have "alw (ev (holds F)) (s\<^sub>0' ## ys)"
+    by (elim alw_ev_lockstep) (erule stream.rel_intros[rotated], auto)
+  from buechi_run_lasso[OF ys(1) this] show ?thesis
+    using that .
+qed
+
+end (* Context for property *)
+
+end (* Start state *)
+
+end (* Unreachability Invariant *)
+
+
 locale Unreachability_Invariant = Subsumption_Graph_Pre_Defs + preorder less_eq less +
   fixes s\<^sub>0
   fixes S :: "'a set" and SE :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
@@ -309,6 +498,16 @@ locale Unreachability_Invariant = Subsumption_Graph_Pre_Defs + preorder less_eq 
   assumes S_E_subsumed: "s \<in> S \<Longrightarrow> s \<rightarrow> t \<Longrightarrow> \<exists> t' \<in> S. SE t t'"
   assumes subsumptions_subsume: "SE s t \<Longrightarrow> s \<preceq> t"
 begin
+
+interpretation Unreachability_Invariant1
+  where P = "\<lambda>s. s \<in> S \<or> reaches s\<^sub>0 s"
+    and I = "\<lambda>s. s \<in> S"
+  apply standard
+  using mono S_E_subsumed subsumptions_subsume
+      apply auto
+  apply blast
+  (* P is not invariant wrt \<rightarrow> *)
+  oops
 
 lemma reachable_S_subsumed:
   "\<exists> s'. s' \<in> S \<and> s \<preceq> s'" if "s' \<in> S" "s\<^sub>0 \<preceq> s'" "reaches s\<^sub>0 s"
@@ -389,6 +588,67 @@ end (* Start state *)
 
 end (* Unreachability Invariant *)
 
+context Unreachability_Invariant1
+begin
+
+interpretation Graph_Invariant
+  by standard (rule P_invariant)
+
+context
+  fixes s\<^sub>0 :: 'a
+  assumes "P s\<^sub>0"
+begin
+
+interpretation E: Unreachability_Invariant
+  where S = "{s. I s}"
+  by standard (auto intro: \<open>P s\<^sub>0\<close> invariant_reaches mono S_E_subsumed subsumptions_subsume)
+
+end
+
+end
+
+locale Unreachability_Invariant_Contract1 =
+  Unreachability_Invariant1 +
+  fixes f :: "'a \<Rightarrow> nat" and F :: "'a \<Rightarrow> bool"
+  assumes f_topo:
+      "I a \<Longrightarrow> E a b \<Longrightarrow> SE b c \<Longrightarrow> (if F a then f a < f c else f a \<le> f c)"
+    assumes finite_invariant: "finite {s. I s}"
+    assumes F_mono[intro]: "P a \<Longrightarrow> F a \<Longrightarrow> a \<preceq> b \<Longrightarrow> P b \<Longrightarrow> F b"
+begin
+
+interpretation c: Contract E'
+  using f_topo
+  apply -
+  apply standard
+  apply (auto simp: E'_def)
+  oops
+
+definition
+  "E1 \<equiv> \<lambda>a c. \<exists>b. I a \<and> E a b \<and> SE b c"
+
+interpretation c: Contract E1
+  using f_topo by - (standard, auto simp: E1_def)
+
+lemma no_buechi_run:
+  assumes [intro, simp]: "P s\<^sub>0" "I s\<^sub>0'" "s\<^sub>0 \<preceq> s\<^sub>0'"
+  assumes "Graph_Defs.run E (s\<^sub>0 ## xs)" "alw (ev (holds F)) (s\<^sub>0 ## xs)"
+  shows False
+proof -
+  interpret sim: Simulation E' E1 "\<lambda>s s'. s' = s \<and> I s"
+    unfolding E'_def E1_def by standard auto
+  obtain s where
+    "G.reaches s\<^sub>0' s" "G.reaches1 s s" "F s"
+    using finite_invariant assms by - (rule buechi_run_lasso[where F= F], rule assms, auto)
+  then have "c.E.reaches1 s s"
+    using E'_def G.reaches1_reaches_iff2 by - (frule sim.simulation_reaches1, auto)
+  then have "\<not> F s"
+    by (rule c.no_accepting_cycle)
+  from this \<open>F s\<close> show ?thesis ..
+qed
+
+end
+
+
 locale Reachability_Invariant_paired_pre_defs =
   ord less_eq less for less_eq :: "'s \<Rightarrow> 's \<Rightarrow> bool" (infix "\<preceq>" 50) and less (infix "\<prec>" 50) +
   fixes E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"
@@ -437,12 +697,22 @@ begin
 interpretation Graph_Invariant E P
   by standard (auto intro: P_invariant)
 
+interpretation unreach1: Unreachability_Invariant1
+  "\<lambda> (l, s) (l', s'). l' = l \<and> s \<preceq> s'" "\<lambda> (l, s) (l', s'). l' = l \<and> s \<prec> s'" E
+  "\<lambda>(l, s). l \<in> L \<and> s \<in> M l"
+  supply [intro] = order_trans less_trans less_imp_le
+  apply standard
+  using subsumption_edges_subsume closed
+         apply (auto intro: M_invariant P_invariant dest: mono simp: less_le_not_le)
+  apply blast
+  done
+
 interpretation Unreachability_Invariant
   "\<lambda> (l, s) (l', s'). l' = l \<and> s \<preceq> s'" "\<lambda> (l, s) (l', s'). l' = l \<and> s \<prec> s'" E "(l\<^sub>0, s\<^sub>0)"
   "{(l, s) | l s. l \<in> L \<and> s \<in> M l}"
   supply [intro] = order_trans less_trans less_imp_le
   apply standard
-      apply (auto simp: less_le_not_le; fail)+
+      \<^cancel>\<open>apply (auto simp: less_le_not_le; fail)+\<close>
     apply (fastforce intro: invariant_reaches[OF _ start(3)] M_invariant dest: mono)
   subgoal for s t
     using closed by (cases s; cases t) fastforce
@@ -496,6 +766,37 @@ context
     l \<in> L \<Longrightarrow> s \<in> M l \<Longrightarrow> l2 \<in> L \<Longrightarrow> s2 \<in> M l2 \<Longrightarrow> E (l, s) (l1, s1) \<Longrightarrow> SE (l1, s1) (l2, s2) \<Longrightarrow>
     if F (l, s) then f (l, s) < f (l2, s2) else f (l, s) \<le> f (l2, s2)"
 begin
+
+\<^cancel>\<open>definition
+  "E1 \<equiv> \<lambda>(l, s) (l'', s'').
+    \<exists>l' s'. l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s') \<and> SE (l', s') (l'', s'') \<and> l'' \<in> L \<and> s'' \<in> M l''"
+
+interpretation c: Contract E1
+  using f_topo by - (standard, auto simp: E1_def)
+
+lemma no_buechi_run:
+  assumes "Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs)" "alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)"
+  shows False
+proof -
+  have finite: "finite {(l, s). l \<in> L \<and> s \<in> M l}" (is "finite ?S")
+  proof -
+    have "?S \<subseteq> L \<times> \<Union> (M ` L)"
+      by auto
+    also from finite have "finite \<dots>"
+      by auto
+    finally show ?thesis .
+  qed
+  interpret sim: Simulation E' E1 "\<lambda>(l, s) (l', s'). l = l' \<and> s' = s \<and> l \<in> L \<and> s \<in> M l"
+    unfolding E'_def E1_def by standard auto
+  obtain s\<^sub>0' l s where
+    "s\<^sub>0 \<preceq> s\<^sub>0'" "s\<^sub>0' \<in> M l\<^sub>0" "G.reaches (l\<^sub>0, s\<^sub>0') (l, s)" "G.reaches1 (l, s) (l, s)" "F (l, s)"
+    using finite assms by - (rule buechi_run_lasso, auto)
+  then have "c.E.reaches1 (l, s) (l, s)"
+    using E'_def G.reaches1_reaches_iff2 by - (frule sim.simulation_reaches1, auto)
+  then have "\<not> F (l, s)"
+    by (rule c.no_accepting_cycle)
+  from this \<open>F (l, s)\<close> show ?thesis ..
+qed\<close>
 
 interpretation c: Contract2
   where A = "\<lambda>(l, s) (l', s'). l \<in> L \<and> s \<in> M l \<and> E (l, s) (l', s')"

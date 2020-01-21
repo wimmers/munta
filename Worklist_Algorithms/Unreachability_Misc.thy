@@ -304,17 +304,10 @@ do {
   ) xs
 }"
 
-context
-begin
-
-private definition "I as bs b \<equiv> (b \<longleftrightarrow> (\<forall> l \<in> set as. \<forall>s \<in> M l. P (l, s))) \<and> set (as @ bs) = L"
-
 lemma check_prop_correct:
   "check_prop \<le> SPEC (\<lambda>r. r \<longleftrightarrow> (\<forall>l \<in> L. \<forall>s \<in> M l. P (l, s)))"
   unfolding check_prop_def
   by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff)
-
-end
 
 end
 
@@ -409,11 +402,25 @@ end (* Reachability Impl Invariant *)
 
 locale Reachability_Impl_base2 =
   Reachability_Impl_base where E = E +
-  Unreachability_Invariant_paired_pre where E = E
+  Unreachability_Invariant_paired_pre_defs where E = E
   for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes P' and F
   assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
   assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
+
+
+\<^cancel>\<open>locale Reachability_Impl_base2 =
+  Reachability_Impl_base where E = E +
+  Unreachability_Invariant_paired_pre where E = E
+  for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes P' and F
+  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
+  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"\<close>
+
+\<^cancel>\<open>locale Reachability_Impl_pre =
+  Reachability_Impl_invariant where E = E +
+  Reachability_Impl_base2 where E = E for E :: "'l \<times> 's \<Rightarrow> _"
+begin\<close>
 
 locale Reachability_Impl_pre =
   Reachability_Impl_invariant where E = E +
@@ -487,6 +494,7 @@ lemma check_init_correct:
 
 end
 
+
 locale Reachability_Impl_pre_start =
   Reachability_Impl_pre where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
@@ -514,29 +522,46 @@ lemma certify_unreachable_alt_def:
   }"
   unfolding certify_unreachable_def check_all_def by simp (fo_rule arg_cong2, auto)
 
-lemma Unreachability_Invariant_pairedI[rule_format]:
-  "check_all_pre_spec l\<^sub>0 s\<^sub>0 \<and> check_invariant_spec L
-  \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L E P l\<^sub>0 s\<^sub>0 (\<lambda>(l, u) (l', u'). l' = l \<and> u \<preceq> u')"
-  unfolding check_all_pre_spec_def check_invariant_spec_def by clarsimp (standard, auto dest: P'_P)
+definition
+  "check_all_spec \<equiv> check_all_pre_spec l\<^sub>0 s\<^sub>0 \<and> check_invariant_spec L"
 
 lemma check_all_correct:
+  "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec)"
+  unfolding check_all_def check_all_spec_def check_all_pre_def check_all_pre_spec_def
+  by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule)
+     (auto simp: list_ex_iff dest: P'_P)
+
+end
+
+
+locale Reachability_Impl_correct =
+  Reachability_Impl_pre_start where E = E +
+  Unreachability_Invariant_paired_pre where E = E for E :: "'l \<times> 's \<Rightarrow> _"
+begin
+
+lemma Unreachability_Invariant_pairedI[rule_format]:
+  "check_all_spec
+  \<longrightarrow> Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L E P l\<^sub>0 s\<^sub>0 (\<lambda>(l, u) (l', u'). l' = l \<and> u \<preceq> u')"
+  unfolding check_all_spec_def check_all_pre_spec_def check_invariant_spec_def
+  by clarsimp (standard, auto dest: P'_P)
+
+lemma check_all_correct':
   "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow>
     Unreachability_Invariant_paired (\<preceq>) (\<prec>) M L E P l\<^sub>0 s\<^sub>0 (\<lambda>(l, u) (l', u'). l' = l \<and> u \<preceq> u'))"
-  unfolding check_all_def check_all_pre_def check_invariant_spec_def
-  by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule;
-      standard; auto simp: list_ex_iff dest: P'_P)
-
-lemma certify_unreachable_correct:
-  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))"
-  unfolding certify_unreachable_def
-  by (refine_vcg check_all_correct check_final_correct[unfolded check_final_spec_def])
-     (rule Unreachability_Invariant_paired.final_unreachable, simp, auto intro: F_mono)
+  by (refine_vcg Unreachability_Invariant_pairedI check_all_correct) fast
 
 lemma certify_unreachableI:
-  "check_all_pre_spec l\<^sub>0 s\<^sub>0 \<and> check_invariant_spec L \<and> check_final_spec
-  \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
-  by (intro impI conjI Unreachability_Invariant_paired.final_unreachable)
-     (rule Unreachability_Invariant_pairedI, auto intro: F_mono simp: check_final_spec_def)
+  "check_all_spec \<and> check_final_spec \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s')"
+  by (rule impI Unreachability_Invariant_paired.final_unreachable Unreachability_Invariant_pairedI)+
+     (auto intro: F_mono simp: check_final_spec_def)
+
+lemma certify_unreachable_correct:
+  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec \<and> check_final_spec)"
+  unfolding certify_unreachable_def by (refine_vcg check_all_correct check_final_correct; fast)
+
+lemma certify_unreachable_correct':
+  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))"
+  by (refine_vcg certify_unreachableI[rule_format] certify_unreachable_correct; fast)
 
 end
 
@@ -546,7 +571,6 @@ locale Buechi_Impl_invariant =
   fixes L :: "'l set" and M :: "'l \<Rightarrow> ('s \<times> nat) set"
 begin
 
-(* Move into defs locale *)
 definition "check_invariant_buechi R L' \<equiv>
   monadic_list_all (\<lambda>l.
     do {
@@ -664,12 +688,31 @@ definition
 
 definition
   "check_buechi_spec inits \<equiv>
+  check_all_pre_spec1 inits
+  \<and> (\<forall>l \<in> L. \<forall>(s, i) \<in> M l. \<forall>l' s'. E (l, s) (l', s')
+    \<longrightarrow> (\<exists>(s'', j) \<in> M l'. buechi_prop l l' i j s s' s''))"
+
+definition
+  "check_buechi_spec' inits \<equiv>
   (\<forall>(l\<^sub>0, s\<^sub>0) \<in> inits. Unreachability_Invariant_paired (\<preceq>) (\<prec>) (\<lambda>l. fst ` M l) L E P l\<^sub>0 s\<^sub>0 SE)
   \<and> (\<forall>l \<in> L. \<forall>(s, i) \<in> M l. \<forall>l' s'. E (l, s) (l', s')
     \<longrightarrow> (\<exists>(s'', j) \<in> M l'. buechi_prop l l' i j s s' s''))"
 
 lemma check_buechi_correct:
   "check_buechi inits \<le> SPEC (\<lambda>r. r \<longrightarrow> check_buechi_spec inits)"
+  unfolding check_buechi_def check_invariant_buechi_spec_def check_buechi_spec_def
+  by (refine_vcg; blast)
+
+end
+
+
+locale Buechi_Impl_correct =
+  Buechi_Impl_pre where M = M and E = E+
+  Unreachability_Invariant_paired_pre where E = E for E and M :: "'l \<Rightarrow> ('s \<times> nat) set"
+begin
+
+lemma check_buechi_correct':
+  "check_buechi inits \<le> SPEC (\<lambda>r. r \<longrightarrow> check_buechi_spec' inits)"
 proof -
   have "Unreachability_Invariant_paired (\<preceq>) (\<prec>) (\<lambda>l. fst ` M l) L E P l\<^sub>0 s\<^sub>0 SE"
     if "(l\<^sub>0, s\<^sub>0) \<in> inits" "check_all_pre_spec1 inits" "check_invariant_buechi_spec (buechi_prop ) L"
@@ -681,7 +724,7 @@ proof -
     apply (smt case_prodE fst_conv)
     done
   then show ?thesis
-    unfolding check_buechi_def check_invariant_buechi_spec_def check_buechi_spec_def
+    unfolding check_buechi_def check_invariant_buechi_spec_def check_buechi_spec'_def
     by (refine_vcg; blast)
 qed
 
@@ -702,7 +745,7 @@ qed
 lemma f_topo:
   fixes l :: \<open>'l\<close> and s :: \<open>'s\<close> and l1 :: \<open>'l\<close> and s1 :: \<open>'s\<close> and l2 :: \<open>'l\<close> and s2 :: \<open>'s\<close>
   assumes 
-    "check_buechi_spec inits"
+    "check_buechi_spec' inits"
     \<open>l \<in> L\<close> and
     \<open>s \<in> fst ` M l\<close> and
     \<open>l2 \<in> L\<close> and
@@ -720,7 +763,7 @@ proof -
   from f_in assms have "(s, f (l, s)) \<in> M l"
     by auto
   with assms obtain s' i where "(s', i) \<in> M l2" "buechi_prop l l2 (f (l, s)) i s s1 s'"
-    unfolding check_buechi_spec_def by fastforce
+    unfolding check_buechi_spec'_def by fastforce
   then have "(s', i) \<in> M l2" "s1 \<preceq> s'" "?le l s (f (l, s)) i"
     unfolding buechi_prop_def by auto
   from is_max \<open>(s', i) \<in> _\<close> \<open>s1 \<preceq> s'\<close> have "i \<le> j"
@@ -732,13 +775,13 @@ proof -
 qed
 
 lemma no_buechi_run:
-  assumes check: "check_buechi_spec inits"
+  assumes check: "check_buechi_spec' inits"
   assumes accepting_run:
     "(l\<^sub>0, s\<^sub>0) \<in> inits" "Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs)" "alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)"
   shows False
 proof -
   interpret Unreachability_Invariant_paired "(\<preceq>)" "(\<prec>)" "\<lambda>l. fst ` M l" L E P l\<^sub>0 s\<^sub>0 SE
-    using check \<open>_ \<in> inits\<close> unfolding check_buechi_spec_def by blast
+    using check \<open>_ \<in> inits\<close> unfolding check_buechi_spec'_def by blast
   show ?thesis
     apply (rule no_buechi_run[where F = F and f = f])
          apply (rule F_mono; assumption)
@@ -860,7 +903,7 @@ locale Certification_Impl_base = Reachability_Impl_base2 where less = less
 locale Reachability_Impl =
   Reachability_Impl_common where M = M +
   Certification_Impl_base where K = K and A = A +
-  Reachability_Impl_pre_start where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for M :: "'k \<Rightarrow> 'a set option"
   and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn" and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn" +
   fixes l\<^sub>0i :: "'ki Heap" and s\<^sub>0i :: "'ai Heap"
