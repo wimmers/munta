@@ -649,14 +649,42 @@ definition
   "buechi_prop l l' i j s s' s'' \<equiv> l' \<in> L \<and> s' \<preceq> s'' \<and>
     (if F (l, s) then i < j else i \<le> j)"
 
-definition
+text \<open>
+Old alternative definition.
+Slightly easier to work with but subsumptions are not deterministic.\<close>
+\<comment> \<open>definition
   "SE \<equiv> \<lambda>(l, s) (l', s').
-    l' = l \<and> (\<exists>j. is_arg_max (\<lambda>(s, i). i) (\<lambda>(s', j). s \<preceq> s' \<and> (s', j) \<in> M l) (s', j))"
+    l' = l \<and> (\<exists>j. is_arg_max (\<lambda>(s, i). i) (\<lambda>(s', j). s \<preceq> s' \<and> (s', j) \<in> M l) (s', j))"\<close>
 
-lemma SE_subsumes:
+definition
+  "has_SE \<equiv> \<lambda>s l. \<exists>s' j. s \<preceq> s' \<and> (s', j) \<in> M l"
+
+definition
+  "SE \<equiv> \<lambda>(l, s) (l', s'). l' = l \<and> l \<in> L \<and> has_SE s l \<and>
+    (\<exists>j. (s', j) = arg_max (\<lambda>(s, i). i) (\<lambda>(s', j). s \<preceq> s' \<and> (s', j) \<in> M l))"
+
+lemma
   assumes "SE (l, s) (l', s')"
-  shows "l' = l \<and> s \<preceq> s'"
-  using assms unfolding SE_def is_arg_max_def by auto
+  shows SE_same_loc: "l' = l" and SE_subsumes: "s \<preceq> s'"
+    and SE_is_arg_max: "\<exists>j. is_arg_max (\<lambda>(s, i). i) (\<lambda>(s', j). s \<preceq> s' \<and> (s', j) \<in> M l) (s', j)"
+    (is "\<exists>j. is_arg_max ?f ?P (s', j)")
+proof -
+  from assms have "has_SE s l'" "l' \<in> L" and [simp]: "l' = l"
+    unfolding SE_def by auto
+  then obtain s1 j where "?P (s1, j)"
+    unfolding has_SE_def by auto
+  moreover have "finite (Collect ?P)"
+    using finite \<open>l' \<in> L\<close> by (auto intro: finite_subset)
+  moreover note arg_max_rule = arg_max_nat_lemma2[of ?P, OF calculation, of "\<lambda>(s, i). i"]
+  then show "l' = l" "s \<preceq> s'" "\<exists>j. is_arg_max ?f ?P (s', j)"
+    using assms unfolding is_arg_max_linorder SE_def is_arg_max_linorder by auto
+qed
+
+lemma SE_deterministic:
+  assumes "\<And>s. s1 \<preceq> s \<longleftrightarrow> s2 \<preceq> s"
+  assumes "SE (l, s1) (l', s1')" "SE (l, s2) (l', s2')"
+  shows "s2' = s1'"
+  using assms(2,3) unfolding SE_def by (clarsimp simp: assms(1)) (metis prod.inject)
 
 lemma SE_I:
   assumes "(s'', j) \<in> M l'" "buechi_prop l l' i j s s' s''"
@@ -668,8 +696,8 @@ proof -
     unfolding buechi_prop_def by auto
   have "finite (Collect ?P)"
     using finite \<open>l' \<in> L\<close> by (auto intro: finite_subset)
-  from arg_max_nat_lemma2[OF \<open>?P (s'', j) \<close> this, of ?f] show ?thesis
-    unfolding SE_def is_arg_max_linorder by (auto 4 3)
+  from arg_max_nat_lemma2[OF \<open>?P (s'', j) \<close> this, of ?f] \<open>l' \<in> L\<close> show ?thesis
+    unfolding has_SE_def SE_def is_arg_max_linorder by (auto 4 3)
 qed
 
 definition
@@ -720,7 +748,8 @@ proof -
     using that unfolding check_invariant_buechi_spec_def check_all_pre_spec1_def
     apply -
     apply standard
-    apply (use SE_I SE_subsumes in \<open>auto 4 3 dest!: P'_P simp: list_ex_iff Ball_def_raw Bex_def_raw\<close>)
+         apply (use SE_I SE_same_loc SE_subsumes in
+          \<open>auto 4 3 dest!: P'_P simp: list_ex_iff Ball_def_raw Bex_def_raw\<close>)
     apply (smt case_prodE fst_conv)
     done
   then show ?thesis
@@ -759,7 +788,7 @@ proof -
   let ?le = "\<lambda>l s i j. if F(l, s) then i < j else i \<le> j"
   from \<open>SE _ _\<close> obtain j where "(s2, j) \<in> M l2" and [simp]: "l2 = l1"
     and is_max: "is_arg_max ?f (?P s1 l1) (s2, j)"
-    unfolding SE_def is_arg_max_def by auto
+    using SE_is_arg_max SE_same_loc SE_subsumes by atomize_elim (fastforce simp: is_arg_max_def)
   from f_in assms have "(s, f (l, s)) \<in> M l"
     by auto
   with assms obtain s' i where "(s', i) \<in> M l2" "buechi_prop l l2 (f (l, s)) i s s1 s'"
