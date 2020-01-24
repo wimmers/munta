@@ -922,8 +922,8 @@ definition
   l \<leftarrow> SPEC (\<lambda>xs. set xs = L');
   monadic_list_all_fail' (\<lambda>l.
   do {
-    case op_map_lookup l M' of None \<Rightarrow> RETURN None  | Some xs \<Rightarrow> do {
-    let succs = PR_CONST succs l xs;
+    case op_map_lookup l M' of None \<Rightarrow> RETURN None  | Some as \<Rightarrow> do {
+    let succs = PR_CONST succs l as;
     monadic_list_all_fail' (\<lambda>(l', xs). do {
       xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
       if xs = [] then RETURN None
@@ -935,8 +935,14 @@ definition
           b2 \<leftarrow> monadic_list_all_fail (\<lambda>x'.
             monadic_list_ex (\<lambda>y. RETURN (PR_CONST less_eq x' y)) ys
           ) xs;
-          case b2 of None \<Rightarrow> RETURN None | Some M \<Rightarrow> RETURN (Some (Inr (l, l', M, ys)))
-        }
+          case b2 of None \<Rightarrow> RETURN None | Some M \<Rightarrow> do {
+            case op_map_lookup l M' of
+              None \<Rightarrow> RETURN (Some (Inl (Inr (l, l', ys)))) \<comment> \<open>never used\<close>
+            | Some as \<Rightarrow> do {
+                as \<leftarrow> SPEC (\<lambda>xs'. set xs' = as);
+                RETURN (Some (Inr (l, as, l', M, ys)))}
+              }
+          }
       }
       else RETURN (Some (Inl (Inl (l, l', xs))))
     }
@@ -949,7 +955,7 @@ definition
 sepref_thm check_invariant_fail_impl is
   "uncurry check_invariant_fail"
   :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a
-      option_assn ((K \<times>\<^sub>a K \<times>\<^sub>a list_assn A +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a list_assn A) +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a A \<times>\<^sub>a list_assn A)"
+      option_assn ((K \<times>\<^sub>a K \<times>\<^sub>a list_assn A +\<^sub>a K \<times>\<^sub>a K \<times>\<^sub>a list_assn A) +\<^sub>a K \<times>\<^sub>a list_assn A \<times>\<^sub>a K \<times>\<^sub>a A \<times>\<^sub>a list_assn A)"
   unfolding PR_CONST_def
   unfolding check_invariant_fail_def list_of_set_def[symmetric]
   unfolding monadic_list_all_fail'_alt_def monadic_list_all_fail_alt_def

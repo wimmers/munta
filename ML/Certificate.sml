@@ -8075,10 +8075,21 @@ fun check_invariant_fail_impl A_ (B1_, B2_, B3_) copyi lei succsi =
                              (fn () => (if x_q then NONE else SOME xp))))
                        NONE)
                     ()) ())
-                    (fn x_o =>
-                      (fn () =>
-                        (case x_o of NONE => NONE
-                          | SOME x_p => SOME (Inr (xb, (a1, (x_p, x_m)))))))))
+                    (fn aa =>
+                      (case aa of NONE => (fn () => NONE)
+                        | SOME x_p =>
+                          (fn f_ => fn () => f_
+                            ((hms_lookup
+                               (ht_lookup (B1_, B2_, B3_) (heap_list A_))
+                               (heap_map copyi) xb bi)
+                            ()) ())
+                            (fn x_q =>
+                              (fn () =>
+                                (case x_q
+                                  of NONE => SOME (Inl (Inr (xb, (a1, x_m))))
+                                  | SOME x_r =>
+                                    SOME (Inr
+   (xb, (x_r, (a1, (x_p, x_m))))))))))))
      else (fn () => (SOME (Inl (Inl (xb, (a1, a2)))))))))
                               end
                              ()) ())
@@ -12906,7 +12917,7 @@ then SOME p else NONE))
                               end)
                         end)
                   end
-                | SOME (Inr (l, (la, (ma, xs)))) =>
+                | SOME (Inr (l, (asa, (la, (ma, xs))))) =>
                   (fn f_ => fn () => f_ ((show_statea l) ()) ())
                     (fn s1 =>
                       (fn f_ => fn () => f_ ((show_statea la) ()) ())
@@ -12917,9 +12928,6 @@ then SOME p else NONE))
                                 val _ =
                                   writeln ("\nA successor of the zones for:\n  " ^
     s1);
-                                val _ = writeln ("is not subsumed:\n  " ^ s2);
-                                val _ = writeln (implode s3 ^ "\n");
-                                val _ = writeln "These are the candidate dbms:";
                               in
                                 (fn f_ => fn () => f_
                                   ((fold_map
@@ -12931,13 +12939,33 @@ then SOME p else NONE))
           in
             (fn () => ())
           end))
-                                     xs)
+                                     asa)
                                   ()) ())
-                                  (fn _ => let
-     val _ = writeln "";
-   in
-     (fn () => ())
-   end)
+                                  (fn _ =>
+                                    let
+                                      val _ =
+writeln ("\nis not subsumed:\n  " ^ s2 ^ "\n");
+                                      val _ = writeln (implode s3 ^ "\n");
+                                      val _ =
+writeln "These are the candidate dbms:";
+                                    in
+                                      (fn f_ => fn () => f_
+((fold_map
+   (fn mb =>
+     (fn f_ => fn () => f_ ((show_dbm mb) ()) ())
+       (fn s => let
+                  val _ = writeln ("\n" ^ implode s);
+                in
+                  (fn () => ())
+                end))
+   xs)
+()) ())
+(fn _ => let
+           val _ = writeln "";
+         in
+           (fn () => ())
+         end)
+                                    end)
                               end))))))
     end);
 

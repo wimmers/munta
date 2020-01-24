@@ -1438,12 +1438,17 @@ definition
         }) xs;
         Heap_Monad.return ()
       }
-    | Some (Inr (l, l', M, xs)) \<Rightarrow> do {
+    | Some (Inr (l, as, l', M, xs)) \<Rightarrow> do {
         s1 \<leftarrow> show_state l;
         s2 \<leftarrow> show_state l';
         s3 \<leftarrow> show_dbm M;
         let _ = println (STR ''\<newline>A successor of the zones for:\<newline>  '' + s1);
-        let _ = println (STR ''is not subsumed:\<newline>  '' + s2);
+        Heap_Monad.fold_map (\<lambda>M. do {
+          s \<leftarrow> show_dbm M;
+          let _ = println (STR ''\<newline>'' + String.implode s);
+          Heap_Monad.return ()
+        }) as;
+        let _ = println (STR ''\<newline>is not subsumed:\<newline>  '' + s2 + STR ''\<newline>'');
         let _ = println (String.implode s3 + STR ''\<newline>'');
         let _ = println (STR ''These are the candidate dbms:'');
         Heap_Monad.fold_map (\<lambda>M. do {
