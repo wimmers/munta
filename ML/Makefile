@@ -28,7 +28,7 @@ munta_int.mlb: munta.mlb
 	patch -i munta_int.patch -o munta_int.mlb
 
 muntax: muntax.mlb Muntax.sml Simple_Model_Checker.sml
-	mlton -output munta muntax.mlb
+	mlton -output munta -default-type int64 muntax.mlb
 
 convert_int: Certificate.ML
 	sed -i -e 's/IntInf/Int/g' Certificate.ML
