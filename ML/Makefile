@@ -37,4 +37,4 @@ muntac_poly: convert_int
 	polyc -o muntac_poly build_muntac.sml
 
 muntac_mlton: convert_int
-	mlton -mlb-path-var "MLUNTA_CERT $(MLUNTA_CERT)" -output muntac_mlton muntac.mlb
+	mlton -default-type int64 -mlb-path-var "MLUNTA_CERT $(MLUNTA_CERT)" -output muntac_mlton muntac.mlb
