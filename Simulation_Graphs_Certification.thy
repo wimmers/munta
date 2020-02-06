@@ -419,6 +419,29 @@ interpretation E: Unreachability_Invariant0
 
 end
 
+text \<open>Alternative for defining the simulating transition system.
+Does not need the invariant at the tip of the subsumption but requires us to use
+\<open>Simulation\<close> instead of \<open>Simulation_Invariant\<close>.\<close>
+\<comment> \<open>definition E' where
+  "E' s t \<equiv> \<exists>s'. E s s' \<and> SE s' t"
+
+sublocale G: Graph_Defs E' .
+
+interpretation Simulation E E' "\<lambda>a b. a \<preceq> b \<and> P a \<and> I b"
+proof (standard, safe)
+  fix a b a' :: \<open>'a\<close>
+  assume \<open>a \<rightarrow> b\<close> \<open>P a\<close> \<open>I a'\<close> \<open>a \<preceq> a'\<close>
+  with mono[OF \<open>a \<preceq> a'\<close> \<open>a \<rightarrow> b\<close>] obtain b' where "b \<preceq> b'" "a' \<rightarrow> b'"
+    by auto
+  with S_E_subsumed[OF \<open>I a'\<close>] obtain c where "I c" "SE b' c"
+    by auto
+  with \<open>a' \<rightarrow> b'\<close> have "E' a' c"
+    unfolding E'_def by auto
+  with \<open>b \<preceq> b'\<close> \<open>SE b' c\<close> \<open>I c\<close> \<open>P a\<close> \<open>a \<rightarrow> b\<close> show \<open>\<exists>b'. E' a' b' \<and> b \<preceq> b' \<and> P b \<and> I b'\<close>
+    by (blast intro: order_trans P_invariant subsumptions_subsume)
+qed\<close>
+
+
 definition E' where
   "E' s t \<equiv> \<exists>s'. E s s' \<and> SE s' t \<and> I t"
 
