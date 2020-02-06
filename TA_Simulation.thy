@@ -1,5 +1,5 @@
 theory TA_Simulation
-  imports "TA.Timed_Automata" "TA.Simulation_Graphs_TA" "HOL-Eisbach.Eisbach"
+  imports TA.Timed_Automata TA.Simulation_Graphs_TA "HOL-Eisbach.Eisbach"
 begin
 
 no_notation dbm_le ("_ \<preceq> _" [51, 51] 50)
@@ -42,13 +42,13 @@ proof -
   proof clarsimp
     fix u v
     assume "v \<in> Z\<^sub>1" "(l\<^sub>1, u) \<preceq> (l\<^sub>1, v)"
-    with \<open>Z\<^sub>1 = _\<close> obtain v\<^sub>0 where "v\<^sub>0 \<in> Z" and step: "A \<turnstile>' \<langle>l, v\<^sub>0\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, v\<rangle>"
+    with \<open>Z\<^sub>1 = _\<close> obtain u\<^sub>0 where "u\<^sub>0 \<in> Z" and step: "A \<turnstile>' \<langle>l, u\<^sub>0\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, v\<rangle>"
       by auto
-    from \<open>v\<^sub>0 \<in> Z\<close> \<open>\<alpha> l Z \<subseteq> _\<close> obtain v\<^sub>1 where "v\<^sub>1 \<in> Z'" "(l, v\<^sub>0) \<preceq> (l, v\<^sub>1)"
-      unfolding abs_def using refl[of "(l, v\<^sub>0)"] by auto
-    from simE[OF \<open>(l, v\<^sub>0) \<preceq> (l, v\<^sub>1)\<close> step] obtain v' where
-      "A \<turnstile>' \<langle>l, v\<^sub>1\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, v'\<rangle>" "(l\<^sub>1, v) \<preceq> (l\<^sub>1, v')" .
-    with \<open>v\<^sub>1 \<in> Z'\<close> \<open>Z\<^sub>1' = _\<close> have "v' \<in> Z\<^sub>1'"
+    from \<open>u\<^sub>0 \<in> Z\<close> \<open>\<alpha> l Z \<subseteq> _\<close> obtain v\<^sub>0 where "v\<^sub>0 \<in> Z'" "(l, u\<^sub>0) \<preceq> (l, v\<^sub>0)"
+      unfolding abs_def using refl[of "(l, u\<^sub>0)"] by auto
+    from simE[OF \<open>(l, u\<^sub>0) \<preceq> (l, v\<^sub>0)\<close> step] obtain v' where
+      "A \<turnstile>' \<langle>l, v\<^sub>0\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, v'\<rangle>" "(l\<^sub>1, v) \<preceq> (l\<^sub>1, v')" .
+    with \<open>v\<^sub>0 \<in> Z'\<close> \<open>Z\<^sub>1' = _\<close> have "v' \<in> Z\<^sub>1'"
       by auto
     moreover from \<open>_ \<preceq> (l\<^sub>1, v)\<close> \<open>(l\<^sub>1, v) \<preceq> _\<close> have "(l\<^sub>1, u) \<preceq> (l\<^sub>1, v')"
       by (rule trans)
@@ -480,7 +480,7 @@ definition
 inductive E' where
   "E (l, s) (l', s') \<Longrightarrow> E' (l, \<alpha> l s) (l', \<alpha> l' s')"
 
-interpretation sim: Invariant_Simulation where
+sublocale sim: Invariant_Simulation where
   sim = "\<lambda>(l, x) (l', y). l' = l \<and> y = \<alpha> l x" and
   SE = "\<lambda>(l, x) (l', y). SE (l, x) (l', \<alpha> l' y)" and
   SE' = "\<lambda>(l, x) (l', y). SE' (l, x) (l', y)" and
@@ -531,30 +531,22 @@ lemma invariant_simulation:
     "\<forall>l\<in>L. \<forall>s\<in>M' l. \<forall>l' s'. E' (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M' l'. SE' (l', s') (l', s''))"
   using sim.invariant_simulation assms unfolding M'_eq by fast
 
-lemma
+lemma \<comment> \<open>Alternative proof of: @{thm invariant_simulation}\<close>
   assumes
     "\<forall>l\<in>L. \<forall>s\<in>M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. SE (l', s') (l', \<alpha> l' s''))"
   shows
     "\<forall>l\<in>L. \<forall>s\<in>M' l. \<forall>l' s'. E' (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M' l'. SE' (l', s') (l', s''))"
-  apply safe
-  subgoal
-    using assms
-    unfolding M'_def
-    apply (auto elim!: E'.cases)
-    using simulation by metis
-  unfolding M'_def
-proof (erule E'.cases , clarsimp)
-  fix l :: 'l
-      and s :: 's
-      and l' :: 'l
-      and s' :: 's
-      and x :: 's
-  assume "l \<in> L"
-      and "E (l, s) (l', s')"
-      and "\<alpha> l s = \<alpha> l x"
-      and "x \<in> M l"
+unfolding M'_def
+proof (safe; (erule E'.cases, clarsimp))
+  fix x  l s l' s'
+  assume "l \<in> L" "x \<in> M l" "(l, s) \<rightarrow> (l', s')" "\<alpha> l x = \<alpha> l s"
+  then show "l' \<in> L"
+    using assms simulation by metis
+next
+  fix l l' :: 'l and s s' x :: 's
+  assume "l \<in> L" "E (l, s) (l', s')" "\<alpha> l x = \<alpha> l s" "x \<in> M l"
   with simulation obtain x' where "\<alpha> l' s' = \<alpha> l' x'" "E (l, x) (l', x')"
-    by force
+    by metis
   with \<open>l \<in> L\<close> \<open>x \<in> M l\<close> assms obtain x'' where "x'' \<in> M l'" "SE (l', x') (l', \<alpha> l' x'')"
     by force
   from this(2) have "SE' (l', \<alpha> l' x') (l', \<alpha> l' x'')"
@@ -562,11 +554,6 @@ proof (erule E'.cases , clarsimp)
   with \<open>x'' \<in> _\<close> \<open>\<alpha> l' s' = _\<close> show "\<exists>s''\<in>M l'. SE' (l', \<alpha> l' s') (l', \<alpha> l' s'')"
     by auto
 qed
-\<^cancel>\<open>
-  apply clarsimp
-  apply (erule (1) simulationE)
-  using assms(1)
-  by (fastforce intro: SE_\<alpha>)\<close>
 
 
 context
@@ -590,7 +577,8 @@ lemma topo_simulation: "\<And>l s l1 s1 l2 s2.
   by (rule sim.topo_simulation[where f = f, OF finite, unfolded M'_eq f'_eq])
      ((rule f_topo; simp; fail), simp+)
 
-lemma "\<And>l s l1 s1 l2 s2.
+lemma \<comment> \<open>Alternative proof of: @{thm topo_simulation}\<close>
+  "\<And>l s l1 s1 l2 s2.
   l \<in> L \<Longrightarrow> s \<in> M' l \<Longrightarrow> l2 \<in> L \<Longrightarrow> s2 \<in> M' l2 \<Longrightarrow> E' (l, s) (l1, s1) \<Longrightarrow> SE' (l1, s1) (l2, s2) \<Longrightarrow>
   f' (l, s) \<le> f' (l2, s2)"
   unfolding M'_def
@@ -655,6 +643,20 @@ interpretation Abstraction_Simulation where
     using SE_subsumption SE_determ by metis
   subgoal
     unfolding step_z'_step_trans_z'_iff using simulation' by metis
+  done
+
+interpretation inv: Invariant_Simulation where
+  SE = "\<lambda>(l, Z) (l', Z'). \<exists>W. l' = l \<and> \<alpha> l Z' = \<alpha> l W \<and> SE (l, Z) (l', W)" and
+  E = "\<lambda>(l, Z) (l', Z'). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" and E' = E' and
+  SE' = "\<lambda>(l, Z) (l', Z'). \<exists>W W'. l' = l \<and> Z = \<alpha> l W \<and> Z' = \<alpha> l' W' \<and> SE (l, W) (l', W')" and
+  sim = "\<lambda>(l, Z) (l', Z'). l' = l \<and> Z' = \<alpha> l Z"
+  apply (standard; clarsimp simp: abs_involutive)
+  subgoal for l Z' W
+    by blast
+  subgoal for l Z W Z' W'
+    using SE_determ by auto
+  subgoal for l l' Z Z'
+    using sim.E'_E by auto
   done
 
 end
