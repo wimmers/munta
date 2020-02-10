@@ -1038,7 +1038,7 @@ lemma
   using that
   oops
 
-text \<open>One possible fist would be to add the stronger assumption \<open>A2 a b \<Longrightarrow> P2 b\<close>.\<close>
+text \<open>One possible fix would be to add the stronger assumption \<open>A2 a b \<Longrightarrow> P2 b\<close>.\<close>
 
 theorem infinite_buechi_run_cycle_iff_closure:
   assumes
