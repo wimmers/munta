@@ -311,18 +311,26 @@ begin
 text \<open>Corresponds to lemma 12 of @{cite "Li:FORMATS:2009"}.\<close>
 lemma cycle_Buechi_run:
   assumes "steps (A # As @ [A])" "a \<in> A"
-    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A" "\<forall>x y. x \<preceq>' y \<and> x \<in> A \<longrightarrow> y \<in> A"
-  obtains x xs where "A.run (x ## xs)" "infs (\<lambda>a. a \<in> A) xs" "x \<in> A"
+    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A" "\<forall>a \<in> A. P a" "\<forall>x y. x \<preceq>' y \<and> P x \<longrightarrow> P y"
+  obtains x xs where "A.run (x ## xs)" "infs P xs" "x \<in> A"
 proof -
   let ?n = "card (UNIV // {(x, y). x \<preceq>' y}) + 1"
-  from steps_repeat[OF assms(1-3), where n = ?n] obtain x y as ys where
+  from steps_repeat[OF assms(1-3), where n = ?n] obtain x y as ys where *:
     "subseq as ys" "list_all (\<lambda>x. x \<in> A) as" "A.steps (x # ys @ [y])"
     "length as = ?n" "a \<preceq> y" "x \<in> A" .
-  with assms(4) obtain w where "A.run (x ## w)" "infs (\<lambda>a. a \<in> A) w"
-    by - (erule finite.steps_cycle_run, auto simp: list_all_iff)
+  with assms(4) have "\<forall>x \<in> set as. P x"
+    by (auto simp: list_all_iff)
+  with * assms(5) obtain w where "A.run (x ## w)" "infs P w"
+    by - (erule finite.steps_cycle_run[where P = P], auto)
   then show ?thesis
     using \<open>x \<in> A\<close> by (elim that) simp
 qed
+
+lemma cycle_Buechi_run':
+  assumes "steps (A # As @ [A])" "a \<in> A"
+    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A" "\<forall>x y. x \<preceq>' y \<and> x \<in> A \<longrightarrow> y \<in> A"
+  obtains x xs where "A.run (x ## xs)" "infs (\<lambda>a. a \<in> A) xs" "x \<in> A"
+  using assms by - (rule cycle_Buechi_run[where P = "\<lambda>x. x \<in> A"], blast+)
 
 end
 
@@ -337,7 +345,7 @@ text \<open>Corresponds to theorem 1 of @{cite "Li:FORMATS:2009"}.\<close>
 theorem Buechi_run_lasso_iff:
   assumes
     "\<forall>x y A. reaches a\<^sub>0 A \<and> x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A"
-    "\<forall>x y A. reaches a\<^sub>0 A \<and> x \<preceq>' y \<and> x \<in> A \<longrightarrow> y \<in> A"
+    "\<forall>x y. x \<preceq>' y \<and> \<phi> x \<longrightarrow> \<phi> y"
     "\<forall>x y. x \<preceq> y \<and> \<phi> x \<longrightarrow> \<phi> y"
     "\<forall>x y A. reaches a\<^sub>0 A \<and> x \<in> A \<and> y \<in> A \<and> \<phi> x \<longrightarrow> \<phi> y"
   shows
@@ -356,7 +364,6 @@ proof
   then have "infs (\<lambda>a. (\<forall>x \<in> a. \<phi> x) \<and> a \<noteq> {}) as"
     using assms(4) \<open>run (a\<^sub>0 ## as)\<close>
     by (auto 4 5 simp: stream.pred_set dest!: run_reachable elim!: infs_mono[rotated])
-  thm Graph_Start_Defs.graphI_aggressive2(8) steps_reaches1
   with \<open>run _\<close> show ?rhs
     apply -
     apply (erule buechi_run_lasso)
@@ -377,9 +384,9 @@ next
     done
   from \<open>steps (a\<^sub>0 # as @ a # bs @ [a])\<close> have "steps (a # bs @ [a])"
     by (metis append_is_Nil_conv list.distinct(1) steps_ConsD steps_appendD2)
-  from cycle_Buechi_run[OF this \<open>x \<in> a\<close>] assms \<open>reaches _ _\<close> obtain x xs where
-    "A.run (x ## xs)" "infs (\<lambda>x. x \<in> a) xs" "x \<in> a"
-    by blast
+  from assms(1,2) \<open>reaches _ _\<close> \<open>\<forall>x \<in> a. \<phi> x\<close> obtain x xs where
+    "A.run (x ## xs)" "infs \<phi> xs" "x \<in> a"
+    by - (rule cycle_Buechi_run[OF \<open>steps (a # bs @ [a])\<close> \<open>x \<in> a\<close>, where P = \<phi>], blast+)
   from backward_simulation_reaches1[OF \<open>reaches1 a\<^sub>0 a\<close> \<open>x \<in> a\<close>] obtain x\<^sub>0 x' where
     "x\<^sub>0 \<in> a\<^sub>0" "x \<preceq> x'" "x\<^sub>0 \<rightarrow>\<^sup>+ x'"
     by auto
