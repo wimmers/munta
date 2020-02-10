@@ -116,10 +116,9 @@ lemma backward_simulation_reaches1:
 
 text \<open>Corresponds to lemma 8 of @{cite "Li:FORMATS:2009"}.\<close>
 lemma steps_repeat:
-  assumes "steps (A # As @ [A])" "a \<in> A" "\<forall>x y. x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A"
+  assumes "steps (A # As @ [A])" "a \<in> A" "\<forall>a \<in> A. P a" "\<forall>x y. x \<preceq> y \<and> x \<in> A \<and> P x \<longrightarrow> P y"
   obtains x y as xs where
-    "subseq as xs" "list_all (\<lambda>x. x \<in> A) as" "A.steps (x # xs @ [y])"
-    "length as = n" "a \<preceq> y" "x \<in> A"
+    "subseq as xs" "list_all P as" "A.steps (x # xs @ [y])" "length as = n" "a \<preceq> y" "x \<in> A"
   using \<open>a \<in> A\<close>
 proof (atomize_elim, induction n arbitrary: a)
   case 0
@@ -134,14 +133,13 @@ next
     "a \<in> A" "A.steps (a # as @ [b'])" "b \<preceq> b'"
     by auto
   from Suc.IH[OF \<open>a \<in> A\<close> \<open>a \<in> A\<close>] obtain as' xs x y where
-    "subseq as' xs" "list_all (\<lambda>x. x \<in> A) as'" "A.steps (x # xs @ [y])"
-    "n = length as'" "a \<preceq> y" "x \<in> A"
+    "subseq as' xs" "list_all P as'" "A.steps (x # xs @ [y])" "n = length as'" "a \<preceq> y" "x \<in> A"
     by auto
   moreover from A_simulation_steps[OF \<open>A.steps (a # _)\<close> \<open>a \<preceq> y\<close>] \<open>b \<preceq> b'\<close> obtain b'' bs where
     "A.steps (y # bs @ [b''])" "list_all2 (\<preceq>) as bs" "b \<preceq> b''"
     unfolding list_all2_append1 list_all2_Cons1 by auto
   ultimately show ?case
-    using assms(3) \<open>a \<in> A\<close>
+    using assms(3,4) \<open>a \<in> A\<close>
     by (inst_existentials "as' @ [y]" "xs @ [y] @ bs" x b'')
        (auto simp: list_emb_append_mono, metis A.steps_append2 append_Cons)
 qed
@@ -310,13 +308,13 @@ begin
 
 text \<open>Corresponds to lemma 12 of @{cite "Li:FORMATS:2009"}.\<close>
 lemma cycle_Buechi_run:
-  assumes "steps (A # As @ [A])" "a \<in> A"
-    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A" "\<forall>a \<in> A. P a" "\<forall>x y. x \<preceq>' y \<and> P x \<longrightarrow> P y"
+  assumes "steps (A # As @ [A])" "a \<in> A" "\<forall>a \<in> A. P a"
+    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<and> P x \<longrightarrow> P y" "\<forall>x y. x \<preceq>' y \<and> P x \<longrightarrow> P y"
   obtains x xs where "A.run (x ## xs)" "infs P xs" "x \<in> A"
 proof -
   let ?n = "card (UNIV // {(x, y). x \<preceq>' y}) + 1"
-  from steps_repeat[OF assms(1-3), where n = ?n] obtain x y as ys where *:
-    "subseq as ys" "list_all (\<lambda>x. x \<in> A) as" "A.steps (x # ys @ [y])"
+  from steps_repeat[OF assms(1-4), where n = ?n] obtain x y as ys where *:
+    "subseq as ys" "list_all P as" "A.steps (x # ys @ [y])"
     "length as = ?n" "a \<preceq> y" "x \<in> A" .
   with assms(4) have "\<forall>x \<in> set as. P x"
     by (auto simp: list_all_iff)
@@ -325,12 +323,6 @@ proof -
   then show ?thesis
     using \<open>x \<in> A\<close> by (elim that) simp
 qed
-
-lemma cycle_Buechi_run':
-  assumes "steps (A # As @ [A])" "a \<in> A"
-    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A" "\<forall>x y. x \<preceq>' y \<and> x \<in> A \<longrightarrow> y \<in> A"
-  obtains x xs where "A.run (x ## xs)" "infs (\<lambda>a. a \<in> A) xs" "x \<in> A"
-  using assms by - (rule cycle_Buechi_run[where P = "\<lambda>x. x \<in> A"], blast+)
 
 end
 
@@ -344,9 +336,8 @@ begin
 text \<open>Corresponds to theorem 1 of @{cite "Li:FORMATS:2009"}.\<close>
 theorem Buechi_run_lasso_iff:
   assumes
-    "\<forall>x y A. reaches a\<^sub>0 A \<and> x \<preceq> y \<and> x \<in> A \<longrightarrow> y \<in> A"
     "\<forall>x y. x \<preceq>' y \<and> \<phi> x \<longrightarrow> \<phi> y"
-    "\<forall>x y. x \<preceq> y \<and> \<phi> x \<longrightarrow> \<phi> y"
+    "\<forall>x y. x \<preceq> y  \<and> \<phi> x \<longrightarrow> \<phi> y"
     "\<forall>x y A. reaches a\<^sub>0 A \<and> x \<in> A \<and> y \<in> A \<and> \<phi> x \<longrightarrow> \<phi> y"
   shows
     "(\<exists>x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> A.run (x\<^sub>0 ## xs) \<and> infs \<phi> (x\<^sub>0 ## xs))
@@ -362,7 +353,7 @@ proof
   from \<open>infs \<phi> _\<close> \<open>stream_all2 _ _ _\<close> have "infs (\<lambda>a. \<exists>x \<in> a. \<phi> x) as"
     by (rule alw_ev_lockstep) fast
   then have "infs (\<lambda>a. (\<forall>x \<in> a. \<phi> x) \<and> a \<noteq> {}) as"
-    using assms(4) \<open>run (a\<^sub>0 ## as)\<close>
+    using assms(3) \<open>run (a\<^sub>0 ## as)\<close>
     by (auto 4 5 simp: stream.pred_set dest!: run_reachable elim!: infs_mono[rotated])
   with \<open>run _\<close> show ?rhs
     apply -
@@ -398,7 +389,7 @@ next
   with \<open>A.steps _\<close> have "A.run (x\<^sub>0 ## ys @- x' ## xs')"
     by (metis A.extend_run A.steps_decomp
           append_Cons list.distinct(1) list.sel(1,3) shift_simps(1,2) stream.collapse)
-  moreover from \<open>infs _ _\<close> \<open>stream_all2 _ _ _\<close> \<open>\<forall>x \<in> a. \<phi> x\<close> assms(3) have "infs \<phi> xs'"
+  moreover from \<open>infs _ _\<close> \<open>stream_all2 _ _ _\<close> assms(2) have "infs \<phi> xs'"
     by (auto elim!: alw_ev_lockstep)
   ultimately show ?lhs
     using \<open>x\<^sub>0 \<in> a\<^sub>0\<close> by auto
