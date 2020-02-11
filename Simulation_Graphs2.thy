@@ -154,8 +154,9 @@ This section makes the following abstractions:
     corresponds to the simulation \<open>\<preceq>\<close>.
 \<close>
 
-locale Self_Simulation = Simulation where A = E and B = E and sim = sim
-  for E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and sim (infix "\<preceq>" 60) +
+locale Self_Simulation =
+  Simulation_Invariant where A = E and B = E and sim = sim and PA = P and PB = P
+  for E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and sim (infix "\<preceq>" 60) and P +
   assumes refl: "reflp (\<preceq>)" and trans: "transp (\<preceq>)"
 begin
 
@@ -167,16 +168,18 @@ lemmas sim_transD[intro] = transpD[OF trans]
 
 text \<open>Corresponds to lemma 3 of @{cite "Li:FORMATS:2009"}.\<close>
 lemma pre_cycle_infinite_cycle:
-  assumes "A.steps (x # xs @ [y])" "x \<preceq> y"
-  obtains w where "A.run (x ## w)" "stream_all2 (\<preceq>) (cycle (x # xs)) (x ## w)"
+  assumes "A.steps (x # xs @ [y])" "x \<preceq> y" "P x" "P y"
+  obtains w where
+    "A.run (x ## w)" "stream_all2 (\<preceq>) (cycle (x # xs)) (x ## w)"
 proof -
+  let ?R = "\<lambda>a b. a \<preceq> b \<and> P a \<and> P b"
   define nxt where
-    "nxt \<equiv> \<lambda>(xs, y). SOME (ys, z). A.steps (y # ys @ [z]) \<and> list_all2 (\<preceq>) xs ys \<and> y \<preceq> z"
-  have *: "A.steps (y # ys @ [z]) \<and> list_all2 (\<preceq>) xs ys \<and> y \<preceq> z"
-    if "nxt (xs, y) = (ys, z)" "A.steps(x # xs @ [y])" "x \<preceq> y" for x y xs ys z
+    "nxt \<equiv> \<lambda>(xs, y). SOME (ys, z). A.steps (y # ys @ [z]) \<and> list_all2 ?R xs ys \<and> y \<preceq> z"
+  have *: "A.steps (y # ys @ [z]) \<and> list_all2 ?R xs ys \<and> y \<preceq> z"
+    if "nxt (xs, y) = (ys, z)" "A.steps(x # xs @ [y])" "x \<preceq> y" "P x" "P y" for x y xs ys z
   proof -
-    from simulation_steps[OF that(2) \<open>x \<preceq> y\<close>] obtain ws y' where
-      "A.steps (y # ws @ [y'])" "list_all2 (\<preceq>) xs ws" "y \<preceq> y'"
+    from simulation_steps[OF that(2) \<open>x \<preceq> y\<close>] \<open>P x\<close> \<open>P y\<close> obtain ws y' where
+      "A.steps (y # ws @ [y'])" "list_all2 ?R xs ws" "y \<preceq> y'"
       by (smt list_all2_Cons1 list_all2_Nil list_all2_append1)
     then show ?thesis
       using \<open>nxt _ = _\<close> unfolding nxt_def by (auto dest!: verit_sko_ex_indirect[OF sym])
@@ -190,8 +193,9 @@ proof -
     with run_shift have "as = xs @ [y]" "bs = ys @ [z]"
       "bs ## xss = smap (\<lambda>(xs, y). xs @ [y]) (siterate nxt (ys, z))"
       by auto
-    with *[OF \<open>nxt _ = _\<close> \<open>A.steps (x # _)\<close> \<open>x \<preceq> y\<close>] \<open>A.steps (x # _)\<close> \<open>x \<preceq> y\<close> show ?case
-      by (inst_existentials ys z) (auto dest: A.steps_ConsD elim: A.steps.cases)
+    with *[OF \<open>nxt _ = _\<close> \<open>A.steps (x # _)\<close> \<open>x \<preceq> y\<close>] run_shift(2-) show ?case
+      by (inst_existentials ys z)
+         (auto 4 3 dest: A.steps_ConsD PA_invariant.invariant_steps elim: A.steps.cases)
   qed
   with assms(1) have "A.run (x ## ?w)"
     apply -
@@ -202,7 +206,7 @@ proof -
           append_Nil append_is_Nil_conv hd_append2 list.distinct(1) list.sel)
   obtain x' xs' where eqs: "xs = xs'" "x = x'"
     by auto
-  with assms have "A.steps (x' # xs' @ [y])" "list_all2 (\<preceq>) xs xs'" "x \<preceq> x'" "x' \<preceq> y"
+  with assms have "A.steps (x' # xs' @ [y])" "list_all2 (\<preceq>) xs xs'" "x \<preceq> x'" "x' \<preceq> y" "P x'" "P y"
     by (auto simp: zip_same list_all2_iff)
   then have "stream_all2 (\<preceq>) (cycle (xs @ [x])) ?w"
   proof (rewrite in \<open>(xs, y)\<close> eqs, coinduction arbitrary: x' xs' y rule: stream_rel_coinduct_shift)
@@ -211,7 +215,7 @@ proof -
       by (cases "nxt (xs', y)")
     with stream_rel show ?case
       apply -
-      apply (frule (2) *)
+      apply (frule (4) *)
       apply (inst_existentials "xs @ [x]" "cycle (xs @ [x])" "xs' @ [y]"
               "flat (smap (\<lambda>(xs, y). xs @ [y]) (siterate nxt (ys, z)))")
       subgoal
@@ -220,7 +224,7 @@ proof -
       subgoal
         by (cases "smap (\<lambda>(xs, y). xs @ [y]) (siterate nxt (xs', y))") (simp only:, auto)
       apply (auto simp: list_all2_iff; fail)+
-      apply (fastforce elim: list_all2_trans[rotated])
+      apply (auto 4 5 elim: list_all2_trans[rotated] dest: PA_invariant.invariant_steps)
       done
   qed
   then have "stream_all2 (\<preceq>) (cycle (x # xs)) (x ## ?w)"
@@ -231,8 +235,9 @@ qed
 
 end
 
-locale Self_Simulation_Finite = Simulation where A = E and B = E and sim = sim
-  for E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and sim (infix "\<preceq>" 60) +
+locale Self_Simulation_Finite =
+  Simulation_Invariant where A = E and B = E and sim = sim and PA = P and PB = P
+  for E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and sim (infix "\<preceq>" 60) and P +
   assumes equiv_sim: "equivp (\<preceq>)" and finite_quotient: "finite (UNIV // {(x, y). x \<preceq> y})"
 begin
 
@@ -243,9 +248,9 @@ sublocale Self_Simulation
 
 text \<open>Roughly corresponds to lemmas 9, 10, and 11 of @{cite "Li:FORMATS:2009"}.\<close>
 lemma steps_cycle_run:
-  assumes "A.steps (x # xs)" "subseq as xs" "length as > card (UNIV // {(x, y). x \<preceq> y})"
-    "\<forall>x \<in> set as. P x" "\<forall>x \<in> set as. \<forall>y. x \<preceq> y \<and> P x \<longrightarrow> P y"
-  obtains w where "A.run (x ## w)" "infs P w"
+  assumes "A.steps (x # xs)" "subseq as xs" "P x" "length as > card (UNIV // {(x, y). x \<preceq> y})"
+    "\<forall>x \<in> set as. \<phi> x" "\<forall>x \<in> set as. \<forall>y. x \<preceq> y \<and> \<phi> x \<longrightarrow> \<phi> y"
+  obtains w where "A.run (x ## w)" "infs \<phi> w"
 proof -
   from assms(3) obtain a b as' ys cs' where *: "xs = as' @ a # ys @ b # cs'" "a \<preceq> b" "a \<in> set as"
   proof -
@@ -282,13 +287,15 @@ proof -
     then show "A.steps (a # ys @ [b])"
       by simp
   qed
-  from pre_cycle_infinite_cycle[OF this(2) \<open>a \<preceq> b\<close>] obtain w where
+  with \<open>P x\<close> have "P a" "P b"
+    by (auto 4 3 dest: PA_invariant.invariant_steps)
+  from pre_cycle_infinite_cycle[OF \<open>A.steps (a # ys @ [b])\<close> \<open>a \<preceq> b\<close> this] obtain w where
     "A.run (a ## w)" "stream_all2 (\<preceq>) (cycle (a # ys)) (a ## w)" .
   from this(2) have "infs ((\<preceq>) a) (a ## w)"
     by (smt alw_ev_lockstep infs_cycle list.distinct(1) list.set_intros(1) sim_reflI sim_transD)
-  then have "infs P (as' @- a ## w)"
-    using assms(4) \<open>a \<in> set as\<close> unfolding \<open>xs = as' @ _\<close> apply simp
-    using assms(5) by (elim infs_mono[rotated]) blast
+  then have "infs \<phi> (as' @- a ## w)"
+    using assms(5) \<open>a \<in> set as\<close> unfolding \<open>xs = as' @ _\<close> apply simp
+    using assms(6) by (elim infs_mono[rotated]) blast
   moreover from \<open>A.run _\<close> \<open>A.steps (x # as' @ [a])\<close> have "A.run (x ## as' @- a ## w)"
     by (metis A.extend_run A.steps_decomp append_Cons list.distinct(1) list.sel(1,3)
           shift_simps stream.exhaust stream.sel)
@@ -308,29 +315,36 @@ begin
 
 text \<open>Corresponds to lemma 12 of @{cite "Li:FORMATS:2009"}.\<close>
 lemma cycle_Buechi_run:
-  assumes "steps (A # As @ [A])" "a \<in> A" "\<forall>a \<in> A. P a"
-    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<and> P x \<longrightarrow> P y" "\<forall>x y. x \<preceq>' y \<and> P x \<longrightarrow> P y"
-  obtains x xs where "A.run (x ## xs)" "infs P xs" "x \<in> A"
+  assumes "steps (A # As @ [A])" "a \<in> A" "\<forall>a \<in> A. P a" "\<forall>a \<in> A. \<phi> a"
+    "\<forall>x y. x \<preceq> y \<and> x \<in> A \<and> \<phi> x \<longrightarrow> \<phi> y" "\<forall>x y. x \<preceq>' y \<and> \<phi> x \<longrightarrow> \<phi> y"
+  obtains x xs where "A.run (x ## xs)" "infs \<phi> xs" "x \<in> A"
 proof -
   let ?n = "card (UNIV // {(x, y). x \<preceq>' y}) + 1"
-  from steps_repeat[OF assms(1-4), where n = ?n] obtain x y as ys where *:
-    "subseq as ys" "list_all P as" "A.steps (x # ys @ [y])"
+  from steps_repeat[OF assms(1,2,4-5), where n = ?n] obtain x y as ys where *:
+    "subseq as ys" "list_all \<phi> as" "A.steps (x # ys @ [y])"
     "length as = ?n" "a \<preceq> y" "x \<in> A" .
-  with assms(4) have "\<forall>x \<in> set as. P x"
+  with assms(4) have "\<forall>x \<in> set as. \<phi> x"
     by (auto simp: list_all_iff)
-  with * assms(5) obtain w where "A.run (x ## w)" "infs P w"
-    by - (erule finite.steps_cycle_run[where P = P], auto)
+  with * assms(3,6) obtain w where "A.run (x ## w)" "infs \<phi> w"
+    by - (erule finite.steps_cycle_run[where \<phi> = \<phi>], auto)
   then show ?thesis
     using \<open>x \<in> A\<close> by (elim that) simp
 qed
 
 end
 
+lemma (in Simulation_Invariant) simulation_run':
+  assumes "A.run (x ## xs)" "x \<sim> y" "PA x" "PB y"
+  shows "\<exists>ys. B.run (y ## ys) \<and> stream_all2 (\<lambda>a b. a \<sim> b \<and> PA a \<and> PB b) xs ys"
+  using simulation_run assms unfolding equiv'_def by blast
+
 text \<open>Adding the assumption that the abstracted zone graph is finite and complete.\<close>
 locale Backward_Double_Simulation_Complete = Backward_Double_Simulation where E = E +
-  complete: Simulation where A = E and B = G and sim = "(\<in>)" +
-  Finite_Graph where E = G and x\<^sub>0 = a\<^sub>0
-  for E and a\<^sub>0
+  complete: Simulation_Invariant where A = E and B = G and PA = P and PB = Q and sim = "(\<in>)" +
+  Finite_Graph where E = G and x\<^sub>0 = a\<^sub>0 +
+  Graph_Invariant where E = G and P = Q
+  for E and a\<^sub>0 and Q +
+  assumes Q_P: "Q a \<Longrightarrow> \<forall>x \<in> a. P x" and a\<^sub>0_invariant: "Q a\<^sub>0"
 begin
 
 text \<open>Corresponds to theorem 1 of @{cite "Li:FORMATS:2009"}.\<close>
@@ -347,9 +361,9 @@ proof
   assume ?lhs
   then obtain x\<^sub>0 xs where "x\<^sub>0 \<in> a\<^sub>0" "A.run (x\<^sub>0 ## xs)" "infs \<phi> xs"
     by auto
-  from complete.simulation_run[OF \<open>A.run _\<close> \<open>x\<^sub>0 \<in> _\<close>] obtain as where
-    "run (a\<^sub>0 ## as)" "stream_all2 (\<in>) xs as"
-    by auto
+  from complete.simulation_run'[OF \<open>A.run _\<close> \<open>x\<^sub>0 \<in> _\<close>] a\<^sub>0_invariant \<open>x\<^sub>0 \<in> a\<^sub>0\<close> obtain as where
+    "run (a\<^sub>0 ## as)" "stream_all2 (\<lambda>a b. a \<in> b \<and> P a \<and> Q b) xs as"
+    by (auto dest: Q_P)
   from \<open>infs \<phi> _\<close> \<open>stream_all2 _ _ _\<close> have "infs (\<lambda>a. \<exists>x \<in> a. \<phi> x) as"
     by (rule alw_ev_lockstep) fast
   then have "infs (\<lambda>a. (\<forall>x \<in> a. \<phi> x) \<and> a \<noteq> {}) as"
@@ -375,9 +389,11 @@ next
     done
   from \<open>steps (a\<^sub>0 # as @ a # bs @ [a])\<close> have "steps (a # bs @ [a])"
     by (metis append_is_Nil_conv list.distinct(1) steps_ConsD steps_appendD2)
-  from assms(1,2) \<open>reaches _ _\<close> \<open>\<forall>x \<in> a. \<phi> x\<close> obtain x xs where
+  from \<open>reaches a\<^sub>0 a\<close> a\<^sub>0_invariant have "Q a"
+    by (rule complete.PB_invariant.invariant_reaches)
+  with assms(1,2) \<open>reaches _ _\<close> \<open>\<forall>x \<in> a. \<phi> x\<close> obtain x xs where
     "A.run (x ## xs)" "infs \<phi> xs" "x \<in> a"
-    by - (rule cycle_Buechi_run[OF \<open>steps (a # bs @ [a])\<close> \<open>x \<in> a\<close>, where P = \<phi>], blast+)
+    by - (rule cycle_Buechi_run[OF \<open>steps (a # bs @ [a])\<close> \<open>x \<in> a\<close>, where \<phi> = \<phi>], (blast dest: Q_P)+)
   from backward_simulation_reaches1[OF \<open>reaches1 a\<^sub>0 a\<close> \<open>x \<in> a\<close>] obtain x\<^sub>0 x' where
     "x\<^sub>0 \<in> a\<^sub>0" "x \<preceq> x'" "x\<^sub>0 \<rightarrow>\<^sup>+ x'"
     by auto
