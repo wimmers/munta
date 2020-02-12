@@ -684,7 +684,6 @@ lemma inf_lt_impl_False[simp]:
   "\<infinity> < x = False"
   by auto
 
-(* XXX Copy from Normalized_Zone_Semantics *)
 lemma normalized_integral_dbms_finite:
   "finite {norm M (k :: nat \<Rightarrow> nat) n | M. dbm_default M n}"
 proof -
