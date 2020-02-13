@@ -4,7 +4,7 @@ theory DBM_Normalization
 imports DBM_Basics
 begin
 
-text \<open>This is the implementation of the common approximation operation.\<close>
+text \<open>This is the implementation of the classical approximation operation (\<open>Extra\<^sub>M\<close>).\<close>
 
 fun norm_upper :: "('t::linorder) DBMEntry \<Rightarrow> 't \<Rightarrow> 't DBMEntry"
 where
@@ -21,9 +21,9 @@ text \<open>
 \<close>
 definition norm :: "('t :: linordered_ab_group_add) DBM \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> nat \<Rightarrow> 't DBM"
 where
-  "norm M k n \<equiv> \<lambda> i j.
-    let ub = if i > 0 then (k i) else 0 in
-    let lb = if j > 0 then (- k j) else 0 in
+  "norm M k n \<equiv> \<lambda>i j.
+    let ub = if i > 0 then k i   else 0 in
+    let lb = if j > 0 then - k j else 0 in
     if i \<le> n \<and> j \<le> n then norm_lower (norm_upper (M i j) ub) lb else M i j
   "
 
