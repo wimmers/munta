@@ -2,26 +2,9 @@ theory Approx_Beta
   imports DBM_Zone_Semantics Regions_Beta Closure
 begin
 
-chapter \<open>Correctness of \<open>\<beta>\<close>-approximation from \<open>\<alpha>\<close>-regions\<close>
-
 no_notation infinity ("\<infinity>")
 
-(* XXX Move *)
-text \<open>Misc lemmas we will need later\<close>
-
-lemma dbm_add_strict_right_mono_neutral: "a < Le (d :: 't :: time) \<Longrightarrow> a + Le (-d) < Le 0"
-unfolding less add by (cases a) (auto elim!: dbm_lt.cases)
-
-lemma dbm_lt_not_inf_less[intro]: "A \<noteq> \<infinity> \<Longrightarrow> A \<prec> \<infinity>" by (cases A) auto
-
-lemma add_inf[simp]:
-  "a + \<infinity> = \<infinity>" "\<infinity> + a = \<infinity>"
-unfolding add by (cases a) auto
-
-lemma inf_lt[simp,dest!]:
-  "\<infinity> < x \<Longrightarrow> False"
-by (cases x) (auto simp: less)
-
+chapter \<open>Correctness of \<open>\<beta>\<close>-approximation from \<open>\<alpha>\<close>-regions\<close>
 
 text \<open>Merging the locales for the two types of regions\<close>
 

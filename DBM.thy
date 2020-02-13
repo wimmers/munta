@@ -334,6 +334,26 @@ interpretation linordered_monoid:
   apply (standard, fold neutral add less_eq less)
   using add.commute by (auto intro: add_left_mono simp: add.assoc)
 
+instance time \<subseteq> linordered_cancel_ab_monoid_add by (standard; simp)
+no_notation infinity ("\<infinity>")
+
+lemma dbm_add_strict_right_mono_neutral: "a < Le (d :: 't :: time) \<Longrightarrow> a + Le (-d) < Le 0"
+unfolding less add by (cases a) (auto elim!: dbm_lt.cases)
+
+lemma dbm_lt_not_inf_less[intro]: "A \<noteq> \<infinity> \<Longrightarrow> A \<prec> \<infinity>" by (cases A) auto
+
+lemma add_inf[simp]:
+  "a + \<infinity> = \<infinity>" "\<infinity> + a = \<infinity>"
+unfolding add by (cases a) auto
+
+lemma inf_lt[simp,dest!]:
+  "\<infinity> < x \<Longrightarrow> False"
+  by (cases x) (auto simp: less)
+
+lemma inf_lt_impl_False[simp]:
+  "\<infinity> < x = False"
+  by auto
+
 lemma Le_Le_dbm_lt_D[dest]: "Le a \<prec> Lt b \<Longrightarrow> a < b" by (cases rule: dbm_lt.cases) auto
 lemma Le_Lt_dbm_lt_D[dest]: "Le a \<prec> Le b \<Longrightarrow> a < b" by (cases rule: dbm_lt.cases) auto
 lemma Lt_Le_dbm_lt_D[dest]: "Lt a \<prec> Le b \<Longrightarrow> a \<le> b" by (cases rule: dbm_lt.cases) auto

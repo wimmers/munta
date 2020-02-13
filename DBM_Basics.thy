@@ -140,8 +140,6 @@ text \<open>
 \<close>
 lemmas (in linordered_ab_monoid_add) comm = add.commute
 
-instance time \<subseteq> linordered_cancel_ab_monoid_add by (standard; simp)
-
 lemma sum_gt_neutral_dest':
   "(a :: (('a :: time) DBMEntry)) \<ge> 0 \<Longrightarrow> a + b > 0 \<Longrightarrow> \<exists> d. Le d \<le> a \<and> Le (-d) \<le> b \<and> d \<ge> 0"
 proof -
@@ -159,17 +157,15 @@ proof -
       from 1(2) have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less add)
       hence "b' > -a'" by (metis add.commute diff_0 diff_less_eq)
       with \<open>Le 0 \<le> Le a'\<close> show ?case
-      by (auto simp: dbm_le_def less_eq le_dbm_le)
+        by (auto simp: dbm_le_def less_eq le_dbm_le)
     next
       case (2 a' b')
       from this(2) have "a' + b' > 0" by (auto elim: dbm_lt.cases simp: less add)
       hence "b' > -a'" by (metis add.commute diff_0 diff_less_eq)
       with \<open>Le 0 \<le> Le a'\<close> show ?case
-      by (auto simp: dbm_le_def less_eq le_dbm_le)
+        by (auto simp: dbm_le_def less_eq le_dbm_le)
     next
-      case (3 a') thus ?case by (auto simp: dbm_le_def less_eq)
-    next
-      case (4 a')
+      case (3 a')
       thus ?case
       proof (cases b, auto, goal_cases)
         case (1 b')
@@ -193,21 +189,19 @@ proof -
           then have "-b' < a'" by (metis less_add_same_cancel1 minus_add_cancel minus_less_iff)
           from dense[OF this] obtain d where d:
             "d > -b'" "-d < b'" "d < a'"
-          by (auto simp add: minus_less_iff)
+            by (auto simp add: minus_less_iff)
           then have "Le (-d) < Lt b'" "Le d < Lt a'" unfolding less by auto
           with d(1) * show ?thesis
-          by - (rule exI[where x = "d"], auto,
-                meson d(2) dual_order.order_iff_strict less_trans neg_le_0_iff_le)
-        qed
-      next
-        case 3 thus ?case by (auto simp: dbm_le_def less_eq)
+            by - (rule exI[where x = "d"], auto,
+                  meson d(2) dual_order.order_iff_strict less_trans neg_le_0_iff_le)
       qed
+    qed
     next
-      case 5 thus ?case
+      case 4 thus ?case
       proof (cases b, auto, goal_cases)
         case (1 b')
-        from this(2) have "-b' \<ge> 0"
-        by (metis dbm_lt.intros(3) leI less less_asym neg_less_0_iff_less)
+        from this(1) have "-b' \<ge> 0"
+          by (metis dbm_lt.intros(3) leI less less_asym neg_less_0_iff_less)
         let ?d = "- b'"
         have "Le ?d \<le> \<infinity>" "Le (- ?d) \<le> Le b'" by (auto simp: any_le_inf)
         with \<open>-b' \<ge> 0\<close> show ?case by auto
@@ -217,9 +211,9 @@ proof -
         from non_trivial_neg obtain e :: 'a where e:"e < 0" by blast
         let ?d = "- (b' + e)"
         from e \<open>b' \<le> 0\<close> have "Le ?d \<le> \<infinity>" "Le (- ?d) \<le> Lt b'" "b' + e < 0"
-        by (auto simp: dbm_lt.intros(4) less less_imp_le any_le_inf add_nonpos_neg)
+          by (auto simp: dbm_lt.intros(4) less less_imp_le any_le_inf add_nonpos_neg)
         then have "Le ?d \<le> \<infinity>" "Le (- ?d) \<le> Lt b'" "?d \<ge> 0"
-        using less_imp_le neg_0_le_iff_le by blast+
+          using less_imp_le neg_0_le_iff_le by blast+
         thus ?case by auto
       qed
     qed

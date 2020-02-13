@@ -4,8 +4,6 @@ theory Normalized_Zone_Semantics
   imports DBM_Zone_Semantics Approx_Beta Simulation_Graphs_TA
 begin
 
-no_notation infinity ("\<infinity>")
-
 (* XXX Move *)
 lemma rtranclp_backwards_invariant_iff:
   assumes invariant: "\<And> y z. E\<^sup>*\<^sup>* x y \<Longrightarrow> P z \<Longrightarrow> E y z \<Longrightarrow> P y"
@@ -669,115 +667,7 @@ end
 
 end
 
-section \<open>Finiteness of the Search Space\<close>
-
-abbreviation "dbm_default M n \<equiv> (\<forall> i > n. \<forall> j. M i j = 0) \<and> (\<forall> j > n. \<forall> i. M i j = 0)"
-
-lemma norm_default_preservation:
-  "dbm_default M n \<Longrightarrow> dbm_default (norm M k n) n"
-by (simp add: norm_def)
-
-instance int :: linordered_cancel_ab_monoid_add by (standard; simp)
-
-(* XXX Move *)
-lemma inf_lt_impl_False[simp]:
-  "\<infinity> < x = False"
-  by auto
-
-lemma normalized_integral_dbms_finite:
-  "finite {norm M (k :: nat \<Rightarrow> nat) n | M. dbm_default M n}"
-proof -
-  let ?u = "Max {k i | i. i \<le> n}" let ?l = "- ?u"
-  let ?S = "(Le ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
-  from finite_set_of_finite_funs2[of "{0..n}" "{0..n}" ?S] have fin:
-    "finite {f. \<forall>x y. (x \<in> {0..n} \<and> y \<in> {0..n} \<longrightarrow> f x y \<in> ?S)
-                \<and> (x \<notin> {0..n} \<longrightarrow> f x y = 0) \<and> (y \<notin> {0..n} \<longrightarrow> f x y = 0)}" (is "finite ?R")
-  by auto
-  { fix M :: "int DBM" assume A: "dbm_default M n"
-    let ?M = "norm M k n"
-    from norm_default_preservation[OF A] have
-      A: "dbm_default ?M n"
-    by auto
-    { fix i j assume "i \<in> {0..n}" "j \<in> {0..n}"
-      then have B: "i \<le> n" "j \<le> n" by auto
-      have "?M i j \<in> ?S"
-      proof (cases "?M i j = \<infinity>")
-        case True then show ?thesis by auto
-      next
-        case False
-        note not_inf = this
-        have "?l \<le> get_const (?M i j) \<and> get_const (?M i j) \<le> ?u"
-        proof (cases "i = 0")
-          case True
-          show ?thesis
-          proof (cases "j = 0")
-            case True
-            with \<open>i = 0\<close> A(1) B have
-              "?M i j = norm_lower (norm_upper (M 0 0) 0) 0"
-            unfolding norm_def by auto
-            also have "\<dots> \<noteq> \<infinity> \<longrightarrow> get_const \<dots> = 0" by (cases "M 0 0"; fastforce)
-            finally show ?thesis using not_inf by auto
-          next
-            case False
-            with \<open>i = 0\<close> B not_inf have "?M i j \<le> Le 0" "Lt (-int (k j)) \<le> ?M i j"
-            unfolding norm_def
-              apply (simp del: norm_upper.simps norm_lower.simps)
-              apply (auto simp: less[symmetric]; fail)
-              using \<open>i = 0\<close> B not_inf apply (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
-              apply (drule leI)
-              apply (drule leI)
-            by (rule order.trans; fastforce)
-            with not_inf have "get_const (?M i j) \<le> 0" "-k j \<le> get_const (?M i j)"
-            by (cases "?M i j"; auto)+
-            moreover from \<open>j \<le> n\<close> have "- k j \<ge> ?l" by (auto intro: Max_ge)
-            ultimately show ?thesis by auto
-          qed
-        next
-          case False
-          then have "i > 0" by simp
-          show ?thesis
-          proof (cases "j = 0")
-            case True
-            with \<open>i > 0\<close> A(1) B not_inf have "Lt 0 \<le> ?M i j" "?M i j \<le> Le (int (k i))"
-            unfolding norm_def
-              apply (simp del: norm_upper.simps norm_lower.simps)
-              apply (auto simp: less[symmetric])[]
-
-             using \<open>i > 0\<close> \<open>j = 0\<close> A(1) B not_inf unfolding norm_def
-            by (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
-            with not_inf have "0 \<le> get_const (?M i j)" "get_const (?M i j) \<le> k i"
-            by (cases "?M i j"; auto)+
-            moreover from \<open>i \<le> n\<close> have "k i \<le> ?u" by (auto intro: Max_ge)
-            ultimately show ?thesis by auto
-          next
-            case False
-            with \<open>i > 0\<close> A(1) B not_inf have
-              "Lt (-int (k j)) \<le> ?M i j" "?M i j \<le> Le (int (k i))"
-            unfolding norm_def
-              apply (simp del: norm_upper.simps norm_lower.simps)
-              apply (auto simp: less[symmetric])[]
-             using \<open>i > 0\<close> \<open>j \<noteq> 0\<close> A(1) B not_inf unfolding norm_def
-            by (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
-            with not_inf have "- k j \<le> get_const (?M i j)" "get_const (?M i j) \<le> k i"
-            by (cases "?M i j"; auto)+
-            moreover from \<open>i \<le> n\<close> \<open>j \<le> n\<close> have "k i \<le> ?u" "k j \<le> ?u" by (auto intro: Max_ge)
-            ultimately show ?thesis by auto
-          qed
-        qed
-        then show ?thesis by (cases "?M i j"; auto elim: Ints_cases)
-      qed
-    } moreover
-    { fix i j assume "i \<notin> {0..n}"
-      with A have "?M i j = 0" by auto
-    } moreover
-    { fix i j assume "j \<notin> {0..n}"
-      with A have "?M i j = 0" by auto
-    } moreover note the = calculation
-  } then have "{norm M k n | M. dbm_default M n} \<subseteq> ?R" by blast
-  with fin show ?thesis by (blast intro: finite_subset)
-qed
-
-subsection \<open>Additional Useful Properties of the Normalized Semantics\<close>
+section \<open>Additional Useful Properties of the Normalized Semantics\<close>
 
 text \<open>Obsolete\<close>
 lemma norm_diag_preservation:
