@@ -672,25 +672,8 @@ section \<open>Additional Useful Properties of the Normalized Semantics\<close>
 text \<open>Obsolete\<close>
 lemma norm_diag_preservation:
   assumes "\<forall>l\<le>n. M1 l l \<le> 0"
-  shows "\<forall>l\<le>n. (norm M1 (k :: nat \<Rightarrow> nat) n) l l \<le> 0" (is "\<forall> l \<le> n. ?M l l \<le> 0")
-proof safe
-  fix j assume j: "j \<le> n"
-  show "?M j j \<le> 0"
-  proof (cases "j = 0")
-    case True
-    with j assms show ?thesis unfolding norm_def neutral less_eq dbm_le_def by auto
-  next
-    case False
-    have *: "k j \<ge> 0" by auto
-    from j assms have **: "M1 j j \<le> Le 0" unfolding neutral by auto
-    have "norm_upper (M1 j j) (k j) = M1 j j"
-    using * ** apply (cases "M1 j j") apply auto by fastforce+
-    with assms(1) j False have
-      "?M j j = norm_lower (M1 j j) (- k j)"
-    unfolding norm_def by auto
-    with ** show ?thesis unfolding neutral by auto
-  qed
-qed
+  shows "\<forall>l\<le>n. (norm M1 (k :: nat \<Rightarrow> nat) n) l l \<le> 0"
+  using assms unfolding norm_def by auto
 
 section \<open>Appendix: Standard Clock Numberings for Concrete Models\<close>
 

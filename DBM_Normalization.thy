@@ -1,8 +1,21 @@
 section \<open>Extrapolation of DBMs\<close>
 
 theory DBM_Normalization
-imports DBM_Basics TA_Misc
+  imports DBM_Basics TA_Misc "HOL-Eisbach.Eisbach"
 begin
+
+(* XXX move *)
+lemmas dbm_less_simps[simp] = dbm_lt_code_simps[folded DBM.less]
+
+lemma dbm_less_eq_simps[simp]:
+  "Le a \<le> Le b \<longleftrightarrow> a \<le> b"
+  "Le a \<le> Lt b \<longleftrightarrow> a < b"
+  "Lt a \<le> Le b \<longleftrightarrow> a \<le> b"
+  "Lt a \<le> Lt b \<longleftrightarrow> a \<le> b"
+  unfolding less_eq dbm_le_def by auto
+
+lemma Le_less_Lt[simp]: "Le x < Lt x \<longleftrightarrow> False"
+  using leD by blast
 
 subsection \<open>Classical extrapolation\<close>
 
@@ -17,7 +30,7 @@ where
   "norm_lower e t = (if e \<prec> Lt t then Lt t else e)"
 
 text \<open>
-  Note that literature pretends that \<open>\<zero>\<close> would have some (presumably infinite bound) in \<open>k\<close>
+  Note that literature pretends that \<open>\<zero>\<close> would have a bound of negative infinity in \<open>k\<close>
   and thus defines normalization uniformly. The easiest way to get around this seems to explicate
   this in the definition as below.
 \<close>
@@ -26,7 +39,7 @@ where
   "norm M k n \<equiv> \<lambda>i j.
     let ub = if i > 0 then k i   else 0 in
     let lb = if j > 0 then - k j else 0 in
-    if i \<le> n \<and> j \<le> n then norm_lower (norm_upper (M i j) ub) lb else M i j
+    if i \<le> n \<and> j \<le> n \<and> i \<noteq> j then norm_lower (norm_upper (M i j) ub) lb else M i j
   "
 
 subsection \<open>Extrapolations based on lower and upper bounds\<close>
@@ -38,13 +51,62 @@ where
   "extra_lu M l u n \<equiv> \<lambda>i j.
     let ub = if i > 0 then l i   else 0 in
     let lb = if j > 0 then - u j else 0 in
-    if i \<le> n \<and> j \<le> n then norm_lower (norm_upper (M i j) ub) lb else M i j
+    if i \<le> n \<and> j \<le> n \<and> i \<noteq> j then norm_lower (norm_upper (M i j) ub) lb else M i j
   "
 
 lemma norm_is_extra:
   "norm M k n = extra_lu M k k n"
   unfolding norm_def extra_lu_def ..
 
+text \<open>This is the implementation of the LU-bounds based extrapolation operation (\<open>Extra_{LU}^+\<close>).\<close>
+definition extra_lup ::
+  "('t :: linordered_ab_group_add) DBM \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> nat \<Rightarrow> 't DBM"
+where
+  "extra_lup M l u n \<equiv> \<lambda>i j.
+    let ub = if i > 0 then Lt (l i) else Lt 0;
+        lb = if j > 0 then Lt (- u j) else Lt 0
+    in
+    if i \<le> n \<and> j \<le> n \<and> i \<noteq> j then
+      if ub \<prec> M i j then \<infinity>
+      else if i > 0 \<and> M 0 i \<prec> Lt (- l i) then \<infinity>
+      else if i > 0 \<and> M 0 j \<prec> lb then \<infinity>
+      else if i = 0 \<and> M 0 j \<prec> lb then Lt (- u j)
+      else M i j
+    else M i j
+  "
+
+method csimp = (clarsimp simp: extra_lup_def Let_def DBM.less[symmetric] not_less any_le_inf)
+
+method solve = csimp?; safe?; (csimp | meson Lt_le_LeI le_less le_less_trans less_asym'); fail
+
+lemma extrapolations_diag_preservation:
+  "extra_lu M L U n i i = M i i" "extra_lup M L U n i i = M i i" "norm M k n i i = M i i"
+  unfolding extra_lu_def extra_lup_def norm_def Let_def by auto
+
+lemma extra_lu_le_extra_lup:
+  assumes canonical: "canonical M n"
+      and canonical_lower_bounds: "\<forall>i \<le> n. M 0 i \<le> 0"
+  shows "extra_lu M l u n i j \<le> extra_lup M l u n i j"
+proof -
+  have "M 0 j \<le> M i j" if "i \<le> n" "j \<le> n"
+  proof -
+    have "M 0 i \<le> 0"
+      using canonical_lower_bounds \<open>i \<le> n\<close> by simp
+    then have "M 0 i + M i j \<le> M i j"
+      by (simp add: add_decreasing)
+    also have "M 0 j \<le> M 0 i + M i j"
+      using canonical that by auto
+    finally (xtrans) show ?thesis .
+  qed
+  then show ?thesis
+    by - (cases "i \<le> n"; cases "j \<le> n"; unfold extra_lu_def Let_def; clarsimp; safe?; solve)
+qed
+
+lemma extra_lu_subs_extra_lup:
+  assumes canonical: "canonical M n" and canonical_lower_bounds: "\<forall>i \<le> n. M 0 i \<le> 0"
+    shows "[extra_lu M L U n]\<^bsub>v,n\<^esub> \<subseteq> [extra_lup M L U n]\<^bsub>v,n\<^esub>"
+  using assms
+  by (auto intro: extra_lu_le_extra_lup simp: DBM.less_eq[symmetric] elim!: DBM_le_subset[rotated])
 
 subsection \<open>Extrapolations are widening operators\<close>
 
@@ -112,26 +174,35 @@ proof -
   next
     fix c1 c2 assume "v c1 \<le> n" "v c2 \<le> n"
     with M1 have M1: "dbm_entry_val u (Some c1) (Some c2) (M (v c1) (v c2))" by auto
-    then show "dbm_entry_val u (Some c1) (Some c2) (?M2 (v c1) (v c2))"
-    proof (cases "Le (L (v c1)) \<prec> M (v c1) (v c2)")
+    show "dbm_entry_val u (Some c1) (Some c2) (?M2 (v c1) (v c2))"
+    proof (cases "v c1 = v c2")
       case True
-      with A(1,2) \<open>v c1 \<le> n\<close> \<open>v c2 \<le> n\<close> have "?M2 (v c1) (v c2) = \<infinity>" unfolding extra_lu_def by auto
-      then show ?thesis by auto
+      with M1 show ?thesis
+        unfolding extra_lu_def by simp
     next
       case False
-      with A(1,2) \<open>v c1 \<le> n\<close> \<open>v c2 \<le> n\<close> have
-        *: "?M2 (v c1) (v c2) = norm_lower (M (v c1) (v c2)) (- U (v c2))"
-      unfolding extra_lu_def by auto
       show ?thesis
-      proof (cases "M (v c1) (v c2) \<prec> Lt (- U (v c2))")
+      proof (cases "Le (L (v c1)) \<prec> M (v c1) (v c2)")
         case True
-        with dbm_entry_val_mono_1[OF M1] have
-          "dbm_entry_val u (Some c1) (Some c2) (Lt (- U (v c2)))"
-        by auto
-        then have "u c1 - u c2 < - U (v c2)" by auto
-        with * True show ?thesis by auto
+        with A(1,2) \<open>v c1 \<le> n\<close> \<open>v c2 \<le> n\<close> \<open>v c1 \<noteq> v c2\<close> have "?M2 (v c1) (v c2) = \<infinity>"
+          unfolding extra_lu_def by auto
+        then show ?thesis by auto
       next
-        case False with M1 * show ?thesis by auto
+        case False
+        with A(1,2) \<open>v c1 \<le> n\<close> \<open>v c2 \<le> n\<close> \<open>v c1 \<noteq> v c2\<close> have *:
+          "?M2 (v c1) (v c2) = norm_lower (M (v c1) (v c2)) (- U (v c2))"
+          unfolding extra_lu_def by auto
+        show ?thesis
+        proof (cases "M (v c1) (v c2) \<prec> Lt (- U (v c2))")
+          case True
+          with dbm_entry_val_mono_1[OF M1] have
+            "dbm_entry_val u (Some c1) (Some c2) (Lt (- U (v c2)))"
+            by auto
+          then have "u c1 - u c2 < - U (v c2)" by auto
+          with * True show ?thesis by auto
+        next
+          case False with M1 * show ?thesis by auto
+        qed
       qed
     qed
   qed
@@ -141,7 +212,6 @@ lemma norm_mono:
   assumes "\<forall>c. v c > 0" "u \<in> [M]\<^bsub>v,n\<^esub>"
   shows "u \<in> [norm M k n]\<^bsub>v,n\<^esub>"
   using assms unfolding norm_is_extra by (rule extra_lu_mono)
-
 
 
 subsection \<open>Finiteness of extrapolations\<close>
@@ -163,7 +233,8 @@ lemmas finite_subset_rev[intro?] = finite_subset[rotated]
 lemmas [intro?] = finite_subset
 
 lemma extra_lu_finite:
-  "finite {extra_lu M (L :: nat \<Rightarrow> nat) (U :: nat \<Rightarrow> nat) n | M. dbm_default M n}"
+  fixes L U :: "nat \<Rightarrow> nat"
+  shows "finite {extra_lu M L U n | M. dbm_default M n \<and> (\<forall>i \<le> n. M i i = 0)}"
 proof -
   let ?u = "Max {L i | i. i \<le> n}" let ?l = "- Max {U i | i. i \<le> n}"
   let ?S = "(Le ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> (Lt ` {d :: int. ?l \<le> d \<and> d \<le> ?u}) \<union> {\<infinity>}"
@@ -171,9 +242,10 @@ proof -
     "finite {f. \<forall>x y. (x \<in> {0..n} \<and> y \<in> {0..n} \<longrightarrow> f x y \<in> ?S)
                 \<and> (x \<notin> {0..n} \<longrightarrow> f x y = 0) \<and> (y \<notin> {0..n} \<longrightarrow> f x y = 0)}" (is "finite ?R")
     by auto
-  { fix M :: "int DBM" assume A: "dbm_default M n"
+  { fix M :: "int DBM" assume A: "dbm_default M n" and diag: "\<forall>i \<le> n. M i i = 0"
     let ?M = "extra_lu M L U n"
     from extra_lu_default_preservation[OF A] have A: "dbm_default ?M n" .
+    from extrapolations_diag_preservation(1) diag have diag': "\<forall>i \<le> n. ?M i i = 0" by metis
     { fix i j assume "i \<in> {0..n}" "j \<in> {0..n}"
       then have B: "i \<le> n" "j \<le> n"
         by auto
@@ -190,23 +262,12 @@ proof -
           show ?thesis
           proof (cases "j = 0")
             case True
-            with \<open>i = 0\<close> A(1) B have
-              "?M i j = norm_lower (norm_upper (M 0 0) 0) 0"
-              unfolding extra_lu_def by auto
-            also have "\<dots> \<noteq> \<infinity> \<longrightarrow> get_const \<dots> = 0"
-              by (cases "M 0 0"; fastforce)
-            finally show ?thesis using not_inf
-              by auto
+            with \<open>i = 0\<close> A diag' show ?thesis
+              unfolding extra_lu_def by (auto simp: neutral)
           next
             case False
-            with \<open>i = 0\<close> B not_inf have "?M i j \<le> Le 0" "Lt (-int (U j)) \<le> ?M i j"
-              unfolding extra_lu_def
-              apply (simp del: norm_upper.simps norm_lower.simps)
-              apply (auto simp: less[symmetric]; fail)
-              using \<open>i = 0\<close> B not_inf apply (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
-              apply (drule leI)
-              apply (drule leI)
-              by (rule order.trans; fastforce)
+            with \<open>i = 0\<close> B not_inf diag have "?M i j \<le> Le 0" "Lt (-int (U j)) \<le> ?M i j"
+              unfolding extra_lu_def by (auto simp: Let_def less[symmetric] intro: any_le_inf)
             with not_inf have "get_const (?M i j) \<le> 0" "-U j \<le> get_const (?M i j)"
               by (cases "?M i j"; auto)+
             moreover from \<open>j \<le> n\<close> have "- U j \<ge> ?l"
@@ -221,11 +282,7 @@ proof -
           proof (cases "j = 0")
             case True
             with \<open>i > 0\<close> A(1) B not_inf have "Lt 0 \<le> ?M i j" "?M i j \<le> Le (int (L i))"
-              unfolding extra_lu_def
-              apply (simp del: norm_upper.simps norm_lower.simps)
-              apply (auto simp: less[symmetric])[]
-              using \<open>i > 0\<close> \<open>j = 0\<close> A(1) B not_inf unfolding extra_lu_def
-              by (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
+              unfolding extra_lu_def by (auto simp: Let_def less[symmetric] intro: any_le_inf)
             with not_inf have "0 \<le> get_const (?M i j)" "get_const (?M i j) \<le> L i"
               by (cases "?M i j"; auto)+
             moreover from \<open>i \<le> n\<close> have "L i \<le> ?u"
@@ -234,13 +291,10 @@ proof -
               by auto
           next
             case False
-            with \<open>i > 0\<close> A(1) B not_inf have
+            with \<open>i > 0\<close> A(1) B not_inf diag have
               "Lt (-int (U j)) \<le> ?M i j" "?M i j \<le> Le (int (L i))"
               unfolding extra_lu_def
-              apply (simp del: norm_upper.simps norm_lower.simps)
-              apply (auto simp: less[symmetric])[]
-              using \<open>i > 0\<close> \<open>j \<noteq> 0\<close> A(1) B not_inf unfolding extra_lu_def
-              by (auto simp: Let_def less[symmetric] intro: any_le_inf)[]
+              by (auto simp: Let_def less[symmetric] neutral intro: any_le_inf split: if_split_asm)
             with not_inf have "- U j \<le> get_const (?M i j)" "get_const (?M i j) \<le> L i"
               by (cases "?M i j"; auto)+
             moreover from \<open>i \<le> n\<close> \<open>j \<le> n\<close> have "?l \<le> - U j" "L i \<le> ?u"
@@ -258,13 +312,13 @@ proof -
     { fix i j assume "j \<notin> {0..n}"
       with A have "?M i j = 0" by auto
     } moreover note the = calculation
-  } then have "{extra_lu M L U n | M. dbm_default M n} \<subseteq> ?R"
-    by blast
+  } then have "{extra_lu M L U n | M. dbm_default M n  \<and> (\<forall>i \<le> n. M i i = 0)} \<subseteq> ?R"
+      by blast
   with fin show ?thesis ..
 qed
 
 lemma normalized_integral_dbms_finite:
-  "finite {norm M (k :: nat \<Rightarrow> nat) n | M. dbm_default M n}"
+  "finite {norm M (k :: nat \<Rightarrow> nat) n | M. dbm_default M n \<and> (\<forall>i \<le> n. M i i = 0)}"
   unfolding norm_is_extra by (rule extra_lu_finite)
 
 end

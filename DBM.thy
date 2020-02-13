@@ -376,7 +376,7 @@ lemma inf_not_lt[simp]: "\<infinity> \<prec> x = False" by auto
 
 lemma any_le_inf: "x \<le> (\<infinity> :: _ DBMEntry)" by (metis less_eq dmb_le_dbm_entry_bound_inf le_cases)
 
-lemma [code]:
+lemma dbm_lt_code_simps[code]:
   "dbm_lt (Lt a) \<infinity> = True"
   "dbm_lt (Le a) \<infinity> = True"
   "dbm_lt (Le a) (Le b) = (a < b)"
@@ -384,7 +384,7 @@ lemma [code]:
   "dbm_lt (Lt a) (Le b) = (a \<le> b)"
   "dbm_lt (Lt a) (Lt b) = (a < b)"
   "dbm_lt \<infinity> x = False"
-by auto
+  by auto
 
 section \<open>Basic Properties of DBMs\<close>
 
