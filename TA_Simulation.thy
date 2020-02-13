@@ -36,13 +36,13 @@ locale Time_Abstract_Simulation =
   fixes sim :: "'l \<times> ('c \<Rightarrow> 't :: time) \<Rightarrow> 'l \<times> ('c \<Rightarrow> 't) \<Rightarrow> bool" (infix "\<preceq>" 60)
   assumes sim:
   "\<And>l l' l\<^sub>1 u u' u\<^sub>1 t. (l, u) \<preceq> (l', u') \<Longrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, u\<^sub>1\<rangle>
-    \<Longrightarrow> \<exists>u\<^sub>1'. A \<turnstile>' \<langle>l, u'\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, u\<^sub>1'\<rangle> \<and> (l\<^sub>1, u\<^sub>1) \<preceq> (l\<^sub>1, u\<^sub>1')"
+    \<Longrightarrow> \<exists>u\<^sub>1'. A \<turnstile>' \<langle>l', u'\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, u\<^sub>1'\<rangle> \<and> (l\<^sub>1, u\<^sub>1) \<preceq> (l\<^sub>1, u\<^sub>1')"
   assumes refl: "\<And>u. u \<preceq> u" and trans: "\<And>u v w. u \<preceq> v \<Longrightarrow> v \<preceq> w \<Longrightarrow> u \<preceq> w"
 begin
 
 lemma simE:
   assumes "(l, u) \<preceq> (l', u')" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, u\<^sub>1\<rangle>"
-  obtains u\<^sub>1' where "A \<turnstile>' \<langle>l, u'\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, u\<^sub>1'\<rangle>" "(l\<^sub>1, u\<^sub>1) \<preceq> (l\<^sub>1, u\<^sub>1')"
+  obtains u\<^sub>1' where "A \<turnstile>' \<langle>l', u'\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l\<^sub>1, u\<^sub>1'\<rangle>" "(l\<^sub>1, u\<^sub>1) \<preceq> (l\<^sub>1, u\<^sub>1')"
   using assms sim by blast
 
 definition abs :: "'l \<Rightarrow> ('c, 't) zone \<Rightarrow> ('c, 't) zone" ("\<alpha> _ _" [71,71] 71) where
@@ -155,6 +155,12 @@ interpretation sim2: Simulation where
   qed
   done
 
+sublocale self_simulation: Self_Simulation where
+  E = "\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" and P = "\<lambda>_. True"
+  apply standard
+  apply (force dest: sim simp: step_trans'_step_trans_iff[symmetric])
+  using refl trans unfolding reflp_def transp_def by blast+
+
 end
 
 
@@ -255,7 +261,7 @@ proof -
    finally show ?thesis .
  qed
 
-sublocale self_simulation: Self_Simulation where
+sublocale region_self_simulation: Self_Simulation where
   E = "\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" and sim = "(\<equiv>\<^sub>M)" and P = valid
   apply (standard; clarsimp?)
   subgoal simulation premises prems for l u l1 u1 l' u'
@@ -283,36 +289,18 @@ sublocale self_simulation: Self_Simulation where
 end
 
 locale Time_Abstract_Simulation_Sandwich =
+  Regions_TA where A = A +
   Time_Abstract_Simulation where A = A for A :: "('a, 'c, real, 'l) ta" +
+  assumes same_locs: "(l, u) \<preceq> (l', u') \<Longrightarrow> l' = l"
+  assumes sim_V: "(l, u) \<preceq> (l', u') \<Longrightarrow> u' \<in> V \<Longrightarrow> u \<in> V"
+
   fixes \<beta>
   assumes \<beta>_\<alpha>: "\<beta> l Z \<subseteq> \<alpha> l Z" and \<beta>_widens: "Z \<subseteq> \<beta> l Z"
-  fixes k :: "'l \<Rightarrow> 'c \<Rightarrow> nat" and not_in_X :: 'c and X v n
-  assumes finite: "finite X"
-  assumes clock_numbering:
-    "clock_numbering' v n" "\<forall>k\<le>n. k > 0 \<longrightarrow> (\<exists>c \<in> X. v c = k)" "\<forall> c \<in> X. v c \<le> n"
-  assumes not_in_X: "not_in_X \<notin> X"
-  assumes non_empty: "X \<noteq> {}"
-
-  assumes same_locs: "(l, u) \<preceq> (l', u') \<Longrightarrow> l' = l"
-  assumes sim_nonneg: "(l, u) \<preceq> (l', u') \<Longrightarrow> 0 \<le> u' x \<Longrightarrow> x \<in> X \<Longrightarrow> 0 \<le> u x"
+  and finite_abstraction: "finite {\<beta> l Z | l Z. Z \<subseteq> V}"
 
   fixes l\<^sub>0 :: 'l and Z\<^sub>0 :: "('c, real) zone"
-  assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set A" and Z\<^sub>0_V: "\<forall>u \<in> Z\<^sub>0. \<forall>x \<in> X. u x \<ge> 0"
-
-  assumes finite_abstraction: "finite {\<alpha> l Z | l Z. Z \<subseteq> V}"
+  assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set A" and Z\<^sub>0_V: "\<forall>u \<in> Z\<^sub>0. u \<in> V"
 begin
-
-interpretation self_simulation: Self_Simulation where
-  E = "\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" and P = "\<lambda>_. True"
-  apply standard
-    apply clarsimp
-  subgoal
-    unfolding step_trans'_step_trans_iff[symmetric]
-    apply clarsimp
-    apply (frule (1) sim)
-    apply (force dest: same_locs)
-    done
-  using refl trans unfolding reflp_def transp_def by blast+
 
 inductive step_beta ::
   "('a, 'c, real, 'l) ta \<Rightarrow> 'l \<Rightarrow> ('c, real) zone \<Rightarrow> 'a \<Rightarrow> 'l \<Rightarrow> ('c, real) zone \<Rightarrow> bool"
@@ -321,6 +309,10 @@ where
   step_beta:
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle>
   \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l'', \<beta> l'' Z''\<rangle>"
+
+no_notation step_z_beta  ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+
+no_notation step_z_alpha ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<alpha>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
 
 lemma step_beta_alt_def:
   "(\<exists>a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', W\<rangle>) \<longleftrightarrow> (\<exists>Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> W = \<beta> l' Z')"
@@ -334,30 +326,18 @@ lemma step_betaE:
 definition
   "loc_is l s \<equiv> \<forall>(l', _) \<in> s. l' = l"
 
-sublocale regions: Regions_TA where
-  A = A and
-  k = k and
-  v = v and not_in_X = not_in_X
-  and X = X
-  apply standard
-  sorry
-
-no_notation regions.step_z_beta  ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
-
-no_notation regions.step_z_alpha ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<alpha>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
-
 lemma \<alpha>_V:
-  "\<alpha> l Z \<subseteq> regions.V" if "Z \<subseteq> regions.V"
-  using that sim_nonneg unfolding regions.V_def abs_def by auto
+  "\<alpha> l Z \<subseteq> V" if "Z \<subseteq> V"
+  using that sim_V unfolding V_def abs_def by auto
 
 lemma \<beta>_V:
-  "\<beta> l Z \<subseteq> regions.V" if "Z \<subseteq> regions.V"
+  "\<beta> l Z \<subseteq> V" if "Z \<subseteq> V"
   using \<beta>_\<alpha> \<alpha>_V that by blast
 
 text \<open>Corresponds to lemma 6 of @{cite "Li:FORMATS:2009"}.\<close>
 lemma backward_simulation:
   assumes
-    "b \<in> S'" "loc_is l S" "loc_is l' S'" "A \<turnstile> \<langle>l, R_of S\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of S'\<rangle>" "R_of S' \<noteq> {}"
+    "b \<in> S'" "loc_is l S" "loc_is l' S'" "A \<turnstile> \<langle>l, R_of S\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of S'\<rangle>"
   shows "\<exists>a\<in>S. \<exists>b'. (case a of (l, u) \<Rightarrow> \<lambda>(l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>) b' \<and> b \<preceq> b'"
 proof -
   let ?Z = "R_of S" and ?Z' = "R_of S'"
@@ -379,8 +359,8 @@ lemma step'_step_beta:
   assumes
     "(l, u) \<in> a'" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" "loc_is l1 a'"
   shows
-  "\<exists>b'. (\<exists>a l l'. loc_is l a' \<and> loc_is l' b' \<and> A \<turnstile> \<langle>l, R_of a'\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', R_of b'\<rangle> \<and> R_of b' \<noteq> {})
-      \<and> (l', u') \<in> b'"
+  "\<exists>b'. (\<exists>a l l'. loc_is l a' \<and> loc_is l' b' \<and> a' \<noteq> {} \<and> b' \<noteq> {} \<and>
+          A \<turnstile> \<langle>l, R_of a'\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', R_of b'\<rangle>) \<and> (l', u') \<in> b'"
 proof -
   let ?Z = "R_of a'"
   from \<open>(l, u) \<in> _\<close> \<open>loc_is _ _\<close> have [simp]: "l1 = l"
@@ -394,22 +374,35 @@ proof -
   moreover from \<open>u' \<in> Z'\<close> \<beta>_widens have "u' \<in> \<beta> l' Z'"
     by auto
   ultimately show ?thesis
-    using \<open>loc_is _ _\<close>
+    using \<open>loc_is _ _\<close> \<open>(l, u) \<in> _\<close>
     by (inst_existentials "from_R l' (\<beta> l' Z')" a l l')
        (auto simp: from_R_def loc_is_def R_of_def image_def)
 qed
 
 lemma step_z'_V:
-  "Z' \<subseteq> regions.V" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "Z \<subseteq> regions.V"
-  by (meson regions.step_z_V step_z'_def that)
+  "Z' \<subseteq> V" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "Z \<subseteq> V"
+  by (meson step_z_V step_z'_def that)
 
-interpretation Backward_Double_Simulation_Complete where
+definition beta_step where
+  "beta_step \<equiv> \<lambda>s s'. \<exists>a l l'. loc_is l s \<and> loc_is l' s' \<and> s \<noteq> {} \<and> s' \<noteq> {} \<and>
+     A \<turnstile> \<langle>l, R_of s\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of s'\<rangle>"
+
+lemma beta_step_inv:
+  assumes "beta_step a b" "\<exists>l\<in>state_set A. loc_is l a \<and> R_of a \<subseteq> V"
+  shows "\<exists>l\<in>state_set A. loc_is l b \<and> R_of b \<subseteq> V"
+  using assms unfolding beta_step_def using \<beta>_V step_z'_V step_z_state_setI2 by (metis step_betaE)
+
+lemma from_R_R_of:
+  assumes "loc_is l S"
+  shows "from_R l (R_of S) = S"
+  using assms from_R_R_of unfolding loc_is_def by force
+
+interpretation backward_simulation: Backward_Double_Simulation_Complete where
   E = "\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" and
-  G = "\<lambda>s s'. \<exists>a l l'. loc_is l s \<and> loc_is l' s' \<and>
-      A \<turnstile> \<langle>l, R_of s\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of s'\<rangle> \<and> R_of s' \<noteq> {}" and
+  G = beta_step and
   sim' = "(\<equiv>\<^sub>M)" and
-  P = regions.valid and
-  Q = "\<lambda>s. \<exists>l \<in> state_set A. loc_is l s \<and> R_of s \<subseteq> regions.V" and
+  P = valid and
+  Q = "\<lambda>s. \<exists>l \<in> state_set A. loc_is l s \<and> R_of s \<subseteq> V" and
   a\<^sub>0 = "from_R l\<^sub>0 Z\<^sub>0"
 proof (standard, goal_cases)
   case (1 a b a')
@@ -418,7 +411,7 @@ proof (standard, goal_cases)
 next
   case (2 b B A)
   then show ?case
-    by clarify (rule backward_simulation)
+    unfolding beta_step_def by clarify (rule backward_simulation)
 next
   case (3 a)
   then show ?case
@@ -430,27 +423,62 @@ next
 next
   case 5
   then show ?case
-    by (rule regions.equiv)
+    by (rule equiv)
 next
   case 6
   then show ?case
-    by (rule regions.finite_quotient)
+    by (rule finite_quotient)
 next
   case (7 a b a')
   then show ?case
-    by clarify (rule step'_step_beta)
+    unfolding beta_step_def by clarify (rule step'_step_beta)
 next
   case (8 a b)
   then show ?case
-    by (rule regions.self_simulation.PA_invariant.invariant)
+    by (rule region_self_simulation.PA_invariant.invariant)
 next
-  case step_beta_inv: (9 a b)
+  case (9 a b)
   then show ?case
-    using \<beta>_V step_z'_V step_z_state_setI2 by (metis step_betaE)
+    by (rule beta_step_inv[rotated])
 next
   case 10
-  then show ?case
-    sorry
+  let ?S = "{from_R l (\<beta> l Z) | l Z. l \<in> state_set A \<and> Z \<subseteq> V}"
+  have "{x. beta_step\<^sup>*\<^sup>* (from_R l\<^sub>0 Z\<^sub>0) x} \<subseteq> ?S \<union> {from_R l\<^sub>0 Z\<^sub>0}"
+    apply rule
+    apply simp
+    subgoal
+    proof (induction "from_R l\<^sub>0 Z\<^sub>0" _ rule: rtranclp.induct)
+      case rtrancl_refl
+      then show ?case
+        by simp
+    next
+      case (rtrancl_into_rtrancl b c)
+      let ?Z = "R_of b" and ?Z' = "R_of c"
+      from \<open>beta_step b c\<close> guess a l l'
+        unfolding beta_step_def by clarify
+      note step = this
+      with rtrancl_into_rtrancl(2) \<open>loc_is l b\<close> have "l \<in> state_set A" "?Z \<subseteq> V"
+        using Z\<^sub>0_V l\<^sub>0_state_set \<beta>_V
+         apply auto
+          apply (auto simp: loc_is_def from_R_def)
+        apply blast
+        done
+      with step(1,2,5) show ?case
+        using from_R_R_of step_z_state_setI2 step_z'_V step_betaE by metis
+    qed
+    done
+  moreover have "finite (?S \<union> {from_R l\<^sub>0 Z\<^sub>0})"
+  proof -
+    let ?T = "(\<lambda>(l, Z). from_R l Z) ` (state_set A \<times> {\<beta> l Z |l Z. Z \<subseteq> V})"
+    have "?S \<subseteq> ?T"
+      by auto
+    also from finite_state_set finite_abstraction have "finite ?T"
+      by auto
+    finally show ?thesis
+      by fast
+  qed
+  ultimately show ?case
+    by (rule finite_subset)
 next
   case (11 a)
   then show ?case
@@ -458,7 +486,7 @@ next
 next
   case 12
   then show ?case
-    using l\<^sub>0_state_set Z\<^sub>0_V by (auto simp: regions.V_def loc_is_def from_R_def R_of_def)
+    using l\<^sub>0_state_set Z\<^sub>0_V by (auto simp: V_def loc_is_def from_R_def R_of_def)
 qed
 
 end
