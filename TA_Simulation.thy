@@ -291,7 +291,6 @@ end
 locale Time_Abstract_Simulation_Sandwich =
   Regions_TA where A = A +
   Time_Abstract_Simulation where A = A for A :: "('a, 'c, real, 'l) ta" +
-  assumes same_locs: "(l, u) \<preceq> (l', u') \<Longrightarrow> l' = l"
   assumes sim_V: "(l, u) \<preceq> (l', u') \<Longrightarrow> u' \<in> V \<Longrightarrow> u \<in> V"
 
   fixes \<beta>
