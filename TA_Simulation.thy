@@ -779,7 +779,6 @@ end
 end
 
 
-
 locale Time_Abstract_Simulation_Sandwich =
   Regions_TA where A = A +
   Time_Abstract_Simulation where A = A for A :: "('a, 'c, real, 'l) ta" +
@@ -1420,6 +1419,7 @@ locale TA_Extrapolation =
   assumes extra_widens: "vabstr' Z M \<Longrightarrow> Z \<subseteq> [extra l M]\<^bsub>v,n\<^esub>"
       and extra_\<alpha>: "vabstr' Z M \<Longrightarrow> [extra l M]\<^bsub>v,n\<^esub> \<subseteq> \<alpha> l Z"
       and extra_finite: "finite {extra l M | M. canonical_dbm M}"
+      and extra_int: "dbm_int M n \<Longrightarrow> dbm_int (extra l M) n"
 begin
 
 definition apx where
@@ -1433,10 +1433,77 @@ lemma apx_abs:
   "apx l ([M]\<^bsub>v,n\<^esub>) \<subseteq> \<alpha> l ([M]\<^bsub>v,n\<^esub>)" if "canonical_dbm M"
   by (smt apx_def extra_\<alpha> someI_ex that)
 
+lemma \<alpha>_V:
+  "\<alpha> l Z \<subseteq> V" if "Z \<subseteq> V"
+  using that simulation_nonneg unfolding V_def abs_def by auto
+
+lemma apx_V:
+  "apx l ([M]\<^bsub>v,n\<^esub>) \<subseteq> V" if "canonical_dbm M"
+proof -
+  from that have "apx l ([M]\<^bsub>v,n\<^esub>) \<subseteq> \<alpha> l ([M]\<^bsub>v,n\<^esub>)"
+    by (rule apx_abs)
+  moreover from that have "\<dots> \<subseteq> V"
+    unfolding canonical_dbm_def by (intro \<alpha>_V V_structuralI, elim conjE)
+  finally show ?thesis .
+qed
+
+lemma apx_empty:
+  "apx l {} = {}"
+proof -
+  have "vabstr' {} empty_dbm"
+    by (rule vabstr'_empty_dbm)
+  from canonical_dbm_empty_dbm have "apx l {} \<subseteq> \<alpha> l {}"
+    by (subst empty_dbm_empty_zone[symmetric])+ (rule apx_abs)
+  also have "\<dots> = {}"
+    unfolding abs_def by auto
+  finally show ?thesis
+    by simp
+qed
+
 lemma apx_ex:
   assumes "canonical_dbm M"
   shows "\<exists>M'. apx l ([M]\<^bsub>v,n\<^esub>) = [extra l M']\<^bsub>v,n\<^esub> \<and> canonical_dbm M'"
   using assms unfolding apx_def by (smt someI_ex)
+
+lemma vabstr'_apx:
+  assumes "vabstr' Z M" "Z \<subseteq> V"
+  obtains M where "vabstr' (apx l Z) M"
+proof (cases "Z = {}")
+  case False
+  from apx_ex assms obtain M' where *:
+    "apx l Z = [extra l M']\<^bsub>v,n\<^esub>" "canonical_dbm M'"
+    using apx_ex by blast
+  with FW_zone_equiv_spec have "apx l Z = [FW (extra l M') n]\<^bsub>v,n\<^esub>"
+    by auto
+  moreover from \<open>canonical_dbm M'\<close> have "canonical_dbm (FW (extra l M') n)"
+  proof -
+    from assms have "Z \<subseteq> apx l Z"
+      by (auto intro!: apx_widens)
+    with \<open>Z \<noteq> {}\<close> have "apx l Z \<noteq> {}"
+      by auto
+    then have "canonical (FW (extra l M') n) n"
+      unfolding * by (rule canonical_non_emptyI)
+    moreover have "dbm_nonneg n (FW (extra l M') n)"
+      using \<open>apx l Z = [FW (extra l M') n]\<^bsub>v,n\<^esub>\<close> \<open>apx l Z \<noteq> {}\<close> \<open>canonical (FW _ _) _\<close>
+      apply (intro dbm_nonnegI)
+      apply assumption
+      subgoal
+        using apx_V assms(1) by blast
+      subgoal
+        by (metis DBMEntry.distinct(1) Le_less_Lt  antisym_conv dbm_non_empty_diag leI neutral)
+      done
+    moreover have "dbm_int (FW (extra l M') n) n"
+      using *(2) unfolding canonical_dbm_def by (intro FW_int_preservation extra_int, elim conjE)
+    ultimately show ?thesis
+      unfolding canonical_dbm_def by (intro conjI)
+  qed
+  ultimately show ?thesis
+    by (auto intro: that)
+next
+  case True
+  then show ?thesis
+    by (intro that[of empty_dbm])(auto simp: empty_dbm_empty_zone apx_empty canonical_dbm_empty_dbm)
+qed
 
 lemma apx_finite:
   "finite {apx l Z |l Z. \<exists>M. vabstr' Z M \<and> l \<in> state_set A}" (is "finite ?S")
@@ -1465,35 +1532,19 @@ sublocale Time_Abstract_Simulation_Sandwich
   where \<beta> = apx and
   I = "\<lambda>Z. \<exists>M. vabstr' Z M"
   proof standard
-  show "u \<in> V"
-    if "(l, u) \<preceq> (l', u')"
-      and "u' \<in> V"
-    for l :: 'l
-      and u :: "'c \<Rightarrow> real"
-      and l' :: 'l
-      and u' :: "'c \<Rightarrow> real"
+  show "u \<in> V" if "(l, u) \<preceq> (l', u')" "u' \<in> V" for l l' :: 'l and u u' :: "'c \<Rightarrow> real"
     using that by (rule simulation_nonneg[rotated])
   show "\<exists>M. vabstr' Z' M"
     if "\<exists>M. vabstr' Z M" and "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" for Z Z' :: "('c \<Rightarrow> real) set" and l l' :: 'l
     using that by (rule step_z'_vabstr')
   show "apx l Z \<subseteq> \<alpha> l Z"
-    if "\<exists>M. vabstr' Z M"
-      and "Z \<subseteq> V"
-    for Z :: "('c \<Rightarrow> real) set"
-      and l :: 'l
+    if "\<exists>M. vabstr' Z M" "Z \<subseteq> V" for Z :: "('c \<Rightarrow> real) set" and l :: 'l
     using that apx_abs by auto
-  show "Z \<subseteq> apx l Z"
-    if "\<exists>M. vabstr' Z M"
-      and "Z \<subseteq> V"
-    for Z :: "('c \<Rightarrow> real) set"
-      and l :: 'l
+  show "Z \<subseteq> apx l Z" if "\<exists>M. vabstr' Z M" "Z \<subseteq> V" for Z :: "('c \<Rightarrow> real) set" and l :: 'l
     using that apx_widens by auto
   show "\<exists>M. vabstr' (apx l Z) M"
-    if "\<exists>M. vabstr' Z M"
-      and "Z \<subseteq> V"
-    for Z :: "('c \<Rightarrow> real) set"
-      and l :: 'l
-    using that sorry
+    if "\<exists>M. vabstr' Z M" "Z \<subseteq> V" for Z :: "('c \<Rightarrow> real) set" and l :: 'l
+    using that by (elim exE) (rule vabstr'_apx, auto)
   show "finite {apx l Z |l Z. (\<exists>M. vabstr' Z M) \<and> Z \<subseteq> V \<and> l \<in> state_set A}"
     using apx_finite by (rule finite_subset[rotated]) auto
   show "l\<^sub>0 \<in> state_set A"
