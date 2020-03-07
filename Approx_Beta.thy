@@ -31,13 +31,18 @@ locale Regions_global =
 begin
 
 definition \<R>_def:  "\<R> \<equiv> {Regions.region X I r | I r. Regions.valid_region X k I r}"
-definition \<R>\<^sub>\<beta>_def: "\<R>\<^sub>\<beta> \<equiv> {Regions_Beta.region X I J r | I J r. Regions_Beta.valid_region X k I J r}"
 
 sublocale alpha_interp:
   AlphaClosure_global X k \<R> by (unfold_locales) (auto simp: finite \<R>_def V_def)
 
-sublocale beta_interp: Beta_Regions' X k \<R>\<^sub>\<beta> V v n not_in_X
-  using finite non_empty clock_numbering not_in_X by (unfold_locales) (auto simp: \<R>\<^sub>\<beta>_def V_def)
+sublocale beta_interp: Beta_Regions' X k v n not_in_X
+  rewrites "beta_interp.V = V"
+  using finite non_empty clock_numbering not_in_X unfolding V_def
+  by - ((subst Beta_Regions.V_def)?, unfold_locales; (assumption | rule HOL.refl))+
+
+abbreviation \<R>\<^sub>\<beta> where "\<R>\<^sub>\<beta> \<equiv> beta_interp.\<R>"
+
+lemmas \<R>\<^sub>\<beta>_def = beta_interp.\<R>_def
 
 abbreviation "Approx\<^sub>\<beta> \<equiv> beta_interp.Approx\<^sub>\<beta>"
 
@@ -936,7 +941,7 @@ proof -
           from dbm_lt'2[OF assms(2)[folded M(1)] this C2 C(1) not0] have
             "[M]\<^bsub>v,n\<^esub> \<subseteq> {u \<in> V. u c1 < d}"
           by auto
-          from beta_interp.\<beta>_boundedness_lt'[OF ** C(2) this] have
+          from beta_interp.\<beta>_boundedness_lt'[OF ** C(2) this, unfolded \<R>\<^sub>\<beta>_def] have
             "Approx\<^sub>\<beta> ([M]\<^bsub>v,n\<^esub>) \<subseteq> {u \<in> V. u c1 < d}"
           .
           moreover

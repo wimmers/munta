@@ -229,12 +229,16 @@ proof goal_cases
 qed
 
 locale Beta_Regions =
-  fixes X k \<R> and V :: "('c, t) cval set"
-  defines "\<R> \<equiv> {region X I J r | I J r. valid_region X k I J r}"
-  defines "V \<equiv> {v . \<forall> x \<in> X. v x \<ge> 0}"
+  fixes X :: "'c set" and k :: "'c \<Rightarrow> nat"
   assumes finite: "finite X"
   assumes non_empty: "X \<noteq> {}"
 begin
+
+definition
+  "\<R> \<equiv> {region X I J r | I J r. valid_region X k I J r}"
+
+definition V :: "('c, t) cval set" where
+  "V \<equiv> {v . \<forall> x \<in> X. v x \<ge> 0}"
 
 lemma \<R>_regions_distinct:
   "\<lbrakk>R \<in> \<R>; v \<in> R; R' \<in> \<R>; R \<noteq> R'\<rbrakk> \<Longrightarrow> v \<notin> R'"
@@ -564,6 +568,7 @@ qed
 
 end
 
+
 section \<open>Approximation with \<open>\<beta>\<close>-regions\<close>
 
 locale Beta_Regions' = Beta_Regions +
@@ -614,37 +619,37 @@ lemma apx_min:
   \<Longrightarrow> normalized M \<Longrightarrow> Z \<subseteq> S \<Longrightarrow> Approx\<^sub>\<beta> Z \<subseteq> S"
 unfolding apx_def by blast
 
-lemma \<R>_union: "\<Union> \<R> = V" using region_cover unfolding V_def \<R>_def by auto
+lemma \<R>_union: "\<Union>\<R> = V" using region_cover unfolding V_def \<R>_def by auto
+
+definition V_dbm where
+  "V_dbm \<equiv> \<lambda>i j. if i = 0 then Le 0 else \<infinity>"
+
+lemma v_not_eq_0:
+  "v c \<noteq> 0"
+  using clock_numbering(1) by (metis not_less_zero)
+
+lemma V_dbm_eq_V: "[V_dbm]\<^bsub>v,n\<^esub> = V"
+  unfolding V_dbm_def V_def DBM_zone_repr_def DBM_val_bounded_def
+proof ((clarsimp; safe), goal_cases)
+  case (1 u c)
+  with clock_numbering have "dbm_entry_val u None (Some c) (Le 0)" by auto
+  then show ?case by auto
+next
+  case (4 u c)
+  with clock_numbering have "c \<in> X" by blast
+  with 4(1) show ?case by auto
+qed (auto simp: v_not_eq_0)
+
+lemma V_dbm_int:
+  "\<forall> i\<le>n. \<forall> j\<le>n. V_dbm i j \<noteq> \<infinity> \<longrightarrow> get_const (V_dbm i j) \<in> \<int>"
+  unfolding V_dbm_def by auto
+
+lemma normalized_V_dbm:
+  "normalized V_dbm"
+  unfolding V_dbm_def normalized less_eq dbm_le_def by auto
 
 lemma all_dbm: "\<exists> M. vabstr (\<Union>\<R>) M \<and> normalized M"
-proof -
-  let ?M = "\<lambda> i j. if i = 0 then Le 0 else \<infinity>"
-  have "[?M]\<^bsub>v,n\<^esub> = V" unfolding V_def DBM_zone_repr_def DBM_val_bounded_def
-  proof (auto, goal_cases)
-    case (1 u c)
-    with clock_numbering have "dbm_entry_val u None (Some c) (Le 0)" by auto
-    then show ?case by auto
-  next
-    case (2 u c)
-    from clock_numbering(1) have "0 \<noteq> v c" by auto
-    with 2 show ?case by auto
-  next
-    case (3 u c)
-    from clock_numbering(1) have "0 \<noteq> v c" by auto
-    with 3 show ?case by auto
-  next
-    case (4 u c)
-    with clock_numbering have "c \<in> X" by blast
-    with 4(1) show ?case by auto
-  next
-    case (5 u c1)
-    from clock_numbering(1) have "0 \<noteq> v c1" by auto
-    with 5 show ?case by auto
-  qed
-  moreover have "\<forall> i\<le>n. \<forall> j\<le>n. ?M i j \<noteq> \<infinity> \<longrightarrow> get_const (?M i j) \<in> \<int>" by auto
-  moreover have "normalized ?M" unfolding normalized less_eq dbm_le_def by auto
-  ultimately show ?thesis using \<R>_union by auto
-qed
+  using V_dbm_eq_V V_dbm_int normalized_V_dbm using \<R>_union by auto
 
 lemma \<R>_int:
   "R \<in> \<R> \<Longrightarrow> R' \<in> \<R> \<Longrightarrow> R \<noteq> R' \<Longrightarrow> R \<inter> R' = {}" using \<R>_regions_distinct by blast
@@ -760,13 +765,14 @@ proof -
   ultimately have "finite ?A" by (auto intro: finite_subset)
   from all_dbm obtain M where M:
     "vabstr (\<Union>\<R>) M" "normalized M"
-  by auto
-  with \<open>_ \<subseteq> V\<close> \<R>_union have "V \<in> ?A" by blast
+    by auto
+  with \<open>_ \<subseteq> V\<close> \<R>_union[symmetric] have "V \<in> ?A"
+    by safe (intro conjI exI; auto)
   then have "?A \<noteq> {}" by blast
   have "?A \<subseteq> {S. \<exists> M. vabstr S M \<and> normalized M}" by auto
   with aux3[OF valid_dbms_int' this \<open>?A \<noteq> _\<close> \<open>finite ?A\<close>] have
     "\<Inter> ?A \<in> {S. \<exists> M. vabstr S M \<and> normalized M}"
-  by blast
+    by blast
   then obtain M where *: "vabstr (Approx\<^sub>\<beta> Z) M" "normalized M" unfolding apx_def by auto
   have "\<Union> ?U = \<Inter> ?A"
   proof (safe, goal_cases)

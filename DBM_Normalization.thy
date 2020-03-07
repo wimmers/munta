@@ -4,6 +4,15 @@ theory DBM_Normalization
   imports DBM_Basics TA_Misc "HOL-Eisbach.Eisbach"
 begin
 
+text \<open>NB: The journal paper on extrapolations based on lower and upper bounds
+@{cite "BehrmannBLP06"} provides slightly incorrect definitions that would always set
+(lower) bounds of the form \<open>M 0 i\<close> to \<open>\<infinity>\<close>.
+To fix this, we use two invariants that can also be found in TChecker's DBM library, for instance:
+  \<^enum> Lower bounds are always nonnegative, i.e.\ \<open>\<forall>i \<le> n. M 0 i \<le> 0\<close>
+   (see \<open>extrapolations_diag_preservation\<close>).
+  \<^enum> The diagonal is never touched by extrapolation (see \<open>extra_lup_lower_bounds\<close>).
+\<close>
+
 (* XXX move *)
 lemmas dbm_less_simps[simp] = dbm_lt_code_simps[folded DBM.less]
 
@@ -63,7 +72,7 @@ definition extra_lup ::
   "('t :: linordered_ab_group_add) DBM \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> nat \<Rightarrow> 't DBM"
 where
   "extra_lup M l u n \<equiv> \<lambda>i j.
-    let ub = if i > 0 then Lt (l i) else Lt 0;
+    let ub = if i > 0 then Lt (l i) else Le 0;
         lb = if j > 0 then Lt (- u j) else Lt 0
     in
     if i \<le> n \<and> j \<le> n \<and> i \<noteq> j then
@@ -75,7 +84,7 @@ where
     else M i j
   "
 
-method csimp = (clarsimp simp: extra_lup_def Let_def DBM.less[symmetric] not_less any_le_inf)
+method csimp = (clarsimp simp: extra_lup_def Let_def DBM.less[symmetric] not_less any_le_inf neutral)
 
 method solve = csimp?; safe?; (csimp | meson Lt_le_LeI le_less le_less_trans less_asym'); fail
 
@@ -83,15 +92,23 @@ lemma extrapolations_diag_preservation:
   "extra_lu M L U n i i = M i i" "extra_lup M L U n i i = M i i" "norm M k n i i = M i i"
   unfolding extra_lu_def extra_lup_def norm_def Let_def by auto
 
+lemma
+  assumes "\<forall>i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0" "\<forall>i \<le> n. U i \<ge> 0"
+  shows
+    extra_lu_lower_bounds:  "\<forall>i \<le> n. i > 0 \<longrightarrow> extra_lu M L U n 0 i \<le> 0" and
+    norm_lower_bounds:      "\<forall>i \<le> n. i > 0 \<longrightarrow> norm M U n 0 i \<le> 0" and
+    extra_lup_lower_bounds: "\<forall>i \<le> n. i > 0 \<longrightarrow> extra_lup M L U n 0 i \<le> 0"
+  using assms unfolding extra_lu_def norm_def by - (csimp; force)+
+
 lemma extra_lu_le_extra_lup:
   assumes canonical: "canonical M n"
-      and canonical_lower_bounds: "\<forall>i \<le> n. M 0 i \<le> 0"
+      and canonical_lower_bounds: "\<forall>i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0"
   shows "extra_lu M l u n i j \<le> extra_lup M l u n i j"
 proof -
-  have "M 0 j \<le> M i j" if "i \<le> n" "j \<le> n"
+  have "M 0 j \<le> M i j" if "i \<le> n" "j \<le> n" "i > 0"
   proof -
     have "M 0 i \<le> 0"
-      using canonical_lower_bounds \<open>i \<le> n\<close> by simp
+      using canonical_lower_bounds \<open>i \<le> n\<close> \<open>i > 0\<close> by simp
     then have "M 0 i + M i j \<le> M i j"
       by (simp add: add_decreasing)
     also have "M 0 j \<le> M 0 i + M i j"
@@ -103,7 +120,7 @@ proof -
 qed
 
 lemma extra_lu_subs_extra_lup:
-  assumes canonical: "canonical M n" and canonical_lower_bounds: "\<forall>i \<le> n. M 0 i \<le> 0"
+  assumes canonical: "canonical M n" and canonical_lower_bounds: "\<forall>i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0"
     shows "[extra_lu M L U n]\<^bsub>v,n\<^esub> \<subseteq> [extra_lup M L U n]\<^bsub>v,n\<^esub>"
   using assms
   by (auto intro: extra_lu_le_extra_lup simp: DBM.less_eq[symmetric] elim!: DBM_le_subset[rotated])

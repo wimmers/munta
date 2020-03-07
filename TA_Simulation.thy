@@ -5,6 +5,8 @@ theory TA_Simulation
     TA.Simulation_Graphs_TA
     "HOL-Eisbach.Eisbach"
     Simulation_Graphs2
+    "HOL-ex.Sketch_and_Explore"
+    TA_Impl.Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 
 no_notation dbm_le ("_ \<preceq> _" [51, 51] 50)
@@ -288,208 +290,6 @@ sublocale region_self_simulation: Self_Simulation where
 
 end
 
-locale Time_Abstract_Simulation_Sandwich =
-  Regions_TA where A = A +
-  Time_Abstract_Simulation where A = A for A :: "('a, 'c, real, 'l) ta" +
-  assumes sim_V: "(l, u) \<preceq> (l', u') \<Longrightarrow> u' \<in> V \<Longrightarrow> u \<in> V"
-
-  fixes \<beta>
-  assumes \<beta>_\<alpha>: "\<beta> l Z \<subseteq> \<alpha> l Z" and \<beta>_widens: "Z \<subseteq> \<beta> l Z"
-  and finite_abstraction: "finite {\<beta> l Z | l Z. Z \<subseteq> V}"
-
-  fixes l\<^sub>0 :: 'l and Z\<^sub>0 :: "('c, real) zone"
-  assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set A" and Z\<^sub>0_V: "\<forall>u \<in> Z\<^sub>0. u \<in> V"
-begin
-
-inductive step_beta ::
-  "('a, 'c, real, 'l) ta \<Rightarrow> 'l \<Rightarrow> ('c, real) zone \<Rightarrow> 'a \<Rightarrow> 'l \<Rightarrow> ('c, real) zone \<Rightarrow> bool"
-("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
-where
-  step_beta:
-    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle>
-  \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l'', \<beta> l'' Z''\<rangle>"
-
-no_notation step_z_beta  ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
-
-no_notation step_z_alpha ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<alpha>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
-
-lemma step_beta_alt_def:
-  "(\<exists>a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', W\<rangle>) \<longleftrightarrow> (\<exists>Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> W = \<beta> l' Z')"
-  unfolding step_beta.simps step_z'_def by auto
-
-lemma step_betaE:
-  assumes "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', W\<rangle>"
-  obtains Z' where "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "W = \<beta> l' Z'"
-  using step_beta_alt_def assms by metis
-
-definition
-  "loc_is l s \<equiv> \<forall>(l', _) \<in> s. l' = l"
-
-lemma \<alpha>_V:
-  "\<alpha> l Z \<subseteq> V" if "Z \<subseteq> V"
-  using that sim_V unfolding V_def abs_def by auto
-
-lemma \<beta>_V:
-  "\<beta> l Z \<subseteq> V" if "Z \<subseteq> V"
-  using \<beta>_\<alpha> \<alpha>_V that by blast
-
-text \<open>Corresponds to lemma 6 of @{cite "Li:FORMATS:2009"}.\<close>
-lemma backward_simulation:
-  assumes
-    "b \<in> S'" "loc_is l S" "loc_is l' S'" "A \<turnstile> \<langle>l, R_of S\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of S'\<rangle>"
-  shows "\<exists>a\<in>S. \<exists>b'. (case a of (l, u) \<Rightarrow> \<lambda>(l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>) b' \<and> b \<preceq> b'"
-proof -
-  let ?Z = "R_of S" and ?Z' = "R_of S'"
-  obtain u1 where "b = (l', u1)"
-    using assms(1,3) unfolding loc_is_def by (cases b) auto
-  then have "u1 \<in> ?Z'"
-    using assms(1) by blast
-  from assms(4) obtain Z' where "A \<turnstile> \<langle>l, ?Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "?Z' = \<beta> l' Z'"
-    by (erule step_betaE)
-  from \<open>u1 \<in> ?Z'\<close> \<open>?Z' = _\<close> \<beta>_\<alpha>[of l' Z'] obtain u1' where "u1' \<in> Z'" "(l', u1) \<preceq> (l', u1')"
-    unfolding abs_def by auto
-  with \<open>A \<turnstile> \<langle>l, ?Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>\<close> obtain u where "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u1'\<rangle>" "u \<in> ?Z"
-    by (meson step_z_sound')
-  with \<open>_ \<preceq> _\<close> show ?thesis
-    using assms(2) unfolding R_of_def loc_is_def \<open>b = _\<close> by fastforce
-qed
-
-lemma step'_step_beta:
-  assumes
-    "(l, u) \<in> a'" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" "loc_is l1 a'"
-  shows
-  "\<exists>b'. (\<exists>a l l'. loc_is l a' \<and> loc_is l' b' \<and> a' \<noteq> {} \<and> b' \<noteq> {} \<and>
-          A \<turnstile> \<langle>l, R_of a'\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', R_of b'\<rangle>) \<and> (l', u') \<in> b'"
-proof -
-  let ?Z = "R_of a'"
-  from \<open>(l, u) \<in> _\<close> \<open>loc_is _ _\<close> have [simp]: "l1 = l"
-    unfolding loc_is_def by auto
-  from assms(1) have "u \<in> ?Z"
-    unfolding R_of_def by force
-  with assms(2) obtain Z' where "A \<turnstile> \<langle>l, ?Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "u' \<in> Z'"
-    by (metis step_z_complete')
-  then obtain a where "A \<turnstile> \<langle>l, R_of a'\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', \<beta> l' Z'\<rangle>"
-    by atomize_elim (unfold step_beta_alt_def, fast)
-  moreover from \<open>u' \<in> Z'\<close> \<beta>_widens have "u' \<in> \<beta> l' Z'"
-    by auto
-  ultimately show ?thesis
-    using \<open>loc_is _ _\<close> \<open>(l, u) \<in> _\<close>
-    by (inst_existentials "from_R l' (\<beta> l' Z')" a l l')
-       (auto simp: from_R_def loc_is_def R_of_def image_def)
-qed
-
-lemma step_z'_V:
-  "Z' \<subseteq> V" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "Z \<subseteq> V"
-  by (meson step_z_V step_z'_def that)
-
-definition beta_step where
-  "beta_step \<equiv> \<lambda>s s'. \<exists>a l l'. loc_is l s \<and> loc_is l' s' \<and> s \<noteq> {} \<and> s' \<noteq> {} \<and>
-     A \<turnstile> \<langle>l, R_of s\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of s'\<rangle>"
-
-lemma beta_step_inv:
-  assumes "beta_step a b" "\<exists>l\<in>state_set A. loc_is l a \<and> R_of a \<subseteq> V"
-  shows "\<exists>l\<in>state_set A. loc_is l b \<and> R_of b \<subseteq> V"
-  using assms unfolding beta_step_def using \<beta>_V step_z'_V step_z_state_setI2 by (metis step_betaE)
-
-lemma from_R_R_of:
-  assumes "loc_is l S"
-  shows "from_R l (R_of S) = S"
-  using assms from_R_R_of unfolding loc_is_def by force
-
-interpretation backward_simulation: Backward_Double_Simulation_Complete where
-  E = "\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" and
-  G = beta_step and
-  sim' = "(\<equiv>\<^sub>M)" and
-  P = valid and
-  Q = "\<lambda>s. \<exists>l \<in> state_set A. loc_is l s \<and> R_of s \<subseteq> V" and
-  a\<^sub>0 = "from_R l\<^sub>0 Z\<^sub>0"
-proof (standard, goal_cases)
-  case (1 a b a')
-  then show ?case
-    by (intro self_simulation.A_B_step TrueI)
-next
-  case (2 b B A)
-  then show ?case
-    unfolding beta_step_def by clarify (rule backward_simulation)
-next
-  case (3 a)
-  then show ?case
-    by (rule refl)
-next
-  case 4
-  then show ?case
-    by (rule self_simulation.trans)
-next
-  case 5
-  then show ?case
-    by (rule equiv)
-next
-  case 6
-  then show ?case
-    by (rule finite_quotient)
-next
-  case (7 a b a')
-  then show ?case
-    unfolding beta_step_def by clarify (rule step'_step_beta)
-next
-  case (8 a b)
-  then show ?case
-    by (rule region_self_simulation.PA_invariant.invariant)
-next
-  case (9 a b)
-  then show ?case
-    by (rule beta_step_inv[rotated])
-next
-  case 10
-  let ?S = "{from_R l (\<beta> l Z) | l Z. l \<in> state_set A \<and> Z \<subseteq> V}"
-  have "{x. beta_step\<^sup>*\<^sup>* (from_R l\<^sub>0 Z\<^sub>0) x} \<subseteq> ?S \<union> {from_R l\<^sub>0 Z\<^sub>0}"
-    apply rule
-    apply simp
-    subgoal
-    proof (induction "from_R l\<^sub>0 Z\<^sub>0" _ rule: rtranclp.induct)
-      case rtrancl_refl
-      then show ?case
-        by simp
-    next
-      case (rtrancl_into_rtrancl b c)
-      let ?Z = "R_of b" and ?Z' = "R_of c"
-      from \<open>beta_step b c\<close> guess a l l'
-        unfolding beta_step_def by clarify
-      note step = this
-      with rtrancl_into_rtrancl(2) \<open>loc_is l b\<close> have "l \<in> state_set A" "?Z \<subseteq> V"
-        using Z\<^sub>0_V l\<^sub>0_state_set \<beta>_V
-         apply auto
-          apply (auto simp: loc_is_def from_R_def)
-        apply blast
-        done
-      with step(1,2,5) show ?case
-        using from_R_R_of step_z_state_setI2 step_z'_V step_betaE by metis
-    qed
-    done
-  moreover have "finite (?S \<union> {from_R l\<^sub>0 Z\<^sub>0})"
-  proof -
-    let ?T = "(\<lambda>(l, Z). from_R l Z) ` (state_set A \<times> {\<beta> l Z |l Z. Z \<subseteq> V})"
-    have "?S \<subseteq> ?T"
-      by auto
-    also from finite_state_set finite_abstraction have "finite ?T"
-      by auto
-    finally show ?thesis
-      by fast
-  qed
-  ultimately show ?case
-    by (rule finite_subset)
-next
-  case (11 a)
-  then show ?case
-    unfolding loc_is_def by auto
-next
-  case 12
-  then show ?case
-    using l\<^sub>0_state_set Z\<^sub>0_V by (auto simp: V_def loc_is_def from_R_def R_of_def)
-qed
-
-end
-
 
 definition
   "constraints_of A l = \<Union> (set ` insert (inv_of A l) {g. \<exists>a r l'. (l, g, a, r, l') \<in> trans_of A})"
@@ -544,6 +344,10 @@ lemma sim_locD:
 lemma sim_nonneg:
   "u x \<ge> 0" if "(l, u) \<preceq> (l', u')" "u' x \<ge> 0" "x \<in> clk_set A" "U l x \<ge> 0"
   using that by (auto elim: simE)
+
+lemma sim_time_shift:
+  "(l, v \<oplus> d) \<preceq> (l', v' \<oplus> d)" if "(l, v) \<preceq> (l', v')" "d \<ge> 0"
+  using that unfolding cval_add_def sim_def by simp (metis add.commute add_strict_increasing2)
 
 lemma constraints_of_clk_set:
   assumes "g \<in> constraints_of A l"
@@ -971,5 +775,737 @@ interpretation inv: Invariant_Simulation where
   done
 
 end
+
+end
+
+
+
+locale Time_Abstract_Simulation_Sandwich =
+  Regions_TA where A = A +
+  Time_Abstract_Simulation where A = A for A :: "('a, 'c, real, 'l) ta" +
+  assumes sim_V: "(l, u) \<preceq> (l', u') \<Longrightarrow> u' \<in> V \<Longrightarrow> u \<in> V"
+
+  fixes I \<beta>
+  assumes I_invariant: "I Z \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<Longrightarrow> I Z'"
+  assumes \<beta>_\<alpha>:      "I Z \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> l \<in> state_set A \<Longrightarrow> \<beta> l Z \<subseteq> \<alpha> l Z"
+      and \<beta>_widens: "I Z \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> l \<in> state_set A \<Longrightarrow> Z \<subseteq> \<beta> l Z"
+      and \<beta>_I:      "I Z \<Longrightarrow> Z \<subseteq> V \<Longrightarrow> l \<in> state_set A \<Longrightarrow> I (\<beta> l Z)"
+  and finite_abstraction: "finite {\<beta> l Z | l Z. I Z \<and> Z \<subseteq> V \<and> l \<in> state_set A}"
+
+  fixes l\<^sub>0 :: 'l and Z\<^sub>0 :: "('c, real) zone"
+  assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set A" and Z\<^sub>0_V: "\<forall>u \<in> Z\<^sub>0. u \<in> V" and Z\<^sub>0_I: "I Z\<^sub>0"
+begin
+
+inductive step_beta ::
+  "('a, 'c, real, 'l) ta \<Rightarrow> 'l \<Rightarrow> ('c, real) zone \<Rightarrow> 'a \<Rightarrow> 'l \<Rightarrow> ('c, real) zone \<Rightarrow> bool"
+("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
+where
+  step_beta:
+    "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle> \<Longrightarrow> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle>
+  \<Longrightarrow> A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l'', \<beta> l'' Z''\<rangle>"
+
+no_notation step_z_beta  ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<beta>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61)
+
+no_notation step_z_alpha ("_ \<turnstile> \<langle>_, _\<rangle> \<leadsto>\<^bsub>\<alpha>(_)\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61)
+
+lemma step_beta_alt_def:
+  "(\<exists>a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', W\<rangle>) \<longleftrightarrow> (\<exists>Z'. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle> \<and> W = \<beta> l' Z')"
+  unfolding step_beta.simps step_z'_def by auto
+
+lemma step_betaE:
+  assumes "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', W\<rangle>"
+  obtains Z' where "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "W = \<beta> l' Z'"
+  using step_beta_alt_def assms by metis
+
+definition
+  "loc_is l s \<equiv> \<forall>(l', _) \<in> s. l' = l"
+
+lemma \<alpha>_V:
+  "\<alpha> l Z \<subseteq> V" if "Z \<subseteq> V"
+  using that sim_V unfolding V_def abs_def by auto
+
+lemma \<beta>_V:
+  "\<beta> l Z \<subseteq> V" if "Z \<subseteq> V" "I Z" "l \<in> state_set A"
+  using \<beta>_\<alpha> \<alpha>_V that by blast
+
+(* XXX Move *)
+lemma step_z'_V:
+  "Z' \<subseteq> V" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "Z \<subseteq> V"
+  by (meson step_z_V step_z'_def that)
+
+text \<open>Corresponds to lemma 6 of @{cite "Li:FORMATS:2009"}.\<close>
+lemma backward_simulation:
+  assumes
+    "b \<in> S'" "loc_is l S" "loc_is l' S'" "A \<turnstile> \<langle>l, R_of S\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of S'\<rangle>"
+    "I (R_of S)" "R_of S \<subseteq> V"
+  shows "\<exists>a\<in>S. \<exists>b'. (case a of (l, u) \<Rightarrow> \<lambda>(l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>) b' \<and> b \<preceq> b'"
+proof -
+  let ?Z = "R_of S" and ?Z' = "R_of S'"
+  obtain u1 where "b = (l', u1)"
+    using assms(1,3) unfolding loc_is_def by (cases b) auto
+  then have "u1 \<in> ?Z'"
+    using assms(1) by blast
+  from assms(4) obtain Z' where "A \<turnstile> \<langle>l, ?Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "?Z' = \<beta> l' Z'"
+    by (erule step_betaE)
+  then have "\<beta> l' Z' \<subseteq> \<alpha> l' Z'"
+    using assms(5,6) by (intro \<beta>_\<alpha>) (auto dest: I_invariant step_z'_V step_z_state_setI2)
+  with \<open>u1 \<in> ?Z'\<close> \<open>?Z' = _\<close> obtain u1' where "u1' \<in> Z'" "(l', u1) \<preceq> (l', u1')"
+    unfolding abs_def by auto
+  with \<open>A \<turnstile> \<langle>l, ?Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>\<close> obtain u where "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u1'\<rangle>" "u \<in> ?Z"
+    by (meson step_z_sound')
+  with \<open>_ \<preceq> _\<close> show ?thesis
+    using assms(2) unfolding R_of_def loc_is_def \<open>b = _\<close> by fastforce
+qed
+
+lemma step'_step_beta:
+  assumes
+    "(l, u) \<in> a'" "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" "loc_is l1 a'" "R_of a' \<subseteq> V" "I (R_of a')"
+  shows
+    "\<exists>b'. (\<exists>a l l'. loc_is l a' \<and> loc_is l' b' \<and> a' \<noteq> {} \<and> b' \<noteq> {} \<and>
+            A \<turnstile> \<langle>l, R_of a'\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', R_of b'\<rangle>) \<and> (l', u') \<in> b'"
+proof -
+  let ?Z = "R_of a'"
+  from \<open>(l, u) \<in> _\<close> \<open>loc_is _ _\<close> have [simp]: "l1 = l"
+    unfolding loc_is_def by auto
+  from assms(1) have "u \<in> ?Z"
+    unfolding R_of_def by force
+  with assms(2) obtain Z' where step: "A \<turnstile> \<langle>l, ?Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "u' \<in> Z'"
+    by (metis step_z_complete')
+  then obtain a where "A \<turnstile> \<langle>l, R_of a'\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', \<beta> l' Z'\<rangle>"
+    by atomize_elim (unfold step_beta_alt_def, fast)
+  moreover from \<beta>_widens have "u' \<in> \<beta> l' Z'"
+    using step \<open>_ \<subseteq> V\<close> \<open>I ?Z\<close> by (blast dest: step_z'_V I_invariant step_z_state_setI2)
+  ultimately show ?thesis
+    using \<open>loc_is _ _\<close> \<open>(l, u) \<in> _\<close>
+    by (inst_existentials "from_R l' (\<beta> l' Z')" a l l')
+       (auto simp: from_R_def loc_is_def R_of_def image_def)
+qed
+
+definition beta_step where
+  "beta_step \<equiv> \<lambda>s s'. \<exists>a l l'. loc_is l s \<and> loc_is l' s' \<and> s \<noteq> {} \<and> s' \<noteq> {} \<and>
+     A \<turnstile> \<langle>l, R_of s\<rangle> \<leadsto>\<^bsub>\<beta>(a)\<^esub> \<langle>l', R_of s'\<rangle>"
+
+lemma beta_step_inv:
+  assumes "beta_step a b" "\<exists>l\<in>state_set A. loc_is l a \<and> R_of a \<subseteq> V \<and> I (R_of a)"
+  shows "\<exists>l\<in>state_set A. loc_is l b \<and> R_of b \<subseteq> V \<and> I (R_of b)"
+  using assms unfolding beta_step_def
+  using \<beta>_V step_z'_V step_z_state_setI2 \<beta>_I I_invariant step_betaE by metis
+
+lemma from_R_R_of:
+  assumes "loc_is l S"
+  shows "from_R l (R_of S) = S"
+  using assms from_R_R_of unfolding loc_is_def by force
+
+interpretation backward_simulation: Backward_Double_Simulation_Complete where
+  E = "\<lambda>(l, u) (l', u'). A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>" and
+  G = beta_step and
+  sim' = "(\<equiv>\<^sub>M)" and
+  P = valid and
+  Q = "\<lambda>s. \<exists>l \<in> state_set A. loc_is l s \<and> R_of s \<subseteq> V \<and> I (R_of s)" and
+  a\<^sub>0 = "from_R l\<^sub>0 Z\<^sub>0"
+proof (standard, goal_cases)
+  case (1 a b a')
+  then show ?case
+    by (intro self_simulation.A_B_step TrueI)
+next
+  case (2 b B A)
+  then show ?case
+    unfolding beta_step_def apply clarify
+    thm backward_simulation
+    apply (rule backward_simulation, assumption+)
+    sorry
+next
+  case (3 a)
+  then show ?case
+    by (rule refl)
+next
+  case 4
+  then show ?case
+    by (rule self_simulation.trans)
+next
+  case 5
+  then show ?case
+    by (rule equiv)
+next
+  case 6
+  then show ?case
+    by (rule finite_quotient)
+next
+  case (7 a b a')
+  then show ?case
+    unfolding beta_step_def by clarify (rule step'_step_beta)
+next
+  case (8 a b)
+  then show ?case
+    by (rule region_self_simulation.PA_invariant.invariant)
+next
+  case (9 a b)
+  then show ?case
+    by (rule beta_step_inv[rotated])
+next
+  case 10
+  let ?S = "{from_R l (\<beta> l Z) | l Z. l \<in> state_set A \<and> Z \<subseteq> V \<and> I Z}"
+  have "{x. beta_step\<^sup>*\<^sup>* (from_R l\<^sub>0 Z\<^sub>0) x} \<subseteq> ?S \<union> {from_R l\<^sub>0 Z\<^sub>0}"
+    apply rule
+    apply simp
+    subgoal
+    proof (induction "from_R l\<^sub>0 Z\<^sub>0" _ rule: rtranclp.induct)
+      case rtrancl_refl
+      then show ?case
+        by simp
+    next
+      case (rtrancl_into_rtrancl b c)
+      let ?Z = "R_of b" and ?Z' = "R_of c"
+      from \<open>beta_step b c\<close> guess a l l'
+        unfolding beta_step_def by clarify
+      note step = this
+      with rtrancl_into_rtrancl(2) \<open>loc_is l b\<close> have "l \<in> state_set A" "?Z \<subseteq> V" "I ?Z"
+        using Z\<^sub>0_V Z\<^sub>0_I l\<^sub>0_state_set \<beta>_V \<beta>_I
+         apply auto
+          apply (auto simp: loc_is_def from_R_def)
+        apply blast
+        done
+      with step(1,2,5) show ?case
+        using from_R_R_of step_z_state_setI2 step_z'_V step_betaE I_invariant by metis
+    qed
+    done
+  moreover have "finite (?S \<union> {from_R l\<^sub>0 Z\<^sub>0})"
+  proof -
+    let ?T = "(\<lambda>(l, Z). from_R l Z) ` (state_set A \<times> {\<beta> l Z |l Z. I Z \<and> Z \<subseteq> V \<and> l \<in> state_set A})"
+    have "?S \<subseteq> ?T"
+      by auto
+    also from finite_state_set finite_abstraction have "finite ?T"
+      by auto
+    finally show ?thesis
+      by fast
+  qed
+  ultimately show ?case
+    by (rule finite_subset)
+next
+  case (11 a)
+  then show ?case
+    unfolding loc_is_def by auto
+next
+  case 12
+  then show ?case
+    using l\<^sub>0_state_set Z\<^sub>0_V Z\<^sub>0_I by (auto simp: V_def loc_is_def from_R_def R_of_def image_def)
+qed
+
+end
+
+
+
+context Regions
+begin
+
+inductive step_z_dbm' ::
+  "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> 't :: {linordered_cancel_ab_monoid_add,uminus} DBM
+    \<Rightarrow> 'a \<Rightarrow> 's \<Rightarrow> 't DBM \<Rightarrow> bool"
+("_ \<turnstile>' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61) for A l D a l'' D''
+where
+  "A \<turnstile>' \<langle>l,D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l'',D''\<rangle>" if "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l',D'\<rangle>" "A \<turnstile> \<langle>l',D'\<rangle> \<leadsto>\<^bsub>v,n,\<upharpoonleft>a\<^esub> \<langle>l'',D''\<rangle>"
+
+lemmas step_z_dbm'_def = step_z_dbm'.simps
+
+inductive step_impl' ::
+  "('a, nat, 't :: linordered_ab_group_add, 's) ta \<Rightarrow> 's \<Rightarrow> 't DBM'
+    \<Rightarrow> 'a \<Rightarrow> 's \<Rightarrow> 't DBM' \<Rightarrow> bool"
+("_ \<turnstile>\<^sub>I' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61) for A l D a l'' D''
+where
+  "A \<turnstile>\<^sub>I' \<langle>l,D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l'',D''\<rangle>" if "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l',D'\<rangle>" "A \<turnstile>\<^sub>I \<langle>l',D'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'',D''\<rangle>"
+
+lemmas step_impl'_def = step_impl'.simps
+
+end
+
+
+definition
+  "dbm_nonneg n M \<equiv> \<forall>i \<le> n. i > 0 \<longrightarrow> M 0 i \<le> 0"
+
+named_theorems dbm_nonneg
+
+lemma dbm_nonneg_And[dbm_nonneg]:
+  assumes "dbm_nonneg n M" "dbm_nonneg n M'"
+  shows "dbm_nonneg n (And M M')"
+  using assms by (auto simp: dbm_nonneg_def min_def)
+
+lemma dbm_nonneg_abstra[dbm_nonneg]:
+  assumes "dbm_nonneg n M"
+  shows "dbm_nonneg n (abstra ac M v)"
+  using assms by (cases ac) (auto simp: dbm_nonneg_def min_def)
+
+lemma dbm_nonneg_abstr[dbm_nonneg]:
+  assumes "dbm_nonneg n M"
+  shows "dbm_nonneg n (abstr g M v)"
+  using assms(1) unfolding abstr.simps
+  by (rule fold_acc_preserv'[where P = "dbm_nonneg n", rotated]) (rule dbm_nonneg_abstra)
+
+lemma dbm_nonneg_up[dbm_nonneg]:
+  "dbm_nonneg n (up M)" if "dbm_nonneg n M"
+  using that unfolding dbm_nonneg_def up_def by auto
+
+lemma dbm_nonneg_reset[dbm_nonneg]:
+  fixes M :: "'t :: time DBM"
+  assumes "dbm_nonneg n M" "x > 0"
+  shows "dbm_nonneg n (reset M n x 0)"
+  using assms unfolding reset_def dbm_nonneg_def by (auto simp: neutral min_def)
+
+lemma dbm_nonneg_reset'[dbm_nonneg]:
+  fixes M :: "'t :: time DBM"
+  assumes "dbm_nonneg n M" "\<forall>c \<in> set r. v c > 0"
+  shows "dbm_nonneg n (reset' M n r v 0)"
+  using assms by (induction r) (auto intro: dbm_nonneg_reset)
+
+lemma dbm_nonneg_fw_upd[dbm_nonneg]:
+  "dbm_nonneg n (fw_upd M k' i j)" if "dbm_nonneg n M"
+  using that unfolding dbm_nonneg_def fw_upd_def upd_def min_def by auto
+
+lemma dbm_nonneg_fwi[dbm_nonneg]:
+  "dbm_nonneg n (fwi M n k' i j)" if "dbm_nonneg n M"
+  using that by (induction M _ _ _ _ rule: fwi.induct) (auto intro!: dbm_nonneg_fw_upd)
+
+lemma dbm_nonneg_fw[dbm_nonneg]:
+  "dbm_nonneg n (fw M n k)" if "dbm_nonneg n M"
+  using that by (induction k) (auto intro!: dbm_nonneg_fwi)
+
+lemma dbm_nonneg_FW[dbm_nonneg]:
+  "dbm_nonneg n (FW M n)" if "dbm_nonneg n M"
+  using that by (rule dbm_nonneg_fw)
+
+definition
+  "empty_dbm \<equiv> \<lambda>_ _. Lt 0"
+
+lemma neg_diag_zero_empty_dbmI:
+  assumes "M 0 0 < 0"
+  shows "[M]\<^bsub>v,n\<^esub> = {}"
+  using assms
+  unfolding DBM_zone_repr_def DBM_val_bounded_def DBM.neutral DBM.less_eq[symmetric] by auto
+
+lemma empty_dbm_empty_zone:
+  "[empty_dbm]\<^bsub>v,n\<^esub> = {}"
+  unfolding empty_dbm_def by (rule neg_diag_zero_empty_dbmI) (simp add: DBM.neutral)
+
+lemma canonical_empty_dbm:
+  "canonical empty_dbm n"
+  unfolding empty_dbm_def by (auto simp: DBM.add)
+
+lemma dbm_int_empty_dbm:
+  "dbm_int empty_dbm n"
+  unfolding empty_dbm_def by auto
+
+lemma dbm_nonneg_empty_dbm:
+  "dbm_nonneg n empty_dbm"
+  unfolding dbm_nonneg_def empty_dbm_def DBM.neutral by simp
+
+lemmas [simp] = any_le_inf
+
+lemma DBM_val_boundedD1:
+  assumes "u \<turnstile>\<^bsub>v,n\<^esub> M" "v c \<le> n"
+  shows "Le (- u c) \<le> M 0 (v c)"
+  using assms unfolding dbm_entry_val.simps DBM_val_bounded_def by auto
+
+lemma DBM_val_boundedD2:
+  assumes "u \<turnstile>\<^bsub>v,n\<^esub> M" "v c \<le> n"
+  shows "Le (u c) \<le> M (v c) 0"
+  using assms unfolding dbm_entry_val.simps DBM_val_bounded_def by auto
+
+lemma DBM_val_boundedD3:
+  assumes "u \<turnstile>\<^bsub>v,n\<^esub> M" "v c1 \<le> n" "v c2 \<le> n"
+  shows "Le (u c1 - u c2) \<le> M (v c1) (v c2)"
+  using assms unfolding dbm_entry_val.simps DBM_val_bounded_def by force
+
+lemma dbm_default_And:
+  assumes "dbm_default M n" "dbm_default M' n"
+  shows "dbm_default (And M M') n"
+  using assms by auto
+
+lemma dbm_default_abstra:
+  assumes "dbm_default M n" "constraint_pair ac = (x, m)" "v x \<le> n"
+  shows "dbm_default (abstra ac M v) n"
+  using assms by (cases ac) auto
+
+lemma dbm_default_abstr:
+  assumes "dbm_default M n" "\<forall>(x, m)\<in>collect_clock_pairs g. v x \<le> n"
+  shows "dbm_default (abstr g M v) n"
+  using assms(1) unfolding abstr.simps
+proof (rule fold_acc_preserv'[where P = "\<lambda>M. dbm_default M n", rotated], goal_cases)
+  case (1 ac acc)
+  then obtain x m where "constraint_pair ac = (x, m)"
+    by force
+  with assms(2) 1 show ?case
+    by (intro dbm_default_abstra) (auto simp: collect_clock_pairs_def)
+qed
+
+lemma dbm_entry_dense:
+  fixes a b :: "'t :: time DBMEntry"
+  assumes "a + b \<ge> 0" "b > 0"
+  obtains x where "x > 0" "b \<ge> Le x" "Le (-x) \<le> a"
+proof -
+  consider "a = \<infinity>" | "a \<noteq> \<infinity>" "a + b = 0" | "a \<noteq> \<infinity>" "a + b > 0"
+    using assms(1) by force
+  then show ?thesis
+  proof cases
+    case 1
+    with assms show ?thesis
+    proof (cases b)
+      case (Le x)
+      with assms(2) 1 show ?thesis
+        by (intro that[of x]) (auto simp: DBM.neutral DBM.add)
+    next
+      case (Lt x2)
+      with assms(2) 1 show ?thesis
+        using that time_class.dense by (auto simp: DBM.neutral DBM.add)
+    next
+      case INF
+      with 1 assms(2) that show ?thesis
+        by (metis add_inf(2) any_le_inf dbm_less_eq_simps(2) neg_less_iff_less sum_gt_neutral_dest)
+    qed
+  next
+    case 2
+    then obtain x where "a = Le (-x)" "b = Le x"
+      unfolding neutral by (cases a; cases b; simp add: DBM.add eq_neg_iff_add_eq_0)
+    with \<open>b > 0\<close> show ?thesis
+      by (intro that[of x]; simp add: neutral)
+  next
+    case 3
+    note intro = that
+    have 1: "0 < x + y \<Longrightarrow> - y \<le> x" for x y :: 't
+      by (metis ab_semigroup_add_class.add.commute add.right_inverse add_le_cancel_left less_imp_le)
+    have 2: thesis if "0 < x + y" "0 < y" "a = Le x" "b = Lt y" for x y :: 't
+    proof (cases "x > 0")
+      case True
+      then have "- x \<le> 0"
+        by auto
+      from \<open>y > 0\<close> dense obtain z where "0 < z" "z < y"
+        by auto
+      with that \<open>- x \<le> 0\<close> show ?thesis
+        using dual_order.trans by (intro intro[of z]; fastforce)
+    next
+      case False
+      from that have "-x < y"
+        using 1 minus_less_iff by fastforce
+      with dense obtain z where "- x < z" "z < y"
+        by auto
+      with False that show ?thesis
+        by (intro intro[of z]; simp add: less_imp_le minus_less_iff)
+          (meson leI less_le_trans neg_less_0_iff_less)
+    qed
+    have 3: thesis if "a = Le x" "b = \<infinity>" for x :: 't
+      by (metis that Le_le_LeI add_inf(2) any_le_inf assms(2) dbm_less_eq_simps(2) diff_0_right
+          diff_left_mono diff_less_eq minus_diff_eq sum_gt_neutral_dest' intro uminus_add_conv_diff)
+    have 4: thesis if "a = Lt x" "b = \<infinity>" for x :: 't
+      by (metis that \<open>0 < a + b\<close> add.inverse_inverse dbm_less_eq_simps(2) dbm_less_simps(2) intro leI
+          less_imp_le less_le_trans neg_0_less_iff_less sum_gt_neutral_dest)
+    have 5: thesis if "0 < x + y" "0 < y" "a = Lt x" "b = Le y" for x y
+      by (metis that Le_le_LtI antisym_conv1 diff_0_right diff_less_eq intro less_irrefl minus_diff_eq)
+    have 6: thesis if "0 < y" "a = Lt x" "b = Lt y" for x y
+      by (metis that \<open>0 < a + b\<close> add.inverse_inverse dbm_less_eq_simps(2) intro
+          leI less_imp_le less_le_trans neg_less_iff_less sum_gt_neutral_dest dense)
+    have 7: thesis if "0 < x + y" "0 < y" "a = Le x" "b = Le y" for x y
+      using that by (intro intro[of y]) (auto simp: DBM.add intro: 1)
+    from \<open>a + b > 0\<close> \<open>b > 0\<close> \<open>a \<noteq> \<infinity>\<close> show thesis
+      by (cases a; cases b) (auto simp: DBM.add neutral intro: 2 3 4 5 6 7)
+  qed
+qed
+
+lemma canonical_diag:
+  fixes M :: "'t :: time DBM"
+  assumes "canonical M n" "i \<le> n"
+  shows "M i i \<ge> Lt 0"
+proof (rule ccontr)
+  assume "\<not> M i i \<ge> Lt 0"
+  then have "M i i < Lt 0"
+    by auto
+  then have "M i i + M i i < M i i"
+    by (cases "M i i") (auto simp: DBM.add)
+  with assms show False
+    by force
+qed
+
+lemma canonical_diag_nonnegI:
+  fixes M :: "'t :: time DBM"
+  assumes "canonical M n" "\<forall>i \<le> n. M i i \<noteq> Lt 0"
+  shows "\<forall>i \<le> n. M i i \<ge> 0"
+proof clarify
+  fix i assume "i \<le> n"
+  then show "M i i \<ge> 0"
+    using canonical_diag[OF assms(1) \<open>i \<le> n\<close>] assms(2) by (cases "M i i"; auto simp: DBM.neutral)
+qed
+
+context Regions_common
+begin
+
+lemma canonical_non_emptyI:
+  assumes "[M]\<^bsub>v,n\<^esub> \<noteq> {}"
+  shows "canonical (FW M n) n"
+  by (simp add: assms fw_shortest non_empty_cyc_free)
+
+definition
+  "canonical_dbm M \<equiv> canonical M n \<and> dbm_nonneg n M \<and> dbm_int M n"
+
+abbreviation
+  "vabstr' (Z :: ('c, t) zone) M \<equiv> Z = [M]\<^bsub>v,n\<^esub> \<and> canonical_dbm M"
+
+lemma V_structuralI:
+  assumes "dbm_nonneg n M"
+  shows "[M]\<^bsub>v,n\<^esub> \<subseteq> V"
+  using clock_numbering(3) assms unfolding V_def DBM_zone_repr_def
+  by (clarsimp simp: neutral) (meson assms clock_numbering(1) dbm_positive dbm_nonneg_def)
+
+lemma canonical_dbm_valid:
+  "valid_dbm M" if "canonical_dbm M"
+  using that unfolding canonical_dbm_def by (auto dest: V_structuralI)
+
+lemma dbm_nonnegI:
+  assumes "canonical M n" "[M]\<^bsub>v,n\<^esub> \<subseteq> V" "\<forall>i \<le> n. M i i \<noteq> Lt 0"
+  shows "dbm_nonneg n M"
+proof (rule ccontr)
+  assume A: "\<not> dbm_nonneg n M"
+  from assms(1,3) have diag_nonneg: "\<forall>i \<le> n. M i i \<ge> 0"
+    by (rule canonical_diag_nonnegI)
+  from A obtain i where "i > 0" "i \<le> n" "M 0 i > 0"
+    unfolding dbm_nonneg_def by auto
+  moreover have "M i 0 + M 0 i \<ge> 0"
+  proof -
+    from assms(1) \<open>i \<le> n\<close> have "M i i \<ge> Lt 0"
+      by (rule canonical_diag)
+    with \<open>i \<le> n\<close> assms(3) have "M i i \<ge> 0"
+      by (cases "M i i"; auto simp: neutral)
+    also from \<open>canonical M n\<close> \<open>i \<le> n\<close> have "M i 0 + M 0 i \<ge> M i i"
+      by auto
+    finally show ?thesis .
+  qed
+  ultimately obtain x where "x > 0" "M 0 i \<ge> Le x" "Le (-x) \<le> M i 0"
+    by - (rule dbm_entry_dense)
+  moreover from \<open>i > 0\<close> \<open>i \<le> n\<close> obtain c where "c \<in> X" "v c \<le> n" "i = v c"
+    using clock_numbering by auto
+  moreover from clock_numbering(1) cn_weak assms(1) have "cycle_free M n"
+    by (intro non_empty_cycle_free canonical_nonneg_diag_non_empty diag_nonneg) auto
+  ultimately obtain u where "u \<in> [M]\<^bsub>v,n\<^esub>" "u c < 0"
+    using assms(1)
+    by (auto simp: clock_numbering(1) intro: canonical_saturated_1[where M = M and v = v])
+  with assms(2) \<open>c \<in> X\<close> show False
+    unfolding V_def DBM_zone_repr_def by force
+qed
+
+lemma vabstr'_V:
+  obtains M where "vabstr' V M"
+proof -
+  interpret beta_regions: Beta_Regions'
+  where k = "k l"
+    apply -
+    apply unfold_locales
+         apply (rule finite)
+        apply (simp add: non_empty)
+     apply (rule clock_numbering cn_weak not_in_X)+
+  done
+  have V_eq: "beta_regions.V = V"
+    unfolding beta_regions.V_def V_def ..
+  let ?M = "beta_regions.V_dbm"
+  from beta_regions.V_dbm_eq_V beta_regions.V_dbm_int beta_regions.normalized_V_dbm have *:
+    "[?M]\<^bsub>v,n\<^esub> = V" "dbm_int ?M n" "beta_regions.normalized ?M"
+    unfolding V_eq by auto
+  moreover have "dbm_nonneg n ?M"
+    unfolding beta_regions.V_dbm_def dbm_nonneg_def DBM.neutral by simp
+  ultimately show ?thesis
+    apply -
+    apply (rule that[of "FW ?M n"])
+    apply (rule conjI)
+    subgoal
+      using FW_zone_equiv_spec by blast
+    unfolding canonical_dbm_def
+    apply (intro conjI dbm_nonneg_FW FW_int_preservation canonical_non_emptyI)
+      apply (auto simp: V_def)
+    done
+qed
+
+lemma canonical_dbm_empty_dbm:
+  "canonical_dbm empty_dbm"
+  unfolding canonical_dbm_def
+  by (intro conjI canonical_empty_dbm dbm_int_empty_dbm dbm_nonneg_empty_dbm)
+
+lemma vabstr'_empty_dbm:
+  "vabstr' {} empty_dbm"
+  by (intro conjI empty_dbm_empty_zone[symmetric] canonical_dbm_empty_dbm)
+
+lemma vabstr'I:
+  assumes "dbm_int M' n" "Z' \<subseteq> V" "Z' = [M']\<^bsub>v,n\<^esub>"
+  obtains M' where "vabstr' Z' M'"
+proof (cases "Z' = {}")
+  case True
+  then show ?thesis
+    by (intro that[of empty_dbm], simp only: vabstr'_empty_dbm)
+next
+  case False
+  with assms obtain M' where *: "Z' = [M']\<^bsub>v,n\<^esub>" "dbm_int M' n" "canonical M' n"
+    by (metis FW_canonical' FW_valid_preservation FW_zone_equiv_spec
+        dbm_non_empty_diag valid_dbm.simps)
+  with assms(2) have "dbm_nonneg n M'"
+    by - (rule dbm_nonnegI; smt \<open>Z' \<noteq> {}\<close> dbm_less_eq_simps(2) dbm_non_empty_diag neutral)
+  let ?M = "FW M' n"
+  from * \<open>dbm_nonneg n M'\<close> show ?thesis
+    apply (intro that[of ?M] conjI)
+     apply (simp add: FW_zone_equiv_spec[symmetric])
+    unfolding canonical_dbm_def
+    unfolding dbm_nonneg_def[symmetric]
+    apply (intro conjI FW_canonical' dbm_nonneg_FW FW_int_preservation; assumption?)
+    subgoal diag_nonneg
+      using FW_zone_equiv_spec False dbm_non_empty_diag by blast
+    done
+qed
+
+end
+
+context Regions_TA
+begin
+
+text \<open>The following does not hold:\<close>
+lemma
+  fixes M :: "real DBM"
+  assumes "canonical M n"
+      and "\<forall>i \<le> n. M 0 i \<le> 0"
+    shows "\<forall>i \<le> n. 0 \<le> M i i"
+  oops
+
+lemma global_clock_numbering:
+  "global_clock_numbering A v n"
+  using clock_numbering(1) clock_numbering_le cn_weak valid_abstraction by blast
+
+sublocale step_z'_bisim_step_z_dbm': Bisimulation
+  "\<lambda>(l, Z) (l', Z'). A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>"
+  "\<lambda>(l, M) (l', M'). \<exists>a. A \<turnstile>' \<langle>l,M\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',M'\<rangle>"
+  "\<lambda>(l, Z) (l', M). l' = l \<and> Z = [M]\<^bsub>v,n\<^esub>"
+  apply (standard; clarsimp simp: step_z_dbm'_def step_z'_def)
+  subgoal
+    using global_clock_numbering by (auto elim!: step_z_dbm_DBM)
+  subgoal
+    by (blast dest: step_z_dbm_sound[OF _ global_clock_numbering])
+  done
+
+lemma step_z_dbm_preserves_int:
+  "dbm_int M' n" if "A \<turnstile> \<langle>l,M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l',M'\<rangle>" "dbm_int M n"
+  apply (rule step_z_dbm_preserves_int; (rule that global_clock_numbering)?)
+  using valid_abstraction valid_abstraction_pairsD by fastforce
+
+lemma step_z_dbm'_preserves_int:
+  "dbm_int M' n" if "A \<turnstile>' \<langle>l,M\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l',M'\<rangle>" "dbm_int M n"
+  using that by cases (erule step_z_dbm_preserves_int)+
+
+lemma step_z'_vabstr':
+  "\<exists>M. vabstr' Z' M" if "\<exists>M. vabstr' Z M" "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>"
+proof -
+  from that obtain M where "vabstr' Z M"
+    by auto
+  with step_z'_bisim_step_z_dbm'.A_B_step[of "(l, Z)" _ "(l, M)"] that(2) obtain a M' where *:
+    "A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', M'\<rangle>" "Z' = [M']\<^bsub>v,n\<^esub>"
+    by force
+  with \<open>vabstr' Z M\<close> have "dbm_int M' n"
+    by - (rule step_z_dbm'_preserves_int, auto simp: canonical_dbm_def)
+  moreover from *(1) \<open>vabstr' Z M\<close> have "Z' \<subseteq> V"
+    by (metis canonical_dbm_valid step_z'_def step_z_V that(2) valid_dbm.simps)
+  ultimately obtain M' where "vabstr' Z' M'"
+    using \<open>Z' = _\<close> by - (rule vabstr'I)
+  then show ?thesis
+    by (intro exI)
+qed
+
+end
+
+
+locale TA_Extrapolation =
+  Regions_TA where A = A +
+  Time_Abstract_Simulation where A = A for A :: "('a, 'c, real, 'l) ta" +
+  assumes simulation_nonneg: "u' \<in> V \<Longrightarrow> (l, u) \<preceq> (l', u') \<Longrightarrow> u \<in> V"
+  fixes extra :: "'l \<Rightarrow> real DBM \<Rightarrow> real DBM"
+  assumes extra_widens: "vabstr' Z M \<Longrightarrow> Z \<subseteq> [extra l M]\<^bsub>v,n\<^esub>"
+      and extra_\<alpha>: "vabstr' Z M \<Longrightarrow> [extra l M]\<^bsub>v,n\<^esub> \<subseteq> \<alpha> l Z"
+      and extra_finite: "finite {extra l M | M. canonical_dbm M}"
+begin
+
+definition apx where
+  "apx l Z \<equiv> let M = (SOME M. canonical_dbm M \<and> Z = [M]\<^bsub>v,n\<^esub>) in [extra l M]\<^bsub>v,n\<^esub>"
+
+lemma apx_widens:
+  "[M]\<^bsub>v,n\<^esub> \<subseteq> apx l ([M]\<^bsub>v,n\<^esub>)" if "canonical_dbm M"
+  by (smt apx_def extra_widens someI_ex that)
+
+lemma apx_abs:
+  "apx l ([M]\<^bsub>v,n\<^esub>) \<subseteq> \<alpha> l ([M]\<^bsub>v,n\<^esub>)" if "canonical_dbm M"
+  by (smt apx_def extra_\<alpha> someI_ex that)
+
+lemma apx_ex:
+  assumes "canonical_dbm M"
+  shows "\<exists>M'. apx l ([M]\<^bsub>v,n\<^esub>) = [extra l M']\<^bsub>v,n\<^esub> \<and> canonical_dbm M'"
+  using assms unfolding apx_def by (smt someI_ex)
+
+lemma apx_finite:
+  "finite {apx l Z |l Z. \<exists>M. vabstr' Z M \<and> l \<in> state_set A}" (is "finite ?S")
+proof -
+  { fix l assume "l \<in> state_set A"
+    from extra_finite have "finite {[extra l M]\<^bsub>v,n\<^esub> | M. canonical_dbm M}"
+    proof -
+      have "{[extra l M]\<^bsub>v,n\<^esub> | M. canonical_dbm M}
+        = (\<lambda>M. [M]\<^bsub>v,n\<^esub>) ` {extra l M | M. canonical_dbm M}"
+        by auto
+      with extra_finite show ?thesis
+        by simp
+    qed
+    also from apx_ex have "{apx l Z |Z. \<exists>M. vabstr' Z M} \<subseteq> \<dots>"
+      by auto
+    finally (finite_subset[rotated]) have "finite {apx l Z |Z. \<exists>M. vabstr' Z M}" .
+  } note * = this
+  have "?S = (\<Union> l \<in> state_set A. {apx l Z |Z. \<exists>M. vabstr' Z M})"
+    by auto
+  also have "finite \<dots>"
+    using * finite_state_set by auto
+  finally show ?thesis .
+qed
+
+sublocale Time_Abstract_Simulation_Sandwich
+  where \<beta> = apx and
+  I = "\<lambda>Z. \<exists>M. vabstr' Z M"
+  proof standard
+  show "u \<in> V"
+    if "(l, u) \<preceq> (l', u')"
+      and "u' \<in> V"
+    for l :: 'l
+      and u :: "'c \<Rightarrow> real"
+      and l' :: 'l
+      and u' :: "'c \<Rightarrow> real"
+    using that by (rule simulation_nonneg[rotated])
+  show "\<exists>M. vabstr' Z' M"
+    if "\<exists>M. vabstr' Z M" and "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" for Z Z' :: "('c \<Rightarrow> real) set" and l l' :: 'l
+    using that by (rule step_z'_vabstr')
+  show "apx l Z \<subseteq> \<alpha> l Z"
+    if "\<exists>M. vabstr' Z M"
+      and "Z \<subseteq> V"
+    for Z :: "('c \<Rightarrow> real) set"
+      and l :: 'l
+    using that apx_abs by auto
+  show "Z \<subseteq> apx l Z"
+    if "\<exists>M. vabstr' Z M"
+      and "Z \<subseteq> V"
+    for Z :: "('c \<Rightarrow> real) set"
+      and l :: 'l
+    using that apx_widens by auto
+  show "\<exists>M. vabstr' (apx l Z) M"
+    if "\<exists>M. vabstr' Z M"
+      and "Z \<subseteq> V"
+    for Z :: "('c \<Rightarrow> real) set"
+      and l :: 'l
+    using that sorry
+  show "finite {apx l Z |l Z. (\<exists>M. vabstr' Z M) \<and> Z \<subseteq> V \<and> l \<in> state_set A}"
+    using apx_finite by (rule finite_subset[rotated]) auto
+  show "l\<^sub>0 \<in> state_set A"
+    sorry
+  show "\<forall>u\<in>Z\<^sub>0. u \<in> V"
+    sorry
+  show "\<exists>M. vabstr' Z\<^sub>0 M"
+    sorry
+qed
+
+
+end
+
 
 end
