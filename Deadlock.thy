@@ -251,17 +251,6 @@ using that
     | simp add: DBM.less_eq dbm_entry_val.simps dbm_le_def
   )+
 
-fun neg_dbm_entry where
-  "neg_dbm_entry (Le a) = Lt (-a)" |
-  "neg_dbm_entry (Lt a) = Le (-a)" |
-  "neg_dbm_entry \<infinity> = \<infinity>"
-  \<comment> \<open>This case doesn't make sense but we make this definition for technical convenience\<close>
-
-lemma neg_entry:
-  "{u. \<not> dbm_entry_val u a b e} = {u. dbm_entry_val u b a (neg_dbm_entry e)}"
-  if "e \<noteq> (\<infinity> :: _ DBMEntry)" "a \<noteq> None \<or> b \<noteq> None"
-  using that by (cases e; cases a; cases b; auto 4 3 simp: le_minus_iff less_minus_iff)
-
 definition and_entry ::
   "nat \<Rightarrow> nat \<Rightarrow> ('t::{linordered_cancel_ab_monoid_add,uminus}) DBMEntry \<Rightarrow> 't DBM \<Rightarrow> 't DBM" where
   "and_entry a b e M = (\<lambda>i j. if i = a \<and> j = b then min (M i j) e else M i j)"

@@ -6,6 +6,14 @@ begin
 
 section \<open>Auxiliary\<close>
 
+lemma finite_vimageI2: "finite (h -` F)" if "finite F" "inj_on h {x. h x \<in> F}"
+proof -
+  have "h -` F = h -` F \<inter> {x. h x \<in> F}"
+    by auto
+  from that show ?thesis
+    by(subst \<open>h -` F = _\<close>) (rule finite_vimage_IntI[of F h "{x. h x \<in> F}"])
+qed
+
 lemma gt_swap:
   fixes a b c :: "'t :: time"
   assumes "c < a + b"
@@ -122,23 +130,13 @@ proof (clarsimp, goal_cases)
   obtain S_Min_Lt where S_Min_Lt:
     "S_Min_Lt = {- d - u c | c d. 0 < v c \<and> v c \<le> n \<and> M 0 (v c) = Lt d}"
   by auto
-  have "finite {c. 0 < v c \<and> v c \<le> n}"
-  using A(2,3)
-  proof (induction n)
-    case 0
-    then have "{c. 0 < v c \<and> v c \<le> 0} = {}" by auto
-    then show ?case by (metis finite.emptyI)
-  next
-    case (Suc n)
-    then have "finite {c. 0 < v c \<and> v c \<le> n}" by auto
-    moreover have "{c. 0 < v c \<and> v c \<le> Suc n} = {c. 0 < v c \<and> v c \<le> n} \<union> {c. v c = Suc n}" by auto
-    moreover have "finite {c. v c = Suc n}"
-    proof (cases "{c. v c = Suc n} = {}", auto)
-      fix c assume "v c = Suc n"
-      then have "{c. v c = Suc n} = {c}" using Suc.prems(2) by auto
-      then show ?thesis by auto
-    qed
-    ultimately show ?case by auto
+  have "finite {c. 0 < v c \<and> v c \<le> n}" (is "finite ?S")
+  proof -
+    have "?S \<subseteq> v -` {1..n}"
+      by auto
+    also have "finite \<dots>"
+      using assms(1) by (auto intro!: finite_vimageI2 inj_onI)
+    finally show ?thesis .
   qed
   then have "\<forall> f. finite {(c,b) | c b. 0 < v c \<and> v c \<le> n \<and> f M (v c) = b}" by auto
   moreover have

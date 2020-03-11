@@ -8,12 +8,12 @@ no_notation infinity ("\<infinity>")
 
 section \<open>Definitions\<close>
 
+subsection \<open>Definition and Semantics of DBMs\<close>
 text \<open>
   Difference Bound Matrices (DBMs) constrain differences of clocks
   (or more precisely, the difference of values assigned to individual clocks by a valuation).
   The possible constraints are given by the following datatype:
 \<close>
-
 datatype 't DBMEntry = Le 't | Lt 't | INF ("\<infinity>")
 
 text \<open>\noindent This yields a simple definition of DBMs:\<close>
@@ -89,6 +89,7 @@ abbreviation DBM_val_bounded_abbrev ::
 where
   "u \<turnstile>\<^bsub>v,n\<^esub> M \<equiv> DBM_val_bounded v u M n"
 
+subsection \<open>Ordering DBM Entries\<close>
 abbreviation
   "dmin a b \<equiv> if a \<prec> b then a else b"
 
@@ -188,9 +189,8 @@ lemma not_dbm_lt_lt_impl: "\<not> Lt a \<prec> Lt b \<Longrightarrow> a \<ge> b"
 
 lemma not_dbm_le_lt_impl: "\<not> Le a \<prec> Lt b \<Longrightarrow> a \<ge> b" by (metis dbm_lt.intros(4) not_less)
 
-(*>*)
 
-(*<*)
+subsection \<open>Addition on DBM Entries\<close>
 
 fun dbm_add :: "('t::linordered_cancel_ab_semigroup_add) DBMEntry \<Rightarrow> 't DBMEntry \<Rightarrow> 't DBMEntry" (infixl "\<otimes>" 70)
 where
@@ -268,6 +268,40 @@ by (cases a, auto, cases b, auto, cases b, auto)
 lemma dbm_le_not_inf:
   "a \<preceq> b \<Longrightarrow> b \<noteq> \<infinity> \<Longrightarrow> a \<noteq> \<infinity>"
 by (cases "a = b") (auto simp: dbm_le_def)
+
+
+subsection \<open>Negation of DBM Entries\<close>
+
+fun neg_dbm_entry where
+  "neg_dbm_entry (Le a) = Lt (-a)" |
+  "neg_dbm_entry (Lt a) = Le (-a)" |
+  "neg_dbm_entry \<infinity> = \<infinity>"
+  \<comment> \<open>This case does not make sense but we make this definition for technical convenience.\<close>
+
+lemma neg_entry:
+  "{u. \<not> dbm_entry_val u a b e} = {u. dbm_entry_val u b a (neg_dbm_entry e)}"
+  if "e \<noteq> (\<infinity> :: _ DBMEntry)" "a \<noteq> None \<or> b \<noteq> None"
+  using that by (cases e; cases a; cases b; auto 4 3 simp: le_minus_iff less_minus_iff)
+
+instantiation DBMEntry :: (uminus) uminus
+begin
+  definition uminus: "uminus = neg_dbm_entry"
+  instance ..
+end
+
+text \<open>Note that it is not clear that this is the only sensible definition for negation DBM entries.
+The following would also have been quite viable:
+\<comment> \<open>fun neg_dbm_entry where
+  "neg_dbm_entry (Le a) = Le (-a)" |
+  "neg_dbm_entry (Lt a) = Lt (-a)" |
+  "neg_dbm_entry \<infinity> = \<infinity>"\<close>
+
+For most practical proofs using arithmetic on DBM entries we have found that this
+does not make much of a difference. Lemma @{thm neg_entry} would not hold any longer, however.
+\<close>
+
+
+
 
 section \<open>DBM Entries Form a Linearly Ordered Abelian Monoid\<close>
 
@@ -693,5 +727,8 @@ next
     using dbm_entry_val_add_2 unfolding add by fastforce
   thus ?case using 2(4) unfolding DBM_val_bounded_def by simp
 qed
+
+
+lemmas DBM_arith_defs = add neutral uminus
 
 end (* Theory *)

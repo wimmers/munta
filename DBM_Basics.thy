@@ -103,6 +103,8 @@ next
   case 3 thus ?case unfolding dbm_le_def by auto
 qed
 
+lemmas dbm_entry_val_mono = dbm_entry_val_mono_1 dbm_entry_val_mono_2 dbm_entry_val_mono_3
+
 lemma DBM_le_subset:
   "\<forall> i j. i \<le> n \<longrightarrow> j \<le> n \<longrightarrow> M i j \<preceq> M' i j \<Longrightarrow> u \<in> [M]\<^bsub>v,n\<^esub> \<Longrightarrow> u \<in> [M']\<^bsub>v,n\<^esub>"
 proof -
