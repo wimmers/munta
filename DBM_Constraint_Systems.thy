@@ -845,7 +845,7 @@ lemma close_lu_closed:
        (metis add.commute add.right_neutral add_left_mono min.absorb2 min.cobounded1)
   by (simp add: add_increasing2)
 
-lemma close_lu_closed':
+lemma close_lu_closed': \<comment> \<open>Unused\<close>
   "lower_upper_closed (dbm_to_cs n v (close_lu M) \<union> dbm_to_cs n v M)" if "M 0 0 \<ge> 0"
   using that unfolding lower_upper_closed_def dbm_to_cs_def close_lu_def
   apply (clarsimp; safe)
@@ -867,7 +867,7 @@ lemma up_cs_up'_equiv:
   by (auto split: if_split_asm
       simp: dbm_to_cs_def cs_sem_def DBM.add[symmetric] DBM.less_eq[symmetric] DBM.neutral)
 
-lemma up_equiv_cong:
+lemma up_equiv_cong: \<comment> \<open>Unused\<close>
   fixes cs cs' :: "('x, 'v :: time) cs"
   assumes "cs \<equiv>\<^sub>c\<^sub>s cs'" "finite cs" "finite cs'" "lower_upper_closed cs" "lower_upper_closed cs'"
   shows "up_cs cs \<equiv>\<^sub>c\<^sub>s up_cs cs'"
@@ -886,28 +886,16 @@ proof (cases "M 0 0 \<ge> 0")
   also have "\<dots> \<longleftrightarrow> (\<exists>d u'. u' \<Turnstile>\<^sub>c\<^sub>s dbm_to_cs n v (close_lu M) \<and> d \<ge> 0 \<and> u = u' \<oplus> d)"
     using cs_equivD close_lu_equiv cs_equiv_sym by metis
   also have "\<dots> \<longleftrightarrow> u \<Turnstile>\<^sub>c\<^sub>s up_cs (dbm_to_cs n v (close_lu M))"
-  proof safe
-    fix d u'
-    assume "u' \<Turnstile>\<^sub>c\<^sub>s dbm_to_cs n v (close_lu M)"
-      and "0 \<le> d"
-      and "u = u' \<oplus> d"
-    then show "u' \<oplus> d \<Turnstile>\<^sub>c\<^sub>s up_cs (dbm_to_cs n v (close_lu M))"
-      by (intro up_cs_complete)
-  next
-    let ?cs = "dbm_to_cs n v M" and ?cs' = "dbm_to_cs n v (close_lu M)"
-    assume A: "u \<Turnstile>\<^sub>c\<^sub>s up_cs ?cs'"
-    have "?cs' \<equiv>\<^sub>c\<^sub>s ?cs"
-      by (intro close_lu_equiv cs_equiv_sym)
-    then have "?cs' \<union> ?cs \<equiv>\<^sub>c\<^sub>s ?cs'"
-      by - (rule cs_equiv_sym, rule cs_equiv_union)
-    moreover have "lower_upper_closed (?cs' \<union> ?cs)" "lower_upper_closed ?cs'"
-      by (intro close_lu_closed' close_lu_closed True)+
-    moreover have "finite ?cs'" "finite (?cs' \<union> ?cs)"
-      by (intro finite_dbm_to_cs assms finite_UnI)+
-    moreover have "u \<Turnstile>\<^sub>c\<^sub>s up_cs (?cs' \<union> ?cs)"
-      by (rule cs_equivD, rule A, rule up_equiv_cong, rule cs_equiv_sym) fact+
-    ultimately show "\<exists>d u'. u' \<Turnstile>\<^sub>c\<^sub>s dbm_to_cs n v (close_lu M) \<and> 0 \<le> d \<and> u = u' \<oplus> d"
-      by - (rule up_cs_sound, assumption+, auto)
+  proof -
+    let ?cs = "dbm_to_cs n v (close_lu M)"
+    have "lower_upper_closed ?cs"
+      by (intro close_lu_closed True)
+    moreover have "finite ?cs"
+      by (intro finite_dbm_to_cs assms)
+    ultimately have "{u. u \<Turnstile>\<^sub>c\<^sub>s up_cs ?cs} = {u \<oplus> d |u d. u \<Turnstile>\<^sub>c\<^sub>s ?cs \<and> 0 \<le> d}"
+      by (rule up_cs_sem)
+    then show ?thesis
+      by (auto 4 3)
   qed
   also have "\<dots> \<longleftrightarrow> u \<Turnstile>\<^sub>c\<^sub>s dbm_to_cs n v (up' (close_lu M))"
   proof -
