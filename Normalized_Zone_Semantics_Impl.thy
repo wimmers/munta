@@ -254,7 +254,8 @@ proof -
    apply (subst norm_k_cong)
   using assms by auto
   then have
-    "?S \<subseteq> uncurry ` {norm (curry M) (\<lambda>i. k ! i) n | M. dbm_default (curry M) n}"
+    "?S \<subseteq> uncurry `
+      {norm (curry M) (\<lambda>i. k ! i) n | M. dbm_default (curry M) n}"
   by auto
   moreover have "finite \<dots>"
     apply rule
@@ -289,14 +290,15 @@ lemma norm_empty_diag_preservation_int:
   assumes "i \<le> n"
   assumes "M i i < Le 0"
   shows "norm M k n i i < Le 0"
-using assms unfolding norm_def by (force simp: Let_def less dest: dbm_lt_trans)
+  using assms unfolding norm_def norm_diag_def by (force simp: Let_def less dest: dbm_lt_trans)
 
 lemma norm_diag_preservation_int:
   fixes k :: "nat \<Rightarrow> nat"
   assumes "i \<le> n"
   assumes "M i i \<le> Le 0"
   shows "norm M k n i i \<le> Le 0"
-using assms unfolding norm_def by (force simp: Let_def less_eq dbm_le_def dest: dbm_lt_trans)
+  using assms unfolding norm_def norm_diag_def
+  by (force simp: Let_def less_eq dbm_le_def dest: dbm_lt_trans)
 
 lemma And_diag1:
   assumes "A i i \<le> 0"
@@ -851,41 +853,43 @@ unfolding ri_def rel_fun_def by auto
 lemma add_rel_DBMEntry_transfer[transfer_rule]:
   assumes R: "(A ===> B ===> C) (+) (+)"
   shows "(rel_DBMEntry A ===> rel_DBMEntry B ===> rel_DBMEntry C) (+) (+)"
-using R unfolding rel_fun_def[abs_def] apply safe
-subgoal for x1 y1 x2 y2
-by (cases x1; cases x2; cases y1; cases y2; simp add: add)
-done
+  using R unfolding rel_fun_def[abs_def] apply safe
+  subgoal for x1 y1 x2 y2
+    by (cases x1; cases x2; cases y1; cases y2; simp add: add)
+  done
 
 lemma add_DBMEntry_RI[transfer_rule]:
   "(rel_DBMEntry ri ===> rel_DBMEntry ri ===> rel_DBMEntry ri) ((+) ) (+)"
-by transfer_prover
+  by transfer_prover
 
 lemma norm_upper_RI[transfer_rule]:
   "(rel_DBMEntry ri ===> ri ===> rel_DBMEntry ri) norm_upper norm_upper"
-unfolding rel_fun_def
- apply safe
- apply (case_tac x; case_tac y; clarsimp;
-   fastforce dest: leI conv_dbm_entry_mono conv_dbm_entry_mono_strict simp: ri_def less[symmetric]
- )
-done
+  apply (intro rel_funI)
+  subgoal for x y
+    by (cases x; cases y; fastforce simp: ri_def less[symmetric])
+  done
 
 lemma norm_lower_RI[transfer_rule]:
   "(rel_DBMEntry ri ===> ri ===> rel_DBMEntry ri) norm_lower norm_lower"
-unfolding rel_fun_def
- apply safe
- apply (case_tac x; case_tac y; clarsimp;
-   fastforce dest: leI conv_dbm_entry_mono conv_dbm_entry_mono_strict simp: ri_def less[symmetric]
- )
-done
+  apply (intro rel_funI)
+  subgoal for x y
+    by (cases x; cases y; fastforce simp: ri_def less[symmetric])
+  done
 
 lemma norm_lower_RI':
   "(rel_DBMEntry ri ===> (=) ===> rel_DBMEntry ri) norm_lower norm_lower"
-unfolding rel_fun_def
- apply safe
- apply (case_tac x; case_tac y; clarsimp;
-   fastforce dest: leI conv_dbm_entry_mono conv_dbm_entry_mono_strict simp: ri_def less[symmetric]
- )
-done
+  apply (intro rel_funI)
+  subgoal for x y
+    by (cases x; cases y; fastforce simp: ri_def less[symmetric])
+  done
+
+lemma norm_diag_RI[transfer_rule]:
+  "(rel_DBMEntry ri ===> rel_DBMEntry ri) norm_diag norm_diag"
+  unfolding norm_diag_def
+  apply (intro rel_funI)
+  subgoal for x y
+    by (cases x; cases y; fastforce simp: ri_def less[symmetric])
+  done
 
 lemma zero_RI[transfer_rule]:
   "ri 0 0"
@@ -953,9 +957,13 @@ lemma up_canonical_upd_RI3[transfer_rule]:
    rel_DBMEntry (=))) up_canonical_upd up_canonical_upd"
 unfolding up_canonical_upd_def[abs_def] by transfer_prover
 
+lemma eq_transfer:
+  "(eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n) ===> (=)) (=) (=)"
+  by (intro rel_funI; simp add: eq_onp_def)
+
 lemma norm_upd_line_transfer[transfer_rule]:
   fixes n :: nat
-  notes eq_onp_Suc[of n, transfer_rule] zero_nat_transfer[transfer_rule]
+  notes eq_onp_Suc[of n, transfer_rule] zero_nat_transfer[transfer_rule] eq_transfer[transfer_rule]
   shows
     "(RI n
     ===> (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n)
@@ -963,7 +971,7 @@ lemma norm_upd_line_transfer[transfer_rule]:
     ===> eq_onp (\<lambda> x. x = n)
     ===> RI n)
     norm_upd_line norm_upd_line"
-unfolding norm_upd_line_def[abs_def] op_list_get_def by transfer_prover
+  unfolding norm_upd_line_def[abs_def] op_list_get_def Let_def by transfer_prover
 
 lemma norm_upd_transfer[transfer_rule]:
   fixes n :: nat
@@ -1087,148 +1095,6 @@ lemma fw_RI_transfer_aux:
    (fw M n k) (fw M' n k)"
   using assms
   by (induction k) (auto intro: fwi_RI_transfer_aux)
-
-(*
-lemma fw_RI_transfer_aux:
-  assumes
-    "((\<lambda>x y. x < Suc n \<and> x = y) ===> (\<lambda>x y. x < Suc n \<and> x = y) ===> rel_DBMEntry ri)
-     M M'"
-   "k < Suc n" "i < Suc n" "j < Suc n"
-  shows
-  "((\<lambda>x y. x < Suc n \<and> x = y) ===> (\<lambda>x y. x < Suc n \<and> x = y) ===> rel_DBMEntry ri)
-   (fw M n k i j) (fw M' n k i j)"
-using assms
-apply (induction _ "(k, i, j)" arbitrary: k i j
-    rule: wf_induct[of "less_than <*lex*> less_than <*lex*> less_than"]
-  )
-  apply (auto; fail)
- subgoal for k i j
- apply (cases k; cases i; cases j; auto simp add: fw_upd_out_of_bounds2)
- unfolding eq_onp_def[symmetric]
- apply (drule rel_funD[OF fw_upd_transfer[of n]])
- apply (auto simp: eq_onp_def dest: rel_funD; fail)
-
- subgoal premises prems for n'
- proof -
-  from prems have
-    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
-        (fw M n 0 0 n') (fw M' n 0 0 n')"
-  by auto
-  then show ?thesis
-   apply -
-   apply (drule rel_funD[OF fw_upd_transfer[of n]])
-   apply (drule rel_funD[where x = 0 and y = 0])
-   apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = 0 and y = 0])
-   apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = "Suc n'" and y = "Suc n'"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply assumption
-  done
- qed
-
- subgoal premises prems for n'
- proof -
-  from prems have
-    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
-        (fw M n 0 n' n) (fw M' n 0 n' n)"
-  by auto
-  then show ?thesis
-   apply -
-   apply (drule rel_funD[OF fw_upd_transfer[of n]])
-   apply (drule rel_funD[where x = 0 and y = 0])
-   apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = "Suc n'" and y = "Suc n'"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = 0 and y = 0])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply assumption
-  done
- qed
-
- subgoal premises prems for i j
- proof -
-  from prems have
-    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
-        (fw M n 0 (Suc i) j) (fw M' n 0 (Suc i) j)"
-  by auto
-  then show ?thesis
-   apply -
-   apply (drule rel_funD[OF fw_upd_transfer[of n]])
-   apply (drule rel_funD[where x = 0 and y = 0])
-   apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = "Suc i" and y = "Suc i"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = "Suc j" and y = "Suc j"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply assumption
-  done
- qed
-
- subgoal premises prems for k
- proof -
-  from prems have
-    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
-        (fw M n k n n) (fw M' n k n n)"
-  by auto
-  then show ?thesis
-   apply -
-   apply (drule rel_funD[OF fw_upd_transfer[of n]])
- using prems by (auto simp: eq_onp_def dest: rel_funD)
- qed
-
- subgoal premises prems for k j
- proof -
-  from prems have
-    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
-        (fw M n (Suc k) 0 j) (fw M' n (Suc k) 0 j)"
-  by auto
-  then show ?thesis
-   apply -
-   apply (drule rel_funD[OF fw_upd_transfer[of n]])
-   apply (drule rel_funD[where x = "Suc k" and y = "Suc k"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = 0 and y = 0])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = "Suc j" and y = "Suc j"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply assumption
-  done
- qed
-
- subgoal premises prems for k i
- proof -
-  from prems have
-    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
-        (fw M n (Suc k) i n) (fw M' n (Suc k) i n)"
-  by auto
-  then show ?thesis
-   apply -
-   apply (drule rel_funD[OF fw_upd_transfer[of n]])
- using prems by (auto simp: eq_onp_def dest: rel_funD)
- qed
-
- subgoal premises prems for k i j
- proof -
-  from prems have
-    "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> rel_DBMEntry ri)
-        (fw M n (Suc k) (Suc i) j) (fw M' n (Suc k) (Suc i) j)"
-  by auto
-  then show ?thesis
-   apply -
-   apply (drule rel_funD[OF fw_upd_transfer[of n]])
-   apply (drule rel_funD[where x = "Suc k" and y = "Suc k"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = "Suc i" and y = "Suc i"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply (drule rel_funD[where x = "Suc j" and y = "Suc j"])
-   using prems apply (simp add: eq_onp_def; fail)
-   apply assumption
-  done
- qed
-done
-done
-*)
 
 lemma fwi_RI_transfer[transfer_rule]:
   "((eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n) ===> rel_DBMEntry ri)
@@ -2731,12 +2597,13 @@ lemma E_closure:
   by (rule rtranclp.intros(2)) auto
 
 lemma FW'_normalized_integral_dbms_finite':
-  "finite {FW' (norm_upd M (k' l) n) n | M. dbm_default (curry M) n}" (is "finite ?M")
+  "finite {FW' (norm_upd M (k' l) n) n | M. dbm_default (curry M) n}"
+  (is "finite ?S")
 proof -
-  have
-    "finite {norm_upd M (k' l) n | M. dbm_default (curry M) n}"
+  let ?S' = "{norm_upd M (k' l) n | M. dbm_default (curry M) n}"
+  have "finite ?S'"
     using normalized_integral_dbms_finite'[where k = "map (k l) [0..<Suc n]"] by (simp add: k'_def)
-  moreover have "?M = (\<lambda> M. FW' M n) ` {norm_upd M (k' l) n| M. dbm_default (curry M) n}" by auto
+  moreover have "?S = (\<lambda> M. FW' M n) ` ?S'" by auto
   ultimately show ?thesis by auto
 qed
 
@@ -2921,7 +2788,7 @@ lemma canonical_norm_step:
 
 lemma canonical_reachable:
   assumes "E\<^sup>*\<^sup>* a\<^sub>0 (l, M)"
-  shows "canonical (curry (conv_M M)) n \<or> (\<exists> i \<le> n. M (i, i) < 0)"
+  shows "canonical (curry (conv_M M)) n \<or> (\<exists>i \<le> n. M (i, i) < 0)"
   using assms unfolding E_closure
 proof (induction l \<equiv> l\<^sub>0 Z \<equiv> "init_dbm :: int DBM'" _ _ _ _ rule: steps_impl_induct)
   case refl

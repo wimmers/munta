@@ -1857,7 +1857,7 @@ proof -
   from DBM_set_diag[OF this] DBM_set_diag[OF assms(2)] have
     "[M]\<^bsub>v,n\<^esub> = [?M]\<^bsub>v,n\<^esub>" "[?NM]\<^bsub>v,n\<^esub> = [?M2]\<^bsub>v,n\<^esub>"
   by auto
-  moreover have "norm ?M (k o v') n = ?M2" unfolding norm_def by fastforce
+  moreover have "norm ?M (k o v') n = ?M2" unfolding norm_def norm_diag_def by fastforce
   moreover have "\<forall> i \<le> n. ?M i i = 0" unfolding neutral by auto
   moreover have "canonical ?M n" using assms(1) *
   unfolding neutral[symmetric] less_eq[symmetric] add[symmetric] by fastforce
@@ -1913,14 +1913,14 @@ lemma norm_normalizes:
   shows "normalized (norm M (k o v') n)"
   apply (rule normalized'_normalized)
   subgoal
-    using assms unfolding norm_def by simp
+    using assms unfolding norm_def norm_diag_def by (auto simp: DBM.neutral)
   by (rule norm_normalizes')
 
 lemma norm_int_preservation:
   fixes M :: "real DBM"
   assumes "dbm_int M n" "i \<le> n" "j \<le> n" "norm M (k o v') n i j \<noteq> \<infinity>"
   shows "get_const (norm M (k o v') n i j) \<in> \<int>"
-  using assms unfolding norm_def by (auto simp: Let_def)
+  using assms unfolding norm_def by (auto simp: Let_def norm_diag_def)
 
 lemma norm_V_preservation':
   notes any_le_inf[intro]
@@ -2064,7 +2064,7 @@ proof (cases "[M]\<^bsub>v,n\<^esub> = {}")
   case True
   obtain i where i: "i \<le> n" "M i i < 0" by (metis True assms(2) canonical_empty_zone_spec)
   have "\<not> Le (real (k (v' i))) < Le 0" unfolding less by (cases "k (v' i) = 0", auto)
-  with i have "?M i i < 0" unfolding norm_def by (auto simp: neutral less Let_def)
+  with i have "?M i i < 0" unfolding norm_def by (auto simp: neutral less Let_def norm_diag_def)
   with neg_diag_empty_spec[OF \<open>i \<le> n\<close>] have "[?M]\<^bsub>v,n\<^esub> = {}" .
   then show ?thesis by auto
 next
@@ -2150,7 +2150,8 @@ proof -
     next
       case (4 c1 c2)
       then have c:
-        "v c1 > 0" "v c1 \<le> n" "c1 \<in> X" "v' (v c1) = c1" "v c2 > 0" "v c2 \<le> n" "c2 \<in> X" "v' (v c2) = c2"
+        "v c1 > 0" "v c1 \<le> n" "c1 \<in> X" "v' (v c1) = c1" "v c2 > 0" "v c2 \<le> n"
+        "c2 \<in> X" "v' (v c2) = c2"
         using clock_numbering v_v' by metis+
       from that c have bound:
         "dbm_entry_val u (Some c1) (Some c2) (?M2 (v c1) (v c2))"
@@ -2169,9 +2170,9 @@ proof -
           show ?thesis
           proof (cases "M (v c1) (v c2) < Lt (- real (k c2))")
             case F: False
-            with c False assms(3) have
+            with c False assms(3) neq have
               "?M2 (v c1) (v c2) = M (v c1) (v c2)"
-              unfolding norm_def less by auto
+              unfolding norm_def norm_diag_def less by simp
             with dbm_entry_val_mono_1[OF bound, folded less_eq] le c neq show ?thesis by auto
           next
             case True
@@ -2213,7 +2214,7 @@ proof -
       "i \<le> n" "M i i < 0"
       by auto
     then have "?M i i < 0"
-      unfolding norm_def by simp
+      unfolding norm_def norm_diag_def by (auto simp: DBM.neutral DBM.less)
     from neg_diag_empty[of n v i ?M, OF _ \<open>i \<le> n\<close> this] clock_numbering have
       "[?M]\<^bsub>v,n\<^esub> = {}"
     by (auto intro: Lt_lt_LeI)

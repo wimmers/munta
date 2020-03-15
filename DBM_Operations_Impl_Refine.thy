@@ -253,6 +253,7 @@ unfolding abstr_upd_alt_def by sepref
 
 lemma [sepref_import_param]: "(norm_lower, norm_lower) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
 lemma [sepref_import_param]: "(norm_upper, norm_upper) \<in> Id\<rightarrow>Id\<rightarrow>Id" by simp
+lemma [sepref_import_param]: "(norm_diag,  norm_diag) \<in> Id\<rightarrow>Id" by simp
 
 definition zero_clock2 :: "_ :: linordered_cancel_ab_monoid_add" where
   "zero_clock2 = 0"
@@ -275,8 +276,7 @@ lemmas [sepref_opt_simps] = zero_clock2_def
 sepref_definition norm_upd_impl is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a iarray_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding norm_upd_def norm_upd_line_def zero_clock2_def[symmetric]
-by sepref
+  unfolding norm_upd_def norm_upd_line_def zero_clock2_def[symmetric] by sepref
 
 sepref_definition norm_upd_impl' is
   "uncurry2 (RETURN ooo norm_upd)" ::

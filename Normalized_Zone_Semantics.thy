@@ -87,7 +87,7 @@ lemma norm_empty_diag_preservation_real:
   assumes "i \<le> n"
   assumes "M i i < Le 0"
   shows "norm M (real o k) n i i < Le 0"
-using assms unfolding norm_def by (force simp: Let_def less dest: dbm_lt_trans)
+  using assms unfolding norm_def by (auto simp: Let_def norm_diag_def DBM.less)
 
 context Regions_defs
 begin
@@ -204,7 +204,7 @@ lemma norm_int_all_preservation:
   fixes M :: "real DBM"
   assumes "dbm_int_all M"
   shows "dbm_int_all (norm M (k o v') n)"
-using assms unfolding norm_def by (auto simp: Let_def)
+using assms unfolding norm_def norm_diag_def by (auto simp: Let_def)
 
 lemma norm_FW_valid_preservation_empty:
   assumes "valid_dbm M" "[M]\<^bsub>v,n\<^esub> = {}"
@@ -670,10 +670,16 @@ end
 section \<open>Additional Useful Properties of the Normalized Semantics\<close>
 
 text \<open>Obsolete\<close>
+
+lemma norm_diag_alt_def:
+  "norm_diag e = (if e < 0 then Lt 0 else if e = 0 then e else \<infinity>)"
+  unfolding norm_diag_def DBM.neutral DBM.less ..
+
 lemma norm_diag_preservation:
   assumes "\<forall>l\<le>n. M1 l l \<le> 0"
   shows "\<forall>l\<le>n. (norm M1 (k :: nat \<Rightarrow> nat) n) l l \<le> 0"
-  using assms unfolding norm_def by auto
+  using assms unfolding norm_def norm_diag_alt_def by (auto simp: DBM.neutral)
+
 
 section \<open>Appendix: Standard Clock Numberings for Concrete Models\<close>
 
