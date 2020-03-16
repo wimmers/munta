@@ -1288,159 +1288,182 @@ lemma abstra_upd_eq_abstra:
 using assms by (cases ac; fastforce dest: clock_numberingD)
 *)
 
-section \<open>Normalization\<close>
+section \<open>Extrapolations\<close>
 
-(* XXX Possible to optimize norm_lower/norm_upper combinations? *)
-definition norm_upd_line ::
-  "('t::{linordered_ab_group_add}) DBM' \<Rightarrow> 't list \<Rightarrow> 't \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't DBM'"
+context
+  fixes
+    upd_entry :: "'t \<Rightarrow> 't \<Rightarrow> ('t::{linordered_ab_group_add}) DBMEntry \<Rightarrow> 't DBMEntry"
+  and upd_entry_0 :: "'t \<Rightarrow> 't DBMEntry \<Rightarrow> 't DBMEntry"
+begin
+
+definition extra ::
+  "'t DBM \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> (nat \<Rightarrow> 't) \<Rightarrow> nat \<Rightarrow> 't DBM"
 where
-  "norm_upd_line M k ub i n =
+  "extra M l u n \<equiv> \<lambda>i j.
+    let ub = if i > 0 then l i else 0 in
+    let lb = if j > 0 then u j else 0 in
+    if i \<le> n \<and> j \<le> n then
+      if i \<noteq> j then
+        if i > 0 then upd_entry lb ub (M i j) else upd_entry_0 lb (M i j)
+      else norm_diag (M i j)
+    else M i j"
+
+definition upd_line_0 ::
+  "'t DBM' \<Rightarrow> 't list \<Rightarrow> nat \<Rightarrow> 't DBM'"
+where
+  "upd_line_0 M k n =
+    fold
+      (\<lambda>j M.
+        M((0, j) := upd_entry_0 (op_list_get k j) (M(0, j))))
+      [1..<Suc n]
+      (M((0, 0) := norm_diag (M (0, 0))))"
+
+definition upd_line ::
+  "'t DBM' \<Rightarrow> 't list \<Rightarrow> 't \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> 't DBM'"
+where
+  "upd_line M k ub i n =
     fold
       (\<lambda>j M.
         if i \<noteq> j then
-          M((i, j) := norm_lower (norm_upper (M (i, j)) ub) (- (op_list_get k j)))
+          M((i, j) := upd_entry (op_list_get k j) ub (M(i, j)))
         else M((i, j) := norm_diag (M (i, j))))
       [1..<Suc n]
-       (if i \<noteq> 0 then
-         M((i, 0) := norm_lower (norm_upper (M (i, 0)) ub) 0)
-        else M((0, 0) := norm_diag (M (0, 0))))"
+      (M((i, 0) := upd_entry 0 ub (M(i, 0))))"
 
-(* XXX Unused remove? *)
-lemma norm_upd_line_Suc_unfold:
-  "norm_upd_line M k ub i (Suc n) = (let M' = norm_upd_line M k ub i n in
+lemma upd_line_Suc_unfold:
+  "upd_line M k ub i (Suc n) = (let M' = upd_line M k ub i n in
   if i \<noteq> Suc n then
-    M' ((i, Suc n) := norm_lower (norm_upper (M' (i, Suc n)) ub) (- (op_list_get k (Suc n))))
+    M' ((i, Suc n) := upd_entry (op_list_get k (Suc n)) ub (M'(i, Suc n)))
   else M' ((i, Suc n) := norm_diag (M' (i, Suc n))))"
-  unfolding norm_upd_line_def by (simp del: norm_lower.simps norm_upper.simps add: Let_def)
+  unfolding upd_line_def by simp
 
-(* XXX Unused remove? *)
-lemma norm_upd_line_Suc_unfold':
-  "norm_upd_line M k ub i (Suc n) =
-  (norm_upd_line M k ub i n) ((i, Suc n) :=
-    norm_lower (norm_upper (norm_upd_line M k ub i n (i, Suc n)) ub) (- (op_list_get k (Suc n))))"
-  if "i \<noteq> Suc n"
-  using that unfolding norm_upd_line_def by (simp del: norm_lower.simps norm_upper.simps)
-
-lemma norm_upd_line_out_of_bounds:
+lemma upd_line_out_of_bounds:
   assumes "j > n"
-  shows "norm_upd_line M k ub i n (i', j) = M (i', j)"
-  using assms by (induction n) (auto simp: norm_upd_line_def)
+  shows "upd_line M k ub i n (i', j) = M (i', j)"
+  using assms by (induction n) (auto simp: upd_line_def)
 
-(* XXX Unused remove? *)
-lemma norm_upd_line_rec:
-  assumes "j < Suc n"
-  shows "norm_upd_line M k ub i (Suc n) (i', j) = norm_upd_line M k ub i n (i', j)"
-  using assms by (simp add: norm_upd_line_Suc_unfold Let_def)
-
-lemma norm_upd_line_alt_def:
-  assumes "j \<le> n"
+lemma upd_line_alt_def:
+  assumes "i > 0"
   shows
-  "norm_upd_line M k ub i n (i', j) = (
-    let lb = if j > 0 then (- op_list_get k j) else 0 in
+  "upd_line M k ub i n (i', j) = (
+    let lb = if j > 0 then op_list_get k j else 0 in
     if i' = i \<and> j \<le> n then
       if i \<noteq> j then
-        norm_lower (norm_upper (M (i, j)) ub) lb
+        upd_entry lb ub (M (i, j))
       else
         norm_diag (M (i, j))
     else M (i', j)
    )"
-  apply (clarsimp simp del: norm_lower.simps norm_upper.simps)
-  apply safe
-  apply (induction n, simp add: norm_upd_line_def,
-      auto simp del: norm_lower.simps norm_upper.simps
-           simp add: norm_upd_line_out_of_bounds norm_upd_line_Suc_unfold Let_def; fail)+
-  done
-
-definition norm_upd :: "('t :: linordered_ab_group_add) DBM' \<Rightarrow> 't list \<Rightarrow> nat \<Rightarrow> 't DBM'"
-where
-  "norm_upd M k n \<equiv>
-    fold (\<lambda> i M. norm_upd_line M k (op_list_get k i) i n) [1..<Suc n] (norm_upd_line M k 0 0 n)"
-
-lemma norm_upd_out_of_bounds_aux1:
-  assumes "i > n" "j \<le> m"
-  shows "
-    fold (\<lambda> i M. norm_upd_line M k (k ! i) i m)
-      [Suc 0..<Suc n]
-      (norm_upd_line M k 0 0 m)
-    (i, j) = M (i, j)"
-using assms
- apply (induction n)
- apply (simp add: norm_upd_line_alt_def del: upt_Suc norm_lower.simps norm_upper.simps; fail)
- apply (subst upt_Suc_append; simp add: norm_upd_line_alt_def del: upt_Suc)
-done
-
-(* XXX Unused remove? *)
-lemma norm_upd_out_of_bounds_aux2:
-  assumes "j > m"
-  shows "
-    fold (\<lambda> i M. norm_upd_line M k (op_list_get k i) i m)
-      [1..<Suc n]
-      (norm_upd_line M k 0 0 m)
-    (i, j) = M (i, j)"
-using assms by (induction n; simp add: norm_upd_line_out_of_bounds)
-
-(* XXX Unused remove? *)
-lemma norm_upd_out_of_bounds_aux:
-  assumes "i > n"
-  shows
-  "fold (\<lambda> i M. norm_upd_line M k (op_list_get k i) i n) [1..<Suc n] (norm_upd_line M k 0 0 n) (i, j)
-  = M (i, j)"
   using assms
-  supply [simp del] = upt_Suc norm_lower.simps norm_upper.simps
-  apply (induction n)
-   apply (simp add: norm_upd_line_def; fail)
-
-  subgoal for n
-    apply (cases "j \<le> Suc n")
-     apply (simp add: norm_upd_line_alt_def norm_upd_out_of_bounds_aux1; fail)
-    apply (simp only: norm_upd_out_of_bounds_aux2)
-    done
+  apply simp
+  apply safe
+  apply (induction n, simp add: upd_line_def,
+      auto simp: upd_line_out_of_bounds upd_line_Suc_unfold Let_def; fail)+
   done
 
-lemma norm_upd_out_of_bounds1:
-  assumes "i > n"
-  shows "norm_upd M k n (i, j) = M (i, j)"
-using norm_upd_out_of_bounds_aux[OF assms] unfolding norm_upd_def .
+lemma upd_line_0_alt_def:
+  "upd_line_0 M k n (i', j) = (
+    if i' = 0 \<and> j \<le> n then
+      if j > 0 then upd_entry_0 (op_list_get k j) (M (0, j)) else norm_diag (M (0, 0))
+    else M (i', j)
+  )"
+  by (induction n) (auto simp: upd_line_0_def)
 
-lemma norm_upd_out_of_bounds2:
+definition extra_upd :: "'t DBM' \<Rightarrow> 't list \<Rightarrow> 't list \<Rightarrow> nat \<Rightarrow> 't DBM'"
+where
+  "extra_upd M l u n \<equiv>
+    fold (\<lambda>i M. upd_line M u (op_list_get l i) i n) [1..<Suc n] (upd_line_0 M u n)"
+
+lemma upd_line_0_out_ouf_bounds1:
+  assumes "i > 0"
+  shows "upd_line_0 M k n (i, j) = M (i, j)"
+  using assms unfolding upd_line_0_alt_def by simp
+
+lemma upd_line_0_out_ouf_bounds2:
   assumes "j > n"
-  shows "(norm_upd M k n) (i, j) = M (i, j)"
-using norm_upd_out_of_bounds_aux2[OF assms] unfolding norm_upd_def .
+  shows "upd_line_0 M k n (i, j) = M (i, j)"
+  using assms unfolding upd_line_0_alt_def by simp
 
+lemma upd_out_of_bounds_aux1:
+  assumes "i > n"
+  shows "fold (\<lambda>i M. upd_line M k (op_list_get l i) i m) [1..<Suc n] M (i, j) = M (i, j)"
+  using assms
+  by (intro fold_invariant[where Q = "\<lambda>i. i > 0 \<and> i \<le> n" and P = "\<lambda>M'. M' (i, j) = M (i, j)"])
+     (auto simp: upd_line_alt_def)
+
+lemma upd_out_of_bounds_aux2:
+  assumes "j > m"
+  shows "fold (\<lambda>i M. upd_line M k (op_list_get l i) i m) [1..<Suc n] M (i, j) = M (i, j)"
+  using assms
+  by (intro fold_invariant[where Q = "\<lambda>i. i > 0 \<and> i \<le> n" and P = "\<lambda>M'. M' (i, j) = M (i, j)"])
+     (auto simp: upd_line_alt_def)
+
+lemma upd_out_of_bounds1:
+  assumes "i > n"
+  shows "extra_upd M l u n (i, j) = M (i, j)"
+  using assms unfolding extra_upd_def
+  by (subst upd_out_of_bounds_aux1) (auto simp: upd_line_0_out_ouf_bounds1)
+
+lemma upd_out_of_bounds2:
+  assumes "j > n"
+  shows "extra_upd M l u n (i, j) = M (i, j)"
+  by (simp only: assms extra_upd_def upd_out_of_bounds_aux2 upd_line_0_out_ouf_bounds2)
 
 definition norm_entry where
-  "norm_entry x k i j = (
-    let ub = if i > 0 then (k ! i) else 0 in
-    let lb = if j > 0 then (- k ! j) else 0 in
-    if i \<noteq> j then norm_lower (norm_upper x ub) lb else norm_diag x)"
+  "norm_entry x l u i j = (
+    let ub = if i > 0 then (l ! i) else 0 in
+    let lb = if j > 0 then (u ! j) else 0 in
+    if i \<noteq> j then if i = 0 then upd_entry_0 lb x else upd_entry lb ub x else norm_diag x)"
 
-lemma norm_upd_norm_aux:
+lemma upd_extra_aux:
   assumes "i \<le> n" "j \<le> m"
   shows "
-  fold (\<lambda>i M. norm_upd_line M k (op_list_get k i) i m) [1..<Suc n] (norm_upd_line M k 0 0 m) (i, j)
-  = norm_entry (M (i, j)) k i j"
-  using assms
-  by (induction n)
-     (auto simp: norm_upd_line_alt_def norm_upd_out_of_bounds_aux1 norm_entry_def upt_Suc_append
-       simp del: upt_Suc norm_lower.simps norm_upper.simps)
+  fold (\<lambda>i M. upd_line M u (op_list_get l i) i m) [1..<Suc n] (upd_line_0 M u m) (i, j)
+  = norm_entry (M (i, j)) l u i j"
+  using assms upd_out_of_bounds_aux1[unfolded op_list_get_def]
+  apply (induction n)
+    apply (simp add: upd_line_0_alt_def norm_entry_def; fail)
+  apply (auto simp: upd_line_alt_def upt_Suc_append upd_line_0_out_ouf_bounds1 norm_entry_def
+       simp del: upt_Suc)
+  done
 
-lemma norm_upd_norm_aux':
+lemma upd_extra_aux':
   assumes "i \<le> n" "j \<le> n"
-  shows "norm_upd M k n (i, j) = norm (curry M) (\<lambda>i. k ! i) n i j"
-  using assms unfolding norm_upd_def
-  by (subst norm_upd_norm_aux[OF assms])
-     (simp add: norm_entry_def norm_def norm_diag_def del: norm_upper.simps norm_lower.simps)
+  shows "extra_upd M l u n (i, j) = extra (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n i j"
+  using assms unfolding extra_upd_def
+  by (subst upd_extra_aux[OF assms]) (simp add: norm_entry_def extra_def norm_diag_def Let_def)
+
+lemma extra_upd_extra:
+  "extra_upd M l u n (i, j) = extra (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n i j"
+  by (cases "i > n"; cases "j > n";
+      simp add: upd_out_of_bounds1 upd_out_of_bounds2 extra_def upd_extra_aux')
+
+lemma extra_upd_extra':
+  "curry (extra_upd M l u n) = extra (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n"
+  by (simp add: curry_def extra_upd_extra)
+
+end
+
+lemma norm_is_extra:
+  "norm M k n =
+    extra
+      (\<lambda>lb ub e. norm_lower (norm_upper e ub) (-lb))
+      (\<lambda>lb e. norm_lower (norm_upper e 0) (-lb)) M k k n"
+  unfolding norm_def extra_def Let_def by (intro ext) auto
+
+definition
+  "norm_upd M k n =
+    extra_upd
+      (\<lambda>lb ub e. norm_lower (norm_upper e ub) (-lb))
+      (\<lambda>lb e. norm_lower (norm_upper e 0) (-lb)) M k k n"
 
 lemma norm_upd_norm:
   "norm_upd M k n (i, j) = norm (curry M) (\<lambda>i. k ! i) n i j"
-  apply (cases "i > n")
- apply (simp add: norm_upd_out_of_bounds1 norm_def; fail)
- apply (cases "j > n"; simp add: norm_upd_out_of_bounds2 norm_def norm_upd_norm_aux')
-done
+  unfolding norm_upd_def norm_is_extra by (rule extra_upd_extra)
 
 lemma norm_upd_norm':
-  "curry (norm_upd M k n) = norm (curry M) (\<lambda> i. k ! i) n"
-by (simp add: curry_def norm_upd_norm)
+  "curry (norm_upd M k n) = norm (curry M) (\<lambda>i. k ! i) n"
+  by (simp add: curry_def norm_upd_norm)
 
 (* XXX Copy from Regions Beta, original should be moved *)
 lemma norm_int_preservation:
@@ -1459,5 +1482,10 @@ proof -
   by fastforce
   with norm_upd_norm[where M = M] show ?thesis by auto
 qed
+
+lemma norm_upd_default:
+  assumes "dbm_default (curry M) n"
+  shows "dbm_default (curry (norm_upd M k n)) n"
+  using assms unfolding norm_upd_norm' norm_def by auto
 
 end (* End of theory *)

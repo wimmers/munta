@@ -375,11 +375,6 @@ lemma FW'_default:
   shows "dbm_default (curry (FW' M n)) n"
 using assms by (simp add: FW'_out_of_bounds1 FW'_out_of_bounds2)
 
-lemma norm_upd_default:
-  assumes "dbm_default (curry M) n"
-  shows "dbm_default (curry (norm_upd M k n)) n"
-using assms by (auto simp: norm_upd_out_of_bounds1 norm_upd_out_of_bounds2)
-
 lemma abstr_upd_default:
   assumes "dbm_default (curry M) n" "\<forall>c\<in>collect_clks cc. c \<le> n"
   shows "dbm_default (curry (abstr_upd cc M)) n"
@@ -411,9 +406,9 @@ lemma step_impl_norm_dbm_default_dbm_int:
   apply standard
   apply standard
   apply standard
-  apply safe[]
+      apply safe[]
 
-    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
+    apply (simp add: FW'_out_of_bounds1)
     apply (subst abstr_upd_out_of_bounds1[where n = n])
     using collect_clks_inv_clk_set[of A] apply fastforce
     apply assumption
@@ -421,7 +416,7 @@ lemma step_impl_norm_dbm_default_dbm_int:
 
     apply standard
     apply safe[]
-    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
+    apply (simp add: FW'_out_of_bounds2)
     apply (subst abstr_upd_out_of_bounds2[where n = n])
     using collect_clks_inv_clk_set[of A] apply fastforce
     apply assumption
@@ -441,7 +436,7 @@ lemma step_impl_norm_dbm_default_dbm_int:
   apply standard
   apply safe[]
 
-    apply (simp add: norm_upd_out_of_bounds1 FW'_out_of_bounds1)
+    apply (simp add: FW'_out_of_bounds1)
     apply (subst abstr_upd_out_of_bounds1[where n = n])
     using collect_clks_inv_clk_set[of A] apply fastforce
     apply assumption
@@ -455,7 +450,7 @@ lemma step_impl_norm_dbm_default_dbm_int:
     apply (simp; fail)
 
     apply safe[]
-    apply (simp add: norm_upd_out_of_bounds2 FW'_out_of_bounds2)
+    apply (simp add: FW'_out_of_bounds2)
     apply (subst abstr_upd_out_of_bounds2[where n = n])
     using collect_clks_inv_clk_set[of A] apply fastforce
     apply assumption
@@ -961,25 +956,26 @@ lemma eq_transfer:
   "(eq_onp (\<lambda> x. x < Suc n) ===> eq_onp (\<lambda> x. x < Suc n) ===> (=)) (=) (=)"
   by (intro rel_funI; simp add: eq_onp_def)
 
-lemma norm_upd_line_transfer[transfer_rule]:
-  fixes n :: nat
-  notes eq_onp_Suc[of n, transfer_rule] zero_nat_transfer[transfer_rule] eq_transfer[transfer_rule]
-  shows
-    "(RI n
-    ===> (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n)
-    ===> ri ===> eq_onp (\<lambda> x. x < Suc n)
-    ===> eq_onp (\<lambda> x. x = n)
-    ===> RI n)
-    norm_upd_line norm_upd_line"
-  unfolding norm_upd_line_def[abs_def] op_list_get_def Let_def by transfer_prover
+lemma norm_upd_norm:
+  "norm_upd = (\<lambda>M k n (i, j). norm (curry M) (\<lambda>i. k ! i) n i j)"
+  unfolding norm_upd_norm[symmetric] by simp
+
+lemma less_transfer:
+  "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x < Suc n) ===> (=)) (<) (<)"
+  by (intro rel_funI; simp add: eq_onp_def)
+
+lemma less_eq_transfer:
+  "(eq_onp (\<lambda>x. x < Suc n) ===> eq_onp (\<lambda>x. x = n) ===> (=)) (\<le>) (\<le>)"
+  by (intro rel_funI; simp add: eq_onp_def)
 
 lemma norm_upd_transfer[transfer_rule]:
   fixes n :: nat
-  notes eq_onp_Suc[of n, transfer_rule] zero_nat_transfer[transfer_rule]
+  notes eq_onp_Suc[of n, transfer_rule] zero_nat_transfer[transfer_rule] eq_transfer[transfer_rule]
+    less_transfer[transfer_rule] less_eq_transfer[transfer_rule]
   shows
-    "(RI n ===> (\<lambda> x y. list_all2 ri x y \<and> length x = Suc n) ===> eq_onp (\<lambda> x. x = n)  ===> RI n)
+    "(RI n ===> (\<lambda>x y. list_all2 ri x y \<and> length x = Suc n) ===> eq_onp (\<lambda>x. x = n)  ===> RI n)
     norm_upd norm_upd"
-unfolding norm_upd_def[abs_def] op_list_get_def by transfer_prover
+    unfolding norm_upd_norm norm_def by transfer_prover
 
 lemma dbm_entry_val_ri:
   assumes "rel_DBMEntry ri e e'" "dbm_entry_val u c d e"

@@ -273,15 +273,17 @@ unfolding br_def by sepref_to_hoare sep_auto
 
 lemmas [sepref_opt_simps] = zero_clock2_def
 
+lemmas extra_defs = extra_upd_def upd_line_def upd_line_0_def
+
 sepref_definition norm_upd_impl is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a iarray_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-  unfolding norm_upd_def norm_upd_line_def zero_clock2_def[symmetric] by sepref
+  unfolding norm_upd_def extra_defs zero_clock2_def[symmetric] by sepref
 
 sepref_definition norm_upd_impl' is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a (list_assn id_assn)\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
-unfolding norm_upd_def norm_upd_line_def zero_clock2_def[symmetric] by sepref
+  unfolding norm_upd_def extra_defs zero_clock2_def[symmetric] by sepref
 
 export_code abstr_upd_impl in SML_imp
 
