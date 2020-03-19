@@ -6,14 +6,19 @@ theory DBM_Operations_Impl_Refine
     TA_Library.Imperative_Loops
 begin
 
-lemma the_pure_id_assn_eq[simp]:
-  "the_pure (\<lambda>a c. \<up> (c = a)) = Id"
-proof -
-  have *: "(\<lambda>a c. \<up> (c = a)) = pure Id"
-    unfolding pure_def by simp
-  show ?thesis
-    by (subst *) simp
-qed
+no_notation infinity ("\<infinity>")
+
+lemma rev_map_fold_append_aux:
+  "fold (\<lambda> x xs. f x # xs) xs zs @ ys = fold (\<lambda> x xs. f x # xs) xs (zs@ys)"
+  by (induction xs arbitrary: zs) auto
+
+lemma rev_map_fold:
+  "rev (map f xs) = fold (\<lambda> x xs. f x # xs) xs []"
+  by (induction xs; simp add: rev_map_fold_append_aux)
+
+lemma map_rev_fold:
+  "map f xs = rev (fold (\<lambda> x xs. f x # xs) xs [])"
+  using rev_map_fold rev_swap by fastforce
 
 lemma pointwise_cmp_iff:
   "pointwise_cmp P n M M' \<longleftrightarrow> list_all2 P (take ((n + 1) * (n + 1)) xs) (take ((n + 1) * (n + 1)) ys)"
@@ -50,12 +55,22 @@ lemma pointwise_cmp_iff:
     done
   done
 
-
 fun intersperse :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
   "intersperse sep (x # y # xs) = x # sep # intersperse sep (y # xs)" |
   "intersperse _ xs = xs"
 
-no_notation infinity ("\<infinity>")
+lemma the_pure_id_assn_eq[simp]:
+  "the_pure (\<lambda>a c. \<up> (c = a)) = Id"
+proof -
+  have *: "(\<lambda>a c. \<up> (c = a)) = pure Id"
+    unfolding pure_def by simp
+  show ?thesis
+    by (subst *) simp
+qed
+
+lemma pure_eq_conv:
+  "(\<lambda>a c. \<up> (c = a)) = id_assn"
+  using is_pure_assn_def is_pure_iff_pure_assn is_pure_the_pure_id_eq the_pure_id_assn_eq by blast
 
 section \<open>Refinement\<close>
 
@@ -83,6 +98,12 @@ lemma dbm_subset_alt_def'[code]:
     (list_ex (\<lambda> i. op_mtx_get M (i, i) < 0) [0..<Suc n] \<or>
     list_all (\<lambda> i. list_all (\<lambda> j. (op_mtx_get M (i, j) \<le> op_mtx_get M' (i, j))) [0..<Suc n]) [0..<Suc n])"
 by (simp add: dbm_subset_def check_diag_alt_def pointwise_cmp_alt_def neutral)
+
+definition
+  "mtx_line_to_iarray m M = IArray (map (\<lambda>i. M (0, i)) [0..<Suc m])"
+
+definition
+  "mtx_line m (M :: _ DBM') = map (\<lambda>i. M (0, i)) [0..<Suc m]"
 
 context
   fixes n :: nat
@@ -284,6 +305,71 @@ sepref_definition norm_upd_impl' is
   "uncurry2 (RETURN ooo norm_upd)" ::
    "[\<lambda>((_, xs), i). length xs > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a (list_assn id_assn)\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
   unfolding norm_upd_def extra_defs zero_clock2_def[symmetric] by sepref
+
+sepref_definition extra_lu_upd_impl is
+  "uncurry3 (\<lambda>x. RETURN ooo (extra_lu_upd x))" ::
+   "[\<lambda>(((_, ys), xs), i). length xs > n \<and> length ys > n \<and> i\<le>n]\<^sub>a mtx_assn\<^sup>d *\<^sub>a iarray_assn\<^sup>k *\<^sub>a iarray_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
+  unfolding extra_lu_upd_def extra_defs zero_clock2_def[symmetric] by sepref
+
+sepref_definition mtx_line_to_list_impl is
+  "uncurry (RETURN oo PR_CONST mtx_line)" ::
+  "[\<lambda>(m, _). m \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> list_assn id_assn"
+  unfolding mtx_line_def HOL_list.fold_custom_empty PR_CONST_def map_rev_fold by sepref
+
+context
+  fixes m :: nat assumes "m \<le> n"
+  notes [id_rules] = itypeI[of m "TYPE (nat)"]
+    and [sepref_import_param] = IdI[of m]
+begin
+
+sepref_definition mtx_line_to_list_impl2 is
+  "RETURN o PR_CONST mtx_line m" ::
+  "mtx_assn\<^sup>k \<rightarrow>\<^sub>a list_assn id_assn"
+  unfolding mtx_line_def HOL_list.fold_custom_empty PR_CONST_def map_rev_fold
+  apply sepref_dbg_keep
+  using \<open>m \<le> n\<close>
+      apply sepref_dbg_trans_keep
+  apply sepref_dbg_opt
+  apply sepref_dbg_cons_solve
+  apply sepref_dbg_cons_solve
+  apply sepref_dbg_constraints
+  done
+
+end
+
+lemma IArray_impl:
+  "(return o IArray, RETURN o id) \<in> (list_assn id_assn)\<^sup>k \<rightarrow>\<^sub>a iarray_assn"
+  by sepref_to_hoare (sep_auto simp: br_def list_assn_pure_conv pure_eq_conv)
+
+definition
+  "mtx_line_to_iarray_impl m M = (mtx_line_to_list_impl2 m M \<bind> return o IArray)"
+
+lemmas mtx_line_to_iarray_impl_ht =
+  mtx_line_to_list_impl2.refine[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified]
+
+lemmas IArray_ht = IArray_impl[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified]
+
+lemma mtx_line_to_iarray_impl_refine[sepref_fr_rules]:
+  "(uncurry mtx_line_to_iarray_impl, uncurry (RETURN \<circ>\<circ> mtx_line))
+  \<in> [\<lambda>(m, _). m \<le> n]\<^sub>a nat_assn\<^sup>k *\<^sub>a mtx_assn\<^sup>k \<rightarrow> iarray_assn"
+  unfolding mtx_line_to_iarray_impl_def hfref_def
+  apply clarsimp
+  apply sepref_to_hoare
+  apply (sep_auto
+    heap: mtx_line_to_iarray_impl_ht IArray_ht simp: br_def pure_eq_conv list_assn_pure_conv)
+  apply (simp add: pure_def)
+  done
+
+sepref_register "mtx_line" :: "nat \<Rightarrow> ('ef) DBMEntry i_mtx \<Rightarrow> 'ef DBMEntry list"
+
+lemma [sepref_import_param]: "(dbm_lt :: _ DBMEntry \<Rightarrow> _, dbm_lt) \<in> Id \<rightarrow> Id \<rightarrow> Id" by simp
+
+sepref_definition extra_lup_upd_impl is
+  "uncurry3 (\<lambda>x. RETURN ooo (extra_lup_upd x))" ::
+   "[\<lambda>(((_, ys), xs), i). length xs > n \<and> length ys > n \<and> i\<le>n]\<^sub>a
+    mtx_assn\<^sup>d *\<^sub>a iarray_assn\<^sup>k *\<^sub>a iarray_assn\<^sup>k *\<^sub>a nat_assn\<^sup>k \<rightarrow> mtx_assn"
+  unfolding extra_lup_upd_alt_def2 extra_defs zero_clock2_def[symmetric] mtx_line_def[symmetric]
+  by sepref
 
 export_code abstr_upd_impl in SML_imp
 

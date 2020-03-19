@@ -69,13 +69,6 @@ begin
       by force
   qed
 
-  lemma rev_map_fold_append_aux:
-    "fold (\<lambda> x xs. f x # xs) xs zs @ ys = fold (\<lambda> x xs. f x # xs) xs (zs@ys)"
-   by (induction xs arbitrary: zs) auto
-
-  lemma rev_map_fold:
-  "rev (map f xs) = fold (\<lambda> x xs. f x # xs) xs []"
-   by (induction xs; simp add: rev_map_fold_append_aux)
 
   section \<open>Mapping Transitions and Invariants\<close>
 

@@ -1,7 +1,8 @@
 theory DBM_Operations_Impl
-  imports TA.DBM_Operations TA.Normalized_Zone_Semantics
-          Refine_Imperative_HOL.IICF
-
+  imports
+    TA.DBM_Operations TA.Normalized_Zone_Semantics
+    Refine_Imperative_HOL.IICF
+    "HOL-Library.IArray"
 begin
 
 no_notation infinity ("\<infinity>")
@@ -1292,8 +1293,8 @@ section \<open>Extrapolations\<close>
 
 context
   fixes
-    upd_entry :: "'t \<Rightarrow> 't \<Rightarrow> ('t::{linordered_ab_group_add}) DBMEntry \<Rightarrow> 't DBMEntry"
-  and upd_entry_0 :: "'t \<Rightarrow> 't DBMEntry \<Rightarrow> 't DBMEntry"
+    upd_entry :: "nat \<Rightarrow> nat \<Rightarrow> 't \<Rightarrow> 't \<Rightarrow> ('t::{linordered_ab_group_add}) DBMEntry \<Rightarrow> 't DBMEntry"
+  and upd_entry_0 :: "nat \<Rightarrow> 't \<Rightarrow> 't DBMEntry \<Rightarrow> 't DBMEntry"
 begin
 
 definition extra ::
@@ -1304,7 +1305,7 @@ where
     let lb = if j > 0 then u j else 0 in
     if i \<le> n \<and> j \<le> n then
       if i \<noteq> j then
-        if i > 0 then upd_entry lb ub (M i j) else upd_entry_0 lb (M i j)
+        if i > 0 then upd_entry i j lb ub (M i j) else upd_entry_0 j lb (M i j)
       else norm_diag (M i j)
     else M i j"
 
@@ -1314,7 +1315,7 @@ where
   "upd_line_0 M k n =
     fold
       (\<lambda>j M.
-        M((0, j) := upd_entry_0 (op_list_get k j) (M(0, j))))
+        M((0, j) := upd_entry_0 j (op_list_get k j) (M(0, j))))
       [1..<Suc n]
       (M((0, 0) := norm_diag (M (0, 0))))"
 
@@ -1325,15 +1326,15 @@ where
     fold
       (\<lambda>j M.
         if i \<noteq> j then
-          M((i, j) := upd_entry (op_list_get k j) ub (M(i, j)))
+          M((i, j) := upd_entry i j (op_list_get k j) ub (M(i, j)))
         else M((i, j) := norm_diag (M (i, j))))
       [1..<Suc n]
-      (M((i, 0) := upd_entry 0 ub (M(i, 0))))"
+      (M((i, 0) := upd_entry i 0 0 ub (M(i, 0))))"
 
 lemma upd_line_Suc_unfold:
   "upd_line M k ub i (Suc n) = (let M' = upd_line M k ub i n in
   if i \<noteq> Suc n then
-    M' ((i, Suc n) := upd_entry (op_list_get k (Suc n)) ub (M'(i, Suc n)))
+    M' ((i, Suc n) := upd_entry i (Suc n) (op_list_get k (Suc n)) ub (M'(i, Suc n)))
   else M' ((i, Suc n) := norm_diag (M' (i, Suc n))))"
   unfolding upd_line_def by simp
 
@@ -1349,7 +1350,7 @@ lemma upd_line_alt_def:
     let lb = if j > 0 then op_list_get k j else 0 in
     if i' = i \<and> j \<le> n then
       if i \<noteq> j then
-        upd_entry lb ub (M (i, j))
+        upd_entry i j lb ub (M (i, j))
       else
         norm_diag (M (i, j))
     else M (i', j)
@@ -1364,7 +1365,7 @@ lemma upd_line_alt_def:
 lemma upd_line_0_alt_def:
   "upd_line_0 M k n (i', j) = (
     if i' = 0 \<and> j \<le> n then
-      if j > 0 then upd_entry_0 (op_list_get k j) (M (0, j)) else norm_diag (M (0, 0))
+      if j > 0 then upd_entry_0 j (op_list_get k j) (M (0, j)) else norm_diag (M (0, 0))
     else M (i', j)
   )"
   by (induction n) (auto simp: upd_line_0_def)
@@ -1413,7 +1414,7 @@ definition norm_entry where
   "norm_entry x l u i j = (
     let ub = if i > 0 then (l ! i) else 0 in
     let lb = if j > 0 then (u ! j) else 0 in
-    if i \<noteq> j then if i = 0 then upd_entry_0 lb x else upd_entry lb ub x else norm_diag x)"
+    if i \<noteq> j then if i = 0 then upd_entry_0 j lb x else upd_entry i j lb ub x else norm_diag x)"
 
 lemma upd_extra_aux:
   assumes "i \<le> n" "j \<le> m"
@@ -1433,37 +1434,129 @@ lemma upd_extra_aux':
   using assms unfolding extra_upd_def
   by (subst upd_extra_aux[OF assms]) (simp add: norm_entry_def extra_def norm_diag_def Let_def)
 
-lemma extra_upd_extra:
+lemma extra_upd_extra'':
   "extra_upd M l u n (i, j) = extra (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n i j"
   by (cases "i > n"; cases "j > n";
       simp add: upd_out_of_bounds1 upd_out_of_bounds2 extra_def upd_extra_aux')
 
 lemma extra_upd_extra':
   "curry (extra_upd M l u n) = extra (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n"
-  by (simp add: curry_def extra_upd_extra)
+  by (simp add: curry_def extra_upd_extra'')
+
+lemma extra_upd_extra:
+  "extra_upd = (\<lambda>M l u n (i, j). extra (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n i j)"
+  by (intro ext) (clarsimp simp: extra_upd_extra'')
 
 end
 
 lemma norm_is_extra:
   "norm M k n =
     extra
-      (\<lambda>lb ub e. norm_lower (norm_upper e ub) (-lb))
-      (\<lambda>lb e. norm_lower (norm_upper e 0) (-lb)) M k k n"
+      (\<lambda>_ _ lb ub e. norm_lower (norm_upper e ub) (-lb))
+      (\<lambda>_ lb e. norm_lower (norm_upper e 0) (-lb)) M k k n"
   unfolding norm_def extra_def Let_def by (intro ext) auto
 
-definition
-  "norm_upd M k n =
-    extra_upd
-      (\<lambda>lb ub e. norm_lower (norm_upper e ub) (-lb))
-      (\<lambda>lb e. norm_lower (norm_upper e 0) (-lb)) M k k n"
+lemma extra_lu_is_extra:
+  "extra_lu M l u n =
+    extra
+      (\<lambda>_ _ lb ub e. norm_lower (norm_upper e ub) (-lb))
+      (\<lambda>_ lb e. norm_lower (norm_upper e 0) (-lb)) M l u n"
+  unfolding extra_def extra_lu_def Let_def by (intro ext) auto
 
-lemma norm_upd_norm:
-  "norm_upd M k n (i, j) = norm (curry M) (\<lambda>i. k ! i) n i j"
-  unfolding norm_upd_def norm_is_extra by (rule extra_upd_extra)
+lemma extra_lup_is_extra:
+  "extra_lup M l u n =
+    extra
+      (\<lambda>i j lb ub e. if Lt ub \<prec> e then \<infinity>
+        else if M 0 i \<prec> Lt (- ub) then \<infinity>
+        else if M 0 j \<prec> (if j > 0 then Lt (- lb) else Lt 0) then \<infinity>
+        else e)
+      (\<lambda>j lb e. if Le 0 \<prec> M 0 j then \<infinity>
+        else if M 0 j \<prec> (if j > 0 then Lt (- lb) else Lt 0) then Lt (- lb)
+        else M 0 j) M l u n"
+  unfolding extra_def extra_lup_def Let_def by (intro ext) auto
+
+definition
+  "norm_upd M k =
+    extra_upd
+      (\<lambda>_ _ lb ub e. norm_lower (norm_upper e ub) (-lb))
+      (\<lambda>_ lb e. norm_lower (norm_upper e 0) (-lb)) M k k"
+
+definition
+  "extra_lu_upd =
+    extra_upd
+      (\<lambda>_ _ lb ub e. norm_lower (norm_upper e ub) (-lb))
+      (\<lambda>_ lb e. norm_lower (norm_upper e 0) (-lb))"
+
+definition
+  "extra_lup_upd M =
+    extra_upd
+      (\<lambda>i j lb ub e. if Lt ub \<prec> e then \<infinity>
+        else if M (0, i) \<prec> Lt (- ub) then \<infinity>
+        else if M (0, j) \<prec> (if j > 0 then Lt (- lb) else Lt 0) then \<infinity>
+        else e)
+      (\<lambda>j lb e. if Le 0 \<prec> M (0, j) then \<infinity>
+        else if M (0, j) \<prec> (if j > 0 then Lt (- lb) else Lt 0) then Lt (- lb)
+        else M (0, j)) M"
+
+lemma extra_upd_cong:
+  assumes "\<And>i j x y e. i \<le> n \<Longrightarrow> j \<le> n \<Longrightarrow> upd_entry i j x y e = upd_entry' i j x y e"
+    "\<And>i x e. i \<le> n \<Longrightarrow> upd_entry_0 i x e = upd_entry_0' i x e"
+  shows "extra_upd upd_entry upd_entry_0 M l u n = extra_upd upd_entry' upd_entry_0' M l u n"
+  unfolding extra_upd_def upd_line_def upd_line_0_def
+  by (intro fold_cong, (auto simp: assms; fail)+)
+     (rule ext, rule fold_cong, (auto simp: assms; fail)+)
+
+lemma extra_upd_cong:
+  assumes "\<And>i j x y e. upd_entry i j x y e = upd_entry' i j x y e"
+    "\<And>i x e. upd_entry_0 i x e = upd_entry_0' i x e"
+  shows "extra_upd upd_entry upd_entry_0 = extra_upd upd_entry' upd_entry_0'"
+  unfolding extra_upd_def upd_line_def upd_line_0_def
+  apply (rule ext, rule ext, rule ext, rule ext)
+  apply (rule fold_cong, (clarsimp simp: assms; fail)+)
+  apply (rule ext, rule fold_cong; (rule ext)?; clarsimp simp: assms; fail)+
+  oops
+
+no_notation test_bit (infixl "!!" 100)
+no_notation snth (infixl \<open>!!\<close> 100)
+
+lemma extra_lup_upd_alt_def:
+  "extra_lup_upd M l u n = (
+    let xs = IArray (map (\<lambda>i. M (0, i)) [0..<Suc n]) in
+    extra_upd
+      (\<lambda>i j lb ub e. if Lt ub \<prec> e then \<infinity>
+        else if (xs !! i) \<prec> Lt (- ub) then \<infinity>
+        else if (xs !! j) \<prec> (if j > 0 then Lt (- lb) else Lt 0) then \<infinity>
+        else e)
+      (\<lambda>j lb e. if Le 0 \<prec> (xs !! j) then \<infinity>
+        else if (xs !! j) \<prec> (if j > 0 then Lt (- lb) else Lt 0) then Lt (- lb)
+        else (xs !! j))) M l u n"
+  unfolding extra_lup_upd_def Let_def by (rule extra_upd_cong; clarsimp simp del: upt_Suc; fail)
+
+lemma extra_lup_upd_alt_def2:
+  "extra_lup_upd M l u n = (
+    let xs = map (\<lambda>i. M (0, i)) [0..<Suc n] in
+    extra_upd
+      (\<lambda>i j lb ub e. if Lt ub \<prec> e then \<infinity>
+        else if (xs ! i) \<prec> Lt (- ub) then \<infinity>
+        else if (xs ! j) \<prec> (if j > 0 then Lt (- lb) else Lt 0) then \<infinity>
+        else e)
+      (\<lambda>j lb e. if Le 0 \<prec> (xs ! j) then \<infinity>
+        else if (xs ! j) \<prec> (if j > 0 then Lt (- lb) else Lt 0) then Lt (- lb)
+        else (xs ! j)) M l u n)"
+  unfolding extra_lup_upd_def Let_def by (rule extra_upd_cong; clarsimp simp del: upt_Suc; fail)
+
+lemma norm_upd_norm: "norm_upd = (\<lambda>M k n (i, j). norm (curry M) (\<lambda>i. k ! i) n i j)"
+  and extra_lu_upd_extra_lu:
+    "extra_lu_upd = (\<lambda>M l u n (i, j). extra_lu (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n i j)"
+  and extra_lup_upd_extra_lup:
+    "extra_lup_upd = (\<lambda>M l u n (i, j). extra_lup (curry M) (\<lambda>i. l ! i) (\<lambda>i. u ! i) n i j)"
+  unfolding norm_upd_def norm_is_extra extra_lu_upd_def extra_lu_is_extra
+    extra_lup_upd_def extra_lup_is_extra extra_upd_extra curry_def
+  by standard+
 
 lemma norm_upd_norm':
   "curry (norm_upd M k n) = norm (curry M) (\<lambda>i. k ! i) n"
-  by (simp add: curry_def norm_upd_norm)
+  unfolding norm_upd_norm by simp
 
 (* XXX Copy from Regions Beta, original should be moved *)
 lemma norm_int_preservation:
@@ -1471,21 +1564,34 @@ lemma norm_int_preservation:
   shows "dbm_int (norm M k n) n"
   using assms unfolding norm_def norm_diag_def by (auto simp: Let_def)
 
+lemma
+  assumes "dbm_int M n" "\<forall> c \<le> n. l c \<in> \<int>" "\<forall> c \<le> n. u c \<in> \<int>"
+  shows extra_lu_preservation: "dbm_int (extra_lu M l u n) n"
+    and extra_lup_preservation: "dbm_int (extra_lup M l u n) n"
+  using assms unfolding extra_lu_def extra_lup_def norm_diag_def by (auto simp: Let_def)
+
 lemma norm_upd_int_preservation:
   fixes M :: "('t :: {linordered_ab_group_add, ring_1}) DBM'"
   assumes "dbm_int (curry M) n" "\<forall> c \<in> set k. c \<in> \<int>" "length k = Suc n"
   shows "dbm_int (curry (norm_upd M k n)) n"
-proof -
-  let ?k = "(\<lambda> i. k ! i)"
-  from norm_int_preservation[OF assms(1), where k = ?k] assms(2,3) have
-    "dbm_int (norm (curry M) ?k n) n"
-  by fastforce
-  with norm_upd_norm[where M = M] show ?thesis by auto
-qed
+  using norm_int_preservation[OF assms(1)] assms(2,3) unfolding norm_upd_norm curry_def by simp
 
-lemma norm_upd_default:
+lemma
+  fixes M :: "('t :: {linordered_ab_group_add, ring_1}) DBM'"
+  assumes "dbm_int (curry M) n"
+    "\<forall>c \<in> set l. c \<in> \<int>" "length l = Suc n" "\<forall>c \<in> set u. c \<in> \<int>" "length u = Suc n"
+  shows extra_lu_upd_int_preservation: "dbm_int (curry (extra_lu_upd M l u n)) n"
+    and extra_lup_upd_int_preservation: "dbm_int (curry (extra_lup_upd M l u n)) n"
+  using extra_lu_preservation[OF assms(1)] extra_lup_preservation[OF assms(1)] assms(2-)
+  unfolding extra_lu_upd_extra_lu extra_lup_upd_extra_lup curry_def by simp+
+
+lemma
   assumes "dbm_default (curry M) n"
-  shows "dbm_default (curry (norm_upd M k n)) n"
-  using assms unfolding norm_upd_norm' norm_def by auto
+  shows norm_upd_default:      "dbm_default (curry (norm_upd M k n)) n"
+    and extra_lu_upd_default:  "dbm_default (curry (extra_lu_upd M l u n)) n"
+    and extra_lup_upd_default: "dbm_default (curry (extra_lup_upd M l u n)) n"
+  using assms unfolding
+    norm_upd_norm norm_def extra_lu_upd_extra_lu extra_lu_def extra_lup_upd_extra_lup extra_lup_def
+  by auto
 
 end (* End of theory *)

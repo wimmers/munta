@@ -241,29 +241,20 @@ using assms by simp
 
 lemma normalized_integral_dbms_finite':
   assumes "length k = Suc n"
-  shows
-    "finite {norm_upd M (k :: nat list) n | M. dbm_default (curry M) n}"
-  (is "finite ?S")
+  shows "finite {norm_upd M (k :: nat list) n | M. dbm_default (curry M) n}" (is "finite ?S")
 proof -
   let ?k = "(\<lambda> i. k ! i)"
   have "norm_upd M k n = uncurry (norm (curry M) ?k n)" for M
-   apply (intro ext)
-   apply clarify
-   apply (subst norm_upd_norm[where k = k and M = M and n = n])
-    apply simp
-   apply (subst norm_k_cong)
-  using assms by auto
+    using assms by (subst norm_upd_norm, subst norm_k_cong) auto
   then have
     "?S \<subseteq> uncurry `
       {norm (curry M) (\<lambda>i. k ! i) n | M. dbm_default (curry M) n}"
-  by auto
+    by auto
   moreover have "finite \<dots>"
-    apply rule
-    apply (rule finite_subset)
-    prefer 2
-    apply (rule normalized_integral_dbms_finite[where n = n and k = ?k])
-  by blast
-  ultimately show ?thesis by (auto intro: finite_subset)
+    by (rule finite_imageI, rule finite_subset[rotated])
+       (rule normalized_integral_dbms_finite[where n = n and k = ?k], blast)
+  ultimately show ?thesis
+    by (auto intro: finite_subset)
 qed
 
 (* XXX Move, here unnecessary *)
