@@ -191,10 +191,6 @@ lemma valid_iff:
   "valid (l, u) \<longleftrightarrow> valid (l', u')" if "(l, u) \<equiv>\<^sub>M (l', u')"
   using that unfolding sim_regions_def by (auto dest: \<R>_V)
 
-lemma \<R>_distinct:
-  "R' = R" if "R \<in> \<R> l" "R' \<in> \<R> l" "u \<in> R" "u \<in> R'"
-  using that \<R>_regions_distinct[where \<R> = \<open>\<R> l\<close> and X = X and k = "k l"] \<R>_def[of l] by metis
-
 lemma refl:
   "(l, u) \<equiv>\<^sub>M (l, u)"
   unfolding sim_regions_def by (cases "valid (l, u)"; simp add: \<R>_I)
@@ -210,7 +206,7 @@ proof (cases "valid (l, u)")
   with that have "valid (l, u)" "valid (l', u')" "valid (l'', u'')"
     using valid_iff by metis+
   then show ?thesis
-    using that unfolding sim_regions_def by (auto dest: \<R>_distinct)
+    using that unfolding sim_regions_def by (auto dest: \<R>_regions_distinct[rotated 2])
 next
   case False
   with that have "\<not> valid (l, u)" "\<not> valid (l', u')" "\<not> valid (l'', u'')"
@@ -233,7 +229,7 @@ lemma regions_simI:
 
 lemma regions_simD:
   "u' \<in> R" if "l \<in> state_set A" "R \<in> \<R> l" "u \<in> R" "(l, u) \<equiv>\<^sub>M (l', u')"
-  using that unfolding sim_regions_def by (auto dest: \<R>_V \<R>_distinct)
+  using that unfolding sim_regions_def by (auto dest: \<R>_V \<R>_regions_distinct)
 
 lemma finite_quotient:
   "finite (UNIV // {(x, y). x \<equiv>\<^sub>M y})"
