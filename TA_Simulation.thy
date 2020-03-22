@@ -5,7 +5,6 @@ theory TA_Simulation
     TA.Simulation_Graphs_TA
     "HOL-Eisbach.Eisbach"
     Simulation_Graphs2
-    "HOL-ex.Sketch_and_Explore"
     TA_Impl.Normalized_Zone_Semantics_Impl_Semantic_Refinement
 begin
 
@@ -788,7 +787,7 @@ locale Time_Abstract_Simulation_Sandwich =
   and finite_abstraction: "finite {\<beta> l Z | l Z. I Z \<and> Z \<subseteq> V \<and> l \<in> state_set A}"
 
   fixes l\<^sub>0 :: 'l and Z\<^sub>0 :: "('c, real) zone"
-  assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set A" and Z\<^sub>0_V: "\<forall>u \<in> Z\<^sub>0. u \<in> V" and Z\<^sub>0_I: "I Z\<^sub>0"
+  assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set A" and Z\<^sub>0_V: "Z\<^sub>0 \<subseteq> V" and Z\<^sub>0_I: "I Z\<^sub>0"
 begin
 
 inductive step_beta ::
@@ -905,10 +904,7 @@ proof (standard, goal_cases)
 next
   case (2 b B A)
   then show ?case
-    unfolding beta_step_def apply clarify
-    thm backward_simulation
-    apply (rule backward_simulation, assumption+)
-    sorry
+    unfolding beta_step_def by clarify (rule backward_simulation)
 next
   case (3 a)
   then show ?case
@@ -1411,11 +1407,12 @@ locale TA_Extrapolation =
   Regions_TA where A = A +
   Time_Abstract_Simulation where A = A for A :: "('a, 'c, real, 'l) ta" +
   assumes simulation_nonneg: "u' \<in> V \<Longrightarrow> (l, u) \<preceq> (l', u') \<Longrightarrow> u \<in> V"
-  fixes extra :: "'l \<Rightarrow> real DBM \<Rightarrow> real DBM"
+  fixes extra :: "'l \<Rightarrow> real DBM \<Rightarrow> real DBM" and l\<^sub>0 and M\<^sub>0
   assumes extra_widens: "vabstr' Z M \<Longrightarrow> Z \<subseteq> [extra l M]\<^bsub>v,n\<^esub>"
       and extra_\<alpha>: "vabstr' Z M \<Longrightarrow> [extra l M]\<^bsub>v,n\<^esub> \<subseteq> \<alpha> l Z"
       and extra_finite: "finite {extra l M | M. canonical_dbm M}"
       and extra_int: "dbm_int M n \<Longrightarrow> dbm_int (extra l M) n"
+  assumes l\<^sub>0_state_set: "l\<^sub>0 \<in> state_set A" and M\<^sub>0_V: "[M\<^sub>0]\<^bsub>v,n\<^esub> \<subseteq> V" and M\<^sub>0_int: "dbm_int M\<^sub>0 n"
 begin
 
 definition apx where
@@ -1525,9 +1522,8 @@ proof -
 qed
 
 sublocale Time_Abstract_Simulation_Sandwich
-  where \<beta> = apx and
-  I = "\<lambda>Z. \<exists>M. vabstr' Z M"
-  proof standard
+  where \<beta> = apx and I = "\<lambda>Z. \<exists>M. vabstr' Z M" and Z\<^sub>0 = "[M\<^sub>0]\<^bsub>v,n\<^esub>"
+proof standard
   show "u \<in> V" if "(l, u) \<preceq> (l', u')" "u' \<in> V" for l l' :: 'l and u u' :: "'c \<Rightarrow> real"
     using that by (rule simulation_nonneg[rotated])
   show "\<exists>M. vabstr' Z' M"
@@ -1544,13 +1540,12 @@ sublocale Time_Abstract_Simulation_Sandwich
   show "finite {apx l Z |l Z. (\<exists>M. vabstr' Z M) \<and> Z \<subseteq> V \<and> l \<in> state_set A}"
     using apx_finite by (rule finite_subset[rotated]) auto
   show "l\<^sub>0 \<in> state_set A"
-    sorry
-  show "\<forall>u\<in>Z\<^sub>0. u \<in> V"
-    sorry
-  show "\<exists>M. vabstr' Z\<^sub>0 M"
-    sorry
+    by (rule l\<^sub>0_state_set)
+  show "[M\<^sub>0]\<^bsub>v,n\<^esub> \<subseteq> V"
+    by (rule M\<^sub>0_V)
+  show "\<exists>M. vabstr' ([M\<^sub>0]\<^bsub>v,n\<^esub>) M"
+    by (rule vabstr'I; (rule M\<^sub>0_int M\<^sub>0_V)?) auto
 qed
-
 
 end
 
