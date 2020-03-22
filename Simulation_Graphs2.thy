@@ -338,68 +338,140 @@ lemma (in Simulation_Invariant) simulation_run':
   shows "\<exists>ys. B.run (y ## ys) \<and> stream_all2 (\<lambda>a b. a \<sim> b \<and> PA a \<and> PB b) xs ys"
   using simulation_run assms unfolding equiv'_def by blast
 
+(* XXX Move to graph library *)
+context Graph_Invariant_Start
+begin
+
+definition
+  "E_I \<equiv> \<lambda>x y. P x \<and> x \<rightarrow> y"
+
+sublocale Subgraph_Start where E' = E_I and E = E and s\<^sub>0 = s\<^sub>0
+  apply standard
+  unfolding E_I_def by simp
+
+lemma invariant_subgraph:
+  "E_I x y" if "x \<rightarrow> y" "reachable x"
+  using that unfolding E_I_def by (simp add: invariant_reaches reachable_def)
+
+lemma reachable_reaches_equiv: "G'.reaches x y \<longleftrightarrow> x \<rightarrow>* y" if "reachable x" for x y
+  apply standard
+  apply (rule reaches, assumption; fail)
+  subgoal premises prems
+    using prems \<open>reachable x\<close> by induction (auto dest: invariant_subgraph)
+  done
+
+lemma reachable_reaches1_equiv: "G'.reaches1 x y \<longleftrightarrow> x \<rightarrow>\<^sup>+ y" if "reachable x" for x y
+  apply standard
+  apply (rule reaches1, assumption; fail)
+  subgoal premises prems
+    using prems \<open>reachable x\<close> by induction (auto 4 3 dest: invariant_subgraph)
+  done
+
+lemma reachable_steps_equiv:
+  "G'.steps (x # xs) \<longleftrightarrow> steps (x # xs)" if "reachable x"
+  apply standard
+  subgoal premises prems
+    using prems \<open>reachable x\<close> by (metis E_I_def Single G'.steps_alt_induct steps_appendI)
+  subgoal premises prems
+    using prems that
+    by (metis G'.steps.simps G'.steps_appendI invariant_subgraph reachable_steps_equiv
+           reachable_subgraph.E'_V1 reachable_subgraph.G'.steps_alt_induct
+           reachable_subgraph.subgraph)
+  done
+
+lemma reachable_run_equiv:
+  "G'.run (x ## xs) \<longleftrightarrow> run (x ## xs)" if "reachable x"
+  apply standard
+  subgoal
+    by (metis G'.run.cases run.coinduct subgraph) 
+  subgoal premises prems
+    using prems \<open>reachable x\<close>
+    by (coinduction arbitrary: x xs)
+       (auto 4 4 simp: E_I_def dest: reachable_step invariant_subgraph elim: run.cases)
+  done
+
+lemmas invariant_subgraph_equivs =
+  reachable_reaches_equiv reachable_reaches1_equiv reachable_steps_equiv reachable_run_equiv
+
+end
+
 text \<open>Adding the assumption that the abstracted zone graph is finite and complete.\<close>
-locale Backward_Double_Simulation_Complete = Backward_Double_Simulation where E = E +
+locale Backward_Double_Simulation_Complete =
+  A: Graph_Defs E + G: Graph_Defs G +
+  backward: Backward_Double_Simulation where E = E and G = "\<lambda>x y. Q x \<and> G x y" +
   complete: Simulation_Invariant where A = E and B = G and PA = P and PB = Q and sim = "(\<in>)" +
   Finite_Graph where E = G and x\<^sub>0 = a\<^sub>0 +
   Graph_Invariant where E = G and P = Q
-  for E and a\<^sub>0 and Q +
+  for E :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and G :: "'a set \<Rightarrow> 'a set \<Rightarrow> bool" and a\<^sub>0 and Q +
   assumes Q_P: "Q a \<Longrightarrow> \<forall>x \<in> a. P x" and a\<^sub>0_invariant: "Q a\<^sub>0"
 begin
+
+sublocale G: Graph_Invariant_Start where E = G and P = Q and s\<^sub>0 = a\<^sub>0
+  by (standard) (rule a\<^sub>0_invariant)
+
+lemmas G_invariant_subgraph_equivs = G.invariant_subgraph_equivs[unfolded G.E_I_def]
 
 text \<open>Corresponds to theorem 1 of @{cite "Li:FORMATS:2009"}.\<close>
 theorem Buechi_run_lasso_iff:
   assumes
     "\<forall>x y. x \<preceq>' y \<and> \<phi> x \<longrightarrow> \<phi> y"
     "\<forall>x y. x \<preceq> y  \<and> \<phi> x \<longrightarrow> \<phi> y"
-    "\<forall>x y A. reaches a\<^sub>0 A \<and> x \<in> A \<and> y \<in> A \<and> \<phi> x \<longrightarrow> \<phi> y"
+    "\<forall>x y A. G.reaches a\<^sub>0 A \<and> x \<in> A \<and> y \<in> A \<and> \<phi> x \<longrightarrow> \<phi> y"
   shows
     "(\<exists>x\<^sub>0 xs. x\<^sub>0 \<in> a\<^sub>0 \<and> A.run (x\<^sub>0 ## xs) \<and> infs \<phi> (x\<^sub>0 ## xs))
-    \<longleftrightarrow> (\<exists>as a bs. steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall>x \<in> a. \<phi> x) \<and> a \<noteq> {})"
+    \<longleftrightarrow> (\<exists>as a bs. G.steps (a\<^sub>0 # as @ a # bs @ [a]) \<and> (\<forall>x \<in> a. \<phi> x) \<and> a \<noteq> {})"
     (is "?lhs \<longleftrightarrow> ?rhs")
 proof
   assume ?lhs
   then obtain x\<^sub>0 xs where "x\<^sub>0 \<in> a\<^sub>0" "A.run (x\<^sub>0 ## xs)" "infs \<phi> xs"
     by auto
+  have backward_reaches_A: "G.reaches a\<^sub>0 A" if "backward.reaches a\<^sub>0 A" for A
+    using that by (simp add: G_invariant_subgraph_equivs)
   from complete.simulation_run'[OF \<open>A.run _\<close> \<open>x\<^sub>0 \<in> _\<close>] a\<^sub>0_invariant \<open>x\<^sub>0 \<in> a\<^sub>0\<close> obtain as where
-    "run (a\<^sub>0 ## as)" "stream_all2 (\<lambda>a b. a \<in> b \<and> P a \<and> Q b) xs as"
+    "G.run (a\<^sub>0 ## as)" "stream_all2 (\<lambda>a b. a \<in> b \<and> P a \<and> Q b) xs as"
     by (auto dest: Q_P)
+  from \<open>G.run (a\<^sub>0 ## as)\<close> have "backward.run (a\<^sub>0 ## as)"
+    by (simp add: G_invariant_subgraph_equivs)
   from \<open>infs \<phi> _\<close> \<open>stream_all2 _ _ _\<close> have "infs (\<lambda>a. \<exists>x \<in> a. \<phi> x) as"
     by (rule alw_ev_lockstep) fast
   then have "infs (\<lambda>a. (\<forall>x \<in> a. \<phi> x) \<and> a \<noteq> {}) as"
-    using assms(3) \<open>run (a\<^sub>0 ## as)\<close>
-    by (auto 4 5 simp: stream.pred_set dest!: run_reachable elim!: infs_mono[rotated])
-  with \<open>run _\<close> show ?rhs
+    using assms(3) \<open>backward.run (a\<^sub>0 ## as)\<close>
+    by (auto 4 5 simp: stream.pred_set dest!: backward.run_reachable backward_reaches_A
+          elim!: infs_mono[rotated])
+  with \<open>G.run _\<close> show ?rhs
     apply -
     apply (erule buechi_run_lasso)
      apply (simp; fail)
-    by (metis (lifting) reaches1_steps_append reaches1_steps_iff reaches_stepsE steps_reaches1
-          list.sel(1))
+    by (metis (lifting)
+          G.reaches1_steps_append G.reaches1_steps_iff G.reaches_stepsE G.steps_reaches1 list.sel(1))
 next
   assume ?rhs
-  then obtain as a x bs where "steps (a\<^sub>0 # as @ a # bs @ [a])" "\<forall>x \<in> a. \<phi> x" "x \<in> a"
+  then obtain as a x bs where "G.steps (a\<^sub>0 # as @ a # bs @ [a])" "\<forall>x \<in> a. \<phi> x" "x \<in> a"
     by auto
-  then have "reaches a\<^sub>0 a" "reaches1 a\<^sub>0 a"
+  then have "G.reaches a\<^sub>0 a" "G.reaches1 a\<^sub>0 a"
     apply -
     subgoal A
-      by (smt Graph_Defs.steps_reaches append_Cons last_appendR last_snoc list.sel(1))
+      by (smt G.steps_reaches append_Cons last_appendR last_snoc list.sel(1))
     subgoal
-      by (metis
-          steps_ConsD A append_is_Nil_conv list.distinct(1) rtranclpD steps_appendD2 steps_reaches1)
+      by (metis A G.steps_ConsD G.steps_appendD2 G.steps_reaches1
+            append_is_Nil_conv list.distinct(1) rtranclpD)
     done
-  from \<open>steps (a\<^sub>0 # as @ a # bs @ [a])\<close> have "steps (a # bs @ [a])"
-    by (metis append_is_Nil_conv list.distinct(1) steps_ConsD steps_appendD2)
-  from \<open>reaches a\<^sub>0 a\<close> a\<^sub>0_invariant have "Q a"
+  moreover from \<open>G.steps (a\<^sub>0 # as @ a # bs @ [a])\<close> have "G.steps (a # bs @ [a])"
+    by (metis append_is_Nil_conv list.distinct(1) G.steps_ConsD G.steps_appendD2)
+  ultimately have "backward.reaches1 a\<^sub>0 a" "backward.steps (a # bs @ [a])"
+    by (simp add: G_invariant_subgraph_equivs G.reachable_def)+
+  from \<open>G.reaches a\<^sub>0 a\<close> a\<^sub>0_invariant have "Q a"
     by (rule complete.PB_invariant.invariant_reaches)
-  with assms(1,2) \<open>reaches _ _\<close> \<open>\<forall>x \<in> a. \<phi> x\<close> obtain x xs where
+  with assms(1,2) \<open>G.reaches _ _\<close> \<open>\<forall>x \<in> a. \<phi> x\<close> obtain x xs where
     "A.run (x ## xs)" "infs \<phi> xs" "x \<in> a"
-    by - (rule cycle_Buechi_run[OF \<open>steps (a # bs @ [a])\<close> \<open>x \<in> a\<close>, where \<phi> = \<phi>], (blast dest: Q_P)+)
-  from backward_simulation_reaches1[OF \<open>reaches1 a\<^sub>0 a\<close> \<open>x \<in> a\<close>] obtain x\<^sub>0 x' where
+    by - (rule backward.cycle_Buechi_run[OF \<open>backward.steps (a # bs @ [a])\<close> \<open>x \<in> a\<close>, where \<phi> = \<phi>],
+          (blast dest: Q_P)+)
+  from backward.backward_simulation_reaches1[OF \<open>backward.reaches1 a\<^sub>0 a\<close> \<open>x \<in> a\<close>] obtain x\<^sub>0 x' where
     "x\<^sub>0 \<in> a\<^sub>0" "x \<preceq> x'" "x\<^sub>0 \<rightarrow>\<^sup>+ x'"
     by auto
   then obtain ys where "A.steps (x\<^sub>0 # ys @ [x'])"
     using A.reaches1_steps_iff by auto
-  from simulation_run[OF \<open>A.run _\<close> \<open>x \<preceq> x'\<close>] obtain xs' where
+  from backward.simulation_run[OF \<open>A.run _\<close> \<open>x \<preceq> x'\<close>] obtain xs' where
     "A.run (x' ## xs')" "stream_all2 (\<preceq>) xs xs'"
     by (elim conjE exE)
   with \<open>A.steps _\<close> have "A.run (x\<^sub>0 ## ys @- x' ## xs')"
