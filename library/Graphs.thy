@@ -483,6 +483,59 @@ proof -
   qed
 qed
 
+text \<open>
+  A directed graph where every node has at least one ingoing edge, contains a directed cycle.
+\<close>
+lemma directed_graph_indegree_ge_1_cycle':
+  assumes "finite S" "S \<noteq> {}" "\<forall> y \<in> S. \<exists> x \<in> S. E x y"
+  shows "\<exists> x \<in> S. \<exists> y. E x y \<and> E\<^sup>*\<^sup>* y x"
+  using assms
+proof (induction arbitrary: E rule: finite_ne_induct)
+  case (singleton x)
+  then show ?case by auto
+next
+  case (insert x S E)
+  from insert.prems obtain y where "y \<in> insert x S" "E y x"
+    by auto
+  show ?case
+  proof (cases "y = x")
+    case True
+    with \<open>E y x\<close> show ?thesis by auto
+  next
+    case False
+    with \<open>y \<in> _\<close> have "y \<in> S" by auto
+    define E' where "E' a b \<equiv> E a b \<or> (a = y \<and> E x b)" for a b
+    have E'_E: "\<exists> c. E a c \<and> E\<^sup>*\<^sup>* c b" if "E' a b" for a b
+      using that \<open>E y x\<close> unfolding E'_def by auto
+    have [intro]: "E\<^sup>*\<^sup>* a b" if "E' a b" for a b
+      using that \<open>E y x\<close> unfolding E'_def by auto
+    have [intro]: "E\<^sup>*\<^sup>* a b" if "E'\<^sup>*\<^sup>* a b" for a b
+      using that by (induction; blast intro: rtranclp_trans)
+    have "\<forall>y\<in>S. \<exists>x\<in>S. E' x y"
+    proof (rule ballI)
+      fix b assume "b \<in> S"
+      with insert.prems obtain a where "a \<in> insert x S" "E a b"
+        by auto
+      show "\<exists>a\<in>S. E' a b"
+      proof (cases "a = x")
+        case True
+        with \<open>E a b\<close> have "E' y b" unfolding E'_def by simp
+        with \<open>y \<in> S\<close> show ?thesis ..
+      next
+        case False
+        with \<open>a \<in> _\<close> \<open>E a b\<close> show ?thesis unfolding E'_def by auto
+      qed
+    qed
+    from insert.IH[OF this] guess x y by safe
+    then show ?thesis by (blast intro: rtranclp_trans dest: E'_E)
+    qed
+  qed
+
+lemma directed_graph_indegree_ge_1_cycle:
+  assumes "finite S" "S \<noteq> {}" "\<forall> y \<in> S. \<exists> x \<in> S. E x y"
+  shows "\<exists> x \<in> S. \<exists> y. x \<rightarrow>\<^sup>+ x"
+  using directed_graph_indegree_ge_1_cycle'[OF assms] reaches1_reaches_iff1 by blast
+
 lemmas graphI =
   steps.intros
   steps_append_single
