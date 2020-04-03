@@ -76,21 +76,10 @@ lemma topological_numbering:
 end
 
 
-context fin_digraph
-begin
-
-sublocale graph: Finite_Graph E
+sublocale fin_digraph \<subseteq> graph: Finite_Graph E
   by standard (auto intro!: finite_subset[OF _ finite_verts] simp: E_def Graph_Defs.vertices_def)
 
-end
-
-
-context fin_dag
-begin
-
-sublocale graph: Finite_DAG E ..
-
-end
+sublocale fin_dag \<subseteq> graph: Finite_DAG E ..
 
 
 
