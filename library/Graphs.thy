@@ -341,6 +341,10 @@ lemma reaches1_steps_iff:
   "x \<rightarrow>\<^sup>+ y \<longleftrightarrow> (\<exists> xs. steps (x # xs @ [y]))"
   using steps_reaches1 reaches1_steps by fast
 
+lemma reaches_steps_iff2:
+  "x \<rightarrow>* y \<longleftrightarrow> (x = y \<or> (\<exists>vs. steps (x # vs @ [y])))"
+  by (simp add: Nitpick.rtranclp_unfold reaches1_steps_iff)
+
 lemma reaches1_reaches_iff1:
   "x \<rightarrow>\<^sup>+ y \<longleftrightarrow> (\<exists> z. x \<rightarrow> z \<and> z \<rightarrow>* y)"
   by (auto dest: tranclpD)
@@ -535,6 +539,17 @@ lemma directed_graph_indegree_ge_1_cycle:
   assumes "finite S" "S \<noteq> {}" "\<forall> y \<in> S. \<exists> x \<in> S. E x y"
   shows "\<exists> x \<in> S. \<exists> y. x \<rightarrow>\<^sup>+ x"
   using directed_graph_indegree_ge_1_cycle'[OF assms] reaches1_reaches_iff1 by blast
+
+
+text \<open>Vertices of a graph\<close>
+
+definition "vertices = {x. \<exists>y. E x y \<or> E y x}"
+
+lemma reaches1_verts:
+  assumes "x \<rightarrow>\<^sup>+ y"
+  shows "x \<in> vertices" and "y \<in> vertices"
+  using assms reaches1_reaches_iff2 reaches1_reaches_iff1 vertices_def by blast+
+
 
 lemmas graphI =
   steps.intros
@@ -871,7 +886,68 @@ lemmas [dest]  = Subgraph_Node_Defs.subgraphD
 end (* Bundle *)
 
 
-section \<open>Simulations and Bisimulations\<close>
+section \<open>Directed Acyclic Graphs\<close>
+locale DAG = Graph_Defs +
+  assumes acyclic: "\<not> E\<^sup>+\<^sup>+ x x"
+begin
+
+lemma topological_numbering:
+  fixes S assumes "finite S"
+  shows "\<exists>f :: _ \<Rightarrow> nat. inj_on f S \<and> (\<forall>x \<in> S. \<forall>y \<in> S. E x y \<longrightarrow> f x < f y)"
+  using assms
+proof (induction rule: finite_psubset_induct)
+  case (psubset A)
+  show ?case
+  proof (cases "A = {}")
+    case True
+    then show ?thesis
+      by simp
+  next
+    case False
+    then obtain x where x: "x \<in> A" "\<forall>y \<in> A. \<not>E y x"
+      using directed_graph_indegree_ge_1_cycle[OF \<open>finite A\<close>] acyclic by auto
+    let ?A = "A - {x}"
+    from \<open>x \<in> A\<close> have "?A \<subset> A"
+      by auto
+    from psubset.IH(1)[OF this] obtain f :: "_ \<Rightarrow> nat" where f:
+      "inj_on f ?A" "\<forall>x\<in>?A. \<forall>y\<in>?A. x \<rightarrow> y \<longrightarrow> f x < f y"
+      by blast
+    let ?f = "\<lambda>y. if x \<noteq> y then f y + 1 else 0"
+    from \<open>x \<in> A\<close> have "A = insert x ?A"
+      by auto
+    from \<open>inj_on f ?A\<close> have "inj_on ?f A"
+      by (auto simp: inj_on_def)
+    moreover from f(2) x(2) have "\<forall>x\<in>A. \<forall>y\<in>A. x \<rightarrow> y \<longrightarrow> ?f x < ?f y"
+      by auto
+    ultimately show ?thesis
+      by blast
+  qed
+qed
+
+end
+
+
+section \<open>Finite Graphs\<close>
+
+locale Finite_Graph = Graph_Defs +
+  assumes finite_graph: "finite vertices"
+
+locale Finite_DAG = Finite_Graph + DAG
+begin
+
+lemma finite_reachable:
+  "finite {y. x \<rightarrow>* y}" (is "finite ?S")
+proof -
+  have "?S \<subseteq> insert x vertices"
+    by (metis insertCI mem_Collect_eq reaches1_verts(2) rtranclpD subsetI)
+  also from finite_graph have "finite \<dots>" ..
+  finally show ?thesis .
+qed
+
+end
+
+
+section \<open>Graph Invariants\<close>
 
 locale Graph_Invariant = Graph_Defs +
   fixes P :: "'a \<Rightarrow> bool"
@@ -890,6 +966,31 @@ lemma invariant_run:
   assumes run: "run (x ## xs)" and P: "P x"
   shows "pred_stream P (x ## xs)"
   using run P by (coinduction arbitrary: x xs) (auto 4 3 elim: invariant run.cases)
+
+text \<open>Every graph invariant induces a subgraph.\<close>
+sublocale Subgraph_Node_Defs where E = E and V = P .
+
+lemma subgraph':
+  assumes "x \<rightarrow> y" "P x"
+  shows "E' x y"
+  using assms by (intro subgraph') (auto intro: invariant)
+
+lemma invariant_steps_iff:
+  "G'.steps (v # vs) \<longleftrightarrow> steps (v # vs)" if "P v"
+  apply (rule iffI)
+  subgoal
+    using G'.steps_alt_induct steps_appendI by blast
+  subgoal premises prems
+    using prems \<open>P v\<close> by (induction "v # vs" arbitrary: v vs) (auto intro: subgraph' invariant)
+  done
+
+lemma invariant_reaches_iff:
+  "G'.reaches u v \<longleftrightarrow> reaches u v" if "P u"
+  using that by (simp add: reaches_steps_iff2 G'.reaches_steps_iff2 invariant_steps_iff)
+
+lemma invariant_reaches1_iff:
+  "G'.reaches1 u v \<longleftrightarrow> reaches1 u v" if "P u"
+  using that by (simp add: reaches1_steps_iff G'.reaches1_steps_iff invariant_steps_iff)
 
 end (* Graph Invariant *)
 
@@ -958,6 +1059,8 @@ lemma invariant_reaches1:
 
 end (* Graph Invariant *)
 
+
+section \<open>Simulations and Bisimulations\<close>
 locale Simulation_Defs =
   fixes A :: "'a \<Rightarrow> 'a \<Rightarrow> bool" and B :: "'b \<Rightarrow> 'b \<Rightarrow> bool"
     and sim :: "'a \<Rightarrow> 'b \<Rightarrow> bool" (infixr "\<sim>" 60)
@@ -1402,7 +1505,7 @@ proof -
   interpret B: Bisimulation_Invariants B C sim2 PB QB PC QC
     by (rule assms(2))
   show ?thesis
-    by (standard; (blast dest: A.A_B_step B.A_B_step | blast dest: A.B_A_step B.B_A_step))
+    by (standard, blast dest: A.A_B_step B.A_B_step) (blast dest: A.B_A_step B.B_A_step)+
 qed
 
 lemma Bisimulation_Invariant_Invariants_composition:
