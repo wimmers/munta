@@ -335,13 +335,10 @@ begin
   lemma clk_pairs_N_inv:
     "\<Union> (collect_clock_pairs ` range (snd x)) \<subseteq> \<Union> (collect_clock_pairs ` set (concat inv))"
     if "x \<in> set equiv.defs.N" for x
-    using that
-    unfolding equiv.state_ta_def equiv.state_inv_def
-    unfolding equiv.p_def
-    unfolding N_def
-    unfolding I_def
-    unfolding collect_clock_pairs_def
-    using process_length(1) by (force dest!: nth_mem)
+    using that process_length(1)
+    unfolding equiv.state_ta_def equiv.state_inv_def equiv.p_def
+    unfolding N_def I_def
+    by clarsimp (auto split: if_split_asm dest: nth_mem)+
 
   lemma clkp_set_simp_1:
     "\<Union> (collect_clock_pairs ` set (concat inv)) \<supseteq> Timed_Automata.collect_clki (snd A)"
@@ -349,8 +346,7 @@ begin
     apply (rule subset_trans)
      apply simp
      apply (rule equiv.defs.collect_clki_prod_invariant')
-    unfolding Timed_Automata.collect_clki_def
-    by (force dest!: nth_mem clk_pairs_N_inv)
+    unfolding Timed_Automata.collect_clki_def using clk_pairs_N_inv nth_mem by blast
 
   lemma clk_set_simp_2:
     "{c. \<exists> x. Some (INSTR (STOREC c x)) \<in> set prog} \<supseteq> collect_clkvt (trans_of A)"

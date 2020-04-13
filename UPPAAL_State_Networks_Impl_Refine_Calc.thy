@@ -1,9 +1,13 @@
 theory UPPAAL_State_Networks_Impl_Refine_Calc
-  imports TA_Byte_Code.UPPAAL_State_Networks_Impl_Refine Gabow_SCC.Gabow_SCC_Code
+  imports Uppaal_Networks.UPPAAL_State_Networks_Impl_Refine Gabow_SCC.Gabow_SCC_Code
 begin
 
-term "compute_SCC_code \<lparr> gi_V = (\<lambda> x. True), gi_E = (\<lambda> x. [3]), gi_V0 = [1], \<dots> = 3 \<rparr>"
-term "gi_V \<lparr> gi_V = (\<lambda> x. True), gi_E = (\<lambda> x. [3]), gi_V0 = [1] \<rparr>"
+definition compute_SCC_tr ::
+  "('a :: hashable \<Rightarrow> bool, 'a \<Rightarrow> 'a list, 'a list, 'b) gen_g_impl_scheme \<Rightarrow> _" where
+  "compute_SCC_tr =
+    Gabow_SCC_Code.compute_SCC_tr (=) bounded_hashcode_nat (def_hashmap_size TYPE('a))"
+
+term "compute_SCC_tr \<lparr> gi_V = (\<lambda> x. True), gi_E = (\<lambda> x. [3]), gi_V0 = [1], \<dots> = 3 \<rparr>"
 
 text \<open>
   Efficiently calculate shortest paths in a graph with non-negative edge weights,
@@ -212,7 +216,7 @@ lemmas [code] =
   UPPAAL_Reachability_Problem_precompiled_defs.check6_def
 
 
-no_notation bitAND (infixr "AND" 64)
+unbundle no_library_syntax
 
 
 text \<open>HDDI Example (Size 2)\<close>

@@ -1,11 +1,11 @@
 theory State_Networks
   imports Networks TA_Impl.Normalized_Zone_Semantics_Impl
-    TA_Library.Reordering_Quantifiers
+    TA_Library.More_Methods
 begin
 
 chapter \<open>Networks of Timed Automata with Discrete State\<close>
 
-no_notation Ref.update ("_ := _" 62)
+unbundle no_library_syntax
 
 section \<open>Networks of Timed Automata with Shared State\<close>
 
@@ -268,7 +268,7 @@ begin
       unfolding Product_TA_Defs.product_trans_i_def
       by (fastforce simp: Product_TA_Defs.states_length)
     moreover have "finite \<dots>"
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
+      apply defer_ex
       using finite_states[of s] apply clarsimp
       apply (subst finite_Collect_bounded_ex_6)
       subgoal premises prems for y y'
@@ -298,19 +298,14 @@ begin
       unfolding Product_TA_Defs.product_trans_s_def
       by (fastforce simp: Product_TA_Defs.states_length)
     moreover have "finite \<dots>"
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply simp
+      apply defer_ex
       using finite_states[of s]
       apply clarsimp
       subgoal
-        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-        apply simp
-        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-        apply simp
-        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-        apply simp
-        apply (tactic \<open>mini_ex_tac @{context} 1\<close>)
-        apply simp
+        apply (mini_existential, simp)
+        apply (mini_existential, simp)
+        apply (mini_existential, simp)
+        apply (mini_existential, simp)
         apply (subst finite_Collect_bounded_ex_6)
         subgoal
           using [[simproc add: finite_Collect]] finite_trans'[of s]
@@ -353,9 +348,8 @@ begin
       using finite_state(1) p_gt_0 by force
     moreover have
       "finite \<dots>"
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply simp
-      apply (tactic \<open>mini_ex_tac @{context} 1\<close>, simp only: ex_simps)
+      apply defer_ex
+      apply (mini_existential, simp only: ex_simps)
       using finite_state(2) apply clarsimp
       apply (subst finite_Collect_bounded_ex_7)
       using [[simproc add: finite_Collect]] finite_state' finite_product_1
@@ -373,9 +367,8 @@ begin
       using finite_state(1) p_gt_0 by fastforce
     moreover have
       "finite \<dots>"
-      apply (tactic \<open>defer_ex_tac @{context} 1\<close>, simp only: conj_assoc)
-      apply simp
-      apply (tactic \<open>mini_ex_tac @{context} 1\<close>, simp only: ex_simps)
+      apply defer_ex
+      apply (mini_existential, simp only: ex_simps)
       using finite_state(2) apply clarsimp
       apply (subst finite_Collect_bounded_ex_9)
 

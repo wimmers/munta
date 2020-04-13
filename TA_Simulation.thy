@@ -992,7 +992,7 @@ begin
 inductive step_z_dbm' ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> 't :: {linordered_cancel_ab_monoid_add,uminus} DBM
     \<Rightarrow> 'a \<Rightarrow> 's \<Rightarrow> 't DBM \<Rightarrow> bool"
-("_ \<turnstile>' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61) for A l D a l'' D''
+("_ \<turnstile>'' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61) for A l D a l'' D''
 where
   "A \<turnstile>' \<langle>l,D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l'',D''\<rangle>" if "A \<turnstile> \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l',D'\<rangle>" "A \<turnstile> \<langle>l',D'\<rangle> \<leadsto>\<^bsub>v,n,\<upharpoonleft>a\<^esub> \<langle>l'',D''\<rangle>"
 
@@ -1001,7 +1001,7 @@ lemmas step_z_dbm'_def = step_z_dbm'.simps
 inductive step_impl' ::
   "('a, nat, 't :: linordered_ab_group_add, 's) ta \<Rightarrow> 's \<Rightarrow> 't DBM'
     \<Rightarrow> 'a \<Rightarrow> 's \<Rightarrow> 't DBM' \<Rightarrow> bool"
-("_ \<turnstile>\<^sub>I' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61) for A l D a l'' D''
+("_ \<turnstile>\<^sub>I'' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_\<^esub> \<langle>_, _\<rangle>" [61,61,61] 61) for A l D a l'' D''
 where
   "A \<turnstile>\<^sub>I' \<langle>l,D\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l'',D''\<rangle>" if "A \<turnstile>\<^sub>I \<langle>l, D\<rangle> \<leadsto>\<^bsub>n,\<tau>\<^esub> \<langle>l',D'\<rangle>" "A \<turnstile>\<^sub>I \<langle>l',D'\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a\<^esub> \<langle>l'',D''\<rangle>"
 
@@ -1181,17 +1181,25 @@ proof -
         by (intro intro[of z]; simp add: less_imp_le minus_less_iff)
           (meson leI less_le_trans neg_less_0_iff_less)
     qed
+    include no_library_syntax
     have 3: thesis if "a = Le x" "b = \<infinity>" for x :: 't
-      by (metis that Le_le_LeI add_inf(2) any_le_inf assms(2) dbm_less_eq_simps(2) diff_0_right
-          diff_left_mono diff_less_eq minus_diff_eq sum_gt_neutral_dest' intro uminus_add_conv_diff)
+      by (smt 3(2) Le_le_LtI Lt_le_LeI add.inverse_inverse any_le_inf intro neg_0_less_iff_less
+          non_trivial_neg not_less order_trans sum_gt_neutral_dest that(2))
     have 4: thesis if "a = Lt x" "b = \<infinity>" for x :: 't
       by (metis that \<open>0 < a + b\<close> add.inverse_inverse dbm_less_eq_simps(2) dbm_less_simps(2) intro leI
           less_imp_le less_le_trans neg_0_less_iff_less sum_gt_neutral_dest)
     have 5: thesis if "0 < x + y" "0 < y" "a = Lt x" "b = Le y" for x y
       by (metis that Le_le_LtI antisym_conv1 diff_0_right diff_less_eq intro less_irrefl minus_diff_eq)
     have 6: thesis if "0 < y" "a = Lt x" "b = Lt y" for x y
-      by (metis that \<open>0 < a + b\<close> add.inverse_inverse dbm_less_eq_simps(2) intro
-          leI less_imp_le less_le_trans neg_less_iff_less sum_gt_neutral_dest dense)
+      using that \<open>a + b > 0\<close>
+      apply -
+      apply (drule sum_gt_neutral_dest)
+      apply safe
+      subgoal for d
+        by (cases "d \<ge> 0", cases "d = 0")
+           (smt intro Le_le_LtI Lt_le_LeI
+             add.inverse_inverse not_less neg_less_0_iff_less dense order_trans)+
+      done
     have 7: thesis if "0 < x + y" "0 < y" "a = Le x" "b = Le y" for x y
       using that by (intro intro[of y]) (auto simp: DBM.add intro: 1)
     from \<open>a + b > 0\<close> \<open>b > 0\<close> \<open>a \<noteq> \<infinity>\<close> show thesis
@@ -1548,6 +1556,5 @@ proof standard
 qed
 
 end
-
 
 end

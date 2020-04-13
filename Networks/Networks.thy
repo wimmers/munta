@@ -1,11 +1,11 @@
 theory Networks
   imports TA.Timed_Automata TA_Impl.Normalized_Zone_Semantics_Impl
-    TA_Library.Reordering_Quantifiers
+    TA_Library.Reordering_Quantifiers TA_Library.Syntax_Bundles
 begin
 
-chapter \<open>Networks of Timed Automata\<close>
+unbundle no_library_syntax
 
-no_notation Ref.update ("_ := _" 62)
+chapter \<open>Networks of Timed Automata\<close>
 
 section \<open>Networks of Timed Automata\<close>
 

@@ -190,7 +190,7 @@ lemma push_map_list_ref:
     assume A: "x \<notin> set xs" "(m, xs) \<in> map_list_rel"
     then obtain R where *:
       "x \<notin> set xs"
-      "UNION (ran m) set = set xs"
+      "(\<Union> x \<in> ran m. set x) = set xs"
       "\<forall>k x. m k = Some x \<longrightarrow> (\<forall>v\<in>set x. key v = k)"
       "distinct xs"
       "\<forall>k x. m k = Some x \<longrightarrow> sorted_wrt R x"

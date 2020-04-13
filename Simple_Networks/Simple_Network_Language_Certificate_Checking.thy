@@ -2,9 +2,14 @@ theory Simple_Network_Language_Certificate_Checking
   imports
     "../Extract_Certificate"
     "../Normalized_Zone_Semantics_Certification_Impl"
-    TA_Code.Simple_Network_Language_Export_Code
+    Simple_Network_Language_Export_Code
     TA_Library.Trace_Timing
 begin
+
+unbundle no_library_syntax
+notation fun_rel_syn (infixr "\<rightarrow>" 60)
+no_notation Omega_Words_Fun.build (infixr \<open>##\<close> 65)
+no_notation Assertions.models (infix "\<Turnstile>" 50)
 
 paragraph \<open>Misc\<close>
 
@@ -91,8 +96,6 @@ lemma (in Bisimulation_Invariant) alw_ev_iff:
         auto simp: compatible intro: equiv'_rotate_2 elim!: alw_ev_lockstep stream_all2_flip)
   done
 
-
-no_notation test_bit (infixl "!!" 100)
 
 paragraph \<open>Splitters\<close>
 

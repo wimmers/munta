@@ -3,10 +3,10 @@ theory Normalized_Zone_Semantics_Certification_Impl
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     Normalized_Zone_Semantics_Certification
     Collections.Refine_Dflt_ICF
-    "Worklist_Algorithms/Unreachability_Certification2"
-    "Worklist_Algorithms/Unreachability_Certification"
+    Certification.Unreachability_Certification2
+    Certification.Unreachability_Certification
     "HOL-Library.IArray"
-    TA_Code.Deadlock_Impl
+    Deadlock.Deadlock_Impl
     TA_Library.More_Methods
     "HOL-Library.Rewrite"
 begin
@@ -303,6 +303,8 @@ qed
 context TA_Impl
 begin
 
+interpretation DBM_Impl n .
+
 sepref_definition E_precise_op'_impl is
   "uncurry4 (\<lambda> l r. RETURN ooo E_precise_op' l r)" :: "op_impl_assn"
   unfolding
@@ -424,12 +426,14 @@ lemmas [sepref_fr_rules] =
   set_of_list_hnr Leadsto_Impl.lso_id_hnr
   op_impl
 
+interpretation DBM_Impl n .
+
 sepref_definition succs_precise_inner_impl is
   "uncurry4 (PR_CONST succs_precise_inner)"
-  :: "location_assn\<^sup>k *\<^sub>a (list_assn (clock_assn n))\<^sup>k *\<^sub>a
-      (list_assn (acconstraint_assn (clock_assn n) int_assn))\<^sup>k *\<^sub>a
-      location_assn\<^sup>k *\<^sub>a (lso_assn (mtx_assn n))\<^sup>d
-  \<rightarrow>\<^sub>a lso_assn (mtx_assn n)"
+  :: "location_assn\<^sup>k *\<^sub>a (list_assn clock_assn)\<^sup>k *\<^sub>a
+      (list_assn (acconstraint_assn clock_assn int_assn))\<^sup>k *\<^sub>a
+      location_assn\<^sup>k *\<^sub>a (lso_assn mtx_assn)\<^sup>d
+  \<rightarrow>\<^sub>a lso_assn mtx_assn"
   unfolding PR_CONST_def
   unfolding succs_precise_inner_def
     list_of_set_def[symmetric] set_of_list_def[symmetric]
@@ -456,8 +460,8 @@ lemmas [sepref_fr_rules] = copy_list_lso_assn_refine[OF amtx_copy_hnr]
 (* The d can also be a k *)
 sepref_definition succs_precise'_impl is
   "uncurry succs_precise'"
-  :: "location_assn\<^sup>k *\<^sub>a (lso_assn (mtx_assn n))\<^sup>d
-      \<rightarrow>\<^sub>a list_assn (prod_assn location_assn (lso_assn (mtx_assn n)))"
+  :: "location_assn\<^sup>k *\<^sub>a (lso_assn mtx_assn)\<^sup>d
+      \<rightarrow>\<^sub>a list_assn (prod_assn location_assn (lso_assn mtx_assn))"
   unfolding PR_CONST_def
   unfolding
     comp_def succs_precise'_def
@@ -514,11 +518,11 @@ lemma canonical'_compute:
   unfolding list_all_iff by auto force
 
 sepref_definition canonical'_impl is
-  "RETURN o PR_CONST canonical'" :: "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  "RETURN o PR_CONST canonical'" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding canonical'_compute list_all_foldli PR_CONST_def by sepref
 
 sepref_thm wf_dbm'_impl is
-  "RETURN o PR_CONST wf_dbm'" :: "(mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  "RETURN o PR_CONST wf_dbm'" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding wf_dbm'_def canonical'_compute list_all_foldli PR_CONST_def by sepref
 
 definition
@@ -550,12 +554,12 @@ lemmas [sepref_fr_rules] =
   wf_dbm'_impl.refine_raw
 
 sepref_definition P_impl is
-  "RETURN o PR_CONST P" :: "(prod_assn (pure loc_rel) (mtx_assn n))\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  "RETURN o PR_CONST P" :: "(prod_assn (pure loc_rel) mtx_assn)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding PR_CONST_def P_def by sepref
 
 (* XXX Better proof technique? *)
 lemma P_impl_refine:
-  "(P_impl, (RETURN \<circ>\<circ> PR_CONST) P) \<in> (location_assn \<times>\<^sub>a mtx_assn n)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  "(P_impl, (RETURN \<circ>\<circ> PR_CONST) P) \<in> (location_assn \<times>\<^sub>a mtx_assn)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   apply sepref_to_hoare
   apply sep_auto
   subgoal for l M l' M'
@@ -1004,8 +1008,10 @@ qed
 
 sepref_register "PR_CONST M_list'"
 
+interpretation DBM_Impl n .
+
 sepref_definition M_table is
-  "uncurry0 (RETURN M)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' location_assn (lso_assn (mtx_assn n))"
+  "uncurry0 (RETURN M)" :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a hm.hms_assn' location_assn (lso_assn mtx_assn)"
   unfolding M_def set_of_list_def[symmetric] rev_map_fold
     HOL_list.fold_custom_empty hm.op_hms_empty_def[symmetric]
   by sepref
@@ -1014,7 +1020,7 @@ lemmas dom_M_eq = dom_M_eq1[OF M_assms, folded M_alt_def M_list'_def]
 
 interpretation
   Reachability_Impl
-  where A = "mtx_assn n"
+  where A = mtx_assn
     and F = F
     and l\<^sub>0i = "return l\<^sub>0i"
     and s\<^sub>0 = init_dbm
@@ -1102,7 +1108,7 @@ context
 begin
 
 interpretation Reachability_Impl_imp_to_pure_correct
-  where A = "mtx_assn n"
+  where A = mtx_assn
     and F = F
     and l\<^sub>0i = "return l\<^sub>0i"
     and s\<^sub>0 = init_dbm
@@ -1378,17 +1384,19 @@ qed
 definition
   "inits = map (\<lambda>l. (l, init_dbm)) init_locs1"
 
+interpretation DBM_Impl n .
+
 sepref_register init_locs1
 
 sepref_definition initsi
   is "uncurry0 (RETURN (PR_CONST inits))"
-  :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (prod_assn location_assn (mtx_assn n))"
+  :: "unit_assn\<^sup>k \<rightarrow>\<^sub>a list_assn (prod_assn location_assn mtx_assn)"
   unfolding inits_def PR_CONST_def
   unfolding map_by_foldl[symmetric] foldl_conv_fold HOL_list.fold_custom_empty
   by sepref
 
 interpretation Buechi_Impl_imp_to_pure_correct
-  where A = "mtx_assn n"
+  where A = mtx_assn
     and F = F
     and succs = succs_precise
     and succsi = succs_precise'_impl

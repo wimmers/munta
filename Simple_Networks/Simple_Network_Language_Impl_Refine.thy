@@ -2,11 +2,8 @@ theory Simple_Network_Language_Impl_Refine
   imports Simple_Network_Language_Impl
 begin
 
-paragraph \<open>Notation\<close>
-
-no_notation Ref.update ("_ := _" 62)
-no_notation Stream.snth (infixl "!!" 100)
-no_notation Bits.bit_operations_class.test_bit (infixl "!!" 100)
+unbundle no_library_syntax
+notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
 paragraph \<open>Expression evaluation\<close>
 
@@ -1719,7 +1716,7 @@ proof clarsimp
     note make_combsD make_combs_empty
   } note make_combsD = this(1) and make_combs_empty = this(2)
   have make_combs_emptyD: "filter (\<lambda>i. IN' ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = []"
-    if "make_combs p a' IN' = []" for xs p a'
+    if "make_combs p a' IN' = []" for p a'
     apply (rule filter_distinct_eqI)
     subgoal
       by auto

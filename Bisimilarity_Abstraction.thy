@@ -1,5 +1,5 @@
 theory Bisimilarity_Abstraction
-  imports "TA.Timed_Automata" "TA.Closure"
+  imports TA.Timed_Automata TA.Closure
 begin
 
 inductive ta_bisim where
@@ -127,7 +127,7 @@ qed
 lemma step:
   "\<exists> l2' u2'. A \<turnstile>' \<langle>l2, u2\<rangle> \<rightarrow> \<langle>l2', u2'\<rangle> \<and> R (l1', u1') (l2', u2')"
   if "A \<turnstile>' \<langle>l1, u1\<rangle> \<rightarrow> \<langle>l1', u1'\<rangle>" "R (l1, u1) (l2, u2)"
-  using that(1) by (force dest!: delay[OF that(2)] dest: action)
+  by (metis Bisimilarity_Abstraction.action bisim delay step'.cases step'.intros that)
 
 lemma cl_steps_sound:
   assumes "A \<turnstile> \<langle>l, Z\<rangle> \<rightarrow>\<^sub>\<equiv>\<^sup>* \<langle>l', Z'\<rangle>" "u' \<in> Z'"
@@ -160,7 +160,7 @@ qed
 lemma step_z_complete':
   "A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l'', u'\<rangle> \<Longrightarrow> u \<in> Z
   \<Longrightarrow> \<exists> l' Z' Z'' a. A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle> \<and> A \<turnstile> \<langle>l', Z'\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l'', Z''\<rangle> \<and> u' \<in> Z''"
-  by (auto 4 7 simp: zone_delay_def zone_set_def elim!: step_a.cases step'.cases)
+  by (meson step_z'_def step_z_complete')
 
 lemma
   "A \<turnstile> \<langle>l, Cl l Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Cl l' Z'\<rangle>" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>a\<^esub> \<langle>l', Z'\<rangle>"
@@ -279,7 +279,7 @@ lemma Cl_loc_reset:
 
 lemma cc_cong:
   "u' \<turnstile> g" if "u \<turnstile> g" "Cl_loc (l, u) (l', u')" "\<forall> (c, m) \<in> collect_clock_pairs g. k l c \<ge> m"
-  using that by (auto 4 4 intro: ac_cong simp: list_all_iff)
+  using that by (auto simp: list_all_iff clock_val_def intro: ac_cong)
 
 (* XXX How to make this simp rule work? *)
 lemma Cl_loc_id[simp]:

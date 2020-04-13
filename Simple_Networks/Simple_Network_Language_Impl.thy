@@ -9,7 +9,10 @@ theory Simple_Network_Language_Impl
     TA_More2
     TA_Equivalences
     "HOL-Eisbach.Eisbach_Tools"
+    TA_Library.Syntax_Bundles
 begin
+
+unbundle no_library_syntax
 
 paragraph \<open>Default maps\<close>
 
@@ -486,7 +489,7 @@ end (* Anonymous context for private lemmas *)
 paragraph \<open>Fundamentals\<close>
 
 definition "clkp_set' \<equiv>
-    (\<Union> A \<in> set automata. UNION (set (snd (snd (snd A)))) (collect_clock_pairs o snd))
+    (\<Union> A \<in> set automata. \<Union> g \<in> set (snd (snd (snd A))). collect_clock_pairs (snd g))
   \<union> (\<Union> A \<in> set automata. \<Union> (l, b, g, _) \<in> set (fst (snd (snd A))). collect_clock_pairs g)"
 
 definition clk_set'  where

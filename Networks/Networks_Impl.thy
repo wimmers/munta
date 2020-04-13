@@ -1,5 +1,5 @@
 theory Networks_Impl
-  imports Normalized_Zone_Semantics_Impl Networks
+  imports TA_Impl.Normalized_Zone_Semantics_Impl Networks
 begin
 
 (* XXX Replace by List.replicate? *)

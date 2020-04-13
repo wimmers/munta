@@ -1,7 +1,7 @@
 theory Simple_Network_Language
   imports Main
-    TA_Byte_Code.State_Networks
-    TA_Byte_Code.UPPAAL_State_Networks_Impl
+    Networks.State_Networks
+    Uppaal_Networks.UPPAAL_State_Networks_Impl
     FinFun.FinFun
 begin
 
@@ -263,7 +263,7 @@ definition \<comment>\<open>Number of processes\<close>
 
 definition states  :: "'s list set" where
   "states \<equiv> {L. length L = n_ps \<and>
-    (\<forall> i. i < n_ps --> L ! i \<in> UNION (trans (N i)) (\<lambda>(l, e, g, a, r, u, l'). {l, l'}))}"
+    (\<forall> i. i < n_ps --> L ! i \<in> (\<Union> (l, e, g, a, r, u, l') \<in> (trans (N i)). {l, l'}))}"
 
 definition
   "prod_inv \<equiv> \<lambda>(L, s). if L \<in> states then concat (map (\<lambda>i. inv (N i) (L ! i)) [0..<n_ps]) else []"
@@ -338,12 +338,12 @@ lemma N_split_simp[simp]:
   unfolding N_def unfolding assms by simp
 
 lemma state_preservation_updI:
-  assumes "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})" "L \<in> states"
+  assumes "l' \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})" "L \<in> states"
   shows "L[p := l'] \<in> states"
   using assms unfolding states_def by (fastforce simp: nth_list_update')
 
 lemma state_preservation_fold_updI:
-  assumes "\<forall>p \<in> set ps. ls' p \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})" "L \<in> states"
+  assumes "\<forall>p \<in> set ps. ls' p \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})" "L \<in> states"
   shows "fold (\<lambda>p L. L[p := ls' p]) ps L \<in> states"
   using assms by (induction ps arbitrary: L) (auto intro: state_preservation_updI)
 
@@ -457,23 +457,24 @@ proof cases
     by simp
 next
   case prems[unfolded TAG_def]: (step_int l b g a f r l' N' p B broadcast)
-  from \<open>A = _\<close> prems(3) have "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
+  from \<open>A = _\<close> prems(3) have "l' \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})"
     by force
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems[unfolded TAG_def]: (step_bin broadcast a l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s' B)
+  case prems[unfolded TAG_def]:
+    (step_bin broadcast a l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s' B)
   from \<open>A = _\<close> prems(4, 5) have
-    "l1' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
-    "l2' \<in> UNION (trans (N q)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
+    "l1' \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})"
+    "l2' \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N q). {l, l'})"
     by force+
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
   case prems[unfolded TAG_def]: (step_broad a broadcast l b g f r l' N' p ps bs gs fs rs ls' s' B)
   from \<open>A = _\<close> prems(4, 5) have
-    "l' \<in> UNION (trans (N p)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
-    "\<forall> q \<in> set ps. ls' q \<in> UNION (trans (N q)) (\<lambda>(l, b, g, a, r, u, l'). {l, l'})"
+    "l' \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})"
+    "\<forall> q \<in> set ps. ls' q \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N q). {l, l'})"
     by force+
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI state_preservation_fold_updI)

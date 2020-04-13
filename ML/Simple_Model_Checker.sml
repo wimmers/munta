@@ -2620,6 +2620,10 @@ fun card (A1_, A2_) (Coset xs) =
   minus_nat (of_phantom (card_UNIV A1_)) (size_list (remdups A2_ xs))
   | card (A1_, A2_) (Set xs) = size_list (remdups A2_ xs);
 
+fun neg_dbm_entry A_ (Le a) = Lt (uminus A_ a)
+  | neg_dbm_entry A_ (Lt a) = Le (uminus A_ a)
+  | neg_dbm_entry A_ INF = INF;
+
 fun ht_new_sz (A1_, A2_) B_ n =
   let
     val l = replicate n [];
@@ -2902,10 +2906,6 @@ fun eoi A_ =
                      Chara (true, false, true, false, true, true, true, false),
                      Chara (false, false, true, false, true, true, true,
                              false)])));
-
-fun neg_dbm_entry A_ (Le a) = Lt (uminus A_ a)
-  | neg_dbm_entry A_ (Lt a) = Le (uminus A_ a)
-  | neg_dbm_entry A_ INF = INF;
 
 fun swap p = (snd p, fst p);
 
@@ -3655,7 +3655,7 @@ of (NONE, a2f) =>
 
 fun as_length x = snd x;
 
-fun last_seg_tr A_ s =
+fun last_seg_tr s =
   let
     val (a, (aa, (_, _))) = s;
     val (_, bc) =
@@ -3731,7 +3731,7 @@ fun ahm_update eq bhc k v hm =
     (if ahm_filled hma then ahm_rehash bhc hma (hm_grow hma) else hma)
   end;
 
-fun pop_tr (A1_, A2_) s =
+fun pop_tr node_eq_impl node_hash_impl s =
   let
     val (a, (aa, (ab, bb))) = s;
     val x = minus_nat (as_length aa) one_nata;
@@ -3745,7 +3745,7 @@ fun pop_tr (A1_, A2_) s =
                   then as_length a else as_get aa (plus_nata x one_nata)))
             (fn (ac, bc) =>
               (suc ac,
-                ahm_update (eq A1_) (bounded_hashcode_nat A2_) (as_get a ac)
+                ahm_update node_eq_impl node_hash_impl (as_get a ac)
                   (uminus_inta one_int) bc))
             (as_get aa x, ab);
       in
@@ -3777,6 +3777,10 @@ fun lx_alpha x =
   bindb (alt lx_lowercase lx_uppercase) (fn xa => return (sum_join xa)) x;
 
 fun is_Nil a = (case a of [] => true | _ :: _ => false);
+
+fun norm_diag (A1_, A2_, A3_) e =
+  (if dbm_lt A3_ e (Le (zero A1_)) then Lt (zero A1_)
+    else (if equal_DBMEntry A2_ e (Le (zero A1_)) then e else INF));
 
 fun abstra_upd_impl (A1_, A2_, A3_, A4_) n =
   (fn ai => fn bi =>
@@ -3961,7 +3965,7 @@ fun minus_set A_ a (Coset xs) = Set (filter (fn x => member A_ x a) xs)
 
 fun gi_V0 (Gen_g_impl_ext (gi_V, gi_E, gi_V0, more)) = gi_V0;
 
-fun select_edge_tr (A1_, A2_) s =
+fun select_edge_tr node_eq_impl s =
   let
     val (a, (aa, (ab, bb))) = s;
   in
@@ -3972,7 +3976,7 @@ fun select_edge_tr (A1_, A2_) s =
              (if less_eq_nat (as_get aa (minus_nat (as_length aa) one_nata)) ac
                then let
                       val xa = gen_pick (fn x => foldli (id x)) bc;
-                      val xb = glist_delete (eq A1_) xa bc;
+                      val xb = glist_delete node_eq_impl xa bc;
                       val xc =
                         (if is_Nil xb then as_pop bb
                           else as_set bb (minus_nat (as_length bb) one_nata)
@@ -3989,11 +3993,11 @@ fun ahm_lookup_aux eq bhc k a =
 
 fun ahm_lookup eq bhc k (HashMap (a, uu)) = ahm_lookup_aux eq bhc k a;
 
-fun idx_of_tr (A1_, A2_) s v =
+fun idx_of_tr node_eq_impl node_hash_impl s v =
   let
     val (_, (aa, (ab, _))) = v;
     val x = let
-              val SOME i = ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) s ab;
+              val SOME i = ahm_lookup node_eq_impl node_hash_impl s ab;
               val true = less_eq_int zero_inta i;
             in
               nat i
@@ -4003,10 +4007,10 @@ fun idx_of_tr (A1_, A2_) s v =
     xa
   end;
 
-fun collapse_tr (A1_, A2_) v s =
+fun collapse_tr node_eq_impl node_hash_impl v s =
   let
     val (a, (aa, (ab, bb))) = s;
-    val x = idx_of_tr (A1_, A2_) v (a, (aa, (ab, bb)));
+    val x = idx_of_tr node_eq_impl node_hash_impl v (a, (aa, (ab, bb)));
     val xa = as_take (plus_nata x one_nata) aa;
   in
     (a, (xa, (ab, bb)))
@@ -4018,15 +4022,14 @@ fun new_hashmap_with size = HashMap (new_array [] size, zero_nata);
 
 fun ahm_empty def_size = new_hashmap_with def_size;
 
-fun push_code (A1_, A2_) g_impl =
+fun push_code node_eq_impl node_hash_impl g_impl =
   (fn x => fn (xa, (xb, (xc, xd))) =>
     let
       val _ = (fn x => ()) ();
       val y_a = as_length xa;
       val y_b = as_push xa x;
       val y_c = as_push xb y_a;
-      val y_d =
-        ahm_update (eq A1_) (bounded_hashcode_nat A2_) x (int_of_nat y_a) xc;
+      val y_d = ahm_update node_eq_impl node_hash_impl x (int_of_nat y_a) xc;
       val y_e =
         (if is_Nil (gi_E g_impl x) then xd
           else as_push xd (y_a, gi_E g_impl x));
@@ -4034,14 +4037,14 @@ fun push_code (A1_, A2_) g_impl =
       (y_b, (y_c, (y_d, y_e)))
     end);
 
-fun compute_SCC_tr (A1_, A2_) g =
+fun compute_SCC_tr node_eq_impl node_hash_impl node_def_hash_size g =
   let
     val _ = (fn x => ()) ();
-    val xa = ([], ahm_empty (def_hashmap_size A2_ Type));
+    val xa = ([], ahm_empty node_def_hash_size);
     val a =
       foldli (id (gi_V0 g)) (fn _ => true)
         (fn xb => fn (a, b) =>
-          (if not (case ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) xb b
+          (if not (case ahm_lookup node_eq_impl node_hash_impl xb b
                     of NONE => false
                     | SOME i =>
                       (if less_eq_int zero_inta i then false else true))
@@ -4049,7 +4052,7 @@ fun compute_SCC_tr (A1_, A2_) g =
                    val xc =
                      (a, (as_singleton one_nat xb,
                            (as_singleton one_nat zero_nata,
-                             (ahm_update (eq A1_) (bounded_hashcode_nat A2_) xb
+                             (ahm_update node_eq_impl node_hash_impl xb
                                 (int_of_nat zero_nata) b,
                                (if is_Nil (gi_E g xb) then as_empty zero_nat ()
                                  else as_singleton one_nat
@@ -4063,40 +4066,42 @@ fun compute_SCC_tr (A1_, A2_) g =
     xg
   end))
                        (fn (aa, ba) =>
-                         (case select_edge_tr (A1_, A2_) ba
-                           of (NONE, bb) => let
-      val xf = last_seg_tr A2_ bb;
-      val xg = pop_tr (A1_, A2_) bb;
-      val xh = xf :: aa;
-    in
-      (xh, xg)
-    end
+                         (case select_edge_tr node_eq_impl ba
+                           of (NONE, bb) =>
+                             let
+                               val xf = last_seg_tr bb;
+                               val xg = pop_tr node_eq_impl node_hash_impl bb;
+                               val xh = xf :: aa;
+                             in
+                               (xh, xg)
+                             end
                            | (SOME xf, bb) =>
-                             (if (case ahm_lookup (eq A1_)
- (bounded_hashcode_nat A2_) xf let
-                                 val (_, (_, (xl, _))) = bb;
-                               in
-                                 xl
-                               end
+                             (if (case ahm_lookup node_eq_impl node_hash_impl xf
+ let
+   val (_, (_, (xl, _))) = bb;
+ in
+   xl
+ end
                                    of NONE => false
                                    | SOME i =>
                                      (if less_eq_int zero_inta i then true
                                        else false))
                                then let
-                                      val ab = collapse_tr (A1_, A2_) xf bb;
+                                      val ab =
+collapse_tr node_eq_impl node_hash_impl xf bb;
                                     in
                                       (aa, ab)
                                     end
                                else (if not
-  (case ahm_lookup (eq A1_) (bounded_hashcode_nat A2_) xf
-          let
+  (case ahm_lookup node_eq_impl node_hash_impl xf let
             val (_, (_, (xl, _))) = bb;
           in
             xl
           end
     of NONE => false
     | SOME i => (if less_eq_int zero_inta i then false else true))
-                                      then (aa, push_code (A1_, A2_) g xf bb)
+                                      then (aa,
+     push_code node_eq_impl node_hash_impl g xf bb)
                                       else (aa, bb)))))
                        xc;
                  in
@@ -4819,46 +4824,36 @@ fun pad m s =
   replicate m (Chara (false, false, false, false, false, true, false, false)) @
     s;
 
-fun norm_upd_impl (A1_, A2_) n =
+fun norm_upd_impl (A1_, A2_, A3_) n =
   (fn ai => fn bia => fn bi =>
     (fn f_ => fn () => f_
-      ((mtx_get (heap_DBMEntry A2_) (suc n) ai (zero_nata, zero_nata)) ()) ())
+      ((mtx_get (heap_DBMEntry A3_) (suc n) ai (zero_nata, zero_nata)) ()) ())
       (fn x =>
         (fn f_ => fn () => f_
-          ((mtx_set (heap_DBMEntry A2_) (suc n) ai (zero_nata, zero_nata)
-             (norm_lower
-               ((linorder_linordered_ab_semigroup_add o
-                  linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                  linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
-                  linordered_cancel_ab_monoid_add_linordered_ab_group_add)
-                 A1_)
-               (norm_upper
-                 ((linorder_linordered_ab_semigroup_add o
-                    linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                    linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
-                    linordered_cancel_ab_monoid_add_linordered_ab_group_add)
+          ((mtx_set (heap_DBMEntry A3_) (suc n) ai (zero_nata, zero_nata)
+             (norm_diag
+               ((zero_monoid_add o monoid_add_group_add o
+                  group_add_ab_group_add o ab_group_add_ordered_ab_group_add o
+                  ordered_ab_group_add_linordered_ab_group_add)
+                  A1_,
+                 A2_,
+                 (linorder_linordered_ab_semigroup_add o
+                   linordered_ab_semigroup_add_linordered_ab_monoid_add o
+                   linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
+                   linordered_cancel_ab_monoid_add_linordered_ab_group_add)
                    A1_)
-                 x (zero ((zero_monoid_add o monoid_add_group_add o
-                            group_add_ab_group_add o
-                            ab_group_add_ordered_ab_group_add o
-                            ordered_ab_group_add_linordered_ab_group_add)
-                           A1_)))
-               (zero ((zero_monoid_add o monoid_add_group_add o
-                        group_add_ab_group_add o
-                        ab_group_add_ordered_ab_group_add o
-                        ordered_ab_group_add_linordered_ab_group_add)
-                       A1_))))
+               x))
           ()) ())
           (fn xa =>
             (fn f_ => fn () => f_
               ((imp_fora one_nata (suc bi)
                  (fn xc => fn sigma =>
                    (fn f_ => fn () => f_
-                     ((mtx_get (heap_DBMEntry A2_) (suc n) sigma
+                     ((mtx_get (heap_DBMEntry A3_) (suc n) sigma
                         (zero_nata, xc))
                      ()) ())
                      (fn xb =>
-                       mtx_set (heap_DBMEntry A2_) (suc n) sigma (zero_nata, xc)
+                       mtx_set (heap_DBMEntry A3_) (suc n) sigma (zero_nata, xc)
                          (norm_lower
                            ((linorder_linordered_ab_semigroup_add o
                               linordered_ab_semigroup_add_linordered_ab_monoid_add o
@@ -4886,11 +4881,11 @@ A1_)))
               (imp_fora one_nata (suc bi)
                 (fn xb => fn sigma =>
                   (fn f_ => fn () => f_
-                    ((mtx_get (heap_DBMEntry A2_) (suc n) sigma (xb, zero_nata))
+                    ((mtx_get (heap_DBMEntry A3_) (suc n) sigma (xb, zero_nata))
                     ()) ())
                     (fn xc =>
                       (fn f_ => fn () => f_
-                        ((mtx_set (heap_DBMEntry A2_) (suc n) sigma
+                        ((mtx_set (heap_DBMEntry A3_) (suc n) sigma
                            (xb, zero_nata)
                            (norm_lower
                              ((linorder_linordered_ab_semigroup_add o
@@ -4905,40 +4900,64 @@ A1_)))
                                   linordered_cancel_ab_monoid_add_linordered_ab_group_add)
                                  A1_)
                                xc (sub bia xb))
-                             (zero ((zero_monoid_add o monoid_add_group_add o
-                                      group_add_ab_group_add o
-                                      ab_group_add_ordered_ab_group_add o
-                                      ordered_ab_group_add_linordered_ab_group_add)
-                                     A1_))))
+                             (uminus
+                               ((uminus_group_add o group_add_ab_group_add o
+                                  ab_group_add_ordered_ab_group_add o
+                                  ordered_ab_group_add_linordered_ab_group_add)
+                                 A1_)
+                               (zero ((zero_monoid_add o monoid_add_group_add o
+group_add_ab_group_add o ab_group_add_ordered_ab_group_add o
+ordered_ab_group_add_linordered_ab_group_add)
+                                       A1_)))))
                         ()) ())
                         (imp_fora one_nata (suc bi)
                           (fn xe => fn sigmaa =>
-                            (fn f_ => fn () => f_
-                              ((mtx_get (heap_DBMEntry A2_) (suc n) sigmaa
-                                 (xb, xe))
-                              ()) ())
-                              (fn xd =>
-                                mtx_set (heap_DBMEntry A2_) (suc n) sigmaa
-                                  (xb, xe)
-                                  (norm_lower
-                                    ((linorder_linordered_ab_semigroup_add o
-                                       linordered_ab_semigroup_add_linordered_ab_monoid_add o
-                                       linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
-                                       linordered_cancel_ab_monoid_add_linordered_ab_group_add)
-                                      A1_)
-                                    (norm_upper
-                                      ((linorder_linordered_ab_semigroup_add o
- linordered_ab_semigroup_add_linordered_ab_monoid_add o
- linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
- linordered_cancel_ab_monoid_add_linordered_ab_group_add)
-A1_)
-                                      xd (sub bia xb))
-                                    (uminus
-                                      ((uminus_group_add o
- group_add_ab_group_add o ab_group_add_ordered_ab_group_add o
- ordered_ab_group_add_linordered_ab_group_add)
-A1_)
-                                      (sub bia xe))))))))))));
+                            (if not (equal_nata xb xe)
+                              then (fn f_ => fn () => f_
+                                     ((mtx_get (heap_DBMEntry A3_) (suc n)
+sigmaa (xb, xe))
+                                     ()) ())
+                                     (fn xd =>
+                                       mtx_set (heap_DBMEntry A3_) (suc n)
+ sigmaa (xb, xe)
+ (norm_lower
+   ((linorder_linordered_ab_semigroup_add o
+      linordered_ab_semigroup_add_linordered_ab_monoid_add o
+      linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
+      linordered_cancel_ab_monoid_add_linordered_ab_group_add)
+     A1_)
+   (norm_upper
+     ((linorder_linordered_ab_semigroup_add o
+        linordered_ab_semigroup_add_linordered_ab_monoid_add o
+        linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
+        linordered_cancel_ab_monoid_add_linordered_ab_group_add)
+       A1_)
+     xd (sub bia xb))
+   (uminus
+     ((uminus_group_add o group_add_ab_group_add o
+        ab_group_add_ordered_ab_group_add o
+        ordered_ab_group_add_linordered_ab_group_add)
+       A1_)
+     (sub bia xe))))
+                              else (fn f_ => fn () => f_
+                                     ((mtx_get (heap_DBMEntry A3_) (suc n)
+sigmaa (xb, xe))
+                                     ()) ())
+                                     (fn xd =>
+                                       mtx_set (heap_DBMEntry A3_) (suc n)
+ sigmaa (xb, xe)
+ (norm_diag
+   ((zero_monoid_add o monoid_add_group_add o group_add_ab_group_add o
+      ab_group_add_ordered_ab_group_add o
+      ordered_ab_group_add_linordered_ab_group_add)
+      A1_,
+     A2_,
+     (linorder_linordered_ab_semigroup_add o
+       linordered_ab_semigroup_add_linordered_ab_monoid_add o
+       linordered_ab_monoid_add_linordered_cancel_ab_monoid_add o
+       linordered_cancel_ab_monoid_add_linordered_ab_group_add)
+       A1_)
+   xd)))))))))));
 
 fun dbm_list_to_string (A1_, A2_, A3_) n show_clock show_num xs =
   app (concat o
@@ -7099,7 +7118,7 @@ x_a (zero_nata, zero_nata) (Lt zero_inta)
                                       then mtx_set (heap_DBMEntry heap_int)
      (suc m) x_b (zero_nata, zero_nata) (Lt zero_inta)
                                       else (fn f_ => fn () => f_
-     ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
+     ((norm_upd_impl (linordered_ab_group_add_int, equal_int, heap_int) m x_b
         let
           val (l, _) = bia;
         in
@@ -7634,17 +7653,18 @@ else (fn f_ => fn () => f_
      then mtx_set (heap_DBMEntry heap_int) (suc m) x_b (zero_nata, zero_nata)
             (Lt zero_inta)
      else (fn f_ => fn () => f_
-            ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
-               let
-                 val (l, _) = bia;
-               in
-                 Vector.fromList
-                   (map (fn c =>
-                          maxa linorder_int
-                            (image (fn i => sub (sub (sub k_i i) (nth l i)) c)
-                              (Set (upt zero_nata n_ps))))
-                     (upt zero_nata (plus_nata m one_nata)))
-               end
+            ((norm_upd_impl (linordered_ab_group_add_int, equal_int, heap_int) m
+               x_b let
+                     val (l, _) = bia;
+                   in
+                     Vector.fromList
+                       (map (fn c =>
+                              maxa linorder_int
+                                (image
+                                  (fn i => sub (sub (sub k_i i) (nth l i)) c)
+                                  (Set (upt zero_nata n_ps))))
+                         (upt zero_nata (plus_nata m one_nata)))
+                   end
                m)
             ()) ())
             (fw_impl_int m))))))))));
@@ -8072,7 +8092,8 @@ heap_DBMEntry heap_int)
            then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
                   (zero_nata, zero_nata) (Lt zero_inta)
            else (fn f_ => fn () => f_
-                  ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
+                  ((norm_upd_impl
+                     (linordered_ab_group_add_int, equal_int, heap_int) m x_b
                      let
                        val (l, _) = bia;
                      in
@@ -8480,7 +8501,8 @@ heap_DBMEntry heap_int)
            then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
                   (zero_nata, zero_nata) (Lt zero_inta)
            else (fn f_ => fn () => f_
-                  ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
+                  ((norm_upd_impl
+                     (linordered_ab_group_add_int, equal_int, heap_int) m x_b
                      let
                        val (l, _) = bia;
                      in
@@ -8932,7 +8954,8 @@ heap_DBMEntry heap_int)
            then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
                   (zero_nata, zero_nata) (Lt zero_inta)
            else (fn f_ => fn () => f_
-                  ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
+                  ((norm_upd_impl
+                     (linordered_ab_group_add_int, equal_int, heap_int) m x_b
                      let
                        val (l, _) = bia;
                      in
@@ -9108,7 +9131,8 @@ fun clkp_set C_ automata =
       (image
         (fn a =>
           sup_seta (equal_prod C_ equal_int)
-            (image (collect_clock_pairs o snd) (Set (snd (snd (snd a))))))
+            (image (fn g => collect_clock_pairs (snd g))
+              (Set (snd (snd (snd a))))))
         (Set automata)))
     (sup_seta (equal_prod C_ equal_int)
       (image
@@ -9789,7 +9813,7 @@ fun n num_states q = num_states q;
 
 fun clkp_inv automata i l =
   sup_seta (equal_prod equal_nat equal_int)
-    (image (collect_clock_pairs o snd)
+    (image (fn g => collect_clock_pairs (snd g))
       (Set (filter (fn (a, _) => equal_nata a l)
              (snd (snd (snd (nth automata i)))))));
 
@@ -9847,9 +9871,13 @@ fun g automata num_states q c =
     (v num_states q, e automata num_states q c, [n num_states q],
       w automata num_states q c);
 
+fun compute_SCC_tra (A1_, A2_) =
+  compute_SCC_tr (eq A1_) (bounded_hashcode_nat A2_)
+    (def_hashmap_size A2_ Type);
+
 fun calc_shortest_scc_paths (A1_, A2_, A3_) g n =
   let
-    val sccs = compute_SCC_tr (equal_nat, hashable_nat) g;
+    val sccs = compute_SCC_tra (equal_nat, hashable_nat) g;
     val d = map (fn _ => NONE) (upt zero_nata n) @ [SOME (zero A2_)];
     val da =
       fold (fold (fn u =>

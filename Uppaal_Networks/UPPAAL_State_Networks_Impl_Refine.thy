@@ -3,7 +3,10 @@ theory UPPAAL_State_Networks_Impl_Refine
     Program_Analysis
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     TA_Impl.TA_Impl_Misc
+    TA_Library.Syntax_Bundles
 begin
+
+unbundle no_library_syntax
 
 chapter \<open>Imperative Implementation of UPPAAL Style Networks\<close>
 
@@ -11,10 +14,6 @@ chapter \<open>Imperative Implementation of UPPAAL Style Networks\<close>
 lemmas mem_nth = aux
 
 subsection \<open>Executable successor computation\<close>
-
-no_notation Ref.update ("_ := _" 62)
-no_notation Bits.test_bit (infixl "!!" 100)
-no_notation Stream.snth (infixl "!!" 100)
 
 lemma exec_state_length:
   assumes "exec prog n (pc, st, s, f, rs) pcs = Some ((pc', st', s', f', rs'), pcs')"
@@ -122,12 +121,12 @@ text \<open>Definition of implementation auxiliaries (later connected to the aut
       List.map_filter (\<lambda> (g, a, m, l').
         case check_g g s of
           Some cc \<Rightarrow>
-          case runf m s of
+          (case runf m s of
             Some ((_, _, s', _, r), _) \<Rightarrow>
               if check_pred (L[i := l']) s'
               then Some (cc, a, r, (L[i := l'], s'))
               else None
-         | _ \<Rightarrow> None
+         | _ \<Rightarrow> None)
       | _ \<Rightarrow> None)
         ((IArray (map IArray trans_i_map)) !! i !! (L ! i))"
 
@@ -2716,19 +2715,18 @@ begin
         if i = j then None else
         case (check_g_impl pt porig g1 s, check_g_impl pt porig g2 s) of
           (Some cc1, Some cc2) \<Rightarrow>
-          case run_impl pf m2 s of
+          (case run_impl pf m2 s of
             Some ((_, _, s1, _, r2), _) \<Rightarrow>
-            case run_impl pf m1 s1 of
+            (case run_impl pf m1 s1 of
               Some (( _, _, s', _, _), _) \<Rightarrow>
                 if check_pred_impl pf bnds (L[i := l1, j := l2]) s'
                 then Some (cc1 @ cc2, a, make_reset_impl pf m1 s @ r2, (L[i := l1, j := l2], s'))
                 else None
-            | _ \<Rightarrow> None
-          | _ \<Rightarrow> None
+            | _ \<Rightarrow> None)
+          | _ \<Rightarrow> None)
         | _ \<Rightarrow> None
       )
-      OUT)
-        "
+      OUT)"
 
   lemma pairs_by_action_impl:
     "pairs_by_action = pairs_by_action_impl PF PT PROG' (IArray bounds)"
@@ -2750,10 +2748,10 @@ begin
         (\<lambda>(g, a, m, l').
             case check_g_impl programt program g s of None \<Rightarrow> None
             | Some cc \<Rightarrow>
-                case run_impl programf m s of None \<Rightarrow> None
-                | Some ((xx, xa, s', xb, r), xc) \<Rightarrow>
+                (case run_impl programf m s of None \<Rightarrow> None
+                 | Some ((xx, xa, s', xb, r), xc) \<Rightarrow>
                     if check_pred_impl programf (IArray bounds) (L[i := l']) s'
-                    then Some (cc, a, r, L[i := l'], s') else None)
+                    then Some (cc, a, r, L[i := l'], s') else None))
         (trans_i_array !! i !! (L ! i))"
 
   lemma trans_i_from_impl:
@@ -2982,10 +2980,9 @@ lemma exec_code[code]:
      | Some instr \<Rightarrow>
          if instr = HALT
          then Some ((pc, st, m, f, rs), pc # pcs)
-         else case UPPAAL_Asm.step instr
-                    (pc, st, m, f, rs) of
-              None \<Rightarrow> None
-              | Some s \<Rightarrow> exec prog n s (pc # pcs)))"
+         else
+           (case UPPAAL_Asm.step instr (pc, st, m, f, rs) of
+             None \<Rightarrow> None | Some s \<Rightarrow> exec prog n s (pc # pcs))))"
   by (cases n) auto
 
 lemmas [code] =

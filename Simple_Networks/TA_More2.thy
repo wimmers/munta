@@ -1,5 +1,5 @@
 theory TA_More2
-  imports TA_Impl.TA_More
+  imports TA.TA_More
 begin
 
 lemma collect_clock_pairs_concat:

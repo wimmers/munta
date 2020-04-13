@@ -2,6 +2,8 @@ theory Simple_Network_Language_Renaming
   imports Simple_Network_Language_Model_Checking
 begin
 
+unbundle no_library_syntax
+
 text \<open>Helpful methods and theorems to work with tags:\<close>
 
 lemmas TAG_cong = arg_cong[where f = "TAG t" for t]
@@ -2556,6 +2558,36 @@ lemma (in Simple_Network_Impl) act_set_compute:
    apply (drule mem_nth, force)+
   done
 
+lemma set1_acconstraint_elim:
+  assumes "c \<in> set1_acconstraint ac"
+  obtains x where "(c, x) = constraint_pair ac"
+  using assms by (cases ac) auto
+
+lemma (in Simple_Network_Impl)
+  assumes "(x1, x2, T, I) \<in> set automata" "(l, b, g, a, f, r, l') \<in> set T"
+  shows clk_set'I1[intro]: "c \<in> set r \<Longrightarrow> c \<in> clk_set'"
+    and clk_set'I2[intro]: "ac \<in> set g \<Longrightarrow> c \<in> set1_acconstraint ac \<Longrightarrow> c \<in> clk_set'"
+    and loc_setI1[intro]: "l \<in> loc_set" and loc_setI2[intro]: "l' \<in> loc_set"
+    and act_setI[intro]: "a' \<in> set_act a \<Longrightarrow> a' \<in> act_set"
+    and var_setI1[intro]: "v \<in> set_bexp b \<Longrightarrow> v \<in> var_set"
+    and var_setI2[intro]: "(x, e) \<in> set f \<Longrightarrow> x \<in> var_set"
+    and var_setI3[intro]: "(x, e) \<in> set f \<Longrightarrow> v \<in> set_exp e \<Longrightarrow> v \<in> var_set"
+  using assms unfolding
+    loc_set_compute act_set_compute var_set_compute set_bexp_vars_of_bexp set_exp_vars_of_exp
+    clk_set'_def
+         apply -
+         apply force
+        apply (fastforce elim: set1_acconstraint_elim simp: clkp_set'_def collect_clock_pairs_def)
+       apply (simp; blast)+
+  done
+
+lemma (in Simple_Network_Impl) clk_set'I3[intro]:
+  assumes "(x1, x2, T, I) \<in> set automata"
+  shows "(l, g') \<in> set I \<Longrightarrow> ac \<in> set g' \<Longrightarrow> c \<in> set1_acconstraint ac \<Longrightarrow> c \<in> clk_set'"
+  using assms unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
+  by (force elim!: set1_acconstraint_elim)
+
+
 definition
   "find_remove P = map_option (\<lambda>(xs, x, ys). (x, xs @ ys)) o List.extract P"
 
@@ -2838,11 +2870,6 @@ lemmas renum_automaton'_alt_def = renum_automaton'_def[unfolded
   renum_reset'_def renum_upd'_def map_cconstraint_def renum_act_def
   ]
 
-lemma set1_acconstraint_elim:
-  assumes "c \<in> set1_acconstraint ac"
-  obtains x where "(c, x) = constraint_pair ac"
-  using assms by (cases ac) auto
-
 lemma renum_automaton_eq:
   "rename.renum_automaton p (automata ! p) = renum_automaton p (automata ! p)"
   if "p < n_ps"
@@ -2867,70 +2894,32 @@ proof -
     apply safe
     subgoal committed
       using loc_set_committed
-      by (subst renum_states_extend; (simp add: n_ps_def)?) (fastforce dest: nth_mem)
+      by (subst renum_states_extend) (auto 4 3 simp: n_ps_def dest!: nth_mem)
     subgoal urgent
       using loc_set_urgent
-      by (subst renum_states_extend; (simp add: n_ps_def)?) (fastforce dest: nth_mem)
+      by (subst renum_states_extend) (auto 4 3 simp: n_ps_def dest!: nth_mem)
     subgoal start_locs
-      by (subst renum_states_extend; (simp add: n_ps_def)?)
-        (fastforce dest: nth_mem simp: loc_set_compute)
+      by (subst renum_states_extend) (auto simp: n_ps_def dest!: nth_mem)
     subgoal state
       unfolding rename.renum_bexp_def renum_bexp_def
-      apply (rule bexp.map_cong_pred, rule HOL.refl, clarsimp simp: pred_bexp_def)
-      apply (subst renum_vars_bij_extends)
-       apply (fastforce dest: nth_mem simp: var_set_compute set_bexp_vars_of_bexp)+
-      done
+      by (auto dest!: nth_mem intro!: renum_vars_bij_extends bexp.map_cong_pred simp: pred_bexp_def)
     subgoal guards
-      apply (rule renum_cconstraint)
-      unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
-      apply (fastforce dest: nth_mem elim: set1_acconstraint_elim)
-      done
+      by (auto dest!: nth_mem intro!: renum_cconstraint)
     subgoal actions
       unfolding rename.renum_act_def renum_act_def
-      apply (fo_rule act.map_cong_pred, (simp; fail))
-      apply (clarsimp simp: pred_act_def)
-      apply (rule renum_acts_bij_extends)
-      apply (fastforce dest!: nth_mem simp: act_set_compute)
-      done
+      by (auto simp: pred_act_def dest!: nth_mem intro!: renum_acts_bij_extends act.map_cong_pred)
     subgoal upds
       unfolding renum_upd_def rename.renum_upd_def rename.renum_exp_def renum_exp_def
-      apply (rule map_cong, rule HOL.refl)
-      apply clarsimp
-      apply (rule conjI)
-      subgoal
-        by (rule renum_vars_bij_extends) (fastforce dest: nth_mem simp: var_set_compute)
-      apply (rule exp.map_cong_pred, rule HOL.refl)
-      apply (clarsimp simp: pred_exp_def)
-      apply (subst renum_vars_bij_extends)
-       apply (fastforce dest: nth_mem simp: set_exp_vars_of_exp var_set_compute)+
-      done
+      by (auto dest!: nth_mem intro!: renum_vars_bij_extends exp.map_cong_pred simp: pred_exp_def)
     subgoal clock_resets
-      unfolding rename.renum_reset_def renum_reset_def
-      apply (rule map_cong, rule HOL.refl)
-      apply (rule renum_clocks)
-      unfolding clk_set'_def
-      apply (fastforce dest: nth_mem)
-      done
+      unfolding rename.renum_reset_def renum_reset_def by (auto dest!: nth_mem intro!: renum_clocks)
     subgoal dest_locs
-      by (subst renum_states_extend; (simp add: n_ps_def)?)
-        (fastforce dest: nth_mem simp: loc_set_compute)
+      by (subst renum_states_extend) (auto simp: n_ps_def dest!: nth_mem)
     subgoal inv_locs
       using loc_set_invs
-      by (subst renum_states_extend; (simp add: n_ps_def)?) (force dest: nth_mem)
+      by (subst renum_states_extend) (auto 4 4 simp: n_ps_def dest!: nth_mem)
     subgoal renum_clocks
-      apply (rule renum_cconstraint)
-      unfolding clk_set'_def clkp_set'_def collect_clock_pairs_def
-      apply clarsimp
-      apply (erule set1_acconstraint_elim)
-      apply standard
-      apply (rule UnI1)
-      apply clarsimp
-      apply (drule nth_mem)
-      apply (erule bexI[rotated])
-      apply simp
-      apply (erule bexI[rotated])
-      apply force
-      done
+      by (auto dest!: nth_mem intro!: renum_cconstraint)
     done
 qed
 

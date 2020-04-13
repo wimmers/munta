@@ -159,7 +159,7 @@ end (* End of context for bisimilarity *)
 definition step_z_dbm' ::
   "('a, 'c, 't, 's) ta \<Rightarrow> 's \<Rightarrow> 't :: {linordered_cancel_ab_monoid_add,uminus} DBM
     \<Rightarrow> ('c \<Rightarrow> nat) \<Rightarrow> nat \<Rightarrow> 'a \<Rightarrow> 's \<Rightarrow> 't DBM \<Rightarrow> bool"
-("_ \<turnstile>' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_,_\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61) where
+("_ \<turnstile>'' \<langle>_, _\<rangle> \<leadsto>\<^bsub>_,_,_\<^esub> \<langle>_, _\<rangle>" [61,61,61,61] 61) where
   "A \<turnstile>' \<langle>l,D\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l'',D''\<rangle> \<equiv>
   \<exists>l' D'. A \<turnstile> \<langle>l, D\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l', D'\<rangle> \<and> A \<turnstile> \<langle>l', D'\<rangle> \<leadsto>\<^bsub>v,n,\<upharpoonleft>a\<^esub> \<langle>l'', D''\<rangle>"
 
@@ -297,7 +297,7 @@ next
     "[curry (conv_M D1)]\<^bsub>v,n\<^esub> = [M2]\<^bsub>v,n\<^esub>"
     using wf_dbm_D by auto
   from step_impl_sound'[OF steps(2)] \<open>wf_dbm D1\<close> obtain M3 where M3:
-    "step_z_dbm (conv_A A) l (curry (conv_M D1)) v n \<upharpoonleft>a1 l' M3"
+    "step_z_dbm (conv_A A) l (curry (conv_M D1)) v n (\<upharpoonleft>a1) l' M3"
     "[curry (conv_M D')]\<^bsub>v,n\<^esub> = [M3]\<^bsub>v,n\<^esub>"
     using wf_dbm_D by auto
   from step_z_dbm_equiv'[OF M2(1), of M] prems(2) obtain M2' where M2':

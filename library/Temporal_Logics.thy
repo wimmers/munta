@@ -42,8 +42,8 @@ lemma to_stream_stake:
 lemma to_omega_suffix[simp]:
   "suffix k (to_omega s) = to_omega (sdrop k s)"
   by auto
-
-primrec semantics_ltlc' :: "['a word, ('a \<Rightarrow> bool) ltlc] \<Rightarrow> bool" ("_ \<Turnstile>\<^sub>c' _" [80,80] 80)
+term true\<^sub>c
+primrec semantics_ltlc' :: "['a word, ('a \<Rightarrow> bool) ltlc] \<Rightarrow> bool" ("_ \<Turnstile>\<^sub>c'' _" [80,80] 80)
 where
   "\<xi> \<Turnstile>\<^sub>c' true\<^sub>c = True"
 | "\<xi> \<Turnstile>\<^sub>c' false\<^sub>c = False"

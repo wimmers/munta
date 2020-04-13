@@ -1,8 +1,10 @@
 theory State_Networks_Impl_Refine
   imports
-    Normalized_Zone_Semantics_Impl_Refine State_Networks_Impl Networks_Impl_Refine
+    TA_Impl.Normalized_Zone_Semantics_Impl_Refine State_Networks_Impl Networks_Impl_Refine
     TA_Library.ML_Util
 begin
+
+unbundle no_library_syntax
 
 subsection \<open>Method setup for quantifier trickery\<close>
 
@@ -32,10 +34,8 @@ method solve_conj_triv2 =
 
 method solve_ex_triv = (((rule exI)+)?, solve_conj_triv)
 
-subsection \<open>Executable successor computation\<close>
 
-no_notation Ref.update ("_ := _" 62)
-no_notation test_bit (infixl "!!" 100)
+subsection \<open>Executable successor computation\<close>
 
 locale State_Network_Reachability_Problem_precompiled_defs' =
   State_Network_Reachability_Problem_precompiled_defs +

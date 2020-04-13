@@ -1,12 +1,12 @@
 theory Networks_Impl_Refine
   imports
-    Normalized_Zone_Semantics_Impl_Refine Networks_Impl TA_Impl_Misc
+    TA_Impl.Normalized_Zone_Semantics_Impl_Refine Networks_Impl TA_Impl.TA_Impl_Misc
 begin
+
+unbundle no_library_syntax
 
 (* XXX Rename this way *)
 lemmas mem_nth = aux
-
-no_notation Ref.update ("_ := _" 62)
 
 locale Network_Reachability_Problem_precompiled_defs' =
   Network_Reachability_Problem_precompiled_defs +

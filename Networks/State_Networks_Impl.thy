@@ -1,5 +1,5 @@
 theory State_Networks_Impl
-  imports Normalized_Zone_Semantics_Impl State_Networks
+  imports TA_Impl.Normalized_Zone_Semantics_Impl State_Networks
 begin
 
 (* XXX Move *)
@@ -45,6 +45,7 @@ begin
   definition "T i \<equiv>
     {(l, make_trans (trans ! i ! l ! j)) | l j. l < length (trans ! i) \<and> j < length (trans ! i ! l)}"
   definition "P \<equiv> map (\<lambda> P l. P ! l) pred"
+
   definition N :: "(nat, nat, int, nat, 'st) snta" where
     "N \<equiv> (map (\<lambda> i. (T i, I i)) [0..<p], P)"
   definition "init \<equiv> repeat (0::nat) p"

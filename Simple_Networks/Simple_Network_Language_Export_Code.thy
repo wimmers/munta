@@ -731,7 +731,7 @@ context Simple_Network_Impl_nat_defs
 begin
 
 definition "clkp_inv i l \<equiv>
-  UNION (set (filter (\<lambda>(a, b). a = l) (snd (snd (snd (automata ! i)))))) (collect_clock_pairs o snd)"
+  \<Union>g \<in> set (filter (\<lambda>(a, b). a = l) (snd (snd (snd (automata ! i))))). collect_clock_pairs (snd g)"
 
 definition "clkp_set'' i l \<equiv>
     clkp_inv i l \<union> (\<Union> (l', b, g, _) \<in> set (fst (snd (snd (automata ! i)))).

@@ -1,5 +1,5 @@
 theory Simple_Network_Language_Deadlock_Checking
-  imports Simple_Network_Language_Model_Checking "../Deadlock_Checking"
+  imports Simple_Network_Language_Model_Checking Deadlock.Deadlock_Checking
 begin
 
 context Simple_Network_Impl_nat_ceiling_start_state

@@ -1,5 +1,5 @@
 theory Unified_PW
-  imports Refine_Imperative_HOL.Sepref Worklist_Common
+  imports Refine_Imperative_HOL.Sepref Worklist_Common "TA_Library.Subsumption_Graphs"
 begin
 
 hide_const wait
@@ -92,7 +92,7 @@ begin
     where "subsumed_elem a M \<equiv> \<exists> a'. a' \<in> M \<and> a \<preceq> a'"
 
   notation
-    subsumed_elem  ("(_/ \<in>' _)" [51, 51] 50)
+    subsumed_elem  ("(_/ \<in>'' _)" [51, 51] 50)
 
     definition "pw_inv_frontier' passed wait =
       (\<forall> a. a \<in> passed \<longrightarrow>
@@ -133,6 +133,8 @@ end
 
 subsubsection \<open>Correctness Proof\<close>
 
+instance nat :: preorder ..
+
 context Search_Space_finite begin
 
   lemma wf_worklist_var_aux:
@@ -151,8 +153,13 @@ context Search_Space_finite begin
     ultimately show ?case by (rule finite_subset)
   next
     case 2
+    term "\<lambda> a. card (reachable_subsumed a)"
+    have *: "class.preorder (\<le>) ((<) :: nat \<Rightarrow> nat \<Rightarrow> bool)"
+      by (rule preorder_class.axioms)
     show ?case
-    proof (rule acyclicI_order[where f = "\<lambda> a. card (reachable_subsumed a)"], rule psubset_card_mono)
+      thm acyclicI_order
+    proof (rule preorder.acyclicI_order[where f = "\<lambda> a. card (reachable_subsumed a)"],
+           rule preorder_class.axioms, rule psubset_card_mono)
       fix a
       have "reachable_subsumed a \<subseteq> {a. reachable a \<and> \<not> empty a}"
         unfolding reachable_subsumed_def by blast
@@ -163,8 +170,8 @@ context Search_Space_finite begin
   lemma wf_worklist_var:
     "wf pw_var"
     unfolding pw_var_def
-    apply (auto intro: wf_worklist_var_aux)
-    by (auto intro!: finite_acyclic_wf acyclicI_order[where f = id])
+    by (auto 4 3 intro: wf_worklist_var_aux finite_acyclic_wf preorder.acyclicI_order[where f = id]
+          preorder_class.axioms)
 
   context
   begin
