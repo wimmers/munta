@@ -1,5 +1,5 @@
 theory Lasso_Freeness_Certificates_Complete
-  imports Main "HOL-Library.Countable" "../library/Graph_Library_Adaptor"
+  imports Main "HOL-Library.Countable" Graph_Library_Adaptor
 begin
 
 text \<open>

@@ -68,6 +68,8 @@ session TA_Impl in TA_Impl = TA +
 session Certification in Certification = TA_Impl +
   options
     [quick_and_dirty]
+  sessions
+    Graph_Theory
   theories
     Lasso_Freeness_Certificates_Complete
     Unreachability_Certification
