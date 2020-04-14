@@ -2,7 +2,7 @@ theory Export_Checker
   imports
     Uppaal_Networks.UPPAAL_Model_Checking UPPAAL_State_Networks_Impl_Refine_Calc
     Deadlock.Deadlock_Checking
-    "library/OCaml_Diff_Array_Impl" "library/OCaml_Code_Printings"
+    "../library/OCaml_Diff_Array_Impl" "../library/OCaml_Code_Printings"
 begin
 
 (* XXX Add this fix to IArray theory *)

@@ -63,11 +63,19 @@ session TA_Impl in TA_Impl = TA +
     "HOL-Library.IArray"
   theories
     Normalized_Zone_Semantics_Impl_Refine
+    Normalized_Zone_Semantics_Impl_Extra
 
-session Certification in Certification = TA +
+session Certification in Certification = TA_Impl +
+  options
+    [quick_and_dirty]
   theories
+    Lasso_Freeness_Certificates_Complete
     Unreachability_Certification
     Unreachability_Certification2
+    Simulation_Graphs2
+    TA_Simulation
+    Normalized_Zone_Semantics_Certification_Impl
+    Normalized_Zone_Semantics_Certification_Impl2
 
 session Networks in Networks = TA_Impl +
   theories
@@ -87,67 +95,18 @@ session Deadlock in Deadlock = Uppaal_Networks +
   theories
     Deadlock_Checking
 
-session TA_Code = Simple_Networks +
+session TA_Code in Model_Checking = Simple_Networks +
   sessions
     Certification_Monads
     FinFun
     Gabow_SCC
     Deadlock
   theories
-    "Simple_Networks/Simple_Network_Language_Export_Code"
+    Simple_Network_Language_Export_Code
+    Shortest_SCC_Paths
 
-session TA_Certificates = TA_Code +
+session TA_Certificates in Certificate_Checking = TA_Code +
   options
     [quick_and_dirty]
   theories
-    "Simple_Networks/Simple_Network_Language_Certificate_Code"
-
-\<^cancel>\<open>(* Use this to get document output for the abstract formalization of reachability checking *)
-
-session "TA_Impl" = "TA" +
-  sessions
-    Show
-  theories [document = false]
-    Refine_Imperative_HOL.IICF
-    "HOL-Library.IArray"
-  theories
-    Normalized_Zone_Semantics_Impl_Refine
-
-session "TA_Byte_Code" = "TA_Impl" +
-  theories UPPAAL_Model_Checking
-
-(* Use this to get document output for the implementation of reachability checking with byte code *)
-session "TA_All" = "TA_Impl" +
-  options
-    [document = pdf, document_output = "output",
-     document_variants = "model_checking_proofs:model_checking=/proof,/ML"]
-  sessions
-    TA_Byte_Code
-  theories [document = false]
-    Refine_Imperative_HOL.IICF
-    TA_Library.Instantiate_Existentials
-    TA_Library.Stream_More
-    "HOL-Library.IArray"
-  theories
-    TA_Byte_Code.UPPAAL_State_Networks_Impl_Refine
-    TA.Simulation_Graphs
-    TA_More
-    Infinite_TA_Runs
-    "Worklist_Algorithms/Worklist_Subsumption_Impl1"
-    "Worklist_Algorithms/Worklist_Subsumption_Multiset"
-  document_files (in "document/model_checking")
-    "root.tex"
-
-session "TA_Code" = "TA_Byte_Code" +
-  sessions
-    Certification_Monads
-    FinFun
-    Gabow_SCC
-  theories
-    "Simple_Networks/Simple_Network_Language_Export_Code"
-
-session TA_Certificates = "TA_Code" +
-  options
-    [quick_and_dirty]
-  theories
-    "Simple_Networks/Simple_Network_Language_Certificate_Code"\<close>
+    Simple_Network_Language_Certificate_Code

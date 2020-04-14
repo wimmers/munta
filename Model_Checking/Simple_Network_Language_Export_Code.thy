@@ -1,9 +1,9 @@
 theory Simple_Network_Language_Export_Code
   imports
     "../../Parser_Combinators/JSON_Parsing"
-    Simple_Network_Language_Renaming
-    Simple_Network_Language_Deadlock_Checking
-    "../UPPAAL_State_Networks_Impl_Refine_Calc"
+    Simple_Networks.Simple_Network_Language_Renaming
+    Simple_Networks.Simple_Network_Language_Deadlock_Checking
+    Shortest_SCC_Paths
     TA_Library.Error_List_Monad
 begin
 
@@ -11,8 +11,6 @@ datatype result =
   Renaming_Failed | Preconds_Unsat | Sat | Unsat
 
 abbreviation "renum_automaton \<equiv> Simple_Network_Rename_Defs.renum_automaton"
-
-hide_const m
 
 locale Simple_Network_Rename_Formula_String_Defs =
   Simple_Network_Rename_Defs_int where automata = automata for automata ::

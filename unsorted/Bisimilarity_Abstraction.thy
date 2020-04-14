@@ -169,13 +169,11 @@ lemma
 lemma
   "\<exists> W'. A \<turnstile> \<langle>l, W\<rangle> \<rightarrow>\<^sub>\<equiv>\<^sup>* \<langle>l', W'\<rangle> \<and> Z' \<subseteq> W'" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle>" "Z \<subseteq> W"
   using that
-  apply (induction A \<equiv> A _ _ _ _ arbitrary: W)
     oops
 
 lemma
   "A \<turnstile> \<langle>l, Z\<rangle> \<rightarrow>\<^sub>\<equiv>\<^sup>* \<langle>l', Cl l' Z'\<rangle>" if "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>* \<langle>l', Z'\<rangle>"
   using that
-  apply (induction A \<equiv> A _ _ _ _)
     oops
 
 lemma Cl_subset:

@@ -1,5 +1,5 @@
 theory Simple_Network_Language_Certificate
-  imports "../Extract_Certificate" TA_Code.Simple_Network_Language_Model_Checking
+  imports Extract_Certificate TA_Code.Simple_Network_Language_Model_Checking
 begin
 
 context Simple_Network_Impl_nat_ceiling_start_state

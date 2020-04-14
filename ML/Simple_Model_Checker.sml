@@ -4447,6 +4447,10 @@ fun tk_div x =
       [Chara (true, true, true, true, false, true, false, false)])
     x;
 
+fun compute_SCC_tra (A1_, A2_) =
+  compute_SCC_tr (eq A1_) (bounded_hashcode_nat A2_)
+    (def_hashmap_size A2_ Type);
+
 fun tk_plus x =
   gen_token lx_ws
     (exactly (equal_char, show_char)
@@ -5335,6 +5339,44 @@ fun check_diag_impl (A1_, A2_) n =
                                A1_))) orelse
                 sigma))))
       false);
+
+fun calc_shortest_scc_paths (A1_, A2_, A3_) g n =
+  let
+    val sccs = compute_SCC_tra (equal_nat, hashable_nat) g;
+    val d = replicate n NONE @ [SOME (zero A2_)];
+    val da =
+      fold (fold (fn u =>
+                   fold (fn v => fn da =>
+                          (case nth da u of NONE => da
+                            | SOME du =>
+                              (case nth da v
+                                of NONE =>
+                                  list_update da v
+                                    (SOME (plus A1_ du (more g u v)))
+                                | SOME dv =>
+                                  (if less A3_ (plus A1_ du (more g u v)) dv
+                                    then list_update da v
+   (SOME (plus A1_ du (more g u v)))
+                                    else da))))
+                     (gi_E g u)))
+        sccs d;
+    val db =
+      fold (fn vs => fn db =>
+             let
+               val dscc =
+                 fold (fn v => fn dscc =>
+                        (case dscc of NONE => nth db v
+                          | SOME daa =>
+                            (case nth db v of NONE => dscc
+                              | SOME dv => SOME (min A3_ dv daa))))
+                   vs NONE;
+             in
+               fold (fn v => fn dc => list_update dc v dscc) vs db
+             end)
+        sccs da;
+  in
+    db
+  end;
 
 fun of_nat json =
   (case json of Object _ => Error ["of_nat: expected natural number"]
@@ -9870,48 +9912,6 @@ fun g automata num_states q c =
   Gen_g_impl_ext
     (v num_states q, e automata num_states q c, [n num_states q],
       w automata num_states q c);
-
-fun compute_SCC_tra (A1_, A2_) =
-  compute_SCC_tr (eq A1_) (bounded_hashcode_nat A2_)
-    (def_hashmap_size A2_ Type);
-
-fun calc_shortest_scc_paths (A1_, A2_, A3_) g n =
-  let
-    val sccs = compute_SCC_tra (equal_nat, hashable_nat) g;
-    val d = map (fn _ => NONE) (upt zero_nata n) @ [SOME (zero A2_)];
-    val da =
-      fold (fold (fn u =>
-                   fold (fn v => fn da =>
-                          (case nth da u of NONE => da
-                            | SOME du =>
-                              (case nth da v
-                                of NONE =>
-                                  list_update da v
-                                    (SOME (plus A1_ du (more g u v)))
-                                | SOME dv =>
-                                  (if less A3_ (plus A1_ du (more g u v)) dv
-                                    then list_update da v
-   (SOME (plus A1_ du (more g u v)))
-                                    else da))))
-                     (gi_E g u)))
-        sccs d;
-    val db =
-      fold (fn vs => fn db =>
-             let
-               val dscc =
-                 fold (fn v => fn dscc =>
-                        (case dscc of NONE => nth db v
-                          | SOME daa =>
-                            (case nth db v of NONE => dscc
-                              | SOME dv => SOME (min A3_ dv daa))))
-                   vs NONE;
-             in
-               fold (fn v => fn dc => list_update dc v dscc) vs db
-             end)
-        sccs da;
-  in
-    db
-  end;
 
 fun local_ceiling_single automata num_states q c =
   let

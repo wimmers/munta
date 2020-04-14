@@ -1,13 +1,13 @@
 module Uint : sig
   type t = int
-  val dflt_size : Big_int.big_int
+  val dflt_size : Z.t
   val less : t -> t -> bool
   val less_eq : t -> t -> bool
-  val set_bit : t -> Big_int.big_int -> bool -> t
-  val shiftl : t -> Big_int.big_int -> t
-  val shiftr : t -> Big_int.big_int -> t
-  val shiftr_signed : t -> Big_int.big_int -> t
-  val test_bit : t -> Big_int.big_int -> bool
+  val set_bit : t -> Z.t -> bool -> t
+  val shiftl : t -> Z.t -> t
+  val shiftr : t -> Z.t -> t
+  val shiftr_signed : t -> Z.t -> t
+  val test_bit : t -> Z.t -> bool
   val int_mask : int
   val int32_mask : int32
   val int64_mask : int64
@@ -15,12 +15,7 @@ end = struct
 
 type t = int
 
-(* Can be replaced with Sys.int_size in OCaml 4.03.0 *)
-let dflt_size_int = 
-  let rec f n = if n=0 then 0 else f (n / 2) + 1 
-  in f min_int;;
-
-let dflt_size = Big_int.big_int_of_int dflt_size_int;;
+let dflt_size = Z.of_int Sys.int_size;;
 
 (* negative numbers have their highest bit set, 
    so they are greater than positive ones *)
@@ -35,27 +30,27 @@ let less_eq x y =
   else y < 0 || x <= y;;
 
 let set_bit x n b =
-  let mask = 1 lsl (Big_int.int_of_big_int n)
+  let mask = 1 lsl (Z.to_int n)
   in if b then x lor mask
      else x land (lnot mask);;
 
-let shiftl x n = x lsl (Big_int.int_of_big_int n);;
+let shiftl x n = x lsl (Z.to_int n);;
 
-let shiftr x n = x lsr (Big_int.int_of_big_int n);;
+let shiftr x n = x lsr (Z.to_int n);;
 
-let shiftr_signed x n = x asr (Big_int.int_of_big_int n);;
+let shiftr_signed x n = x asr (Z.to_int n);;
 
-let test_bit x n = x land (1 lsl (Big_int.int_of_big_int n)) <> 0;;
+let test_bit x n = x land (1 lsl (Z.to_int n)) <> 0;;
 
 let int_mask =
-  if dflt_size_int < 32 then lnot 0 else 0xFFFFFFFF;;
+  if Sys.int_size < 32 then lnot 0 else 0xFFFFFFFF;;
 
 let int32_mask = 
-  if dflt_size_int < 32 then Int32.pred (Int32.shift_left Int32.one dflt_size_int) 
+  if Sys.int_size < 32 then Int32.pred (Int32.shift_left Int32.one Sys.int_size)
   else Int32.of_string "0xFFFFFFFF";;
 
 let int64_mask = 
-  if dflt_size_int < 64 then Int64.pred (Int64.shift_left Int64.one dflt_size_int) 
+  if Sys.int_size < 64 then Int64.pred (Int64.shift_left Int64.one Sys.int_size)
   else Int64.of_string "0xFFFFFFFFFFFFFFFF";;
 
 end;; (*struct Uint*)
@@ -63,11 +58,11 @@ end;; (*struct Uint*)
 module Uint32 : sig
   val less : int32 -> int32 -> bool
   val less_eq : int32 -> int32 -> bool
-  val set_bit : int32 -> Big_int.big_int -> bool -> int32
-  val shiftl : int32 -> Big_int.big_int -> int32
-  val shiftr : int32 -> Big_int.big_int -> int32
-  val shiftr_signed : int32 -> Big_int.big_int -> int32
-  val test_bit : int32 -> Big_int.big_int -> bool
+  val set_bit : int32 -> Z.t -> bool -> int32
+  val shiftl : int32 -> Z.t -> int32
+  val shiftr : int32 -> Z.t -> int32
+  val shiftr_signed : int32 -> Z.t -> int32
+  val test_bit : int32 -> Z.t -> bool
 end = struct
 
 (* negative numbers have their highest bit set, 
@@ -83,19 +78,19 @@ let less_eq x y =
   else Int32.compare y Int32.zero < 0 || Int32.compare x y <= 0;;
 
 let set_bit x n b =
-  let mask = Int32.shift_left Int32.one (Big_int.int_of_big_int n)
+  let mask = Int32.shift_left Int32.one (Z.to_int n)
   in if b then Int32.logor x mask
      else Int32.logand x (Int32.lognot mask);;
 
-let shiftl x n = Int32.shift_left x (Big_int.int_of_big_int n);;
+let shiftl x n = Int32.shift_left x (Z.to_int n);;
 
-let shiftr x n = Int32.shift_right_logical x (Big_int.int_of_big_int n);;
+let shiftr x n = Int32.shift_right_logical x (Z.to_int n);;
 
-let shiftr_signed x n = Int32.shift_right x (Big_int.int_of_big_int n);;
+let shiftr_signed x n = Int32.shift_right x (Z.to_int n);;
 
 let test_bit x n =
   Int32.compare 
-    (Int32.logand x (Int32.shift_left Int32.one (Big_int.int_of_big_int n)))
+    (Int32.logand x (Int32.shift_left Int32.one (Z.to_int n)))
     Int32.zero
   <> 0;;
 
@@ -224,53 +219,28 @@ end
 
 
 module Bits_Integer : sig
-  val and_pninteger : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
-  val or_pninteger : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
-  val shiftl : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
-  val shiftr : Big_int.big_int -> Big_int.big_int -> Big_int.big_int
-  val test_bit : Big_int.big_int -> Big_int.big_int -> bool
+  val shiftl : Z.t -> Z.t -> Z.t
+  val shiftr : Z.t -> Z.t -> Z.t
+  val test_bit : Z.t -> Z.t -> bool
 end = struct
-
-let and_pninteger bi1 bi2 =
-  Big_int.and_big_int bi1
-    (Big_int.xor_big_int
-      (Big_int.pred_big_int
-        (Big_int.shift_left_big_int Big_int.unit_big_int
-           (max (Big_int.num_digits_big_int bi1 * Nat.length_of_digit)
-                (Big_int.num_digits_big_int bi2 * Nat.length_of_digit))))
-      (Big_int.pred_big_int (Big_int.minus_big_int bi2)));;
-
-let or_pninteger bi1 bi2 =
-  Big_int.pred_big_int (Big_int.minus_big_int
-    (Big_int.and_big_int
-      (Big_int.xor_big_int
-         (Big_int.pred_big_int
-           (Big_int.shift_left_big_int Big_int.unit_big_int
-              (max (Big_int.num_digits_big_int bi1 * Nat.length_of_digit)
-                   (Big_int.num_digits_big_int bi2 * Nat.length_of_digit))))
-         bi1)
-      (Big_int.pred_big_int (Big_int.minus_big_int bi2))));;
 
 (* We do not need an explicit range checks here,
    because Big_int.int_of_big_int raises Failure 
    if the argument does not fit into an int. *)
-let shiftl x n = Big_int.shift_left_big_int x (Big_int.int_of_big_int n);;
+let shiftl x n = Z.shift_left x (Z.to_int n);;
 
-let shiftr x n = Big_int.shift_right_big_int x (Big_int.int_of_big_int n);;
+let shiftr x n = Z.shift_right x (Z.to_int n);;
 
-let test_bit x n = 
-  Big_int.eq_big_int 
-    (Big_int.extract_big_int x (Big_int.int_of_big_int n) 1) 
-    Big_int.unit_big_int
+let test_bit x n =  Z.testbit x (Z.to_int n);;
 
 end;; (*struct Bits_Integer*)
 
 module Model_Checker : sig
-  type int = Int_of_integer of Big_int.big_int
-  val integer_of_int : int -> Big_int.big_int
+  type int = Int_of_integer of Z.t
+  val integer_of_int : int -> Z.t
   type nat
-  val integer_of_nat : nat -> Big_int.big_int
-  val nat_of_integer : Big_int.big_int -> nat
+  val integer_of_nat : nat -> Z.t
+  val nat_of_integer : Z.t -> nat
   type instr = JMPZ of nat | ADD | NOT | AND | LT | LE | EQ | PUSH of int | POP
     | LID of nat | STORE | STOREI of nat * int | COPY | CALL | RETURN | HALT |
     STOREC of nat * int | SETF of bool
@@ -342,12 +312,11 @@ module Model_Checker : sig
               (int instrc option) list -> ((int list) list) list
 end = struct
 
-type int = Int_of_integer of Big_int.big_int;;
+type int = Int_of_integer of Z.t;;
 
 let rec integer_of_int (Int_of_integer k) = k;;
 
-let rec equal_inta
-  k l = Big_int.eq_big_int (integer_of_int k) (integer_of_int l);;
+let rec equal_inta k l = Z.equal (integer_of_int k) (integer_of_int l);;
 
 type 'a equal = {equal : 'a -> 'a -> bool};;
 let equal _A = _A.equal;;
@@ -374,48 +343,49 @@ let typerep_int = ({typerep = typerep_inta} : int typerep);;
 let heap_int =
   ({countable_heap = countable_int; typerep_heap = typerep_int} : int heap);;
 
-let rec uminus_inta
-  k = Int_of_integer (Big_int.minus_big_int (integer_of_int k));;
+let rec uminus_inta k = Int_of_integer (Z.neg (integer_of_int k));;
 
-let zero_inta : int = Int_of_integer Big_int.zero_big_int;;
-
-type num = One | Bit0 of num | Bit1 of num;;
-
-let rec sgn_integer
-  k = (if Big_int.eq_big_int k Big_int.zero_big_int then Big_int.zero_big_int
-        else (if Big_int.lt_big_int k Big_int.zero_big_int
-               then (Big_int.minus_big_int (Big_int.big_int_of_int 1))
-               else (Big_int.big_int_of_int 1)));;
+let zero_inta : int = Int_of_integer Z.zero;;
 
 let rec apsnd f (x, y) = (x, f y);;
 
-let rec comp f g = (fun x -> f (g x));;
+type num = One | Bit0 of num | Bit1 of num;;
 
 let rec divmod_integer
-  k l = (if Big_int.eq_big_int k Big_int.zero_big_int
-          then (Big_int.zero_big_int, Big_int.zero_big_int)
-          else (if Big_int.eq_big_int l Big_int.zero_big_int
-                 then (Big_int.zero_big_int, k)
-                 else comp (comp apsnd Big_int.mult_big_int) sgn_integer l
-                        (if Big_int.eq_big_int (sgn_integer k) (sgn_integer l)
-                          then Big_int.quomod_big_int (Big_int.abs_big_int k)
-                                 (Big_int.abs_big_int l)
-                          else (let (r, s) =
-                                  Big_int.quomod_big_int (Big_int.abs_big_int k)
-                                    (Big_int.abs_big_int l)
-                                  in
-                                 (if Big_int.eq_big_int s Big_int.zero_big_int
-                                   then (Big_int.minus_big_int r,
-  Big_int.zero_big_int)
-                                   else (Big_int.sub_big_int
-   (Big_int.minus_big_int r) (Big_int.big_int_of_int 1),
-  Big_int.sub_big_int (Big_int.abs_big_int l) s))))));;
+  k l = (if Z.equal k Z.zero then (Z.zero, Z.zero)
+          else (if Z.lt Z.zero l
+                 then (if Z.lt Z.zero k
+                        then (fun k l -> if Z.equal Z.zero l then
+                               (Z.zero, l) else Z.div_rem (Z.abs k) (Z.abs l))
+                               k l
+                        else (let (r, s) =
+                                (fun k l -> if Z.equal Z.zero l then
+                                  (Z.zero, l) else Z.div_rem (Z.abs k)
+                                  (Z.abs l))
+                                  k l
+                                in
+                               (if Z.equal s Z.zero then (Z.neg r, Z.zero)
+                                 else (Z.sub (Z.neg r) (Z.of_int 1),
+Z.sub l s))))
+                 else (if Z.equal l Z.zero then (Z.zero, k)
+                        else apsnd Z.neg
+                               (if Z.lt k Z.zero
+                                 then (fun k l -> if Z.equal Z.zero l then
+(Z.zero, l) else Z.div_rem (Z.abs k) (Z.abs l))
+k l
+                                 else (let (r, s) =
+ (fun k l -> if Z.equal Z.zero l then (Z.zero, l) else Z.div_rem (Z.abs k)
+   (Z.abs l))
+   k l
+ in
+(if Z.equal s Z.zero then (Z.neg r, Z.zero)
+  else (Z.sub (Z.neg r) (Z.of_int 1), Z.sub (Z.neg l) s)))))));;
 
 let rec snd (x1, x2) = x2;;
 
 let rec modulo_integer k l = snd (divmod_integer k l);;
 
-type nat = Nat of Big_int.big_int;;
+type nat = Nat of Z.t;;
 
 let rec integer_of_nat (Nat x) = x;;
 
@@ -429,8 +399,7 @@ let rec divide_integer k l = fst (divmod_integer k l);;
 let rec divide_nat
   m n = Nat (divide_integer (integer_of_nat m) (integer_of_nat n));;
 
-let rec equal_nata
-  m n = Big_int.eq_big_int (integer_of_nat m) (integer_of_nat n);;
+let rec equal_nata m n = Z.equal (integer_of_nat m) (integer_of_nat n);;
 
 type 'a ord = {less_eq : 'a -> 'a -> bool; less : 'a -> 'a -> bool};;
 let less_eq _A = _A.less_eq;;
@@ -438,15 +407,13 @@ let less _A = _A.less;;
 
 let rec max _A a b = (if less_eq _A a b then b else a);;
 
-let ord_integer =
-  ({less_eq = Big_int.le_big_int; less = Big_int.lt_big_int} :
-    Big_int.big_int ord);;
+let ord_integer = ({less_eq = Z.leq; less = Z.lt} : Z.t ord);;
 
-let rec nat_of_integer k = Nat (max ord_integer Big_int.zero_big_int k);;
+let rec nat_of_integer k = Nat (max ord_integer Z.zero k);;
 
-let zero_nata : nat = Nat Big_int.zero_big_int;;
+let zero_nata : nat = Nat Z.zero;;
 
-let one_nata : nat = Nat (Big_int.big_int_of_int 1);;
+let one_nata : nat = Nat (Z.of_int 1);;
 
 type char = Chara of bool * bool * bool * bool * bool * bool * bool * bool;;
 
@@ -456,52 +423,46 @@ let rec string_of_digit
         else (if equal_nata n one_nata
                then [Chara (true, false, false, false, true, true, false,
                              false)]
-               else (if equal_nata n (nat_of_integer (Big_int.big_int_of_int 2))
+               else (if equal_nata n (nat_of_integer (Z.of_int 2))
                       then [Chara (false, true, false, false, true, true, false,
                                     false)]
-                      else (if equal_nata n
-                                 (nat_of_integer (Big_int.big_int_of_int 3))
+                      else (if equal_nata n (nat_of_integer (Z.of_int 3))
                              then [Chara (true, true, false, false, true, true,
    false, false)]
-                             else (if equal_nata n
-(nat_of_integer (Big_int.big_int_of_int 4))
+                             else (if equal_nata n (nat_of_integer (Z.of_int 4))
                                     then [Chara
     (false, false, true, false, true, true, false, false)]
                                     else (if equal_nata n
-       (nat_of_integer (Big_int.big_int_of_int 5))
+       (nat_of_integer (Z.of_int 5))
    then [Chara (true, false, true, false, true, true, false, false)]
-   else (if equal_nata n (nat_of_integer (Big_int.big_int_of_int 6))
+   else (if equal_nata n (nat_of_integer (Z.of_int 6))
           then [Chara (false, true, true, false, true, true, false, false)]
-          else (if equal_nata n (nat_of_integer (Big_int.big_int_of_int 7))
+          else (if equal_nata n (nat_of_integer (Z.of_int 7))
                  then [Chara (true, true, true, false, true, true, false,
                                false)]
-                 else (if equal_nata n
-                            (nat_of_integer (Big_int.big_int_of_int 8))
+                 else (if equal_nata n (nat_of_integer (Z.of_int 8))
                         then [Chara (false, false, false, true, true, true,
                                       false, false)]
                         else [Chara (true, false, false, true, true, true,
                                       false, false)])))))))));;
 
-let rec less_nat
-  m n = Big_int.lt_big_int (integer_of_nat m) (integer_of_nat n);;
+let rec less_nat m n = Z.lt (integer_of_nat m) (integer_of_nat n);;
 
 let rec shows_string x = (fun a -> x @ a);;
 
+let rec comp f g = (fun x -> f (g x));;
+
 let rec showsp_nat
-  p n = (if less_nat n (nat_of_integer (Big_int.big_int_of_int 10))
+  p n = (if less_nat n (nat_of_integer (Z.of_int 10))
           then shows_string (string_of_digit n)
-          else comp (showsp_nat p
-                      (divide_nat n
-                        (nat_of_integer (Big_int.big_int_of_int 10))))
+          else comp (showsp_nat p (divide_nat n (nat_of_integer (Z.of_int 10))))
                  (shows_string
                    (string_of_digit
-                     (modulo_nat n
-                       (nat_of_integer (Big_int.big_int_of_int 10))))));;
+                     (modulo_nat n (nat_of_integer (Z.of_int 10))))));;
 
-let rec less_int
-  k l = Big_int.lt_big_int (integer_of_int k) (integer_of_int l);;
+let rec less_int k l = Z.lt (integer_of_int k) (integer_of_int l);;
 
-let rec nat k = Nat (max ord_integer Big_int.zero_big_int (integer_of_int k));;
+let rec nat k = Nat (max ord_integer Z.zero (integer_of_int k));;
 
 let rec showsp_int
   p i = (if less_int i zero_inta
@@ -550,8 +511,7 @@ let show_int =
   ({shows_prec = shows_prec_int; shows_list = shows_list_int} : int show);;
 
 let rec plus_inta
-  k l = Int_of_integer
-          (Big_int.add_big_int (integer_of_int k) (integer_of_int l));;
+  k l = Int_of_integer (Z.add (integer_of_int k) (integer_of_int l));;
 
 type 'a plus = {plus : 'a -> 'a -> 'a};;
 let plus _A = _A.plus;;
@@ -564,8 +524,7 @@ let zero _A = _A.zero;;
 let zero_int = ({zero = zero_inta} : int zero);;
 
 let rec minus_inta
-  k l = Int_of_integer
-          (Big_int.sub_big_int (integer_of_int k) (integer_of_int l));;
+  k l = Int_of_integer (Z.sub (integer_of_int k) (integer_of_int l));;
 
 type 'a minus = {minus : 'a -> 'a -> 'a};;
 let minus _A = _A.minus;;
@@ -577,8 +536,7 @@ let uminus _A = _A.uminus;;
 
 let uminus_int = ({uminus = uminus_inta} : int uminus);;
 
-let rec less_eq_int
-  k l = Big_int.le_big_int (integer_of_int k) (integer_of_int l);;
+let rec less_eq_int k l = Z.leq (integer_of_int k) (integer_of_int l);;
 
 let ord_int = ({less_eq = less_eq_int; less = less_int} : int ord);;
 
@@ -619,8 +577,7 @@ let group_add_int =
      uminus_group_add = uminus_int}
     : int group_add);;
 
-let rec def_hashmap_size_int
-  x = (fun _ -> nat_of_integer (Big_int.big_int_of_int 16)) x;;
+let rec def_hashmap_size_int x = (fun _ -> nat_of_integer (Z.of_int 16)) x;;
 
 type 'a hashable =
   {hashcode : 'a -> int32; def_hashmap_size : 'a itself -> nat};;
@@ -629,27 +586,11 @@ let def_hashmap_size _A = _A.def_hashmap_size;;
 
 let rec test_bit_integer x n = Bits_Integer.test_bit x (integer_of_nat n);;
 
-let rec bitNOT_integer
-  i = Big_int.sub_big_int (Big_int.minus_big_int i) (Big_int.big_int_of_int 1);;
-
-let rec bitAND_integer
-  i j = (if Big_int.le_big_int Big_int.zero_big_int i
-          then (if Big_int.le_big_int Big_int.zero_big_int j
-                 then Big_int.and_big_int i j
-                 else Bits_Integer.and_pninteger i j)
-          else (if Big_int.lt_big_int j Big_int.zero_big_int
-                 then bitNOT_integer
-                        (Big_int.or_big_int (bitNOT_integer i)
-                          (bitNOT_integer j))
-                 else Bits_Integer.and_pninteger j i));;
-
 let rec uint32
-  i = (let ia = bitAND_integer i (Big_int.big_int_of_string "4294967295") in
-        (if test_bit_integer ia (nat_of_integer (Big_int.big_int_of_int 31))
-          then Big_int.int32_of_big_int
-                 (Big_int.sub_big_int ia
-                   (Big_int.big_int_of_string "4294967296"))
-          else Big_int.int32_of_big_int ia));;
+  i = (let ia = Z.logand i (Z.of_string "4294967295") in
+        (if test_bit_integer ia (nat_of_integer (Z.of_int 31))
+          then Z.to_int32 (Z.sub ia (Z.of_string "4294967296"))
+          else Z.to_int32 ia));;
 
 let rec uint32_of_int i = uint32 (integer_of_int i);;
 
@@ -899,15 +840,13 @@ let one _A = _A.one;;
 
 let one_nat = ({one = one_nata} : nat one);;
 
-let rec plus_nata
-  m n = Nat (Big_int.add_big_int (integer_of_nat m) (integer_of_nat n));;
+let rec plus_nata m n = Nat (Z.add (integer_of_nat m) (integer_of_nat n));;
 
 let plus_nat = ({plus = plus_nata} : nat plus);;
 
 let zero_nat = ({zero = zero_nata} : nat zero);;
 
-let rec less_eq_nat
-  m n = Big_int.le_big_int (integer_of_nat m) (integer_of_nat n);;
+let rec less_eq_nat m n = Z.leq (integer_of_nat m) (integer_of_nat n);;
 
 let ord_nat = ({less_eq = less_eq_nat; less = less_nat} : nat ord);;
 
@@ -922,8 +861,7 @@ let preorder_nat = ({ord_preorder = ord_nat} : nat preorder);;
 
 let order_nat = ({preorder_order = preorder_nat} : nat order);;
 
-let rec def_hashmap_size_nat
-  x = (fun _ -> nat_of_integer (Big_int.big_int_of_int 16)) x;;
+let rec def_hashmap_size_nat x = (fun _ -> nat_of_integer (Z.of_int 16)) x;;
 
 let rec int_of_nat n = Int_of_integer (integer_of_nat n);;
 
@@ -984,22 +922,19 @@ let rec show_list _A =
   ({shows_prec = shows_prec_list _A; shows_list = shows_list_list _A} :
     ('a list) show);;
 
-let rec times_nat
-  m n = Nat (Big_int.mult_big_int (integer_of_nat m) (integer_of_nat n));;
+let rec times_nat m n = Nat (Z.mul (integer_of_nat m) (integer_of_nat n));;
 
 let rec def_hashmap_size_list _A
   = (fun _ ->
-      times_nat (nat_of_integer (Big_int.big_int_of_int 2))
-        (def_hashmap_size _A Type));;
+      times_nat (nat_of_integer (Z.of_int 2)) (def_hashmap_size _A Type));;
 
 let rec foldl f a x2 = match f, a, x2 with f, a, [] -> a
                 | f, a, x :: xs -> foldl f (f a x) xs;;
 
 let rec hashcode_list _A
   = foldl (fun h x ->
-            Int32.add (Int32.mul h (uint32 (Big_int.big_int_of_int 33)))
-              (hashcode _A x))
-      (uint32 (Big_int.big_int_of_int 5381));;
+            Int32.add (Int32.mul h (uint32 (Z.of_int 33))) (hashcode _A x))
+      (uint32 (Z.of_int 5381));;
 
 let rec hashable_list _A =
   ({hashcode = hashcode_list _A; def_hashmap_size = def_hashmap_size_list _A} :
@@ -1509,8 +1444,7 @@ let rec def_hashmap_size_prod _A _B
   = (fun _ -> plus_nata (def_hashmap_size _A Type) (def_hashmap_size _B Type));;
 
 let rec hashcode_prod _A _B
-  x = Int32.add
-        (Int32.mul (hashcode _A (fst x)) (uint32 (Big_int.big_int_of_int 33)))
+  x = Int32.add (Int32.mul (hashcode _A (fst x)) (uint32 (Z.of_int 33)))
         (hashcode _B (snd x));;
 
 let rec hashable_prod _A _B =
@@ -1518,18 +1452,18 @@ let rec hashable_prod _A _B =
      def_hashmap_size = def_hashmap_size_prod _A _B}
     : ('a * 'b) hashable);;
 
-let one_integera : Big_int.big_int = (Big_int.big_int_of_int 1);;
+let one_integera : Z.t = (Z.of_int 1);;
 
-let one_integer = ({one = one_integera} : Big_int.big_int one);;
+let one_integer = ({one = one_integera} : Z.t one);;
 
-let zero_integer = ({zero = Big_int.zero_big_int} : Big_int.big_int zero);;
+let zero_integer = ({zero = Z.zero} : Z.t zero);;
 
 type 'a zero_neq_one =
   {one_zero_neq_one : 'a one; zero_zero_neq_one : 'a zero};;
 
 let zero_neq_one_integer =
   ({one_zero_neq_one = one_integer; zero_zero_neq_one = zero_integer} :
-    Big_int.big_int zero_neq_one);;
+    Z.t zero_neq_one);;
 
 type ('a, 'b) acconstraint = LTa of 'a * 'b | LEa of 'a * 'b | EQa of 'a * 'b |
   GT of 'a * 'b | GE of 'a * 'b;;
@@ -1601,8 +1535,8 @@ let rec id x = (fun xa -> xa) x;;
 let rec suc n = plus_nata n one_nata;;
 
 let rec minus_nat
-  m n = Nat (max ord_integer Big_int.zero_big_int
-              (Big_int.sub_big_int (integer_of_nat m) (integer_of_nat n)));;
+  m n = Nat (max ord_integer Z.zero
+              (Z.sub (integer_of_nat m) (integer_of_nat n)));;
 
 let rec nth
   (x :: xs) n =
@@ -1621,21 +1555,17 @@ let rec list_all p x1 = match p, x1 with p, [] -> true
 let rec ball (Set xs) p = list_all p xs;;
 
 let rec len _A
-  a = (fun f_ () -> f_ (((fun () -> Big_int.big_int_of_int (Array.length a)))
-        ()) ())
+  a = (fun f_ () -> f_ (((fun () -> Z.of_int (Array.length a))) ()) ())
         (fun i -> (fun () -> (nat_of_integer i)));;
 
 let rec newa _A
-  = comp (fun a b -> (fun () -> Array.make (Big_int.int_of_big_int a) b))
-      integer_of_nat;;
+  = comp (fun a b -> (fun () -> Array.make (Z.to_int a) b)) integer_of_nat;;
 
-let rec ntha _A
-  a n = (fun () -> Array.get a (Big_int.int_of_big_int (integer_of_nat n)));;
+let rec ntha _A a n = (fun () -> Array.get a (Z.to_int (integer_of_nat n)));;
 
 let rec upd _A
   i x a =
-    (fun f_ () -> f_
-      (((fun () -> Array.set a (Big_int.int_of_big_int (integer_of_nat i)) x))
+    (fun f_ () -> f_ (((fun () -> Array.set a (Z.to_int (integer_of_nat i)) x))
       ()) ())
       (fun _ -> (fun () -> a));;
 
@@ -1648,8 +1578,8 @@ let rec map f x1 = match f, x1 with f, [] -> []
 let rec image f (Set xs) = Set (map f xs);;
 
 let rec make _A
-  n f = (fun () -> Array.init (Big_int.int_of_big_int (integer_of_nat n))
-          (fun k_ -> (comp f nat_of_integer) (Big_int.big_int_of_int k_)));;
+  n f = (fun () -> Array.init (Z.to_int (integer_of_nat n)) (fun k_ ->
+          (comp f nat_of_integer) (Z.of_int k_)));;
 
 let rec suba (IArray asa, n) = nth asa (nat_of_integer n);;
 
@@ -1712,47 +1642,48 @@ let rec replicate
 let rec is_none = function Some x -> false
                   | None -> true;;
 
-let rec print x = ();;
-
 let rec of_bool _A = function true -> one _A.one_zero_neq_one
                      | false -> zero _A.zero_zero_neq_one;;
 
 let rec integer_of_char
   (Chara (b0, b1, b2, b3, b4, b5, b6, b7)) =
-    Big_int.add_big_int
-      (Big_int.mult_big_int
-        (Big_int.add_big_int
-          (Big_int.mult_big_int
-            (Big_int.add_big_int
-              (Big_int.mult_big_int
-                (Big_int.add_big_int
-                  (Big_int.mult_big_int
-                    (Big_int.add_big_int
-                      (Big_int.mult_big_int
-                        (Big_int.add_big_int
-                          (Big_int.mult_big_int
-                            (Big_int.add_big_int
-                              (Big_int.mult_big_int
-                                (of_bool zero_neq_one_integer b7)
-                                (Big_int.big_int_of_int 2))
-                              (of_bool zero_neq_one_integer b6))
-                            (Big_int.big_int_of_int 2))
-                          (of_bool zero_neq_one_integer b5))
-                        (Big_int.big_int_of_int 2))
-                      (of_bool zero_neq_one_integer b4))
-                    (Big_int.big_int_of_int 2))
-                  (of_bool zero_neq_one_integer b3))
-                (Big_int.big_int_of_int 2))
-              (of_bool zero_neq_one_integer b2))
-            (Big_int.big_int_of_int 2))
-          (of_bool zero_neq_one_integer b1))
-        (Big_int.big_int_of_int 2))
+    Z.add (Z.mul
+            (Z.add
+              (Z.mul
+                (Z.add
+                  (Z.mul
+                    (Z.add
+                      (Z.mul
+                        (Z.add
+                          (Z.mul
+                            (Z.add
+                              (Z.mul
+                                (Z.add
+                                  (Z.mul (of_bool zero_neq_one_integer b7)
+                                    (Z.of_int 2))
+                                  (of_bool zero_neq_one_integer b6))
+                                (Z.of_int 2))
+                              (of_bool zero_neq_one_integer b5))
+                            (Z.of_int 2))
+                          (of_bool zero_neq_one_integer b4))
+                        (Z.of_int 2))
+                      (of_bool zero_neq_one_integer b3))
+                    (Z.of_int 2))
+                  (of_bool zero_neq_one_integer b2))
+                (Z.of_int 2))
+              (of_bool zero_neq_one_integer b1))
+            (Z.of_int 2))
       (of_bool zero_neq_one_integer b0);;
 
 let rec implode
-  cs = (let ks = (map integer_of_char
-                   cs) in let res = Bytes.create (List.length ks) in let rec imp i = function | [] -> res | k :: ks ->
-      let l = Big_int.int_of_big_int k in if 0 <= l && l < 128 then Bytes.set res i (Char.chr l) else failwith "Non-ASCII character in literal"; imp (i + 1) ks in imp 0 ks);;
+  cs = (let xs = (map integer_of_char
+                   cs)
+      and chr k =
+        let l = Z.to_int k
+          in if 0 <= l && l < 128
+          then Char.chr l
+          else failwith "Non-ASCII character in literal"
+      in String.init (List.length xs) (List.nth (List.map chr xs)));;
 
 let rec tracea x = trace ExploredState x;;
 
@@ -1782,20 +1713,22 @@ let rec mtx_set _A
 let rec mtx_get _A
   m mtx e = ntha _A mtx (plus_nata (times_nat (fst e) m) (snd e));;
 
-let rec min _A a b = (if less_eq _A a b then a else b);;
-
 let rec fw_upd_impl (_A1, _A2)
   n = (fun ai bib bia bi ->
-        (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bi)) ()) ())
+        (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bib)) ()) ())
           (fun x ->
-            (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bib)) ()) ())
+            (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bib, bi)) ()) ())
               (fun xa ->
-                (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bib, bi)) ()) ())
-                  (fun xb ->
-                    mtx_set _A2 (suc n) ai (bia, bi)
-                      (min _A1.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add.order_linorder.preorder_order.ord_preorder
-                        x (plus _A1.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.semigroup_add_monoid_add.plus_semigroup_add
-                            xa xb))))));;
+                (let xb =
+                   plus _A1.ordered_comm_monoid_add_linordered_ab_monoid_add.comm_monoid_add_ordered_comm_monoid_add.monoid_add_comm_monoid_add.semigroup_add_monoid_add.plus_semigroup_add
+                     x xa
+                   in
+                  (fun f_ () -> f_ ((mtx_get _A2 (suc n) ai (bia, bi)) ()) ())
+                    (fun xaa ->
+                      (if less _A1.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add.order_linorder.preorder_order.ord_preorder
+                            xb xaa
+                        then mtx_set _A2 (suc n) ai (bia, bi) xb
+                        else (fun () -> ai)))))));;
 
 let rec fw_impl (_A1, _A2)
   n = imp_fora zero_nata (plus_nata n one_nata)
@@ -1816,7 +1749,7 @@ let rec map_filter
 
 let cODE_ABORT _ = failwith "Misc.CODE_ABORT";;
 
-let one_int : int = Int_of_integer (Big_int.big_int_of_int 1);;
+let one_int : int = Int_of_integer (Z.of_int 1);;
 
 let rec int_of x = (if x then one_int else zero_inta);;
 
@@ -1916,8 +1849,6 @@ let rec gen_pick
            (fun x _ -> Some x)
           None);;
 
-let rec println x = print (x ^ "\092");;
-
 let rec of_phantom (Phantom x) = x;;
 
 let rec size_list x = gen_length zero_nata x;;
@@ -1928,6 +1859,10 @@ let rec card (_A1, _A2)
       minus_nat (of_phantom (card_UNIV _A1)) (size_list (remdups _A2 xs))
     | Set xs -> size_list (remdups _A2 xs);;
 
+let rec neg_dbm_entry _A = function Le a -> Lt (uminus _A a)
+                           | Lt a -> Le (uminus _A a)
+                           | INF -> INF;;
+
 let rec ht_new_sz (_A1, _A2) _B
   n = (let l = replicate n [] in
         (fun f_ () -> f_ (((fun () -> Array.of_list l)) ()) ())
@@ -1936,28 +1871,16 @@ let rec ht_new_sz (_A1, _A2) _B
 let rec ht_new (_A1, _A2) _B
   = ht_new_sz (_A1, _A2) _B (def_hashmap_size _A1 Type);;
 
-let rec bitOR_integer
-  i j = (if Big_int.le_big_int Big_int.zero_big_int i
-          then (if Big_int.le_big_int Big_int.zero_big_int j
-                 then Big_int.or_big_int i j else Bits_Integer.or_pninteger i j)
-          else (if Big_int.lt_big_int j Big_int.zero_big_int
-                 then bitNOT_integer
-                        (Big_int.and_big_int (bitNOT_integer i)
-                          (bitNOT_integer j))
-                 else Bits_Integer.or_pninteger j i));;
-
 let rec test_bit_uint32
-  x n = less_nat n (nat_of_integer (Big_int.big_int_of_int 32)) &&
+  x n = less_nat n (nat_of_integer (Z.of_int 32)) &&
           Uint32.test_bit x (integer_of_nat n);;
 
 let rec integer_of_uint32
-  n = (if test_bit_uint32 n (nat_of_integer (Big_int.big_int_of_int 31))
-        then bitOR_integer
-               (Big_int.big_int_of_int32
-                 (Int32.logand n
-                   (uint32 (Big_int.big_int_of_string "2147483647"))))
-               (Big_int.big_int_of_string "2147483648")
-        else Big_int.big_int_of_int32 n);;
+  n = (if test_bit_uint32 n (nat_of_integer (Z.of_int 31))
+        then Z.logor
+               (Z.of_int32 (Int32.logand n (uint32 (Z.of_string "2147483647"))))
+               (Z.of_string "2147483648")
+        else Z.of_int32 n);;
 
 let rec nat_of_uint32 x = nat_of_integer (integer_of_uint32 x);;
 
@@ -2096,11 +2019,11 @@ let rec ht_rehash (_A1, _A2, _A3) _B
          (fun n ->
            (fun f_ () -> f_
              ((ht_new_sz (_A2, _A3) _B
-                (times_nat (nat_of_integer (Big_int.big_int_of_int 2)) n))
+                (times_nat (nat_of_integer (Z.of_int 2)) n))
              ()) ())
              (ht_copy (_A1, _A2, _A3) _B n ht));;
 
-let load_factor : nat = nat_of_integer (Big_int.big_int_of_int 75);;
+let load_factor : nat = nat_of_integer (Z.of_int 75);;
 
 let rec ht_update (_A1, _A2, _A3) _B
   k v ht =
@@ -2109,8 +2032,7 @@ let rec ht_update (_A1, _A2, _A3) _B
       (fun m ->
         (fun f_ () -> f_
           ((if less_eq_nat (times_nat m load_factor)
-                 (times_nat (the_size ht)
-                   (nat_of_integer (Big_int.big_int_of_int 100)))
+                 (times_nat (the_size ht) (nat_of_integer (Z.of_int 100)))
              then ht_rehash (_A1, _A2, _A3) _B ht else (fun () -> ht))
           ()) ())
           (ht_upd (_A1, _A2, _A3) _B k v));;
@@ -2159,10 +2081,6 @@ let rec all_interval_nat
 
 let rec pred_act _A = (fun p x -> ball (set_act _A x) p);;
 
-let rec neg_dbm_entry _A = function Le a -> Lt (uminus _A a)
-                           | Lt a -> Le (uminus _A a)
-                           | INF -> INF;;
-
 let rec imp_for
   i u c f s =
     (if less_eq_nat u i then (fun () -> s)
@@ -2174,6 +2092,8 @@ let rec imp_for
                  else (fun () -> s))));;
 
 let rec whilea b c s = (if b s then whilea b c (c s) else s);;
+
+let rec min _A a b = (if less_eq _A a b then a else b);;
 
 let rec down_impl (_A1, _A2, _A3)
   n = imp_fora one_nata (suc n)
@@ -2228,10 +2148,9 @@ let rec as_shrink
   s = (let a = s in
        let (aa, n) = a in
        let ab =
-         (if less_eq_nat
-               (times_nat (nat_of_integer (Big_int.big_int_of_int 128)) n)
+         (if less_eq_nat (times_nat (nat_of_integer (Z.of_int 128)) n)
                (array_length aa) &&
-               less_nat (nat_of_integer (Big_int.big_int_of_int 4)) n
+               less_nat (nat_of_integer (Z.of_int 4)) n
            then array_shrink aa n else aa)
          in
         (ab, n));;
@@ -2376,10 +2295,30 @@ else (fun f_ () -> f_ (a_0i ()) ())
                          (fun xl (a1d, (a1e, _)) ->
                            (fun f_ () -> f_ ((emptyi xl) ()) ())
                              (fun x_k ->
-                               (if x_k then (fun () -> (a1d, (a1e, false)))
+                               (if x_k
+                                 then (fun f_ () -> f_
+((tracei
+    [Chara (true, false, true, false, false, false, true, false);
+      Chara (true, false, true, true, false, true, true, false);
+      Chara (false, false, false, false, true, true, true, false);
+      Chara (false, false, true, false, true, true, true, false);
+      Chara (true, false, false, true, true, true, true, false)]
+   xl)
+()) ())
+(fun _ -> (fun () -> (a1d, (a1e, false))))
                                  else (fun f_ () -> f_ ((fi xl) ()) ())
 (fun x_l ->
-  (if x_l then (fun () -> (a1d, (a1e, true)))
+  (if x_l
+    then (fun f_ () -> f_
+           ((tracei
+               [Chara (false, true, true, false, false, false, true, false);
+                 Chara (true, false, false, true, false, true, true, false);
+                 Chara (false, true, true, true, false, true, true, false);
+                 Chara (true, false, false, false, false, true, true, false);
+                 Chara (false, false, true, true, false, true, true, false)]
+              xl)
+           ()) ())
+           (fun _ -> (fun () -> (a1d, (a1e, true))))
     else (fun f_ () -> f_ ((keyi xl) ()) ())
            (fun x_m ->
              (fun f_ () -> f_
@@ -2389,32 +2328,64 @@ else (fun f_ () -> f_ (a_0i ()) ())
                (fun a ->
                  (match a
                    with (None, a2f) ->
-                     (fun f_ () -> f_ ((copyi xl) ()) ())
-                       (fun xf ->
-                         (fun f_ () -> f_
-                           ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m [xf]
-                              a2f)
-                           ()) ())
-                           (fun x_o ->
-                             (fun () ->
-                               (x_o, (op_list_prepend xl a1e, false)))))
-                   | (Some x_o, a2f) ->
-                     (fun f_ () -> f_ ((lso_bex_impl (lei xl) x_o) ()) ())
-                       (fun x_p ->
-                         (if x_p
+                     (fun f_ () -> f_
+                       ((tracei
+                           [Chara (true, false, false, false, false, false,
+                                    true, false);
+                             Chara (false, false, true, false, false, true,
+                                     true, false);
+                             Chara (false, false, true, false, false, true,
+                                     true, false)]
+                          xl)
+                       ()) ())
+                       (fun _ ->
+                         (fun f_ () -> f_ ((copyi xl) ()) ())
+                           (fun xf ->
+                             (fun f_ () -> f_
+                               ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m
+                                  [xf] a2f)
+                               ()) ())
+                               (fun x_r ->
+                                 (fun () ->
+                                   (x_r, (op_list_prepend xl a1e, false))))))
+                   | (Some x_q, a2f) ->
+                     (fun f_ () -> f_ ((lso_bex_impl (lei xl) x_q) ()) ())
+                       (fun x_r ->
+                         (if x_r
                            then (fun f_ () -> f_
-                                  ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m
-                                     x_o a2f)
+                                  ((tracei
+                                      [Chara
+ (true, true, false, false, true, false, true, false);
+Chara (true, false, true, false, true, true, true, false);
+Chara (false, true, false, false, false, true, true, false);
+Chara (true, true, false, false, true, true, true, false);
+Chara (true, false, true, false, true, true, true, false);
+Chara (true, false, true, true, false, true, true, false);
+Chara (true, false, true, false, false, true, true, false);
+Chara (false, false, true, false, false, true, true, false)]
+                                     xl)
                                   ()) ())
-                                  (fun x_q -> (fun () -> (x_q, (a1e, false))))
-                           else (fun f_ () -> f_ ((copyi xl) ()) ())
-                                  (fun xf ->
+                                  (fun _ ->
                                     (fun f_ () -> f_
                                       ((ht_update (_B1, _B2, _B3) (heap_list _A)
- x_m (xf :: x_o) a2f)
+ x_m x_q a2f)
                                       ()) ())
-                                      (fun x_q ->
-(fun () -> (x_q, (op_list_prepend xl a1e, false)))))))))))))))
+                                      (fun x_t ->
+(fun () -> (x_t, (a1e, false)))))
+                           else (fun f_ () -> f_
+                                  ((tracei
+                                      [Chara
+ (true, false, false, false, false, false, true, false);
+Chara (false, false, true, false, false, true, true, false);
+Chara (false, false, true, false, false, true, true, false)]
+                                     xl)
+                                  ()) ())
+                                  (fun _ ->
+                                    (fun f_ () -> f_ ((copyi xl) ()) ())
+                                      (fun xf ->
+(fun f_ () -> f_ ((ht_update (_B1, _B2, _B3) (heap_list _A) x_m (xf :: x_q) a2f)
+  ()) ())
+  (fun x_t -> (fun () -> (x_t, (op_list_prepend xl a1e, false))))))))))))))))
                          (a1a, (a2c, false)))))))))
                                     (a1, (a2, false)))
                                  ()) ())
@@ -2458,8 +2429,8 @@ let rec as_push
          let ab =
            (if equal_nata n (array_length aa)
              then array_grow aa
-                    (max ord_nat (nat_of_integer (Big_int.big_int_of_int 4))
-                      (times_nat (nat_of_integer (Big_int.big_int_of_int 2)) n))
+                    (max ord_nat (nat_of_integer (Z.of_int 4))
+                      (times_nat (nat_of_integer (Z.of_int 2)) n))
                     x
              else aa)
            in
@@ -2912,7 +2883,7 @@ let rec more_checks
 
 let rec as_length x = snd x;;
 
-let rec last_seg_tr _A
+let rec last_seg_tr
   s = (let (a, (aa, (_, _))) = s in
        let (_, bc) =
          whilea
@@ -2968,45 +2939,45 @@ let rec ahm_rehash_aux
 let rec ahm_rehash
   bhc (HashMap (a, n)) sz = HashMap (ahm_rehash_aux bhc a sz, n);;
 
-let load_factora : nat = nat_of_integer (Big_int.big_int_of_int 75);;
+let load_factora : nat = nat_of_integer (Z.of_int 75);;
 
 let rec ahm_filled
   (HashMap (a, n)) =
     less_eq_nat (times_nat (array_length a) load_factora)
-      (times_nat n (nat_of_integer (Big_int.big_int_of_int 100)));;
+      (times_nat n (nat_of_integer (Z.of_int 100)));;
 
 let rec hm_grow
   (HashMap (a, n)) =
-    plus_nata
-      (times_nat (nat_of_integer (Big_int.big_int_of_int 2)) (array_length a))
-      (nat_of_integer (Big_int.big_int_of_int 3));;
+    plus_nata (times_nat (nat_of_integer (Z.of_int 2)) (array_length a))
+      (nat_of_integer (Z.of_int 3));;
 
 let rec ahm_update
   eq bhc k v hm =
     (let hma = ahm_update_aux eq bhc hm k v in
       (if ahm_filled hma then ahm_rehash bhc hma (hm_grow hma) else hma));;
 
-let rec pop_tr (_A1, _A2)
-  s = (let (a, (aa, (ab, bb))) = s in
-       let x = minus_nat (as_length aa) one_nata in
-       let xa =
-         (let (_, bc) =
-            whilea
-              (fun (xe, _) ->
-                less_nat xe
-                  (if equal_nata (plus_nata x one_nata) (as_length aa)
-                    then as_length a else as_get aa (plus_nata x one_nata)))
-              (fun (ac, bc) ->
-                (suc ac,
-                  ahm_update (eq _A1) (bounded_hashcode_nat _A2) (as_get a ac)
-                    (uminus_inta one_int) bc))
-              (as_get aa x, ab)
-            in
-           bc)
-         in
-       let xb = as_take (as_top aa) a in
-       let xc = as_pop aa in
-        (xb, (xc, (xa, bb))));;
+let rec pop_tr
+  node_eq_impl node_hash_impl s =
+    (let (a, (aa, (ab, bb))) = s in
+     let x = minus_nat (as_length aa) one_nata in
+     let xa =
+       (let (_, bc) =
+          whilea
+            (fun (xe, _) ->
+              less_nat xe
+                (if equal_nata (plus_nata x one_nata) (as_length aa)
+                  then as_length a else as_get aa (plus_nata x one_nata)))
+            (fun (ac, bc) ->
+              (suc ac,
+                ahm_update node_eq_impl node_hash_impl (as_get a ac)
+                  (uminus_inta one_int) bc))
+            (as_get aa x, ab)
+          in
+         bc)
+       in
+     let xb = as_take (as_top aa) a in
+     let xc = as_pop aa in
+      (xb, (xc, (xa, bb))));;
 
 let rec glist_delete_aux
   eq x xa2 asa = match eq, x, xa2, asa with eq, x, [], asa -> asa
@@ -3031,6 +3002,10 @@ let rec showsp_prod
         [Chara (true, false, false, true, false, true, false, false)]);;
 
 let rec is_Nil a = (match a with [] -> true | _ :: _ -> false);;
+
+let rec norm_diag (_A1, _A2, _A3)
+  e = (if dbm_lt _A3 e (Le (zero _A1)) then Lt (zero _A1)
+        else (if equal_DBMEntry _A2 e (Le (zero _A1)) then e else INF));;
 
 let rec abstra_upd_impl (_A1, _A2, _A3, _A4)
   n = (fun ai bi ->
@@ -3118,25 +3093,21 @@ let rec check_conj_blocka _A
                            | Some (CEXP _) -> true) &&
                           equal_optiona (equal_instrc _A)
                             (nth prog
-                              (plus_nata pc
-                                (nat_of_integer (Big_int.big_int_of_int 2))))
+                              (plus_nata pc (nat_of_integer (Z.of_int 2))))
                             (Some (INSTR AND)))
                     then check_conj_blocka _A prog
-                           (plus_nata pc
-                             (nat_of_integer (Big_int.big_int_of_int 3)))
+                           (plus_nata pc (nat_of_integer (Z.of_int 3)))
                     else (if equal_optiona (equal_instrc _A) (nth prog pc)
                                (Some (INSTR COPY)) &&
                                ((match
                                   nth prog
-                                    (plus_nata pc
-                                      (nat_of_integer
-(Big_int.big_int_of_int 2)))
+                                    (plus_nata pc (nat_of_integer (Z.of_int 2)))
                                   with None -> false | Some (INSTR _) -> false
                                   | Some (CEXP _) -> true) &&
                                  (equal_optiona (equal_instrc _A)
                                     (nth prog
                                       (plus_nata pc
-(nat_of_integer (Big_int.big_int_of_int 3))))
+(nat_of_integer (Z.of_int 3))))
                                     (Some (INSTR AND)) &&
                                    (match nth prog (plus_nata pc one_nata)
                                      with None -> false
@@ -3163,7 +3134,7 @@ let rec check_conj_blocka _A
                                   (nth prog (plus_nata pc one_nata),
                                     check_conj_blocka _A prog
                                       (plus_nata pc
-(nat_of_integer (Big_int.big_int_of_int 4))))
+(nat_of_integer (Z.of_int 4))))
                                   with (None, _) -> None
                                   | (Some (INSTR (JMPZ _)), None) -> None
                                   | (Some (INSTR (JMPZ pcb)), Some pca) ->
@@ -3201,7 +3172,7 @@ let rec check_conj_block
            (Some (INSTR AND)) &&
           equal_optiona equal_nat
             (check_conj_blocka equal_int p
-              (plus_nata pca (nat_of_integer (Big_int.big_int_of_int 2))))
+              (plus_nata pca (nat_of_integer (Z.of_int 2))))
             (Some pc));;
 
 let rec mina _A
@@ -3785,6 +3756,8 @@ let rec trans_i_map
                      | Sil ab -> Some (g, (ab, (m, l))))))))
       trans;;
 
+let rec trace_level i f = ();;
+
 let rec make_string (_A1, _A2, _A3)
   show_clock show_num e i j =
     (if equal_nata i j
@@ -3947,33 +3920,37 @@ let rec show_dbm_impl (_A1, _A2, _A3)
 let rec tracei (_B1, _B2, _B3, _B4)
   n show_state show_clock typea =
     (fun (l, m) ->
-      (let st = show_state l in
-        (fun f_ () -> f_
-          ((show_dbm_impl (_B1, _B2, _B3) n show_clock
-             (fun x -> shows_prec _B4 zero_nata x []) m)
-          ()) ())
-          (fun ma ->
-            (let s =
-               typea @
-                 [Chara (false, true, false, true, true, true, false, false);
-                   Chara (false, false, false, false, false, true, false,
-                           false);
-                   Chara (false, false, false, true, false, true, false,
-                           false)] @
-                   st @ [Chara (false, false, true, true, false, true, false,
+      (let _ =
+         trace_level (Int_of_integer (Z.of_int 5))
+           (fun _ ->
+             (let st = show_state l in
+               (fun f_ () -> f_
+                 ((show_dbm_impl (_B1, _B2, _B3) n show_clock
+                    (fun x -> shows_prec _B4 zero_nata x []) m)
+                 ()) ())
+                 (fun ma ->
+                   (let s =
+                      typea @
+                        [Chara (false, true, false, true, true, true, false,
                                  false);
                           Chara (false, false, false, false, false, true, false,
                                   false);
-                          Chara (false, false, true, true, true, true, false,
+                          Chara (false, false, false, true, false, true, false,
                                   false)] @
-                          ma @ [Chara (false, true, true, true, true, true,
+                          st @ [Chara (false, false, true, true, false, true,
 false, false);
-                                 Chara (true, false, false, true, false, true,
- false, false)]
-               in
-             let sa = implode s in
-             let _ = println sa in
-              (fun () -> ())))));;
+                                 Chara (false, false, false, false, false, true,
+ false, false);
+                                 Chara (false, false, true, true, true, true,
+ false, false)] @
+                                 ma @ [Chara
+ (false, true, true, true, true, true, false, false);
+Chara (true, false, false, true, false, true, false, false)]
+                      in
+                    let a = implode s in
+                     (fun () -> a)))))
+         in
+        (fun () -> ())));;
 
 let rec repair_pair_impl (_A1, _A2)
   n = (fun ai bia bi ->
@@ -4032,18 +4009,20 @@ let rec dbm_add_int x0 uu = match x0, uu with INF, uu -> INF
 let rec fw_upd_impl_int
   n = (fun ai bib bia bi ->
         (fun f_ () -> f_
-          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ()) ())
-          (fun x ->
+          ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
+          (fun xa ->
             (fun f_ () -> f_
-              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bib)) ()) ())
-              (fun xa ->
+              ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ()) ())
+              (fun xb ->
                 (fun f_ () -> f_
-                  ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bib, bi)) ())
+                  ((mtx_get (heap_DBMEntry heap_int) (suc n) ai (bia, bi)) ())
                   ())
-                  (fun xb ->
-                    mtx_set (heap_DBMEntry heap_int) (suc n) ai (bia, bi)
-                      (min (ord_DBMEntry (equal_int, linorder_int)) x
-                        (dbm_add_int xa xb))))));;
+                  (fun x ->
+                    (let e = dbm_add_int xa xb in
+                      (if less_DBMEntry linorder_int e x
+                        then mtx_set (heap_DBMEntry heap_int) (suc n) ai
+                               (bia, bi) e
+                        else (fun () -> ai)))))));;
 
 let rec fw_impl_int
   n = imp_fora zero_nata (plus_nata n one_nata)
@@ -4102,31 +4081,30 @@ let rec check_diag_impl (_A1, _A2)
                     sigma))))
           false);;
 
-let rec norm_upd_impl (_A1, _A2)
+let rec norm_upd_impl (_A1, _A2, _A3)
   n = (fun ai bia bi ->
         (fun f_ () -> f_
-          ((mtx_get (heap_DBMEntry _A2) (suc n) ai (zero_nata, zero_nata)) ())
+          ((mtx_get (heap_DBMEntry _A3) (suc n) ai (zero_nata, zero_nata)) ())
           ())
           (fun x ->
             (fun f_ () -> f_
-              ((mtx_set (heap_DBMEntry _A2) (suc n) ai (zero_nata, zero_nata)
-                 (norm_lower
-                   _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
-                   (norm_upper
-                     _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
-                     x (zero _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add))
-                   (zero _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add)))
+              ((mtx_set (heap_DBMEntry _A3) (suc n) ai (zero_nata, zero_nata)
+                 (norm_diag
+                   (_A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add,
+                     _A2,
+                     _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add)
+                   x))
               ()) ())
               (fun xa ->
                 (fun f_ () -> f_
                   ((imp_fora one_nata (suc bi)
                      (fun xc sigma ->
                        (fun f_ () -> f_
-                         ((mtx_get (heap_DBMEntry _A2) (suc n) sigma
+                         ((mtx_get (heap_DBMEntry _A3) (suc n) sigma
                             (zero_nata, xc))
                          ()) ())
                          (fun xb ->
-                           mtx_set (heap_DBMEntry _A2) (suc n) sigma
+                           mtx_set (heap_DBMEntry _A3) (suc n) sigma
                              (zero_nata, xc)
                              (norm_lower
                                _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
@@ -4141,37 +4119,46 @@ let rec norm_upd_impl (_A1, _A2)
                   (imp_fora one_nata (suc bi)
                     (fun xb sigma ->
                       (fun f_ () -> f_
-                        ((mtx_get (heap_DBMEntry _A2) (suc n) sigma
+                        ((mtx_get (heap_DBMEntry _A3) (suc n) sigma
                            (xb, zero_nata))
                         ()) ())
                         (fun xc ->
                           (fun f_ () -> f_
-                            ((mtx_set (heap_DBMEntry _A2) (suc n) sigma
+                            ((mtx_set (heap_DBMEntry _A3) (suc n) sigma
                                (xb, zero_nata)
                                (norm_lower
                                  _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
                                  (norm_upper
                                    _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
                                    xc (sub bia xb))
-                                 (zero _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add)))
+                                 (uminus
+                                   _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.uminus_group_add
+                                   (zero _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add))))
                             ()) ())
                             (imp_fora one_nata (suc bi)
                               (fun xe sigmaa ->
-                                (fun f_ () -> f_
-                                  ((mtx_get (heap_DBMEntry _A2) (suc n) sigmaa
-                                     (xb, xe))
-                                  ()) ())
-                                  (fun xd ->
-                                    mtx_set (heap_DBMEntry _A2) (suc n) sigmaa
-                                      (xb, xe)
-                                      (norm_lower
-_A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
-(norm_upper
-  _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
-  xd (sub bia xb))
-(uminus
-  _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.uminus_group_add
-  (sub bia xe))))))))))));;
+                                (if not (equal_nata xb xe)
+                                  then (fun f_ () -> f_
+ ((mtx_get (heap_DBMEntry _A3) (suc n) sigmaa (xb, xe)) ()) ())
+ (fun xd ->
+   mtx_set (heap_DBMEntry _A3) (suc n) sigmaa (xb, xe)
+     (norm_lower
+       _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
+       (norm_upper
+         _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add
+         xd (sub bia xb))
+       (uminus
+         _A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.uminus_group_add
+         (sub bia xe))))
+                                  else (fun f_ () -> f_
+ ((mtx_get (heap_DBMEntry _A3) (suc n) sigmaa (xb, xe)) ()) ())
+ (fun xd ->
+   mtx_set (heap_DBMEntry _A3) (suc n) sigmaa (xb, xe)
+     (norm_diag
+       (_A1.ordered_ab_group_add_linordered_ab_group_add.ab_group_add_ordered_ab_group_add.group_add_ab_group_add.monoid_add_group_add.zero_monoid_add,
+         _A2,
+         _A1.linordered_cancel_ab_monoid_add_linordered_ab_group_add.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add)
+       xd)))))))))));;
 
 let rec and_entry_impl
   n = (fun ai bib bia bi ->
@@ -4206,24 +4193,17 @@ let rec pre_reset_list_impl
         imp_nfoldli bi (fun _ -> (fun () -> true))
           (fun x sigma -> pre_reset_impl n sigma x) ai);;
 
-let rec dbm_subset_impla (_A1, _A2, _A3)
-  n = (fun ai bia bi ->
-        imp_for zero_nata (suc ai) (fun a -> (fun () -> a))
-          (fun xb _ ->
-            imp_for zero_nata (suc ai) (fun a -> (fun () -> a))
-              (fun xe _ ->
-                (fun f_ () -> f_
-                  ((mtx_get (heap_DBMEntry _A3) (suc n) bia (xb, xe)) ()) ())
-                  (fun x_f ->
-                    (fun f_ () -> f_
-                      ((mtx_get (heap_DBMEntry _A3) (suc n) bi (xb, xe)) ()) ())
-                      (fun x_g ->
-                        (fun () ->
-                          (less_eq_DBMEntry
-                            (_A2, _A1.linordered_ab_monoid_add_linordered_cancel_ab_monoid_add.linordered_ab_semigroup_add_linordered_ab_monoid_add.linorder_linordered_ab_semigroup_add)
-                            x_f x_g)))))
-              true)
-          true);;
+let rec dbm_subset_impla (_A1, _A2)
+  = (fun m a b ->
+      imp_for zero_nata
+        (times_nat (plus_nata m one_nata) (plus_nata m one_nata))
+        (fun aa -> (fun () -> aa))
+        (fun i _ ->
+          (fun f_ () -> f_ ((ntha _A1 a i) ()) ())
+            (fun x ->
+              (fun f_ () -> f_ ((ntha _A1 b i) ()) ())
+                (fun y -> (fun () -> (less_eq _A2 x y)))))
+        true);;
 
 let rec and_entry_repair_impl
   n = (fun ai bib bia bi ->
@@ -4271,9 +4251,7 @@ let rec get_entries_impl (_A1, _A2, _A3)
                           (fun () ->
                             ((if (less_nat zero_nata xc ||
                                    less_nat zero_nata xf) &&
-                                   (less_eq_nat xc n &&
-                                     (less_eq_nat xf n &&
-                                       not (equal_DBMEntry _A2 x INF)))
+                                   not (equal_DBMEntry _A2 x INF)
                                then op_list_prepend (xc, xf) op_list_empty
                                else op_list_empty) ::
                               sigmaa))))
@@ -4364,9 +4342,9 @@ let rec dbm_subset_fed_impl
                           (fun xc sigma ->
                             (fun f_ () -> f_
                               ((dbm_subset_impla
-                                 (linordered_cancel_ab_monoid_add_int,
-                                   equal_int, heap_int)
-                                 n n ai xc)
+                                 ((heap_DBMEntry heap_int),
+                                   (ord_DBMEntry (equal_int, linorder_int)))
+                                 n ai xc)
                               ()) ())
                               (fun x_d ->
                                 (fun () -> (if x_d then true else sigma))))
@@ -4635,7 +4613,9 @@ uminus_int, equal_int, heap_int)
                                 ()) ())
                                 (fun xaa ->
                                   (fun f_ () -> f_
-                                    ((if xaa then (fun () -> xb)
+                                    ((if xaa
+                                       then mtx_set (heap_DBMEntry heap_int)
+      (suc m) xb (zero_nata, zero_nata) (Lt zero_inta)
                                        else imp_nfoldli a1a
       (fun _ -> (fun () -> true))
       (fun ai bi ->
@@ -4659,7 +4639,9 @@ uminus_int, equal_int, heap_int)
 ())
 (fun xd ->
   (fun f_ () -> f_
-    ((if xd then (fun () -> x_a)
+    ((if xd
+       then mtx_set (heap_DBMEntry heap_int) (suc m) x_a (zero_nata, zero_nata)
+              (Lt zero_inta)
        else (fun f_ () -> f_
               ((imp_nfoldli a1c (fun _ -> (fun () -> true))
                  (fun xca sigmaa ->
@@ -4689,9 +4671,12 @@ uminus_int, equal_int, heap_int)
            x_b)
         ()) ())
         (fun x_c ->
-          (if x_c then (fun () -> x_b)
+          (if x_c
+            then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                   (zero_nata, zero_nata) (Lt zero_inta)
             else (fun f_ () -> f_
-                   ((norm_upd_impl (linordered_ab_group_add_int, heap_int) m x_b
+                   ((norm_upd_impl
+                      (linordered_ab_group_add_int, equal_int, heap_int) m x_b
                       (let (l, _) = a2c in
                         IArray
                           (map (fun c ->
@@ -4871,43 +4856,45 @@ let rec ceiling_checks
                   zero_nata p)])
         x;;
 
-let rec select_edge_tr (_A1, _A2)
-  s = (let (a, (aa, (ab, bb))) = s in
-        (if as_is_empty bb then (None, (a, (aa, (ab, bb))))
-          else (let (ac, bc) = as_top bb in
-                 (if less_eq_nat (as_get aa (minus_nat (as_length aa) one_nata))
-                       ac
-                   then (let xa = gen_pick (fun x -> foldli (id x)) bc in
-                         let xb = glist_delete (eq _A1) xa bc in
-                         let xc =
-                           (if is_Nil xb then as_pop bb
-                             else as_set bb (minus_nat (as_length bb) one_nata)
-                                    (ac, xb))
-                           in
-                          (Some xa, (a, (aa, (ab, xc)))))
-                   else (None, (a, (aa, (ab, bb))))))));;
+let rec select_edge_tr
+  node_eq_impl s =
+    (let (a, (aa, (ab, bb))) = s in
+      (if as_is_empty bb then (None, (a, (aa, (ab, bb))))
+        else (let (ac, bc) = as_top bb in
+               (if less_eq_nat (as_get aa (minus_nat (as_length aa) one_nata))
+                     ac
+                 then (let xa = gen_pick (fun x -> foldli (id x)) bc in
+                       let xb = glist_delete node_eq_impl xa bc in
+                       let xc =
+                         (if is_Nil xb then as_pop bb
+                           else as_set bb (minus_nat (as_length bb) one_nata)
+                                  (ac, xb))
+                         in
+                        (Some xa, (a, (aa, (ab, xc)))))
+                 else (None, (a, (aa, (ab, bb))))))));;
 
 let rec ahm_lookup_aux
   eq bhc k a = list_map_lookup eq k (array_get a (bhc (array_length a) k));;
 
 let rec ahm_lookup eq bhc k (HashMap (a, uu)) = ahm_lookup_aux eq bhc k a;;
 
-let rec idx_of_tr (_A1, _A2)
-  s v = (let (_, (aa, (ab, _))) = v in
-         let x =
-           (let Some i = ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) s ab in
-            let true = less_eq_int zero_inta i in
-             nat i)
-           in
-         let xa =
-           find_max_nat (as_length aa) (fun j -> less_eq_nat (as_get aa j) x) in
-          xa);;
+let rec idx_of_tr
+  node_eq_impl node_hash_impl s v =
+    (let (_, (aa, (ab, _))) = v in
+     let x = (let Some i = ahm_lookup node_eq_impl node_hash_impl s ab in
+              let true = less_eq_int zero_inta i in
+               nat i)
+       in
+     let xa = find_max_nat (as_length aa) (fun j -> less_eq_nat (as_get aa j) x)
+       in
+      xa);;
 
-let rec collapse_tr (_A1, _A2)
-  v s = (let (a, (aa, (ab, bb))) = s in
-         let x = idx_of_tr (_A1, _A2) v (a, (aa, (ab, bb))) in
-         let xa = as_take (plus_nata x one_nata) aa in
-          (a, (xa, (ab, bb))));;
+let rec collapse_tr
+  node_eq_impl node_hash_impl v s =
+    (let (a, (aa, (ab, bb))) = s in
+     let x = idx_of_tr node_eq_impl node_hash_impl v (a, (aa, (ab, bb))) in
+     let xa = as_take (plus_nata x one_nata) aa in
+      (a, (xa, (ab, bb))));;
 
 let rec as_singleton _B x = (FArray.IsabelleMapping.array_of_list [x], one _B);;
 
@@ -4915,79 +4902,81 @@ let rec new_hashmap_with size = HashMap (new_array [] size, zero_nata);;
 
 let rec ahm_empty def_size = new_hashmap_with def_size;;
 
-let rec push_code (_A1, _A2)
-  g_impl =
+let rec push_code
+  node_eq_impl node_hash_impl g_impl =
     (fun x (xa, (xb, (xc, xd))) ->
       (let _ = stat_newnode () in
        let y_a = as_length xa in
        let y_b = as_push xa x in
        let y_c = as_push xb y_a in
-       let y_d =
-         ahm_update (eq _A1) (bounded_hashcode_nat _A2) x (int_of_nat y_a) xc in
+       let y_d = ahm_update node_eq_impl node_hash_impl x (int_of_nat y_a) xc in
        let y_e =
          (if is_Nil (gi_E g_impl x) then xd
            else as_push xd (y_a, gi_E g_impl x))
          in
         (y_b, (y_c, (y_d, y_e)))));;
 
-let rec compute_SCC_tr (_A1, _A2)
-  g = (let _ = stat_start () in
-       let xa = ([], ahm_empty (def_hashmap_size _A2 Type)) in
-       let a =
-         foldli (id (gi_V0 g)) (fun _ -> true)
-           (fun xb (a, b) ->
-             (if not (match ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) xb b
-                       with None -> false
-                       | Some i ->
-                         (if less_eq_int zero_inta i then false else true))
-               then (let xc =
-                       (a, (as_singleton one_nat xb,
-                             (as_singleton one_nat zero_nata,
-                               (ahm_update (eq _A1) (bounded_hashcode_nat _A2)
-                                  xb (int_of_nat zero_nata) b,
-                                 (if is_Nil (gi_E g xb)
-                                   then as_empty zero_nat ()
-                                   else as_singleton one_nat
-  (zero_nata, gi_E g xb))))))
-                       in
-                     let (aa, (_, (_, (ad, _)))) =
-                       whilea
-                         (fun (_, xf) ->
-                           not (as_is_empty (let (xg, (_, (_, _))) = xf in xg)))
-                         (fun (aa, ba) ->
-                           (match select_edge_tr (_A1, _A2) ba
-                             with (None, bb) ->
-                               (let xf = last_seg_tr _A2 bb in
-                                let xg = pop_tr (_A1, _A2) bb in
-                                let xh = xf :: aa in
-                                 (xh, xg))
-                             | (Some xf, bb) ->
-                               (if (match
-                                     ahm_lookup (eq _A1)
-                                       (bounded_hashcode_nat _A2) xf
-                                       (let (_, (_, (xl, _))) = bb in xl)
-                                     with None -> false
-                                     | Some i ->
-                                       (if less_eq_int zero_inta i then true
- else false))
-                                 then (let ab = collapse_tr (_A1, _A2) xf bb in
-(aa, ab))
-                                 else (if not
-    (match
-      ahm_lookup (eq _A1) (bounded_hashcode_nat _A2) xf
-        (let (_, (_, (xl, _))) = bb in xl)
-      with None -> false
-      | Some i -> (if less_eq_int zero_inta i then false else true))
-then (aa, push_code (_A1, _A2) g xf bb) else (aa, bb)))))
-                         xc
-                       in
-                      (aa, ad))
-               else (a, b)))
-           xa
-         in
-       let (aa, _) = a in
-       let _ = stat_stop () in
-        aa);;
+let rec compute_SCC_tr
+  node_eq_impl node_hash_impl node_def_hash_size g =
+    (let _ = stat_start () in
+     let xa = ([], ahm_empty node_def_hash_size) in
+     let a =
+       foldli (id (gi_V0 g)) (fun _ -> true)
+         (fun xb (a, b) ->
+           (if not (match ahm_lookup node_eq_impl node_hash_impl xb b
+                     with None -> false
+                     | Some i ->
+                       (if less_eq_int zero_inta i then false else true))
+             then (let xc =
+                     (a, (as_singleton one_nat xb,
+                           (as_singleton one_nat zero_nata,
+                             (ahm_update node_eq_impl node_hash_impl xb
+                                (int_of_nat zero_nata) b,
+                               (if is_Nil (gi_E g xb) then as_empty zero_nat ()
+                                 else as_singleton one_nat
+(zero_nata, gi_E g xb))))))
+                     in
+                   let (aa, (_, (_, (ad, _)))) =
+                     whilea
+                       (fun (_, xf) ->
+                         not (as_is_empty (let (xg, (_, (_, _))) = xf in xg)))
+                       (fun (aa, ba) ->
+                         (match select_edge_tr node_eq_impl ba
+                           with (None, bb) ->
+                             (let xf = last_seg_tr bb in
+                              let xg = pop_tr node_eq_impl node_hash_impl bb in
+                              let xh = xf :: aa in
+                               (xh, xg))
+                           | (Some xf, bb) ->
+                             (if (match
+                                   ahm_lookup node_eq_impl node_hash_impl xf
+                                     (let (_, (_, (xl, _))) = bb in xl)
+                                   with None -> false
+                                   | Some i ->
+                                     (if less_eq_int zero_inta i then true
+                                       else false))
+                               then (let ab =
+                                       collapse_tr node_eq_impl node_hash_impl
+ xf bb
+                                       in
+                                      (aa, ab))
+                               else (if not
+  (match
+    ahm_lookup node_eq_impl node_hash_impl xf (let (_, (_, (xl, _))) = bb in xl)
+    with None -> false
+    | Some i -> (if less_eq_int zero_inta i then false else true))
+                                      then (aa,
+     push_code node_eq_impl node_hash_impl g xf bb)
+                                      else (aa, bb)))))
+                       xc
+                     in
+                    (aa, ad))
+             else (a, b)))
+         xa
+       in
+     let (aa, _) = a in
+     let _ = stat_stop () in
+      aa);;
 
 let rec check_bexp
   x0 l s = match x0, l, s with Not a, l, s -> not (check_bexp a l s)
@@ -5127,7 +5116,9 @@ let rec reachability_checker
                                      ()) ())
                                      (fun xd ->
                                        (fun f_ () -> f_
- ((if xd then (fun () -> xbc)
+ ((if xd
+    then mtx_set (heap_DBMEntry heap_int) (suc m) xbc (zero_nata, zero_nata)
+           (Lt zero_inta)
     else imp_nfoldli a1a (fun _ -> (fun () -> true))
            (fun ai bi ->
              (fun f_ () -> f_
@@ -5150,7 +5141,9 @@ let rec reachability_checker
      ()) ())
      (fun xbd ->
        (fun f_ () -> f_
-         ((if xbd then (fun () -> x_a)
+         ((if xbd
+            then mtx_set (heap_DBMEntry heap_int) (suc m) x_a
+                   (zero_nata, zero_nata) (Lt zero_inta)
             else (fun f_ () -> f_
                    ((imp_nfoldli a1c (fun _ -> (fun () -> true))
                       (fun xcb sigmaa ->
@@ -5185,16 +5178,17 @@ let rec reachability_checker
                 m m x_b)
              ()) ())
              (fun x_c ->
-               (if x_c then (fun () -> x_b)
+               (if x_c
+                 then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                        (zero_nata, zero_nata) (Lt zero_inta)
                  else (fun f_ () -> f_
-                        ((norm_upd_impl (linordered_ab_group_add_int, heap_int)
-                           m x_b
-                           (let (l, _) = a2c in
-                             IArray
-                               (map (fun c ->
-                                      maxa linorder_int
-(image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
-                                 x))
+                        ((norm_upd_impl
+                           (linordered_ab_group_add_int, equal_int, heap_int) m
+                           x_b (let (l, _) = a2c in
+                                 IArray
+                                   (map (fun c ->
+  maxa linorder_int (image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
+                                     x))
                            m)
                         ()) ())
                         (fw_impl_int m))))))))))
@@ -5354,7 +5348,9 @@ let rec leadsto_checker
            ()) ())
            (fun xd ->
              (fun f_ () -> f_
-               ((if xd then (fun () -> xbc)
+               ((if xd
+                  then mtx_set (heap_DBMEntry heap_int) (suc m) xbc
+                         (zero_nata, zero_nata) (Lt zero_inta)
                   else imp_nfoldli a1a (fun _ -> (fun () -> true))
                          (fun ai bi ->
                            (fun f_ () -> f_
@@ -5379,7 +5375,9 @@ let rec leadsto_checker
                    ()) ())
                    (fun xbd ->
                      (fun f_ () -> f_
-                       ((if xbd then (fun () -> x_a)
+                       ((if xbd
+                          then mtx_set (heap_DBMEntry heap_int) (suc m) x_a
+                                 (zero_nata, zero_nata) (Lt zero_inta)
                           else (fun f_ () -> f_
                                  ((imp_nfoldli a1c (fun _ -> (fun () -> true))
                                     (fun xcb sigmaa ->
@@ -5414,10 +5412,12 @@ zero_inta)
                               m x_b)
                            ()) ())
                            (fun x_c ->
-                             (if x_c then (fun () -> x_b)
+                             (if x_c
+                               then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                                      (zero_nata, zero_nata) (Lt zero_inta)
                                else (fun f_ () -> f_
                                       ((norm_upd_impl
- (linordered_ab_group_add_int, heap_int) m x_b
+ (linordered_ab_group_add_int, equal_int, heap_int) m x_b
  (let (l, _) = a2c in
    IArray
      (map (fun c ->
@@ -5494,7 +5494,9 @@ zero_inta)
     ()) ())
     (fun xd ->
       (fun f_ () -> f_
-        ((if xd then (fun () -> xbc)
+        ((if xd
+           then mtx_set (heap_DBMEntry heap_int) (suc m) xbc
+                  (zero_nata, zero_nata) (Lt zero_inta)
            else imp_nfoldli a1a (fun _ -> (fun () -> true))
                   (fun ai bi ->
                     (fun f_ () -> f_
@@ -5518,7 +5520,9 @@ zero_inta)
             ()) ())
             (fun xbd ->
               (fun f_ () -> f_
-                ((if xbd then (fun () -> x_a)
+                ((if xbd
+                   then mtx_set (heap_DBMEntry heap_int) (suc m) x_a
+                          (zero_nata, zero_nata) (Lt zero_inta)
                    else (fun f_ () -> f_
                           ((imp_nfoldli a1c (fun _ -> (fun () -> true))
                              (fun xcb sigmaa ->
@@ -5553,10 +5557,14 @@ zero_inta)
                        (linordered_cancel_ab_monoid_add_int, heap_int) m m x_b)
                     ()) ())
                     (fun x_c ->
-                      (if x_c then (fun () -> x_b)
+                      (if x_c
+                        then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                               (zero_nata, zero_nata) (Lt zero_inta)
                         else (fun f_ () -> f_
                                ((norm_upd_impl
-                                  (linordered_ab_group_add_int, heap_int) m x_b
+                                  (linordered_ab_group_add_int, equal_int,
+                                    heap_int)
+                                  m x_b
                                   (let (l, _) = a2c in
                                     IArray
                                       (map
@@ -5901,7 +5909,9 @@ let rec alw_ev_checker
          ()) ())
          (fun xd ->
            (fun f_ () -> f_
-             ((if xd then (fun () -> xbc)
+             ((if xd
+                then mtx_set (heap_DBMEntry heap_int) (suc m) xbc
+                       (zero_nata, zero_nata) (Lt zero_inta)
                 else imp_nfoldli a1a (fun _ -> (fun () -> true))
                        (fun ai bi ->
                          (fun f_ () -> f_
@@ -5926,7 +5936,9 @@ let rec alw_ev_checker
                  ()) ())
                  (fun xbd ->
                    (fun f_ () -> f_
-                     ((if xbd then (fun () -> x_a)
+                     ((if xbd
+                        then mtx_set (heap_DBMEntry heap_int) (suc m) x_a
+                               (zero_nata, zero_nata) (Lt zero_inta)
                         else (fun f_ () -> f_
                                ((imp_nfoldli a1c (fun _ -> (fun () -> true))
                                   (fun xcb sigmaa ->
@@ -5960,16 +5972,20 @@ uminus_int, heap_int)
                             x_b)
                          ()) ())
                          (fun x_c ->
-                           (if x_c then (fun () -> x_b)
+                           (if x_c
+                             then mtx_set (heap_DBMEntry heap_int) (suc m) x_b
+                                    (zero_nata, zero_nata) (Lt zero_inta)
                              else (fun f_ () -> f_
                                     ((norm_upd_impl
-                                       (linordered_ab_group_add_int, heap_int) m
-                                       x_b (let (l, _) = a2c in
-     IArray
-       (map (fun c ->
-              maxa linorder_int
-                (image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
-         x))
+                                       (linordered_ab_group_add_int, equal_int,
+ heap_int)
+                                       m x_b
+                                       (let (l, _) = a2c in
+ IArray
+   (map (fun c ->
+          maxa linorder_int
+            (image (fun i -> sub (sub (sub k_i i) (nth l i)) c) xa))
+     x))
                                        m)
                                     ()) ())
                                     (fw_impl_int m))))))))))
@@ -6052,8 +6068,12 @@ let rec precond_mc
              (fun x -> (fun () -> (Some x)))
       else (fun () -> None));;
 
+let rec compute_SCC_tra (_A1, _A2)
+  = compute_SCC_tr (eq _A1) (bounded_hashcode_nat _A2)
+      (def_hashmap_size _A2 Type);;
+
 let rec calc_shortest_scc_paths (_A1, _A2, _A3)
-  g n = (let sccs = compute_SCC_tr (equal_nat, hashable_nat) g in
+  g n = (let sccs = compute_SCC_tra (equal_nat, hashable_nat) g in
          let d = map (fun _ -> None) (upt zero_nata n) @ [Some (zero _A2)] in
          let da =
            fold (fold (fun u ->
