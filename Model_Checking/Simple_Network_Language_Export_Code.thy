@@ -1,6 +1,6 @@
 theory Simple_Network_Language_Export_Code
   imports
-    "../../Parser_Combinators/JSON_Parsing"
+    Parsing.JSON_Parsing
     Simple_Networks.Simple_Network_Language_Renaming
     Simple_Networks.Simple_Network_Language_Deadlock_Checking
     Shortest_SCC_Paths

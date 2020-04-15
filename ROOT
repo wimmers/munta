@@ -97,6 +97,13 @@ session Deadlock in Deadlock = Uppaal_Networks +
   theories
     Deadlock_Checking
 
+session Parsing in Parsing = Certification_Monads +
+  sessions
+    "HOL-Library"
+    Show
+  theories
+    JSON_Parsing
+
 session TA_Code in Model_Checking = Simple_Networks +
   sessions
     Certification_Monads
