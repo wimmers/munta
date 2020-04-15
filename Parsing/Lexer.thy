@@ -17,6 +17,15 @@ definition [consuming]: "tk_power \<equiv> token (exactly ''^'')"
 definition [consuming]: "tk_lparen \<equiv> token (exactly ''('')"
 definition [consuming]: "tk_rparen \<equiv> token (exactly '')'')"
 
+abbreviation "additive_op \<equiv> 
+  tk_plus \<then> return (+)
+\<parallel> tk_minus \<then> return (-)"
+abbreviation "multiplicative_op \<equiv>
+  tk_times \<then> return (*)
+\<parallel> tk_div \<then> return (div)"
+abbreviation "power_op \<equiv>
+  tk_power \<then> return (\<lambda>a b. a^nat b)"
+
 abbreviation "lx_digit' \<equiv> lx_digit with (\<lambda>d. nat_of_char d - nat_of_char CHR ''0'')"
 
 \<comment> \<open>We convert the string to a number while parsing, using a parameterized parser.

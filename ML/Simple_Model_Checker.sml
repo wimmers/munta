@@ -1829,136 +1829,9 @@ fun remove A_ x (Coset xs) = Coset (inserta A_ x xs)
 
 fun fun_upd A_ f a b = (fn x => (if eq A_ x a then b else f x));
 
-fun filter p [] = []
-  | filter p (x :: xs) = (if p x then x :: filter p xs else filter p xs);
-
-fun foldli [] c f sigma = sigma
-  | foldli (x :: xs) c f sigma =
-    (if c sigma then foldli xs c f (f x sigma) else sigma);
-
-fun extract p (x :: xs) =
-  (if p x then SOME ([], (x, xs))
-    else (case extract p xs of NONE => NONE
-           | SOME (ys, (y, zs)) => SOME (x :: ys, (y, zs))))
-  | extract p [] = NONE;
-
-fun hd (x21 :: x22) = x21;
-
-fun tl [] = []
-  | tl (x21 :: x22) = x22;
-
-fun remdups A_ [] = []
-  | remdups A_ (x :: xs) =
-    (if membera A_ xs x then remdups A_ xs else x :: remdups A_ xs);
-
-fun uncurry f = (fn (a, b) => f a b);
-
-fun distinct A_ [] = true
-  | distinct A_ (x :: xs) = not (membera A_ xs x) andalso distinct A_ xs;
-
-fun trace m x = let
-                  val _ = (fn x => Tracing.count_up ()) m;
-                in
-                  x
-                end;
-
-fun replicate n x =
-  (if equal_nata n zero_nata then []
-    else x :: replicate (minus_nat n one_nata) x);
-
-fun is_none (SOME x) = false
-  | is_none NONE = true;
-
-fun implode cs =
-  (String.implode
-    o List.map (fn k => if 0 <= k andalso k < 128 then (Char.chr o IntInf.toInt) k else raise Fail "Non-ASCII character in literal"))
-    (map integer_of_char cs);
-
-fun tracea x = trace ExploredState x;
-
-fun blit A_ src si dst di len =
-  (fn () => 
-    array_blit src (integer_of_nat
-                     si) dst (integer_of_nat di) (integer_of_nat len));
-
-fun v_dbm (A1_, A2_, A3_) B_ n =
-  (fn (i, j) =>
-    (if eq A2_ i j orelse
-          (eq A2_ i (zero A1_) andalso less A3_ (zero A1_) j orelse
-            (less A3_ n i orelse less A3_ n j))
-      then zero_DBMEntrya B_ else INF));
-
-fun imp_fora i u f s =
-  (if less_eq_nat u i then (fn () => s)
-    else (fn f_ => fn () => f_ ((f i s) ()) ())
-           (imp_fora (plus_nata i one_nata) u f));
-
-fun mtx_set A_ m mtx e v =
-  upd A_ (plus_nata (times_nat (fst e) m) (snd e)) v mtx;
-
-fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nat (fst e) m) (snd e));
-
-fun fw_upd_impl (A1_, A2_) n =
-  (fn ai => fn bib => fn bia => fn bi =>
-    (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bib)) ()) ())
-      (fn x =>
-        (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bib, bi)) ()) ())
-          (fn xa =>
-            let
-              val xb =
-                plus ((plus_semigroup_add o semigroup_add_monoid_add o
-                        monoid_add_comm_monoid_add o
-                        comm_monoid_add_ordered_comm_monoid_add o
-                        ordered_comm_monoid_add_linordered_ab_monoid_add)
-                       A1_)
-                  x xa;
-            in
-              (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bi)) ()) ())
-                (fn xaa =>
-                  (if less ((ord_preorder o preorder_order o order_linorder o
-                              linorder_linordered_ab_semigroup_add o
-                              linordered_ab_semigroup_add_linordered_ab_monoid_add)
-                             A1_)
-                        xb xaa
-                    then mtx_set A2_ (suc n) ai (bia, bi) xb
-                    else (fn () => ai)))
-            end)));
-
-fun fw_impl (A1_, A2_) n =
-  imp_fora zero_nata (plus_nata n one_nata)
-    (fn xb =>
-      imp_fora zero_nata (plus_nata n one_nata)
-        (fn xd =>
-          imp_fora zero_nata (plus_nata n one_nata)
-            (fn xf => fn sigma => fw_upd_impl (A1_, A2_) n sigma xb xd xf)));
-
-fun gen_length n (x :: xs) = gen_length (suc n) xs
-  | gen_length n [] = n;
-
-fun map_filter f [] = []
-  | map_filter f (x :: xs) =
-    (case f x of NONE => map_filter f xs | SOME y => y :: map_filter f xs);
-
-fun cODE_ABORT _ = raise Fail "Misc.CODE_ABORT";
+fun ll_fuel (LL (x1, x2)) = x1;
 
 fun bind m f = (case m of Inl a => Inl a | Inr a => f a);
-
-fun fwi_impl (A1_, A2_) n =
-  (fn ai => fn bi =>
-    imp_fora zero_nata (plus_nata n one_nata)
-      (fn xa =>
-        imp_fora zero_nata (plus_nata n one_nata)
-          (fn xc => fn sigma => fw_upd_impl (A1_, A2_) n sigma bi xa xc))
-      ai);
-
-fun the (SOME x2) = x2;
-
-fun gen_pick it s =
-  the (it s (fn a => (case a of NONE => true | SOME _ => false))
-         (fn x => fn _ => SOME x)
-        NONE);
-
-fun ll_fuel (LL (x1, x2)) = x1;
 
 fun ensure_cparser p =
   (fn ts =>
@@ -2273,6 +2146,13 @@ fun lx_ws x =
         Chara (true, false, true, true, false, false, false, false)])
     x;
 
+fun filter p [] = []
+  | filter p (x :: xs) = (if p x then x :: filter p xs else filter p xs);
+
+fun foldli [] c f sigma = sigma
+  | foldli (x :: xs) c f sigma =
+    (if c sigma then foldli xs c f (f x sigma) else sigma);
+
 fun exactly (A1_, A2_) ts =
   bindb (alt (foldr
                (fn t => fn p =>
@@ -2295,6 +2175,240 @@ fun exactly (A1_, A2_) ts =
                           false)] o
                 shows_prec_list A2_ zero_nata ts)))
     (fn x => return (sum_join x));
+
+fun range (A1_, A2_) a b =
+  bindb get
+    (fn x =>
+      (if less_eq ((ord_preorder o preorder_order o order_linorder) A1_) a
+            x andalso
+            less_eq ((ord_preorder o preorder_order o order_linorder) A1_) x b
+        then return x
+        else err_expecting_aux A2_
+               (fn _ =>
+                 shows_string
+                   [Chara (false, false, true, false, true, false, true, false),
+                     Chara (true, true, true, true, false, true, true, false),
+                     Chara (true, true, false, true, false, true, true, false),
+                     Chara (true, false, true, false, false, true, true, false),
+                     Chara (false, true, true, true, false, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (true, false, false, true, false, true, true, false),
+                     Chara (false, true, true, true, false, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false),
+                     Chara (false, true, false, false, true, true, true, false),
+                     Chara (true, false, false, false, false, true, true,
+                             false),
+                     Chara (false, true, true, true, false, true, true, false),
+                     Chara (true, true, true, false, false, true, true, false),
+                     Chara (true, false, true, false, false, true, true, false),
+                     Chara (false, false, false, false, false, true, false,
+                             false)] o
+                   shows_prec A2_ zero_nata a o
+                   shows_string
+                     [Chara (false, false, false, false, false, true, false,
+                              false),
+                       Chara (true, false, true, true, false, true, false,
+                               false),
+                       Chara (false, false, false, false, false, true, false,
+                               false)] o
+                   shows_prec A2_ zero_nata b)));
+
+fun lx_digit x =
+  range (linorder_char, show_char)
+    (Chara (false, false, false, false, true, true, false, false))
+    (Chara (true, false, false, true, true, true, false, false)) x;
+
+fun lx_nat_aux acc l =
+  bindb (alt (bindb lx_digit
+               (fn x =>
+                 lx_nat_aux
+                   (plus_nata (times_nat (nat_of_integer (10 : IntInf.int)) acc)
+                     (minus_nat (nat_of_char x)
+                       (nat_of_char
+                         (Chara
+                           (false, false, false, false, true, true, false,
+                             false)))))))
+          (return acc))
+    (fn x => return (sum_join x)) l;
+
+fun lx_nat x =
+  bindb lx_digit
+    (fn xa =>
+      lx_nat_aux
+        (minus_nat (nat_of_char xa)
+          (nat_of_char
+            (Chara (false, false, false, false, true, true, false, false)))))
+    x;
+
+fun lx_int x =
+  bindb (alt (bindb
+               (exactly (equal_char, show_char)
+                 [Chara (true, false, true, true, false, true, false, false)])
+               (fn _ =>
+                 bindb lx_nat
+                   (fn xa => return ((uminus_inta o int_of_nat) xa))))
+          (bindb lx_nat (fn xa => return (int_of_nat xa))))
+    (fn xa => return (sum_join xa)) x;
+
+fun gen_token ws p = bindb ws (fn _ => p);
+
+fun tk_div x =
+  gen_token lx_ws
+    (exactly (equal_char, show_char)
+      [Chara (true, true, true, true, false, true, false, false)])
+    x;
+
+fun extract p (x :: xs) =
+  (if p x then SOME ([], (x, xs))
+    else (case extract p xs of NONE => NONE
+           | SOME (ys, (y, zs)) => SOME (x :: ys, (y, zs))))
+  | extract p [] = NONE;
+
+fun hd (x21 :: x22) = x21;
+
+fun tl [] = []
+  | tl (x21 :: x22) = x22;
+
+fun remdups A_ [] = []
+  | remdups A_ (x :: xs) =
+    (if membera A_ xs x then remdups A_ xs else x :: remdups A_ xs);
+
+fun uncurry f = (fn (a, b) => f a b);
+
+fun tk_plus x =
+  gen_token lx_ws
+    (exactly (equal_char, show_char)
+      [Chara (true, true, false, true, false, true, false, false)])
+    x;
+
+fun distinct A_ [] = true
+  | distinct A_ (x :: xs) = not (membera A_ xs x) andalso distinct A_ xs;
+
+fun trace m x = let
+                  val _ = (fn x => Tracing.count_up ()) m;
+                in
+                  x
+                end;
+
+fun tk_minus x =
+  gen_token lx_ws
+    (exactly (equal_char, show_char)
+      [Chara (true, false, true, true, false, true, false, false)])
+    x;
+
+fun tk_times x =
+  gen_token lx_ws
+    (exactly (equal_char, show_char)
+      [Chara (false, true, false, true, false, true, false, false)])
+    x;
+
+fun replicate n x =
+  (if equal_nata n zero_nata then []
+    else x :: replicate (minus_nat n one_nata) x);
+
+fun is_none (SOME x) = false
+  | is_none NONE = true;
+
+fun implode cs =
+  (String.implode
+    o List.map (fn k => if 0 <= k andalso k < 128 then (Char.chr o IntInf.toInt) k else raise Fail "Non-ASCII character in literal"))
+    (map integer_of_char cs);
+
+fun tracea x = trace ExploredState x;
+
+fun blit A_ src si dst di len =
+  (fn () => 
+    array_blit src (integer_of_nat
+                     si) dst (integer_of_nat di) (integer_of_nat len));
+
+fun v_dbm (A1_, A2_, A3_) B_ n =
+  (fn (i, j) =>
+    (if eq A2_ i j orelse
+          (eq A2_ i (zero A1_) andalso less A3_ (zero A1_) j orelse
+            (less A3_ n i orelse less A3_ n j))
+      then zero_DBMEntrya B_ else INF));
+
+fun imp_fora i u f s =
+  (if less_eq_nat u i then (fn () => s)
+    else (fn f_ => fn () => f_ ((f i s) ()) ())
+           (imp_fora (plus_nata i one_nata) u f));
+
+fun mtx_set A_ m mtx e v =
+  upd A_ (plus_nata (times_nat (fst e) m) (snd e)) v mtx;
+
+fun mtx_get A_ m mtx e = ntha A_ mtx (plus_nata (times_nat (fst e) m) (snd e));
+
+fun fw_upd_impl (A1_, A2_) n =
+  (fn ai => fn bib => fn bia => fn bi =>
+    (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bib)) ()) ())
+      (fn x =>
+        (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bib, bi)) ()) ())
+          (fn xa =>
+            let
+              val xb =
+                plus ((plus_semigroup_add o semigroup_add_monoid_add o
+                        monoid_add_comm_monoid_add o
+                        comm_monoid_add_ordered_comm_monoid_add o
+                        ordered_comm_monoid_add_linordered_ab_monoid_add)
+                       A1_)
+                  x xa;
+            in
+              (fn f_ => fn () => f_ ((mtx_get A2_ (suc n) ai (bia, bi)) ()) ())
+                (fn xaa =>
+                  (if less ((ord_preorder o preorder_order o order_linorder o
+                              linorder_linordered_ab_semigroup_add o
+                              linordered_ab_semigroup_add_linordered_ab_monoid_add)
+                             A1_)
+                        xb xaa
+                    then mtx_set A2_ (suc n) ai (bia, bi) xb
+                    else (fn () => ai)))
+            end)));
+
+fun fw_impl (A1_, A2_) n =
+  imp_fora zero_nata (plus_nata n one_nata)
+    (fn xb =>
+      imp_fora zero_nata (plus_nata n one_nata)
+        (fn xd =>
+          imp_fora zero_nata (plus_nata n one_nata)
+            (fn xf => fn sigma => fw_upd_impl (A1_, A2_) n sigma xb xd xf)));
+
+fun tk_lparen x =
+  gen_token lx_ws
+    (exactly (equal_char, show_char)
+      [Chara (false, false, false, true, false, true, false, false)])
+    x;
+
+fun tk_rparen x =
+  gen_token lx_ws
+    (exactly (equal_char, show_char)
+      [Chara (true, false, false, true, false, true, false, false)])
+    x;
+
+fun gen_length n (x :: xs) = gen_length (suc n) xs
+  | gen_length n [] = n;
+
+fun map_filter f [] = []
+  | map_filter f (x :: xs) =
+    (case f x of NONE => map_filter f xs | SOME y => y :: map_filter f xs);
+
+fun cODE_ABORT _ = raise Fail "Misc.CODE_ABORT";
+
+fun fwi_impl (A1_, A2_) n =
+  (fn ai => fn bi =>
+    imp_fora zero_nata (plus_nata n one_nata)
+      (fn xa =>
+        imp_fora zero_nata (plus_nata n one_nata)
+          (fn xc => fn sigma => fw_upd_impl (A1_, A2_) n sigma bi xa xc))
+      ai);
+
+fun the (SOME x2) = x2;
+
+fun gen_pick it s =
+  the (it s (fn a => (case a of NONE => true | SOME _ => false))
+         (fn x => fn _ => SOME x)
+        NONE);
 
 fun bracket_close x =
   bindb lx_ws
@@ -2403,82 +2517,6 @@ fun colon x =
       exactly (equal_char, show_char)
         [Chara (false, true, false, true, true, true, false, false)])
     x;
-
-fun range (A1_, A2_) a b =
-  bindb get
-    (fn x =>
-      (if less_eq ((ord_preorder o preorder_order o order_linorder) A1_) a
-            x andalso
-            less_eq ((ord_preorder o preorder_order o order_linorder) A1_) x b
-        then return x
-        else err_expecting_aux A2_
-               (fn _ =>
-                 shows_string
-                   [Chara (false, false, true, false, true, false, true, false),
-                     Chara (true, true, true, true, false, true, true, false),
-                     Chara (true, true, false, true, false, true, true, false),
-                     Chara (true, false, true, false, false, true, true, false),
-                     Chara (false, true, true, true, false, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (true, false, false, true, false, true, true, false),
-                     Chara (false, true, true, true, false, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false),
-                     Chara (false, true, false, false, true, true, true, false),
-                     Chara (true, false, false, false, false, true, true,
-                             false),
-                     Chara (false, true, true, true, false, true, true, false),
-                     Chara (true, true, true, false, false, true, true, false),
-                     Chara (true, false, true, false, false, true, true, false),
-                     Chara (false, false, false, false, false, true, false,
-                             false)] o
-                   shows_prec A2_ zero_nata a o
-                   shows_string
-                     [Chara (false, false, false, false, false, true, false,
-                              false),
-                       Chara (true, false, true, true, false, true, false,
-                               false),
-                       Chara (false, false, false, false, false, true, false,
-                               false)] o
-                   shows_prec A2_ zero_nata b)));
-
-fun lx_digit x =
-  range (linorder_char, show_char)
-    (Chara (false, false, false, false, true, true, false, false))
-    (Chara (true, false, false, true, true, true, false, false)) x;
-
-fun lx_nat_aux acc l =
-  bindb (alt (bindb lx_digit
-               (fn x =>
-                 lx_nat_aux
-                   (plus_nata (times_nat (nat_of_integer (10 : IntInf.int)) acc)
-                     (minus_nat (nat_of_char x)
-                       (nat_of_char
-                         (Chara
-                           (false, false, false, false, true, true, false,
-                             false)))))))
-          (return acc))
-    (fn x => return (sum_join x)) l;
-
-fun lx_nat x =
-  bindb lx_digit
-    (fn xa =>
-      lx_nat_aux
-        (minus_nat (nat_of_char xa)
-          (nat_of_char
-            (Chara (false, false, false, false, true, true, false, false)))))
-    x;
-
-fun lx_int x =
-  bindb (alt (bindb
-               (exactly (equal_char, show_char)
-                 [Chara (true, false, true, true, false, true, false, false)])
-               (fn _ =>
-                 bindb lx_nat
-                   (fn xa => return ((uminus_inta o int_of_nat) xa))))
-          (bindb lx_nat (fn xa => return (int_of_nat xa))))
-    (fn xa => return (sum_join xa)) x;
 
 fun json_string x =
   bindb (exactly (equal_char, show_char)
@@ -3880,8 +3918,6 @@ fun amtx_copy A_ = array_copy A_;
 
 fun amtx_dflt A_ n m v = make A_ (times_nat n m) (fn _ => v);
 
-fun gen_token ws p = bindb ws (fn _ => p);
-
 fun ll_from_list l = LL (size_list l, l);
 
 fun show_pres (Inr (ll, uu)) = Inr ll
@@ -4441,35 +4477,11 @@ fun pre_reset_list_impl n =
 fun is_result (Result x1) = true
   | is_result (Error x2) = false;
 
-fun tk_div x =
-  gen_token lx_ws
-    (exactly (equal_char, show_char)
-      [Chara (true, true, true, true, false, true, false, false)])
-    x;
-
 fun compute_SCC_tra (A1_, A2_) =
   compute_SCC_tr (eq A1_) (bounded_hashcode_nat A2_)
     (def_hashmap_size A2_ Type);
 
-fun tk_plus x =
-  gen_token lx_ws
-    (exactly (equal_char, show_char)
-      [Chara (true, true, false, true, false, true, false, false)])
-    x;
-
 fun collect_clock_pairs cc = image constraint_pair (Set cc);
-
-fun tk_minus x =
-  gen_token lx_ws
-    (exactly (equal_char, show_char)
-      [Chara (true, false, true, true, false, true, false, false)])
-    x;
-
-fun tk_times x =
-  gen_token lx_ws
-    (exactly (equal_char, show_char)
-      [Chara (false, true, false, true, false, true, false, false)])
-    x;
 
 fun map_exp f (Const x1) = Const x1
   | map_exp f (Var x2) = Var (f x2)
@@ -4509,18 +4521,6 @@ and set_bexp A_ True = bot_set
   | set_bexp A_ (Ge (x91, x92)) = sup_set A_ (set_exp A_ x91) (set_exp A_ x92)
   | set_bexp A_ (Gt (x101, x102)) =
     sup_set A_ (set_exp A_ x101) (set_exp A_ x102);
-
-fun tk_lparen x =
-  gen_token lx_ws
-    (exactly (equal_char, show_char)
-      [Chara (false, false, false, true, false, true, false, false)])
-    x;
-
-fun tk_rparen x =
-  gen_token lx_ws
-    (exactly (equal_char, show_char)
-      [Chara (true, false, false, true, false, true, false, false)])
-    x;
 
 fun dfs_map_impl_0 A_ (B1_, B2_, B3_) succsi lei keyi copyi x =
   let
