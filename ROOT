@@ -110,6 +110,7 @@ session TA_Code in Model_Checking = Simple_Networks +
     FinFun
     Gabow_SCC
     Deadlock
+    Parsing
   theories
     Simple_Network_Language_Export_Code
     Shortest_SCC_Paths
