@@ -378,7 +378,7 @@ lemma steps_last_step:
 
 lemma steps_remove_cycleE:
   assumes "steps (a # xs @ [b])"
-  obtains xs where "steps (a # xs @ [b])" "distinct xs" "a \<notin> set xs" "b \<notin> set xs"
+  obtains ys where "steps (a # ys @ [b])" "distinct ys" "a \<notin> set ys" "b \<notin> set ys" "set ys \<subseteq> set xs"
   using assms
 proof (induction "length xs" arbitrary: xs rule: less_induct)
   case less
@@ -394,7 +394,7 @@ proof (induction "length xs" arbitrary: xs rule: less_induct)
   proof cases
     case a
     with prems show ?thesis
-      by - (rule IH[where xs = bs], auto intro: intro dest: stepsD)
+      by - (rule IH[where xs = bs], auto 4 3 intro: intro dest: stepsD)
   next
     case b
     with prems have "steps (a # as @ b # [] @ (bs @ [b]))"
@@ -402,14 +402,14 @@ proof (induction "length xs" arbitrary: xs rule: less_induct)
     then have "steps (a # as @ [b])"
       by (metis Cons_eq_appendI Graph_Defs.steps_appendD1 append_eq_appendI neq_Nil_conv)
     with b show ?thesis
-      by - (rule IH[where xs = as], auto dest: stepsD intro: intro)
+      by - (rule IH[where xs = as], auto 4 3 dest: stepsD intro: intro)
   next
     case between
     with prems have "steps (a # as @ x # cs @ [b])"
       by simp (metis
           stepsI append_Cons list.distinct(1) list.sel(1) list.sel(3) steps_append steps_decomp)
     with between show ?thesis
-      by - (rule IH[where xs = "as @ x # cs"], auto intro: intro dest: stepsD)
+      by - (rule IH[where xs = "as @ x # cs"], auto 4 3 intro: intro dest: stepsD)
   qed
 qed
 
