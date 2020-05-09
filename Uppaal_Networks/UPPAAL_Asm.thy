@@ -32,13 +32,16 @@ type_synonym rstate = "int list" \<comment> \<open>Partial map from registers to
 type_synonym state = "addr * stack * rstate * flag * nat list"
 \<comment> \<open>Instruction pointer, stack, register state, comparison flag, reset clocks\<close>
 
+fun state_pc :: "state \<Rightarrow> addr" where
+  "state_pc (pc, _, _, _, _) = pc"
+
 definition int_of :: "bool \<Rightarrow> int" where
   "int_of x \<equiv> if x then 1 else 0"
 
 fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
   "step (JMPZ q) (pc, st, m, f, rs) = Some (if f then (pc + 1) else q, st, m, f, rs)" |
   "step ADD (pc, a # b # st, m, f, rs) = Some (pc + 1, (a + b) # st, m, f, rs)" |
-  "step NOT (pc, b # st, m , f, rs) = Some (pc + 1, st, m, \<not> f, rs)" |
+  "step NOT (pc, b # st, m , f, rs) = Some (pc + 1, st, m, \<not> f, rs)" | (* TODO: ask if the pop here is correct *)
   "step AND (pc, b # st, m, f, rs) =
     (if b = 0 \<or> b = 1
      then Some (pc + 1, st, m, b = 1 \<and> f, rs)
@@ -167,6 +170,11 @@ qed
 lemma visited_exec':
   assumes "visited prog n s (pc, st, m, f, rs) pcs" "prog pc = Some HALT"
   shows "exec prog n s [] = Some ((pc, st, m, f, rs), pc # pcs)"
-using visited_exec assms by auto
+  using visited_exec assms by auto
+
+type_synonym addrspace = "addr set"
+
+definition addr_space_complete :: "program \<Rightarrow> addrspace \<Rightarrow> bool" where
+  "addr_space_complete prog space \<equiv> \<forall>pc. prog pc \<noteq> None \<longleftrightarrow> pc \<in> space"
 
 end
