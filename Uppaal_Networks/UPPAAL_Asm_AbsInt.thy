@@ -5,6 +5,8 @@ begin
 type_synonym 'a ainstr = "instr * 'a" \<comment> \<open>Instruction with state after it was executed\<close>
 type_synonym 'a aprogram = "addr \<Rightarrow> (('a ainstr) option)"
 
+datatype 'a spaced_aprogram = SpacedAProgram addrspace "'a aprogram"
+
 fun annot_all :: "program \<Rightarrow> 'a \<Rightarrow> 'a aprogram" where
   "annot_all prog v addr =
     (case prog addr of
@@ -23,8 +25,11 @@ fun collect_step :: "addrspace \<Rightarrow> state set aprogram \<Rightarrow> st
   "collect_step space prog entry pc =
     (case prog pc of
         Some (instr, _) \<Rightarrow>
-          let instates = (collect_predecs space prog pc) \<union> (if state_pc entry = pc then {entry} else {}) in
-          Some (instr, instates) \<comment> \<open>TODO: instead of just the instates, apply instr and return the results\<close>
+          let instates = (collect_predecs space prog pc) \<union> (if state_pc entry = pc then {entry} else {});
+              outstates = List.map_project (\<lambda>ist. step instr ist) instates in
+          Some (instr, outstates)
       | None \<Rightarrow> None)"
+
+
 
 end
