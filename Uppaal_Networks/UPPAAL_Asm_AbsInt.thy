@@ -11,7 +11,7 @@ type_synonym cstate = "cpstate list astate"
 
 find_consts "'a \<Rightarrow> 'a option \<Rightarrow> 'a"
 find_consts "('a \<Rightarrow> 'b option) \<Rightarrow> 'a set \<Rightarrow> 'b set"
-find_consts "'a list \<Rightarrow> 'a list \<Rightarrow> 'a list"
+find_consts "'a list \<Rightarrow> 'a list"
 find_consts "('a \<Rightarrow> 'b option) \<Rightarrow> 'a list \<Rightarrow> 'b list"
 
 fun def :: "'a \<Rightarrow> 'a option \<Rightarrow> 'a" where
@@ -33,7 +33,7 @@ fun keys :: "('a * 'b) rbt \<Rightarrow> 'a list" where
 fun insert :: "'a \<Rightarrow> 'b list \<Rightarrow> ('a::linorder * 'b list) rbt \<Rightarrow> ('a * 'b list) rbt" where
   "insert k v t = update k
     (case lookup t k of
-      Some vv \<Rightarrow> v @ vv |
+      Some vv \<Rightarrow> remdups (v @ vv) |
       None \<Rightarrow> v) t"
 
 fun merge :: "('a::linorder * 'b list) rbt \<Rightarrow> ('a * 'b list) rbt \<Rightarrow> ('a * 'b list) rbt" where
@@ -60,4 +60,5 @@ fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> cstate \<Rightarro
     (case collect_step prog st of
       Some nst \<Rightarrow> collect_loop prog n (merge st nst) |
       None \<Rightarrow> None)"
+
 end

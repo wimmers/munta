@@ -1,14 +1,13 @@
 theory UPPAAL_Asm_Test
-  imports UPPAAL_Asm_AbsInt "HOL-IMP.AExp"
+  imports UPPAAL_Asm_AbsInt "HOL-IMP.AExp" "HOL.String"
 begin
 
 definition myprog :: "instr list" where "myprog \<equiv> [
-PUSH 3,
 PUSH 42,
-instr.LT
+PUSH 3,
+instr.LT,
+HALT
 ]"
-
-definition empty_state :: "cpstate" where "empty_state = ([], [], False, [])"
 
 find_consts "('a \<Rightarrow> bool) \<Rightarrow> 'a set"
 
@@ -19,28 +18,29 @@ fun assemble :: "instr list \<Rightarrow> spaced_program" where
     (set (upt 0 (length listing)))
     (\<lambda>pc. if pc < length listing then Some (listing ! pc) else None)"
 
-fun spprog :: "spaced_program \<Rightarrow> program" where
-  "spprog (SpacedProgram _ prog) = prog"
-
-value "
-  let prog = spprog (assemble myprog) in
-  let entry = update (0::addr) [empty_state] empty in
-  collect_loop prog 2 entry"
-
 class display =
   fixes display :: "'a \<Rightarrow> string"
+
+fun hexlit :: "nat \<Rightarrow> nat \<Rightarrow> string" where
+  "hexlit 0 0 = ''0x''" |
+  "hexlit len v =
+    (let c = v mod 16 in
+    hexlit (len-1) (v div 16) @ [char_of (if c < 10 then 48 + c else 97 + (c - 10))])"
+
+fun hexliti :: "nat \<Rightarrow> int \<Rightarrow> string" where
+  "hexliti len v = hexlit len (if v < 0 then nat (-v) else nat v)"
 
 instantiation nat :: display
 begin
 fun display_nat :: "nat \<Rightarrow> string" where
-  "display_nat n = ''nat''"
+  "display_nat n = hexlit 4 n"
 instance proof qed
 end
 
 instantiation int :: display
 begin
 fun display_int :: "int \<Rightarrow> string" where
-  "display_int n = ''int''"
+  "display_int n = hexliti 1 n"
 instance proof qed
 end
 
@@ -76,34 +76,66 @@ fun display_instr :: "instr \<Rightarrow> string" where
 instance proof qed
 end
 
+abbreviation init where "init \<equiv> (0, [], [], False, [])"
+value "case assemble myprog of (SpacedProgram space prog) \<Rightarrow> step (the (prog (state_pc init))) init"
+
 instantiation spaced_program :: display
 begin
 fun display_spaced_program :: "spaced_program \<Rightarrow> string" where
   "display_spaced_program (SpacedProgram space prog) =
     concat (map (\<lambda>pc. (display pc) @ '' '' @ (display (the (prog pc))) @ [char_of (10::nat)]) (sorted_list_of_set space))"
 instance proof qed
+end
 
-definition make_string :: "spaced_program \<Rightarrow> string" where
-  "make_string p \<equiv> display p"
+definition "asm_width \<equiv> 20"
+datatype dispcollect = DisplayCollect spaced_program "cstate option"
 
-value "display (SpacedProgram {0, 1, 2} (\<lambda>a. Some (myprog ! a)))"
+definition "emoji \<equiv> map char_of ([240,159,164,183] :: nat list)"
 
-typ "spaced_program"
+fun intercalate:: "'a list \<Rightarrow> 'a list list \<Rightarrow> 'a list" where
+"intercalate _ [] = []" |
+"intercalate _ [x] = x" |
+"intercalate sep (x # xs) = x @ sep @ intercalate sep xs"
 
-abbreviation init where "init \<equiv> (0, [], [], False, [])"
+fun format_cpstate :: "cpstate \<Rightarrow> string" where
+  "format_cpstate (stk, rst, flg, clk) =
+    ''f='' @ display flg"
 
-value "case assemble myprog of (SpacedProgram space prog) \<Rightarrow> step (the (prog (state_pc init))) init"
+fun format_cpstates :: "cpstate list option \<Rightarrow> string" where
+  "format_cpstates None = ''--''" |
+  "format_cpstates (Some states) =
+    intercalate ''; '' (map format_cpstate states)"
 
-(*theory Scratch
-imports \<comment> \<open>HOL.Archimedean_Field "HOL-Library.Stream"\<close> "HOL-IMP.AExp"
-begin*)
+fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> cstate \<Rightarrow> string" where
+  "format_collect_line len pc prog st =
+      (let asm = (display pc) @ '' '' @ (display (the (prog pc)));
+           padding = replicate ((asm_width - 1) - length asm + 1) CHR '' '';
+           states = format_cpstates (lookup st pc) in
+      asm @ padding @ states @ ''\<newline>'')"
 
-value "(\<lambda>_::nat. 3::nat)(5:= 4)"
-value "<''y'' := 7::nat>"
-value [simp] "map (<''y'' := 7::nat>) [''x'', ''y'']"
-definition "my_string \<equiv> STR ''a \<newline> b''"
-ML \<open>val str = @{code my_string}
-val _ = writeln str
-\<close>
+instantiation dispcollect :: display
+begin
+fun display_dispcollect :: "dispcollect \<Rightarrow> string" where
+  "display_dispcollect (DisplayCollect _ None) = ''fail''" |
+  "display_dispcollect (DisplayCollect (SpacedProgram space prog) (Some st)) =
+    concat (map (\<lambda>pc. format_collect_line asm_width pc prog st) (sorted_list_of_set space))"
+instance proof qed
+end
+
+definition "collect_sprog \<equiv> assemble myprog"
+
+fun spprog :: "spaced_program \<Rightarrow> program" where
+  "spprog (SpacedProgram _ prog) = prog"
+
+definition "empty_state \<equiv> ([], [], False, [])"
+definition "empty_state1 \<equiv> ([], [], True, [])"
+
+definition "collect_result \<equiv>
+  let prog = spprog collect_sprog;
+      entry = update (0::addr) [empty_state, empty_state1] empty in
+  collect_loop prog 4 entry"
+
+definition "my_string \<equiv> String.implode (display (DisplayCollect collect_sprog collect_result))"
+ML \<open>val _ = writeln (@{code my_string})\<close>
 
 end
