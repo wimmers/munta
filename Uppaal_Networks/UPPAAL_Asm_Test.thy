@@ -138,4 +138,12 @@ definition "collect_result \<equiv>
 definition "my_string \<equiv> String.implode (display (DisplayCollect collect_sprog collect_result))"
 ML \<open>val _ = writeln (@{code my_string})\<close>
 
+
+value "{x. Suc x \<in> {2::nat, 42}}"
+value "{y. \<exists>x\<in>{2::nat, 42}. y = Suc x}"
+value "{3, 2::nat}"
+
+definition "(mm::(addr \<rightharpoonup> bool)) \<equiv> \<lambda>a. if a = 0 then Some True else None"
+value "dom mm"
+
 end
