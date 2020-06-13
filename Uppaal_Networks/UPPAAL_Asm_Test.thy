@@ -93,18 +93,29 @@ datatype dispcollect = DisplayCollect spaced_program "cstate option"
 definition "emoji \<equiv> map char_of ([240,159,164,183] :: nat list)"
 
 fun intercalate:: "'a list \<Rightarrow> 'a list list \<Rightarrow> 'a list" where
-"intercalate _ [] = []" |
-"intercalate _ [x] = x" |
-"intercalate sep (x # xs) = x @ sep @ intercalate sep xs"
+  "intercalate _ [] = []" |
+  "intercalate _ [x] = x" |
+  "intercalate sep (x # xs) = x @ sep @ intercalate sep xs"
 
 fun format_cpstate :: "cpstate \<Rightarrow> string" where
   "format_cpstate (stk, rst, flg, clk) =
     ''f='' @ display flg"
 
-fun format_cpstates :: "cpstate list option \<Rightarrow> string" where
+definition folds :: "('a \<Rightarrow> 'b \<Rightarrow> 'b) \<Rightarrow> 'b \<Rightarrow> 'a set \<Rightarrow> 'b"
+  where "folds f z A = (THE y. fold_graph f z A y)"
+
+fun to_list :: "'a set \<Rightarrow> 'a list" where
+  "to_list _ = undefined"
+
+lemma[code]: "to_list (set as) = as" sorry
+
+fun format_cpstates :: "cpstate set option \<Rightarrow> string" where
   "format_cpstates None = ''--''" |
   "format_cpstates (Some states) =
-    intercalate ''; '' (map format_cpstate states)"
+    (let stuff = map format_cpstate (fold (#) [] (to_list states)) in
+    intercalate ''; '' stuff)"
+
+ML \<open>@{code format_cpstates}\<close>
 
 fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> cstate \<Rightarrow> string" where
   "format_collect_line len pc prog st =
@@ -132,18 +143,10 @@ definition "empty_state1 \<equiv> ([], [], True, [])"
 
 definition "collect_result \<equiv>
   let prog = spprog collect_sprog;
-      entry = update (0::addr) [empty_state, empty_state1] empty in
-  collect_loop prog 4 entry"
+      entry = (\<lambda>pc. if pc = 0 then Some {empty_state, empty_state1} else None) in
+  collect_loop prog 4 (entry, {0})"
 
 definition "my_string \<equiv> String.implode (display (DisplayCollect collect_sprog collect_result))"
 ML \<open>val _ = writeln (@{code my_string})\<close>
-
-
-value "{x. Suc x \<in> {2::nat, 42}}"
-value "{y. \<exists>x\<in>{2::nat, 42}. y = Suc x}"
-value "{3, 2::nat}"
-
-definition "(mm::(addr \<rightharpoonup> bool)) \<equiv> \<lambda>a. if a = 0 then Some True else None"
-value "dom mm"
 
 end

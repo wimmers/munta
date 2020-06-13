@@ -23,41 +23,28 @@ fun def :: "'a \<Rightarrow> 'a option \<Rightarrow> 'a" where
   "def _ (Some v) = v" |
   "def d _ = d"
 
-(*fun keys :: "('a * 'b) rbt \<Rightarrow> 'a list" where
-  "keys t = map (\<lambda>(k, _) \<Rightarrow> k) (inorder t)"
+fun states_domain :: "state set \<Rightarrow> addr set" where
+  "states_domain states = fst ` states"
 
-fun insert :: "'a \<Rightarrow> 'b set \<Rightarrow> ('a::linorder * 'b set) rbt \<Rightarrow> ('a * 'b set) rbt" where
-  "insert k v t = update k
-    (case lookup t k of
-      Some vv \<Rightarrow> v \<union> vv |
-      None \<Rightarrow> v) t"*)
-
-(*fun merge :: "('a::linorder * 'b set) rbt \<Rightarrow> ('a * 'b set) rbt \<Rightarrow> ('a * 'b set) rbt" where
-  "merge a b = fold (\<lambda>(k, v). insert k v) (inorder b) a"*)
+fun states_at :: "state set \<Rightarrow> addr \<Rightarrow> cpstate set" where
+  "states_at states pc = snd ` {s\<in>states. fst s = pc}"
 
 fun propagate :: "cstate \<Rightarrow> state set \<Rightarrow> cstate" where
   "propagate (oldst, olddom) ss =
-    (let newdom = olddom \<union> {pc. \<exists>s\<in>ss. fst s = pc};
+    (let newdom = olddom \<union> states_domain ss;
          newmap = (\<lambda>pc.
-            let news = {cs. \<exists>s\<in>ss. (pc, cs) = s} in
+            let news = states_at ss pc in
             case (oldst pc, news) of
               (Some oldss, newss) \<Rightarrow> Some (oldss \<union> news) |
               (None, newss) \<Rightarrow> if newss = {} then None else Some newss)
     in (newmap, newdom))"
 
-(*
-fun insert :: "'a \<Rightarrow> 'b list \<Rightarrow> ('a::linorder * 'b list) rbt \<Rightarrow> ('a * 'b list) rbt" where
-  "insert k v t = update k
-    (case lookup t k of
-      Some vv \<Rightarrow> remdups (v @ vv) |
-      None \<Rightarrow> v) t"
-
-fun merge :: "('a::linorder * 'b list) rbt \<Rightarrow> ('a * 'b list) rbt \<Rightarrow> ('a * 'b list) rbt" where
-  "merge a b = fold (\<lambda>(k, v). insert k v) (inorder b) a"*)
-
 fun step_all :: "instr \<Rightarrow> addr \<Rightarrow> cpstate set \<Rightarrow> state set" where
   "step_all op pc instates =
     {outs. \<exists>ins\<in>instates. Some outs = step op (pc, ins)}" (* TODO: How to handle failure? (None) *)
+
+lemma[code]: "step_all op pc (set instates) =
+  Option.these (set (map (\<lambda>ins. step op (pc, ins)) instates))" using in_these_eq by fastforce
 
 fun collect_step :: "program \<Rightarrow> cstate \<Rightarrow> cstate option" where
   "collect_step prog st =
@@ -69,7 +56,6 @@ fun collect_step :: "program \<Rightarrow> cstate \<Rightarrow> cstate option" w
           Some (propagate st res)
         | _ \<Rightarrow> None
     ) (sorted_list_of_set (cdom st)) (Some st)"
-(* Some (fold (\<lambda>(pc, pst) st. insert pc [pst] st) res st) *)
 
 fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> cstate \<Rightarrow> cstate option" where
   "collect_loop prog 0 st = Some st" |
