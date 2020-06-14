@@ -9,17 +9,13 @@ instr.LT,
 HALT
 ]"
 
-find_consts "('a \<Rightarrow> bool) \<Rightarrow> 'a set"
-
-find_consts "nat \<Rightarrow> nat list"
-
 fun assemble :: "instr list \<Rightarrow> spaced_program" where
   "assemble listing = SpacedProgram
     (set (upt 0 (length listing)))
     (\<lambda>pc. if pc < length listing then Some (listing ! pc) else None)"
 
-class display =
-  fixes display :: "'a \<Rightarrow> string"
+class "show" =
+  fixes "show" :: "'a \<Rightarrow> string"
 
 fun hexlit :: "nat \<Rightarrow> nat \<Rightarrow> string" where
   "hexlit 0 0 = ''0x''" |
@@ -30,65 +26,65 @@ fun hexlit :: "nat \<Rightarrow> nat \<Rightarrow> string" where
 fun hexliti :: "nat \<Rightarrow> int \<Rightarrow> string" where
   "hexliti len v = hexlit len (if v < 0 then nat (-v) else nat v)"
 
-instantiation nat :: display
+instantiation nat :: "show"
 begin
-fun display_nat :: "nat \<Rightarrow> string" where
-  "display_nat n = hexlit 4 n"
+fun show_nat :: "nat \<Rightarrow> string" where
+  "show_nat n = hexlit 4 n"
 instance proof qed
 end
 
-instantiation int :: display
+instantiation int :: "show"
 begin
-fun display_int :: "int \<Rightarrow> string" where
-  "display_int n = hexliti 1 n"
+fun show_int :: "int \<Rightarrow> string" where
+  "show_int n = hexliti 1 n"
 instance proof qed
 end
 
-instantiation bool :: display
+instantiation bool :: "show"
 begin
-fun display_bool :: "bool \<Rightarrow> string" where
-  "display_bool True = ''True''" |
-  "display_bool False = ''False''"
+fun show_bool :: "bool \<Rightarrow> string" where
+  "show_bool True = ''True''" |
+  "show_bool False = ''False''"
 instance proof qed
 end
 
-instantiation instr :: display
+instantiation instr :: "show"
 begin
-fun display_instr :: "instr \<Rightarrow> string" where
-  "display_instr (JMPZ a) = ''JMPZ '' @ (display a)" |
-  "display_instr ADD = ''ADD''" |
-  "display_instr NOT = ''NOT''" |
-  "display_instr AND = ''AND''" |
-  "display_instr instr.LT = ''LT''" |
-  "display_instr instr.LE = ''LE''" |
-  "display_instr instr.EQ = ''EQ''" |
-  "display_instr (PUSH imm) = ''PUSH '' @ (display imm)" |
-  "display_instr POP = ''POP''" |
-  "display_instr (LID r) = ''LID '' @ (display r)"|
-  "display_instr STORE = ''STORE''" |
-  "display_instr (STOREI r imm) = ''STOREI '' @ (display r) @ '' '' @ (display imm)"|
-  "display_instr COPY = ''COPY''" |
-  "display_instr CALL = ''CALL''" |
-  "display_instr RETURN = ''RETURN''" |
-  "display_instr HALT = ''HALT''" |
-  "display_instr (STOREC n i) = ''STOREC '' @ (display n) @ '' '' @ (display i)" |
-  "display_instr (SETF b) = ''SETF '' @ (display b)"
+fun show_instr :: "instr \<Rightarrow> string" where
+  "show_instr (JMPZ a) = ''JMPZ '' @ (show a)" |
+  "show_instr ADD = ''ADD''" |
+  "show_instr NOT = ''NOT''" |
+  "show_instr AND = ''AND''" |
+  "show_instr instr.LT = ''LT''" |
+  "show_instr instr.LE = ''LE''" |
+  "show_instr instr.EQ = ''EQ''" |
+  "show_instr (PUSH imm) = ''PUSH '' @ (show imm)" |
+  "show_instr POP = ''POP''" |
+  "show_instr (LID r) = ''LID '' @ (show r)"|
+  "show_instr STORE = ''STORE''" |
+  "show_instr (STOREI r imm) = ''STOREI '' @ (show r) @ '' '' @ (show imm)"|
+  "show_instr COPY = ''COPY''" |
+  "show_instr CALL = ''CALL''" |
+  "show_instr RETURN = ''RETURN''" |
+  "show_instr HALT = ''HALT''" |
+  "show_instr (STOREC n i) = ''STOREC '' @ (show n) @ '' '' @ (show i)" |
+  "show_instr (SETF b) = ''SETF '' @ (show b)"
 instance proof qed
 end
 
 abbreviation init where "init \<equiv> (0, [], [], False, [])"
 value "case assemble myprog of (SpacedProgram space prog) \<Rightarrow> step (the (prog (state_pc init))) init"
 
-instantiation spaced_program :: display
+instantiation spaced_program :: "show"
 begin
-fun display_spaced_program :: "spaced_program \<Rightarrow> string" where
-  "display_spaced_program (SpacedProgram space prog) =
-    concat (map (\<lambda>pc. (display pc) @ '' '' @ (display (the (prog pc))) @ [char_of (10::nat)]) (sorted_list_of_set space))"
+fun show_spaced_program :: "spaced_program \<Rightarrow> string" where
+  "show_spaced_program (SpacedProgram space prog) =
+    concat (map (\<lambda>pc. (show pc) @ '' '' @ (show (the (prog pc))) @ [char_of (10::nat)]) (sorted_list_of_set space))"
 instance proof qed
 end
 
 definition "asm_width \<equiv> 20"
-datatype dispcollect = DisplayCollect spaced_program "cstate option"
+datatype dispcollect = DisplayCollect spaced_program "collect_ctx option"
 
 definition "emoji \<equiv> map char_of ([240,159,164,183] :: nat list)"
 
@@ -99,10 +95,7 @@ fun intercalate:: "'a list \<Rightarrow> 'a list list \<Rightarrow> 'a list" whe
 
 fun format_cpstate :: "cpstate \<Rightarrow> string" where
   "format_cpstate (stk, rst, flg, clk) =
-    ''f='' @ display flg"
-
-definition folds :: "('a \<Rightarrow> 'b \<Rightarrow> 'b) \<Rightarrow> 'b \<Rightarrow> 'a set \<Rightarrow> 'b"
-  where "folds f z A = (THE y. fold_graph f z A y)"
+    ''f='' @ show flg"
 
 fun to_list :: "'a set \<Rightarrow> 'a list" where
   "to_list _ = undefined"
@@ -117,18 +110,18 @@ fun format_cpstates :: "cpstate set option \<Rightarrow> string" where
 
 ML \<open>@{code format_cpstates}\<close>
 
-fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> cstate \<Rightarrow> string" where
-  "format_collect_line len pc prog st =
-      (let asm = (display pc) @ '' '' @ (display (the (prog pc)));
+fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> collect_ctx \<Rightarrow> string" where
+  "format_collect_line len pc prog ctx =
+      (let asm = (show pc) @ '' '' @ (show (the (prog pc)));
            padding = replicate ((asm_width - 1) - length asm + 1) CHR '' '';
-           states = format_cpstates (lookup st pc) in
+           states = format_cpstates (collect_ctx_lookup ctx pc) in
       asm @ padding @ states @ ''\<newline>'')"
 
-instantiation dispcollect :: display
+instantiation dispcollect :: "show"
 begin
-fun display_dispcollect :: "dispcollect \<Rightarrow> string" where
-  "display_dispcollect (DisplayCollect _ None) = ''fail''" |
-  "display_dispcollect (DisplayCollect (SpacedProgram space prog) (Some st)) =
+fun show_dispcollect :: "dispcollect \<Rightarrow> string" where
+  "show_dispcollect (DisplayCollect _ None) = ''fail''" |
+  "show_dispcollect (DisplayCollect (SpacedProgram space prog) (Some st)) =
     concat (map (\<lambda>pc. format_collect_line asm_width pc prog st) (sorted_list_of_set space))"
 instance proof qed
 end
@@ -146,7 +139,7 @@ definition "collect_result \<equiv>
       entry = (\<lambda>pc. if pc = 0 then Some {empty_state, empty_state1} else None) in
   collect_loop prog 4 (entry, {0})"
 
-definition "my_string \<equiv> String.implode (display (DisplayCollect collect_sprog collect_result))"
+definition "my_string \<equiv> String.implode (show (DisplayCollect collect_sprog collect_result))"
 ML \<open>val _ = writeln (@{code my_string})\<close>
 
 end

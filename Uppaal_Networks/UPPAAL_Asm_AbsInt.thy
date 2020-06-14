@@ -6,18 +6,10 @@ begin
 
 type_synonym 'a astate = "addr \<rightharpoonup> 'a"
 type_synonym cpstate = "stack * rstate * flag * nat list"
-type_synonym cstate = "(cpstate set astate) * (addr set)"
+type_synonym collect_ctx = "(cpstate set astate) * (addr set)"
 
-fun cdom :: "cstate \<Rightarrow> addr set" where
-  "cdom (_, d) = d"
-
-fun lookup :: "cstate \<Rightarrow> addr \<Rightarrow> cpstate set option" where
-  "lookup (m, _) k = m k"
-
-find_consts "'a \<Rightarrow> 'a option \<Rightarrow> 'a"
-find_consts "('a \<Rightarrow> 'b option) \<Rightarrow> 'a set \<Rightarrow> 'b set"
-find_consts "'a set \<Rightarrow> 'a list"
-find_consts "('a \<Rightarrow> 'b option) \<Rightarrow> 'a list \<Rightarrow> 'b list"
+fun collect_ctx_dom :: "collect_ctx \<Rightarrow> addr set" where "collect_ctx_dom (_, d) = d"
+fun collect_ctx_lookup :: "collect_ctx \<Rightarrow> addr \<Rightarrow> cpstate set option" where "collect_ctx_lookup (m, _) k = m k"
 
 fun def :: "'a \<Rightarrow> 'a option \<Rightarrow> 'a" where
   "def _ (Some v) = v" |
@@ -29,7 +21,7 @@ fun states_domain :: "state set \<Rightarrow> addr set" where
 fun states_at :: "state set \<Rightarrow> addr \<Rightarrow> cpstate set" where
   "states_at states pc = snd ` {s\<in>states. fst s = pc}"
 
-fun propagate :: "cstate \<Rightarrow> state set \<Rightarrow> cstate" where
+fun propagate :: "collect_ctx \<Rightarrow> state set \<Rightarrow> collect_ctx" where
   "propagate (oldst, olddom) ss =
     (let newdom = olddom \<union> states_domain ss;
          newmap = (\<lambda>pc.
@@ -46,18 +38,18 @@ fun step_all :: "instr \<Rightarrow> addr \<Rightarrow> cpstate set \<Rightarrow
 lemma[code]: "step_all op pc (set instates) =
   Option.these (set (map (\<lambda>ins. step op (pc, ins)) instates))" using in_these_eq by fastforce
 
-fun collect_step :: "program \<Rightarrow> cstate \<Rightarrow> cstate option" where
-  "collect_step prog st =
+fun collect_step :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx option" where
+  "collect_step prog ctx =
     fold (\<lambda>pc ost.
       case (ost, prog pc) of
-        (Some st, Some op) \<Rightarrow>
-          let ins = def {} (lookup st pc);
+        (Some ctx, Some op) \<Rightarrow>
+          let ins = def {} (collect_ctx_lookup ctx pc);
               res = step_all op pc ins in
-          Some (propagate st res)
+          Some (propagate ctx res)
         | _ \<Rightarrow> None
-    ) (sorted_list_of_set (cdom st)) (Some st)"
+    ) (sorted_list_of_set (collect_ctx_dom ctx)) (Some ctx)"
 
-fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> cstate \<Rightarrow> cstate option" where
+fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx option" where
   "collect_loop prog 0 st = Some st" |
   "collect_loop prog (Suc n) st =
     (case collect_step prog st of
