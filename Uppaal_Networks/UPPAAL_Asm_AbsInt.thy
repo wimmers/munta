@@ -78,11 +78,11 @@ end
 
 subsection "Collecting Semantics"
 
-type_synonym cpstate = "stack * rstate * flag * nat list"
-type_synonym collect_ctx = "(cpstate set state_map) * (addr set)"
+type_synonym collect_state = "stack * rstate * flag * nat list"
+type_synonym collect_ctx = "(collect_state set state_map) * (addr set)"
 
 fun collect_ctx_dom :: "collect_ctx \<Rightarrow> addr set" where "collect_ctx_dom (_, d) = d"
-fun collect_ctx_lookup :: "collect_ctx \<Rightarrow> addr \<Rightarrow> cpstate set option" where "collect_ctx_lookup (SM m, _) k = m k"
+fun collect_ctx_lookup :: "collect_ctx \<Rightarrow> addr \<Rightarrow> collect_state set option" where "collect_ctx_lookup (SM m, _) k = m k"
 
 fun def :: "'a \<Rightarrow> 'a option \<Rightarrow> 'a" where
   "def _ (Some v) = v" |
@@ -91,7 +91,7 @@ fun def :: "'a \<Rightarrow> 'a option \<Rightarrow> 'a" where
 fun states_domain :: "state set \<Rightarrow> addr set" where
   "states_domain states = fst ` states"
 
-fun states_at :: "state set \<Rightarrow> addr \<Rightarrow> cpstate set" where
+fun states_at :: "state set \<Rightarrow> addr \<Rightarrow> collect_state set" where
   "states_at states pc = snd ` {s\<in>states. fst s = pc}"
 
 fun propagate :: "collect_ctx \<Rightarrow> state set \<Rightarrow> collect_ctx" where
@@ -104,7 +104,7 @@ fun propagate :: "collect_ctx \<Rightarrow> state set \<Rightarrow> collect_ctx"
               (None, newss) \<Rightarrow> if newss = {} then None else Some newss)
     in (SM newmap, newdom))"
 
-fun step_all :: "instr \<Rightarrow> addr \<Rightarrow> cpstate set \<Rightarrow> state set" where
+fun step_all :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> state set" where
   "step_all op pc instates =
     {outs. \<exists>ins\<in>instates. Some outs = step op (pc, ins)}" (* TODO: How to handle failure? (None) *)
 

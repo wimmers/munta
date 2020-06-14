@@ -93,8 +93,8 @@ fun intercalate:: "'a list \<Rightarrow> 'a list list \<Rightarrow> 'a list" whe
   "intercalate _ [x] = x" |
   "intercalate sep (x # xs) = x @ sep @ intercalate sep xs"
 
-fun format_cpstate :: "cpstate \<Rightarrow> string" where
-  "format_cpstate (stk, rst, flg, clk) =
+fun format_collect_state :: "collect_state \<Rightarrow> string" where
+  "format_collect_state (stk, rst, flg, clk) =
     ''f='' @ show flg"
 
 fun to_list :: "'a set \<Rightarrow> 'a list" where
@@ -102,19 +102,19 @@ fun to_list :: "'a set \<Rightarrow> 'a list" where
 
 lemma[code]: "to_list (set as) = as" sorry
 
-fun format_cpstates :: "cpstate set option \<Rightarrow> string" where
-  "format_cpstates None = ''--''" |
-  "format_cpstates (Some states) =
-    (let stuff = map format_cpstate (fold (#) [] (to_list states)) in
+fun format_collect_states :: "collect_state set option \<Rightarrow> string" where
+  "format_collect_states None = ''--''" |
+  "format_collect_states (Some states) =
+    (let stuff = map format_collect_state (fold (#) [] (to_list states)) in
     intercalate ''; '' stuff)"
 
-ML \<open>@{code format_cpstates}\<close>
+ML \<open>@{code format_collect_states}\<close>
 
 fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> collect_ctx \<Rightarrow> string" where
   "format_collect_line len pc prog ctx =
       (let asm = (show pc) @ '' '' @ (show (the (prog pc)));
            padding = replicate ((asm_width - 1) - length asm + 1) CHR '' '';
-           states = format_cpstates (collect_ctx_lookup ctx pc) in
+           states = format_collect_states (collect_ctx_lookup ctx pc) in
       asm @ padding @ states @ ''\<newline>'')"
 
 instantiation dispcollect :: "show"
@@ -136,7 +136,7 @@ definition "empty_state1 \<equiv> ([], [], True, [])"
 
 definition "collect_result \<equiv>
   let prog = spprog collect_sprog;
-      entry = (\<lambda>pc. if pc = 0 then Some {empty_state, empty_state1} else None) in
+      entry = SM (\<lambda>pc. if pc = 0 then Some {empty_state, empty_state1} else None) in
   collect_loop prog 4 (entry, {0})"
 
 definition "my_string \<equiv> String.implode (show (DisplayCollect collect_sprog collect_result))"
