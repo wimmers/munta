@@ -11,8 +11,8 @@ definition RBT_SM :: "(addr * 'a) rbt \<Rightarrow> 'a state_map" where
 
 code_datatype RBT_SM
 
-lemma entry_RBT_SM[code]:
-  "entry (set states) = propagate (RBT_SM empty) (set states)" sorry
+lemma deepen_RBT_SM[code]:
+  "deepen (set states) = propagate (RBT_SM empty) (set states)" sorry
 
 lemma lookup_RBT_SM[code]:
   "lookup (RBT_SM tree) = Lookup2.lookup tree" sorry

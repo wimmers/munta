@@ -136,9 +136,8 @@ definition "empty_state1 \<equiv> ([], [], True, [])"
 
 definition "(collect_result::collect_state set state_map option) \<equiv>
   let prog = spprog collect_sprog;
-      entry = entry {(0::addr, empty_state), (0, empty_state1)} in
+      entry = deepen {(0::addr, empty_state), (0, empty_state1)} in
   collect_loop prog 4 entry"
-
 
 definition "my_string \<equiv> String.implode (show (DisplayCollect collect_sprog collect_result))"
 ML \<open>val _ = writeln (@{code my_string})\<close>
