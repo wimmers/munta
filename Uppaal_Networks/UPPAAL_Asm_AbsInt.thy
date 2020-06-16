@@ -8,6 +8,8 @@ begin
 subsection "State Map"
 
 datatype 'a state_map = SM "addr \<rightharpoonup> 'a"
+fun entry :: "(addr * 'a) set \<Rightarrow> 'a set state_map" where
+  "entry states = SM (\<lambda>pc. if (\<exists>st. (pc, st) \<in> states) then Some {st. (pc, st) \<in> states} else None)"
 fun lookup :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a option" where "lookup (SM m) = m"
 fun domain :: "'a state_map \<Rightarrow> addr set" where "domain (SM m) = dom m"
 
@@ -70,6 +72,7 @@ begin
   qed
 end
 
+(*
 notation
   Sup ("\<Squnion>") and
   Inf ("\<Sqinter>") and
@@ -82,54 +85,47 @@ definition "\<Sqinter>A = {x. \<Sqinter>((\<lambda>B. x \<in> B) ` A)}"
 definition "\<Squnion>A = {x. \<Squnion>((\<lambda>B. x \<in> B) ` A)}"
 instance
   by standard (auto simp add: less_eq_set_def Inf_set_def Sup_set_def le_fun_def)
-qed
+qed*)
 
 
 subsection "Collecting Semantics"
 
 type_synonym collect_state = "stack * rstate * flag * nat list"
-type_synonym collect_ctx = "(collect_state set state_map) * (addr set)"
-
-fun collect_ctx_dom :: "collect_ctx \<Rightarrow> addr set" where "collect_ctx_dom (_, d) = d"
-fun collect_ctx_lookup :: "collect_ctx \<Rightarrow> addr \<Rightarrow> collect_state set option" where "collect_ctx_lookup (SM m, _) k = m k"
+type_synonym collect_ctx = "collect_state set state_map"
 
 fun def :: "'a \<Rightarrow> 'a option \<Rightarrow> 'a" where
   "def _ (Some v) = v" |
   "def d _ = d"
 
-fun states_domain :: "state set \<Rightarrow> addr set" where
+fun states_domain :: "(addr * 'a) set \<Rightarrow> addr set" where
   "states_domain states = fst ` states"
 
-fun states_at :: "state set \<Rightarrow> addr \<Rightarrow> collect_state set" where
+fun states_at :: "(addr * 'a) set \<Rightarrow> addr \<Rightarrow> 'a set" where
   "states_at states pc = snd ` {s\<in>states. fst s = pc}"
 
-fun propagate :: "collect_ctx \<Rightarrow> state set \<Rightarrow> collect_ctx" where
-  "propagate (SM oldmap, olddom) ss =
-    (let newdom = olddom \<union> states_domain ss;
-         newmap = (\<lambda>pc.
+fun propagate :: "'a set state_map \<Rightarrow> (addr * 'a) set \<Rightarrow> 'a set state_map" where
+  "propagate (SM oldmap) ss =
+    (let newmap = (\<lambda>pc.
             let news = states_at ss pc in
             case (oldmap pc, news) of
               (Some oldss, newss) \<Rightarrow> Some (oldss \<union> news) |
               (None, newss) \<Rightarrow> if newss = {} then None else Some newss)
-    in (SM newmap, newdom))"
+    in (SM newmap))"
 
 fun step_all :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> state set" where
   "step_all op pc instates =
     {outs. \<exists>ins\<in>instates. Some outs = step op (pc, ins)}" (* TODO: How to handle failure? (None) *)
-
-lemma[code]: "step_all op pc (set instates) =
-  Option.these (set (map (\<lambda>ins. step op (pc, ins)) instates))" using in_these_eq by fastforce
 
 fun collect_step :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx option" where
   "collect_step prog ctx =
     fold (\<lambda>pc ost.
       case (ost, prog pc) of
         (Some ctx, Some op) \<Rightarrow>
-          let ins = def {} (collect_ctx_lookup ctx pc);
+          let ins = def {} (lookup ctx pc);
               res = step_all op pc ins in
           Some (propagate ctx res)
         | _ \<Rightarrow> None
-    ) (sorted_list_of_set (collect_ctx_dom ctx)) (Some ctx)"
+    ) (sorted_list_of_set (domain ctx)) (Some ctx)"
 
 fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx option" where
   "collect_loop prog 0 st = Some st" |

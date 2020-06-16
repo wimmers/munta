@@ -1,5 +1,5 @@
 theory UPPAAL_Asm_Test
-  imports UPPAAL_Asm_AbsInt "HOL-IMP.AExp" "HOL.String"
+  imports UPPAAL_Asm_AbsInt_Refine "HOL-IMP.AExp" "HOL.String"
 begin
 
 definition myprog :: "instr list" where "myprog \<equiv> [
@@ -114,7 +114,7 @@ fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Right
   "format_collect_line len pc prog ctx =
       (let asm = (show pc) @ '' '' @ (show (the (prog pc)));
            padding = replicate ((asm_width - 1) - length asm + 1) CHR '' '';
-           states = format_collect_states (collect_ctx_lookup ctx pc) in
+           states = format_collect_states (lookup ctx pc) in
       asm @ padding @ states @ ''\<newline>'')"
 
 instantiation dispcollect :: "show"
@@ -134,10 +134,11 @@ fun spprog :: "spaced_program \<Rightarrow> program" where
 definition "empty_state \<equiv> ([], [], False, [])"
 definition "empty_state1 \<equiv> ([], [], True, [])"
 
-definition "collect_result \<equiv>
+definition "(collect_result::collect_state set state_map option) \<equiv>
   let prog = spprog collect_sprog;
-      entry = SM (\<lambda>pc. if pc = 0 then Some {empty_state, empty_state1} else None) in
-  collect_loop prog 4 (entry, {0})"
+      entry = entry {(0::addr, empty_state), (0, empty_state1)} in
+  collect_loop prog 4 entry"
+
 
 definition "my_string \<equiv> String.implode (show (DisplayCollect collect_sprog collect_result))"
 ML \<open>val _ = writeln (@{code my_string})\<close>
