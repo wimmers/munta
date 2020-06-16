@@ -2,6 +2,7 @@ theory UPPAAL_Asm_AbsInt
 imports
   UPPAAL_Asm
   "HOL.List"
+  "HOL.Complete_Lattices"
 begin
 
 subsection "State Map"
@@ -25,55 +26,63 @@ lemma "(\<forall>p. lookup m p = lookup n p) \<longleftrightarrow> m = n" using 
 (* From HOL_IMP.Abs_Int0 *)
 instantiation option :: (order)order
 begin
-
-fun less_eq_option where
-"Some x \<le> Some y = (x \<le> y)" |
-"None \<le> y = True" |
-"Some _ \<le> None = False"
-
-definition less_option where "x < (y::'a option) = (x \<le> y \<and> \<not> y \<le> x)"
-
-lemma le_None[simp]: "(x \<le> None) = (x = None)"
-by (cases x) simp_all
-
-lemma Some_le[simp]: "(Some x \<le> u) = (\<exists>y. u = Some y \<and> x \<le> y)"
-by (cases u) auto
-
-instance
-proof (standard, goal_cases)
-  case 1 show ?case by(rule less_option_def)
-next
-  case (2 x) show ?case by(cases x, simp_all)
-next
-  case (3 x y z) thus ?case by(cases z, simp, cases y, simp, cases x, auto)
-next
-  case (4 x y) thus ?case by(cases y, simp, cases x, auto)
-qed
-
+  fun less_eq_option where
+    "Some x \<le> Some y = (x \<le> y)" |
+    "None \<le> y = True" |
+    "Some _ \<le> None = False"
+  
+  definition less_option where "x < (y::'a option) = (x \<le> y \<and> \<not> y \<le> x)"
+  
+  lemma le_None[simp]: "(x \<le> None) = (x = None)"
+  by (cases x) simp_all
+  
+  lemma Some_le[simp]: "(Some x \<le> u) = (\<exists>y. u = Some y \<and> x \<le> y)"
+  by (cases u) auto
+  
+  instance proof (standard, goal_cases)
+    case 1 show ?case by(rule less_option_def)
+  next
+    case (2 x) show ?case by(cases x, simp_all)
+  next
+    case (3 x y z) thus ?case by(cases z, simp, cases y, simp, cases x, auto)
+  next
+    case (4 x y) thus ?case by(cases y, simp, cases x, auto)
+  qed
 end
 (* -- *)
 
 instantiation state_map :: (order) order
 begin
-
-definition less_eq_state_map :: "('a::order)state_map \<Rightarrow> 'a state_map \<Rightarrow> bool" where
-"C1 \<le> C2 \<longleftrightarrow> (\<forall>p. lookup C1 p \<le> lookup C2 p)"
-
-definition less_state_map :: "'a state_map \<Rightarrow> 'a state_map \<Rightarrow> bool" where
-"less_state_map x y = (x \<le> y \<and> \<not> y \<le> x)"
-
-instance
-proof (standard, goal_cases)
-  case 1 show ?case by(simp add: less_state_map_def)
-next
-  case 2 thus ?case by(auto simp: less_eq_state_map_def)
-next
-  case 3 thus ?case using less_eq_state_map_def order_trans by fastforce
-next
-  case 4 thus ?case by (simp add: less_eq_state_map_def dual_order.antisym state_map_eq_fwd)
-qed
-
+  definition less_eq_state_map :: "('a::order)state_map \<Rightarrow> 'a state_map \<Rightarrow> bool" where
+  "C1 \<le> C2 \<longleftrightarrow> (\<forall>p. lookup C1 p \<le> lookup C2 p)"
+  
+  definition less_state_map :: "'a state_map \<Rightarrow> 'a state_map \<Rightarrow> bool" where
+  "less_state_map x y = (x \<le> y \<and> \<not> y \<le> x)"
+  
+  instance proof (standard, goal_cases)
+    case 1 show ?case by(simp add: less_state_map_def)
+  next
+    case 2 thus ?case by(auto simp: less_eq_state_map_def)
+  next
+    case 3 thus ?case using less_eq_state_map_def order_trans by fastforce
+  next
+    case 4 thus ?case by (simp add: less_eq_state_map_def dual_order.antisym state_map_eq_fwd)
+  qed
 end
+
+notation
+  Sup ("\<Squnion>") and
+  Inf ("\<Sqinter>") and
+  bot ("\<bottom>") and
+  top ("\<top>")
+
+instantiation state_map :: (complete_lattice) complete_lattice
+begin
+definition "\<Sqinter>A = {x. \<Sqinter>((\<lambda>B. x \<in> B) ` A)}"
+definition "\<Squnion>A = {x. \<Squnion>((\<lambda>B. x \<in> B) ` A)}"
+instance
+  by standard (auto simp add: less_eq_set_def Inf_set_def Sup_set_def le_fun_def)
+qed
 
 
 subsection "Collecting Semantics"
