@@ -1,3 +1,4 @@
+section \<open>Simulations on Timed Automata\<close>
 theory TA_Simulation
   imports
     TA.Timed_Automata
@@ -9,6 +10,8 @@ theory TA_Simulation
 begin
 
 no_notation dbm_le ("_ \<preceq> _" [51, 51] 50)
+
+subsection \<open>Preliminaries\<close>
 
 lemma
   step_z_state_setI1: "l \<in> state_set A" and
@@ -31,6 +34,8 @@ lemma step_a_step_trans_iff:
 lemma step_trans'_step_trans_iff:
   "(\<exists>t. A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow>\<^bsup>t\<^esup> \<langle>l', u'\<rangle>) \<longleftrightarrow> A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
   unfolding step_trans'.simps step'.simps step_a_step_trans_iff by fast
+
+subsection \<open>Time-Abstract Simulation\<close>
 
 locale Time_Abstract_Simulation =
   fixes A :: "('a, 'c, 't :: time, 'l) ta"
@@ -286,6 +291,8 @@ sublocale region_self_simulation: Self_Simulation where
 end
 
 
+subsection \<open>LU-Simulation\<close>
+
 definition
   "constraints_of A l = \<Union> (set ` insert (inv_of A l) {g. \<exists>a r l'. (l, g, a, r, l') \<in> trans_of A})"
 
@@ -314,7 +321,7 @@ lemma is_locally_consistentD:
   shows "\<forall>x \<in> clk_set A - set r. k l x \<ge> k l\<^sub>1 x"
   using assms unfolding is_locally_consistent_def by fast
 
-context
+locale TA_LU =
   fixes A :: "('a, 'c, 't :: time, 'l) ta"
   fixes L :: "'l \<Rightarrow> 'c \<Rightarrow> 't" and U :: "'l \<Rightarrow> 'c \<Rightarrow> 't"
   assumes is_lower: "is_lower A L" and is_upper: "is_upper A U"
@@ -437,7 +444,7 @@ lemma step_trans_simulation:
   apply auto
   done
 
-interpretation Time_Abstract_Simulation A sim
+sublocale Time_Abstract_Simulation A sim
   apply standard
   subgoal
     unfolding step_trans'.simps using step_t_simulation step_trans_simulation
@@ -456,7 +463,7 @@ end
 
 
 
-
+subsection \<open>Simulation on Reachability Invariants\<close>
 
 locale Invariant_Simulation =
   fixes L :: "'l set" and M :: "'l \<Rightarrow> 's set"
@@ -572,6 +579,8 @@ end
 end
 
 
+
+subsection \<open>Abstraction-Simulation on Reachability Invariants\<close>
 
 locale Abstraction_Simulation =
   fixes L :: "'l set" and M :: "'l \<Rightarrow> 's set"
@@ -727,6 +736,7 @@ end
 end
 
 
+subsection \<open>Instantiation for Abstractions based on Time-Abstraction Simulations\<close>
 context Time_Abstract_Simulation
 begin
 
@@ -773,6 +783,8 @@ end
 
 end
 
+
+subsection \<open>``Sandwiches'' of Abstraction-Simulations\<close>
 
 locale Time_Abstract_Simulation_Sandwich =
   Regions_TA where A = A +
@@ -985,6 +997,7 @@ qed
 end
 
 
+subsection \<open>Invariants on DBM-based Model Checking\<close>
 
 context Regions
 begin
@@ -1410,6 +1423,8 @@ qed
 
 end
 
+
+subsection \<open>Instantiating the ``Sandwich'' for Extrapolations on DBMs\<close>
 
 locale TA_Extrapolation =
   Regions_TA where A = A +
