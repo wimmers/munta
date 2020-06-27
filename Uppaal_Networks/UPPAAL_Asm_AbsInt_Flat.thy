@@ -145,23 +145,23 @@ proof (standard)
   qed
 qed
 
-definition collect_all_flat :: "program \<Rightarrow> state set \<Rightarrow> state set" where
-  "collect_all_flat prog instates = instates \<union> step_all_flat prog instates"
+definition collect_step_flat :: "program \<Rightarrow> state set \<Rightarrow> state set" where
+  "collect_step_flat prog instates = instates \<union> step_all_flat prog instates"
 
-inductive_set collect_all_flat_induct for prog instates where
-  keep: "st \<in> instates \<Longrightarrow> st \<in> collect_all_flat_induct prog instates" |
-  step: "st \<in> step_all_flat_induct prog instates \<Longrightarrow> st \<in> collect_all_flat_induct prog instates"
+inductive_set collect_step_flat_induct for prog instates where
+  keep: "st \<in> instates \<Longrightarrow> st \<in> collect_step_flat_induct prog instates" |
+  step: "st \<in> step_all_flat_induct prog instates \<Longrightarrow> st \<in> collect_step_flat_induct prog instates"
 
-lemma collect_all_flat_eq: "collect_all_flat prog instates = collect_all_flat_induct prog instates"
+lemma collect_step_flat_eq: "collect_step_flat prog instates = collect_step_flat_induct prog instates"
 proof(standard)
-  show "collect_all_flat prog instates \<subseteq> collect_all_flat_induct prog instates"
-    using collect_all_flat_def collect_all_flat_induct.intros(1) collect_all_flat_induct.intros(2) step_all_flat_def step_all_flat_induct.intros by auto
-  show "collect_all_flat_induct prog instates \<subseteq> collect_all_flat prog instates"
-    using collect_all_flat_def collect_all_flat_induct.simps step_all_flat_def step_all_flat_induct.simps by fastforce
+  show "collect_step_flat prog instates \<subseteq> collect_step_flat_induct prog instates"
+    using collect_step_flat_def collect_step_flat_induct.intros(1) collect_step_flat_induct.intros(2) step_all_flat_def step_all_flat_induct.intros by auto
+  show "collect_step_flat_induct prog instates \<subseteq> collect_step_flat prog instates"
+    using collect_step_flat_def collect_step_flat_induct.simps step_all_flat_def step_all_flat_induct.simps by fastforce
 qed
 
-lemma collect_all_flat_steps_exact:
-  assumes "outs \<in> collect_all_flat_induct prog instates"
+lemma collect_step_flat_steps_exact:
+  assumes "outs \<in> collect_step_flat_induct prog instates"
   shows "\<exists>ins\<in>instates. steps_upto prog 1 ins outs"
 using assms proof(cases)
   case keep
@@ -179,12 +179,12 @@ next
   qed
 qed
 
-lemma step_in_collect_flat: "step_all_flat prog sts \<subseteq> collect_all_flat prog sts"
-  by (simp add: collect_all_flat_def)
+lemma step_in_collect_flat: "step_all_flat prog sts \<subseteq> collect_step_flat prog sts"
+  by (simp add: collect_step_flat_def)
 
 fun collect_flat_loop :: "program \<Rightarrow> fuel \<Rightarrow> state set \<Rightarrow> state set" where
   "collect_flat_loop _ 0 instates = instates" |
-  "collect_flat_loop prog (Suc n) instates = collect_flat_loop prog n (collect_all_flat prog instates)"
+  "collect_flat_loop prog (Suc n) instates = collect_flat_loop prog n (collect_step_flat prog instates)"
 
 lemma collect_flat_loop_correct:
   "collect_flat_loop prog n instates = {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
@@ -200,9 +200,9 @@ proof standard
       from this nostep show ?case by blast
     next
       case (Suc fuel)
-      hence "\<exists>ins'\<in>(collect_all_flat prog instates). steps_upto prog fuel ins' x" by simp
-      from this obtain "ins'" where ins': "ins' \<in> collect_all_flat prog instates" "steps_upto prog fuel ins' x" by blast
-      from this(1) have "\<exists>ins\<in>instates. steps_upto prog 1 ins ins'" using collect_all_flat_steps_exact collect_all_flat_eq by auto
+      hence "\<exists>ins'\<in>(collect_step_flat prog instates). steps_upto prog fuel ins' x" by simp
+      from this obtain "ins'" where ins': "ins' \<in> collect_step_flat prog instates" "steps_upto prog fuel ins' x" by blast
+      from this(1) have "\<exists>ins\<in>instates. steps_upto prog 1 ins ins'" using collect_step_flat_steps_exact collect_step_flat_eq by auto
       from this ins' show ?case using steps_upto_suc_bwd by blast
     qed
     thus "x \<in> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}" by blast
@@ -226,7 +226,7 @@ proof standard
         then show ?thesis
         proof(cases "count = 0")
           case True
-          then show ?thesis by (metis "1"(2) Suc.prems(1) continue collect_all_flat_eq collect_all_flat_induct.keep collect_flat_loop.simps(2) steps_exact_zero)
+          then show ?thesis by (metis "1"(2) Suc.prems(1) continue collect_step_flat_eq collect_step_flat_induct.keep collect_flat_loop.simps(2) steps_exact_zero)
         next
           case False
           from this 1 have "count = 1" by simp
@@ -236,7 +236,7 @@ proof standard
             case 1 then show ?thesis by simp
           next
             case (2 cmd pc st s n)
-            then show ?thesis using Suc.prems(1) collect_all_flat_eq collect_all_flat_induct.intros(2) continue step_all_flat_induct.intros steps_exact_zero by auto
+            then show ?thesis using Suc.prems(1) collect_step_flat_eq collect_step_flat_induct.intros(2) continue step_all_flat_induct.intros steps_exact_zero by auto
           qed
         qed
       qed

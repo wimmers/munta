@@ -164,13 +164,13 @@ fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Righ
 
 lemma collect_step_sound:
   assumes "collect_step prog inctx = outctx"
-  shows "collect_all_flat prog (flatten inctx) = flatten outctx"
+  shows "collect_step_flat prog (flatten inctx) = flatten outctx"
 proof standard
-  show "collect_all_flat prog (flatten inctx) \<subseteq> (flatten outctx::state set)"
+  show "collect_step_flat prog (flatten inctx) \<subseteq> (flatten outctx::state set)"
   proof standard
     fix x::state obtain inpc inst where x_def: "x = (inpc, inst)" by (metis surj_pair)
-    assume "x \<in> collect_all_flat prog (flatten inctx)"
-    hence "x \<in> step_all_flat prog (flatten inctx) \<or> x \<in> flatten inctx" using collect_all_flat_def by auto
+    assume "x \<in> collect_step_flat prog (flatten inctx)"
+    hence "x \<in> step_all_flat prog (flatten inctx) \<or> x \<in> flatten inctx" using collect_step_flat_def by auto
     thus "x \<in> flatten outctx"
     proof safe
       assume "x \<in> step_all_flat prog (flatten inctx)"
@@ -181,10 +181,10 @@ proof standard
     qed
   qed
 
-  show "flatten outctx \<subseteq> collect_all_flat prog (flatten inctx)"
+  show "flatten outctx \<subseteq> collect_step_flat prog (flatten inctx)"
   proof standard
     fix x 
-    show "x \<in> flatten outctx \<Longrightarrow> x \<in> collect_all_flat prog (flatten inctx)" sorry
+    show "x \<in> flatten outctx \<Longrightarrow> x \<in> collect_step_flat prog (flatten inctx)" sorry
   qed
 qed
 
