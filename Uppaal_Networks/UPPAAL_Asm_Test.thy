@@ -84,7 +84,7 @@ instance proof qed
 end
 
 definition "asm_width \<equiv> 20"
-datatype dispcollect = DisplayCollect spaced_program "collect_ctx option"
+datatype dispcollect = DisplayCollect spaced_program collect_ctx
 
 definition "emoji \<equiv> map char_of ([240,159,164,183] :: nat list)"
 
@@ -102,9 +102,8 @@ fun to_list :: "'a set \<Rightarrow> 'a list" where
 
 lemma[code]: "to_list (set as) = as" sorry
 
-fun format_collect_states :: "collect_state set option \<Rightarrow> string" where
-  "format_collect_states None = ''--''" |
-  "format_collect_states (Some states) =
+fun format_collect_states :: "collect_state set \<Rightarrow> string" where
+  "format_collect_states states =
     (let stuff = map format_collect_state (fold (#) [] (to_list states)) in
     intercalate ''; '' stuff)"
 
@@ -120,8 +119,7 @@ fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Right
 instantiation dispcollect :: "show"
 begin
 fun show_dispcollect :: "dispcollect \<Rightarrow> string" where
-  "show_dispcollect (DisplayCollect _ None) = ''fail''" |
-  "show_dispcollect (DisplayCollect (SpacedProgram space prog) (Some st)) =
+  "show_dispcollect (DisplayCollect (SpacedProgram space prog) st) =
     concat (map (\<lambda>pc. format_collect_line asm_width pc prog st) (sorted_list_of_set space))"
 instance proof qed
 end
@@ -134,7 +132,7 @@ fun spprog :: "spaced_program \<Rightarrow> program" where
 definition "empty_state \<equiv> ([], [], False, [])"
 definition "empty_state1 \<equiv> ([], [], True, [])"
 
-definition "(collect_result::collect_state set state_map option) \<equiv>
+definition "(collect_result::collect_state set state_map) \<equiv>
   let prog = spprog collect_sprog;
       entry = deepen {(0::addr, empty_state), (0, empty_state1)} in
   collect_loop prog 4 entry"
