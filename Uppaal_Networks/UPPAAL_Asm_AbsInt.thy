@@ -1,6 +1,6 @@
 theory UPPAAL_Asm_AbsInt
 imports
-  UPPAAL_Asm
+  UPPAAL_Asm_AbsInt_Flat
   "HOL.List"
   "HOL.Complete_Lattices"
 begin
@@ -8,17 +8,6 @@ begin
 subsection "Errors"
 
 datatype interpret_error = InvalAddr addr | StepFailed addr
-
-subsection "Flat Collecting"
-
-definition step_all_flat :: "program \<Rightarrow> state set \<Rightarrow> state set" where
-  "step_all_flat prog instates = {outst. \<exists>(pc, st)\<in>instates.\<exists>instr. prog pc = Some instr \<and> step instr (pc, st) = Some outst}"
-
-definition collect_all_flat :: "program \<Rightarrow> state set \<Rightarrow> state set" where
-  "collect_all_flat prog instates = instates \<union> step_all_flat prog instates"
-
-lemma step_in_collect_flat: "step_all_flat prog sts \<subseteq> collect_all_flat prog sts"
-  by (simp add: collect_all_flat_def)
 
 subsection "State Map"
 
