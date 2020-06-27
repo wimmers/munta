@@ -27,8 +27,10 @@ datatype 'a state_map = SM "addr \<rightharpoonup> 'a"
 fun lookup :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a option" where
   "lookup (SM m) = m"
 
+notation bot ("\<bottom>")
+
 fun lookup_def :: "('a::bot) state_map \<Rightarrow> addr \<Rightarrow> 'a" where
-  "lookup_def sm k = def bot (lookup sm k)"
+  "lookup_def sm k = def \<bottom> (lookup sm k)"
 
 fun domain :: "'a state_map \<Rightarrow> addr set" where
   "domain (SM m) = dom m"
