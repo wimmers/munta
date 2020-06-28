@@ -126,6 +126,44 @@ next
   then show ?case using steps_upto_suc_bwd using add_Suc by presburger
 qed
 
+subsection "Errors"
+
+datatype interpret_error = InvalAddr addr | StepFailed addr
+
+fun error_step :: "program \<Rightarrow> state \<Rightarrow> interpret_error option" where
+  "error_step prog (pc, ins) =
+    (case prog pc of
+      None \<Rightarrow> Some (InvalAddr pc) |
+      Some instr \<Rightarrow>
+        (case step instr (pc, ins) of
+          Some outs \<Rightarrow> None |
+          None \<Rightarrow> Some (StepFailed pc)))"
+
+text\<open>Error that happens after stepping up to n times\<close>
+fun error_steps :: "program \<Rightarrow> fuel \<Rightarrow> state \<Rightarrow> interpret_error option" where
+  "error_steps _ 0 _ = None" |
+  "error_steps prog (Suc n) (pc, ins) =
+    (case prog pc of
+      None \<Rightarrow> Some (InvalAddr pc) |
+      Some instr \<Rightarrow>
+        (case step instr (pc, ins) of
+          Some outs \<Rightarrow> error_steps prog n outs |
+          None \<Rightarrow> Some (StepFailed pc)))"
+
+lemma[code]: "error_steps prog 1 inst = error_step prog inst"
+proof -
+  obtain pc ins where splitinst: "(pc, ins) = inst" by (metis surj_pair)
+  hence "error_steps prog 1 (pc, ins) =
+    (case prog pc of
+      None \<Rightarrow> Some (InvalAddr pc) |
+      Some instr \<Rightarrow>
+        (case step instr (pc, ins) of
+          Some outs \<Rightarrow> None |
+          None \<Rightarrow> Some (StepFailed pc)))"
+    by (metis (mono_tags, lifting) One_nat_def error_steps.simps(1) error_steps.simps(2) option.case_eq_if)
+  thus ?thesis using splitinst by auto
+qed
+
 subsection "Flat Collecting"
 
 inductive_set step_all_flat for prog instates where
@@ -245,5 +283,14 @@ proof standard
     qed
   qed
 qed
+
+inductive_set errors_all_flat for prog instates where
+  "st \<in> instates
+    \<Longrightarrow> error_step prog st = Some err
+    \<Longrightarrow> err \<in> errors_all_flat prog instates"
+
+fun errors_loop_flat :: "program \<Rightarrow> fuel \<Rightarrow> state set \<Rightarrow> interpret_error set" where
+  "errors_loop_flat _ 0 _ = {}" |
+  "errors_loop_flat prog (Suc n) instates = errors_all_flat prog instates \<union> errors_loop_flat prog n (collect_step_flat prog instates)"
 
 end

@@ -35,10 +35,6 @@ translations
   "\<Squnion>x\<in>A. f"   \<rightleftharpoons> "CONST Sup ((\<lambda>x. f) `  A)"
 (*---------*)
 
-subsection "Errors"
-
-datatype interpret_error = InvalAddr addr | StepFailed addr
-
 subsection "State Map"
 
 datatype 'a state_map = SM "addr \<Rightarrow> 'a"
@@ -289,10 +285,6 @@ proof standard
   qed
 qed
 
-definition error_all :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> interpret_error set" where
-  "error_all op pc instates =
-     (if (\<exists>ins\<in>instates. step op (pc, ins) = None) then {StepFailed pc} else {})"
-
 fun collect_step :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
   "collect_step prog ctx = ctx \<squnion> step_all prog ctx"
 
@@ -327,5 +319,73 @@ qed
 theorem collect_loop_correct:
   "flatten (collect_loop prog n (deepen entries)) = {st. \<exists>entry\<in>entries. steps_upto prog n entry st}"
   using collect_loop_as_flat collect_loop_flat_correct by blast
+
+inductive_set errors_all for prog ctx where
+  "st \<in> lookup ctx pc
+    \<Longrightarrow> prog pc = None
+    \<Longrightarrow> InvalAddr pc \<in> errors_all prog ctx" |
+  "st \<in> lookup ctx pc
+    \<Longrightarrow> prog pc = Some op
+    \<Longrightarrow> step op (pc, st) = None
+    \<Longrightarrow> StepFailed pc \<in> errors_all prog ctx"
+
+lemma errors_all_as_flat: "errors_all prog (deepen flat) = errors_all_flat prog flat"
+proof standard
+  show "errors_all prog (deepen flat) \<subseteq> errors_all_flat prog flat"
+  proof standard
+    fix x assume "x \<in> errors_all prog (deepen flat)"
+    thus "x \<in> errors_all_flat prog flat"
+    proof cases
+      case (1 st pc)
+      from 1(2) have "(pc, st) \<in> flat" using deepen_bwd by simp
+      from this 1(3) show ?thesis using errors_all_flat.intros using "1"(1) by auto
+    next
+      case (2 st pc op)
+      then show ?thesis
+        by (metis (no_types, lifting) deepen_bwd error_step.simps errors_all_flat.simps option.case_eq_if option.discI option.sel)
+    qed
+  qed
+  show "errors_all_flat prog flat \<subseteq> errors_all prog (deepen flat)"
+  proof standard
+    fix x assume "x \<in> errors_all_flat prog flat"
+    thus "x \<in> errors_all prog (deepen flat)"
+    proof cases
+      case (1 pcst)
+      from this obtain "pc" "st" where splitst: "(pc, st) = pcst" by (metis surj_pair) 
+      then show ?thesis
+      proof (cases "prog pc")
+        case None
+        then show ?thesis using splitst
+          by (metis (no_types, lifting) "1"(1) "1"(2) deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject)
+      next
+        case (Some instr)
+        then show ?thesis
+        proof (cases "step instr (pc, st)")
+          case None
+          then show ?thesis
+            by (metis (mono_tags, lifting) "1"(1) "1"(2) Some deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject option.simps(5) splitst)
+        next
+          case (Some outst)
+          then show ?thesis
+            (* TODO: make this prettier *)
+            by (smt "1"(1) "1"(2) \<open>\<And>thesis. (\<And>pc st. (pc, st) = pcst \<Longrightarrow> thesis) \<Longrightarrow> thesis\<close> deepen_fwd error_step.simps errors_all.simps is_none_code(2) option.case_eq_if option.discI option.sel option.split_sel_asm)
+        qed
+      qed
+    qed
+  qed
+qed
+
+fun errors_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Rightarrow> interpret_error set" where
+  "errors_loop _ 0 _ = {}" |
+  "errors_loop prog (Suc n) ctx = errors_all prog ctx \<squnion> errors_loop prog n (collect_step prog ctx)"
+
+lemma errors_loop_as_flat:
+  "errors_loop prog n (deepen flat) = errors_loop_flat prog n flat"
+proof (induction n arbitrary: flat)
+  case 0 then show ?case by simp
+next
+  case (Suc n)
+  then show ?case by (metis collect_step_correct deepen_flatten errors_all_as_flat errors_loop.simps(2) errors_loop_flat.simps(2))
+qed
 
 end
