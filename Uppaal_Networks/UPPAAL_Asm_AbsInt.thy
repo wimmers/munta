@@ -5,6 +5,36 @@ imports
   "HOL.Complete_Lattices"
 begin
 
+(*---------*)
+(* Notation *)
+notation bot ("\<bottom>")
+notation top ("\<top>")
+notation inf (infixl "\<sqinter>" 70)
+notation sup (infixl "\<squnion>" 65)
+notation Inf ("\<Sqinter>")
+notation Sup ("\<Squnion>")
+
+syntax
+  "_INF1"     :: "pttrns \<Rightarrow> 'b \<Rightarrow> 'b"           ("(3INF _./ _)" [0, 10] 10)
+  "_INF"      :: "pttrn \<Rightarrow> 'a set \<Rightarrow> 'b \<Rightarrow> 'b"  ("(3INF _\<in>_./ _)" [0, 0, 10] 10)
+  "_SUP1"     :: "pttrns \<Rightarrow> 'b \<Rightarrow> 'b"           ("(3SUP _./ _)" [0, 10] 10)
+  "_SUP"      :: "pttrn \<Rightarrow> 'a set \<Rightarrow> 'b \<Rightarrow> 'b"  ("(3SUP _\<in>_./ _)" [0, 0, 10] 10)
+
+syntax
+  "_INF1"     :: "pttrns \<Rightarrow> 'b \<Rightarrow> 'b"           ("(3\<Sqinter>_./ _)" [0, 10] 10)
+  "_INF"      :: "pttrn \<Rightarrow> 'a set \<Rightarrow> 'b \<Rightarrow> 'b"  ("(3\<Sqinter>_\<in>_./ _)" [0, 0, 10] 10)
+  "_SUP1"     :: "pttrns \<Rightarrow> 'b \<Rightarrow> 'b"           ("(3\<Squnion>_./ _)" [0, 10] 10)
+  "_SUP"      :: "pttrn \<Rightarrow> 'a set \<Rightarrow> 'b \<Rightarrow> 'b"  ("(3\<Squnion>_\<in>_./ _)" [0, 0, 10] 10)
+
+translations
+  "\<Sqinter>x y. f"   \<rightleftharpoons> "\<Sqinter>x. \<Sqinter>y. f"
+  "\<Sqinter>x. f"     \<rightleftharpoons> "\<Sqinter>(CONST range (\<lambda>x. f))"
+  "\<Sqinter>x\<in>A. f"   \<rightleftharpoons> "CONST Inf ((\<lambda>x. f) ` A)"
+  "\<Squnion>x y. f"   \<rightleftharpoons> "\<Squnion>x. \<Squnion>y. f"
+  "\<Squnion>x. f"     \<rightleftharpoons> "\<Squnion>(CONST range (\<lambda>x. f))"
+  "\<Squnion>x\<in>A. f"   \<rightleftharpoons> "CONST Sup ((\<lambda>x. f) `  A)"
+(*---------*)
+
 subsection "Errors"
 
 datatype interpret_error = InvalAddr addr | StepFailed addr
@@ -30,8 +60,6 @@ proof -
   from this ass maps show ?thesis by auto
 qed
 
-notation bot ("\<bottom>")
-notation top ("\<top>")
 
 fun domain :: "('b::bot) state_map \<Rightarrow> addr set" where
   "domain (SM m) = {a. m a \<noteq> \<bottom>}"
@@ -100,20 +128,61 @@ lemma top_lookup [simp]:
 instance proof standard qed (simp add: less_eq_state_map_def)
 end
 
+instantiation state_map :: (semilattice_sup) semilattice_sup
+begin
+definition "a \<squnion> b = SM (\<lambda>k. lookup a k \<squnion> lookup b k)"
+lemma sup_lookup [simp]: "lookup (a \<squnion> b) x = lookup a x \<squnion> lookup b x"
+  by (simp add: sup_state_map_def)
+instance by standard (simp_all add: less_eq_state_map_def)
+end
 
+instantiation state_map :: (semilattice_inf) semilattice_inf
+begin
+definition "a \<sqinter> b = SM (\<lambda>x. lookup a x \<sqinter> lookup b x)"
+lemma inf_apply [simp, code]: "lookup (a \<sqinter> b) x = lookup a x \<sqinter> lookup b x"
+  by (simp add: inf_state_map_def)
+instance by standard (simp_all add: less_eq_state_map_def)
+end
 
-(*
+instance state_map :: (lattice) lattice ..
+
+instantiation state_map :: (Sup) Sup
+begin
+definition "\<Squnion>A = SM (\<lambda>x. \<Squnion>a\<in>A. lookup a x)"
+lemma Sup_lookup [simp, code]: "lookup (\<Squnion>A) x = (\<Squnion>m\<in>A. lookup m x)"
+  by (simp add: Sup_state_map_def)
+instance ..
+end
+
+instantiation state_map :: (Inf) Inf
+begin
+definition "\<Sqinter>A = SM (\<lambda>x. \<Sqinter>a\<in>A. lookup a x)"
+lemma Inf_lookup [simp, code]: "lookup (\<Sqinter>A) x = (\<Sqinter>m\<in>A. lookup m x)"
+  by (simp add: Inf_state_map_def)
+instance ..
+end
+
 instantiation state_map :: (complete_lattice) complete_lattice
 begin
-
-definition "\<Sqinter>sm = \<Sqinter>(unwrap \<acute> sm)"
-
-definition "\<Squnion>sm = \<Sqinter>(unwrap \<acute> sm)"
-
-instance
-  by standard (auto intro: bool_induct)
-
-end*)
+instance proof standard
+  show "(x::'a state_map) \<in> A \<Longrightarrow> \<Sqinter>A \<le> x" for A x
+  proof -
+    fix x A assume ass: "(x::'a state_map) \<in> A"
+    have "lookup (SM (\<lambda>x. \<Sqinter>a\<in>A. lookup a x)) p \<le> lookup x p" for p using ass le_INF_iff by fastforce
+    thus "\<Sqinter>A \<le> x" by (simp add: less_eq_state_map_def)
+  qed
+  show "(\<And>x. x \<in> A \<Longrightarrow> (z::'a state_map) \<le> x) \<Longrightarrow> z \<le> \<Sqinter> A" for A z by (simp add: INF_greatest less_eq_state_map_def)
+  show "(x::'a state_map) \<in> A \<Longrightarrow> x \<le> \<Squnion> A" for A x
+  proof -
+    fix x A assume ass: "(x::'a state_map) \<in> A"
+    have "lookup x p \<le> lookup (SM (\<lambda>x. \<Squnion>a\<in>A. lookup a x)) p" for p using ass SUP_le_iff by fastforce
+    thus "x \<le> \<Squnion>A" by (simp add: less_eq_state_map_def)
+  qed
+  show "(\<And>x. x \<in> A \<Longrightarrow> x \<le> (z::'a state_map)) \<Longrightarrow> \<Squnion> A \<le> z" for A z by (simp add: SUP_le_iff less_eq_state_map_def)
+  show "\<Sqinter> ({}::'a state_map set) = \<top>" by (simp add: state_map_eq_fwd Inf_state_map_def)
+  show "\<Squnion> ({}::'a state_map set) = \<bottom>" by (simp add: state_map_eq_fwd Sup_state_map_def)
+qed
+end
 
 subsection "Collecting Semantics"
 
