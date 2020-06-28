@@ -126,22 +126,22 @@ qed
 
 subsection "Flat Collecting"
 
-definition step_all_flat :: "program \<Rightarrow> state set \<Rightarrow> state set" where
-  "step_all_flat prog instates = {outst. \<exists>(pc, st)\<in>instates.\<exists>instr. prog pc = Some instr \<and> step instr (pc, st) = Some outst}"
-
-inductive_set step_all_flat_induct for prog instates where
+inductive_set step_all_flat for prog instates where
   "(pc, st) \<in> instates
     \<Longrightarrow> prog pc = Some instr
     \<Longrightarrow> step instr (pc, st) = Some outst
-    \<Longrightarrow> outst \<in> step_all_flat_induct (prog::program) instates"
+    \<Longrightarrow> outst \<in> step_all_flat (prog::program) instates"
 
-lemma step_all_flat_eq: "step_all_flat prog instates = step_all_flat_induct prog instates"
+definition step_all_flat_fun :: "program \<Rightarrow> state set \<Rightarrow> state set" where
+  "step_all_flat_fun prog instates = {outst. \<exists>(pc, st)\<in>instates.\<exists>instr. prog pc = Some instr \<and> step instr (pc, st) = Some outst}"
+
+lemma step_all_flat_eq: "step_all_flat_fun prog instates = step_all_flat prog instates"
 proof (standard)
-  show "step_all_flat prog instates \<subseteq> step_all_flat_induct prog instates" using step_all_flat_def step_all_flat_induct.simps by fastforce
-  show "step_all_flat_induct prog instates \<subseteq> step_all_flat prog instates"
+  show "step_all_flat_fun prog instates \<subseteq> step_all_flat prog instates" using step_all_flat_fun_def step_all_flat.simps by fastforce
+  show "step_all_flat prog instates \<subseteq> step_all_flat_fun prog instates"
   proof(standard)
-    fix x assume "x \<in> step_all_flat_induct prog instates"
-    thus "x \<in> step_all_flat prog instates" using step_all_flat_def by cases auto
+    fix x assume "x \<in> step_all_flat prog instates"
+    thus "x \<in> step_all_flat_fun prog instates" using step_all_flat_fun_def by cases auto
   qed
 qed
 
@@ -150,14 +150,14 @@ definition collect_step_flat :: "program \<Rightarrow> state set \<Rightarrow> s
 
 inductive_set collect_step_flat_induct for prog instates where
   keep: "st \<in> instates \<Longrightarrow> st \<in> collect_step_flat_induct prog instates" |
-  step: "st \<in> step_all_flat_induct prog instates \<Longrightarrow> st \<in> collect_step_flat_induct prog instates"
+  step: "st \<in> step_all_flat prog instates \<Longrightarrow> st \<in> collect_step_flat_induct prog instates"
 
 lemma collect_step_flat_eq: "collect_step_flat prog instates = collect_step_flat_induct prog instates"
 proof(standard)
   show "collect_step_flat prog instates \<subseteq> collect_step_flat_induct prog instates"
-    using collect_step_flat_def collect_step_flat_induct.intros(1) collect_step_flat_induct.intros(2) step_all_flat_def step_all_flat_induct.intros by auto
+    using collect_step_flat_def collect_step_flat_induct.intros(1) collect_step_flat_induct.intros(2) step_all_flat_def step_all_flat.intros by auto
   show "collect_step_flat_induct prog instates \<subseteq> collect_step_flat prog instates"
-    using collect_step_flat_def collect_step_flat_induct.simps step_all_flat_def step_all_flat_induct.simps by fastforce
+    using collect_step_flat_def collect_step_flat_induct.simps step_all_flat.simps by fastforce
 qed
 
 lemma collect_step_flat_steps_exact:
@@ -236,7 +236,7 @@ proof standard
             case 1 then show ?thesis by simp
           next
             case (2 cmd pc st s n)
-            then show ?thesis using Suc.prems(1) collect_step_flat_eq collect_step_flat_induct.intros(2) continue step_all_flat_induct.intros steps_exact_zero by auto
+            then show ?thesis using Suc.prems(1) collect_step_flat_eq collect_step_flat_induct.intros(2) continue step_all_flat.intros steps_exact_zero by auto
           qed
         qed
       qed

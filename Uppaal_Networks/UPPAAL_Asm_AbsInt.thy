@@ -232,7 +232,7 @@ proof standard
     then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
     from this ass have "st \<in> lookup (step_all prog (deepen flat)) pc" using flatten_bwd by fastforce
     hence "st \<in> stepped_to prog (deepen flat) pc" by simp
-    have "x \<in> step_all_flat_induct prog flat" sorry
+
     thus "x \<in> step_all_flat prog flat" using step_all_flat_eq by blast
   qed
   show "step_all_flat prog flat \<subseteq> flatten (step_all prog (deepen flat))" sorry
