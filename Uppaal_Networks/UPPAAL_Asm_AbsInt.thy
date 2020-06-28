@@ -64,12 +64,6 @@ qed
 fun domain :: "('b::bot) state_map \<Rightarrow> addr set" where
   "domain (SM m) = {a. m a \<noteq> \<bottom>}"
 
-fun deepen :: "(addr * 'a) set \<Rightarrow> 'a set state_map" where
-  "deepen states = SM (\<lambda>pc. {st. (\<exists>(spc, st) \<in> states. pc = spc)})"
-
-fun flatten :: "'a set state_map \<Rightarrow> (addr * 'a) set" where
-  "flatten sm = {(pc, st). st \<in> lookup sm pc}"
-
 lemma state_map_eq_fwd: "(\<forall>p. lookup m p = lookup n p) \<Longrightarrow> m = n"
 proof -
   assume lookeq: "\<forall>p. lookup m p = lookup n p"
@@ -184,6 +178,24 @@ instance proof standard
 qed
 end
 
+inductive_set states_at for states pc where
+  "(pc, s) \<in> states \<Longrightarrow> s \<in> states_at states pc"
+
+fun deepen :: "(addr * 'a) set \<Rightarrow> 'a set state_map" where
+  "deepen states = SM (states_at states)"
+
+lemma deepen_fwd: "(pc, st) \<in> flat \<Longrightarrow> st \<in> lookup (deepen flat) pc" by (simp add: states_at.intros)
+lemma deepen_bwd: "st \<in> lookup (deepen flat) pc \<Longrightarrow> (pc, st) \<in> flat" by (simp add: states_at.simps)
+
+(*fun flatten :: "'a set state_map \<Rightarrow> (addr * 'a) set" where
+  "flatten sm = {(pc, st). st \<in> lookup sm pc}"*)
+
+inductive_set flatten for sm where
+  "st \<in> lookup sm pc \<Longrightarrow> (pc, st) \<in> flatten sm"
+
+lemma flatten_fwd: "st \<in> lookup deep pc \<Longrightarrow> (pc, st) \<in> flatten deep" by (simp add: flatten.intros)
+lemma flatten_bwd: "(pc, st) \<in> flatten deep \<Longrightarrow> st \<in> lookup deep pc" by (meson flatten.cases) 
+
 subsection "Collecting Semantics"
 
 type_synonym collect_state = "stack * rstate * flag * nat list"
@@ -192,69 +204,46 @@ type_synonym collect_ctx = "collect_state set state_map"
 fun states_domain :: "(addr * 'a) set \<Rightarrow> addr set" where
   "states_domain states = fst ` states"
 
-fun states_at :: "(addr * 'a) set \<Rightarrow> addr \<Rightarrow> 'a set" where
-  "states_at states pc = snd ` {s\<in>states. fst s = pc}"
-
 fun propagate :: "'a set state_map \<Rightarrow> (addr * 'a) set \<Rightarrow> 'a set state_map" where
-  "propagate (SM oldmap) ss =
-    (let newmap = (\<lambda>pc. oldmap pc \<union> (states_at ss pc))
-    in (SM newmap))"
+  "propagate oldmap ss = oldmap \<squnion> deepen ss"
 
-lemma propagate_preserve: "inm \<le> propagate inm sts" sorry
+lemma propagate_preserve: "inm \<le> propagate inm sts" by simp
 
-lemma mono_inside: "a \<le> b \<Longrightarrow> x \<in> lookup_def a pc \<Longrightarrow> x \<in> lookup_def b pc" sorry
-lemma inside_mono: "x \<in> lookup_def a pc \<Longrightarrow> x \<in> lookup_def b pc \<Longrightarrow> a \<le> b" sorry
+inductive_set stepped_to for prog ctx pc where
+  "ist \<in> lookup ctx ipc
+    \<Longrightarrow> program ipc = Some op
+    \<Longrightarrow> step op (ipc, ist) = Some (pc, st)
+    \<Longrightarrow> st \<in> stepped_to prog ctx pc"
 
-definition step_all :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> (state set * interpret_error set)" where
+(*lemma "stepped_to prog ctx pc = {st. \<exists>ipc ist op. (ist \<in> lookup ctx ipc) \<and> (program ipc = Some op) \<and> (step op (ipc, ist) = Some (pc, st))}"*)
+
+fun step_all :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
+  "step_all prog ctx = SM (stepped_to prog ctx)"
+
+(*definition step_all :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> state set" where
   "step_all op pc instates =
-    ({outs. (\<exists>ins\<in>instates. step op (pc, ins) = Some outs)},
-     (if (\<exists>ins\<in>instates. step op (pc, ins) = None) then {StepFailed pc} else {}))"
+    {outs. (\<exists>ins\<in>instates. step op (pc, ins) = Some outs)}"*)
 
-fun collect_step_single :: "program \<Rightarrow> addr \<Rightarrow> (collect_ctx * interpret_error set) \<Rightarrow> (collect_ctx * interpret_error set)" where
-  "collect_step_single prog pc (ctx, inerrs) =
-    (case prog pc of
-      Some op \<Rightarrow> 
-        let res = step_all op pc (lookup ctx pc) in
-        (propagate ctx (fst res), snd res \<union> inerrs) |
-      None \<Rightarrow> (ctx, { InvalAddr pc } \<union> inerrs))"
-
-lemma collect_step_single_preserve:
-  assumes "collect_step_single prog pc (inctx, inerrs) = (outctx, errors)"
-  shows "inctx \<le> outctx"
-proof (cases "prog pc")
-  case None then show ?thesis using assms by simp
-next
-  case (Some op)
-  from this assms have "outctx = propagate inctx (fst (step_all op pc (lookup inctx pc)))" unfolding Let_def
-    by (metis (no_types, lifting) collect_step_single.simps fstI option.simps(5))
-  then show ?thesis using propagate_preserve by blast
+lemma step_all_correct: "flatten (step_all prog (deepen flat)) = step_all_flat prog flat"
+proof standard
+  show "flatten (step_all prog (deepen flat)) \<subseteq> step_all_flat prog flat"
+  proof standard
+    fix x assume ass: "x \<in> flatten (step_all prog (deepen flat))"
+    then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
+    from this ass have "st \<in> lookup (step_all prog (deepen flat)) pc" using flatten_bwd by fastforce
+    hence "st \<in> stepped_to prog (deepen flat) pc" by simp
+    have "x \<in> step_all_flat_induct prog flat" sorry
+    thus "x \<in> step_all_flat prog flat" using step_all_flat_eq by blast
+  qed
+  show "step_all_flat prog flat \<subseteq> flatten (step_all prog (deepen flat))" sorry
 qed
+
+definition error_all :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> interpret_error set" where
+  "error_all op pc instates =
+     (if (\<exists>ins\<in>instates. step op (pc, ins) = None) then {StepFailed pc} else {})"
 
 fun collect_step :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
-  "collect_step prog ctx =
-    fst (fold (collect_step_single prog) (sorted_list_of_set (domain ctx)) (ctx, {}))"
-
-lemma fold_preserve: "(\<forall>x acc. acc \<le> f x acc) \<Longrightarrow> (a::'a::order) \<le> fold f l a"
-proof (induction l arbitrary: a)
-  case Nil
-  have "fold f [] a = a" by simp
-  have "a \<le> a" by auto
-  then show ?case by auto
-next
-  case (Cons el l)
-  hence unf: "f el a \<le> fold f (el # l) a" by simp
-  from Cons have "a \<le> f el a" by simp
-  from unf this Cons(2) show ?case using order.trans by blast
-qed
-
-lemma fold_preserve_option: "(\<forall>x acc accy. (f x (Some acc) = Some accy) \<longrightarrow> (acc \<le> accy)) \<Longrightarrow> (\<forall>x. f x None = None) \<Longrightarrow> fold f l (Some a) = Some ay \<Longrightarrow> (a::'a::order) \<le> ay" sorry
-
-lemma collect_step_preserve: "collect_step prog inctx = outctx \<Longrightarrow> inctx \<le> outctx"
-proof -
-  assume "collect_step prog inctx = outctx"
-  show "inctx \<le> outctx" sorry
-qed
-
+  "collect_step prog ctx = ctx \<squnion> step_all prog ctx"
 
 fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
   "collect_loop prog 0 st = st" |

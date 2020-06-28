@@ -135,7 +135,7 @@ inductive_set step_all_flat_induct for prog instates where
     \<Longrightarrow> step instr (pc, st) = Some outst
     \<Longrightarrow> outst \<in> step_all_flat_induct (prog::program) instates"
 
-lemma "step_all_flat prog instates = step_all_flat_induct prog instates"
+lemma step_all_flat_eq: "step_all_flat prog instates = step_all_flat_induct prog instates"
 proof (standard)
   show "step_all_flat prog instates \<subseteq> step_all_flat_induct prog instates" using step_all_flat_def step_all_flat_induct.simps by fastforce
   show "step_all_flat_induct prog instates \<subseteq> step_all_flat prog instates"

@@ -4,6 +4,12 @@ imports
   UPPAAL_Asm_AbsInt
 begin
 
+lemma "states_at states pc = snd ` {s\<in>states. fst s = pc}"
+proof standard
+  show "states_at states pc \<subseteq> snd ` {s \<in> states. fst s = pc}" using image_iff states_at.simps by fastforce
+  show "snd ` {s \<in> states. fst s = pc} \<subseteq> states_at states pc" by standard (auto simp: states_at.intros)
+qed
+
 datatype 'a rbt_state_map = RBT_SM "(addr * 'a) rbt"
 
 fun def :: "'a \<Rightarrow> 'a option \<Rightarrow> 'a" where
@@ -23,6 +29,14 @@ lemma lookup_RBT_SM[code]:
 
 lemma domain_RBT_SM[code]:
   "domain (RBT_SM tree) = fst ` set (inorder tree)" sorry
+
+(*lemma "propagate (SM oldmap) ss =
+  (SM (\<lambda>pc. oldmap pc \<union> (states_at ss pc)))"
+proof -
+  have fwd: "propagate (SM oldmap) ss \<le> (SM (\<lambda>pc. oldmap pc \<union> (states_at ss pc)))" sorry
+  have bwd: "(SM (\<lambda>pc. oldmap pc \<union> (states_at ss pc))) \<le> propagate (SM oldmap) ss" sorry
+  from fwd bwd have "propagate (SM oldmap) ss = (SM (\<lambda>pc. oldmap pc \<union> (states_at ss pc)))" using antisym by blast
+qed*)
 
 lemma propagate_RBT_SM[code]:
   "propagate (RBT_SM oldtree) (set ss) =
