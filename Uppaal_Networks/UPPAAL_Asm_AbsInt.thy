@@ -13,10 +13,25 @@ subsection "State Map"
 
 datatype 'a state_map = SM "addr \<Rightarrow> 'a"
 
+lemma state_map_single_constructor: "\<exists>m. a = SM m"
+  using state_map.exhaust by auto
+
 fun lookup :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
   "lookup (SM m) = m"
 
+fun unwrap :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
+  "unwrap (SM m) = m"
+
+lemma lookup_eq: "(\<And>k kk. lookup a k = lookup b k) \<Longrightarrow> (a = b)"
+proof -
+  assume ass: "\<And>k kk. lookup a k = lookup b k"
+  obtain am bm where maps: "a = SM am" "b = SM bm" using state_map_single_constructor by blast
+  have "\<And>am bm. ((\<And>k kk. lookup (SM am) k = lookup (SM bm) k) \<Longrightarrow> (SM am) = (SM bm))" by (simp add: ext)
+  from this ass maps show ?thesis by auto
+qed
+
 notation bot ("\<bottom>")
+notation top ("\<top>")
 
 fun domain :: "('b::bot) state_map \<Rightarrow> addr set" where
   "domain (SM m) = {a. m a \<noteq> \<bottom>}"
@@ -38,35 +53,6 @@ qed
 
 lemma "(\<forall>p. lookup m p = lookup n p) \<longleftrightarrow> m = n" using state_map_eq_fwd by auto
 
-(* -- *)
-(* From HOL_IMP.Abs_Int0 *)
-instantiation option :: (order)order
-begin
-  fun less_eq_option where
-    "Some x \<le> Some y = (x \<le> y)" |
-    "None \<le> y = True" |
-    "Some _ \<le> None = False"
-  
-  definition less_option where "x < (y::'a option) = (x \<le> y \<and> \<not> y \<le> x)"
-  
-  lemma le_None[simp]: "(x \<le> None) = (x = None)"
-  by (cases x) simp_all
-  
-  lemma Some_le[simp]: "(Some x \<le> u) = (\<exists>y. u = Some y \<and> x \<le> y)"
-  by (cases u) auto
-  
-  instance proof (standard, goal_cases)
-    case 1 show ?case by(rule less_option_def)
-  next
-    case (2 x) show ?case by(cases x, simp_all)
-  next
-    case (3 x y z) thus ?case by(cases z, simp, cases y, simp, cases x, auto)
-  next
-    case (4 x y) thus ?case by(cases y, simp, cases x, auto)
-  qed
-end
-(* -- *)
-
 instantiation state_map :: (order) order
 begin
   definition less_eq_state_map :: "('a::order)state_map \<Rightarrow> 'a state_map \<Rightarrow> bool" where
@@ -85,6 +71,49 @@ begin
     case 4 thus ?case by (simp add: less_eq_state_map_def dual_order.antisym state_map_eq_fwd)
   qed
 end
+
+instantiation state_map :: (bot) bot
+begin
+definition bot_state_map: "\<bottom> = SM (\<lambda>x. \<bottom>)"
+instance ..
+end
+
+instantiation state_map :: (order_bot) order_bot
+begin
+lemma bot_lookup [simp, code]:
+  "lookup \<bottom> x = \<bottom>"
+  by (simp add: bot_state_map)
+instance proof standard qed (simp add: less_eq_state_map_def)
+end
+
+instantiation state_map :: (top) top
+begin
+definition top_state_map[no_atp]: "\<top> = SM (\<lambda>x. \<top>)"
+instance ..
+end
+
+instantiation state_map :: (order_top) order_top
+begin
+lemma top_lookup [simp]:
+  "lookup \<top> x = \<top>"
+  by (simp add: top_state_map)
+instance proof standard qed (simp add: less_eq_state_map_def)
+end
+
+
+
+(*
+instantiation state_map :: (complete_lattice) complete_lattice
+begin
+
+definition "\<Sqinter>sm = \<Sqinter>(unwrap \<acute> sm)"
+
+definition "\<Squnion>sm = \<Sqinter>(unwrap \<acute> sm)"
+
+instance
+  by standard (auto intro: bool_induct)
+
+end*)
 
 subsection "Collecting Semantics"
 
