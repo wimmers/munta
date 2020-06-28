@@ -63,7 +63,9 @@ next
 qed
 
 inductive steps_upto :: "program \<Rightarrow> fuel \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool" where
-  "count \<le> n \<Longrightarrow> steps_exact prog count start end \<Longrightarrow> steps_upto prog n start end"
+  "count \<le> n
+  \<Longrightarrow> steps_exact prog count start end
+  \<Longrightarrow> steps_upto prog n start end"
 
 lemma steps_upto_zero:
   assumes "steps_upto prog 0 ins outs"
@@ -182,16 +184,16 @@ qed
 lemma step_in_collect_flat: "step_all_flat prog sts \<subseteq> collect_step_flat prog sts"
   by (simp add: collect_step_flat_def)
 
-fun collect_flat_loop :: "program \<Rightarrow> fuel \<Rightarrow> state set \<Rightarrow> state set" where
-  "collect_flat_loop _ 0 instates = instates" |
-  "collect_flat_loop prog (Suc n) instates = collect_flat_loop prog n (collect_step_flat prog instates)"
+fun collect_loop_flat :: "program \<Rightarrow> fuel \<Rightarrow> state set \<Rightarrow> state set" where
+  "collect_loop_flat _ 0 instates = instates" |
+  "collect_loop_flat prog (Suc n) instates = collect_loop_flat prog n (collect_step_flat prog instates)"
 
-lemma collect_flat_loop_correct:
-  "collect_flat_loop prog n instates = {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
+lemma collect_loop_flat_correct:
+  "collect_loop_flat prog n instates = {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
 proof standard
-  show "collect_flat_loop prog n instates \<subseteq> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
+  show "collect_loop_flat prog n instates \<subseteq> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
   proof standard
-    fix x assume "x \<in> collect_flat_loop prog n instates"
+    fix x assume "x \<in> collect_loop_flat prog n instates"
     hence "\<exists>ins\<in>instates. steps_upto prog n ins x"
     proof(induction n arbitrary: instates)
       case 0
@@ -208,25 +210,25 @@ proof standard
     thus "x \<in> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}" by blast
   qed
 
-  show "{st. \<exists>ins\<in>instates. steps_upto prog n ins st} \<subseteq> collect_flat_loop prog n instates"
+  show "{st. \<exists>ins\<in>instates. steps_upto prog n ins st} \<subseteq> collect_loop_flat prog n instates"
   proof standard
     fix x assume "x \<in> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
     then obtain ins where ins: "ins \<in> instates" "steps_upto prog n ins x" by blast
-    show "x \<in> collect_flat_loop prog n instates"
+    show "x \<in> collect_loop_flat prog n instates"
     using ins proof(induction n arbitrary: instates ins)
     case 0
-      then show ?case using steps_upto_zero collect_flat_loop.simps(1) by blast
+      then show ?case using steps_upto_zero collect_loop_flat.simps(1) by blast
     next
       case (Suc n)
       from Suc(3) obtain ims where ims: "steps_upto prog 1 ins ims" "steps_upto prog n ims x" using steps_upto_suc by blast
-      from this(2) Suc.prems(1) Suc.IH have continue: "\<And>imstates. ims \<in> imstates \<Longrightarrow> x \<in> collect_flat_loop prog n imstates" by blast
+      from this(2) Suc.prems(1) Suc.IH have continue: "\<And>imstates. ims \<in> imstates \<Longrightarrow> x \<in> collect_loop_flat prog n imstates" by blast
       from ims(1) this show ?case
       proof(cases)
         case (1 count)
         then show ?thesis
         proof(cases "count = 0")
           case True
-          then show ?thesis by (metis "1"(2) Suc.prems(1) continue collect_step_flat_eq collect_step_flat_induct.keep collect_flat_loop.simps(2) steps_exact_zero)
+          then show ?thesis by (metis "1"(2) Suc.prems(1) continue collect_step_flat_eq collect_step_flat_induct.keep collect_loop_flat.simps(2) steps_exact_zero)
         next
           case False
           from this 1 have "count = 1" by simp
