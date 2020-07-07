@@ -305,54 +305,19 @@ theorem collect_loop_correct:
   "flatten (collect_loop prog n (deepen entries)) = {st. \<exists>entry\<in>entries. steps_upto prog n entry st}"
   using collect_loop_as_flat collect_loop_flat_correct by blast
 
-inductive_set errors_all for prog ctx where
-  "st \<in> lookup ctx pc
-    \<Longrightarrow> prog pc = None
-    \<Longrightarrow> InvalAddr pc \<in> errors_all prog ctx" |
-  "st \<in> lookup ctx pc
-    \<Longrightarrow> prog pc = Some op
-    \<Longrightarrow> step op (pc, st) = None
-    \<Longrightarrow> StepFailed pc \<in> errors_all prog ctx"
+fun errors_all :: "program \<Rightarrow> collect_ctx \<Rightarrow> interpret_error set" where
+  "errors_all prog ctx = {err. \<exists>pc st. st \<in> lookup ctx pc \<and> error_step prog (pc, st) = Some err}"
 
 lemma errors_all_as_flat: "errors_all prog (deepen flat) = errors_all_flat prog flat"
 proof (intro Set.equalityI Set.subsetI)
-  fix x assume "x \<in> errors_all prog (deepen flat)"
-  thus "x \<in> errors_all_flat prog flat"
-  proof cases
-    case (1 st pc)
-    from 1(2) have "(pc, st) \<in> flat" using deepen_bwd by simp
-    from this 1(3) show ?thesis using errors_all_flat.intros using "1"(1) by auto
-  next
-    case (2 st pc op)
-    then show ?thesis
-      by (metis (no_types, lifting) deepen_bwd error_step.simps errors_all_flat.simps option.case_eq_if option.discI option.sel)
-  qed
+  fix err assume "err \<in> errors_all prog (deepen flat)"
+  from this obtain pc st where step: "st \<in> lookup (deepen flat) pc" "error_step prog (pc, st) = Some err" by auto
+  from this show "err \<in> errors_all_flat prog flat" using deepen_bwd by force
 next
-  fix x assume "x \<in> errors_all_flat prog flat"
-  thus "x \<in> errors_all prog (deepen flat)"
-  proof cases
-    case (1 pcst)
-    from this obtain "pc" "st" where splitst: "(pc, st) = pcst" by (metis surj_pair) 
-    then show ?thesis
-    proof (cases "prog pc")
-      case None
-      then show ?thesis using splitst
-        by (metis (no_types, lifting) "1"(1) "1"(2) deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject)
-    next
-      case (Some instr)
-      then show ?thesis
-      proof (cases "step instr (pc, st)")
-        case None
-        then show ?thesis
-          by (metis (mono_tags, lifting) "1"(1) "1"(2) Some deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject option.simps(5) splitst)
-      next
-        case (Some outst)
-        then show ?thesis
-          (* TODO: make this prettier *)
-          by (smt "1"(1) "1"(2) \<open>\<And>thesis. (\<And>pc st. (pc, st) = pcst \<Longrightarrow> thesis) \<Longrightarrow> thesis\<close> deepen_fwd error_step.simps errors_all.simps is_none_code(2) option.case_eq_if option.discI option.sel option.split_sel_asm)
-      qed
-    qed
-  qed
+  fix err assume "err \<in> errors_all_flat prog flat"
+  from this obtain pc st where step: "(pc, st) \<in> flat" "error_step prog (pc, st) = Some err" by auto
+  hence deep: "st \<in> lookup (deepen flat) pc" using deepen_fwd by auto
+  from step deep show "err \<in> errors_all prog (deepen flat)" using errors_all.simps by blast
 qed
 
 fun errors_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Rightarrow> interpret_error set" where

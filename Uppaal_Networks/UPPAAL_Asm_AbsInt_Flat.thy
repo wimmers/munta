@@ -280,10 +280,8 @@ next
   qed
 qed
 
-inductive_set errors_all_flat for prog instates where
-  "st \<in> instates
-    \<Longrightarrow> error_step prog st = Some err
-    \<Longrightarrow> err \<in> errors_all_flat prog instates"
+fun errors_all_flat :: "program \<Rightarrow> state set \<Rightarrow> interpret_error set" where
+  "errors_all_flat prog instates = {err. \<exists>st\<in>instates. error_step prog st = Some err}"
 
 fun errors_loop_flat :: "program \<Rightarrow> fuel \<Rightarrow> state set \<Rightarrow> interpret_error set" where
   "errors_loop_flat _ 0 _ = {}" |
