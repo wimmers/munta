@@ -7,12 +7,13 @@ begin
 
 (*---------*)
 (* Notation *)
-notation bot ("\<bottom>")
-notation top ("\<top>")
-notation inf (infixl "\<sqinter>" 70)
-notation sup (infixl "\<squnion>" 65)
-notation Inf ("\<Sqinter>")
-notation Sup ("\<Squnion>")
+notation
+  sup (infixl "\<squnion>" 65) and
+  inf (infixl "\<sqinter>" 70) and
+  bot ("\<bottom>") and
+  top ("\<top>") and
+  Inf ("\<Sqinter>") and
+  Sup ("\<Squnion>")
 
 syntax
   "_INF1"     :: "pttrns \<Rightarrow> 'b \<Rightarrow> 'b"           ("(3INF _./ _)" [0, 10] 10)
@@ -174,6 +175,16 @@ instance proof
 qed
 end
 
+class absstate_base = semilattice_sup + top
+
+class absstate = absstate_base + bot
+instantiation state_map :: (absstate) absstate begin instance proof qed end
+
+subsection "Collecting Semantics"
+
+type_synonym collect_state = "stack * rstate * flag * nat list"
+type_synonym collect_ctx = "collect_state set state_map"
+
 inductive_set states_at for states pc where
   "(pc, s) \<in> states \<Longrightarrow> s \<in> states_at states pc"
 
@@ -230,11 +241,6 @@ next
   from this splitx show "x \<in> flatten (a \<squnion> b)" by (simp add: flatten_fwd)
 qed
 
-subsection "Collecting Semantics"
-
-type_synonym collect_state = "stack * rstate * flag * nat list"
-type_synonym collect_ctx = "collect_state set state_map"
-
 fun states_domain :: "(addr * 'a) set \<Rightarrow> addr set" where
   "states_domain states = fst ` states"
 
@@ -284,9 +290,11 @@ qed
 lemma collect_step_correct2: "flatten (collect_step prog m) = collect_step_flat prog (flatten m)"
   using collect_step_correct deepen_flatten by metis
 
-fun collect_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
-  "collect_loop prog 0 st = st" |
-  "collect_loop prog (Suc n) st = collect_loop prog n (collect_step prog st)"
+fun loop :: "(program \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a \<Rightarrow> 'a" where
+  "loop f prog 0 st = st" |
+  "loop f prog (Suc n) st = loop f prog n (f prog st)"
+
+definition[simp]: "collect_loop \<equiv> loop collect_step"
 
 lemma collect_loop_as_flat:
   "flatten (collect_loop prog n (deepen flat)) = collect_loop_flat prog n flat"
@@ -332,5 +340,30 @@ next
   case (Suc n)
   then show ?case by (metis collect_step_correct deepen_flatten errors_all_as_flat errors_loop.simps(2) errors_loop_flat.simps(2))
 qed
+
+subsection \<open>Abstract\<close>
+
+locale AbsInt =
+fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
+  assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
+  and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
+fixes astep :: "instr \<Rightarrow> 'as \<Rightarrow> 'as"
+(*fixes num' :: "val \<Rightarrow> 'av"
+and plus' :: "'av \<Rightarrow> 'av \<Rightarrow> 'av"
+  assumes gamma_num': "i \<in> \<gamma>(num' i)"
+  and gamma_plus': "i1 \<in> \<gamma> a1 \<Longrightarrow> i2 \<in> \<gamma> a2 \<Longrightarrow> i1+i2 \<in> \<gamma>(plus' a1 a2)"*)
+begin
+
+fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
+  "\<gamma>_map (SM m) = SM (\<lambda>pc. \<gamma> (m pc))"
+
+fun ai_step :: "program \<Rightarrow> 'as state_map \<Rightarrow> 'as state_map" where
+  "ai_step prog st = undefined"
+
+definition[simp]: "ai_loop \<equiv> loop ai_step"
+
+lemma ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)" sorry
+
+end
 
 end
