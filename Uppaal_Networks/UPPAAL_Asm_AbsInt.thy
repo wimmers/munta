@@ -249,30 +249,54 @@ fun propagate :: "'a set state_map \<Rightarrow> (addr * 'a) set \<Rightarrow> '
 
 lemma propagate_preserve: "inm \<le> propagate inm sts" by simp
 
-inductive_set stepped_to for prog ctx pc where
-  "ist \<in> lookup ctx ipc
-    \<Longrightarrow> prog ipc = Some op
+inductive_set stepped_to_base :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> addr \<Rightarrow> collect_state set" for op ipc sts pc where
+  "ist \<in> sts
     \<Longrightarrow> step op (ipc, ist) = Some (pc, st)
-    \<Longrightarrow> st \<in> stepped_to prog ctx pc"
+    \<Longrightarrow> st \<in> stepped_to_base op ipc sts pc"
+
+fun stepped_to :: "(instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> addr \<Rightarrow> 'a) \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> ('a::Sup)" where
+  "stepped_to f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> f op ipc (lookup ctx ipc) pc = ost}"
+
+definition[simp]: "stepped_to_collect \<equiv> stepped_to stepped_to_base"
+
+lemma stepped_to_fwd:
+  assumes
+    "ist \<in> lookup ctx ipc"
+    "prog ipc = Some op"
+    "step op (ipc, ist) = Some (pc, ost)"
+  shows "ost \<in> stepped_to_collect prog ctx pc"
+proof -
+  have "ost \<in> stepped_to_base op ipc (lookup ctx ipc) pc" using assms(1) assms(3) stepped_to_base.intros by blast
+  from assms(2) this show ?thesis by auto
+qed
+
+lemma stepped_to_bwd:
+  assumes "ost \<in> stepped_to_collect prog ctx pc"
+  shows "\<exists>ist op ipc. ist \<in> lookup ctx ipc \<and> prog ipc = Some op \<and> step op (ipc, ist) = Some (pc, ost)"
+proof -
+  from assms obtain ipc op where ipcop: "prog ipc = Some op" "ost \<in> stepped_to_base op ipc (lookup ctx ipc) pc" by auto
+  from this(2) obtain ist where ist: "ist \<in> lookup ctx ipc" "step op (ipc, ist) = Some (pc, ost)" by cases
+  from ist(1) ipcop(1) ist(2) show ?thesis by blast
+qed
 
 fun step_all :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
-  "step_all prog ctx = SM (stepped_to prog ctx)"
+  "step_all prog ctx = SM (stepped_to_collect prog ctx)"
 
 lemma step_all_correct: "flatten (step_all prog (deepen flat)) = step_all_flat prog flat"
 proof (intro Set.equalityI Set.subsetI)
   fix x assume ass: "x \<in> flatten (step_all prog (deepen flat))"
   then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
   from this ass have "st \<in> lookup (step_all prog (deepen flat)) pc" using flatten_bwd by fastforce
-  hence stepped: "st \<in> stepped_to prog (deepen flat) pc" by simp
-  from this obtain ist ipc op where stuff: "ist \<in> lookup (deepen flat) ipc" "prog ipc = Some op" "step op (ipc, ist) = Some (pc, st)" by cases
+  hence stepped: "st \<in> stepped_to_collect prog (deepen flat) pc" by simp
+  from this obtain ist ipc op where stuff: "ist \<in> lookup (deepen flat) ipc" "prog ipc = Some op" "step op (ipc, ist) = Some (pc, st)" using stepped_to_bwd by blast
   hence bwd: "(ipc, ist) \<in> flat" by (simp add: deepen_bwd)
   from this stuff show "x \<in> step_all_flat prog flat" using splitx step_all_flat.intros by blast
 next
   fix x assume ass: "x \<in> step_all_flat prog flat"
   then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-  from ass obtain ipc ist instr where stuff: "(ipc, ist) \<in> flat" "prog ipc = Some instr" "step instr (ipc, ist) = Some x" by cases
+  from ass obtain ipc ist instr where stuff: "(ipc, ist) \<in> flat" "prog ipc = Some instr" "step instr (ipc, ist) = Some (pc, st)" by cases (simp add: splitx)
   from stuff have "ist \<in> lookup (deepen flat) ipc" by (simp add: states_at.intros)
-  from this stuff have "st \<in> lookup (step_all prog (deepen flat)) pc" by (simp add: splitx stepped_to.intros)
+  from this stuff have "st \<in> stepped_to_collect prog (deepen flat) pc" using stepped_to_fwd by blast
   thus "x \<in> flatten (step_all prog (deepen flat))" using splitx by (simp add: flatten_fwd)
 qed
 
@@ -347,11 +371,8 @@ locale AbsInt =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
   and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
-fixes astep :: "instr \<Rightarrow> 'as \<Rightarrow> 'as"
-(*fixes num' :: "val \<Rightarrow> 'av"
-and plus' :: "'av \<Rightarrow> 'av \<Rightarrow> 'av"
-  assumes gamma_num': "i \<in> \<gamma>(num' i)"
-  and gamma_plus': "i1 \<in> \<gamma> a1 \<Longrightarrow> i2 \<in> \<gamma> a2 \<Longrightarrow> i1+i2 \<in> \<gamma>(plus' a1 a2)"*)
+fixes astep :: "instr \<Rightarrow> addr \<Rightarrow> 'as \<Rightarrow> addr \<Rightarrow> 'as"
+  assumes astep_sound: "stepped_to_base op ipc (\<gamma> a) pc \<le> \<gamma> (astep op ipc a pc)"
 begin
 
 fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
