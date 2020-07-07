@@ -1,5 +1,5 @@
 theory UPPAAL_Asm_AbsInt_Flat
-  imports UPPAAL_Asm
+  imports UPPAAL_Asm "HOL-ex.Sketch_and_Explore"
 begin
 
 subsection "Stepping"
@@ -62,10 +62,12 @@ next
   then show ?case using steps_exact_suc_bwd using add_Suc by presburger
 qed
 
-inductive steps_upto :: "program \<Rightarrow> fuel \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool" where
+inductive steps_upto :: "program \<Rightarrow> fuel \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool" for prog n start "end" where
   "count \<le> n
   \<Longrightarrow> steps_exact prog count start end
   \<Longrightarrow> steps_upto prog n start end"
+
+thm "steps_upto.simps"
 
 lemma steps_upto_zero:
   assumes "steps_upto prog 0 ins outs"
@@ -176,10 +178,10 @@ definition step_all_flat_fun :: "program \<Rightarrow> state set \<Rightarrow> s
   "step_all_flat_fun prog instates = {outst. \<exists>(pc, st)\<in>instates.\<exists>instr. prog pc = Some instr \<and> step instr (pc, st) = Some outst}"
 
 lemma step_all_flat_eq: "step_all_flat_fun prog instates = step_all_flat prog instates"
-proof (standard)
+proof (intro Set.equalityI)
   show "step_all_flat_fun prog instates \<subseteq> step_all_flat prog instates" using step_all_flat_fun_def step_all_flat.simps by fastforce
   show "step_all_flat prog instates \<subseteq> step_all_flat_fun prog instates"
-  proof(standard)
+  proof
     fix x assume "x \<in> step_all_flat prog instates"
     thus "x \<in> step_all_flat_fun prog instates" using step_all_flat_fun_def by cases auto
   qed
@@ -193,7 +195,7 @@ inductive_set collect_step_flat_induct for prog instates where
   step: "st \<in> step_all_flat prog instates \<Longrightarrow> st \<in> collect_step_flat_induct prog instates"
 
 lemma collect_step_flat_eq: "collect_step_flat prog instates = collect_step_flat_induct prog instates"
-proof(standard)
+proof
   show "collect_step_flat prog instates \<subseteq> collect_step_flat_induct prog instates"
     using collect_step_flat_def collect_step_flat_induct.intros(1) collect_step_flat_induct.intros(2) step_all_flat_def step_all_flat.intros by auto
   show "collect_step_flat_induct prog instates \<subseteq> collect_step_flat prog instates"
@@ -228,56 +230,50 @@ fun collect_loop_flat :: "program \<Rightarrow> fuel \<Rightarrow> state set \<R
 
 lemma collect_loop_flat_correct:
   "collect_loop_flat prog n instates = {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
-proof standard
-  show "collect_loop_flat prog n instates \<subseteq> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
-  proof standard
-    fix x assume "x \<in> collect_loop_flat prog n instates"
-    hence "\<exists>ins\<in>instates. steps_upto prog n ins x"
-    proof(induction n arbitrary: instates)
-      case 0
-      from this have nostep: "x \<in> instates" by simp
-      have "steps_upto prog 0 x x" by (simp add: steps_exact.intros(1) steps_upto.intros)
-      from this nostep show ?case by blast
-    next
-      case (Suc fuel)
-      hence "\<exists>ins'\<in>(collect_step_flat prog instates). steps_upto prog fuel ins' x" by simp
-      from this obtain "ins'" where ins': "ins' \<in> collect_step_flat prog instates" "steps_upto prog fuel ins' x" by blast
-      from this(1) have "\<exists>ins\<in>instates. steps_upto prog 1 ins ins'" using collect_step_flat_steps_exact collect_step_flat_eq by auto
-      from this ins' show ?case using steps_upto_suc_bwd by blast
-    qed
-    thus "x \<in> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}" by blast
-  qed
-
-  show "{st. \<exists>ins\<in>instates. steps_upto prog n ins st} \<subseteq> collect_loop_flat prog n instates"
-  proof standard
-    fix x assume "x \<in> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
-    then obtain ins where ins: "ins \<in> instates" "steps_upto prog n ins x" by blast
-    show "x \<in> collect_loop_flat prog n instates"
-    using ins proof(induction n arbitrary: instates ins)
+proof(intro Set.equalityI Set.subsetI)
+  fix x assume "x \<in> collect_loop_flat prog n instates"
+  hence "\<exists>ins\<in>instates. steps_upto prog n ins x"
+  proof(induction n arbitrary: instates)
     case 0
-      then show ?case using steps_upto_zero collect_loop_flat.simps(1) by blast
-    next
-      case (Suc n)
-      from Suc(3) obtain ims where ims: "steps_upto prog 1 ins ims" "steps_upto prog n ims x" using steps_upto_suc by blast
-      from this(2) Suc.prems(1) Suc.IH have continue: "\<And>imstates. ims \<in> imstates \<Longrightarrow> x \<in> collect_loop_flat prog n imstates" by blast
-      from ims(1) this show ?case
-      proof(cases)
-        case (1 count)
+    from this have nostep: "x \<in> instates" by simp
+    have "steps_upto prog 0 x x" by (simp add: steps_exact.intros(1) steps_upto.intros)
+    from this nostep show ?case by blast
+  next
+    case (Suc fuel)
+    hence "\<exists>ins'\<in>(collect_step_flat prog instates). steps_upto prog fuel ins' x" by simp
+    from this obtain "ins'" where ins': "ins' \<in> collect_step_flat prog instates" "steps_upto prog fuel ins' x" by blast
+    from this(1) have "\<exists>ins\<in>instates. steps_upto prog 1 ins ins'" using collect_step_flat_steps_exact collect_step_flat_eq by auto
+    from this ins' show ?case using steps_upto_suc_bwd by blast
+  qed
+  thus "x \<in> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}" by blast
+next
+  fix x assume "x \<in> {st. \<exists>ins\<in>instates. steps_upto prog n ins st}"
+  then obtain ins where ins: "ins \<in> instates" "steps_upto prog n ins x" by blast
+  show "x \<in> collect_loop_flat prog n instates"
+  using ins proof(induction n arbitrary: instates ins)
+  case 0
+    then show ?case using steps_upto_zero collect_loop_flat.simps(1) by blast
+  next
+    case (Suc n)
+    from Suc(3) obtain ims where ims: "steps_upto prog 1 ins ims" "steps_upto prog n ims x" using steps_upto_suc by blast
+    from this(2) Suc.prems(1) Suc.IH have continue: "\<And>imstates. ims \<in> imstates \<Longrightarrow> x \<in> collect_loop_flat prog n imstates" by blast
+    from ims(1) this show ?case
+    proof(cases)
+      case (1 count)
+      then show ?thesis
+      proof(cases "count = 0")
+        case True
+        then show ?thesis by (metis "1"(2) Suc.prems(1) continue collect_step_flat_eq collect_step_flat_induct.keep collect_loop_flat.simps(2) steps_exact_zero)
+      next
+        case False
+        from this 1 have "count = 1" by simp
+        from this 1 have "steps_exact prog 1 ins ims" by simp
         then show ?thesis
-        proof(cases "count = 0")
-          case True
-          then show ?thesis by (metis "1"(2) Suc.prems(1) continue collect_step_flat_eq collect_step_flat_induct.keep collect_loop_flat.simps(2) steps_exact_zero)
+        proof(cases)
+          case 1 then show ?thesis by simp
         next
-          case False
-          from this 1 have "count = 1" by simp
-          from this 1 have "steps_exact prog 1 ins ims" by simp
-          then show ?thesis
-          proof(cases)
-            case 1 then show ?thesis by simp
-          next
-            case (2 cmd pc st s n)
-            then show ?thesis using Suc.prems(1) collect_step_flat_eq collect_step_flat_induct.intros(2) continue step_all_flat.intros steps_exact_zero by auto
-          qed
+          case (2 cmd pc st s n)
+          then show ?thesis using Suc.prems(1) collect_step_flat_eq collect_step_flat_induct.intros(2) continue step_all_flat.intros steps_exact_zero by auto
         qed
       qed
     qed

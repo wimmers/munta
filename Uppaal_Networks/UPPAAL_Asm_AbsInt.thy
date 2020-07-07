@@ -154,7 +154,7 @@ end
 
 instantiation state_map :: (complete_lattice) complete_lattice
 begin
-instance proof standard
+instance proof
   show "(x::'a state_map) \<in> A \<Longrightarrow> \<Sqinter>A \<le> x" for A x
   proof -
     fix x A assume ass: "(x::'a state_map) \<in> A"
@@ -190,23 +190,18 @@ lemma flatten_fwd: "st \<in> lookup deep pc \<Longrightarrow> (pc, st) \<in> fla
 lemma flatten_bwd: "(pc, st) \<in> flatten deep \<Longrightarrow> st \<in> lookup deep pc" by (meson flatten.cases)
 
 lemma flatten_deepen: "flatten (deepen m) = m"
-proof standard
-  show "flatten (deepen m) \<subseteq> m"
-  proof standard
-    fix x assume ass: "x \<in> flatten (deepen m)"
-    from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-    from ass this have "(pc, st) \<in> flatten (deepen m)" by blast
-    hence "st \<in> lookup (deepen m) pc" by cases
-    hence "st \<in> states_at m pc" by simp
-    thus "x \<in> m" using splitx deepen_bwd by fastforce
-  qed
-  show "m \<subseteq> flatten (deepen m)"
-  proof standard
-    fix x assume ass: "x \<in> m"
-    from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-    have "st \<in> lookup (deepen m) pc" using ass deepen_fwd splitx by fastforce
-    from this splitx show "x \<in> flatten (deepen m)" using flatten_fwd by force
-  qed
+proof (intro Set.equalityI Set.subsetI)
+  fix x assume ass: "x \<in> flatten (deepen m)"
+  from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
+  from ass this have "(pc, st) \<in> flatten (deepen m)" by blast
+  hence "st \<in> lookup (deepen m) pc" by cases
+  hence "st \<in> states_at m pc" by simp
+  thus "x \<in> m" using splitx deepen_bwd by fastforce
+next
+  fix x assume ass: "x \<in> m"
+  from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
+  have "st \<in> lookup (deepen m) pc" using ass deepen_fwd splitx by fastforce
+  from this splitx show "x \<in> flatten (deepen m)" using flatten_fwd by force
 qed
 
 lemma deepen_flatten: "deepen (flatten m) = m"
@@ -219,25 +214,20 @@ proof -
 qed
 
 lemma flatten_lift_sup: "flatten (a \<squnion> b) = flatten a \<squnion> flatten b"
-proof standard
-  show "flatten (a \<squnion> b) \<subseteq> flatten a \<union> flatten b"
-  proof standard
-    fix x assume ass: "x \<in> flatten (a \<squnion> b)"
-    from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-    from this ass have "st \<in> lookup (a \<squnion> b) pc" using flatten_bwd by fastforce
-    hence "st \<in> lookup a pc \<or> st \<in> lookup b pc" by simp
-    hence "(pc, st) \<in> flatten a \<or> (pc, st) \<in> flatten b" using flatten_fwd by force
-    from this splitx show "x \<in> flatten a \<union> flatten b" by simp
-  qed
-  show "flatten a \<union> flatten b \<subseteq> flatten (a \<squnion> b)"
-  proof standard
-    fix x assume ass: "x \<in> flatten a \<union> flatten b"
-    from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-    from this ass have "(pc, st) \<in> flatten a \<or> (pc, st) \<in> flatten b" by simp
-    hence "st \<in> lookup a pc \<or> st \<in> lookup b pc" using flatten_bwd by force
-    hence "st \<in> lookup (a \<squnion> b) pc" by fastforce
-    from this splitx show "x \<in> flatten (a \<squnion> b)" by (simp add: flatten_fwd)
-  qed
+proof (intro Set.equalityI Set.subsetI)
+  fix x assume ass: "x \<in> flatten (a \<squnion> b)"
+  from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
+  from this ass have "st \<in> lookup (a \<squnion> b) pc" using flatten_bwd by fastforce
+  hence "st \<in> lookup a pc \<or> st \<in> lookup b pc" by simp
+  hence "(pc, st) \<in> flatten a \<or> (pc, st) \<in> flatten b" using flatten_fwd by force
+  from this splitx show "x \<in> flatten a \<union> flatten b" by simp
+next
+  fix x assume ass: "x \<in> flatten a \<union> flatten b"
+  from ass obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
+  from this ass have "(pc, st) \<in> flatten a \<or> (pc, st) \<in> flatten b" by simp
+  hence "st \<in> lookup a pc \<or> st \<in> lookup b pc" using flatten_bwd by force
+  hence "st \<in> lookup (a \<squnion> b) pc" by fastforce
+  from this splitx show "x \<in> flatten (a \<squnion> b)" by (simp add: flatten_fwd)
 qed
 
 subsection "Collecting Semantics"
@@ -263,26 +253,21 @@ fun step_all :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" wh
   "step_all prog ctx = SM (stepped_to prog ctx)"
 
 lemma step_all_correct: "flatten (step_all prog (deepen flat)) = step_all_flat prog flat"
-proof standard
-  show "flatten (step_all prog (deepen flat)) \<subseteq> step_all_flat prog flat"
-  proof standard
-    fix x assume ass: "x \<in> flatten (step_all prog (deepen flat))"
-    then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-    from this ass have "st \<in> lookup (step_all prog (deepen flat)) pc" using flatten_bwd by fastforce
-    hence stepped: "st \<in> stepped_to prog (deepen flat) pc" by simp
-    from this obtain ist ipc op where stuff: "ist \<in> lookup (deepen flat) ipc" "prog ipc = Some op" "step op (ipc, ist) = Some (pc, st)" by cases
-    hence bwd: "(ipc, ist) \<in> flat" by (simp add: deepen_bwd)
-    from this stuff show "x \<in> step_all_flat prog flat" using splitx step_all_flat.intros by blast
-  qed
-  show "step_all_flat prog flat \<subseteq> flatten (step_all prog (deepen flat))"
-  proof standard
-    fix x assume ass: "x \<in> step_all_flat prog flat"
-    then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-    from ass obtain ipc ist instr where stuff: "(ipc, ist) \<in> flat" "prog ipc = Some instr" "step instr (ipc, ist) = Some x" by cases
-    from stuff have "ist \<in> lookup (deepen flat) ipc" by (simp add: states_at.intros)
-    from this stuff have "st \<in> lookup (step_all prog (deepen flat)) pc" by (simp add: splitx stepped_to.intros)
-    thus "x \<in> flatten (step_all prog (deepen flat))" using splitx by (simp add: flatten_fwd)
-  qed
+proof (intro Set.equalityI Set.subsetI)
+  fix x assume ass: "x \<in> flatten (step_all prog (deepen flat))"
+  then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
+  from this ass have "st \<in> lookup (step_all prog (deepen flat)) pc" using flatten_bwd by fastforce
+  hence stepped: "st \<in> stepped_to prog (deepen flat) pc" by simp
+  from this obtain ist ipc op where stuff: "ist \<in> lookup (deepen flat) ipc" "prog ipc = Some op" "step op (ipc, ist) = Some (pc, st)" by cases
+  hence bwd: "(ipc, ist) \<in> flat" by (simp add: deepen_bwd)
+  from this stuff show "x \<in> step_all_flat prog flat" using splitx step_all_flat.intros by blast
+next
+  fix x assume ass: "x \<in> step_all_flat prog flat"
+  then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
+  from ass obtain ipc ist instr where stuff: "(ipc, ist) \<in> flat" "prog ipc = Some instr" "step instr (ipc, ist) = Some x" by cases
+  from stuff have "ist \<in> lookup (deepen flat) ipc" by (simp add: states_at.intros)
+  from this stuff have "st \<in> lookup (step_all prog (deepen flat)) pc" by (simp add: splitx stepped_to.intros)
+  thus "x \<in> flatten (step_all prog (deepen flat))" using splitx by (simp add: flatten_fwd)
 qed
 
 fun collect_step :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
@@ -330,46 +315,41 @@ inductive_set errors_all for prog ctx where
     \<Longrightarrow> StepFailed pc \<in> errors_all prog ctx"
 
 lemma errors_all_as_flat: "errors_all prog (deepen flat) = errors_all_flat prog flat"
-proof standard
-  show "errors_all prog (deepen flat) \<subseteq> errors_all_flat prog flat"
-  proof standard
-    fix x assume "x \<in> errors_all prog (deepen flat)"
-    thus "x \<in> errors_all_flat prog flat"
-    proof cases
-      case (1 st pc)
-      from 1(2) have "(pc, st) \<in> flat" using deepen_bwd by simp
-      from this 1(3) show ?thesis using errors_all_flat.intros using "1"(1) by auto
-    next
-      case (2 st pc op)
-      then show ?thesis
-        by (metis (no_types, lifting) deepen_bwd error_step.simps errors_all_flat.simps option.case_eq_if option.discI option.sel)
-    qed
+proof (intro Set.equalityI Set.subsetI)
+  fix x assume "x \<in> errors_all prog (deepen flat)"
+  thus "x \<in> errors_all_flat prog flat"
+  proof cases
+    case (1 st pc)
+    from 1(2) have "(pc, st) \<in> flat" using deepen_bwd by simp
+    from this 1(3) show ?thesis using errors_all_flat.intros using "1"(1) by auto
+  next
+    case (2 st pc op)
+    then show ?thesis
+      by (metis (no_types, lifting) deepen_bwd error_step.simps errors_all_flat.simps option.case_eq_if option.discI option.sel)
   qed
-  show "errors_all_flat prog flat \<subseteq> errors_all prog (deepen flat)"
-  proof standard
-    fix x assume "x \<in> errors_all_flat prog flat"
-    thus "x \<in> errors_all prog (deepen flat)"
-    proof cases
-      case (1 pcst)
-      from this obtain "pc" "st" where splitst: "(pc, st) = pcst" by (metis surj_pair) 
+next
+  fix x assume "x \<in> errors_all_flat prog flat"
+  thus "x \<in> errors_all prog (deepen flat)"
+  proof cases
+    case (1 pcst)
+    from this obtain "pc" "st" where splitst: "(pc, st) = pcst" by (metis surj_pair) 
+    then show ?thesis
+    proof (cases "prog pc")
+      case None
+      then show ?thesis using splitst
+        by (metis (no_types, lifting) "1"(1) "1"(2) deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject)
+    next
+      case (Some instr)
       then show ?thesis
-      proof (cases "prog pc")
+      proof (cases "step instr (pc, st)")
         case None
-        then show ?thesis using splitst
-          by (metis (no_types, lifting) "1"(1) "1"(2) deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject)
-      next
-        case (Some instr)
         then show ?thesis
-        proof (cases "step instr (pc, st)")
-          case None
-          then show ?thesis
-            by (metis (mono_tags, lifting) "1"(1) "1"(2) Some deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject option.simps(5) splitst)
-        next
-          case (Some outst)
-          then show ?thesis
-            (* TODO: make this prettier *)
-            by (smt "1"(1) "1"(2) \<open>\<And>thesis. (\<And>pc st. (pc, st) = pcst \<Longrightarrow> thesis) \<Longrightarrow> thesis\<close> deepen_fwd error_step.simps errors_all.simps is_none_code(2) option.case_eq_if option.discI option.sel option.split_sel_asm)
-        qed
+          by (metis (mono_tags, lifting) "1"(1) "1"(2) Some deepen_fwd error_step.simps errors_all.simps option.case_eq_if option.inject option.simps(5) splitst)
+      next
+        case (Some outst)
+        then show ?thesis
+          (* TODO: make this prettier *)
+          by (smt "1"(1) "1"(2) \<open>\<And>thesis. (\<And>pc st. (pc, st) = pcst \<Longrightarrow> thesis) \<Longrightarrow> thesis\<close> deepen_fwd error_step.simps errors_all.simps is_none_code(2) option.case_eq_if option.discI option.sel option.split_sel_asm)
       qed
     qed
   qed
