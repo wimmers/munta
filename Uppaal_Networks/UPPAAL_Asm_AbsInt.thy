@@ -390,34 +390,50 @@ fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
   "\<gamma>_map (SM m) = SM (\<lambda>pc. \<gamma> (m pc))"
 
 lemma \<gamma>_lookup: "lookup (\<gamma>_map m) pc = \<gamma> (lookup m pc)"
-  by (metis \<gamma>_map.elims lookup.simps)
+  by (metis \<gamma>_map.simps lookup.elims lookup.simps)
+
+lemma \<gamma>_lookup_le:
+  assumes "a \<le> \<gamma>_map b"
+  shows "lookup a pc \<le> \<gamma> (lookup b pc)"
+  using \<gamma>_lookup assms less_eq_state_map_def by blast
 
 lemma \<gamma>_map_mono: "a \<le> b \<Longrightarrow> \<gamma>_map a \<le> \<gamma>_map b"
   by (simp add: \<gamma>_lookup less_eq_state_map_def mono_gamma)
 
 definition[simp]: "ai_slurp \<equiv> slurp ai_step"
-lemma ai_slurp_correct: "collect_slurp prog (\<gamma>_map ctx) pc \<le> \<gamma> (ai_slurp prog ctx pc)"
+lemma ai_slurp_correct:
+  assumes "a \<le> \<gamma>_map b"
+  shows "collect_slurp prog a pc \<le> \<gamma> (ai_slurp prog b pc)"
 proof standard
-  fix x assume "x \<in> collect_slurp prog (\<gamma>_map ctx) pc"
-  from this obtain ipc op where slurped: "prog ipc = Some op" "x \<in> collect_step op ipc (lookup (\<gamma>_map ctx) ipc) pc" by auto
-  from slurped(2) have "x \<in> collect_step op ipc (\<gamma> (lookup ctx ipc)) pc" using \<gamma>_lookup by simp
-  from this have "x \<in> \<gamma> (ai_step op ipc (lookup ctx ipc) pc)" using astep_correct ..
-  from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = ai_step op ipc (lookup ctx ipc) pc" using slurped(1) by blast
-  from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> ai_step op ipc (lookup ctx ipc) pc = ost}" using slurped(1) by blast
-  from this have "ax \<le> ai_slurp prog ctx pc" by (simp add: Sup_upper)
-  thus "x \<in> \<gamma> (ai_slurp prog ctx pc)" using ax mono_gamma by auto
+  fix x assume "x \<in> collect_slurp prog a pc"
+  from this obtain ipc op where slurped: "prog ipc = Some op" "x \<in> collect_step op ipc (lookup a ipc) pc" by auto
+  from assms have "lookup a ipc \<subseteq> \<gamma> (lookup b ipc)" using \<gamma>_lookup_le by blast
+  from slurped(2) this have "x \<in> collect_step op ipc (\<gamma> (lookup b ipc)) pc" by (meson collect_step.simps subset_eq)
+  from this have "x \<in> \<gamma> (ai_step op ipc (lookup b ipc) pc)" using astep_correct ..
+  from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = ai_step op ipc (lookup b ipc) pc" using slurped(1) by blast
+  from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> ai_step op ipc (lookup b ipc) pc = ost}" using slurped(1) by blast
+  from this have "ax \<le> ai_slurp prog b pc" by (simp add: Sup_upper)
+  thus "x \<in> \<gamma> (ai_slurp prog b pc)" using ax mono_gamma by auto
 qed
 
 definition[simp]: "ai_step_map \<equiv> step_map ai_step"
-lemma ai_step_map_correct: "collect_step_map prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_step_map prog ctx)"
-  using ai_slurp_correct by (simp add: less_eq_state_map_def)
+lemma ai_step_map_correct:
+  assumes "a \<le> \<gamma>_map b"
+  shows "collect_step_map prog a \<le> \<gamma>_map (ai_step_map prog b)"
+  using ai_slurp_correct assms less_eq_state_map_def by fastforce
 
 definition[simp]: "ai_advance \<equiv> advance ai_step"
-lemma ai_advance_correct: "collect_advance prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_advance prog ctx)" using ai_step_map_correct \<gamma>_map_mono
+lemma ai_advance_correct:
+  assumes "a \<le> \<gamma>_map b"
+  shows "collect_advance prog a \<le> \<gamma>_map (ai_advance prog b)"
 proof -
-  have "\<gamma>_map (ai_step_map prog ctx) \<le> \<gamma>_map (advance ai_step prog ctx)" by (metis \<gamma>_map_mono advance.simps ai_step_map_def sup_ge2)
-  hence "collect_step_map prog (\<gamma>_map ctx) \<le> \<gamma>_map (advance ai_step prog ctx)" using ai_step_map_correct order.trans by blast
-  thus ?thesis by (simp add: \<gamma>_map_mono)
+  have "\<gamma>_map (ai_step_map prog b) \<le> \<gamma>_map (advance ai_step prog b)" by (metis \<gamma>_map_mono advance.simps ai_step_map_def sup_ge2)
+  hence step_le: "collect_step_map prog a \<le> \<gamma>_map (advance ai_step prog b)" using ai_step_map_correct order.trans assms by blast
+
+  have "b \<le> advance ai_step prog b" by simp
+  then have "a \<le> \<gamma>_map (advance ai_step prog b)" by (meson \<gamma>_map_mono assms order.trans)
+
+  from step_le this show ?thesis by force
 qed
 
 definition[simp]: "ai_loop \<equiv> loop ai_step"
@@ -427,8 +443,7 @@ proof (induction n arbitrary: entry)
   then show ?case by simp
 next
   case (Suc n)
-  have "a \<le> \<gamma>_map b \<Longrightarrow> collect_advance prog a \<le> \<gamma>_map (ai_advance prog b)" for a b sorry
-  from Suc this have "collect_advance prog (collect_loop prog n (\<gamma>_map entry)) \<le> \<gamma>_map (ai_advance prog (ai_loop prog n entry))" by blast
+  from Suc this have "collect_advance prog (collect_loop prog n (\<gamma>_map entry)) \<le> \<gamma>_map (ai_advance prog (ai_loop prog n entry))" using ai_advance_correct by blast
   then have "advance collect_step prog (loop collect_step prog n (\<gamma>_map entry)) \<le> \<gamma>_map (advance ai_step prog (loop ai_step prog n entry))" by auto
   then have "loop collect_step prog n (advance collect_step prog (\<gamma>_map entry)) \<le> \<gamma>_map (loop ai_step prog n (advance ai_step prog entry))" using loop_pull by metis
   thus ?case by simp
