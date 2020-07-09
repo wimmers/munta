@@ -199,9 +199,9 @@ fun advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Right
   "advance f prog ctx = ctx \<squnion> step_map f prog ctx"
 
 text \<open>Full Abstract Interpretation Loop, advancing n times\<close>
-fun loop :: "(program \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a \<Rightarrow> 'a" where
+fun loop :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "loop f prog 0 st = st" |
-  "loop f prog (Suc n) st = loop f prog n (f prog st)"
+  "loop f prog (Suc n) st = loop f prog n (advance f prog st)"
 
 subsection "Collecting Semantics"
 
@@ -209,8 +209,6 @@ type_synonym collect_state = "stack * rstate * flag * nat list"
 type_synonym collect_ctx = "collect_state set state_map"
 
 subsubsection \<open>Conversion between Map and Flat Collecting\<close>
-
-(* TODO: we have a bijection here, is there maybe a locale for this? *)
 
 inductive_set states_at for states pc where
   "(pc, s) \<in> states \<Longrightarrow> s \<in> states_at states pc"
@@ -328,7 +326,7 @@ proof -
   thus ?thesis by (simp add: advance_flat_def)
 qed
 
-definition[simp]: "collect_loop \<equiv> loop collect_advance"
+definition[simp]: "collect_loop \<equiv> loop collect_step"
 
 lemma collect_loop_as_flat:
   "flatten (collect_loop prog n (deepen flat)) = collect_loop_flat prog n flat"
@@ -381,19 +379,24 @@ locale AbsInt =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
   and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
-fixes astep :: "'as astep"
+fixes ai_step :: "'as astep"
   assumes astep_correct: "collect_step op ipc (\<gamma> a) pc \<le> \<gamma> (astep op ipc a pc)"
 begin
 
 fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
   "\<gamma>_map (SM m) = SM (\<lambda>pc. \<gamma> (m pc))"
 
-fun ai_step :: "program \<Rightarrow> 'as state_map \<Rightarrow> 'as state_map" where
-  "ai_step prog st = undefined"
+definition[simp]: "ai_slurp \<equiv> slurp ai_step"
+lemma ai_slurp_correct: "collect_slurp prog (\<gamma>_map ctx) pc \<le> \<gamma> (ai_slurp prog ctx pc)" sorry
+
+definition[simp]: "ai_step_map \<equiv> step_map ai_step"
+lemma ai_step_map_correct: "collect_step_map prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_step_map prog ctx)" sorry
+
+definition[simp]: "ai_advance \<equiv> advance ai_step"
+lemma ai_advance_correct: "collect_advance prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_advance prog ctx)" sorry
 
 definition[simp]: "ai_loop \<equiv> loop ai_step"
-
-lemma ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)" sorry
+theorem ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)" sorry
 
 end
 
