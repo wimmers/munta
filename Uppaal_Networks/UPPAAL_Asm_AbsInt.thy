@@ -5,7 +5,7 @@ imports
   "HOL.Complete_Lattices"
 begin
 
-(*---------*)
+(* ############# *)
 (* Notation *)
 notation
   sup (infixl "\<squnion>" 65) and
@@ -34,7 +34,7 @@ translations
   "\<Squnion>x y. f"   \<rightleftharpoons> "\<Squnion>x. \<Squnion>y. f"
   "\<Squnion>x. f"     \<rightleftharpoons> "\<Squnion>(CONST range (\<lambda>x. f))"
   "\<Squnion>x\<in>A. f"   \<rightleftharpoons> "CONST Sup ((\<lambda>x. f) `  A)"
-(*---------*)
+(* ############*)
 
 subsection "State Map"
 
@@ -177,23 +177,40 @@ end
 
 class absstate_base = semilattice_sup + top
 
-class absstate = absstate_base + bot
+class absstate = complete_lattice
 instantiation state_map :: (absstate) absstate begin instance proof qed end
 
 subsection "Abstract Stepping"
 
-type_synonym 'a stepfn = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> addr \<Rightarrow> 'a"
+text \<open>Type for any abstract stepping function. Performs a single forward step on an abstract state.\<close>
+type_synonym 'a astep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> addr \<Rightarrow> 'a"
 
-fun stepped_to :: "'a stepfn \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> ('a::Sup)" where
-  "stepped_to f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> f op ipc (lookup ctx ipc) pc = ost}"
+text \<open>Performs a step for all states in the map and returns the join of all resulting states at a given address.
+  Could also be seen as inverse-stepping, i.e. pulling all resulting states ending at the given address.\<close>
+fun slurp :: "'a astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> ('a::Sup)" where
+  "slurp f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> f op ipc (lookup ctx ipc) pc = ost}"
 
-fun step_all :: "('a::Sup) stepfn \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "step_all f prog ctx = SM (stepped_to f prog ctx)"
+text \<open>Perform a single step over an entire map\<close>
+fun step_map :: "('a::Sup) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "step_map f prog ctx = SM (slurp f prog ctx)"
+
+text \<open>Advance the Abstract Interpretation one step forward, i.e. step the map and merge it with the previous.\<close>
+fun advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "advance f prog ctx = ctx \<squnion> step_map f prog ctx"
+
+text \<open>Full Abstract Interpretation Loop, advancing n times\<close>
+fun loop :: "(program \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a \<Rightarrow> 'a" where
+  "loop f prog 0 st = st" |
+  "loop f prog (Suc n) st = loop f prog n (f prog st)"
 
 subsection "Collecting Semantics"
 
 type_synonym collect_state = "stack * rstate * flag * nat list"
 type_synonym collect_ctx = "collect_state set state_map"
+
+subsubsection \<open>Conversion between Map and Flat Collecting\<close>
+
+(* TODO: we have a bijection here, is there maybe a locale for this? *)
 
 inductive_set states_at for states pc where
   "(pc, s) \<in> states \<Longrightarrow> s \<in> states_at states pc"
@@ -251,50 +268,44 @@ next
   from this splitx show "x \<in> flatten (a \<squnion> b)" by (simp add: flatten_fwd)
 qed
 
-fun states_domain :: "(addr * 'a) set \<Rightarrow> addr set" where
-  "states_domain states = fst ` states"
+subsubsection \<open>Implementation\<close>
 
-fun propagate :: "'a set state_map \<Rightarrow> (addr * 'a) set \<Rightarrow> 'a set state_map" where
-  "propagate oldmap ss = oldmap \<squnion> deepen ss"
-
-lemma propagate_preserve: "inm \<le> propagate inm sts" by simp
-
-inductive_set stepped_to_base :: "collect_state set stepfn" for op ipc sts pc where
+inductive_set collect_step :: "collect_state set astep" for op ipc sts pc where
   "ist \<in> sts
     \<Longrightarrow> step op (ipc, ist) = Some (pc, st)
-    \<Longrightarrow> st \<in> stepped_to_base op ipc sts pc"
+    \<Longrightarrow> st \<in> collect_step op ipc sts pc"
 
-definition[simp]: "stepped_to_collect \<equiv> stepped_to stepped_to_base"
+definition[simp]: "collect_slurp \<equiv> slurp collect_step"
 
-lemma stepped_to_fwd:
+lemma collect_slurp_fwd:
   assumes
     "ist \<in> lookup ctx ipc"
     "prog ipc = Some op"
     "step op (ipc, ist) = Some (pc, ost)"
-  shows "ost \<in> stepped_to_collect prog ctx pc"
+  shows "ost \<in> collect_slurp prog ctx pc"
 proof -
-  have "ost \<in> stepped_to_base op ipc (lookup ctx ipc) pc" using assms(1) assms(3) stepped_to_base.intros by blast
+  have "ost \<in> collect_step op ipc (lookup ctx ipc) pc" using assms(1) assms(3) collect_step.intros by blast
   from assms(2) this show ?thesis by auto
 qed
 
-lemma stepped_to_bwd:
-  assumes "ost \<in> stepped_to_collect prog ctx pc"
+lemma collect_slurp_bwd:
+  assumes "ost \<in> collect_slurp prog ctx pc"
   shows "\<exists>ist op ipc. ist \<in> lookup ctx ipc \<and> prog ipc = Some op \<and> step op (ipc, ist) = Some (pc, ost)"
 proof -
-  from assms obtain ipc op where ipcop: "prog ipc = Some op" "ost \<in> stepped_to_base op ipc (lookup ctx ipc) pc" by auto
+  from assms obtain ipc op where ipcop: "prog ipc = Some op" "ost \<in> collect_step op ipc (lookup ctx ipc) pc" by auto
   from this(2) obtain ist where ist: "ist \<in> lookup ctx ipc" "step op (ipc, ist) = Some (pc, ost)" by cases
   from ist(1) ipcop(1) ist(2) show ?thesis by blast
 qed
 
-definition[simp]: "step_all_collect \<equiv> step_all stepped_to_base"
+definition[simp]: "collect_step_map \<equiv> step_map collect_step"
 
-lemma step_all_correct: "flatten (step_all_collect prog (deepen flat)) = step_all_flat prog flat"
+lemma step_all_correct: "flatten (collect_step_map prog (deepen flat)) = step_all_flat prog flat"
 proof (intro Set.equalityI Set.subsetI)
-  fix x assume ass: "x \<in> flatten (step_all_collect prog (deepen flat))"
+  fix x assume ass: "x \<in> flatten (collect_step_map prog (deepen flat))"
   then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
-  from this ass have "st \<in> lookup (step_all_collect prog (deepen flat)) pc" using flatten_bwd by fastforce
-  hence stepped: "st \<in> stepped_to_collect prog (deepen flat) pc" by simp
-  from this obtain ist ipc op where stuff: "ist \<in> lookup (deepen flat) ipc" "prog ipc = Some op" "step op (ipc, ist) = Some (pc, st)" using stepped_to_bwd by blast
+  from this ass have "st \<in> lookup (collect_step_map prog (deepen flat)) pc" using flatten_bwd by fastforce
+  hence stepped: "st \<in> collect_slurp prog (deepen flat) pc" by simp
+  from this obtain ist ipc op where stuff: "ist \<in> lookup (deepen flat) ipc" "prog ipc = Some op" "step op (ipc, ist) = Some (pc, st)" using collect_slurp_bwd by blast
   hence bwd: "(ipc, ist) \<in> flat" by (simp add: deepen_bwd)
   from this stuff show "x \<in> step_all_flat prog flat" using splitx step_all_flat.intros by blast
 next
@@ -302,29 +313,22 @@ next
   then obtain pc st where splitx: "x = (pc, st)" using prod.exhaust_sel by blast
   from ass obtain ipc ist instr where stuff: "(ipc, ist) \<in> flat" "prog ipc = Some instr" "step instr (ipc, ist) = Some (pc, st)" by cases (simp add: splitx)
   from stuff have "ist \<in> lookup (deepen flat) ipc" by (simp add: states_at.intros)
-  from this stuff have "st \<in> stepped_to_collect prog (deepen flat) pc" using stepped_to_fwd by blast
-  thus "x \<in> flatten (step_all_collect prog (deepen flat))" using splitx by (simp add: flatten_fwd)
+  from this stuff have "st \<in> collect_slurp prog (deepen flat) pc" using collect_slurp_fwd by blast
+  thus "x \<in> flatten (collect_step_map prog (deepen flat))" using splitx by (simp add: flatten_fwd)
 qed
 
-fun collect_step :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
-  "collect_step prog ctx = ctx \<squnion> step_all_collect prog ctx"
+fun collect_advance :: "program \<Rightarrow> collect_ctx \<Rightarrow> collect_ctx" where
+  "collect_advance prog ctx = ctx \<squnion> collect_step_map prog ctx"
 
-lemma collect_step_correct: "flatten (collect_step prog (deepen flat)) = collect_step_flat prog flat"
+lemma collect_advance_correct: "flatten (collect_advance prog (deepen flat)) = advance_flat prog flat"
 proof -
-  have "collect_step prog (deepen flat) = deepen flat \<squnion> step_all_collect prog (deepen flat)" by simp
-  hence "flatten (collect_step prog (deepen flat)) = flatten (deepen flat) \<squnion> flatten (step_all_collect prog (deepen flat))" by (simp add: flatten_lift_sup flatten_deepen)
-  hence "flatten (collect_step prog (deepen flat)) = flat \<squnion> step_all_flat prog flat" using flatten_deepen step_all_correct by blast
-  thus ?thesis by (simp add: collect_step_flat_def)
+  have "collect_advance prog (deepen flat) = deepen flat \<squnion> collect_step_map prog (deepen flat)" by simp
+  hence "flatten (collect_advance prog (deepen flat)) = flatten (deepen flat) \<squnion> flatten (collect_step_map prog (deepen flat))" by (simp add: flatten_lift_sup flatten_deepen)
+  hence "flatten (collect_advance prog (deepen flat)) = flat \<squnion> step_all_flat prog flat" using flatten_deepen step_all_correct by blast
+  thus ?thesis by (simp add: advance_flat_def)
 qed
 
-lemma collect_step_correct2: "flatten (collect_step prog m) = collect_step_flat prog (flatten m)"
-  using collect_step_correct deepen_flatten by metis
-
-fun loop :: "(program \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a \<Rightarrow> 'a" where
-  "loop f prog 0 st = st" |
-  "loop f prog (Suc n) st = loop f prog n (f prog st)"
-
-definition[simp]: "collect_loop \<equiv> loop collect_step"
+definition[simp]: "collect_loop \<equiv> loop collect_advance"
 
 lemma collect_loop_as_flat:
   "flatten (collect_loop prog n (deepen flat)) = collect_loop_flat prog n flat"
@@ -332,10 +336,10 @@ proof (induction n arbitrary: flat)
   case 0 then show ?case using flatten_deepen by auto
 next
   case (Suc n)
-  obtain flatstep where flatstep: "deepen flatstep = collect_step prog (deepen flat)" using deepen_flatten by blast
+  obtain flatstep where flatstep: "deepen flatstep = collect_advance prog (deepen flat)" using deepen_flatten by blast
   hence "flatten (collect_loop prog (Suc n) (deepen flat)) = flatten (collect_loop prog n (deepen flatstep))" by simp
   from this Suc have loop: "flatten (collect_loop prog (Suc n) (deepen flat)) = collect_loop_flat prog n flatstep" by simp
-  have step: "flatstep = collect_step_flat prog flat" by (metis collect_step_correct flatstep flatten_deepen)
+  have step: "flatstep = advance_flat prog flat" by (metis collect_advance_correct flatstep flatten_deepen)
   from loop step show ?case by simp
 qed
 
@@ -360,7 +364,7 @@ qed
 
 fun errors_loop :: "program \<Rightarrow> fuel \<Rightarrow> collect_ctx \<Rightarrow> interpret_error set" where
   "errors_loop _ 0 _ = {}" |
-  "errors_loop prog (Suc n) ctx = errors_all prog ctx \<squnion> errors_loop prog n (collect_step prog ctx)"
+  "errors_loop prog (Suc n) ctx = errors_all prog ctx \<squnion> errors_loop prog n (collect_advance prog ctx)"
 
 lemma errors_loop_as_flat:
   "errors_loop prog n (deepen flat) = errors_loop_flat prog n flat"
@@ -368,7 +372,7 @@ proof (induction n arbitrary: flat)
   case 0 then show ?case by simp
 next
   case (Suc n)
-  then show ?case by (metis collect_step_correct deepen_flatten errors_all_as_flat errors_loop.simps(2) errors_loop_flat.simps(2))
+  then show ?case by (metis collect_advance_correct deepen_flatten errors_all_as_flat errors_loop.simps(2) errors_loop_flat.simps(2))
 qed
 
 subsection \<open>Abstract\<close>
@@ -377,8 +381,8 @@ locale AbsInt =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
   and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
-fixes astep :: "'as stepfn"
-  assumes astep_sound: "stepped_to_base op ipc (\<gamma> a) pc \<le> \<gamma> (astep op ipc a pc)"
+fixes astep :: "'as astep"
+  assumes astep_correct: "collect_step op ipc (\<gamma> a) pc \<le> \<gamma> (astep op ipc a pc)"
 begin
 
 fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
