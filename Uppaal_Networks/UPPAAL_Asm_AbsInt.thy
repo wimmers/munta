@@ -203,6 +203,9 @@ fun loop :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarr
   "loop f prog 0 st = st" |
   "loop f prog (Suc n) st = loop f prog n (advance f prog st)"
 
+lemma loop_pull: "loop f prog n (advance f prog st) = advance f prog (loop f prog n st)"
+  apply(induction n arbitrary: st) by simp simp
+
 subsection "Collecting Semantics"
 
 type_synonym collect_state = "stack * rstate * flag * nat list"
@@ -389,6 +392,9 @@ fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
 lemma \<gamma>_lookup: "lookup (\<gamma>_map m) pc = \<gamma> (lookup m pc)"
   by (metis \<gamma>_map.elims lookup.simps)
 
+lemma \<gamma>_map_mono: "a \<le> b \<Longrightarrow> \<gamma>_map a \<le> \<gamma>_map b"
+  by (simp add: \<gamma>_lookup less_eq_state_map_def mono_gamma)
+
 definition[simp]: "ai_slurp \<equiv> slurp ai_step"
 lemma ai_slurp_correct: "collect_slurp prog (\<gamma>_map ctx) pc \<le> \<gamma> (ai_slurp prog ctx pc)"
 proof standard
@@ -403,13 +409,30 @@ proof standard
 qed
 
 definition[simp]: "ai_step_map \<equiv> step_map ai_step"
-lemma ai_step_map_correct: "collect_step_map prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_step_map prog ctx)" sorry
+lemma ai_step_map_correct: "collect_step_map prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_step_map prog ctx)"
+  using ai_slurp_correct by (simp add: less_eq_state_map_def)
 
 definition[simp]: "ai_advance \<equiv> advance ai_step"
-lemma ai_advance_correct: "collect_advance prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_advance prog ctx)" sorry
+lemma ai_advance_correct: "collect_advance prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_advance prog ctx)" using ai_step_map_correct \<gamma>_map_mono
+proof -
+  have "\<gamma>_map (ai_step_map prog ctx) \<le> \<gamma>_map (advance ai_step prog ctx)" by (metis \<gamma>_map_mono advance.simps ai_step_map_def sup_ge2)
+  hence "collect_step_map prog (\<gamma>_map ctx) \<le> \<gamma>_map (advance ai_step prog ctx)" using ai_step_map_correct order.trans by blast
+  thus ?thesis by (simp add: \<gamma>_map_mono)
+qed
 
 definition[simp]: "ai_loop \<equiv> loop ai_step"
-theorem ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)" sorry
+theorem ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)"
+proof (induction n arbitrary: entry)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  have "a \<le> \<gamma>_map b \<Longrightarrow> collect_advance prog a \<le> \<gamma>_map (ai_advance prog b)" for a b sorry
+  from Suc this have "collect_advance prog (collect_loop prog n (\<gamma>_map entry)) \<le> \<gamma>_map (ai_advance prog (ai_loop prog n entry))" by blast
+  then have "advance collect_step prog (loop collect_step prog n (\<gamma>_map entry)) \<le> \<gamma>_map (advance ai_step prog (loop ai_step prog n entry))" by auto
+  then have "loop collect_step prog n (advance collect_step prog (\<gamma>_map entry)) \<le> \<gamma>_map (loop ai_step prog n (advance ai_step prog entry))" using loop_pull by metis
+  thus ?case by simp
+qed
 
 end
 
