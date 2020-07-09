@@ -386,8 +386,21 @@ begin
 fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
   "\<gamma>_map (SM m) = SM (\<lambda>pc. \<gamma> (m pc))"
 
+lemma \<gamma>_lookup: "lookup (\<gamma>_map m) pc = \<gamma> (lookup m pc)"
+  by (metis \<gamma>_map.elims lookup.simps)
+
 definition[simp]: "ai_slurp \<equiv> slurp ai_step"
-lemma ai_slurp_correct: "collect_slurp prog (\<gamma>_map ctx) pc \<le> \<gamma> (ai_slurp prog ctx pc)" sorry
+lemma ai_slurp_correct: "collect_slurp prog (\<gamma>_map ctx) pc \<le> \<gamma> (ai_slurp prog ctx pc)"
+proof standard
+  fix x assume "x \<in> collect_slurp prog (\<gamma>_map ctx) pc"
+  from this obtain ipc op where slurped: "prog ipc = Some op" "x \<in> collect_step op ipc (lookup (\<gamma>_map ctx) ipc) pc" by auto
+  from slurped(2) have "x \<in> collect_step op ipc (\<gamma> (lookup ctx ipc)) pc" using \<gamma>_lookup by simp
+  from this have "x \<in> \<gamma> (ai_step op ipc (lookup ctx ipc) pc)" using astep_correct ..
+  from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = ai_step op ipc (lookup ctx ipc) pc" using slurped(1) by blast
+  from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> ai_step op ipc (lookup ctx ipc) pc = ost}" using slurped(1) by blast
+  from this have "ax \<le> ai_slurp prog ctx pc" by (simp add: Sup_upper)
+  thus "x \<in> \<gamma> (ai_slurp prog ctx pc)" using ax mono_gamma by auto
+qed
 
 definition[simp]: "ai_step_map \<equiv> step_map ai_step"
 lemma ai_step_map_correct: "collect_step_map prog (\<gamma>_map ctx) \<le> \<gamma>_map (ai_step_map prog ctx)" sorry
