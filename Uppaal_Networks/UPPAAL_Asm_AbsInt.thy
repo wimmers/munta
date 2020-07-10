@@ -175,8 +175,6 @@ instance proof
 qed
 end
 
-class absstate_base = semilattice_sup + top
-
 class absstate = complete_lattice
 instantiation state_map :: (absstate) absstate begin instance proof qed end
 
