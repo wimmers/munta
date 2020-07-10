@@ -452,7 +452,8 @@ subsubsection \<open>Useful Lemmas\<close>
 text \<open>Characteristics of @{term step}\<close>
 
 lemma step_pop1_pred:
-  assumes "step NOT (ipc, ist) = Some (pc, st) \<or> step AND (ipc, ist) = Some (pc, st)"
+  assumes "op = NOT \<or> op = AND \<or> op = POP"
+    "step op (ipc, ist) = Some (pc, st)"
   shows "\<exists>b st m f rs. ist = (b # st, m, f, rs)"
 proof -
   obtain abst m f rs where split: "ist = (abst, m, f, rs)" by (metis prod_cases4)
@@ -460,15 +461,23 @@ proof -
     apply safe
     apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(20))
     apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(21))
+    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(28))
   done
 qed
 
 lemma step_pop2_pred:
-  assumes "step ADD (ipc, ist) = Some (pc, st)"
+  assumes "op = ADD \<or> op = LT \<or> op = LE \<or> op = EQ"
+    "step op (ipc, ist) = Some (pc, st)"
   shows "\<exists>a b st m f rs. ist = (a # b # st, m, f, rs)"
 proof -
   obtain abst m f rs where "ist = (abst, m, f, rs)" by (metis prod_cases4)
-  show ?thesis by (metis assms option.simps(3) prod.exhaust remdups_adj.cases step.simps(18) step.simps(19))
+  from this show ?thesis using assms
+    apply safe
+    apply (metis option.simps(3) remdups_adj.cases step.simps(18) step.simps(19))
+    apply (metis option.simps(3) remdups_adj.cases step.simps(22) step.simps(23))
+    apply (metis list.exhaust option.simps(3) step.simps(24) step.simps(25))
+    apply (metis list.exhaust option.simps(3) step.simps(26) step.simps(27))
+  done
 qed
 
 lemma step_jmpz_succ:
@@ -505,12 +514,71 @@ proof -
   from assms this show ?thesis by (cases "b = 0 \<or> b = 1"; auto)
 qed
 
+lemma step_lt_succ:
+  assumes "step LT (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain a b sta m f rs where split: "(a # b # sta, m, f, rs) = ist" using step_pop2_pred by metis
+  have "step LT (ipc, a # b # sta, m, f, rs) = Some (ipc + 1, sta, m,  a < b, rs)" by simp
+  from this assms have "Some (pc, st) = Some (ipc + 1, sta, m, a < b, rs)" by (simp add: split)
+  thus "pc = Suc ipc" by force
+qed
+
+lemma step_le_succ:
+  assumes "step LE (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain a b sta m f rs where split: "(a # b # sta, m, f, rs) = ist" using step_pop2_pred by metis
+  have "step LE (ipc, a # b # sta, m, f, rs) = Some (ipc + 1, sta, m,  a \<le> b, rs)" by simp
+  from this assms have "Some (pc, st) = Some (ipc + 1, sta, m, a \<le> b, rs)" by (simp add: split)
+  thus "pc = Suc ipc" by force
+qed
+
+lemma step_eq_succ:
+  assumes "step EQ (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain a b sta m f rs where split: "(a # b # sta, m, f, rs) = ist" using step_pop2_pred by metis
+  have "step EQ (ipc, a # b # sta, m, f, rs) = Some (ipc + 1, sta, m,  a = b, rs)" by simp
+  from this assms have "Some (pc, st) = Some (ipc + 1, sta, m, a = b, rs)" by (simp add: split)
+  thus "pc = Suc ipc" by force
+qed
+
+lemma step_push_succ:
+  assumes "step (PUSH x) (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain sta m f rs where "ist = (sta, m, f, rs)" using prod_cases4 by blast
+  from assms this show ?thesis by auto
+qed
+
+lemma step_pop_succ:
+  assumes "step POP (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain b sta m f rs where "ist = (b # sta, m, f, rs)" using step_pop1_pred by blast
+  from assms this show ?thesis by auto
+qed
+
+lemmas step_fallthrough_succ = step_add_succ step_not_succ step_and_succ step_lt_succ step_le_succ step_eq_succ step_pop_succ
+
 text \<open>Resulting characteristics of @{term collect_step},
   useful for proving abstract step functions against it.\<close>
 
 lemma collect_step_jmpz_succ: "pc \<noteq> Suc ipc \<Longrightarrow> pc \<noteq> tgt \<Longrightarrow> collect_step (JMPZ tgt) ipc sts pc = \<bottom>" using step_jmpz_succ by fastforce
-lemma collect_step_add_succ: "pc \<noteq> Suc ipc \<Longrightarrow> collect_step ADD ipc sts pc = \<bottom>" using step_add_succ by auto
-lemma collect_step_not_succ: "pc \<noteq> Suc ipc \<Longrightarrow> collect_step NOT ipc sts pc = \<bottom>" using step_not_succ by auto
-lemma collect_step_and_succ: "pc \<noteq> Suc ipc \<Longrightarrow> collect_step AND ipc sts pc = \<bottom>" using step_and_succ by auto
+lemma collect_step_fallthrough_succ:
+  assumes "pc \<noteq> Suc ipc"
+  shows
+    "collect_step ADD ipc sts pc = \<bottom>"
+    "collect_step NOT ipc sts pc = \<bottom>"
+    "collect_step AND ipc sts pc = \<bottom>"
+    "collect_step LT ipc sts pc = \<bottom>"
+    "collect_step LE ipc sts pc = \<bottom>"
+    "collect_step EQ ipc sts pc = \<bottom>"
+    "collect_step POP ipc sts pc = \<bottom>"
+  using step_fallthrough_succ assms by auto
+lemma collect_step_push_succ: "pc \<noteq> Suc ipc \<Longrightarrow> collect_step (PUSH x) ipc sts pc = \<bottom>" using step_push_succ by fastforce
+
+lemmas collect_step_succ = collect_step_jmpz_succ collect_step_fallthrough_succ
 
 end

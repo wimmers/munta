@@ -27,14 +27,6 @@ fun \<gamma>_dumb :: "dumb \<Rightarrow> collect_state set" where
 fun dumb_step :: "dumb astep" where
   "dumb_step _ _ None _ = None" |
   "dumb_step (JMPZ target) ipc ins pc = (if pc = Suc ipc \<or> pc = target then Some Any else None)" |
-  "dumb_step ADD ipc ins pc = (if pc = Suc ipc then Some Any else None)" |
-  "dumb_step NOT ipc ins pc = (if pc = Suc ipc then Some Any else None)" |
-  "dumb_step AND ipc ins pc = (if pc = Suc ipc then Some Any else None)" |
-  "dumb_step LT ipc ins pc = Some Any" |
-  "dumb_step LE ipc ins pc = Some Any" |
-  "dumb_step EQ ipc ins pc = Some Any" |
-  "dumb_step (PUSH _)ipc ins pc = Some Any" |
-  "dumb_step POP ipc ins pc = Some Any" |
   "dumb_step (LID _) ipc ins pc = Some Any" |
   "dumb_step STORE ipc ins pc = Some Any" |
   "dumb_step (STOREI _ _) ipc ins pc = Some Any" |
@@ -43,7 +35,8 @@ fun dumb_step :: "dumb astep" where
   "dumb_step RETURN ipc ins pc = Some Any" |
   "dumb_step HALT ipc ins pc = Some Any" |
   "dumb_step (STOREC _ _) ipc ins pc = Some Any" |
-  "dumb_step (SETF _) ipc ins pc = Some Any"
+  "dumb_step (SETF _) ipc ins pc = Some Any" |
+  "dumb_step _ ipc ins pc = (if pc = Suc ipc then Some Any else None)"
 
 global_interpretation AbsInt
   where \<gamma> = \<gamma>_dumb
@@ -72,9 +65,14 @@ next
     then show ?thesis
     proof(cases op)
       case (JMPZ target) then show ?thesis by (simp add: Some) next
-      case (ADD) then show ?thesis using Some collect_step_add_succ by fastforce next
-      case (NOT) then show ?thesis using Some collect_step_not_succ by fastforce next
-      case (AND) then show ?thesis using Some collect_step_and_succ by fastforce
+      case (ADD) then show ?thesis using Some collect_step_succ by fastforce next
+      case (NOT) then show ?thesis using Some collect_step_succ by fastforce next
+      case (AND) then show ?thesis using Some collect_step_succ by fastforce next
+      case (LT) then show ?thesis using Some collect_step_succ by fastforce next
+      case (LE) then show ?thesis using Some collect_step_succ by fastforce next
+      case (EQ) then show ?thesis using Some collect_step_succ by fastforce next
+      case (PUSH x) then show ?thesis by (simp add: Some) next
+      case (POP) then show ?thesis using Some collect_step_succ by fastforce
     qed auto
   qed
 qed
