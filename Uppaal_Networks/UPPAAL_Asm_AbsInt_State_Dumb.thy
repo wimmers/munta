@@ -25,7 +25,25 @@ fun \<gamma>_dumb :: "dumb \<Rightarrow> collect_state set" where
   "\<gamma>_dumb v  = \<gamma>_option (\<lambda>_. \<top>) v"
 
 fun dumb_step :: "dumb astep" where
-  "dumb_step op ipc ins pc = Some Any" (* TODO: this can be better *)
+  "dumb_step _ _ None _ = None" |
+  "dumb_step (JMPZ target) ipc ins pc = (if pc = Suc ipc \<or> pc = target then Some Any else None)" |
+  "dumb_step ADD ipc ins pc = (if pc = Suc ipc then Some Any else None)" |
+  "dumb_step NOT ipc ins pc = (if pc = Suc ipc then Some Any else None)" |
+  "dumb_step AND ipc ins pc = (if pc = Suc ipc then Some Any else None)" |
+  "dumb_step LT ipc ins pc = Some Any" |
+  "dumb_step LE ipc ins pc = Some Any" |
+  "dumb_step EQ ipc ins pc = Some Any" |
+  "dumb_step (PUSH _)ipc ins pc = Some Any" |
+  "dumb_step POP ipc ins pc = Some Any" |
+  "dumb_step (LID _) ipc ins pc = Some Any" |
+  "dumb_step STORE ipc ins pc = Some Any" |
+  "dumb_step (STOREI _ _) ipc ins pc = Some Any" |
+  "dumb_step COPY ipc ins pc = Some Any" |
+  "dumb_step CALL ipc ins pc = Some Any" |
+  "dumb_step RETURN ipc ins pc = Some Any" |
+  "dumb_step HALT ipc ins pc = Some Any" |
+  "dumb_step (STOREC _ _) ipc ins pc = Some Any" |
+  "dumb_step (SETF _) ipc ins pc = Some Any"
 
 global_interpretation AbsInt
   where \<gamma> = \<gamma>_dumb
@@ -36,20 +54,29 @@ proof (standard, goal_cases)
   proof (cases a)
     case (Some aa)
     then show ?thesis
-    proof (cases b)
-      case None
-      then show ?thesis using 1 using Some less_eq_option.simps(2) by blast
-    next
-      case (Some bb)
-      then show ?thesis by (cases bb) auto
-    qed
+      apply(cases b)
+      using 1 less_eq_option.simps(2) apply blast
+      by simp
   qed simp
 next
-  case 2
-  then show ?case by (simp add: top_dumb_base_def top_option_def)
+  case 2 then show ?case by (simp add: top_dumb_base_def top_option_def)
 next
-  case (3 op ipc a pc)
-  then show ?case by simp
+  case (3 op ipc ins pc)
+  then show ?case
+  proof (cases ins)
+    case None
+    have "collect_step op ipc {} pc \<subseteq> {}" using collect_step.simps by blast
+    then show ?thesis by (simp add: None)
+  next
+    case (Some a)
+    then show ?thesis
+    proof(cases op)
+      case (JMPZ target) then show ?thesis by (simp add: Some) next
+      case (ADD) then show ?thesis using Some collect_step_add_succ by fastforce next
+      case (NOT) then show ?thesis using Some collect_step_not_succ by fastforce next
+      case (AND) then show ?thesis using Some collect_step_and_succ by fastforce
+    qed auto
+  qed
 qed
 
 end

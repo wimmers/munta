@@ -41,7 +41,7 @@ definition int_of :: "bool \<Rightarrow> int" where
 fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
   "step (JMPZ q) (pc, st, m, f, rs) = Some (if f then (pc + 1) else q, st, m, f, rs)" |
   "step ADD (pc, a # b # st, m, f, rs) = Some (pc + 1, (a + b) # st, m, f, rs)" |
-  "step NOT (pc, b # st, m , f, rs) = Some (pc + 1, st, m, \<not> f, rs)" | (* TODO: ask if the pop here is correct *)
+  "step NOT (pc, b # st, m , f, rs) = Some (pc + 1, st, m, \<not> f, rs)" |
   "step AND (pc, b # st, m, f, rs) =
     (if b = 0 \<or> b = 1
      then Some (pc + 1, st, m, b = 1 \<and> f, rs)

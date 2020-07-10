@@ -269,10 +269,8 @@ qed
 
 subsubsection \<open>Implementation\<close>
 
-inductive_set collect_step :: "collect_state set astep" for op ipc sts pc where
-  "ist \<in> sts
-    \<Longrightarrow> step op (ipc, ist) = Some (pc, st)
-    \<Longrightarrow> st \<in> collect_step op ipc sts pc"
+fun collect_step :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> addr \<Rightarrow> collect_state set" where
+  "collect_step op ipc sts pc = {st. \<exists>ist\<in>sts. step op (ipc, ist) = Some (pc, st)}"
 
 definition[simp]: "collect_slurp \<equiv> slurp collect_step"
 
@@ -283,7 +281,7 @@ lemma collect_slurp_fwd:
     "step op (ipc, ist) = Some (pc, ost)"
   shows "ost \<in> collect_slurp prog ctx pc"
 proof -
-  have "ost \<in> collect_step op ipc (lookup ctx ipc) pc" using assms(1) assms(3) collect_step.intros by blast
+  have "ost \<in> collect_step op ipc (lookup ctx ipc) pc" using assms(1) assms(3) by auto
   from assms(2) this show ?thesis by auto
 qed
 
@@ -292,7 +290,7 @@ lemma collect_slurp_bwd:
   shows "\<exists>ist op ipc. ist \<in> lookup ctx ipc \<and> prog ipc = Some op \<and> step op (ipc, ist) = Some (pc, ost)"
 proof -
   from assms obtain ipc op where ipcop: "prog ipc = Some op" "ost \<in> collect_step op ipc (lookup ctx ipc) pc" by auto
-  from this(2) obtain ist where ist: "ist \<in> lookup ctx ipc" "step op (ipc, ist) = Some (pc, ost)" by cases
+  from this(2) obtain ist where ist: "ist \<in> lookup ctx ipc" "step op (ipc, ist) = Some (pc, ost)" by auto
   from ist(1) ipcop(1) ist(2) show ?thesis by blast
 qed
 
@@ -381,7 +379,7 @@ fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
   and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
 fixes ai_step :: "'as astep"
-  assumes astep_correct: "collect_step op ipc (\<gamma> a) pc \<le> \<gamma> (astep op ipc a pc)"
+  assumes astep_correct: "collect_step op ipc (\<gamma> a) pc \<le> \<gamma> (ai_step op ipc a pc)"
 begin
 
 fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
@@ -406,7 +404,7 @@ proof standard
   fix x assume "x \<in> collect_slurp prog a pc"
   from this obtain ipc op where slurped: "prog ipc = Some op" "x \<in> collect_step op ipc (lookup a ipc) pc" by auto
   from assms have "lookup a ipc \<subseteq> \<gamma> (lookup b ipc)" using \<gamma>_lookup_le by blast
-  from slurped(2) this have "x \<in> collect_step op ipc (\<gamma> (lookup b ipc)) pc" by (meson collect_step.simps subset_eq)
+  from slurped(2) this have "x \<in> collect_step op ipc (\<gamma> (lookup b ipc)) pc" by auto
   from this have "x \<in> \<gamma> (ai_step op ipc (lookup b ipc) pc)" using astep_correct ..
   from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = ai_step op ipc (lookup b ipc) pc" using slurped(1) by blast
   from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> ai_step op ipc (lookup b ipc) pc = ost}" using slurped(1) by blast
@@ -418,7 +416,7 @@ definition[simp]: "ai_step_map \<equiv> step_map ai_step"
 lemma ai_step_map_correct:
   assumes "a \<le> \<gamma>_map b"
   shows "collect_step_map prog a \<le> \<gamma>_map (ai_step_map prog b)"
-  using ai_slurp_correct assms less_eq_state_map_def by fastforce
+  using ai_slurp_correct assms by (simp add: less_eq_state_map_def)
 
 definition[simp]: "ai_advance \<equiv> advance ai_step"
 lemma ai_advance_correct:
@@ -448,5 +446,71 @@ next
 qed
 
 end
+
+subsubsection \<open>Useful Lemmas\<close>
+
+text \<open>Characteristics of @{term step}\<close>
+
+lemma step_pop1_pred:
+  assumes "step NOT (ipc, ist) = Some (pc, st) \<or> step AND (ipc, ist) = Some (pc, st)"
+  shows "\<exists>b st m f rs. ist = (b # st, m, f, rs)"
+proof -
+  obtain abst m f rs where split: "ist = (abst, m, f, rs)" by (metis prod_cases4)
+  show ?thesis using assms
+    apply safe
+    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(20))
+    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(21))
+  done
+qed
+
+lemma step_pop2_pred:
+  assumes "step ADD (ipc, ist) = Some (pc, st)"
+  shows "\<exists>a b st m f rs. ist = (a # b # st, m, f, rs)"
+proof -
+  obtain abst m f rs where "ist = (abst, m, f, rs)" by (metis prod_cases4)
+  show ?thesis by (metis assms option.simps(3) prod.exhaust remdups_adj.cases step.simps(18) step.simps(19))
+qed
+
+lemma step_jmpz_succ:
+  assumes "step (JMPZ tgt) (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc \<or> pc = tgt"
+proof -
+  from assms obtain sta m f rs where "ist = (sta, m, f, rs)" by (metis prod_cases4)
+  from assms this show ?thesis by auto
+qed
+
+lemma step_add_succ:
+  assumes "step ADD (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain a b sta m f rs where split: "(a # b # sta, m, f, rs) = ist" using step_pop2_pred by metis
+  have "step ADD (ipc, a # b # sta, m, f, rs) = Some (ipc + 1, (a + b) # sta, m, f, rs)" by simp
+  from this assms have "Some (pc, st) = Some (ipc + 1, (a + b) # sta, m, f, rs)" by (simp add: split)
+  thus "pc = Suc ipc" by force
+qed
+
+lemma step_not_succ:
+  assumes "step NOT (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain b sta m f rs where "ist = (b # sta, m, f, rs)" using step_pop1_pred by blast
+  from assms this show ?thesis by auto
+qed
+
+lemma step_and_succ:
+  assumes "step AND (ipc, ist) = Some (pc, st)"
+  shows "pc = Suc ipc"
+proof -
+  from assms obtain b sta m f rs where "ist = (b # sta, m, f, rs)" using step_pop1_pred by blast
+  from assms this show ?thesis by (cases "b = 0 \<or> b = 1"; auto)
+qed
+
+text \<open>Resulting characteristics of @{term collect_step},
+  useful for proving abstract step functions against it.\<close>
+
+lemma collect_step_jmpz_succ: "pc \<noteq> Suc ipc \<Longrightarrow> pc \<noteq> tgt \<Longrightarrow> collect_step (JMPZ tgt) ipc sts pc = \<bottom>" using step_jmpz_succ by fastforce
+lemma collect_step_add_succ: "pc \<noteq> Suc ipc \<Longrightarrow> collect_step ADD ipc sts pc = \<bottom>" using step_add_succ by auto
+lemma collect_step_not_succ: "pc \<noteq> Suc ipc \<Longrightarrow> collect_step NOT ipc sts pc = \<bottom>" using step_not_succ by auto
+lemma collect_step_and_succ: "pc \<noteq> Suc ipc \<Longrightarrow> collect_step AND ipc sts pc = \<bottom>" using step_and_succ by auto
 
 end
