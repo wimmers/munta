@@ -96,20 +96,22 @@ fun dumb_step :: "dumb astep" where
   "dumb_step _ ipc ins pc = (if pc = Suc ipc then Some Any else None)"
 
 (***********)
-lemma[code_unfold]: "astep_succs dumb_step op pc st =
-  (case (op, st) of
-    (_, None)        \<Rightarrow> {} |
-    (JMPZ target, _) \<Rightarrow> {target, pc + 1} |
-    (CALL, _)        \<Rightarrow> UNIV |
-    (RETURN, _)      \<Rightarrow> UNIV |
-    (HALT, _)        \<Rightarrow> {} |
-    _                \<Rightarrow> {pc + 1})"
+fun r_astep_succs_dumb_step :: "instr \<Rightarrow> addr \<Rightarrow> dumb \<Rightarrow> addr set" where
+  "r_astep_succs_dumb_step _ _ None           = {}" |
+  "r_astep_succs_dumb_step (JMPZ target) pc _ = {target, pc + 1}" |
+  "r_astep_succs_dumb_step CALL _ _           = UNIV" |
+  "r_astep_succs_dumb_step RETURN _ _         = UNIV" |
+  "r_astep_succs_dumb_step HALT _ _           = {}" |
+  "r_astep_succs_dumb_step _ pc _             = {pc + 1}"
+
+lemma[code_unfold]: "astep_succs dumb_step op ipc st = r_astep_succs_dumb_step op ipc st"
 proof (cases st)
-  case None
-  then show ?thesis sorry
+  case None then show ?thesis by (simp add: bot_option_def)
 next
   case (Some a)
-  then show ?thesis sorry
+  then show ?thesis
+    apply(cases op)
+    sorry
 qed
 
 value "
