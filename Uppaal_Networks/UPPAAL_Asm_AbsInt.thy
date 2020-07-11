@@ -185,6 +185,9 @@ subsection "Abstract Stepping"
 text \<open>Type for any abstract stepping function. Performs a single forward step on an abstract state.\<close>
 type_synonym 'a astep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> addr \<Rightarrow> 'a"
 
+fun astep_succs :: "('a::bot) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> addr set" where
+  "astep_succs f op ipc ins = {pc. f op ipc ins pc \<noteq> \<bottom>}"
+
 text \<open>Performs a step for all states in the map and returns the join of all resulting states at a given address.
   Could also be seen as inverse-stepping, i.e. pulling all resulting states ending at the given address.\<close>
 fun slurp :: "'a astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> ('a::Sup)" where
