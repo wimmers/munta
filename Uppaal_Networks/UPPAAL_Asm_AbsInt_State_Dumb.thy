@@ -27,15 +27,9 @@ fun \<gamma>_dumb :: "dumb \<Rightarrow> collect_state set" where
 fun dumb_step :: "dumb astep" where
   "dumb_step _ _ None _ = None" |
   "dumb_step (JMPZ target) ipc ins pc = (if pc = Suc ipc \<or> pc = target then Some Any else None)" |
-  "dumb_step (LID _) ipc ins pc = Some Any" |
-  "dumb_step STORE ipc ins pc = Some Any" |
-  "dumb_step (STOREI _ _) ipc ins pc = Some Any" |
-  "dumb_step COPY ipc ins pc = Some Any" |
   "dumb_step CALL ipc ins pc = Some Any" |
   "dumb_step RETURN ipc ins pc = Some Any" |
-  "dumb_step HALT ipc ins pc = Some Any" |
-  "dumb_step (STOREC _ _) ipc ins pc = Some Any" |
-  "dumb_step (SETF _) ipc ins pc = Some Any" |
+  "dumb_step HALT ipc ins pc = None" |
   "dumb_step _ ipc ins pc = (if pc = Suc ipc then Some Any else None)"
 
 global_interpretation AbsInt
@@ -72,7 +66,12 @@ next
       case (LE) then show ?thesis using Some collect_step_succ by fastforce next
       case (EQ) then show ?thesis using Some collect_step_succ by fastforce next
       case (PUSH x) then show ?thesis by (simp add: Some) next
-      case (POP) then show ?thesis using Some collect_step_succ by fastforce
+      case (POP) then show ?thesis using Some collect_step_succ by fastforce next
+      case (LID) then show ?thesis using Some collect_step_succ by simp next
+      case (STORE) then show ?thesis using Some collect_step_succ by fastforce next
+      case (STOREI) then show ?thesis using Some collect_step_succ by simp next
+      case (COPY) then show ?thesis using Some collect_step_succ by simp next
+      case (STOREC c d) then show ?thesis using Some collect_step_succ by simp
     qed auto
   qed
 qed
