@@ -40,6 +40,8 @@ subsection "State Map"
 
 datatype 'a state_map = SM "addr \<Rightarrow> 'a"
 
+definition "empty_map \<equiv> SM (\<lambda>_. \<bottom>)"
+
 lemma state_map_single_constructor: "\<exists>m. a = SM m"
   using state_map.exhaust by auto
 
