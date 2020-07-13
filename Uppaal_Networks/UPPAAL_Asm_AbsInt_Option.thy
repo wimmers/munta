@@ -28,6 +28,8 @@ begin
 
 definition "\<bottom> \<equiv> None"
 
+declare bot_option_def[simp]
+
 definition "\<top> \<equiv> Some \<top>"
 
 fun sup_option :: "'a option \<Rightarrow> 'a option \<Rightarrow> 'a option" where
@@ -91,7 +93,7 @@ next
   then show ?case
   proof (cases "A = {} \<or> A = {\<bottom>}")
     case True
-    then show ?thesis by (simp add: Sup_option_def bot_option_def)
+    then show ?thesis by (simp add: Sup_option_def)
   next
     case False
     then show ?thesis

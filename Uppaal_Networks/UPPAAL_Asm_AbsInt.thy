@@ -51,11 +51,11 @@ fun lookup :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
 fun unwrap :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
   "unwrap (SM m) = m"
 
-lemma lookup_eq: "(\<And>k kk. lookup a k = lookup b k) \<Longrightarrow> (a = b)"
+lemma lookup_eq: "(\<And>k. lookup a k = lookup b k) \<Longrightarrow> (a = b)"
 proof -
-  assume ass: "\<And>k kk. lookup a k = lookup b k"
+  assume ass: "\<And>k. lookup a k = lookup b k"
   obtain am bm where maps: "a = SM am" "b = SM bm" using state_map_single_constructor by blast
-  have "\<And>am bm. ((\<And>k kk. lookup (SM am) k = lookup (SM bm) k) \<Longrightarrow> (SM am) = (SM bm))" by (simp add: ext)
+  have "\<And>am bm. ((\<And>k. lookup (SM am) k = lookup (SM bm) k) \<Longrightarrow> (SM am) = (SM bm))" by (simp add: ext)
   from this ass maps show ?thesis by auto
 qed
 
@@ -190,19 +190,19 @@ fun astep_succs :: "('a::bot) astep \<Rightarrow> instr \<Rightarrow> addr \<Rig
 
 text \<open>Performs a step for all states in the map and returns the join of all resulting states at a given address.
   Could also be seen as inverse-stepping, i.e. pulling all resulting states ending at the given address.\<close>
-fun slurp :: "'a astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> ('a::Sup)" where
-  "slurp f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> f op ipc (lookup ctx ipc) pc = ost}"
+fun slurp :: "('a::{Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
+  "slurp f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> f op ipc (lookup ctx ipc) pc = ost}"
 
 text \<open>Perform a single step over an entire map\<close>
-fun step_map :: "('a::Sup) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+fun step_map :: "('a::{bot, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "step_map f prog ctx = SM (slurp f prog ctx)"
 
 text \<open>Advance the Abstract Interpretation one step forward, i.e. step the map and merge it with the previous.\<close>
-fun advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+fun advance :: "('a::{semilattice_sup, Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "advance f prog ctx = ctx \<squnion> step_map f prog ctx"
 
 text \<open>Full Abstract Interpretation Loop, advancing n times\<close>
-fun loop :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+fun loop :: "('a::{semilattice_sup, Sup, bot}) astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "loop f prog 0 st = st" |
   "loop f prog (Suc n) st = loop f prog n (advance f prog st)"
 
@@ -385,6 +385,7 @@ fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
 fixes ai_step :: "'as astep"
   assumes astep_correct: "collect_step op ipc (\<gamma> a) pc \<le> \<gamma> (ai_step op ipc a pc)"
+  and astep_keep_bot: "ai_step op ipc \<bottom> pc = \<bottom>"
 begin
 
 fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
@@ -407,13 +408,17 @@ lemma ai_slurp_correct:
   shows "collect_slurp prog a pc \<le> \<gamma> (ai_slurp prog b pc)"
 proof standard
   fix x assume "x \<in> collect_slurp prog a pc"
-  from this obtain ipc op where slurped: "prog ipc = Some op" "x \<in> collect_step op ipc (lookup a ipc) pc" by auto
+  from this obtain ipc op where slurped: "prog ipc = Some op" "lookup a ipc \<noteq> \<bottom>" "x \<in> collect_step op ipc (lookup a ipc) pc" by auto
   from assms have "lookup a ipc \<subseteq> \<gamma> (lookup b ipc)" using \<gamma>_lookup_le by blast
-  from slurped(2) this have "x \<in> collect_step op ipc (\<gamma> (lookup b ipc)) pc" by auto
+  from slurped(3) this have "x \<in> collect_step op ipc (\<gamma> (lookup b ipc)) pc" by auto
   from this have "x \<in> \<gamma> (ai_step op ipc (lookup b ipc) pc)" using astep_correct ..
-  from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = ai_step op ipc (lookup b ipc) pc" using slurped(1) by blast
-  from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> ai_step op ipc (lookup b ipc) pc = ost}" using slurped(1) by blast
-  from this have "ax \<le> ai_slurp prog b pc" by (simp add: Sup_upper)
+  from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = ai_step op ipc (lookup b ipc) pc" using slurped by blast
+  have "ax \<le> ai_slurp prog b pc"
+  proof(cases "lookup b ipc = \<bottom>")
+    case False
+    from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> lookup b ipc \<noteq> \<bottom> \<and> ai_step op ipc (lookup b ipc) pc = ost}" using slurped(1) ax(2) by blast
+    then show ?thesis by (simp add: Sup_upper)
+  qed (simp add: astep_keep_bot ax(2))
   thus "x \<in> \<gamma> (ai_slurp prog b pc)" using ax mono_gamma by auto
 qed
 
@@ -647,5 +652,24 @@ qed
 lemma collect_step_halt_succ: "collect_step HALT ipc sts pc = \<bottom>" by simp
 
 lemmas collect_step_succ = collect_step_jmpz_succ collect_step_fallthrough_succ
+
+subsection \<open>Alternative Type for Abstract Step Functions\<close>
+
+text\<open>This type is easier to implement in certain cases and works better for code generation,
+  but it may not be unique wrt. its {@term unique_astep}\<close>
+type_synonym 'a asetstep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> (addr * 'a) set"
+
+fun unique_astep :: "('a::Sup) asetstep \<Rightarrow> 'a astep" where
+  "unique_astep f op ipc ins pc = \<Squnion>{st. (pc, st) \<in> f op ipc ins}"
+
+lemma unique_astep_unique:
+  assumes
+    "(pc, (st::'a::absstate)) \<in> f op ipc ins"
+    "\<And>sst. (pc, sst) \<in> f op ipc ins \<Longrightarrow> sst = st"
+  shows "unique_astep f op ipc ins pc = st" 
+proof -
+  from assms have "{st. (pc, st) \<in> f op ipc ins} = {st}" by blast
+  thus ?thesis using ccpo_Sup_singleton[of st] by simp
+qed
 
 end

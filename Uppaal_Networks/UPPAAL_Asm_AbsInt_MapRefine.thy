@@ -71,53 +71,64 @@ proof (intro Set.equalityI Set.subsetI)
   from keys r_lookup show "x \<in> r_domain m" by auto
 qed auto
 
-fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "r_step_map_from f op ipc ctx = fold
+fun r_step_map_from_with_op :: "('a::absstate) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "r_step_map_from_with_op f op ipc ctx = fold
     (\<lambda>pc acc. merge_single acc pc (f op ipc (lookup ctx ipc) pc))
     (sorted_list_of_set (astep_succs f op ipc (lookup ctx ipc))) ctx"
 
+fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "r_step_map_from f prog ipc acc =
+    (case prog ipc of
+      Some op \<Rightarrow> r_step_map_from_with_op f op ipc acc |
+      None \<Rightarrow> acc)"
+
 fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "r_step_map f prog ctx = fold
-    (\<lambda>ipc acc. case prog ipc of
-      Some op \<Rightarrow> r_step_map_from f op ipc acc |
-      None \<Rightarrow> acc)
-    (sorted_list_of_set (domain ctx)) empty_map"
+  "r_step_map f prog ctx = fold (r_step_map_from f prog) (sorted_list_of_set (domain ctx)) empty_map"
+
+lemma sorted_list_of_set_split:
+  assumes "a \<in> s"
+  shows "\<exists>pre post. pre @ a # post = sorted_list_of_set s"
+  using assms(1) set_sorted_list_of_set split_list_first sorry
+
+lemma[code]: "step_map (f::('a::absstate) astep) prog ctx = r_step_map f prog ctx"
+proof(rule lookup_eq)
+  have "\<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> f op ipc (lookup ctx ipc) pc = ost} = lookup (r_step_map f prog ctx) pc" for pc
+  proof(rule Sup_eqI, goal_cases)
+    case (1 ost)
+    then obtain ipc op where step: "prog ipc = Some op" "lookup ctx ipc \<noteq> \<bottom>" "f op ipc (lookup ctx ipc) pc = ost" by blast
+    obtain m where "SM m = ctx" using state_map_single_constructor by metis 
+    from this step have "ipc \<in> domain ctx" by auto                
+    then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain ctx)" sorry
+    then show ?case sorry
+  next
+    case (2 y)
+    then show ?case sorry
+  qed
+  thus "lookup (step_map f prog ctx) pc = lookup (r_step_map f prog ctx) pc" for pc by simp
+qed
 
 fun r_advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
   "r_advance f prog ctx = undefined"
 
-
-fun dumb_step :: "dumb astep" where
-  "dumb_step _ _ None _ = None" |
-  "dumb_step (JMPZ target) ipc ins pc = (if pc = Suc ipc \<or> pc = target then Some Any else None)" |
-  "dumb_step CALL ipc ins pc = Some Any" |
-  "dumb_step RETURN ipc ins pc = Some Any" |
-  "dumb_step HALT ipc ins pc = None" |
-  "dumb_step _ ipc ins pc = (if pc = Suc ipc then Some Any else None)"
-
 (***********)
-fun r_astep_succs_dumb_step :: "instr \<Rightarrow> addr \<Rightarrow> dumb \<Rightarrow> addr set" where
-  "r_astep_succs_dumb_step _ _ None           = {}" |
-  "r_astep_succs_dumb_step (JMPZ target) pc _ = {target, pc + 1}" |
-  "r_astep_succs_dumb_step CALL _ _           = UNIV" |
-  "r_astep_succs_dumb_step RETURN _ _         = UNIV" |
-  "r_astep_succs_dumb_step HALT _ _           = {}" |
-  "r_astep_succs_dumb_step _ pc _             = {pc + 1}"
-
-lemma[code_unfold]: "astep_succs dumb_step op ipc st = r_astep_succs_dumb_step op ipc st"
-proof (cases st)
-  case None then show ?thesis by (simp add: bot_option_def)
-next
-  case (Some a)
-  then show ?thesis
-    apply(cases op)
-    sorry
-qed
+lemma[code_unfold]: "astep_succs dumb_step_direct op ipc st = astep_succs dumb_step op ipc st" using dumb_step_direct_eq by simp
 
 value "
   let m = empty_map::bool state_map;
       m2 = merge_single m 42 True;
       m3 = merge_single m2 123 False in
   domain m3"
+
+fun showit :: "bool state_map \<Rightarrow> string" where
+  "showit m = (if m = \<top> then ''TOP!'' else ''something else'')"
+
+definition BSM :: "bool state_map \<Rightarrow> 'a state_map" where
+  "BSM m = SM (r_lookup m)"
+
+declare RSM_def[simp]
+
+code_datatype RSM
+
+value "showit \<top>"
 
 end
