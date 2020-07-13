@@ -172,10 +172,12 @@ definition "(collect_result::collect_state set state_map) \<equiv>
 definition "my_string \<equiv> String.implode (show (DisplayCtx mysprog collect_result))"
 ML \<open>val _ = writeln (@{code my_string})\<close>
 
+definition "dumb_entry \<equiv> merge_single (\<bottom>::dumb state_map) 0 (Some Any)"
+
 definition "(dumb_result::dumb state_map) \<equiv>
-  let prog = spprog mysprog;
-      entry = merge_single (\<bottom>::dumb state_map) 0 (Some Any) in
-  step_map dumb_step prog entry"
+  step_map dumb_step (spprog mysprog) dumb_entry"
+
+value "sorted_list_of_set (domain dumb_entry)"
 
 (* *)
 

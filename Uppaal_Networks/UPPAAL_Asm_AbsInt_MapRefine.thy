@@ -4,6 +4,12 @@ imports
   UPPAAL_Asm_AbsInt_State_Dumb
 begin
 
+instantiation mapping :: (type,bot) bot
+begin
+definition "bot_mapping \<equiv> Mapping.empty"
+instance ..
+end
+
 type_synonym 'a r_state_map = "(addr, 'a) mapping"
 
 fun r_lookup :: "('a::bot) r_state_map \<Rightarrow> addr \<Rightarrow> 'a" where
@@ -73,40 +79,43 @@ qed auto
 
 lemma[code]: "astep_succs f op ipc st = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}" (* TODO: this is completely wrong ofc *) sorry
 
-fun r_step_map_from_with_op :: "('a::absstate) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "r_step_map_from_with_op f op ipc ctx = fold
-    (\<lambda>pc acc. merge_single acc pc (f op ipc (lookup ctx ipc) pc))
-    (sorted_list_of_set (astep_succs f op ipc (lookup ctx ipc))) ctx"
+(* TODO: maybe first refine the algorithm, then the type,
+  but then the proof over the list won't work
+  can we still prove it? *)
+fun r_step_map_from_with_op :: "('a::absstate) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
+  "r_step_map_from_with_op f op ipc ctx acc = fold
+    (\<lambda>pc acc. r_merge_single acc pc (f op ipc (r_lookup ctx ipc) pc))
+    (sorted_list_of_set (astep_succs f op ipc (r_lookup ctx ipc))) acc"
 
-fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "r_step_map_from f prog ipc acc =
+fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> addr \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
+  "r_step_map_from f prog ctx ipc acc =
     (case prog ipc of
-      Some op \<Rightarrow> r_step_map_from_with_op f op ipc acc |
+      Some op \<Rightarrow> r_step_map_from_with_op f op ipc ctx acc |
       None \<Rightarrow> acc)"
 
-fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "r_step_map f prog ctx = fold (r_step_map_from f prog) (sorted_list_of_set (domain ctx)) \<bottom>"
+fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
+  "r_step_map f prog ctx = fold (r_step_map_from f prog ctx) (sorted_list_of_set (r_domain ctx)) \<bottom>"
 
 lemma sorted_list_of_set_split:
   assumes "a \<in> s"
   shows "\<exists>pre post. pre @ a # post = sorted_list_of_set s"
   using assms(1) set_sorted_list_of_set split_list_first sorry
 
-lemma[code]: "step_map (f::('a::absstate) astep) prog ctx = r_step_map f prog ctx"
+lemma[code]: "step_map (f::('a::absstate) astep) prog (RSM ctx) = RSM (r_step_map f prog ctx)"
 proof(rule lookup_eq)
-  have "\<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> f op ipc (lookup ctx ipc) pc = ost} = lookup (r_step_map f prog ctx) pc" for pc
+  have "\<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> r_lookup ctx ipc \<noteq> \<bottom> \<and> f op ipc (r_lookup ctx ipc) pc = ost} = r_lookup (r_step_map f prog ctx) pc" for pc
   proof(rule Sup_eqI, goal_cases)
     case (1 ost)
-    then obtain ipc op where step: "prog ipc = Some op" "lookup ctx ipc \<noteq> \<bottom>" "f op ipc (lookup ctx ipc) pc = ost" by blast
-    obtain m where "SM m = ctx" using state_map_single_constructor by metis 
-    from this step have "ipc \<in> domain ctx" by auto                
-    then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain ctx)" sorry
+    then obtain ipc op where step: "prog ipc = Some op" "r_lookup ctx ipc \<noteq> \<bottom>" "f op ipc (r_lookup ctx ipc) pc = ost" by blast
+    obtain m where "SM m = RSM ctx" using state_map_single_constructor by metis 
+    from this step have "ipc \<in> domain (RSM ctx)" by auto                
+    then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain (RSM ctx))" sorry
     then show ?case sorry
   next
     case (2 y)
     then show ?case sorry
   qed
-  thus "lookup (step_map f prog ctx) pc = lookup (r_step_map f prog ctx) pc" for pc by simp
+  thus "lookup (step_map f prog (RSM ctx)) pc = lookup (RSM (r_step_map f prog ctx)) pc" for pc by simp
 qed
 
 fun r_advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
@@ -115,7 +124,7 @@ fun r_advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rig
 (***********)
 
 value "
-  let m = empty_map::bool state_map;
+  let m = \<bottom>::bool state_map;
       m2 = merge_single m 42 True;
       m3 = merge_single m2 123 False in
   domain m3"
