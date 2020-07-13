@@ -40,8 +40,6 @@ subsection "State Map"
 
 datatype 'a state_map = SM "addr \<Rightarrow> 'a"
 
-definition "empty_map \<equiv> SM (\<lambda>_. \<bottom>)"
-
 lemma state_map_single_constructor: "\<exists>m. a = SM m"
   using state_map.exhaust by auto
 
@@ -101,7 +99,7 @@ end
 
 instantiation state_map :: (order_bot) order_bot
 begin
-lemma bot_lookup [simp, code]:
+lemma bot_lookup [simp]:
   "lookup \<bottom> x = \<bottom>"
   by (simp add: bot_state_map)
 instance proof standard qed (simp add: less_eq_state_map_def)
@@ -132,7 +130,7 @@ end
 instantiation state_map :: (semilattice_inf) semilattice_inf
 begin
 definition "a \<sqinter> b = SM (\<lambda>x. lookup a x \<sqinter> lookup b x)"
-lemma inf_apply [simp, code]: "lookup (a \<sqinter> b) x = lookup a x \<sqinter> lookup b x"
+lemma inf_apply [simp]: "lookup (a \<sqinter> b) x = lookup a x \<sqinter> lookup b x"
   by (simp add: inf_state_map_def)
 instance by standard (simp_all add: less_eq_state_map_def)
 end
@@ -142,7 +140,7 @@ instance state_map :: (lattice) lattice ..
 instantiation state_map :: (Sup) Sup
 begin
 definition "\<Squnion>A = SM (\<lambda>x. \<Squnion>a\<in>A. lookup a x)"
-lemma Sup_lookup [simp, code]: "lookup (\<Squnion>A) x = (\<Squnion>m\<in>A. lookup m x)"
+lemma Sup_lookup [simp]: "lookup (\<Squnion>A) x = (\<Squnion>m\<in>A. lookup m x)"
   by (simp add: Sup_state_map_def)
 instance ..
 end
@@ -150,7 +148,7 @@ end
 instantiation state_map :: (Inf) Inf
 begin
 definition "\<Sqinter>A = SM (\<lambda>x. \<Sqinter>a\<in>A. lookup a x)"
-lemma Inf_lookup [simp, code]: "lookup (\<Sqinter>A) x = (\<Sqinter>m\<in>A. lookup m x)"
+lemma Inf_lookup [simp]: "lookup (\<Sqinter>A) x = (\<Sqinter>m\<in>A. lookup m x)"
   by (simp add: Inf_state_map_def)
 instance ..
 end

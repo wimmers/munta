@@ -18,15 +18,15 @@ code_datatype RSM
 
 definition "r_empty_map \<equiv> Mapping.empty::('a::bot) r_state_map"
 
-lemma[code]: "empty_map = RSM r_empty_map"
-  by (rule lookup_eq; simp add: empty_map_def lookup_default_empty r_empty_map_def)
+lemma[code]: "\<bottom> = RSM r_empty_map"
+  by (rule lookup_eq; simp add: lookup_default_empty r_empty_map_def)
 
 lemma[code]: "lookup (RSM m) = r_lookup m" by simp
 
 fun merge_single :: "('a::sup) state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a state_map" where
   "merge_single (SM m) pc x = SM (\<lambda>npc. if npc = pc then x \<squnion> m npc else m npc)"
 
-fun r_merge_single :: "('a::{semilattice_sup, bot, linorder}) r_state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a r_state_map" where
+fun r_merge_single :: "('a::{semilattice_sup, bot}) r_state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a r_state_map" where
   "r_merge_single tree pc x = Mapping.update pc (x \<squnion> (r_lookup tree pc)) tree"
 
 lemma merge_single_neq:
@@ -71,6 +71,8 @@ proof (intro Set.equalityI Set.subsetI)
   from keys r_lookup show "x \<in> r_domain m" by auto
 qed auto
 
+lemma[code]: "astep_succs f op ipc st = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}" (* TODO: this is completely wrong ofc *) sorry
+
 fun r_step_map_from_with_op :: "('a::absstate) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "r_step_map_from_with_op f op ipc ctx = fold
     (\<lambda>pc acc. merge_single acc pc (f op ipc (lookup ctx ipc) pc))
@@ -83,7 +85,7 @@ fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow>
       None \<Rightarrow> acc)"
 
 fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "r_step_map f prog ctx = fold (r_step_map_from f prog) (sorted_list_of_set (domain ctx)) empty_map"
+  "r_step_map f prog ctx = fold (r_step_map_from f prog) (sorted_list_of_set (domain ctx)) \<bottom>"
 
 lemma sorted_list_of_set_split:
   assumes "a \<in> s"
@@ -111,7 +113,6 @@ fun r_advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rig
   "r_advance f prog ctx = undefined"
 
 (***********)
-lemma[code_unfold]: "astep_succs dumb_step_direct op ipc st = astep_succs dumb_step op ipc st" using dumb_step_direct_eq by simp
 
 value "
   let m = empty_map::bool state_map;
@@ -122,13 +123,13 @@ value "
 fun showit :: "bool state_map \<Rightarrow> string" where
   "showit m = (if m = \<top> then ''TOP!'' else ''something else'')"
 
-definition BSM :: "bool state_map \<Rightarrow> 'a state_map" where
+(*definition BSM :: "bool state_map \<Rightarrow> 'a state_map" where
   "BSM m = SM (r_lookup m)"
 
 declare RSM_def[simp]
 
 code_datatype RSM
 
-value "showit \<top>"
+value "showit \<top>"*)
 
 end

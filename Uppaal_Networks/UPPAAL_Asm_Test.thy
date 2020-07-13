@@ -1,5 +1,5 @@
 theory UPPAAL_Asm_Test
-  imports UPPAAL_Asm_AbsInt_Refine "HOL-IMP.AExp" "HOL.String"
+  imports UPPAAL_Asm_AbsInt_MapRefine "HOL-IMP.AExp" "HOL.String"
 begin
 
 definition myprog :: "instr list" where "myprog \<equiv> [
@@ -69,7 +69,41 @@ fun show_instr :: "instr \<Rightarrow> string" where
   "show_instr HALT = ''HALT''" |
   "show_instr (STOREC n i) = ''STOREC '' @ (show n) @ '' '' @ (show i)" |
   "show_instr (SETF b) = ''SETF '' @ (show b)"
-instance proof qed
+instance ..
+end
+
+instantiation prod :: ("show", "show") "show"
+begin
+fun show_prod :: "('a * 'b) \<Rightarrow> string" where
+  "show_prod (a, b) = CHR ''('' # show a @ '', '' @ show b @ '')''"
+instance ..
+end
+
+instantiation list :: ("show") "show"
+begin
+fun show_list_rest :: "'a list \<Rightarrow> string" where
+  "show_list_rest [] = '']''" |
+  "show_list_rest (x # xs) = show x @ '', '' @ show_list_rest xs"
+
+fun show_list :: "'a list \<Rightarrow> string" where
+  "show_list [] = ''[]''" |
+  "show_list xs = show_list_rest xs"
+instance ..
+end
+
+instantiation option :: ("show") "show"
+begin
+fun show_option :: "'a option \<Rightarrow> string" where
+  "show_option None = ''None''" |
+  "show_option (Some x) = ''Some '' @ show x"
+instance ..
+end
+
+instantiation dumb_base :: "show"
+begin
+fun show_dumb_base :: "dumb_base \<Rightarrow> string" where
+  "show_dumb_base Any = ''Any''"
+instance ..
 end
 
 abbreviation init where "init \<equiv> (0, [], [], False, [])"
@@ -84,7 +118,7 @@ instance proof qed
 end
 
 definition "asm_width \<equiv> 20"
-datatype dispcollect = DisplayCollect spaced_program collect_ctx
+datatype 'a dispctx = DisplayCtx spaced_program "'a state_map"
 
 definition "emoji \<equiv> map char_of ([240,159,164,183] :: nat list)"
 
@@ -93,38 +127,36 @@ fun intercalate:: "'a list \<Rightarrow> 'a list list \<Rightarrow> 'a list" whe
   "intercalate _ [x] = x" |
   "intercalate sep (x # xs) = x @ sep @ intercalate sep xs"
 
-fun format_collect_state :: "collect_state \<Rightarrow> string" where
-  "format_collect_state (stk, rst, flg, clk) =
-    ''f='' @ show flg"
-
 fun to_list :: "'a set \<Rightarrow> 'a list" where
   "to_list _ = undefined"
 
 lemma[code]: "to_list (set as) = as" sorry
 
-fun format_collect_states :: "collect_state set \<Rightarrow> string" where
-  "format_collect_states states =
-    (let stuff = map format_collect_state (fold (#) [] (to_list states)) in
-    intercalate ''; '' stuff)"
-
-ML \<open>@{code format_collect_states}\<close>
-
-fun format_collect_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> collect_ctx \<Rightarrow> string" where
-  "format_collect_line len pc prog ctx =
-      (let asm = (show pc) @ '' '' @ (show (the (prog pc)));
-           padding = replicate ((asm_width - 1) - length asm + 1) CHR '' '';
-           states = format_collect_states (lookup ctx pc) in
-      asm @ padding @ states @ ''\<newline>'')"
-
-instantiation dispcollect :: "show"
+instantiation set :: ("show") "show"
 begin
-fun show_dispcollect :: "dispcollect \<Rightarrow> string" where
-  "show_dispcollect (DisplayCollect (SpacedProgram space prog) st) =
-    concat (map (\<lambda>pc. format_collect_line asm_width pc prog st) (sorted_list_of_set space))"
+fun show_set :: "'a set \<Rightarrow> string" where
+  "show_set s =
+    (let stuff = map show (fold (#) [] (to_list s)) in
+    intercalate ''; '' stuff)"
 instance proof qed
 end
 
-definition "collect_sprog \<equiv> assemble myprog"
+fun format_ctx_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> ('a::show) state_map \<Rightarrow> string" where
+  "format_ctx_line len pc prog ctx =
+      (let asm = (show pc) @ '' '' @ (show (the (prog pc)));
+           padding = replicate ((asm_width - 1) - length asm + 1) CHR '' '';
+           states = show (lookup ctx pc) in
+      asm @ padding @ states @ ''\<newline>'')"
+
+instantiation dispctx :: ("show") "show"
+begin
+fun show_dispctx :: "'a dispctx \<Rightarrow> string" where
+  "show_dispctx (DisplayCtx (SpacedProgram space prog) st) =
+    concat (map (\<lambda>pc. format_ctx_line asm_width pc prog st) (sorted_list_of_set space))"
+instance proof qed
+end
+
+definition "mysprog \<equiv> assemble myprog"
 
 fun spprog :: "spaced_program \<Rightarrow> program" where
   "spprog (SpacedProgram _ prog) = prog"
@@ -133,11 +165,32 @@ definition "empty_state \<equiv> ([], [], False, [])"
 definition "empty_state1 \<equiv> ([], [], True, [])"
 
 definition "(collect_result::collect_state set state_map) \<equiv>
-  let prog = spprog collect_sprog;
+  let prog = spprog mysprog;
       entry = deepen {(0::addr, empty_state), (0, empty_state1)} in
   collect_loop prog 4 entry"
 
-definition "my_string \<equiv> String.implode (show (DisplayCollect collect_sprog collect_result))"
+definition "my_string \<equiv> String.implode (show (DisplayCtx mysprog collect_result))"
 ML \<open>val _ = writeln (@{code my_string})\<close>
+
+definition "(dumb_result::dumb state_map) \<equiv>
+  let prog = spprog mysprog;
+      entry = merge_single (\<bottom>::dumb state_map) 0 (Some Any) in
+  step_map dumb_step prog entry"
+
+(* *)
+
+(* TODO: Where does the enum dependency come from? *)
+instantiation dumb_base :: enum
+begin
+  definition "enum_dumb_base \<equiv> [Any]"
+  definition "enum_all_dumb_base (f::dumb_base \<Rightarrow> bool) = True"
+  definition "enum_ex_dumb_base (f::dumb_base \<Rightarrow> bool) = True"
+  instance sorry
+end
+
+value "dumb_result"
+definition "abs_res_str \<equiv> String.implode (show (DisplayCtx mysprog dumb_result))"
+ML \<open>val _ = writeln (@{code abs_res_str})\<close>
+
 
 end

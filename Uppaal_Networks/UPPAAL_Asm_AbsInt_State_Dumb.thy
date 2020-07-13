@@ -76,7 +76,7 @@ proof -
   thus "dumb_step = dumb_step_direct" using ext by blast
 qed
 
-global_interpretation AbsInt
+global_interpretation Dumb: AbsInt
   where \<gamma> = \<gamma>_dumb
     and ai_step = dumb_step_direct
 proof (standard, goal_cases)
