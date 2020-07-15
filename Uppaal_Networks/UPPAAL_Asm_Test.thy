@@ -174,24 +174,33 @@ ML \<open>val _ = writeln (@{code my_string})\<close>
 
 definition "dumb_entry \<equiv> merge_single (\<bottom>::dumb state_map) 0 (Some Any)"
 
-definition "(dumb_result::dumb state_map) \<equiv>
+definition "dumb_stepped \<equiv>
   step_map dumb_step (spprog mysprog) dumb_entry"
+
+definition "dumb_result \<equiv>
+  Dumb.ai_loop (spprog mysprog) 3 dumb_entry"
 
 value "sorted_list_of_set (domain dumb_entry)"
 
 (* *)
 
 (* TODO: Where does the enum dependency come from? *)
-instantiation dumb_base :: enum
+(*instantiation dumb_base :: enum
 begin
   definition "enum_dumb_base \<equiv> [Any]"
   definition "enum_all_dumb_base (f::dumb_base \<Rightarrow> bool) = True"
   definition "enum_ex_dumb_base (f::dumb_base \<Rightarrow> bool) = True"
   instance sorry
-end
+end*)
 
-value "dumb_result"
-definition "abs_res_str \<equiv> String.implode (show (DisplayCtx mysprog dumb_result))"
+lemma[code_unfold]: "(a::dumb) = \<bottom> \<equiv> (case a of None \<Rightarrow> True | _ \<Rightarrow> False)"
+  by (smt bot_option_def option.case_eq_if)
+
+export_code step_map dumb_step spprog dumb_entry mysprog in Haskell module_name Test
+
+(*declare [[ML_source_trace]]*)
+value "dumb_stepped"
+definition "abs_res_str \<equiv> String.implode (show (DisplayCtx mysprog dumb_stepped))"
 ML \<open>val _ = writeln (@{code abs_res_str})\<close>
 
 

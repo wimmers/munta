@@ -23,28 +23,52 @@ instance proof
 qed
 end
 
-instantiation option :: (absstate) absstate
+instantiation option :: (type) is_bot
 begin
-
 definition "\<bottom> \<equiv> None"
-
 declare bot_option_def[simp]
+definition "is_bot_option a \<equiv> case a of None \<Rightarrow> True | _ \<Rightarrow> False"
+instance by standard (simp add: is_bot_option_def option.disc_eq_case(1))
+end
 
+instantiation option :: (top) top
+begin
 definition "\<top> \<equiv> Some \<top>"
+instance ..
+end
 
+instantiation option :: (sup) sup
+begin
 fun sup_option :: "'a option \<Rightarrow> 'a option \<Rightarrow> 'a option" where
   "sup_option None b = b" |
   "sup_option a None = a" |
   "sup_option (Some a) (Some b) = Some (a \<squnion> b)"
+instance ..
+end
 
-definition "\<Squnion>(A::'a option set) = (if A = {} \<or> A = {\<bottom>} then \<bottom> else Some (\<Squnion>{x. Some x \<in> A}))"
-
+instantiation option :: (inf) inf
+begin
 fun inf_option :: "'a option \<Rightarrow> 'a option \<Rightarrow> 'a option" where
   "inf_option None _ = None" |
   "inf_option _ None = None" |
   "inf_option (Some a) (Some b) = Some (a \<sqinter> b)"
+instance ..
+end
 
-definition "\<Sqinter>(A::'a option set) = (if None \<in> A then None else Some (\<Sqinter>{x. Some x \<in> A}))"
+instantiation option :: (Sup) Sup
+begin
+definition "Sup_option (A::'a option set) = (if A = {} \<or> A = {\<bottom>} then \<bottom> else Some (\<Squnion>{x. Some x \<in> A}))"
+instance ..
+end
+
+instantiation option :: (Inf) Inf
+begin
+definition "Inf_option (A::'a option set) = (if None \<in> A then None else Some (\<Sqinter>{x. Some x \<in> A}))"
+instance ..
+end
+
+instantiation option :: (absstate) absstate
+begin
 
 instance proof (standard, goal_cases)
   case (1 x y) then show ?case by (cases x; cases y) auto
@@ -62,16 +86,17 @@ next
   case (7 x A)
   then show ?case
   proof (cases x)
-    case None then show ?thesis using 7 Inf_option_def by auto
+    case None then show ?thesis using 7 by (simp add: Inf_option_def)
   next
-    case (Some a) then show ?thesis using 7 Inf_lower Inf_option_def by force
+    case (Some a) then show ?thesis using 7 by (simp add: Inf_lower Inf_option_def)
   qed
 next
   case (8 A z)
   then show ?case
   proof (cases z)
     case (Some a)
-    then show ?thesis using 8 Inf_option_def le_Inf_iff by fastforce
+    then show ?thesis using 8 Inf_option_def le_Inf_iff
+      by (metis (mono_tags, lifting) less_eq_option.simps(3) mem_Collect_eq)
   qed simp
 next
   case (9 x A)
@@ -108,8 +133,7 @@ next
 next
   case 11 then show ?case by (simp add: Inf_option_def top_option_def)
 next
-  case 12
-  then show ?case by (simp add: Sup_option_def)
+  case 12 then show ?case by (simp add: Sup_option_def)
 qed
 end
 
