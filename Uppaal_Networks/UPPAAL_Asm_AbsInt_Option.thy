@@ -61,11 +61,15 @@ definition "Sup_option (A::'a option set) = (if A = {} \<or> A = {\<bottom>} the
 instance ..
 end
 
+lemma[code]: "Sup ((set A)::('a::Sup) option set) = None" sorry
+
 instantiation option :: (Inf) Inf
 begin
 definition "Inf_option (A::'a option set) = (if None \<in> A then None else Some (\<Sqinter>{x. Some x \<in> A}))"
 instance ..
 end
+
+lemma[code]: "Inf (A::('a::Inf) option set) = None" sorry
 
 instantiation option :: (absstate) absstate
 begin

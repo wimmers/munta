@@ -124,6 +124,12 @@ fun r_advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rig
 
 (***********)
 
+instantiation bool :: is_bot
+begin
+definition "is_bot_bool a \<equiv> \<not>a"
+instance by standard (simp add: is_bot_bool_def)
+end
+
 value "
   let m = \<bottom>::bool state_map;
       m2 = merge_single m 42 True;
