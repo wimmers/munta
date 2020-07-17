@@ -64,19 +64,18 @@ proof(rule lookup_eq)
   thus "lookup (merge_single (RSM m) pc x) k = lookup (RSM (r_merge_single m pc x)) k" for k using func by auto
 qed
 
-fun r_domain :: "('b::is_bot) r_state_map \<Rightarrow> addr set" where
-  "r_domain tree = Set.filter (\<lambda>pc. \<not>(is_bot (r_lookup tree pc))) (Mapping.keys tree)"
+fun r_domain :: "('b::bot) r_state_map \<Rightarrow> addr set" where
+  "r_domain tree = Set.filter (\<lambda>pc. r_lookup tree pc \<noteq> \<bottom>) (Mapping.keys tree)"
 
 lemma[code]: "domain (RSM m) = r_domain m"
 proof (intro Set.equalityI Set.subsetI)
   fix x assume "x \<in> domain (RSM m)"
   hence lookup: "lookup (RSM m) x \<noteq> \<bottom>" by simp
   from lookup have r_lookup: "r_lookup m x \<noteq> \<bottom>" by simp
-  hence r_lookup_is_bot: "\<not>(is_bot (r_lookup m x))" by (simp add: is_bot)
   from r_lookup have keys: "x \<in> Mapping.keys m"
     by (metis Option.is_none_def empty_iff keys_empty keys_is_none_rep lookup_default_def lookup_default_empty r_lookup.simps)
-  from keys r_lookup_is_bot show "x \<in> r_domain m" by auto
-qed (auto simp: is_bot)
+  from keys r_lookup show "x \<in> r_domain m" by auto
+qed auto
 
 lemma[code]: "astep_succs f op ipc st = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}" (* TODO: this is completely wrong ofc *) sorry
 
@@ -123,12 +122,6 @@ fun r_advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rig
   "r_advance f prog ctx = undefined"
 
 (***********)
-
-instantiation bool :: is_bot
-begin
-definition "is_bot_bool a \<equiv> \<not>a"
-instance by standard (simp add: is_bot_bool_def)
-end
 
 value "
   let m = \<bottom>::bool state_map;

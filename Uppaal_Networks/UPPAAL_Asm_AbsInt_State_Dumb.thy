@@ -10,21 +10,14 @@ instantiation dumb_base :: absstate
 begin
   definition "\<top> \<equiv> Any"
   definition "\<bottom> \<equiv> Any"
-  definition "is_bot_dumb_base (a::dumb_base) \<equiv> True"
   fun less_eq_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> bool" where "less_eq_dumb_base _ _ \<longleftrightarrow> True"
   fun less_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> bool" where "less_dumb_base _ _ \<longleftrightarrow> False"
   fun sup_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> dumb_base" where "sup_dumb_base _ _  = Any"
   fun inf_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> dumb_base" where "inf_dumb_base _ _  = Any"
   fun Sup_dumb_base :: "dumb_base set \<Rightarrow> dumb_base" where "Sup_dumb_base _ = Any"
   fun Inf_dumb_base :: "dumb_base set \<Rightarrow> dumb_base" where "Inf_dumb_base _ = Any"
-instance by standard (auto simp: dumb_base_is_dumb is_bot_dumb_base_def)
+instance by standard (auto simp: dumb_base_is_dumb)
 end
-
-(*instantiation dumb_base :: equal
-begin
-definition "HOL.equal (a::dumb_base) b \<longleftrightarrow> True"
-instance sorry
-end*)
 
 type_synonym dumb = "dumb_base option"
 

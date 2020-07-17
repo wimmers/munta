@@ -175,19 +175,9 @@ instance proof
 qed
 end
 
-class is_bot = bot +
-  fixes is_bot :: "'a \<Rightarrow> bool"
-  assumes is_bot: "is_bot a \<longleftrightarrow> (a = \<bottom>)"
+class absstate = complete_lattice
 
-class absstate = complete_lattice + is_bot
-
-instantiation state_map :: (absstate) absstate (*begin instance .. end*)
-begin
-definition "is_bot_state_map (a::'a state_map) = (a = \<bottom>)"
-instance proof
-  show "is_bot a \<longleftrightarrow> (a::'a state_map) = \<bottom>" for a by (simp add: is_bot_state_map_def)
-qed
-end
+instantiation state_map :: (absstate) absstate begin instance .. end
 
 subsection "Abstract Stepping"
 

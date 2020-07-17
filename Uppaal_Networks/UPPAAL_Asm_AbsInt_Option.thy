@@ -23,12 +23,11 @@ instance proof
 qed
 end
 
-instantiation option :: (type) is_bot
+instantiation option :: (type) bot
 begin
 definition "\<bottom> \<equiv> None"
 declare bot_option_def[simp]
-definition "is_bot_option a \<equiv> case a of None \<Rightarrow> True | _ \<Rightarrow> False"
-instance by standard (simp add: is_bot_option_def option.disc_eq_case(1))
+instance ..
 end
 
 instantiation option :: (top) top
