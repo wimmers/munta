@@ -177,13 +177,16 @@ definition "dumb_entry \<equiv> merge_single (\<bottom>::dumb state_map) 0 (Some
 definition "dumb_stepped \<equiv>
   step_map dumb_step (spprog mysprog) dumb_entry"
 
+definition "dumb_advanced \<equiv>
+  advance dumb_step (spprog mysprog) dumb_entry"
+
 definition "dumb_result \<equiv>
-  Dumb.ai_loop (spprog mysprog) 3 dumb_entry"
+  Dumb.ai_loop (spprog mysprog) 2 dumb_entry"
 
 value "sorted_list_of_set (domain dumb_entry)"
 
-value "dumb_stepped"
-definition "abs_res_str \<equiv> String.implode (show (DisplayCtx mysprog dumb_stepped))"
+value "dumb_result"
+definition "abs_res_str \<equiv> String.implode (show (DisplayCtx mysprog dumb_result))"
 ML \<open>val _ = writeln (@{code abs_res_str})\<close>
 
 

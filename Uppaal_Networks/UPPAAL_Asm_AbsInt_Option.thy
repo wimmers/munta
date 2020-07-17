@@ -54,25 +54,10 @@ fun inf_option :: "'a option \<Rightarrow> 'a option \<Rightarrow> 'a option" wh
 instance ..
 end
 
-instantiation option :: (Sup) Sup
-begin
-definition "Sup_option (A::'a option set) = (if A = {} \<or> A = {\<bottom>} then \<bottom> else Some (\<Squnion>{x. Some x \<in> A}))"
-instance ..
-end
-
-lemma[code]: "Sup ((set A)::('a::Sup) option set) = None" sorry
-
-instantiation option :: (Inf) Inf
-begin
-definition "Inf_option (A::'a option set) = (if None \<in> A then None else Some (\<Sqinter>{x. Some x \<in> A}))"
-instance ..
-end
-
-lemma[code]: "Inf (A::('a::Inf) option set) = None" sorry
-
 instantiation option :: (absstate) absstate
 begin
-
+definition "Sup_option (A::'a option set) = (if A = {} \<or> A = {\<bottom>} then \<bottom> else Some (\<Squnion>{x. Some x \<in> A}))"
+definition "Inf_option (A::'a option set) = (if None \<in> A then None else Some (\<Sqinter>{x. Some x \<in> A}))"
 instance proof (standard, goal_cases)
   case (1 x y) then show ?case by (cases x; cases y) auto
 next
@@ -139,6 +124,9 @@ next
   case 12 then show ?case by (simp add: Sup_option_def)
 qed
 end
+
+lemma[code]: "Sup ((set A)::('a::absstate) option set) = fold sup A \<bottom>" by (rule List.complete_lattice_class.Sup_set_fold)
+lemma[code]: "Inf ((set A)::('a::absstate) option set) = fold inf A \<top>" by (rule List.complete_lattice_class.Inf_set_fold)
 
 fun \<gamma>_option :: "('a \<Rightarrow> 'b set) \<Rightarrow> 'a option \<Rightarrow> 'b set" where
 "\<gamma>_option \<gamma> None = {}" |

@@ -440,8 +440,8 @@ proof -
 
   from step_le this show ?thesis by force
 qed
-
-definition[simp]: "ai_loop \<equiv> loop ai_step"
+                        
+definition[simp, code]: "ai_loop \<equiv> loop ai_step"
 
 theorem ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)"
 proof (induction n arbitrary: entry)

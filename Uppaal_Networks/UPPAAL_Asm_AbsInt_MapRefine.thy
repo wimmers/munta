@@ -107,8 +107,8 @@ proof(rule lookup_eq)
   proof(rule Sup_eqI, goal_cases)
     case (1 ost)
     then obtain ipc op where step: "prog ipc = Some op" "r_lookup ctx ipc \<noteq> \<bottom>" "f op ipc (r_lookup ctx ipc) pc = ost" by blast
-    obtain m where "SM m = RSM ctx" using state_map_single_constructor by metis 
-    from this step have "ipc \<in> domain (RSM ctx)" by auto                
+    obtain m where "SM m = RSM ctx" using state_map_single_constructor by metis
+    from this step have "ipc \<in> domain (RSM ctx)" by auto
     then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain (RSM ctx))" sorry
     then show ?case sorry
   next
@@ -118,8 +118,10 @@ proof(rule lookup_eq)
   thus "lookup (step_map f prog (RSM ctx)) pc = lookup (RSM (r_step_map f prog ctx)) pc" for pc by simp
 qed
 
-fun r_advance :: "('a::{semilattice_sup, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
-  "r_advance f prog ctx = undefined"
+fun r_advance :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
+  "r_advance f prog ctx = fold (r_step_map_from f prog ctx) (sorted_list_of_set (r_domain ctx)) ctx"
+
+lemma[code]: "advance (f::('a::absstate) astep) prog (RSM ctx) = RSM (r_advance f prog ctx)" sorry
 
 (***********)
 
@@ -131,14 +133,5 @@ value "
 
 fun showit :: "bool state_map \<Rightarrow> string" where
   "showit m = (if m = \<top> then ''TOP!'' else ''something else'')"
-
-(*definition BSM :: "bool state_map \<Rightarrow> 'a state_map" where
-  "BSM m = SM (r_lookup m)"
-
-declare RSM_def[simp]
-
-code_datatype RSM
-
-value "showit \<top>"*)
 
 end
