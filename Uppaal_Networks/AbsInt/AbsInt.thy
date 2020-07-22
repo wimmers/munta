@@ -57,7 +57,6 @@ proof -
   from this ass maps show ?thesis by auto
 qed
 
-
 fun domain :: "('b::bot) state_map \<Rightarrow> addr set" where
   "domain (SM m) = {a. m a \<noteq> \<bottom>}"
 
