@@ -79,6 +79,7 @@ qed
 global_interpretation Dumb: AbsInt
   where \<gamma> = \<gamma>_dumb
     and ai_step = dumb_step_direct
+  defines dumb_loop = Dumb.ai_loop
 proof (standard, goal_cases)
   case (1 a b)
   then show ?case
