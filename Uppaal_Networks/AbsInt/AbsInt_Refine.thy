@@ -170,9 +170,9 @@ proof(rule lookup_eq)
     let ?prefold = "fold ?smf pre \<bottom>"
     have "ost \<le> r_lookup (?smf ipc ?prefold) pc"
     proof -
-      have rip: "?smf ipc ?prefold = r_step_map_from_with_op f op ipc ?ctx ?prefold" using step by simp
-      have "ost \<le> r_lookup (r_step_map_from_with_op f op ipc ?ctx ?prefold) pc" sorry
-      thus ?thesis using step rip by simp
+      let ?smfop = "r_step_map_from_with_op f op ipc ?ctx ?prefold"
+      have in_smfop: "ost \<le> r_lookup (?smfop) pc" sorry
+      from this in_smfop show ?thesis using step by simp
     qed
     from post this show ?case using less_eq_mapping_def order_trans by fastforce
   next
