@@ -1,5 +1,5 @@
-theory UPPAAL_Asm_Test
-  imports UPPAAL_Asm_AbsInt_MapRefine "HOL-IMP.AExp" "HOL.String"
+theory AbsInt_Test
+  imports AbsInt_Refine "HOL-IMP.AExp" "HOL.String"
 begin
 
 definition myprog :: "instr list" where "myprog \<equiv> [

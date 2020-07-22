@@ -1,5 +1,5 @@
-theory UPPAAL_Asm_AbsInt_State_Dumb
-imports UPPAAL_Asm_AbsInt UPPAAL_Asm_AbsInt_Option
+theory State_Dumb
+imports AbsInt State_Option
 begin
 
 datatype dumb_base = Any

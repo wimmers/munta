@@ -1,7 +1,7 @@
-theory UPPAAL_Asm_AbsInt_MapRefine
+theory AbsInt_Refine
 imports                   
   "HOL-Library.RBT_Mapping"
-  UPPAAL_Asm_AbsInt_State_Dumb
+  State_Dumb
 begin
 
 instantiation mapping :: (type,bot) bot

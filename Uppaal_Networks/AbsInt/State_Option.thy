@@ -1,5 +1,5 @@
-theory UPPAAL_Asm_AbsInt_Option
-imports UPPAAL_Asm_AbsInt
+theory State_Option
+imports AbsInt
 begin
 
 instantiation option :: (order) order begin

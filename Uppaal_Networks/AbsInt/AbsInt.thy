@@ -1,6 +1,6 @@
-theory UPPAAL_Asm_AbsInt
+theory AbsInt
 imports
-  UPPAAL_Asm_AbsInt_Flat
+  Collect_Flat
   "HOL.List"
   "HOL.Complete_Lattices"
 begin
