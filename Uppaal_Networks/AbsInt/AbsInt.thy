@@ -181,15 +181,15 @@ instantiation state_map :: (absstate) absstate begin instance .. end
 subsection "Abstract Stepping"
 
 text \<open>Type for any abstract stepping function. Performs a single forward step on an abstract state.\<close>
-type_synonym 'a astep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> addr \<Rightarrow> 'a"
+type_synonym 'a astep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a state_map"
 
 fun astep_succs :: "('a::bot) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> addr set" where
-  "astep_succs f op ipc ins = {pc. f op ipc ins pc \<noteq> \<bottom>}"
+  "astep_succs f op ipc ins = domain (f op ipc ins)"
 
 text \<open>Performs a step for all states in the map and returns the join of all resulting states at a given address.
   Could also be seen as inverse-stepping, i.e. pulling all resulting states ending at the given address.\<close>
 fun slurp :: "('a::{Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
-  "slurp f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> f op ipc (lookup ctx ipc) pc = ost}"
+  "slurp f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ctx ipc)) pc = ost}"
 
 text \<open>Perform a single step over an entire map\<close>
 fun step_map :: "('a::{bot, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
@@ -272,8 +272,8 @@ qed
 
 subsubsection \<open>Implementation\<close>
 
-fun collect_step :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> addr \<Rightarrow> collect_state set" where
-  "collect_step op ipc sts pc = {st. \<exists>ist\<in>sts. step op (ipc, ist) = Some (pc, st)}"
+fun collect_step :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> collect_state set state_map" where
+  "collect_step op ipc sts = SM (\<lambda>pc. {st. \<exists>ist\<in>sts. step op (ipc, ist) = Some (pc, st)})"
 
 definition[simp]: "collect_slurp \<equiv> slurp collect_step"
 
@@ -284,7 +284,7 @@ lemma collect_slurp_fwd:
     "step op (ipc, ist) = Some (pc, ost)"
   shows "ost \<in> collect_slurp prog ctx pc"
 proof -
-  have "ost \<in> collect_step op ipc (lookup ctx ipc) pc" using assms(1) assms(3) by auto
+  have "ost \<in> lookup (collect_step op ipc (lookup ctx ipc)) pc" using assms(1) assms(3) by auto
   from assms(2) this show ?thesis by auto
 qed
 
@@ -292,7 +292,7 @@ lemma collect_slurp_bwd:
   assumes "ost \<in> collect_slurp prog ctx pc"
   shows "\<exists>ist op ipc. ist \<in> lookup ctx ipc \<and> prog ipc = Some op \<and> step op (ipc, ist) = Some (pc, ost)"
 proof -
-  from assms obtain ipc op where ipcop: "prog ipc = Some op" "ost \<in> collect_step op ipc (lookup ctx ipc) pc" by auto
+  from assms obtain ipc op where ipcop: "prog ipc = Some op" "ost \<in> lookup (collect_step op ipc (lookup ctx ipc)) pc" by auto
   from this(2) obtain ist where ist: "ist \<in> lookup ctx ipc" "step op (ipc, ist) = Some (pc, ost)" by auto
   from ist(1) ipcop(1) ist(2) show ?thesis by blast
 qed
@@ -382,8 +382,8 @@ fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
   and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
 fixes ai_step :: "'as astep"
-  assumes astep_correct: "collect_step op ipc (\<gamma> a) pc \<le> \<gamma> (ai_step op ipc a pc)"
-  and astep_keep_bot: "ai_step op ipc \<bottom> pc = \<bottom>"
+  assumes astep_correct: "lookup (collect_step op ipc (\<gamma> a)) pc \<le> \<gamma> (lookup (ai_step op ipc a) pc)"
+  and astep_keep_bot: "lookup (ai_step op ipc \<bottom>) pc = \<bottom>"
 begin
 
 fun \<gamma>_map :: "'as state_map \<Rightarrow> collect_ctx" where
@@ -406,15 +406,15 @@ lemma ai_slurp_correct:
   shows "collect_slurp prog a pc \<le> \<gamma> (ai_slurp prog b pc)"
 proof standard
   fix x assume "x \<in> collect_slurp prog a pc"
-  from this obtain ipc op where slurped: "prog ipc = Some op" "lookup a ipc \<noteq> \<bottom>" "x \<in> collect_step op ipc (lookup a ipc) pc" by auto
+  from this obtain ipc op where slurped: "prog ipc = Some op" "lookup a ipc \<noteq> \<bottom>" "x \<in> lookup (collect_step op ipc (lookup a ipc)) pc" by auto
   from assms have "lookup a ipc \<subseteq> \<gamma> (lookup b ipc)" using \<gamma>_lookup_le by blast
-  from slurped(3) this have "x \<in> collect_step op ipc (\<gamma> (lookup b ipc)) pc" by auto
-  from this have "x \<in> \<gamma> (ai_step op ipc (lookup b ipc) pc)" using astep_correct ..
-  from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = ai_step op ipc (lookup b ipc) pc" using slurped by blast
+  from slurped(3) this have "x \<in> lookup (collect_step op ipc (\<gamma> (lookup b ipc))) pc" by auto
+  from this have "x \<in> \<gamma> (lookup (ai_step op ipc (lookup b ipc)) pc)" using astep_correct ..
+  from this obtain ax where ax: "x \<in> \<gamma> ax" "ax = lookup (ai_step op ipc (lookup b ipc)) pc" using slurped by blast
   have "ax \<le> ai_slurp prog b pc"
   proof(cases "lookup b ipc = \<bottom>")
     case False
-    from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> lookup b ipc \<noteq> \<bottom> \<and> ai_step op ipc (lookup b ipc) pc = ost}" using slurped(1) ax(2) by blast
+    from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> lookup b ipc \<noteq> \<bottom> \<and> lookup (ai_step op ipc (lookup b ipc)) pc = ost}" using slurped(1) ax(2) by blast
     then show ?thesis by (simp add: Sup_upper)
   qed (simp add: astep_keep_bot ax(2))
   thus "x \<in> \<gamma> (ai_slurp prog b pc)" using ax mono_gamma by auto
@@ -606,24 +606,24 @@ qed
 text \<open>Resulting characteristics of @{term collect_step},
   useful for proving abstract step functions against it.\<close>
 
-lemma collect_step_jmpz_succ: "pc \<noteq> Suc ipc \<Longrightarrow> pc \<noteq> tgt \<Longrightarrow> collect_step (JMPZ tgt) ipc sts pc = \<bottom>" using step_jmpz_succ by fastforce
+lemma collect_step_jmpz_succ: "pc \<noteq> Suc ipc \<Longrightarrow> pc \<noteq> tgt \<Longrightarrow> lookup (collect_step (JMPZ tgt) ipc sts) pc = \<bottom>" using step_jmpz_succ by fastforce
 lemma collect_step_fallthrough_succ:
   assumes "pc \<noteq> Suc ipc"
   shows
-    "collect_step ADD ipc sts pc = \<bottom>"
-    "collect_step NOT ipc sts pc = \<bottom>"
-    "collect_step AND ipc sts pc = \<bottom>"
-    "collect_step LT ipc sts pc = \<bottom>"
-    "collect_step LE ipc sts pc = \<bottom>"
-    "collect_step EQ ipc sts pc = \<bottom>"
-    "collect_step (PUSH x) ipc sts pc = \<bottom>"
-    "collect_step POP ipc sts pc = \<bottom>"
-    "collect_step (LID r) ipc sts pc = \<bottom>"
-    "collect_step STORE ipc sts pc = \<bottom>"
-    "collect_step (STOREI r v) ipc sts pc = \<bottom>"
-    "collect_step COPY ipc sts pc = \<bottom>"
-    "collect_step (STOREC c d) ipc sts pc = \<bottom>"
-    "collect_step (SETF b) ipc sts pc = \<bottom>"
+    "lookup (collect_step ADD          ipc sts) pc = \<bottom>"
+    "lookup (collect_step NOT          ipc sts) pc = \<bottom>"
+    "lookup (collect_step AND          ipc sts) pc = \<bottom>"
+    "lookup (collect_step LT           ipc sts) pc = \<bottom>"
+    "lookup (collect_step LE           ipc sts) pc = \<bottom>"
+    "lookup (collect_step EQ           ipc sts) pc = \<bottom>"
+    "lookup (collect_step (PUSH x)     ipc sts) pc = \<bottom>"
+    "lookup (collect_step POP          ipc sts) pc = \<bottom>"
+    "lookup (collect_step (LID r)      ipc sts) pc = \<bottom>"
+    "lookup (collect_step STORE        ipc sts) pc = \<bottom>"
+    "lookup (collect_step (STOREI r v) ipc sts) pc = \<bottom>"
+    "lookup (collect_step COPY         ipc sts) pc = \<bottom>"
+    "lookup (collect_step (STOREC c d) ipc sts) pc = \<bottom>"
+    "lookup (collect_step (SETF b)     ipc sts) pc = \<bottom>"
 proof(goal_cases)
   case 1 show ?case using step_add_succ assms by auto next
   case 2 show ?case using step_not_succ assms by auto next
@@ -641,14 +641,14 @@ next
   case 13
   show ?case
   proof (standard; standard)
-    fix x assume "x \<in> collect_step (STOREC c d) ipc sts pc"
+    fix x assume "x \<in> lookup (collect_step (STOREC c d) ipc sts) pc"
     from this obtain ist where "ist \<in> sts" "step (STOREC c d) (ipc, ist) = Some (pc, x)" by auto
     from this(2) assms show "x \<in> {}" using step_storec_succ by blast
   qed
 next
   case 14 then show ?case using assms by auto
 qed
-lemma collect_step_halt_succ: "collect_step HALT ipc sts pc = \<bottom>" by simp
+lemma collect_step_halt_succ: "lookup (collect_step HALT ipc sts) pc = \<bottom>" by simp
 
 lemmas collect_step_succ = collect_step_jmpz_succ collect_step_fallthrough_succ
 
@@ -659,13 +659,13 @@ text\<open>This type is easier to implement in certain cases and works better fo
 type_synonym 'a asetstep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> (addr * 'a) set"
 
 fun unique_astep :: "('a::Sup) asetstep \<Rightarrow> 'a astep" where
-  "unique_astep f op ipc ins pc = \<Squnion>{st. (pc, st) \<in> f op ipc ins}"
+  "unique_astep f op ipc ins = SM (\<lambda>pc. \<Squnion>{st. (pc, st) \<in> f op ipc ins})"
 
 lemma unique_astep_unique:
   assumes
     "(pc, (st::'a::absstate)) \<in> f op ipc ins"
     "\<And>sst. (pc, sst) \<in> f op ipc ins \<Longrightarrow> sst = st"
-  shows "unique_astep f op ipc ins pc = st" 
+  shows "lookup (unique_astep f op ipc ins) pc = st" 
 proof -
   from assms have "{st. (pc, st) \<in> f op ipc ins} = {st}" by blast
   thus ?thesis using ccpo_Sup_singleton[of st] by simp
