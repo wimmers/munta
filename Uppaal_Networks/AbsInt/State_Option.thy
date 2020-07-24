@@ -33,6 +33,7 @@ end
 instantiation option :: (top) top
 begin
 definition "\<top> \<equiv> Some \<top>"
+declare top_option_def[simp]
 instance ..
 end
 
@@ -115,7 +116,7 @@ next
       then show ?thesis using "10" False bot_option_def dual_order.antisym by fastforce
     next
       case (Some a)
-      then show ?thesis by (metis (mono_tags, lifting) "10" False Sup_le_iff UPPAAL_Asm_AbsInt_Option.Sup_option_def less_eq_option.simps(3) mem_Collect_eq)
+      then show ?thesis by (metis (mono_tags, lifting) "10" False Sup_le_iff Sup_option_def less_eq_option.simps(3) mem_Collect_eq)
     qed
   qed
 next

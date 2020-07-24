@@ -49,6 +49,9 @@ fun lookup :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
 fun unwrap :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
   "unwrap (SM m) = m"
 
+fun single :: "addr \<Rightarrow> 'a::bot \<Rightarrow> 'a state_map" where
+  "single k v = SM (\<lambda>pc. if pc = k then v else \<bottom>)"
+
 lemma lookup_eq: "(\<And>k. lookup a k = lookup b k) \<Longrightarrow> (a = b)"
 proof -
   assume ass: "\<And>k. lookup a k = lookup b k"
@@ -606,6 +609,9 @@ qed
 text \<open>Resulting characteristics of @{term collect_step},
   useful for proving abstract step functions against it.\<close>
 
+lemma collect_step_none: "lookup (collect_step op ipc {}) pc = {}"
+  by simp
+
 lemma collect_step_jmpz_succ: "pc \<noteq> Suc ipc \<Longrightarrow> pc \<noteq> tgt \<Longrightarrow> lookup (collect_step (JMPZ tgt) ipc sts) pc = \<bottom>" using step_jmpz_succ by fastforce
 lemma collect_step_fallthrough_succ:
   assumes "pc \<noteq> Suc ipc"
@@ -652,7 +658,24 @@ lemma collect_step_halt_succ: "lookup (collect_step HALT ipc sts) pc = \<bottom>
 
 lemmas collect_step_succ = collect_step_jmpz_succ collect_step_fallthrough_succ
 
+subsubsection \<open>Rules\<close>
+
+lemma jmpz_cases:
+  assumes
+    suc: "lookup (collect_step (JMPZ target) ipc (\<gamma> ins)) (Suc ipc) \<subseteq> \<gamma> (lookup (some_step (JMPZ target) ipc ins) (Suc ipc))" and
+    target: "lookup (collect_step (JMPZ target) ipc (\<gamma> ins)) target \<subseteq> \<gamma> (lookup (some_step (JMPZ target) ipc ins) target)"
+  shows "lookup (collect_step (JMPZ target) ipc (\<gamma> ins)) pc \<subseteq> \<gamma> (lookup (some_step (JMPZ target) ipc ins) pc)"
+  using assms ex_in_conv by fastforce
+                           
 subsection \<open>Alternative Type for Abstract Step Functions\<close>
+
+fun deep_merge :: "(addr * ('a::Sup)) set \<Rightarrow> 'a state_map" where
+  "deep_merge sts = SM (\<lambda>pc. \<Squnion>{st. (pc, st) \<in> sts})"
+
+lemma deep_merge_lookup:
+  assumes "(pc, (st::'a::absstate)) \<in> sts"
+  shows "st \<le> lookup (deep_merge sts) pc"
+  by (simp add: Sup_upper assms)
 
 text\<open>This type is easier to implement in certain cases and works better for code generation,
   but it may not be unique wrt. its {@term unique_astep}\<close>

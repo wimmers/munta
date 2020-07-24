@@ -4,6 +4,10 @@ imports
   State_Dumb
 begin
 
+subsection \<open>step_map as mapping\<close>
+
+lemma mapping_structure: "\<exists>m. Mapping m = mm" sorry
+                               
 instantiation mapping :: (type,bot) bot
 begin
 definition "bot_mapping \<equiv> Mapping.empty"
@@ -12,13 +16,13 @@ end
 
 type_synonym 'a r_state_map = "(addr, 'a) mapping"
 
-fun r_lookup :: "('a::bot) r_state_map \<Rightarrow> addr \<Rightarrow> 'a" where
+fun r_lookup :: "('a, 'b::bot) mapping \<Rightarrow> 'a \<Rightarrow> 'b" where
   "r_lookup m = Mapping.lookup_default \<bottom> m"
 
 instantiation mapping :: (type, "{preorder, bot}") preorder
 begin
   definition less_eq_mapping :: "('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> bool" where
-  "C1 \<le> C2 \<longleftrightarrow> (\<forall>p. Mapping.lookup_default \<bottom> C1 p \<le> Mapping.lookup_default \<bottom> C2 p)"
+  "C1 \<le> C2 \<longleftrightarrow> (\<forall>p. r_lookup C1 p \<le> r_lookup C2 p)"
   
   definition less_mapping :: "('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> bool" where
   "less_mapping x y = (x \<le> y \<and> \<not> y \<le> x)"
@@ -52,6 +56,14 @@ lemma[code]: "\<bottom> = RSM r_empty_map"
   by (rule lookup_eq; simp add: lookup_default_empty r_empty_map_def)
 
 lemma[code]: "lookup (RSM m) = r_lookup m" by simp
+
+lemma[code]: "single k v = RSM (Mapping.update k v \<bottom>)"
+  by (rule lookup_eq; simp add: bot_mapping_def lookup_default_empty lookup_default_update')
+
+lemma single_lookup: "lookup (single k v) k = v" by simp
+
+lemma single_lookup_le: "x \<le> single k v \<Longrightarrow> lookup x k \<le> v"
+  by (metis less_eq_state_map_def single_lookup)
 
 fun merge_single :: "('a::semilattice_sup) state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a state_map" where
   "merge_single (SM m) pc x = SM (\<lambda>npc. if npc = pc then x \<squnion> m npc else m npc)"
@@ -98,7 +110,7 @@ qed
 lemma r_merge_single_grows: "m \<le> r_merge_single m pc x"
   by (simp add: less_eq_mapping_def lookup_default_update')
 
-fun r_domain :: "('b::bot) r_state_map \<Rightarrow> addr set" where
+fun r_domain :: "('a, 'b::bot) mapping \<Rightarrow> 'a set" where
   "r_domain tree = Set.filter (\<lambda>pc. r_lookup tree pc \<noteq> \<bottom>) (Mapping.keys tree)"
 
 lemma r_domain[code]: "domain (RSM m) = r_domain m"
@@ -114,7 +126,71 @@ qed auto
 lemma r_domain_finite: "finite (r_domain (Mapping m))" by (simp add: keys_Mapping)
 lemma domain_finite: "finite (domain (RSM (Mapping m)))" using r_domain r_domain_finite by metis
 
-lemma[code]: "astep_succs f op ipc st = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}" (* TODO: this is completely wrong ofc *) sorry
+fun sup_mapping_aux :: "('a, 'b::{semilattice_sup, bot}) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> 'a \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
+  "sup_mapping_aux a b pc = Mapping.update pc (r_lookup a pc \<squnion> r_lookup b pc)"
+
+instantiation mapping :: (linorder, "{semilattice_sup, bot}") sup
+begin
+fun sup_mapping :: "('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
+  "sup_mapping a b = fold
+    (sup_mapping_aux a b)
+    (sorted_list_of_set (r_domain b)) b"
+instance ..
+end
+
+text \<open>
+It's not possible to instantiate mapping :: order
+but we can still have some lemmas from semilattice_sup outside instantiations:
+\<close>
+lemma mapping_sup_ge1 [simp]: "(x::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<squnion> y"
+proof -
+  have "r_lookup x k \<le> r_lookup (x \<squnion> y) k" for k
+  proof (cases "k \<in> r_domain y")
+    case True
+    then show ?thesis sorry
+  next
+    case False
+    then show ?thesis sorry
+  qed
+  thus ?thesis using less_eq_mapping_def by blast
+qed
+(*lemma mapping_sup_ge2 [simp]: "(y::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<squnion> y" sorry
+lemma mapping_sup_least: "(y::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<Longrightarrow> z \<le> x \<Longrightarrow> y \<squnion> z \<le> x" sorry*)
+
+lemma[code]: "((RSM a)::'a::{semilattice_sup, bot} state_map) \<squnion> RSM b = RSM (a \<squnion> b)"
+  sorry
+
+(*subsection \<open>astep with r_step_map\<close>
+
+type_synonym 'a r_astep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a r_state_map"
+
+definition RSTEP :: "'a::bot r_astep \<Rightarrow> 'a astep" where
+  "RSTEP f = (\<lambda>op pc ist. RSM (f op pc ist))"
+
+code_datatype RSTEP*)
+
+subsection \<open>Stepping\<close>
+
+lemma sorted_list_of_set_split:
+  assumes "a \<in> s" "finite s"
+  shows "\<exists>pre post. pre @ a # post = sorted_list_of_set s"
+  using assms set_sorted_list_of_set split_list_first by fastforce
+
+fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "r_step_map_from f prog ctx ipc acc =
+    (case prog ipc of
+      Some op \<Rightarrow> acc \<squnion> f op ipc (lookup ctx ipc) |
+      None \<Rightarrow> acc)"
+
+lemma r_step_map_from_grows: "acc \<le> r_step_map_from f prog ctx ipc acc"
+  using mapping_sup_ge1 by (cases "prog ipc"; auto)
+
+fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "r_step_map f prog ctx = fold (r_step_map_from f prog ctx) (sorted_list_of_set (domain ctx)) \<bottom>"
+
+lemma fold_split:
+  "fold f (pre @ x # post) = fold f post \<circ> f x \<circ> fold f pre"
+  by simp
 
 lemma fold_grow:
   assumes "\<And>e acc. (acc::'a::preorder) \<le> f e acc"
@@ -124,68 +200,110 @@ proof(induction l arbitrary: a)
   then show ?case using Cons.IH assms order_trans by fastforce
 qed simp
 
-fun r_step_map_from_with_op :: "('a::absstate) astep \<Rightarrow> instr \<Rightarrow> addr \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
-  "r_step_map_from_with_op f op ipc ctx acc = fold
-    (\<lambda>pc acc. r_merge_single acc pc (f op ipc (r_lookup ctx ipc) pc))
-    (sorted_list_of_set (astep_succs f op ipc (r_lookup ctx ipc))) acc"
+lemma fold_overgrowth:
+  assumes
+    "init \<le> y"
+    "\<And>x acc. acc \<le> f x acc"
+    "\<not> fold f l init \<le> y"
+  shows
+    "\<exists>pre x post. l = pre @ x # post \<and> fold f pre init \<le> y \<and> \<not> f x (fold f pre init) \<le> y"
+using assms proof(induction l arbitrary: init)
+  case (Cons a as)
+  hence ih: "\<not> fold f as init \<le> y \<Longrightarrow> \<exists>pre x post. as = pre @ x # post \<and> fold f pre init \<le> y \<and> \<not> f x (fold f pre init) \<le> y" by blast
+  then show ?case proof (cases "f a init \<le> y")
+    case True then show ?thesis by (metis (full_types) Cons.IH Cons.prems(3) List.fold_simps(2) append_Cons assms(2))
+  next
+    case False then show ?thesis using Cons.prems(1) by fastforce
+  qed
+qed simp
 
-lemma r_step_map_from_with_op_grows: "acc \<le> r_step_map_from_with_op f op ipc ctx acc" using r_merge_single_grows fold_grow
-  by (metis (no_types, lifting) r_step_map_from_with_op.simps)
+lemma fold_overgrowth_lookup:
+  assumes
+    "lookup init k \<le> y"
+    "\<And>x acc. acc \<le> f x acc" (* could be theoretically weaker (only growing on k) but not needed for our case *)
+    "\<not> lookup (fold f l init) k \<le> y"
+  shows
+    "\<exists>pre x post. l = pre @ x # post \<and> lookup (fold f pre init) k \<le> y \<and> \<not> lookup (f x (fold f pre init)) k \<le> y"
+using assms proof(induction l arbitrary: init)
+  case (Cons a as)
+  hence ih: "\<not> lookup (fold f as init) k \<le> y \<Longrightarrow> \<exists>pre x post. as = pre @ x # post \<and> lookup (fold f pre init) k \<le> y \<and> \<not> lookup (f x (fold f pre init)) k \<le> y" by blast
+  then show ?case proof (cases "lookup (f a init) k \<le> y")
+    case True then show ?thesis by (metis (full_types) Cons.IH Cons.prems(3) List.fold_simps(2) append_Cons assms(2))
+  next
+    case False then show ?thesis using Cons.prems(1) by fastforce
+  qed
+qed simp
 
-fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> addr \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
-  "r_step_map_from f prog ctx ipc acc =
-    (case prog ipc of
-      Some op \<Rightarrow> r_step_map_from_with_op f op ipc ctx acc |
-      None \<Rightarrow> acc)"
+lemma sorted_list_of_set_in: "\<exists>pre post. pre @ x # post = sorted_list_of_set s \<Longrightarrow> x \<in> s"
+  by (metis Un_iff append_is_Nil_conv list.set_intros(1) list.simps(3) set_append set_sorted_list_of_set sorted_list_of_set.infinite)
 
-lemma r_step_map_from_grows: "acc \<le> r_step_map_from f prog ctx ipc acc"
-  using r_step_map_from_with_op_grows by (cases "prog ipc"; simp)
-
-fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
-  "r_step_map f prog ctx = fold (r_step_map_from f prog ctx) (sorted_list_of_set (r_domain ctx)) \<bottom>"
-
-lemma sorted_list_of_set_split:
-  assumes "a \<in> s" "finite s"
-  shows "\<exists>pre post. pre @ a # post = sorted_list_of_set s"
-  using assms set_sorted_list_of_set split_list_first by fastforce
-
-lemma fold_split:
-  "fold f (pre @ x # post) = fold f post \<circ> f x \<circ> fold f pre"
-  by simp
-
-lemma[code]: "step_map (f::('a::absstate) astep) prog (RSM (Mapping tree)) = RSM (r_step_map f prog (Mapping tree))"
-proof(rule lookup_eq)
-  let ?ctx = "Mapping tree"
+lemma[code]: "step_map (f::('a::absstate) astep) prog (RSM (Mapping tree)) = r_step_map f prog (RSM (Mapping tree))"
+proof(rule lookup_eq)     
+  let ?ctx = "RSM (Mapping tree)"
   let ?smf = "r_step_map_from f prog ?ctx"
-  have "\<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> r_lookup ?ctx ipc \<noteq> \<bottom> \<and> f op ipc (r_lookup ?ctx ipc) pc = ost} = r_lookup (r_step_map f prog ?ctx) pc" for pc
+  have "\<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost} = lookup (r_step_map f prog ?ctx) pc" for pc
   proof(rule Sup_eqI, goal_cases)
     case (1 ost)
-    then obtain ipc op where step: "prog ipc = Some op" "r_lookup ?ctx ipc \<noteq> \<bottom>" "f op ipc (r_lookup ?ctx ipc) pc = ost" by blast
-    obtain m where "SM m = RSM ?ctx" using state_map_single_constructor by metis
-    from this step have "ipc \<in> domain (RSM ?ctx)" by auto
-    then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain (RSM ?ctx))" using sorted_list_of_set_split domain_finite by metis
-    hence "r_step_map f prog ?ctx = (fold ?smf post \<circ> ?smf ipc \<circ> fold ?smf pre) \<bottom>" using fold_split by (metis r_domain r_step_map.simps)
+    then obtain ipc op where step: "prog ipc = Some op" "lookup ?ctx ipc \<noteq> \<bottom>" "lookup (f op ipc (lookup ?ctx ipc)) pc = ost" by blast
+    obtain m where "SM m = ?ctx" using state_map_single_constructor by metis
+    from this step have "ipc \<in> domain ?ctx" by auto
+    then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" using sorted_list_of_set_split domain_finite by metis
+    hence "r_step_map f prog ?ctx = (fold ?smf post \<circ> ?smf ipc \<circ> fold ?smf pre) \<bottom>" using fold_split by (metis r_step_map.simps)
     hence split: "r_step_map f prog ?ctx = fold ?smf post (?smf ipc (fold ?smf pre \<bottom>))" by simp
     hence post:"?smf ipc (fold ?smf pre \<bottom>) \<le> r_step_map f prog ?ctx" by (metis fold_grow r_step_map_from_grows)
     let ?prefold = "fold ?smf pre \<bottom>"
-    have "ost \<le> r_lookup (?smf ipc ?prefold) pc"
+    have "ost \<le> lookup (?smf ipc ?prefold) pc"
     proof -
-      let ?smfop = "r_step_map_from_with_op f op ipc ?ctx ?prefold"
-      have in_smfop: "ost \<le> r_lookup (?smfop) pc" sorry
-      from this in_smfop show ?thesis using step by simp
+      have smf: "?smf ipc ?prefold = ?prefold \<squnion> f op ipc (lookup ?ctx ipc)" using step(1) by simp
+      have "ost \<le> lookup (?prefold \<squnion> f op ipc (lookup ?ctx ipc)) pc" using step(3) by auto
+      thus ?thesis using smf by simp
     qed
-    from post this show ?case using less_eq_mapping_def order_trans by fastforce
+    from post this show ?case by (simp add: order_trans less_eq_state_map_def)
   next
     case (2 y)
-    then show ?case sorry
+    let ?supset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost}"
+    show ?case
+    proof(rule ccontr)
+      assume ass: "\<not> lookup (r_step_map f prog ?ctx) pc \<le> y"
+      let ?f = "r_step_map_from f prog ?ctx"
+      let ?l = "sorted_list_of_set (domain ?ctx)"
+      from ass have "\<not> lookup (fold ?f ?l \<bottom>) pc \<le> y" by simp
+      from this obtain pre ipc post where split:
+        "?l = pre @ ipc # post"
+        "lookup (fold ?f pre \<bottom>) pc \<le> y"
+        "\<not> lookup (?f ipc (fold ?f pre \<bottom>)) pc \<le> y"
+        using fold_overgrowth_lookup by (metis bot_lookup r_step_map_from_grows sup.orderI sup_bot.right_neutral)
+      let ?prefold = "fold ?f pre \<bottom>"
+
+      have "\<exists>op. Some op = prog ipc" proof (cases "prog ipc")
+        case None
+        hence eq: "?f ipc ?prefold = ?prefold" by simp
+        have neq: "?f ipc ?prefold \<noteq> ?prefold"
+        proof (rule ccontr)
+          assume "\<not> ?f ipc ?prefold \<noteq> ?prefold"
+          from this split(2) have "lookup (?f ipc ?prefold) pc \<le> y" by simp
+          from this split(3) show False by blast
+        qed
+        from eq neq show ?thesis by blast
+      qed simp
+      from this obtain op where op: "prog ipc = Some op" by fastforce
+
+      let ?z = "lookup (f op ipc (lookup ?ctx ipc)) pc"
+      from op split(3) split(2) have nope: "\<not> ?z \<le> y" by simp
+
+      have zin: "?z \<in> ?supset" proof(standard, goal_cases)
+        case 1
+        from split(1) have "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" ..
+        hence "ipc \<in> domain ?ctx" using sorted_list_of_set_in by blast
+        hence "lookup ?ctx ipc \<noteq> \<bottom>" by simp
+        from this op show ?case by blast
+      qed
+
+      from zin nope 2 show False by blast
+    qed
   qed
-  thus "lookup (step_map f prog (RSM ?ctx)) pc = lookup (RSM (r_step_map f prog ?ctx)) pc" for pc by simp
+  thus "lookup (step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc" for pc by simp
 qed
-
-fun r_advance :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
-  "r_advance f prog ctx = fold (r_step_map_from f prog ctx) (sorted_list_of_set (r_domain ctx)) ctx"
-
-lemma[code]: "advance (f::('a::absstate) astep) prog (RSM ctx) = RSM (r_advance f prog ctx)" sorry
 
 (***********)
 
