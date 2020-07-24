@@ -4,10 +4,6 @@ imports
   State_Dumb
 begin
 
-subsection \<open>step_map as mapping\<close>
-
-lemma mapping_structure: "\<exists>m. Mapping m = mm" sorry
-                               
 instantiation mapping :: (type,bot) bot
 begin
 definition "bot_mapping \<equiv> Mapping.empty"
@@ -35,6 +31,9 @@ begin
     case 3 thus ?case using less_eq_mapping_def order_trans by fastforce
   qed
 end
+
+lemma mapping_leI: "(\<And>p. r_lookup C1 p \<le> r_lookup C2 p) \<Longrightarrow> C1 \<le> C2"
+  using less_eq_mapping_def by blast
 
 definition RSM :: "('a::bot) r_state_map \<Rightarrow> 'a state_map" where
   "RSM m = SM (r_lookup m)"
@@ -126,17 +125,44 @@ qed auto
 lemma r_domain_finite: "finite (r_domain (Mapping m))" by (simp add: keys_Mapping)
 lemma domain_finite: "finite (domain (RSM (Mapping m)))" using r_domain r_domain_finite by metis
 
-fun sup_mapping_aux :: "('a, 'b::{semilattice_sup, bot}) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> 'a \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
-  "sup_mapping_aux a b pc = Mapping.update pc (r_lookup a pc \<squnion> r_lookup b pc)"
+fun sup_mapping_aux :: "('a, 'b::{semilattice_sup, bot}) mapping \<Rightarrow> 'a \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
+  "sup_mapping_aux b pc acc = Mapping.update pc (r_lookup acc pc \<squnion> r_lookup b pc) acc"
+
+lemma sup_mapping_aux_pc: "r_lookup (sup_mapping_aux b pc acc) pc = r_lookup acc pc \<squnion> r_lookup b pc"
+  by (simp add: lookup_default_update)
+
+lemma sup_mapping_aux_grows: "acc \<le> sup_mapping_aux b pc acc"
+proof(rule mapping_leI)
+  show "r_lookup acc p \<le> r_lookup (sup_mapping_aux b pc acc) p" for p
+  proof(cases "p = pc")
+    case True
+    have "r_lookup acc pc \<squnion> r_lookup b pc = r_lookup (sup_mapping_aux b pc acc) pc" using sup_mapping_aux_pc by metis
+    then show ?thesis by (simp add: True)
+  next
+    case False
+    have "r_lookup acc p = r_lookup (sup_mapping_aux b pc acc) p"
+      by (metis False lookup_default_update_neq r_lookup.simps sup_mapping_aux.simps)
+    then show ?thesis by simp
+  qed
+qed
 
 instantiation mapping :: (linorder, "{semilattice_sup, bot}") sup
 begin
 fun sup_mapping :: "('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
   "sup_mapping a b = fold
-    (sup_mapping_aux a b)
-    (sorted_list_of_set (r_domain b)) b"
+    (sup_mapping_aux b)
+    (sorted_list_of_set (r_domain b)) a"
 instance ..
 end
+
+lemma fold_grow:
+  assumes "\<And>e acc. (acc::'a::preorder) \<le> f e acc"
+  shows "a \<le> fold f l a"
+proof(induction l arbitrary: a)
+  case (Cons x xs)
+  then show ?case using Cons.IH assms order_trans by fastforce
+qed simp
+
 
 text \<open>
 It's not possible to instantiate mapping :: order
@@ -144,21 +170,34 @@ but we can still have some lemmas from semilattice_sup outside instantiations:
 \<close>
 lemma mapping_sup_ge1 [simp]: "(x::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<squnion> y"
 proof -
-  have "r_lookup x k \<le> r_lookup (x \<squnion> y) k" for k
-  proof (cases "k \<in> r_domain y")
-    case True
-    then show ?thesis sorry
-  next
-    case False
-    then show ?thesis sorry
-  qed
-  thus ?thesis using less_eq_mapping_def by blast
+  have "acc \<le> (sup_mapping_aux y) a acc" for a acc using sup_mapping_aux_grows by simp
+  thus ?thesis by (simp add: fold_grow)
 qed
+
+lemma mapping_sup_lookup: "r_lookup (a \<squnion> b) pc = r_lookup a pc \<squnion> r_lookup b pc"
+proof(cases "pc \<in> r_domain b")
+  case True
+  then show ?thesis sorry
+next
+  case False
+  then show ?thesis
+  proof(induction "sorted_list_of_set (r_domain b)")
+    case Nil
+    from Nil have bot: "r_lookup b pc = \<bottom>" sorry (* this should be easy *)
+    hence botsup: "r_lookup a pc \<squnion> \<bottom> = r_lookup a pc" sorry (* not sure why this fails *)
+    from Nil have left: "r_lookup (a \<squnion> b) pc = r_lookup a pc" by simp
+    from bot left botsup show ?case by simp
+  next
+    case (Cons a x)
+    then show ?case sorry
+  qed
+qed
+
 (*lemma mapping_sup_ge2 [simp]: "(y::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<squnion> y" sorry
 lemma mapping_sup_least: "(y::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<Longrightarrow> z \<le> x \<Longrightarrow> y \<squnion> z \<le> x" sorry*)
 
 lemma[code]: "((RSM a)::'a::{semilattice_sup, bot} state_map) \<squnion> RSM b = RSM (a \<squnion> b)"
-  sorry
+  by (rule state_map_eq_fwd, metis mapping_sup_lookup RSM_def lookup.simps sup_lookup)
 
 (*subsection \<open>astep with r_step_map\<close>
 
@@ -191,14 +230,6 @@ fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a s
 lemma fold_split:
   "fold f (pre @ x # post) = fold f post \<circ> f x \<circ> fold f pre"
   by simp
-
-lemma fold_grow:
-  assumes "\<And>e acc. (acc::'a::preorder) \<le> f e acc"
-  shows "a \<le> fold f l a"
-proof(induction l arbitrary: a)
-  case (Cons x xs)
-  then show ?case using Cons.IH assms order_trans by fastforce
-qed simp
 
 lemma fold_overgrowth:
   assumes

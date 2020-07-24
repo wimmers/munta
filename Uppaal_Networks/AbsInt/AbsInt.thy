@@ -63,9 +63,9 @@ qed
 fun domain :: "('b::bot) state_map \<Rightarrow> addr set" where
   "domain (SM m) = {a. m a \<noteq> \<bottom>}"
 
-lemma state_map_eq_fwd: "(\<forall>p. lookup m p = lookup n p) \<Longrightarrow> m = n"
+lemma state_map_eq_fwd: "(\<And>p. lookup m p = lookup n p) \<Longrightarrow> m = n"
 proof -
-  assume lookeq: "\<forall>p. lookup m p = lookup n p"
+  assume lookeq: "lookup m p = lookup n p" for p
   obtain mm where mm: "m = SM mm" using lookup.cases by blast
   obtain nm where nm: "n = SM nm" using lookup.cases by blast
   have "mm = nm" using lookeq nm mm by auto
@@ -92,6 +92,9 @@ begin
     case 4 thus ?case by (simp add: less_eq_state_map_def dual_order.antisym state_map_eq_fwd)
   qed
 end
+
+lemma state_map_leI: "(\<And>p. lookup C1 p \<le> lookup C2 p) \<Longrightarrow> C1 \<le> C2"
+  using less_eq_state_map_def by blast
 
 instantiation state_map :: (bot) bot
 begin
