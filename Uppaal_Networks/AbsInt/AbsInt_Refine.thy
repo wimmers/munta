@@ -112,18 +112,50 @@ lemma r_merge_single_grows: "m \<le> r_merge_single m pc x"
 fun r_domain :: "('a, 'b::bot) mapping \<Rightarrow> 'a set" where
   "r_domain tree = Set.filter (\<lambda>pc. r_lookup tree pc \<noteq> \<bottom>) (Mapping.keys tree)"
 
-lemma r_domain[code]: "domain (RSM m) = r_domain m"
+lemma r_domain: "r_domain m = {a. r_lookup m a \<noteq> \<bottom>}"
 proof (intro Set.equalityI Set.subsetI)
-  fix x assume "x \<in> domain (RSM m)"
-  hence lookup: "lookup (RSM m) x \<noteq> \<bottom>" by simp
+  fix x assume "x \<in> {a. r_lookup m a \<noteq> \<bottom>}"
+  hence lookup: "r_lookup m x \<noteq> \<bottom>" by simp
   from lookup have r_lookup: "r_lookup m x \<noteq> \<bottom>" by simp
   from r_lookup have keys: "x \<in> Mapping.keys m"
     by (metis Option.is_none_def empty_iff keys_empty keys_is_none_rep lookup_default_def lookup_default_empty r_lookup.simps)
   from keys r_lookup show "x \<in> r_domain m" by auto
 qed auto
 
+lemma r_domain_ref[code]: "domain (RSM m) = r_domain m" using r_domain by fastforce
+
 lemma r_domain_finite: "finite (r_domain (Mapping m))" by (simp add: keys_Mapping)
-lemma domain_finite: "finite (domain (RSM (Mapping m)))" using r_domain r_domain_finite by metis
+lemma domain_finite: "finite (domain (RSM (Mapping m)))" using r_domain_ref r_domain_finite by metis
+
+lemma r_domain_update_bot: "r_domain (Mapping.update k \<bottom> m) = r_domain m - {k}"
+proof(intro Set.equalityI Set.subsetI, goal_cases)
+  case (1 x)
+  hence lookup: "r_lookup (Mapping.update k \<bottom> m) x \<noteq> \<bottom>" using r_domain by simp
+  then show ?case
+  proof (cases "x = k")
+    case True
+    hence False using lookup by (simp add: lookup_default_update)
+    then show ?thesis ..
+  next
+    case False
+    from lookup have "r_lookup m x \<noteq> \<bottom>" by (metis lookup_default_update' r_lookup.simps)
+    hence inm: "x \<in> r_domain m" using r_domain by fastforce
+    from False this show ?thesis by blast
+  qed
+next
+  case (2 x)
+  hence inm: "x \<in> r_domain m" by blast
+  then show ?case
+  proof (cases "x = k")
+    case True
+    then show ?thesis using 2 by blast
+  next
+    case False
+    from inm have "r_lookup m x \<noteq> \<bottom>" using r_domain by simp
+    from False this have "r_lookup (Mapping.update k \<bottom> m) x \<noteq> \<bottom>" by (metis lookup_default_update' r_lookup.simps)
+    then show ?thesis using r_domain by fastforce
+  qed
+qed
 
 fun sup_mapping_aux :: "('a, 'b::{semilattice_sup, bot}) mapping \<Rightarrow> 'a \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
   "sup_mapping_aux b pc acc = Mapping.update pc (r_lookup acc pc \<squnion> r_lookup b pc) acc"
@@ -146,7 +178,7 @@ proof(rule mapping_leI)
   qed
 qed
 
-instantiation mapping :: (linorder, "{semilattice_sup, bot}") sup
+instantiation mapping :: (linorder, "bounded_semilattice_sup_bot") sup
 begin
 fun sup_mapping :: "('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
   "sup_mapping a b = fold
@@ -168,45 +200,91 @@ text \<open>
 It's not possible to instantiate mapping :: order
 but we can still have some lemmas from semilattice_sup outside instantiations:
 \<close>
-lemma mapping_sup_ge1 [simp]: "(x::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<squnion> y"
+lemma mapping_sup_ge1 [simp]: "(x::('a::linorder, 'b::bounded_semilattice_sup_bot) mapping) \<le> x \<squnion> y"
 proof -
   have "acc \<le> (sup_mapping_aux y) a acc" for a acc using sup_mapping_aux_grows by simp
   thus ?thesis by (simp add: fold_grow)
 qed
 
-lemma mapping_sup_lookup: "r_lookup (a \<squnion> b) pc = r_lookup a pc \<squnion> r_lookup b pc"
-proof(cases "pc \<in> r_domain b")
-  case True
-  then show ?thesis sorry
-next
-  case False
-  then show ?thesis
-  proof(induction "sorted_list_of_set (r_domain b)")
-    case Nil
-    from Nil have bot: "r_lookup b pc = \<bottom>" sorry (* this should be easy *)
-    hence botsup: "r_lookup a pc \<squnion> \<bottom> = r_lookup a pc" sorry (* not sure why this fails *)
-    from Nil have left: "r_lookup (a \<squnion> b) pc = r_lookup a pc" by simp
-    from bot left botsup show ?case by simp
-  next
-    case (Cons a x)
-    then show ?case sorry
+lemma sorted_list_of_set_prep:
+  assumes
+    "x # xs = sorted_list_of_set s"
+    "a \<in> set xs"
+  shows
+    "a \<noteq> x"
+  by (metis Diff_insert_absorb assms(1) assms(2) distinct_sorted_list_of_set insert_absorb2 list.simps(15) mk_disjoint_insert remove1.simps(2) set_remove1_eq)
+
+lemma mapping_sup_lookup:
+  assumes "finite (r_domain b)"
+  shows "r_lookup (a \<squnion> b) pc = r_lookup a pc \<squnion> r_lookup b pc"
+using assms proof(induction "sorted_list_of_set (r_domain b)" arbitrary: a b)
+  case Nil
+  from Nil have left: "r_lookup (a \<squnion> b) pc = r_lookup a pc" by simp
+  from Nil have nob: "r_domain b = {}" using sorted_list_of_set_eq_Nil_iff by fastforce
+  have bot: "r_lookup b pc = \<bottom>"
+  proof (rule ccontr)
+    assume "\<not> r_lookup b pc = \<bottom>"
+    thus False using r_domain nob by fastforce
   qed
+  then show ?case using left by simp
+next
+  case (Cons x xs)
+  
+  let ?bprev = "Mapping.update x \<bottom> b"
+  let ?anext = "sup_mapping_aux b x a"
+
+  have prevdom: "r_domain ?bprev = r_domain b - {x}" by (rule r_domain_update_bot)
+
+  have xs_bprev: "xs = sorted_list_of_set (r_domain ?bprev)" using prevdom
+    by (metis Cons.hyps(2) Cons.prems remove1.simps(2) sorted_list_of_set_remove)
+
+  have finite_bprev: "finite (r_domain ?bprev)" using prevdom Cons.prems by auto
+
+  from Cons(2) have "aa \<in> set xs \<Longrightarrow> aa \<noteq> x" for aa by (rule sorted_list_of_set_prep)
+  hence foldbprev_any: "fold (sup_mapping_aux ?bprev) xs init = fold (sup_mapping_aux b) xs init" for init
+  proof(induction xs arbitrary: init)
+    case (Cons aa xxs)
+    hence "aa \<noteq> x" by simp
+    hence "r_lookup ?bprev aa = r_lookup b aa" by (metis lookup_default_update_neq r_lookup.simps)
+    hence "sup_mapping_aux ?bprev aa acc = sup_mapping_aux b aa acc" for acc by simp
+    from this Cons show ?case by simp
+  qed simp
+
+  have sup: "a \<squnion> b = fold (sup_mapping_aux b) xs ?anext" by (metis Cons.hyps(2) List.fold_simps(2) sup_mapping.simps)
+  from sup foldbprev_any have foldbprev_concrete: "a \<squnion> b = fold (sup_mapping_aux ?bprev) xs ?anext" by simp
+
+  from xs_bprev finite_bprev have lookup_prev: "r_lookup (?anext \<squnion> ?bprev) pc = r_lookup ?anext pc \<squnion> r_lookup ?bprev pc" by (rule Cons(1))
+  from foldbprev_concrete this show ?case
+    by (metis (mono_tags, lifting) lookup_default_update lookup_default_update_neq r_lookup.simps sup_bot.right_neutral sup_mapping.simps sup_mapping_aux.elims xs_bprev)
 qed
 
-(*lemma mapping_sup_ge2 [simp]: "(y::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<squnion> y" sorry
-lemma mapping_sup_least: "(y::('a::linorder, 'b::{semilattice_sup, bot}) mapping) \<le> x \<Longrightarrow> z \<le> x \<Longrightarrow> y \<squnion> z \<le> x" sorry*)
+lemma mapping_sup_ge2:
+  assumes "finite (r_domain y)"
+  shows "(y::('a::linorder, 'b::bounded_semilattice_sup_bot) mapping) \<le> x \<squnion> y"
+proof(rule mapping_leI)
+  fix p
+  from assms have "r_lookup (x \<squnion> y) p = r_lookup x p \<squnion> r_lookup y p" by (rule mapping_sup_lookup) 
+  thus "r_lookup y p \<le> r_lookup (x \<squnion> y) p" by simp
+qed
 
-lemma[code]: "((RSM a)::'a::{semilattice_sup, bot} state_map) \<squnion> RSM b = RSM (a \<squnion> b)"
-  by (rule state_map_eq_fwd, metis mapping_sup_lookup RSM_def lookup.simps sup_lookup)
+lemma mapping_sup_least:
+  assumes
+    "(y::('a::linorder, 'b::bounded_semilattice_sup_bot) mapping) \<le> x"
+    "z \<le> x"
+  shows "y \<squnion> z \<le> x"
+proof(rule mapping_leI)
+  fix p
+  show "r_lookup (y \<squnion> z) p \<le> r_lookup x p" using assms
+    by (metis List.fold_simps(1) le_sup_iff less_eq_mapping_def mapping_sup_lookup sorted_list_of_set.infinite sup_mapping.simps)
+qed
 
-(*subsection \<open>astep with r_step_map\<close>
-
-type_synonym 'a r_astep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a r_state_map"
-
-definition RSTEP :: "'a::bot r_astep \<Rightarrow> 'a astep" where
-  "RSTEP f = (\<lambda>op pc ist. RSM (f op pc ist))"
-
-code_datatype RSTEP*)
+lemma[code]: "((RSM a)::'a::bounded_semilattice_sup_bot state_map) \<squnion> RSM (Mapping bm) = RSM (a \<squnion> (Mapping bm))"
+proof (rule state_map_eq_fwd)
+  let ?b = "Mapping bm"
+  have "finite (r_domain ?b)" using r_domain_finite by blast
+  then show "lookup (RSM a \<squnion> RSM ?b) p = lookup (RSM (a \<squnion> ?b)) p" for p
+    by (metis RSM_def lookup.simps mapping_sup_lookup sup_lookup)
+qed
 
 subsection \<open>Stepping\<close>
 
