@@ -2,13 +2,6 @@ theory AbsInt_Test
   imports AbsInt_Refine "HOL-IMP.AExp" "HOL.String"
 begin
 
-definition myprog :: "instr list" where "myprog \<equiv> [
-PUSH 42,
-PUSH 3,
-instr.LT,
-HALT
-]"
-
 fun assemble :: "instr list \<Rightarrow> spaced_program" where
   "assemble listing = SpacedProgram
     (set (upt 0 (length listing)))
@@ -127,34 +120,29 @@ fun intercalate:: "'a list \<Rightarrow> 'a list list \<Rightarrow> 'a list" whe
   "intercalate _ [x] = x" |
   "intercalate sep (x # xs) = x @ sep @ intercalate sep xs"
 
-fun to_list :: "'a set \<Rightarrow> 'a list" where
-  "to_list _ = undefined"
-
-lemma[code]: "to_list (set as) = as" sorry
-
-instantiation set :: ("show") "show"
-begin
-fun show_set :: "'a set \<Rightarrow> string" where
-  "show_set s =
-    (let stuff = map show (fold (#) [] (to_list s)) in
-    intercalate ''; '' stuff)"
-instance proof qed
-end
-
-fun format_ctx_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> ('a::show) state_map \<Rightarrow> string" where
-  "format_ctx_line len pc prog ctx =
-      (let asm = (show pc) @ '' '' @ (show (the (prog pc)));
+fun format_ctx_line :: "nat \<Rightarrow> addr \<Rightarrow> program \<Rightarrow> 'a::show \<Rightarrow> string" where
+  "format_ctx_line len pc prog v =
+      (let asm = (show pc) @ '' '' @ (case prog pc of Some op \<Rightarrow> show op | None \<Rightarrow> ''--'');
            padding = replicate ((asm_width - 1) - length asm + 1) CHR '' '';
-           states = show (lookup ctx pc) in
+           states = show v in
       asm @ padding @ states @ ''\<newline>'')"
 
 instantiation dispctx :: ("show") "show"
 begin
 fun show_dispctx :: "'a dispctx \<Rightarrow> string" where
   "show_dispctx (DisplayCtx (SpacedProgram space prog) st) =
-    concat (map (\<lambda>pc. format_ctx_line asm_width pc prog st) (sorted_list_of_set space))"
+    concat (map (\<lambda>pc. format_ctx_line asm_width pc prog (lookup st pc)) (sorted_list_of_set space))"
 instance proof qed
 end
+
+
+definition myprog :: "instr list" where "myprog \<equiv> [
+CALL,
+PUSH 42,
+PUSH 3,
+instr.LT,
+HALT
+]"
 
 definition "mysprog \<equiv> assemble myprog"
 
@@ -169,25 +157,40 @@ definition "(collect_result::collect_state set state_map) \<equiv>
       entry = deepen {(0::addr, empty_state), (0, empty_state1)} in
   collect_loop prog 4 entry"
 
-definition "my_string \<equiv> String.implode (show (DisplayCtx mysprog collect_result))"
-ML \<open>val _ = writeln (@{code my_string})\<close>
-
 definition "dumb_entry \<equiv> merge_single (\<bottom>::dumb state_map) 0 (Some Any)"
 
 definition "dumb_stepped \<equiv>
   step_map dumb_step (spprog mysprog) dumb_entry"
+value "lookup (dump_stepped::dumb state_map) 0"
 
 definition "dumb_advanced \<equiv>
   advance dumb_step (spprog mysprog) dumb_entry"
 
 definition "dumb_result \<equiv>
-  Dumb.ai_loop (spprog mysprog) 2 dumb_entry"
-
-value "sorted_list_of_set (domain dumb_entry)"
+  Dumb.ai_loop (spprog mysprog) 1 dumb_entry"
 
 value "dumb_result"
 definition "abs_res_str \<equiv> String.implode (show (DisplayCtx mysprog dumb_result))"
 ML \<open>val _ = writeln (@{code abs_res_str})\<close>
 
+(*
+Ugly hack for visualizing collecting semantics:
+
+fun to_list :: "'a set \<Rightarrow> 'a list" where
+  "to_list _ = undefined"
+
+lemma[code]: "to_list (set as) = as" sorry
+
+instantiation set :: ("show") "show"
+begin
+fun show_set :: "'a set \<Rightarrow> string" where
+  "show_set s =
+    (let stuff = map show (fold (#) [] (to_list s)) in
+    intercalate ''; '' stuff)"
+instance proof qed
+end
+
+definition "my_string \<equiv> String.implode (show (DisplayCtx mysprog collect_result))"
+ML \<open>val _ = writeln (@{code my_string})\<close>*)
 
 end

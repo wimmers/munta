@@ -32,16 +32,6 @@ fun dumb_step :: "dumb astep" where
   "dumb_step HALT ipc ins          = \<bottom>" |
   "dumb_step _ ipc ins             = single (Suc ipc) (Some Any)"
 
-fun dumb_step_r :: "dumb astep" where
-  "dumb_step_r _ _ None              = \<bottom>" |
-  "dumb_step_r (JMPZ target) ipc ins = deep_merge {(target, Some Any), (Suc ipc, Some Any)}" |
-  "dumb_step_r CALL ipc ins          = \<bottom>" |
-  "dumb_step_r RETURN ipc ins        = \<bottom>" |
-  "dumb_step_r HALT ipc ins          = \<bottom>" |
-  "dumb_step_r _ ipc ins             = single (Suc ipc) (Some Any)"
-
-lemma[code]: "dumb_step = dumb_step_r" sorry
-
 global_interpretation Dumb: AbsInt
   where \<gamma> = \<gamma>_dumb
     and ai_step = dumb_step

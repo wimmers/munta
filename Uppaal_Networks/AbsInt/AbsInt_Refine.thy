@@ -11,6 +11,7 @@ instance ..
 end
 
 type_synonym 'a r_state_map = "(addr, 'a) mapping"
+datatype special_state_map = Top
 
 fun r_lookup :: "('a, 'b::bot) mapping \<Rightarrow> 'a \<Rightarrow> 'b" where
   "r_lookup m = Mapping.lookup_default \<bottom> m"
@@ -47,14 +48,21 @@ proof -
   thus ?thesis using less_eq_state_map_def by blast
 qed
 
-code_datatype RSM
+fun RSMS :: "special_state_map \<Rightarrow> 'a::top state_map" where
+  "RSMS m = \<top>"
+
+code_datatype RSM RSMS
 
 definition "r_empty_map \<equiv> Mapping.empty::('a::bot) r_state_map"
 
 lemma r_bot[code]: "\<bottom> = RSM r_empty_map"
   by (rule lookup_eq; simp add: lookup_default_empty r_empty_map_def)
 
+lemma r_top[code]: "\<top> = RSMS Top" by simp
+
 lemma r_lookup[code]: "lookup (RSM m) = r_lookup m" by simp
+
+lemma [code]: "lookup (RSMS m) pc = \<top>" by simp
 
 fun r_single :: "addr \<Rightarrow> 'a::absstate \<Rightarrow> 'a r_state_map" where
   "r_single k v = Mapping.update k v \<bottom>"
@@ -464,6 +472,32 @@ proof(rule lookup_eq)
   qed
   thus "lookup (step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc" for pc by simp
 qed
+
+text\<open>For advance on \<top>\<close>
+lemma [code]: "(a::'a::absstate state_map) \<squnion> RSMS b = \<top>" by simp
+lemma [code]: "((RSMS a)::'a::absstate state_map) \<squnion> b = \<top>" by simp
+
+lemma advance_top[code]: "advance f prog (RSMS a) = (\<top>::'a::absstate state_map)" by simp
+
+(* TODO: this is automatically deleted, is there a better way? *)
+fun r_advance :: "('a::{semilattice_sup, Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "r_advance f prog ctx = ctx \<squnion> step_map f prog ctx"
+lemma [code]: "advance f prog (RSM a) = r_advance f prog (RSM a)" by simp
+
+text\<open>Early loop exit when encountering \<top>\<close>
+
+fun loop_continue :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "loop_continue f prog n advanced = (if advanced = \<top> then \<top> else loop f prog n advanced)"
+
+lemma [code]: "loop_continue f prog n (RSMS m) = \<top>" by simp
+
+lemma "loop f prog (Suc n) st = loop_continue f prog n (advance f prog st)"
+proof (cases "advance f prog st = \<top>")
+  case True
+  then show ?thesis by (induction n; simp)
+qed simp
+
+subsection \<open>Helper Refinement\<close>
 
 fun r_deep_merge_l :: "(addr * ('a::absstate)) list \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
   "r_deep_merge_l sts init = fold (\<lambda>(pc, v) acc. r_merge_single acc pc v) sts init"
