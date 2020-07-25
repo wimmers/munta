@@ -670,9 +670,9 @@ lemma jmpz_cases:
   shows "lookup (collect_step (JMPZ target) ipc (\<gamma> ins)) pc \<subseteq> \<gamma> (lookup (some_step (JMPZ target) ipc ins) pc)"
   using assms ex_in_conv by fastforce
                            
-subsection \<open>Alternative Type for Abstract Step Functions\<close>
+subsection \<open>Helpers to conveniently define Abstract Step Functions\<close>
 
-fun deep_merge :: "(addr * ('a::Sup)) set \<Rightarrow> 'a state_map" where
+fun deep_merge :: "(addr * ('a::absstate)) set \<Rightarrow> 'a state_map" where
   "deep_merge sts = SM (\<lambda>pc. \<Squnion>{st. (pc, st) \<in> sts})"
 
 lemma deep_merge_lookup:
@@ -680,21 +680,38 @@ lemma deep_merge_lookup:
   shows "st \<le> lookup (deep_merge sts) pc"
   by (simp add: Sup_upper assms)
 
-text\<open>This type is easier to implement in certain cases and works better for code generation,
-  but it may not be unique wrt. its {@term unique_astep}\<close>
-type_synonym 'a asetstep = "instr \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> (addr * 'a) set"
+lemma deep_merge_empty: "deep_merge ({}::(addr * ('a::absstate)) set) = \<bottom>"
+  by (rule state_map_eq_fwd; simp)
 
-fun unique_astep :: "('a::Sup) asetstep \<Rightarrow> 'a astep" where
-  "unique_astep f op ipc ins = SM (\<lambda>pc. \<Squnion>{st. (pc, st) \<in> f op ipc ins})"
+lemma prod_set_split: "{st. (k, st) \<in> (set xs \<union> {x})} = {st. (k, st) \<in> set xs} \<union> {st. (k, st) \<in> {x}}"
+  by (intro Set.equalityI Set.subsetI; blast)
 
-lemma unique_astep_unique:
-  assumes
-    "(pc, (st::'a::absstate)) \<in> f op ipc ins"
-    "\<And>sst. (pc, sst) \<in> f op ipc ins \<Longrightarrow> sst = st"
-  shows "lookup (unique_astep f op ipc ins) pc = st" 
-proof -
-  from assms have "{st. (pc, st) \<in> f op ipc ins} = {st}" by blast
-  thus ?thesis using ccpo_Sup_singleton[of st] by simp
+lemma deep_merge_cons: "deep_merge (set ((k, v) # xs)) = deep_merge (set xs) \<squnion> single k v"
+proof (rule state_map_eq_fwd)
+  fix p
+  let ?x = "(k, v)"
+  have "\<Squnion>{st. (p, st) \<in> (set (?x # xs))} = \<Squnion>{st. (p, st) \<in> (set xs)} \<squnion> \<Squnion>{st. (p, st) \<in> {?x}}"
+  proof (cases "p = k")
+    case True
+    hence "\<Squnion>{st. (p, st) \<in> {(k, v)}} = v" by simp
+    have "\<Squnion>{st. (p, st) \<in> set ((k, v) # xs)} = \<Squnion>{st. (p, st) \<in> (set xs \<union> {?x})}" by simp
+    hence "\<Squnion>{st. (p, st) \<in> set ((k, v) # xs)} = \<Squnion>({st. (p, st) \<in> set xs} \<union> {st. (p, st) \<in> {?x}})" using prod_set_split by metis
+    then show ?thesis by (simp add: Sup_union_distrib)
+  next
+    case False
+    hence bot: "\<Squnion>{st. (p, st) \<in> {?x}} = \<bottom>" by simp
+    from False have "{st. (p, st) \<in> set (?x # xs)} = {st. (p, st) \<in> set xs}" by simp
+    from this have "\<Squnion> {st. (p, st) \<in> set (?x # xs)} = \<Squnion> {st. (p, st) \<in> set xs} \<squnion> \<bottom>" by simp
+    from this bot show ?thesis by presburger
+  qed
+  thus "lookup (deep_merge (set (?x # xs))) p = lookup (deep_merge (set xs) \<squnion> single k v) p" by simp
+qed
+
+lemma deep_merge_bot: "deep_merge (set ((k, \<bottom>) # xs)) = deep_merge (set xs)"
+proof (rule state_map_eq_fwd)
+  fix p
+  show "lookup (deep_merge (set ((k, \<bottom>) # xs))) p = lookup (deep_merge (set xs)) p"
+    by (smt boolean_algebra_cancel.sup0 deep_merge_cons lookup.simps single.simps sup_lookup)
 qed
 
 end

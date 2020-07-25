@@ -51,12 +51,15 @@ code_datatype RSM
 
 definition "r_empty_map \<equiv> Mapping.empty::('a::bot) r_state_map"
 
-lemma[code]: "\<bottom> = RSM r_empty_map"
+lemma r_bot[code]: "\<bottom> = RSM r_empty_map"
   by (rule lookup_eq; simp add: lookup_default_empty r_empty_map_def)
 
-lemma[code]: "lookup (RSM m) = r_lookup m" by simp
+lemma r_lookup[code]: "lookup (RSM m) = r_lookup m" by simp
 
-lemma[code]: "single k v = RSM (Mapping.update k v \<bottom>)"
+fun r_single :: "addr \<Rightarrow> 'a::absstate \<Rightarrow> 'a r_state_map" where
+  "r_single k v = Mapping.update k v \<bottom>"
+
+lemma r_single[code]: "single k v = RSM (r_single k v)"
   by (rule lookup_eq; simp add: bot_mapping_def lookup_default_empty lookup_default_update')
 
 lemma single_lookup: "lookup (single k v) k = v" by simp
@@ -64,7 +67,10 @@ lemma single_lookup: "lookup (single k v) k = v" by simp
 lemma single_lookup_le: "x \<le> single k v \<Longrightarrow> lookup x k \<le> v"
   by (metis less_eq_state_map_def single_lookup)
 
-fun merge_single :: "('a::semilattice_sup) state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a state_map" where
+lemma r_single_structure: "\<exists>m. r_single k v = Mapping m"
+  by (metis bot_mapping_def empty_Mapping insert_Mapping r_single.simps)
+
+fun merge_single :: "('a::bounded_semilattice_sup_bot) state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a state_map" where
   "merge_single (SM m) pc x = SM (\<lambda>npc. if npc = pc then x \<squnion> m npc else m npc)"
 
 lemma merge_single_grows: "m \<le> merge_single m pc x"
@@ -74,7 +80,14 @@ proof -
   from this sm show ?thesis using less_eq_state_map_def by blast
 qed
 
-fun r_merge_single :: "('a::{semilattice_sup, bot}) r_state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a r_state_map" where
+lemma merge_single_bot: "merge_single a k \<bottom> = a"
+proof (rule state_map_eq_fwd)
+  fix p
+  obtain m where "a = SM m" using state_map_single_constructor by blast
+  then show "lookup (merge_single a k \<bottom>) p = lookup a p" by simp
+qed
+
+fun r_merge_single :: "('a::{bounded_semilattice_sup_bot}) r_state_map \<Rightarrow> addr \<Rightarrow> 'a \<Rightarrow> 'a r_state_map" where
   "r_merge_single tree pc x = Mapping.update pc (x \<squnion> (r_lookup tree pc)) tree"
 
 lemma merge_single_neq:
@@ -157,6 +170,22 @@ next
   qed
 qed
 
+lemma r_single_domain: 
+  assumes "v \<noteq> \<bottom>"
+  shows "r_domain (r_single k v) = {k}"
+proof (intro Set.equalityI Set.subsetI, goal_cases)
+  case (1 x)
+  have "r_lookup (r_single k v) a \<noteq> \<bottom> \<Longrightarrow> a = k" for a
+    by (metis bot_mapping_def lookup_default_empty lookup_default_update' r_lookup.simps r_single.simps)
+  from 1 this have "x = k" by simp
+  then show ?case by simp
+next
+  case (2 x)
+  hence "x = k" by blast
+  then show ?case using r_domain assms
+    by (simp add: lookup_default_update')
+qed
+
 fun sup_mapping_aux :: "('a, 'b::{semilattice_sup, bot}) mapping \<Rightarrow> 'a \<Rightarrow> ('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping" where
   "sup_mapping_aux b pc acc = Mapping.update pc (r_lookup acc pc \<squnion> r_lookup b pc) acc"
 
@@ -177,6 +206,9 @@ proof(rule mapping_leI)
     then show ?thesis by simp
   qed
 qed
+
+lemma sup_mapping_aux_structure: "\<exists>m. sup_mapping_aux b pc (Mapping acc) = Mapping m"
+  using insert_Mapping by fastforce
 
 instantiation mapping :: (linorder, "bounded_semilattice_sup_bot") sup
 begin
@@ -278,12 +310,31 @@ proof(rule mapping_leI)
     by (metis List.fold_simps(1) le_sup_iff less_eq_mapping_def mapping_sup_lookup sorted_list_of_set.infinite sup_mapping.simps)
 qed
 
-lemma[code]: "((RSM a)::'a::bounded_semilattice_sup_bot state_map) \<squnion> RSM (Mapping bm) = RSM (a \<squnion> (Mapping bm))"
+lemma mapping_sup[code]: "((RSM a)::'a::bounded_semilattice_sup_bot state_map) \<squnion> RSM (Mapping bm) = RSM (a \<squnion> (Mapping bm))"
 proof (rule state_map_eq_fwd)
   let ?b = "Mapping bm"
   have "finite (r_domain ?b)" using r_domain_finite by blast
   then show "lookup (RSM a \<squnion> RSM ?b) p = lookup (RSM (a \<squnion> ?b)) p" for p
     by (metis RSM_def lookup.simps mapping_sup_lookup sup_lookup)
+qed
+
+lemma fold_mapping_structure:
+  assumes "\<And>e acc. \<exists>m. f e (Mapping acc) = Mapping m"
+  shows "\<exists>m. fold f l (Mapping a) = Mapping m"
+proof(induction l arbitrary: a)
+  case (Cons x xs)
+  then show ?case by (metis List.fold_simps(2) assms)
+qed auto
+
+lemma mapping_sup_structure: "\<exists>m. Mapping a \<squnion> Mapping b = Mapping m"
+  using fold_mapping_structure sup_mapping_aux_structure by (metis sup_mapping.simps)
+
+lemma r_merge_single_sup_single:
+  assumes "v \<noteq> \<bottom>"
+  shows "r_merge_single m k v = m \<squnion> r_single k v"
+proof -
+  from assms have "m \<squnion> r_single k v = fold (sup_mapping_aux (r_single k v)) [k] m" using r_single_domain by fastforce
+  then show ?thesis by (simp add: lookup_default_update' sup.commute)
 qed
 
 subsection \<open>Stepping\<close>
@@ -412,6 +463,82 @@ proof(rule lookup_eq)
     qed
   qed
   thus "lookup (step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc" for pc by simp
+qed
+
+fun r_deep_merge_l :: "(addr * ('a::absstate)) list \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
+  "r_deep_merge_l sts init = fold (\<lambda>(pc, v) acc. r_merge_single acc pc v) sts init"
+
+lemma r_deep_merge_l_cons:
+  assumes "v \<noteq> \<bottom>"
+  shows "r_deep_merge_l ((k, v) # xs) init = r_deep_merge_l xs (init \<squnion> r_single k v)"
+  using assms r_merge_single_sup_single by fastforce
+
+lemma r_deep_merge_l_lift: "RSM a = RSM b \<Longrightarrow> RSM (r_deep_merge_l l a) = RSM (r_deep_merge_l l b)"
+proof(induction l arbitrary: a b)
+  case (Cons x xs)
+  then show ?case by (smt List.fold_simps(2) case_prod_conv r_deep_merge_l.simps r_merge_single r_single.cases)
+qed simp
+
+lemma r_merge_single_bot: "RSM (r_merge_single a k \<bottom>) = RSM a"
+proof -
+  have "RSM (r_merge_single a k \<bottom>) = merge_single (RSM a) k \<bottom>" using r_merge_single by metis
+  then show ?thesis by (simp add: merge_single_bot)
+qed
+
+lemma r_deep_merge_l_bot: "RSM (r_deep_merge_l ((k, \<bottom>) # xs) init) = RSM (r_deep_merge_l xs init)"
+proof -
+  have same: "RSM (r_merge_single init k \<bottom>) = RSM init" using r_merge_single_bot by blast
+  have "RSM (r_deep_merge_l xs (r_merge_single init k \<bottom>)) = RSM (r_deep_merge_l xs init)" using same by (rule r_deep_merge_l_lift)
+  from this show ?thesis using r_deep_merge_l_lift by simp
+qed
+
+lemma deep_merge_init: "deep_merge (set s) \<squnion> (RSM (Mapping init)) = RSM (r_deep_merge_l s (Mapping init))"
+proof(induction s arbitrary: init)
+  case Nil
+  let ?init = "Mapping init"
+  have l: "deep_merge (set []) \<squnion> (RSM ?init) = RSM ?init" by (metis deep_merge_empty list.set(1) sup_bot.left_neutral)
+  have r: "r_deep_merge_l [] ?init = ?init" by (simp add: bot_mapping_def lookup_default_empty)
+  from l r show ?case by simp
+next
+  case (Cons x xs)
+  let ?init = "Mapping init"
+  obtain xp xv where x: "(xp, xv) = x" by (metis surj_pair)
+  from this have "deep_merge (set (x # xs)) = deep_merge (set xs) \<squnion> single xp xv" using deep_merge_cons by blast
+  hence "deep_merge (set (x # xs)) = deep_merge (set xs) \<squnion> RSM (r_single xp xv)" using r_single by metis
+  hence split_l: "deep_merge (set (x # xs)) \<squnion> RSM ?init = deep_merge (set xs) \<squnion> RSM (r_single xp xv \<squnion> ?init)"
+    by (metis (no_types, lifting) inf_sup_aci(6) mapping_sup)
+
+  let ?nextinit = "?init \<squnion> r_single xp xv"
+
+  have step: "deep_merge (set xs) \<squnion> RSM ?nextinit = RSM (r_deep_merge_l xs ?nextinit)"
+  proof -
+    have "\<exists>sm. r_single xp xv = Mapping sm" using r_single_structure by simp
+    obtain m where "Mapping init \<squnion> r_single xp xv = Mapping m" using mapping_sup_structure r_single_structure by metis
+    from this Cons show ?thesis by simp
+  qed
+
+  show ?case
+  proof (cases "xv = \<bottom>")
+    case True
+    hence lreduce: "deep_merge (set (x # xs)) = deep_merge (set xs)" using deep_merge_bot using x by blast
+    have "RSM (r_deep_merge_l (x # xs) (RBT_Mapping.Mapping init)) = RSM (r_deep_merge_l xs \<bottom>) \<squnion> RSM (RBT_Mapping.Mapping init)" using r_deep_merge_l_bot
+      by (metis Cons.IH True boolean_algebra_cancel.sup0 bot_mapping_def empty_Mapping r_bot r_empty_map_def x)
+    from this lreduce show ?thesis by (metis Cons.IH True r_deep_merge_l_bot x) 
+  next
+    case False
+    hence "xv \<noteq> \<bottom> \<Longrightarrow> r_deep_merge_l (x # xs) ?init = r_deep_merge_l xs ?nextinit" using r_deep_merge_l_cons x by blast
+    from this split_l step show ?thesis
+      by (metis False mapping_sup r_single_structure sup.commute)
+  qed
+qed
+
+lemma deep_merge[code]: "deep_merge ((set s)::(addr * 'b::absstate) set) = RSM (r_deep_merge_l s \<bottom>)"
+proof -
+  obtain init where init: "Mapping init = (\<bottom>::'b r_state_map)" by (simp add: bot_mapping_def empty_Mapping)
+  have "deep_merge (set s) \<squnion> (RSM (Mapping init)) = RSM (r_deep_merge_l s (Mapping init))" by (rule deep_merge_init)
+  from this init have "deep_merge (set s) \<squnion> (RSM \<bottom>) = RSM (r_deep_merge_l s \<bottom>)" by simp
+  hence "deep_merge (set s) \<squnion> \<bottom> = RSM (r_deep_merge_l s \<bottom>)" by (simp add: r_bot bot_mapping_def r_empty_map_def)
+  thus ?thesis by simp
 qed
 
 (***********)
