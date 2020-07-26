@@ -24,17 +24,17 @@ type_synonym dumb = "dumb_base option"
 fun \<gamma>_dumb :: "dumb \<Rightarrow> collect_state set" where
   "\<gamma>_dumb v  = \<gamma>_option (\<lambda>_. \<top>) v"
 
-fun dumb_step :: "dumb astep" where
-  "dumb_step _ _ None              = \<bottom>" |
-  "dumb_step (JMPZ target) ipc ins = deep_merge {(target, Some Any), (Suc ipc, Some Any)}" |
-  "dumb_step CALL ipc ins          = \<top>" |
-  "dumb_step RETURN ipc ins        = \<top>" |
-  "dumb_step HALT ipc ins          = \<bottom>" |
-  "dumb_step _ ipc ins             = single (Suc ipc) (Some Any)"
+fun step_dumb :: "dumb astep" where
+  "step_dumb _ _ None              = \<bottom>" |
+  "step_dumb (JMPZ target) ipc ins = deep_merge {(target, Some Any), (Suc ipc, Some Any)}" |
+  "step_dumb CALL ipc ins          = \<top>" |
+  "step_dumb RETURN ipc ins        = \<top>" |
+  "step_dumb HALT ipc ins          = \<bottom>" |
+  "step_dumb _ ipc ins             = single (Suc ipc) (Some Any)"
 
 global_interpretation Dumb: AbsInt
   where \<gamma> = \<gamma>_dumb
-    and ai_step = dumb_step
+    and ai_step = step_dumb
   defines dumb_loop = Dumb.ai_loop
 proof (standard, goal_cases)
   case (1 a b)
@@ -64,16 +64,16 @@ next
       case (JMPZ target)
       show ?thesis unfolding JMPZ proof(rule jmpz_cases, goal_cases)
         case 1
-        have "Some Any \<le> lookup (dumb_step (JMPZ target) ipc ins) (Suc ipc)" using deep_merge_lookup
-          by (metis Some dumb_step.simps(2) insert_iff)
-        hence "\<top> \<le> \<gamma>_dumb (lookup (dumb_step (JMPZ target) ipc ins) (Suc ipc))"
+        have "Some Any \<le> lookup (step_dumb (JMPZ target) ipc ins) (Suc ipc)" using deep_merge_lookup
+          by (metis Some step_dumb.simps(2) insert_iff)
+        hence "\<top> \<le> \<gamma>_dumb (lookup (step_dumb (JMPZ target) ipc ins) (Suc ipc))"
           by (metis \<gamma>_dumb.simps \<gamma>_option.simps(2) top.extremum_unique top_dumb_base_def top_option_def)
         thus ?case by blast
       next
         case 2
-        have "Some Any \<le> lookup (dumb_step (JMPZ target) ipc ins) target" using deep_merge_lookup
-          by (metis Some dumb_step.simps(2) insert_iff)
-        hence "\<top> \<le> \<gamma>_dumb (lookup (dumb_step (JMPZ target) ipc ins) target)"
+        have "Some Any \<le> lookup (step_dumb (JMPZ target) ipc ins) target" using deep_merge_lookup
+          by (metis Some step_dumb.simps(2) insert_iff)
+        hence "\<top> \<le> \<gamma>_dumb (lookup (step_dumb (JMPZ target) ipc ins) target)"
           by (metis \<gamma>_dumb.simps \<gamma>_option.simps(2) top.extremum_unique top_dumb_base_def top_option_def)
         thus ?case by blast
       qed

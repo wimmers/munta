@@ -120,7 +120,7 @@ next
     qed
   qed
 next
-  case 11 then show ?case by (simp add: Inf_option_def top_option_def)
+  case 11 then show ?case by (simp add: Inf_option_def)
 next
   case 12 then show ?case by (simp add: Sup_option_def)
 qed

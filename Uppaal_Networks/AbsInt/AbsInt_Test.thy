@@ -29,11 +29,11 @@ definition "myprog \<equiv> assemble myprog_listing"
 definition "dumb_entry \<equiv> merge_single (\<bottom>::dumb state_map) 0 (Some Any)"
 
 definition "dumb_stepped \<equiv>
-  step_map dumb_step (fetch_op myprog) dumb_entry"
+  step_map step_dumb (fetch_op myprog) dumb_entry"
 value "lookup (dump_stepped::dumb state_map) 0"
 
 definition "dumb_advanced \<equiv>
-  advance dumb_step (fetch_op myprog) dumb_entry"
+  advance step_dumb (fetch_op myprog) dumb_entry"
 
 definition "dumb_result \<equiv>
   Dumb.ai_loop (fetch_op myprog) 100 dumb_entry"
