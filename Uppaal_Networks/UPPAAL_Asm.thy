@@ -172,11 +172,4 @@ lemma visited_exec':
   shows "exec prog n s [] = Some ((pc, st, m, f, rs), pc # pcs)"
   using visited_exec assms by auto
 
-type_synonym addrspace = "addr set"
-
-definition addr_space_complete :: "program \<Rightarrow> addrspace \<Rightarrow> bool" where
-  "addr_space_complete prog space \<equiv> \<forall>pc. prog pc \<noteq> None \<longleftrightarrow> pc \<in> space"
-
-datatype spaced_program = SpacedProgram addrspace program
-
 end

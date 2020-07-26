@@ -1,5 +1,5 @@
 theory State_Dumb
-imports AbsInt State_Option
+  imports AbsInt State_Option
 begin
 
 datatype dumb_base = Any

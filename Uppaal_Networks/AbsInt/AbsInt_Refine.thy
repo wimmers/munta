@@ -1,5 +1,5 @@
 theory AbsInt_Refine
-imports                   
+  imports
   "HOL-Library.RBT_Mapping"
   State_Dumb
 begin
