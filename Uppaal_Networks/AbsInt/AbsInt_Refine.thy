@@ -355,11 +355,16 @@ lemma sorted_list_of_set_split:
 fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "r_step_map_from f prog ctx ipc acc =
     (case prog ipc of
-      Some op \<Rightarrow> acc \<squnion> f op ipc (lookup ctx ipc) |
+      Some op \<Rightarrow> let new = f op ipc (lookup ctx ipc) in
+                 if finite (domain new) then acc \<squnion> new else \<top> |
       None \<Rightarrow> acc)"
 
 lemma r_step_map_from_grows: "acc \<le> r_step_map_from f prog ctx ipc acc"
-  using mapping_sup_ge1 by (cases "prog ipc"; auto)
+  using mapping_sup_ge1
+proof(cases "prog ipc")
+  case (Some op)
+  then show ?thesis by (cases "finite (domain (f op ipc (lookup ctx ipc)))"; simp)
+qed simp
 
 fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "r_step_map f prog ctx = fold (r_step_map_from f prog ctx) (sorted_list_of_set (domain ctx)) \<bottom>"
@@ -409,6 +414,62 @@ lemma finite_sup_eqI:
   "finite A \<Longrightarrow> (\<And>y. y \<in> A \<Longrightarrow> y \<le> x) \<Longrightarrow> (\<And>y. (\<And>z. z \<in> A \<Longrightarrow> z \<le> y) \<Longrightarrow> x \<le> y) \<Longrightarrow> finite_sup A = x"
   by (blast intro: antisym finite_sup_least finite_sup_upper)
 
+find_consts "('a \<Rightarrow> 'b option) \<Rightarrow> 'a set \<Rightarrow> 'b set"
+
+find_consts "'a option set \<Rightarrow> 'a set"
+
+lemma these_finite:
+  assumes "finite s"
+  shows "finite (Option.these s)"
+using assms proof (induction s)
+  case (insert x F)
+  then show ?case by (metis finite_insert option.exhaust these_insert_None these_insert_Some)
+qed simp
+
+lemma map_project_finite:
+  assumes "finite s"
+  shows "finite (List.map_project f s)"
+proof -
+  from assms have fin: "finite (Option.these (f ` s))" using these_finite by blast
+  have eq: "Option.these (f ` s) = List.map_project f s"
+  proof (intro Set.equalityI Set.subsetI, goal_cases)
+    case (1 x)
+    then show ?case by (smt CollectI imageE in_these_eq map_project_def)
+  next
+    case (2 x)
+    then show ?case by (smt image_iff in_these_eq map_project_def mem_Collect_eq)
+  qed
+  from eq fin show ?thesis by simp
+qed
+
+lemma r_step_map_top:
+  assumes "finite (domain ctx)"
+  shows "\<nexists>infpc. infinite (slurp f prog ctx infpc)"
+proof (rule ccontr)
+  assume ass: "\<not> (\<nexists>infpc. infinite (slurp f prog ctx infpc))"
+  from this obtain infpc where infpc: "infinite (slurp f prog ctx infpc)" by blast
+  let ?slurpset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ctx ipc)) infpc = ost}"
+  let ?aset = "{ipc. lookup ctx ipc \<noteq> \<bottom>}"
+  from assms(1) have finite_lookup: "finite ?aset" by (metis (full_types) domain.simps lookup.simps lookup_eq)
+  let ?magic = "\<lambda>ipc. case prog ipc of None \<Rightarrow> None | Some op \<Rightarrow> Some (lookup (f op ipc (lookup ctx ipc)) infpc)"
+  let ?youbet = "List.map_project ?magic ?aset"
+  from finite_lookup have finite: "finite ?youbet" using map_project_finite by blast
+  have "?youbet = ?slurpset"
+  proof (intro Set.equalityI Set.subsetI, goal_cases)
+    case (1 x)
+    hence "\<exists>ipc \<in> ?aset. ?magic ipc = Some x" by (simp add: map_project_def)
+    hence "\<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ctx ipc)) infpc = x"
+      by (smt mem_Collect_eq option.case_eq_if option.collapse option.distinct(1) option.inject)
+    then show ?case by blast
+  next
+    case (2 x)
+    hence "\<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ctx ipc)) infpc = x" by blast
+    hence "\<exists>ipc \<in> ?aset. ?magic ipc = Some x" by auto
+    then show ?case by (simp add: map_project_def)
+  qed
+  from this finite_lookup infpc finite show False by simp
+qed
+  
 lemma[code]: "finite_step_map (f::('a::absstate) astep) prog (RSM (Mapping tree)) = r_step_map f prog (RSM (Mapping tree))"
 proof(rule lookup_eq)
   fix pc
@@ -417,7 +478,8 @@ proof(rule lookup_eq)
   show "lookup (finite_step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc"
   proof (cases "\<exists>pc. infinite (slurp f prog ?ctx pc)")
     case True
-    then show ?thesis sorry
+    from True have "r_step_map f prog ?ctx = \<top>" using r_step_map_top domain_finite by blast
+    from True this show ?thesis by auto
   next
     case False
     let ?slurpset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost}"
@@ -433,11 +495,16 @@ proof(rule lookup_eq)
       hence split: "r_step_map f prog ?ctx = fold ?smf post (?smf ipc (fold ?smf pre \<bottom>))" by simp
       hence post:"?smf ipc (fold ?smf pre \<bottom>) \<le> r_step_map f prog ?ctx" by (metis fold_grow r_step_map_from_grows)
       let ?prefold = "fold ?smf pre \<bottom>"
+      let ?new = "f op ipc (lookup ?ctx ipc)"
       have "ost \<le> lookup (?smf ipc ?prefold) pc"
-      proof -
-        have smf: "?smf ipc ?prefold = ?prefold \<squnion> f op ipc (lookup ?ctx ipc)" using step(1) by simp
+      proof(cases "finite (domain ?new)")
+        case True
+        hence smf: "?smf ipc ?prefold = ?prefold \<squnion> ?new" using step(1) by simp
         have "ost \<le> lookup (?prefold \<squnion> f op ipc (lookup ?ctx ipc)) pc" using step(3) by auto
         thus ?thesis using smf by simp
+      next
+        case False
+        then show ?thesis by (simp add: step(1))
       qed
       from post this show ?case by (simp add: order_trans less_eq_state_map_def)
     next
@@ -468,8 +535,9 @@ proof(rule lookup_eq)
           from eq neq show ?thesis by blast
         qed simp
         from this obtain op where op: "prog ipc = Some op" by fastforce
-  
-        let ?z = "lookup (f op ipc (lookup ?ctx ipc)) pc"
+
+        let ?new = "f op ipc (lookup ?ctx ipc)"
+        let ?z = "lookup ?new pc"
         from op split(3) split(2) have nope: "\<not> ?z \<le> y" by simp
   
         have zin: "?z \<in> ?supset" proof(standard, goal_cases)
@@ -491,12 +559,12 @@ text\<open>For advance on \<top>\<close>
 lemma [code]: "(a::'a::absstate state_map) \<squnion> RSMS b = \<top>" by (simp add: top.extremum_uniqueI)
 lemma [code]: "((RSMS a)::'a::absstate state_map) \<squnion> b = \<top>" by (simp add: top.extremum_uniqueI)
 
-lemma advance_top[code]: "finite_advance f prog (RSMS a) = (\<top>::'a::absstate state_map)" by (simp add: top.extremum_uniqueI)
+lemma finite_advance_top[code]: "finite_advance f prog (RSMS a) = (\<top>::'a::absstate state_map)" by (simp add: top.extremum_uniqueI)
 
 (* TODO: this is automatically deleted, is there a better way? *)
-fun r_advance :: "('a::{semilattice_sup, Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "r_advance f prog ctx = ctx \<squnion> step_map f prog ctx"
-lemma [code]: "advance f prog (RSM a) = r_advance f prog (RSM a)" by simp
+fun r_advance :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "r_advance f prog ctx = ctx \<squnion> finite_step_map f prog ctx"
+lemma [code]: "finite_advance f prog (RSM a) = r_advance f prog (RSM a)" by simp
 
 text\<open>Early loop exit when encountering \<top>\<close>
 
@@ -511,7 +579,7 @@ proof (cases "finite_advance f prog st = \<top>")
   then show ?thesis
   proof (induction n)
     case (Suc n)
-    then show ?case by (metis RSMS.simps advance_top finite_loop.simps(2) loop_continue.simps)
+    then show ?case by (metis RSMS.simps finite_advance_top finite_loop.simps(2) loop_continue.simps)
   qed simp
 qed simp
 

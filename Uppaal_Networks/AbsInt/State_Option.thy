@@ -55,24 +55,17 @@ fun inf_option :: "'a option \<Rightarrow> 'a option \<Rightarrow> 'a option" wh
 instance ..
 end
 
-instantiation option :: (absstate) absstate
+instantiation option :: ("{semilattice_sup, order_top}") absstate
 begin
 instance proof (standard, goal_cases)
-  case (1 x y)
-then show ?case sorry
+  case (1 x y) then show ?case by (cases x; cases y; simp)
 next
-  case (2 y x)
-then show ?case sorry
+  case (2 y x) then show ?case by (cases x; cases y; simp)
 next
-  case (3 y x z)
-  then show ?case sorry
+  case (3 y x z) then show ?case by (cases x; cases y; cases z; simp)
 next
-  case (4 a)
-  then show ?case sorry
-next
-  case (5 a)
-  then show ?case sorry
-qed
+  case (5 a) then show ?case by (cases a; simp)
+qed simp
 end
 
 fun \<gamma>_option :: "('a \<Rightarrow> 'b set) \<Rightarrow> 'a option \<Rightarrow> 'b set" where

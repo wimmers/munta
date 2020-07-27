@@ -6,17 +6,18 @@ datatype dumb_base = Any
 
 lemma dumb_base_is_dumb: "(x::dumb_base) = y" for x y by (cases x; cases y) blast
 
-instantiation dumb_base :: absstate
+instantiation dumb_base :: semilattice_sup
 begin
-  definition "\<top> \<equiv> Any"
-  definition "\<bottom> \<equiv> Any"
   fun less_eq_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> bool" where "less_eq_dumb_base _ _ \<longleftrightarrow> True"
   fun less_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> bool" where "less_dumb_base _ _ \<longleftrightarrow> False"
   fun sup_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> dumb_base" where "sup_dumb_base _ _  = Any"
-  fun inf_dumb_base :: "dumb_base \<Rightarrow> dumb_base \<Rightarrow> dumb_base" where "inf_dumb_base _ _  = Any"
-  fun Sup_dumb_base :: "dumb_base set \<Rightarrow> dumb_base" where "Sup_dumb_base _ = Any"
-  fun Inf_dumb_base :: "dumb_base set \<Rightarrow> dumb_base" where "Inf_dumb_base _ = Any"
 instance by standard (auto simp: dumb_base_is_dumb)
+end
+
+instantiation dumb_base :: order_top
+begin
+  definition "\<top> \<equiv> Any"
+instance by (standard; simp)
 end
 
 type_synonym dumb = "dumb_base option"
