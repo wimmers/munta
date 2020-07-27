@@ -405,79 +405,93 @@ qed simp
 lemma sorted_list_of_set_in: "\<exists>pre post. pre @ x # post = sorted_list_of_set s \<Longrightarrow> x \<in> s"
   by (metis Un_iff append_is_Nil_conv list.set_intros(1) list.simps(3) set_append set_sorted_list_of_set sorted_list_of_set.infinite)
 
-lemma[code]: "step_map (f::('a::absstate) astep) prog (RSM (Mapping tree)) = r_step_map f prog (RSM (Mapping tree))"
-proof(rule lookup_eq)     
+lemma finite_sup_eqI:
+  "finite A \<Longrightarrow> (\<And>y. y \<in> A \<Longrightarrow> y \<le> x) \<Longrightarrow> (\<And>y. (\<And>z. z \<in> A \<Longrightarrow> z \<le> y) \<Longrightarrow> x \<le> y) \<Longrightarrow> finite_sup A = x"
+  by (blast intro: antisym finite_sup_least finite_sup_upper)
+
+lemma[code]: "finite_step_map (f::('a::absstate) astep) prog (RSM (Mapping tree)) = r_step_map f prog (RSM (Mapping tree))"
+proof(rule lookup_eq)
+  fix pc
   let ?ctx = "RSM (Mapping tree)"
   let ?smf = "r_step_map_from f prog ?ctx"
-  have "\<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost} = lookup (r_step_map f prog ?ctx) pc" for pc
-  proof(rule Sup_eqI, goal_cases)
-    case (1 ost)
-    then obtain ipc op where step: "prog ipc = Some op" "lookup ?ctx ipc \<noteq> \<bottom>" "lookup (f op ipc (lookup ?ctx ipc)) pc = ost" by blast
-    obtain m where "SM m = ?ctx" using state_map_single_constructor by metis
-    from this step have "ipc \<in> domain ?ctx" by auto
-    then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" using sorted_list_of_set_split domain_finite by metis
-    hence "r_step_map f prog ?ctx = (fold ?smf post \<circ> ?smf ipc \<circ> fold ?smf pre) \<bottom>" using fold_split by (metis r_step_map.simps)
-    hence split: "r_step_map f prog ?ctx = fold ?smf post (?smf ipc (fold ?smf pre \<bottom>))" by simp
-    hence post:"?smf ipc (fold ?smf pre \<bottom>) \<le> r_step_map f prog ?ctx" by (metis fold_grow r_step_map_from_grows)
-    let ?prefold = "fold ?smf pre \<bottom>"
-    have "ost \<le> lookup (?smf ipc ?prefold) pc"
-    proof -
-      have smf: "?smf ipc ?prefold = ?prefold \<squnion> f op ipc (lookup ?ctx ipc)" using step(1) by simp
-      have "ost \<le> lookup (?prefold \<squnion> f op ipc (lookup ?ctx ipc)) pc" using step(3) by auto
-      thus ?thesis using smf by simp
-    qed
-    from post this show ?case by (simp add: order_trans less_eq_state_map_def)
+  show "lookup (finite_step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc"
+  proof (cases "\<exists>pc. infinite (slurp f prog ?ctx pc)")
+    case True
+    then show ?thesis sorry
   next
-    case (2 y)
-    let ?supset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost}"
-    show ?case
-    proof(rule ccontr)
-      assume ass: "\<not> lookup (r_step_map f prog ?ctx) pc \<le> y"
-      let ?f = "r_step_map_from f prog ?ctx"
-      let ?l = "sorted_list_of_set (domain ?ctx)"
-      from ass have "\<not> lookup (fold ?f ?l \<bottom>) pc \<le> y" by simp
-      from this obtain pre ipc post where split:
-        "?l = pre @ ipc # post"
-        "lookup (fold ?f pre \<bottom>) pc \<le> y"
-        "\<not> lookup (?f ipc (fold ?f pre \<bottom>)) pc \<le> y"
-        using fold_overgrowth_lookup by (metis bot_lookup r_step_map_from_grows sup.orderI sup_bot.right_neutral)
-      let ?prefold = "fold ?f pre \<bottom>"
-
-      have "\<exists>op. Some op = prog ipc" proof (cases "prog ipc")
-        case None
-        hence eq: "?f ipc ?prefold = ?prefold" by simp
-        have neq: "?f ipc ?prefold \<noteq> ?prefold"
-        proof (rule ccontr)
-          assume "\<not> ?f ipc ?prefold \<noteq> ?prefold"
-          from this split(2) have "lookup (?f ipc ?prefold) pc \<le> y" by simp
-          from this split(3) show False by blast
-        qed
-        from eq neq show ?thesis by blast
-      qed simp
-      from this obtain op where op: "prog ipc = Some op" by fastforce
-
-      let ?z = "lookup (f op ipc (lookup ?ctx ipc)) pc"
-      from op split(3) split(2) have nope: "\<not> ?z \<le> y" by simp
-
-      have zin: "?z \<in> ?supset" proof(standard, goal_cases)
-        case 1
-        from split(1) have "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" ..
-        hence "ipc \<in> domain ?ctx" using sorted_list_of_set_in by blast
-        hence "lookup ?ctx ipc \<noteq> \<bottom>" by simp
-        from this op show ?case by blast
+    case False
+    let ?slurpset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost}"
+    have "finite ?slurpset" using False by simp
+    hence "finite_sup ?slurpset = lookup (r_step_map f prog ?ctx) pc"
+    proof(rule finite_sup_eqI, goal_cases)
+      case (1 ost)
+      then obtain ipc op where step: "prog ipc = Some op" "lookup ?ctx ipc \<noteq> \<bottom>" "lookup (f op ipc (lookup ?ctx ipc)) pc = ost" by blast
+      obtain m where "SM m = ?ctx" using state_map_single_constructor by metis
+      from this step have "ipc \<in> domain ?ctx" by auto
+      then obtain pre post where "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" using sorted_list_of_set_split domain_finite by metis
+      hence "r_step_map f prog ?ctx = (fold ?smf post \<circ> ?smf ipc \<circ> fold ?smf pre) \<bottom>" using fold_split by (metis r_step_map.simps)
+      hence split: "r_step_map f prog ?ctx = fold ?smf post (?smf ipc (fold ?smf pre \<bottom>))" by simp
+      hence post:"?smf ipc (fold ?smf pre \<bottom>) \<le> r_step_map f prog ?ctx" by (metis fold_grow r_step_map_from_grows)
+      let ?prefold = "fold ?smf pre \<bottom>"
+      have "ost \<le> lookup (?smf ipc ?prefold) pc"
+      proof -
+        have smf: "?smf ipc ?prefold = ?prefold \<squnion> f op ipc (lookup ?ctx ipc)" using step(1) by simp
+        have "ost \<le> lookup (?prefold \<squnion> f op ipc (lookup ?ctx ipc)) pc" using step(3) by auto
+        thus ?thesis using smf by simp
       qed
-
-      from zin nope 2 show False by blast
+      from post this show ?case by (simp add: order_trans less_eq_state_map_def)
+    next
+      case (2 y)
+      let ?supset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost}"
+      show ?case
+      proof(rule ccontr)
+        assume ass: "\<not> lookup (r_step_map f prog ?ctx) pc \<le> y"
+        let ?f = "r_step_map_from f prog ?ctx"
+        let ?l = "sorted_list_of_set (domain ?ctx)"
+        from ass have "\<not> lookup (fold ?f ?l \<bottom>) pc \<le> y" by simp
+        from this obtain pre ipc post where split:
+          "?l = pre @ ipc # post"
+          "lookup (fold ?f pre \<bottom>) pc \<le> y"
+          "\<not> lookup (?f ipc (fold ?f pre \<bottom>)) pc \<le> y"
+          using fold_overgrowth_lookup by (metis bot_lookup r_step_map_from_grows sup.orderI sup_bot.right_neutral)
+        let ?prefold = "fold ?f pre \<bottom>"
+  
+        have "\<exists>op. Some op = prog ipc" proof (cases "prog ipc")
+          case None
+          hence eq: "?f ipc ?prefold = ?prefold" by simp
+          have neq: "?f ipc ?prefold \<noteq> ?prefold"
+          proof (rule ccontr)
+            assume "\<not> ?f ipc ?prefold \<noteq> ?prefold"
+            from this split(2) have "lookup (?f ipc ?prefold) pc \<le> y" by simp
+            from this split(3) show False by blast
+          qed
+          from eq neq show ?thesis by blast
+        qed simp
+        from this obtain op where op: "prog ipc = Some op" by fastforce
+  
+        let ?z = "lookup (f op ipc (lookup ?ctx ipc)) pc"
+        from op split(3) split(2) have nope: "\<not> ?z \<le> y" by simp
+  
+        have zin: "?z \<in> ?supset" proof(standard, goal_cases)
+          case 1
+          from split(1) have "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" ..
+          hence "ipc \<in> domain ?ctx" using sorted_list_of_set_in by blast
+          hence "lookup ?ctx ipc \<noteq> \<bottom>" by simp
+          from this op show ?case by blast
+        qed
+  
+        from zin nope 2 show False by blast
+      qed
     qed
+    then show ?thesis using False by simp
   qed
-  thus "lookup (step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc" for pc by simp
 qed
 
 text\<open>For advance on \<top>\<close>
-lemma [code]: "(a::'a::absstate state_map) \<squnion> RSMS b = \<top>" by simp
-lemma [code]: "((RSMS a)::'a::absstate state_map) \<squnion> b = \<top>" by simp
+lemma [code]: "(a::'a::absstate state_map) \<squnion> RSMS b = \<top>" by (simp add: top.extremum_uniqueI)
+lemma [code]: "((RSMS a)::'a::absstate state_map) \<squnion> b = \<top>" by (simp add: top.extremum_uniqueI)
 
-lemma advance_top[code]: "advance f prog (RSMS a) = (\<top>::'a::absstate state_map)" by simp
+lemma advance_top[code]: "finite_advance f prog (RSMS a) = (\<top>::'a::absstate state_map)" by (simp add: top.extremum_uniqueI)
 
 (* TODO: this is automatically deleted, is there a better way? *)
 fun r_advance :: "('a::{semilattice_sup, Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
@@ -487,14 +501,18 @@ lemma [code]: "advance f prog (RSM a) = r_advance f prog (RSM a)" by simp
 text\<open>Early loop exit when encountering \<top>\<close>
 
 fun loop_continue :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "loop_continue f prog n advanced = (if advanced = \<top> then \<top> else loop f prog n advanced)"
+  "loop_continue f prog n advanced = (if advanced = \<top> then \<top> else finite_loop f prog n advanced)"
 
 lemma [code]: "loop_continue f prog n (RSMS m) = \<top>" by simp
 
-lemma "loop f prog (Suc n) st = loop_continue f prog n (advance f prog st)"
-proof (cases "advance f prog st = \<top>")
+lemma "finite_loop f prog (Suc n) st = loop_continue f prog n (finite_advance f prog st)"
+proof (cases "finite_advance f prog st = \<top>")
   case True
-  then show ?thesis by (induction n; simp)
+  then show ?thesis
+  proof (induction n)
+    case (Suc n)
+    then show ?case by (metis RSMS.simps advance_top finite_loop.simps(2) loop_continue.simps)
+  qed simp
 qed simp
 
 subsection \<open>Helper Refinement\<close>
@@ -540,7 +558,7 @@ next
   from this have "deep_merge (set (x # xs)) = deep_merge (set xs) \<squnion> single xp xv" using deep_merge_cons by blast
   hence "deep_merge (set (x # xs)) = deep_merge (set xs) \<squnion> RSM (r_single xp xv)" using r_single by metis
   hence split_l: "deep_merge (set (x # xs)) \<squnion> RSM ?init = deep_merge (set xs) \<squnion> RSM (r_single xp xv \<squnion> ?init)"
-    by (metis (no_types, lifting) inf_sup_aci(6) mapping_sup)
+    by (metis (no_types, lifting) mapping_sup sup.assoc)
 
   let ?nextinit = "?init \<squnion> r_single xp xv"
 

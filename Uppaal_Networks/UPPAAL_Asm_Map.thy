@@ -124,6 +124,8 @@ lemma Inf_lookup [simp]: "lookup (\<Sqinter>A) x = (\<Sqinter>m\<in>A. lookup m 
 instance ..
 end
 
+instantiation state_map :: (bounded_semilattice_sup_bot) bounded_semilattice_sup_bot begin instance .. end
+
 instantiation state_map :: (complete_lattice) complete_lattice
 begin
 instance proof

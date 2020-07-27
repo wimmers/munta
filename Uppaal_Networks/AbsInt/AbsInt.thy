@@ -6,12 +6,6 @@ imports
   "HOL.Complete_Lattices"
 begin
 
-section \<open>Abstract Interpretation\<close>
-
-class absstate = complete_lattice
-
-instantiation state_map :: (absstate) absstate begin instance .. end
-
 subsection "Abstract Stepping"
 
 text \<open>Type for any abstract stepping function. Performs a single forward step on an abstract state.\<close>
@@ -22,12 +16,12 @@ fun astep_succs :: "('a::bot) astep \<Rightarrow> instr \<Rightarrow> addr \<Rig
 
 text \<open>Performs a step for all states in the map and returns the join of all resulting states at a given address.
   Could also be seen as inverse-stepping, i.e. pulling all resulting states ending at the given address.\<close>
-fun slurp :: "('a::{Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
-  "slurp f prog ctx pc = \<Squnion>{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ctx ipc)) pc = ost}"
+fun slurp :: "'a::bot astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> 'a set" where
+  "slurp f prog ctx pc = {ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ctx ipc)) pc = ost}"
 
 text \<open>Perform a single step over an entire map\<close>
 fun step_map :: "('a::{bot, Sup}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "step_map f prog ctx = SM (slurp f prog ctx)"
+  "step_map f prog ctx = SM (\<lambda>pc. \<Squnion>(slurp f prog ctx pc))"
 
 text \<open>Advance the Abstract Interpretation one step forward, i.e. step the map and merge it with the previous.\<close>
 fun advance :: "('a::{semilattice_sup, Sup, bot}) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
@@ -39,7 +33,7 @@ fun loop :: "('a::{semilattice_sup, Sup, bot}) astep \<Rightarrow> program \<Rig
   "loop f prog (Suc n) st = loop f prog n (advance f prog st)"
 
 lemma loop_pull: "loop f prog n (advance f prog st) = advance f prog (loop f prog n st)"
-  apply(induction n arbitrary: st) by simp simp
+  by(induction n arbitrary: st, simp, metis loop.simps(2))
 
 subsection "Collecting Semantics"
 
@@ -109,7 +103,7 @@ subsubsection \<open>Implementation\<close>
 fun collect_step :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<Rightarrow> collect_state set state_map" where
   "collect_step op ipc sts = SM (\<lambda>pc. {st. \<exists>ist\<in>sts. step op (ipc, ist) = Some (pc, st)})"
 
-definition[simp]: "collect_slurp \<equiv> slurp collect_step"
+definition[simp]: "collect_slurp prog ctx pc \<equiv> \<Squnion>(slurp collect_step prog ctx pc)"
 
 lemma collect_slurp_fwd:
   assumes
@@ -209,7 +203,92 @@ next
   then show ?case by (metis collect_advance_correct deepen_flatten errors_all_as_flat errors_loop.simps(2) errors_loop_flat.simps(2))
 qed
 
-subsection \<open>Abstract\<close>
+subsection \<open>Abstract Interpretation\<close>
+
+class absstate = bounded_semilattice_sup_bot + order_top
+
+text\<open>Least upper bound if the set is finite, else some random upper bound (just always \<top>)\<close>
+fun finite_sup :: "'a::{bounded_semilattice_sup_bot, order_top} set \<Rightarrow> 'a" where
+  "finite_sup s = (if finite s then folding.F sup \<bottom> s else \<top>)"
+
+global_interpretation finite_sup: folding
+  where f = "(sup::('a::bounded_semilattice_sup_bot \<Rightarrow> 'a \<Rightarrow> 'a))"
+  and z = "\<bottom>"
+proof (standard, rule ext)
+  fix x y z
+  have l: "((\<squnion>) (y::'a) \<circ> (\<squnion>) x) z = x \<squnion> (y \<squnion> z)" using sup_left_commute by force
+  have r: "((\<squnion>) x \<circ> (\<squnion>) y) z = x \<squnion> (y \<squnion> z)" by auto
+  from l r show "((\<squnion>) y \<circ> (\<squnion>) x) z = ((\<squnion>) x \<circ> (\<squnion>) y) z" by simp
+qed
+
+lemma finite_sup_upper:
+  assumes
+    "finite (s::'a::{bounded_semilattice_sup_bot, order_top} set)"
+    "x \<in> s"
+  shows "x \<le> finite_sup s"
+proof(cases "finite s")
+  case True
+  then show ?thesis using assms finite_sup.remove by fastforce
+qed simp
+
+lemma finite_sup_least:
+  assumes
+    "finite s" \<comment> \<open>This is the main difference to Sup. It's only the least if the set is finite.\<close>
+    "(\<And>x. x \<in> s \<Longrightarrow> x \<le> z)"
+  shows "finite_sup s \<le> z"
+using assms proof (induction s rule: finite_induct)
+  case (insert x F)
+  hence "finite_sup (insert x F) = x \<squnion> finite_sup F" using finite_sup.insert by simp
+  then show ?case using insert.IH insert.prems by simp
+qed simp
+
+lemma finite_sup_complete: " \<Squnion>(s::'a::complete_lattice set) \<le> finite_sup s"
+proof (cases "finite s")
+  case True
+  then show ?thesis using Sup_least finite_sup_upper by blast
+qed simp
+
+lemma finite_sup_union_distrib: "finite_sup(A \<union> B) = finite_sup A \<squnion> finite_sup B"
+proof (cases "finite A \<and> finite B")
+  case True
+  hence "finite B" by simp
+  from this show ?thesis
+  proof (induction "B" rule: finite_induct)
+    case (insert x F)
+    then show ?case
+      by (smt True Un_insert_right finite.insertI finite_UnI finite_sup.insert finite_sup.insert_remove finite_sup.simps insert_absorb sup.left_idem sup_left_commute)
+  qed simp
+next
+  case False
+  hence "finite_sup A \<squnion> finite_sup B = \<top>" by (metis finite_sup.simps sup.orderE sup_commute top_greatest)
+  then show ?thesis by (simp add: False)
+qed
+
+text\<open>Same as step_map but escapes to \<top> if not finite\<close>
+fun finite_step_map :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "finite_step_map f prog ctx = (if \<exists>pc. infinite (slurp f prog ctx pc) then \<top> else SM (\<lambda>pc. finite_sup(slurp f prog ctx pc)))"
+
+lemma finite_step_map_complete:
+  "step_map f prog (ctx::'a::{complete_lattice, absstate} state_map) \<le> finite_step_map f prog ctx"
+proof (rule state_map_leI, goal_cases)
+  case (1 p)
+  then show ?case
+  proof (cases "\<exists>pc. infinite (slurp f prog ctx pc)")
+    case False
+    then show ?thesis using finite_sup_complete
+      by (metis finite_step_map.elims lookup.simps step_map.simps)
+  qed simp
+qed
+
+fun finite_advance :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "finite_advance f prog ctx = ctx \<squnion> finite_step_map f prog ctx"
+
+fun finite_loop :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "finite_loop f prog 0 st = st" |
+  "finite_loop f prog (Suc n) st = finite_loop f prog n (finite_advance f prog st)"
+
+lemma finite_loop_pull: "finite_loop f prog n (finite_advance f prog st) = finite_advance f prog (finite_loop f prog n st)"
+  by(induction n arbitrary: st, simp, metis finite_loop.simps(2))
 
 locale AbsInt =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
@@ -234,7 +313,7 @@ lemma \<gamma>_lookup_le:
 lemma \<gamma>_map_mono: "a \<le> b \<Longrightarrow> \<gamma>_map a \<le> \<gamma>_map b"
   by (simp add: \<gamma>_lookup less_eq_state_map_def mono_gamma)
 
-definition[simp]: "ai_slurp \<equiv> slurp ai_step"
+definition[simp]: "ai_slurp prog ctx pc \<equiv> finite_sup (slurp ai_step prog ctx pc)"
 lemma ai_slurp_correct:
   assumes "a \<le> \<gamma>_map b"
   shows "collect_slurp prog a pc \<le> \<gamma> (ai_slurp prog b pc)"
@@ -248,33 +327,42 @@ proof standard
   have "ax \<le> ai_slurp prog b pc"
   proof(cases "lookup b ipc = \<bottom>")
     case False
-    from this have "ax \<in> {ost. \<exists>ipc op. prog ipc = Some op \<and> lookup b ipc \<noteq> \<bottom> \<and> lookup (ai_step op ipc (lookup b ipc)) pc = ost}" using slurped(1) ax(2) by blast
-    then show ?thesis by (simp add: Sup_upper)
+    let ?slurpset = "slurp ai_step prog b pc"
+    from False have "ax \<in> ?slurpset" using slurped(1) ax(2) by auto
+    then show ?thesis using finite_sup_upper by fastforce
   qed (simp add: astep_keep_bot ax(2))
-  thus "x \<in> \<gamma> (ai_slurp prog b pc)" using ax mono_gamma by auto
+  thus "x \<in> \<gamma> (ai_slurp prog b pc)" using ax mono_gamma by blast
 qed
 
-definition[simp]: "ai_step_map \<equiv> step_map ai_step"
+definition[simp]: "ai_step_map \<equiv> finite_step_map ai_step"
 lemma ai_step_map_correct:
   assumes "a \<le> \<gamma>_map b"
   shows "collect_step_map prog a \<le> \<gamma>_map (ai_step_map prog b)"
-  using ai_slurp_correct assms by (simp add: less_eq_state_map_def)
+proof (rule state_map_leI, goal_cases)
+  case (1 p)
+  show ?case
+  proof (cases "\<exists>pc. infinite (slurp ai_step prog b pc)")
+    case False
+    hence "lookup (\<gamma>_map (ai_step_map prog b)) p = \<gamma> (finite_sup(slurp ai_step prog b p))" by (simp add: \<gamma>_lookup)
+    then show ?thesis using ai_slurp_correct assms by auto
+  qed (simp add: \<gamma>_lookup)
+qed
 
-definition[simp]: "ai_advance \<equiv> advance ai_step"
+definition[simp]: "ai_advance \<equiv> finite_advance ai_step"
 lemma ai_advance_correct:
   assumes "a \<le> \<gamma>_map b"
   shows "collect_advance prog a \<le> \<gamma>_map (ai_advance prog b)"
 proof -
-  have "\<gamma>_map (ai_step_map prog b) \<le> \<gamma>_map (advance ai_step prog b)" by (metis \<gamma>_map_mono advance.simps ai_step_map_def sup_ge2)
-  hence step_le: "collect_step_map prog a \<le> \<gamma>_map (advance ai_step prog b)" using ai_step_map_correct order.trans assms by blast
+  have "\<gamma>_map (ai_step_map prog b) \<le> \<gamma>_map (finite_advance ai_step prog b)" by (metis \<gamma>_map_mono finite_advance.simps ai_step_map_def sup_ge2)
+  hence step_le: "collect_step_map prog a \<le> \<gamma>_map (finite_advance ai_step prog b)" using ai_step_map_correct order.trans assms by blast
 
-  have "b \<le> advance ai_step prog b" by simp
-  then have "a \<le> \<gamma>_map (advance ai_step prog b)" by (meson \<gamma>_map_mono assms order.trans)
+  have "b \<le> finite_advance ai_step prog b" by simp
+  then have "a \<le> \<gamma>_map (finite_advance ai_step prog b)" by (meson \<gamma>_map_mono assms order.trans)
 
   from step_le this show ?thesis by force
 qed
-                        
-definition[simp, code]: "ai_loop \<equiv> loop ai_step"
+
+definition[simp, code]: "ai_loop \<equiv> finite_loop ai_step"
 
 theorem ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)"
 proof (induction n arbitrary: entry)
@@ -283,8 +371,8 @@ proof (induction n arbitrary: entry)
 next
   case (Suc n)
   from Suc this have "collect_advance prog (collect_loop prog n (\<gamma>_map entry)) \<le> \<gamma>_map (ai_advance prog (ai_loop prog n entry))" using ai_advance_correct by blast
-  then have "advance collect_step prog (loop collect_step prog n (\<gamma>_map entry)) \<le> \<gamma>_map (advance ai_step prog (loop ai_step prog n entry))" by auto
-  then have "loop collect_step prog n (advance collect_step prog (\<gamma>_map entry)) \<le> \<gamma>_map (loop ai_step prog n (advance ai_step prog entry))" using loop_pull by metis
+  then have "advance collect_step prog (loop collect_step prog n (\<gamma>_map entry)) \<le> \<gamma>_map (finite_advance ai_step prog (finite_loop ai_step prog n entry))" by auto
+  then have "loop collect_step prog n (advance collect_step prog (\<gamma>_map entry)) \<le> \<gamma>_map (finite_loop ai_step prog n (finite_advance ai_step prog entry))" using finite_loop_pull loop_pull by metis
   thus ?case by simp
 qed
 
@@ -501,12 +589,19 @@ lemma jmpz_cases:
 subsection \<open>Helpers to conveniently define Abstract Step Functions\<close>
 
 fun deep_merge :: "(addr * ('a::absstate)) set \<Rightarrow> 'a state_map" where
-  "deep_merge sts = SM (\<lambda>pc. \<Squnion>{st. (pc, st) \<in> sts})"
+  "deep_merge sts = SM (\<lambda>pc. finite_sup {st. (pc, st) \<in> sts})"
 
 lemma deep_merge_lookup:
   assumes "(pc, (st::'a::absstate)) \<in> sts"
   shows "st \<le> lookup (deep_merge sts) pc"
-  by (simp add: Sup_upper assms)
+proof -
+  have "lookup (deep_merge sts) pc = finite_sup {st. (pc, st) \<in> sts}" by simp
+  show ?thesis
+  proof (cases "finite {st. (pc, st) \<in> sts}")
+    case True
+    then show ?thesis using assms finite_sup_upper by fastforce
+  qed simp
+qed
 
 lemma deep_merge_empty: "deep_merge ({}::(addr * ('a::absstate)) set) = \<bottom>"
   by (rule state_map_eq_fwd; simp)
@@ -518,18 +613,18 @@ lemma deep_merge_cons: "deep_merge (set ((k, v) # xs)) = deep_merge (set xs) \<s
 proof (rule state_map_eq_fwd)
   fix p
   let ?x = "(k, v)"
-  have "\<Squnion>{st. (p, st) \<in> (set (?x # xs))} = \<Squnion>{st. (p, st) \<in> (set xs)} \<squnion> \<Squnion>{st. (p, st) \<in> {?x}}"
+  have "finite_sup{st. (p, st) \<in> (set (?x # xs))} = finite_sup{st. (p, st) \<in> (set xs)} \<squnion> finite_sup{st. (p, st) \<in> {?x}}"
   proof (cases "p = k")
     case True
-    hence "\<Squnion>{st. (p, st) \<in> {(k, v)}} = v" by simp
-    have "\<Squnion>{st. (p, st) \<in> set ((k, v) # xs)} = \<Squnion>{st. (p, st) \<in> (set xs \<union> {?x})}" by simp
-    hence "\<Squnion>{st. (p, st) \<in> set ((k, v) # xs)} = \<Squnion>({st. (p, st) \<in> set xs} \<union> {st. (p, st) \<in> {?x}})" using prod_set_split by metis
-    then show ?thesis by (simp add: Sup_union_distrib)
+    hence "finite_sup{st. (p, st) \<in> {(k, v)}} = v" by simp
+    have "finite_sup{st. (p, st) \<in> set ((k, v) # xs)} = finite_sup{st. (p, st) \<in> (set xs \<union> {?x})}" by simp
+    hence "finite_sup{st. (p, st) \<in> set ((k, v) # xs)} = finite_sup({st. (p, st) \<in> set xs} \<union> {st. (p, st) \<in> {?x}})" using prod_set_split by metis
+    then show ?thesis using finite_sup_union_distrib by metis
   next
     case False
-    hence bot: "\<Squnion>{st. (p, st) \<in> {?x}} = \<bottom>" by simp
+    hence bot: "finite_sup{st. (p, st) \<in> {?x}} = \<bottom>" by simp
     from False have "{st. (p, st) \<in> set (?x # xs)} = {st. (p, st) \<in> set xs}" by simp
-    from this have "\<Squnion> {st. (p, st) \<in> set (?x # xs)} = \<Squnion> {st. (p, st) \<in> set xs} \<squnion> \<bottom>" by simp
+    from this have "finite_sup{st. (p, st) \<in> set (?x # xs)} = finite_sup{st. (p, st) \<in> set xs} \<squnion> \<bottom>" by simp
     from this bot show ?thesis by presburger
   qed
   thus "lookup (deep_merge (set (?x # xs))) p = lookup (deep_merge (set xs) \<squnion> single k v) p" by simp
