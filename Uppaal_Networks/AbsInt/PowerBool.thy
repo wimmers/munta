@@ -9,7 +9,7 @@ notation
 
 datatype power_bool = BTrue | BFalse | BBoth
 
-instantiation power_bool :: top begin definition "\<top> = BBoth" instance .. end
+instantiation power_bool :: top begin definition[simp]: "\<top> = BBoth" instance .. end
 
 instantiation power_bool :: "order"
 begin
@@ -47,15 +47,9 @@ proof (standard, goal_cases)
 qed
 end
 
-instantiation power_bool :: "Sup"
+instantiation power_bool :: "order_top"
 begin
-  fun Sup_power_bool :: "power_bool set \<Rightarrow> power_bool" where
-    "Sup_power_bool s = (
-      if BBoth \<in> s \<or> s = {BFalse, BTrue} then BBoth
-      else if s = {BTrue} then BTrue
-      else if s = {BFalse} then BFalse
-      else undefined)"
-instance ..
+instance by (standard, simp)
 end
 
 end

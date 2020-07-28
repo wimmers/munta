@@ -4,48 +4,55 @@ begin
 
 type_synonym 'a arstate = "'a state_map"
 
-datatype 'a stackless = Stackless "'a arstate" power_bool | StacklessNone
+datatype 'a stackless_base = Stackless "'a arstate" power_bool
+type_synonym 'a stackless = "'a stackless_base option"
 
-instantiation stackless :: (absword) absstate
+instantiation stackless_base :: (absword) order_top
 begin
-  definition "\<top> \<equiv> Stackless \<top> \<top>"
-  definition "\<bottom> \<equiv> StacklessNone"
+  definition[simp]: "\<top> \<equiv> Stackless \<top> \<top>"
 
-  fun less_eq_stackless :: "'a stackless \<Rightarrow> 'a stackless \<Rightarrow> bool" where
-    "less_eq_stackless StacklessNone _ \<longleftrightarrow> True" |
-    "less_eq_stackless _ StacklessNone \<longleftrightarrow> False" |
-    "less_eq_stackless (Stackless aregs aflag) (Stackless bregs bflag) \<longleftrightarrow> aregs \<le> bregs \<and> aflag \<le> bflag"
+  fun less_eq_stackless_base :: "'a stackless_base \<Rightarrow> 'a stackless_base \<Rightarrow> bool" where
+    "less_eq_stackless_base (Stackless aregs aflag) (Stackless bregs bflag) \<longleftrightarrow> aregs \<le> bregs \<and> aflag \<le> bflag"
 
-  fun less_stackless :: "'a stackless \<Rightarrow> 'a stackless \<Rightarrow> bool" where "less_stackless a b \<longleftrightarrow> a \<le> b \<and> \<not> b \<le> a"
+  fun less_stackless_base :: "'a stackless_base \<Rightarrow> 'a stackless_base \<Rightarrow> bool" where
+    "less_stackless_base a b \<longleftrightarrow> a \<le> b \<and> \<not> b \<le> a"
+instance
+proof (standard, goal_cases)
+  case (2 x)
+  then show ?case using State_Stackless.less_eq_stackless_base.elims(3) by fastforce
+next
+  case (3 x y z) then show ?case by (cases x; cases y; cases z; auto)
+next
+  case (4 x y) then show ?case by (cases x; cases y; auto)
+next
+  case (5 a) show ?case by (cases a; simp)
+qed simp
+end
 
-  fun sup_stackless :: "'a stackless \<Rightarrow> 'a stackless \<Rightarrow> 'a stackless" where
-    "sup_stackless StacklessNone b = b" |
-    "sup_stackless a StacklessNone = a" |
-    "sup_stackless (Stackless aregs aflag) (Stackless bregs bflag) = Stackless (aregs \<squnion> bregs) (aflag \<squnion> bflag)"
-
-  fun Sup_stackless :: "'a stackless set \<Rightarrow> 'a stackless" where
-    "Sup_stackless s = (
-      if s = {} then \<bottom>
-      else if s = {\<bottom>} then \<bottom>
-      else Stackless
-        (\<Squnion>{regs. \<exists>flag. Stackless regs flag \<in> s})
-        (\<Squnion>{flag. \<exists>regs. Stackless regs flag \<in> s}))"
-
-  fun inf_stackless :: "'a stackless \<Rightarrow> 'a stackless \<Rightarrow> 'a stackless" where "inf_stackless _ _  = undefined"
-  fun Inf_stackless :: "'a stackless set \<Rightarrow> 'a stackless" where "Inf_stackless s = \<Squnion>(\<top> - s)"
-
-instance sorry
+instantiation stackless_base :: (absword) semilattice_sup
+begin
+  fun sup_stackless_base :: "'a stackless_base \<Rightarrow> 'a stackless_base \<Rightarrow> 'a stackless_base" where
+    "sup_stackless_base (Stackless aregs aflag) (Stackless bregs bflag) =
+      Stackless (aregs \<squnion> bregs) (aflag \<squnion> bflag)"
+instance
+proof (standard, goal_cases)
+  case (1 x y) show ?case by (cases x; cases y; simp)
+next
+  case (2 y x) show ?case by (cases x; cases y; simp)
+next
+  case (3 y x z) then show ?case by (cases x; cases y; cases z; simp)
+qed
 end
 
 fun \<gamma>_stackless :: "('a \<Rightarrow> int set) \<Rightarrow> 'a stackless \<Rightarrow> collect_state set" where
   "\<gamma>_stackless v  = undefined"
 
 fun step_stackless :: "('a::absword) stackless astep" where
-  "step_stackless _ _ StacklessNone = \<bottom>" |
-  "step_stackless _ _ _             = undefined"
+  "step_stackless _ _ None = \<bottom>" |
+  "step_stackless _ _ _    = undefined"
 
 sublocale AbsWord \<subseteq> AbsInt
-  where \<gamma> = "\<gamma>_stackless \<gamma>_word" (* TODO: make this \<gamma>_word not blue *)
+  where \<gamma> = "\<gamma>_stackless \<gamma>_word"
     and ai_step = step_stackless
   sorry
 

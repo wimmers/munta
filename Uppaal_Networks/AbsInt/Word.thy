@@ -5,7 +5,7 @@ begin
 section \<open>Abstraction of Machine Words\<close>
 text \<open>More specifically, abstraction for @{type val}, @{type reg} and @{type addr}\<close>
 
-class absword = complete_lattice
+class absword = bounded_semilattice_sup_bot + order_top
 
 locale AbsWord =
 fixes \<gamma>_word :: "('a::absword) \<Rightarrow> int set"
