@@ -352,11 +352,18 @@ lemma sorted_list_of_set_split:
   shows "\<exists>pre post. pre @ a # post = sorted_list_of_set s"
   using assms set_sorted_list_of_set split_list_first by fastforce
 
+fun r_step_map_from_propagate :: "('a::absstate) state_map \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "r_step_map_from_propagate acc new = (if finite (domain new) then acc \<squnion> new else \<top>)"
+
+lemma[code]: "r_step_map_from_propagate acc (RSM (Mapping tree)) = acc \<squnion> (RSM (Mapping tree))"
+  using domain_finite by auto
+
+lemma[code]: "r_step_map_from_propagate acc (RSMS new) = \<top>" by (simp add: top.extremum_uniqueI)
+
 fun r_step_map_from :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> addr \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "r_step_map_from f prog ctx ipc acc =
     (case prog ipc of
-      Some op \<Rightarrow> let new = f op ipc (lookup ctx ipc) in
-                 if finite (domain new) then acc \<squnion> new else \<top> |
+      Some op \<Rightarrow> r_step_map_from_propagate acc (f op ipc (lookup ctx ipc)) |
       None \<Rightarrow> acc)"
 
 lemma r_step_map_from_grows: "acc \<le> r_step_map_from f prog ctx ipc acc"
@@ -372,6 +379,11 @@ fun r_step_map :: "('a::absstate) astep \<Rightarrow> program \<Rightarrow> 'a s
 lemma fold_split:
   "fold f (pre @ x # post) = fold f post \<circ> f x \<circ> fold f pre"
   by simp
+
+lemma fold_grow2:
+  assumes "\<And>x (acc::'a::preorder). acc \<le> f x acc"
+  shows "fold f pre init \<le> fold f (pre @ post) init"
+  by (metis assms comp_apply fold_append fold_grow)
 
 lemma fold_overgrowth:
   assumes
@@ -476,14 +488,22 @@ proof(rule lookup_eq)
   let ?ctx = "RSM (Mapping tree)"
   let ?smf = "r_step_map_from f prog ?ctx"
   show "lookup (finite_step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc"
-  proof (cases "\<exists>pc. infinite (slurp f prog ?ctx pc)")
+  proof (cases "step_infinite f prog ?ctx")
     case True
-    from True have "r_step_map f prog ?ctx = \<top>" using r_step_map_top domain_finite by blast
-    from True this show ?thesis by auto
+    from this obtain ipc op where inf: "prog ipc = Some op" "lookup ?ctx ipc \<noteq> \<bottom>" "infinite (domain (f op ipc (lookup ?ctx ipc)))" by auto
+    hence "ipc \<in> domain ?ctx" by simp
+    from this obtain pre post where split: "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" using sorted_list_of_set_split domain_finite by blast
+    from inf have "r_step_map_from f prog ?ctx ipc prefold = \<top>" for prefold by simp
+    hence intop: "r_step_map_from f prog ?ctx ipc (fold (r_step_map_from f prog ?ctx) pre \<bottom>) = \<top>" by simp
+    let "?foldit" = "fold (r_step_map_from f prog ?ctx)"
+    from intop have intop2: "?foldit (pre @ [ipc]) \<bottom> = \<top>" by simp
+    have "?foldit (pre @ [ipc]) \<bottom> \<le> ?foldit ((pre @ [ipc]) @ post) \<bottom>" using fold_grow2 r_step_map_from_grows by metis
+    from this intop2 split have "r_step_map f prog ?ctx = \<top>" by (simp add: top.extremum_uniqueI)
+    from True this show ?thesis by simp
   next
     case False
     let ?slurpset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ?ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ?ctx ipc)) pc = ost}"
-    have "finite ?slurpset" using False by simp
+    have "finite ?slurpset" using domain_finite r_step_map_top by fastforce
     hence "finite_sup ?slurpset = lookup (r_step_map f prog ?ctx) pc"
     proof(rule finite_sup_eqI, goal_cases)
       case (1 ost)
@@ -538,20 +558,22 @@ proof(rule lookup_eq)
 
         let ?new = "f op ipc (lookup ?ctx ipc)"
         let ?z = "lookup ?new pc"
-        from op split(3) split(2) have nope: "\<not> ?z \<le> y" by simp
-  
+        from split(1) have "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" ..
+        hence in_domain: "ipc \<in> domain ?ctx" using sorted_list_of_set_in by blast
+
         have zin: "?z \<in> ?supset" proof(standard, goal_cases)
           case 1
-          from split(1) have "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" ..
-          hence "ipc \<in> domain ?ctx" using sorted_list_of_set_in by blast
-          hence "lookup ?ctx ipc \<noteq> \<bottom>" by simp
+          from in_domain have "lookup ?ctx ipc \<noteq> \<bottom>" by simp
           from this op show ?case by blast
         qed
-  
+
+        have "finite (domain ?new)" using False op step_infinite.simps in_domain by auto
+        from this op split(3) split(2) have nope: "\<not> ?z \<le> y" by simp
+
         from zin nope 2 show False by blast
       qed
     qed
-    then show ?thesis using False by simp
+    then show ?thesis using False by auto
   qed
 qed
 

@@ -264,16 +264,19 @@ next
   then show ?thesis by (simp add: False)
 qed
 
+fun step_infinite :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> bool" where
+  "step_infinite f prog ctx = (\<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> infinite (domain (f op ipc (lookup ctx ipc))))"
+
 text\<open>Same as step_map but escapes to \<top> if not finite\<close>
 fun finite_step_map :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
-  "finite_step_map f prog ctx = (if \<exists>pc. infinite (slurp f prog ctx pc) then \<top> else SM (\<lambda>pc. finite_sup(slurp f prog ctx pc)))"
+  "finite_step_map f prog ctx = (if step_infinite f prog ctx then \<top> else SM (\<lambda>pc. finite_sup (slurp f prog ctx pc)))"
 
 lemma finite_step_map_complete:
   "step_map f prog (ctx::'a::{complete_lattice, absstate} state_map) \<le> finite_step_map f prog ctx"
 proof (rule state_map_leI, goal_cases)
   case (1 p)
   then show ?case
-  proof (cases "\<exists>pc. infinite (slurp f prog ctx pc)")
+  proof (cases "step_infinite f prog ctx")
     case False
     then show ?thesis using finite_sup_complete
       by (metis finite_step_map.elims lookup.simps step_map.simps)
@@ -341,9 +344,9 @@ lemma ai_step_map_correct:
 proof (rule state_map_leI, goal_cases)
   case (1 p)
   show ?case
-  proof (cases "\<exists>pc. infinite (slurp ai_step prog b pc)")
+  proof (cases "step_infinite ai_step prog b")
     case False
-    hence "lookup (\<gamma>_map (ai_step_map prog b)) p = \<gamma> (finite_sup(slurp ai_step prog b p))" by (simp add: \<gamma>_lookup)
+    hence "lookup (\<gamma>_map (ai_step_map prog b)) p = \<gamma> (finite_sup(slurp ai_step prog b p))" by auto
     then show ?thesis using ai_slurp_correct assms by auto
   qed (simp add: \<gamma>_lookup)
 qed
