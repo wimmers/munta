@@ -7,7 +7,7 @@ instantiation option :: (order) order begin
     "less_eq_option None _ \<longleftrightarrow> True" |
     "less_eq_option (Some x) None \<longleftrightarrow> False" |
     "less_eq_option (Some x) (Some y) \<longleftrightarrow> x \<le> y"
-  
+
   fun less_option :: "'a option \<Rightarrow> 'a option \<Rightarrow> bool" where
     "less_option None None \<longleftrightarrow> False" |
     "less_option None (Some x) \<longleftrightarrow> True" |
@@ -25,15 +25,13 @@ end
 
 instantiation option :: (type) bot
 begin
-definition "\<bottom> \<equiv> None"
-declare bot_option_def[simp]
+definition[simp]: "\<bottom> \<equiv> None"
 instance ..
 end
 
 instantiation option :: (top) top
 begin
-definition "\<top> \<equiv> Some \<top>"
-declare top_option_def[simp]
+definition[simp]: "\<top> \<equiv> Some \<top>"
 instance ..
 end
 

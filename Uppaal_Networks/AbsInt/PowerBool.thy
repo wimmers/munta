@@ -52,4 +52,12 @@ begin
 instance by (standard, simp)
 end
 
+fun \<gamma>_power_bool :: "power_bool \<Rightarrow> bool set" where
+  "\<gamma>_power_bool BTrue = {True}" |
+  "\<gamma>_power_bool BFalse = {False}" |
+  "\<gamma>_power_bool BBoth = \<top>"
+
+lemma mono_gamma_power_bool: "a \<le> b \<Longrightarrow> \<gamma>_power_bool a \<le> \<gamma>_power_bool b" by (cases a; cases b; simp)
+lemma gamma_power_boolTop[simp]: "\<gamma>_power_bool \<top> = UNIV" by simp
+
 end

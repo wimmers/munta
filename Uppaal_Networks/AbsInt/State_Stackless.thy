@@ -1,8 +1,8 @@
 theory State_Stackless
-  imports AbsInt Word State_Option PowerBool Uppaal_Networks.UPPAAL_Asm_Map
+  imports AbsInt ListLattice Toption Word State_Option PowerBool Uppaal_Networks.UPPAAL_Asm_Map
 begin
 
-type_synonym 'a arstate = "'a state_map"
+type_synonym 'a arstate = "'a list toption"
 
 datatype 'a stackless_base = Stackless "'a arstate" power_bool
 type_synonym 'a stackless = "'a stackless_base option"
@@ -44,16 +44,83 @@ next
 qed
 end
 
-fun \<gamma>_stackless :: "('a \<Rightarrow> int set) \<Rightarrow> 'a stackless \<Rightarrow> collect_state set" where
-  "\<gamma>_stackless v  = undefined"
+context AbsWord
+begin
+
+fun \<gamma>_regs_list :: "'a list \<Rightarrow> rstate set" where
+  "\<gamma>_regs_list [] = {[]}" |
+  "\<gamma>_regs_list (a # as) = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word a \<and> xs \<in> \<gamma>_regs_list as} \<union> \<gamma>_regs_list as"
+
+lemma mono_gamma_regs_list: "a \<le> b \<Longrightarrow> \<gamma>_regs_list a \<le> \<gamma>_regs_list b"
+proof (induction a arbitrary: b)
+  case Nil
+  then show ?case by (induction b; simp)
+next
+  case (Cons ax as)
+  from Cons.prems obtain bx bs where "b = bx # bs" using less_eq_list.elims(2) by blast
+  from this Cons show ?case using mono_gamma by fastforce
+qed
+
+fun \<gamma>_regs :: "'a arstate \<Rightarrow> rstate set" where
+  "\<gamma>_regs Top = \<top>" |
+  "\<gamma>_regs (Minor l) = \<gamma>_regs_list l"
+
+lemma mono_gamma_regs: "a \<le> b \<Longrightarrow> \<gamma>_regs a \<le> \<gamma>_regs b"
+proof -
+  assume ass: "a \<le> b"
+  show "\<gamma>_regs a \<le> \<gamma>_regs b"
+  proof (cases a)
+    case Top from this ass show ?thesis using less_eq_toption.elims(2) by force
+  next
+    fix ax assume ax: "a = Minor ax"
+    then show ?thesis
+    proof (cases b)
+      case Top then show ?thesis by simp
+    next
+      case (Minor bx)
+      from this ax show ?thesis using ass mono_gamma_regs_list by simp
+    qed
+  qed
+qed
+
+lemma mono_gamma_power_bool: "a \<le> b \<Longrightarrow> \<gamma>_power_bool a \<le> \<gamma>_power_bool b" by (cases a; cases b; simp)
+
+fun \<gamma>_stackless :: "'a stackless \<Rightarrow> collect_state set" where
+  "\<gamma>_stackless None = \<bottom>" |
+  "\<gamma>_stackless (Some (Stackless aregs aflag)) = {(stack, rstate, flag, nl). rstate \<in> \<gamma>_regs aregs \<and> flag \<in> \<gamma>_power_bool aflag}"
 
 fun step_stackless :: "('a::absword) stackless astep" where
   "step_stackless _ _ None = \<bottom>" |
   "step_stackless _ _ _    = undefined"
 
+end
+
 sublocale AbsWord \<subseteq> AbsInt
-  where \<gamma> = "\<gamma>_stackless \<gamma>_word"
+  where \<gamma> = "\<gamma>_stackless"
     and ai_step = step_stackless
-  sorry
+proof (standard, goal_cases)
+  case (1 a b)
+  then show ?case
+  proof (intro Set.subsetI)
+    fix x assume ass: "x \<in> \<gamma>_stackless a"
+    from ass obtain aregs aflag where asplit: "a = Some (Stackless aregs aflag)" by (metis \<gamma>_stackless.elims empty_iff)
+    from this 1 obtain bregs bflag where bsplit: "b = Some (Stackless bregs bflag)" by (metis \<gamma>_stackless.cases less_eq_option.simps(2))
+    from ass obtain stack rstate flag nl where xsplit: "x = (stack, rstate, flag, nl)" using prod_cases4 by blast 
+    from 1 asplit bsplit have fine_le: "aregs \<le> bregs" "aflag \<le> bflag" by auto
+    from asplit xsplit ass have "rstate \<in> \<gamma>_regs aregs \<and> flag \<in> \<gamma>_power_bool aflag" by simp
+    from this fine_le have "rstate \<in> \<gamma>_regs bregs" "flag \<in> \<gamma>_power_bool bflag" using mono_gamma_power_bool mono_gamma_regs by (blast, blast)
+    from this bsplit xsplit show "x \<in> \<gamma>_stackless b" by simp
+  qed
+next
+  case 2
+  have "rstate \<in> \<gamma>_regs \<top>" "flag \<in> \<gamma>_power_bool \<top>" for rstate flag by auto
+  then show ?case by auto
+next
+  case (3 op ipc a pc)
+  then show ?case sorry
+next
+  case (4 op ipc pc)
+  then show ?case sorry
+qed
 
 end
