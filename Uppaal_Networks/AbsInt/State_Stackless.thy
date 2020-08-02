@@ -1,5 +1,5 @@
 theory State_Stackless
-  imports AbsInt ListLattice Toption Word State_Option PowerBool Uppaal_Networks.UPPAAL_Asm_Map
+  imports AbsInt ListLattice Toption Stack State_Option PowerBool Uppaal_Networks.UPPAAL_Asm_Map
 begin
 
 type_synonym 'a arstate = "'a list toption"
@@ -44,7 +44,7 @@ next
 qed
 end
 
-context AbsWord
+context AbsStack
 begin
 
 fun \<gamma>_regs_list :: "'a list \<Rightarrow> rstate set" where
@@ -248,7 +248,7 @@ qed
 
 end
 
-sublocale AbsWord \<subseteq> AbsInt
+sublocale AbsStack \<subseteq> AbsInt
   where \<gamma> = "\<gamma>_stackless"
     and ai_step = step_stackless
 proof (standard, goal_cases)
