@@ -14,6 +14,13 @@ fun not :: "power_bool \<Rightarrow> power_bool" where
   "not BFalse = BTrue" |
   "not BBoth = BBoth"
 
+fun "and" :: "power_bool \<Rightarrow> power_bool \<Rightarrow> power_bool" where
+  "and BTrue BTrue = BTrue" |
+  "and BFalse _ = BFalse" |
+  "and _ BFalse = BFalse" |
+  "and _ BBoth = BBoth" |
+  "and BBoth BTrue = BBoth"
+
 instantiation power_bool :: top begin definition[simp]: "\<top> = BBoth" instance .. end
 
 instantiation power_bool :: "order"
@@ -64,5 +71,8 @@ fun \<gamma>_power_bool :: "power_bool \<Rightarrow> bool set" where
 
 lemma mono_gamma_power_bool: "a \<le> b \<Longrightarrow> \<gamma>_power_bool a \<le> \<gamma>_power_bool b" by (cases a; cases b; simp)
 lemma gamma_power_boolTop[simp]: "\<gamma>_power_bool \<top> = UNIV" by simp
+
+lemma power_bool_not: "x \<in> \<gamma>_power_bool a \<Longrightarrow> (\<not>x) \<in> \<gamma>_power_bool (not a)" by (cases x; cases a; simp)
+lemma power_bool_and: "x \<in> \<gamma>_power_bool a \<Longrightarrow> y \<in> \<gamma>_power_bool b \<Longrightarrow> (x \<and> y) \<in> \<gamma>_power_bool (and a b)" by (cases x; cases y; cases a; cases b; simp)
 
 end

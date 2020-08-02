@@ -463,12 +463,14 @@ lemma step_add:
     "oregs = iregs"
     "oflag = iflag"
     "ors = irs"
+    "\<exists>a b rest. istack = a # b # rest \<and> ostack = (a + b) # rest"
 proof -
   from assms obtain a b st where split: "istack = a # b # st" using step_pop2_pred by blast
   from assms split show "opc = Suc ipc" by simp
   from assms split show "oregs = iregs" by simp
   from assms split show "oflag = iflag" by simp
   from assms split show "ors = irs" by simp
+  from assms split show "\<exists>a b rest. istack = a # b # rest \<and> ostack = (a + b) # rest" by simp
 qed
 
 lemma step_add_succ:
@@ -486,12 +488,14 @@ lemma step_not:
     "oregs = iregs"
     "oflag = (\<not> iflag)"
     "ors = irs"
+    "\<exists>ia. istack = ia # ostack"
 proof -
   from assms obtain a st where split: "istack = a # st" using step_pop1_pred by blast
   from assms split show "opc = Suc ipc" by simp
   from assms split show "oregs = iregs" by simp
   from assms split show "oflag = (\<not> iflag)" by simp
   from assms split show "ors = irs" by simp
+  from assms split show "\<exists>ia. istack = ia # ostack" by simp
 qed
 
 lemma step_not_succ:
@@ -508,12 +512,18 @@ lemma step_and:
     "opc = Suc ipc"
     "oregs = iregs"
     "ors = irs"
+    "\<exists>ia. istack = ia # ostack \<and> (ia = 1 \<or> ia = 0) \<and> oflag = (ia = 1 \<and> iflag)"
 proof -
   from assms obtain a st where split: "istack = a # st" using step_pop1_pred by blast
   have cond[simp]: "a = 0 \<or> a = 1" proof(rule ccontr, goal_cases) case 1 from this assms split show ?case by simp qed
   from assms split show "opc = Suc ipc" by simp
   from assms split show "oregs = iregs" by simp
   from assms split show "ors = irs" by simp
+
+  from split have "step AND (ipc, istack, iregs, iflag, irs) = Some (ipc + 1, st, iregs, a = 1 \<and> iflag, irs)" by simp
+  hence ostack: "st = ostack" using assms by simp
+  from assms this split have "oflag = (a = 1 \<and> iflag)" by simp
+  from split ostack cond this show "\<exists>ia. istack = ia # ostack \<and> (ia = 1 \<or> ia = 0) \<and> oflag = (ia = 1 \<and> iflag)" by blast
 qed
 
 lemma step_and_succ:
