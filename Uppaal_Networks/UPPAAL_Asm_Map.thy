@@ -18,6 +18,8 @@ fun unwrap :: "'a state_map \<Rightarrow> addr \<Rightarrow> 'a" where
 fun single :: "addr \<Rightarrow> 'a::bot \<Rightarrow> 'a state_map" where
   "single k v = SM (\<lambda>pc. if pc = k then v else \<bottom>)"
 
+lemma single_lookup: "lookup (single k v) k = v" by simp
+
 lemma lookup_eq: "(\<And>k. lookup a k = lookup b k) \<Longrightarrow> (a = b)"
 proof -
   assume ass: "\<And>k. lookup a k = lookup b k"

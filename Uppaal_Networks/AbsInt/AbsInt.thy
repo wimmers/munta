@@ -419,6 +419,35 @@ proof -
   done
 qed
 
+lemma step_jmpz_true:
+  assumes "step (JMPZ tgt) (ipc, (istack, iregs, True, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "ostack = istack"
+    "oregs = iregs"
+    "oflag = True"
+    "opc = Suc ipc"
+    "ors = irs"
+  using assms by auto
+
+lemma step_jmpz_false:
+  assumes "step (JMPZ tgt) (ipc, (istack, iregs, False, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "ostack = istack"
+    "oregs = iregs"
+    "oflag = False"
+    "opc = tgt"
+    "ors = irs"
+  using assms by auto
+
+lemma step_jmpz:
+  assumes "step (JMPZ tgt) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "ostack = istack"
+    "oregs = iregs"
+    "oflag = iflag"
+    "ors = irs"
+  using assms by auto
+
 lemma step_jmpz_succ:
   assumes "step (JMPZ tgt) (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc \<or> pc = tgt"
@@ -582,8 +611,6 @@ qed
 lemma collect_step_halt_succ: "lookup (collect_step HALT ipc sts) pc = \<bottom>" by simp
 
 lemmas collect_step_succ = collect_step_jmpz_succ collect_step_fallthrough_succ
-
-subsubsection \<open>Rules\<close>
 
 lemma jmpz_cases:
   assumes
