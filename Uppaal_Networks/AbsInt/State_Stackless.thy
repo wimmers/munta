@@ -91,7 +91,72 @@ fun \<gamma>_stackless :: "'a stackless \<Rightarrow> collect_state set" where
 
 fun step_stackless :: "('a::absword) stackless astep" where
   "step_stackless _ _ None = \<bottom>" |
-  "step_stackless _ _ _    = undefined"
+  "step_stackless _ _ _    = \<top>"
+
+lemma gamma_stackless_top: "\<gamma>_stackless \<top> = \<top>"
+proof -
+  have "rstate \<in> \<gamma>_regs \<top>" "flag \<in> \<gamma>_power_bool \<top>" for rstate flag by auto
+  then show ?thesis by auto
+qed
+
+lemma step_stackless_nonbot_correct:
+  assumes "a \<noteq> \<bottom>"
+  shows "lookup (collect_step op ipc (\<gamma>_stackless a)) pc \<le> \<gamma>_stackless (lookup (step_stackless op ipc a) pc)"
+proof (cases op)
+  case (JMPZ x1)
+  then show ?thesis using assms by auto
+next
+  case ADD
+  then show ?thesis using assms by auto
+next
+  case NOT
+  then show ?thesis using assms by auto
+next
+  case AND
+  then show ?thesis using assms by auto
+next
+  case LT
+  then show ?thesis using assms by auto
+next
+  case LE
+  then show ?thesis using assms by auto
+next
+  case EQ
+  then show ?thesis using assms by auto
+next
+  case (PUSH x8)
+  then show ?thesis using assms by auto
+next
+  case POP
+  then show ?thesis using assms by auto
+next
+  case (LID x10)
+  then show ?thesis using assms by auto
+next
+  case STORE
+  then show ?thesis using assms by auto
+next
+  case (STOREI x121 x122)
+  then show ?thesis using assms by auto
+next
+  case COPY
+  then show ?thesis using assms by auto
+next
+  case CALL
+  then show ?thesis using assms by auto
+next
+  case RETURN
+  then show ?thesis using assms by auto
+next
+  case HALT
+  then show ?thesis using assms by auto
+next
+  case (STOREC x171 x172)
+  then show ?thesis using assms by auto
+next
+  case (SETF x18)
+  then show ?thesis using assms by auto
+qed
 
 end
 
@@ -112,15 +177,13 @@ proof (standard, goal_cases)
     from this bsplit xsplit show "x \<in> \<gamma>_stackless b" by simp
   qed
 next
-  case 2
-  have "rstate \<in> \<gamma>_regs \<top>" "flag \<in> \<gamma>_power_bool \<top>" for rstate flag by auto
-  then show ?case by auto
+  case 2 show ?case by (rule gamma_stackless_top)
 next
   case (3 op ipc a pc)
-  then show ?case sorry
+  then show ?case using step_stackless_nonbot_correct by (cases "a = \<bottom>", simp)
 next
   case (4 op ipc pc)
-  then show ?case sorry
+  then show ?case by simp
 qed
 
 end

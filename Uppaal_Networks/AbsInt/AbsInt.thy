@@ -105,6 +105,9 @@ fun collect_step :: "instr \<Rightarrow> addr \<Rightarrow> collect_state set \<
 
 definition[simp]: "collect_slurp prog ctx pc \<equiv> \<Squnion>(slurp collect_step prog ctx pc)"
 
+lemma collect_step_bot: "collect_step op pc \<bottom> = \<bottom>"
+  by (intro state_map_eq_fwd Set.equalityI Set.subsetI, auto)
+
 lemma collect_slurp_fwd:
   assumes
     "ist \<in> lookup ctx ipc"
@@ -296,7 +299,7 @@ lemma finite_loop_pull: "finite_loop f prog n (finite_advance f prog st) = finit
 locale AbsInt =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
-  and gamma_Top[simp]: "\<gamma> \<top> = UNIV"
+  and gamma_Top[simp]: "\<gamma> \<top> = \<top>"
 fixes ai_step :: "'as astep"
   assumes astep_correct: "lookup (collect_step op ipc (\<gamma> a)) pc \<le> \<gamma> (lookup (ai_step op ipc a) pc)"
   and astep_keep_bot: "lookup (ai_step op ipc \<bottom>) pc = \<bottom>"
