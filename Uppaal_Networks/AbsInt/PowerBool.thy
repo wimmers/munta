@@ -9,6 +9,11 @@ notation
 
 datatype power_bool = BTrue | BFalse | BBoth
 
+fun not :: "power_bool \<Rightarrow> power_bool" where
+  "not BTrue = BFalse" |
+  "not BFalse = BTrue" |
+  "not BBoth = BBoth"
+
 instantiation power_bool :: top begin definition[simp]: "\<top> = BBoth" instance .. end
 
 instantiation power_bool :: "order"

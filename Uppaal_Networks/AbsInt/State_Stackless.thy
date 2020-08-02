@@ -90,9 +90,12 @@ fun \<gamma>_stackless :: "'a stackless \<Rightarrow> collect_state set" where
   "\<gamma>_stackless (Some (Stackless aregs aflag)) = {(stack, rstate, flag, nl). rstate \<in> \<gamma>_regs aregs \<and> flag \<in> \<gamma>_power_bool aflag}"
 
 fun step_stackless_base :: "instr \<Rightarrow> addr \<Rightarrow> 'a stackless_base \<Rightarrow> 'a stackless state_map" where
-  "step_stackless_base (JMPZ target) pc (Stackless regs BTrue) = single (Suc pc) (Some (Stackless regs BTrue))" |
+  "step_stackless_base (JMPZ target) pc (Stackless regs BTrue)  = single (Suc pc) (Some (Stackless regs BTrue))" |
   "step_stackless_base (JMPZ target) pc (Stackless regs BFalse) = single target (Some (Stackless regs BFalse))" |
-  "step_stackless_base (JMPZ target) pc (Stackless regs BBoth) = deep_merge {(target, Some (Stackless regs BBoth)), (Suc pc, Some (Stackless regs BBoth))}" |
+  "step_stackless_base (JMPZ target) pc (Stackless regs BBoth)  = deep_merge {(target, Some (Stackless regs BBoth)), (Suc pc, Some (Stackless regs BBoth))}" |
+  "step_stackless_base ADD           pc (Stackless regs flag)   = single (Suc pc) (Some (Stackless regs flag))" |
+  "step_stackless_base NOT           pc (Stackless regs flag)   = single (Suc pc) (Some (Stackless regs (not flag)))" |
+  "step_stackless_base AND           pc (Stackless regs flag)   = single (Suc pc) (Some (Stackless regs BBoth))" |
   "step_stackless_base _ _ _ = \<top>"
 
 fun step_stackless :: "('a::absword) stackless astep" where
@@ -178,13 +181,26 @@ proof -
     qed
   next
     case ADD
-    then show ?thesis by auto
+    hence f1: "step ADD (ipc, icstack, icregs, icflag, icrs) = Some (opc, ocstack, ocregs, ocflag, ocrs)"
+      using ist_split_step(2) by presburger
+    then have f2: "ocregs = icregs" by (simp add: step_add(2))
+    have "ocflag = icflag" using f1 by (simp add: step_add(3))
+    then show ?thesis using f2 f1 ADD ist_split_step(1) ost_split step_add(1) by force
   next
     case NOT
-    then show ?thesis by auto
+    from NOT ist_split_step have pc: "opc = Suc ipc" using step_not(1) by blast
+    from NOT ist_split_step have regs_preserve: "ocregs = icregs" using step_not(2) by blast
+    from NOT ist_split_step have flag: "ocflag = (\<not> icflag)" using step_not(3) by blast
+    from NOT ist_split_step have rs_preserve: "ocrs = icrs" using step_not(4) by blast
+    then show ?thesis using NOT flag ist_props(1) ist_props(2) ost_split regs_preserve pc by (cases iaflag, auto)
   next
     case AND
-    then show ?thesis by auto
+    have f1: "step AND (ipc, icstack, icregs, icflag, icrs) = Some (opc, ocstack, ocregs, ocflag, ocrs)"
+      using AND ist_split_step(2) by blast
+    then have "ocregs = icregs"
+      by (simp add: step_and(2))
+    then show ?thesis
+      using f1 AND ist_split_step(1) ost_split step_and(1) by auto
   next
     case LT
     then show ?thesis by auto

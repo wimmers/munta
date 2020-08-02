@@ -456,6 +456,21 @@ proof -
   from assms this show ?thesis by auto
 qed
 
+lemma step_add:
+  assumes "step ADD (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "oregs = iregs"
+    "oflag = iflag"
+    "ors = irs"
+proof -
+  from assms obtain a b st where split: "istack = a # b # st" using step_pop2_pred by blast
+  from assms split show "opc = Suc ipc" by simp
+  from assms split show "oregs = iregs" by simp
+  from assms split show "oflag = iflag" by simp
+  from assms split show "ors = irs" by simp
+qed
+
 lemma step_add_succ:
   assumes "step ADD (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
@@ -464,12 +479,41 @@ proof -
   from assms this show ?thesis by auto
 qed
 
+lemma step_not:
+  assumes "step NOT (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "oregs = iregs"
+    "oflag = (\<not> iflag)"
+    "ors = irs"
+proof -
+  from assms obtain a st where split: "istack = a # st" using step_pop1_pred by blast
+  from assms split show "opc = Suc ipc" by simp
+  from assms split show "oregs = iregs" by simp
+  from assms split show "oflag = (\<not> iflag)" by simp
+  from assms split show "ors = irs" by simp
+qed
+
 lemma step_not_succ:
   assumes "step NOT (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
 proof -
   from assms obtain b sta m f rs where "ist = (b # sta, m, f, rs)" using step_pop1_pred by blast
   from assms this show ?thesis by auto
+qed
+
+lemma step_and:
+  assumes "step AND (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "oregs = iregs"
+    "ors = irs"
+proof -
+  from assms obtain a st where split: "istack = a # st" using step_pop1_pred by blast
+  have cond[simp]: "a = 0 \<or> a = 1" proof(rule ccontr, goal_cases) case 1 from this assms split show ?case by simp qed
+  from assms split show "opc = Suc ipc" by simp
+  from assms split show "oregs = iregs" by simp
+  from assms split show "ors = irs" by simp
 qed
 
 lemma step_and_succ:
