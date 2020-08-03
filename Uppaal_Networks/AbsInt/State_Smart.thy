@@ -85,6 +85,48 @@ qed
 
 lemma mono_gamma_power_bool: "a \<le> b \<Longrightarrow> \<gamma>_power_bool a \<le> \<gamma>_power_bool b" by (cases a; cases b; simp)
 
+fun pop2 :: "'b \<Rightarrow> ('a * 'a * 'b)" where
+  "pop2 stack =
+    (let (a, astack) = pop stack;
+         (b, bstack) = pop astack
+    in (a, b, bstack))"
+
+(*lemma[simp]: "pop2 stack =
+  (fst (pop (snd (pop stack))), fst (pop stack), snd (pop (snd (pop stack))))"
+  by (simp add: case_prod_beta)*)
+
+lemma pop2_stack_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> c \<in> \<gamma>_stack (snd (snd (pop2 b)))"
+  by (metis (no_types, lifting) Pair_inject case_prod_beta' pop2.elims pop_stack_correct prod.exhaust_sel)
+
+lemma pop2_return_b_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> cb \<in> \<gamma>_word (fst (snd (pop2 b)))"
+proof -
+  assume ass: "(ca # cb # c) \<in> \<gamma>_stack b"
+  hence i: "(cb # c) \<in> \<gamma>_stack (snd (pop b))" using pop_stack_correct by simp
+  have "snd (pop2 b) = pop (snd (pop b))"
+    by (metis (no_types, lifting) case_prod_beta' pop2.elims prod.exhaust_sel snd_conv)
+  from this i show "cb \<in> \<gamma>_word (fst (snd (pop2 b)))" using pop_return_correct by auto
+qed
+
+lemma pop2_return_a_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> ca \<in> \<gamma>_word (fst (pop2 b))"
+  by (metis (no_types, lifting) case_prod_beta' fst_conv pop2.elims pop_return_correct)
+
+fun pop2_push :: "('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> 'b \<Rightarrow> 'b" where
+  "pop2_push f stack =
+    (let (a, b, rstack) = pop2 stack
+    in push rstack (f a b))"
+
+lemma[simp]: "pop2_push f stack =
+  push (snd (snd (pop2 stack))) (f (fst (pop2 stack)) (fst (snd (pop2 stack))))"
+  by (simp add: case_prod_beta)
+
+lemma pop2_push:
+  assumes
+    "\<And>x y a b. x \<in> \<gamma>_word a \<Longrightarrow> y \<in> \<gamma>_word b \<Longrightarrow> (cop x y) \<in> \<gamma>_word (f a b)"
+    "a # b # rcstack \<in> \<gamma>_stack iastack"
+  shows "(cop a b) # rcstack \<in> \<gamma>_stack (pop2_push f iastack)"
+  using assms pop2_stack_correct pop2_return_b_correct pop2_return_a_correct
+    by (smt case_prod_beta' pop2_push.elims push_correct)
+
 fun \<gamma>_smart :: "('a, 'b) smart \<Rightarrow> collect_state set" where
   "\<gamma>_smart None = \<bottom>" |
   "\<gamma>_smart (Some (Smart astack aregs aflag)) = {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack astack \<and> rstate \<in> \<gamma>_regs aregs \<and> flag \<in> \<gamma>_power_bool aflag}"
@@ -95,17 +137,14 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
   "step_smart_base (JMPZ target) pc (Smart stack regs BBoth)  = deep_merge {(target, Some (Smart stack regs BBoth)), (Suc pc, Some (Smart stack regs BBoth))}" |
 
   "step_smart_base ADD           pc (Smart stack regs flag)   =
-    (let (bstack, b) = pop stack;
-        (astack, a) = pop bstack;
-        rstack = push astack (aplus a b) in
-    single (Suc pc) (Some (Smart rstack regs flag)))" |
+    single (Suc pc) (Some (Smart (pop2_push aplus stack) regs flag))" |
 
-  "step_smart_base NOT           pc (Smart stack regs flag)   = single (Suc pc) (Some (Smart (fst (pop stack)) regs (not flag)))" |
+  "step_smart_base NOT           pc (Smart stack regs flag)   = single (Suc pc) (Some (Smart (snd (pop stack)) regs (not flag)))" |
 
   "step_smart_base AND           pc (Smart stack regs flag)   =
-    (let (rstack, a) = pop stack;
-         r0 = if contains a 0 then {Some (Smart (fst (pop stack)) regs (and BFalse flag))} else {};
-         r1 = r0 \<union> (if contains a 1 then {Some (Smart (fst (pop stack)) regs (and BTrue flag))} else {})
+    (let (a, rstack) = pop stack;
+         r0 = if contains a 0 then {Some (Smart rstack regs (and BFalse flag))} else {};
+         r1 = r0 \<union> (if contains a 1 then {Some (Smart rstack regs (and BTrue flag))} else {})
      in deep_merge ((\<lambda>v. (Suc pc, v)) ` r1))" |
 
   "step_smart_base _ _ _ = \<top>"
@@ -198,13 +237,10 @@ proof -
     then have f2: "ocregs = icregs" by (simp add: step_add(2))
     have flag: "ocflag = icflag" using f1 by (simp add: step_add(3))
     from f1 obtain a b rest where stack: "icstack = a # b # rest" "ocstack = (a + b) # rest" using step_add(5) by blast
-    let ?oastack = "let (bstack, b) = pop iastack;
-        (astack, a) = pop bstack in
-        push astack (aplus a b)"
+    let ?oastack = "pop2_push aplus iastack"
     have lookup: "lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc = (Some (Smart ?oastack iaregs iaflag))"
-      by (metis (mono_tags, lifting) ADD case_prod_beta' f1 single_lookup step_add(1) step_smart.simps(2) step_smart_base.simps(4))
-    have "ocstack \<in> \<gamma>_stack ?oastack"
-      by (smt case_prod_beta' ist_props(1) plus_correct pop_return_correct pop_stack_correct push_correct stack(1) stack(2))
+      using ADD f1 step_add(1) by auto
+    have "ocstack \<in> \<gamma>_stack ?oastack" using plus_correct pop2_push stack ist_props(1) by metis
     then show ?thesis using f2 flag ist_props(2) ist_props(3) lookup ost_split by auto
   next
     case NOT
@@ -213,7 +249,7 @@ proof -
     from NOT ist_split_step have flag: "ocflag = (\<not> icflag)" using step_not(3) by blast
     from NOT ist_split_step have rs_preserve: "ocrs = icrs" using step_not(4) by blast
     from NOT ist_split_step obtain ia where pop: "icstack = ia # ocstack" using step_not(5) by blast
-    from this have stack: "ocstack \<in> \<gamma>_stack (fst (pop iastack))" using pop_stack_correct ist_props(1) by simp
+    from this have stack: "ocstack \<in> \<gamma>_stack (snd (pop iastack))" using pop_stack_correct ist_props(1) by simp
     have regs: "ocregs \<in> \<gamma>_regs iaregs" by (simp add: ist_props(2) regs_preserve)
     have flag: "ocflag \<in> \<gamma>_power_bool (not iaflag)" using power_bool_not by (simp add: flag ist_props(3)) 
     from stack regs flag pc show ?thesis by (simp add: NOT ost_split)
