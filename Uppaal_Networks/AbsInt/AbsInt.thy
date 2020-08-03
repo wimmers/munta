@@ -609,12 +609,40 @@ proof -
   from assms this show ?thesis by auto
 qed
 
+lemma step_push:
+  assumes "step (PUSH v) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "ostack = v # istack"
+    "oregs = iregs"
+    "oflag = iflag"
+    "ors = irs"
+  using assms by auto
+
 lemma step_push_succ:
   assumes "step (PUSH x) (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
 proof -
   from assms obtain sta m f rs where "ist = (sta, m, f, rs)" using prod_cases4 by blast
   from assms this show ?thesis by auto
+qed
+
+lemma step_pop:
+  assumes "step POP (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "oregs = iregs"
+    "oflag = iflag"
+    "ors = irs"
+    "\<exists>v. istack = v # ostack"
+proof -
+  from assms have "\<exists>v rstack. istack = v # rstack" by (metis list.exhaust option.simps(3) step.simps(28))
+  from this assms obtain v where v: "istack = v # ostack" by auto
+  thus "\<exists>v. istack = v # ostack" ..
+  from assms show "opc = Suc ipc" using step_pop1_pred by force
+  from assms v show "oregs = iregs" by auto
+  from assms v show "oflag = iflag" by auto
+  from assms v show "ors = irs" by auto
 qed
 
 lemma step_pop_succ:

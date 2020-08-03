@@ -188,6 +188,9 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
   "step_smart_base LE pc smart = cmp_op le pc smart" |
   "step_smart_base EQ pc smart = cmp_op eq pc smart" |
 
+  "step_smart_base (PUSH v)     pc (Smart stack regs flag)    =  single (Suc pc) (Some (Smart (push stack (make v)) regs flag))" |
+  "step_smart_base POP          pc (Smart stack regs flag)    =  single (Suc pc) (Some (Smart (snd (pop stack)) regs flag))" |
+
   "step_smart_base _ _ _ = \<top>"
 
 fun step_smart :: "('a::absword, 'b::absstack) smart astep" where
@@ -371,11 +374,17 @@ proof -
     hence "(ocstack, icregs, ia = ib, icrs) \<in> \<gamma>_smart (lookup (cmp_op eq ipc (Smart iastack iaregs iaflag)) (Suc ipc))" using cmp_op eq_correct by blast
     from this EQ pc stack ost_split regs rs show ?thesis by simp
   next
-    case (PUSH x8)
-    then show ?thesis by auto
+    case (PUSH v)
+    from PUSH ist_split_step(2) have regs: "ocregs = icregs" using step_push(3) by blast
+    from PUSH ist_split_step(2) have flag: "ocflag = icflag" using step_push(4) by blast
+    have "v # icstack \<in> \<gamma>_stack (push iastack (make v))" by (meson AbsStack.push_correct AbsStack_axioms ist_props(1) make_correct)
+    from this PUSH flag regs show ?thesis using ist_props(2) ist_props(3) ist_split ist_step(2) by auto
   next
     case POP
-    then show ?thesis by auto
+    from POP ist_split_step(2) have regs: "ocregs = icregs" using step_pop(2) by blast
+    from POP ist_split_step(2) have flag: "ocflag = icflag" using step_pop(3) by blast
+    from POP ist_split_step(2) obtain v where stack: "v # ocstack = icstack" using step_pop(5) by blast
+    from POP regs flag stack show ?thesis using step_pop using ist_props(1) ist_props(2) ist_props(3) ist_split_step(2) ost_split pop_stack_correct by auto
   next
     case (LID x10)
     then show ?thesis by auto
