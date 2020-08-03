@@ -131,6 +131,15 @@ fun \<gamma>_smart :: "('a, 'b) smart \<Rightarrow> collect_state set" where
   "\<gamma>_smart None = \<bottom>" |
   "\<gamma>_smart (Some (Smart astack aregs aflag)) = {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack astack \<and> rstate \<in> \<gamma>_regs aregs \<and> flag \<in> \<gamma>_power_bool aflag}"
 
+lemma in_gamma_smartI:
+  assumes
+    "stack \<in> \<gamma>_stack astack"
+    "rstate \<in> \<gamma>_regs aregs"
+    "flag \<in> \<gamma>_power_bool aflag"
+  shows
+    "(stack, rstate, flag, rs) \<in> \<gamma>_smart (Some (Smart astack aregs aflag))"
+  using assms by simp
+
 fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b::absstack) smart_base \<Rightarrow> ('a, 'b) smart state_map" where
   "step_smart_base (JMPZ target) pc (Smart stack regs BTrue)  = single (Suc pc) (Some (Smart stack regs BTrue))" |
   "step_smart_base (JMPZ target) pc (Smart stack regs BFalse) = single target (Some (Smart stack regs BFalse))" |
@@ -143,9 +152,9 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
 
   "step_smart_base AND           pc (Smart stack regs flag)   =
     (let (a, rstack) = pop stack;
-         r0 = if contains a 0 then {Some (Smart rstack regs (and BFalse flag))} else {};
-         r1 = r0 \<union> (if contains a 1 then {Some (Smart rstack regs (and BTrue flag))} else {})
-     in deep_merge ((\<lambda>v. (Suc pc, v)) ` r1))" |
+         r0 = if contains a 0 then {(Suc pc, Some (Smart rstack regs (and BFalse flag)))} else {};
+         r1 = r0 \<union> (if contains a 1 then {(Suc pc, Some (Smart rstack regs (and BTrue flag)))} else {})
+     in deep_merge r1)" |
 
   "step_smart_base _ _ _ = \<top>"
 
@@ -255,10 +264,53 @@ proof -
     from stack regs flag pc show ?thesis by (simp add: NOT ost_split)
   next
     case AND
-    have f1: "step AND (ipc, icstack, icregs, icflag, icrs) = Some (opc, ocstack, ocregs, ocflag, ocrs)" using AND ist_split_step(2) by blast
-    then have "ocregs = icregs" by (simp add: step_and(2))
-    from f1 obtain ia where "icstack = ia # ocstack" "ia = 1 \<or> ia = 0" "ocflag = (ia = 1 \<and> icflag)" using step_and(4) by blast
-    then show ?thesis using f1 AND ist_split_step(1) ost_split step_and(1) sorry
+    have step: "step AND (ipc, icstack, icregs, icflag, icrs) = Some (opc, ocstack, ocregs, ocflag, ocrs)" using AND ist_split_step(2) by blast
+    from step have pc: "opc = Suc ipc" by (simp add: step_and(1))
+    from step have regs: "ocregs = icregs" by (simp add: step_and(2))
+    from step obtain ia where ia: "icstack = ia # ocstack" "ia = 1 \<or> ia = 0" "ocflag = (ia = 1 \<and> icflag)" using step_and(4) by blast
+
+    let ?mergeset = "let (a, rstack) = pop iastack in
+      (if contains a 0 then {(Suc ipc, Some (Smart rstack iaregs (and BFalse iaflag)))} else {})
+      \<union> (if contains a 1 then {(Suc ipc, Some (Smart rstack iaregs (and BTrue iaflag)))} else {})"
+
+    have step_mergeset: "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = deep_merge ?mergeset"
+      by (metis (no_types, lifting) AND AbsStack.step_smart_base.simps(6) AbsStack_axioms case_prod_beta' step_smart.simps(2))
+
+    from ia(2) have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc)"
+    proof(safe, goal_cases 1 0)
+      case 1
+      have init: "Some (Smart (snd (pop iastack)) iaregs (and BTrue iaflag)) \<le> lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc"
+      proof -
+        from 1 have "contains (fst (pop iastack)) 1" using contains_correct ia(1) ist_props(1) pop_return_correct by blast
+        hence "(Suc ipc, Some (Smart (snd (pop iastack)) iaregs (and BTrue iaflag))) \<in> ?mergeset" by auto
+        from this show ?thesis using step_mergeset deep_merge_lookup by (metis (no_types, lifting) pc)
+      qed
+
+      have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (Some (Smart (snd (pop iastack)) iaregs (and BTrue iaflag)))"
+      proof (rule in_gamma_smartI, goal_cases)
+        case 1 then show ?case using ia(1) ist_props(1) pop_stack_correct by blast next
+        case 2 then show ?case using ist_props(2) regs by blast next
+        case 3 then show ?case by (smt 1 and.simps(1) and.simps(3) and.simps(5) ia(3) ist_props(3) power_bool.exhaust)
+      qed
+      from this init show ?case using gamma_smart_mono by blast
+    next
+      case 0
+      have init: "Some (Smart (snd (pop iastack)) iaregs (and BFalse iaflag)) \<le> lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc"
+      proof -
+        from 0 have "contains (fst (pop iastack)) 0" using contains_correct ia(1) ist_props(1) pop_return_correct by blast
+        hence "(Suc ipc, Some (Smart (snd (pop iastack)) iaregs (and BFalse iaflag))) \<in> ?mergeset" by auto
+        from this show ?thesis using step_mergeset deep_merge_lookup by (metis (no_types, lifting) pc)
+      qed
+
+      have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (Some (Smart (snd (pop iastack)) iaregs (and BFalse iaflag)))"
+      proof (rule in_gamma_smartI, goal_cases)
+        case 1 then show ?case using ia(1) ist_props(1) pop_stack_correct by blast next
+        case 2 then show ?case using ist_props(2) regs by blast next
+        case 3 then show ?case by (simp add: "0" ia(3))
+      qed
+      from this init show ?case using gamma_smart_mono by blast
+    qed
+    thus ?thesis using ost_split by simp
   next
     case LT
     then show ?thesis by auto
