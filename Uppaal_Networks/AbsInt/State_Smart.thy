@@ -140,6 +140,34 @@ lemma in_gamma_smartI:
     "(stack, rstate, flag, rs) \<in> \<gamma>_smart (Some (Smart astack aregs aflag))"
   using assms by simp
 
+fun cmp_op :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b::absstack) smart_base \<Rightarrow> ('a, 'b) smart state_map" where
+  "cmp_op f pc (Smart stack regs flag) =
+    single (Suc pc) (let (a, b, rstack) = pop2 stack
+    in (Some (Smart rstack regs (f a b))))"
+
+lemma cmp_op:
+  assumes
+    "\<And>c d. f c d = (if \<forall>x y. x \<in> \<gamma>_word c \<longrightarrow> y \<in> \<gamma>_word d \<longrightarrow> op x y then BTrue
+                else if \<exists>x y. x \<in> \<gamma>_word c \<longrightarrow> y \<in> \<gamma>_word d \<longrightarrow> op x y then BBoth
+                else BFalse)"
+    "(a # b # rstack, icregs, icflag, icrs) \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))"
+  shows
+    "(rstack, icregs, op a b, icrs) \<in> \<gamma>_smart (lookup (cmp_op f ipc (Smart iastack iaregs iaflag)) (Suc ipc))"
+proof -
+  from assms(2) have istack: "a # b # rstack \<in> \<gamma>_stack iastack" by simp
+  from assms(2) have iregs: "icregs \<in> \<gamma>_regs iaregs" by simp
+  from assms(2) have iflag: "icflag \<in> \<gamma>_power_bool iaflag" by simp
+
+  let ?oastate = "(Some (Smart (snd (snd (pop2 iastack))) iaregs (f (fst (pop2 iastack)) (fst (snd (pop2 iastack))))))"
+  have lookup: "lookup (cmp_op f ipc (Smart iastack iaregs iaflag)) (Suc ipc) = ?oastate" using single_lookup by (metis (mono_tags, lifting) case_prod_beta' cmp_op.simps)
+
+  from istack have ostack: "rstack \<in> \<gamma>_stack (snd (snd (pop2 iastack)))" using pop2_stack_correct by blast
+  from assms(1) istack have oflag: "op a b \<in> \<gamma>_power_bool (f (fst (pop2 iastack)) (fst (snd (pop2 iastack))))" using pop2_return_a_correct pop2_return_b_correct by auto
+  from ostack iregs oflag have "(rstack, icregs, op a b, icrs) \<in> \<gamma>_smart ?oastate" by (rule in_gamma_smartI)
+
+  from this lookup show ?thesis by simp
+qed
+
 fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b::absstack) smart_base \<Rightarrow> ('a, 'b) smart state_map" where
   "step_smart_base (JMPZ target) pc (Smart stack regs BTrue)  = single (Suc pc) (Some (Smart stack regs BTrue))" |
   "step_smart_base (JMPZ target) pc (Smart stack regs BFalse) = single target (Some (Smart stack regs BFalse))" |
@@ -155,6 +183,10 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
          r0 = if contains a 0 then {(Suc pc, Some (Smart rstack regs (and BFalse flag)))} else {};
          r1 = r0 \<union> (if contains a 1 then {(Suc pc, Some (Smart rstack regs (and BTrue flag)))} else {})
      in deep_merge r1)" |
+
+  "step_smart_base LT pc smart = cmp_op lt pc smart" |
+  "step_smart_base LE pc smart = cmp_op le pc smart" |
+  "step_smart_base EQ pc smart = cmp_op eq pc smart" |
 
   "step_smart_base _ _ _ = \<top>"
 
@@ -313,13 +345,31 @@ proof -
     thus ?thesis using ost_split by simp
   next
     case LT
-    then show ?thesis by auto
+    from LT ist_step(2) ist_split ost_split have pc: "opc = Suc ipc" using step_lt(1) by simp
+    from LT ist_step(2) ist_split ost_split have regs: "ocregs = icregs" using step_lt(2) by simp
+    from LT ist_step(2) ist_split ost_split have rs: "ocrs = icrs" using step_lt(3) by simp
+    from LT ist_step(2) ist_split ost_split obtain ia ib where stack: "icstack = ia # ib # ocstack \<and> ocflag = (ia < ib)" using step_lt(4) by blast
+    hence "(ia # ib # ocstack, icregs, icflag, icrs) \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" using ist_split_step(1) by blast
+    hence "(ocstack, icregs, ia < ib, icrs) \<in> \<gamma>_smart (lookup (cmp_op lt ipc (Smart iastack iaregs iaflag)) (Suc ipc))" using cmp_op lt_correct by blast
+    from this LT pc stack ost_split regs rs show ?thesis by simp
   next
     case LE
-    then show ?thesis by auto
+    from LE ist_step(2) ist_split ost_split have pc: "opc = Suc ipc" using step_le(1) by simp
+    from LE ist_step(2) ist_split ost_split have regs: "ocregs = icregs" using step_le(2) by simp
+    from LE ist_step(2) ist_split ost_split have rs: "ocrs = icrs" using step_le(3) by simp
+    from LE ist_step(2) ist_split ost_split obtain ia ib where stack: "icstack = ia # ib # ocstack \<and> ocflag = (ia \<le> ib)" using step_le(4) by blast
+    hence "(ia # ib # ocstack, icregs, icflag, icrs) \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" using ist_split_step(1) by blast
+    hence "(ocstack, icregs, ia \<le> ib, icrs) \<in> \<gamma>_smart (lookup (cmp_op le ipc (Smart iastack iaregs iaflag)) (Suc ipc))" using cmp_op le_correct by blast
+    from this LE pc stack ost_split regs rs show ?thesis by simp
   next
     case EQ
-    then show ?thesis by auto
+    from EQ ist_step(2) ist_split ost_split have pc: "opc = Suc ipc" using step_eq(1) by simp
+    from EQ ist_step(2) ist_split ost_split have regs: "ocregs = icregs" using step_eq(2) by simp
+    from EQ ist_step(2) ist_split ost_split have rs: "ocrs = icrs" using step_eq(3) by simp
+    from EQ ist_step(2) ist_split ost_split obtain ia ib where stack: "icstack = ia # ib # ocstack \<and> ocflag = (ia = ib)" using step_eq(4) by blast
+    hence "(ia # ib # ocstack, icregs, icflag, icrs) \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" using ist_split_step(1) by blast
+    hence "(ocstack, icregs, ia = ib, icrs) \<in> \<gamma>_smart (lookup (cmp_op eq ipc (Smart iastack iaregs iaflag)) (Suc ipc))" using cmp_op eq_correct by blast
+    from this EQ pc stack ost_split regs rs show ?thesis by simp
   next
     case (PUSH x8)
     then show ?thesis by auto

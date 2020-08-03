@@ -534,6 +534,23 @@ proof -
   from assms this show ?thesis by (cases "b = 0 \<or> b = 1"; auto)
 qed
 
+lemma step_lt:
+  assumes "step LT (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "oregs = iregs"
+    "ors = irs"
+    "\<exists>ia ib. istack = ia # ib # ostack \<and> oflag = (ia < ib)"
+proof -
+  from assms obtain a b st where split: "istack = a # b # st" using step_pop2_pred by blast
+  from assms split show "opc = Suc ipc" by simp
+  from assms split show "oregs = iregs" by simp
+  from assms split show "ors = irs" by simp
+  from assms split have "oflag = (a < b)" by simp
+  moreover from assms split have "istack = a # b # ostack" by simp
+  ultimately show "\<exists>ia ib. istack = ia # ib # ostack \<and> oflag = (ia < ib)" by blast
+qed
+
 lemma step_lt_succ:
   assumes "step LT (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
@@ -542,12 +559,46 @@ proof -
   from assms this show ?thesis by auto
 qed
 
+lemma step_le:
+  assumes "step LE (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "oregs = iregs"
+    "ors = irs"
+    "\<exists>ia ib. istack = ia # ib # ostack \<and> oflag = (ia \<le> ib)"
+proof -
+  from assms obtain a b st where split: "istack = a # b # st" using step_pop2_pred by blast
+  from assms split show "opc = Suc ipc" by simp
+  from assms split show "oregs = iregs" by simp
+  from assms split show "ors = irs" by simp
+  from assms split have "oflag = (a \<le> b)" by simp
+  moreover from assms split have "istack = a # b # ostack" by simp
+  ultimately show "\<exists>ia ib. istack = ia # ib # ostack \<and> oflag = (ia \<le> ib)" by blast
+qed
+
 lemma step_le_succ:
   assumes "step LE (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
 proof -
   from assms obtain a b sta m f rs where split: "(a # b # sta, m, f, rs) = ist" using step_pop2_pred by metis
   from assms this show ?thesis by auto
+qed
+
+lemma step_eq:
+  assumes "step EQ (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc"
+    "oregs = iregs"
+    "ors = irs"
+    "\<exists>ia ib. istack = ia # ib # ostack \<and> oflag = (ia = ib)"
+proof -
+  from assms obtain a b st where split: "istack = a # b # st" using step_pop2_pred by blast
+  from assms split show "opc = Suc ipc" by simp
+  from assms split show "oregs = iregs" by simp
+  from assms split show "ors = irs" by simp
+  from assms split have "oflag = (a = b)" by simp
+  moreover from assms split have "istack = a # b # ostack" by simp
+  ultimately show "\<exists>ia ib. istack = ia # ib # ostack \<and> oflag = (ia = ib)" by blast
 qed
 
 lemma step_eq_succ:
