@@ -674,6 +674,21 @@ proof -
   ultimately show ?thesis using assms by auto
 qed
 
+lemma step_store:
+  assumes "step STORE (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc \<and> oflag = iflag \<and> ors = irs"
+    "\<exists>v r. istack = v # r # ostack \<and> nat r < length iregs \<and> r \<ge> 0 \<and> oregs = iregs[nat r := v]"
+proof -
+  from assms obtain v r rstack where istack: "istack = v # r # rstack" using step_pop2_pred by force 
+  hence step: "step STORE (ipc, (istack, iregs, iflag, irs)) = Some (Suc ipc, (rstack, iregs[nat r := v], iflag, irs))" by (metis Suc_eq_plus1 assms option.distinct(1) step.simps(11))
+  from this assms show "opc = Suc ipc \<and> oflag = iflag \<and> ors = irs" by simp
+  from step assms have ostack: "ostack = rstack" by simp
+  have "istack = v # r # ostack \<and> nat r < length iregs \<and> r \<ge> 0 \<and> oregs = iregs[nat r := v]"
+    by (metis Pair_inject assms istack option.inject option.simps(3) step.simps(11))
+  thus "\<exists>v r. istack = v # r # ostack \<and> nat r < length iregs \<and> r \<ge> 0 \<and> oregs = iregs[nat r := v]" by blast
+qed
+
 lemma step_store_succ:
   assumes "step STORE (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"

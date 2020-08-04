@@ -224,8 +224,17 @@ proof -
   from this lookup show ?thesis by simp
 qed
 
-fun astore :: "'a::absword \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
-  "astore v regs = undefined"
+fun astore :: "'a::absword \<Rightarrow> nat \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
+  "astore v r Top = Top" |
+  "astore v r (Minor regs) = Minor (regs[r := (regs ! r) \<squnion> v])"
+
+interpretation astore: folding
+  where f = "astore v"
+  and z = "\<bottom>"
+proof (standard, rule ext)
+  fix y x xa
+  show "(astore v y \<circ> astore v x) xa = (astore v x \<circ> astore v y) xa" sorry
+qed
 (* (folding.F astore vals regs) *)
 
 fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b::absstack) smart_base \<Rightarrow> ('a, 'b) smart state_map" where
@@ -460,7 +469,18 @@ proof -
     from this preds show ?thesis by (simp add: LID ist_props(2) ist_props(3) ost_split)
   next
     case STORE
-    then show ?thesis sorry
+    from STORE have static: "opc = Suc ipc \<and> ocflag = icflag \<and> ocrs = icrs" using step_store(1) ist_split_step by blast
+    from STORE obtain v r where vr: "icstack = v # r # ocstack \<and> nat r < length icregs \<and> r \<ge> 0 \<and> ocregs = icregs[nat r := v]" using step_store(2) ist_split_step by blast
+
+    let ?ar = "fst (snd (pop2 iastack))"
+    show ?thesis
+    proof (cases "concretize ?ar")
+      case Top
+      then show ?thesis sorry
+    next
+      case (Minor x2)
+      then show ?thesis sorry
+    qed
   next
     case (STOREI x121 x122)
     then show ?thesis by auto
