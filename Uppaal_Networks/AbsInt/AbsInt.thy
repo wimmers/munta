@@ -653,12 +653,25 @@ proof -
   from assms this show ?thesis by auto
 qed
 
+lemma step_lid_safe:
+  assumes "step (LID r) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows "r < length iregs"
+proof (rule ccontr, goal_cases)
+  case 1 then show ?case using assms by simp
+qed
+
+lemma step_lid:
+  assumes "step (LID r) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows "opc = Suc ipc \<and> ostack = (iregs ! r) # istack \<and> oregs = iregs \<and> oflag = iflag \<and> ors = irs \<and> r < length iregs"
+  using assms step_lid_safe by (metis Pair_inject Suc_eq_plus1 option.sel step.simps(10))
+
 lemma step_lid_succ:
   assumes "step (LID r) (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
 proof -
   from assms obtain sta m f rs where "ist = (sta, m, f, rs)" using prod_cases4 by blast
-  from assms this show ?thesis by auto
+  moreover from assms this have "r < length m" using step_lid_safe by (metis option.simps(3) step.simps(10))
+  ultimately show ?thesis using assms by auto
 qed
 
 lemma step_store_succ:
@@ -666,7 +679,7 @@ lemma step_store_succ:
   shows "pc = Suc ipc"
 proof -
   from assms obtain v r sta m f rs where split: "(v # r # sta, m, f, rs) = ist" using step_pop2_pred by metis
-  from assms this show ?thesis by (cases "r \<ge> 0", auto)
+  from assms this show ?thesis by (cases "r \<ge> 0 \<and> nat r < length m", auto)
 qed
 
 lemma step_storei_succ:
@@ -726,7 +739,7 @@ proof(goal_cases)
   case 6 show ?case using step_eq_succ assms by auto next
   case 7 show ?case using step_push_succ assms by auto next
   case 8 show ?case using step_pop_succ assms by auto next
-  case 9 show ?case using step_lid_succ assms by auto next
+  case 9 show ?case using step_lid_succ assms by (smt Collect_empty_eq collect_step.simps lookup.simps) next
   case 10 show ?case using step_store_succ assms by auto next
   case 11 show ?case using step_storei_succ assms by auto next
   case 12 show ?case using step_copy_succ assms by auto

@@ -51,9 +51,12 @@ fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
   "step EQ (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a = b, rs)" |
   "step (PUSH v) (pc, st, m, f, rs) = Some (pc + 1, v # st, m, f, rs)" |
   "step POP (pc, v # st, m, f, rs) = Some (pc + 1, st, m, f, rs)" |
-  "step (LID r) (pc, st, m, f, rs) = Some (pc + 1, m ! r # st, m, f, rs)" |
+  "step (LID r) (pc, st, m, f, rs) =
+    (if r < length m
+     then Some (pc + 1, m ! r # st, m, f, rs)
+     else None)" |
   "step STORE (pc, v # r # st, m, f, rs) =
-    (if r \<ge> 0 then Some (pc + 1, st, m[nat r := v], f, rs) else None)" |
+    (if r \<ge> 0 \<and> nat r < length m then Some (pc + 1, st, m[nat r := v], f, rs) else None)" |
   "step (STOREI r v) (pc, st, m, f, rs) = Some (pc + 1, st, m[r := v], f, rs)" |
   "step COPY (pc, st, m, f, rs) = Some (pc + 1, int_of f # st, m, f, rs)" |
   "step CALL (pc, q # st, m, f, rs) =

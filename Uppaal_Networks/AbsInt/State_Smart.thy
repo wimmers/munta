@@ -49,7 +49,7 @@ begin
 
 fun \<gamma>_regs_list :: "'a list \<Rightarrow> rstate set" where
   "\<gamma>_regs_list [] = {[]}" |
-  "\<gamma>_regs_list (a # as) = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word a \<and> xs \<in> \<gamma>_regs_list as} \<union> \<gamma>_regs_list as"
+  "\<gamma>_regs_list (a # as) = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word a \<and> xs \<in> \<gamma>_regs_list as} \<squnion> {[]}"
 
 lemma mono_gamma_regs_list: "a \<le> b \<Longrightarrow> \<gamma>_regs_list a \<le> \<gamma>_regs_list b"
 proof (induction a arbitrary: b)
@@ -83,7 +83,63 @@ proof -
   qed
 qed
 
-lemma mono_gamma_power_bool: "a \<le> b \<Longrightarrow> \<gamma>_power_bool a \<le> \<gamma>_power_bool b" by (cases a; cases b; simp)
+lemma regs_length:
+  assumes "regs \<in> \<gamma>_regs (Minor l)"
+  shows "length regs \<le> length l"
+using assms proof (induction l arbitrary: regs)
+  case (Cons a as)
+  from Cons.prems have "regs = [] \<or> (\<exists>x xs. regs = x # xs \<and> x \<in> \<gamma>_word a \<and> xs \<in> \<gamma>_regs_list as)" by auto
+  then show ?case using Cons 
+  proof (safe, goal_cases)
+    case 1 then show ?case using Cons.IH by (simp add: le_SucI)
+  qed simp
+qed simp
+
+lemma regs_cons:
+  assumes "a # as \<in> \<gamma>_regs (Minor (la # ls))"
+  shows "as \<in> \<gamma>_regs (Minor ls)"
+  using assms by simp
+
+fun load :: "('a::absword) arstate \<Rightarrow> reg \<Rightarrow> 'a" where
+  "load Top _ = \<top>" |
+  "load (Minor l) r = (if r < length l then l ! r else \<bottom>)"
+
+lemma load:
+  assumes 
+    "r < length regs"
+    "regs \<in> \<gamma>_regs aregs"
+  shows "(regs ! r) \<in> \<gamma>_word (load aregs r)"
+proof (cases aregs)
+  case (Minor l)
+  from this assms(2) have length: "length regs \<le> length l" using regs_length by blast
+  from this Minor assms(1) have load: "load aregs r = l ! r" using Minor by auto
+  from length assms Minor have "regs ! r \<in> \<gamma>_word (l ! r)"
+  proof (induction regs arbitrary: l r aregs)
+    case (Cons a regs)
+    obtain la ls where lsplit: "l = la # ls" by (metis Cons.prems(3) Cons.prems(4) \<gamma>_regs.simps(2) \<gamma>_regs_list.elims empty_iff insert_iff list.distinct(1))
+    then show ?case
+    proof (cases r)
+      case 0
+      from this have "a # regs \<in> \<gamma>_regs_list (la # ls)" using Cons by (simp add: lsplit)
+      hence "a # regs \<in> {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word la \<and> xs \<in> \<gamma>_regs_list ls}" by simp
+      hence "a \<in> \<gamma>_word la" by blast
+      from this 0 lsplit show ?thesis using Cons.prems(2) by auto 
+    next
+      case (Suc rr)
+      have length: "length regs \<le> length ls" using Cons.prems(1) lsplit by auto
+      have rrlength: "rr < length regs" using Cons.prems(2) Suc by auto
+      have "regs \<in> \<gamma>_regs (Minor ls)" using regs_cons Cons.prems(3) Cons.prems(4) lsplit by blast
+      from this length rrlength have rr: "regs ! rr \<in> \<gamma>_word (ls ! rr)" using Cons.IH by blast
+      from Suc have "(a # regs) ! r = regs ! rr" by simp
+      from this rr Suc lsplit show ?thesis using Cons.IH by simp
+    qed
+  qed simp
+  from this load show ?thesis by simp
+qed simp
+
+fun store :: "('a::absword) arstate \<Rightarrow> reg \<Rightarrow> 'a \<Rightarrow> 'a arstate" where
+  "store Top _ _ = Top" |
+  "store (Minor l) r v = Minor (l[r := v])" (* store (Minor l) r v where r \<ge> length l is undefined because we don't need it. *)
 
 fun pop2 :: "'b \<Rightarrow> ('a * 'a * 'b)" where
   "pop2 stack =
@@ -168,6 +224,10 @@ proof -
   from this lookup show ?thesis by simp
 qed
 
+fun astore :: "'a::absword \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
+  "astore v regs = undefined"
+(* (folding.F astore vals regs) *)
+
 fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b::absstack) smart_base \<Rightarrow> ('a, 'b) smart state_map" where
   "step_smart_base (JMPZ target) pc (Smart stack regs BTrue)  = single (Suc pc) (Some (Smart stack regs BTrue))" |
   "step_smart_base (JMPZ target) pc (Smart stack regs BFalse) = single target (Some (Smart stack regs BFalse))" |
@@ -188,8 +248,16 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
   "step_smart_base LE pc smart = cmp_op le pc smart" |
   "step_smart_base EQ pc smart = cmp_op eq pc smart" |
 
-  "step_smart_base (PUSH v)     pc (Smart stack regs flag)    =  single (Suc pc) (Some (Smart (push stack (make v)) regs flag))" |
-  "step_smart_base POP          pc (Smart stack regs flag)    =  single (Suc pc) (Some (Smart (snd (pop stack)) regs flag))" |
+  "step_smart_base (PUSH v)     pc (Smart stack regs flag)    = single (Suc pc) (Some (Smart (push stack (make v)) regs flag))" |
+  "step_smart_base POP          pc (Smart stack regs flag)    = single (Suc pc) (Some (Smart (snd (pop stack)) regs flag))" |
+
+  "step_smart_base (LID r)      pc (Smart stack regs flag)    = single (Suc pc) (Some (Smart (push stack (load regs r)) regs flag))" |
+
+  "step_smart_base STORE        pc (Smart stack regs flag) =
+    (let (v, r, rstack) = pop2 stack
+     in case concretize r of
+          Minor vals \<Rightarrow> single (Suc pc) (Some (Smart rstack undefined flag)) |
+          Top \<Rightarrow> \<top> \<comment> \<open>TODO: this can probably be more specific\<close>)" |
 
   "step_smart_base _ _ _ = \<top>"
 
@@ -386,11 +454,13 @@ proof -
     from POP ist_split_step(2) obtain v where stack: "v # ocstack = icstack" using step_pop(5) by blast
     from POP regs flag stack show ?thesis using step_pop using ist_props(1) ist_props(2) ist_props(3) ist_split_step(2) ost_split pop_stack_correct by auto
   next
-    case (LID x10)
-    then show ?thesis by auto
+    case (LID r)
+    from this ist_split_step(2) have preds: "opc = Suc ipc \<and> ocstack = (icregs ! r) # icstack \<and> ocregs = icregs \<and> ocflag = icflag \<and> ocrs = icrs \<and> r < length icregs" using step_lid by blast
+    hence "(icregs ! r) # icstack \<in> \<gamma>_stack (push iastack (load iaregs r))" using load ist_props(1) ist_props(2) push_correct by auto
+    from this preds show ?thesis by (simp add: LID ist_props(2) ist_props(3) ost_split)
   next
     case STORE
-    then show ?thesis by auto
+    then show ?thesis sorry
   next
     case (STOREI x121 x122)
     then show ?thesis by auto
