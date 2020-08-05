@@ -301,6 +301,13 @@ qed
 fun natset :: "int set \<Rightarrow> nat set" where
   "natset s = nat ` {x. x \<in> s \<and> x \<ge> 0}"
 
+lemma natset:
+  assumes
+    "x \<ge> 0"
+    "x \<in> s"
+  shows "nat x \<in> natset s"
+  using assms by simp
+
 lemma natset_finite:
   "finite A \<Longrightarrow> finite (natset A)"
   by simp
@@ -499,6 +506,11 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
   "step_smart_base CALL pc (Smart stack regs flag) =
     (case concretize (fst (pop stack)) of
       Minor xs \<Rightarrow> deep_merge ((\<lambda>suc. (suc, Some (Smart (push (snd (pop stack)) (make (int pc))) regs flag))) ` (natset xs)) |
+      Top \<Rightarrow> \<top>)" |
+
+  "step_smart_base RETURN pc (Smart stack regs flag) =
+    (case concretize (fst (pop stack)) of
+      Minor xs \<Rightarrow> deep_merge ((\<lambda>suc. (suc + 1, Some (Smart (snd (pop stack)) regs flag))) ` (natset xs)) |
       Top \<Rightarrow> \<top>)" |
 
   "step_smart_base _ _ _ = \<top>"
@@ -785,7 +797,34 @@ proof -
     qed simp
   next
     case RETURN
-    then show ?thesis by auto
+    from RETURN have step: "ocregs = icregs \<and> ocflag = icflag \<and> ocrs = icrs \<and> icstack = int (opc - 1) # ocstack \<and> opc > 0"
+      using step_return ist_split_step(2) by blast
+
+    let ?ar = "fst (pop iastack)"
+    show ?thesis using RETURN
+    proof (cases "concretize ?ar")
+      case (Minor xs)
+      let ?dmset = "(\<lambda>suc. (suc + 1, Some (Smart (snd (pop iastack)) iaregs iaflag))) ` (natset xs)"
+
+      let ?ast = "Some (Smart (snd (pop iastack)) iaregs iaflag)"
+      have inpop: "int opc - 1 \<in> \<gamma>_word (fst (pop iastack))" using ist_props(1) int_ops(6) pop_return_correct step by simp
+      hence "opc - 1 \<in> natset xs"
+      proof -
+        have "\<gamma>_word (fst (pop iastack)) \<subseteq> xs" using concretize_correct Minor by blast
+        hence "int opc - 1 \<in> xs" using inpop by blast
+        moreover have "int opc - 1 \<ge> 0" using step by simp
+        ultimately show ?thesis using natset by force
+      qed
+      hence "((opc - 1) + 1, ?ast) \<in> ?dmset" by blast
+      hence indmset: "(opc, ?ast) \<in> ?dmset" using step by simp
+      have ost_gamma: "ost \<in> \<gamma>_smart ?ast"
+        using in_gamma_smartI ist_props(1) ist_props(2) ist_props(3) local.step ost_split pop_stack_correct by blast
+
+      let ?dm = "deep_merge ?dmset"
+      have indm: "ost \<in> \<gamma>_smart (lookup ?dm opc)" by (smt indmset deep_merge_lookup gamma_smart_mono ost_gamma subsetD)
+      have step_smart: "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = ?dm" using Minor RETURN by simp
+      from step_smart indm  show ?thesis by simp
+    qed simp
   next
     case HALT
     then show ?thesis by auto
