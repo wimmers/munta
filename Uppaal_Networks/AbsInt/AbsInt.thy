@@ -389,7 +389,7 @@ subsubsection \<open>Useful Lemmas\<close>
 text \<open>Characteristics of @{term step}\<close>
 
 lemma step_pop1_pred:
-  assumes "op = NOT \<or> op = AND \<or> op = POP \<or> op = CALL"
+  assumes "op = NOT \<or> op = AND \<or> op = POP \<or> op = CALL \<or> op = RETURN"
     "step op (ipc, ist) = Some (pc, st)"
   shows "\<exists>b st m f rs. ist = (b # st, m, f, rs)"
 proof -
@@ -400,6 +400,7 @@ proof -
     apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(21))
     apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(28))
     apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(31))
+    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(32))
   done
 qed
 
@@ -725,6 +726,29 @@ proof -
   from assms this show ?thesis by auto
 qed
 
+lemma step_call:
+  assumes "step CALL (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "oregs = iregs \<and> oflag = iflag \<and> ors = irs"
+    "\<exists>rstack. istack = int opc # rstack \<and> ostack = int ipc # rstack"
+proof -
+  from assms obtain x rstack where istack: "istack = x # rstack" by (meson Pair_inject step_pop1_pred)
+  then have "x \<ge> 0 \<and> nat x = opc" using assms by (metis Pair_inject option.sel option.simps(3) step.simps(14))
+  then show "\<exists>rstack. istack = int opc # rstack \<and> ostack = int ipc # rstack" using istack assms by auto
+  then show "oregs = iregs \<and> oflag = iflag \<and> ors = irs" using assms by auto
+qed
+
+lemma step_return:
+  assumes "step RETURN (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "oregs = iregs \<and> oflag = iflag \<and> ors = irs \<and> istack = int (opc - 1) # ostack \<and> opc > 0"
+proof -
+  from assms obtain x rstack where istack: "istack = x # rstack" using step_pop1_pred by force
+  hence gr: "x \<ge> 0" using assms by (metis option.distinct(1) step.simps(15))
+  from istack this have "nat x + 1 = opc" using assms by simp
+  from this gr show ?thesis using assms istack by auto
+qed
+
 lemma step_storec_succ:
   assumes "step (STOREC c d) (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
@@ -799,6 +823,18 @@ fun deep_merge :: "(addr * ('a::absstate)) set \<Rightarrow> 'a state_map" where
 
 lemma deep_merge_lookup:
   assumes "(pc, (st::'a::absstate)) \<in> sts"
+  shows "st \<le> lookup (deep_merge sts) pc"
+proof -
+  have "lookup (deep_merge sts) pc = finite_sup {st. (pc, st) \<in> sts}" by simp
+  show ?thesis
+  proof (cases "finite {st. (pc, st) \<in> sts}")
+    case True
+    then show ?thesis using assms finite_sup_upper by fastforce
+  qed simp
+qed
+
+lemma deep_merge_lookup_le:
+  assumes "\<exists>mid. (st::'a::absstate) \<le> mid \<and> (pc, mid) \<in> sts"
   shows "st \<le> lookup (deep_merge sts) pc"
 proof -
   have "lookup (deep_merge sts) pc = finite_sup {st. (pc, st) \<in> sts}" by simp

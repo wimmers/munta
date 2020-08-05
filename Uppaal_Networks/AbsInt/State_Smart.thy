@@ -496,6 +496,11 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
   "step_smart_base COPY pc (Smart stack regs flag) =
     single (Suc pc) (Some (Smart (push stack (word_of flag)) regs flag))" |
 
+  "step_smart_base CALL pc (Smart stack regs flag) =
+    (case concretize (fst (pop stack)) of
+      Minor xs \<Rightarrow> deep_merge ((\<lambda>suc. (suc, Some (Smart (push (snd (pop stack)) (make (int pc))) regs flag))) ` (natset xs)) |
+      Top \<Rightarrow> \<top>)" |
+
   "step_smart_base _ _ _ = \<top>"
 
 fun step_smart :: "('a::absword, 'b::absstack) smart astep" where
@@ -757,7 +762,27 @@ proof -
     then show ?thesis by (simp add: COPY local.step ost_split)
   next
     case CALL
-    then show ?thesis by auto
+    from CALL have step: "ocregs = icregs \<and> ocflag = icflag \<and> ocrs = icrs" using step_call(1) ist_split_step(2) by blast
+    from CALL obtain rstack where rstack: "icstack = int opc # rstack \<and> ocstack = int ipc # rstack" using step_call(2) ist_split_step(2) by blast
+
+    let ?ar = "fst (pop iastack)"
+    show ?thesis using CALL
+    proof (cases "concretize ?ar")
+      case (Minor xs)
+      let ?dmset = "(\<lambda>suc. (suc, Some (Smart (push (snd (pop iastack)) (make (int ipc))) iaregs iaflag))) ` (natset xs)"
+
+      let ?ast = "Some (Smart (push (snd (pop iastack)) (make (int ipc))) iaregs iaflag)"
+      have "int opc \<in> \<gamma>_word (fst (pop iastack))" using ist_props(1) pop_return_correct rstack by blast
+      hence "opc \<in> natset xs" by (smt CollectI Minor concretize_correct image_eqI int_nat_eq nat_int natset.elims subsetD)
+      hence indmset: "(opc, ?ast) \<in> ?dmset" by blast
+      have ost_gamma: "ost \<in> \<gamma>_smart ?ast"
+        using AbsStack.push_correct AbsStack_axioms ist_props(1) ist_props(2) ist_props(3) local.step make_correct ost_split pop_stack_correct rstack by fastforce
+
+      let ?dm = "deep_merge ?dmset"
+      have indm: "ost \<in> \<gamma>_smart (lookup ?dm opc)" by (smt indmset deep_merge_lookup gamma_smart_mono ost_gamma subsetD)
+      have step_smart: "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = ?dm" using Minor CALL by simp
+      from step_smart indm  show ?thesis by simp
+    qed simp
   next
     case RETURN
     then show ?thesis by auto
