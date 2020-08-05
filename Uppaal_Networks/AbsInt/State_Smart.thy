@@ -490,6 +490,9 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
           Minor rs \<Rightarrow> single (Suc pc) (Some (Smart rstack (astore v (natset rs) regs) flag)) |
           Top \<Rightarrow> \<top>)" |
 
+  "step_smart_base (STOREI r v) pc (Smart stack regs flag) =
+    single (Suc pc) (Some (Smart stack (astore_singleton (make v) r regs) flag))" |
+
   "step_smart_base _ _ _ = \<top>"
 
 fun step_smart :: "('a::absword, 'b::absstack) smart astep" where
@@ -736,8 +739,13 @@ proof -
       from smartval in_smartval show ?thesis by simp
     qed (simp add: case_prod_beta' STORE)
   next
-    case (STOREI x121 x122)
-    then show ?thesis by auto
+    case (STOREI r v)
+    hence step: "opc = Suc ipc \<and> ocstack = icstack \<and> ocregs = icregs[r := v] \<and> ocflag = icflag \<and> ocrs = icrs \<and> r < length icregs" using step_storei ist_split_step(2) by blast
+    from step have "ocstack \<in> \<gamma>_stack iastack" using ist_props(1) by force
+    moreover from step have "icregs[r := v] \<in> \<gamma>_regs (astore_singleton (make v) r iaregs)" using astore_singleton by (simp add: ist_props(2) make_correct)
+    moreover from step have "ocflag \<in> \<gamma>_power_bool iaflag" using ist_props(3) by blast
+    ultimately have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (Some (Smart iastack (astore_singleton (make v) r iaregs) iaflag))" using step by simp
+    then show ?thesis using step STOREI ost_split by simp
   next
     case COPY
     then show ?thesis by auto

@@ -680,7 +680,7 @@ lemma step_store:
     "opc = Suc ipc \<and> oflag = iflag \<and> ors = irs"
     "\<exists>v r. istack = v # r # ostack \<and> nat r < length iregs \<and> r \<ge> 0 \<and> oregs = iregs[nat r := v]"
 proof -
-  from assms obtain v r rstack where istack: "istack = v # r # rstack" using step_pop2_pred by force 
+  from assms obtain v r rstack where istack: "istack = v # r # rstack" using step_pop2_pred by force
   hence step: "step STORE (ipc, (istack, iregs, iflag, irs)) = Some (Suc ipc, (rstack, iregs[nat r := v], iflag, irs))" by (metis Suc_eq_plus1 assms option.distinct(1) step.simps(11))
   from this assms show "opc = Suc ipc \<and> oflag = iflag \<and> ors = irs" by simp
   from step assms have ostack: "ostack = rstack" by simp
@@ -696,6 +696,12 @@ proof -
   from assms obtain v r sta m f rs where split: "(v # r # sta, m, f, rs) = ist" using step_pop2_pred by metis
   from assms this show ?thesis by (cases "r \<ge> 0 \<and> nat r < length m", auto)
 qed
+
+lemma step_storei:
+  assumes "step (STOREI r v) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc \<and> ostack = istack \<and> oregs = iregs[r := v] \<and> oflag = iflag \<and> ors = irs \<and> r < length iregs"
+  using assms by (metis Pair_inject Suc_eq_plus1 option.sel option.simps(3) step.simps(12))
 
 lemma step_storei_succ:
   assumes "step (STOREI r v) (ipc, ist) = Some (pc, st)"
@@ -779,7 +785,7 @@ lemma jmpz_cases:
     target: "lookup (collect_step (JMPZ target) ipc (\<gamma> ins)) target \<subseteq> \<gamma> (lookup (some_step (JMPZ target) ipc ins) target)"
   shows "lookup (collect_step (JMPZ target) ipc (\<gamma> ins)) pc \<subseteq> \<gamma> (lookup (some_step (JMPZ target) ipc ins) pc)"
   using assms ex_in_conv by fastforce
-                           
+
 subsection \<open>Helpers to conveniently define Abstract Step Functions\<close>
 
 fun deep_merge :: "(addr * ('a::absstate)) set \<Rightarrow> 'a state_map" where
