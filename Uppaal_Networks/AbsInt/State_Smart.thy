@@ -513,7 +513,14 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
       Minor xs \<Rightarrow> deep_merge ((\<lambda>suc. (suc + 1, Some (Smart (snd (pop stack)) regs flag))) ` (natset xs)) |
       Top \<Rightarrow> \<top>)" |
 
-  "step_smart_base _ _ _ = \<top>"
+  "step_smart_base HALT pc (Smart _ _ _) = \<bottom>" |
+
+  "step_smart_base (STOREC c d) pc (Smart stack regs flag) =
+    (if d = 0
+     then single (Suc pc) (Some (Smart stack regs flag))
+     else \<bottom>)" |
+
+  "step_smart_base (SETF b) pc (Smart stack regs _) = single (Suc pc) (Some (Smart stack regs (powerup b)))"
 
 fun step_smart :: "('a::absword, 'b::absstack) smart astep" where
   "step_smart _ _ None = \<bottom>" |
@@ -827,13 +834,17 @@ proof -
     qed simp
   next
     case HALT
-    then show ?thesis by auto
+    then show ?thesis using assms collect_step_halt_succ by blast
   next
-    case (STOREC x171 x172)
-    then show ?thesis by auto
+    case (STOREC c d)
+    hence step: "opc = Suc ipc \<and> ocstack = icstack \<and> ocregs = icregs \<and> ocflag = icflag \<and> ocrs = c # icrs \<and> d = 0" using step_storec ist_split_step(2) by blast
+    hence "ost \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" by (simp add: ist_props(1) ist_props(2) ist_props(3) ost_split)
+    then show ?thesis using step STOREC by simp
   next
-    case (SETF x18)
-    then show ?thesis by auto
+    case (SETF b)
+    hence step: "opc = Suc ipc \<and> ocstack = icstack \<and> ocregs = icregs \<and> ocflag = b \<and> ocrs = icrs" using step_setf ist_split_step(2) by blast
+    hence "ost \<in> \<gamma>_smart (Some (Smart iastack iaregs (powerup b)))" using ist_props(1) ist_props(2) ost_split by auto
+    from this SETF step show ?thesis by simp
   qed
 qed
 

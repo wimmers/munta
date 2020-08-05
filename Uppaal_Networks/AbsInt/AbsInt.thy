@@ -749,6 +749,12 @@ proof -
   from this gr show ?thesis using assms istack by auto
 qed
 
+lemma step_storec:
+  assumes "step (STOREC c d) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc \<and> ostack = istack \<and> oregs = iregs \<and> oflag = iflag \<and> ors = c # irs \<and> d = 0"
+  by (metis assms list.inject option.distinct(1) option.inject state_pc.simps step.simps(13) step.simps(16) step_copy)
+
 lemma step_storec_succ:
   assumes "step (STOREC c d) (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
@@ -756,6 +762,12 @@ proof -
   from assms obtain sta m f rs where "ist = (sta, m, f, rs)" using prod_cases4 by blast
   from assms this show ?thesis by (cases "d = 0"; auto)
 qed
+
+lemma step_setf:
+  assumes "step (SETF b) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows
+    "opc = Suc ipc \<and> ostack = istack \<and> oregs = iregs \<and> oflag = b \<and> ors = irs"
+  using assms by simp
 
 text \<open>Resulting characteristics of @{term collect_step},
   useful for proving abstract step functions against it.\<close>

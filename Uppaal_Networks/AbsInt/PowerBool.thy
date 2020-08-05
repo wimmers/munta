@@ -75,4 +75,11 @@ lemma gamma_power_boolTop[simp]: "\<gamma>_power_bool \<top> = UNIV" by simp
 lemma power_bool_not: "x \<in> \<gamma>_power_bool a \<Longrightarrow> (\<not>x) \<in> \<gamma>_power_bool (not a)" by (cases x; cases a; simp)
 lemma power_bool_and: "x \<in> \<gamma>_power_bool a \<Longrightarrow> y \<in> \<gamma>_power_bool b \<Longrightarrow> (x \<and> y) \<in> \<gamma>_power_bool (and a b)" by (cases x; cases y; cases a; cases b; simp)
 
+fun powerup :: "bool \<Rightarrow> power_bool" where
+  "powerup True = BTrue" |
+  "powerup False = BFalse"
+
+lemma powerup_correct: "b \<in> \<gamma>_power_bool (powerup b)"
+  by (cases b; simp)
+
 end
