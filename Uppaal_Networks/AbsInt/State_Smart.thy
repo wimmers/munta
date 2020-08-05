@@ -301,6 +301,10 @@ qed
 fun natset :: "int set \<Rightarrow> nat set" where
   "natset s = nat ` {x. x \<in> s \<and> x \<ge> 0}"
 
+lemma natset_finite:
+  "finite A \<Longrightarrow> finite (natset A)"
+  by simp
+
 lemma natset_insert:
   assumes "insert x A = natset rs"
   shows "\<exists>rrs. A = natset rrs"
@@ -321,40 +325,38 @@ proof -
   thus ?thesis ..
 qed
 
-fun astore_multi :: "'a::absword \<Rightarrow> int set \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
-  "astore_multi v rs regs = folding.F (astore_single v) regs (natset rs)"
+fun astore_multi :: "'a::absword \<Rightarrow> nat set \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
+  "astore_multi v rs regs = folding.F (astore_single v) regs rs"
 
-fun astore_singleton :: "'a::absword \<Rightarrow> int set \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
-  "astore_singleton v rs Top = Top" |
-  "astore_singleton v rs (Minor regs) = Minor (regs[(nat (the_elem rs)) := v])"
+fun astore_singleton :: "'a::absword \<Rightarrow> nat \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
+  "astore_singleton v r Top = Top" |
+  "astore_singleton v r (Minor regs) = Minor (regs[r := v])"
 
-fun astore :: "'a::absword \<Rightarrow> int set \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
+fun astore :: "'a::absword \<Rightarrow> nat set \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
   "astore v rs regs =
     (if is_singleton rs
-     then astore_singleton v rs regs
+     then astore_singleton v (the_elem rs) regs
      else astore_multi v rs regs)"
 
 lemma astore_multi:
   assumes
     "finite rs"
-    "r \<ge> 0"
-    "nat r < length regs"
+    "r < length regs"
     "r \<in> rs"
     "regs \<in> \<gamma>_regs aregs"
     "v \<in> \<gamma>_word av"
   shows
-    "regs[nat r := v] \<in> \<gamma>_regs (astore_multi av rs aregs)"
+    "regs[r := v] \<in> \<gamma>_regs (astore_multi av rs aregs)"
 proof -
   from assms have
-    "finite (natset rs)"
-    "0 \<le> r"
-    "nat r < length regs"
-    "nat r \<in> (natset rs)"
+    "finite rs"
+    "r < length regs"
+    "r \<in> rs"
     "regs \<in> \<gamma>_regs aregs"
     "v \<in> \<gamma>_word av"
     by auto
   thus ?thesis
-  proof (induction "natset rs" arbitrary: r regs v rs aregs)
+  proof (induction "rs" arbitrary: r regs v aregs)
     case (insert x A)
 
     interpret astore_single: folding
@@ -378,29 +380,28 @@ proof -
       qed simp
       thus "(astore_single av r0 \<circ> astore_single av r1) xa = (astore_single av r1 \<circ> astore_single av r0) xa" by simp
     qed
-    have astore: "astore_multi av rs aregs = astore_single.F (insert x A)" using insert(4) by simp
+    have astore: "astore_multi av (insert x A) aregs = astore_single.F (insert x A)" by simp
     have bubble: "astore_single.F (insert x A) = astore_single av x (astore_single.F A)" using astore_single.insert insert.hyps(1) insert.hyps(2) by blast
 
     show ?case
-    proof (cases "x = nat r")
+    proof (cases "x = r")
       case True
-      have bubble: "astore_multi av rs aregs = astore_single av (nat r) (astore_single.F A)" using astore bubble True by simp
+      have bubble: "astore_multi av (insert x A) aregs = astore_single av r (astore_single.F A)" using astore bubble True by simp
       have regs: "regs \<in> \<gamma>_regs (astore_single.F A)" using insert.hyps(1)
       proof(induction A)
-        case empty then show ?case by (simp add: insert.prems(4))
+        case empty then show ?case by (simp add: insert.prems(3))
       next
         case (insert xx F) then show ?case using astore_single_keeps by simp
       qed
 
-      from regs have astore_bubble: "regs[nat r := v] \<in> \<gamma>_regs (astore_single av (nat r) (astore_single.F A))" using astore_single insert.prems(4) using insert.prems(5) using insert.prems(2) by blast
+      from regs have astore_bubble: "regs[r := v] \<in> \<gamma>_regs (astore_single av r (astore_single.F A))" using astore_single insert.prems by blast
       from astore astore_bubble bubble show ?thesis by simp
     next
       case False
-      hence ina: "nat r \<in> A" using insert.hyps(4) insert.prems(3) by auto
-      obtain rrs where rrs: "A = natset rrs" using natset_insert insert.hyps(4) by blast
-      have "regs[nat r := v] \<in> \<gamma>_regs (astore_multi av rrs aregs)" using insert.hyps(3)
-        using ina insert.prems(1) insert.prems(2) insert.prems(4) insert.prems(5) rrs by blast
-      from this rrs have "regs[nat r := v] \<in> \<gamma>_regs (astore_single.F A)" by simp
+      hence ina: "r \<in> A" using insert by auto
+      have "regs[r := v] \<in> \<gamma>_regs (astore_multi av A aregs)"
+        using ina insert.IH insert.prems(1) insert.prems(3) insert.prems(4) by blast
+      from this have "regs[r := v] \<in> \<gamma>_regs (astore_single.F A)" by simp
       then show ?thesis using astore astore_single_keeps bubble by auto
     qed
   qed blast
@@ -408,35 +409,33 @@ qed
 
 lemma astore_singleton:
   assumes
-    "rs = {r}"
-    "r \<ge> 0"
-    "nat r < length regs"
+    "r < length regs"
     "regs \<in> \<gamma>_regs aregs"
     "v \<in> \<gamma>_word av"
   shows
-    "regs[nat r := v] \<in> \<gamma>_regs (astore_singleton av rs aregs)"
+    "regs[r := v] \<in> \<gamma>_regs (astore_singleton av r aregs)"
 proof -
   show ?thesis
   proof (cases aregs)
     case (Minor aregsl)
     then show ?thesis using assms
-    proof (induction aregsl arbitrary: r rs regs aregs)
+    proof (induction aregsl arbitrary: r regs aregs)
       case (Cons a aregss)
-      obtain x regss where splitregs: "x # regss = regs" by (metis Cons.prems(4) list.exhaust list.size(3) not_less_zero)
-      have x: "x \<in> \<gamma>_word a" using Cons.prems(1) Cons.prems(5) gamma_regs_cons splitregs by blast
+      obtain x regss where splitregs: "x # regss = regs" by (metis Cons.prems(2) list.exhaust list.size(3) not_less_zero)
+      have x: "x \<in> \<gamma>_word a" using Cons.prems(1) Cons.prems(3) gamma_regs_cons splitregs by blast
       show ?case
-      proof (cases "nat r")
+      proof (cases r)
         case 0
-        from 0 have l: "regs[nat r := v] = v # regss" using splitregs by auto
-        from 0 have r: "astore_singleton av rs aregs = (Minor (av # aregss))" by (simp add: Cons.prems(1) Cons.prems(2))
+        from 0 have l: "regs[r := v] = v # regss" using splitregs by auto
+        from 0 have r: "astore_singleton av r aregs = (Minor (av # aregss))" by (simp add: Cons.prems(1))
         from l r show ?thesis using Cons using splitregs by auto
       next
         case (Suc rn)
-        have "regss[nat (int rn) := v] \<in> \<gamma>_regs (astore_singleton av {int rn} (Minor aregss))" using Cons.IH
-          by (metis Cons.prems(1) Cons.prems(4) Cons.prems(5) Suc Suc_less_eq assms(5) length_Cons nat_int of_nat_0_le_iff regs_cons splitregs)
+        have "regss[rn := v] \<in> \<gamma>_regs (astore_singleton av rn (Minor aregss))" using Cons.IH
+          using Cons.prems(1) Cons.prems(2) Cons.prems(3) Suc assms(3) splitregs by auto
         hence eq: "regss[rn := v] \<in> \<gamma>_regs (Minor (aregss[rn := av]))" by simp
-        have l: "regs[nat r := v] = (x # regss[rn := v])" using Suc splitregs by force
-        have r: "astore_singleton av rs aregs = Minor (a # (aregss[rn := av]))" by (simp add: Cons.prems(1) Cons.prems(2) Suc)
+        have l: "regs[r := v] = (x # regss[rn := v])" using Suc splitregs by force
+        have r: "astore_singleton av r aregs = Minor (a # (aregss[rn := av]))" by (simp add: Cons.prems(1) Cons.prems(2) Suc)
         from eq l r x show ?thesis by simp
       qed
     qed simp
@@ -446,13 +445,12 @@ qed
 lemma astore:
   assumes
     "finite rs"
-    "r \<ge> 0"
-    "nat r < length regs"
+    "r < length regs"
     "r \<in> rs"
     "regs \<in> \<gamma>_regs aregs"
     "v \<in> \<gamma>_word av"
   shows
-    "regs[nat r := v] \<in> \<gamma>_regs (astore av rs aregs)"
+    "regs[r := v] \<in> \<gamma>_regs (astore av rs aregs)"
 proof (cases "is_singleton rs")
   case True
   then obtain r where "rs = {r}" by (simp add: is_singleton_the_elem)
@@ -489,7 +487,7 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
   "step_smart_base STORE        pc (Smart stack regs flag) =
     (let (v, r, rstack) = pop2 stack
      in case concretize r of
-          Minor rs \<Rightarrow> single (Suc pc) (Some (Smart rstack (astore v rs regs) flag)) |
+          Minor rs \<Rightarrow> single (Suc pc) (Some (Smart rstack (astore v (natset rs) regs) flag)) |
           Top \<Rightarrow> \<top>)" |
 
   "step_smart_base _ _ _ = \<top>"
@@ -702,7 +700,7 @@ proof -
     show ?thesis
     proof (cases "concretize ?ar")
       case (Minor rs)
-      let ?smartregs = "astore ?av rs iaregs"
+      let ?smartregs = "astore ?av (natset rs) iaregs"
       let ?smartval = "Some (Smart ?arstack ?smartregs iaflag)"
 
       have smartval: "lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc = ?smartval"
@@ -710,7 +708,7 @@ proof -
         let ?smart = "single (Suc ipc) ?smartval"
         have "step_smart op ipc (Some (Smart iastack iaregs iaflag)) =
           (let (v, r, rstack) = pop2 iastack
-           in single (Suc ipc) (Some (Smart rstack (astore v rs iaregs) iaflag)))"
+           in single (Suc ipc) (Some (Smart rstack (astore v (natset rs) iaregs) iaflag)))"
           using Minor by (simp add: case_prod_beta' STORE)
         hence "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = ?smart" unfolding Let_def by (simp add: case_prod_beta')
         thus ?thesis using static by simp
@@ -721,12 +719,12 @@ proof -
         have stack: "ocstack \<in> \<gamma>_stack ?arstack" using AbsStack.pop2_stack_correct AbsStack_axioms ist_props(1) vr by blast
         have flag: "ocflag \<in> \<gamma>_power_bool iaflag" using ist_props(3) static by auto
 
-        have "finite rs" using Minor concretize_finite by blast
-        moreover have "r \<ge> 0" using vr by blast
-        moreover have "r \<in> rs"
+        have "finite (natset rs)" using Minor concretize_finite natset_finite by blast
+        moreover have "nat r \<in> natset rs"
         proof -
           have "r \<in> \<gamma>_word ?ar" using ist_props(1) pop2_return_b_correct vr by blast
-          thus ?thesis using concretize_correct using Minor by blast
+          hence "r \<in> rs" using concretize_correct Minor by blast
+          thus ?thesis by (simp add: vr)
         qed
         moreover have "icregs \<in> \<gamma>_regs iaregs" using ist_props(2) by blast
         moreover have "v \<in> \<gamma>_word ?av" using ist_props(1) pop2_return_a_correct vr by blast
