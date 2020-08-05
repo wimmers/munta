@@ -707,9 +707,15 @@ lemma step_storei_succ:
   assumes "step (STOREI r v) (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
 proof -
-  from assms obtain sta m f rs where "ist = (sta, m, f, rs)" using prod_cases4 by blast
-  from assms this show ?thesis by auto
+  from assms obtain sta m f rs where ist: "ist = (sta, m, f, rs)" using prod_cases4 by blast
+  moreover from assms obtain osta om ofl ors where ost: "st = (osta, om, ofl, ors)" using prod_cases4 by blast
+  ultimately show ?thesis using step_storei using assms by blast
 qed
+
+lemma step_copy:
+  assumes "step COPY (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
+  shows "opc = Suc ipc \<and> ostack = (int_of iflag) # istack \<and> oregs = iregs \<and> oflag = iflag \<and> ors = irs"
+  using assms by (metis Suc_eq_plus1 old.prod.inject option.inject step.simps(13))
 
 lemma step_copy_succ:
   assumes "step COPY (ipc, ist) = Some (pc, st)"
@@ -762,7 +768,7 @@ proof(goal_cases)
   case 8 show ?case using step_pop_succ assms by auto next
   case 9 show ?case using step_lid_succ assms by (smt Collect_empty_eq collect_step.simps lookup.simps) next
   case 10 show ?case using step_store_succ assms by auto next
-  case 11 show ?case using step_storei_succ assms by auto next
+  case 11 show ?case using step_storei_succ assms by (smt Collect_empty_eq collect_step.simps lookup.simps) next
   case 12 show ?case using step_copy_succ assms by auto
 next
   case 13

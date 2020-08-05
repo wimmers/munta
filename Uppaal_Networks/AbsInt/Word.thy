@@ -32,5 +32,32 @@ assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma>_word a \<le> \<gamma>_
   and eq_correct: "eq a b = (     if \<forall>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x = y then BTrue
                              else if \<exists>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x = y then BBoth
                              else BFalse)"
+begin
+
+fun word_of :: "power_bool \<Rightarrow> 'a" where
+  "word_of BTrue = make 1" |
+  "word_of BFalse = make 0" |
+  "word_of BBoth = make 0 \<squnion> make 1"
+
+lemma word_of:
+  assumes "x \<in> \<gamma>_power_bool b"
+  shows "int_of x \<in> \<gamma>_word (word_of b)"
+proof (cases b)
+  case BTrue
+  then show ?thesis using assms int_of_def by (simp add: make_correct)
+next
+  case BFalse
+  then show ?thesis using assms int_of_def by (simp add: make_correct)
+next
+  case BBoth
+  then show ?thesis
+  proof (cases x)
+    case True then show ?thesis by (metis BBoth in_mono int_of_def make_correct mono_gamma sup_ge2 word_of.simps(3))
+  next
+    case False then show ?thesis by (metis BBoth in_mono int_of_def make_correct mono_gamma sup.cobounded1 word_of.simps(3))
+  qed
+qed
+
+end
 
 end

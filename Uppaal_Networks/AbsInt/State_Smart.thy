@@ -493,6 +493,9 @@ fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b:
   "step_smart_base (STOREI r v) pc (Smart stack regs flag) =
     single (Suc pc) (Some (Smart stack (astore_singleton (make v) r regs) flag))" |
 
+  "step_smart_base COPY pc (Smart stack regs flag) =
+    single (Suc pc) (Some (Smart (push stack (word_of flag)) regs flag))" |
+
   "step_smart_base _ _ _ = \<top>"
 
 fun step_smart :: "('a::absword, 'b::absstack) smart astep" where
@@ -748,7 +751,10 @@ proof -
     then show ?thesis using step STOREI ost_split by simp
   next
     case COPY
-    then show ?thesis by auto
+    hence step: "opc = Suc ipc \<and> ocstack = (int_of icflag) # icstack \<and> ocregs = icregs \<and> ocflag = icflag \<and> ocrs = icrs" using step_copy ist_split_step(2) by blast
+    have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (Some (Smart (push iastack (word_of iaflag)) iaregs iaflag))" using step
+      by (meson AbsStack.push_correct AbsStack_axioms in_gamma_smartI ist_props(1) ist_props(2) ist_props(3) word_of)
+    then show ?thesis by (simp add: COPY local.step ost_split)
   next
     case CALL
     then show ?thesis by auto
