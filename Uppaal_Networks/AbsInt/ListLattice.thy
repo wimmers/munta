@@ -90,4 +90,22 @@ end
 
 instantiation list :: (bounded_semilattice_sup_bot) bounded_semilattice_sup_bot begin instance .. end
 
+fun \<gamma>_list :: "('a \<Rightarrow> 'b set) \<Rightarrow> 'a list \<Rightarrow> 'b list set" where
+  "\<gamma>_list _ [] = {[]}" |
+  "\<gamma>_list \<gamma>_word (a # as) = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word a \<and> xs \<in> \<gamma>_list \<gamma>_word as} \<squnion> {[]}"
+
+lemma mono_gamma_list:
+  assumes
+    "\<And>x y. (x::'a::order) \<le> y \<Longrightarrow> ((\<gamma>_word x)::'b::order set) \<le> \<gamma>_word y"
+  shows "a \<le> b \<Longrightarrow> \<gamma>_list \<gamma>_word a \<le> \<gamma>_list \<gamma>_word b"
+proof (induction a arbitrary: b)
+  case Nil
+  then show ?case by (induction b; simp)
+next
+  case (Cons ax as)
+  from Cons.prems obtain bx bs where "b = bx # bs" using less_eq_list.elims(2) by blast
+  from this Cons show ?case using assms by fastforce
+qed
+
+
 end

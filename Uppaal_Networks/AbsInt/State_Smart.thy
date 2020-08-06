@@ -47,19 +47,9 @@ end
 context AbsStack
 begin
 
-fun \<gamma>_regs_list :: "'a list \<Rightarrow> rstate set" where
-  "\<gamma>_regs_list [] = {[]}" |
-  "\<gamma>_regs_list (a # as) = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word a \<and> xs \<in> \<gamma>_regs_list as} \<squnion> {[]}"
-
+definition[simp]: "\<gamma>_regs_list = \<gamma>_list \<gamma>_word"
 lemma mono_gamma_regs_list: "a \<le> b \<Longrightarrow> \<gamma>_regs_list a \<le> \<gamma>_regs_list b"
-proof (induction a arbitrary: b)
-  case Nil
-  then show ?case by (induction b; simp)
-next
-  case (Cons ax as)
-  from Cons.prems obtain bx bs where "b = bx # bs" using less_eq_list.elims(2) by blast
-  from this Cons show ?case using mono_gamma by fastforce
-qed
+  using mono_gamma by (simp add: mono_gamma_list)
 
 fun \<gamma>_regs :: "'a arstate \<Rightarrow> rstate set" where
   "\<gamma>_regs Top = \<top>" |
@@ -116,7 +106,8 @@ proof (cases aregs)
   from length assms Minor have "regs ! r \<in> \<gamma>_word (l ! r)"
   proof (induction regs arbitrary: l r aregs)
     case (Cons a regs)
-    obtain la ls where lsplit: "l = la # ls" by (metis Cons.prems(3) Cons.prems(4) \<gamma>_regs.simps(2) \<gamma>_regs_list.elims empty_iff insert_iff list.distinct(1))
+    obtain la ls where lsplit: "l = la # ls"
+      by (metis Cons.prems(1) leD length_Cons list.exhaust list.size(3) zero_less_Suc)
     then show ?case
     proof (cases r)
       case 0
@@ -140,48 +131,6 @@ qed simp
 fun store :: "('a::absword) arstate \<Rightarrow> reg \<Rightarrow> 'a \<Rightarrow> 'a arstate" where
   "store Top _ _ = Top" |
   "store (Minor l) r v = Minor (l[r := v])" (* store (Minor l) r v where r \<ge> length l is undefined because we don't need it. *)
-
-fun pop2 :: "'b \<Rightarrow> ('a * 'a * 'b)" where
-  "pop2 stack =
-    (let (a, astack) = pop stack;
-         (b, bstack) = pop astack
-    in (a, b, bstack))"
-
-(*lemma[simp]: "pop2 stack =
-  (fst (pop (snd (pop stack))), fst (pop stack), snd (pop (snd (pop stack))))"
-  by (simp add: case_prod_beta)*)
-
-lemma pop2_stack_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> c \<in> \<gamma>_stack (snd (snd (pop2 b)))"
-  by (metis (no_types, lifting) Pair_inject case_prod_beta' pop2.elims pop_stack_correct prod.exhaust_sel)
-
-lemma pop2_return_b_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> cb \<in> \<gamma>_word (fst (snd (pop2 b)))"
-proof -
-  assume ass: "(ca # cb # c) \<in> \<gamma>_stack b"
-  hence i: "(cb # c) \<in> \<gamma>_stack (snd (pop b))" using pop_stack_correct by simp
-  have "snd (pop2 b) = pop (snd (pop b))"
-    by (metis (no_types, lifting) case_prod_beta' pop2.elims prod.exhaust_sel snd_conv)
-  from this i show "cb \<in> \<gamma>_word (fst (snd (pop2 b)))" using pop_return_correct by auto
-qed
-
-lemma pop2_return_a_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> ca \<in> \<gamma>_word (fst (pop2 b))"
-  by (metis (no_types, lifting) case_prod_beta' fst_conv pop2.elims pop_return_correct)
-
-fun pop2_push :: "('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> 'b \<Rightarrow> 'b" where
-  "pop2_push f stack =
-    (let (a, b, rstack) = pop2 stack
-    in push rstack (f a b))"
-
-lemma[simp]: "pop2_push f stack =
-  push (snd (snd (pop2 stack))) (f (fst (pop2 stack)) (fst (snd (pop2 stack))))"
-  by (simp add: case_prod_beta)
-
-lemma pop2_push:
-  assumes
-    "\<And>x y a b. x \<in> \<gamma>_word a \<Longrightarrow> y \<in> \<gamma>_word b \<Longrightarrow> (cop x y) \<in> \<gamma>_word (f a b)"
-    "a # b # rcstack \<in> \<gamma>_stack iastack"
-  shows "(cop a b) # rcstack \<in> \<gamma>_stack (pop2_push f iastack)"
-  using assms pop2_stack_correct pop2_return_b_correct pop2_return_a_correct
-    by (smt case_prod_beta' pop2_push.elims push_correct)
 
 fun \<gamma>_smart :: "('a, 'b) smart \<Rightarrow> collect_state set" where
   "\<gamma>_smart None = \<bottom>" |
@@ -264,8 +213,8 @@ proof (cases aregs)
       case 0
       from 0 have l: "regs[r := v] = v # regss" using splitregs by simp
       from 0 have r: "astore_single av r aregs = (Minor ((a \<squnion> av) # aregss))" using astore_single_0 Cons.prems(1) by blast
-      from l r show ?thesis using Cons using splitregs
-        by (smt Un_iff \<gamma>_regs.simps(2) \<gamma>_regs_list.simps(2) in_mono mem_Collect_eq mono_gamma regs_cons sup_ge2)
+      from l r show ?thesis using Cons splitregs
+        by (smt Un_iff \<gamma>_regs.simps(2) \<gamma>_regs_list_def \<gamma>_list.simps(2) in_mono mem_Collect_eq mono_gamma regs_cons sup_ge2)
     next
       case (Suc rn)
       have eq: "regss[rn := v] \<in> \<gamma>_regs (Minor (aregss[rn := (aregss ! rn) \<squnion> av]))"
@@ -850,7 +799,7 @@ qed
 
 end
 
-sublocale AbsStack \<subseteq> AbsInt
+sublocale AbsStack \<subseteq> Smart: AbsInt
   where \<gamma> = "\<gamma>_smart"
     and ai_step = step_smart
 proof (standard, goal_cases)
@@ -875,5 +824,10 @@ next
   case (4 op ipc pc)
   then show ?case by simp
 qed
+
+context AbsStack
+begin
+abbreviation "ai_loop \<equiv> Smart.ai_loop"
+end
 
 end

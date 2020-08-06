@@ -3,6 +3,7 @@ theory AbsInt_Test
     "HOL.String"
     AbsInt_Refine
     Uppaal_Networks.UPPAAL_Asm_Show
+    Word_Set
 begin
 
 instantiation dumb_base :: "show"
@@ -27,19 +28,25 @@ HALT
 definition "myprog \<equiv> assemble myprog_listing"
 
 definition "dumb_entry \<equiv> merge_single (\<bottom>::dumb state_map) 0 (Some Any)"
-
 definition "dumb_stepped \<equiv>
   finite_step_map step_dumb (fetch_op myprog) dumb_entry"
 value "lookup (dump_stepped::dumb state_map) 0"
-
 definition "dumb_advanced \<equiv>
   finite_advance step_dumb (fetch_op myprog) dumb_entry"
-
 definition "dumb_result \<equiv>
   Dumb.ai_loop (fetch_op myprog) 100 dumb_entry"
-
 definition "abs_res_str \<equiv> String.implode (show (DisplayCtx myprog dumb_result))"
 ML \<open>val _ = writeln (@{code abs_res_str})\<close>
+
+definition "set_entry \<equiv> merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse))"
+definition "set_result \<equiv> WordSet.ai_loop (fetch_op myprog) 3 set_entry"
+definition "set_res_str \<equiv> String.implode (show (DisplayCtx myprog set_result))"
+ML \<open>val _ = writeln (@{code set_res_str})\<close>
+
+
+
+
+
 
 (*
 Ugly hack for visualizing collecting semantics:
