@@ -1,5 +1,5 @@
 theory Toption
-  imports Main Uppaal_Networks.Notation
+  imports Main Uppaal_Networks.Notation PowerBool
 begin
 
 text\<open>@{type option}-like type adding a top element.\<close>
@@ -65,5 +65,46 @@ qed
 end
 
 instantiation toption :: (bounded_semilattice_sup_bot) "bounded_semilattice_sup_bot" begin instance .. end
+
+fun \<gamma>_toption :: "('a \<Rightarrow> 'b set) \<Rightarrow> 'a toption \<Rightarrow> 'b set" where
+  "\<gamma>_toption \<gamma> Top = \<top>" |
+  "\<gamma>_toption \<gamma> (Minor a) = \<gamma> a"
+
+lemma \<gamma>_toption_mono:
+  assumes
+    "\<And>x y. x \<le> y \<Longrightarrow> f x \<le> f y"
+    "a \<le> b"
+  shows "\<gamma>_toption f a \<le> \<gamma>_toption f b"
+  using assms by (cases a; cases b; simp)
+
+fun toption_contains :: "('a \<Rightarrow> 'b \<Rightarrow> bool) \<Rightarrow> 'a toption \<Rightarrow> 'b \<Rightarrow> bool" where
+  "toption_contains _ Top _ = True" |
+  "toption_contains contains (Minor a) v = contains a v"
+
+fun toption_bind :: "'a toption \<Rightarrow> ('a \<Rightarrow> 'b toption) \<Rightarrow> 'b toption" where
+  "toption_bind Top f = Top" |
+  "toption_bind (Minor a) f = f a"
+
+definition[simp]: "toption_concretize f t = toption_bind t f"
+
+fun toption_aplus :: "('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> 'a toption" where
+  "toption_aplus f (Minor a) (Minor b) = Minor (f a b)" |
+  "toption_aplus _ Top _ = Top" |
+  "toption_aplus _ _ Top = Top"
+
+fun toption_lt :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
+  "toption_lt f (Minor a) (Minor b) = f a b" |
+  "toption_lt f Top _ = BBoth" |
+  "toption_lt f _ Top = BBoth"
+
+fun toption_le :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
+  "toption_le f (Minor a) (Minor b) = f a b" |
+  "toption_le f Top _ = BBoth" |
+  "toption_le f _ Top = BBoth"
+
+fun toption_eq :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
+  "toption_eq f (Minor a) (Minor b) = f a b" |
+  "toption_eq f Top _ = BBoth" |
+  "toption_eq f _ Top = BBoth"
 
 end
