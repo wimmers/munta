@@ -98,14 +98,48 @@ fun strided_interval_concretize :: "strided_interval \<Rightarrow> int set topti
      else Minor (set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e])))"
 
 fun strided_interval_aplus_nonzero :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> strided_interval" where
-  "strided_interval_aplus_nonzero a b = undefined"
+  "strided_interval_aplus_nonzero a b =
+      (let l = lower a + lower b;
+           u = upper a + upper b;
+           s = gcd (stride a) (stride b) in
+       StridedInterval (s - 1) (l div (int s)) ((nat (u - l)) div s))"
 
 lemma strided_interval_aplus_nonzero:
   assumes
     "x \<in> \<gamma>_strided_interval a"
     "y \<in> \<gamma>_strided_interval b"
   shows
-    "x + y \<in> \<gamma>_strided_interval (strided_interval_aplus_nonzero a b)" sorry
+    "x + y \<in> \<gamma>_strided_interval (strided_interval_aplus_nonzero a b)"
+proof -
+  let ?plused = "strided_interval_aplus_nonzero a b"
+  from assms(1) have x: "lower a \<le> x \<and> x \<le> upper a \<and> int (stride a) dvd x" using \<gamma>_strided_interval.simps by blast
+  from assms(2) have y: "lower b \<le> y \<and> y \<le> upper b \<and> int (stride b) dvd y" using \<gamma>_strided_interval.simps by blast
+
+  have strideval: "stride ?plused = gcd (stride a) (stride b)" by (simp; unfold Let_def; simp add: stride_pos)
+
+  from strideval have gcd_pos: "gcd (stride a) (stride b) > 0" by (simp add: stride_pos)
+  hence gcd_sup: "1 + int (gcd (stride a) (stride b) - Suc 0) = int (gcd (stride a) (stride b))"  by (metis Suc_pred of_nat_Suc)
+
+  have lower_div: "int (gcd (stride a) (stride b)) dvd (lower a + lower b)"
+    by (metis dvd_add_left_iff dvd_def gcd_dvdI1 gcd_dvdI2 gcd_int_int_eq lower.simps mult.commute stride.simps strided_interval_concretize.cases)
+  hence lowerdiv: "(lower a + lower b) div int (gcd (stride a) (stride b)) * (int (gcd (stride a) (stride b))) = lower a + lower b" by simp
+  hence lowerval: "lower ?plused = lower a + lower b" by (simp; unfold Let_def; simp add: gcd_sup)
+
+  have upper_div: "int (gcd (stride a) (stride b)) dvd (upper a + upper b)"
+    by (metis dvd_add_left_iff dvd_def gcd_dvdI1 gcd_dvdI2 gcd_int_int_eq mult.commute stride.simps upper.elims)
+  have "(lower a + lower b) + (upper a + upper b - (lower a + lower b)) =
+    upper a + upper b" by simp
+  hence "(lower a + lower b) + (((upper a + upper b - (lower a + lower b)) div (int (gcd (stride a) (stride b))))) * (int (gcd (stride a) (stride b))) =
+    upper a + upper b" by (metis dvd_diff dvd_div_mult_self lower_div upper_div)
+  hence "(lower a + lower b) + (int (nat (upper a + upper b - (lower a + lower b)) div gcd (stride a) (stride b))) * (int (gcd (stride a) (stride b))) =
+    upper a + upper b" using x y zdiv_int by auto
+  hence upperval: "upper ?plused = upper a + upper b" by (simp; unfold Let_def; simp add: gcd_sup lowerdiv distrib_right)
+
+  have lower: "lower ?plused \<le> (x + y)" using lowerval x y by linarith
+  moreover have upper: "(x + y) \<le> upper ?plused" using upperval x y by linarith
+  moreover have stride: "int (stride ?plused) dvd (x + y)" using strideval x y by fastforce
+  ultimately show ?thesis by simp
+qed
 
 fun strided_interval_aplus :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> strided_interval" where
   "strided_interval_aplus a b =
