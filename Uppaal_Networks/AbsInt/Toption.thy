@@ -92,6 +92,11 @@ fun toption_aplus :: "('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> 'a to
   "toption_aplus _ Top _ = Top" |
   "toption_aplus _ _ Top = Top"
 
+lemma toption_aplusI:
+  assumes "\<And>x y a b. x \<in> \<gamma> a \<Longrightarrow> y \<in> \<gamma> b \<Longrightarrow> (x + y) \<in> \<gamma> (aplus a b)"
+  shows "x \<in> \<gamma>_toption \<gamma> a \<Longrightarrow> y \<in> \<gamma>_toption \<gamma> b \<Longrightarrow> (x + y) \<in> \<gamma>_toption \<gamma> (toption_aplus aplus a b)"
+  using assms by (cases a; cases b; simp)
+
 fun toption_lt :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
   "toption_lt f (Minor a) (Minor b) = f a b" |
   "toption_lt f Top _ = BBoth" |

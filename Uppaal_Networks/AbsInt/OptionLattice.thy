@@ -99,6 +99,11 @@ fun option_aplus :: "('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> 'a opt
   "option_aplus _ None _ = None" |
   "option_aplus _ _ None = None"
 
+lemma option_aplusI:
+  assumes "\<And>x y a b. x \<in> \<gamma> a \<Longrightarrow> y \<in> \<gamma> b \<Longrightarrow> (x + y) \<in> \<gamma> (aplus a b)"
+  shows "x \<in> \<gamma>_option \<gamma> a \<Longrightarrow> y \<in> \<gamma>_option \<gamma> b \<Longrightarrow> (x + y) \<in> \<gamma>_option \<gamma> (option_aplus aplus a b)"
+  using assms by (cases a; cases b; simp)
+
 fun option_lt :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a option \<Rightarrow> 'a option \<Rightarrow> power_bool" where
   "option_lt f (Some a) (Some b) = f a b" |
   "option_lt _ None _ = BTrue" |

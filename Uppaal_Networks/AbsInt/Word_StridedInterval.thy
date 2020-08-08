@@ -26,6 +26,9 @@ fun lower :: "strided_interval \<Rightarrow> int" where
 fun upper :: "strided_interval \<Rightarrow> int" where
   "upper (StridedInterval s l e) = (l + int e) * int (Suc s)"
 
+fun is_zero :: "strided_interval \<Rightarrow> bool" where
+  "is_zero (StridedInterval s l e) = (l = 0 \<and> e = 0)"
+
 lemma upper_lower: "lower i \<le> upper i"
 proof -
   obtain s l e where split: "i = StridedInterval s l e" using strided_interval.exhaust by blast
@@ -53,10 +56,38 @@ fun \<gamma>_strided_interval :: "strided_interval \<Rightarrow> int set" where
 fun strided_interval_contains :: "strided_interval \<Rightarrow> int \<Rightarrow> bool" where
   "strided_interval_contains i x \<longleftrightarrow> lower i \<le> x \<and> x \<le> upper i \<and> x mod int (stride i) = 0"
 
+lemma lower_inside: "lower i \<in> \<gamma>_strided_interval i"
+proof -
+  have "int (stride i) dvd lower i" by (metis dvd_def lower.simps mult.commute stride.elims)
+  thus ?thesis using upper_lower by simp
+qed
+
+lemma upper_inside: "upper i \<in> \<gamma>_strided_interval i"
+proof -
+  have "int (stride i) dvd upper i" by (metis dvd_def mult.commute stride.simps upper.elims)
+  thus ?thesis using upper_lower by simp
+qed
+
+lemma is_zero: "is_zero i \<longleftrightarrow> \<gamma>_strided_interval i = {0}"
+proof -
+  obtain s l e where split: "i = StridedInterval s l e" using strided_interval.exhaust by blast
+  show ?thesis
+  proof (standard, goal_cases)
+    case 1
+    have "x \<in> \<gamma>_strided_interval i \<Longrightarrow> x = 0" for x using 1 split by simp
+    moreover have "0 \<in> \<gamma>_strided_interval i" using 1 split by simp
+    ultimately show ?case by blast
+  next
+    case 2
+    hence "lower i = 0 \<and> upper i = 0" using lower_inside upper_inside by blast
+    then show ?case using split by force
+  qed
+qed
+
 fun strided_interval_make :: "int \<Rightarrow> strided_interval" where
   "strided_interval_make v =
     (if v = 0
-     then StridedInterval 1 0 0
+     then StridedInterval 0 0 0
      else StridedInterval (nat (abs v) - 1) (if v < 0 then -1 else 1) 0)"
 
 definition "strided_interval_concretize_max \<equiv> 16" \<comment> \<open>Hardcoded, could be made nicer\<close>
@@ -66,8 +97,44 @@ fun strided_interval_concretize :: "strided_interval \<Rightarrow> int set topti
      then Top
      else Minor (set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e])))"
 
+fun strided_interval_aplus_nonzero :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> strided_interval" where
+  "strided_interval_aplus_nonzero a b = undefined"
+
+lemma strided_interval_aplus_nonzero:
+  assumes
+    "x \<in> \<gamma>_strided_interval a"
+    "y \<in> \<gamma>_strided_interval b"
+  shows
+    "x + y \<in> \<gamma>_strided_interval (strided_interval_aplus_nonzero a b)" sorry
+
 fun strided_interval_aplus :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> strided_interval" where
-  "strided_interval_aplus a b = undefined"
+  "strided_interval_aplus a b =
+    (if is_zero a
+     then b
+     else if is_zero b
+     then a
+     else strided_interval_aplus_nonzero a b)"
+
+lemma strided_interval_aplus:
+  assumes
+    "x \<in> \<gamma>_strided_interval a"
+    "y \<in> \<gamma>_strided_interval b"
+  shows
+    "x + y \<in> \<gamma>_strided_interval (strided_interval_aplus a b)"
+proof (cases "is_zero a")
+  case True
+  then show ?thesis using assms is_zero by auto
+next
+  case False
+  then show ?thesis using assms
+  proof (cases "is_zero b")
+    case True
+    then show ?thesis using assms is_zero by auto
+  next
+    assume bFalse: "\<not> is_zero b"
+    then show ?thesis using False assms strided_interval_aplus_nonzero by auto
+  qed
+qed
 
 fun strided_interval_lt :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> power_bool" where
   "strided_interval_lt a b = undefined"
@@ -274,7 +341,7 @@ next
   then show ?case using 6 aa split by fastforce
 next
   case (7 x a y b)
-  then show ?case sorry
+  then show ?case using option_aplusI toption_aplusI strided_interval_aplus by metis
 next
   case (8 a b)
   then show ?case sorry
