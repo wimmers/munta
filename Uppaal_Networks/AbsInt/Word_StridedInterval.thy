@@ -61,7 +61,10 @@ fun strided_interval_make :: "int \<Rightarrow> strided_interval" where
 
 definition "strided_interval_concretize_max \<equiv> 16" \<comment> \<open>Hardcoded, could be made nicer\<close>
 fun strided_interval_concretize :: "strided_interval \<Rightarrow> int set toption" where
-  "strided_interval_concretize i = Top" (* TODO *)
+  "strided_interval_concretize (StridedInterval s l e) =
+    (if e > strided_interval_concretize_max
+     then Top
+     else Minor (set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e])))"
 
 fun strided_interval_aplus :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> strided_interval" where
   "strided_interval_aplus a b = undefined"
@@ -232,11 +235,43 @@ next
   then show ?case by simp
 next
   case (5 a vs)
-  from 5 obtain aa where "a = Some (Minor aa)" by (metis option.exhaust option_concretize.simps toption.distinct(1) toption_bind.elims toption_concretize_def)
-  then show ?case using 5 by auto
+  from 5 obtain aa where aa: "a = Some (Minor aa)" by (metis option.exhaust option_concretize.simps toption.distinct(1) toption_bind.elims toption_concretize_def)
+  obtain s l e where split: "aa = StridedInterval s l e" using strided_interval.exhaust by blast
+  show ?case
+  proof (cases "e > strided_interval_concretize_max")
+    case True
+    hence "strided_interval_concretize aa = Top" using split by simp
+    hence "option_concretize (toption_concretize strided_interval_concretize) a = Top" using aa by simp
+    thus ?thesis using 5 by simp
+  next
+    case False
+    hence "strided_interval_concretize aa = Minor (set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e]))" using split by simp
+    hence vs: "vs = set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e])" using aa 5 by simp
+    have "\<gamma>_strided_interval aa \<subseteq> ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) ` (set [0..<Suc e])"
+    proof (standard, goal_cases)
+      case (1 x)
+      hence prec: "lower aa \<le> x \<and> x \<le> upper aa \<and> int (stride aa) dvd x" by simp
+      from this obtain y where y: "x = y * int (Suc s)" using split by auto
+      from y prec have l: "l \<le> y" using split by simp
+      from y prec have u: "y \<le> l + int e" using split by simp
+      hence "nat (y - l) < Suc e" by simp
+      hence ins: "nat (y - l) \<in> set [0..<Suc e]" using atLeast_upt by blast
+      have "((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) (nat (y - l)) = x" using l y by simp
+      from this ins show ?case by fastforce
+    qed
+    then show ?thesis using vs aa by simp
+  qed
 next
   case (6 a vs)
-  then show ?case by (metis option_concretize.elims strided_interval_concretize.simps toption.distinct(1) toption_bind.elims toption_concretize_def)
+  from this obtain aa where aa: "a = Some (Minor aa)" by (metis option.exhaust option_concretize.simps toption.distinct(1) toption_bind.elims toption_concretize_def)
+  obtain s l e where split: "aa = StridedInterval s l e" using strided_interval.exhaust by blast
+  have "e \<le> strided_interval_concretize_max"
+  proof (rule ccontr, goal_cases)
+    case 1
+    hence "option_concretize (toption_concretize strided_interval_concretize) a = Top" using aa split by simp
+    then show ?case using 6 by simp
+  qed
+  then show ?case using 6 aa split by fastforce
 next
   case (7 x a y b)
   then show ?case sorry
