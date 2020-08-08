@@ -10,9 +10,10 @@ Reps, Thomas and Balakrishnan, Gogul and Lim, Junghee
 \<close>
 
 text\<open>
-Strided intervals defined as stride-1, lower, upper-lower.
+Strided intervals defined as stride-1, lower/stride, (upper-lower)/stride.
 - stride-1 to avoid modulo by 0
 - upper-lower to avoid upper < lower
+- /stride for uniqueness
 \<close>
 datatype strided_interval = StridedInterval nat int nat
 
@@ -20,13 +21,17 @@ fun stride :: "strided_interval \<Rightarrow> nat" where
   "stride (StridedInterval s _ _) = Suc s"
 
 fun lower :: "strided_interval \<Rightarrow> int" where
-  "lower (StridedInterval s l _) = l"
+  "lower (StridedInterval s l _) = l * int (Suc s)"
 
 fun upper :: "strided_interval \<Rightarrow> int" where
-  "upper (StridedInterval s l e) = l + int e"
+  "upper (StridedInterval s l e) = (l + int e) * int (Suc s)"
 
-lemma upper_lower: "lower a \<le> upper a"
-  by (metis lower.simps upper.elims zle_iff_zadd)
+lemma upper_lower: "lower i \<le> upper i"
+proof -
+  obtain s l e where split: "i = StridedInterval s l e" using strided_interval.exhaust by blast
+  have "l * int s \<le> (l + int e) * int s" by (simp add: mult_right_mono)
+  thus ?thesis using split by simp
+qed
 
 lemma stride_pos: "stride i > 0"
 proof -
@@ -37,131 +42,22 @@ qed
 lemma strided_interval_eqI: "stride a = stride b \<Longrightarrow> lower a = lower b \<Longrightarrow> upper a = upper b \<Longrightarrow> a = b"
 proof -
   assume "stride a = stride b" "lower a = lower b" "upper a = upper b"
-  moreover from this obtain as al ae bs bl be where "a = StridedInterval as al ae" "b = StridedInterval bs bl be"
+  moreover obtain as al ae bs bl be where split: "a = StridedInterval as al ae" "b = StridedInterval bs bl be"
     using strided_interval.exhaust by meson
   ultimately show "a = b" by simp
 qed
 
 fun \<gamma>_strided_interval :: "strided_interval \<Rightarrow> int set" where
   "\<gamma>_strided_interval i = {x. lower i \<le> x \<and> x \<le> upper i \<and> int (stride i) dvd x}"
-(*
-fun floor :: "int \<Rightarrow> int \<Rightarrow> int" where
-  "floor s v = (v div s) * s"
-
-lemma floor:
-  assumes
-    "s > 0"
-    "x \<le> v"
-    "s dvd x"
-  shows
-    "x \<le> floor s v" using assms zdiv_mono1 by fastforce
-
-fun ceil :: "int \<Rightarrow> int \<Rightarrow> int" where
-  "ceil s v = (if s dvd v then v else (v div s + 1) * s)"
-
-lemma floor_lower:
-  "s > 0 \<Longrightarrow> floor s v \<le> v"
-  by (smt Euclidean_Division.pos_mod_sign cancel_div_mod_rules(2) floor.simps mult.commute)
-
-lemma ceil_undiv:
-  assumes
-    "s > 0"
-    "\<not> s dvd (v::int)"
-    "v \<le> x"
-    "s dvd x"
-  shows
-    "(v div s + 1) * s \<le> x"
-proof -
-  have "v div s < x div s" using assms by (smt cancel_div_mod_rules(2) dvd_mult_div_cancel mod_int_pos_iff mult_left_mono)
-  thus ?thesis using assms dvd_add by auto
-qed
-
-lemma ceil:
-  assumes
-    "s > 0"
-    "(x::int) \<ge> v"
-    "s dvd x"
-  shows
-    "ceil s v \<le> x"
-  using assms ceil_undiv by simp
-
-lemma ceil_ge:
-  assumes "s > 0"
-  shows "v \<le> ceil s v"
-proof (cases "s dvd v")
-  case False
-  have "v \<le> (v div s + 1) * s" using assms by (smt mult.commute nonzero_mult_div_cancel_left zdiv_mono1)
-  then show ?thesis by simp
-qed simp
-
-fun pack :: "strided_interval \<Rightarrow> strided_interval" where
-  "pack i =
-    (let nl = ceil (int (stride i)) (lower i);
-         nu = floor (int (stride i)) (upper i)
-     in StridedInterval (stride i - 1) nl (nat (nu - nl)))"
-
-lemma pack_stride: "stride (pack i) = stride i"
-  using stride_pos by (simp; unfold Let_def; simp)
-
-lemma pack_lower: "lower (pack i) = ceil (int (stride i)) (lower i)"
-  by (simp; unfold Let_def; simp)
-
-lemma pack_upper: "upper (pack i) \<ge> floor (int (stride i)) (upper i)"
-  by (simp; unfold Let_def; simp)
-
-lemma pack_upper2:
-  assumes "\<gamma>_strided_interval i \<noteq> {}"
-  shows "upper (pack i) = floor (int (stride i)) (upper i)"
-proof -
-  from assms obtain x where "lower i \<le> x" "x \<le> upper i" "(int (stride i)) dvd x" by auto
-  thus ?thesis by (smt ceil floor int_nat_eq of_nat_0_less_iff pack.simps stride_pos upper.simps)
-qed
-
-lemma pack_upper2_bwd:
-  assumes "\<gamma>_strided_interval (pack i) \<noteq> {}"
-  shows "upper (pack i) \<le> floor (int (stride i)) (upper i)"
-proof -
-  from assms obtain x where "lower (pack i) \<le> x" "x \<le> upper (pack i)" "(int (stride (pack i))) dvd x" by auto
-  show ?thesis sorry
-qed
-
-lemma strided_interval_pack_preserve: "\<gamma>_strided_interval (pack i) = \<gamma>_strided_interval i"
-proof (intro Set.equalityI Set.subsetI, goal_cases)
-  case (1 x)
-  hence inpack: "lower (pack i) \<le> x \<and> x \<le> upper (pack i) \<and> int (stride (pack i)) dvd x" by simp
-  from inpack have "lower i \<le> x" using ceil_ge by (smt of_nat_0_less_iff pack_lower stride_pos)
-  moreover from inpack have "x \<le> upper i"
-  proof -
-    have "floor (int (stride i)) (upper i) \<le> upper i" using floor_lower stride_pos by simp
-    thus ?thesis by (smt "1" equals0D inpack pack_upper2_bwd)
-  qed
-  moreover from inpack have "int (stride i) dvd x" using pack_stride by simp
-  ultimately show ?case by simp
-next
-  case (2 x)
-  hence ini: "lower i \<le> x \<and> x \<le> upper i \<and> int (stride i) dvd x" by simp
-  from ini have "lower (pack i) \<le> x"
-  proof -
-    have "0 < int (stride i)" using stride_pos by simp
-    moreover have "lower i \<le> x" using ini by blast
-    moreover have "(int (stride i)) dvd x" using ini by (simp add: mod_0_imp_dvd)
-    ultimately have "ceil (int (stride i)) (lower i) \<le> x" by (rule ceil)
-    thus ?thesis using pack_lower by simp
-  qed
-  moreover from ini have "x \<le> upper (pack i)"
-  proof -
-    have "x \<le> floor (int (stride i)) (upper i)" using floor ini stride_pos by auto
-    thus ?thesis using pack_upper2 dual_order.trans pack_upper by blast
-  qed
-  moreover from ini have "int (stride (pack i)) dvd x" using pack_stride by simp
-  ultimately show ?case by simp
-qed*)
 
 fun strided_interval_contains :: "strided_interval \<Rightarrow> int \<Rightarrow> bool" where
   "strided_interval_contains i x \<longleftrightarrow> lower i \<le> x \<and> x \<le> upper i \<and> x mod int (stride i) = 0"
 
 fun strided_interval_make :: "int \<Rightarrow> strided_interval" where
-  "strided_interval_make v = StridedInterval (nat (abs v)) v 0"
+  "strided_interval_make v =
+    (if v = 0
+     then StridedInterval 1 0 0
+     else StridedInterval (nat (abs v) - 1) (if v < 0 then -1 else 1) 0)"
 
 definition "strided_interval_concretize_max \<equiv> 16" \<comment> \<open>Hardcoded, could be made nicer\<close>
 fun strided_interval_concretize :: "strided_interval \<Rightarrow> int set toption" where
@@ -180,7 +76,7 @@ fun strided_interval_eq :: "strided_interval \<Rightarrow> strided_interval \<Ri
   "strided_interval_eq a b = undefined"
 
 lemma strided_interval_make_exact: "\<gamma>_strided_interval (strided_interval_make v) = {v}"
-  by (intro Set.equalityI Set.subsetI; simp)
+  by (intro Set.equalityI Set.subsetI; cases "v = 0"; auto)
 
 instantiation strided_interval :: semilattice_sup
 begin
@@ -194,8 +90,80 @@ begin
   fun sup_strided_interval :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> strided_interval" where
     "sup_strided_interval a b =
       (let l = (min (lower a) (lower b));
-           u = (max (upper a) (upper b)) in
-       StridedInterval (gcd (stride a) (stride b)) l (nat (u - l)))"
+           u = (max (upper a) (upper b));
+           s = gcd (stride a) (stride b) in
+       StridedInterval (s - 1) (l div (int s)) ((nat (u - l)) div s))"
+
+  lemma sup_stride: "stride (a \<squnion> b) = gcd (stride a) (stride b)"
+    by (simp; unfold Let_def; simp add: stride_pos)
+
+  lemma dvd_lower_ab: "(int (gcd (stride a) (stride b))) dvd (min (lower a) (lower b))"
+  proof -
+    let ?s = "gcd (stride a) (stride b)"
+    let ?l = "min (lower a) (lower b)"
+    show ?thesis
+    proof (cases "lower a < lower b")
+      case True
+      hence "?l = lower a" by simp
+      hence "int (stride a) dvd ?l" by (metis dvd_def lower.simps mult.commute stride.elims)
+      then show ?thesis by auto
+    next
+      case False
+      hence "?l = lower b" by simp
+      hence "int (stride b) dvd ?l" by (metis dvd_def lower.simps mult.commute stride.elims)
+      then show ?thesis by auto
+    qed
+  qed
+
+  lemma sup_lower: "lower (a \<squnion> b) = min (lower a) (lower b)"
+  proof -
+    let ?s = "gcd (stride a) (stride b)"
+    let ?l = "min (lower a) (lower b)"
+    have "lower (a \<squnion> b) = (?l div (int ?s)) * (int ?s)"
+      using int_ops(6) by (simp; unfold Let_def; simp)
+    moreover have "(int ?s) dvd ?l" by (rule dvd_lower_ab)
+    ultimately show ?thesis by auto
+  qed
+
+  lemma sup_upper: "upper (a \<squnion> b) = max (upper a) (upper b)"
+  proof -
+    let ?s = "gcd (stride a) (stride b)"
+    let ?u = "max (upper a) (upper b)"
+    have udiv: "(int ?s) dvd ?u"
+    proof (cases "upper a < upper b")
+      case True
+      hence "?u = upper b" by simp
+      hence "int (stride b) dvd ?u" by (metis dvd_def upper.simps mult.commute stride.elims)
+      then show ?thesis by auto
+    next
+      case False
+      hence "?u = upper a" by simp
+      hence "int (stride a) dvd ?u" by (metis dvd_def upper.simps mult.commute stride.elims)
+      then show ?thesis by auto
+    qed
+    moreover have "upper (a \<squnion> b) = (?u div (int ?s)) * (int ?s)"
+    proof -
+      let ?l = "min (lower a) (lower b)"
+      have ldiv: "(int ?s) dvd ?l" by (rule dvd_lower_ab)
+      obtain s l e where split: "a \<squnion> b = StridedInterval s l e" using strided_interval.exhaust by blast
+      have lower_l: "lower (a \<squnion> b) = ?l" using sup_lower split by blast
+      have lower_suc: "lower (a \<squnion> b) = l * int (Suc s)" using split by simp
+      have "stride (a \<squnion> b) = Suc s" using split by simp
+      hence "Suc s = ?s" using sup_stride by metis
+      hence lower_complete: "lower (a \<squnion> b) = l * int ?s" using lower_suc by simp
+      from split have "e = ((nat (?u - ?l)) div ?s)" by (simp; unfold Let_def; simp)
+      hence "upper (a \<squnion> b) = (l + int ((nat (?u - ?l)) div ?s)) * int (?s)" using split sup_stride by (metis stride.simps upper.simps)
+      hence "upper (a \<squnion> b) = l * int ?s + (int ((nat (?u - ?l)) div ?s)) * int ?s" using distrib_right by auto
+      hence "upper (a \<squnion> b) = l * int ?s + ((?u - ?l) div int ?s) * int ?s" by (smt nat_0_le upper_lower zdiv_int)
+      hence "upper (a \<squnion> b) = l * int ?s + (?u div int ?s - ?l div int ?s) * int ?s" by (simp add: dvd_lower_ab udiv)
+      hence "upper (a \<squnion> b) = l * int ?s + (?u div int ?s) * int ?s - (?l div int ?s) * int ?s" using int_distrib(3) by auto
+      hence "upper (a \<squnion> b) = l * int ?s + (?u div int ?s) * int ?s - ?l" using ldiv by auto
+      hence "upper (a \<squnion> b) = ?l + (?u div int ?s) * int ?s - ?l" using lower_l lower_complete by simp
+      thus ?thesis by (simp add: udiv)
+    qed
+    ultimately show ?thesis by auto
+  qed
+
 instance proof (standard, goal_cases)
   case (1 x y)
   then show ?case by simp
@@ -213,23 +181,15 @@ next
   ultimately show ?case by (rule strided_interval_eqI)
 next
   case (5 x y)
-  show ?case by (simp; unfold Let_def; auto)
+  show ?case using sup_stride sup_lower sup_upper by simp
 next
   case (6 y x)
-  show ?case by (simp; unfold Let_def; auto)
+  show ?case using sup_stride sup_lower sup_upper by simp
 next
   case (7 y x z)
-  from 7 have "stride (y \<squnion> z) mod stride x = 0" by (simp; unfold Let_def; auto)
-  moreover from 7 have lower: "lower x \<le> lower (y \<squnion> z)" by (simp; unfold Let_def; auto)
-  moreover from 7 have "upper (y \<squnion> z) \<le> upper x"
-  proof -
-    let ?l = "min (lower y) (lower z)"
-    let ?u = "max (upper y) (upper z)"
-    let ?e = "nat (?u - ?l)"
-    have "upper (y \<squnion> z) = ?l + int ?e" by (metis sup_strided_interval.simps upper.simps)
-    hence "upper (y \<squnion> z) = ?u" using upper_lower by (smt nat_0_le)
-    thus ?thesis using 7 7 by auto
-  qed
+  from 7 have "stride (y \<squnion> z) mod stride x = 0" using sup_stride by auto
+  moreover from 7 have lower: "lower x \<le> lower (y \<squnion> z)" using sup_lower by simp
+  moreover from 7 have "upper (y \<squnion> z) \<le> upper x" using sup_upper by simp
   ultimately show ?case by simp
 qed
 end
@@ -240,7 +200,7 @@ proof (intro Set.subsetI, goal_cases)
   hence p: "lower x \<le> v \<and> v \<le> upper x \<and> v mod int (stride x) = 0" by simp
   from assms have "int (stride x) mod int (stride y) = 0" by auto
   from p this have "v mod int (stride y) = 0" by auto
-  from p this show ?case using assms by simp
+  from p this show ?case using assms by auto
 qed
 
 type_synonym strided_interval_word = "strided_interval toption option"
@@ -265,7 +225,7 @@ next
   then show ?case
   proof (cases a)
     case (Some aa)
-    then show ?thesis by (cases aa; simp)
+    then show ?thesis by (cases aa; auto)
   qed simp
 next
   case (4 v)
