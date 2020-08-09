@@ -97,19 +97,82 @@ lemma toption_aplusI:
   shows "x \<in> \<gamma>_toption \<gamma> a \<Longrightarrow> y \<in> \<gamma>_toption \<gamma> b \<Longrightarrow> (x + y) \<in> \<gamma>_toption \<gamma> (toption_aplus aplus a b)"
   using assms by (cases a; cases b; simp)
 
-fun toption_lt :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
-  "toption_lt f (Minor a) (Minor b) = f a b" |
-  "toption_lt f Top _ = BBoth" |
-  "toption_lt f _ Top = BBoth"
+fun toption_lift_bool :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
+  "toption_lift_bool f (Minor a) (Minor b) = f a b" |
+  "toption_lift_bool f Top _ = BBoth" |
+  "toption_lift_bool f _ Top = BBoth"
+
+lemma toption_lift_bool:
+  assumes "\<And>a b. (if \<forall>x y. x \<in> \<gamma> a \<longrightarrow> y \<in> \<gamma> b \<longrightarrow> cop x y then BTrue
+                   else if \<exists>x y. x \<in> \<gamma> a \<and> y \<in> \<gamma> b \<and> cop x y then BBoth
+                   else BFalse) \<le> f a b"
+  shows "(if \<forall>x y. x \<in> (\<gamma>_toption \<gamma>) a \<longrightarrow> y \<in> (\<gamma>_toption \<gamma>) b \<longrightarrow> cop x y then BTrue
+          else if \<exists>x y. x \<in> (\<gamma>_toption \<gamma>) a \<and> y \<in> (\<gamma>_toption \<gamma>) b \<and> cop x y then BBoth
+          else BFalse) \<le> (toption_lift_bool f) a b"
+proof (cases a)
+  case (Minor x2)
+  then show ?thesis
+  proof (cases b)
+    fix x1 assume ass: "b = Minor x1"
+    hence "\<And>f. \<gamma>_toption f b = (f x1::'b set)" by auto
+    moreover have "\<And>f. \<gamma>_toption f a = (f x2::'b set)" by (simp add: Minor)
+    moreover have "\<And>f. toption_lift_bool f a b = f x2 x1" by (simp add: Minor ass)
+    ultimately show ?thesis using assms by presburger
+  qed simp
+qed simp
 
 fun toption_le :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
   "toption_le f (Minor a) (Minor b) = f a b" |
   "toption_le f Top _ = BBoth" |
   "toption_le f _ Top = BBoth"
 
+lemma toption_le_complete:
+  assumes "\<And>a b. (if \<forall>x y. x \<in> \<gamma> a \<longrightarrow> y \<in> \<gamma> b \<longrightarrow> x \<le> y then BTrue
+                   else if \<exists>x y. x \<in> \<gamma> a \<and> y \<in> \<gamma> b \<and> x \<le> y then BBoth
+                   else BFalse) \<le> le a b"
+  shows "(if \<forall>x y. x \<in> (\<gamma>_toption \<gamma>) a \<longrightarrow> y \<in> (\<gamma>_toption \<gamma>) b \<longrightarrow> x \<le> y then BTrue
+          else if \<exists>x y. x \<in> (\<gamma>_toption \<gamma>) a \<and> y \<in> (\<gamma>_toption \<gamma>) b \<and> x \<le> y then BBoth
+          else BFalse) \<le> (toption_le le) a b"
+proof (cases a)
+  case (Minor x2)
+  then show ?thesis
+  proof (cases b)
+    fix x1 assume ass: "b = Minor x1"
+    then show ?thesis
+    proof -
+      have "\<And>f. \<gamma>_toption f b = (f x1::'b set)" using ass by auto
+      moreover have "\<And>f. \<gamma>_toption f a = (f x2::'b set)" by (simp add: Minor)
+      moreover have "\<And>f. toption_le f a b = f x2 x1" by (simp add: Minor ass)
+      ultimately show ?thesis using assms by presburger
+    qed
+  qed simp
+qed simp
+
 fun toption_eq :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> 'a toption \<Rightarrow> 'a toption \<Rightarrow> power_bool" where
   "toption_eq f (Minor a) (Minor b) = f a b" |
   "toption_eq f Top _ = BBoth" |
   "toption_eq f _ Top = BBoth"
+
+lemma toption_eq_complete:
+  assumes "\<And>a b. (if \<forall>x y. x \<in> \<gamma> a \<longrightarrow> y \<in> \<gamma> b \<longrightarrow> x = y then BTrue
+                   else if \<exists>x y. x \<in> \<gamma> a \<and> y \<in> \<gamma> b \<and> x = y then BBoth
+                   else BFalse) \<le> eq a b"
+  shows "(if \<forall>x y. x \<in> (\<gamma>_toption \<gamma>) a \<longrightarrow> y \<in> (\<gamma>_toption \<gamma>) b \<longrightarrow> x = y then BTrue
+          else if \<exists>x y. x \<in> (\<gamma>_toption \<gamma>) a \<and> y \<in> (\<gamma>_toption \<gamma>) b \<and> x = y then BBoth
+          else BFalse) \<le> (toption_eq eq) a b"
+proof (cases a)
+  case (Minor x2)
+  then show ?thesis
+  proof (cases b)
+    fix x1 assume ass: "b = Minor x1"
+    then show ?thesis
+    proof -
+      have "\<And>f. \<gamma>_toption f b = (f x1::'b set)" using ass by auto
+      moreover have "\<And>f. \<gamma>_toption f a = (f x2::'b set)" by (simp add: Minor)
+      moreover have "\<And>f. toption_eq f a b = f x2 x1" by (simp add: Minor ass)
+      ultimately show ?thesis using assms by presburger
+    qed
+  qed simp
+qed simp
 
 end

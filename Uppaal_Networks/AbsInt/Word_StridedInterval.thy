@@ -7,6 +7,9 @@ subsection\<open>Strided Intervals\<close>
 text\<open>
 Intermediate-representation recovery from low-level code
 Reps, Thomas and Balakrishnan, Gogul and Lim, Junghee
+
+Strided intervals are commonly denoted as stride[lower, upper]
+See @{term \<gamma>_strided_interval} for the semantics.
 \<close>
 
 text\<open>
@@ -171,13 +174,100 @@ next
 qed
 
 fun strided_interval_lt :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> power_bool" where
-  "strided_interval_lt a b = undefined"
+  "strided_interval_lt a b =
+    (if upper a < lower b
+     then BTrue
+     else if upper b \<le> lower a
+     then BFalse
+     else BBoth)"
 
 fun strided_interval_le :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> power_bool" where
-  "strided_interval_le a b = undefined"
+  "strided_interval_le a b =
+    (if upper a \<le> lower b
+     then BTrue
+     else if upper b < lower a
+     then BFalse
+     else BBoth)"
 
 fun strided_interval_eq :: "strided_interval \<Rightarrow> strided_interval \<Rightarrow> power_bool" where
-  "strided_interval_eq a b = undefined"
+  "strided_interval_eq a b =
+    (if upper a \<le> lower b \<and> upper b \<le> lower a
+     then BTrue
+     else if upper a < lower b \<or> upper b < lower a \<comment> \<open>a case like 2[0,2] 1[1,1] will currently be overapproximated by BBoth\<close>
+     then BFalse
+     else BBoth)"
+
+lemma strided_interval_lt: "strided_interval_lt a b =
+                            (if \<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x < y then BTrue
+                             else if \<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x < y then BBoth
+                             else BFalse)"
+proof (cases "\<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x < y")
+  case True
+  then have "strided_interval_lt a b = BTrue" using lower_inside upper_inside by auto
+  then show ?thesis using True by simp
+next
+  case False
+  then show ?thesis
+  proof (cases "\<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x < y")
+    case True
+    thus ?thesis using False by auto
+  next
+    case False
+    thus ?thesis by (smt lower_inside strided_interval_lt.simps upper_inside)
+  qed
+qed
+
+lemma strided_interval_lt_over: "(if \<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x < y then BTrue
+                             else if \<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x < y then BBoth
+                             else BFalse) \<le> strided_interval_lt a b" using strided_interval_lt by simp
+
+lemma strided_interval_le: "strided_interval_le a b = (if \<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x \<le> y then BTrue
+                             else if \<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x \<le> y then BBoth
+                             else BFalse)"
+proof (cases "\<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x \<le> y")
+  case True
+  then have "strided_interval_le a b = BTrue" using lower_inside upper_inside
+    using strided_interval_le.simps by presburger
+  then show ?thesis using True by presburger
+next
+  case False
+  then show ?thesis
+  proof (cases "\<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x \<le> y")
+    case True
+    thus ?thesis using False by auto
+  next
+    case False
+    thus ?thesis by (smt lower_inside strided_interval_le.simps upper_inside)
+  qed
+qed
+
+lemma strided_interval_le_over: "(if \<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x \<le> y then BTrue
+                             else if \<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x \<le> y then BBoth
+                             else BFalse) \<le> strided_interval_le a b" using strided_interval_le by simp
+
+lemma strided_interval_eq: "(if \<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x = y then BTrue
+                             else if \<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x = y then BBoth
+                             else BFalse) \<le> strided_interval_eq a b"
+proof (cases "\<forall>x y. x \<in> \<gamma>_strided_interval a \<longrightarrow> y \<in> \<gamma>_strided_interval b \<longrightarrow> x = y")
+  case True
+  then have "strided_interval_eq a b = BTrue" using lower_inside upper_inside by fastforce
+  then show ?thesis using True by simp
+next
+  case False
+  hence fa: "\<not>(upper a \<le> lower b \<and> upper b \<le> lower a)" by auto
+  then show ?thesis
+  proof (cases "\<exists>x y. x \<in> \<gamma>_strided_interval a \<and> y \<in> \<gamma>_strided_interval b \<and> x = y")
+    case True
+    thus ?thesis using False by auto
+  next
+    case False
+    thus ?thesis proof (cases "upper a < lower b \<or> upper b < lower a")
+      assume ass: "upper a < lower b \<or> upper b < lower a"
+      from fa ass have "strided_interval_eq a b = BFalse" by simp
+      then show ?thesis by (smt False less_eq_power_bool.simps(3) lower_inside)
+    qed simp
+  qed
+qed
 
 lemma strided_interval_make_exact: "\<gamma>_strided_interval (strided_interval_make v) = {v}"
   by (intro Set.equalityI Set.subsetI; cases "v = 0"; auto)
@@ -315,9 +405,9 @@ global_interpretation WordStridedInterval: AbsWord
     and make = "Some \<circ> Minor \<circ> strided_interval_make"
     and concretize = "option_concretize (toption_concretize strided_interval_concretize)"
     and aplus = "option_aplus (toption_aplus strided_interval_aplus)"
-    and lt = "option_lt (toption_lt strided_interval_lt)"
-    and le = "option_le (toption_le strided_interval_le)"
-    and eq = "option_eq (toption_eq strided_interval_eq)"
+    and lt = "option_lift_bool (toption_lift_bool strided_interval_lt)"
+    and le = "option_lift_bool (toption_lift_bool strided_interval_le)"
+    and eq = "option_lift_bool (toption_lift_bool strided_interval_eq)"
 proof (standard, goal_cases)
   case (1 a b)
   then show ?case using \<gamma>_option_mono \<gamma>_toption_mono mono_def \<gamma>_strided_interval_mono 1 by blast
@@ -378,13 +468,13 @@ next
   then show ?case using option_aplusI toption_aplusI strided_interval_aplus by metis
 next
   case (8 a b)
-  then show ?case sorry
+  then show ?case using option_toption_lift_bool strided_interval_lt_over by blast
 next
   case (9 a b)
-  then show ?case sorry
+  then show ?case using option_toption_lift_bool strided_interval_le_over by blast
 next
   case (10 a b)
-  then show ?case sorry
+  then show ?case using option_toption_lift_bool strided_interval_eq by blast
 qed
 
 end

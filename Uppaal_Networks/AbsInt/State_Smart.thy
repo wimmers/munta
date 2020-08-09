@@ -152,9 +152,9 @@ fun cmp_op :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> addr
 
 lemma cmp_op:
   assumes
-    "\<And>c d. f c d = (if \<forall>x y. x \<in> \<gamma>_word c \<longrightarrow> y \<in> \<gamma>_word d \<longrightarrow> op x y then BTrue
-                else if \<exists>x y. x \<in> \<gamma>_word c \<longrightarrow> y \<in> \<gamma>_word d \<longrightarrow> op x y then BBoth
-                else BFalse)"
+    "\<And>c d. (if \<forall>x y. x \<in> \<gamma>_word c \<longrightarrow> y \<in> \<gamma>_word d \<longrightarrow> op x y then BTrue
+                else if \<exists>x y. x \<in> \<gamma>_word c \<and> y \<in> \<gamma>_word d \<and> op x y then BBoth
+                else BFalse) \<le> f c d"
     "(a # b # rstack, icregs, icflag, icrs) \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))"
   shows
     "(rstack, icregs, op a b, icrs) \<in> \<gamma>_smart (lookup (cmp_op f ipc (Smart iastack iaregs iaflag)) (Suc ipc))"
@@ -167,7 +167,7 @@ proof -
   have lookup: "lookup (cmp_op f ipc (Smart iastack iaregs iaflag)) (Suc ipc) = ?oastate" using single_lookup by (metis (mono_tags, lifting) case_prod_beta' cmp_op.simps)
 
   from istack have ostack: "rstack \<in> \<gamma>_stack (snd (snd (pop2 iastack)))" using pop2_stack_correct by blast
-  from assms(1) istack have oflag: "op a b \<in> \<gamma>_power_bool (f (fst (pop2 iastack)) (fst (snd (pop2 iastack))))" using pop2_return_a_correct pop2_return_b_correct by auto
+  from assms(1) istack have oflag: "op a b \<in> \<gamma>_power_bool (f (fst (pop2 iastack)) (fst (snd (pop2 iastack))))" using pop2_return_a_correct pop2_return_b_correct mono_gamma_power_bool by fastforce
   from ostack iregs oflag have "(rstack, icregs, op a b, icrs) \<in> \<gamma>_smart ?oastate" by (rule in_gamma_smartI)
 
   from this lookup show ?thesis by simp

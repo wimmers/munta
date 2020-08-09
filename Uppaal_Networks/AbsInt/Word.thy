@@ -23,15 +23,15 @@ assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma>_word a \<le> \<gamma>_
   and concretize_correct: "concretize a = Minor vs \<Longrightarrow> \<gamma>_word a \<subseteq> vs"
   and concretize_finite: "concretize a = Minor vs \<Longrightarrow> finite vs"
   and plus_correct: "x \<in> \<gamma>_word a \<Longrightarrow> y \<in> \<gamma>_word b \<Longrightarrow> (x + y) \<in> \<gamma>_word (aplus a b)"
-  and lt_correct: "lt a b = (     if \<forall>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x < y then BTrue
-                             else if \<exists>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x < y then BBoth
-                             else BFalse)"
-  and le_correct: "le a b = (     if \<forall>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x \<le> y then BTrue
-                             else if \<exists>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x \<le> y then BBoth
-                             else BFalse)"
-  and eq_correct: "eq a b = (     if \<forall>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x = y then BTrue
-                             else if \<exists>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x = y then BBoth
-                             else BFalse)"
+  and lt_correct: "(if \<forall>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x < y then BTrue
+                    else if \<exists>x y. x \<in> \<gamma>_word a \<and> y \<in> \<gamma>_word b \<and> x < y then BBoth
+                    else BFalse) \<le> lt a b"
+  and le_correct: "(if \<forall>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x \<le> y then BTrue
+                    else if \<exists>x y. x \<in> \<gamma>_word a \<and> y \<in> \<gamma>_word b \<and> x \<le> y then BBoth
+                    else BFalse) \<le> le a b"
+  and eq_correct: "(if \<forall>x y. x \<in> \<gamma>_word a \<longrightarrow> y \<in> \<gamma>_word b \<longrightarrow> x = y then BTrue
+                    else if \<exists>x y. x \<in> \<gamma>_word a \<and> y \<in> \<gamma>_word b \<and> x = y then BBoth
+                    else BFalse) \<le> eq a b"
 begin
 
 fun word_of :: "power_bool \<Rightarrow> 'a" where
