@@ -4,7 +4,7 @@ begin
 
 class absstack = bounded_semilattice_sup_bot + order_top
 
-locale AbsStack =
+locale Abs_Stack =
   fixes \<gamma>_word :: "('a::absword) \<Rightarrow> int set" and
         \<gamma>_stack :: "('b::absstack) \<Rightarrow> stack set" and
         push :: "'b \<Rightarrow> ('a::absword) \<Rightarrow> 'b" and

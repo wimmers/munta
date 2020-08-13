@@ -33,7 +33,7 @@ fun step_dumb :: "dumb astep" where
   "step_dumb HALT ipc ins          = \<bottom>" |
   "step_dumb _ ipc ins             = single (Suc ipc) (Some Any)"
 
-global_interpretation Dumb: AbsInt
+global_interpretation Dumb: Abs_Int
   where \<gamma> = \<gamma>_dumb
     and ai_step = step_dumb
   defines dumb_loop = Dumb.ai_loop

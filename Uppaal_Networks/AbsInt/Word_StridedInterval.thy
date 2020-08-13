@@ -399,7 +399,7 @@ qed
 
 type_synonym strided_interval_word = "strided_interval toption option"
 
-global_interpretation WordStridedInterval: AbsWord
+global_interpretation Word_Strided_Interval: Abs_Word
   where \<gamma>_word = "\<gamma>_option (\<gamma>_toption \<gamma>_strided_interval)"
     and contains = "option_contains (toption_contains strided_interval_contains)"
     and make = "Some \<circ> Minor \<circ> strided_interval_make"

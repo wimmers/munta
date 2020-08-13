@@ -7,7 +7,7 @@ text \<open>More specifically, abstraction for @{type val}, @{type reg} and @{ty
 
 class absword = bounded_semilattice_sup_bot + order_top
 
-locale AbsWord =
+locale Abs_Word =
 fixes \<gamma>_word :: "('a::absword) \<Rightarrow> int set"
   and contains :: "'a \<Rightarrow> int \<Rightarrow> bool"
   and make :: "int \<Rightarrow> 'a"

@@ -44,7 +44,9 @@ next
 qed
 end
 
-context AbsStack
+locale Smart_Base = Abs_Word \<gamma>_word + Abs_Stack \<gamma>_word for \<gamma>_word
+
+context Smart_Base
 begin
 
 definition[simp]: "\<gamma>_regs_list = \<gamma>_list \<gamma>_word"
@@ -587,7 +589,7 @@ proof -
       \<union> (if contains a 1 then {(Suc ipc, Some (Smart rstack iaregs (and BTrue iaflag)))} else {})"
 
     have step_mergeset: "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = deep_merge ?mergeset"
-      by (metis (no_types, lifting) AND AbsStack.step_smart_base.simps(6) AbsStack_axioms case_prod_beta' step_smart.simps(2))
+      by (metis (no_types, lifting) AND step_smart_base.simps(6) case_prod_beta' step_smart.simps(2))
 
     from ia(2) have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc)"
     proof(safe, goal_cases 1 0)
@@ -655,7 +657,7 @@ proof -
     case (PUSH v)
     from PUSH ist_split_step(2) have regs: "ocregs = icregs" using step_push(3) by blast
     from PUSH ist_split_step(2) have flag: "ocflag = icflag" using step_push(4) by blast
-    have "v # icstack \<in> \<gamma>_stack (push iastack (make v))" by (meson AbsStack.push_correct AbsStack_axioms ist_props(1) make_correct)
+    have "v # icstack \<in> \<gamma>_stack (push iastack (make v))" by (meson push_correct ist_props(1) make_correct)
     from this PUSH flag regs show ?thesis using ist_props(2) ist_props(3) ist_split ist_step(2) by auto
   next
     case POP
@@ -695,7 +697,7 @@ proof -
 
       have in_smartval: "ost \<in> \<gamma>_smart ?smartval"
       proof -
-        have stack: "ocstack \<in> \<gamma>_stack ?arstack" using AbsStack.pop2_stack_correct AbsStack_axioms ist_props(1) vr by blast
+        have stack: "ocstack \<in> \<gamma>_stack ?arstack" using pop2_stack_correct ist_props(1) vr by blast
         have flag: "ocflag \<in> \<gamma>_power_bool iaflag" using ist_props(3) static by auto
 
         have "finite (natset rs)" using Minor concretize_finite natset_finite by blast
@@ -726,7 +728,7 @@ proof -
     case COPY
     hence step: "opc = Suc ipc \<and> ocstack = (int_of icflag) # icstack \<and> ocregs = icregs \<and> ocflag = icflag \<and> ocrs = icrs" using step_copy ist_split_step(2) by blast
     have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (Some (Smart (push iastack (word_of iaflag)) iaregs iaflag))" using step
-      by (meson AbsStack.push_correct AbsStack_axioms in_gamma_smartI ist_props(1) ist_props(2) ist_props(3) word_of)
+      by (meson push_correct in_gamma_smartI ist_props(1) ist_props(2) ist_props(3) word_of)
     then show ?thesis by (simp add: COPY local.step ost_split)
   next
     case CALL
@@ -744,7 +746,7 @@ proof -
       hence "opc \<in> natset xs" by (smt CollectI Minor concretize_correct image_eqI int_nat_eq nat_int natset.elims subsetD)
       hence indmset: "(opc, ?ast) \<in> ?dmset" by blast
       have ost_gamma: "ost \<in> \<gamma>_smart ?ast"
-        using AbsStack.push_correct AbsStack_axioms ist_props(1) ist_props(2) ist_props(3) local.step make_correct ost_split pop_stack_correct rstack by fastforce
+        using push_correct ist_props(1) ist_props(2) ist_props(3) local.step make_correct ost_split pop_stack_correct rstack by fastforce
 
       let ?dm = "deep_merge ?dmset"
       have indm: "ost \<in> \<gamma>_smart (lookup ?dm opc)" by (smt indmset deep_merge_lookup gamma_smart_mono ost_gamma subsetD)
@@ -799,7 +801,7 @@ qed
 
 end
 
-sublocale AbsStack \<subseteq> Smart: AbsInt
+sublocale Smart_Base \<subseteq> Smart: Abs_Int
   where \<gamma> = "\<gamma>_smart"
     and ai_step = step_smart
 proof (standard, goal_cases)
@@ -825,7 +827,7 @@ next
   then show ?case by simp
 qed
 
-context AbsStack
+context Smart_Base
 begin
 abbreviation "ai_loop \<equiv> Smart.ai_loop"
 end

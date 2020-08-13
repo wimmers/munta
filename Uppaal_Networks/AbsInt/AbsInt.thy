@@ -296,7 +296,7 @@ fun finite_loop :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel 
 lemma finite_loop_pull: "finite_loop f prog n (finite_advance f prog st) = finite_advance f prog (finite_loop f prog n st)"
   by(induction n arbitrary: st, simp, metis finite_loop.simps(2))
 
-locale AbsInt =
+locale Abs_Int =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
   and gamma_Top[simp]: "\<gamma> \<top> = \<top>"
