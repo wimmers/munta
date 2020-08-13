@@ -11,7 +11,7 @@ instance ..
 end
 
 type_synonym 'a r_state_map = "(addr, 'a) mapping"
-datatype special_state_map = Top
+datatype special_state_map = SMTop
 
 fun r_lookup :: "('a, 'b::bot) mapping \<Rightarrow> 'a \<Rightarrow> 'b" where
   "r_lookup m = Mapping.lookup_default \<bottom> m"
@@ -20,10 +20,10 @@ instantiation mapping :: (type, "{preorder, bot}") preorder
 begin
   definition less_eq_mapping :: "('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> bool" where
   "C1 \<le> C2 \<longleftrightarrow> (\<forall>p. r_lookup C1 p \<le> r_lookup C2 p)"
-  
+
   definition less_mapping :: "('a, 'b) mapping \<Rightarrow> ('a, 'b) mapping \<Rightarrow> bool" where
   "less_mapping x y = (x \<le> y \<and> \<not> y \<le> x)"
-  
+
   instance proof (standard, goal_cases)
     case 1 show ?case by(simp add: less_mapping_def)
   next
@@ -58,7 +58,7 @@ definition "r_empty_map \<equiv> Mapping.empty::('a::bot) r_state_map"
 lemma r_bot[code]: "\<bottom> = RSM r_empty_map"
   by (rule lookup_eq; simp add: lookup_default_empty r_empty_map_def)
 
-lemma r_top[code]: "\<top> = RSMS Top" by simp
+lemma r_top[code]: "\<top> = RSMS SMTop" by simp
 
 lemma r_lookup[code]: "lookup (RSM m) = r_lookup m" by simp
 
@@ -103,7 +103,7 @@ lemma merge_single_neq:
   shows "lookup (RSM (r_merge_single m pc x)) k = lookup (RSM m) k"
 proof -
   have r: "lookup (RSM m) k = Mapping.lookup_default \<bottom> m k" by simp
-  from assms have l:"lookup (RSM (r_merge_single m pc x)) k = Mapping.lookup_default \<bottom> m k" by (simp add: lookup_default_update_neq) 
+  from assms have l:"lookup (RSM (r_merge_single m pc x)) k = Mapping.lookup_default \<bottom> m k" by (simp add: lookup_default_update_neq)
   from r l show ?thesis by simp
 qed
 
@@ -112,7 +112,7 @@ lemma merge_single_eq:
   shows "lookup (RSM (r_merge_single m pc x)) k = x \<squnion> lookup (RSM m) k"
 proof -
   have r: "x \<squnion> lookup (RSM m) k = x \<squnion> Mapping.lookup_default \<bottom> m k" by simp
-  from assms have l:"lookup (RSM (r_merge_single m pc x)) k = x \<squnion> Mapping.lookup_default \<bottom> m k" by (simp add: lookup_default_update) 
+  from assms have l:"lookup (RSM (r_merge_single m pc x)) k = x \<squnion> Mapping.lookup_default \<bottom> m k" by (simp add: lookup_default_update)
   from r l show ?thesis by simp
 qed
 
@@ -178,7 +178,7 @@ next
   qed
 qed
 
-lemma r_single_domain: 
+lemma r_single_domain:
   assumes "v \<noteq> \<bottom>"
   shows "r_domain (r_single k v) = {k}"
 proof (intro Set.equalityI Set.subsetI, goal_cases)
@@ -269,7 +269,7 @@ using assms proof(induction "sorted_list_of_set (r_domain b)" arbitrary: a b)
   then show ?case using left by simp
 next
   case (Cons x xs)
-  
+
   let ?bprev = "Mapping.update x \<bottom> b"
   let ?anext = "sup_mapping_aux b x a"
 
@@ -303,7 +303,7 @@ lemma mapping_sup_ge2:
   shows "(y::('a::linorder, 'b::bounded_semilattice_sup_bot) mapping) \<le> x \<squnion> y"
 proof(rule mapping_leI)
   fix p
-  from assms have "r_lookup (x \<squnion> y) p = r_lookup x p \<squnion> r_lookup y p" by (rule mapping_sup_lookup) 
+  from assms have "r_lookup (x \<squnion> y) p = r_lookup x p \<squnion> r_lookup y p" by (rule mapping_sup_lookup)
   thus "r_lookup y p \<le> r_lookup (x \<squnion> y) p" by simp
 qed
 
@@ -481,7 +481,7 @@ proof (rule ccontr)
   qed
   from this finite_lookup infpc finite show False by simp
 qed
-  
+
 lemma[code]: "finite_step_map (f::('a::absstate) astep) prog (RSM (Mapping tree)) = r_step_map f prog (RSM (Mapping tree))"
 proof(rule lookup_eq)
   fix pc
@@ -542,7 +542,7 @@ proof(rule lookup_eq)
           "\<not> lookup (?f ipc (fold ?f pre \<bottom>)) pc \<le> y"
           using fold_overgrowth_lookup by (metis bot_lookup r_step_map_from_grows sup.orderI sup_bot.right_neutral)
         let ?prefold = "fold ?f pre \<bottom>"
-  
+
         have "\<exists>op. Some op = prog ipc" proof (cases "prog ipc")
           case None
           hence eq: "?f ipc ?prefold = ?prefold" by simp
@@ -665,7 +665,7 @@ next
     hence lreduce: "deep_merge (set (x # xs)) = deep_merge (set xs)" using deep_merge_bot using x by blast
     have "RSM (r_deep_merge_l (x # xs) (RBT_Mapping.Mapping init)) = RSM (r_deep_merge_l xs \<bottom>) \<squnion> RSM (RBT_Mapping.Mapping init)" using r_deep_merge_l_bot
       by (metis Cons.IH True boolean_algebra_cancel.sup0 bot_mapping_def empty_Mapping r_bot r_empty_map_def x)
-    from this lreduce show ?thesis by (metis Cons.IH True r_deep_merge_l_bot x) 
+    from this lreduce show ?thesis by (metis Cons.IH True r_deep_merge_l_bot x)
   next
     case False
     hence "xv \<noteq> \<bottom> \<Longrightarrow> r_deep_merge_l (x # xs) ?init = r_deep_merge_l xs ?nextinit" using r_deep_merge_l_cons x by blast

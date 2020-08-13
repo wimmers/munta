@@ -3,7 +3,9 @@ theory AbsInt_Test
     "HOL.String"
     AbsInt_Refine
     Uppaal_Networks.UPPAAL_Asm_Show
-    Word_Set
+    Word_StridedInterval
+    Stack_Direct
+    State_Smart
 begin
 
 instantiation toption :: ("show") "show"
@@ -21,10 +23,19 @@ fun show_dumb_base :: "dumb_base \<Rightarrow> string" where
 instance ..
 end
 
+instantiation power_bool :: "show"
+begin
+fun show_power_bool :: "power_bool \<Rightarrow> string" where
+  "show_power_bool BTrue = ''BTrue''" |
+  "show_power_bool BFalse = ''BFalse''" |
+  "show_power_bool BBoth = ''BBoth''"
+instance ..
+end
+
 instantiation smart_base :: ("show", "show") "show"
 begin
 fun show_smart_base :: "('a, 'b) smart_base \<Rightarrow> string" where
-  "show_smart_base (Smart stack regs flag) = undefined"
+  "show_smart_base (Smart stack regs flag) = ''Smart '' @ show stack @ '' '' @ show regs @ '' '' @ show flag"
 instance ..
 end
 
@@ -41,10 +52,10 @@ fun show_set :: "'a set \<Rightarrow> string" where
 instance proof qed
 end
 
-instantiation int_set_base :: "show"
+instantiation strided_interval :: "show"
 begin
-fun show_int_set_base :: "int_set_base \<Rightarrow> string" where
-  "show_int_set_base (IntSet s) = show s"
+fun show_strided_interval :: "strided_interval \<Rightarrow> string" where
+  "show_strided_interval i = show (stride i) @ ''['' @ show (lower i) @ ''-'' @ show (upper i) @ '']''"
 instance ..
 end
 
@@ -73,9 +84,11 @@ definition "dumb_result \<equiv>
 definition "abs_res_str \<equiv> String.implode (show (DisplayCtx myprog dumb_result))"
 (*ML \<open>val _ = writeln (@{code abs_res_str})\<close>*)
 
-definition "set_entry \<equiv> merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse))"
-definition "set_result \<equiv> word_set_loop (fetch_op myprog) 3 set_entry"
-definition "set_res_str \<equiv> String.implode (show (DisplayCtx myprog set_result))"
+type_synonym si_state = "(strided_interval toption option, strided_interval toption option stack_direct) smart state_map"
+
+definition "set_entry \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state"
+definition "set_result \<equiv> undefined (fetch_op myprog) 3 set_entry"
+definition "set_res_str \<equiv> String.implode (show (DisplayCtx myprog set_entry))"
 ML \<open>val _ = writeln (@{code set_res_str})\<close>
 
 
