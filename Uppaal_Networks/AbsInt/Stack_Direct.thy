@@ -22,8 +22,7 @@ fun pop_stack_direct :: "('a::{bot, top}) stack_direct \<Rightarrow> ('a * 'a st
   "pop_stack_direct (Minor []) = (\<bottom>, Minor [])" |
   "pop_stack_direct (Minor (a # as)) = (a, Minor as)"
 
-locale StackDirect = AbsStack \<gamma>_word contains make concretize aplus lt le eq "\<gamma>_stack_direct \<gamma>_word" push_stack_direct pop_stack_direct
-  for \<gamma>_word contains make concretize aplus lt le eq
+locale StackDirect = AbsStack \<gamma>_word "\<gamma>_stack_direct \<gamma>_word" push_stack_direct pop_stack_direct for \<gamma>_word
 
 sublocale AbsWord \<subseteq> Direct: StackDirect
 proof(standard, goal_cases)

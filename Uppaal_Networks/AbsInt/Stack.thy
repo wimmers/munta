@@ -4,8 +4,9 @@ begin
 
 class absstack = bounded_semilattice_sup_bot + order_top
 
-locale AbsStack = AbsWord +
-  fixes \<gamma>_stack :: "('b::absstack) \<Rightarrow> stack set" and
+locale AbsStack =
+  fixes \<gamma>_word :: "('a::absword) \<Rightarrow> int set" and
+        \<gamma>_stack :: "('b::absstack) \<Rightarrow> stack set" and
         push :: "'b \<Rightarrow> ('a::absword) \<Rightarrow> 'b" and
         pop :: "'b \<Rightarrow> ('a * 'b)"
   assumes mono_gamma_stack: "a \<le> b \<Longrightarrow> \<gamma>_stack a \<le> \<gamma>_stack b"
