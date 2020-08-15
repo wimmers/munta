@@ -296,6 +296,47 @@ fun finite_loop :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel 
 lemma finite_loop_pull: "finite_loop f prog n (finite_advance f prog st) = finite_advance f prog (finite_loop f prog n st)"
   by(induction n arbitrary: st, simp, metis finite_loop.simps(2))
 
+fun finite_loop_fp :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
+  "finite_loop_fp f prog 0 st = \<top>" |
+  "finite_loop_fp f prog (Suc n) st =
+    (let next = finite_advance f prog st in
+    if next = st then next else finite_loop_fp f prog n next)"
+
+lemma finite_loop_fp_complete: "finite_loop f prog n st \<le> finite_loop_fp f prog n st"
+proof (induction n arbitrary: st)
+  case (Suc n)
+  let ?next = "finite_advance f prog st"
+  show ?case
+  proof (cases "st = ?next")
+    case True
+    hence "finite_loop f prog (Suc n) st = finite_loop f prog n st" by auto
+    moreover have "finite_loop_fp f prog (Suc n) st = st" for n using True by auto
+    ultimately show ?thesis by (metis Suc.IH finite_loop.elims order_refl)
+  next
+    case False
+    then show ?thesis by (simp add: Suc.IH)
+  qed
+qed simp
+
+lemma finite_loop_fp_supercomplete: "finite_loop f prog m st \<le> finite_loop_fp f prog n st"
+proof (induction n arbitrary: st)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  let ?next = "finite_advance f prog st"
+  show ?case
+  proof (cases "st = ?next")
+    case True
+    hence "finite_loop f prog (Suc n) st = finite_loop f prog n st" by auto
+    moreover have "finite_loop_fp f prog (Suc n) st = st" for n using True by auto
+    ultimately show ?thesis by (metis True finite_loop.simps(2) finite_loop_fp_complete)
+  next
+    case False
+    then show ?thesis by (smt Suc finite_advance.simps finite_loop_fp.simps(2) finite_loop_pull order_trans sup.cobounded1)
+  qed
+qed
+
 locale Abs_Int =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
@@ -381,6 +422,11 @@ next
   then have "loop collect_step prog n (advance collect_step prog (\<gamma>_map entry)) \<le> \<gamma>_map (finite_loop ai_step prog n (finite_advance ai_step prog entry))" using finite_loop_pull loop_pull by metis
   thus ?case by simp
 qed
+
+definition[simp, code]: "ai_loop_fp \<equiv> finite_loop_fp ai_step"
+
+theorem ai_loop_fp_correct: "collect_loop prog m (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop_fp prog n entry)"
+  by (metis (no_types, lifting) \<gamma>_map_mono ai_loop_correct ai_loop_def ai_loop_fp_def finite_loop_fp_supercomplete le_iff_sup le_sup_iff)
 
 end
 
