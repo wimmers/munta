@@ -1,11 +1,8 @@
 theory AbsInt_Test
   imports
     "HOL.String"
-    AbsInt_Refine
     Uppaal_Networks.UPPAAL_Asm_Show
-    Word_StridedInterval
-    Stack_Direct
-    State_Smart
+    AbsInt_Final
 begin
 
 instantiation toption :: ("show") "show"
@@ -84,11 +81,11 @@ definition "dumb_result \<equiv>
 definition "abs_res_str \<equiv> String.implode (show (DisplayCtx myprog dumb_result))"
 (*ML \<open>val _ = writeln (@{code abs_res_str})\<close>*)
 
-type_synonym si_state = "(strided_interval toption option, strided_interval toption option stack_direct) smart state_map"
+type_synonym si_state = "(strided_interval toption option, strided_interval toption option stack_window) smart state_map"
 
 definition "set_entry \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state"
-definition "set_result \<equiv> undefined (fetch_op myprog) 3 set_entry"
-definition "set_res_str \<equiv> String.implode (show (DisplayCtx myprog set_entry))"
+definition "set_result \<equiv> final_loop_fp (fetch_op myprog) 100 set_entry"
+definition "set_res_str \<equiv> String.implode (show (DisplayCtx myprog set_result))"
 ML \<open>val _ = writeln (@{code set_res_str})\<close>
 
 

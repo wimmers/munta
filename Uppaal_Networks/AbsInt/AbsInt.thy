@@ -409,7 +409,7 @@ proof -
   from step_le this show ?thesis by force
 qed
 
-definition[simp, code]: "ai_loop \<equiv> finite_loop ai_step"
+definition[simp]: "ai_loop \<equiv> finite_loop ai_step"
 
 theorem ai_loop_correct: "collect_loop prog n (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop prog n entry)"
 proof (induction n arbitrary: entry)
@@ -423,7 +423,7 @@ next
   thus ?case by simp
 qed
 
-definition[simp, code]: "ai_loop_fp \<equiv> finite_loop_fp ai_step"
+definition[simp]: "ai_loop_fp \<equiv> finite_loop_fp ai_step"
 
 theorem ai_loop_fp_correct: "collect_loop prog m (\<gamma>_map entry) \<le> \<gamma>_map (ai_loop_fp prog n entry)"
   by (metis (no_types, lifting) \<gamma>_map_mono ai_loop_correct ai_loop_def ai_loop_fp_def finite_loop_fp_supercomplete le_iff_sup le_sup_iff)

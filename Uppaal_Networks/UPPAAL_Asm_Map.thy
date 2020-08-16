@@ -20,14 +20,6 @@ fun single :: "addr \<Rightarrow> 'a::bot \<Rightarrow> 'a state_map" where
 
 lemma single_lookup: "lookup (single k v) k = v" by simp
 
-lemma lookup_eq: "(\<And>k. lookup a k = lookup b k) \<Longrightarrow> (a = b)"
-proof -
-  assume ass: "\<And>k. lookup a k = lookup b k"
-  obtain am bm where maps: "a = SM am" "b = SM bm" using state_map_single_constructor by blast
-  have "\<And>am bm. ((\<And>k. lookup (SM am) k = lookup (SM bm) k) \<Longrightarrow> (SM am) = (SM bm))" by (simp add: ext)
-  from this ass maps show ?thesis by auto
-qed
-
 fun domain :: "('b::bot) state_map \<Rightarrow> addr set" where
   "domain (SM m) = {a. m a \<noteq> \<bottom>}"
 
@@ -40,7 +32,7 @@ proof -
   thus "m = n" using mm nm by blast
 qed
 
-lemma "(\<forall>p. lookup m p = lookup n p) \<longleftrightarrow> m = n" using state_map_eq_fwd by auto
+lemma state_map_eq: "(\<forall>p. lookup m p = lookup n p) \<longleftrightarrow> m = n" using state_map_eq_fwd by auto
 
 instantiation state_map :: (order) order
 begin

@@ -56,7 +56,7 @@ code_datatype RSM RSMS
 definition "r_empty_map \<equiv> Mapping.empty::('a::bot) r_state_map"
 
 lemma r_bot[code]: "\<bottom> = RSM r_empty_map"
-  by (rule lookup_eq; simp add: lookup_default_empty r_empty_map_def)
+  by (rule state_map_eq_fwd; simp add: lookup_default_empty r_empty_map_def)
 
 lemma r_top[code]: "\<top> = RSMS SMTop" by simp
 
@@ -68,7 +68,7 @@ fun r_single :: "addr \<Rightarrow> 'a::absstate \<Rightarrow> 'a r_state_map" w
   "r_single k v = Mapping.update k v \<bottom>"
 
 lemma r_single[code]: "single k v = RSM (r_single k v)"
-  by (rule lookup_eq; simp add: bot_mapping_def lookup_default_empty lookup_default_update')
+  by (rule state_map_eq_fwd; simp add: bot_mapping_def lookup_default_empty lookup_default_update')
 
 lemma single_lookup: "lookup (single k v) k = v" by simp
 
@@ -117,7 +117,7 @@ proof -
 qed
 
 lemma r_merge_single[code]: "merge_single (RSM m) pc x = RSM (r_merge_single m pc x)"
-proof(rule lookup_eq)
+proof(rule state_map_eq_fwd)
   obtain mm where func: "RSM m = SM mm" using state_map_single_constructor by blast
   have "(if k = pc then x \<squnion> mm k else mm k) = lookup (RSM (r_merge_single m pc x)) k" for k
   proof(cases "k = pc")
@@ -462,7 +462,7 @@ proof (rule ccontr)
   from this obtain infpc where infpc: "infinite (slurp f prog ctx infpc)" by blast
   let ?slurpset = "{ost. \<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup ctx ipc)) infpc = ost}"
   let ?aset = "{ipc. lookup ctx ipc \<noteq> \<bottom>}"
-  from assms(1) have finite_lookup: "finite ?aset" by (metis (full_types) domain.simps lookup.simps lookup_eq)
+  from assms(1) have finite_lookup: "finite ?aset" by (metis (full_types) domain.simps lookup.simps state_map_eq_fwd)
   let ?magic = "\<lambda>ipc. case prog ipc of None \<Rightarrow> None | Some op \<Rightarrow> Some (lookup (f op ipc (lookup ctx ipc)) infpc)"
   let ?youbet = "List.map_project ?magic ?aset"
   from finite_lookup have finite: "finite ?youbet" using map_project_finite by blast
@@ -483,7 +483,7 @@ proof (rule ccontr)
 qed
 
 lemma[code]: "finite_step_map (f::('a::absstate) astep) prog (RSM (Mapping tree)) = r_step_map f prog (RSM (Mapping tree))"
-proof(rule lookup_eq)
+proof(rule state_map_eq_fwd)
   fix pc
   let ?ctx = "RSM (Mapping tree)"
   let ?smf = "r_step_map_from f prog ?ctx"
@@ -605,6 +605,24 @@ proof (cases "finite_advance f prog st = \<top>")
   qed simp
 qed simp
 
+text\<open>Equality over state sets, necessary for ai_loop_fp\<close>
+
+lemma state_map_HOL_equal: "HOL.equal a b \<longleftrightarrow> (\<forall>k. lookup a k = lookup b k)"
+proof -
+  have "HOL.equal a b \<longleftrightarrow> a = b" by (rule HOL.equal_eq)
+  thus ?thesis using state_map_eq by blast
+qed
+
+lemma[code]: "HOL.equal (RSM a) (RSM b) \<longleftrightarrow> (\<forall>k \<in> (r_domain a \<union> r_domain b). r_lookup a k = r_lookup b k)"
+proof -
+  have "(\<forall>k. lookup (RSM a) k = lookup (RSM b) k) \<longleftrightarrow> (\<forall>k \<in> (r_domain a \<union> r_domain b). r_lookup a k = r_lookup b k)"
+    by (metis (mono_tags, lifting) UnI1 UnI2 mem_Collect_eq r_domain r_lookup)
+  moreover have "equal_class.equal (RSM a) (RSM b) = (\<forall>k. lookup (RSM a) k = lookup (RSM b) k)" by (rule state_map_HOL_equal)
+  ultimately show ?thesis by simp
+qed
+
+lemma[code]: "HOL.equal SMTop SMTop = True" by (rule HOL.equal_class.equal_refl)
+
 subsection \<open>Helper Refinement\<close>
 
 fun r_deep_merge_l :: "(addr * ('a::absstate)) list \<Rightarrow> 'a r_state_map \<Rightarrow> 'a r_state_map" where
@@ -681,6 +699,29 @@ proof -
   from this init have "deep_merge (set s) \<squnion> (RSM \<bottom>) = RSM (r_deep_merge_l s \<bottom>)" by simp
   hence "deep_merge (set s) \<squnion> \<bottom> = RSM (r_deep_merge_l s \<bottom>)" by (simp add: r_bot bot_mapping_def r_empty_map_def)
   thus ?thesis by simp
+qed
+
+fun list_is_singleton :: "'a list \<Rightarrow> bool" where
+  "list_is_singleton [] = False" |
+  "list_is_singleton [_] = True" |
+  "list_is_singleton (x # y # r) = (x = y \<and> list_is_singleton (y # r))"
+
+lemma[code]: "is_singleton (set a) = list_is_singleton a"
+proof (induction a)
+  case Nil
+  then show ?case
+    by (simp add: is_singleton_def)
+next
+  case (Cons x yr)
+  then show ?case
+  proof (cases yr)
+    case Nil
+    then show ?thesis by simp
+  next
+    fix y r assume "yr = y # r"
+    then show ?thesis
+      by (metis empty_iff insert_absorb2 insert_iff is_singleton_the_elem list.simps(15) list_is_singleton.simps(3) local.Cons)
+  qed
 qed
 
 (***********)

@@ -48,6 +48,56 @@ fun \<gamma>_regs_gen :: "('a \<Rightarrow> int set) \<Rightarrow> 'a arstate \<
   "\<gamma>_regs_gen \<gamma>_word Top = \<top>" |
   "\<gamma>_regs_gen \<gamma>_word (Minor l) = \<gamma>_list \<gamma>_word l"
 
+fun astore_single :: "'a::absword \<Rightarrow> nat \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
+  "astore_single v r Top = Top" |
+  "astore_single v r (Minor regs) = Minor (regs[r := (regs ! r) \<squnion> v])"
+
+lemma astore_single_0:
+  shows "astore_single av 0 (Minor (a # ar)) = (Minor ((a \<squnion> av) # ar))"
+  by simp
+
+interpretation astore_single_folding: folding_idem
+  where f = "astore_single av"
+  and z = "aregs"
+  for aregs
+proof (standard, goal_cases)
+  case (1 y x)
+  then show ?case
+  proof (rule ext)
+    fix r0 r1 xa
+    have "astore_single av r0 (astore_single av r1 xa) = astore_single av r1 (astore_single av r0 xa)"
+    proof (cases xa)
+      case (Minor regs)
+      then show ?thesis
+      proof (cases "r0 = r1")
+        case False
+        let ?r = "(regs[r0 := (regs ! r0) \<squnion> av])[r1 := (regs ! r1) \<squnion> av]"
+        let ?l = "(regs[r1 := (regs ! r1) \<squnion> av])[r0 := (regs ! r0) \<squnion> av]"
+        from False have r: "astore_single av r1 (astore_single av r0 xa) = Minor ?r" by (simp add: Minor)
+        from False have swap: "?r = ?l" by (meson list_update_swap)
+        from False have l: "astore_single av r0 (astore_single av r1 xa) = Minor ?l" by (simp add: Minor)
+        from r l swap show ?thesis by simp
+      qed simp
+    qed simp
+    thus "(astore_single av r0 \<circ> astore_single av r1) xa = (astore_single av r1 \<circ> astore_single av r0) xa" by simp
+  qed
+next
+  case (2 r)
+  then show ?case
+  proof (standard, goal_cases)
+    case (1 y)
+    then show ?case
+    proof (cases y)
+      case (Minor regs)
+      hence "(astore_single av r \<circ> astore_single av r) y = (astore_single av r (Minor (regs[r := (regs ! r) \<squnion> av])))" by simp
+      moreover have "astore_single av r (Minor (regs[r := (regs ! r) \<squnion> av])) = (Minor ((regs[r := (regs ! r) \<squnion> av])[r := (regs ! r) \<squnion> av]))"
+        by (metis astore_single.simps(2) length_list_update nth_equalityI nth_list_update_eq nth_list_update_neq sup.right_idem)
+      moreover have "astore_single av r y = Minor (regs[r := (regs ! r) \<squnion> av])" using Minor by simp
+      ultimately show ?thesis by simp
+    qed simp
+  qed
+qed
+
 locale Smart_Base = Abs_Word \<gamma>_word + Abs_Stack \<gamma>_word for \<gamma>_word
 begin
 
@@ -147,6 +197,43 @@ lemma in_gamma_smartI:
     "(stack, rstate, flag, rs) \<in> \<gamma>_smart (Some (Smart astack aregs aflag))"
   using assms by simp
 
+fun pop2 :: "'b \<Rightarrow> ('a * 'a * 'b)" where
+  "pop2 stack =
+    (let (a, astack) = pop stack;
+         (b, bstack) = pop astack
+    in (a, b, bstack))"
+lemma pop2_stack_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> c \<in> \<gamma>_stack (snd (snd (pop2 b)))"
+  by (metis (no_types, lifting) Pair_inject case_prod_beta' pop2.elims pop_stack_correct prod.exhaust_sel)
+
+lemma pop2_return_b_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> cb \<in> \<gamma>_word (fst (snd (pop2 b)))"
+proof -
+  assume ass: "(ca # cb # c) \<in> \<gamma>_stack b"
+  hence i: "(cb # c) \<in> \<gamma>_stack (snd (pop b))" using pop_stack_correct by simp
+  have "snd (pop2 b) = pop (snd (pop b))"
+    by (metis (no_types, lifting) case_prod_beta' pop2.elims prod.exhaust_sel snd_conv)
+  from this i show "cb \<in> \<gamma>_word (fst (snd (pop2 b)))" using pop_return_correct by auto
+qed
+
+lemma pop2_return_a_correct: "(ca # cb # c) \<in> \<gamma>_stack b \<Longrightarrow> ca \<in> \<gamma>_word (fst (pop2 b))"
+  by (metis (no_types, lifting) case_prod_beta' fst_conv pop2.elims pop_return_correct)
+
+fun pop2_push :: "('a \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> 'b \<Rightarrow> 'b" where
+  "pop2_push f stack =
+    (let (a, b, rstack) = pop2 stack
+    in push rstack (f a b))"
+
+lemma[simp]: "pop2_push f stack =
+  push (snd (snd (pop2 stack))) (f (fst (pop2 stack)) (fst (snd (pop2 stack))))"
+  by (simp add: case_prod_beta)
+
+lemma pop2_push:
+  assumes
+    "\<And>x y a b. x \<in> \<gamma>_word a \<Longrightarrow> y \<in> \<gamma>_word b \<Longrightarrow> (cop x y) \<in> \<gamma>_word (f a b)"
+    "a # b # rcstack \<in> \<gamma>_stack iastack"
+  shows "(cop a b) # rcstack \<in> \<gamma>_stack (pop2_push f iastack)"
+  apply (simp add: case_prod_beta Let_def)
+  using assms by (meson pop_return_correct pop_stack_correct push_correct)
+
 fun cmp_op :: "('a \<Rightarrow> 'a \<Rightarrow> power_bool) \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b::absstack) smart_base \<Rightarrow> ('a, 'b) smart state_map" where
   "cmp_op f pc (Smart stack regs flag) =
     single (Suc pc) (let (a, b, rstack) = pop2 stack
@@ -174,14 +261,6 @@ proof -
 
   from this lookup show ?thesis by simp
 qed
-
-fun astore_single :: "'a::absword \<Rightarrow> nat \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
-  "astore_single v r Top = Top" |
-  "astore_single v r (Minor regs) = Minor (regs[r := (regs ! r) \<squnion> v])"
-
-lemma astore_single_0:
-  shows "astore_single av 0 (Minor (a # ar)) = (Minor ((a \<squnion> av) # ar))"
-  by simp
 
 lemma gamma_regs_cons:
   assumes "x # xs \<in> \<gamma>_regs (Minor (a # as))"
@@ -296,6 +375,20 @@ fun astore :: "'a::absword \<Rightarrow> nat set \<Rightarrow> 'a arstate \<Righ
      then astore_singleton v (the_elem rs) regs
      else astore_multi v rs regs)"
 
+lemma[code]: "astore_multi av (set rs) aregs = fold (astore_single av) rs aregs"
+proof -
+  show ?thesis
+  proof (induction rs)
+    case Nil
+    then show ?case by simp
+  next
+    case (Cons a rs)
+    hence "astore_single_folding.F av aregs (insert a (set rs)) = astore_single av a (astore_single_folding.F av aregs (set rs))" using astore_single_folding.insert_idem by blast
+    then show ?case
+      by (metis (mono_tags, lifting) Cons.IH astore_multi.simps astore_single_folding.folding_axioms fold_commute_apply fold_simps(2) folding.comp_fun_commute list.simps(15))
+  qed
+qed
+
 lemma astore_multi:
   assumes
     "finite rs"
@@ -316,50 +409,30 @@ proof -
   thus ?thesis
   proof (induction "rs" arbitrary: r regs v aregs)
     case (insert x A)
-
-    interpret astore_single: folding
-      where f = "astore_single av"
-      and z = "aregs"
-    proof (standard, rule ext)
-      fix r0 r1 xa
-      have "astore_single av r0 (astore_single av r1 xa) = astore_single av r1 (astore_single av r0 xa)"
-      proof (cases xa)
-        case (Minor regs)
-        then show ?thesis
-        proof (cases "r0 = r1")
-          case False
-          let ?r = "(regs[r0 := (regs ! r0) \<squnion> av])[r1 := (regs ! r1) \<squnion> av]"
-          let ?l = "(regs[r1 := (regs ! r1) \<squnion> av])[r0 := (regs ! r0) \<squnion> av]"
-          from False have r: "astore_single av r1 (astore_single av r0 xa) = Minor ?r" by (simp add: Minor)
-          from False have swap: "?r = ?l" by (meson list_update_swap)
-          from False have l: "astore_single av r0 (astore_single av r1 xa) = Minor ?l" by (simp add: Minor)
-          from r l swap show ?thesis by simp
-        qed simp
-      qed simp
-      thus "(astore_single av r0 \<circ> astore_single av r1) xa = (astore_single av r1 \<circ> astore_single av r0) xa" by simp
-    qed
-    have astore: "astore_multi av (insert x A) aregs = astore_single.F (insert x A)" by simp
-    have bubble: "astore_single.F (insert x A) = astore_single av x (astore_single.F A)" using astore_single.insert insert.hyps(1) insert.hyps(2) by blast
+    let ?F = "astore_single_folding.F av aregs"
+    have astore: "astore_multi av (insert x A) aregs = ?F (insert x A)" by simp
+    have bubble: "?F (insert x A) = astore_single av x (?F A)"
+      using astore_single_folding.insert insert.hyps(1) insert.hyps(2) by blast
 
     show ?case
     proof (cases "x = r")
       case True
-      have bubble: "astore_multi av (insert x A) aregs = astore_single av r (astore_single.F A)" using astore bubble True by simp
-      have regs: "regs \<in> \<gamma>_regs (astore_single.F A)" using insert.hyps(1)
+      have bubble: "astore_multi av (insert x A) aregs = astore_single av r (?F A)" using astore bubble True by simp
+      have regs: "regs \<in> \<gamma>_regs (?F A)" using insert.hyps(1)
       proof(induction A)
         case empty then show ?case using insert.prems(3) by auto
       next
         case (insert xx F) then show ?case using astore_single_keeps by simp
       qed
 
-      from regs have astore_bubble: "regs[r := v] \<in> \<gamma>_regs (astore_single av r (astore_single.F A))" using astore_single insert.prems by blast
+      from regs have astore_bubble: "regs[r := v] \<in> \<gamma>_regs (astore_single av r (?F A))" using astore_single insert.prems by blast
       from astore astore_bubble bubble show ?thesis by simp
     next
       case False
       hence ina: "r \<in> A" using insert by auto
       have "regs[r := v] \<in> \<gamma>_regs (astore_multi av A aregs)"
         using ina insert.IH insert.prems(1) insert.prems(3) insert.prems(4) by blast
-      from this have "regs[r := v] \<in> \<gamma>_regs (astore_single.F A)" by simp
+      from this have "regs[r := v] \<in> \<gamma>_regs (?F A)" by simp
       then show ?thesis using astore astore_single_keeps bubble by auto
     qed
   qed blast
@@ -830,6 +903,7 @@ qed
 context Smart_Base
 begin
 abbreviation "ai_loop \<equiv> Smart.ai_loop"
+abbreviation "ai_loop_fp \<equiv> Smart.ai_loop_fp"
 end
 
 end

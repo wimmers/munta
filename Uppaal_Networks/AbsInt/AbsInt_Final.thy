@@ -22,6 +22,16 @@ global_interpretation Abs_Int_Final: Smart_Base
     and \<gamma>_stack = "\<gamma>_stack_window n \<gamma>_word"
     and push = "push_stack_window n"
     and pop = "pop_stack_window n"
+  defines "final_step_base" = "Abs_Int_Final.step_smart_base"
+    and "final_step" = "Abs_Int_Final.step_smart"
+    and "final_astore_singleton" = "Abs_Int_Final.astore_singleton"
+    and "final_astore_multi" = "Abs_Int_Final.astore_multi"
+    and "final_astore" = "Abs_Int_Final.astore"
+    and "final_load" = "Abs_Int_Final.load"
+    and "final_cmp_op" = "Abs_Int_Final.cmp_op"
+    and "final_pop2" = "Abs_Int_Final.pop2"
+    and "final_pop2_push" = "Abs_Int_Final.pop2_push"
+    and "final_word_of" = "Abs_Int_Final.word_of"
 proof(standard, goal_cases)
   case (1 a b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma) next
   case (3 a x) then show ?case by (simp add: Word_Strided_Interval.contains_correct) next
@@ -37,11 +47,10 @@ proof(standard, goal_cases)
   case (15 cx c b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma window_pop_correct(2))
 qed auto
 
-definition[simp, code]: "final_loop_fp \<equiv> finite_loop_fp Abs_Int_Final.step_smart"
-theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_map entry) \<le> Abs_Int_Final.Smart.\<gamma>_map (final_loop_fp prog n entry)" using Abs_Int_Final.Smart.ai_loop_fp_correct by simp
+definition[simp]: "final_loop_fp \<equiv> finite_loop_fp final_step"
+theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_map entry) \<le> Abs_Int_Final.Smart.\<gamma>_map (final_loop_fp prog n entry)"
+  using Abs_Int_Final.Smart.ai_loop_fp_correct by simp
 
-lemma[code]: "HOL.equal (SM a) (SM b) = False" sorry
-
-export_code final_loop_fp in SML
+export_code final_loop_fp in SML module_name AbsInt_Final
 
 end
