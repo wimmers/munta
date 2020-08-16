@@ -7,6 +7,11 @@ text \<open>More specifically, abstraction for @{type val}, @{type reg} and @{ty
 
 class absword = bounded_semilattice_sup_bot + order_top
 
+fun word_of_gen :: "(int \<Rightarrow> 'a::absword) \<Rightarrow> power_bool \<Rightarrow> 'a" where
+  "word_of_gen make BTrue = make 1" |
+  "word_of_gen make BFalse = make 0" |
+  "word_of_gen make BBoth = make 0 \<squnion> make 1"
+
 locale Abs_Word =
 fixes \<gamma>_word :: "('a::absword) \<Rightarrow> int set"
   and contains :: "'a \<Rightarrow> int \<Rightarrow> bool"
@@ -34,10 +39,7 @@ assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma>_word a \<le> \<gamma>_
                     else BFalse) \<le> eq a b"
 begin
 
-fun word_of :: "power_bool \<Rightarrow> 'a" where
-  "word_of BTrue = make 1" |
-  "word_of BFalse = make 0" |
-  "word_of BBoth = make 0 \<squnion> make 1"
+definition[simp]: "word_of \<equiv> word_of_gen make"
 
 lemma word_of:
   assumes "x \<in> \<gamma>_power_bool b"
@@ -52,12 +54,22 @@ next
   case BBoth
   then show ?thesis
   proof (cases x)
-    case True then show ?thesis by (metis BBoth in_mono int_of_def make_correct mono_gamma sup_ge2 word_of.simps(3))
+    case True then show ?thesis by (simp; metis BBoth in_mono int_of_def make_correct mono_gamma sup_ge2 word_of_gen.simps(3))
   next
-    case False then show ?thesis by (metis BBoth in_mono int_of_def make_correct mono_gamma sup.cobounded1 word_of.simps(3))
+    case False then show ?thesis by (simp; metis BBoth in_mono int_of_def make_correct mono_gamma sup.cobounded1 word_of_gen.simps(3))
   qed
 qed
 
 end
+
+type_synonym 'a abs_word_args = "
+  ('a \<Rightarrow> int set) *
+  ('a \<Rightarrow> int \<Rightarrow> bool) *
+  (int \<Rightarrow> 'a) *
+  ('a \<Rightarrow> int set toption) *
+  ('a \<Rightarrow> 'a \<Rightarrow> 'a) *
+  ('a \<Rightarrow> 'a \<Rightarrow> power_bool) *
+  ('a \<Rightarrow> 'a \<Rightarrow> power_bool) *
+  ('a \<Rightarrow> 'a \<Rightarrow> power_bool)"
 
 end

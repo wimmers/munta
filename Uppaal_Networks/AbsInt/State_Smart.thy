@@ -44,18 +44,18 @@ next
 qed
 end
 
-locale Smart_Base = Abs_Word \<gamma>_word + Abs_Stack \<gamma>_word for \<gamma>_word
+fun \<gamma>_regs_gen :: "('a \<Rightarrow> int set) \<Rightarrow> 'a arstate \<Rightarrow> rstate set" where
+  "\<gamma>_regs_gen \<gamma>_word Top = \<top>" |
+  "\<gamma>_regs_gen \<gamma>_word (Minor l) = \<gamma>_list \<gamma>_word l"
 
-context Smart_Base
+locale Smart_Base = Abs_Word \<gamma>_word + Abs_Stack \<gamma>_word for \<gamma>_word
 begin
 
 definition[simp]: "\<gamma>_regs_list = \<gamma>_list \<gamma>_word"
 lemma mono_gamma_regs_list: "a \<le> b \<Longrightarrow> \<gamma>_regs_list a \<le> \<gamma>_regs_list b"
   using mono_gamma by (simp add: mono_gamma_list)
 
-fun \<gamma>_regs :: "'a arstate \<Rightarrow> rstate set" where
-  "\<gamma>_regs Top = \<top>" |
-  "\<gamma>_regs (Minor l) = \<gamma>_regs_list l"
+definition[simp]: "\<gamma>_regs \<equiv> \<gamma>_regs_gen \<gamma>_word"
 
 lemma mono_gamma_regs: "a \<le> b \<Longrightarrow> \<gamma>_regs a \<le> \<gamma>_regs b"
 proof -
@@ -216,7 +216,7 @@ proof (cases aregs)
       from 0 have l: "regs[r := v] = v # regss" using splitregs by simp
       from 0 have r: "astore_single av r aregs = (Minor ((a \<squnion> av) # aregss))" using astore_single_0 Cons.prems(1) by blast
       from l r show ?thesis using Cons splitregs
-        by (smt Un_iff \<gamma>_regs.simps(2) \<gamma>_regs_list_def \<gamma>_list.simps(2) in_mono mem_Collect_eq mono_gamma regs_cons sup_ge2)
+        by (simp; smt Un_iff \<gamma>_regs_gen.simps(2) \<gamma>_regs_list_def \<gamma>_list.simps(2) in_mono mem_Collect_eq mono_gamma regs_cons sup_ge2)
     next
       case (Suc rn)
       have eq: "regss[rn := v] \<in> \<gamma>_regs (Minor (aregss[rn := (aregss ! rn) \<squnion> av]))"
@@ -347,7 +347,7 @@ proof -
       have bubble: "astore_multi av (insert x A) aregs = astore_single av r (astore_single.F A)" using astore bubble True by simp
       have regs: "regs \<in> \<gamma>_regs (astore_single.F A)" using insert.hyps(1)
       proof(induction A)
-        case empty then show ?case by (simp add: insert.prems(3))
+        case empty then show ?case using insert.prems(3) by auto
       next
         case (insert xx F) then show ?case using astore_single_keeps by simp
       qed
@@ -574,7 +574,7 @@ proof -
     from NOT ist_split_step have rs_preserve: "ocrs = icrs" using step_not(4) by blast
     from NOT ist_split_step obtain ia where pop: "icstack = ia # ocstack" using step_not(5) by blast
     from this have stack: "ocstack \<in> \<gamma>_stack (snd (pop iastack))" using pop_stack_correct ist_props(1) by simp
-    have regs: "ocregs \<in> \<gamma>_regs iaregs" by (simp add: ist_props(2) regs_preserve)
+    have regs: "ocregs \<in> \<gamma>_regs iaregs" using ist_props(2) regs_preserve by auto
     have flag: "ocflag \<in> \<gamma>_power_bool (not iaflag)" using power_bool_not by (simp add: flag ist_props(3))
     from stack regs flag pc show ?thesis by (simp add: NOT ost_split)
   next
@@ -669,7 +669,7 @@ proof -
     case (LID r)
     from this ist_split_step(2) have preds: "opc = Suc ipc \<and> ocstack = (icregs ! r) # icstack \<and> ocregs = icregs \<and> ocflag = icflag \<and> ocrs = icrs \<and> r < length icregs" using step_lid by blast
     hence "(icregs ! r) # icstack \<in> \<gamma>_stack (push iastack (load iaregs r))" using load ist_props(1) ist_props(2) push_correct by auto
-    from this preds show ?thesis by (simp add: LID ist_props(2) ist_props(3) ost_split)
+    from this preds show ?thesis using LID ist_props(2) ist_props(3) ost_split by auto
   next
     case STORE
     from STORE have static: "opc = Suc ipc \<and> ocflag = icflag \<and> ocrs = icrs" using step_store(1) ist_split_step by blast
@@ -720,7 +720,7 @@ proof -
     case (STOREI r v)
     hence step: "opc = Suc ipc \<and> ocstack = icstack \<and> ocregs = icregs[r := v] \<and> ocflag = icflag \<and> ocrs = icrs \<and> r < length icregs" using step_storei ist_split_step(2) by blast
     from step have "ocstack \<in> \<gamma>_stack iastack" using ist_props(1) by force
-    moreover from step have "icregs[r := v] \<in> \<gamma>_regs (astore_singleton (make v) r iaregs)" using astore_singleton by (simp add: ist_props(2) make_correct)
+    moreover from step have "icregs[r := v] \<in> \<gamma>_regs (astore_singleton (make v) r iaregs)" using astore_singleton using ist_props(2) make_correct by auto
     moreover from step have "ocflag \<in> \<gamma>_power_bool iaflag" using ist_props(3) by blast
     ultimately have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (Some (Smart iastack (astore_singleton (make v) r iaregs) iaflag))" using step by simp
     then show ?thesis using step STOREI ost_split by simp
@@ -789,7 +789,7 @@ proof -
   next
     case (STOREC c d)
     hence step: "opc = Suc ipc \<and> ocstack = icstack \<and> ocregs = icregs \<and> ocflag = icflag \<and> ocrs = c # icrs \<and> d = 0" using step_storec ist_split_step(2) by blast
-    hence "ost \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" by (simp add: ist_props(1) ist_props(2) ist_props(3) ost_split)
+    hence "ost \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" using ist_props ost_split by auto
     then show ?thesis using step STOREC by simp
   next
     case (SETF b)

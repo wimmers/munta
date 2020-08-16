@@ -46,10 +46,10 @@ instantiation state_map :: (order) order
 begin
   definition less_eq_state_map :: "('a::order)state_map \<Rightarrow> 'a state_map \<Rightarrow> bool" where
   "C1 \<le> C2 \<longleftrightarrow> (\<forall>p. lookup C1 p \<le> lookup C2 p)"
-  
+
   definition less_state_map :: "'a state_map \<Rightarrow> 'a state_map \<Rightarrow> bool" where
   "less_state_map x y = (x \<le> y \<and> \<not> y \<le> x)"
-  
+
   instance proof (standard, goal_cases)
     case 1 show ?case by(simp add: less_state_map_def)
   next

@@ -145,42 +145,62 @@ fun pop_stack_window :: "nat \<Rightarrow> ('a::absword) stack_window \<Rightarr
   "pop_stack_window _ Top = (\<top>, Top)" |
   "pop_stack_window n (Minor l) = (fst (pop_list_window n l), Minor (snd (pop_list_window n l)))"
 
+lemma window_mono_gamma_stack:
+  assumes
+    "\<And>a b. a \<le> b \<Longrightarrow> \<gamma>_word a \<le> \<gamma>_word b"
+    "a \<le> b"
+  shows "\<gamma>_stack_window n \<gamma>_word a \<le> \<gamma>_stack_window n \<gamma>_word b"
+proof (cases b)
+  case (Minor sb)
+  from this obtain sa where sa: "a = Minor sa" using assms(2) less_eq_toption.elims(2) by blast
+  from this Minor show ?thesis using assms mono_gamma_list by (simp add: \<gamma>_list_window_mono)
+qed simp
+
+lemma window_gamma_Top: "\<gamma>_stack_window n \<gamma>_word \<top> = \<top>" by simp
+
+lemma window_push_correct:
+  assumes
+    "\<And>a b. a \<le> b \<Longrightarrow> \<gamma>_word a \<le> \<gamma>_word b"
+    "c \<in> \<gamma>_stack_window n \<gamma>_word b"
+    "cx \<in> \<gamma>_word x"
+  shows "(cx # c) \<in> \<gamma>_stack_window n \<gamma>_word (push_stack_window n b x)"
+proof (cases b)
+  case (Minor as)
+  then show ?thesis using push_list_window
+    by (metis assms \<gamma>_stack_window.simps(2) push_stack_window.simps(2))
+qed simp
+
+lemma window_pop_correct:
+  assumes
+    "\<And>a b. a \<le> b \<Longrightarrow> \<gamma>_word a \<le> \<gamma>_word b"
+    "\<gamma>_word \<top> = \<top>"
+    "(cx # c) \<in> \<gamma>_stack_window n \<gamma>_word b"
+  shows
+    "c \<in> \<gamma>_stack_window n \<gamma>_word (snd (pop_stack_window n b))"
+    "cx \<in> \<gamma>_word (fst (pop_stack_window n b))"
+proof (goal_cases)
+  case 1 show ?case
+  proof (cases b)
+    case (Minor l)
+    then show ?thesis using assms pop_list_window by force
+  qed simp
+next
+  case 2 show ?case
+  using assms(2) proof (cases b)
+    case (Minor l)
+    then show ?thesis using assms by (simp add: pop_list_window)
+  qed simp
+qed
+
 locale Stack_Window = Abs_Stack \<gamma>_word "\<gamma>_stack_window n \<gamma>_word" "push_stack_window n" "pop_stack_window n" for n \<gamma>_word
 
 sublocale Abs_Word \<subseteq> Window: Stack_Window
 proof(standard, goal_cases)
-  case (1 a b)
-  then show ?case
-  proof (cases b)
-    case (Minor sb)
-    from this obtain sa where sa: "a = Minor sa" using 1 less_eq_toption.elims(2) by blast
-    from this Minor show ?thesis using 1 mono_gamma_list mono_gamma by (simp add: \<gamma>_list_window_mono)
-  qed simp
-next
-  case 2
-  then show ?case by simp
-next
-  case (3 c rest cx a)
-  then show ?case
-  proof (cases rest)
-    case (Minor as)
-    then show ?thesis using push_list_window
-      by (metis "3"(1) "3"(2) \<gamma>_stack_window.simps(2) mono_gamma push_stack_window.simps(2))
-  qed simp
-next
-  case (4 cx c b)
-  then show ?case
-  proof (cases b)
-    case (Minor l)
-    then show ?thesis using "4" mono_gamma pop_list_window by force
-  qed simp
-next
-  case (5 cx c b)
-  then show ?case
-  proof (cases b)
-    case (Minor l)
-    then show ?thesis using 5 by (simp add: pop_list_window mono_gamma)
-  qed simp
+  case (1 a b) from mono_gamma this show ?case by (rule window_mono_gamma_stack) next
+  case 2 show ?case by (rule window_gamma_Top) next
+  case (3 c rest cx a) from mono_gamma this show ?case by (rule window_push_correct) next
+  case (4 cx c b) from mono_gamma gamma_Top this show ?case by (rule window_pop_correct(1)) next
+  case (5 cx c b) from mono_gamma gamma_Top this show ?case by (rule window_pop_correct(2))
 qed
 
 (*context Abs_Word
