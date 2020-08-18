@@ -3,7 +3,8 @@ theory AbsInt_Test
 begin
 
 ML\<open>
-val _ = absint_benchmark "benchmarks/critical_01.munta" entry_default 100
+val _ = absint_run myprog entry_later 16 16 10
+(*val _ = absint_benchmark "benchmarks/HDDI_04.munta" entry_default 16 16 100*)
 \<close>
 
 end

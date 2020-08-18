@@ -93,10 +93,9 @@ fun strided_interval_make :: "int \<Rightarrow> strided_interval" where
      then StridedInterval 0 0 0
      else StridedInterval (nat (abs v) - 1) (if v < 0 then -1 else 1) 0)"
 
-definition "strided_interval_concretize_max \<equiv> 16" \<comment> \<open>Hardcoded, could be made nicer\<close>
-fun strided_interval_concretize :: "strided_interval \<Rightarrow> int set toption" where
-  "strided_interval_concretize (StridedInterval s l e) =
-    (if e > strided_interval_concretize_max
+fun strided_interval_concretize :: "nat \<Rightarrow> strided_interval \<Rightarrow> int set toption" where
+  "strided_interval_concretize concretize_max (StridedInterval s l e) =
+    (if e > concretize_max
      then Top
      else Minor (set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e])))"
 
@@ -124,7 +123,7 @@ proof -
   hence gcd_sup: "1 + int (gcd (stride a) (stride b) - Suc 0) = int (gcd (stride a) (stride b))"  by (metis Suc_pred of_nat_Suc)
 
   have lower_div: "int (gcd (stride a) (stride b)) dvd (lower a + lower b)"
-    by (metis dvd_add_left_iff dvd_def gcd_dvdI1 gcd_dvdI2 gcd_int_int_eq lower.simps mult.commute stride.simps strided_interval_concretize.cases)
+    using dvd_add_left_iff dvd_def gcd_dvdI1 gcd_dvdI2 gcd_int_int_eq lower.simps mult.commute stride.simps strided_interval.exhaust by metis
   hence lowerdiv: "(lower a + lower b) div int (gcd (stride a) (stride b)) * (int (gcd (stride a) (stride b))) = lower a + lower b" by simp
   hence lowerval: "lower ?plused = lower a + lower b" by (simp; unfold Let_def; simp add: gcd_sup)
 
@@ -403,11 +402,12 @@ global_interpretation Word_Strided_Interval: Abs_Word
   where \<gamma>_word = "\<gamma>_option (\<gamma>_toption \<gamma>_strided_interval)"
     and contains = "option_contains (toption_contains strided_interval_contains)"
     and make = "Some \<circ> Minor \<circ> strided_interval_make"
-    and concretize = "option_concretize (toption_concretize strided_interval_concretize)"
+    and concretize = "option_concretize (toption_concretize (strided_interval_concretize concretize_max))"
     and aplus = "option_aplus (toption_aplus strided_interval_aplus)"
     and lt = "option_lift_bool (toption_lift_bool strided_interval_lt)"
     and le = "option_lift_bool (toption_lift_bool strided_interval_le)"
     and eq = "option_lift_bool (toption_lift_bool strided_interval_eq)"
+  for concretize_max :: nat
 proof (standard, goal_cases)
   case (1 a b)
   then show ?case using \<gamma>_option_mono \<gamma>_toption_mono mono_def \<gamma>_strided_interval_mono 1 by blast
@@ -429,14 +429,14 @@ next
   from 5 obtain aa where aa: "a = Some (Minor aa)" by (metis option.exhaust option_concretize.simps toption.distinct(1) toption_bind.elims toption_concretize_def)
   obtain s l e where split: "aa = StridedInterval s l e" using strided_interval.exhaust by blast
   show ?case
-  proof (cases "e > strided_interval_concretize_max")
+  proof (cases "e > concretize_max")
     case True
-    hence "strided_interval_concretize aa = Top" using split by simp
-    hence "option_concretize (toption_concretize strided_interval_concretize) a = Top" using aa by simp
+    hence "strided_interval_concretize concretize_max aa = Top" using split by simp
+    hence "option_concretize (toption_concretize (strided_interval_concretize concretize_max)) a = Top" using aa by simp
     thus ?thesis using 5 by simp
   next
     case False
-    hence "strided_interval_concretize aa = Minor (set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e]))" using split by simp
+    hence "strided_interval_concretize concretize_max aa = Minor (set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e]))" using split by simp
     hence vs: "vs = set (map ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) [0..<Suc e])" using aa 5 by simp
     have "\<gamma>_strided_interval aa \<subseteq> ((*) (int (Suc s)) \<circ> ((+) l) \<circ> int) ` (set [0..<Suc e])"
     proof (standard, goal_cases)
@@ -456,10 +456,10 @@ next
   case (6 a vs)
   from this obtain aa where aa: "a = Some (Minor aa)" by (metis option.exhaust option_concretize.simps toption.distinct(1) toption_bind.elims toption_concretize_def)
   obtain s l e where split: "aa = StridedInterval s l e" using strided_interval.exhaust by blast
-  have "e \<le> strided_interval_concretize_max"
+  have "e \<le> concretize_max"
   proof (rule ccontr, goal_cases)
     case 1
-    hence "option_concretize (toption_concretize strided_interval_concretize) a = Top" using aa split by simp
+    hence "option_concretize (toption_concretize (strided_interval_concretize concretize_max)) a = Top" using aa split by simp
     then show ?case using 6 by simp
   qed
   then show ?case using 6 aa split by fastforce

@@ -67,8 +67,7 @@ JMPZ 7,
 HALT,
 PUSH 13,
 PUSH 37,
-PUSH 123,
-HALT
+PUSH 123
 ]"
 
 definition "myprog \<equiv> assemble (map Some myprog_listing)"
@@ -89,10 +88,11 @@ definition show_display_ctx :: "si_state dispctx \<Rightarrow> string" where
   "show_display_ctx = show"
 
 definition "set_entry \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state state_map"
-definition "set_result \<equiv> final_loop_fp (fetch_op myprog) 100 set_entry"
+definition "set_result \<equiv> final_loop_fp 16 16 (fetch_op myprog) 100 set_entry"
 definition "set_res_str \<equiv> String.implode (show_display_ctx (DisplayCtx myprog set_result))"
 
 definition "entry_default \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state state_map"
+definition "entry_later \<equiv> (merge_single \<bottom> 5 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state state_map"
 
 ML_file "../../ML/Scan_More.ML";
 ML\<open>
@@ -322,7 +322,9 @@ fun read_lines stream =
     | SOME input => input ^ read_lines stream
   end
 
-val show_result = @{code String.implode} o @{code show_display_ctx}
+fun show_result prog = fn
+  @{code RSM} sm => @{code DisplayCtx} (prog, @{code RSM} sm) |> @{code show_display_ctx} |> @{code String.implode} |
+  @{code RSMS} _ => "Top"
 
 fun program_file file =
   let
@@ -334,15 +336,18 @@ fun program_file file =
     @{code assemble} prog
   end;
 
-fun absint_benchmark file entry steps =
+fun absint_run prog entry window_size concretize_max steps =
   let
-    val prog = program_file file
-    val result = @{code final_loop_fp} (@{code fetch_op} prog) (to_nat steps) entry
+    val result = @{code final_loop_fp} (to_nat window_size) (to_nat concretize_max) (@{code fetch_op} prog) (to_nat steps) entry
   in
-    writeln (show_result (@{code DisplayCtx} (prog, result)))
+    show_result prog result |> writeln
   end;
 
+val absint_benchmark = absint_run o program_file
+
 val entry_default = @{code entry_default}
+val entry_later = @{code entry_later}
+val myprog = @{code myprog}
 \<close>
 
 (*definition "empty_state \<equiv> ([], [], False, [])"

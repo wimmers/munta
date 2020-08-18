@@ -122,7 +122,7 @@ instantiation dispctx :: ("{show, bot}") "show"
 begin
 fun show_dispctx :: "'a dispctx \<Rightarrow> string" where
   "show_dispctx (DisplayCtx p st) =
-    concat (map (\<lambda>pc. format_ctx_line asm_width pc (fetch_op p) (lookup st pc)) (sorted_list_of_set (prog_domain p)))"
+    concat (map (\<lambda>pc. format_ctx_line asm_width pc (fetch_op p) (lookup st pc)) (sorted_list_of_set (prog_domain p \<union> domain st)))"
 instance ..
 end
 

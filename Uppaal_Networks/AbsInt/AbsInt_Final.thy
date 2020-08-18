@@ -6,22 +6,22 @@ theory AbsInt_Final
     Word_StridedInterval
 begin
 
-definition "n \<equiv> 16"
-
 definition[simp]: "\<gamma>_word \<equiv> \<gamma>_option (\<gamma>_toption \<gamma>_strided_interval)"
 
 global_interpretation Abs_Int_Final: Smart_Base
   where \<gamma>_word = "\<gamma>_word"
     and contains = "option_contains (toption_contains strided_interval_contains)"
     and make = "Some \<circ> Minor \<circ> strided_interval_make"
-    and concretize = "option_concretize (toption_concretize strided_interval_concretize)"
+    and concretize = "option_concretize (toption_concretize (strided_interval_concretize concretize_max))"
     and aplus = "option_aplus (toption_aplus strided_interval_aplus)"
     and lt = "option_lift_bool (toption_lift_bool strided_interval_lt)"
     and le = "option_lift_bool (toption_lift_bool strided_interval_le)"
     and eq = "option_lift_bool (toption_lift_bool strided_interval_eq)"
-    and \<gamma>_stack = "\<gamma>_stack_window n \<gamma>_word"
-    and push = "push_stack_window n"
-    and pop = "pop_stack_window n"
+    and \<gamma>_stack = "\<gamma>_stack_window window_size \<gamma>_word"
+    and push = "push_stack_window window_size"
+    and pop = "pop_stack_window window_size"
+  for window_size :: nat
+  and concretize_max :: nat
   defines "final_step_base" = "Abs_Int_Final.step_smart_base"
     and "final_step" = "Abs_Int_Final.step_smart"
     and "final_astore_singleton" = "Abs_Int_Final.astore_singleton"
@@ -47,8 +47,9 @@ proof(standard, goal_cases)
   case (15 cx c b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma window_pop_correct(2))
 qed auto
 
-definition[simp]: "final_loop_fp \<equiv> finite_loop_fp final_step"
-theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_map entry) \<le> Abs_Int_Final.Smart.\<gamma>_map (final_loop_fp prog n entry)"
+definition[simp]: "final_loop_fp window_size concretize_max \<equiv> finite_loop_fp (final_step window_size concretize_max)"
+theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_map window_size entry)
+  \<le> Abs_Int_Final.Smart.\<gamma>_map window_size (final_loop_fp window_size concretize_max prog n entry)"
   using Abs_Int_Final.Smart.ai_loop_fp_correct by simp
 
 export_code final_loop_fp in SML module_name AbsInt_Final
