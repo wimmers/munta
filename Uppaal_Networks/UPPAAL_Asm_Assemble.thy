@@ -25,11 +25,11 @@ proof -
   from this pa pb show ?thesis by (simp add: ext)
 qed
 
-fun assemble :: "instr list \<Rightarrow> concrete_program" where
+fun assemble :: "instr option list \<Rightarrow> concrete_program" where
   "assemble listing = CProg
-    (\<lambda>pc. if pc < length listing then Some (listing ! pc) else None)"
+    (\<lambda>pc. if pc < length listing then listing ! pc else None)"
 
-type_synonym r_prog = "instr list"
+type_synonym r_prog = "instr option list"
 
 fun CPROG :: "r_prog \<Rightarrow> concrete_program" where
   "CPROG p = assemble p"
@@ -37,6 +37,67 @@ fun CPROG :: "r_prog \<Rightarrow> concrete_program" where
 code_datatype CPROG
 
 lemma[code]: "assemble listing = CPROG listing" by simp
+
+fun listing_domain :: "r_prog \<Rightarrow> nat \<Rightarrow> nat set" where
+  "listing_domain [] _ = {}" |
+  "listing_domain ((Some _) # xs) n = insert n (listing_domain xs (Suc n))" |
+  "listing_domain (None # xs) n = listing_domain xs (Suc n)"
+
+lemma listing_domain: "listing_domain l n = {i + n |i. i < length l \<and> l ! i \<noteq> None}"
+proof (induction l arbitrary: n)
+  case (Cons x xs)
+  have xs: "listing_domain xs (Suc n) = {i + Suc n |i. i < length xs \<and> xs ! i \<noteq> None}" using Cons by simp
+  then show ?case
+  proof (cases x)
+    case None
+    have "{i + Suc n |i. i < length xs \<and> xs ! i \<noteq> None} = {i + n |i. i < length (x # xs) \<and> (x # xs) ! i \<noteq> None}"
+    proof (intro Set.equalityI Set.subsetI, goal_cases)
+      case (1 v)
+      then obtain i where "v = i + Suc n \<and> i < length xs \<and> xs ! i \<noteq> None" by blast
+      hence "v = Suc i + n \<and> Suc i < length (x # xs) \<and> (x # xs) ! Suc i \<noteq> None" by simp
+      then show ?case by simp
+    next
+      case (2 v)
+      then show ?case
+      proof (cases v)
+        case 0 then show ?thesis using 2 None by simp
+      next
+        case (Suc nat)
+        from 2 obtain i where "v = i + n \<and> i < length (x # xs) \<and> (x # xs) ! i \<noteq> None" by blast
+        then show ?thesis using None less_Suc_eq_0_disj by auto
+      qed
+    qed
+    then show ?thesis using xs None by simp
+  next
+    case (Some a)
+    have "insert n {i + Suc n |i. i < length xs \<and> xs ! i \<noteq> None} = {i + n |i. i < length (x # xs) \<and> (x # xs) ! i \<noteq> None}"
+    proof (intro Set.equalityI Set.subsetI, goal_cases)
+      case (1 v)
+      then show ?case
+      proof (cases "v = n")
+        case True
+        hence "v = 0 + n \<and> 0 < length (x # xs) \<and> (x # xs) ! 0 \<noteq> None" using 1 Some by simp
+        then show ?thesis by blast
+      next
+        case False
+        hence "v \<in> {i + Suc n |i. i < length xs \<and> xs ! i \<noteq> None}" using 1 by blast
+        then obtain i where "v = i + Suc n \<and> i < length xs \<and> xs ! i \<noteq> None" by blast
+        hence "v = Suc i + n \<and> Suc i < length (x # xs) \<and> (x # xs) ! Suc i \<noteq> None" by simp
+        then show ?thesis by blast
+      qed
+    next
+      case (2 v)
+      then show ?case
+      proof (cases "v = n")
+        case False
+        then obtain i where "v = Suc i + n \<and> Suc i < length (x # xs) \<and> (x # xs) ! Suc i \<noteq> None" using 2 by force
+        hence "v = i + Suc n \<and> i < length xs \<and> xs ! i \<noteq> None" by simp
+        then show ?thesis by blast
+      qed simp
+    qed
+    then show ?thesis using Some xs by auto
+  qed
+qed simp
 
 fun upto :: "nat \<Rightarrow> nat set" where
   "upto n = lessThan n"
@@ -63,14 +124,19 @@ qed simp
 lemma[code]: "upto n = set (upto_tailrec n [])"
   using lessThan_upto_rec upto_tailrec by simp
 
-lemma[code]: "prog_domain (CPROG listing) = upto (length listing)"
+lemma[code]: "prog_domain (CPROG listing) = listing_domain listing 0"
 proof(intro Set.equalityI Set.subsetI, goal_cases)
   case (1 x)
-  hence "(if x < length listing then Some (listing ! x) else None) \<noteq> None" by (simp add: domIff)
-  hence "x < length listing" by presburger
-  thus ?case by simp
-qed (simp add: domIff)
+  have "dom (\<lambda>n. if n < length listing then listing ! n else None) = prog_domain (CPROG listing)"
+    using CPROG.simps assemble.simps prog_domain.simps by presburger
+  then have f1: "x \<in> dom (\<lambda>n. if n < length listing then listing ! n else None)" by (metis "1")
+  then have "x < length listing" using domIff by force
+  then show ?case using f1 by (simp add: domIff listing_domain)
+next
+  case (2 x)
+  then show ?case using listing_domain by auto
+qed
 
-lemma[code]: "fetch_op (CPROG listing) pc = (if pc < length listing then Some (listing ! pc) else None)" by simp
+lemma[code]: "fetch_op (CPROG listing) pc = (if pc < length listing then listing ! pc else None)" by simp
 
 end

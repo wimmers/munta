@@ -3,7 +3,7 @@ theory AbsInt_Test
 begin
 
 ML\<open>
-program_file "benchmarks/csma_04.munta"
+val _ = absint_benchmark "benchmarks/critical_01.munta" entry_default 100
 \<close>
 
 end

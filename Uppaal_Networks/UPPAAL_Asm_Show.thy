@@ -20,14 +20,14 @@ instantiation nat :: "show"
 begin
 fun show_nat :: "nat \<Rightarrow> string" where
   "show_nat n = hexlit 4 n"
-instance proof qed
+instance ..
 end
 
 instantiation int :: "show"
 begin
 fun show_int :: "int \<Rightarrow> string" where
   "show_int n = hexliti 1 n"
-instance proof qed
+instance ..
 end
 
 instantiation bool :: "show"
@@ -35,7 +35,7 @@ begin
 fun show_bool :: "bool \<Rightarrow> string" where
   "show_bool True = ''True''" |
   "show_bool False = ''False''"
-instance proof qed
+instance ..
 end
 
 instantiation instr :: "show"
@@ -73,11 +73,12 @@ instantiation list :: ("show") "show"
 begin
 fun show_list_rest :: "'a list \<Rightarrow> string" where
   "show_list_rest [] = '']''" |
+  "show_list_rest [x] = show x @ '']''" |
   "show_list_rest (x # xs) = show x @ '', '' @ show_list_rest xs"
 
 fun show_list :: "'a list \<Rightarrow> string" where
   "show_list [] = ''[]''" |
-  "show_list xs = show_list_rest xs"
+  "show_list xs = CHR ''['' # show_list_rest xs"
 instance ..
 end
 
@@ -97,7 +98,7 @@ fun show_concrete_program :: "concrete_program \<Rightarrow> string" where
   "show_concrete_program p =
     (let space = prog_domain p in
     concat (map (\<lambda>pc. (show pc) @ '' '' @ (show (the (fetch_op p pc))) @ [char_of (10::nat)]) (sorted_list_of_set space)))"
-instance proof qed
+instance ..
 end
 
 definition "asm_width \<equiv> 20"
@@ -122,7 +123,7 @@ begin
 fun show_dispctx :: "'a dispctx \<Rightarrow> string" where
   "show_dispctx (DisplayCtx p st) =
     concat (map (\<lambda>pc. format_ctx_line asm_width pc (fetch_op p) (lookup st pc)) (sorted_list_of_set (prog_domain p)))"
-instance proof qed
+instance ..
 end
 
 end

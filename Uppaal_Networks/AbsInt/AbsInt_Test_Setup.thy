@@ -1,7 +1,9 @@
 theory AbsInt_Test_Setup
   imports
-    "HOL.String"
     "HOL.Code_Numeral"
+    "HOL-Library.Code_Target_Int"
+    "HOL-Library.Code_Target_Nat"
+    "HOL.String"
     Uppaal_Networks.UPPAAL_Asm_Show
     AbsInt_Final
 begin
@@ -69,7 +71,7 @@ PUSH 123,
 HALT
 ]"
 
-definition "myprog \<equiv> assemble myprog_listing"
+definition "myprog \<equiv> assemble (map Some myprog_listing)"
 
 definition "dumb_entry \<equiv> merge_single (\<bottom>::dumb state_map) 0 (Some Any)"
 definition "dumb_stepped \<equiv>
@@ -82,18 +84,22 @@ definition "dumb_result \<equiv>
 definition "abs_res_str \<equiv> String.implode (show (DisplayCtx myprog dumb_result))"
 (*ML \<open>val _ = writeln (@{code abs_res_str})\<close>*)
 
-type_synonym si_state = "(strided_interval toption option, strided_interval toption option stack_window) smart state_map"
+type_synonym si_state =   "(strided_interval toption option, strided_interval toption option stack_window) smart"
+definition show_display_ctx :: "si_state dispctx \<Rightarrow> string" where
+  "show_display_ctx = show"
 
-definition "set_entry \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state"
+definition "set_entry \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state state_map"
 definition "set_result \<equiv> final_loop_fp (fetch_op myprog) 100 set_entry"
-definition "set_res_str \<equiv> String.implode (show (DisplayCtx myprog set_result))"
-ML \<open>val _ = writeln (@{code set_res_str})\<close>
+definition "set_res_str \<equiv> String.implode (show_display_ctx (DisplayCtx myprog set_result))"
+
+definition "entry_default \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state state_map"
 
 ML_file "../../ML/Scan_More.ML";
 ML\<open>
 (*** Utilities for parsing
  * Should be removed at some point
 ***)
+
 datatype ('a, 'b) instr' = JMPZ' of 'a | ADD' | NOT' | AND' | LT' | LE' | EQ' | PUSH' of 'b | POP' |
     LID' of 'a | STOREI' of 'a * 'b | COPY' | CALL' | RETURN' | HALT' |
     STOREC' of 'a * 'b | SETF' of bool
@@ -151,13 +157,14 @@ fun map_option _ NONE = NONE
   | map_option f (SOME x2) = SOME (f x2);
 
 fun map_instrc f_nat f_int _ = fn
-  INSTR' instr => map_instr f_nat f_int instr |
-  CEXP' _ => raise Match
+  SOME (INSTR' instr) => SOME (map_instr f_nat f_int instr) |
+  SOME (CEXP' _) => NONE |
+  NONE => NONE
 
 fun nat_of_integer k = @{code nat} k;
 
-val to_int = IntInf.fromInt
-val to_nat = nat_of_integer o IntInf.fromInt
+val to_int = @{code int_of_integer}
+val to_nat = @{code nat} o @{code int_of_integer}
 
 (*** Parsing ***)
 open Scan_More;
@@ -315,15 +322,27 @@ fun read_lines stream =
     | SOME input => input ^ read_lines stream
   end
 
+val show_result = @{code String.implode} o @{code show_display_ctx}
+
 fun program_file file =
   let
     val f = TextIO.openIn file
     val input = read_lines f
     val (((((((_, prog'), _), _), _), _), _), _) = scan_all (explode_string (input ^ " "))
-    val prog = map (map_option (map_instrc to_nat to_int to_int)) prog'
+    val prog = map (map_instrc to_nat to_int to_int) prog'
   in
-    prog'
+    @{code assemble} prog
   end;
+
+fun absint_benchmark file entry steps =
+  let
+    val prog = program_file file
+    val result = @{code final_loop_fp} (@{code fetch_op} prog) (to_nat steps) entry
+  in
+    writeln (show_result (@{code DisplayCtx} (prog, result)))
+  end;
+
+val entry_default = @{code entry_default}
 \<close>
 
 (*definition "empty_state \<equiv> ([], [], False, [])"
