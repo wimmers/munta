@@ -442,11 +442,11 @@ proof -
   obtain abst m f rs where split: "ist = (abst, m, f, rs)" by (metis prod_cases4)
   show ?thesis using assms
     apply safe
-    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(20))
     apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(21))
-    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(28))
-    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(31))
+    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(22))
+    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(29))
     apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(32))
+    apply (metis list.exhaust option.simps(3) prod.exhaust_sel step.simps(33))
   done
 qed
 
@@ -458,11 +458,11 @@ proof -
   obtain abst m f rs where "ist = (abst, m, f, rs)" by (metis prod_cases4)
   from this show ?thesis using assms
     apply safe
-    apply (metis option.simps(3) remdups_adj.cases step.simps(18) step.simps(19))
-    apply (metis option.simps(3) remdups_adj.cases step.simps(22) step.simps(23))
-    apply (metis list.exhaust option.simps(3) step.simps(24) step.simps(25))
-    apply (metis list.exhaust option.simps(3) step.simps(26) step.simps(27))
-    apply (metis option.discI remdups_adj.cases step.simps(29) step.simps(30))
+    apply (metis option.simps(3) remdups_adj.cases step.simps(19) step.simps(20))
+    apply (metis option.simps(3) remdups_adj.cases step.simps(23) step.simps(24))
+    apply (metis list.exhaust option.simps(3) step.simps(25) step.simps(26))
+    apply (metis list.exhaust option.simps(3) step.simps(27) step.simps(28))
+    apply (metis option.discI remdups_adj.cases step.simps(30) step.simps(31))
   done
 qed
 
@@ -683,7 +683,7 @@ lemma step_pop:
     "ors = irs"
     "\<exists>v. istack = v # ostack"
 proof -
-  from assms have "\<exists>v rstack. istack = v # rstack" by (metis list.exhaust option.simps(3) step.simps(28))
+  from assms have "\<exists>v rstack. istack = v # rstack" by (metis list.exhaust option.simps(3) step.simps(29))
   from this assms obtain v where v: "istack = v # ostack" by auto
   thus "\<exists>v. istack = v # ostack" ..
   from assms show "opc = Suc ipc" using step_pop1_pred by force
@@ -710,14 +710,14 @@ qed
 lemma step_lid:
   assumes "step (LID r) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
   shows "opc = Suc ipc \<and> ostack = (iregs ! r) # istack \<and> oregs = iregs \<and> oflag = iflag \<and> ors = irs \<and> r < length iregs"
-  using assms step_lid_safe by (metis Pair_inject Suc_eq_plus1 option.sel step.simps(10))
+  using assms step_lid_safe by (metis Pair_inject Suc_eq_plus1 option.sel step.simps(11))
 
 lemma step_lid_succ:
   assumes "step (LID r) (ipc, ist) = Some (pc, st)"
   shows "pc = Suc ipc"
 proof -
   from assms obtain sta m f rs where "ist = (sta, m, f, rs)" using prod_cases4 by blast
-  moreover from assms this have "r < length m" using step_lid_safe by (metis option.simps(3) step.simps(10))
+  moreover from assms this have "r < length m" using step_lid_safe by (metis option.simps(3) step.simps(11))
   ultimately show ?thesis using assms by auto
 qed
 
@@ -728,11 +728,11 @@ lemma step_store:
     "\<exists>v r. istack = v # r # ostack \<and> nat r < length iregs \<and> r \<ge> 0 \<and> oregs = iregs[nat r := v]"
 proof -
   from assms obtain v r rstack where istack: "istack = v # r # rstack" using step_pop2_pred by force
-  hence step: "step STORE (ipc, (istack, iregs, iflag, irs)) = Some (Suc ipc, (rstack, iregs[nat r := v], iflag, irs))" by (metis Suc_eq_plus1 assms option.distinct(1) step.simps(11))
+  hence step: "step STORE (ipc, (istack, iregs, iflag, irs)) = Some (Suc ipc, (rstack, iregs[nat r := v], iflag, irs))" by (metis Suc_eq_plus1 assms option.distinct(1) step.simps(12))
   from this assms show "opc = Suc ipc \<and> oflag = iflag \<and> ors = irs" by simp
   from step assms have ostack: "ostack = rstack" by simp
   have "istack = v # r # ostack \<and> nat r < length iregs \<and> r \<ge> 0 \<and> oregs = iregs[nat r := v]"
-    by (metis Pair_inject assms istack option.inject option.simps(3) step.simps(11))
+    by (metis Pair_inject assms istack option.inject option.simps(3) step.simps(12))
   thus "\<exists>v r. istack = v # r # ostack \<and> nat r < length iregs \<and> r \<ge> 0 \<and> oregs = iregs[nat r := v]" by blast
 qed
 
@@ -748,7 +748,7 @@ lemma step_storei:
   assumes "step (STOREI r v) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
   shows
     "opc = Suc ipc \<and> ostack = istack \<and> oregs = iregs[r := v] \<and> oflag = iflag \<and> ors = irs \<and> r < length iregs"
-  using assms by (metis Pair_inject Suc_eq_plus1 option.sel option.simps(3) step.simps(12))
+  using assms by (metis Pair_inject Suc_eq_plus1 option.sel option.simps(3) step.simps(13))
 
 lemma step_storei_succ:
   assumes "step (STOREI r v) (ipc, ist) = Some (pc, st)"
@@ -762,7 +762,7 @@ qed
 lemma step_copy:
   assumes "step COPY (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
   shows "opc = Suc ipc \<and> ostack = (int_of iflag) # istack \<and> oregs = iregs \<and> oflag = iflag \<and> ors = irs"
-  using assms by (metis Suc_eq_plus1 old.prod.inject option.inject step.simps(13))
+  using assms by (metis Suc_eq_plus1 old.prod.inject option.inject step.simps(14))
 
 lemma step_copy_succ:
   assumes "step COPY (ipc, ist) = Some (pc, st)"
@@ -779,7 +779,7 @@ lemma step_call:
     "\<exists>rstack. istack = int opc # rstack \<and> ostack = int ipc # rstack"
 proof -
   from assms obtain x rstack where istack: "istack = x # rstack" by (meson Pair_inject step_pop1_pred)
-  then have "x \<ge> 0 \<and> nat x = opc" using assms by (metis Pair_inject option.sel option.simps(3) step.simps(14))
+  then have "x \<ge> 0 \<and> nat x = opc" using assms by (metis Pair_inject option.sel option.simps(3) step.simps(15))
   then show "\<exists>rstack. istack = int opc # rstack \<and> ostack = int ipc # rstack" using istack assms by auto
   then show "oregs = iregs \<and> oflag = iflag \<and> ors = irs" using assms by auto
 qed
@@ -790,7 +790,7 @@ lemma step_return:
     "oregs = iregs \<and> oflag = iflag \<and> ors = irs \<and> istack = int (opc - 1) # ostack \<and> opc > 0"
 proof -
   from assms obtain x rstack where istack: "istack = x # rstack" using step_pop1_pred by force
-  hence gr: "x \<ge> 0" using assms by (metis option.distinct(1) step.simps(15))
+  hence gr: "x \<ge> 0" using assms by (metis option.distinct(1) step.simps(16))
   from istack this have "nat x + 1 = opc" using assms by simp
   from this gr show ?thesis using assms istack by auto
 qed
@@ -799,7 +799,7 @@ lemma step_storec:
   assumes "step (STOREC c d) (ipc, (istack, iregs, iflag, irs)) = Some (opc, (ostack, oregs, oflag, ors))"
   shows
     "opc = Suc ipc \<and> ostack = istack \<and> oregs = iregs \<and> oflag = iflag \<and> ors = c # irs \<and> d = 0"
-  by (metis assms list.inject option.distinct(1) option.inject state_pc.simps step.simps(13) step.simps(16) step_copy)
+  by (metis assms list.inject option.distinct(1) option.inject state_pc.simps step.simps(14) step.simps(17) step_copy)
 
 lemma step_storec_succ:
   assumes "step (STOREC c d) (ipc, ist) = Some (pc, st)"

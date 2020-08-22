@@ -282,7 +282,7 @@ fun scan_quadruple' (p1, p2, p3, p4) =
   )
 val scan_invariant = scan_list (scan_list (scan_list scan_acconstraint))
 val scan_trans =
-  scan_quadruple' (scan_int, scan_act, scan_int, scan_int) |>
+  scan_quadruple' (scan_int (* entry *), scan_act, scan_int (* entry *), scan_int) |>
   scan_list |>
   scan_list |>
   scan_list

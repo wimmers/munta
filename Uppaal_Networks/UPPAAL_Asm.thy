@@ -7,6 +7,7 @@ type_synonym val = int
 type_synonym reg = nat
 
 datatype instr =
+  NOP |
   JMPZ addr |
   ADD |
   NOT |
@@ -39,6 +40,7 @@ definition int_of :: "bool \<Rightarrow> int" where
   "int_of x \<equiv> if x then 1 else 0"
 
 fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
+  "step NOP (pc, st, m, f, rs) = Some (pc + 1, st, m, f, rs)" |
   "step (JMPZ q) (pc, st, m, f, rs) = Some (if f then (pc + 1) else q, st, m, f, rs)" |
   "step ADD (pc, a # b # st, m, f, rs) = Some (pc + 1, (a + b) # st, m, f, rs)" |
   "step NOT (pc, b # st, m , f, rs) = Some (pc + 1, st, m, \<not> f, rs)" |

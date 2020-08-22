@@ -491,6 +491,8 @@ next
 qed
 
 fun step_smart_base :: "instr \<Rightarrow> addr \<Rightarrow> ('a::absword, 'b::absstack) smart_base \<Rightarrow> ('a, 'b) smart state_map" where
+  "step_smart_base NOP pc (Smart stack regs flag)  = single (Suc pc) (Some (Smart stack regs flag))" |
+
   "step_smart_base (JMPZ target) pc (Smart stack regs BTrue)  = single (Suc pc) (Some (Smart stack regs BTrue))" |
   "step_smart_base (JMPZ target) pc (Smart stack regs BFalse) = single target (Some (Smart stack regs BFalse))" |
   "step_smart_base (JMPZ target) pc (Smart stack regs BBoth)  = deep_merge {(target, Some (Smart stack regs BBoth)), (Suc pc, Some (Smart stack regs BBoth))}" |
@@ -591,6 +593,9 @@ proof -
 
   show ?thesis
   proof (cases op)
+    case NOP
+    then show ?thesis using ist_split ist_split_step(2) ist_step(1) ost_split by auto
+  next
     case (JMPZ target)
     from JMPZ ist_split_step have stack_preserve: "ocstack = icstack" using step_jmpz(1) by blast
     from JMPZ ist_split_step have regs_preserve: "ocregs = icregs" using step_jmpz(2) by blast
@@ -616,14 +621,14 @@ proof -
         case True
         from this JMPZ ist_split_step(2) have "opc = Suc ipc" using step_jmpz_true(4) by (metis(full_types))
         from this BBoth JMPZ have lookup: "Some (Smart iastack iaregs iaflag) \<le> lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc" using deep_merge_lookup
-          by (metis insert_iff step_smart.simps(2) step_smart_base.simps(3))
+          by (metis insert_iff step_smart.simps(2) step_smart_base.simps(4))
         have "ost \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" using ist_split flag_preserve ist_step(1) ost_split regs_preserve stack_preserve by simp
         from this lookup show ?thesis using gamma_smart_mono by blast
       next
         case False
         from this JMPZ ist_split_step(2) have "opc = target" using step_jmpz_false(4) by (metis(full_types))
         from this BBoth JMPZ have lookup: "Some (Smart iastack iaregs iaflag) \<le> lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc" using deep_merge_lookup
-          by (metis insert_iff step_smart.simps(2) step_smart_base.simps(3))
+          by (metis insert_iff step_smart.simps(2) step_smart_base.simps(4))
         have "ost \<in> \<gamma>_smart (Some (Smart iastack iaregs iaflag))" using ist_split flag_preserve ist_step(1) ost_split regs_preserve stack_preserve by simp
         from this lookup show ?thesis using gamma_smart_mono by blast
       qed
@@ -662,7 +667,7 @@ proof -
       \<union> (if contains a 1 then {(Suc ipc, Some (Smart rstack iaregs (and BTrue iaflag)))} else {})"
 
     have step_mergeset: "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = deep_merge ?mergeset"
-      by (metis (no_types, lifting) AND step_smart_base.simps(6) case_prod_beta' step_smart.simps(2))
+      by (metis (no_types, lifting) AND step_smart_base.simps(7) case_prod_beta' step_smart.simps(2))
 
     from ia(2) have "(ocstack, ocregs, ocflag, ocrs) \<in> \<gamma>_smart (lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc)"
     proof(safe, goal_cases 1 0)
