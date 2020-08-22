@@ -92,8 +92,9 @@ lemma steps_steps_approx':
   apply (case_tac x2)
    apply (simp split: option.split_asm if_split_asm)
    apply (case_tac x1)
-                    apply (auto split: if_split_asm; fail)
-                   apply (auto split: if_split_asm elim: UPPAAL_Asm.step.elims; fail)
+                     apply (auto split: if_split_asm; fail)
+                    apply (auto split: if_split_asm elim: UPPAAL_Asm.step.elims; fail)
+                   apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
                   apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
                  apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
                 apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm; fail)
@@ -152,8 +153,9 @@ lemma stepsc_steps_approx:
   apply (case_tac z)
    apply (simp split: option.split_asm if_split_asm)
    apply (case_tac x1)
-                    apply (simp split: if_split_asm)
-                   apply (auto elim: UPPAAL_Asm.step.elims)[]
+                     apply (simp split: if_split_asm)
+                    apply (auto elim: UPPAAL_Asm.step.elims)[]
+                   apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
                   apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
                  apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
                 apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
@@ -164,19 +166,15 @@ lemma stepsc_steps_approx:
            apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
           apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
          apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
-        apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
+       apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
        apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
        apply (case_tac "q < length prog")
-        apply force
-       apply (drule stepsc_out_of_range; simp)
-      apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
-      apply (case_tac "q + 1 < length prog")
-       apply force
-      apply (drule stepsc_out_of_range; simp)
-     apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
-    apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
-   apply (auto elim!: UPPAAL_Asm.step.elims split: if_split_asm)[]
-  by (force split: if_split_asm)
+        apply auto
+  apply (smt not_less stepsc_out_of_range)
+  apply (smt not_less stepsc_out_of_range)
+  apply (smt not_less stepsc_out_of_range)
+  apply (metis (no_types, lifting) Pair_inject Suc_eq_plus1 option.inject option.simps(3))
+  by (metis (no_types, lifting) Suc_eq_plus1 insertI1 instrc.simps(6) option.distinct(1) option.inject)
 
 definition
   "time_indep_check pc n \<equiv>
@@ -575,6 +573,8 @@ lemma guaranteed_execution:
       prog ! pc \<noteq> None
       \<and> prog ! pc \<notin> Some ` INSTR `
         {STORE, HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
+      \<and> (\<nexists>c d. prog ! pc = Some (INSTR (STOREI c d)))
+      \<and> (\<nexists>c. prog ! pc = Some (INSTR (LID c)))
       \<and> (\<forall> c d. prog ! pc = Some (INSTR (STOREC c d)) \<longrightarrow> d = 0)
       "
     "\<forall> pc \<in> {pc..<pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t"
@@ -597,6 +597,8 @@ proof (induction "pc_t - pc" arbitrary: pc st s f r n rule: less_induct)
     with less.prems(1,4) have valid_instr:
       "prog ! pc \<notin> Some ` INSTR `
        {STORE, HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}"
+      "\<nexists>c d. prog ! pc = Some (INSTR (STOREI c d))"
+      "\<nexists>c. prog ! pc = Some (INSTR (LID c))"
       "prog ! pc \<noteq> None"
       by auto
     from \<open>pc \<le> _\<close> \<open>pc_t \<noteq> _\<close> less.prems(2) have jumps:
@@ -687,13 +689,13 @@ lemma find_next_halt_finds_halt:
   if "find_next_halt prog pc = Some pc'"
 using that proof (induction prog pc rule: find_next_halt.induct)
   case prems: (1 prog pc)
-  from prems(20) show ?case
+  from prems(21) show ?case
     by (
         simp,
         simp
         split: if_split_asm option.split_asm instrc.split_asm instr.split_asm
         del: find_next_halt.simps;
-        fastforce dest: prems(1-19) simp del: find_next_halt.simps)
+        fastforce dest: prems(1-20) simp del: find_next_halt.simps)
 qed
 
 definition
@@ -705,8 +707,10 @@ definition
        \<forall> pc \<in> {pc_s..<pc_t}.
           prog ! pc \<noteq> None
           \<and> prog ! pc \<notin> Some ` INSTR `
-            {STORE, HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
+            {NOP, STORE, HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
           \<and> (\<forall> c d. prog ! pc = Some (INSTR (STOREC c d)) \<longrightarrow> d = 0)
+          \<and> (\<forall> c d. prog ! pc = Some (INSTR (STOREI c d)) \<longrightarrow> False)
+          \<and> (\<forall> c. prog ! pc = Some (INSTR (LID c)) \<longrightarrow> False)
         ) \<and>
         (\<forall> pc \<in> {pc_s..<pc_t}. \<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t)
        \<and> n > pc_t - pc_s
@@ -721,8 +725,10 @@ lemma guaranteed_execution_cond_alt_def[code]:
        \<forall> pc \<in> {pc_s..<pc_t}.
           prog ! pc \<noteq> None
           \<and> prog ! pc \<notin> Some ` INSTR `
-            {STORE, HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
+            {NOP, STORE, HALT, POP, CALL, RETURN, instr.AND, instr.NOT, instr.ADD, instr.LT, instr.LE, instr.EQ}
           \<and> (case prog ! pc of Some (INSTR (STOREC c d)) \<Rightarrow> d = 0 | _ \<Rightarrow> True)
+          \<and> (case prog ! pc of Some (INSTR (STOREI c d)) \<Rightarrow> False | _ \<Rightarrow> True)
+          \<and> (case prog ! pc of Some (INSTR (LID c)) \<Rightarrow> False | _ \<Rightarrow> True)
         ) \<and>
         (\<forall> pc \<in> {pc_s..<pc_t}.
           case prog ! pc of Some (INSTR (JMPZ pc')) \<Rightarrow> pc' > pc \<and> pc' \<le> pc_t | _ \<Rightarrow> True)
@@ -738,7 +744,15 @@ proof (rule eq_reflection, goal_cases)
     "(\<forall> pc'. prog ! pc = Some (INSTR (JMPZ pc')) \<longrightarrow> pc' > pc \<and> pc' \<le> pc_t) \<longleftrightarrow>
      (case prog ! pc of Some (INSTR (JMPZ pc')) \<Rightarrow> pc' > pc \<and> pc' \<le> pc_t | _ \<Rightarrow> True)" for pc pc_t
     by (auto split: option.split instrc.split instr.split)
-  show ?case unfolding guaranteed_execution_cond_def * ** ..
+  have ***:
+    "(\<forall> c d. prog ! pc = Some (INSTR (STOREI c d)) \<longrightarrow> False) \<longleftrightarrow>
+     (case prog !pc of Some (INSTR (STOREI c d)) \<Rightarrow> False | _ \<Rightarrow> True)" for pc
+    by (auto split: option.split instrc.split instr.split)
+  have ****:
+    "(\<forall> c. prog ! pc = Some (INSTR (LID c)) \<longrightarrow> False) \<longleftrightarrow>
+     (case prog !pc of Some (INSTR (LID c)) \<Rightarrow> False | _ \<Rightarrow> True)" for pc
+    by (auto split: option.split instrc.split instr.split)
+  show ?case unfolding guaranteed_execution_cond_def * ** *** **** ..
 qed
 
 lemma guaranteed_execution':
