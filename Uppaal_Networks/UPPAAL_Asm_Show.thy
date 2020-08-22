@@ -41,6 +41,7 @@ end
 instantiation instr :: "show"
 begin
 fun show_instr :: "instr \<Rightarrow> string" where
+  "show_instr NOP = ''NOP''" |
   "show_instr (JMPZ a) = ''JMPZ '' @ (show a)" |
   "show_instr ADD = ''ADD''" |
   "show_instr NOT = ''NOT''" |

@@ -94,6 +94,9 @@ definition "set_res_str \<equiv> String.implode (show_display_ctx (DisplayCtx my
 definition "entry_default \<equiv> (merge_single \<bottom> 0 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state state_map"
 definition "entry_later \<equiv> (merge_single \<bottom> 5 (Some (Smart \<bottom> \<bottom> BFalse)))::si_state state_map"
 
+fun entries :: "addr list \<Rightarrow> si_state state_map" where
+  "entries l = deep_merge ((\<lambda>pc. (pc, Some (Smart \<bottom> \<bottom> BFalse))) ` set l)"
+
 ML_file "../../ML/Scan_More.ML";
 ML\<open>
 (*** Utilities for parsing
@@ -158,7 +161,7 @@ fun map_option _ NONE = NONE
 
 fun map_instrc f_nat f_int _ = fn
   SOME (INSTR' instr) => SOME (map_instr f_nat f_int instr) |
-  SOME (CEXP' _) => NONE |
+  SOME (CEXP' _) => SOME @{code NOP} |
   NONE => NONE
 
 fun nat_of_integer k = @{code nat} k;
@@ -326,14 +329,20 @@ fun show_result prog = fn
   @{code RSM} sm => @{code DisplayCtx} (prog, @{code RSM} sm) |> @{code show_display_ctx} |> @{code String.implode} |
   @{code RSMS} _ => "Top"
 
+val entry_pcs_from_trans =
+  List.concat #> List.concat #> map (fn (entry0, _, entry1, _) => [entry0, entry1]) #> List.concat
+
+val entry_states_from_trans =
+  entry_pcs_from_trans #> map to_nat
+
 fun program_file file =
   let
     val f = TextIO.openIn file
     val input = read_lines f
-    val (((((((_, prog'), _), _), _), _), _), _) = scan_all (explode_string (input ^ " "))
+    val ((((((((_, trans), prog'), _), _), _), _), _), _) = scan_all (explode_string (input ^ " "))
     val prog = map (map_instrc to_nat to_int to_int) prog'
   in
-    @{code assemble} prog
+    (@{code assemble} prog, @{code entries} (entry_states_from_trans trans))
   end;
 
 fun absint_run prog entry window_size concretize_max steps =
@@ -343,7 +352,12 @@ fun absint_run prog entry window_size concretize_max steps =
     show_result prog result |> writeln
   end;
 
-val absint_benchmark = absint_run o program_file
+fun absint_benchmark file =
+  let
+    val (prog, entry) = program_file file
+  in
+    absint_run prog entry
+  end;
 
 val entry_default = @{code entry_default}
 val entry_later = @{code entry_later}
