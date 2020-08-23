@@ -3,7 +3,7 @@ theory AbsInt_Final
     AbsInt_Refine
     State_Smart
     Stack_Window
-    Word_StridedInterval
+    Abs_Word_StridedInterval
 begin
 
 definition[simp]: "\<gamma>_word \<equiv> \<gamma>_option (\<gamma>_toption \<gamma>_strided_interval)"

@@ -1,5 +1,5 @@
 theory ListLattice
-  imports Main Uppaal_Networks.Notation
+  imports Main "HOL-Library.Lattice_Syntax"
 begin
 
 instantiation list :: (order) order

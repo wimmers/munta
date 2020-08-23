@@ -1,11 +1,11 @@
-theory Word
+theory Abs_Word
   imports AbsInt PowerBool Toption
 begin
 
 section \<open>Abstraction of Machine Words\<close>
 text \<open>More specifically, abstraction for @{type val}, @{type reg} and @{type addr}\<close>
 
-class absword = bounded_semilattice_sup_bot + order_top
+class absword = semilattice_sup + order_bot + order_top
 
 fun word_of_gen :: "(int \<Rightarrow> 'a::absword) \<Rightarrow> power_bool \<Rightarrow> 'a" where
   "word_of_gen make BTrue = make 1" |

@@ -1,5 +1,5 @@
 theory UPPAAL_Asm_Map
-  imports UPPAAL_Asm Notation
+  imports UPPAAL_Asm "HOL-Library.Lattice_Syntax"
 begin
 
 subsection "State Map"

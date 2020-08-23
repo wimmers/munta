@@ -1,5 +1,5 @@
-theory Word_StridedInterval
-  imports Word OptionLattice
+theory Abs_Word_StridedInterval
+  imports Abs_Word OptionLattice
 begin
 
 subsection\<open>Strided Intervals\<close>
@@ -413,7 +413,7 @@ proof (standard, goal_cases)
   then show ?case using \<gamma>_option_mono \<gamma>_toption_mono mono_def \<gamma>_strided_interval_mono 1 by blast
 next
   case 2
-  then show ?case by simp
+  then show ?case by (simp add: top_option_def)
 next
   case (3 a x)
   then show ?case

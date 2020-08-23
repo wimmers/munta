@@ -44,11 +44,11 @@ proof (standard, goal_cases)
     case (Some aa)
     then show ?thesis
       apply(cases b)
-      using 1 less_eq_option.simps(2) apply blast
+      using 1 less_eq_option_Some_None apply blast
       by simp
   qed simp
 next
-  case 2 then show ?case by (simp add: top_dumb_base_def)
+  case 2 then show ?case by (simp add: top_option_def)
 next
   case (3 op ipc ins pc)
   then show ?case
@@ -91,8 +91,8 @@ next
       case (STOREI) then show ?thesis using Some collect_step_succ by simp next
       case (COPY) then show ?thesis using Some collect_step_succ by simp next
       case (STOREC c d) then show ?thesis using Some collect_step_succ by simp next
-    qed auto
+    qed (auto simp: top_option_def)
   qed
-qed simp
+qed (simp add: bot_option_def)
 
 end

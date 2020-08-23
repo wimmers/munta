@@ -558,7 +558,7 @@ lemma gamma_smart_mono:
 proof (intro Set.subsetI)
   fix x assume ass: "x \<in> \<gamma>_smart a"
   from ass obtain astack aregs aflag where asplit: "a = Some (Smart astack aregs aflag)" by (metis \<gamma>_smart.elims empty_iff)
-  from this assms obtain bstack bregs bflag where bsplit: "b = Some (Smart bstack bregs bflag)" by (metis \<gamma>_smart.cases less_eq_option.simps(2))
+  from this assms obtain bstack bregs bflag where bsplit: "b = Some (Smart bstack bregs bflag)" by (metis \<gamma>_smart.cases less_eq_option_None_is_None)
   from ass obtain stack rstate flag nl where xsplit: "x = (stack, rstate, flag, nl)" using prod_cases4 by blast
   from assms asplit bsplit have fine_le: "astack \<le> bstack" "aregs \<le> bregs" "aflag \<le> bflag" by auto
   from asplit xsplit ass have ain: "stack \<in> \<gamma>_stack astack \<and> rstate \<in> \<gamma>_regs aregs \<and> flag \<in> \<gamma>_power_bool aflag" by simp
@@ -571,7 +571,9 @@ qed
 lemma gamma_smart_top: "\<gamma>_smart \<top> = \<top>"
 proof -
   have "rstate \<in> \<gamma>_regs \<top>" "flag \<in> \<gamma>_power_bool \<top>" for rstate flag by auto
-  then show ?thesis by auto
+  moreover have  "\<top> = Some (Smart \<top> \<top> \<top>)" by (simp add: top_option_def)
+  moreover have "{(stack, rstate, flag, nl). stack \<in> \<gamma>_stack \<top> \<and> rstate \<in> \<gamma>_regs \<top> \<and> flag \<in> \<gamma>_power_bool \<top>} = \<top>" by auto
+  ultimately show ?thesis by (simp add: \<open>\<top> = Some (Smart \<top> \<top> \<top>)\<close>)
 qed
 
 lemma step_smart_nonbot_correct:
@@ -793,7 +795,7 @@ proof -
       qed
 
       from smartval in_smartval show ?thesis by simp
-    qed (simp add: case_prod_beta' STORE)
+    qed (simp add: case_prod_beta' STORE top_option_def)
   next
     case (STOREI r v)
     hence step: "opc = Suc ipc \<and> ocstack = icstack \<and> ocregs = icregs[r := v] \<and> ocflag = icflag \<and> ocrs = icrs \<and> r < length icregs" using step_storei ist_split_step(2) by blast
@@ -830,7 +832,7 @@ proof -
       have indm: "ost \<in> \<gamma>_smart (lookup ?dm opc)" by (smt indmset deep_merge_lookup gamma_smart_mono ost_gamma subsetD)
       have step_smart: "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = ?dm" using Minor CALL by simp
       from step_smart indm  show ?thesis by simp
-    qed simp
+    qed (simp add: top_option_def)
   next
     case RETURN
     from RETURN have step: "ocregs = icregs \<and> ocflag = icflag \<and> ocrs = icrs \<and> icstack = int (opc - 1) # ocstack \<and> opc > 0"
@@ -860,7 +862,7 @@ proof -
       have indm: "ost \<in> \<gamma>_smart (lookup ?dm opc)" by (smt indmset deep_merge_lookup gamma_smart_mono ost_gamma subsetD)
       have step_smart: "step_smart op ipc (Some (Smart iastack iaregs iaflag)) = ?dm" using Minor RETURN by simp
       from step_smart indm  show ?thesis by simp
-    qed simp
+    qed (simp add: top_option_def)
   next
     case HALT
     then show ?thesis using assms collect_step_halt_succ by blast
@@ -892,7 +894,7 @@ next
   then show ?case using step_smart_nonbot_correct
   proof (cases "a = \<bottom>")
     case True
-    then show ?thesis by simp
+    then show ?thesis by (simp add: bot_option_def)
   next
     case False
     have "lookup (collect_step op ipc (\<gamma>_smart (Some (Smart stack regs flag)))) pc
@@ -902,7 +904,7 @@ next
   qed
 next
   case (4 op ipc pc)
-  then show ?case by simp
+  then show ?case by (simp add: bot_option_def)
 qed
 
 context Smart_Base

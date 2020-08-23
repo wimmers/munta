@@ -208,14 +208,14 @@ qed
 
 subsection \<open>Abstract Interpretation\<close>
 
-class absstate = bounded_semilattice_sup_bot + order_top
+class absstate = semilattice_sup + order_bot + order_top
 
 text\<open>Least upper bound if the set is finite, else some random upper bound (just always \<top>)\<close>
-fun finite_sup :: "'a::{bounded_semilattice_sup_bot, order_top} set \<Rightarrow> 'a" where
+fun finite_sup :: "'a::{semilattice_sup, order_bot, order_top} set \<Rightarrow> 'a" where
   "finite_sup s = (if finite s then folding.F sup \<bottom> s else \<top>)"
 
 global_interpretation finite_sup: folding
-  where f = "(sup::('a::bounded_semilattice_sup_bot \<Rightarrow> 'a \<Rightarrow> 'a))"
+  where f = "(sup::('a::{semilattice_sup, order_bot} \<Rightarrow> 'a \<Rightarrow> 'a))"
   and z = "\<bottom>"
 proof (standard, rule ext)
   fix x y z
@@ -226,7 +226,7 @@ qed
 
 lemma finite_sup_upper:
   assumes
-    "finite (s::'a::{bounded_semilattice_sup_bot, order_top} set)"
+    "finite (s::'a::{semilattice_sup, order_bot, order_top} set)"
     "x \<in> s"
   shows "x \<le> finite_sup s"
 proof(cases "finite s")
@@ -260,7 +260,7 @@ proof (cases "finite A \<and> finite B")
     case (insert x F)
     then show ?case
       by (smt True Un_insert_right finite.insertI finite_UnI finite_sup.insert finite_sup.insert_remove finite_sup.simps insert_absorb sup.left_idem sup_left_commute)
-  qed simp
+  qed (simp add: sup.absorb1)
 next
   case False
   hence "finite_sup A \<squnion> finite_sup B = \<top>" by (metis finite_sup.simps sup.orderE sup_commute top_greatest)
@@ -916,7 +916,7 @@ proof (rule state_map_eq_fwd)
   have "finite_sup{st. (p, st) \<in> (set (?x # xs))} = finite_sup{st. (p, st) \<in> (set xs)} \<squnion> finite_sup{st. (p, st) \<in> {?x}}"
   proof (cases "p = k")
     case True
-    hence "finite_sup{st. (p, st) \<in> {(k, v)}} = v" by simp
+    hence "finite_sup{st. (p, st) \<in> {(k, v)}} = v" by (simp add: sup_absorb1)
     have "finite_sup{st. (p, st) \<in> set ((k, v) # xs)} = finite_sup{st. (p, st) \<in> (set xs \<union> {?x})}" by simp
     hence "finite_sup{st. (p, st) \<in> set ((k, v) # xs)} = finite_sup({st. (p, st) \<in> set xs} \<union> {st. (p, st) \<in> {?x}})" using prod_set_split by metis
     then show ?thesis using finite_sup_union_distrib by metis
@@ -924,17 +924,18 @@ proof (rule state_map_eq_fwd)
     case False
     hence bot: "finite_sup{st. (p, st) \<in> {?x}} = \<bottom>" by simp
     from False have "{st. (p, st) \<in> set (?x # xs)} = {st. (p, st) \<in> set xs}" by simp
-    from this have "finite_sup{st. (p, st) \<in> set (?x # xs)} = finite_sup{st. (p, st) \<in> set xs} \<squnion> \<bottom>" by simp
+    from this have "finite_sup{st. (p, st) \<in> set (?x # xs)} = finite_sup{st. (p, st) \<in> set xs} \<squnion> \<bottom>" by (simp add: sup_absorb1)
     from this bot show ?thesis by presburger
   qed
-  thus "lookup (deep_merge (set (?x # xs))) p = lookup (deep_merge (set xs) \<squnion> single k v) p" by simp
+  thus "lookup (deep_merge (set (?x # xs))) p = lookup (deep_merge (set xs) \<squnion> single k v) p" by (simp add: sup_absorb1)
 qed
 
 lemma deep_merge_bot: "deep_merge (set ((k, \<bottom>) # xs)) = deep_merge (set xs)"
 proof (rule state_map_eq_fwd)
   fix p
-  show "lookup (deep_merge (set ((k, \<bottom>) # xs))) p = lookup (deep_merge (set xs)) p"
-    by (smt boolean_algebra_cancel.sup0 deep_merge_cons lookup.simps single.simps sup_lookup)
+  have "(\<bottom>::'a) = lookup (single k \<bottom>) p" by simp
+  thus "lookup (deep_merge (set ((k, \<bottom>) # xs))) p = lookup (deep_merge (set xs)) p"
+    using deep_merge_cons sup_lookup sup_absorb1 bot.extremum by metis
 qed
 
 end

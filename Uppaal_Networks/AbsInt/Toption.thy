@@ -1,5 +1,5 @@
 theory Toption
-  imports Main Uppaal_Networks.Notation PowerBool
+  imports Main "HOL-Library.Lattice_Syntax" PowerBool
 begin
 
 text\<open>@{type option}-like type adding a top element.\<close>

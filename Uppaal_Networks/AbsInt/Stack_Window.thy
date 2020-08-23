@@ -1,10 +1,10 @@
 theory Stack_Window
-  imports Stack State_Smart Word
+  imports Stack State_Smart Abs_Word
 begin
 
 type_synonym 'a stack_window = "'a list toption"
 
-instantiation toption :: (bounded_semilattice_sup_bot) absstack
+instantiation toption :: ("{semilattice_sup, order_bot}") absstack
 begin
 instance ..
 end
