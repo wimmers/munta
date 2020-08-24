@@ -6,6 +6,8 @@ theory AbsInt_Final
     Abs_Word_StridedInterval
 begin
 
+type_synonym si_state = "(strided_interval toption option, strided_interval toption option stack_window) smart"
+
 definition[simp]: "\<gamma>_word \<equiv> \<gamma>_option (\<gamma>_toption \<gamma>_strided_interval)"
 
 global_interpretation Abs_Int_Final: Smart_Base
@@ -46,6 +48,11 @@ proof(standard, goal_cases)
   case (14 cx c b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma window_pop_correct(1)) next
   case (15 cx c b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma window_pop_correct(2))
 qed auto
+
+definition[simp]: "final_loop window_size concretize_max \<equiv> finite_loop (final_step window_size concretize_max)"
+theorem ai_loop_correct: "collect_loop prog n (Abs_Int_Final.Smart.\<gamma>_map window_size entry)
+  \<le> Abs_Int_Final.Smart.\<gamma>_map window_size (final_loop window_size concretize_max prog n entry)"
+  using Abs_Int_Final.Smart.ai_loop_correct by simp
 
 definition[simp]: "final_loop_fp window_size concretize_max \<equiv> finite_loop_fp (final_step window_size concretize_max)"
 theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_map window_size entry)

@@ -83,7 +83,6 @@ definition "dumb_result \<equiv>
 definition "abs_res_str \<equiv> String.implode (show (DisplayCtx myprog dumb_result))"
 (*ML \<open>val _ = writeln (@{code abs_res_str})\<close>*)
 
-type_synonym si_state =   "(strided_interval toption option, strided_interval toption option stack_window) smart"
 definition show_display_ctx :: "si_state dispctx \<Rightarrow> string" where
   "show_display_ctx = show"
 

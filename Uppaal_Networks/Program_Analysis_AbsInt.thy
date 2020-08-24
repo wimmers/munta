@@ -4,20 +4,73 @@ theory Program_Analysis_AbsInt
     TA_Library.More_Methods
     "HOL-Library.Lattice_Syntax"
     "AbsInt_Final"
+    "UPPAAL_Asm_Assemble"
 begin
+
+definition "window_size \<equiv> (16::nat)"
+definition "concretize_max \<equiv> (16::nat)"
+
+definition extract_prog :: "'t instrc option list \<Rightarrow> program" where
+  "extract_prog = fetch_op \<circ> assemble \<circ> map (\<lambda>cop. case cop of Some (INSTR op) \<Rightarrow> Some op | Some (CEXP _) \<Rightarrow> Some NOP | None \<Rightarrow> None)"
+
+fun steps_approx_absint_state :: "nat \<Rightarrow> 't instrc option list \<Rightarrow> addr * si_state \<Rightarrow> addr set" where
+  "steps_approx_absint_state n cprog (pc, est) = domain (final_loop window_size concretize_max (extract_prog cprog) n (single pc est))"
+
+fun steps_approx_absint :: "nat \<Rightarrow> 't instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
+  "steps_approx_absint n cprog pc = steps_approx_absint_state n cprog (pc, \<top>)" (* TODO: make a better top *)
+
+lemma bounded_less_simp[simp]:
+  "\<forall>q\<in>{..<p::nat}. P q \<equiv> \<forall> q < p. P q"
+  by (rule eq_reflection) auto
+
+context
+  fixes prog :: "int instrc option list"
+    and strip :: "real instrc \<Rightarrow> instr"
+  assumes instr_id[simp]:
+    "strip (INSTR cmd) = cmd"
+    "strip (CEXP ac) \<notin> {CALL, RETURN, HALT} \<union> (JMPZ ` UNIV)"
+begin
+
+(* XXX This is some idiosyncracy of Isabelle's context management *)
+(* We could move this to a different file but rather would like to introduce a private namespace
+   on the spot
+*)
+private definition [simp]:
+  "P' \<equiv> map_option strip o (conv_prog (\<lambda> i. if i < length prog then prog ! i else None))"
+
+lemma steps_out_of_range':
+  assumes "steps P' n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc \<ge> length prog"
+  shows "pc' = pc"
+  using assms by cases (auto simp: striptp_def)
+
+lemmas steps_out_of_range = steps_out_of_range'[unfolded striptp_def P'_def]
+
+lemma steps_steps_approx':
+  assumes "steps P' n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
+  shows "pc' \<in> steps_approx_absint n prog pc" sorry
+
+lemmas steps_steps_approx = steps_steps_approx'[unfolded P'_def]
+
+end (* End of context for fixed program *)
 
 context
   fixes prog :: "int instrc option list"
 begin
 
+private abbreviation "P i \<equiv> if i < length prog then prog ! i else None"
+
+lemma stepsc_steps_approx:
+  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
+  shows "pc' \<in> steps_approx_absint n prog pc" using assms sorry
+
 definition
   "time_indep_check_absint pc n \<equiv>
-    \<forall> pc' \<in> steps_approx n prog pc. pc' < length prog
+    \<forall> pc' \<in> steps_approx_absint n prog pc. pc' < length prog
     \<longrightarrow> (case prog ! pc' of Some cmd \<Rightarrow> is_instr cmd | _ \<Rightarrow> True)"
 
 lemma time_indep_overapprox:
   assumes
-    "time_indep_check pc n"
+    "time_indep_check_absint pc n"
   shows "time_indep (conv_prog P) n (pc, st, s, f, rs)"
 proof -
   { fix pc' st' s' f' rs' cmd u
@@ -29,7 +82,7 @@ proof -
       case True
       with A(2) obtain cmd' where "prog ! pc' = Some cmd'" by auto
       with True stepsc_steps_approx[OF A(1)] A(2) assms show ?thesis
-        by (cases cmd') (auto simp: time_indep_check_def)
+        by (cases cmd') (auto simp: time_indep_check_absint_def)
     next
       case False
       with A(2) show ?thesis by (auto split: option.split_asm)
@@ -44,7 +97,7 @@ context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
   definition
-    "collect_cexp' pc = {ac. Some (CEXP ac) \<in> ((!) prog) ` steps_approx max_steps prog pc}"
+    "collect_cexp' pc = {ac. Some (CEXP ac) \<in> ((!) prog) ` steps_approx_absint max_steps prog pc}"
 
   definition "clkp_set'' i l \<equiv>
     collect_clock_pairs (inv ! i ! l) \<union>
@@ -55,7 +108,7 @@ begin
 
   definition
     "collect_store' pc =
-    {(c, x). Some (INSTR (STOREC c x)) \<in> ((!) prog) ` steps_approx max_steps prog pc}"
+    {(c, x). Some (INSTR (STOREC c x)) \<in> ((!) prog) ` steps_approx_absint max_steps prog pc}"
 
 end
 
@@ -281,9 +334,11 @@ proof -
   with *(2) show ?thesis by auto
 qed
 
+(*
 lemma steps_approx_out_of_range:
-  "steps_approx n prog pc = {}" if "pc \<ge> length prog"
+  "steps_approx_absint n prog pc = {}" if "pc \<ge> length prog"
   using that by (induction n) auto
+*)
 
 lemma steps_resets_mono:
   "set r \<subseteq> set r'" if "steps P n (pc, st, s, f, r) (pc', st', s', f', r')"
@@ -609,7 +664,7 @@ proof -
   ultimately show ?thesis by (force dest: steps_exec)
   qed
 
-
+(*
 context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
@@ -640,7 +695,7 @@ begin
     unfolding clk_set'_def collect_store_def by auto
 
 end
-
+*)
 
 fun conj_instr :: "'t instrc \<Rightarrow> addr \<Rightarrow> bool" where
   "conj_instr (CEXP _) _ = True" |
@@ -1055,8 +1110,9 @@ lemma is_conj_block_decomp:
     le_antisym not_less_eq_eq option.inject that(1))
 
 lemma steps_approx_finite[intro,simp]:
-  "finite (steps_approx n P pc_s)"
-  by (induction rule: steps_approx.induct; clarsimp split: option.split instrc.split instr.split)
+  "finite (steps_approx_absint n P pc_s)" sorry
+  (*by (induction rule: steps_approx.induct; clarsimp split: option.split instrc.split instr.split)*)
+
 
 abbreviation "conv_P \<equiv> map (map_option (map_instrc real_of_int))"
 
@@ -1126,9 +1182,10 @@ lemma stepst_conv_P:
       (auto split: if_split_asm)
   by (auto split: if_split_asm)
 
+
 lemma is_conj:
   fixes u :: "nat \<Rightarrow> real"
-  defines "S \<equiv> steps_approx n P pc_s"
+  defines "S \<equiv> steps_approx_absint n P pc_s"
   defines "pc_c \<equiv> Min {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)}"
   assumes "is_conj_block P pc_c (Max S)"
     and "stepst (conv_prog prog) n u (pc_s, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
@@ -1138,9 +1195,21 @@ lemma is_conj:
 proof -
   from stepst_stepc_extend[OF assms(4,5)] have *:
     "stepst (conv_prog prog) n u (pc', st', s', f', rs') (pc_t, st_t, s_t, True, rs_t)" .
-  from \<open>stepsc _ _ _ _ _\<close> \<open>P ! pc' = _\<close> \<open>pc' < _\<close> have "pc_c \<le> pc'" "pc' \<le> Max S"
-    unfolding pc_c_def S_def by (auto intro: stepsc_steps_approx Min_le Max_ge)
-  from is_conj_block_decomp[OF assms(3) \<open>P ! pc' = _\<close> this] have
+
+  from \<open>stepsc _ _ _ _ _\<close> \<open>pc' < _\<close> have in_S: "pc' \<in> S" unfolding S_def by (rule stepsc_steps_approx)
+  from in_S have max: "pc' \<le> Max S" unfolding S_def using Max_ge by blast
+
+  let ?pulled = "{pc. pc \<in> S \<and> (\<exists> ac. P ! pc = Some (CEXP ac))}"
+  have fin: "finite ?pulled" using S_def steps_approx_finite by fastforce
+  have pull: "?pulled = {pc. \<exists>ac. P ! pc = Some (CEXP ac)} \<inter> S"
+  proof -
+    have "{pc. \<exists>ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} = ?pulled" by simp
+    thus ?thesis by blast
+  qed
+  hence pc_c_min: "pc_c = Min ({pc. \<exists>ac. P ! pc = Some (CEXP ac)} \<inter> S)" unfolding S_def pc_c_def using S_def by auto
+  hence min: "pc_c \<le> pc'" using max.bounded_iff fin using pull assms(6) in_S by auto
+
+  from is_conj_block_decomp[OF assms(3) \<open>P ! pc' = _\<close> min max] have
     "is_conj_block P pc' (Max S)" .
   then have "is_conj_block (conv_P P) pc' (Max S)" by auto
   from is_conj_block_is_conj[OF this _ stepst_conv_P[OF *]] \<open>P ! pc' = _\<close> \<open>pc' < _\<close>
@@ -1150,7 +1219,7 @@ qed
 
 lemma is_conj':
   fixes u :: "nat \<Rightarrow> real"
-  defines "S \<equiv> steps_approx n P pc_s"
+  defines "S \<equiv> steps_approx_absint n P pc_s"
   assumes "{pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} = {}"
     and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
     and "P ! pc' = Some (CEXP ac)" "pc' < length P"
@@ -1172,7 +1241,7 @@ lemma check_conj_block:
 
 definition
   "conjunction_check \<equiv>
-    let S = steps_approx n P pc_s; S' = {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} in
+    let S = steps_approx_absint n P pc_s; S' = {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} in
       S' = {} \<or> check_conj_block (Min S') (Max S)
   "
 
@@ -1180,14 +1249,14 @@ lemma conjunction_check_alt_def[code]:
   "conjunction_check =
     (
      let
-        S = steps_approx n P pc_s;
+        S = steps_approx_absint n P pc_s;
         S' = {pc. pc \<in> S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
       in
         S' = {} \<or> check_conj_block (Min S') (Max S)
     )
   "
 proof -
-  let ?S = "steps_approx n P pc_s"
+  let ?S = "steps_approx_absint n P pc_s"
   have "
     {pc. pc \<in> ?S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
   = {pc. \<exists> ac. pc \<in> ?S \<and> P ! pc = Some (CEXP ac)}
