@@ -576,6 +576,9 @@ proof -
   ultimately show ?thesis by (simp add: \<open>\<top> = Some (Smart \<top> \<top> \<top>)\<close>)
 qed
 
+lemma gamma_smart_bot: "\<gamma>_smart \<bottom> = \<bottom>"
+  by (metis \<gamma>_smart.elims bot.extremum less_eq_option_Some_None)
+
 lemma step_smart_nonbot_correct:
   assumes "ost \<in> lookup (collect_step op ipc (\<gamma>_smart (Some (Smart iastack iaregs iaflag)))) opc"
   shows "ost \<in> \<gamma>_smart (lookup (step_smart op ipc (Some (Smart iastack iaregs iaflag))) opc)"
@@ -890,7 +893,9 @@ proof (standard, goal_cases)
 next
   case 2 show ?case by (rule gamma_smart_top)
 next
-  case (3 op ipc a pc)
+  case 3 show ?case by (rule gamma_smart_bot)
+next
+  case (4 op ipc a pc)
   then show ?case using step_smart_nonbot_correct
   proof (cases "a = \<bottom>")
     case True
@@ -903,7 +908,7 @@ next
     from this False show ?thesis by (metis \<gamma>_smart.elims bot_option_def)
   qed
 next
-  case (4 op ipc pc)
+  case (5 op ipc pc)
   then show ?case by (simp add: bot_option_def)
 qed
 

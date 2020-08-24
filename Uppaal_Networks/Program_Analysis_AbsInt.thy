@@ -16,8 +16,11 @@ definition extract_prog :: "'t instrc option list \<Rightarrow> program" where
 fun steps_approx_absint_state :: "nat \<Rightarrow> 't instrc option list \<Rightarrow> addr * si_state \<Rightarrow> addr set" where
   "steps_approx_absint_state n cprog (pc, est) = domain (final_loop window_size concretize_max (extract_prog cprog) n (single pc est))"
 
+definition "lowest_top \<equiv> \<top>" (* TODO: make a better top *)
+
 fun steps_approx_absint :: "nat \<Rightarrow> 't instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
-  "steps_approx_absint n cprog pc = steps_approx_absint_state n cprog (pc, \<top>)" (* TODO: make a better top *)
+  "steps_approx_absint (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, lowest_top)" |
+  "steps_approx_absint 0 _ _ = {}"
 
 lemma bounded_less_simp[simp]:
   "\<forall>q\<in>{..<p::nat}. P q \<equiv> \<forall> q < p. P q"
@@ -25,43 +28,57 @@ lemma bounded_less_simp[simp]:
 
 context
   fixes prog :: "int instrc option list"
-    and strip :: "real instrc \<Rightarrow> instr"
-  assumes instr_id[simp]:
-    "strip (INSTR cmd) = cmd"
-    "strip (CEXP ac) \<notin> {CALL, RETURN, HALT} \<union> (JMPZ ` UNIV)"
-begin
-
-(* XXX This is some idiosyncracy of Isabelle's context management *)
-(* We could move this to a different file but rather would like to introduce a private namespace
-   on the spot
-*)
-private definition [simp]:
-  "P' \<equiv> map_option strip o (conv_prog (\<lambda> i. if i < length prog then prog ! i else None))"
-
-lemma steps_out_of_range':
-  assumes "steps P' n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc \<ge> length prog"
-  shows "pc' = pc"
-  using assms by cases (auto simp: striptp_def)
-
-lemmas steps_out_of_range = steps_out_of_range'[unfolded striptp_def P'_def]
-
-lemma steps_steps_approx':
-  assumes "steps P' n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
-  shows "pc' \<in> steps_approx_absint n prog pc" sorry
-
-lemmas steps_steps_approx = steps_steps_approx'[unfolded P'_def]
-
-end (* End of context for fixed program *)
-
-context
-  fixes prog :: "int instrc option list"
 begin
 
 private abbreviation "P i \<equiv> if i < length prog then prog ! i else None"
 
+lemma steps_steps_approx:
+  assumes "steps (extract_prog prog) n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
+  shows "pc' \<in> steps_approx_absint n prog pc"
+proof -
+  from assms(1) obtain nn where nn: "n = Suc nn" using UPPAAL_Asm.steps.simps by blast
+  have "(st, s, f, rs) \<in> final_\<gamma> window_size lowest_top" by (simp add: lowest_top_def)
+  hence "pc' \<in> domain (final_loop window_size concretize_max (extract_prog prog) nn (single pc lowest_top))" using final_loop_steps_pc using assms(1) nn by auto
+  thus ?thesis using nn using steps_approx_absint.simps(1) steps_approx_absint_state.simps by blast
+qed
+
+lemma steps_extract_stepsc:
+  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')"
+  shows "steps (extract_prog prog) n (pc, st, s, f, rs) (pc', st', s', f', rs')"
+using assms proof (induction n arbitrary: u pc st s f rs pc' st' s' f' rs')
+  case 0 then show ?case using stepsc.cases by blast
+next
+  case (Suc n)
+  from Suc.prems show ?case
+  proof (cases)
+    case (2 cmd ss)
+    obtain pc'' st'' s'' f'' rs'' where ss: "ss = (pc'', st'', s'', f'', rs'')" using state_pc.cases by blast
+    let ?instr = "case cmd of INSTR op \<Rightarrow> op | CEXP _ \<Rightarrow> NOP"
+    have step: "step ?instr (pc, st, s, f, rs) = Some ss"
+    proof (cases cmd)
+      case (INSTR instr)
+      hence "(case step instr (pc, st, s, f, rs) of Some s' \<Rightarrow> Some s' | None \<Rightarrow> None) = Some ss" using "2"(1) by auto
+      moreover have "?instr = instr" by (simp add: INSTR)
+      ultimately show ?thesis by (metis option.exhaust option.simps(4) option.simps(5))
+    next
+      case (CEXP ce)
+      then show ?thesis sorry
+    qed
+    moreover have "stepsc (conv_prog P) n u (pc'', st'', s'', f'', rs'') (pc', st', s', f', rs')" using 2 ss by simp
+    ultimately have "steps (extract_prog prog) n (pc'', st'', s'', f'', rs'') (pc', st', s', f', rs')" using Suc.IH by blast
+    moreover have "(extract_prog prog) pc = Some ?instr" sorry
+    ultimately show ?thesis using step ss by blast
+  qed blast
+qed
+
 lemma stepsc_steps_approx:
   assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
-  shows "pc' \<in> steps_approx_absint n prog pc" using assms sorry
+  shows "pc' \<in> steps_approx_absint n prog pc"
+proof -
+  from assms obtain nn where nn: "n = Suc nn" using stepsc.cases by blast
+  from assms have "steps (extract_prog prog) n (pc, st, s, f, rs) (pc', st', s', f', rs')" using steps_extract_stepsc by blast
+  thus ?thesis using steps_steps_approx using assms(2) by blast
+qed
 
 definition
   "time_indep_check_absint pc n \<equiv>
@@ -1112,7 +1129,6 @@ lemma is_conj_block_decomp:
 lemma steps_approx_finite[intro,simp]:
   "finite (steps_approx_absint n P pc_s)" sorry
   (*by (induction rule: steps_approx.induct; clarsimp split: option.split instrc.split instr.split)*)
-
 
 abbreviation "conv_P \<equiv> map (map_option (map_instrc real_of_int))"
 

@@ -62,10 +62,73 @@ next
   then show ?case using steps_exact_suc_bwd using add_Suc by presburger
 qed
 
+lemma steps_exact_one:
+  assumes "steps_exact prog 1 (pc, st, m, f, rs) outs"
+  shows "\<exists>cmd. step cmd (pc, st, m, f, rs) = Some outs \<and> prog pc = Some cmd"
+  using assms steps_exact_zero by (cases, auto)
+
 inductive steps_upto :: "program \<Rightarrow> fuel \<Rightarrow> state \<Rightarrow> state \<Rightarrow> bool" for prog n start "end" where
   "count \<le> n
   \<Longrightarrow> steps_exact prog count start end
   \<Longrightarrow> steps_upto prog n start end"
+
+lemma steps_exact_steps:
+  assumes
+    "steps_exact prog n st st'"
+    "n \<le> m"
+  shows
+    "steps prog (Suc m) st st'"
+using assms proof (induction n arbitrary: st st' m)
+  case 0
+  from this(1) show ?case using steps_exact_zero by blast
+next
+  case (Suc n)
+  from this obtain ims where suc_after: "steps_exact prog 1 st ims" "steps_exact prog n ims st'" using steps_exact_suc_fwd by blast
+  hence steps_ims: "steps prog m ims st'" using Suc.IH Suc.prems(2) Suc_leD by (metis Suc_le_D Suc_le_lessD less_Suc_eq_le)
+  obtain pc sta mm f rs where split: "st = (pc, sta, mm, f, rs)" using state_pc.cases by blast
+  from this suc_after(1) obtain cmd where "step cmd (pc, sta, mm, f, rs) = Some ims \<and> prog pc = Some cmd" using steps_exact_one by blast
+  thus ?case using steps_ims using split by blast
+qed
+
+lemma steps_upto_steps: "steps_upto prog n st st' = steps prog (Suc n) st st'"
+proof (induction n arbitrary: st st')
+  case 0
+  show ?case
+  proof (standard, goal_cases)
+    case 1
+    then show ?case by (metis le_zero_eq steps.intros(1) steps_exact_zero steps_upto.cases)
+  next
+    case 2
+    then show ?case
+    proof (cases)
+      case 1
+      then show ?thesis using steps_exact.intros(1) steps_upto.simps by auto
+    next
+      case (2 cmd pc st m f rs s)
+      from \<open>steps prog 0 s st'\<close> show ?thesis by (cases; simp)
+    qed
+  qed
+next
+  case (Suc n)
+  show ?case
+  proof (standard, goal_cases)
+    assume "steps_upto prog (Suc n) st st'"
+    then show "steps prog (Suc (Suc n)) st st'"
+      using steps_exact.intros(1) steps_exact_steps by (meson steps_upto.cases)
+  next
+    assume "steps prog (Suc (Suc n)) st st'"
+    then show "steps_upto prog (Suc n) st st'"
+    proof (cases)
+      case 1
+      then show ?thesis using steps_exact.intros(1) steps_upto.simps by blast
+    next
+      case (2 cmd pc st m f rs s)
+      hence "steps_upto prog n s st'" using Suc by simp
+      then show ?thesis
+        by (metis "2"(1) "2"(2) "2"(3) Suc_le_mono steps_exact.intros(2) steps_upto.cases steps_upto.intros)
+    qed
+  qed
+qed
 
 thm "steps_upto.simps"
 

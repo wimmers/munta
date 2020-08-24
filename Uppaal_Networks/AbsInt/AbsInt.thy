@@ -178,6 +178,17 @@ theorem collect_loop_correct:
   "flatten (collect_loop prog n (deepen entries)) = {st. \<exists>entry\<in>entries. steps_upto prog n entry st}"
   using collect_loop_as_flat collect_loop_flat_correct by blast
 
+lemma collect_loop_steps:
+  assumes
+    "steps prog (Suc n) (pc, st, s, f, rs) (pc', st', s', f', rs')"
+    "(st, s, f, rs) \<in> lookup entry pc"
+  shows "(st', s', f', rs') \<in> lookup (collect_loop prog n entry) pc'" using assms
+proof -
+  from assms(1) have "steps_upto prog n (pc, st, s, f, rs) (pc', st', s', f', rs')" using steps_upto_steps by simp
+  hence "(pc', st', s', f', rs') \<in> {st. \<exists>entry\<in>(flatten entry). steps_upto prog n entry st}" using assms(2) flatten.intros by fastforce
+  thus ?thesis by (metis collect_loop_correct deepen_flatten flatten_bwd)
+qed
+
 fun errors_all :: "program \<Rightarrow> collect_ctx \<Rightarrow> interpret_error set" where
   "errors_all prog ctx = {err. \<exists>pc st. st \<in> lookup ctx pc \<and> error_step prog (pc, st) = Some err}"
 
@@ -341,6 +352,7 @@ locale Abs_Int =
 fixes \<gamma> :: "'as::absstate \<Rightarrow> collect_state set"
   assumes mono_gamma: "a \<le> b \<Longrightarrow> \<gamma> a \<le> \<gamma> b"
   and gamma_Top[simp]: "\<gamma> \<top> = \<top>"
+  and gamma_Bot[simp]: "\<gamma> \<bottom> = \<bottom>"
 fixes ai_step :: "'as astep"
   assumes astep_correct: "lookup (collect_step op ipc (\<gamma> a)) pc \<le> \<gamma> (lookup (ai_step op ipc a) pc)"
   and astep_keep_bot: "lookup (ai_step op ipc \<bottom>) pc = \<bottom>"
@@ -421,6 +433,27 @@ next
   then have "advance collect_step prog (loop collect_step prog n (\<gamma>_map entry)) \<le> \<gamma>_map (finite_advance ai_step prog (finite_loop ai_step prog n entry))" by auto
   then have "loop collect_step prog n (advance collect_step prog (\<gamma>_map entry)) \<le> \<gamma>_map (finite_loop ai_step prog n (finite_advance ai_step prog entry))" using finite_loop_pull loop_pull by metis
   thus ?case by simp
+qed
+
+lemma ai_steps:
+  assumes
+    "steps prog (Suc n) (pc, st, s, f, rs) (pc', st', s', f', rs')"
+    "(st, s, f, rs) \<in> \<gamma> entry"
+  shows "(st', s', f', rs') \<in> \<gamma> (lookup (ai_loop prog n (single pc entry)) pc')"
+proof -
+  have "(st', s', f', rs') \<in> lookup (collect_loop prog n (\<gamma>_map (single pc entry))) pc'" using collect_loop_steps using assms(1) assms(2) by auto
+  thus ?thesis using assms using \<gamma>_lookup_le ai_loop_correct by blast
+qed
+
+lemma ai_steps_pc:
+  assumes
+    "steps prog (Suc n) (pc, st, s, f, rs) (pc', st', s', f', rs')"
+    "(st, s, f, rs) \<in> \<gamma> entry"
+  shows "pc' \<in> domain (ai_loop prog n (single pc entry))"
+proof -
+  from assms have "(st', s', f', rs') \<in> \<gamma> (lookup (ai_loop prog n (single pc entry)) pc')" by (rule ai_steps)
+  hence "lookup (ai_loop prog n (single pc entry)) pc' \<noteq> \<bottom>" by auto
+  thus ?thesis by (smt domain.elims lookup.simps mem_Collect_eq)
 qed
 
 definition[simp]: "ai_loop_fp \<equiv> finite_loop_fp ai_step"

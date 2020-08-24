@@ -34,6 +34,7 @@ global_interpretation Abs_Int_Final: Smart_Base
     and "final_pop2" = "Abs_Int_Final.pop2"
     and "final_pop2_push" = "Abs_Int_Final.pop2_push"
     and "final_word_of" = "Abs_Int_Final.word_of"
+    and "final_\<gamma>" = "Abs_Int_Final.\<gamma>_smart"
 proof(standard, goal_cases)
   case (1 a b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma) next
   case (3 a x) then show ?case by (simp add: Word_Strided_Interval.contains_correct) next
@@ -58,6 +59,8 @@ definition[simp]: "final_loop_fp window_size concretize_max \<equiv> finite_loop
 theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_map window_size entry)
   \<le> Abs_Int_Final.Smart.\<gamma>_map window_size (final_loop_fp window_size concretize_max prog n entry)"
   using Abs_Int_Final.Smart.ai_loop_fp_correct by simp
+
+lemmas final_loop_steps_pc = Abs_Int_Final.Smart.ai_steps_pc
 
 export_code final_loop_fp in SML module_name AbsInt_Final
 

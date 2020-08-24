@@ -50,7 +50,9 @@ proof (standard, goal_cases)
 next
   case 2 then show ?case by (simp add: top_option_def)
 next
-  case (3 op ipc ins pc)
+  case 3 show ?case by (simp add: bot_option_def)
+next
+  case (4 op ipc ins pc)
   then show ?case
   proof (cases ins)
     case None
