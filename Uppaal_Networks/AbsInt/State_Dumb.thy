@@ -1,5 +1,5 @@
 theory State_Dumb
-  imports AbsInt OptionLattice
+  imports Abs_Int OptionLattice
 begin
 
 datatype dumb_base = Any

@@ -1,4 +1,4 @@
-theory AbsInt
+theory Abs_Int
 imports
   Collect_Flat
   Uppaal_Networks.UPPAAL_Asm_Map

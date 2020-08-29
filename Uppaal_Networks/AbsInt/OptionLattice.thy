@@ -1,5 +1,5 @@
 theory OptionLattice
-imports AbsInt Abs_Word PowerBool
+imports Abs_Int Abs_Word PowerBool
   "HOL-Library.Option_ord"
 begin
 

@@ -1,6 +1,16 @@
-theory AbsInt_Instrc
-  imports AbsInt UPPAAL_Asm_Clocks UPPAAL_Asm_Assemble
+theory Abs_Int_C
+  imports Abs_Int UPPAAL_Asm_Clocks UPPAAL_Asm_Assemble
 begin
+
+subsection\<open>Extension of Abs_Int for stepc\<close>
+
+text\<open>
+Abs_Int by itself is only sufficient to interpret the semantics of @{term step} over @{type instr},
+but not @{term stepc} over @{type instrc} because executing a @{term CEXP} will modify the flag.
+To fix this, we wrap the original abstract stepping and when encountering a @{term CEXP} modify
+the abstract state such that it can represent both @{term True} and @{term False} as the flag,
+thus correctly overapproximating the result again.
+\<close>
 
 definition extract_prog :: "'t programc \<Rightarrow> program" where
   "extract_prog p = (\<lambda>cop. case cop of Some (INSTR op) \<Rightarrow> Some op | Some (CEXP _) \<Rightarrow> Some NOP | None \<Rightarrow> None) \<circ> p"
@@ -19,6 +29,10 @@ using assms proof (cases "prog ipc")
   then show ?thesis using assms by (cases cop; simp)
 qed simp
 
+text\<open>
+Extension of the original @{term Abs_Int} locale, adding the @{term kill_flag} function,
+which modifies the state as explained above.
+\<close>
 locale Abs_Int_C = Abs_Int +
   fixes kill_flag :: "'a \<Rightarrow> 'a"
   assumes kill_flag: "(st, s, f, rs) \<in> \<gamma> x \<Longrightarrow> (st, s, True, rs) \<in> \<gamma> (kill_flag x) \<and> (st, s, False, rs) \<in> \<gamma> (kill_flag x)"
