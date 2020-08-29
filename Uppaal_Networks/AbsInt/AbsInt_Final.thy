@@ -4,6 +4,7 @@ theory AbsInt_Final
     State_Smart
     Stack_Window
     Abs_Word_StridedInterval
+    AbsInt_Instrc
 begin
 
 type_synonym si_state = "(strided_interval toption option, strided_interval toption option stack_window) smart"
@@ -59,6 +60,23 @@ definition[simp]: "final_loop_fp window_size concretize_max \<equiv> finite_loop
 theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_map window_size entry)
   \<le> Abs_Int_Final.Smart.\<gamma>_map window_size (final_loop_fp window_size concretize_max prog n entry)"
   using Abs_Int_Final.Smart.ai_loop_fp_correct by simp
+
+definition[simp]: "final_loopc window_size concretize_max cprog \<equiv> final_loop window_size concretize_max (extract_prog cprog)"
+theorem final_loop_stepsc:
+  assumes
+    "stepsc cprog (Suc n) u (pc, st, s, f, rs) (pc', st', s', f', rs')"
+    "(st, s, f, rs) \<in> final_\<gamma> window_size entry"
+  shows "(st', s', f', rs') \<in> final_\<gamma> window_size (lookup (final_loopc window_size concretize_max cprog n (single pc entry)) pc')"
+  using assms Abs_Int_Final.Smart.ai_stepsc
+  by (metis Abs_Int_Final.Smart.ai_loop_def Abs_Int_Final.Smart.ai_loopc_def final_loop_def final_loopc_def)
+
+theorem final_loop_stepsc_pc:
+  assumes
+    "stepsc cprog (Suc n) u (pc, st, s, f, rs) (pc', st', s', f', rs')"
+    "(st, s, f, rs) \<in> final_\<gamma> window_size entry"
+  shows "pc' \<in> domain (final_loopc window_size concretize_max cprog n (single pc entry))"
+  using assms Abs_Int_Final.Smart.ai_stepsc_pc
+  by (metis Abs_Int_Final.Smart.ai_loop_def Abs_Int_Final.Smart.ai_loopc_def final_loop_def final_loopc_def)
 
 lemmas final_loop_steps_pc = Abs_Int_Final.Smart.ai_steps_pc
 

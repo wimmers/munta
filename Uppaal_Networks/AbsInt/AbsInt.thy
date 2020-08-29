@@ -297,8 +297,36 @@ proof (rule state_map_leI, goal_cases)
   qed simp
 qed
 
+lemma finite_step_map_step:
+  assumes f_keep_bot: "f op ipc \<bottom> = \<bottom>"
+    and op: "prog ipc = Some op"
+  shows "f op ipc (lookup ctx ipc) \<le> finite_step_map f prog ctx"
+proof (cases "step_infinite f prog ctx")
+  case False
+  have "f op ipc (lookup ctx ipc) \<le> SM (\<lambda>pc. finite_sup (slurp f prog ctx pc))"
+  proof (rule state_map_leI, goal_cases)
+    case (1 p)
+    have "lookup (f op ipc (lookup ctx ipc)) p \<le> finite_sup (slurp f prog ctx p)"
+    proof (cases "lookup ctx ipc \<noteq> \<bottom>")
+      case True
+      hence in_slurp: "lookup (f op ipc (lookup ctx ipc)) p \<in> slurp f prog ctx p"
+        using op by auto
+      then show ?thesis
+      proof (cases "finite (slurp f prog ctx p)")
+        case True then show ?thesis using in_slurp by (rule finite_sup_upper)
+      qed simp
+    next
+      case False then show ?thesis using f_keep_bot by simp
+    qed
+    then show ?case using 1 by simp
+  qed
+  then show ?thesis using False by simp
+qed simp
+
 fun finite_advance :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "finite_advance f prog ctx = ctx \<squnion> finite_step_map f prog ctx"
+
+lemma finite_advance_preserve: "entry \<le> finite_advance f prog entry" by simp
 
 fun finite_loop :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "finite_loop f prog 0 st = st" |
@@ -306,6 +334,14 @@ fun finite_loop :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel 
 
 lemma finite_loop_pull: "finite_loop f prog n (finite_advance f prog st) = finite_advance f prog (finite_loop f prog n st)"
   by(induction n arbitrary: st, simp, metis finite_loop.simps(2))
+
+lemma finite_loop_preserve: "entry \<le> finite_loop f prog n entry"
+proof (induction n arbitrary: entry)
+  case (Suc n)
+  then show ?case
+    unfolding finite_loop.simps finite_loop_pull
+    using finite_advance_preserve order.trans by blast
+qed simp
 
 fun finite_loop_fp :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "finite_loop_fp f prog 0 st = \<top>" |
@@ -438,12 +474,18 @@ qed
 lemma ai_steps:
   assumes
     "steps prog (Suc n) (pc, st, s, f, rs) (pc', st', s', f', rs')"
-    "(st, s, f, rs) \<in> \<gamma> entry"
-  shows "(st', s', f', rs') \<in> \<gamma> (lookup (ai_loop prog n (single pc entry)) pc')"
+    "(st, s, f, rs) \<in> \<gamma> (lookup entry pc)"
+  shows "(st', s', f', rs') \<in> \<gamma> (lookup (ai_loop prog n entry) pc')"
 proof -
-  have "(st', s', f', rs') \<in> lookup (collect_loop prog n (\<gamma>_map (single pc entry))) pc'" using collect_loop_steps using assms(1) assms(2) by auto
+  have "(st', s', f', rs') \<in> lookup (collect_loop prog n (\<gamma>_map entry)) pc'" using collect_loop_steps assms(1) assms(2) \<gamma>_lookup by blast
   thus ?thesis using assms using \<gamma>_lookup_le ai_loop_correct by blast
 qed
+
+lemma ai_steps_single:
+  assumes
+    "steps prog (Suc n) (pc, st, s, f, rs) (pc', st', s', f', rs')"
+    "(st, s, f, rs) \<in> \<gamma> entry"
+  shows "(st', s', f', rs') \<in> \<gamma> (lookup (ai_loop prog n (single pc entry)) pc')" using assms ai_steps by auto
 
 lemma ai_steps_pc:
   assumes
@@ -451,7 +493,7 @@ lemma ai_steps_pc:
     "(st, s, f, rs) \<in> \<gamma> entry"
   shows "pc' \<in> domain (ai_loop prog n (single pc entry))"
 proof -
-  from assms have "(st', s', f', rs') \<in> \<gamma> (lookup (ai_loop prog n (single pc entry)) pc')" by (rule ai_steps)
+  from assms have "(st', s', f', rs') \<in> \<gamma> (lookup (ai_loop prog n (single pc entry)) pc')" by (rule ai_steps_single)
   hence "lookup (ai_loop prog n (single pc entry)) pc' \<noteq> \<bottom>" by auto
   thus ?thesis by (smt domain.elims lookup.simps mem_Collect_eq)
 qed

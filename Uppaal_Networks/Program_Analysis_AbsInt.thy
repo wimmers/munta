@@ -10,21 +10,20 @@ begin
 definition "window_size \<equiv> (16::nat)"
 definition "concretize_max \<equiv> (16::nat)"
 
-definition extract_prog :: "'t instrc option list \<Rightarrow> program" where
-  "extract_prog = fetch_op \<circ> assemble \<circ> map (\<lambda>cop. case cop of Some (INSTR op) \<Rightarrow> Some op | Some (CEXP _) \<Rightarrow> Some NOP | None \<Rightarrow> None)"
-
-fun steps_approx_absint_state :: "nat \<Rightarrow> 't instrc option list \<Rightarrow> addr * si_state \<Rightarrow> addr set" where
-  "steps_approx_absint_state n cprog (pc, est) = domain (final_loop window_size concretize_max (extract_prog cprog) n (single pc est))"
-
-definition "lowest_top \<equiv> \<top>" (* TODO: make a better top *)
-
-fun steps_approx_absint :: "nat \<Rightarrow> 't instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
-  "steps_approx_absint (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, lowest_top)" |
-  "steps_approx_absint 0 _ _ = {}"
-
 lemma bounded_less_simp[simp]:
   "\<forall>q\<in>{..<p::nat}. P q \<equiv> \<forall> q < p. P q"
   by (rule eq_reflection) auto
+
+definition[simp]: "cextract_prog prog i \<equiv> if i < length prog then prog ! i else None"
+
+definition "lowest_top \<equiv> \<top>" (* TODO: make a better top *)
+
+fun steps_approx_absint_state :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr * si_state \<Rightarrow> addr set" where
+  "steps_approx_absint_state n cprog (pc, est) = domain (final_loopc window_size concretize_max (conv_prog (cextract_prog cprog)) n (single pc lowest_top))"
+
+fun steps_approx_absint :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
+  "steps_approx_absint (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, lowest_top)" |
+  "steps_approx_absint 0 _ _ = {}"
 
 context
   fixes prog :: "int instrc option list"
@@ -32,52 +31,16 @@ begin
 
 private abbreviation "P i \<equiv> if i < length prog then prog ! i else None"
 
-lemma steps_steps_approx:
-  assumes "steps (extract_prog prog) n (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
-  shows "pc' \<in> steps_approx_absint n prog pc"
-proof -
-  from assms(1) obtain nn where nn: "n = Suc nn" using UPPAAL_Asm.steps.simps by blast
-  have "(st, s, f, rs) \<in> final_\<gamma> window_size lowest_top" by (simp add: lowest_top_def)
-  hence "pc' \<in> domain (final_loop window_size concretize_max (extract_prog prog) nn (single pc lowest_top))" using final_loop_steps_pc using assms(1) nn by auto
-  thus ?thesis using nn using steps_approx_absint.simps(1) steps_approx_absint_state.simps by blast
-qed
-
-lemma steps_extract_stepsc:
-  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')"
-  shows "steps (extract_prog prog) n (pc, st, s, f, rs) (pc', st', s', f', rs')"
-using assms proof (induction n arbitrary: u pc st s f rs pc' st' s' f' rs')
-  case 0 then show ?case using stepsc.cases by blast
-next
-  case (Suc n)
-  from Suc.prems show ?case
-  proof (cases)
-    case (2 cmd ss)
-    obtain pc'' st'' s'' f'' rs'' where ss: "ss = (pc'', st'', s'', f'', rs'')" using state_pc.cases by blast
-    let ?instr = "case cmd of INSTR op \<Rightarrow> op | CEXP _ \<Rightarrow> NOP"
-    have step: "step ?instr (pc, st, s, f, rs) = Some ss"
-    proof (cases cmd)
-      case (INSTR instr)
-      hence "(case step instr (pc, st, s, f, rs) of Some s' \<Rightarrow> Some s' | None \<Rightarrow> None) = Some ss" using "2"(1) by auto
-      moreover have "?instr = instr" by (simp add: INSTR)
-      ultimately show ?thesis by (metis option.exhaust option.simps(4) option.simps(5))
-    next
-      case (CEXP ce)
-      then show ?thesis sorry
-    qed
-    moreover have "stepsc (conv_prog P) n u (pc'', st'', s'', f'', rs'') (pc', st', s', f', rs')" using 2 ss by simp
-    ultimately have "steps (extract_prog prog) n (pc'', st'', s'', f'', rs'') (pc', st', s', f', rs')" using Suc.IH by blast
-    moreover have "(extract_prog prog) pc = Some ?instr" sorry
-    ultimately show ?thesis using step ss by blast
-  qed blast
-qed
-
 lemma stepsc_steps_approx:
-  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')" "pc' < length prog"
+  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')"
   shows "pc' \<in> steps_approx_absint n prog pc"
 proof -
-  from assms obtain nn where nn: "n = Suc nn" using stepsc.cases by blast
-  from assms have "steps (extract_prog prog) n (pc, st, s, f, rs) (pc', st', s', f', rs')" using steps_extract_stepsc by blast
-  thus ?thesis using steps_steps_approx using assms(2) by blast
+  from assms obtain nn where suc: "n = Suc nn" using stepsc.cases by blast
+  hence "stepsc (conv_prog P) (Suc nn) u (pc, st, s, f, rs) (pc', st', s', f', rs')" using assms(1) by simp
+  moreover have "(st, s, f, rs) \<in> final_\<gamma> window_size lowest_top" by (simp add: lowest_top_def)
+  ultimately have "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc lowest_top))" by (rule final_loop_stepsc_pc)
+  hence "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc lowest_top))" .
+  thus ?thesis using suc by simp
 qed
 
 definition
@@ -1212,7 +1175,7 @@ proof -
   from stepst_stepc_extend[OF assms(4,5)] have *:
     "stepst (conv_prog prog) n u (pc', st', s', f', rs') (pc_t, st_t, s_t, True, rs_t)" .
 
-  from \<open>stepsc _ _ _ _ _\<close> \<open>pc' < _\<close> have in_S: "pc' \<in> S" unfolding S_def by (rule stepsc_steps_approx)
+  from \<open>stepsc _ _ _ _ _\<close> have in_S: "pc' \<in> S" unfolding S_def by (rule stepsc_steps_approx)
   from in_S have max: "pc' \<le> Max S" unfolding S_def using Max_ge by blast
 
   let ?pulled = "{pc. pc \<in> S \<and> (\<exists> ac. P ! pc = Some (CEXP ac))}"
@@ -1238,9 +1201,9 @@ lemma is_conj':
   defines "S \<equiv> steps_approx_absint n P pc_s"
   assumes "{pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} = {}"
     and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
-    and "P ! pc' = Some (CEXP ac)" "pc' < length P"
+    and "P ! pc' = Some (CEXP ac)"
   shows False
-  using stepsc_steps_approx[OF assms(3,5)] assms(4) assms(2) unfolding S_def by auto
+  using stepsc_steps_approx[OF assms(3)] assms(4) assms(2) unfolding S_def by auto
 
 term is_conj_block
 
