@@ -29,13 +29,7 @@ using assms proof (cases "prog ipc")
   then show ?thesis using assms by (cases cop; simp)
 qed simp
 
-text\<open>
-Extension of the original @{term Abs_Int} locale, adding the @{term kill_flag} function,
-which modifies the state as explained above.
-\<close>
-locale Abs_Int_C = Abs_Int +
-  fixes kill_flag :: "'a \<Rightarrow> 'a"
-  assumes kill_flag: "(st, s, f, rs) \<in> \<gamma> x \<Longrightarrow> (st, s, True, rs) \<in> \<gamma> (kill_flag x) \<and> (st, s, False, rs) \<in> \<gamma> (kill_flag x)"
+context Abs_Int_C
 begin
 
 abbreviation "astepc \<equiv> astep_liftc ai_step kill_flag"

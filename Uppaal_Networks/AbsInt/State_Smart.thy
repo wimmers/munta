@@ -912,6 +912,22 @@ next
   then show ?case by (simp add: bot_option_def)
 qed
 
+fun smart_kill_flag :: "('a, 'b) smart \<Rightarrow> ('a, 'b) smart" where
+  "smart_kill_flag (Some (Smart stack regs _)) = Some (Smart stack regs BBoth)" |
+  "smart_kill_flag None = None"
+
+sublocale Smart_Base \<subseteq> Smart_C: Abs_Int_C
+  where \<gamma> = "\<gamma>_smart"
+    and ai_step = step_smart
+    and kill_flag = smart_kill_flag
+proof (standard, goal_cases)
+  case (1 st s f rs x)
+  from this obtain stack regs flag where x: "x = Some (Smart stack regs flag)"
+    by (metis \<gamma>_smart.elims empty_iff)
+  moreover from 1 x have "st \<in> \<gamma>_stack stack \<and> s \<in> \<gamma>_regs regs" by simp
+  ultimately show ?case by simp
+qed
+
 context Smart_Base
 begin
 abbreviation "ai_loop \<equiv> Smart.ai_loop"

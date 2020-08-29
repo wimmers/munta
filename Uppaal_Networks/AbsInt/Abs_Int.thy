@@ -505,6 +505,16 @@ theorem ai_loop_fp_correct: "collect_loop prog m (\<gamma>_map entry) \<le> \<ga
 
 end
 
+text\<open>
+Extension of the original @{term Abs_Int} locale, adding the @{term kill_flag} function, which
+modifies the state such that the flag can be both @{term True} and @{term False}.
+This is used in the theory Abs_Int_C, but defined here to avoid unnecessary imports when
+interpreting it.
+\<close>
+locale Abs_Int_C = Abs_Int +
+  fixes kill_flag :: "'a \<Rightarrow> 'a"
+  assumes kill_flag: "(st, s, f, rs) \<in> \<gamma> x \<Longrightarrow> (st, s, True, rs) \<in> \<gamma> (kill_flag x) \<and> (st, s, False, rs) \<in> \<gamma> (kill_flag x)"
+
 subsubsection \<open>Useful Lemmas\<close>
 
 text \<open>Characteristics of @{term step}\<close>

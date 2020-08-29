@@ -4,7 +4,7 @@ theory AbsInt_Final
     State_Smart
     Stack_Window
     Abs_Word_StridedInterval
-    AbsInt_Instrc
+    Abs_Int_C
 begin
 
 type_synonym si_state = "(strided_interval toption option, strided_interval toption option stack_window) smart"
@@ -36,6 +36,7 @@ global_interpretation Abs_Int_Final: Smart_Base
     and "final_pop2_push" = "Abs_Int_Final.pop2_push"
     and "final_word_of" = "Abs_Int_Final.word_of"
     and "final_\<gamma>" = "Abs_Int_Final.\<gamma>_smart"
+    and "final_loopc'" = "Abs_Int_Final.Smart_C.ai_loopc"
 proof(standard, goal_cases)
   case (1 a b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma) next
   case (3 a x) then show ?case by (simp add: Word_Strided_Interval.contains_correct) next
@@ -61,22 +62,22 @@ theorem ai_loop_fp_correct: "collect_loop prog m (Abs_Int_Final.Smart.\<gamma>_m
   \<le> Abs_Int_Final.Smart.\<gamma>_map window_size (final_loop_fp window_size concretize_max prog n entry)"
   using Abs_Int_Final.Smart.ai_loop_fp_correct by simp
 
-definition[simp]: "final_loopc window_size concretize_max cprog \<equiv> final_loop window_size concretize_max (extract_prog cprog)"
+definition[simp]: "final_loopc window_size concretize_max cprog \<equiv>
+      finite_loop (astep_liftc (final_step window_size concretize_max) smart_kill_flag cprog) (extract_prog cprog)"
 theorem final_loop_stepsc:
   assumes
     "stepsc cprog (Suc n) u (pc, st, s, f, rs) (pc', st', s', f', rs')"
     "(st, s, f, rs) \<in> final_\<gamma> window_size entry"
   shows "(st', s', f', rs') \<in> final_\<gamma> window_size (lookup (final_loopc window_size concretize_max cprog n (single pc entry)) pc')"
-  using assms Abs_Int_Final.Smart.ai_stepsc
-  by (metis Abs_Int_Final.Smart.ai_loop_def Abs_Int_Final.Smart.ai_loopc_def final_loop_def final_loopc_def)
+  using assms by (metis Abs_Int_Final.Smart_C.ai_loopc_def Abs_Int_Final.Smart_C.ai_stepsc_single final_loopc_def)
 
 theorem final_loop_stepsc_pc:
   assumes
     "stepsc cprog (Suc n) u (pc, st, s, f, rs) (pc', st', s', f', rs')"
     "(st, s, f, rs) \<in> final_\<gamma> window_size entry"
   shows "pc' \<in> domain (final_loopc window_size concretize_max cprog n (single pc entry))"
-  using assms Abs_Int_Final.Smart.ai_stepsc_pc
-  by (metis Abs_Int_Final.Smart.ai_loop_def Abs_Int_Final.Smart.ai_loopc_def final_loop_def final_loopc_def)
+  using assms
+  by (metis Abs_Int_Final.Smart_C.ai_loopc_def Abs_Int_Final.Smart_C.ai_stepsc_pc UPPAAL_Asm_Map.single_lookup final_loopc_def)
 
 lemmas final_loop_steps_pc = Abs_Int_Final.Smart.ai_steps_pc
 
