@@ -3,8 +3,19 @@ imports Abs_Int Abs_Word PowerBool
   "HOL-Library.Option_ord"
 begin
 
+subsection\<open>Option as abstract states or words\<close>
+
+text\<open>
+@{type option} can be used to conveniently add a bottom element to a type which itself does not
+have one. This is useful for both abstract states and words.
+\<close>
+
 instantiation option :: ("{semilattice_sup, order_top}") absstate begin instance .. end
 instantiation option :: ("{semilattice_sup, order_top}") absword begin instance .. end
+
+text\<open>
+Lifting different operations on the underlying type to option.
+\<close>
 
 fun \<gamma>_option :: "('a \<Rightarrow> 'b set) \<Rightarrow> 'a option \<Rightarrow> 'b set" where
   "\<gamma>_option _ None = {}" |
@@ -127,5 +138,11 @@ proof (cases a)
     qed
   qed simp
 qed simp
+
+lemma option_domain_top: "domain (\<top>::'a::order_top option state_map) = \<top>"
+proof -
+  have "(\<top>::'a option) \<noteq> \<bottom>" by (simp add: bot_option_def top_option_def)
+  thus ?thesis by (rule domain_top)
+qed
 
 end

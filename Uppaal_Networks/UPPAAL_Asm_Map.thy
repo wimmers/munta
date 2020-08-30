@@ -4,6 +4,10 @@ begin
 
 subsection "State Map"
 
+text\<open>
+Central data structure of the abstract interpreter, mapping addresses to some value.
+The common meaning is: "state before executing the instruction at the address".
+\<close>
 datatype 'a state_map = SM "addr \<Rightarrow> 'a"
 
 lemma state_map_single_constructor: "\<exists>m. a = SM m"
@@ -22,6 +26,13 @@ lemma single_lookup: "lookup (single k v) k = v" by simp
 
 fun domain :: "('b::bot) state_map \<Rightarrow> addr set" where
   "domain (SM m) = {a. m a \<noteq> \<bottom>}"
+
+lemma single_domain: "domain (single k v) \<subseteq> {k}"
+proof (standard, goal_cases)
+  case (1 x)
+  hence "(\<lambda>pc. if pc = k then v else \<bottom>) \<noteq> \<bottom>" by force
+  then show ?case using 1 by fastforce
+qed
 
 lemma state_map_eq_fwd: "(\<And>p. lookup m p = lookup n p) \<Longrightarrow> m = n"
 proof -
@@ -141,5 +152,36 @@ instance proof
   show "\<Squnion> ({}::'a state_map set) = \<bottom>" by (simp add: state_map_eq_fwd Sup_state_map_def)
 qed
 end
+
+lemma sup_top: "(\<top>::'a::{semilattice_sup, order_top}) \<squnion> a = \<top>"
+  by (simp add: sup.absorb1)
+
+lemma sup_top2: "a \<squnion> (\<top>::'a::{semilattice_sup, order_top}) = \<top>"
+  by (simp add: sup.absorb2)
+
+lemma sup_bot: "lookup (a::'a::{semilattice_sup, order_bot} state_map) pc \<squnion> lookup b pc \<noteq> \<bottom>
+  \<longleftrightarrow> lookup a pc \<noteq> \<bottom> \<or> lookup b pc \<noteq> \<bottom>"
+  by (standard; auto simp: eq_iff)
+
+lemma sup_domain: "domain ((a::'a::{semilattice_sup, order_bot} state_map) \<squnion> b) = domain a \<union> domain b"
+proof -
+  have "domain (a \<squnion> b) = {pc. lookup a pc \<squnion> lookup b pc \<noteq> \<bottom>}" by (simp add: sup_state_map_def)
+  also have "\<dots> = {pc. lookup a pc \<noteq> \<bottom> \<or> lookup b pc \<noteq> \<bottom>}" using sup_bot by blast
+  also have "\<dots> = {pc. lookup a pc \<noteq> \<bottom>} \<union> {pc. lookup b pc \<noteq> \<bottom>}" by blast
+  also have "\<dots> = domain a \<union> domain b" by (metis domain.simps lookup.elims)
+  finally show ?thesis .
+qed
+
+lemma sup_domain_finite:
+  assumes
+    "finite (domain (a::'a::{semilattice_sup, order_bot} state_map))"
+    "finite (domain b)"
+  shows "finite (domain (a \<squnion> b))"
+  using assms by (simp add: sup_domain)
+
+lemma domain_top:
+  assumes "(\<top>::'a::{order_top, order_bot}) \<noteq> \<bottom>"
+  shows "domain (\<top>::'a state_map) = \<top>"
+  by (metis (mono_tags) UNIV_eq_I assms domain.simps lookup.elims mem_Collect_eq top_lookup)
 
 end

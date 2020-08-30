@@ -19,11 +19,34 @@ definition[simp]: "cextract_prog prog i \<equiv> if i < length prog then prog ! 
 definition "lowest_top \<equiv> \<top>" (* TODO: make a better top *)
 
 fun steps_approx_absint_state :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr * si_state \<Rightarrow> addr set" where
-  "steps_approx_absint_state n cprog (pc, est) = domain (final_loopc window_size concretize_max (conv_prog (cextract_prog cprog)) n (single pc lowest_top))"
+  "steps_approx_absint_state n cprog (pc, est) = domain (final_loopc window_size concretize_max (conv_prog (cextract_prog cprog)) n (single pc est))"
 
 fun steps_approx_absint :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
   "steps_approx_absint (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, lowest_top)" |
   "steps_approx_absint 0 _ _ = {}"
+
+lemma steps_approx_absint_finite: "steps_approx_absint n prog pc = \<top> \<or> finite (steps_approx_absint n prog pc)"
+proof (cases "steps_approx_absint n prog pc = \<top>")
+  case False
+  then show ?thesis
+  proof (cases n)
+    case (Suc nn)
+    let ?res = "final_loopc window_size concretize_max (conv_prog (cextract_prog prog)) nn (single pc lowest_top)"
+    have "finite (domain (single pc lowest_top))" using single_domain by simp
+    hence a: "single pc lowest_top = \<top> \<or> finite (domain (single pc lowest_top))" by blast
+    have "?res = \<top> \<or> finite (domain ?res)"
+      unfolding final_loopc_def using finite_loop_finite[OF a] .
+    then show ?thesis
+    proof (rule disjE, goal_cases)
+      case 1
+      hence "domain ?res = \<top>" using option_domain_top by simp
+      then show ?case using Suc by simp
+    next
+      case 2
+      then show ?case using Suc by simp
+    qed
+  qed simp
+qed blast
 
 context
   fixes prog :: "int instrc option list"
@@ -1089,10 +1112,6 @@ lemma is_conj_block_decomp:
     One_nat_def Suc_1 add.right_neutral add_Suc_right instrc.simps(4) is_conj_block'_decomp
     le_antisym not_less_eq_eq option.inject that(1))
 
-lemma steps_approx_finite[intro,simp]:
-  "finite (steps_approx_absint n P pc_s)" sorry
-  (*by (induction rule: steps_approx.induct; clarsimp split: option.split instrc.split instr.split)*)
-
 abbreviation "conv_P \<equiv> map (map_option (map_instrc real_of_int))"
 
 lemma stepst_stepc_extend:
@@ -1170,16 +1189,17 @@ lemma is_conj:
     and "stepst (conv_prog prog) n u (pc_s, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
     and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
     and "P ! pc' = Some (CEXP ac)" "pc' < length P"
+    and S_fin: "finite S"
   shows "(u \<turnstile>\<^sub>a conv_ac ac) \<and> pc_t = Max S"
 proof -
   from stepst_stepc_extend[OF assms(4,5)] have *:
     "stepst (conv_prog prog) n u (pc', st', s', f', rs') (pc_t, st_t, s_t, True, rs_t)" .
 
   from \<open>stepsc _ _ _ _ _\<close> have in_S: "pc' \<in> S" unfolding S_def by (rule stepsc_steps_approx)
-  from in_S have max: "pc' \<le> Max S" unfolding S_def using Max_ge by blast
+  from in_S have max: "pc' \<le> Max S" unfolding S_def using Max_ge S_fin S_def by blast
 
   let ?pulled = "{pc. pc \<in> S \<and> (\<exists> ac. P ! pc = Some (CEXP ac))}"
-  have fin: "finite ?pulled" using S_def steps_approx_finite by fastforce
+  have fin: "finite ?pulled" using S_def S_fin by fastforce
   have pull: "?pulled = {pc. \<exists>ac. P ! pc = Some (CEXP ac)} \<inter> S"
   proof -
     have "{pc. \<exists>ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} = ?pulled" by simp
@@ -1221,7 +1241,7 @@ lemma check_conj_block:
 definition
   "conjunction_check \<equiv>
     let S = steps_approx_absint n P pc_s; S' = {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} in
-      S' = {} \<or> check_conj_block (Min S') (Max S)
+      S \<noteq> \<top> \<and> (S' = {} \<or> check_conj_block (Min S') (Max S))
   "
 
 lemma conjunction_check_alt_def[code]:
@@ -1231,7 +1251,7 @@ lemma conjunction_check_alt_def[code]:
         S = steps_approx_absint n P pc_s;
         S' = {pc. pc \<in> S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
       in
-        S' = {} \<or> check_conj_block (Min S') (Max S)
+        S \<noteq> \<top> \<and> (S' = {} \<or> check_conj_block (Min S') (Max S))
     )
   "
 proof -
@@ -1240,7 +1260,7 @@ proof -
     {pc. pc \<in> ?S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
   = {pc. \<exists> ac. pc \<in> ?S \<and> P ! pc = Some (CEXP ac)}
   " by safe (auto split: option.splits instrc.splits)
-  show ?thesis unfolding conjunction_check_def Let_def \<open>_ = _\<close> ..
+  show ?thesis unfolding conjunction_check_def Let_def \<open>_ = _\<close> by simp
 qed
 
 lemma conjunction_check:
@@ -1252,12 +1272,7 @@ lemma conjunction_check:
   shows "u \<turnstile>\<^sub>a conv_ac ac"
   using assms
   unfolding conjunction_check_def Let_def
-  apply -
-  apply (erule disjE)
-   apply (drule is_conj'; simp)
-    apply (drule check_conj_block)
-  apply (subst is_conj; simp)
-  done
+  by (metis (no_types, lifting) check_conj_block is_conj is_conj' steps_approx_absint_finite)
 
 end (* End of context for fixed program *)
 

@@ -270,7 +270,8 @@ proof (cases "finite A \<and> finite B")
   proof (induction "B" rule: finite_induct)
     case (insert x F)
     then show ?case
-      by (smt True Un_insert_right finite.insertI finite_UnI finite_sup.insert finite_sup.insert_remove finite_sup.simps insert_absorb sup.left_idem sup_left_commute)
+      by (smt True Un_insert_right finite.insertI finite_UnI finite_sup.insert
+            finite_sup.insert_remove finite_sup.simps insert_absorb sup.left_idem sup_left_commute)
   qed (simp add: sup.absorb1)
 next
   case False
@@ -279,11 +280,95 @@ next
 qed
 
 fun step_infinite :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> bool" where
-  "step_infinite f prog ctx = (\<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> infinite (domain (f op ipc (lookup ctx ipc))))"
+  "step_infinite f prog ctx \<longleftrightarrow> infinite (domain ctx) \<or> (\<exists>ipc op. prog ipc = Some op \<and> lookup ctx ipc \<noteq> \<bottom> \<and> infinite (domain (f op ipc (lookup ctx ipc))))"
 
 text\<open>Same as step_map but escapes to \<top> if not finite\<close>
 fun finite_step_map :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "finite_step_map f prog ctx = (if step_infinite f prog ctx then \<top> else SM (\<lambda>pc. finite_sup (slurp f prog ctx pc)))"
+
+lemma finite_these:
+  assumes "finite A"
+  shows "finite (Option.these (f ` A))"
+  using assms by (simp add: Option.these_def)
+
+lemma finite_step_map_finite:
+  "finite_step_map f prog entry = \<top> \<or> finite (domain (finite_step_map f prog entry))"
+proof (cases "step_infinite f prog entry")
+  case False
+  hence finite_domain: "prog ipc = Some op \<Longrightarrow> lookup entry ipc \<noteq> \<bottom> \<Longrightarrow> finite (domain (f op ipc (lookup entry ipc)))"
+    for ipc op using step_infinite.simps by blast
+  have finite_slurp: "finite {pc. slurp f prog entry pc \<noteq> {\<bottom>} \<and> slurp f prog entry pc \<noteq> {}}"
+  proof -
+    have "{pc. \<exists>ipc op. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup entry ipc)) pc \<noteq> \<bottom>}
+      \<subseteq> \<Union>{d. \<exists>op ipc. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> d = domain (f op ipc (lookup entry ipc)) }"
+    proof (standard, goal_cases)
+      case (1 pc)
+      then obtain ipc op where "prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup entry ipc)) pc \<noteq> \<bottom>" by auto
+      hence "prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> pc \<in> domain (f op ipc (lookup entry ipc))"
+        by (metis (mono_tags, lifting) CollectI domain.simps lookup.elims)
+      hence "\<exists>op ipc. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> pc \<in> domain (f op ipc (lookup entry ipc))" by blast
+      then show ?case by blast
+    qed
+    moreover have "finite (\<Union>{d. \<exists>op ipc. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> d = domain (f op ipc (lookup entry ipc)) })"
+    proof -
+      have "finite (domain entry)" using False step_infinite.simps by blast
+      hence "finite {ipc. lookup entry ipc \<noteq> \<bottom>}" by (metis domain.elims lookup.simps)
+      moreover have "{(op, ipc). prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom>}
+        = Option.these ((\<lambda>ipc. case prog ipc of Some op \<Rightarrow> Some (op, ipc) | _ \<Rightarrow> None) ` {ipc. lookup entry ipc \<noteq> \<bottom>})"
+      proof (intro Set.equalityI Set.subsetI, goal_cases)
+        case (1 x)
+        then show ?case using image_iff in_these_eq by fastforce
+      next
+        case (2 x)
+        then obtain op ipc where "x = (op, ipc)" by (meson surj_pair)
+        from this 2 have "Some (op, ipc) \<in> ((\<lambda>ipc. case prog ipc of None \<Rightarrow> None | Some op \<Rightarrow> Some (op, ipc)) ` {ipc. lookup entry ipc \<noteq> \<bottom>})"
+          by (simp add: in_these_eq)
+        then show ?case by (simp add: \<open>x = (op, ipc)\<close> image_iff option.case_eq_if)
+      qed
+      ultimately have "finite {(op, ipc). prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom>}" using finite_these by simp
+      moreover have "{d. \<exists>op ipc. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> d = domain (f op ipc (lookup entry ipc)) }
+        = (\<lambda>(op, ipc). domain (f op ipc (lookup entry ipc))) ` {(op, ipc). prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom>}" by auto
+      ultimately have "finite {d. \<exists>op ipc. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> d = domain (f op ipc (lookup entry ipc)) }" by simp
+      thus ?thesis using finite_domain by blast
+    qed
+    ultimately have fin: "finite {pc. \<exists>ipc op. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup entry ipc)) pc \<noteq> \<bottom>}"
+      using infinite_super by blast
+
+    have "{pc. slurp f prog entry pc \<noteq> {\<bottom>} \<and> slurp f prog entry pc \<noteq> {}}
+      \<subseteq> {pc. \<exists>ipc op. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup entry ipc)) pc \<noteq> \<bottom>}"
+    proof (standard, goal_cases)
+      case (1 pc)
+      hence "slurp f prog entry pc \<noteq> {\<bottom>} \<and> slurp f prog entry pc \<noteq> {}" by simp
+      then obtain st where "st \<in> slurp f prog entry pc \<and> st \<noteq> \<bottom>" by blast
+      hence "\<exists>ipc op. prog ipc = Some op \<and> lookup entry ipc \<noteq> \<bottom> \<and> lookup (f op ipc (lookup entry ipc)) pc \<noteq> \<bottom>" by auto
+      then show ?case by simp
+    qed
+
+    hence "finite {pc. slurp f prog entry pc \<noteq> {\<bottom>} \<and> slurp f prog entry pc \<noteq> {}}" using fin by (simp add: finite_subset)
+    thus ?thesis by simp
+  qed
+  have "finite {pc. finite_sup (slurp f prog entry pc) \<noteq> \<bottom>}"
+  proof -
+    have slurp: "finite_sup (slurp f prog entry pc) \<noteq> \<bottom> \<Longrightarrow> slurp f prog entry pc \<noteq> \<bottom> \<and> slurp f prog entry pc \<noteq> {\<bottom>}" for pc
+    proof (rule ccontr, goal_cases)
+      case 1
+      hence "slurp f prog entry pc = {} \<or> slurp f prog entry pc = {\<bottom>}" by blast
+      thus ?case proof (rule disjE)
+        assume "slurp f prog entry pc = {}"
+        hence "finite_sup (slurp f prog entry pc) = finite_sup {}" by presburger
+        also have "\<dots> = \<bottom>" by simp
+        finally show False using 1 by blast
+      next
+        assume "slurp f prog entry pc = {\<bottom>}"
+        hence "finite_sup (slurp f prog entry pc) = finite_sup {\<bottom>}" by presburger
+        also have "\<dots> = \<bottom>" by simp
+        finally show False using 1 by blast
+      qed
+    qed
+    thus ?thesis using finite_slurp infinite_super by (smt Collect_mono)
+  qed
+  then show ?thesis by simp
+qed simp
 
 lemma finite_step_map_complete:
   "step_map f prog (ctx::'a::{complete_lattice, absstate} state_map) \<le> finite_step_map f prog ctx"
@@ -326,6 +411,23 @@ qed simp
 fun finite_advance :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
   "finite_advance f prog ctx = ctx \<squnion> finite_step_map f prog ctx"
 
+lemma finite_advance_finite:
+  assumes "entry = \<top> \<or> finite (domain entry)"
+  shows "finite_advance f prog entry = \<top> \<or> finite (domain (finite_advance f prog entry))"
+proof -
+  have "finite_step_map f prog entry = \<top> \<or> finite (domain (finite_step_map f prog entry))"
+    by (rule finite_step_map_finite)
+  thus ?thesis
+  proof (rule disjE, goal_cases)
+    case 2
+    from assms show ?case
+    proof (rule disjE, goal_cases)
+      case 2
+      show ?case using sup_domain_finite[OF 2 \<open>finite (domain (finite_step_map _ _ _))\<close>] by simp
+    qed (simp add: sup_top)
+  qed (simp add: sup_top2)
+qed
+
 lemma finite_advance_preserve: "entry \<le> finite_advance f prog entry" by simp
 
 fun finite_loop :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel \<Rightarrow> 'a state_map \<Rightarrow> 'a state_map" where
@@ -334,6 +436,14 @@ fun finite_loop :: "'a::absstate astep \<Rightarrow> program \<Rightarrow> fuel 
 
 lemma finite_loop_pull: "finite_loop f prog n (finite_advance f prog st) = finite_advance f prog (finite_loop f prog n st)"
   by(induction n arbitrary: st, simp, metis finite_loop.simps(2))
+
+lemma finite_loop_finite:
+  assumes "entry = \<top> \<or> finite (domain entry)"
+  shows "finite_loop f prog n entry = \<top> \<or> finite (domain (finite_loop f prog n entry))"
+using assms proof (induction n arbitrary: entry)
+  case (Suc n)
+  then show ?case using Suc.IH finite_advance_finite[OF Suc.prems] by simp
+qed simp
 
 lemma finite_loop_preserve: "entry \<le> finite_loop f prog n entry"
 proof (induction n arbitrary: entry)
