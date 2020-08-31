@@ -490,7 +490,8 @@ proof(rule state_map_eq_fwd)
   show "lookup (finite_step_map f prog ?ctx) pc = lookup (r_step_map f prog ?ctx) pc"
   proof (cases "step_infinite f prog ?ctx")
     case True
-    from this obtain ipc op where inf: "prog ipc = Some op" "lookup ?ctx ipc \<noteq> \<bottom>" "infinite (domain (f op ipc (lookup ?ctx ipc)))" by auto
+    from this obtain ipc op where inf: "prog ipc = Some op" "lookup ?ctx ipc \<noteq> \<bottom>" "infinite (domain (f op ipc (lookup ?ctx ipc)))"
+      using domain_finite step_infinite.simps by blast
     hence "ipc \<in> domain ?ctx" by simp
     from this obtain pre post where split: "pre @ ipc # post = sorted_list_of_set (domain ?ctx)" using sorted_list_of_set_split domain_finite by blast
     from inf have "r_step_map_from f prog ?ctx ipc prefold = \<top>" for prefold by simp

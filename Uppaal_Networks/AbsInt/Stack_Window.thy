@@ -53,6 +53,36 @@ fun \<gamma>_stack_window :: "nat \<Rightarrow> ('a \<Rightarrow> int set) \<Rig
   "\<gamma>_stack_window _ _ Top = \<top>" |
   "\<gamma>_stack_window n \<gamma>_word (Minor l) = \<gamma>_list_window n \<gamma>_word l"
 
+definition stack_window_top_equivalent :: "nat \<Rightarrow> 'a::order_top stack_window" where
+  "stack_window_top_equivalent window_size \<equiv> Minor (replicate (Suc window_size) \<top>)"
+
+lemma stack_window_top_equivalent:
+  assumes "\<gamma>_word \<top> = \<top>"
+  shows "\<gamma>_stack_window n \<gamma>_word (stack_window_top_equivalent n) = \<top>"
+proof (induction n)
+  case 0
+  let ?l = "replicate (Suc 0) \<top>"
+  have "\<gamma>_stack_window 0 \<gamma>_word (stack_window_top_equivalent 0) = \<gamma>_list_window 0 \<gamma>_word ?l"
+    unfolding stack_window_top_equivalent_def by simp
+  also have "\<dots> = {l. \<forall>x \<in> set l. x \<in> \<gamma>_word \<top>}" by simp
+  finally show ?case using assms by simp
+next
+  case (Suc n)
+  let ?l = "replicate (Suc (Suc n)) \<top>"
+  have "\<gamma>_stack_window (Suc n) \<gamma>_word (stack_window_top_equivalent (Suc n)) = \<gamma>_list_window (Suc n) \<gamma>_word ?l"
+    unfolding stack_window_top_equivalent_def by simp
+  also have "\<dots> = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word \<top> \<and> xs \<in> \<gamma>_list_window n \<gamma>_word (replicate (Suc n) \<top>)} \<squnion> {[]}" by simp
+  also have "\<dots> = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word \<top> \<and> xs \<in> \<top>} \<squnion> {[]}"
+    using Suc.IH by (simp add: stack_window_top_equivalent_def)
+  also have "\<dots> = {l. \<exists>x xs. l = x # xs} \<squnion> {[]}" using assms by auto
+  also have "\<dots> = \<top>"
+  proof (intro Set.equalityI Set.subsetI, goal_cases)
+    case (2 x)
+    then show ?case by (cases x; simp)
+  qed blast
+  finally show ?case .
+qed
+
 fun push_list_window :: "nat \<Rightarrow> ('a::absword) list \<Rightarrow> 'a \<Rightarrow> 'a list" where
   "push_list_window _ [] x = [x]" |
   "push_list_window 0 (a # as) x = (x \<squnion> a) # as" |

@@ -48,6 +48,54 @@ fun \<gamma>_regs_gen :: "('a \<Rightarrow> int set) \<Rightarrow> 'a arstate \<
   "\<gamma>_regs_gen \<gamma>_word Top = \<top>" |
   "\<gamma>_regs_gen \<gamma>_word (Minor l) = \<gamma>_list \<gamma>_word l"
 
+text\<open>Lowest abstract register state that contains all configurations of registers up to n.\<close>
+definition regs_bounded_top :: "nat \<Rightarrow> 'a::top arstate" where
+  "regs_bounded_top n = Minor (replicate n \<top>)"
+
+lemma regs_bounded_top:
+  assumes
+    "length rs \<le> n"
+    "\<gamma>_word \<top> = \<top>"
+  shows "rs \<in> \<gamma>_regs_gen \<gamma>_word (regs_bounded_top n)"
+using assms(1) proof(induction n arbitrary: rs)
+  case 0
+  then show ?case unfolding regs_bounded_top_def by simp
+next
+  case (Suc n)
+  have "\<gamma>_regs_gen \<gamma>_word (regs_bounded_top (Suc n)) = \<gamma>_list \<gamma>_word (replicate (Suc n) \<top>)"
+    unfolding regs_bounded_top_def by simp
+  have "\<dots> = {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word \<top> \<and> xs \<in> \<gamma>_list \<gamma>_word (replicate n \<top>)} \<squnion> {[]}" by simp
+  moreover have "rs \<in> {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word \<top> \<and> xs \<in> \<gamma>_list \<gamma>_word (replicate n \<top>)} \<squnion> {[]}"
+  proof (cases rs)
+    case (Cons a as)
+    hence l: "length as \<le> n" using Suc.prems by simp
+    hence "as \<in> \<gamma>_list \<gamma>_word (replicate n \<top>)"
+      using Suc.IH[OF l] by (simp add: regs_bounded_top_def)
+    moreover have "a \<in> \<gamma>_word \<top>" using assms(2) by simp
+    ultimately show ?thesis using Cons by simp
+  qed simp
+  then show ?case unfolding regs_bounded_top_def by simp
+qed
+
+lemma regs_bounded_top_bounded:
+  assumes "rs \<in> \<gamma>_regs_gen \<gamma>_word (regs_bounded_top n)"
+  shows "length rs \<le> n"
+using assms proof (induction n arbitrary: rs)
+  case 0
+  then show ?case unfolding regs_bounded_top_def by simp
+next
+  case (Suc n)
+  then show ?case
+  proof (cases rs)
+    case (Cons a as)
+    have "rs \<in> \<gamma>_list \<gamma>_word (replicate (Suc n) \<top>)" using Suc.prems by (simp add: regs_bounded_top_def)
+    hence "rs \<in> {l. \<exists>x xs. l = x # xs \<and> x \<in> \<gamma>_word \<top> \<and> xs \<in> \<gamma>_list \<gamma>_word (replicate n \<top>)}" using Cons by simp
+    hence a: "as \<in> \<gamma>_regs_gen \<gamma>_word (regs_bounded_top n)" unfolding regs_bounded_top_def by (simp add: Cons)
+    have "length as \<le> n" using Suc.IH[OF a] .
+    then show ?thesis using Cons by simp
+  qed simp
+qed
+
 fun astore_single :: "'a::absword \<Rightarrow> nat \<Rightarrow> 'a arstate \<Rightarrow> 'a arstate" where
   "astore_single v r Top = Top" |
   "astore_single v r (Minor regs) = Minor (regs[r := (regs ! r) \<squnion> v])"

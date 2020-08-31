@@ -36,6 +36,7 @@ global_interpretation Abs_Int_Final: Smart_Base
     and "final_pop2_push" = "Abs_Int_Final.pop2_push"
     and "final_word_of" = "Abs_Int_Final.word_of"
     and "final_\<gamma>" = "Abs_Int_Final.\<gamma>_smart"
+    and "final_\<gamma>_regs" = "Abs_Int_Final.\<gamma>_regs"
     and "final_loopc'" = "Abs_Int_Final.Smart_C.ai_loopc"
 proof(standard, goal_cases)
   case (1 a b) then show ?case by (simp add: Word_Strided_Interval.mono_gamma) next
@@ -80,6 +81,48 @@ theorem final_loop_stepsc_pc:
   by (metis Abs_Int_Final.Smart_C.ai_loopc_def Abs_Int_Final.Smart_C.ai_stepsc_pc UPPAAL_Asm_Map.single_lookup final_loopc_def)
 
 lemmas final_loop_steps_pc = Abs_Int_Final.Smart.ai_steps_pc
+
+definition "final_top_equivalent window_size =
+  Some (Smart (stack_window_top_equivalent window_size) \<top> \<top>)"
+
+lemma final_top_equivalent:
+  "final_\<gamma> n (final_top_equivalent n) = \<top>"
+proof -
+  have "final_\<gamma> n (final_top_equivalent n) =
+    {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack_window n \<gamma>_word (stack_window_top_equivalent n) \<and> rstate \<in> final_\<gamma>_regs \<top> \<and> flag \<in> \<gamma>_power_bool \<top>}"
+    unfolding final_top_equivalent_def by simp
+  also have "\<dots> = {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack_window n \<gamma>_word (stack_window_top_equivalent n)}" by simp
+  also have "\<dots> = {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack_window n \<gamma>_word \<top>}" by (simp add: stack_window_top_equivalent)
+  finally show ?thesis by auto
+qed
+
+definition "final_reg_bounded_top_equivalent window_size reg_bound =
+  Some (Smart (stack_window_top_equivalent window_size) (regs_bounded_top reg_bound) \<top>)"
+
+lemma final_reg_bounded_top_equivalent:
+  "final_\<gamma> n (final_reg_bounded_top_equivalent n reg_bound) = {(stack, rstate, flag, nl). length rstate \<le> reg_bound}"
+proof -
+  have "final_\<gamma> n (final_reg_bounded_top_equivalent n reg_bound) =
+    {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack_window n \<gamma>_word (stack_window_top_equivalent n)
+      \<and> rstate \<in> final_\<gamma>_regs (regs_bounded_top reg_bound)
+      \<and> flag \<in> \<gamma>_power_bool \<top>}"
+    unfolding final_reg_bounded_top_equivalent_def by simp
+  also have "\<dots> = {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack_window n \<gamma>_word (stack_window_top_equivalent n)
+      \<and> rstate \<in> final_\<gamma>_regs (regs_bounded_top reg_bound)}" by simp
+  also have "\<dots> = {(stack, rstate, flag, nl). stack \<in> \<gamma>_stack_window n \<gamma>_word \<top>
+    \<and> rstate \<in> final_\<gamma>_regs (regs_bounded_top reg_bound)}" by (simp add: stack_window_top_equivalent)
+  also have "\<dots> = {(stack, rstate, flag, nl). rstate \<in> final_\<gamma>_regs (regs_bounded_top reg_bound)}" by simp
+  also have "\<dots> = {(stack, rstate, flag, nl). length rstate \<le> reg_bound}"
+  proof -
+    have "length rstate \<le> reg_bound \<Longrightarrow> rstate \<in> final_\<gamma>_regs (regs_bounded_top reg_bound)"
+      for rstate by (simp add: regs_bounded_top)
+    moreover have "rstate \<in> final_\<gamma>_regs (regs_bounded_top reg_bound) \<Longrightarrow> length rstate \<le> reg_bound"
+      for rstate by (simp add: regs_bounded_top_bounded)
+    ultimately show ?thesis by blast
+  qed
+  finally show ?thesis by auto
+qed
+
 
 export_code final_loop_fp in SML module_name AbsInt_Final
 

@@ -16,13 +16,24 @@ lemma bounded_less_simp[simp]:
 
 definition[simp]: "cextract_prog prog i \<equiv> if i < length prog then prog ! i else None"
 
-definition "lowest_top \<equiv> \<top>" (* TODO: make a better top *)
+text\<open>
+This is a state that contains the same elements as @{term \<top>},
+but is still more specifically defined.
+It can always be used as an entry state, but essentially disables registers.
+\<close>
+definition "entry_regs_unbounded \<equiv> final_top_equivalent window_size"
+
+text\<open>
+State that contains all states with registers only up to the given bound.
+This is more specific than @{term entry_regs_unbounded}, but requires the bound to be known.
+\<close>
+definition "entry_regs_bound regs_bound = final_reg_bounded_top_equivalent window_size regs_bound"
 
 fun steps_approx_absint_state :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr * si_state \<Rightarrow> addr set" where
   "steps_approx_absint_state n cprog (pc, est) = domain (final_loopc window_size concretize_max (conv_prog (cextract_prog cprog)) n (single pc est))"
 
 fun steps_approx_absint :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
-  "steps_approx_absint (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, lowest_top)" |
+  "steps_approx_absint (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, entry_regs_unbounded)" |
   "steps_approx_absint 0 _ _ = {}"
 
 lemma steps_approx_absint_finite: "steps_approx_absint n prog pc = \<top> \<or> finite (steps_approx_absint n prog pc)"
@@ -31,9 +42,9 @@ proof (cases "steps_approx_absint n prog pc = \<top>")
   then show ?thesis
   proof (cases n)
     case (Suc nn)
-    let ?res = "final_loopc window_size concretize_max (conv_prog (cextract_prog prog)) nn (single pc lowest_top)"
-    have "finite (domain (single pc lowest_top))" using single_domain by simp
-    hence a: "single pc lowest_top = \<top> \<or> finite (domain (single pc lowest_top))" by blast
+    let ?res = "final_loopc window_size concretize_max (conv_prog (cextract_prog prog)) nn (single pc entry_regs_unbounded)"
+    have "finite (domain (single pc entry_regs_unbounded))" using single_domain by simp
+    hence a: "single pc entry_regs_unbounded = \<top> \<or> finite (domain (single pc entry_regs_unbounded))" by blast
     have "?res = \<top> \<or> finite (domain ?res)"
       unfolding final_loopc_def using finite_loop_finite[OF a] .
     then show ?thesis
@@ -60,9 +71,10 @@ lemma stepsc_steps_approx:
 proof -
   from assms obtain nn where suc: "n = Suc nn" using stepsc.cases by blast
   hence "stepsc (conv_prog P) (Suc nn) u (pc, st, s, f, rs) (pc', st', s', f', rs')" using assms(1) by simp
-  moreover have "(st, s, f, rs) \<in> final_\<gamma> window_size lowest_top" by (simp add: lowest_top_def)
-  ultimately have "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc lowest_top))" by (rule final_loop_stepsc_pc)
-  hence "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc lowest_top))" .
+  moreover have "(st, s, f, rs) \<in> final_\<gamma> window_size entry_regs_unbounded"
+    unfolding entry_regs_unbounded_def final_top_equivalent by simp
+  ultimately have "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc entry_regs_unbounded))" by (rule final_loop_stepsc_pc)
+  hence "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc entry_regs_unbounded))" .
   thus ?thesis using suc by simp
 qed
 
