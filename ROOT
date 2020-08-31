@@ -85,7 +85,7 @@ session Networks in Networks = TA_Impl +
 
 session Uppaal_Networks in Uppaal_Networks = Networks +
   directories
-    AbsInt
+    Abs_Int
   theories
     UPPAAL_Model_Checking
 

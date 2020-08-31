@@ -1,9 +1,9 @@
-theory Program_Analysis_AbsInt
+theory Program_Analysis_Abs_Int
   imports
     UPPAAL_State_Networks_Impl
     TA_Library.More_Methods
     "HOL-Library.Lattice_Syntax"
-    "AbsInt_Final"
+    "Abs_Int_Final"
     "UPPAAL_Asm_Assemble"
 begin
 

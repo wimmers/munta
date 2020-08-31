@@ -1,5 +1,5 @@
 theory Abs_Word
-  imports Abs_Int PowerBool Toption
+  imports Abs_Int Abs_Bool Toption
 begin
 
 section \<open>Abstraction of Machine Words\<close>

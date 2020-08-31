@@ -1,5 +1,5 @@
 theory State_Smart
-  imports Abs_Int ListLattice Toption Stack OptionLattice PowerBool Uppaal_Networks.UPPAAL_Asm_Map
+  imports Abs_Int Abs_List Toption Stack Abs_Option Abs_Bool Uppaal_Networks.UPPAAL_Asm_Map
 begin
 
 type_synonym 'a arstate = "'a list toption"

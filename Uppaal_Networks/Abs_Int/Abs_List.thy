@@ -1,4 +1,4 @@
-theory ListLattice
+theory Abs_List
   imports Main "HOL-Library.Lattice_Syntax"
 begin
 

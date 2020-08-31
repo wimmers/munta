@@ -1,5 +1,5 @@
-theory AbsInt_Test
-  imports AbsInt_Test_Setup
+theory Abs_Int_Test
+  imports Abs_Int_Test_Setup
 begin
 
 ML\<open>

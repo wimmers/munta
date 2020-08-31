@@ -1,6 +1,5 @@
-theory OptionLattice
-imports Abs_Int Abs_Word PowerBool
-  "HOL-Library.Option_ord"
+theory Abs_Option
+  imports Abs_Int Abs_Word Abs_Bool "HOL-Library.Option_ord"
 begin
 
 subsection\<open>Option as abstract states or words\<close>

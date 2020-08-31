@@ -1,5 +1,5 @@
-theory Abs_Word_StridedInterval
-  imports Abs_Word OptionLattice
+theory Abs_Word_Strided_Interval
+  imports Abs_Word Abs_Option
 begin
 
 subsection\<open>Strided Intervals\<close>

@@ -1,11 +1,11 @@
-theory AbsInt_Test_Setup
+theory Abs_Int_Test_Setup
   imports
     "HOL.Code_Numeral"
     "HOL-Library.Code_Target_Int"
     "HOL-Library.Code_Target_Nat"
     "HOL.String"
     Uppaal_Networks.UPPAAL_Asm_Show
-    AbsInt_Final
+    Abs_Int_Final
 begin
 
 instantiation toption :: ("show") "show"

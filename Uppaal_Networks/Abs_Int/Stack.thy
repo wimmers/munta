@@ -1,5 +1,5 @@
 theory Stack
-  imports Abs_Word ListLattice
+  imports Abs_Word Abs_List
 begin
 
 class absstack = bounded_semilattice_sup_bot + order_top

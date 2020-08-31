@@ -1,9 +1,9 @@
-theory AbsInt_Final
+theory Abs_Int_Final
   imports
-    AbsInt_Refine
+    Abs_Int_Refine
     State_Smart
     Stack_Window
-    Abs_Word_StridedInterval
+    Abs_Word_Strided_Interval
     Abs_Int_C
 begin
 

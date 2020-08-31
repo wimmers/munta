@@ -1,4 +1,4 @@
-theory PowerBool
+theory Abs_Bool
   imports Main
 begin
 

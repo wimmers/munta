@@ -1,4 +1,4 @@
-theory AbsInt_Refine
+theory Abs_Int_Refine
   imports
   "HOL-Library.RBT_Mapping"
   State_Dumb

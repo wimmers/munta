@@ -1,5 +1,5 @@
 theory Collect_Flat
-  imports Uppaal_Networks.UPPAAL_Asm "HOL-ex.Sketch_and_Explore"
+  imports Uppaal_Networks.UPPAAL_Asm
 begin
 
 subsection "Stepping"
