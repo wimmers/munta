@@ -151,7 +151,7 @@ fun map_instr f_nat f_int = fn
   LID' n => @{code LID} (f_nat n) |
   STOREI' (n, i) => @{code STOREI} (f_nat n, f_int i) |
   STOREC' (n, i) => @{code STOREC} (f_nat n, f_int i) |
-  ADD' => @{code ADD} | NOT' => @{code NOT} | AND' => @{code AND} | LT' => @{code LT} | LE' => @{code LE} | EQ' => @{code EQ} |
+  ADD' => @{code ADD} | NOT' => @{code NOT} | AND' => @{code instr.AND} | LT' => @{code instr.LT} | LE' => @{code instr.LE} | EQ' => @{code instr.EQ} |
   POP' => @{code POP} | COPY' => @{code COPY} | CALL' => @{code CALL} | RETURN' => @{code RETURN} | HALT' => @{code HALT} |
   SETF' b => @{code SETF} b
 
