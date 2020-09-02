@@ -32,19 +32,19 @@ definition "entry_regs_bound regs_bound = final_reg_bounded_top_equivalent windo
 fun steps_approx_absint_state :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr * si_state \<Rightarrow> addr set" where
   "steps_approx_absint_state n cprog (pc, est) = domain (final_loopc window_size concretize_max (conv_prog (cextract_prog cprog)) n (single pc est))"
 
-fun steps_approx_absint :: "nat \<Rightarrow> int instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
-  "steps_approx_absint (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, entry_regs_unbounded)" |
-  "steps_approx_absint 0 _ _ = {}"
+fun steps_approx_absint :: "nat \<Rightarrow> nat \<Rightarrow> int instrc option list \<Rightarrow> addr \<Rightarrow> addr set" where
+  "steps_approx_absint regs_bound (Suc n) cprog pc = steps_approx_absint_state n cprog (pc, entry_regs_bound regs_bound)" |
+  "steps_approx_absint _ 0 _ _ = {}"
 
-lemma steps_approx_absint_finite: "steps_approx_absint n prog pc = \<top> \<or> finite (steps_approx_absint n prog pc)"
-proof (cases "steps_approx_absint n prog pc = \<top>")
+lemma steps_approx_absint_finite: "steps_approx_absint regs_bound n prog pc = \<top> \<or> finite (steps_approx_absint regs_bound n prog pc)"
+proof (cases "steps_approx_absint regs_bound n prog pc = \<top>")
   case False
   then show ?thesis
   proof (cases n)
     case (Suc nn)
-    let ?res = "final_loopc window_size concretize_max (conv_prog (cextract_prog prog)) nn (single pc entry_regs_unbounded)"
-    have "finite (domain (single pc entry_regs_unbounded))" using single_domain by simp
-    hence a: "single pc entry_regs_unbounded = \<top> \<or> finite (domain (single pc entry_regs_unbounded))" by blast
+    let ?res = "final_loopc window_size concretize_max (conv_prog (cextract_prog prog)) nn (single pc (entry_regs_bound regs_bound))"
+    have "finite (domain (single pc (entry_regs_bound regs_bound)))" using single_domain by simp
+    hence a: "single pc (entry_regs_bound regs_bound) = \<top> \<or> finite (domain (single pc (entry_regs_bound regs_bound)))" by blast
     have "?res = \<top> \<or> finite (domain ?res)"
       unfolding final_loopc_def using finite_loop_finite[OF a] .
     then show ?thesis
@@ -66,26 +66,30 @@ begin
 private abbreviation "P i \<equiv> if i < length prog then prog ! i else None"
 
 lemma stepsc_steps_approx:
-  assumes "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')"
-  shows "pc' \<in> steps_approx_absint n prog pc"
+  assumes
+    "stepsc (conv_prog P) n u (pc, st, s, f, rs) (pc', st', s', f', rs')"
+    "length s \<le> regs_bound"
+  shows "pc' \<in> steps_approx_absint regs_bound n prog pc"
 proof -
   from assms obtain nn where suc: "n = Suc nn" using stepsc.cases by blast
   hence "stepsc (conv_prog P) (Suc nn) u (pc, st, s, f, rs) (pc', st', s', f', rs')" using assms(1) by simp
-  moreover have "(st, s, f, rs) \<in> final_\<gamma> window_size entry_regs_unbounded"
-    unfolding entry_regs_unbounded_def final_top_equivalent by simp
-  ultimately have "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc entry_regs_unbounded))" by (rule final_loop_stepsc_pc)
-  hence "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc entry_regs_unbounded))" .
+  moreover have "(st, s, f, rs) \<in> final_\<gamma> window_size (entry_regs_bound regs_bound)"
+    unfolding entry_regs_bound_def using assms(2) final_reg_bounded_top_equivalent by simp
+  ultimately have "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc (entry_regs_bound regs_bound)))"
+    by (rule final_loop_stepsc_pc)
+  hence "pc' \<in> domain (final_loopc window_size concretize_max (conv_prog P) nn (single pc (entry_regs_bound regs_bound)))" .
   thus ?thesis using suc by simp
 qed
 
 definition
-  "time_indep_check_absint pc n \<equiv>
-    \<forall> pc' \<in> steps_approx_absint n prog pc. pc' < length prog
+  "time_indep_check regs_bound pc n \<equiv>
+    \<forall> pc' \<in> steps_approx_absint regs_bound n prog pc. pc' < length prog
     \<longrightarrow> (case prog ! pc' of Some cmd \<Rightarrow> is_instr cmd | _ \<Rightarrow> True)"
 
 lemma time_indep_overapprox:
   assumes
-    "time_indep_check_absint pc n"
+    "time_indep_check regs_bound pc n"
+    "length s \<le> regs_bound"
   shows "time_indep (conv_prog P) n (pc, st, s, f, rs)"
 proof -
   { fix pc' st' s' f' rs' cmd u
@@ -97,7 +101,7 @@ proof -
       case True
       with A(2) obtain cmd' where "prog ! pc' = Some cmd'" by auto
       with True stepsc_steps_approx[OF A(1)] A(2) assms show ?thesis
-        by (cases cmd') (auto simp: time_indep_check_absint_def)
+        by (cases cmd') (auto simp: time_indep_check_def)
     next
       case False
       with A(2) show ?thesis by (auto split: option.split_asm)
@@ -112,18 +116,18 @@ context UPPAAL_Reachability_Problem_precompiled_defs
 begin
 
   definition
-    "collect_cexp' pc = {ac. Some (CEXP ac) \<in> ((!) prog) ` steps_approx_absint max_steps prog pc}"
+    "collect_cexp' regs_bound pc = {ac. Some (CEXP ac) \<in> ((!) prog) ` steps_approx_absint regs_bound max_steps prog pc}"
 
-  definition "clkp_set'' i l \<equiv>
+  definition "clkp_set'' regs_bound i l \<equiv>
     collect_clock_pairs (inv ! i ! l) \<union>
-    \<Union> ((\<lambda> (g, _). constraint_pair ` collect_cexp' g) ` set (trans ! i ! l))"
+    \<Union> ((\<lambda> (g, _). constraint_pair ` collect_cexp' regs_bound g) ` set (trans ! i ! l))"
 
   definition
     "collect_cexp = {ac. Some (CEXP ac) \<in> set prog}"
 
   definition
-    "collect_store' pc =
-    {(c, x). Some (INSTR (STOREC c x)) \<in> ((!) prog) ` steps_approx_absint max_steps prog pc}"
+    "collect_store' regs_bound pc =
+    {(c, x). Some (INSTR (STOREC c x)) \<in> ((!) prog) ` steps_approx_absint regs_bound max_steps prog pc}"
 
 end
 
@@ -1195,19 +1199,21 @@ lemma stepst_conv_P:
 
 lemma is_conj:
   fixes u :: "nat \<Rightarrow> real"
-  defines "S \<equiv> steps_approx_absint n P pc_s"
+    and regs_bound :: nat
+  defines "S \<equiv> steps_approx_absint regs_bound n P pc_s"
   defines "pc_c \<equiv> Min {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)}"
   assumes "is_conj_block P pc_c (Max S)"
     and "stepst (conv_prog prog) n u (pc_s, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
     and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
     and "P ! pc' = Some (CEXP ac)" "pc' < length P"
     and S_fin: "finite S"
+    and regs_bounded: "length s \<le> regs_bound"
   shows "(u \<turnstile>\<^sub>a conv_ac ac) \<and> pc_t = Max S"
 proof -
   from stepst_stepc_extend[OF assms(4,5)] have *:
     "stepst (conv_prog prog) n u (pc', st', s', f', rs') (pc_t, st_t, s_t, True, rs_t)" .
 
-  from \<open>stepsc _ _ _ _ _\<close> have in_S: "pc' \<in> S" unfolding S_def by (rule stepsc_steps_approx)
+  from \<open>stepsc _ _ _ _ _\<close> have in_S: "pc' \<in> S" unfolding S_def using regs_bounded by (rule stepsc_steps_approx)
   from in_S have max: "pc' \<le> Max S" unfolding S_def using Max_ge S_fin S_def by blast
 
   let ?pulled = "{pc. pc \<in> S \<and> (\<exists> ac. P ! pc = Some (CEXP ac))}"
@@ -1230,12 +1236,14 @@ qed
 
 lemma is_conj':
   fixes u :: "nat \<Rightarrow> real"
-  defines "S \<equiv> steps_approx_absint n P pc_s"
+    and regs_bound :: nat
+  defines "S \<equiv> steps_approx_absint regs_bound n P pc_s"
   assumes "{pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} = {}"
     and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
     and "P ! pc' = Some (CEXP ac)"
+    and regs_bounded: "length s \<le> regs_bound"
   shows False
-  using stepsc_steps_approx[OF assms(3)] assms(4) assms(2) unfolding S_def by auto
+  using stepsc_steps_approx[OF assms(3)] assms(4) assms(2) regs_bounded unfolding S_def by auto
 
 term is_conj_block
 
@@ -1251,23 +1259,23 @@ lemma check_conj_block:
   by (auto dest!: check_conj_block' simp del: check_conj_block'.simps)
 
 definition
-  "conjunction_check \<equiv>
-    let S = steps_approx_absint n P pc_s; S' = {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} in
+  "conjunction_check regs_bound \<equiv>
+    let S = steps_approx_absint regs_bound n P pc_s; S' = {pc. \<exists> ac. pc \<in> S \<and> P ! pc = Some (CEXP ac)} in
       S \<noteq> \<top> \<and> (S' = {} \<or> check_conj_block (Min S') (Max S))
   "
 
 lemma conjunction_check_alt_def[code]:
-  "conjunction_check =
+  "conjunction_check regs_bound =
     (
      let
-        S = steps_approx_absint n P pc_s;
+        S = steps_approx_absint regs_bound n P pc_s;
         S' = {pc. pc \<in> S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
       in
         S \<noteq> \<top> \<and> (S' = {} \<or> check_conj_block (Min S') (Max S))
     )
   "
 proof -
-  let ?S = "steps_approx_absint n P pc_s"
+  let ?S = "steps_approx_absint regs_bound n P pc_s"
   have "
     {pc. pc \<in> ?S \<and> (case P ! pc of Some (CEXP ac) \<Rightarrow> True | _ \<Rightarrow> False)}
   = {pc. \<exists> ac. pc \<in> ?S \<and> P ! pc = Some (CEXP ac)}
@@ -1277,10 +1285,11 @@ qed
 
 lemma conjunction_check:
   fixes u :: "nat \<Rightarrow> real"
-  assumes "conjunction_check"
+  assumes "conjunction_check regs_bound"
     and "stepst (conv_prog prog) n u (pc_s, st, s, f, rs) (pc_t, st_t, s_t, True, rs_t)"
     and "stepsc (conv_prog prog) n u (pc_s, st, s, f, rs) (pc', st', s', f', rs')"
     and "P ! pc' = Some (CEXP ac)" "pc' < length P"
+    and "length s \<le> regs_bound"
   shows "u \<turnstile>\<^sub>a conv_ac ac"
   using assms
   unfolding conjunction_check_def Let_def
