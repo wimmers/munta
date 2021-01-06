@@ -112,7 +112,7 @@ next
         using \<open>ordX x \<le> _\<close> \<open>insert x _ \<subseteq> A\<close> \<open>x \<notin> F\<close> by auto
       ultimately have "card ?S = card {x \<in> A. ordX x \<le> ordX a \<and> x \<notin> F}"
         apply simp
-        apply (subst card_insert)
+        apply (subst card_insert_disjoint)
         subgoal
           by (force intro: finiteI[OF \<open>inj_on ordX A\<close>, of a])
         apply simp
@@ -175,7 +175,7 @@ next
         unfolding *[simplified] **
         using \<open>card _ = n\<close>
         apply simp
-        apply (subst card_insert)
+        apply (subst card_insert_disjoint)
         subgoal
           by (auto intro: finiteI[OF \<open>inj_on ordX A\<close>])
         apply simp

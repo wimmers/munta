@@ -57,32 +57,32 @@ qed
 lemma dbm_entry_dbm_min2:
   assumes "dbm_entry_val u None (Some c) (min a b)"
   shows "dbm_entry_val u None (Some c) b"
-using dbm_entry_val_mono_2[folded less_eq, OF assms] by auto
+using dbm_entry_val_mono2[folded less_eq, OF assms] by auto
 
 lemma dbm_entry_dbm_min3:
   assumes "dbm_entry_val u (Some c) None (min a b)"
   shows "dbm_entry_val u (Some c) None b"
-using dbm_entry_val_mono_3[folded less_eq, OF assms] by auto
+using dbm_entry_val_mono3[folded less_eq, OF assms] by auto
 
 lemma dbm_entry_dbm_min:
   assumes "dbm_entry_val u (Some c1) (Some c2) (min a b)"
   shows "dbm_entry_val u (Some c1) (Some c2) b"
-using dbm_entry_val_mono_1[folded less_eq, OF assms] by auto
+using dbm_entry_val_mono1[folded less_eq, OF assms] by auto
 
 lemma dbm_entry_dbm_min3':
   assumes "dbm_entry_val u (Some c) None (min a b)"
   shows "dbm_entry_val u (Some c) None a"
-using dbm_entry_val_mono_3[folded less_eq, OF assms] by auto
+using dbm_entry_val_mono3[folded less_eq, OF assms] by auto
 
 lemma dbm_entry_dbm_min2':
   assumes "dbm_entry_val u None (Some c) (min a b)"
   shows "dbm_entry_val u None (Some c) a"
-using dbm_entry_val_mono_2[folded less_eq, OF assms] by auto
+using dbm_entry_val_mono2[folded less_eq, OF assms] by auto
 
 lemma dbm_entry_dbm_min':
   assumes "dbm_entry_val u (Some c1) (Some c2) (min a b)"
   shows "dbm_entry_val u (Some c1) (Some c2) a"
-using dbm_entry_val_mono_1[folded less_eq, OF assms] by auto
+using dbm_entry_val_mono1[folded less_eq, OF assms] by auto
 
 lemma DBM_up_complete': "clock_numbering v \<Longrightarrow> u \<in> ([M]\<^bsub>v,n\<^esub>)\<^sup>\<up> \<Longrightarrow> u \<in> [up M]\<^bsub>v,n\<^esub>"
 unfolding up_def DBM_zone_repr_def DBM_val_bounded_def zone_delay_def

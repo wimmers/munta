@@ -163,7 +163,7 @@ proof -
       next
         case False 
         with * True have "?M2 0 (v c) = Lt (- U (v c))" by auto
-        moreover from True dbm_entry_val_mono_2[OF M1] have
+        moreover from True dbm_entry_val_mono2[OF M1] have
           "dbm_entry_val u None (Some c) (Lt (- U (v c)))"
         by auto
         ultimately show ?thesis by auto
@@ -193,7 +193,7 @@ proof -
       case False
       show ?thesis
       proof (cases "M (v c) 0 \<prec> Lt 0")
-        case True with False * dbm_entry_val_mono_3[OF M1] show ?thesis by auto
+        case True with False * dbm_entry_val_mono3[OF M1] show ?thesis by auto
       next
         case F: False
         with M1 * False show ?thesis by auto
@@ -224,7 +224,7 @@ proof -
         show ?thesis
         proof (cases "M (v c1) (v c2) \<prec> Lt (- U (v c2))")
           case True
-          with dbm_entry_val_mono_1[OF M1] have
+          with dbm_entry_val_mono1[OF M1] have
             "dbm_entry_val u (Some c1) (Some c2) (Lt (- U (v c2)))"
             by auto
           then have "u c1 - u c2 < - U (v c2)" by auto

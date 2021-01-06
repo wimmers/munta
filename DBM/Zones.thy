@@ -44,7 +44,7 @@ definition DBM_zone_repr :: "('t::time) DBM \<Rightarrow> ('c \<Rightarrow> nat)
 where
   "[M]\<^bsub>v,n\<^esub> = {u . DBM_val_bounded v u M n}"
 
-lemma dbm_entry_val_mono_1:
+lemma dbm_entry_val_mono1:
   "dbm_entry_val u (Some c) (Some c') b \<Longrightarrow> b \<preceq> b' \<Longrightarrow> dbm_entry_val u (Some c) (Some c') b'"
 proof (induction b, goal_cases)
   case 1 thus ?case using le_dbm_le le_dbm_lt by - (cases b'; fastforce)
@@ -54,7 +54,7 @@ next
   case 3 thus ?case unfolding dbm_le_def by auto
 qed
 
-lemma dbm_entry_val_mono_2:
+lemma dbm_entry_val_mono2:
   "dbm_entry_val u None (Some c) b \<Longrightarrow> b \<preceq> b' \<Longrightarrow> dbm_entry_val u None (Some c) b'"
 proof (induction b, goal_cases)
   case 1 thus ?case using le_dbm_le le_dbm_lt by - (cases b'; fastforce)
@@ -64,7 +64,7 @@ next
   case 3 thus ?case unfolding dbm_le_def by auto
 qed
 
-lemma dbm_entry_val_mono_3:
+lemma dbm_entry_val_mono3:
   "dbm_entry_val u (Some c) None b \<Longrightarrow> b \<preceq> b' \<Longrightarrow> dbm_entry_val u (Some c) None b'"
 proof (induction b, goal_cases)
   case 1 thus ?case using le_dbm_le le_dbm_lt by - (cases b'; fastforce)
@@ -74,7 +74,7 @@ next
   case 3 thus ?case unfolding dbm_le_def by auto
 qed
 
-lemmas dbm_entry_val_mono = dbm_entry_val_mono_1 dbm_entry_val_mono_2 dbm_entry_val_mono_3
+lemmas dbm_entry_val_mono = dbm_entry_val_mono1 dbm_entry_val_mono2 dbm_entry_val_mono3
 
 lemma DBM_le_subset:
   "\<forall> i j. i \<le> n \<longrightarrow> j \<le> n \<longrightarrow> M i j \<preceq> M' i j \<Longrightarrow> u \<in> [M]\<^bsub>v,n\<^esub> \<Longrightarrow> u \<in> [M']\<^bsub>v,n\<^esub>"
@@ -87,16 +87,16 @@ proof -
   next
     case (2 c)
     hence "dbm_entry_val u None (Some c) (M 0 (v c))" "M 0 (v c) \<preceq> M' 0 (v c)" by auto
-    thus ?case using dbm_entry_val_mono_2 by fast
+    thus ?case using dbm_entry_val_mono2 by fast
   next
     case (3 c)
     hence "dbm_entry_val u (Some c) None (M (v c) 0)" "M (v c) 0 \<preceq> M' (v c) 0" by auto
-    thus ?case using dbm_entry_val_mono_3 by fast
+    thus ?case using dbm_entry_val_mono3 by fast
   next
     case (4 c1 c2)
     hence "dbm_entry_val u (Some c1) (Some c2) (M (v c1) (v c2))" "M (v c1) (v c2) \<preceq> M' (v c1) (v c2)"
     by auto
-    thus ?case using dbm_entry_val_mono_1 by fast
+    thus ?case using dbm_entry_val_mono1 by fast
   qed
   thus "u \<in> [M']\<^bsub>v,n\<^esub>" by (simp add: DBM_zone_repr_def)
 qed

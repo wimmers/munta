@@ -856,11 +856,11 @@ proof goal_cases
       proof (cases "I c")
         case (Const d)
         with B(4) \<open>c \<in> X\<close> have "M 0 (v c) \<ge> Le (- real d)" by auto
-        with * Const show ?thesis by - (rule dbm_entry_val_mono_2[folded less_eq], auto)
+        with * Const show ?thesis by - (rule dbm_entry_val_mono2[folded less_eq], auto)
       next
         case (Intv d)
         with B(4) \<open>c \<in> X\<close> have "M 0 (v c) \<ge> Lt (- real d)" by auto
-        with * Intv show ?thesis by - (rule dbm_entry_val_mono_2[folded less_eq], auto)
+        with * Intv show ?thesis by - (rule dbm_entry_val_mono2[folded less_eq], auto)
       next
         case (Greater d)
         with B(3) \<open>c \<in> X\<close> have "I c = Greater (k c)" by fastforce
@@ -868,7 +868,7 @@ proof goal_cases
         moreover from A(2) *(2) \<open>v c \<le> n\<close> \<open>v c > 0\<close> have
           "Lt (- k c) \<le> M 0 (v c)"
         unfolding normalized'_def by force
-        ultimately show ?thesis by - (rule dbm_entry_val_mono_2[folded less_eq], auto)
+        ultimately show ?thesis by - (rule dbm_entry_val_mono2[folded less_eq], auto)
       qed
     next
       case (3 u I J r c)
@@ -880,11 +880,11 @@ proof goal_cases
       proof (cases "I c")
         case (Const d)
         with B(4) \<open>c \<in> X\<close> have "M (v c) 0 \<ge> Le d" by auto
-        with * Const show ?thesis by - (rule dbm_entry_val_mono_3[folded less_eq], auto)
+        with * Const show ?thesis by - (rule dbm_entry_val_mono3[folded less_eq], auto)
       next
         case (Intv d)
         with B(4) \<open>c \<in> X\<close> have "M (v c) 0 \<ge> Lt (real d + 1)" by auto
-        with * Intv show ?thesis by - (rule dbm_entry_val_mono_3[folded less_eq], auto)
+        with * Intv show ?thesis by - (rule dbm_entry_val_mono3[folded less_eq], auto)
       next
         case (Greater d)
         with B(3) \<open>c \<in> X\<close> have "I c = Greater (k c)" by fastforce
@@ -908,18 +908,18 @@ proof goal_cases
             "M (v c1) (v c2) \<ge> Lt (- k c2) \<or> M (v c1) (v c2) = \<infinity> \<or> v c1 = v c2"
           unfolding normalized'_def by fastforce
         ultimately show ?thesis
-          by - (safe, rule dbm_entry_val_mono_1[folded less_eq], auto,
+          by - (safe, rule dbm_entry_val_mono1[folded less_eq], auto,
                 smt *(3,4) int_le_real_less of_int_1 of_nat_0_le_iff)
         next
           case (Const' c)
           with C B(5) \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> have "M (v c1) (v c2) \<ge> Le c" by auto
           with Const' ** \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> show ?thesis
-          by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+          by (auto intro: dbm_entry_val_mono1[folded less_eq])
         next
           case (Intv' c)
           with C B(5) \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> have "M (v c1) (v c2) \<ge> Lt (real_of_int c + 1)" by auto
           with Intv' ** \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> show ?thesis
-          by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+          by (auto intro: dbm_entry_val_mono1[folded less_eq])
         next
           case (Greater' c)
           with C B(3) \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> have "c = k c1" by fastforce
@@ -936,7 +936,7 @@ proof goal_cases
           moreover from \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> 1 Const B(5) have
             "Le (real c - real d) \<le> M (v c1) (v c2)"
           by meson
-          ultimately show ?thesis by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+          ultimately show ?thesis by (auto intro: dbm_entry_val_mono1[folded less_eq])
         next
           case (Intv d)
           with Const \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> *(1,2) have "u c1 = c" "d < u c2" by auto
@@ -944,7 +944,7 @@ proof goal_cases
           moreover from Const \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> Intv B(5) have
             "Lt (real c - d) \<le> M (v c1) (v c2)"
           by meson
-          ultimately show ?thesis by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+          ultimately show ?thesis by (auto intro: dbm_entry_val_mono1[folded less_eq])
         next
           case Greater then show ?thesis by (auto intro: GreaterI)
         qed
@@ -958,7 +958,7 @@ proof goal_cases
           moreover from \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> Intv Const B(5) have
             "Lt (real c - real d + 1) \<le> M (v c1) (v c2)"
           by meson
-          ultimately show ?thesis by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+          ultimately show ?thesis by (auto intro: dbm_entry_val_mono1[folded less_eq])
         next
           case (2 d)
           show ?case
@@ -974,7 +974,7 @@ proof goal_cases
               moreover from nat_intv_frac_decomp[of c "u c1"] nat_intv_frac_decomp[of d "u c2"]
                             B(1,2) \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> T True Intv 2 *(1,2)
               have "u c1 - u c2 = real c - d" by auto
-              ultimately show ?thesis by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+              ultimately show ?thesis by (auto intro: dbm_entry_val_mono1[folded less_eq])
             next
               case False
               with T B(5) 2 Intv \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> have
@@ -983,7 +983,7 @@ proof goal_cases
               moreover from nat_intv_frac_decomp[of c "u c1"] nat_intv_frac_decomp[of d "u c2"]
                             B(1,2) \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> T False Intv 2 *(1,2)
               have "u c1 - u c2 < real c - d" by auto
-              ultimately show ?thesis by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+              ultimately show ?thesis by (auto intro: dbm_entry_val_mono1[folded less_eq])
             qed
           next
             case False
@@ -991,7 +991,7 @@ proof goal_cases
                 "Lt (real c - real d + 1) \<le> M (v c1) (v c2)"
             by meson
             moreover from 2 Intv \<open>c1 \<in> X\<close> \<open>c2 \<in> X\<close> * have "u c1 - u c2 < c - real d + 1" by auto
-            ultimately show ?thesis by (auto intro: dbm_entry_val_mono_1[folded less_eq])
+            ultimately show ?thesis by (auto intro: dbm_entry_val_mono1[folded less_eq])
           qed
         next
           case Greater then show ?thesis by (auto intro: GreaterI)
@@ -1581,18 +1581,18 @@ proof -
         proof (cases "Le 0 < M 0 (v c)")
           case True
           with le c(1,2) have "Le 0 \<le> M1 0 (v c)" by fastforce
-          with dbm_entry_val_mono_2[OF v_bound, folded less_eq] show ?thesis by fast
+          with dbm_entry_val_mono2[OF v_bound, folded less_eq] show ?thesis by fast
         next
           case F: False
           with assms(3) False c have "?M2 0 (v c) = M 0 (v c)" unfolding less norm_def by auto
-          with le c bound show ?thesis by (auto intro: dbm_entry_val_mono_2[folded less_eq])
+          with le c bound show ?thesis by (auto intro: dbm_entry_val_mono2[folded less_eq])
         qed
       next
         case True
         have "Lt (real_of_int (- k c)) \<prec> Le 0" by auto
         with True c assms(3) have "?M2 0 (v c) = Lt (- k c)" unfolding less norm_def by auto
         moreover from assms(1) c have "Lt (- k c) \<le> M1 0 (v c)" unfolding normalized'_def by auto
-        ultimately show ?thesis using le c bound by (auto intro: dbm_entry_val_mono_2[folded less_eq])
+        ultimately show ?thesis using le c bound by (auto intro: dbm_entry_val_mono2[folded less_eq])
       qed
     next
       case (3 c)
@@ -1617,7 +1617,7 @@ proof -
           case False
           with True assms(3) c have "?M2 (v c) 0 = M (v c) 0" unfolding less less_eq norm_def
             by (auto simp: Let_def)
-          with dbm_entry_val_mono_3[OF bound, folded less_eq] le c show ?thesis by auto
+          with dbm_entry_val_mono3[OF bound, folded less_eq] le c show ?thesis by auto
         qed
       qed
     next
@@ -1633,7 +1633,7 @@ proof -
       proof (cases "c1 = c2")
         case True
         then have "dbm_entry_val u (Some c1) (Some c2) (Le 0)" by auto
-        with c True * dbm_entry_val_mono_1[OF this, folded less_eq] show ?thesis by auto
+        with c True * dbm_entry_val_mono1[OF this, folded less_eq] show ?thesis by auto
       next
         case False
         with clock_numbering(1) \<open>v c1 \<le> n\<close> \<open>v c2 \<le> n\<close> have neq: "v c1 \<noteq> v c2" by auto
@@ -1646,14 +1646,14 @@ proof -
             with c False assms(3) neq have
               "?M2 (v c1) (v c2) = M (v c1) (v c2)"
               unfolding norm_def norm_diag_def less by simp
-            with dbm_entry_val_mono_1[OF bound, folded less_eq] le c neq show ?thesis by auto
+            with dbm_entry_val_mono1[OF bound, folded less_eq] le c neq show ?thesis by auto
           next
             case True
             with c False assms(3) neq have "?M2 (v c1) (v c2) = Lt (- k c2)"
               unfolding less norm_def by simp
             moreover from assms(1) c have "M1 (v c1) (v c2) = \<infinity> \<or> M1 (v c1) (v c2) \<ge> Lt (- k c2)"
               using neq unfolding normalized'_def by fastforce
-            ultimately show ?thesis using dbm_entry_val_mono_1[OF bound, folded less_eq] by auto
+            ultimately show ?thesis using dbm_entry_val_mono1[OF bound, folded less_eq] by auto
           qed
         next
           case True

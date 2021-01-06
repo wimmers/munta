@@ -76,7 +76,7 @@ lemma add_pw_ref:
      apply safe[]
            apply (auto simp add: subset_mset.le_iff_add; fail)+
   subgoal premises prems
-    using prems(4,9,11,12,14) by (blast intro: trans)
+    using prems trans by (metis (no_types, lifting) Un_iff in_mono mem_Collect_eq)
   by (auto simp: subset_mset.le_iff_add)
 
 end \<comment> \<open>Worklist 1\<close>

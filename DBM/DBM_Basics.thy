@@ -270,7 +270,7 @@ proof (induction "length vs" arbitrary: vs rule: less_induct)
     qed
     ultimately have *: "len M (v c) 0 vs \<ge> len M (v c) 0 xs" by (simp add: add_increasing2)
     from vs A have "dbm_entry_val u (Some c) None (len M (v c) 0 xs)" by auto
-    from dbm_entry_val_mono_3[OF this, of "len M (v c) 0 vs"] * show ?thesis unfolding less_eq by auto
+    from dbm_entry_val_mono3[OF this, of "len M (v c) 0 vs"] * show ?thesis unfolding less_eq by auto
   qed
 qed
 
@@ -296,7 +296,7 @@ proof (induction "length vs" arbitrary: vs rule: less_induct)
     qed
     ultimately have *: "len M 0 (v c) vs \<ge> len M 0 (v c) ys" by (simp add: add_increasing)
     from vs A have "dbm_entry_val u None (Some c) (len M 0 (v c) ys)" by auto
-    from dbm_entry_val_mono_2[OF this] * show ?thesis unfolding less_eq by auto
+    from dbm_entry_val_mono2[OF this] * show ?thesis unfolding less_eq by auto
   qed
 qed
 

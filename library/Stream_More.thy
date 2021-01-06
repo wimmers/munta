@@ -24,13 +24,13 @@ lemma alw_ev_HLD_cycle:
   assumes "stream_all2 (\<in>) xs (cycle as)" "a \<in> set as"
   shows "infs (\<lambda>x. x \<in> a) xs"
 using assms(1)
-proof (coinduct rule: infs_set_coinduct)
-  case (infs_set xs)
+proof (coinduct rule: infs_coinduct_shift)
+  case (infs xs)
   have 1: "as \<noteq> []" using assms(2) by auto
   have 2:
     "list_all2 (\<in>) (stake (length as) xs) (stake (length as) (cycle as))"
     "stream_all2 (\<in>) (sdrop (length as) xs) (sdrop (length as) (cycle as))"
-    using infs_set stream_rel_shift stake_sdrop length_stake by metis+
+    using infs stream_rel_shift stake_sdrop length_stake by metis+
   have 3: "stake (length as) (cycle as) = as" using 1 by simp
   have 4: "sdrop (length as) (cycle as) = cycle as" using sdrop_cycle_eq 1 by this
   have 5: "set (stake (length as) xs) \<inter> a \<noteq> {}"

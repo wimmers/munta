@@ -245,7 +245,7 @@ lemma dbm_entry_val_mono:
   "dbm_entry_val u a b e'" if "dbm_entry_val u a b e" "e \<le> e'"
 using that
   by cases
-  (auto simp: DBM.less_eq intro: dbm_entry_val_mono_1 dbm_entry_val_mono_2 dbm_entry_val_mono_3
+  (auto simp: DBM.less_eq intro: dbm_entry_val_mono1 dbm_entry_val_mono2 dbm_entry_val_mono3
     | simp add: DBM.less_eq dbm_entry_val.simps dbm_le_def
   )+
 
