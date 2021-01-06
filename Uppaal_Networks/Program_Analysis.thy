@@ -1199,9 +1199,8 @@ lemma is_conj_block_decomp:
   apply (subst (asm) is_conj_block_def)
   apply safe
   (* XXX Should work without metis *)
-  apply (metis
-    One_nat_def add_Suc_right diff_diff_cancel diff_is_0_eq diff_le_self gr_zeroI
-    is_conj_block'_decomp le_simps(3) mpl_lem pl_pl_mm that(1))
+  using One_nat_def add_Suc_right is_conj_block'_decomp le_simps(3) that(1)
+   apply (metis add.right_neutral le_neq_implies_less)
   by (metis
     One_nat_def Suc_1 add.right_neutral add_Suc_right instrc.simps(4) is_conj_block'_decomp
     le_antisym not_less_eq_eq option.inject that(1))
