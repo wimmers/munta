@@ -1277,72 +1277,41 @@ lemma delay_step_impl_correct:
 
 lemma action_step_impl_correct:
   assumes "canonical (curry D) n" (* XXX atm unused, would need for optimized variant without full FW *)
-          "clock_numbering' v n" "\<forall>c\<in>collect_clks (inv_of A l'). v c = c \<and> c > 0 \<and> v c \<le> n"
-          "\<forall>c\<in>collect_clks g. v c = c \<and> c > 0 \<and> v c \<le> n"
-          "\<forall>c\<in> set r. v c = c \<and> c > 0 \<and> v c \<le> n"
-          "\<forall> i \<le> n. D (i, i) \<le> 0"
-      and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
+    "clock_numbering' v n" "\<forall>c\<in>collect_clks (inv_of A l'). v c = c \<and> c > 0 \<and> v c \<le> n"
+    "\<forall>c\<in>collect_clks g. v c = c \<and> c > 0 \<and> v c \<le> n"
+    "\<forall>c\<in> set r. v c = c \<and> c > 0 \<and> v c \<le> n"
+    "\<forall> i \<le> n. D (i, i) \<le> 0"
+    and surj: "\<forall> k \<le> n. k > 0 \<longrightarrow> (\<exists> c. v c = k)"
   shows
-  "[curry (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0))]\<^bsub>v,n\<^esub> =
+    "[curry (abstr_upd (inv_of A l') (reset'_upd (FW' (abstr_upd g D) n) n r 0))]\<^bsub>v,n\<^esub> =
    [And (reset' (And (curry D) (abstr g (\<lambda>i j. \<infinity>) v)) n r v 0)
                                (abstr (inv_of A l') (\<lambda>i j. \<infinity>) v)]\<^bsub>v,n\<^esub>"
- apply (subst abstr_upd_abstr')
-  defer
-  apply (subst abstr_abstr'[symmetric])
-   defer
-   apply (subst And_abstr[symmetric])
-     defer
-     defer
-     apply (rule And_eqI)
-      apply (subst DBM_up_to_equiv[folded n_eq_def, OF reset'''_reset'_upd''])
-       defer
-       apply (subst reset''_reset'''[symmetric, where v = v])
-        defer
-        apply (subst FW'_FW)
-        apply (subst FW_dbm_zone_repr_eqI'[where g = "\<lambda> M. reset' M n r v 0"])
-             apply (rule reset''_neg_diag; fastforce simp: assms(2))
-            apply (erule DBM_reset'_neg_diag_preservation')
-              apply assumption
-             using assms(2) apply fastforce
-            using assms(5) apply fastforce
-           apply (erule reset'_reset''_equiv[symmetric])
-               apply (simp; fail)
-               defer
-               defer
-               defer
-               defer
-               defer
-               defer
-               apply (rule DBM_zone_repr_reset'_eqI)
-                  defer
-                  defer
-                  defer
-                  apply (subst FW_zone_equiv[symmetric])
-                defer
-                apply (subst abstr_upd_abstr')
-                 defer
-                 apply (subst abstr_abstr'[symmetric])
-                  defer
-                  apply (subst And_abstr[symmetric])
-                   using assms apply fastforce
-                  using assms(4) apply fastforce
-                 apply (rule HOL.refl; fail)
-                apply (rule HOL.refl; fail)
-               using assms(3) apply fastforce
-              using assms(3) apply fastforce
-             using assms(3) apply fastforce
-            using assms(5) apply fastforce
-           using assms(5) apply fastforce
-          using assms(6) apply fastforce
-         using assms(2) apply fastforce
-        using assms(5) apply fastforce
-       using assms(7) apply fastforce
-      using assms(4) abstr_upd_diag_preservation'[OF assms(6)] apply fastforce
-     using assms(5) apply fastforce
-    using surj apply fastforce
-   using assms(4) apply fastforce
-  using assms(4) apply fastforce
-done
+  apply (subst abstr_upd_abstr', use assms in fastforce)
+  apply (subst abstr_abstr'[symmetric, where v = v], use assms in fastforce)
+  apply (subst And_abstr[symmetric], use assms in fastforce, use assms in fastforce)
+  apply (rule And_eqI[rotated], rule HOL.refl)
+  apply (subst DBM_up_to_equiv[folded n_eq_def, OF reset'''_reset'_upd''],
+      use assms in fastforce)
+  apply (subst reset''_reset'''[symmetric, where v = v], use assms in fastforce)
+  apply (subst FW'_FW)
+  apply (subst FW_dbm_zone_repr_eqI'[where g = "\<lambda> M. reset' M n r v 0"])
+       apply (rule reset''_neg_diag; fastforce simp: assms(2))
+      apply (erule DBM_reset'_neg_diag_preservation',
+        assumption, use assms(2) in fastforce, use assms in fastforce)
+     apply (erule reset'_reset''_equiv[symmetric]; use assms in fastforce)
+  using assms apply fastforce
+  subgoal
+  proof -
+    show "\<forall>i\<le>n. curry (abstr_upd g D) i i \<le> 0"
+      using assms(4) abstr_upd_diag_preservation'[OF assms(6)] by fastforce
+  qed
+  apply (rule DBM_zone_repr_reset'_eqI,
+      use assms in fastforce, use assms in fastforce, use assms in fastforce)
+  apply (subst FW_zone_equiv[symmetric], use assms in fastforce)
+  apply (subst abstr_upd_abstr', use assms in fastforce)
+  apply (subst abstr_abstr'[symmetric, where v = v], use assms in fastforce)
+  apply (rule And_abstr[symmetric]; use assms in fastforce)
+  done
 
 lemma norm_impl_correct:
   fixes k :: "nat list"
