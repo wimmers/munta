@@ -7,6 +7,7 @@ type_synonym val = int
 type_synonym reg = nat
 
 datatype instr =
+  NOP |
   JMPZ addr |
   ADD |
   NOT |
@@ -32,10 +33,14 @@ type_synonym rstate = "int list" \<comment> \<open>Partial map from registers to
 type_synonym state = "addr * stack * rstate * flag * nat list"
 \<comment> \<open>Instruction pointer, stack, register state, comparison flag, reset clocks\<close>
 
+fun state_pc :: "state \<Rightarrow> addr" where
+  "state_pc (pc, _, _, _, _) = pc"
+
 definition int_of :: "bool \<Rightarrow> int" where
   "int_of x \<equiv> if x then 1 else 0"
 
 fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
+  "step NOP (pc, st, m, f, rs) = Some (pc + 1, st, m, f, rs)" |
   "step (JMPZ q) (pc, st, m, f, rs) = Some (if f then (pc + 1) else q, st, m, f, rs)" |
   "step ADD (pc, a # b # st, m, f, rs) = Some (pc + 1, (a + b) # st, m, f, rs)" |
   "step NOT (pc, b # st, m , f, rs) = Some (pc + 1, st, m, \<not> f, rs)" |
@@ -48,10 +53,14 @@ fun step :: "instr \<Rightarrow> state \<Rightarrow> state option" where
   "step EQ (pc, a # b # st, m, f, rs) = Some (pc + 1, st, m, a = b, rs)" |
   "step (PUSH v) (pc, st, m, f, rs) = Some (pc + 1, v # st, m, f, rs)" |
   "step POP (pc, v # st, m, f, rs) = Some (pc + 1, st, m, f, rs)" |
-  "step (LID r) (pc, st, m, f, rs) = Some (pc + 1, m ! r # st, m, f, rs)" |
+  "step (LID r) (pc, st, m, f, rs) =
+    (if r < length m
+     then Some (pc + 1, m ! r # st, m, f, rs)
+     else None)" |
   "step STORE (pc, v # r # st, m, f, rs) =
-    (if r \<ge> 0 then Some (pc + 1, st, m[nat r := v], f, rs) else None)" |
-  "step (STOREI r v) (pc, st, m, f, rs) = Some (pc + 1, st, m[r := v], f, rs)" |
+    (if r \<ge> 0 \<and> nat r < length m then Some (pc + 1, st, m[nat r := v], f, rs) else None)" |
+  "step (STOREI r v) (pc, st, m, f, rs) =
+    (if r < length m then Some (pc + 1, st, m[r := v], f, rs) else None)" |
   "step COPY (pc, st, m, f, rs) = Some (pc + 1, int_of f # st, m, f, rs)" |
   "step CALL (pc, q # st, m, f, rs) =
     (if q \<ge> 0 then Some (nat q, int pc # st, m, f, rs) else None)" |
@@ -167,6 +176,6 @@ qed
 lemma visited_exec':
   assumes "visited prog n s (pc, st, m, f, rs) pcs" "prog pc = Some HALT"
   shows "exec prog n s [] = Some ((pc, st, m, f, rs), pc # pcs)"
-using visited_exec assms by auto
+  using visited_exec assms by auto
 
 end
