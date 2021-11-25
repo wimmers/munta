@@ -188,7 +188,8 @@ proof induction
   then show ?case by auto
 next
   case (Cons a b as)
-  then guess xs by clarsimp
+  then obtain xs where "A a b" "steps xs" "list_all2 (\<in>) xs (b # as)" "x = last xs"
+    by clarsimp
   then have "hd xs \<in> b" by (cases xs) auto
   with poststable[OF \<open>A a b\<close>] obtain y where "y \<in> a" "C y (hd xs)" by auto
   with \<open>list_all2 _ _ _\<close> \<open>steps _\<close> \<open>x = _\<close> show ?case by (cases xs) auto
@@ -264,7 +265,8 @@ proof (induction arbitrary: x)
 next
   case (Cons a b as)
   from prestable[OF \<open>A a b\<close>] \<open>x \<in> _\<close> obtain y where "y \<in> b" "C x y" by auto
-  with Cons.IH[of y] guess xs by clarsimp
+  with Cons.IH[of y] obtain xs where "y \<in> b" "C x y" "steps (y # xs)" "list_all2 (\<in>) xs as"
+    by clarsimp
   with \<open>x \<in> _\<close> show ?case by auto
 qed
 
@@ -460,8 +462,11 @@ lemma Steps_run_cycle':
   "\<exists> xs. run xs \<and> (\<forall> x \<in> sset xs. \<exists> a \<in> set as \<union> {a}. x \<in> \<Union> a) \<and> shd xs \<in> \<Union> a"
   if assms: "post_defs.Steps (a # as @ [a])" "finite a" "a \<noteq> {}"
 proof -
-  from post.Steps_steps_cycle[OF assms] guess a1 as1 by safe
-  note guessed = this
+  from post.Steps_steps_cycle[OF assms] obtain a1 as1 where guessed:
+    "pre_defs.Steps (a1 # as1 @ [a1])"
+    "\<forall>x\<in>set as1. \<exists>a\<in>set as \<union> {a}. x \<in> a"
+    "a1 \<in> a"
+    by atomize_elim
   from assms(1) \<open>a1 \<in> a\<close> have "a1 \<noteq> {}" by (auto dest!: post_Steps_non_empty)
   with guessed pre.Steps_run_cycle[of a1 as1] obtain xs where
     "run xs" "\<forall>x\<in>sset xs. \<exists>a\<in>set as1 \<union> {a1}. x \<in> a" "shd xs \<in> a1"
@@ -497,9 +502,11 @@ proof -
     by (simp split: if_split_asm add: last_map)+
   then have "finite a"
     unfolding A2'_def by (metis closure_finite)
-  from post.Steps_steps_cycle[OF *(2) \<open>finite a\<close> \<open>a \<noteq> {}\<close>] guess a1 as1
-    by safe
-  note as1 = this
+  from post.Steps_steps_cycle[OF *(2) \<open>finite a\<close> \<open>a \<noteq> {}\<close>] obtain a1 as1 where as1:
+    "pre_defs.Steps (a1 # as1 @ [a1])"
+    "\<forall>x\<in>set as1. \<exists>a\<in>set bs \<union> {a}. x \<in> a"
+    "a1 \<in> a"
+    by atomize_elim
   with post.poststable[OF *(3)] obtain a2 where "a2 \<in> last (closure a\<^sub>0 # as)" "A1 a2 a1"
     by auto
   with post.Steps_poststable[OF *(1), of a2] obtain as2 where as2:
@@ -594,13 +601,18 @@ proof -
     where "x\<^sub>0 ## xs = ws @- x ## ys @- x ## zs"
     by force
   then have decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" by simp
-  from run_decomp[OF assms[unfolded decomp]] guess by auto
-  note decomp_first = this
-  from run_sdrop[OF assms, of "length (ws @ [x])"] guess by simp
+  from run_decomp[OF assms[unfolded decomp]] have decomp_first:
+    "steps (ws @ [x])"
+    "run (ys @- x ## zs)"
+    "x \<rightarrow> (if ys = [] then shd (x ## zs) else hd ys)"
+    by auto
+  from run_sdrop[OF assms, of "length (ws @ [x])"] have "run (sdrop (length ws) xs)"
+    by simp
   moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
     by (cases ws; simp add: sdrop_shift)
   ultimately have "run ((ys @ [x]) @- zs)" by simp
-  from run_decomp[OF this] guess by clarsimp
+  from run_decomp[OF this] have "steps (ys @ [x])" "run zs" "x \<rightarrow> shd zs"
+    by auto
   from run_cycle[OF this(1)] decomp_first have
     "run (cycle (ys @ [x]))"
     by (force split: if_split_asm)
@@ -634,13 +646,18 @@ proof -
   from finite_sset_sfilter_decomp[OF this assms(2)] obtain x ws ys zs where
     decomp: "x\<^sub>0 ## xs = (ws @ [x]) @- ys @- x ## zs" and "\<phi> x"
     by simp metis
-  from run_decomp[OF assms(1)[unfolded decomp]] guess by auto
-  note decomp_first = this
-  from run_sdrop[OF assms(1), of "length (ws @ [x])"] guess by simp
+  from run_decomp[OF assms(1)[unfolded decomp]] have decomp_first:
+    "steps (ws @ [x])"
+    "run (ys @- x ## zs)"
+    "x \<rightarrow> (if ys = [] then shd (x ## zs) else hd ys)"
+    by auto
+  from run_sdrop[OF assms(1), of "length (ws @ [x])"] have "run (sdrop (length ws) xs)"
+    by simp
   moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
     by (cases ws; simp add: sdrop_shift)
   ultimately have "run ((ys @ [x]) @- zs)" by simp
-  from run_decomp[OF this] guess by clarsimp
+  from run_decomp[OF this] have "steps (ys @ [x])" "run zs" "x \<rightarrow> shd zs"
+    by auto
   from run_cycle[OF this(1)] decomp_first have
     "run (cycle (ys @ [x]))"
     by (force split: if_split_asm)
@@ -664,8 +681,11 @@ lemma run_finite_state_set_cycle_steps:
   assumes "run (x\<^sub>0 ## xs)"
   shows "\<exists> x ys zs. steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> {x} \<union> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs"
 proof -
-  from run_finite_state_set_cycle[OF assms] guess ys zs by safe
-  note guessed = this
+  from run_finite_state_set_cycle[OF assms] obtain ys zs where guessed:
+    "run (x\<^sub>0 ## ys @- cycle zs)"
+    "set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs"
+    "zs \<noteq> []"
+    by auto
   from \<open>zs \<noteq> []\<close> have "cycle zs = (hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs])"
     apply (cases zs)
      apply (simp; fail)
@@ -688,8 +708,13 @@ lemma buechi_run_finite_state_set_cycle_steps:
     steps (x\<^sub>0 # ys @ x # zs @ [x]) \<and> {x} \<union> set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs
     \<and> (\<exists> y \<in> set (x # zs). \<phi> y)"
 proof -
-  from buechi_run_finite_state_set_cycle[OF assms] guess ys zs x by safe
-  note guessed = this
+  from buechi_run_finite_state_set_cycle[OF assms] obtain ys zs x where guessed:
+    "run (x\<^sub>0 ## ys @- cycle zs)"
+    "set ys \<union> set zs \<subseteq> {x\<^sub>0} \<union> sset xs"
+    "zs \<noteq> []"
+    "x \<in> set zs"
+    "\<phi> x"
+    by safe
   from \<open>zs \<noteq> []\<close> have "cycle zs = (hd zs # tl zs @ [hd zs]) @- cycle (tl zs @ [hd zs])"
     apply (cases zs)
      apply (simp; fail)
@@ -1025,9 +1050,13 @@ proof (safe, goal_cases)
       by (auto dest!: assms(2))
     done
   from Steps_finite.buechi_run_finite_state_set_cycle_steps[OF \<open>post_defs.Run (_ ## _)\<close> this]
-  guess a ys zs
+  obtain a ys zs where guessed:
+    "post_defs.Steps (closure a\<^sub>0 # ys @ a # zs @ [a])"
+    "a = closure a\<^sub>0 \<or> a \<in> closure ` sset as"
+    "set ys \<subseteq> insert (closure a\<^sub>0) (closure ` sset as)"
+    "set zs \<subseteq> insert (closure a\<^sub>0) (closure ` sset as)"
+    "(\<exists>y\<in>a. \<exists>x\<in>y. \<phi> x) \<or> (\<exists>y\<in>set zs. \<exists>y'\<in>y. \<exists>x\<in>y'. \<phi> x)"
     by clarsimp
-  note guessed = this
   from guessed(5) show ?case
   proof (standard, goal_cases)
     case prems: 1
@@ -1113,7 +1142,13 @@ theorem infinite_buechi_run_cycle_iff:
   if "\<Union>(closure a\<^sub>0) = a\<^sub>0"
 proof (safe, goal_cases)
   case (1 x\<^sub>0 xs)
-  from buechi_run_finite_state_set_cycle_steps[OF this(2,1) P2_a\<^sub>0, of \<phi>] this(3) guess a ys zs
+  from buechi_run_finite_state_set_cycle_steps[OF this(2,1) P2_a\<^sub>0, of \<phi>] this(3) obtain a ys zs
+    where
+    "infs \<phi> xs"
+    "Steps (a\<^sub>0 # ys @ a # zs @ [a])"
+    "x\<^sub>0 \<in> a \<or> (\<exists>x\<in>sset xs. x \<in> a)"
+    "\<forall>a\<in>set ys \<union> set zs. x\<^sub>0 \<in> a \<or> (\<exists>x\<in>sset xs. x \<in> a)"
+    "(\<exists>x\<in>a. \<phi> x) \<or> (\<exists>y\<in>set zs. \<exists>x\<in>y. \<phi> x)"
     by clarsimp
   note guessed = this(2-)
   from guessed(4) show ?case
