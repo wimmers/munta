@@ -3,7 +3,7 @@ theory Normalized_Zone_Semantics_Impl_Semantic_Refinement
     DBM.FW_More
     Normalized_Zone_Semantics_Impl
     Worklist_Algorithms.Liveness_Subsumption
-    TA_Library.Syntax_Bundles
+    TA_Library.TA_Syntax_Bundles
 begin
 
 chapter \<open>Semantic Refinement of the Reachability Checker\<close>
@@ -1457,8 +1457,10 @@ proof (standard, goal_cases)
     using wf_dbm_D by blast+
   have "valid_dbm M1"
     using prems steps(1) by - (rule step_z_valid_dbm', auto)
-  from step_z_norm_equiv'[OF steps(2), OF this *(3) sym[OF D2(2)]] guess D3 by (elim conjE exE)
-  note D3 = this
+  from step_z_norm_equiv'[OF steps(2), OF this *(3) sym[OF D2(2)]] obtain D3 where D3:
+    "step_z_norm' (conv_A A) l2 (curry (conv_M D2)) \<upharpoonleft>a1 l' D3"
+    "[M']\<^bsub>v,n\<^esub> = [D3]\<^bsub>v,n\<^esub>"
+    by atomize_elim
   from step_impl_norm_complete''[OF D3(1) *(3,1,2)] obtain D4 where D4:
     "A \<turnstile>\<^sub>I \<langle>l2, D2\<rangle> \<leadsto>\<^bsub>n,\<upharpoonleft>a1\<^esub> \<langle>l', D4\<rangle>"
     "[curry (conv_M (FW' (norm_upd D4 (k' l') n) n))]\<^bsub>v,n\<^esub> = [D3]\<^bsub>v,n\<^esub>"
