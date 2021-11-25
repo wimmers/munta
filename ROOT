@@ -3,7 +3,7 @@ session "TA_Library" in "library" = "Refine_Imperative_HOL" +
     Transition_Systems_and_Automata
     LTL_Master_Theorem
   theories
-    Syntax_Bundles
+    TA_Syntax_Bundles
     ML_Util
     More_Methods
     Abstract_Term

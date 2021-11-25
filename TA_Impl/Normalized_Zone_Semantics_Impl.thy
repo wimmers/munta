@@ -5,7 +5,6 @@ theory Normalized_Zone_Semantics_Impl
     TA_DBM_Operations_Impl
     DBM.FW_Code
     TA.TA_More
-    TA_Library.Syntax_Bundles
 begin
 
 unbundle no_library_syntax

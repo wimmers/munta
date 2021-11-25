@@ -3,7 +3,7 @@ theory TA_DBM_Operations_Impl
     TA.TA_DBM_Operations
     DBM.DBM_Operations_Impl_Refine
     Sepref_Acconstraint
-    TA_Library.Syntax_Bundles
+    TA_Library.TA_Syntax_Bundles
 begin
 
 unbundle no_library_syntax

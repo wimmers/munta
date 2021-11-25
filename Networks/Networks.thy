@@ -1,6 +1,6 @@
 theory Networks
   imports TA.Timed_Automata TA_Impl.Normalized_Zone_Semantics_Impl
-    TA_Library.Reordering_Quantifiers TA_Library.Syntax_Bundles
+    TA_Library.Reordering_Quantifiers TA_Library.TA_Syntax_Bundles
 begin
 
 unbundle no_library_syntax

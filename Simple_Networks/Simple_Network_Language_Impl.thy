@@ -9,7 +9,7 @@ theory Simple_Network_Language_Impl
     TA_More2
     TA_Equivalences
     "HOL-Eisbach.Eisbach_Tools"
-    TA_Library.Syntax_Bundles
+    TA_Library.TA_Syntax_Bundles
 begin
 
 unbundle no_library_syntax

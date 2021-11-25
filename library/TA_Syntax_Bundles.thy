@@ -1,4 +1,4 @@
-theory Syntax_Bundles
+theory TA_Syntax_Bundles
   imports
     "HOL-Library.Stream"
     "HOL-Imperative_HOL.Imperative_HOL"
