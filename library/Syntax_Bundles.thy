@@ -2,12 +2,16 @@ theory Syntax_Bundles
   imports
     "HOL-Library.Stream"
     "HOL-Imperative_HOL.Imperative_HOL"
-    "Word_Lib.Traditional_Infix_Syntax"
+    "Word_Lib.Bit_Shifts_Infix_Syntax"
+    "Word_Lib.Syntax_Bundles"
     Automatic_Refinement.Relators
     "HOL-Library.Extended_Nat"
 begin
 
 bundle bit_syntax begin
+
+unbundle bit_projection_infix_syntax
+
 notation
       ring_bit_operations_class.not ("NOT")
   and semiring_bit_operations_class.and (infixr "AND" 64)
@@ -15,7 +19,7 @@ notation
   and semiring_bit_operations_class.xor (infixr "XOR" 59)
   and shiftl (infixl "<<" 55)
   and shiftr (infixl ">>" 55)
-  and test_bit (infixl "!!" 100)
+
 end
 
 bundle no_bit_syntax begin
@@ -26,7 +30,7 @@ no_notation
   and semiring_bit_operations_class.xor (infixr "XOR" 59)
   and shiftl (infixl "<<" 55)
   and shiftr (infixl ">>" 55)
-  and test_bit (infixl "!!" 100)
+  and bit (infixl "!!" 100)
 end
 
 bundle imperative_hol_syntax begin
