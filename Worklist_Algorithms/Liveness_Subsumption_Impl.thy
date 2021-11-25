@@ -282,7 +282,7 @@ qed
 lemma (in Liveness_Search_Space_Key) dfs_map_empty_correct:
   "do {(r, p) \<leftarrow> dfs_map Map.empty; RETURN r} \<le> SPEC (\<lambda> r. r \<longleftrightarrow> (\<exists> x. a\<^sub>0 \<rightarrow>* x \<and> x \<rightarrow>\<^sup>+ x))"
   if "V a\<^sub>0"
-  supply dfs_map_empty[OF \<open>V a\<^sub>0\<close>, THEN order.trans, refine_vcg]
+  supply dfs_map_empty[OF \<open>V a\<^sub>0\<close>, THEN Orderings.order.trans, refine_vcg]
   apply refine_vcg
   unfolding dfs_spec_def pw_le_iff by (auto simp: refine_pw_simps)
 

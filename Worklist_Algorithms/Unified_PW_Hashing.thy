@@ -443,7 +443,7 @@ proof -
   also note pw_algo_unified_ref
   also note pw_algo_correct
   finally show ?thesis
-    unfolding conc_fun_def Image_def by (fastforce intro: order.trans) (* Slow *)
+    unfolding conc_fun_def Image_def by (fastforce intro: Orderings.order.trans) (* Slow *)
 qed
 
 end \<comment> \<open>End of Theory\<close>

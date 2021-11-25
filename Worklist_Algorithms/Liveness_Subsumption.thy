@@ -292,7 +292,7 @@ proof -
   show ?thesis
     unfolding dfs_def dfs_spec_def
     apply (refine_rcg refine_vcg)
-    apply (rule order.trans)
+    apply (rule Orderings.order.trans)
      apply(rule RECT_rule[where
           pre = rpre and
           V = Termination and
@@ -372,7 +372,7 @@ proof -
 
       (* Invariant *)
       subgoal for _ it v' P' ST' c
-        apply (rule order.trans)
+        apply (rule Orderings.order.trans)
          apply rprems
 
         (* Inv \<longrightarrow> Pre *)
