@@ -1525,7 +1525,7 @@ proof -
           show ?thesis
           proof (cases "M i i < M\<^sub>R i i")
             case True
-            then have "?M i i = M i i" by (simp add: min.strict_order_iff)
+            then have "?M i i = M i i" by simp
             with Nil ys(1) xs(3) have *: "M i i < 0" by simp
             with neg_cycle_empty[OF cn_weak _ \<open>i \<le> n\<close>, of "[]" M] have "[M]\<^bsub>v,n\<^esub> = {}" by auto
             with \<open>Z \<noteq> {}\<close> M(1) show ?thesis by auto
@@ -1627,7 +1627,7 @@ proof -
             by (auto simp add: comm)
             from ys(1) xs(3) ws'(1) have "len ?M a a (b # ws') < 0" by auto
             from ws'(2) ys(2) \<open>i \<le> n\<close> z have n_bounds: "a \<le> n" "b \<le> n" "set ws' \<subseteq> {0..n}" "z \<le> n" by auto
-            from * have a_b: "?M a b = M a b" by (simp add: min.strict_order_iff)
+            from * have a_b: "?M a b = M a b" by simp
             from successive successive_split[of _ "arcs a z (b # zs)" "[(z,a), (a,b)]"]
             have first: "successive (\<lambda>(a, b). ?M a b = M a b) (arcs a z (b # zs))" and
                  last_two: "successive (\<lambda>(a, b). ?M a b = M a b) [(z, a), (a, b)]"
@@ -1671,7 +1671,7 @@ proof -
               qed
             qed
             { fix c d assume A: "(c, d) \<in> set (arcs 0 0 (a # b # zs))" "M c d < M\<^sub>R c d"
-              then have *: "?M c d = M c d" by (simp add: min.strict_order_iff)
+              then have *: "?M c d = M c d" by simp
               from rotated(2) A \<open>z = 0\<close> not_bounded ws'(4) have **: "M\<^sub>R c 0 = \<infinity> \<or> M\<^sub>R d 0 = \<infinity>" by auto
               { assume inf: "M\<^sub>R c 0 = \<infinity>"
                 fix x assume x: "(x, c) \<in> set (arcs a 0 (b # zs))" "?M x c \<noteq> M x c"
