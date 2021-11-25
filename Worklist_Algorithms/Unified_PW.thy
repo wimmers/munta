@@ -509,6 +509,6 @@ proof -
       using F_mono by (fastforce simp: pw_inv_def dest!: aux4 dest: final_non_empty)+
 qed
 
-lemmas (in Search_Space'_finite) [refine_vcg] = pw_algo_correct[THEN order.trans]
+lemmas (in Search_Space'_finite) [refine_vcg] = pw_algo_correct[THEN Orderings.order.trans]
 
 end \<comment> \<open>End of Theory\<close>
