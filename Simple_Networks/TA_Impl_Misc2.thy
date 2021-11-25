@@ -154,7 +154,7 @@ lemma filter_eq_iff_greatest_subseq:
 lemma subseq_subsetD:
   "set xs \<subseteq> set ys" if "subseq xs ys"
   using that
-  by (intro subsetI) (unfold subseq_singleton_left[symmetric], erule subseq_order.order.trans)
+  by (intro subsetI) (unfold subseq_singleton_left[symmetric], erule subseq_order.trans)
 
 lemma subseq_distinct:
   "distinct xs" if "distinct ys" "subseq xs ys"
@@ -190,7 +190,7 @@ lemma subseq_sorted_wrt:
 
 lemma subseq_sorted:
   "sorted xs" if "sorted ys" "subseq xs ys"
-  using that unfolding sorted_sorted_wrt by (rule subseq_sorted_wrt)
+  using that by (rule subseq_sorted_wrt)
 
 lemma sorted_distinct_subset_subseqI:
   assumes "sorted xs" "distinct xs" "sorted ys" "set xs \<subseteq> set ys"
