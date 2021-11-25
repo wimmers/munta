@@ -530,7 +530,7 @@ next
         with \<open>a \<in> _\<close> \<open>E a b\<close> show ?thesis unfolding E'_def by auto
       qed
     qed
-    from insert.IH[OF this] guess x y by safe
+    from insert.IH[OF this] obtain x y where "x \<in> S" "E' x y" "E'\<^sup>*\<^sup>* y x" by safe
     then show ?thesis by (blast intro: rtranclp_trans dest: E'_E)
     qed
   qed
@@ -616,7 +616,7 @@ proof induction
   then show ?case by (inst_existentials "[s\<^sub>0]"; force)
 next
   case (step y z)
-  from step.IH guess xs by clarify
+  from step.IH obtain xs where "steps xs" "s\<^sub>0 = hd xs" "y = last xs" by clarsimp
   with step.hyps show ?case
     apply (inst_existentials "xs @ [z]")
     apply (force intro: graphI)
@@ -1151,8 +1151,12 @@ lemma simulation_steps'_map:
     \<and> list_all PA as \<and> list_all PB bs"
   if "A.steps (a # as)" "a \<sim> b" "PA a" "PB b"
 proof -
-  from simulation_steps'[OF that] guess bs by clarify
-  note guessed = this
+  from simulation_steps'[OF that] obtain bs where guessed:
+    "B.steps (b # bs)"
+    "list_all2 (\<sim>) as bs"
+    "list_all PA as"
+    "list_all PB bs"
+    by safe
   from this(2) have "bs = map f as"
     by (induction; simp add: eq)
   with guessed show ?thesis
@@ -1260,7 +1264,12 @@ lemma steps_map:
   "\<exists> as. bs = map f as" if "B.steps (f a # bs)" "PA a" "PB (f a)"
 proof -
   have "a \<sim> f a" unfolding eq ..
-  from B_A.simulation_steps'[OF that(1) this \<open>PB _\<close> \<open>PA _\<close>] guess as by clarify
+  from B_A.simulation_steps'[OF that(1) this \<open>PB _\<close> \<open>PA _\<close>] obtain as where
+    "A.steps (a # as)"
+    "list_all2 (\<lambda>a b. b \<sim> a) bs as"
+    "list_all PB bs"
+    "list_all PA as"
+    by safe
   from this(2) show ?thesis
     unfolding eq by (inst_existentials as, induction rule: list_all2_induct, auto)
 qed

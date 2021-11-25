@@ -527,7 +527,9 @@ next
     by auto
   with step(1) have "reachable s"
     by auto
-  from subsumption_step[OF \<open>reachable s\<close> \<open>E s t\<close> \<open>G.reachable s'\<close> \<open>s \<preceq> s'\<close>] guess s'' t' by clarify
+  from subsumption_step[OF \<open>reachable s\<close> \<open>E s t\<close> \<open>G.reachable s'\<close> \<open>s \<preceq> s'\<close>] obtain s'' t' where
+    "s' \<preceq> s''" "t \<preceq> t'" "s'' \<rightarrow>\<^sub>G t'" "G.reachable s''"
+    by atomize_elim
   with \<open>G.reachable s'\<close> show ?case
     by auto
 qed
@@ -1149,7 +1151,9 @@ next
     by auto
   with step(1) have "reachable s"
     by (auto simp: reachable_def)
-  from subsumption_step[OF \<open>reachable s\<close> \<open>E s t\<close> \<open>G.reachable s'\<close> \<open>s \<preceq> s'\<close>] guess s'' t' by clarify
+  from subsumption_step[OF \<open>reachable s\<close> \<open>E s t\<close> \<open>G.reachable s'\<close> \<open>s \<preceq> s'\<close>] obtain s'' t' where
+    "s' \<preceq> s''" "t \<preceq> t'" "s'' \<rightarrow>\<^sub>G t'" "G.reachable s''"
+    by atomize_elim
   with \<open>G.reachable s'\<close> show ?case
     by (auto simp: reachable_def)
 qed
@@ -1172,7 +1176,9 @@ proof (induction "a # xs" arbitrary: a b xs)
   then show ?case by auto
 next
   case (Cons x y xs)
-  from subsumption_step[OF \<open>reachable x\<close> \<open>E _ _\<close> \<open>G.reachable b\<close> \<open>x \<preceq> b\<close>] guess b' y' by clarify
+  from subsumption_step[OF \<open>reachable x\<close> \<open>E _ _\<close> \<open>G.reachable b\<close> \<open>x \<preceq> b\<close>] obtain b' y' where
+    "b \<preceq> b'" "y \<preceq> y'" "b' \<rightarrow>\<^sub>G y'" "G.reachable b'"
+    by atomize_elim
   with Cons obtain y'' ys where "list_all2 (\<preceq>) xs ys" "G.steps (y'' # ys)" "y' \<preceq> y''"
     oops
 

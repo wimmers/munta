@@ -240,7 +240,14 @@ next
     "xs = ys' @ a # zs'" "length ys' \<in> I" "\<forall>i \<in> I. i \<ge> length ys'"
     "nths zs' {i - length ys' - 1 |i. i \<in> I \<and> i > length ys'} = ys @ bs"
     by auto
-  moreover from Cons.IH[OF \<open>nths zs' _ = _\<close>] guess ys'' zs'' by clarify
+  moreover from Cons.IH[OF \<open>nths zs' _ = _\<close>] obtain ys'' zs'' where
+    "zs' = ys'' @ zs''"
+    "ys = nths ys'' {i - length ys' - 1 |i. i \<in> I \<and> length ys' < i}"
+    "bs =
+     nths zs''
+      {i - length ys'' |i.
+       i \<in> {i - length ys' - 1 |i. i \<in> I \<and> length ys' < i} \<and> length ys'' \<le> i}"
+    by clarsimp
   ultimately show ?case
     apply (inst_existentials "ys' @ a # ys''" zs'')
       apply (simp; fail)

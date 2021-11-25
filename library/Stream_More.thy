@@ -127,13 +127,16 @@ next
   case (Cons y ys)
   from alw_ev_imp_ev_alw[OF \<open>alw (ev _) xs\<close>] have "ev (holds P) xs"
     by (auto elim: ev_mono)
-  with Cons.prems(1) sfilter_SCons_decomp[of P xs y "ys @- zs"] guess ys' zs' by clarsimp
-  note guessed = this
+  with Cons.prems(1) sfilter_SCons_decomp[of P xs y "ys @- zs"] obtain ys' zs' where decomp:
+    "xs = ys' @- y ## zs'" "list_all (Not \<circ> P) ys'" "P y" "sfilter P zs' = ys @- zs"
+    by clarsimp
   then have "sfilter P zs' = ys @- zs" by auto
   from \<open>alw (ev _) xs\<close> \<open>xs = _\<close> have "alw (ev (holds P)) zs'"
     by (metis ev.intros(2) ev_shift not_alw_iff stream.sel(2))
-  from Cons.IH[OF \<open>sfilter P zs' = _\<close> this] guess zs1 zs2 by clarsimp
-  with guessed show ?case
+  from Cons.IH[OF \<open>sfilter P zs' = _\<close> this] obtain zs1 zs2 where
+    "zs' = zs1 @- zs2" "filter P zs1 = ys" "sfilter P zs2 = zs"
+    by clarsimp
+  with decomp show ?case
     by (inst_existentials "ys' @ y # zs1" zs2; simp add: list.pred_set)
 qed
 
@@ -143,20 +146,35 @@ lemma finite_sset_sfilter_decomp:
 proof atomize_elim
   let ?xs = "sfilter P xs"
   have 1: "\<not> sdistinct (sfilter P xs)" using sdistinct_infinite_sset assms(1) by auto
-  from not_sdistinct_decomp[OF 1] guess ws ys x zs .
-  note guessed1 = this
-  from sfilter_shift_decomp[OF this assms(2)] guess ys' zs' by clarsimp
-  note guessed2 = this
+  from not_sdistinct_decomp[OF 1] obtain ws ys x zs where guessed1:
+    "sfilter P xs = ws @- x ## ys @- x ## zs" .
+  from sfilter_shift_decomp[OF this assms(2)] obtain ys' zs' where guessed2:
+    "xs = ys' @- zs'"
+    "sfilter P zs' = x ## ys @- x ## zs"
+    "ws = filter P ys'"
+    by clarsimp
   then have "ev (holds P) zs'" using alw_shift assms(2) by blast
-  from sfilter_SCons_decomp[OF guessed2(2) this] guess zs1 zs2 by clarsimp
-  note guessed3 = this
+  from sfilter_SCons_decomp[OF guessed2(2) this] obtain zs1 zs2 where guessed3:
+    "zs' = zs1 @- x ## zs2"
+    "list_all (Not \<circ> P) zs1"
+    "P x"
+    "sfilter P zs2 = ys @- x ## zs"
+    by clarsimp
   have "alw (ev (holds P)) zs2"
     by (metis alw_ev_stl alw_shift assms(2) guessed2(1) guessed3(1) stream.sel(2))
-  from sfilter_shift_decomp[OF guessed3(4) this] guess zs3 zs4 by clarsimp
-  note guessed4 = this
+  from sfilter_shift_decomp[OF guessed3(4) this] obtain zs3 zs4 where guessed4:
+    "zs2 = zs3 @- zs4"
+    "sfilter P zs4 = x ## zs"
+    "ys = filter P zs3"
+    by clarsimp
   have "ev (holds P) zs4"
     using \<open>alw (ev (holds P)) zs2\<close> alw_shift guessed4(1) by blast
-  from sfilter_SCons_decomp[OF guessed4(2) this] guess zs5 zs6 by clarsimp
+  from sfilter_SCons_decomp[OF guessed4(2) this] obtain zs5 zs6 where
+    "zs4 = zs5 @- x ## zs6"
+    "list_all (Not \<circ> P) zs5"
+    "P x"
+    "zs = sfilter P zs6"
+    by clarsimp
   with guessed1 guessed2 guessed3 guessed4 show "\<exists>ws x ys zs. xs = ws @- x ## ys @- x ## zs \<and> P x"
     by (inst_existentials "ys' @ zs1" x "zs3 @ zs5" zs6; simp)
 qed
@@ -192,10 +210,17 @@ proof (coinduction arbitrary: xs)
     "a = xs !! (LEAST n. P (xs !! n) \<and> Q (xs !! n))" "b = xs !! (LEAST n. Q (xs !! n))"
     using ev_one by (auto 4 3 dest: sfilter_shd_LEAST)
   with alw_wait_holds_cong[unfolded wait_LEAST, OF \<open>alw (holds P) xs\<close>] have "a = b" by simp
-  from sfilter_SCons_decomp'[OF prems(1)[symmetric], OF ev_one] guess u2 by clarsimp
-  note guessed_a = this
+  from sfilter_SCons_decomp'[OF prems(1)[symmetric], OF ev_one] obtain u2 where guessed_a:
+    "list_all (Not \<circ> (\<lambda>x. P x \<and> Q x)) (stake (wait (holds (\<lambda>x. P x \<and> Q x)) xs) xs)"
+    "xs = stake (wait (holds (\<lambda>x. P x \<and> Q x)) xs) xs @- a ## u2"
+    "u = sfilter (\<lambda>x. P x \<and> Q x) u2"
+    by clarsimp
   have "ev (holds Q) xs" using prems(4) by blast
-  from sfilter_SCons_decomp'[OF prems(2)[symmetric], OF this] guess v2 by clarsimp
+  from sfilter_SCons_decomp'[OF prems(2)[symmetric], OF this] obtain v2 where
+    "list_all (Not \<circ> Q) (stake (wait (holds Q) xs) xs)"
+    "xs = stake (wait (holds Q) xs) xs @- b ## v2"
+    "v = sfilter Q v2"
+    by clarsimp
   with guessed_a \<open>a = b\<close> show ?case
     apply (intro conjI exI)
         apply assumption+
@@ -230,7 +255,13 @@ proof (coinduction arbitrary: xs)
   then have "ev (holds P) xs" by auto
   have "sfilter P xs = shd (sfilter P xs) ## stl (sfilter P xs)"
     by (cases "sfilter P xs") auto
-  from sfilter_SCons_decomp[OF this \<open>ev (holds P) xs\<close>] guess ys' zs' by clarsimp
+  from sfilter_SCons_decomp[OF this \<open>ev (holds P) xs\<close>] obtain ys' zs' where
+    "xs = ys' @- shd (sdrop_while (Not \<circ> P) xs) ## zs'"
+    "list_all (Not \<circ> P) ys'"
+    "P (shd (sdrop_while (Not \<circ> P) xs))"
+    "sfilter P zs' =
+     sfilter P (stl (sdrop_while (Not \<circ> P) xs))"
+    by clarsimp
   then show ?case
     apply (inst_existentials zs')
     apply (metis sfilter.simps(1) stream.sel(1) stream_pred(1))
