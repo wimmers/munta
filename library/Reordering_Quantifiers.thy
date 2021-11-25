@@ -761,7 +761,7 @@ ML \<open>
 
 ML_val Abs
 
-ML_val Conv.rewr_conv ML_val Thm.dest_abs
+ML_val Conv.rewr_conv
 
 ML \<open>
 
