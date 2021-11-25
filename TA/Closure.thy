@@ -806,8 +806,13 @@ lemma step_r_complete_aux:
   shows "R = R \<inter> {u. u \<turnstile> g} \<and> region_set' R r 0 \<subseteq> R' \<and> R' \<in> \<R> l' \<and> R' \<subseteq> \<lbrace>inv_of A l'\<rbrace>"
 proof -
   note A = assms(2-)
-  from A(1) guess by (clarsimp elim!: valid_abstraction.cases)
-  note * = this
+  from A(1) obtain a1 b1 where *:
+    "A = (a1, b1)"
+    "\<forall>l. \<forall>x\<in>clkp_set (a1, b1) l. case x of (x, m) \<Rightarrow> m \<le> real (k l x) \<and> x \<in> X \<and> m \<in> \<nat>"
+    "collect_clkvt (trans_of (a1, b1)) \<subseteq> X"
+    "finite X"
+    "\<forall>l g a r l' c. (a1, b1) \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> c \<notin> set r \<longrightarrow> k l' c \<le> k l c"
+    by (clarsimp elim!: valid_abstraction.cases)
   from A(4) *(1,3) have r: "set r \<subseteq> X" unfolding collect_clkvt_def by fastforce
   from A(4) *(1,5) have ceiling_mono: "\<forall>y. y \<notin> set r \<longrightarrow> k l' y \<le> k l y" by auto
   from A(4) *(1,2) have "\<forall>(x, m)\<in>collect_clock_pairs g. m \<le> real (k l x) \<and> x \<in> X \<and> m \<in> \<nat>"
@@ -842,7 +847,13 @@ using assms(1) proof (cases)
     "[u']\<^sub>l \<in> Succ (\<R> l) ([u]\<^sub>l)" "[u']\<^sub>l \<in> \<R> l"
     by auto
   from regions_closed'[OF \<R>_def' R \<open>0 \<le> d\<close>] u'(1) have u'2: "u' \<in> [u']\<^sub>l" by simp
-  from assms(2) guess by (clarsimp elim!: valid_abstraction.cases)
+  from assms(2) obtain a1 b1 where
+    "A = (a1, b1)"
+    "\<forall>l. \<forall>x\<in>clkp_set (a1, b1) l. case x of (x, m) \<Rightarrow> m \<le> real (k l x) \<and> x \<in> X \<and> m \<in> \<nat>"
+    "collect_clkvt (trans_of (a1, b1)) \<subseteq> X"
+    "finite X"
+    "\<forall>l g a r l' c. (a1, b1) \<turnstile> l \<longrightarrow>\<^bsup>g,a,r\<^esup> l' \<and> c \<notin> set r \<longrightarrow> k l' c \<le> k l c"
+    by (clarsimp elim!: valid_abstraction.cases)
   note * = this
   from *(1,2) u'(2) have
     "\<forall>(x, m)\<in>collect_clock_pairs (inv_of A l). m \<le> real (k l x) \<and> x \<in> X \<and> m \<in> \<nat>"
