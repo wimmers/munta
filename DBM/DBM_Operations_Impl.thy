@@ -7,11 +7,6 @@ theory DBM_Operations_Impl
     "HOL-Library.IArray"
 begin
 
-section \<open>Pre\<close>
-
-no_notation Ref.update ("_ := _" 62)
-
-
 section \<open>Misc\<close>
 
 lemma fold_last:
@@ -1339,8 +1334,6 @@ lemma extra_upd_cong:
   apply (rule fold_cong, (clarsimp simp: assms; fail)+)
   apply (rule ext, rule fold_cong; (rule ext)?; clarsimp simp: assms; fail)+
   oops
-
-no_notation test_bit (infixl "!!" 100)
 
 lemma extra_lup_upd_alt_def:
   "extra_lup_upd M l u n = (
