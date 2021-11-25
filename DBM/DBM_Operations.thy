@@ -830,7 +830,7 @@ next
           from this(2) G2(3) have "u c - u c' - u c < d' + d" using add_le_less_mono by fastforce
           hence "- u c' < d' + d" by simp
           hence "- u c' < d + d'"
-          by (metis (hide_lams, no_types) diff_0_right diff_minus_eq_add minus_add_distrib minus_diff_eq)
+          by (metis (no_types) diff_0_right diff_minus_eq_add minus_add_distrib minus_diff_eq)
           thus ?case using 1 \<open>c \<noteq> c'\<close> by fastforce
         next
           case (2 d')
@@ -894,7 +894,7 @@ next
           from this(2) G2(3) have "u c + u c' - u c < d' + d" using add_le_less_mono by fastforce
           hence "u c' < d' + d" by simp
           hence "u c' < d + d'"
-          by (metis (hide_lams, no_types) diff_0_right diff_minus_eq_add minus_add_distrib minus_diff_eq)
+          by (metis (no_types) diff_0_right diff_minus_eq_add minus_add_distrib minus_diff_eq)
           thus ?case using 1 \<open>c \<noteq> c'\<close> by fastforce
         next
           case (2 d')
@@ -942,8 +942,8 @@ next
           proof (cases, goal_cases)
             case (1 d')
             from this(2) G1(3) have "u c1 - u c2 \<le> d + d'"
-            by (metis (hide_lams, no_types) ab_semigroup_add_class.add_ac(1) add_le_cancel_right
-                                  add_left_mono diff_add_cancel dual_order.refl dual_order.trans)
+            by (metis (no_types) ab_semigroup_add_class.add_ac(1) add_le_cancel_right
+                                 add_left_mono diff_add_cancel dual_order.refl dual_order.trans)
             thus ?case using 1 \<open>c \<noteq> c1\<close> \<open>c \<noteq> c2\<close> by fastforce
           next
             case (2 d')
@@ -1268,7 +1268,7 @@ proof (auto, goal_cases)
       using dbm_entry_dbm_min' by auto
       with 1 have "u c1 - u c2 \<le> d1 + d2" by auto
       thus ?case
-      by (metis (hide_lams, no_types) add_diff_cancel_left diff_0_right diff_add_cancel diff_eq_diff_less_eq)
+      by (metis (no_types) add_diff_cancel_left diff_0_right diff_add_cancel diff_eq_diff_less_eq)
     next
       case (2 c' d)
       with A have
@@ -1803,7 +1803,7 @@ proof (auto, goal_cases)
           hence "u c2 + t \<in> S_Max_Le" unfolding S_Max_Le using A 4 False by blast
           hence "d' \<le> u c2 + t" using d' by auto
           hence "d' - u c2 \<le> t"
-          by (metis (hide_lams, no_types) add_diff_cancel_left add_ac(1) add_le_cancel_right
+          by (metis (no_types) add_diff_cancel_left add_ac(1) add_le_cancel_right
               add_right_cancel diff_add_cancel)
           thus ?case using 1 T False by auto
         next
