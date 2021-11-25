@@ -2,7 +2,6 @@ theory Program_Analysis
   imports
     UPPAAL_State_Networks_Impl
     TA_Library.More_Methods
-    "HOL-Library.Lattice_Syntax"
 begin
 
 (*
@@ -511,6 +510,8 @@ lemma resets_start:
         then show ?thesis by auto
       qed
     qed
+
+unbundle lattice_syntax
 
 function find_resets_start where
   "find_resets_start prog pc =
