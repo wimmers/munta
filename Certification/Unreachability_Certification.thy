@@ -217,7 +217,8 @@ lemma check_invariant_impl_ht:
     by (rule that)
   using that
   apply sep_auto
-   apply (drule order.trans, rule order.trans[OF check_invariant'_refine check_invariant_correct])
+  apply (drule Orderings.order.trans,
+         rule Orderings.order.trans[OF check_invariant'_refine check_invariant_correct])
   apply (sep_auto simp: pure_def split: option.splits)+
   done
 
@@ -568,7 +569,7 @@ definition certify_unreachable' where
 lemma certify_unreachable'_refine:
   "certify_unreachable' L M \<le> certify_unreachable" if "L = dom M"
   supply [refine_mono] =
-    order.trans[OF check_all''_refine[OF that[symmetric] subset_refl] check_all'_refine]
+    Orderings.order.trans[OF check_all''_refine[OF that[symmetric] subset_refl] check_all'_refine]
   unfolding certify_unreachable'_def certify_unreachable_def PR_CONST_def check_final_alt_def
   unfolding PRINT_CHECK_def START_TIMER_def SAVE_TIME_def
   by simp refine_mono
@@ -692,7 +693,7 @@ proof -
   then have *: "true \<Longrightarrow>\<^sub>A lso_assn K L L_list * true"
     by (subst true_emp) (erule ent_true_drop)
   have check_all_pre'_refine: "check_all_pre' L M \<le> RETURN (check_all_pre_spec l\<^sub>0 s\<^sub>0)"
-    by (blast intro: check_all_pre_correct check_all_pre'_refine order.trans)
+    by (blast intro: check_all_pre_correct check_all_pre'_refine Orderings.order.trans)
   have list_assn_K_eq: "list_assn K = pure (\<langle>the_pure K\<rangle>list_rel)"
     using pure_K by (simp add: list_assn_pure_conv[symmetric])
   have 1: "
@@ -710,7 +711,7 @@ proof -
         using * by (elim ent_frame_fwd) solve_entails+
       subgoal
         apply sep_auto
-        apply (drule order.trans, rule check_all_pre'_refine)
+        apply (drule Orderings.order.trans, rule check_all_pre'_refine)
         apply auto
         done
       done
@@ -733,7 +734,7 @@ proof -
       subgoal
         apply sep_auto
         unfolding check_final_alt_def
-        apply (drule order.trans, rule check_final_correct)
+        apply (drule Orderings.order.trans, rule check_final_correct)
         apply (sep_auto simp: pure_def)
         done
       done

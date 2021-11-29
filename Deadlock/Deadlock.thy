@@ -1005,7 +1005,7 @@ proof -
   next
     case (6 i j k)
     with \<open>canonical M n\<close> \<open>M 0 0 \<le> 0\<close> show ?case
-      by (smt M_k_0 S_cases add_increasing order.trans)
+      by (smt M_k_0 S_cases add_increasing Orderings.order.trans)
   qed (use \<open>canonical M n\<close> in simp_all)
 qed
 

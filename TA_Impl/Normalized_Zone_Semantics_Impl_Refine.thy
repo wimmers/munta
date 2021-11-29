@@ -945,7 +945,7 @@ begin
         "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P F) a)
         = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l' \<and> \<not> check_diag n M') a x}"
         unfolding op.E_from_op_def succs_P_def using prems states'_states
-        by (force dest!: reachable_states simp: op.reachable_def)
+        by (safe; force dest!: reachable_states simp: op.reachable_def)
       also have "\<dots> =
         {x. Subgraph_Node_Defs.E'
          (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> F l \<and> F l' \<and> \<not> check_diag n M')
@@ -1061,7 +1061,7 @@ begin
           "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
             = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
           unfolding op.E_from_op_def succs_P_def using prems states'_states
-          by (force dest!: reachable reachable_states simp: op.reachable_def)
+          by (safe; force dest!: reachable reachable_states simp: op.reachable_def)
         then show ?thesis
           by auto
       qed
@@ -1105,7 +1105,7 @@ begin
         "set ((filter (\<lambda> (l, M). \<not>check_diag n M) o succs_P Q) a)
             = {x. (\<lambda>(l, M) (l', M'). op.E_from_op (l, M) (l', M') \<and> Q l' \<and> \<not> check_diag n M') a x}"
         unfolding op.E_from_op_def succs_P_def using prems states'_states
-        by (force dest!: reachable_states[folded op.reachable_def])
+        by (safe; force dest!: reachable_states[folded op.reachable_def])
       also have "\<dots> =
             {x. Subgraph_Node_Defs.E'
              (\<lambda>x y.

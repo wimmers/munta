@@ -352,7 +352,7 @@ proof -
     by (rule refine_IdD)
   also note check_all_pre_correct
   finally have [refine]: "check_all_pre1 \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_pre_spec l\<^sub>0 s\<^sub>0)"
-    by (rule order.trans) simp
+    by (rule Orderings.order.trans) simp
   obtain L' where "(Li, L') \<in> \<langle>K\<rangle>list_rel" "set L' = L"
     using Li_L by (elim list_set_relE)
   note check_invariant1_refine
@@ -808,7 +808,7 @@ proof -
   finally have [refine_mono, refine]:
     "check_init1 l\<^sub>0i s\<^sub>0i \<le> SPEC (\<lambda>r. r = reachability.check_init_spec l\<^sub>0 s\<^sub>0)"
     if l\<^sub>0i_l\<^sub>0: "(l\<^sub>0i, l\<^sub>0) \<in> K" and s\<^sub>0i_s\<^sub>0: "(s\<^sub>0i, s\<^sub>0) \<in> A" for l\<^sub>0 l\<^sub>0i s\<^sub>0 s\<^sub>0i
-    using that by (force intro: order.trans)
+    using that by (force intro: Orderings.order.trans)
   from initsi_inits obtain inits' where
     "inits = set inits'" and [refine_mono]: "(initsi, inits') \<in> \<langle>K \<times>\<^sub>r A\<rangle>list_rel"
     unfolding list_set_rel_def by auto
@@ -816,7 +816,7 @@ proof -
     (* NB: if the rhs is phrased with RETURN, refine_vcg will fail *)
   have [refine]: "monadic_list_all (\<lambda>(l\<^sub>0, s\<^sub>0). check_init1 l\<^sub>0 s\<^sub>0) initsi
     \<le> SPEC (\<lambda>r. r = list_all (\<lambda>(l\<^sub>0, s\<^sub>0). reachability.check_init_spec l\<^sub>0 s\<^sub>0) inits')"
-    by (rule order.trans, refine_mono) (refine_vcg monadic_list_all_rule; auto)
+    by (rule Orderings.order.trans, refine_mono) (refine_vcg monadic_list_all_rule; auto)
   note check_prop1_refine[THEN fun_relD, THEN fun_relD, THEN nres_relD, THEN refine_IdD,
       OF Li_L Mi_M, unfolded check_prop_alt_def[OF \<open>L =  _\<close>]]
   also note reachability.check_prop_correct
@@ -939,7 +939,8 @@ theorem certify_no_buechi_run_correct:
   "certify_no_buechi_run \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>xs l\<^sub>0 s\<^sub>0.
     (l\<^sub>0, s\<^sub>0) \<in> inits \<and> Graph_Defs.run E ((l\<^sub>0, s\<^sub>0) ## xs) \<and> alw (ev (holds F)) ((l\<^sub>0, s\<^sub>0) ## xs)))"
   if "L = dom M"
-  by (rule order.trans[OF check_all1_refine[OF that]], refine_vcg that check_buechi_correct')
+  by (rule Orderings.order.trans[OF check_all1_refine[OF that]],
+      refine_vcg that check_buechi_correct')
      (auto intro: no_buechi_run)
 
 theorem certify_no_buechi_run_impl_pure_correct:
