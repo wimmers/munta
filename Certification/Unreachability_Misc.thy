@@ -786,7 +786,8 @@ proof -
   let ?le = "\<lambda>l s i j. if F(l, s) then i < j else i \<le> j"
   from \<open>SE _ _\<close> obtain j where "(s2, j) \<in> M l2" and [simp]: "l2 = l1"
     and is_max: "is_arg_max ?f (?P s1 l1) (s2, j)"
-    using SE_is_arg_max SE_same_loc SE_subsumes by atomize_elim (fastforce simp: is_arg_max_def)
+    using SE_is_arg_max SE_same_loc SE_subsumes
+    by atomize_elim (fastforce simp: Lattices_Big.ord_class.is_arg_max_def)
   from f_in assms have "(s, f (l, s)) \<in> M l"
     by auto
   with assms obtain s' i where "(s', i) \<in> M l2" "buechi_prop l l2 (f (l, s)) i s s1 s'"
