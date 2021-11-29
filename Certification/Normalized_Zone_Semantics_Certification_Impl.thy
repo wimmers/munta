@@ -288,11 +288,11 @@ proof -
   have **: "\<exists>i \<le> n. \<exists>j \<le> n. k = i + i * n + j" if "k < Suc n * Suc n" for k
     apply (inst_existentials "k div Suc n" "k mod Suc n")
     subgoal
-      by (meson Suc_leI not_le th2 that)
+      by (meson less_Suc_eq_le less_mult_imp_div_less that)
     subgoal
       by simp
     subgoal
-      by (metis dme mult_Suc_right)
+      by (metis div_mod_decomp mult_Suc_right)
     done
   from assms show ?thesis
     unfolding pointwise_cmp_def array_all2_def
