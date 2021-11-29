@@ -70,6 +70,7 @@ session Certification in Certification = TA_Impl +
     [quick_and_dirty]
   sessions
     Graph_Theory
+    Deadlock
   theories
     Lasso_Freeness_Certificates_Complete
     Unreachability_Certification
@@ -118,5 +119,7 @@ session TA_Code in Model_Checking = Simple_Networks +
 session TA_Certificates in Certificate_Checking = TA_Code +
   options
     [quick_and_dirty]
+  sessions
+    Certification
   theories
     Simple_Network_Language_Certificate_Code
