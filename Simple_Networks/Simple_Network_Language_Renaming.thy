@@ -2117,7 +2117,8 @@ proof -
     unfolding rsem_def[symmetric]
   proof ((standard; clarsimp split: prod.splits), goal_cases)
     case (1 L s u L' s' u')
-    from 1(1) guess L1 s1 u1 a
+    from 1(1) obtain L1 s1 u1 a where
+      "sem \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L1, s1, u1\<rangle>" "a \<noteq> Del" "sem \<turnstile> \<langle>L1, s1, u1\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
       by (elim step_u'_elims)
     with 1(2-) show ?case
       apply -
@@ -2129,7 +2130,9 @@ proof -
       done
   next
     case (2 L s u L' s' u')
-    from 2(3) guess L1 s1 u1 a
+    from 2(3) obtain L1 s1 u1 a where
+      "rsem \<turnstile> \<langle>map_index renum_states  L, (s o vars_inv), map_u u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L1, s1, u1\<rangle>"
+      "a \<noteq> Del" "rsem \<turnstile> \<langle>L1, s1, u1\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>"
       by (elim step_u'_elims)
     with 2(1,2) show ?case
       apply -

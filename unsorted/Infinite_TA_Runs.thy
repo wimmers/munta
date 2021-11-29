@@ -122,9 +122,11 @@ lemma is_run_from_is_zrun:
   "is_run_from A ((l, u) ## xs) ts \<Longrightarrow> u \<in> Z \<Longrightarrow> is_zrun A (gen_zrun A ts (l, Z))"
 proof (coinduction arbitrary: l u Z ts xs)
   case prems: is_zrun
-  from is_run_from.cases[OF prems(1)] guess u l g a1 r l2 u2 xs1 ts'
-    .
-  note guessed = this
+  from is_run_from.cases[OF prems(1)] obtain uu ll g a1 r l2 u2 xs1 ts' where guessed:
+    "(l, u) ## xs = (ll, uu) ## (l2, u2) ## xs1"
+    "ts = (ll, g, a1, r, l2) ## ts'"
+    "A \<turnstile> uu \<rightarrow>\<^bsub>(ll, g, a1, r, l2)\<^esub> u2"
+    "is_run_from A ((l2, u2) ## xs1) ts'" .
   then obtain l' Z' l'' Z'' xs' a where
     "gen_zrun A ts (l, Z) = (l, Z) ## (l'', Z'') ## xs'"
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle>"
@@ -149,8 +151,11 @@ lemma is_run_from_abstract:
   \<Longrightarrow> stream_all2 (\<lambda> (l, u) (l', Z). l = l' \<and> u \<in> Z) ((l, u) ## xs) (gen_zrun A ts (l, Z))"
 proof (coinduction arbitrary: l u Z ts xs rule: stream.rel_coinduct)
   case prems: Eq_stream
-  from is_run_from.cases[OF prems(1)] guess u l g a1 r l2 u2 xs1 ts' .
-  note guessed = this
+  from is_run_from.cases[OF prems(1)] obtain uu ll g a1 r l2 u2 xs1 ts' where guessed:
+    "(l, u) ## xs = (ll, uu) ## (l2, u2) ## xs1"
+    "ts = (ll, g, a1, r, l2) ## ts'"
+    "A \<turnstile> uu \<rightarrow>\<^bsub>(ll, g, a1, r, l2)\<^esub> u2"
+    "is_run_from A ((l2, u2) ## xs1) ts'" .
   then obtain l' Z' l'' Z'' xs' a where
     "gen_zrun A ts (l, Z) = (l, Z) ## (l'', Z'') ## xs'"
     "A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l', Z'\<rangle>"
@@ -331,21 +336,33 @@ proof -
   from is_zrun_from_finite_state_set[OF assms] have "finite (sset ((l\<^sub>0, Z\<^sub>0) ## xs))" .
   then have "\<not> sdistinct ((l\<^sub>0, Z\<^sub>0) ## xs)"
     by (auto dest: sdistinct_infinite_sset)
-  from not_sdistinct_decomp[OF this] guess ws ys x zs .
+  from not_sdistinct_decomp[OF this] obtain ws ys x zs where
+    "(l\<^sub>0, Z\<^sub>0) ## xs = ws @- x ## ys @- x ## zs" .
   then have decomp: "(l\<^sub>0, Z\<^sub>0) ## xs = (ws @ [x]) @- ys @- x ## zs"
     by simp
   then have *: "(l\<^sub>0, Z\<^sub>0) ## tl (ws @ [x]) @- xs = (ws @ [x]) @- xs" for xs
     by (metis append_is_Nil_conv list.simps(3) shift_simps(1,2) stream.exhaust_sel stream.sel(1))
-  from is_zrun_from_decomp[OF assms[unfolded decomp]] guess l Z  l' Z'  g a r by auto
-  note decomp_first = this
-  from is_zrun_from_sdrop[OF assms, of "length (ws @ [x])"] guess by simp
+  from is_zrun_from_decomp[OF assms[unfolded decomp]] obtain l Z  l' Z'  g a r where decomp_first:
+    "is_stepsz_from (ws @ [(l, Z)]) (stake (length ws) ts)"
+    "is_zrun_from (ys @- (l, Z) ## zs) (sdrop (length ws) (stl ts))"
+    "x = (l, Z)"
+    "(if ys = [] then shd ((l, Z) ## zs) else hd ys) = (l', Z')"
+    "Z \<leadsto>\<^bsub>(l, g, a, r, l')\<^esub> Z'"
+    "ts !! length ws = (l, g, a, r, l')"
+    by clarsimp
+  from is_zrun_from_sdrop[OF assms, of "length (ws @ [x])"] have
+    "is_zrun_from (sdrop (length ws) xs) (sdrop (length ws) (stl ts))"
+    by clarsimp
   moreover from decomp have "sdrop (length ws) xs = ys @- x ## zs"
     apply (cases ws)
      apply simp
     apply simp
     by (subst sdrop_shift, simp, simp add: Nitpick.size_list_simp(2))
   ultimately have "is_zrun_from ((ys @ [x]) @- zs) (sdrop (length ws) (stl ts))" by simp
-  from is_zrun_from_decomp'[OF this] guess ts' by auto
+  from is_zrun_from_decomp'[OF this] obtain ts' where
+    "is_stepsz_from (ys @ [x]) ts'"
+    "set ts' \<subseteq> sset (sdrop (length ws) (stl ts))"
+    by clarsimp
   from is_stepsz_from_cycle[OF this(1)] decomp_first have
     "is_zrun_from (cycle (ys @ [x]))
      (cycle (ts' @ [(fst (last (ys @ [x])), g, a, r, fst (hd (ys @ [x])))]))"
@@ -430,7 +447,9 @@ proof -
     "A \<turnstile>' \<langle>l', u\<rangle> \<rightarrow>* \<langle>l, u'\<rangle>" "u \<in> Z'" "u' \<in> Z"
     using is_stepsz_from_prestable[OF tail(3), of l' Z' l Z] \<open>xs = _\<close> assms(2-)
     by atomize_elim (cases "tl (tl xs)", auto)
-  moreover from poststable[OF \<open>u \<in> Z'\<close> tail(2)] guess u1 ..
+  moreover from poststable[OF \<open>u \<in> Z'\<close> tail(2)] obtain u1 where
+    "u1 \<in> Z" "A \<turnstile> u1 \<rightarrow>\<^bsub>(l, g, a, r, l')\<^esub> u"
+    by atomize_elim
   ultimately show ?thesis
 oops
 

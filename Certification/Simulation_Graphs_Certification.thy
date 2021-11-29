@@ -1230,8 +1230,9 @@ lemma G_mix_reaches:
 lemma subsumption_step':
   "\<exists> b'. b \<preceq> b' \<and> G_mix.reaches1 a' b'" if "P a" "E a b" "G a'" "a \<preceq> a'"
 proof -
-  from subsumption_step[OF that] guess a'' b'
-    by safe
+  from subsumption_step[OF that] obtain a'' b' where
+    "a' \<preceq> a''" "b \<preceq> b'" "a'' \<rightarrow>\<^sub>G b'" "G a''" "G b'"
+    by atomize_elim
   with \<open>G a'\<close> have "G_mix.reaches a' a''" "E_mix a'' b'"
     by (auto intro: G_mix_reaches)
   with \<open>b \<preceq> b'\<close> show ?thesis
@@ -1250,7 +1251,8 @@ next
     by auto
   from \<open>G a\<close> \<open>a \<rightarrow>* s\<close> have "P s"
     by (auto intro: P_invariant.invariant_reaches)
-  from subsumption_step[OF this \<open>E s t\<close> \<open>G s'\<close> \<open>s \<preceq> s'\<close>] guess s'' t' by clarify
+  from subsumption_step[OF this \<open>E s t\<close> \<open>G s'\<close> \<open>s \<preceq> s'\<close>] obtain s'' t' where
+    "s' \<preceq> s''" "t \<preceq> t'" "s'' \<rightarrow>\<^sub>G t'" "G s''" "G t'" by atomize_elim
   with \<open>G_mix.reachable s'\<close> show ?case
     using G_mix_reaches by (inst_existentials t') blast+
 qed

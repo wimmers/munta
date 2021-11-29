@@ -373,8 +373,8 @@ proof -
     have "A.reachable x'" "\<not> empty x'"
       using \<open>x' \<in> passed\<close> that(2) A.empty_mono \<open>x \<preceq> x'\<close> that(5) by auto
     note reaches_cycle_iff' = reaches_cycle_iff[OF this] reaches_iff[OF this] reaches1_iff[OF this]
-    from \<open>reaches_cycle x\<close> guess y unfolding reaches_cycle_def
-      by safe
+    from \<open>reaches_cycle x\<close> obtain y where "B.reaches x y" "B.reaches1 y y"
+      unfolding reaches_cycle_def by atomize_elim
     interpret
       Subsumption_Graph_Pre_Nodes
         "(\<preceq>)" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y"

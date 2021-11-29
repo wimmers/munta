@@ -959,9 +959,10 @@ next
     next
       case (rtrancl_into_rtrancl b c)
       let ?Z = "R_of b" and ?Z' = "R_of c"
-      from \<open>beta_step b c\<close> guess a l l'
-        unfolding beta_step_def by clarify
-      note step = this
+      from \<open>beta_step b c\<close> obtain a l l' where step:
+        "loc_is l b" "loc_is l' c" "b \<noteq> {}" "c \<noteq> {}"
+        "A \<turnstile> \<langle>l, R_of b\<rangle> \<leadsto>\<^bsub>\<beta>a\<^esub> \<langle>l', R_of c\<rangle>"
+        unfolding beta_step_def by blast
       with rtrancl_into_rtrancl(2) \<open>loc_is l b\<close> have "l \<in> state_set A" "?Z \<subseteq> V" "I ?Z"
         using Z\<^sub>0_V Z\<^sub>0_I l\<^sub>0_state_set \<beta>_V \<beta>_I
          apply auto

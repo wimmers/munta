@@ -102,7 +102,10 @@ proof -
       then show "\<exists>as. G'.steps (x # as @ last list # ys @ [last list])"
         using a1 by (metis (no_types) Cons_eq_appendI append.assoc self_append_conv2)
     qed
-    from steps_cycle_mono[OF this \<open>x \<preceq> x'\<close> \<open>V x\<close> \<open>V x'\<close>] guess y' xs' ys' by safe
+    from steps_cycle_mono[OF this \<open>x \<preceq> x'\<close> \<open>V x\<close> \<open>V x'\<close>] obtain y' xs' ys' where
+      "y \<preceq> y'"
+      "G'.steps (x' # xs' @ y' # ys' @ [y'])"
+      by safe
     then have "G'.steps (x' # xs' @ [y'])" "G'.steps (y' # ys' @ [y'])"
       by (force intro: Graph_Start_Defs.graphI_aggressive2)+
     with \<open>y \<preceq> y'\<close> show ?thesis
@@ -265,8 +268,8 @@ proof -
     have "A.reachable x'" "\<not> empty x'"
       using \<open>x' \<in> passed\<close> that(2) A.empty_mono \<open>x \<preceq> x'\<close> that(5) by auto
     note reaches_cycle_iff' = reaches_cycle_iff[OF this] reaches_iff[OF this] reaches1_iff[OF this]
-    from \<open>reaches_cycle x\<close> guess y unfolding reaches_cycle_def
-      by safe
+    from \<open>reaches_cycle x\<close> obtain y where "B.reaches x y" "B.reaches1 y y"
+      unfolding reaches_cycle_def by atomize_elim
     interpret
       Subsumption_Graph_Pre_Nodes
         "(\<preceq>)" A.subsumes_strictly "\<lambda> x y. E x y \<and> Q y \<and> \<not> empty y"

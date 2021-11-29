@@ -250,10 +250,10 @@ proof -
   { fix k :: 'a
     have "abstract_bounded_hashcode Id bounded_hashcode_nat = bounded_hashcode_nat"
       unfolding abstract_bounded_hashcode_def by (intro ext) auto
-    from hashmap_of_list.refine guess hm
-      unfolding ahm_rel_def by clarsimp
-    then have "(hm, map_of_list) \<in> ahm_map_rel' bounded_hashcode_nat"
-      unfolding \<open>_ = bounded_hashcode_nat\<close> by -
+    from hashmap_of_list.refine obtain hm where
+      "(hashmap_of_list, hm) \<in> \<langle>Id, Id\<rangle>ahm_map_rel"
+      "(hm, map_of_list) \<in> ahm_map_rel' bounded_hashcode_nat"
+      unfolding ahm_rel_def by (clarsimp simp: \<open>_ = bounded_hashcode_nat\<close>)
     with * have "?f k hm = Intf_Map.op_map_lookup k map_of_list"
       by (auto dest!: fun_relD)
     with \<open>(hashmap_of_list, hm) \<in> _\<close> have "?f k hashmap_of_list = map_of_list k"

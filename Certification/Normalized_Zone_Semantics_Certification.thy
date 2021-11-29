@@ -207,12 +207,15 @@ proof (standard, goal_cases)
     by auto
   from prems have "conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto> \<langle>l', Z'\<rangle>" "[M]\<^bsub>v,n\<^esub> = Z"
     by auto
-  from this(1) guess Z1 a
+  from this(1) obtain Z1 a where
+    "conv_A A \<turnstile> \<langle>l, Z\<rangle> \<leadsto>\<^bsub>\<tau>\<^esub> \<langle>l, Z1\<rangle>"
+    "conv_A A \<turnstile> \<langle>l, Z1\<rangle> \<leadsto>\<^bsub>\<upharpoonleft>a\<^esub> \<langle>l', Z'\<rangle>"
     unfolding step_z'_def by safe
   note Z1 = this
-  from step_z_dbm_DBM[OF Z1(1)[folded \<open>_ = Z\<close>]] guess M1 .
-  note M1 = this
-  from step_z_dbm_DBM[OF Z1(2)[unfolded \<open>Z1 = _\<close>]] guess Z2 .
+  from step_z_dbm_DBM[OF Z1(1)[folded \<open>_ = Z\<close>]] obtain M1 where M1:
+    "conv_A A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l, M1\<rangle>" "Z1 = [M1]\<^bsub>v,n\<^esub>" .
+  from step_z_dbm_DBM[OF Z1(2)[unfolded \<open>Z1 = _\<close>]] obtain Z2 where Z2:
+    "conv_A A \<turnstile> \<langle>l, M1\<rangle> \<leadsto>\<^bsub>v,n,\<upharpoonleft>a\<^esub> \<langle>l', Z2\<rangle>" "Z' = [Z2]\<^bsub>v,n\<^esub>" .
   with M1 Z1 show ?case
     unfolding step_z_dbm'_def by auto
 next
@@ -223,9 +226,10 @@ next
     by auto
   from prems obtain a1 where "conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a1\<^esub> \<langle>l', M'\<rangle>" "[M]\<^bsub>v,n\<^esub> = Z"
     by auto
-  from this(1) guess l1' Z1
-    unfolding step_z_dbm'_def by safe
-  note Z1 = this
+  from this(1) obtain l1' Z1 where Z1:
+    "conv_A A \<turnstile> \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,\<tau>\<^esub> \<langle>l1', Z1\<rangle>"
+    "conv_A A \<turnstile> \<langle>l1', Z1\<rangle> \<leadsto>\<^bsub>v,n,\<upharpoonleft>a1\<^esub> \<langle>l', M'\<rangle>"
+    unfolding step_z_dbm'_def by atomize_elim
   then have [simp]: "l1' = l"
     by (intro step_z_dbm_delay_loc)
   from Z1 \<open>_ = Z\<close> show ?case
@@ -408,9 +412,10 @@ proof -
   from B_A_step[OF assms(1), of "(l, curry (conv_M D))"] assms(2) obtain a D1 where D1:
     "conv_A A \<turnstile>' \<langle>l, curry (conv_M D)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', D1\<rangle>" "[D1]\<^bsub>v,n\<^esub> = [curry (conv_M D')]\<^bsub>v,n\<^esub>"
     unfolding wf_state_def by (force dest: wf_dbm_D)
-  from step_z_dbm'_mono[OF this(1) assms(4)] guess M1
-    by safe
-  note M1 = this
+  from step_z_dbm'_mono[OF this(1) assms(4)] obtain M1 where M1:
+    "conv_A A \<turnstile>' \<langle>l, curry (conv_M M)\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M1\<rangle>"
+    "[D1]\<^bsub>v,n\<^esub> \<subseteq> [M1]\<^bsub>v,n\<^esub>"
+    by atomize_elim
   with A_B_step[of "(l, curry (conv_M M))" "(l', M1)" "(l, M)"] assms(3) obtain M2 where
     "E_from_op (l, M) (l', M2)" "[curry (conv_M M2)]\<^bsub>v,n\<^esub> = [M1]\<^bsub>v,n\<^esub>"
     unfolding wf_state_def by (force dest: wf_dbm_D)
