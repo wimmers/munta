@@ -2124,7 +2124,7 @@ proof -
       apply -
       apply (rule step_u'.intros[where a = "renum_label a"])
         apply (erule (1) step_single_renumD[where a = Del, unfolded renum_label_def, simplified], blast)
-       apply (cases a; simp add: renum_label_def; fail)
+       apply (cases a; (fast | simp add: renum_label_def))
       apply (erule step_single_renumD)
        apply (blast dest: step_u_invariants)+
       done
