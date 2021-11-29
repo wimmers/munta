@@ -4,7 +4,7 @@ theory Deadlock
     TA_Impl.Normalized_Zone_Semantics_Impl
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     DBM.FW_More
-    TA_Library.Syntax_Bundles
+    TA_Library.TA_Syntax_Bundles
 begin
 
 unbundle no_library_syntax

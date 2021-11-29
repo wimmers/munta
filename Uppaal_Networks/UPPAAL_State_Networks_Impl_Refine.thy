@@ -3,7 +3,7 @@ theory UPPAAL_State_Networks_Impl_Refine
     Program_Analysis
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     TA_Impl.TA_Impl_Misc
-    TA_Library.Syntax_Bundles
+    TA_Library.TA_Syntax_Bundles
 begin
 
 unbundle no_library_syntax
