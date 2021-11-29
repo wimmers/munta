@@ -637,7 +637,7 @@ lemma check_invariant1_refine[refine]:
         apply (
           elim list_set_relE specify_right;
           auto simp: monadic_list_all_False intro!: res_right simp flip: Mi_M_None_iff; fail)+
-      subgoal premises prems for si s i ki' xsi' k' xs' zs zsi
+      subgoal premises prems for si i s ki' xsi' k' xs' zs zsi
       proof -
         have "k' \<in> L"
           using prems(6) that(2) by blast

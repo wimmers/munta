@@ -303,7 +303,7 @@ proof (coinduction arbitrary: g a r xs ts)
         apply (rule exI[where x = "[]"])
         by auto
       apply simp
-      subgoal for _ _ g' a' r' l'' Z'' xs' ts'
+      subgoal for _ g' a' r' l'' Z'' xs' ts'
         apply (inst_existentials g' a' r' "cycle (ts' @ [(l', g, a, r, l), (l, g', a', r', l'')])")
           apply (subst cycle_Cons, simp; fail)
          apply assumption
