@@ -456,8 +456,7 @@ schematic_goal certify_unreachable1_alt_def:
   unfolding
     certify_unreachable1_def check_all1_def check_final_impl.refine check_all_pre_impl.refine
     check_invariant_impl.refine
-    pure_unfolds PRINT_CHECK_def comp_def short_circuit_conv if_bool_simps
-  .
+    pure_unfolds PRINT_CHECK_def comp_def short_circuit_conv .
 
 concrete_definition certify_unreachable_impl_pure1
   uses certify_unreachable1_alt_def is "_ \<equiv> RETURN ?f"
@@ -903,7 +902,7 @@ schematic_goal certify_no_buechi_run_alt_def:
     certify_no_buechi_run_def check_all_pre_impl.refine
     check_invariant_buechi_impl.refine
     PRINT_CHECK'_def pure_unfolds
-    short_circuit_conv if_bool_simps
+    short_circuit_conv
   .
 
 concrete_definition certify_no_buechi_run_pure1
