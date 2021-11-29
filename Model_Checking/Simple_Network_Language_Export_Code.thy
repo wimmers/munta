@@ -1632,63 +1632,63 @@ ML \<open>
 
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02.muntax" ())
+  (test false "benchmarks/HDDI_02.muntax" ())
   "Property is not satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02.muntax" ())
+  (test true "benchmarks/HDDI_02.muntax" ())
   "Model has no deadlock!"\<close>
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/simple.muntax" ())
+  (test false "benchmarks/simple.muntax" ())
   "Property is satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/simple.muntax" ())
+  (test true "benchmarks/simple.muntax" ())
   "Model has no deadlock!"\<close>
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/light_switch.muntax" ())
+  (test false "benchmarks/light_switch.muntax" ())
   "Property is satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/light_switch.muntax" ())
+  (test true "benchmarks/light_switch.muntax" ())
   "Model has no deadlock!"\<close>
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ())
+  (test false "benchmarks/PM_test.muntax" ())
   "Property is not satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ())
+  (test true "benchmarks/PM_test.muntax" ())
   "Model has a deadlock!"\<close>
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ())
+  (test false "benchmarks/bridge.muntax" ())
   "Property is satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ())
+  (test true "benchmarks/bridge.muntax" ())
   "Model has no deadlock!"\<close>
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer.muntax" ())
+  (test false "benchmarks/fischer.muntax" ())
   "Property is satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/fischer.muntax" ())
+  (test true "benchmarks/fischer.muntax" ())
   "Model has no deadlock!"\<close>
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all_4.muntax" ())
+  (test false "benchmarks/PM_all_4.muntax" ())
   "Property is not satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all_4.muntax" ())
+  (test true "benchmarks/PM_all_4.muntax" ())
   "Model has no deadlock!"\<close>
 
 ML_val \<open>assert
-  (test false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_3b.muntax" ())
+  (test false "benchmarks/PM_3b.muntax" ())
   "Property is not satisfied!"\<close>
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_3b.muntax" ())
+  (test true "benchmarks/PM_3b.muntax" ())
   "Model has no deadlock!"\<close>
 
 ML_val \<open>assert
-  (test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all_1_urgent.muntax" ())
+  (test true "benchmarks/PM_all_1_urgent.muntax" ())
   "Model has no deadlock!"\<close>
 
 end

@@ -290,31 +290,31 @@ ML \<open>
 \<close>
 
 ML_val \<open>
-  do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02.muntax" ()
+  do_test true "benchmarks/HDDI_02.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02_test.muntax" ()
+  do_test true "benchmarks/HDDI_02_test.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/simple.muntax" ()
+  do_test true "benchmarks/simple.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/light_switch.muntax" ()
+  do_test true "benchmarks/light_switch.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ()
+  do_test true "benchmarks/PM_test.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ()
+  do_test true "benchmarks/bridge.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_test true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_mod1.muntax" ()
+  do_test true "benchmarks/PM_mod1.muntax" ()
 \<close>
 
 code_printing
@@ -334,41 +334,41 @@ ML \<open>
 
 (*
 ML_val \<open>
-  do_check false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02.muntax" ()
+  do_check false "benchmarks/HDDI_02.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_check true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/HDDI_02.muntax" ()
+  do_check true "benchmarks/HDDI_02.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_check true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/simple.muntax" ()
+  do_check true "benchmarks/simple.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_check true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/light_switch.muntax" ()
+  do_check true "benchmarks/light_switch.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_check false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ()
+  do_check false "benchmarks/PM_test.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_check true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_test.muntax" ()
+  do_check true "benchmarks/PM_test.muntax" ()
 \<close>
 
 ML_val \<open>
-  do_check true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/bridge.muntax" ()
+  do_check true "benchmarks/bridge.muntax" ()
 \<close>
 *)
 
 ML_val \<open>
-  do_check false "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all_3.muntax" ()
+  do_check false "benchmarks/PM_all_3.muntax" ()
 \<close>
 
 (*
 ML_val \<open>
-  do_check true "/Users/wimmers/Formalizations/Timed_Automata/benchmarks/PM_all_3.muntax" ()
+  do_check true "benchmarks/PM_all_3.muntax" ()
 \<close>
 *)
 
