@@ -707,7 +707,7 @@ locale Unreachability_Invariant_paired_pre =
 locale Unreachability_Invariant_paired =
   Unreachability_Invariant_paired_pre where E = E and P = P +
   Unreachability_Invariant_paired_defs where M = M and L = L and E = E and P = P
-  for M :: "'l \<Rightarrow> 's set" and L E P +
+  for M :: "'l \<Rightarrow> 's set" and L :: "'l set" and E :: "'l \<times> 's \<Rightarrow> _" and P :: "'l \<times> 's \<Rightarrow> _" +
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
   fixes SE :: "'l \<times> 's \<Rightarrow> 'l \<times> 's \<Rightarrow> bool"
   assumes subsumption_edges_subsume: "SE (l, s) (l', s') \<Longrightarrow> l' = l \<and> s \<preceq> s'"
@@ -1532,7 +1532,7 @@ subsection \<open>Instantiating Reachability Compatible Subsumption Graphs\<clos
 
 locale Reachability_Invariant_paired =
   Reachability_Invariant_paired_defs where M = M +
-  preorder less_eq less for M :: "'l \<Rightarrow> 's set" +
+  preorder: preorder less_eq less for M :: "'l \<Rightarrow> 's set" +
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
   assumes E_T: "\<forall> l s l' s'. E (l, s) (l', s') \<longleftrightarrow> (\<exists> f. (l', f) \<in> T l \<and> s' = f s)"
   assumes mono:
@@ -1558,9 +1558,9 @@ interpretation Reachability_Compatible_Subsumption_Graph_View
   "\<lambda> (l, s) (l', s'). l' = l \<and> s \<prec> s'" covered
   supply [intro] = order_trans less_trans less_imp_le
   apply standard
-         apply (auto simp: less_le_not_le; fail)
-        apply (auto simp: less_le_not_le; fail)
-       apply (auto simp: less_le_not_le; fail)
+         apply (auto simp: preorder.less_le_not_le; fail)
+        apply (auto simp: preorder.less_le_not_le; fail)
+       apply (auto simp: preorder.order.trans; fail)
       apply clarsimp
       apply (drule mono, assumption+, (simp add: Graph_Start_Defs.reachable_def; fail)+)
       apply blast
