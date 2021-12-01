@@ -1089,6 +1089,8 @@ interpretation
      apply (unfold PR_CONST_def, rule init_dbm_impl.refine; fail)
   done
 
+lemmas reachability_impl = Reachability_Impl_axioms
+
 definition
   "Mi = hashmap_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
 
