@@ -294,10 +294,6 @@ ML_val \<open>
 \<close>
 
 ML_val \<open>
-  do_test true "benchmarks/HDDI_02_test.muntax" ()
-\<close>
-
-ML_val \<open>
   do_test true "benchmarks/simple.muntax" ()
 \<close>
 
@@ -311,10 +307,6 @@ ML_val \<open>
 
 ML_val \<open>
   do_test true "benchmarks/bridge.muntax" ()
-\<close>
-
-ML_val \<open>
-  do_test true "benchmarks/PM_mod1.muntax" ()
 \<close>
 
 code_printing
@@ -482,14 +474,6 @@ ML \<open>
     val renaming = file_to_string renaming_file;
   in
     @{code load_renaming} dc model renaming end
-\<close>
-
-ML_val \<open>
-  do_check
-    true
-    "/Users/wimmers/Code/mlunta/benchmarks/resources/csma_R_6.muntax"
-    "/Users/wimmers/Scratch/certificates/csma.renaming"
-    ()
 \<close>
 
 definition parse_compute where

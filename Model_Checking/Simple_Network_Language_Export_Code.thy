@@ -1680,15 +1680,4 @@ ML_val \<open>assert
   (test true "benchmarks/PM_all_4.muntax" ())
   "Model has no deadlock!"\<close>
 
-ML_val \<open>assert
-  (test false "benchmarks/PM_3b.muntax" ())
-  "Property is not satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/PM_3b.muntax" ())
-  "Model has no deadlock!"\<close>
-
-ML_val \<open>assert
-  (test true "benchmarks/PM_all_1_urgent.muntax" ())
-  "Model has no deadlock!"\<close>
-
 end
