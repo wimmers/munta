@@ -728,28 +728,26 @@ proof -
       apply (rule cons_rule[rotated 2])
         apply (rule frame_rule[where R = true])
         apply (rule check_invariant_impl_ht[where bi = Mi and a = L'])
-      subgoal
-        sorry
-      subgoal
-        using \<open>dom M = L\<close> ..
-      subgoal
-        by (rule that)
-      subgoal
-        by (rule that(1))
-      subgoal
-        using that(3) unfolding list_assn_K_eq pure_def by sep_auto
-      subgoal
-        by sep_auto
-      done
+      using that check_invariant'_no_fail \<open>dom M = L\<close> by (auto simp: list_assn_K_eq pure_def)
     done
-  obtain LL where "set LL = L"
-    using L_finite L_listD by blast
-  have 2:
-    "check_invariant_spec L"
+  have "
+    emp \<Longrightarrow>\<^sub>A \<exists>\<^sub>ALL. \<up>(list_all2 (\<lambda>Li Lp. list_all2 (\<lambda>xi x. (xi, x) \<in> the_pure K) Li Lp)
+                      (splitteri L_list) (splitter LL)
+                     \<and> set LL = L) * true"
+    using \<open>emp \<Longrightarrow>\<^sub>A lso_assn K L L_list * true\<close>
+    apply (rule ent_trans)
+    apply (sep_auto simp: br_def lso_assn_def hr_comp_def same_split[symmetric])
+     apply (sep_auto simp: list_assn_K_eq list_assn_pure_conv)
+     apply (sep_auto simp: pure_def list_rel_def; fail)
+    apply simp
+    done
+  then obtain LL where LL: "set LL = L" "length (splitter LL) = length (splitteri L_list)"
+    "\<forall>n < length (splitter LL). (splitteri L_list ! n, splitter LL ! n) \<in> \<langle>the_pure K\<rangle>list_rel"
+    by (simp add: list_rel_def list_all2_conv_all_nth)
+       (smt (verit) ent_ex_preI ent_iffI ent_pure_pre_iff ent_pure_pre_iff_sng pure_assn_eq_emp_iff)
+  have 2: "check_invariant_spec L"
     if "check_all_pre_spec l\<^sub>0 s\<^sub>0"
-      "list_all id
-     (run_map_heap (\<lambda>Li. M_table \<bind> check_invariant_impl Li)
-       (splitteri L_list))"
+       "list_all id (run_map_heap (\<lambda>Li. M_table \<bind> check_invariant_impl Li) (splitteri L_list))"
   proof -
     let ?c = "(\<lambda>Li. M_table \<bind> check_invariant_impl Li)"
     have A: "\<forall>l\<in>L. \<forall>s\<in>the (M l). P (l, s)"
@@ -758,21 +756,14 @@ proof -
     have
       "list_all2 (\<lambda>L' r. r \<longrightarrow> check_invariant_spec (set L'))
         (splitter LL) (run_map_heap ?c (splitteri L_list))"
+      using LL
+      apply -
       apply (rule hoare_triple_run_map_heapD')
-      subgoal
-        apply (rule list_all2_all_nthI)
-        subgoal B
-          sorry
-        apply (rule 2[OF A])
-        using B apply simp
-        subgoal for n
-          sorry
-        subgoal for n
-          unfolding \<open>set LL = L\<close>[symmetric] by (subst (2) full_split) force
-        done
-      done
+      apply (rule list_all2_all_nthI, assumption)
+      apply (rule 2[OF A]; simp)
+      unfolding \<open>set LL = L\<close>[symmetric] by (subst (2) full_split) force
     then have "list_all (\<lambda>L'. check_invariant_spec (set L')) (splitter LL)"
-      sorry
+      using that(2) unfolding list_all2_conv_all_nth list_all_length by simp
     with full_split[of LL] show ?thesis
       unfolding list_all_iff check_invariant_spec_def \<open>set LL = L\<close> by auto
   qed
