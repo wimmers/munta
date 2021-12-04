@@ -384,12 +384,24 @@ do {
 
 definition
   "check_invariant_spec L' \<equiv>
-  \<forall> l \<in> L'. \<forall> s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')"
+  \<forall>l \<in> L'. \<forall>s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s'' \<in> M l'. s' \<preceq> s'')"
 
-lemma check_invariant_correct:
-  "check_invariant L' \<le> SPEC (\<lambda>r. r \<longrightarrow> check_invariant_spec (set L'))"
-  (is "_ \<le> ?rhs")
-  if assms: "\<forall>l \<in> L. \<forall>s \<in> M l. P (l, s)" "set L' \<subseteq> L"
+definition
+  "check_invariant_spec_pre L' \<equiv>
+  \<forall>l \<in> set L'. \<forall>(l',ys) \<in> set (succs l (M l)). \<forall>s' \<in> ys. l' \<in> L \<and> (\<exists>s'' \<in> M l'. s' \<preceq> s'')"
+
+lemma check_invariant_correct_pre:
+  "check_invariant L' \<le> RETURN (check_invariant_spec_pre L')"
+  unfolding check_invariant_def check_invariant_spec_pre_def
+  by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff list_ex_iff)
+
+context
+  fixes L'
+  assumes pre: "\<forall>l \<in> L. \<forall>s \<in> M l. P (l, s)" "set L' \<subseteq> L"
+begin
+
+lemma check_invariant_spec_pre_eq_check_invariant_spec:
+  "check_invariant_spec_pre L' = check_invariant_spec (set L')"
 proof -
   have *: "(\<forall> (l',ys) \<in> set (succs l xs). \<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')) =
        (\<forall>s\<in>M l.
@@ -397,7 +409,7 @@ proof -
               E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. s' \<preceq> s''))"
     if "xs = M l" "l \<in> L"
      for l xs
-    using succs_correct[of xs l] assms(1) that
+    using succs_correct[of xs l] pre(1) that
     apply clarsimp
     apply safe
        apply clarsimp_all
@@ -415,18 +427,21 @@ proof -
     qed
     apply fastforce
     done
-  have **: "
-     (\<forall> l \<in> set L'. (\<forall> (l',ys) \<in> set (succs l (M l)). \<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')))
-  =  (\<forall> l \<in> set L'. \<forall>s\<in>M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. s' \<preceq> s''))"
-    by (simp add: * assms(2)[THEN subsetD])
-  have "check_invariant L' \<le> SPEC (\<lambda>r. r \<longleftrightarrow>
-    (\<forall> l \<in> set L'. (\<forall> (l',ys) \<in> set (succs l (M l)). (\<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')))))"
-    unfolding check_invariant_def
-    by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff list_ex_iff)
-  also have "\<dots> \<le> ?rhs"
-    unfolding check_invariant_spec_def by (auto; smt ** case_prodI2 case_prod_conv)
-  finally show ?thesis .
+  then show ?thesis
+    unfolding check_invariant_spec_def check_invariant_spec_pre_def
+    by (simp add: * pre(2)[THEN subsetD])
 qed
+
+lemma check_invariant_correct_strong:
+  "check_invariant L' \<le> RETURN (check_invariant_spec (set L'))"
+  using check_invariant_correct_pre
+  unfolding check_invariant_spec_pre_eq_check_invariant_spec[symmetric] .
+
+lemma check_invariant_correct:
+  "check_invariant L' \<le> SPEC (\<lambda>r. r \<longrightarrow> check_invariant_spec (set L'))"
+  using check_invariant_correct_strong by (rule Orderings.order.trans) simp
+
+end
 
 end (* Reachability Impl Invariant *)
 
@@ -538,7 +553,7 @@ begin
 definition
   "check_all \<equiv> do {
   b \<leftarrow> check_all_pre l\<^sub>0 s\<^sub>0;
-  if b then RETURN (check_invariant_spec L) else RETURN False
+  if b then SPEC (\<lambda>r. r \<longrightarrow> check_invariant_spec L) else RETURN False
   }"
 
 definition
@@ -551,11 +566,16 @@ definition
 lemma certify_unreachable_alt_def:
   "certify_unreachable = do {
     b1 \<leftarrow> check_all_pre l\<^sub>0 s\<^sub>0;
-    b2 \<leftarrow> RETURN (check_invariant_spec L);
+    b2 \<leftarrow> SPEC (\<lambda>r. r \<longrightarrow> check_invariant_spec L);
     b3 \<leftarrow> check_final;
     RETURN (b1 \<and> b2 \<and> b3)
   }"
-  unfolding certify_unreachable_def check_all_def by simp (fo_rule arg_cong2, auto)
+  unfolding certify_unreachable_def check_all_def
+  apply simp
+  apply (fo_rule arg_cong2, auto)
+  apply (rule ext)
+  apply auto
+  by (metis RETURN_rule Refine_Basic.bind_mono(1) dual_order.eq_iff let_to_bind_conv lhs_step_bind nofail_simps(2))
 
 definition
   "check_all_spec \<equiv> check_all_pre_spec l\<^sub>0 s\<^sub>0 \<and> check_invariant_spec L"

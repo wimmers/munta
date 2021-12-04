@@ -118,6 +118,23 @@ lemma check_invariant'_no_fail:
   by (intro monadic_list_all_nofailI monadic_list_ex_nofailI no_fail_RES_bindI
       | clarsimp split: option.splits)+
 
+lemma check_invariant'_correct_pre:
+  "check_invariant' L_part M \<le> RETURN (check_invariant_spec_pre L_part)"
+  if "L = dom M" "set L_part \<subseteq> L"
+  by (rule check_invariant_correct_pre check_invariant'_refine[OF that] Orderings.order.trans)+
+
+definition check_invariant_spec_pre1 where
+  "check_invariant_spec_pre1 L' M' \<equiv>
+  \<forall>l \<in> set L'. \<forall>(l',ys) \<in> set (succs l (M' l)). \<forall>s' \<in> ys. (\<exists>s'' \<in> M' l'. s' \<preceq> s'')"
+
+lemma check_invariant'_correct_pre1:
+  "check_invariant' L' M'
+  \<le> RETURN (check_invariant_spec_pre1 L' (\<lambda>l. case M' l of None \<Rightarrow> {} | Some S \<Rightarrow> S))"
+  unfolding check_invariant'_def check_invariant_spec_pre1_def
+  by (refine_vcg monadic_list_all_rule monadic_list_ex_rule)
+     (auto simp: list_all_iff list_ex_iff succs_empty)
+
+
 lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
 
 lemmas [sepref_fr_rules] = lso_id_hnr
@@ -243,7 +260,7 @@ definition
   b \<leftarrow> check_all_pre' L' M';
   if b
   then do {
-    r \<leftarrow> RETURN (check_invariant_spec L');
+    r \<leftarrow> SPEC (\<lambda>r. r\<longrightarrow> check_invariant_spec L');
     PRINT_CHECK STR ''State set invariant check'' r;
     RETURN r
   }
@@ -419,16 +436,9 @@ lemma check_invariant_all_impl_refine:
   subgoal
     unfolding list_all_length list_all2_conv_all_nth by auto
   subgoal for x
-    unfolding list_all_length
-    unfolding list_all2_conv_all_nth
-    apply auto
-    apply (elim allE impE)
-       apply assumption+
-    subgoal for n
-      apply (cases "x ! n")
-       apply auto
-      sorry
-    done
+    unfolding list_all_length list_all2_conv_all_nth
+    using check_invariant'_correct_pre1 nres_order_simps(20) Orderings.order.trans
+    by fastforce
   subgoal
     unfolding same_split by solve_entails
   done
@@ -479,16 +489,65 @@ sepref_thm check_all_impl is
   unfolding check_all''_def list_of_set_def[symmetric]
   by sepref
 
-lemma [refine_mono]:
-  "split_spec L' M \<le> RETURN (check_invariant_spec (set L'))" if "dom M = L" "set L' \<subseteq> L"
-  sorry
+lemma split_spec_correct:
+  "split_spec L' M \<le> SPEC (\<lambda>r. r \<longrightarrow> check_invariant_spec_pre L')"
+  if assms: "dom M = L" "set L' \<subseteq> L"
+proof -
+  let ?M = "(\<lambda>l. case M l of None \<Rightarrow> {} | Some S \<Rightarrow> S)"
+  have "RETURN True \<le> check_invariant' L_part M \<longrightarrow> check_invariant_spec_pre L_part"
+    if "L_part \<in> set (splitter L')" for L_part
+  proof -
+    have "check_invariant' L_part M \<le> RETURN (check_invariant_spec_pre L_part)"
+      using full_split[of L'] that assms by - (rule check_invariant'_correct_pre, auto)
+    then show ?thesis
+      using Orderings.order.trans nres_order_simps(20) by metis
+  qed
+  then have "list_all (\<lambda>x. RETURN True \<le> check_invariant' x M) (splitter L')
+    \<longrightarrow> list_all (\<lambda>xs. check_invariant_spec_pre xs) (splitter L')"
+    using list.pred_mono_strong by force
+  moreover have "\<dots> \<longrightarrow> check_invariant_spec_pre L'"
+    using full_split[of L'] unfolding list_all_def check_invariant_spec_pre_def by auto
+  ultimately show ?thesis
+    unfolding split_spec_def nres_order_simps by simp
+qed
 
-lemma check_all''_refine:
-  "check_all'' L' M \<le> check_all' L' M" if "dom M = L" "L' \<subseteq> L"
-  using that
-  unfolding check_all''_def check_all'_def PR_CONST_def
-  apply refine_mono
-  sorry
+lemma
+  assumes "dom M = L"
+  shows check_all''_refine1: "check_all'' L M \<le> check_all" (is "?A")
+    and check_all''_refine2: "check_all'' L M \<le> check_all' L M" (is "?B")
+proof -
+  have *[refine_mono]: "check_invariant_spec L"
+    if "RETURN True \<le> check_all_pre' L M" "check_invariant_spec_pre xs" "set xs = L" for xs
+  proof -
+    note that(1)
+    also note check_all_pre'_refine
+    also note check_all_pre_correct
+    finally show ?thesis
+      using that P'_P
+      by (auto simp: check_all_pre_spec_def check_invariant_spec_pre_eq_check_invariant_spec)
+  qed
+  note [refine_mono] = check_all_pre'_refine split_spec_correct
+  show ?A
+    using assms
+    unfolding check_all''_def check_all_def PR_CONST_def
+    apply -
+    apply (rule Refine_Basic.bind_mono, refine_mono)
+    apply refine_mono
+    apply (rule specify_left, refine_mono)
+    apply (rule specify_left, refine_mono, (simp; fail))
+    apply (simp add: PRINT_CHECK_def)
+    using * by clarsimp
+  show ?B
+    using assms
+    unfolding check_all''_def check_all'_def PR_CONST_def
+    apply -
+    apply (rule Refine_Basic.bind_mono, refine_mono)
+    apply refine_mono
+    apply (rule specify_left, refine_mono)
+    apply refine_mono
+    apply (rule Orderings.order.trans, refine_mono)
+    using * by clarsimp+
+qed
 
 sepref_thm check_all_impl is
   "uncurry (PR_CONST check_all')" :: "(lso_assn K)\<^sup>k *\<^sub>a table_assn\<^sup>k \<rightarrow>\<^sub>a id_assn"
@@ -544,11 +603,9 @@ definition certify_unreachable' where
 
 lemma certify_unreachable'_refine:
   "certify_unreachable' L M \<le> certify_unreachable" if "L = dom M"
-  supply [refine_mono] =
-    Orderings.order.trans[OF check_all''_refine[OF that[symmetric] subset_refl] check_all'_refine]
   unfolding certify_unreachable'_def certify_unreachable_def PR_CONST_def check_final_alt_def
   unfolding PRINT_CHECK_def START_TIMER_def SAVE_TIME_def
-  by simp refine_mono
+  using check_all''_refine1 that by simp refine_mono
 
 sepref_register
   "PR_CONST check_all''" :: "'k set \<Rightarrow> (('k, 'b set) i_map) \<Rightarrow> bool nres"
