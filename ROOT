@@ -66,8 +66,6 @@ session TA_Impl in TA_Impl = TA +
     Normalized_Zone_Semantics_Impl_Extra
 
 session Certification in Certification = TA_Impl +
-  options
-    [quick_and_dirty]
   sessions
     Graph_Theory
     Deadlock
@@ -117,8 +115,6 @@ session TA_Code in Model_Checking = Simple_Networks +
     Shortest_SCC_Paths
 
 session TA_Certificates in Certificate_Checking = TA_Code +
-  options
-    [quick_and_dirty]
   sessions
     Certification
   theories
