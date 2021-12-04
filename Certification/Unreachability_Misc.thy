@@ -1096,14 +1096,15 @@ lemma monadic_map_refine':
   using that by (rule copy_list_refine[to_hfref])
 
 lemma copy_list_COPY:
-  "monadic_map (RETURN o COPY) = RETURN o COPY"
-proof (rule ext, goal_cases)
-  case (1 xs)
-  then have *: "monadic_nfoldli xs (\<lambda>_. RETURN True)
-     (\<lambda>x xs. (RETURN \<circ> (\<lambda>x. x)) x \<bind> (\<lambda>x. RETURN (x # xs)))
-     as = RETURN (rev xs @ as)" for as
+  "monadic_map (RETURN o COPY) = RETURN o COPY" (is "?l = ?r")
+proof (rule ext)
+  fix xs :: "'a list"
+  have *: "
+    monadic_nfoldli xs (\<lambda>_. RETURN True)
+     (\<lambda>x xs. (RETURN \<circ> (\<lambda>x. x)) x \<bind> (\<lambda>x. RETURN (x # xs))) as
+    = RETURN (rev xs @ as)" for as
     by (induction xs arbitrary: as) auto
-  show ?case
+  show "?l xs = ?r xs"
     unfolding monadic_map_def COPY_def by (subst *) simp
 qed
 
