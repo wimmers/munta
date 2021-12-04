@@ -96,6 +96,27 @@ definition
 
 paragraph \<open>Misc \<open>nres\<close>\<close>
 
+lemma no_fail_RES_bindI:
+  assumes "\<And>x. x \<in> S \<Longrightarrow> nofail (f x)"
+  shows "nofail (RES S \<bind> f)"
+  using assms pw_RES_bind_choose(1) by blast
+
+lemma nfoldli_ub_RES_rule:
+  assumes "\<And>x s. x \<in> set xs \<Longrightarrow> s \<in> S \<Longrightarrow> f x s \<le> RES S" "s \<in> S"
+  shows "nfoldli xs c f s \<le> RES S"
+  using assms
+  by (induction xs arbitrary: s; simp; metis (no_types) inres_simps(2) pw_bind_le_iff pw_le_iff)
+
+lemma nfoldli_ub_rule:
+  assumes "\<And>x s. x \<in> set xs \<Longrightarrow> inres ub s \<Longrightarrow> f x s \<le> ub" "inres ub s"
+  shows "nfoldli xs c f s \<le> ub"
+  using nfoldli_ub_RES_rule assms by (metis inres_def nofail_RES_conv nres_order_simps(21) pw_leI')
+
+lemma nfoldli_nofail_rule:
+  assumes "\<And>x s. x \<in> set xs \<Longrightarrow> inres ub s \<Longrightarrow> f x s \<le> ub" "inres ub s" "nofail ub"
+  shows "nofail (nfoldli xs c f s)"
+  using assms by - (erule pwD1[rotated], rule nfoldli_ub_rule)
+
 lemma SUCCEED_lt_RES_iff[simp]:
   "SUCCEED < RES S \<longleftrightarrow> S \<noteq> {}"
   unfolding bot_nres_def by (subst less_nres.simps) auto
@@ -217,6 +238,18 @@ lemma monadic_list_ex_RETURN_mono:
   assumes "set xs = set ys"
   shows "monadic_list_ex (\<lambda>s. RETURN (P s)) xs \<le> monadic_list_ex (\<lambda>s. RETURN (P s)) ys"
   using assms by (simp add: monadic_list_ex_RETURN list_ex_iff)
+
+lemma monadic_list_ex_nofailI:
+  assumes "\<And> x. x \<in> set xs \<Longrightarrow> nofail (f x)"
+  shows "nofail (monadic_list_ex f xs)"
+  using assms unfolding monadic_list_ex_def
+  by - (rule nfoldli_nofail_rule[where ub = "RES UNIV"]; simp add: pw_le_iff)
+
+lemma monadic_list_all_nofailI:
+  assumes "\<And> x. x \<in> set xs \<Longrightarrow> nofail (f x)"
+  shows "nofail (monadic_list_all f xs)"
+  using assms unfolding monadic_list_all_def
+  by - (rule nfoldli_nofail_rule[where ub = "RES UNIV"]; simp add: pw_le_iff)
 
 context
   fixes xs and g :: "_ \<Rightarrow> bool nres"
@@ -445,6 +478,10 @@ lemma check_final_correct:
   "check_final \<le> SPEC (\<lambda>r. r \<longleftrightarrow> check_final_spec)"
   unfolding check_final_def check_final_spec_def
   by (refine_vcg monadic_list_all_rule) (auto simp: list_all_iff list_ex_iff)
+
+lemma check_final_nofail:
+  "nofail check_final"
+  by (metis check_final_correct nofail_simps(2) pwD1)
 
 definition
   "check_init l\<^sub>0 s\<^sub>0 \<equiv> do {

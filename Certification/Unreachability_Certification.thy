@@ -8,25 +8,6 @@ theory Unreachability_Certification
     Unreachability_Misc
 begin
 
-
-
-lemma monadic_list_all_nofailI:
-  assumes "\<And> x. x \<in> set xs \<Longrightarrow> nofail (f x)"
-  shows "nofail (monadic_list_all f xs)"
-  sorry
-
-lemma monadic_list_ex_nofailI:
-  assumes "\<And> x. x \<in> set xs \<Longrightarrow> nofail (f x)"
-  shows "nofail (monadic_list_ex f xs)"
-  sorry
-
-lemma no_fail_RES_bindI:
-  assumes "\<And>x. x \<in> S \<Longrightarrow> nofail (f x)" "S \<noteq> {}"
-  shows "nofail (RES S \<bind> f)"
-  sorry
-
-
-
 context
   fixes K :: "'k \<Rightarrow> ('ki :: {heap}) \<Rightarrow> assn"
   assumes pure_K: "is_pure K"
@@ -130,6 +111,12 @@ lemma check_invariant'_refine:
       by (auto simp: bind_RES \<open>L = dom M\<close>)
     done
   done
+
+lemma check_invariant'_no_fail:
+  "nofail (check_invariant' L' M')"
+  unfolding check_invariant'_def
+  by (intro monadic_list_all_nofailI monadic_list_ex_nofailI no_fail_RES_bindI
+      | clarsimp split: option.splits)+
 
 lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
 
@@ -424,18 +411,7 @@ lemma check_invariant_all_impl_refine:
   apply (rule frame_rule)
      apply (rule check_invariant_impl.refine[to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified, rule_format])
   subgoal
-    unfolding check_invariant'_def
-    apply (intro monadic_list_all_nofailI)
-    apply (clarsimp split: option.splits)
-    apply (intro monadic_list_all_nofailI)
-    apply (clarsimp split: prod.splits)
-    apply (rule no_fail_RES_bindI)
-     apply (clarsimp split: option.splits)
-     apply (rule no_fail_RES_bindI)
-apply (intro monadic_list_all_nofailI monadic_list_ex_nofailI)
-      apply auto
-(* missing finiteness of table *)
-    sorry
+    by (rule check_invariant'_no_fail)
     apply (sep_auto simp: pure_def; fail)
   subgoal
     unfolding same_split by solve_entails
@@ -728,7 +704,7 @@ proof -
             OF Reachability_Impl_axioms, to_hnr, unfolded hn_refine_def hn_ctxt_def, simplified,
             rule_format, where a = L and b = M])
       subgoal
-        sorry
+        using check_final_nofail unfolding check_final_alt_def .
       subgoal
         using * by (elim ent_frame_fwd) solve_entails+
       subgoal
