@@ -3,6 +3,7 @@ theory Tagging
   imports Simple_Network_Language
   keywords "usingT"  :: prf_decl % "proof"
        and "preferT" :: prf_script % "proof"
+       and "print_tags" :: diag
 begin
 
 named_theorems tagged
@@ -389,5 +390,59 @@ lemma
      apply -
      preferT \<open>p\<close>
   oops
+
+
+subsection \<open>Diagnostic Commands\<close>
+
+ML \<open>
+fun extract_tag_trm trm =
+  case trm of
+    \<^Const>\<open>Trueprop for \<^Const>\<open>TAG _ _ for tag _\<close>\<close> => SOME tag
+  | _ => NONE
+
+fun extract_tag_thm thm =
+  let
+    val prop = Thm.prop_of thm
+  in
+    extract_tag_trm prop
+  end
+
+fun tags_of_tagged ctxt =
+  let
+    val thms = Named_Theorems.get ctxt tagged
+  in
+    Library.map_filter extract_tag_thm thms
+  end
+
+fun pretty_term_item ctxt trm = Pretty.item [Syntax.pretty_term ctxt trm]
+
+fun string_of_tags ctxt () =
+  let
+    val tags = tags_of_tagged ctxt
+    val pretty_tags = map (pretty_term_item ctxt) tags
+    val pretty = Pretty.blk (0, Pretty.fbreaks pretty_tags)
+  in
+    Pretty.string_of pretty
+  end
+
+\<comment> \<open>From \<open>Pure.thy\<close>\<close>
+val opt_modes =
+  Scan.optional (\<^keyword>\<open>(\<close> |-- Parse.!!! (Scan.repeat1 Parse.name --| \<^keyword>\<open>)\<close>)) [];
+
+\<comment> \<open>From \<open>isar_cmd.ml\<close>\<close>
+fun print_item string_of (modes, arg) = Toplevel.keep (fn state =>
+  Print_Mode.with_modes modes (fn () => writeln (string_of state arg)) ());
+
+val print_tags = print_item (string_of_tags o Toplevel.context_of);
+\<close>
+
+ML \<open>
+val _ =
+  Outer_Syntax.command \<^command_keyword>\<open>print_tags\<close>
+    "print tags of theorems in collection 'tagged'"
+    (opt_modes -- Scan.succeed () >> print_tags);
+\<close>
+
+print_tags
 
 end
