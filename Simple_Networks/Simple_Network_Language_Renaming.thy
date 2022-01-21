@@ -18,9 +18,6 @@ lemma TAG_mp':
   shows y
   using assms unfolding TAG_def by blast
 
-method tag uses keep = (determ \<open>tags del: TAG keep: keep\<close>, (simp only: TAG_def)?)
-
-method auto_tag uses keep = match conclusion in "TAG t _" (cut) for t \<Rightarrow> \<open>tag keep: TAG[of t] keep\<close>
 
 lemmas all_mono_rule = all_mono[THEN mp, OF impI, rotated]
 
@@ -320,64 +317,90 @@ proof ((standard; clarsimp), goal_cases)
       unfolding TAG_def[of "''urgent''"]
       apply (simp add: is_urgent_simp *)
       apply (rule step_u.intros)
-         apply auto_tag
-         apply simp
+      apply tag
+      apply simp
       subgoal
         by (cases "is_urgent L")
           (auto 4 3
             intro: inv_N_urge_updI inv_add_invI1 inv_add_invI2
             simp: inv_N_urge clock_val_reset_delay)
-      by (auto_tag, simp add: is_urgent_simp2)+
+      by (tag, simp add: is_urgent_simp2)+
     moreover from steps(3,2) have
       "A_urge \<turnstile> \<langle>L'', s'', u''(urge := u'' urge - u urge)\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'(urge := 0)\<rangle>"
       apply (cases; subst A_urge_split; subst (asm) A_split)
          apply (all \<open>drule sym\<close>)
       subgoal delay
         by simp
-      subgoal internal for l b g a' f r l' N p B broadcast
-        unfolding TAG_def[of "''range''"]
+      subgoal internal premises prems[tagged] for l b g a' f r l' N p B broadcast
+        using prems apply tag usingT "''range''"
         apply simp
         apply (rule step_u.intros)
-                  apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
-                 apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
-                apply (auto_tag; fail)
-               apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff;
-            fail)
-              apply (all \<open>auto_tag; auto intro: inv_N_urgeI\<close>)
-        subgoal
-          unfolding clock_set.simps(2)[symmetric] clock_set_upd_simp ..
-        done
-      subgoal binary for a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B
-        unfolding TAG_def[of "RECV ''range''"] TAG_def[of "SEND ''range''"]
+        preferT \<open>TRANS ''silent''\<close>
+          apply (tag, simp, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
+        preferT \<open>''committed''\<close>
+          apply (tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+        preferT \<open>''bexp''\<close>
+          apply (tag, assumption)
+        preferT \<open>''guard''\<close>
+          apply (tag "''guard''" "TRANS _"; auto simp: trans_urge_upd_iff; fail)
+        preferT \<open>''new valuation''\<close>
+          apply (tag, unfold clock_set.simps(2)[symmetric] clock_set_upd_simp, simp; fail)
+        by (tag; auto intro: inv_N_urgeI)+
+      subgoal binary premises prems[tagged]
+        for a' broadcast' l1 b1 g1 f1 r1 l1' N' p l2 b2 g2 f2 r2 l2' q s'' B
+        using prems apply tag
+        usingT "RECV ''range''" "SEND ''range''"
         apply simp
         apply (rule step_u.intros)
-                          apply (auto_tag; simp; fail)
-                         apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
-                        apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
-                       apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
-                      apply (auto_tag; fail)
-                     apply (auto_tag; fail)
-                    apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
-                   apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
-                  apply (all \<open>auto_tag; auto intro: inv_N_urgeI\<close>)
-        unfolding clock_set.simps(2)[symmetric] clock_set_upd_simp
-        apply (simp add: clock_set_upd_simp2)
-        done
-      subgoal broadcast for a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s'' B
-        unfolding TAG_def[of "SEL ''range''"] TAG_def[of "SEND ''range''"]
+        preferT \<open>''not broadcast''\<close>
+          apply (tag; simp; fail)
+        preferT \<open>TRANS ''in''\<close>
+          apply (tag, simp, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
+        preferT \<open>TRANS ''out''\<close>
+          apply (tag, simp, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
+        preferT \<open>''committed''\<close>
+          apply (tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+        preferT \<open>''bexp''\<close>
+          apply (tag, assumption)
+        preferT \<open>''bexp''\<close>
+          apply (tag, assumption)
+        preferT \<open>''guard''\<close>
+          apply (tag "''guard''" "TRANS _"; auto simp: trans_urge_upd_iff; fail)
+        preferT \<open>''guard''\<close>
+          apply (tag "''guard''" "TRANS _"; auto simp: trans_urge_upd_iff; fail)
+        preferT \<open>''new valuation''\<close>
+          apply (tag, simp, unfold clock_set.simps(2)[symmetric] clock_set_upd_simp,
+            simp add: clock_set_upd_simp2; fail)
+        by (tag; auto intro: inv_N_urgeI; simp; fail)+
+      subgoal broadcast premises prems[tagged]
+        for a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s'' B
+        using prems apply tag
+        usingT "SEL ''range''" "SEND ''range''"
         apply (simp add: subset_nat_0_atLeastLessThan_conv)
         apply (rule step_u.intros)
-                            apply (auto_tag; simp; fail)
-                           apply (auto_tag, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
-                          apply (auto_tag, auto 4 3 dest: trans_N_urgeD; fail)
-                         apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
-                        apply (auto_tag; fail)
-                       apply (auto_tag; fail)
-                      apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
-                     apply (tag keep: TAG[of "''guard''"] TAG[of "TRANS _"]; auto simp: trans_urge_upd_iff; fail)
-                    apply (all \<open>auto_tag; auto intro: inv_N_urgeI\<close>)
-         apply (erule (1) trans_N_urgeE, force simp: trans_urge_upd_iff)
-        subgoal
+        preferT \<open>''broadcast''\<close>
+          apply (tag; simp; fail)
+        preferT \<open>TRANS ''out''\<close>
+          apply (tag, simp, drule (1) trans_N_urgeD, subst nth_map, simp, simp; fail)
+        preferT \<open>TRANS ''in''\<close>
+          apply (tag, auto 4 3 dest: trans_N_urgeD; fail)
+        preferT \<open>''committed''\<close>
+          apply (tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+        preferT \<open>''bexp''\<close>
+          apply (tag, assumption)
+        preferT \<open>''bexp''\<close>
+          apply (tag, assumption)
+        preferT \<open>''guard''\<close>
+          apply (tag "''guard''" "TRANS _"; auto simp: trans_urge_upd_iff; fail)
+        preferT \<open>''guard''\<close>
+          apply (tag "''guard''" "TRANS _"; auto simp: trans_urge_upd_iff; fail)
+        preferT \<open>''maximal''\<close>
+          apply (all \<open>tag; auto intro: inv_N_urgeI; fail | succeed\<close>)
+        preferT \<open>''maximal''\<close>
+          apply (tag; auto; erule (1) trans_N_urgeE, force simp: trans_urge_upd_iff)
+        preferT \<open>''new valuation''\<close> subgoal
+          apply tag
+          apply clarsimp
           unfolding clock_set.simps(2)[symmetric] clock_set_upd_simp
           apply simp
           apply (subst (2) clock_set_upd_simp3)
@@ -409,13 +432,12 @@ next
          apply (all \<open>drule sym\<close>)
          apply (simp; fail)
       subgoal delay
-        by (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"] TAG[of "''range''"])
-          (auto elim!: trans_N_urgeE simp: 1; fail)
+        by (tag "''new valuation''" "TRANS _" "''range''") (auto elim!: trans_N_urgeE simp: 1; fail)
       subgoal binary for a' broadcast' l1 b1 g1 f1 r1 l1' N p l2 b2 g2 f2 r2 l2' q s'' B
-        by (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"] TAG[of "RECV ''range''"])
+        by (tag "''new valuation''" "TRANS _" "RECV ''range''")
           (auto elim!: trans_N_urgeE simp: 1[of _ "tl r1 @ r2"])
       subgoal broadcast for a' broadcast' l b g f r l' N p ps bs gs fs rs ls' s'a B
-        by (tag keep: TAG[of "''new valuation''"] TAG[of "TRANS _"] TAG[of "SEND ''range''"])
+        by (tag "''new valuation''" "TRANS _"  "SEND ''range''")
           (auto elim!: trans_N_urgeE simp: 1[of _ "tl r @ concat (map rs ps)"])
       done
     have **: "
@@ -432,9 +454,9 @@ next
       apply (simp add: is_urgent_simp *)
       apply (rule step_u.intros)
       subgoal
-        by auto_tag(auto dest!: inv_add_invD inv_N_urge_updD simp: inv_N_urge clock_val_reset_delay)
-        apply auto_tag
-       apply (tag keep: TAG[of "''target invariant''"] TAG[of "''nonnegative''"])
+        by tag(auto dest!: inv_add_invD inv_N_urge_updD simp: inv_N_urge clock_val_reset_delay)
+        apply (tag, assumption)
+       apply (tag "''target invariant''" "''nonnegative''")
        apply (auto simp add: is_urgent_simp2 is_urgent_simp dest: inv_N_urge_urges)
       done
     moreover from steps(3,2) have
@@ -443,76 +465,97 @@ next
          apply (all \<open>drule sym\<close>)
       subgoal delay
         by simp
-      subgoal internal for l b g a' f r l' N p B broadcast
-        unfolding TAG_def[of "''range''"]
+      subgoal internal premises prems[tagged] for l b g a' f r l' N p B broadcast
+        using prems apply del_tags
+        usingT "''range''"
         apply simp
         apply (rule step_u.intros)
-                  apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
-                 apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
-                apply (auto_tag; fail)
-               apply (auto_tag keep: TAG[of "TRANS _"];
-            auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
-              apply (all \<open>auto_tag; auto intro: inv_N_urgeD; fail | succeed\<close>)
-        apply (auto_tag keep: TAG[of "TRANS _"], erule (1) trans_N_urgeE,
+        preferT \<open>TRANS ''silent''\<close>
+          apply (tag, simp, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
+        preferT \<open>''committed''\<close>
+          apply (tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+        preferT \<open>''bexp''\<close>
+          apply (tag; assumption)
+        preferT \<open>''guard''\<close>
+          apply (tag "TRANS _"; auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
+        preferT \<open>''target invariant''\<close>
+          apply (all \<open>tag; auto intro: inv_N_urgeD; fail | succeed\<close>)
+        preferT \<open>''new valuation''\<close>
+          apply (tag "TRANS _", simp, erule (1) trans_N_urgeE,
             subst clock_set_commute_single, rule urge_not_in_resets', (simp add: **)+; fail)
         done
-      subgoal binary for a' broadcast' l1 b1 g1 f1 r1 l1' Na p l2 b2 g2 f2 r2 l2' q s'' B
-        unfolding TAG_def[of "RECV ''range''"] TAG_def[of "SEND ''range''"]
+      subgoal binary premises prems[tagged]
+        for a' broadcast' l1 b1 g1 f1 r1 l1' Na p l2 b2 g2 f2 r2 l2' q s'' B
+        using prems apply del_tags
+        usingT "RECV ''range''" "SEND ''range''"
         apply simp
         apply (rule step_u.intros)
-                          apply (auto_tag; simp; fail)
-                         apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
-                        apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
-                       apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
-                      apply (auto_tag; fail)
-                     apply (auto_tag; fail)
-                    apply (auto_tag keep: TAG[of "TRANS _"];
-            auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
-                   apply (auto_tag keep: TAG[of "TRANS _"];
-            auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
-                  apply (all \<open>auto_tag; auto intro: inv_N_urgeD; fail | succeed\<close>)
-        apply (auto_tag keep: TAG[of "TRANS _"], erule (1) trans_N_urgeE, erule (1) trans_N_urgeE)
-        apply simp
-        apply (subst clock_set_upd_simp3)
-        apply (subst clock_set_commute_single)
-         apply (simp; rule conjI; erule (1) urge_not_in_resets')
-        apply (rule arg_cong)
-        subgoal premises prems
-          using urge_not_in_resets'[OF prems(7) \<open>p < n_ps\<close>] urge_not_in_resets'[OF prems(9) \<open>q < n_ps\<close>]
-          by (subst \<open>r1 = _\<close>, subst \<open>r2 = _\<close>, simp) (subst filter_True, auto)+
-        done
-      subgoal broadcast for a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s2 B
-        unfolding TAG_def[of "SEL ''range''"] TAG_def[of "SEND ''range''"]
+        preferT \<open>''not broadcast''\<close> apply (tag; simp; fail)
+        preferT \<open>TRANS ''in''\<close>
+          apply (tag, simp, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
+        preferT \<open>TRANS ''out''\<close>
+          apply (tag, simp, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
+        preferT \<open>''committed''\<close>
+          apply (tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+        preferT \<open>''bexp''\<close>
+          apply (tag; assumption)
+        preferT \<open>''bexp''\<close>
+          apply (tag; assumption)
+        preferT \<open>''guard''\<close>
+          apply (tag "TRANS _"; auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
+        preferT \<open>''guard''\<close>
+          apply (tag "TRANS _"; auto intro: trans_N_urgeE simp: trans_urge_upd_iff; fail)
+        preferT \<open>''new valuation''\<close> subgoal premises prems[tagged]
+          using prems apply tag
+          apply (tag "TRANS _", simp, erule (1) trans_N_urgeE, erule (1) trans_N_urgeE)
+          apply (subst clock_set_upd_simp3)
+          apply (subst clock_set_commute_single)
+           apply (simp; rule conjI; erule (1) urge_not_in_resets'; fail)
+          apply (rule arg_cong)
+          subgoal premises prems
+            using urge_not_in_resets'[OF prems(7) \<open>p < n_ps\<close>]
+                  urge_not_in_resets'[OF prems(9) \<open>q < n_ps\<close>]
+            by (subst \<open>r1 = _\<close>, subst \<open>r2 = _\<close>, simp) (subst filter_True, auto)+
+          done
+        by (tag; auto intro: inv_N_urgeD; fail)+
+      subgoal broadcast premises prems[tagged]
+        for a' broadcast' l b g f r l' N' p ps bs gs fs rs ls' s2 B
+        using prems apply del_tags
+        usingT "SEL ''range''" "SEND ''range''"
         apply (simp add: subset_nat_0_atLeastLessThan_conv)
         apply (rule step_u.intros)
-                            apply (auto_tag; simp; fail)
-                           apply (auto_tag, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
-                          apply (auto_tag, auto 4 3 elim: trans_N_urgeE; fail)
-                         apply (auto_tag, subst nth_map, simp, simp add: committed_N_urge; fail)
-                        apply (auto_tag; fail)
-                       apply (auto_tag; fail)
-                      apply (auto_tag keep: TAG[of "TRANS _"]; auto elim: trans_N_urgeE simp: trans_urge_upd_iff; fail)
-                     apply (all \<open>auto_tag; auto intro: inv_N_urgeD; fail | succeed\<close>)
-        subgoal guards
-          by (auto_tag keep: TAG[of "TRANS _"]; auto elim!: trans_N_urgeE simp: trans_urge_upd_iff)
-        subgoal maximal
-          by (auto_tag, force simp: trans_urge_upd_iff dest: trans_N_urgeD)
-        subgoal new_valuation
-          apply (auto_tag keep: TAG[of "TRANS _"])
+        preferT \<open>TRANS ''out''\<close>
+          \<comment> \<open>instantiates schematics\<close>
+          apply (tag, simp, erule (1) trans_N_urgeE, subst nth_map, simp, simp; fail)
+        preferT \<open>TRANS ''in''\<close>
+          apply (tag, auto 4 3 elim: trans_N_urgeE; fail) \<comment> \<open>instantiates schematics\<close>
+        preferT \<open>''broadcast''\<close>
+          apply (tag; simp; fail)
+        preferT \<open>''committed''\<close>
+          apply (tag, subst nth_map, simp, simp add: committed_N_urge; fail)
+        preferT \<open>''guard''\<close>
+          apply (tag "TRANS _"; auto elim: trans_N_urgeE simp: trans_urge_upd_iff; fail)
+        preferT \<open>''guard''\<close> subgoal guards
+          by (tag "TRANS _"; auto elim!: trans_N_urgeE simp: trans_urge_upd_iff)
+        preferT \<open>''maximal''\<close> subgoal maximal
+          by (tag, force simp: trans_urge_upd_iff dest: trans_N_urgeD)
+        preferT \<open>''new valuation''\<close> subgoal new_valuation premises prems[tagged]
+          apply (tag "TRANS _")
+          using prems apply tag
+          apply (subst [[get_tagged \<open>''new valuation''\<close>]])
           apply (subst clock_set_upd_simp3)
           apply (simp add: filter_concat comp_def)
           apply (subst clock_set_commute_single[symmetric], (simp; fail))
           apply (rule arg_cong)
           apply (fo_rule arg_cong2)
           subgoal
-            apply (auto simp: 2 urge_not_in_resets' filter_id_conv elim!: trans_N_urgeE)
-            done
+            by (auto simp: 2 urge_not_in_resets' filter_id_conv elim!: trans_N_urgeE)
           subgoal
             apply (fo_rule arg_cong)
             apply (fastforce elim: trans_N_urgeE simp: 2 urge_not_in_resets' filter_id_conv)+
             done
           done
-        done
+        by (tag; auto intro: inv_N_urgeD; fail)+
       done
     ultimately show ?thesis
       using \<open>a \<noteq> _\<close> \<open>u' urge = 0\<close> by  (intros add: step_u'.intros) auto
@@ -1362,9 +1405,9 @@ lemma step_single_renumD:
   apply (cases a)
 
      supply [simp del] = map_map_index set_map
-    (* to keep the simplifier from breaking through locale abstractions *)
+     \<comment> \<open>To keep the simplifier from breaking through locale abstractions\<close>
 
-(* Delay *)
+  \<comment> \<open>Delay\<close>
   subgoal
     supply [simp] = length_automata_eq_n_ps L_len
     apply (subst (asm) A_split)
@@ -1374,16 +1417,16 @@ lemma step_single_renumD:
     apply simp
     apply (rule step_u.intros)
     subgoal
-      by auto_tag (auto 4 3 simp: dest: inv_renum_sem_I[OF _ _ sem_states_loc_setD])
+      by tag (auto 4 3 simp: dest: inv_renum_sem_I[OF _ _ sem_states_loc_setD])
     subgoal
       by assumption
     subgoal
       using renum_urgency_removed by - (tag, auto)
     subgoal
-      by auto_tag (rule bounded_renumI')
+      by tag (rule bounded_renumI')
     done
 
-(* Internal *)
+  \<comment> \<open>Internal\<close>
   subgoal for a'
     supply [simp] = length_automata_eq_n_ps L_len
     apply (subst (asm) A_split)
@@ -1393,29 +1436,29 @@ lemma step_single_renumD:
     unfolding TAG_def[of "''range''"]
     apply simp
     apply (rule step_u.intros)
-              apply (auto_tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+              apply (tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
     subgoal
-      by auto_tag (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated])
+      by tag (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated])
     subgoal
-      by auto_tag (erule check_bexp_renumD)
+      by tag (erule check_bexp_renumD)
     subgoal
-      by auto_tag (rule map_u_renum_cconstraint_clock_valI)
+      by tag (rule map_u_renum_cconstraint_clock_valI)
     subgoal
-      apply (auto_tag keep: TAG[of "''new loc''"] TAG[of "TRANS ''silent''"])
+      apply (tag "''new loc''" "TRANS ''silent''")
       apply clarsimp
       apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ state_preservation_updI]])
           apply fastforce+
       done
-         apply (auto_tag, simp; fail)
-        apply (auto_tag, simp; fail)
-       apply (auto_tag, rule map_index_update; fail)
-      apply (auto_tag, simp add: renum_reset_map_u; fail)
+         apply (tag, simp; fail)
+        apply (tag, simp; fail)
+       apply (tag, simp only: map_index_update; fail)
+      apply (tag, simp only: renum_reset_map_u; fail)
     subgoal
-      by (auto_tag, erule is_upd_renumD)
-    apply (auto_tag, erule bounded_renumI'; fail)
+      by (tag, erule is_upd_renumD)
+    apply (tag, erule bounded_renumI'; fail)
     done
 
-(* Binary *)
+  \<comment> \<open>Binary\<close>
   subgoal for a'
     supply [simp] = length_automata_eq_n_ps L_len
     apply (subst (asm) A_split)
@@ -1426,37 +1469,37 @@ lemma step_single_renumD:
     apply simp
     apply (rule step_u.intros)
     subgoal
-      apply auto_tag
+      apply tag
       unfolding renum.broadcast_def
       apply (clarsimp simp: set_map)
       apply (drule injD[OF inj_renum_acts])
       apply (subst (asm) broadcast_def, simp)
       done
 
-                     apply (auto_tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
-                    apply (auto_tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+                     apply (tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+                    apply (tag, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
     subgoal
-      by auto_tag (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated])
+      by tag (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated])
 
     subgoal
-      by auto_tag (erule check_bexp_renumD)
+      by tag (erule check_bexp_renumD)
 
     subgoal
-      by auto_tag (erule check_bexp_renumD)
+      by tag (erule check_bexp_renumD)
 
     subgoal
-      by auto_tag (rule map_u_renum_cconstraint_clock_valI)
+      by tag (rule map_u_renum_cconstraint_clock_valI)
 
     subgoal
-      by auto_tag (rule map_u_renum_cconstraint_clock_valI)
+      by tag (rule map_u_renum_cconstraint_clock_valI)
 
     subgoal
-      apply (auto_tag keep: TAG[of "''new loc''"] TAG[of "TRANS _"])
+      apply (tag "''new loc''" "TRANS _")
       apply clarsimp
       apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ state_preservation_updI]])
           apply (fastforce intro!: state_preservation_updI)+
       done
-             apply (all \<open>auto_tag\<close>)
+             apply (all \<open>tag\<close>)
              apply (simp; fail)+
         apply (simp add: map_index_update; fail)
        apply (simp add: renum_reset_map_u[symmetric] renum_reset_def; fail)
@@ -1466,7 +1509,7 @@ lemma step_single_renumD:
     done
 
 
-(* Broadcast *)
+  \<comment> \<open>Broadcast\<close>
   subgoal for a'
     supply [simp] = length_automata_eq_n_ps L_len
     apply (subst (asm) A_split)
@@ -1480,17 +1523,17 @@ lemma step_single_renumD:
 
 (* Action is broadcast *)
     subgoal
-      apply (tag keep: TAG[of "''broadcast''"])
+      apply (tag "''broadcast''")
       unfolding renum.broadcast_def by (subst (asm) broadcast_def, simp add: set_map)
 
-                       apply (auto_tag, simp, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
+                       apply (tag, simp, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
 
-                      apply (tag keep: TAG[of "TRANS ''in''"] TAG[of "SEL _"])
+                      apply (tag "TRANS ''in''" "SEL _")
                       apply (auto dest!: trans_N_renumD simp add: renum_act_def atLeastLessThan_upperD; fail)
 
 (* Condition for committed locations *)
     subgoal
-      apply (tag keep: TAG[of "SEL _"] TAG[of "''committed''"])
+      apply (tag "SEL _" "''committed''")
       apply (simp add: committed_renum_eq)
       apply (erule disj_mono[rule_format, rotated 2], (simp; fail))
       apply (erule disj_mono[rule_format, rotated 2])
@@ -1502,14 +1545,14 @@ lemma step_single_renumD:
       apply (auto simp: committed_renum_eq dest!: inj_renum_states[THEN injD, rotated]; fail)
       done
 
-                    apply (tag keep: TAG[of "''bexp''"], erule check_bexp_renumD; fail)
-                   apply (tag keep: TAG[of "''bexp''"], auto elim: check_bexp_renumD; fail)
-                  apply (tag keep: TAG[of "''guard''"], erule map_u_renum_cconstraint_clock_valI; fail)
-                 apply (tag keep: TAG[of "''guard''"], auto elim: map_u_renum_cconstraint_clock_valI; fail)
+                    apply (tag "''bexp''", erule check_bexp_renumD; fail)
+                   apply (tag "''bexp''", auto elim: check_bexp_renumD; fail)
+                  apply (tag "''guard''", erule map_u_renum_cconstraint_clock_valI; fail)
+                 apply (tag "''guard''", auto elim: map_u_renum_cconstraint_clock_valI; fail)
 
 (* Set of broadcast receivers is maximal *)
     subgoal
-      apply (tag keep: TAG[of "''maximal''"])
+      apply (tag "''maximal''")
       apply simp
       apply (erule all_mono[THEN mp, OF impI, rotated])
       apply (erule (1) imp_mono_rule)
@@ -1524,7 +1567,7 @@ lemma step_single_renumD:
 
 (* Target invariant *)
     subgoal for l b g f r l' p ps bs gs fs rs ls' s'
-      apply (tag keep: TAG[of "''target invariant''"] TAG[of "SEL _"] TAG[of "''new loc''"] TAG[of "TRANS _"])
+      apply (tag "''target invariant''" "SEL _" "''new loc''" "TRANS _")
       apply (subgoal_tac "fold (\<lambda>p L. L[p := ls' p]) ps L \<in> states")
       subgoal
         apply simp
@@ -1546,20 +1589,20 @@ lemma step_single_renumD:
          apply (simp add: atLeastLessThan_upperD; blast)
         by simp
       done
-              apply (tag keep: TAG[of "SEND ''loc''"], simp add: TAG_def; fail)
+              apply (tag "SEND ''loc''", simp add: TAG_def; fail)
              apply (tag, simp add: TAG_def; fail)
-            apply (tag keep: TAG[of "SEL _"], simp add: TAG_def; fail)
-           apply (tag keep: TAG[of "SEL _"], simp add: TAG_def; fail)
-          apply (auto_tag; fail)
-         apply (auto_tag; fail)
+            apply (tag "SEL _", simp add: TAG_def; fail)
+           apply (tag "SEL _", simp add: TAG_def; fail)
+          apply (tag; simp only:; fail)
+         apply (tag; simp only:; fail)
 
-        apply (tag keep: TAG[of "''new loc''"])
+        apply (tag "''new loc''")
         apply (simp add: map_trans_broad_aux1[symmetric] map_index_update; fail)
-       apply (tag keep: TAG[of "''new valuation''"])
+       apply (tag "''new valuation''")
        apply (simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def; fail)
-      apply (tag keep: TAG[of "''upd''"], erule is_upd_renumD; fail)
-     apply (tag keep: TAG[of "''upds''"], drule is_upds_renumD, simp add: comp_def; fail)
-    apply (tag keep: TAG[of "''bounded''"], erule bounded_renumI'; fail)
+      apply (tag "''upd''", erule is_upd_renumD; fail)
+     apply (tag "''upds''", drule is_upds_renumD, simp add: comp_def; fail)
+    apply (tag "''bounded''", erule bounded_renumI'; fail)
     done
   done
 
@@ -1857,11 +1900,11 @@ lemma step_single_renumI:
     apply (erule step_u_elims')
     apply intros
         apply (rule step_u.intros)
-           apply (auto_tag keep: TAG[of "''nonnegative''"], simp, prop_monos+, solve_triv+)
+           apply (tag "''nonnegative''", simp, prop_monos+, solve_triv+)
     subgoal
       using urgency_removed by - (tag, auto)
-    apply auto_tag
-        apply (auto_tag?, solve_triv)+
+    apply tag
+        apply (tag?, solve_triv)+
     done
 
 (* Internal *)
@@ -1992,13 +2035,13 @@ lemma step_single_renumI:
             apply (rule step_u.intros(4)[where ps = ps])
 
                             prefer 2
-                            apply (tag keep: TAG[of "TRANS ''out''"], solve_triv)
+                            apply (tag "TRANS ''out''", solve_triv)
 
-                            apply (auto_tag, clarsimp simp: renum_sem_broadcast_eq inj_eq_iff[OF inj_renum_acts] broadcast_def; fail)
+                            apply (tag, clarsimp simp: renum_sem_broadcast_eq inj_eq_iff[OF inj_renum_acts] broadcast_def; fail)
 
-                            apply (auto_tag, cases "ps = []"; simp add: atLeastLessThan_upperD inj_eq_iff[OF inj_renum_acts]; fail)
+                            apply (tag, cases "ps = []"; simp add: atLeastLessThan_upperD inj_eq_iff[OF inj_renum_acts]; fail)
 
-                            apply (auto_tag, prop_monos)
+                            apply (tag, prop_monos)
 
         subgoal
           by (auto simp: committed_renum_eq inj_eq_iff[OF inj_renum_states])
@@ -2009,20 +2052,20 @@ lemma step_single_renumI:
           by (clarsimp simp: committed_renum_eq inj_eq_iff[OF inj_renum_states] atLeastLessThan_upperD, fast)
 
         subgoal premises prems
-          using prems(38-) (* last premise only *)
+          using prems(27-) (* last premise only *)
           by (auto simp: inj_eq_iff[OF inj_renum_states] committed_renum_eq)
 
-                            apply (auto_tag, solve_triv)
+                            apply (tag, solve_triv)
 
-                           apply (auto_tag, erule Ball_mono, solve_triv; fail)
+                           apply (tag, erule Ball_mono, solve_triv; fail)
 
-                          apply (auto_tag, solve_triv)
+                          apply (tag, solve_triv)
 
-        apply (auto_tag, erule Ball_mono, solve_triv)
+        apply (tag, erule Ball_mono, solve_triv)
 
 (* Set of broadcast receivers is maximal *)
         subgoal
-          apply (tag keep: TAG[of "''maximal''"])
+          apply (tag "''maximal''")
           apply simp
           apply prop_monos+
           apply clarify
@@ -2034,14 +2077,14 @@ lemma step_single_renumI:
           done
 
 (* Target invariant is satisified *)
-        apply (tag keep: TAG[of "''target invariant''"] TAG[of "''new loc''"] TAG[of "''new valuation''"])
+        apply (tag "''target invariant''" "''new loc''" "''new valuation''")
         apply (simp add: atLeastLessThan_upperD)
         apply (erule (2) inv_sem_N_renum_broadcastI, blast, fast, solve_triv; fail)
 
-        apply (auto_tag, solve_triv?; fail)+
+        apply (tag, solve_triv?; fail)+
 
         subgoal
-          apply (tag keep: TAG[of "''bounded''"] TAG[of "''upd''"] TAG[of "''upds''"])
+          apply (tag "''bounded''" "''upd''" "''upds''")
             (* Resulting state is bounded *)
           apply (erule bounded_renumD1)
 
@@ -2062,12 +2105,11 @@ lemma step_single_renumI:
 
         apply solve_triv
 
-        apply (tag keep: TAG[of "''new loc''"], simp add: map_trans_broad_aux1 map_index_update cong: fold_cong; fail)
+        apply (tag "''new loc''", simp add: map_trans_broad_aux1 map_index_update cong: fold_cong; fail)
 
-        apply (determ \<open>tags del: TAG\<close>, unfold TAG_def)
-        apply (auto simp: vars_inv_def bij_f_the_inv_f[OF bij_renum_vars]; fail)
+        apply (del_tags, auto simp: vars_inv_def bij_f_the_inv_f[OF bij_renum_vars]; fail)
 
-        apply (tag keep: TAG[of "''new valuation''"], simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def cong: map_cong; fail)
+        apply (tag "''new valuation''", simp add: renum_reset_map_u[symmetric] renum_reset_def map_concat comp_def cong: map_cong; fail)
         done
       done
     done
