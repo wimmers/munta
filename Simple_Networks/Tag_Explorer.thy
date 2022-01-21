@@ -148,7 +148,7 @@ notepad begin
     sorry
 
   have False
-    usingTT (keep) \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>
+    usingT (keep) \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>
     sorry
 
   have False
