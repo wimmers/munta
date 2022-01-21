@@ -3,40 +3,8 @@ theory Simple_Network_Language
     Networks.State_Networks
     Uppaal_Networks.UPPAAL_State_Networks_Impl
     FinFun.FinFun
+    Tagging
 begin
-
-paragraph \<open>Tagging\<close>
-
-definition TAG ("_ \<bar> _" [8, 8] 9) where
-  "TAG t x = x"
-
-definition
-  "TAG' t x = TAG t x"
-
-lemmas TAG = TAG'_def[symmetric]
-
-lemmas add_tag = TAG_def[symmetric]
-
-lemma rm_TAG:
-  assumes "TAG t x" "TAG t x = TAG' t x"
-  shows True
-  by auto
-
-method tags uses del keep =
-  (unfold keep)?,
-  ((drule rm_TAG, rule del)+)?,
-  (unfold keep[symmetric])?
-
-datatype 'a tag = ANY 'a | TRANS 'a | SEL 'a | SEND 'a | RECV 'a
-
-lemma
-  assumes "TAG 1 False" "TAG (TRANS STR ''remove'') (x > 0)"
-  shows False
-  using assms
-  apply -
-  apply (tags del: TAG[of "TRANS t" for t] TAG[of 1] keep: TAG[of 1])
-  unfolding TAG_def .
-
 
 section \<open>Simple networks of automata with broadcast channels and committed locations\<close>
 
@@ -133,6 +101,8 @@ definition inv :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('c, 't, 's) invas
 
 no_notation step_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 no_notation steps_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61, 61, 61,61,61] 61)
+
+datatype 'a tag = ANY 'a | TRANS 'a | SEL 'a | SEND 'a | RECV 'a
 
 inductive step_u ::
   "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta \<Rightarrow> 's list \<Rightarrow> ('x \<rightharpoonup> 'v) \<Rightarrow> ('c, 't) cval

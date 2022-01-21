@@ -1,14 +1,45 @@
 section \<open>Tagged facts\<close>
 theory Tagging
-  imports Simple_Network_Language
+  imports Main "HOL-Eisbach.Eisbach"
   keywords "usingT"  :: prf_decl % "proof"
        and "preferT" :: prf_script % "proof"
        and "print_tags" :: diag
 begin
 
+subsection \<open>Tags\<close>
+
+definition TAG ("_ \<bar> _" [8, 8] 9) where
+  \<open>TAG t x = x\<close>
+
+definition
+  "TAG' t x = TAG t x"
+
+lemmas TAG = TAG'_def[symmetric]
+
+lemmas add_tag = TAG_def[symmetric]
+
 named_theorems tagged
 
+
 subsection \<open>Prototyping Our Methods With Eisbach\<close>
+
+lemma rm_TAG:
+  assumes "TAG t x" "TAG t x = TAG' t x"
+  shows True
+  by auto
+
+method tags0 uses del keep =
+  (unfold keep)?,
+  ((drule rm_TAG, rule del)+)?,
+  (unfold keep[symmetric])?
+
+lemma
+  assumes "TAG 1 False" "TAG (Some STR ''remove'') (x > 0)"
+  shows False
+  using assms
+  apply -
+  apply (tags0 del: TAG[of "Some t" for t] TAG[of 1] keep: TAG[of 1])
+  unfolding TAG_def .
 
 ML \<open>
 fun unfold_tac' ctxt rewrs =
@@ -29,7 +60,7 @@ method_setup unfold' = \<open>Attrib.thms >> unfold'_meth\<close> "unfold defini
 
 method tags' uses keep declares tagged =
   use nothing in \<open>insert' method_facts tagged\<close>,
-  use nothing in \<open>tags del: TAG keep: keep, unfold' TAG_def, ((thin_tac True)+)?\<close>
+  use nothing in \<open>tags0 del: TAG keep: keep, unfold' TAG_def, ((thin_tac True)+)?\<close>
 
 lemma
   assumes "TAG ''tagged'' (x > 0)"
@@ -67,38 +98,55 @@ lemma
 subsection \<open>Recalling Facts by Tag\<close>
 
 ML \<open>
+fun extract_tag_trm trm =
+  case trm of
+    \<^Const>\<open>Trueprop for \<^Const>\<open>TAG _ _ for tag _\<close>\<close> => SOME tag
+  | _ => NONE
+
 val empty = (Vartab.empty, Vartab.empty)
 
 fun matches thy pat trm = (Pattern.match thy (pat, trm) empty; true)
   handle Pattern.MATCH => false
 
+fun matches_tag0 thy tag =
+  matches thy (\<^instantiate>\<open>tag in term (schematic) \<open>Trueprop (tag \<bar> P)\<close>\<close>)
+
+fun matches_tag thy tag goal =
+  case extract_tag_trm goal of
+      NONE => false
+    | SOME t => matches thy tag t
+
 fun filter_thms thy pat = List.filter (fn thm => matches thy pat (Thm.prop_of thm))
 
 fun filter_tagged thy tag =
-  filter_thms thy (\<^instantiate>\<open>tag in term (schematic) \<open>Trueprop (tag \<bar> P)\<close>\<close>)
+  List.filter (fn thm => matches_tag thy tag (Thm.prop_of thm))
 
 val tagged = Named_Theorems.check @{context} ("tagged", Position.none)
 
 fun get_tagged ctxt tag =
   filter_tagged (Proof_Context.theory_of ctxt) tag (Named_Theorems.get ctxt tagged)
 
-fun filter_thms_attr s = Thm.rule_attribute [] (fn context => fn _ =>
+fun unfold_tags ctxt = Local_Defs.unfold ctxt @{thms TAG_def}
+
+fun filter_thms_attr (keep_tags, s) = Thm.rule_attribute [] (fn context => fn _ =>
   let
     val ctxt = Context.proof_of context
     val pat = Proof_Context.read_term_pattern ctxt s
   in
     case get_tagged ctxt pat of
-      [] => Drule.dummy_thm | (x :: _) => x
+      [] => Drule.dummy_thm
+    | (x :: _) => if keep_tags then x else unfold_tags ctxt x
   end)
 
-val get_tagged_state: string -> Proof.state -> Proof.state = fn s => fn st =>
+fun get_tagged_state keep_tags s: Proof.state -> Proof.state = fn st =>
   let
     val ctxt = Proof.context_of st
     val tag = Proof_Context.read_term_pattern ctxt s
     val thms = get_tagged ctxt tag
+    val thms = if keep_tags then thms else map (unfold_tags ctxt) thms
   in Proof.using [[(thms, [])]] st end
 
-val get_tagged_trans = fold get_tagged_state
+fun get_tagged_trans (keep_tags, xs) = fold (get_tagged_state keep_tags) xs
 
 val auto_insert_tac = Subgoal.FOCUS (fn {context = ctxt, concl, ...} =>
   case Thm.term_of concl of
@@ -122,7 +170,8 @@ fun untag_tac ctxt = unfold_tac' ctxt @{thms TAG_def}
 
 ML \<open>
 Outer_Syntax.command \<^command_keyword>\<open>usingT\<close> "use tagged facts"
-  (Scan.repeat1 Parse.embedded_inner_syntax >> (Toplevel.proof o get_tagged_trans))
+  (Args.mode "keep" -- Scan.repeat1 Parse.embedded_inner_syntax
+    >> (Toplevel.proof o get_tagged_trans))
 \<close>
 
 method_setup insertT = \<open>Scan.repeat Args.term_pattern >> insert_tagged_meth\<close> "insert tagged facts"
@@ -130,24 +179,25 @@ method_setup insertT = \<open>Scan.repeat Args.term_pattern >> insert_tagged_met
 method_setup untag =
   \<open>Args.context >> (fn _ => fn ctxt => SIMPLE_METHOD' (untag_tac ctxt))\<close> "remove tags"
 
-attribute_setup get_tagged = \<open>Scan.lift Parse.embedded_inner_syntax  >> filter_thms_attr\<close>
+attribute_setup get_tagged =
+  \<open>Scan.lift (Args.mode "keep" -- Parse.embedded_inner_syntax) >> filter_thms_attr\<close>
 
 notepad begin
   fix t1 t2 :: 'a and P Q :: bool
 
-  have [tagged]: "t1 \<bar> P" "SEL t2 \<bar> Q"
+  have [tagged]: "t1 \<bar> P" "Some t2 \<bar> Q"
     sorry
 
   have False
-    using [[get_tagged \<open>t1\<close>]] [[get_tagged \<open>t2\<close>]] [[get_tagged \<open>SEL _\<close>]]
+    using [[get_tagged \<open>t1\<close>]] [[get_tagged \<open>t2\<close>]] [[get_tagged \<open>Some _\<close>]]
     sorry
 
   have False
-    usingT \<open>''hi''\<close> \<open>SEL _\<close> \<open>t1\<close>
+    usingT \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>
     sorry
 
   have False
-    apply (insertT \<open>''hi''\<close> \<open>SEL _\<close> \<open>t1\<close>)
+    apply (insertT \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>)
     sorry
 
   have [tagged]: "t1 \<bar> True" unfolding TAG_def ..
@@ -157,7 +207,7 @@ notepad begin
     by untag
 
   have "t1 \<bar> True"
-    apply (insertT \<open>SEL _\<close> \<open>''hi''\<close>)
+    apply (insertT \<open>Some _\<close> \<open>''hi''\<close>)
     by untag
 
   have "t1 \<bar> True" "t2 \<bar> True"
@@ -199,8 +249,8 @@ method_setup thin_tag =
   "filter me"
 
 lemma
-  "TAG t V \<Longrightarrow> TAG (SEL p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
-  apply (thin_tag \<open>SEL _\<close>)
+  "TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
+  apply (thin_tag \<open>Some _\<close>)
   oops
 
 ML \<open>
@@ -211,7 +261,7 @@ method_setup del_tags =
   \<open>Args.context >> (fn _ => fn ctxt => SIMPLE_METHOD (del_tags_tac ctxt))\<close> "test"
 
 lemma
-  "TAG t V \<Longrightarrow> TAG (SEL p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
+  "TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
   apply del_tags
   oops
 
@@ -219,13 +269,13 @@ lemma
 subsection \<open>Main Tactics\<close>
 
 ML \<open>
-  fun instantiate_TAG ctxt (t: term) =
-  let
-    val ct = Thm.cterm_of ctxt t
-  in (* XXX How infefficient is this? *)
-    \<^instantiate>\<open>'t = \<open>Thm.ctyp_of_cterm ct\<close> and t = ct in
-      lemma (schematic) \<open>(t \<bar> P) = TAG' t P\<close> for t :: 't by (rule TAG)\<close>
-  end
+fun instantiate_TAG ctxt (t: term) =
+let
+  val ct = Thm.cterm_of ctxt t
+in (* XXX How infefficient is this? *)
+  \<^instantiate>\<open>'t = \<open>Thm.ctyp_of_cterm ct\<close> and t = ct in
+    lemma (schematic) \<open>(t \<bar> P) = TAG' t P\<close> for t :: 't by (rule TAG)\<close>
+end
 
 fun protect_tag_tac ctxt s fixes i =
   let
@@ -245,8 +295,8 @@ fun filter_tags_tac ctxt props fixes =
   THEN TRY (unfold_tac' ctxt @{thms TAG'_def} 1)
 
 fun mk_auto_insert_tac tac = SUBGOAL (fn (concl, i) =>
-  case Logic.strip_imp_concl concl of
-    \<^Const>\<open>Trueprop for \<^Const>\<open>TAG _ _ for tag _\<close>\<close> => tac [tag] i
+  case concl |> Logic.strip_assums_concl |> extract_tag_trm of
+    SOME tag => tac [tag] i
   | _ => tac [] i
 )
 
@@ -293,42 +343,40 @@ method_setup tag0 =
 method_setup tag =
   \<open>props_fixes_parser >>
      (fn (props, fixes) => fn ctxt =>
-        SIMPLE_METHOD (
+        SIMPLE_METHOD (DETERM (
                auto_filter_tags_and_insert_tac ctxt props fixes
-          THEN unfold_tac' ctxt @{thms TAG_def} 1))\<close>
+          THEN unfold_tac' ctxt @{thms TAG_def} 1)))\<close>
   "Like tags0 but removing tags in the end"
 
 lemma
-  "TAG t V \<Longrightarrow> TAG (SEL p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
-  apply (protect_tags \<open>SEL x\<close> t for x, del_tags, unfold' TAG'_def)
+  "TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
+  apply (protect_tags \<open>Some x\<close> t for x, del_tags, unfold' TAG'_def)
   oops
 
 lemma
-  "TAG t V \<Longrightarrow> TAG (SEL p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
-  apply (filter_tags \<open>SEL x\<close> t for x)
+  "TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
+  apply (filter_tags \<open>Some x\<close> t for x)
   oops
 
-lemma [tagged]: "SEL ''s'' \<bar> True" unfolding TAG_def ..
-lemma [tagged]: "SEL u \<bar> True" unfolding TAG_def ..
+lemma [tagged]: "Some ''s'' \<bar> True" unfolding TAG_def ..
+lemma [tagged]: "Some u \<bar> True" unfolding TAG_def ..
 
 lemma
-  "TAG t V \<Longrightarrow> TAG (SEL p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
+  "TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
   \<comment> \<open>XXX: The first three fail to recall facts from \<open>tagged\<close>.
       We would need to read the variables (and generalize them again) like in \<open>rule_insts.ML\<close>.\<close>
-  apply (tag0 \<open>SEL x\<close> t for x)
-  apply (tag \<open>SEL u\<close> t for u)
-  apply (tag \<open>SEL s\<close> t for s :: string)
-  apply (insertT \<open>SEL _\<close>)
-  apply (tag \<open>SEL _\<close>)
+  apply (tag0 \<open>Some x\<close> t for x)
+  apply (tag \<open>Some u\<close> t for u)
+  apply (tag \<open>Some s\<close> t for s :: string)
+  apply (insertT \<open>Some _\<close>)
+  apply (tag \<open>Some _\<close>)
   oops
 
 lemma [tagged]: "''hi'' \<bar> True" unfolding TAG_def ..
 
 lemma
-  "TAG t V \<Longrightarrow> TAG (SEL p) P \<Longrightarrow> TAG ''hi'' U \<Longrightarrow> TAG ''hi'' P"
+  "\<And>tt. TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG ''hi'' U \<Longrightarrow> TAG ''hi'' P"
   apply (tag t)
-  apply (tactic \<open>prefer_tac 1\<close>)
-  prefer 1
   oops
 
 
@@ -340,7 +388,7 @@ fun find_subgoal pred thm =
   let
     val subgoals = Thm.prems_of thm
   in
-    Library.find_index (fn goal => pred (Logic.strip_imp_concl goal)) subgoals
+    Library.find_index (fn goal => pred (Logic.strip_assums_concl goal)) subgoals
   end
 
 fun prefer_by_pred_tac pred: tactic = fn thm =>
@@ -350,18 +398,18 @@ fun prefer_by_pred_tac pred: tactic = fn thm =>
     if i > 0 then Tactic.prefer_tac i thm else no_tac thm
   end
 
-fun prefer_by_pat_tac thy pat: tactic =
-  prefer_by_pred_tac (matches thy pat)
+fun prefer_by_tag_tac0 thy tag: tactic =
+  prefer_by_pred_tac (matches_tag0 thy tag)
 
 fun prefer_by_tag_tac thy tag: tactic =
-  prefer_by_pat_tac thy (\<^instantiate>\<open>tag in term (schematic) \<open>Trueprop (tag \<bar> P)\<close>\<close>)
+  prefer_by_pred_tac (matches_tag thy tag)
 \<close>
 
 lemma
   "TAG p P" "TAG q Q" "TAG r R" "TAG p P2"
   apply -
-     apply (tactic \<open>prefer_by_pat_tac @{theory} @{term_pat "Trueprop (TAG r _)"}\<close>)
-     apply (tactic \<open>prefer_by_pat_tac @{theory} @{term_pat "Trueprop (TAG p _)"}\<close>)
+     apply (tactic \<open>prefer_by_tag_tac0 @{theory} \<^term>\<open>r\<close>\<close>)
+     apply (tactic \<open>prefer_by_tag_tac0 @{theory} \<^term>\<open>p\<close>\<close>)
   apply (tactic \<open>prefer_by_tag_tac @{theory} \<^term>\<open>q\<close>\<close>)
   oops
 
@@ -387,25 +435,20 @@ ML \<open>Outer_Syntax.command \<^command_keyword>\<open>preferT\<close> "select
 
 lemma
   "TAG p P" "TAG q Q" "TAG r R" "TAG p P2"
-     apply -
-     preferT \<open>p\<close>
+     preferT \<open>r\<close>
+  oops
+
+lemma
+  "\<And>t. TAG p P \<and> TAG q Q"
+  apply (rule conjI)
+   preferT \<open>q\<close>
   oops
 
 
 subsection \<open>Diagnostic Commands\<close>
 
 ML \<open>
-fun extract_tag_trm trm =
-  case trm of
-    \<^Const>\<open>Trueprop for \<^Const>\<open>TAG _ _ for tag _\<close>\<close> => SOME tag
-  | _ => NONE
-
-fun extract_tag_thm thm =
-  let
-    val prop = Thm.prop_of thm
-  in
-    extract_tag_trm prop
-  end
+val extract_tag_thm = extract_tag_trm o Thm.prop_of
 
 fun tags_of_tagged ctxt =
   let
