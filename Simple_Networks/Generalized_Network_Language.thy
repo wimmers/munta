@@ -1,4 +1,4 @@
-theory TChecker_Network_Language
+theory Generalized_Network_Language
   imports Main
     Networks.State_Networks
     Uppaal_Networks.UPPAAL_State_Networks_Impl
@@ -11,16 +11,19 @@ section \<open>Simple networks of automata with synchronization vectors and comm
 text \<open>This is a generalization of the previous formalism with synchronization vectors in the style
 of \<^emph>\<open>TChecker\<close>, see \<^url>\<open>https://github.com/fredher/tchecker/blob/master/doc/file-format.md\<close>.\<close>
 
+\<comment> \<open>An action can have a communication purpose (synchronization) or be silent.\<close>
+datatype 'a act = Com 'a | Sil 'a
+
 text \<open>A single synchronization vector has the form \<open>sync:P1@a:P2@b:P3@c?:P4@d?\<close>
 in TChecker's syntax, specifying that \<open>P1\<close> and \<open>P2\<close> \<^emph>\<open>need\<close> to synchronize on \<open>a\<close> and \<open>b\<close>,
 respectively, while \<open>P3\<close> and \<open>P4\<close> \<^emph>\<open>will\<close> synchronize on \<open>c\<close> and \<open>d\<close> if they can
 (\<^emph>\<open>weak\<close> synchronization constraint).
-Not all processes need to be be present in a synchronization vector.
+The order of processes in the synchronization specifies the order of updates.
 Therefore we end up with the following type definition:\<close>
-type_synonym 'a sync = "('a \<times> bool) option list"
+type_synonym 'a sync = "(nat \<times> 'a \<times> bool) list"
 
 type_synonym
-  ('a, 's, 'c, 't, 'x, 'v) nta = "'a sync set \<times> ('a, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
+  ('a, 's, 'c, 't, 'x, 'v) nta = "'a sync set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
 
 context begin
 
@@ -34,10 +37,6 @@ definition conv where
 end
 
 datatype 'b label = Del | Internal 'b | Sync "'b sync"
-
-\<comment> \<open>All non-internal actions of process \<open>p\<close> wrt the synchronization set \<open>S\<close>.\<close>
-definition syncs_of where
-  "syncs_of S p \<equiv> {a. \<exists>v b. v ! p = Some (a, b) \<and> v \<in> S}"
 
 no_notation step_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 no_notation steps_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61, 61, 61,61,61] 61)
@@ -58,8 +57,7 @@ where
     \<Longrightarrow> (syncs, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Del\<^esub> \<langle>L, s, u \<oplus> d\<rangle>" |
   step_int:
     "\<lbrakk>
-      ''internal'' \<bar> a \<notin> syncs_of syncs p;
-      TRANS ''silent'' \<bar> (l, b, g, a, f, r, l') \<in> trans (N ! p);
+      TRANS ''silent'' \<bar> (l, b, g, Sil a, f, r, l') \<in> trans (N ! p);
       ''committed'' \<bar> l \<in> committed (N ! p) \<or> (\<forall>p < length N. L ! p \<notin> committed (N ! p));
       ''bexp''      \<bar> check_bexp s b True;
       ''guard''     \<bar> u \<turnstile> g;
@@ -75,21 +73,24 @@ where
   step_sync:
     "\<lbrakk>
       ''sync'' \<bar> sync \<in> syncs;
-      ''enabled'' \<bar> (\<forall>p < length N. \<forall>a. sync ! p = Some (a, True) \<longrightarrow> p \<in> set ps);
-      ''only syncs'' \<bar> (\<forall>p < length N. sync ! p = None \<longrightarrow> p \<notin> set ps);
-      ''actions'' \<bar> (\<forall>p < length N. \<forall>a. \<forall>b. sync ! p = Some (a, b) \<longrightarrow> as p = a);
-      TRANS ''sync''  \<bar> (\<forall>p \<in> set ps. (L ! p, bs p, gs p, as p, fs p, rs p, ls' p) \<in> trans (N ! p));
+      ''enabled'' \<bar> (\<forall>(p, a, b) \<in> set sync. b \<longrightarrow> p \<in> set ps);
+      ''only syncs'' \<bar> (\<forall>p < length N. p \<notin> fst ` set sync \<longrightarrow> p \<notin> set ps);
+      ''actions'' \<bar> (\<forall>(p, a, _) \<in> set sync. as p = a);
+      TRANS ''sync''  \<bar>
+        (\<forall>p \<in> set ps. (L ! p, bs p, gs p, Com (as p), fs p, rs p, ls' p) \<in> trans (N ! p));
       ''committed'' \<bar> ((\<exists>p \<in> set ps. L ! p \<in> committed (N ! p))
       \<or> (\<forall>p < length N. L ! p \<notin> committed (N ! p)));
       ''bexp''    \<bar> \<forall>p \<in> set ps. check_bexp s (bs p) True;
       ''guard''   \<bar> \<forall>p \<in> set ps. u \<turnstile> gs p;
-      ''maximal'' \<bar> \<forall>q < length N. q \<notin> set ps
-        \<longrightarrow> (\<forall>a b g f r l'. (L!q, b, g, as q, f, r, l') \<in> trans (N ! q) \<and> sync ! q = Some (a, False)
-        \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g);
+      ''maximal'' \<bar> \<forall>q < length N. q \<notin> set ps \<longrightarrow>
+        (\<forall>a b g f r l'.
+          (L!q, b, g, Com (as q), f, r, l') \<in> trans (N ! q) \<and> (q, a, False) \<in> set sync
+          \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g);
       ''target invariant'' \<bar> \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       SEL ''range''      \<bar> set ps \<subseteq> {0..<length N};
-      SEL ''distinct''   \<bar> distinct ps;
-      SEL ''sorted''     \<bar> sorted ps;
+      \<^cancel>\<open>SEL ''distinct''   \<bar> distinct ps;
+      SEL ''sorted''     \<bar> sorted ps;\<close>
+      SEL ''sublist'' \<bar> subseq ps (map fst sync);
       ''new loc'' \<bar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L;
       ''new valuation'' \<bar> u' = [concat (map rs ps)\<rightarrow>0]u;
       ''upds''    \<bar> is_upds s (map fs ps) s';
@@ -103,6 +104,8 @@ text \<open>Comments:
 Then one could run a reachability check for the error state.
 \<^item> Should the state be total?
 \<^item> Note that intermediate states are allowed to run out of bounds
+\<^item> We do not explicitly enforce that the same process cannot appear multiple times in a sync
+\<^item> We do not explicitly enforce that process and indices and actions names are valid in syncs
 \<close>
 
 definition steps_u ::
@@ -158,8 +161,7 @@ definition
 definition
   "trans_int =
     {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
-      a \<notin> syncs_of syncs p \<and>
-      (l, b, g, a, f, r, l') \<in> trans (N p) \<and>
+      (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
       (l \<in> committed (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
       L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and> check_bexp s b True \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
@@ -170,16 +172,16 @@ definition
     {((L, s), concat (map gs ps), Sync sync, concat (map rs ps), (L', s')) |
     sync L s L' s' bs gs as fs rs ls' ps.
       sync \<in> syncs \<and>
-      (\<forall>p < n_ps. \<forall>a. sync ! p = Some (a, True) \<longrightarrow> p \<in> set ps) \<and>
-      (\<forall>p<n_ps. sync ! p = None \<longrightarrow> p \<notin> set ps) \<and>
-      (\<forall>p < n_ps. \<forall>a. \<forall>b. sync ! p = Some (a, b) \<longrightarrow> as p = a) \<and>
-      (\<forall>p \<in> set ps. (L ! p, bs p, gs p, as p, fs p, rs p, ls' p) \<in> trans (N p)) \<and>
+      (\<forall>(p, a, b) \<in> set sync. b \<longrightarrow> p \<in> set ps) \<and>
+      (\<forall>p < n_ps. p \<notin> fst ` set sync \<longrightarrow> p \<notin> set ps) \<and>
+      (\<forall>(p, a, _) \<in> set sync. as p = a) \<and>
+      (\<forall>p \<in> set ps. (L ! p, bs p, gs p, Com (as p), fs p, rs p, ls' p) \<in> trans (N p)) \<and>
       ((\<exists>p \<in> set ps. L ! p \<in> committed (N p)) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
       (\<forall>q < n_ps. q \<notin> set ps \<longrightarrow>
         \<not> (\<exists>b g a f r l'.
-            (L!q, b, g, a, f, r, l') \<in> trans (N q) \<and> sync ! q = Some (a, False)
+            (L!q, b, g, Com a, f, r, l') \<in> trans (N q) \<and> (q, a, False) \<in> set sync
           \<and> check_bexp s b True)) \<and>
-      set ps \<subseteq> {0..<n_ps} \<and> distinct ps \<and> sorted ps \<and>
+      set ps \<subseteq> {0..<n_ps} \<and> \<^cancel>\<open>distinct ps \<and> sorted ps\<close> subseq ps (map fst sync) \<and>
       (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       L' = fold (\<lambda>p L . L[p := ls' p]) ps L \<and>
       is_upds s (map fs ps) s' \<and>
@@ -228,7 +230,7 @@ lemma state_set_states:
   unfolding prod_ta_def state_set_def
   unfolding trans_of_def trans_prod_def
   unfolding trans_int_def trans_sync_def
-  by auto (auto intro!: state_preservation_updI state_preservation_fold_updI)
+  by (clarsimp, safe) (auto intro!: state_preservation_updI state_preservation_fold_updI)
 
 lemma trans_prod_bounded_inv:
   \<open>bounded bounds s'\<close> if \<open>((L, s), g, a, r, (L', s')) \<in> trans_prod\<close>
@@ -299,7 +301,7 @@ qed
 
 lemma bounded_inv:
   \<open>bounded bounds s'\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close>
-  using that unfolding bounds_def by cases (simp add: TAG_def)+
+  using that unfolding bounds_def by (cases; untag; simp)
 
 lemma states_inv:
   \<open>L' \<in> states\<close> if \<open>A \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>a\<^esub> \<langle>L', s', u'\<rangle>\<close> \<open>L \<in> states\<close>
@@ -309,16 +311,16 @@ proof cases
   with \<open>L \<in> states\<close> show ?thesis
     by simp
 next
-  case prems[unfolded TAG_def]: (step_int a syncs p l b g f r l' N' B)
-  from \<open>A = _\<close> prems(4) have "l' \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})"
-    by force
+  case prems[tagged, unfolded TAG_def]: (step_int l b g a f r l' N' p B syncs)
+  from \<open>A = _\<close> have "l' \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N p). {l, l'})"
+    usingT \<open>TRANS _\<close> by force
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI)
 next
-  case prems[unfolded TAG_def]: (step_sync sync syncs N' ps as bs gs fs rs ls' B)
-  from \<open>A = _\<close> prems(7) have
+  case prems[tagged, unfolded TAG_def]: (step_sync sync syncs ps N' as bs gs fs rs ls' B)
+  from \<open>A = _\<close> prems(6) have
     "\<forall> q \<in> set ps. ls' q \<in> (\<Union> (l, b, g, a, r, u, l') \<in> trans (N q). {l, l'})"
-    by force
+    usingT \<open>TRANS _\<close> by force
   with \<open>L \<in> states\<close> show ?thesis
     unfolding \<open>L' = _\<close> by (intro state_preservation_updI state_preservation_fold_updI)
 qed
@@ -330,7 +332,7 @@ locale Prod_TA =
   Prod_TA_sem A for A :: "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta" +
   assumes weak_synchronizations_unguarded:
     "\<forall>p < n_ps. \<forall>sync l b g a f r l'.
-      sync \<in> syncs \<and> (l, b, g, a, f, r, l') \<in> trans (N p) \<and> sync ! p = Some (a, False) \<longrightarrow> g = []"
+      sync \<in> syncs \<and> (l, b, g, Com a, f, r, l') \<in> trans (N p) \<and> (p, a, False) \<in> set sync \<longrightarrow> g = []"
 begin
 
 lemma action_complete:
@@ -341,7 +343,7 @@ using that(1) proof cases
   then show ?thesis
     using that(2) by auto
 next
-  case prems[unfolded TAG_def]: (step_int a' syncs' p l b g f r l' N' B)
+  case prems[tagged, unfolded TAG_def]: (step_int l b g a' f r l' N' p B syncs')
   have [simp]:
     "B = bounds" "syncs' = syncs" "length N' = n_ps"
     unfolding bounds_def syncs_def n_ps_def unfolding prems(1) by simp+
@@ -351,37 +353,36 @@ next
   have "prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>g,Internal a',r\<^esup> (L', s')"
   proof -
     from prems \<open>L \<in> states\<close> \<open>bounded _ s\<close> have "((L, s),g,Internal a',r,(L', s')) \<in> trans_int"
-      unfolding trans_int_def
-      by simp (rule exI conjI HOL.refl | assumption | (simp; fail))+
+      unfolding trans_int_def by simp (rule exI conjI HOL.refl | assumption | (simp; fail))+
     then show ?thesis
       unfolding prod_ta_def trans_of_def trans_prod_def by simp
   qed
   moreover have "u \<turnstile> g"
-    by (rule prems)
+    usingT \<open>''guard''\<close> .
   moreover have "u' \<turnstile> inv_of prod_ta (L', s')"
-    using prems(8) by auto
+    usingT \<open>''target invariant''\<close> by auto
   moreover have "u' = [r\<rightarrow>0]u"
-    by (rule prems)
+    usingT \<open>''new valuation''\<close> .
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 next
-  case prems[unfolded TAG_def]: (step_sync sync syncs' N' ps as bs gs fs rs ls' B)
+  case prems[tagged, unfolded TAG_def]: (step_sync sync syncs' ps N' as bs gs fs rs ls' B)
   have [simp]:
     "B = bounds" "syncs' = syncs" "length N' = n_ps"
-    unfolding bounds_def syncs_def n_ps_def unfolding prems(1) by simp+
+    unfolding bounds_def syncs_def n_ps_def unfolding \<open>A = _\<close> by simp+
   have [simp]:
     "N' ! i = N i" for i
-    unfolding N_def unfolding prems(1) by simp
+    unfolding N_def unfolding \<open>A = _\<close> by simp
   let ?r = "concat (map rs ps)" and ?g = "concat (map gs ps)"
   have "prod_ta \<turnstile> (L, s) \<longrightarrow>\<^bsup>?g,Sync sync,?r\<^esup> (L', s')"
   proof -
     have *: "\<not> u \<turnstile> g \<longleftrightarrow> False" if
-      "p < n_ps" "(l, b, g, as p, f, r, l') \<in> trans (N p)"
-      "sync ! p = Some (a', False)"
+      "p < n_ps" "(l, b, g, Com (as p), f, r, l') \<in> trans (N p)"
+      "(p, a', False) \<in> set sync"
       for l b g a' f r l' p
     proof -
-      from prems(6) that have "as p = a'"
-        by auto
+      from that have "as p = a'"
+        usingT \<open>''actions''\<close> by auto
       with that weak_synchronizations_unguarded \<open>sync \<in> _\<close> show ?thesis
         by fastforce
     qed
@@ -391,11 +392,11 @@ next
       unfolding prod_ta_def trans_of_def trans_prod_def by simp
   qed
   moreover have "u \<turnstile> ?g"
-    using prems by (auto intro!: guard_append guard_concat)
+    usingT \<open>''guard''\<close> by (intro guard_concat) simp
   moreover have "u' \<turnstile> inv_of prod_ta (L', s')"
-    using prems by auto
+    usingT \<open>''target invariant''\<close> by auto
   moreover have "u' = [?r\<rightarrow>0]u"
-    by (rule prems)
+    usingT \<open>''new valuation''\<close> .
   ultimately show ?thesis
     unfolding \<open>a = _\<close> ..
 qed
