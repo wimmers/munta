@@ -6,6 +6,8 @@ theory Generalized_Network_Language
     Simple_Network_Language
 begin
 
+notation (input) TAG ("_ \<bbar> _" [40, 40] 41)
+
 section \<open>Simple networks of automata with synchronization vectors and committed locations\<close>
 
 text \<open>This is a generalization of the previous formalism with synchronization vectors in the style
@@ -76,7 +78,7 @@ where
       ''enabled'' \<bar> (\<forall>(p, a, b) \<in> set sync. b \<longrightarrow> p \<in> set ps);
       ''only syncs'' \<bar> (\<forall>p < length N. p \<notin> fst ` set sync \<longrightarrow> p \<notin> set ps);
       ''actions'' \<bar> (\<forall>(p, a, _) \<in> set sync. as p = a);
-      TRANS ''sync''  \<bar>
+      TRANS ''sync'' \<bar>
         (\<forall>p \<in> set ps. (L ! p, bs p, gs p, Com (as p), fs p, rs p, ls' p) \<in> trans (N ! p));
       ''committed'' \<bar> ((\<exists>p \<in> set ps. L ! p \<in> committed (N ! p))
       \<or> (\<forall>p < length N. L ! p \<notin> committed (N ! p)));
@@ -88,8 +90,6 @@ where
           \<longrightarrow> \<not> check_bexp s b True \<or> \<not> u \<turnstile> g);
       ''target invariant'' \<bar> \<forall>p < length N. u' \<turnstile> inv (N ! p) (L' ! p);
       SEL ''range''      \<bar> set ps \<subseteq> {0..<length N};
-      \<^cancel>\<open>SEL ''distinct''   \<bar> distinct ps;
-      SEL ''sorted''     \<bar> sorted ps;\<close>
       SEL ''sublist'' \<bar> subseq ps (map fst sync);
       ''new loc'' \<bar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L;
       ''new valuation'' \<bar> u' = [concat (map rs ps)\<rightarrow>0]u;
@@ -167,26 +167,30 @@ definition
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
     }"
 
-definition
+definition trans_sync_tagged_def:
   "trans_sync =
     {((L, s), concat (map gs ps), Sync sync, concat (map rs ps), (L', s')) |
     sync L s L' s' bs gs as fs rs ls' ps.
-      sync \<in> syncs \<and>
-      (\<forall>(p, a, b) \<in> set sync. b \<longrightarrow> p \<in> set ps) \<and>
-      (\<forall>p < n_ps. p \<notin> fst ` set sync \<longrightarrow> p \<notin> set ps) \<and>
-      (\<forall>(p, a, _) \<in> set sync. as p = a) \<and>
-      (\<forall>p \<in> set ps. (L ! p, bs p, gs p, Com (as p), fs p, rs p, ls' p) \<in> trans (N p)) \<and>
-      ((\<exists>p \<in> set ps. L ! p \<in> committed (N p)) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
-      (\<forall>q < n_ps. q \<notin> set ps \<longrightarrow>
+      ''sync'' \<bbar> sync \<in> syncs \<and>
+      ''enabled'' \<bbar> (\<forall>(p, a, b) \<in> set sync. b \<longrightarrow> p \<in> set ps) \<and>
+      ''only syncs'' \<bbar> (\<forall>p < n_ps. p \<notin> fst ` set sync \<longrightarrow> p \<notin> set ps) \<and>
+      ''actions'' \<bbar> (\<forall>(p, a, _) \<in> set sync. as p = a) \<and>
+      TRANS ''sync'' \<bbar>
+        (\<forall>p \<in> set ps. (L ! p, bs p, gs p, Com (as p), fs p, rs p, ls' p) \<in> trans (N p)) \<and>
+      ''committed'' \<bbar>
+        ((\<exists>p \<in> set ps. L ! p \<in> committed (N p)) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
+      ''maximal'' \<bbar> (\<forall>q < n_ps. q \<notin> set ps \<longrightarrow>
         \<not> (\<exists>b g a f r l'.
             (L!q, b, g, Com a, f, r, l') \<in> trans (N q) \<and> (q, a, False) \<in> set sync
           \<and> check_bexp s b True)) \<and>
-      set ps \<subseteq> {0..<n_ps} \<and> \<^cancel>\<open>distinct ps \<and> sorted ps\<close> subseq ps (map fst sync) \<and>
-      (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
-      L' = fold (\<lambda>p L . L[p := ls' p]) ps L \<and>
-      is_upds s (map fs ps) s' \<and>
-      L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
+      SEL ''range'' \<bbar> set ps \<subseteq> {0..<n_ps} \<and> SEL ''sublist'' \<bbar> subseq ps (map fst sync) \<and>
+      ''bexp'' \<bbar> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
+      ''new loc'' \<bbar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L \<and>
+      ''upds''    \<bbar> is_upds s (map fs ps) s' \<and>
+      L \<in> states \<and> ''bounded'' \<bbar> bounded bounds s \<and> ''bounded'' \<bbar> bounded bounds s'
     }"
+
+lemmas trans_sync_def = trans_sync_tagged_def[unfolded TAG_def]
 
 definition
   "trans_prod = trans_int \<union> trans_sync"

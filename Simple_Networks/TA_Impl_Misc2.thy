@@ -48,6 +48,11 @@ lemma finite_prodI4:
   if "finite {a. P a}" "finite {a. Q a}" "finite {a. Q1 a}" "finite {a. Q2 a}"
   using that by simp
 
+lemma finite_prodI5:
+  "finite {(a,b,c,d,e). P a \<and> Q b \<and> Q1 c \<and> Q2 d \<and> Q3 e}"
+  if "finite {a. P a}" "finite {a. Q a}" "finite {a. Q1 a}" "finite {a. Q2 a}" "finite {a. Q3 a}"
+  using that by simp
+
 named_theorems finite_intros
 named_theorems more_finite_intros
 
@@ -57,7 +62,7 @@ lemmas [finite_intros] =
   distinct_finite_subset distinct_finite_set
 
 lemmas [more_finite_intros] =
-  finite_prodI finite_prodI3 finite_prodI4
+  finite_prodI finite_prodI3 finite_prodI4 finite_prodI5
 
 paragraph \<open>Lists\<close>
 
@@ -160,6 +165,16 @@ lemma subseq_distinct:
   "distinct xs" if "distinct ys" "subseq xs ys"
   using subseqs_distinctD that by simp
 
+lemma finite_subseqs:
+  "finite {xs. subseq xs ys}" (is "finite ?S")
+proof -
+  have "?S \<subseteq> {xs. set xs \<subseteq> set ys \<and> length xs \<le> length ys}"
+    using not_subseq_length by (force dest: subseq_subsetD)
+  also have "finite \<dots>"
+    by (auto intro: finite_lists_length_le)
+  finally (finite_subset) show ?thesis .
+qed
+
 (* XXX Move *)
 lemma filter_distinct_eqI:
   assumes
@@ -220,5 +235,23 @@ lemma list_all2_map_fst_aux:
   assumes "list_all2 (\<lambda>x y. x \<in> Pair y ` (zs y)) xs ys"
   shows "list_all2 (=) (map fst xs) ys"
   using assms by (smt fstI imageE list.rel_mono_strong list_all2_map1)
+
+(* XXX Move to distribution *)
+text \<open>Stronger version of @{thm Map.map_of_mapk_SomeI}\<close>
+theorem map_of_mapk_SomeI':
+  assumes "inj_on f (fst ` set t)"
+    and "map_of t k = Some x"
+  shows "map_of (map (\<lambda>(k, y). (f k, g y)) t) (f k) = Some (g x)"
+  using assms
+  apply (induction t)
+   apply (auto split: if_split_asm)
+  apply (metis DiffI imageI img_fst map_of_SomeD singletonD)
+  done
+
+theorem map_of_mapk_SomeI:
+  assumes "inj f"
+    and "map_of t k = Some x"
+  shows "map_of (map (\<lambda>(k, y). (f k, g y)) t) (f k) = Some (g x)"
+  using assms by - (rule map_of_mapk_SomeI', erule inj_on_subset, auto)
 
 end
