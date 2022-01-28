@@ -144,11 +144,11 @@ notepad begin
     sorry
 
   have False
-    using [[get_tagged \<open>t1\<close>]] [[get_tagged \<open>t2\<close>]] [[get_tagged (keep) \<open>Some _\<close>]]
+    using [[get_tagged \<open>t1\<close>]] \<^cancel>\<open>[[get_tagged \<open>t2\<close>]]\<close> \<^cancel>\<open>[[get_tagged (keep) \<open>Some _\<close>]]\<close>
     sorry
 
   have False
-    usingT (keep) \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>
+    usingT- (keep) \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>
     sorry
 
   have False

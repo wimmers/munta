@@ -187,16 +187,17 @@ fun tag_thms_attr ((keep_tags,retag), s) = Thm.mixed_attribute (fn (context, thm
 
 val untagged_attr = Thm.rule_attribute [] (fn context => unfold_tags (Context.proof_of context))
 
-fun get_tagged_state keep_tags s: Proof.state -> Proof.state = fn st =>
+fun get_tagged_state strict keep_tags s: Proof.state -> Proof.state = fn st =>
   let
     val pos = Syntax.read_input_pos s
     val ctxt = Proof.context_of st
     val tag = Proof_Context.read_term_pattern ctxt s
-    val thms = get_tagged_single ctxt pos tag
+    val thms = (if strict then get_tagged_single else get_tagged_at_least_one) ctxt pos tag
     val thms = if keep_tags then thms else map (unfold_tags ctxt) thms
   in Proof.using [[(thms, [])]] st end
 
-fun get_tagged_trans (keep_tags, xs) = fold (get_tagged_state keep_tags) xs
+fun get_tagged_trans ((non_strict, keep_tags), xs) =
+  fold (get_tagged_state (not non_strict) keep_tags) xs
 
 val auto_insert_tac = Subgoal.FOCUS (fn {context = ctxt, concl, ...} =>
   case Thm.term_of concl of
@@ -219,14 +220,15 @@ fun untag_tac ctxt = unfold_tac' ctxt @{thms TAG_def}
 \<close>
 
 ML \<open>
-Outer_Syntax.command \<^command_keyword>\<open>usingT\<close> "use tagged facts"
-  (Args.mode "keep" -- Scan.repeat1 Parse.embedded_inner_syntax
-    >> (Toplevel.proof o get_tagged_trans))
+val position_parser: Position.T parser = Scan.ahead Parse.not_eof >> Token.pos_of
+val position_ctxt_parser: Position.T context_parser = Scan.lift position_parser
+val parse_non_strict: bool parser = Scan.optional (Args.$$$ "-" >> K true) false
 \<close>
 
 ML \<open>
-val position_parser: Position.T parser = Scan.ahead Parse.not_eof >> Token.pos_of
-val position_ctxt_parser: Position.T context_parser = Scan.lift position_parser
+Outer_Syntax.command \<^command_keyword>\<open>usingT\<close> "use tagged facts"
+  (parse_non_strict -- Args.mode "keep" -- Scan.repeat1 Parse.embedded_inner_syntax
+    >> (Toplevel.proof o get_tagged_trans))
 \<close>
 
 method_setup insertT =
@@ -287,7 +289,8 @@ notepad begin
     by untag
 
   have "t1 \<bar> True" "t2 \<bar> True"
-     apply (untag, rule HOL.TrueI)+
+    apply (untag, rule HOL.TrueI)+
+    usingT - \<^cancel>\<open>\<open>''hi''\<close>\<close> \<open>Some _\<close> \<open>t1\<close>
     done
 
 end
@@ -417,13 +420,13 @@ method_setup filter_tags =
   "Filter tagged facts"
 
 method_setup tag0 =
-  \<open>Scan.lift (Args.mode "-") -- props_fixes_parser >>
+  \<open>Scan.lift parse_non_strict -- props_fixes_parser >>
      (fn (non_strict, (props, fixes)) => fn ctxt =>
         SIMPLE_METHOD (auto_filter_tags_and_insert_tac (not non_strict) ctxt props fixes))\<close>
   "Filter tagged facts and insert matching tagged facts, taking goal tag into account"
 
 method_setup tag =
-  \<open>Scan.lift (Args.mode "-") -- props_fixes_parser >>
+  \<open>Scan.lift parse_non_strict -- props_fixes_parser >>
      (fn (non_strict, (props, fixes)) => fn ctxt =>
         SIMPLE_METHOD (DETERM (
                auto_filter_tags_and_insert_tac (not non_strict) ctxt props fixes
@@ -458,7 +461,7 @@ lemma [tagged]: "''hi'' \<bar> True" unfolding TAG_def ..
 
 lemma
   "\<And>tt. TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG ''hi'' U \<Longrightarrow> TAG ''hi'' P"
-  apply (tag (-) t)
+  apply (tag- t)
   oops
 
 
