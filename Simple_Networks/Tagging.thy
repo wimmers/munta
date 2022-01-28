@@ -97,7 +97,26 @@ lemma
 
 subsection \<open>Recalling Facts by Tag\<close>
 
+lemmas add_TAG = TAG_def[THEN eq_reflection, symmetric]
+
+lemma re_TAG:
+  "(t \<bar> P) \<equiv> (t_new \<bar> P)"
+  unfolding TAG_def .
+
 ML \<open>
+fun mk_add_tag_thm t =
+  \<^instantiate>\<open>'t = \<open>Thm.ctyp_of_cterm t\<close> and t = t in
+    lemma (schematic) \<open>y \<equiv> t \<bar> y\<close> for t :: 't by (rule add_TAG)\<close>
+fun mk_re_tag_thm t =
+  \<^instantiate>\<open>'t = \<open>Thm.ctyp_of_cterm t\<close> and t_new = t in
+    lemma (schematic) \<open>(t_old \<bar> P) \<equiv> (t_new \<bar> P)\<close> for t_new :: 't by (rule re_TAG)\<close>
+fun lift_conv conv =
+  conv |> Conv.rewr_conv |> Conv.arg_conv |> Conv.concl_conv 100 |> K |> Conv.params_conv 100
+fun add_tag_conv ct = mk_add_tag_thm ct |> lift_conv
+fun re_tag_conv ct  = mk_re_tag_thm ct |> lift_conv
+fun tag_thm ct ctxt = Conv.fconv_rule (add_tag_conv ct ctxt)
+fun re_tag_thm ct ctxt = Conv.fconv_rule (Conv.try_conv (re_tag_conv ct ctxt))
+
 fun extract_tag_trm trm =
   case trm of
     \<^Const>\<open>Trueprop for \<^Const>\<open>TAG _ _ for tag _\<close>\<close> => SOME tag
@@ -137,6 +156,19 @@ fun filter_thms_attr (keep_tags, s) = Thm.rule_attribute [] (fn context => fn _ 
       [] => Drule.dummy_thm
     | (x :: _) => if keep_tags then x else unfold_tags ctxt x
   end)
+
+fun tag_thms_attr ((keep_tags,retag), s) = Thm.mixed_attribute (fn (context, thm) =>
+  let
+    val ctxt = Context.proof_of context
+    val ct = Syntax.read_term ctxt s |> Thm.cterm_of ctxt
+    val thm = if retag then re_tag_thm ct ctxt thm else tag_thm ct ctxt thm
+    val context = Named_Theorems.add_thm tagged thm context
+    val thm = if keep_tags then thm else unfold_tags ctxt thm
+  in
+    (context, thm)
+  end)
+
+val untagged_attr = Thm.rule_attribute [] (fn context => unfold_tags (Context.proof_of context))
 
 fun get_tagged_state keep_tags s: Proof.state -> Proof.state = fn st =>
   let
@@ -182,6 +214,12 @@ method_setup untag =
 attribute_setup get_tagged =
   \<open>Scan.lift (Args.mode "keep" -- Parse.embedded_inner_syntax) >> filter_thms_attr\<close>
 
+attribute_setup tag =
+  \<open>Scan.lift (Args.mode "keep" -- Args.mode "re" -- Parse.embedded_inner_syntax) >> tag_thms_attr\<close>
+
+attribute_setup untagged =
+  \<open>Scan.succeed () >> (fn _ => untagged_attr)\<close>
+
 notepad begin
   fix t1 t2 :: 'a and P Q :: bool
 
@@ -201,6 +239,19 @@ notepad begin
     sorry
 
   have [tagged]: "t1 \<bar> True" unfolding TAG_def ..
+
+  have test[tag (re) \<open>''tag''\<close>]: "True" "x = x" "tt \<bar> y = y" if "x > 0" for x y tt :: nat
+    unfolding TAG_def by auto
+  thm tagged thm test
+
+  have test[tag \<open>''tag''\<close>]: "True" "x = x" "tt \<bar> y = y" if "x > 0" for x y tt :: nat
+    unfolding TAG_def by auto
+  thm tagged thm test
+
+  have test[tag (keep) \<open>''tag''\<close>]: "True" "x = x" "tt \<bar> y = y" if "x > 0" for x y tt :: nat
+    unfolding TAG_def by auto thm test
+
+  thm tagged[untagged] thm tagged
 
   have "False \<Longrightarrow> t1 \<bar> True"
     apply (tactic \<open>auto_insert_tac @{context} 1\<close>)
