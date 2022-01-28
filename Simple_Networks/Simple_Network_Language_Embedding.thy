@@ -302,7 +302,7 @@ next
       by (tag "''different''" "''upd''", auto, blast intro: is_upds.intros)
     done
 next
-  case [tagged, unfolded TAG_def]:
+  case [tagged, untagged]:
     (step_broad a'' broadcast l b g f r l' As p ps bs gs fs rs ls' s1 B)
   from assms(2) \<open>N = _\<close> have \<open>length As = n\<close>
     by simp
@@ -440,10 +440,9 @@ proof -
       usingT \<open>''range''\<close> apply (tag, simp; fail)+
       done
   next
-    case [tagged, unfolded TAG_def]: (step_sync sync ps as bs gs fs rs ls')
+    case [tagged, untagged]: (step_sync sync ps as bs gs fs rs ls')
     from \<open>sync \<in> ?syncs\<close> consider
       (bin) a p q t where
-        \<^cancel>\<open>"sync = mk_bin_sync (length As) a p q"\<close>
         "sync = [(p, In a, True), (q, Out a, True)]"
         "p < n" "q < n" "p \<noteq> q" "a \<notin> broadcast" "t\<in>set As" "a \<in> actions t" |
       (broadcast) a p where
@@ -455,16 +454,17 @@ proof -
       case bin
       then have "ps = [p, q]"
         using \<open>a' = _\<close> usingT \<open>''enabled''\<close> by (tag "SEL _") (simp add: subseq_binD)
-      moreover from bin \<open>a' = _\<close> have
+      from \<open>ps = _\<close> obtain s1 where
+        [tag \<open>''upd''\<close>]: \<open>is_upd s (fs p) s1\<close> \<open>is_upd s1 (fs q) s'\<close>
+        usingT \<open>''upds''\<close> unfolding TAG_def by simp ((subst (asm) is_upds.simps; simp)+, fast)
+      from \<open>ps = _\<close> \<open>sync = _\<close> have
+        [tag \<open>TRANS ''in''\<close>]: "as p = In a" and [tag \<open>TRANS ''out''\<close>]: "as q = Out a"
+        by - (tag "''actions''", simp add: mk_bin_sync_def)+
+      from bin \<open>a' = _\<close> have
         "conv_action n a' = Some (Simple_Network_Language.label.Bin a)"
         by (simp add: conv_action_def mk_bin_sync_def)
-      moreover from \<open>ps = _\<close> \<open>sync = _\<close> have "as p = In a" "as q = Out a"
-        by - (tag "''actions''", simp add: mk_bin_sync_def)+
-      moreover from \<open>ps = _\<close> obtain s1 where
-        \<open>''upd'' \<bar> is_upd s (fs p) s1\<close> \<open>''upd'' \<bar> is_upd s1 (fs q) s'\<close>
-        usingT \<open>''upds''\<close> unfolding TAG_def by simp ((subst (asm) is_upds.simps; simp)+, fast)
-      ultimately show ?thesis
-        using bin \<open>a' = _\<close>
+      then show ?thesis
+        using bin \<open>a' = _\<close> \<open>ps = _\<close>
         apply (elim thesisI)
         apply simp
         unfolding \<open>N = _\<close>
@@ -477,7 +477,7 @@ proof -
         apply (tag, simp; fail)+
         done
     next
-      case [tagged]: broadcast
+      case broadcast
       from broadcast \<open>a' = _\<close> have
         "conv_action n a' = Some (Simple_Network_Language.label.Broad a)"
         by (auto simp: conv_action_def mk_sync_simps)
@@ -495,18 +495,18 @@ proof -
         using \<open>sync = _\<close> that by (cases "q < p"; auto simp: mk_broadcast_sync_def)
       then have all_actions_ingoing: "\<forall>q < n. q \<noteq> p \<longrightarrow> as q = In a"
         usingT \<open>''actions''\<close> by fastforce
-      with \<open>set ps' \<subseteq> _\<close> \<open>p \<notin> _\<close> \<open>p < n\<close> have [tagged]: "TRANS ''in'' \<bar> \<forall>q \<in> set ps'. as q = In a"
+      with \<open>set ps' \<subseteq> _\<close> \<open>p \<notin> _\<close> \<open>p < n\<close> have [tag "TRANS ''in''"]: "\<forall>q \<in> set ps'. as q = In a"
         by untag auto
-      from \<open>sync = _\<close> have [tagged]: "TRANS ''out'' \<bar> as p = Out a"
+      from \<open>sync = _\<close> have [tag "TRANS ''out''"]: "as p = Out a"
         usingT \<open>''actions''\<close> by (untag, auto simp: mk_broadcast_sync_def)
-      have [tagged]: "SEL ''distinct'' \<bar> distinct ps'"
+      have [tag "SEL ''distinct''"]: "distinct ps'"
         using \<open>subseq ps' _\<close> by (untag, rule subseq_distinct[rotated], simp)
       from \<open>p < n\<close> have "sorted ([0..<p] @ [Suc p..<n])"
         by - (rule subseq_sorted[where ys = "[0..<n]"], auto intro!: subseq_upt_split)
-      then have [tagged]: "SEL ''sorted'' \<bar> sorted ps'"
+      then have [tag "SEL ''sorted''"]: "sorted ps'"
         using \<open>subseq ps' _\<close> by (untag, rule subseq_sorted)
-      from \<open>ps = _\<close> obtain s1 where [tagged]:
-        \<open>''upd'' \<bar> is_upd s (fs p) s1\<close> \<open>''upds'' \<bar> is_upds s1 (map fs ps') s'\<close>
+      from \<open>ps = _\<close> obtain s1 where [tag \<open>''upd''\<close>]: \<open>is_upd s (fs p) s1\<close>
+        and [tag \<open>''upds''\<close>]: \<open>is_upds s1 (map fs ps') s'\<close>
         usingT \<open>''upds''\<close> by (untag, subst (asm) (2) is_upds.simps, auto)
       note [simp] = subset_code(1) trans_t_to_s_A_iff t_to_s_a_def
       note the_rule = step_u.step_broad[where
