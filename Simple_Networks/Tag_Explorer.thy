@@ -144,7 +144,7 @@ notepad begin
     sorry
 
   have False
-    using [[get_tagged \<open>t1\<close>]] \<^cancel>\<open>[[get_tagged \<open>t2\<close>]]\<close> \<^cancel>\<open>[[get_tagged (keep) \<open>Some _\<close>]]\<close>
+    using [[get_tagged \<open>t1\<close>]] \<^cancel>\<open>[[get_tagged \<open>t2\<close>]]\<close> [[get_tagged (2) (keep) \<open>Some _\<close>]]
     sorry
 
   have False

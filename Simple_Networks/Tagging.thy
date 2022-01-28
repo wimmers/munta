@@ -163,15 +163,24 @@ fun get_tagged_at_least_one ctxt pos tag = get_tagged ctxt tag |> check_at_least
 
 fun unfold_tags ctxt = Local_Defs.unfold ctxt @{thms TAG_def}
 
-fun filter_thms_attr (keep_tags, s) = Thm.rule_attribute [] (fn context => fn _ =>
+fun filter_thms_attr ((opt_num, keep_tags), s) = Thm.rule_attribute [] (fn context => fn _ =>
   let
     val pos = Syntax.read_input_pos s
     val ctxt = Context.proof_of context
     val pat = Proof_Context.read_term_pattern ctxt s
+    val facts = (
+      if opt_num = NONE then
+        get_tagged_single ctxt pos pat
+      else
+        get_tagged_at_least_one ctxt pos pat)
+    val post_fact = if keep_tags then I else unfold_tags ctxt
   in
-    case get_tagged_single ctxt pos pat of
-      [] => Drule.dummy_thm
-    | (x :: _) => if keep_tags then x else unfold_tags ctxt x
+    case opt_num of
+      NONE => List.hd facts |> post_fact
+    | SOME i =>
+      if length facts >= i andalso i > 0 then
+        Library.nth facts (i - 1)
+      else err ctxt pat pos ("Index " ^ string_of_int i ^ " out of range")
   end)
 
 fun tag_thms_attr ((keep_tags,retag), s) = Thm.mixed_attribute (fn (context, thm) =>
@@ -239,7 +248,8 @@ method_setup untag =
   \<open>Args.context >> (fn _ => fn ctxt => SIMPLE_METHOD' (untag_tac ctxt))\<close> "remove tags"
 
 attribute_setup get_tagged =
-  \<open>Scan.lift (Args.mode "keep" -- Parse.embedded_inner_syntax) >> filter_thms_attr\<close>
+  \<open>Scan.lift (Scan.option (Args.parens Parse.nat) -- Args.mode "keep" -- Parse.embedded_inner_syntax)
+    >> filter_thms_attr\<close>
 
 attribute_setup tag =
   \<open>Scan.lift (Args.mode "keep" -- Args.mode "re" -- Parse.embedded_inner_syntax) >> tag_thms_attr\<close>
@@ -267,6 +277,9 @@ notepad begin
 
   have [tagged]: "t1 \<bar> True" unfolding TAG_def ..
 
+  thm [[get_tagged (1) \<open>t1\<close>]]
+
+  \<comment> \<open>Note that these next three are not actually retrievable later.\<close>
   have test[tag (re) \<open>''tag''\<close>]: "True" "x = x" "tt \<bar> y = y" if "x > 0" for x y tt :: nat
     unfolding TAG_def by auto
   thm tagged thm test
