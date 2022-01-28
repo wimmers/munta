@@ -299,7 +299,7 @@ next
     subgoal new_valuation
       by (tag "''different''", auto)
     subgoal upds
-      by (tag "''different''" "''upds''" "''upd''", auto, blast intro: is_upds.intros)
+      by (tag "''different''" "''upd''", auto, blast intro: is_upds.intros)
     done
 next
   case [tagged, unfolded TAG_def]:
@@ -482,7 +482,7 @@ proof -
         "conv_action n a' = Some (Simple_Network_Language.label.Broad a)"
         by (auto simp: conv_action_def mk_sync_simps)
       have *: "set ps \<subseteq> {0..<n}" "subseq ps (p # [0..<p] @ [Suc p..<n])" "p \<in> set ps"
-        using \<open>sync = _\<close> usingT \<open>SEL _\<close> \<open>''enabled''\<close> by (auto simp: mk_broadcast_sync_def comp_def)
+        using \<open>sync = _\<close> usingT- \<open>SEL _\<close> \<open>''enabled''\<close> by (auto simp: mk_broadcast_sync_def comp_def)
       then obtain ps' where [simp]: "ps = p # ps'"
         by (cases ps) (auto split: if_split_asm elim: list_emb_set)
       from * \<open>ps = _\<close> have "subseq ps' ([0..<p] @ [Suc p..<n])"
