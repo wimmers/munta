@@ -145,14 +145,31 @@ val tagged = Named_Theorems.check @{context} ("tagged", Position.none)
 fun get_tagged ctxt tag =
   filter_tagged (Proof_Context.theory_of ctxt) tag (Named_Theorems.get ctxt tagged)
 
+fun err ctxt trm pos msg =
+  error (msg ^ Position.here pos ^ ":\n" ^ Syntax.string_of_term ctxt trm);
+
+fun check_single ctxt tag pos thms = case thms of
+  [x] => [x]
+| [] => err ctxt tag pos "No fact with tag"
+| _  => err ctxt tag pos "Ambiguous tag"
+
+fun get_tagged_single ctxt pos tag = get_tagged ctxt tag |> check_single ctxt tag pos
+
+fun check_at_least_one ctxt tag pos thms = case thms of
+  [] => err ctxt tag pos "No fact with tag"
+| xs => xs
+
+fun get_tagged_at_least_one ctxt pos tag = get_tagged ctxt tag |> check_at_least_one ctxt tag pos
+
 fun unfold_tags ctxt = Local_Defs.unfold ctxt @{thms TAG_def}
 
 fun filter_thms_attr (keep_tags, s) = Thm.rule_attribute [] (fn context => fn _ =>
   let
+    val pos = Syntax.read_input_pos s
     val ctxt = Context.proof_of context
     val pat = Proof_Context.read_term_pattern ctxt s
   in
-    case get_tagged ctxt pat of
+    case get_tagged_single ctxt pos pat of
       [] => Drule.dummy_thm
     | (x :: _) => if keep_tags then x else unfold_tags ctxt x
   end)
@@ -172,9 +189,10 @@ val untagged_attr = Thm.rule_attribute [] (fn context => unfold_tags (Context.pr
 
 fun get_tagged_state keep_tags s: Proof.state -> Proof.state = fn st =>
   let
+    val pos = Syntax.read_input_pos s
     val ctxt = Proof.context_of st
     val tag = Proof_Context.read_term_pattern ctxt s
-    val thms = get_tagged ctxt tag
+    val thms = get_tagged_single ctxt pos tag
     val thms = if keep_tags then thms else map (unfold_tags ctxt) thms
   in Proof.using [[(thms, [])]] st end
 
@@ -191,7 +209,7 @@ fun TRY' tac = tac ORELSE' K all_tac;
 
 fun insert_tagged_meth xs ctxt =
   let
-    val facts = flat (map (get_tagged ctxt) xs)
+    val facts = flat (map (fn (pos, tag) => get_tagged_at_least_one ctxt pos tag) xs)
     val tac = Method.insert_tac ctxt facts THEN' TRY' (auto_insert_tac ctxt)
   in
     SIMPLE_METHOD' tac
@@ -206,7 +224,14 @@ Outer_Syntax.command \<^command_keyword>\<open>usingT\<close> "use tagged facts"
     >> (Toplevel.proof o get_tagged_trans))
 \<close>
 
-method_setup insertT = \<open>Scan.repeat Args.term_pattern >> insert_tagged_meth\<close> "insert tagged facts"
+ML \<open>
+val position_parser: Position.T parser = Scan.ahead Parse.not_eof >> Token.pos_of
+val position_ctxt_parser: Position.T context_parser = Scan.lift position_parser
+\<close>
+
+method_setup insertT =
+  \<open>Scan.repeat (position_ctxt_parser -- Args.term_pattern) >> insert_tagged_meth\<close>
+  "insert tagged facts"
 
 method_setup untag =
   \<open>Args.context >> (fn _ => fn ctxt => SIMPLE_METHOD' (untag_tac ctxt))\<close> "remove tags"
@@ -227,15 +252,15 @@ notepad begin
     sorry
 
   have False
-    using [[get_tagged \<open>t1\<close>]] [[get_tagged \<open>t2\<close>]] [[get_tagged \<open>Some _\<close>]]
+    using [[get_tagged \<open>t1\<close>]] \<^cancel>\<open>[[get_tagged \<open>t2\<close>]]\<close> [[get_tagged \<open>Some _\<close>]]
+    sorry
+
+  have False thm tagged
+    usingT \<^cancel>\<open>\<open>''hi''\<close>\<close> \<open>Some _\<close> \<open>t1\<close>
     sorry
 
   have False
-    usingT \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>
-    sorry
-
-  have False
-    apply (insertT \<open>''hi''\<close> \<open>Some _\<close> \<open>t1\<close>)
+    apply (insertT \<^cancel>\<open>\<open>''hi''\<close>\<close> \<open>Some _\<close> \<open>t1\<close>)
     sorry
 
   have [tagged]: "t1 \<bar> True" unfolding TAG_def ..
@@ -258,7 +283,7 @@ notepad begin
     by untag
 
   have "t1 \<bar> True"
-    apply (insertT \<open>Some _\<close> \<open>''hi''\<close>)
+    apply (insertT \<open>Some _\<close> \<^cancel>\<open>\<open>''hi''\<close>\<close> \<^cancel>\<open>\<open>t1\<close>\<close>)
     by untag
 
   have "t1 \<bar> True" "t2 \<bar> True"
@@ -266,7 +291,6 @@ notepad begin
     done
 
 end
-
 
 
 
@@ -323,7 +347,7 @@ ML \<open>
 fun instantiate_TAG ctxt (t: term) =
 let
   val ct = Thm.cterm_of ctxt t
-in (* XXX How infefficient is this? *)
+in (* XXX How inefficient is this? *)
   \<^instantiate>\<open>'t = \<open>Thm.ctyp_of_cterm ct\<close> and t = ct in
     lemma (schematic) \<open>(t \<bar> P) = TAG' t P\<close> for t :: 't by (rule TAG)\<close>
 end
@@ -351,10 +375,17 @@ fun mk_auto_insert_tac tac = SUBGOAL (fn (concl, i) =>
   | _ => tac [] i
 )
 
-fun auto_filter_tags_and_insert_tac0 ctxt props fixes tags0 =
+fun auto_filter_tags_and_insert_tac0 strict ctxt props fixes tags0 =
   let
-    val tags = map (Proof_Context.read_term_pattern ctxt) props @ tags0
-    val facts = flat (map (get_tagged ctxt) tags)
+    val pos_tags = map
+      (fn s => (Syntax.read_input_pos s, Proof_Context.read_term_pattern ctxt s))
+      props
+    val get_fact =
+      if strict then
+        fn (pos, t) => get_tagged_at_least_one ctxt pos t
+      else
+        fn (_, t) => get_tagged ctxt t
+    val facts = flat (map get_fact pos_tags) @ flat (map (get_tagged ctxt) tags0)
     val protect_eqs = map (instantiate_TAG ctxt) tags0
   in
     REPEAT (CHANGED_PROP (unfold_tac' ctxt protect_eqs 1))
@@ -362,9 +393,9 @@ fun auto_filter_tags_and_insert_tac0 ctxt props fixes tags0 =
     THEN TRY (Method.insert_tac ctxt facts 1)
   end
 
-fun auto_filter_tags_and_insert_tac ctxt props fixes =
+fun auto_filter_tags_and_insert_tac strict ctxt props fixes =
   mk_auto_insert_tac
-    (fn tags => fn _ => auto_filter_tags_and_insert_tac0 ctxt props fixes tags) 1
+    (fn tags => fn _ => auto_filter_tags_and_insert_tac0 strict ctxt props fixes tags) 1
 
 val props_fixes_parser: (string list * (binding * string option * mixfix) list) context_parser =
   Scan.lift (Scan.repeat Parse.embedded_inner_syntax -- Parse.for_fixes)
@@ -386,16 +417,16 @@ method_setup filter_tags =
   "Filter tagged facts"
 
 method_setup tag0 =
-  \<open>props_fixes_parser >>
-     (fn (props, fixes) => fn ctxt =>
-        SIMPLE_METHOD (auto_filter_tags_and_insert_tac ctxt props fixes))\<close>
+  \<open>Scan.lift (Args.mode "-") -- props_fixes_parser >>
+     (fn (non_strict, (props, fixes)) => fn ctxt =>
+        SIMPLE_METHOD (auto_filter_tags_and_insert_tac (not non_strict) ctxt props fixes))\<close>
   "Filter tagged facts and insert matching tagged facts, taking goal tag into account"
 
 method_setup tag =
-  \<open>props_fixes_parser >>
-     (fn (props, fixes) => fn ctxt =>
+  \<open>Scan.lift (Args.mode "-") -- props_fixes_parser >>
+     (fn (non_strict, (props, fixes)) => fn ctxt =>
         SIMPLE_METHOD (DETERM (
-               auto_filter_tags_and_insert_tac ctxt props fixes
+               auto_filter_tags_and_insert_tac (not non_strict) ctxt props fixes
           THEN unfold_tac' ctxt @{thms TAG_def} 1)))\<close>
   "Like tags0 but removing tags in the end"
 
@@ -416,9 +447,9 @@ lemma
   "TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG r U \<Longrightarrow> P"
   \<comment> \<open>XXX: The first three fail to recall facts from \<open>tagged\<close>.
       We would need to read the variables (and generalize them again) like in \<open>rule_insts.ML\<close>.\<close>
-  apply (tag0 \<open>Some x\<close> t for x)
+\<^cancel>\<open>  apply (tag0 \<open>Some x\<close> t for x)
   apply (tag \<open>Some u\<close> t for u)
-  apply (tag \<open>Some s\<close> t for s :: string)
+  apply (tag \<open>Some s\<close> t for s :: string)\<close>
   apply (insertT \<open>Some _\<close>)
   apply (tag \<open>Some _\<close>)
   oops
@@ -427,7 +458,7 @@ lemma [tagged]: "''hi'' \<bar> True" unfolding TAG_def ..
 
 lemma
   "\<And>tt. TAG t V \<Longrightarrow> TAG (Some p) P \<Longrightarrow> TAG ''hi'' U \<Longrightarrow> TAG ''hi'' P"
-  apply (tag t)
+  apply (tag (-) t)
   oops
 
 
