@@ -814,6 +814,7 @@ locale Simple_Network_Impl_nat =
     "\<forall>sync \<in> set syncs. \<forall>(p, a, b) \<in> set sync. p < length automata \<and> a < num_actions"
     "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, _, a, _, _, _) \<in> set trans.
         pred_act (\<lambda>a. a < num_actions) a"
+    "\<forall>sync \<in> set syncs. distinct (map fst sync)"
   assumes clock_set:
     "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, g, _, _, r, _) \<in> set trans.
       (\<forall>c \<in> set r. 0 < c \<and> c \<le> m) \<and>
