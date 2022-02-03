@@ -1081,20 +1081,6 @@ lemma select_trans_from_sync_alt_def:
   apply (fo_rule map_cong arg_cong2, auto)+
   done
 
-lemma list_all2_fst_aux:
-  "map fst xs = ys" if "list_all2 (\<lambda>x y. fst x = y) xs ys"
-  using that by (induction) auto
-
-thm sync_trans_from_def
-
-lemma
-  assumes "list_emb P xs zs" "list_emb P ys zs"
-  shows "xs = ys"
-  oops
-
-\<^cancel>\<open>abbreviation sync where
-  "sync \<equiv> TRANS ''sync''"\<close>
-
 lemma empty_not_in_select_trans_from_sync: "[] \<notin> set (select_trans_from_sync sync xs)"
   unfolding select_trans_from_sync_alt_def by auto
 
@@ -1113,8 +1099,7 @@ definition is_select_basic where
     (\<forall>p \<in> set ps. (L ! p, bs p, gs p, Com (as p), fs p, rs p, ls' p) \<in> trans (N p)) \<and>
   ''bexp''    \<bbar> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
   SEL ''range''      \<bbar> set ps \<subseteq> {0..<n_ps} \<and>
-  SEL ''sublist'' \<bbar> subseq ps (map fst sync)
-"
+  SEL ''sublist'' \<bbar> subseq ps (map fst sync)"
 
 definition is_select_maximal where
   "is_select_maximal L s sync ps \<equiv> ''maximal'' \<bar> \<forall>q < n_ps. q \<notin> set ps \<longrightarrow>
@@ -1151,33 +1136,6 @@ lemma trans_from_combs_folder_folding: "
     " for ps bs gs a' fs rs ls' g as r L s
   unfolding trans_from_combs_folder_def by (induction ps arbitrary: g a r L s; simp)
 
-\<comment> \<open>XXX: Move\<close>
-lemma upd_swap:
-    "(fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] = fold (\<lambda>p L . L[p := ls' p]) ps (L[p := l'])"
-    if "p \<notin> set ps" for ps ls' p l'
-    using that by (induction ps arbitrary: L) (auto simp: list_update_swap)
-
-lemma subseq_mapE:
-  assumes "subseq xs (map f ys)"
-  obtains xs' where "subseq xs' ys" "map f xs' = xs"
-  using assms
-  by (induct x1 \<equiv> xs x2 \<equiv> "map f ys" arbitrary: xs ys rule: list_emb.induct)
-     (auto, metis map_consI(1) subseq_Cons2)
-
-lemma list_all2_map_eq_iff:
-  "list_all2 (\<lambda>x y. f x = g y) xs ys \<longleftrightarrow> map f xs = map g ys"
-proof
-  assume "list_all2 (\<lambda>x y. f x = g y) xs ys"
-  then show "map f xs = map g ys"
-    by induction auto
-next
-  assume "map f xs = map g ys"
-  then have "length xs = length ys"
-    by (rule map_eq_imp_length_eq)
-  then show "list_all2 (\<lambda>x y. f x = g y) xs ys"
-    using \<open>map f xs = _\<close> by (induction rule: list_induct2; simp)
-qed
-
 lemma broad_trans_from_correct:
   "(sync_trans_from, trans_sync) \<in> transition_rel states'"
   unfolding transition_rel_def
@@ -1207,11 +1165,9 @@ proof clarsimp
     "(L ! p, b, g, Com a', f, r, l') \<in> Simple_Network_Language.trans (N p) \<and> a' = a1"
     if "(b, g, a', f, r, l') \<in> set (COM ! p ! a1)" "a1 < num_actions" "p < n_ps"
     for p b g a' f r l' a1
-    using that unfolding COM_def trans_com_grouped_def
-    apply simp
-    apply (drule in_actions_by_state'D)
-    unfolding trans_com_map_def set_map_filter
-    by (auto split: option.split_asm) (auto split: act.split_asm if_split_asm dest: trans_mapD)
+    using that unfolding COM_def trans_com_grouped_def trans_com_map_def
+    by (auto split: option.split_asm simp: set_map_filter dest!: in_actions_by_state'D)
+       (auto split: act.split_asm if_split_asm dest: trans_mapD)
   have [simp]: "length COM = n_ps"
     unfolding COM_def by simp
   have [simp]: "length (COM ! p) = num_actions" if "p < n_ps" for p
@@ -1280,7 +1236,7 @@ proof clarsimp
     have action_boundedI: "as p < num_actions" if "(p, a, b) \<in> set sync" for p a b
       usingT \<open>''actions''\<close> using action_set(1) \<open>sync \<in> _\<close> \<open>_ \<in> set sync\<close>
       by (auto split: prod.split_asm) metis
-    have 00: "(bs p, gs p, as p, fs p, rs p, ls' p) \<in> set (COM' ! p ! as p) \<and> as p = a"
+    have COM'_I1: "(bs p, gs p, as p, fs p, rs p, ls' p) \<in> set (COM' ! p ! as p) \<and> as p = a"
       if "(p, a, b) \<in> set sync" "p \<in> set ps" for p a b
     proof -
       from \<open>p \<in> _\<close> trans have
@@ -1301,22 +1257,23 @@ proof clarsimp
       ultimately show ?thesis
         by auto
     qed
-    have 0: "(bs p, gs p, as p, fs p, rs p, ls' p) \<in> set (COM' ! p ! as p) \<and> as p = a"
+    have COM'_I2: "(bs p, gs p, as p, fs p, rs p, ls' p) \<in> set (COM' ! p ! as p) \<and> as p = a"
       if "(p, a, b) \<in> set ps'" for p a b
-      using that ps'(2) by (intro 00) auto
+      using that ps'(2) by (intro COM'_I1) auto
     { fix p assume "p \<in> set ps"
       consider b where
         "(p, as p, b) \<in> set ps'" "(bs p, gs p, as p, fs p, rs p, ls' p) \<in> set (COM' ! p ! as p)"
       proof -
         from \<open>p \<in> _\<close> ps' obtain a' b where "(p, a', b) \<in> set ps'"
           by (force elim: list_emb_set)
-        from this 0[OF this] show ?thesis
+        from this COM'_I2[OF this] show ?thesis
           using that by auto
       qed
     } note 01 = this
-    have 1: "COM' ! p ! a \<noteq> []" if "(p, a, b) \<in> set ps'" for p a b
-      using 0[OF that] by auto
-    have 2: False if "(p, a, b) \<notin> set ps'" "COM' ! p ! a \<noteq> []" "(p, a, b) \<in> set sync" for p a b
+    have "COM' ! p ! a \<noteq> []" if "(p, a, b) \<in> set ps'" for p a b
+      using COM'_I2[OF that] by auto
+    moreover have False
+      if "(p, a, b) \<notin> set ps'" "COM' ! p ! a \<noteq> []" "(p, a, b) \<in> set sync" for p a b
     proof -
       from \<open>_ \<in> set sync\<close> have "p < n_ps"
         using action_set(1) \<open>sync \<in> set syncs\<close> unfolding n_ps_def by auto
@@ -1337,8 +1294,8 @@ proof clarsimp
       then show ?thesis
         usingT \<open>''maximal''\<close> using \<open>p < _\<close> \<open>p \<notin> set ps\<close> \<open>_ \<in> set sync\<close> \<open>as p = a\<close> \<open>b = _\<close> by force
     qed
-    have ps'_eq: "filter (\<lambda>(i, a, strong). COM' ! i ! a \<noteq> []) sync = ps'"
-      using 1 2 \<open>distinct _\<close> ps' by (intro filter_distinct_eqI) (auto intro: distinct_mapI)
+    ultimately have ps'_eq: "filter (\<lambda>(i, a, strong). COM' ! i ! a \<noteq> []) sync = ps'"
+      using \<open>distinct _\<close> ps' by (intro filter_distinct_eqI) (auto intro: distinct_mapI)
     then have "map fst (filter (\<lambda>(i, a, strong). COM' ! i ! a \<noteq> []) sync) = ps"
       using ps' by simp
     from \<open>_ = ps'\<close> have "length selected = length ps'"
@@ -1365,9 +1322,7 @@ proof clarsimp
         from \<open>i < length ps\<close> have "p \<in> set ps"
           unfolding p_def by auto
         from 01[OF this] ps'(2) show ?thesis
-          unfolding p_def Let_def
-          unfolding selected_def select_trans_from_sync_alt_def
-          unfolding set_map
+          unfolding p_def Let_def selected_def select_trans_from_sync_alt_def
           apply (subst (2) map_cong)
           apply (rule HOL.refl)
           apply (simp; fail)
@@ -1396,7 +1351,7 @@ proof clarsimp
         using make_combsD by auto
     qed
     have is_sync_enabled: "is_sync_enabled sync COM'"
-      unfolding is_sync_enabled_def list_all_iff using 00 usingT \<open>''enabled''\<close> by fastforce
+      unfolding is_sync_enabled_def list_all_iff using COM'_I1 usingT \<open>''enabled''\<close> by fastforce
     have "is_sync_enabled_committed sync COM' (get_committed L)" if "get_committed L \<noteq> []"
       "is_select_committed L ps"
     proof -
@@ -1467,11 +1422,9 @@ proof clarsimp
       show ?thesis
       proof (cases "map_of xs p")
         case None
-        have *: "((a, False) = (SOME n. \<exists>b. (p, n, b) \<in> set sync, False)) = ((SOME n. \<exists>b. (p, n, b) \<in> set sync) = a) \<and> (a, False) \<noteq> (SOME n. \<exists>b. (p, n, b) \<in> set sync, True) \<and> (a, True) \<noteq> (SOME n. \<exists>b. (p, n, b) \<in> set sync, False) \<and> ((a, True) = (SOME n. \<exists>b. (p, n, b) \<in> set sync, True)) = ((SOME n. \<exists>b. (p, n, b) \<in> set sync) = a)"
-            by fastforce
-        from None show ?thesis
-          unfolding defs apply simp
-          using \<open>distinct (map fst sync)\<close> * by (smt (z3) eq_key_imp_eq_value someI2 that)
+        then show ?thesis
+          using \<open>distinct (map fst sync)\<close> that unfolding defs
+          by (simp, intro some_equality) (auto dest: eq_key_imp_eq_value)
       next
         case (Some r)
         then obtain b g a1 f r l' where *: "map_of xs p = Some (b, g, a1, f, r, l')"
@@ -1612,7 +1565,7 @@ proof clarsimp
     moreover have
       "(concat (map gs ps), Sync sync, concat (map rs ps), L', s') \<in>
         set (make_trans_from_combs sync (L, s) (make_combs_from_sync sync COM'))"
-      using assms
+      using assms \<open>dom s = _\<close>
       apply -
       apply (frule (1) make_combsD)
       subgoal non_empty_selection
@@ -1622,15 +1575,12 @@ proof clarsimp
         \<comment> \<open>Or simply disallow it: a) via static constraints b) in the semantics\<close>
         \<comment> \<open>Tending towards b) now, but what do other tools do?\<close>
         sorry
-      unfolding make_trans_from_combs_alt_def
-      apply (clarsimp simp: set_map_filter Let_def split: prod.split)
-      unfolding is_sync_result_def apply (elim conjE, tag- \<open>''upds''\<close> \<open>''new loc''\<close>)
-      unfolding is_select_basic_def apply (elim conjE)
-      apply (tag- \<open>TRANS _\<close> \<open>SEL ''range''\<close>)
-      using \<open>dom s = _\<close>
+      apply (clarsimp simp: make_trans_from_combs_alt_def set_map_filter Let_def split: prod.split)
+      unfolding is_sync_result_def is_select_basic_def apply (elim conjE)
+      apply (tag- \<open>TRANS _\<close> \<open>SEL ''range''\<close> \<open>''upds''\<close> \<open>''new loc''\<close>)
       supply [forward4] = is_upds_dom3 is_updsD[rotated 3]
       apply frules_all
-      apply (intro exI allI conjI impI)
+      apply intros
             apply assumption
            apply (simp add: trans_from_combs_folder_folding; fail)+
       apply (auto simp add: trans_from_combs_folder_folding check_bounded_iff[symmetric])
@@ -1667,42 +1617,36 @@ proof clarsimp
   show "(((L, s), g, a, r, L', s') \<in> trans_sync) =
         ((g, a, r, L', s') \<in> set (sync_trans_from (L, s)))"
     unfolding sync_trans_from_make_trans
-    apply auto
-    subgoal
+    apply (clarsimp, safe)
+    subgoal \<comment> \<open>\<open>\<longrightarrow>\<close>\<close>
       unfolding trans_sync_tagged_def
       apply clarsimp
-      thm make_transI
       apply intros
        apply (tag- \<open>''sync''\<close>, simp add: syncs_def; fail)
       apply (rule make_transI)
       unfolding is_select_basic_def is_select_maximal_def is_sync_result_def is_select_committed_def
-          apply safe
-             apply (tag, assumption)+
-           preferT "''sync''" apply (tag, simp add: syncs_def; fail)
-          apply (tag, assumption)+
-       preferT "''maximal''" apply (tag, fast)
+      apply safe
+      preferT "''sync''" apply (tag, simp add: syncs_def; fail)
+      preferT "''maximal''" apply (tag, fast)
+      apply (tag, assumption)+
       apply (tag- \<open>''bounded''\<close>, assumption; fail)
       done
-    subgoal
+    subgoal \<comment> \<open>\<open>\<longleftarrow>\<close>\<close>
       apply (frule (1) make_transD)
-
-      apply safe
       unfolding trans_sync_tagged_def
       apply clarsimp
       unfolding is_select_basic_def is_select_maximal_def is_sync_result_def is_select_committed_def
-      apply elims
-      apply intros
-                      apply solve_triv+
-      apply (tag, simp add: syncs_def; fail)
-                   apply (all \<open>(tag, assumption)?\<close>)
-
-    preferT "''maximal''" subgoal premises prems[tagged] for bs gs as fs rs ls' ps
+      apply (elims, intros)
+      apply (rule HOL.refl, rule HOL.refl)
+      preferT "''sync''" apply (tag, simp add: syncs_def; fail)
+        apply (all \<open>(tag, assumption)?\<close>)
+      preferT "''maximal''" subgoal premises prems[tagged] for bs gs as fs rs ls' ps
         by (tag, fast)
-    subgoal "\<open>L \<in> states\<close>"
-      using \<open>L \<in> states\<close> .
-    preferT "''bounded''"
-      by (tag, rule HOL.TrueI)
-    done
+      subgoal "\<open>L \<in> states\<close>"
+        using \<open>L \<in> states\<close> .
+      preferT "''bounded''"
+        by (tag, rule HOL.TrueI)
+      done
 qed
 
 

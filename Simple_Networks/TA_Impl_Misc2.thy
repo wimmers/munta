@@ -231,10 +231,21 @@ lemma sorted_distinct_subseq_iff:
        assumption
      )+
 
+lemma subseq_mapE:
+  assumes "subseq xs (map f ys)"
+  obtains xs' where "subseq xs' ys" "map f xs' = xs"
+  using assms
+  by (induct x1 \<equiv> xs x2 \<equiv> "map f ys" arbitrary: xs ys rule: list_emb.induct)
+     (auto, metis map_consI(1) subseq_Cons2)
+
 lemma list_all2_map_fst_aux:
   assumes "list_all2 (\<lambda>x y. x \<in> Pair y ` (zs y)) xs ys"
   shows "list_all2 (=) (map fst xs) ys"
   using assms by (smt fstI imageE list.rel_mono_strong list_all2_map1)
+
+lemma list_all2_fst_aux:
+  "map fst xs = ys" if "list_all2 (\<lambda>x y. fst x = y) xs ys"
+  using that by (induction) auto
 
 (* XXX Move to distribution *)
 text \<open>Stronger version of @{thm Map.map_of_mapk_SomeI}\<close>
@@ -253,5 +264,19 @@ theorem map_of_mapk_SomeI:
     and "map_of t k = Some x"
   shows "map_of (map (\<lambda>(k, y). (f k, g y)) t) (f k) = Some (g x)"
   using assms by - (rule map_of_mapk_SomeI', erule inj_on_subset, auto)
+
+lemma list_all2_map_eq_iff:
+  "list_all2 (\<lambda>x y. f x = g y) xs ys \<longleftrightarrow> map f xs = map g ys"
+proof
+  assume "list_all2 (\<lambda>x y. f x = g y) xs ys"
+  then show "map f xs = map g ys"
+    by induction auto
+next
+  assume "map f xs = map g ys"
+  then have "length xs = length ys"
+    by (rule map_eq_imp_length_eq)
+  then show "list_all2 (\<lambda>x y. f x = g y) xs ys"
+    using \<open>map f xs = _\<close> by (induction rule: list_induct2; simp)
+qed
 
 end
