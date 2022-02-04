@@ -184,7 +184,7 @@ definition
   "automaton_of \<equiv>
     \<lambda>(committed, urgent, trans, inv). (set committed, set urgent, set trans, default_map_of [] inv)"
 
-locale Simple_Network_Impl_Defs =
+locale Generalized_Network_Impl_Defs =
   fixes automata ::
     "('s list \<times> 's list \<times> ('a act, 's, 'c, 't, 'x, int) transition list
       \<times> ('s \<times> ('c, 't) cconstraint) list) list"
@@ -208,8 +208,8 @@ lemma L_len[intro, dest]:
 end
 
 (*
-locale Simple_Network_Impl =
-  Simple_Network_Impl_Defs automata broadcast bounds
+locale Generalized_Network_Impl =
+  Generalized_Network_Impl_Defs automata broadcast bounds
   for
     automata ::
     "('s list \<times> ('a act, 's, 'c, int, 'x, int) transition list
@@ -217,7 +217,7 @@ locale Simple_Network_Impl =
   and broadcast bounds
 *)
 
-locale Simple_Network_Impl =
+locale Generalized_Network_Impl =
   fixes automata ::
     "('s list \<times> 's list \<times> ('a act, 's, 'c, int, 'x, int) transition list
       \<times> ('s \<times> ('c, int) cconstraint) list) list"
@@ -225,7 +225,7 @@ locale Simple_Network_Impl =
     and bounds' :: "('x \<times> (int \<times> int)) list"
 begin
 
-sublocale Simple_Network_Impl_Defs automata syncs bounds' .
+sublocale Generalized_Network_Impl_Defs automata syncs bounds' .
 
 end
 
@@ -236,7 +236,7 @@ lemma f_the_inv_f:
   "f (the_inv f x) = x" if "inj f" "x \<in> range f"
   using that by (auto simp: the_inv_f_f)
 
-context Simple_Network_Impl
+context Generalized_Network_Impl
 begin
 
 lemma N_eq:
@@ -272,7 +272,7 @@ inductive_cases is_val_elims:
 method fprem =
   (match premises in R: _ \<Rightarrow> \<open>rule R[elim_format]\<close>, assumption)
 
-context Simple_Network_Impl
+context Generalized_Network_Impl
 begin
 
 paragraph \<open>Conversion from integers to reals commutes with product construction.\<close>
@@ -332,19 +332,19 @@ lemma trans_conv_N_eq:
   by (simp split: prod.split add: trans_def)
 
 private lemma 71:
-  "(l, b, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)"
-  if "(l, b, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" "i < n_ps"
+  "(l, b, conv_cc g, a, r, u, l')\<in>trans (conv.N i)"
+  if "(l, b, g, a, r, u, l')\<in> trans (N i)" "i < n_ps"
   using that by (force simp add: trans_conv_N_eq Generalized_Network_Language.conv_t_def)
 
 private lemma 72:
-  "(l, b, conv_cc g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)
-\<longleftrightarrow> (l, b, g, a, r, u, l')\<in>Simple_Network_Language.trans (N i)" if "i < n_ps"
+  "(l, b, conv_cc g, a, r, u, l')\<in>trans (conv.N i)
+\<longleftrightarrow> (l, b, g, a, r, u, l')\<in>trans (N i)" if "i < n_ps"
   by (auto simp: trans_conv_N_eq[OF that] Generalized_Network_Language.conv_t_def
            dest: conv_cc_inj intro: image_eqI[rotated])
 
 private lemma 73:
-  "\<exists>g'. g = conv_cc g' \<and> (l, b, g', a, r, u, l')\<in>Simple_Network_Language.trans (N i)"
-  if "(l, b, g, a, r, u, l')\<in>Simple_Network_Language.trans (conv.N i)" "i < n_ps"
+  "\<exists>g'. g = conv_cc g' \<and> (l, b, g', a, r, u, l')\<in>trans (N i)"
+  if "(l, b, g, a, r, u, l')\<in>trans (conv.N i)" "i < n_ps"
   using that by (force simp: trans_conv_N_eq Generalized_Network_Language.conv_t_def)
 
 lemma conv_bounds[simp]:
@@ -505,7 +505,7 @@ lemma collect_clock_pairs_invsI:
   using that unfolding collect_clock_pairs_def by (auto dest!: default_map_of_in_listD)
 
 lemma mem_trans_N_iff:
-  "t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (snd (automata ! i))))"
+  "t \<in> trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (snd (automata ! i))))"
   if "i < n_ps"
   unfolding N_eq[OF that] by (auto split: prod.splits simp: automaton_of_def trans_def)
 
@@ -610,7 +610,7 @@ lemma (in Prod_TA_Defs) states_loc_set:
   by (elims add: more_elims)
 
 lemma (in Prod_TA_Defs) finite_states:
-  assumes finite_trans: "\<forall>p < n_ps. finite (Simple_Network_Language.trans (N p))"
+  assumes finite_trans: "\<forall>p < n_ps. finite (trans (N p))"
   shows "finite states"
 proof -
   have "states \<subseteq> {L. set L \<subseteq> loc_set \<and> length L = n_ps}"
@@ -620,12 +620,12 @@ proof -
   finally show ?thesis .
 qed
 
-context Simple_Network_Impl
+context Generalized_Network_Impl
 begin
 
 lemma trans_N_finite:
   assumes "p < n_ps"
-  shows "finite (Simple_Network_Language.trans (N p))"
+  shows "finite (trans (N p))"
   using assms by (subst N_eq) (auto simp: automaton_of_def trans_def split: prod.split)
 
 lemma states_finite:
@@ -786,15 +786,15 @@ definition (in Prod_TA_Defs)
   (\<Union>S \<in> {(fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps}.
     \<Union>f \<in> S. \<Union> (x, e) \<in> set f. {x} \<union> vars_of_exp e)"
 
-locale Simple_Network_Impl_nat_defs =
-  Simple_Network_Impl automata
+locale Generalized_Network_Impl_nat_defs =
+  Generalized_Network_Impl automata
   for automata ::
     "(nat list \<times> nat list \<times> (nat act, nat, nat, int, nat, int) transition list
       \<times> (nat \<times> (nat, int) cconstraint) list) list" +
   fixes m :: nat and num_states :: "nat \<Rightarrow> nat" and num_actions :: nat
 
-locale Simple_Network_Impl_nat =
-  Simple_Network_Impl_nat_defs +
+locale Generalized_Network_Impl_nat =
+  Generalized_Network_Impl_nat_defs +
   assumes has_clock: "m > 0"
   assumes non_empty: "0 < length automata"
     (* assumes "length automata = length state_nums" *)
@@ -865,7 +865,7 @@ qed
 end (* Simple Network Impl nat *)
 
 
-context Simple_Network_Impl
+context Generalized_Network_Impl
 begin
 
 definition "sem \<equiv> (set syncs, map (automaton_of o conv_automaton) automata, map_of bounds')"

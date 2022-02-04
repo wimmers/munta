@@ -158,7 +158,7 @@ lemma in_union_map_ofD:
 
 paragraph \<open>Implementation of state set\<close>
 
-context Simple_Network_Impl_nat_defs
+context Generalized_Network_Impl_nat_defs
 begin
 
 definition
@@ -175,13 +175,13 @@ lemma states_mem_compute':
 end
 
 
-context Simple_Network_Impl_nat
+context Generalized_Network_Impl_nat
 begin
 
 paragraph \<open>Fundamentals\<close>
 
 lemma mem_trans_N_iff:
-  \<open>t \<in> Simple_Network_Language.trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (snd (automata ! i))))\<close>
+  \<open>t \<in> trans (N i) \<longleftrightarrow> t \<in> set (fst (snd (snd (automata ! i))))\<close>
   if "i < n_ps"
   unfolding N_def fst_conv snd_conv
   unfolding automaton_of_def
@@ -200,7 +200,7 @@ lemma L_i_simp:
 
 lemma action_setD:
   \<open>pred_act (\<lambda>a'. a' < num_actions) a\<close>
-  if \<open>(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)\<close> \<open>p < n_ps\<close>
+  if \<open>(l, b, g, a, f, r, l') \<in> trans (N p)\<close> \<open>p < n_ps\<close>
   using that action_set
   by (cases "automata ! p")
     (subst (asm) mem_trans_N_iff; force dest!: nth_mem simp flip: length_automata_eq_n_ps)
@@ -224,17 +224,17 @@ lemma states'_bounded[intro, dest]:
 
 paragraph \<open>Implementation of invariants\<close>
 
-definition (in Simple_Network_Impl_nat_defs)
+definition (in Generalized_Network_Impl_nat_defs)
   "invs i \<equiv> let m = default_map_of [] (snd (snd (snd (automata ! i))));
     m' = map (\<lambda> j. m j) [0..<num_states i]
   in m'"
 
-definition (in Simple_Network_Impl_nat_defs)
+definition (in Generalized_Network_Impl_nat_defs)
   "invs1 \<equiv> map (\<lambda> i. let m = default_map_of [] (snd (snd (snd (automata ! i))));
     m' = map (\<lambda> j. m j) [0..<num_states i]
   in m') [0..<n_ps]"
 
-definition (in Simple_Network_Impl_nat_defs)
+definition (in Generalized_Network_Impl_nat_defs)
   "invs2 \<equiv> IArray (map (\<lambda> i. let m = default_map_of [] (snd (snd (snd (automata ! i))));
     m' = IArray (map (\<lambda> j. m j) [0..<num_states i])
   in m') [0..<n_ps])"
@@ -243,7 +243,7 @@ lemma refine_invs2:
   "invs2 !! i !! j = invs1 ! i ! j" if "i < n_ps"
   using that unfolding invs2_def invs1_def by simp
 
-definition (in Simple_Network_Impl_nat_defs)
+definition (in Generalized_Network_Impl_nat_defs)
   "inv_fun \<equiv> \<lambda>(L, _).
     concat (map (\<lambda>i. invs1 ! i ! (L ! i)) [0..<n_ps])"
 
@@ -252,7 +252,7 @@ lemma refine_invs1:
   using that unfolding invs_def invs1_def by simp
 
 lemma invs_simp:
-  "invs1 ! i ! (L ! i) = Simple_Network_Language.inv (N i) (L ! i)"
+  "invs1 ! i ! (L ! i) = inv (N i) (L ! i)"
   if "i < n_ps" "L \<in> states"
   using that unfolding refine_invs1[OF \<open>i < _\<close>] invs_def N_def fst_conv snd_conv
   unfolding inv_def
@@ -283,7 +283,7 @@ end (* Simple Network Impl nat *)
 
 paragraph \<open>Implementation of transitions\<close>
 
-context Simple_Network_Impl_nat_defs
+context Generalized_Network_Impl_nat_defs
 begin
 
 definition
@@ -515,7 +515,7 @@ end (* Simple Network Impl nat defs *)
 lemma product_lists_empty: "product_lists xss = [] \<longleftrightarrow> (\<exists>xs \<in> set xss. xs = [])" for xss
   by (induction xss) auto
 
-context Simple_Network_Impl_nat
+context Generalized_Network_Impl_nat
 begin
 
 paragraph \<open>Correctness for implementations of primitives\<close>
@@ -531,10 +531,10 @@ lemma dom_bounds_eq:
   done
 
 lemma check_bounded_iff:
-  "Simple_Network_Language.bounded bounds s \<longleftrightarrow> check_bounded s" if "dom s = {0..<n_vs}"
+  "bounded bounds s \<longleftrightarrow> check_bounded s" if "dom s = {0..<n_vs}"
   using that
   unfolding dom_bounds_eq[symmetric]
-  unfolding check_bounded_def Simple_Network_Language.bounded_def bounds_map_def bounds_def
+  unfolding check_bounded_def bounded_def bounds_map_def bounds_def
   by auto
 
 lemma get_committed_mem_iff:
@@ -572,7 +572,7 @@ lemma get_committed_distinct: "distinct (get_committed L)"
 
 lemma is_upd_make_updI2:
   "is_upd s upds (mk_upds s upds)"
-  if "(l, b, g, a, upds, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  if "(l, b, g, a, upds, r, l') \<in> trans (N p)" "p < n_ps"
     "dom s = {0..<n_vs}"
   using that var_set
   by (intro is_upd_make_updI, subst (asm) mem_trans_N_iff)
@@ -580,25 +580,25 @@ lemma is_upd_make_updI2:
 
 lemma var_setD:
   "\<forall>(x, upd)\<in>set f. x < n_vs \<and> (\<forall>i\<in>vars_of_exp upd. i < n_vs)"
-  if "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  if "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   using var_set that
   by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)+
 
 lemma var_setD2:
   "\<forall>i\<in>vars_of_bexp b. i < n_vs"
-  if "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  if "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   using var_set that
   by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)+
 
 lemma is_upd_dom2:
   "dom s' = {0..<n_vs}" if "is_upd s f s'"
-  "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
   unfolding that(4)[symmetric] using that by - (drule (1) var_setD, erule is_upd_dom, auto)
 
 lemma is_updD:
   "s' = mk_upds s f" if "is_upd s f s'"
-  "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
 proof -
   from is_upd_make_updI2[OF that(2-)] have "is_upd s f (mk_upds s f)" .
@@ -609,7 +609,7 @@ lemma is_upds_make_updsI2:
   "is_upds s upds (fold (\<lambda>upd s. mk_upds s upd) upds s)"
   if "dom s = {0..<n_vs}" 
     "\<forall>upd \<in> set upds. \<exists>p < n_ps. \<exists>l b g a r l'.
-        (l, b, g, a, upd, r, l') \<in> Simple_Network_Language.trans (N p)"
+        (l, b, g, a, upd, r, l') \<in> trans (N p)"
   apply (rule is_upds_make_updsI)
   subgoal
     using that using var_set
@@ -632,7 +632,7 @@ lemma is_upds_make_updsI2:
 lemma is_upds_dom2:
   assumes "is_upds s upds s'"
     and "\<forall>f \<in> set upds. \<exists> p < n_ps. \<exists> l b g a r l'.
-      (l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+      (l, b, g, a, f, r, l') \<in> trans (N p)"
     and "dom s = {0..<n_vs}"
   shows "dom s' = dom s"
   using assms by (elim is_upds_dom) (auto dest!: var_setD)
@@ -658,7 +658,7 @@ lemma is_updsD:
     "dom s = {0..<n_vs}" and
     "\<forall>p\<in>set ps.
         (ls p, bs p, gs p, as p, fs p, rs p, ls' p)
-        \<in> Simple_Network_Language.trans (N p)" and
+        \<in> trans (N p)" and
     "set ps \<subseteq> {0..<n_ps}" and
     "is_upds s (map fs ps) s'"
   shows "s' = fold (\<lambda>p s. mk_upds s (fs p)) ps s"
@@ -678,7 +678,7 @@ begin
 
 lemma trans_mapI:
   assumes
-    "(L ! p, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    "(L ! p, g, a, f, r, l') \<in> trans (N p)"
     "p < n_ps"
   shows
     "(g, a, f, r, l') \<in> set (trans_map p (L ! p))"
@@ -687,7 +687,7 @@ lemma trans_mapI:
 
 lemma trans_i_mapI:
   assumes
-    "(L ! p, b, g, Sil a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    "(L ! p, b, g, Sil a', f, r, l') \<in> trans (N p)"
     "p < n_ps"
   shows
     "(b, g, a', f, r, l') \<in> set (trans_i_map p (L ! p))"
@@ -695,7 +695,7 @@ lemma trans_i_mapI:
 
 lemma trans_mapI':
   assumes
-    "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    "(l, b, g, a, f, r, l') \<in> trans (N p)"
     "p < n_ps"
   shows
     "(b, g, a, f, r, l') \<in> set (trans_map p l)"
@@ -707,7 +707,7 @@ lemma trans_mapD:
     "(b, g, a, f, r, l') \<in> set (trans_map p l)"
     "p < n_ps"
   shows
-    "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    "(l, b, g, a, f, r, l') \<in> trans (N p)"
   using assms unfolding trans_map_def N_def fst_conv snd_conv trans_def
   by (subst nth_map) (auto split: prod.split elim: in_union_map_ofD[rotated] simp: automaton_of_def)
 
@@ -716,7 +716,7 @@ lemma trans_map_iff:
     "p < n_ps"
   shows
     "(b, g, a, f, r, l') \<in> set (trans_map p l)
- \<longleftrightarrow> (l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
+ \<longleftrightarrow> (l, b, g, a, f, r, l') \<in> trans (N p)"
   using trans_mapD trans_mapI' \<open>p < n_ps\<close> by auto
 
 lemma trans_i_mapD:
@@ -724,7 +724,7 @@ lemma trans_i_mapD:
     "(b, g, a', f, r, l') \<in> set (trans_i_map p (L ! p))"
     "p < n_ps"
   shows
-    "(L ! p, b, g, Sil a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    "(L ! p, b, g, Sil a', f, r, l') \<in> trans (N p)"
   using assms unfolding trans_i_map_def set_map_filter
   by (force split: act.split_asm intro: trans_mapD)
 
@@ -741,7 +741,7 @@ lemma get_committed_memI:
 
 lemma check_bexp_bvalI:
   "bval (the o s) b" if "check_bexp s b True"
-  "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
 proof -
   from var_setD2[OF that(2,3)] \<open>dom s = {0..<n_vs}\<close> have "check_bexp s b (bval (the o s) b)"
@@ -752,7 +752,7 @@ qed
 
 lemma check_bexp_bvalD:
   "check_bexp s b True" if "bval (the o s) b"
-  "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
+  "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
 proof -
   from var_setD2[OF that(2,3)] \<open>dom s = {0..<n_vs}\<close> have "check_bexp s b (bval (the o s) b)"
@@ -1149,7 +1149,7 @@ proof clarsimp
   define COM' where "COM' = map (map (filter (\<lambda> (b, _). bval (the o s) b))) COM"
   have COM_I:
     "(b, g, a', f, r, l') \<in> set (COM ! p ! a')"
-    if "(L ! p, b, g, Com a', f, r, l') \<in> Simple_Network_Language.trans (N p)"
+    if "(L ! p, b, g, Com a', f, r, l') \<in> trans (N p)"
       "p < n_ps" "a' < num_actions"
     for p b g a' f r l'
   proof -
@@ -1162,7 +1162,7 @@ proof clarsimp
       unfolding COM_def by auto
   qed
   have COM_D:
-    "(L ! p, b, g, Com a', f, r, l') \<in> Simple_Network_Language.trans (N p) \<and> a' = a1"
+    "(L ! p, b, g, Com a', f, r, l') \<in> trans (N p) \<and> a' = a1"
     if "(b, g, a', f, r, l') \<in> set (COM ! p ! a1)" "a1 < num_actions" "p < n_ps"
     for p b g a' f r l' a1
     using that unfolding COM_def trans_com_grouped_def trans_com_map_def
@@ -1179,7 +1179,7 @@ proof clarsimp
     using that \<open>dom s = {0..<n_vs}\<close> unfolding COM'_def
     by (auto dest!: COM_D[THEN conjunct1] elim: check_bexp_bvalI)
   have COM'_D:
-    "(L ! p, b, g, Com a', f, r, l') \<in> Simple_Network_Language.trans (N p)
+    "(L ! p, b, g, Com a', f, r, l') \<in> trans (N p)
      \<and> a' = a1 \<and> check_bexp s b True"
     if "(b, g, a', f, r, l') \<in> set (COM' ! p ! a1)" "a1 < num_actions" "p < n_ps"
     for p b g a' f r l' a1
@@ -1557,7 +1557,7 @@ proof clarsimp
     if assms: "is_sync_result L s sync ps as fs ls' L' s'"
     "is_select_basic L s sync ps bs gs as fs rs ls'" "is_select_maximal L s sync ps"
     "is_select_committed L ps"
-    "Simple_Network_Language.bounded bounds s'"
+    "bounded bounds s'"
     for sync ps bs gs as fs rs ls'
   proof -
     have "is_sync_enabled sync COM'"
@@ -1717,7 +1717,7 @@ definition mk_updsi ::
   "int list \<Rightarrow> (nat \<times> (nat, int) exp) list \<Rightarrow> int list" where
   "mk_updsi s upds = fold (\<lambda>(x, upd) s'. s'[x := evali s upd]) upds s"
 
-context Simple_Network_Impl_nat_defs
+context Generalized_Network_Impl_nat_defs
 begin
 
 definition
@@ -1828,7 +1828,7 @@ definition trans_impl where
 end (* Simple Network Impl nat defs *)
 
 
-context Simple_Network_Impl_nat
+context Generalized_Network_Impl_nat
 begin
 
 lemma bval_bvali:
