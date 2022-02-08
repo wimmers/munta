@@ -71,14 +71,14 @@ lemma parse_list_cong[fundef_cong]:
   by auto
 
 datatype JSON =
-  Object "(string \<times> JSON) list"
-| Array "JSON list"
-| String string \<comment>\<open>An Isabelle string rather than a JSON string\<close>
-| Int int \<comment>\<open>The number type is split into natural Isabelle/HOL types\<close>
-| Nat nat
-| Rat fract
-| Boolean bool \<comment>\<open>True and False are contracted to one constructor\<close>
-| Null
+  is_obj: Object "(string \<times> JSON) list"
+| is_array: Array "JSON list"
+| is_string: String string \<comment>\<open>An Isabelle string rather than a JSON string\<close>
+| is_int: Int int \<comment>\<open>The number type is split into natural Isabelle/HOL types\<close>
+| is_nat: Nat nat
+| is_rat: Rat fract
+| is_boolean: Boolean bool \<comment>\<open>True and False are contracted to one constructor\<close>
+| is_null: Null
 
 definition [consuming]:
   "atom \<equiv> lx_ws *-- (
