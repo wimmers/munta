@@ -432,12 +432,12 @@ next
          apply (all \<open>drule sym\<close>)
          apply (simp; fail)
       subgoal delay
-        by (tag "''new valuation''" "TRANS _" "''range''") (auto elim!: trans_N_urgeE simp: 1; fail)
+        by (tag- "''new valuation''" "TRANS _" "''range''") (auto elim!: trans_N_urgeE simp: 1; fail)
       subgoal binary for a' broadcast' l1 b1 g1 f1 r1 l1' N p l2 b2 g2 f2 r2 l2' q s'' B
-        by (tag "''new valuation''" "TRANS _" "RECV ''range''")
+        by (tag- "''new valuation''" "TRANS _" "RECV ''range''")
           (auto elim!: trans_N_urgeE simp: 1[of _ "tl r1 @ r2"])
       subgoal broadcast for a' broadcast' l b g f r l' N p ps bs gs fs rs ls' s'a B
-        by (tag "''new valuation''" "TRANS _"  "SEND ''range''")
+        by (tag- "''new valuation''" "TRANS _"  "SEND ''range''")
           (auto elim!: trans_N_urgeE simp: 1[of _ "tl r @ concat (map rs ps)"])
       done
     have **: "
@@ -454,9 +454,9 @@ next
       apply (simp add: is_urgent_simp *)
       apply (rule step_u.intros)
       subgoal
-        by tag(auto dest!: inv_add_invD inv_N_urge_updD simp: inv_N_urge clock_val_reset_delay)
+        by tag (auto dest!: inv_add_invD inv_N_urge_updD simp: inv_N_urge clock_val_reset_delay)
         apply (tag, assumption)
-       apply (tag "''target invariant''" "''nonnegative''")
+       apply (tag- "''target invariant''" "''nonnegative''")
        apply (auto simp add: is_urgent_simp2 is_urgent_simp dest: inv_N_urge_urges)
       done
     moreover from steps(3,2) have
@@ -1445,7 +1445,7 @@ lemma step_single_renumD:
     preferT \<open>''guard''\<close> subgoal
       by tag (rule map_u_renum_cconstraint_clock_valI)
     preferT \<open>''target invariant''\<close> subgoal
-      apply (tag "''new loc''" "TRANS ''silent''")
+      apply (tag- "''new loc''" "TRANS ''silent''")
       apply clarsimp
       apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ state_preservation_updI]])
           apply fastforce+
@@ -1501,7 +1501,7 @@ lemma step_single_renumD:
       by tag (rule map_u_renum_cconstraint_clock_valI)
 
     preferT \<open>''target invariant''\<close> subgoal
-      apply (tag "''new loc''" "TRANS _")
+      apply (tag- "''new loc''" "TRANS _")
       apply clarsimp
       apply (rule inv_renum_sem_I[OF _ _ sem_states_loc_setD[OF _ state_preservation_updI]])
           apply (fastforce intro!: state_preservation_updI)+
@@ -1538,11 +1538,11 @@ lemma step_single_renumD:
       apply (tag, simp, drule (1) trans_N_renumD, subst nth_map, (simp add: renum_act_def)+; fail)
 
     preferT \<open>TRANS ''in''\<close>
-      apply (tag "SEL _")
+      apply (tag- "SEL _")
       apply (auto dest!: trans_N_renumD simp add: renum_act_def atLeastLessThan_upperD; fail)
 
     preferT \<open>''committed''\<close> subgoal
-      apply (tag "SEL _")
+      apply (tag- "SEL _")
       apply (simp add: committed_renum_eq)
       apply (erule disj_mono[rule_format, rotated 2], (simp; fail))
       apply (erule disj_mono[rule_format, rotated 2])
@@ -1569,7 +1569,7 @@ lemma step_single_renumD:
       done
 
     preferT \<open>''target invariant''\<close> subgoal for l b g f r l' p ps bs gs fs rs ls' s'
-      apply (tag "SEL _" "''new loc''" "TRANS _")
+      apply (tag- "SEL _" "''new loc''" "TRANS _")
       apply (subgoal_tac "fold (\<lambda>p L. L[p := ls' p]) ps L \<in> states")
       subgoal
         apply simp
@@ -2010,7 +2010,7 @@ lemma step_single_renumI:
     preferT \<open>''upd''\<close> apply (tag, solve_triv)
 
     preferT \<open>''bounded''\<close> subgoal
-      usingT \<open>''upd''\<close>
+      usingT- \<open>''upd''\<close>
       apply -
       apply (tag, erule bounded_renumD1)
       apply (drule is_upd_dom)
@@ -2040,7 +2040,7 @@ lemma step_single_renumI:
     apply elims
     subgoal for b' g' a'a f' r' l1
       unfolding renum_act_def
-      usingT "TRANS ''in''" "SEL _"
+      usingT- "TRANS ''in''" "SEL _"
       apply -
       apply (rule OutD, assumption)
 
