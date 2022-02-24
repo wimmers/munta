@@ -10,6 +10,10 @@ section \<open>Simple networks of automata with broadcast channels and committed
 
 no_notation top_assn ("true")
 
+abbreviation concat_map where
+  "concat_map f xs \<equiv> concat (map f xs)"
+
+
 datatype ('a, 'b) bexp =
   true |
   not "('a, 'b) bexp" |
@@ -79,8 +83,7 @@ definition bounded where
     (\<forall>x \<in> dom s. fst (the (bounds x)) \<le> the (s x) \<and> the (s x) \<le> snd (the (bounds x)))"
 
 definition is_upd where
-  "is_upd s upds s' \<equiv> \<exists>xs. list_all2 (\<lambda> (l1, r1) (l2, r2). l1 = l2 \<and> is_val s r1 r2) upds xs
-    \<and> s' = fold (\<lambda> (l, r) s. s(l := Some r)) xs s"
+  "is_upd s upd s' \<equiv> \<exists>x e v. upd = (x, e) \<and> is_val s e v \<and> s' = s(x := Some v)" for upd
 
 inductive is_upds where
   "is_upds s [] s" |
@@ -128,7 +131,7 @@ where
       ''range''         \<bar> p < length L;
       ''new loc''       \<bar> L' = L[p := l'];
       ''new valuation'' \<bar> u' = [r\<rightarrow>0]u;
-      ''is_upd''        \<bar> is_upd s f s';
+      ''is_upd''        \<bar> is_upds s f s';
       ''bounded''       \<bar> bounded B s'
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Internal a\<^esub> \<langle>L', s', u'\<rangle>" |
@@ -147,7 +150,7 @@ where
       ''different'' \<bar> p \<noteq> q;
       ''new loc''       \<bar> L' = L[p := l1', q := l2'];
       ''new valuation'' \<bar> u' = [r1@r2\<rightarrow>0]u;
-      ''upd'' \<bar> is_upd s f1 s'; ''upd'' \<bar> is_upd s' f2 s'';
+      ''upd'' \<bar> is_upds s f1 s'; ''upd'' \<bar> is_upds s' f2 s'';
       ''bounded'' \<bar> bounded B s''
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Bin a\<^esub> \<langle>L', s'', u'\<rangle>" |
@@ -174,8 +177,8 @@ where
       SEL ''sorted''     \<bar> sorted ps;
       ''new loc'' \<bar> L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'];
       ''new valuation'' \<bar> u' = [r@concat (map rs ps)\<rightarrow>0]u;
-      ''upd''     \<bar> is_upd s f s';
-      ''upds''    \<bar> is_upds s' (map fs ps) s'';
+      ''upd''     \<bar> is_upds s f s';
+      ''upds''    \<bar> is_upds s' (concat_map fs ps) s'';
       ''bounded'' \<bar> bounded B s''
     \<rbrakk>
     \<Longrightarrow> (broadcast, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Broad a\<^esub> \<langle>L', s'', u'\<rangle>"
@@ -233,7 +236,7 @@ definition \<comment>\<open>Number of processes\<close>
 
 definition states  :: "'s list set" where
   "states \<equiv> {L. length L = n_ps \<and>
-    (\<forall> i. i < n_ps --> L ! i \<in> (\<Union> (l, e, g, a, r, u, l') \<in> (trans (N i)). {l, l'}))}"
+    (\<forall> i. i < n_ps \<longrightarrow> L ! i \<in> (\<Union> (l, e, g, a, r, u, l') \<in> (trans (N i)). {l, l'}))}"
 
 definition
   "prod_inv \<equiv> \<lambda>(L, s). if L \<in> states then concat (map (\<lambda>i. inv (N i) (L ! i)) [0..<n_ps]) else []"
@@ -243,7 +246,7 @@ definition
     {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
       (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
       (l \<in> committed (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
-      L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and> check_bexp s b True \<and>
+      L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upds s f s' \<and> check_bexp s b True \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
     }"
 
@@ -257,7 +260,7 @@ definition
       (l1 \<in> committed (N p) \<or> l2 \<in> committed (N q) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
       L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
       check_bexp s b1 True \<and> check_bexp s b2 True \<and>
-      L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+      L' = L[p := l1', q := l2'] \<and> is_upds s f1 s' \<and> is_upds s' f2 s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
     }"
 
@@ -276,7 +279,7 @@ definition
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
       check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
-      is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+      is_upds s f s' \<and> is_upds s' (concat_map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
     }"
 

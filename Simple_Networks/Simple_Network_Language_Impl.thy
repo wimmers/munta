@@ -123,7 +123,7 @@ lemma (in Prod_TA_Defs) trans_broad_alt_def:
       p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
       check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
-      is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+      is_upds s f s' \<and> is_upds s' (concat_map fs ps) s'' \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'' \<and>
       (\<forall>p. p\<notin>set ps \<longrightarrow> bs p = bexp.true) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> gs p = []) \<and>
       (\<forall>p. p\<notin>set ps \<longrightarrow> fs p = []) \<and> (\<forall>p. p\<notin>set ps \<longrightarrow> rs p = [])

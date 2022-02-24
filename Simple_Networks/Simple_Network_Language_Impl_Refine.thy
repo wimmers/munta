@@ -4,6 +4,7 @@ begin
 
 unbundle no_library_syntax
 notation fun_rel_syn (infixr "\<rightarrow>" 60)
+hide_const (open) upd
 
 paragraph \<open>Expression evaluation\<close>
 
@@ -32,12 +33,9 @@ lemma check_bexp_determ:
 
 lemma is_upd_determ:
   "s1 = s2" if "is_upd s f s1" "is_upd s f s2"
-  using that
-  unfolding is_upd_def
-  apply auto
-  apply (fo_rule fun_cong)
-  apply (fo_rule arg_cong)
-  by (smt
+  using that unfolding is_upd_def
+  by (clarsimp, fo_rule arg_cong)
+     (smt
       case_prodE case_prodE' case_prod_conv is_val_determ list.rel_eq list_all2_swap list_all2_trans
      )
 
@@ -56,70 +54,46 @@ and is_val_eval:
   done
 
 lemma is_upd_dom:
-  "dom s' = dom s" if "is_upd s upds s'" "\<forall> (x, _) \<in> set upds. x \<in> dom s"
-proof -
-  have *: "dom (fold (\<lambda>(l, r) s. s(l \<mapsto> r)) xs s) = dom s" if "\<forall>(x, _) \<in> set xs. x \<in> dom s" for xs
-    using that
-  proof (induction xs arbitrary: s)
-    case Nil
-    then show ?case 
-      by simp
-  next
-    case (Cons x xs)
-    from Cons.prems show ?case
-      by simp (subst Cons.IH[simplified], auto split: if_split_asm simp: Cons.IH[simplified])
-  qed
-  from that show ?thesis
-    unfolding is_upd_def by (fastforce dest: list_all2_set2 intro!: *)
-qed
+  "dom s' = dom s" if "is_upd s (x, e) s'" "x \<in> dom s"
+  using that unfolding is_upd_def by (auto split: if_split_asm)
 
 lemma is_upds_dom:
-  "dom s' = dom s" if "is_upds s upds s'" "\<forall>upd \<in> set upds. \<forall> (x, e) \<in> set upd. x \<in> dom s"
-  using that by (induction upds arbitrary: s) (erule is_upds.cases; auto simp: is_upd_dom)+
+  "dom s' = dom s" if "is_upds s upds s'" "\<forall>(x, e) \<in> set upds. x \<in> dom s"
+  using that
+  by (induction upds arbitrary: s)
+     (erule is_upds.cases; auto simp: is_upd_dom split: prod.split_asm)+
+
+definition
+  "mk_upd \<equiv> \<lambda>(x, e) s. s(x \<mapsto> eval (the o s) e)"
 
 definition mk_upds ::
   "('a \<Rightarrow> ('b :: linorder) option) \<Rightarrow> ('a \<times> ('a, 'b) exp) list \<Rightarrow> ('a \<Rightarrow> 'b option)" where
-  "mk_upds s upds = fold (\<lambda>(x, upd) s'. s'(x \<mapsto> eval (the o s) upd)) upds s"
+  "mk_upds s upds = fold mk_upd upds s"
 
 lemma is_upd_make_updI:
-  "is_upd s upds (mk_upds s upds)" if "\<forall> (_, e) \<in> set upds. \<forall>x \<in> vars_of_exp e. x \<in> dom s"
-  unfolding mk_upds_def
-  unfolding is_upd_def
-  apply (inst_existentials "map (\<lambda> (x, e). (x, eval (the o s) e)) upds")
-  subgoal
-    using that by (intro list_all2_all_nthI) (auto 4 3 dest!: nth_mem intro: is_val_eval)
-  subgoal
-    apply (subst fold_map)
-    apply (fo_rule fun_cong)
-    apply (fo_rule fun_cong)
-    apply (fo_rule arg_cong)
-    apply auto
-    done
-  done
+  "is_upd s upd (mk_upd upd s)" if "upd = (x, e)" "\<forall>x \<in> vars_of_exp e. x \<in> dom s"
+  using that(1) is_val_eval[OF that(2)] unfolding is_upd_def mk_upd_def by auto
+
+lemma dom_mk_upd:
+  "dom s \<subseteq> dom (mk_upd upd s)"
+  unfolding mk_upd_def by (auto split: prod.split)
 
 lemma is_upds_make_updsI:
-  "is_upds s upds (fold (\<lambda>upd s. mk_upds s upd) upds s)"
-  if "\<forall>upd \<in> set upds. \<forall> (_, e) \<in> set upd. \<forall>x \<in> vars_of_exp e. x \<in> dom s"
-    "\<forall>upd \<in> set upds. \<forall> (x, e) \<in> set upd. x \<in> dom s"
+  "is_upds s upds (mk_upds s upds)" if "\<forall> (_, e) \<in> set upds. \<forall>x \<in> vars_of_exp e. x \<in> dom s"
   using that
 proof (induction upds arbitrary: s)
   case Nil
   then show ?case
-    by (auto intro: is_upds.intros)
+    by (auto intro!: is_upds.intros simp: mk_upds_def)
 next
-  case (Cons a upds)
-  show ?case
-    apply (rule is_upds.intros)
-     apply (rule is_upd_make_updI)
-    subgoal
-      using Cons.prems by auto
-    apply simp
-    apply (rule Cons.IH)
-    subgoal
-      using Cons.prems by intros (subst is_upd_dom, auto 4 4 intro: is_upd_make_updI)
-    subgoal
-      using Cons.prems by intros (subst is_upd_dom, auto 4 4 intro: is_upd_make_updI)
-    done
+  case (Cons upd upds)
+  let ?s = "mk_upd upd s"
+  from Cons(2) have "is_upd s upd ?s"
+    by (auto simp: dom_def intro: is_upd_make_updI)
+  moreover have "is_upds ?s upds (mk_upds ?s upds)"
+    using Cons.prems dom_mk_upd by (intro Cons.IH) force
+  ultimately show ?case
+    using dom_mk_upd by (auto intro!: is_upds.intros simp: mk_upds_def)
 qed
 
 
@@ -693,12 +667,12 @@ lemma get_committed_empty_iff:
 lemma get_committed_distinct: "distinct (get_committed L)"
   unfolding get_committed_def by (rule distinct_map_filterI) (auto simp: Let_def)
 
-lemma is_upd_make_updI2:
-  "is_upd s upds (mk_upds s upds)"
+lemma is_upds_make_updsI2:
+  "is_upds s upds (mk_upds s upds)"
   if "(l, b, g, a, upds, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
     "dom s = {0..<n_vs}"
   using that var_set
-  by (intro is_upd_make_updI, subst (asm) mem_trans_N_iff)
+  by (intro is_upds_make_updsI, subst (asm) mem_trans_N_iff)
      (auto 4 5 simp flip: length_automata_eq_n_ps dest!: nth_mem)
 
 lemma var_setD:
@@ -713,47 +687,32 @@ lemma var_setD2:
   using var_set that
   by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)+
 
-lemma is_upd_dom2:
-  "dom s' = {0..<n_vs}" if "is_upd s f s'"
+lemma is_upds_dom2:
+  "dom s' = {0..<n_vs}" if "is_upds s f s'"
   "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
-  unfolding that(4)[symmetric] using that by - (drule (1) var_setD, erule is_upd_dom, auto)
+  unfolding that(4)[symmetric] using that by - (drule (1) var_setD, erule is_upds_dom, auto)
 
-lemma is_updD:
-  "s' = mk_upds s f" if "is_upd s f s'"
+lemma is_updsD:
+  "s' = mk_upds s f" if "is_upds s f s'"
   "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
 proof -
-  from is_upd_make_updI2[OF that(2-)] have "is_upd s f (mk_upds s f)" .
-  from is_upd_determ[OF that(1) this] show ?thesis .
+  from is_upds_make_updsI2[OF that(2-)] have "is_upds s f (mk_upds s f)" .
+  from is_upds_determ[OF that(1) this] show ?thesis .
 qed
 
-lemma is_upds_make_updsI2:
-  "is_upds s upds (fold (\<lambda>upd s. mk_upds s upd) upds s)"
+lemma is_upds_make_upds_concatI2:
+  "is_upds s (concat upds) (mk_upds s (concat upds))"
   if "dom s = {0..<n_vs}" 
     "\<forall>upd \<in> set upds. \<exists>p < n_ps. \<exists>l b g a r l'.
         (l, b, g, a, upd, r, l') \<in> Simple_Network_Language.trans (N p)"
-  apply (rule is_upds_make_updsI)
-  subgoal
-    using that using var_set
-    apply intros
-    apply (drule bspec)
-     apply assumption
-    apply elims
-    apply (auto 4 5 simp flip: length_automata_eq_n_ps simp add: mem_trans_N_iff dest!: nth_mem)
-    done
-  subgoal
-    using that using var_set
-    apply intros
-    apply (drule bspec)
-     apply assumption
-    apply elims
-    apply (auto 4 5 simp flip: length_automata_eq_n_ps simp add: mem_trans_N_iff dest!: nth_mem)
-    done
-  done
+  using that var_set
+  by (intro is_upds_make_updsI, clarsimp)
+     (smt (z3) atLeastLessThan_iff case_prod_conv domD var_setD zero_le)
 
-lemma is_upds_dom2:
-  assumes "is_upds s upds s'"
+lemma is_upds_concat_dom2:
+  assumes "is_upds s (concat upds) s'"
     and "\<forall>f \<in> set upds. \<exists> p < n_ps. \<exists> l b g a r l'.
       (l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans (N p)"
     and "dom s = {0..<n_vs}"
@@ -761,34 +720,34 @@ lemma is_upds_dom2:
   using assms by (elim is_upds_dom) (auto dest!: var_setD)
 
 lemma is_upds_dom3:
-  assumes "is_upds s (map fs ps) s'"
+  assumes "is_upds s (concat_map fs ps) s'"
     and "\<forall>p\<in>set ps. (L ! p, bs p, gs p, a, fs p, rs p, ls' p) \<in> trans (N p)"
     and "set ps \<subseteq> {0..<n_ps}"
     and "dom s = {0..<n_vs}"
   shows "dom s' = dom s"
-  using assms by (elim is_upds_dom2; force)
+  using assms by (elim is_upds_concat_dom2; force)
 
 lemma is_upds_make_updsI3:
-  "is_upds s (map fs ps) (fold (\<lambda>upd s. mk_upds s upd) (map fs ps) s)"
+  "is_upds s (concat_map fs ps) (mk_upds s (concat_map fs ps))"
   if "dom s = {0..<n_vs}" 
     and "\<forall>p\<in>set ps. (L ! p, bs p, gs p, a, fs p, rs p, ls' p) \<in> trans (N p)"
     and "set ps \<subseteq> {0..<n_ps}"
   for s :: "nat \<Rightarrow> int option"
-  using that by (elim is_upds_make_updsI2) force
+  using that by (elim is_upds_make_upds_concatI2) force
 
-lemma is_updsD:
+lemma is_upds_concatD:
   assumes 
     "dom s = {0..<n_vs}" and
     "\<forall>p\<in>set ps.
         (ls p, bs p, gs p, a, fs p, rs p, ls' p)
         \<in> Simple_Network_Language.trans (N p)" and
     "set ps \<subseteq> {0..<n_ps}" and
-    "is_upds s (map fs ps) s'"
-  shows "s' = fold (\<lambda>p s. mk_upds s (fs p)) ps s"
+    "is_upds s (concat_map fs ps) s'"
+  shows "s' = mk_upds s (concat_map fs ps)"
 proof -
-  let ?upds = "map fs ps"
-  have "is_upds s ?upds (fold (\<lambda>upd s. mk_upds s upd) ?upds s)"
-    using assms(1-3) by (intro is_upds_make_updsI2; force)
+  let ?upds = "concat_map fs ps"
+  have "is_upds s ?upds (mk_upds s ?upds)"
+    using assms(1-3) by (intro is_upds_make_upds_concatI2; force)
   from is_upds_determ[OF assms(4) this] show ?thesis
     by (simp add: fold_map comp_def)
 qed
@@ -889,10 +848,10 @@ lemmas [forward2] =
   trans_i_mapI
   get_committed_memI
 lemmas [forward3] =
-  is_upd_make_updI2
+  is_upds_make_updsI2
 lemmas [forward4] =
-  is_updD
-  is_upd_dom2
+  is_updsD
+  is_upds_dom2
   check_bexp_bvalI
   check_bexp_bvalD
 
@@ -915,7 +874,7 @@ proof clarsimp
         (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         (\<forall>p < n_ps. L ! p \<notin> committed (N p)) \<and>
         check_bexp s b True \<and>
-        L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
+        L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upds s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
       unfolding get_committed_empty_iff[symmetric] trans_int_def by blast
@@ -942,7 +901,7 @@ proof clarsimp
       ((L, s), g, a, r, L', s') \<in> {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
         (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         l \<in> committed (N p) \<and>
-        L!p = l \<and> p < length L \<and> check_bexp s b True \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
+        L!p = l \<and> p < length L \<and> check_bexp s b True \<and> L' = L[p := l'] \<and> is_upds s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
       unfolding get_committed_empty_iff[symmetric] trans_int_def by blast
@@ -1284,7 +1243,7 @@ proof clarsimp
         (l2, b2, g2, Out a, f2, r2, l2') \<in> trans (N q) \<and>
         L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
         check_bexp s b1 True \<and> check_bexp s b2 True \<and>
-        L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s''
+        L' = L[p := l1', q := l2'] \<and> is_upds s f1 s' \<and> is_upds s' f2 s''
         \<and> L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }
     "
@@ -1335,7 +1294,7 @@ proof clarsimp
         (l1 \<in> committed (N p) \<or> l2 \<in> committed (N q)) \<and>
         L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
         check_bexp s b1 True \<and> check_bexp s b2 True \<and>
-        L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+        L' = L[p := l1', q := l2'] \<and> is_upds s f1 s' \<and> is_upds s' f2 s'' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
       unfolding trans_bin_def
@@ -1349,7 +1308,7 @@ proof clarsimp
           l1 \<in> committed (N p) \<and>
           L!p = l1 \<and> L!q = l2 \<and> p < length L \<and> q < length L \<and> p \<noteq> q \<and>
           check_bexp s b1 True \<and> check_bexp s b2 True \<and>
-          L' = L[p := l1', q := l2'] \<and> is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+          L' = L[p := l1', q := l2'] \<and> is_upds s f1 s' \<and> is_upds s' f2 s'' \<and>
           L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
     let ?S2 =
@@ -1363,7 +1322,7 @@ proof clarsimp
           p < length L \<and> q < length L \<and> p \<noteq> q \<and>
           check_bexp s b1 True \<and> check_bexp s b2 True \<and>
           L' = L[p := l1', q := l2'] \<and>
-          is_upd s f1 s' \<and> is_upd s' f2 s'' \<and>
+          is_upds s f1 s' \<and> is_upds s' f2 s'' \<and>
           L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
     have *: "((L, s), g, a, r, L', s') \<in> trans_bin \<longleftrightarrow>
@@ -1534,6 +1493,11 @@ lemma make_combs_alt_def:
 lemma list_all2_fst_aux:
   "map fst xs = ys" if "list_all2 (\<lambda>x y. fst x = y) xs ys"
   using that by (induction) auto
+
+inductive_cases is_upds_NilE:
+  "is_upds s [] s'"
+
+thm is_upds_NilE
 
 lemma broad_trans_from_correct:
   "(broad_trans_from, trans_broad) \<in> transition_rel states'"
@@ -1835,9 +1799,9 @@ proof clarsimp
   have ***: "
     fold ?f (map (\<lambda>p. (p, bs p, gs p, a', fs p, rs p, ls' p)) ps) (g, a, r, L, s)
     = (g @ concat (map gs ps), a, r @ concat (map rs ps),
-        fold (\<lambda>p L. L[p := ls' p]) ps L, fold (\<lambda>p s. mk_upds s (fs p)) ps s)
+        fold (\<lambda>p L. L[p := ls' p]) ps L, mk_upds s (concat_map fs ps))
     " for ps bs gs a' fs rs ls' g a r L s
-    by (induction ps arbitrary: g a r L s; simp)
+    by (induction ps arbitrary: g a r L s; simp add: mk_upds_def)
   have upd_swap:
     "(fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] = fold (\<lambda>p L . L[p := ls' p]) ps (L[p := l'])"
     if "p \<notin> set ps" for ps ls' p l'
@@ -1865,15 +1829,15 @@ proof clarsimp
       "sorted ps" and
       "check_bexp s b1 True" and
       "\<forall>p\<in>set ps. check_bexp s (bs p) True" and
-      "is_upd s f1 s''" and
-      "is_upds s'' (map fs ps) s'" and
+      "is_upds s f1 s''" and
+      "is_upds s'' (concat_map fs ps) s'" and
       "Simple_Network_Language.bounded bounds s'"
     for a' p b1 g1 bs gs ps r1 rs ls' l' f1 s'' fs
     using that \<open>dom s = {0..<n_vs}\<close>
     unfolding make_trans_def
     apply (clarsimp simp: set_map_filter Let_def split: prod.split)
     supply [forward2] = action_setD
-    supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I OUT'_I
+    supply [forward4] = is_upds_dom2 is_upds_dom3 is_upds_concatD[rotated 3] OUT_I OUT'_I
     apply frule2
     apply simp
     apply (rule conjI, rule impI)
@@ -1886,7 +1850,7 @@ proof clarsimp
          apply (solve_triv | intros add: more_intros UN_I)+
       subgoal
         unfolding comp_def by (auto elim!: is_upds.cases)
-      by (auto elim!: is_upds.cases simp: check_bounded_iff[symmetric])
+      by (auto simp: check_bounded_iff[symmetric] elim: is_upds_NilE)
     apply (rule impI)
     apply (frule make_combsD, simp, assumption+)
     subgoal
@@ -1917,7 +1881,7 @@ proof clarsimp
          distinct ps \<and>
          sorted ps \<and>
          check_bexp s b True \<and> (\<forall>p\<in>set ps. check_bexp s (bs p) True) \<and>
-         is_upd s f s'' \<and> is_upds s'' (map fs ps) s' \<and>
+         is_upds s f s'' \<and> is_upds s'' (concat_map fs ps) s' \<and>
          bounded bounds s' \<and>
          filter (\<lambda>i. IN' ! i ! a' \<noteq> [] \<and> i \<noteq> p) [0..<n_ps] = ps"
     if
@@ -1928,7 +1892,7 @@ proof clarsimp
     for a' p
     supply [forward2] = action_setD
     supply [forward3] = is_upds_make_updsI3[rotated] OUT'_D
-    supply [forward4] = is_upd_dom2 is_upds_dom3 is_updsD[rotated 3] OUT_I OUT'_I
+    supply [forward4] = is_upds_dom2 is_upds_dom3 is_upds_concatD[rotated 3] OUT_I OUT'_I
     using that \<open>dom s = {0..<n_vs}\<close>
     unfolding make_trans_def
     apply mini_ex
@@ -1953,11 +1917,11 @@ proof clarsimp
       subgoal
         apply (inst_existentials s')
         subgoal is_upd
-          by (auto intro: is_upd_make_updI2 dest: OUT'_D)
+          by (auto intro: is_upds_make_updsI2 dest: OUT'_D)
         subgoal
           by simp (rule is_upds.intros)
         subgoal
-          by (subst check_bounded_iff) (metis OUT'_D is_upd_dom2 is_upd)+
+          by (subst check_bounded_iff) (metis OUT'_D is_upds_dom2 is_upd)+
         subgoal
           by (rule make_combs_emptyD)
         done
@@ -1976,8 +1940,6 @@ proof clarsimp
                 apply (erule bspec; assumption)
                apply (elims add: allE; intros?; assumption)
               apply solve_triv+
-      subgoal for ps gs fs rs ls'
-        by frules_all simp
       subgoal for ps gs fs rs ls'
         apply (subst check_bounded_iff)
         subgoal
@@ -2012,8 +1974,8 @@ proof clarsimp
           distinct ps \<and>
           sorted ps \<and>
           check_bexp s b True \<and> (\<forall>p\<in>set ps. check_bexp s (bs p) True) \<and>
-          is_upd s f s'' \<and>
-          is_upds s'' (map fs ps) s' \<and>
+          is_upds s f s'' \<and>
+          is_upds s'' (concat_map fs ps) s' \<and>
           bounded bounds s') =
       (\<exists>a'\<in>{0..<num_actions}.
           \<exists>p\<in>{0..<n_ps}. (g, a, r, L', s') \<in> set (make_trans a' p))" (is "?l \<longleftrightarrow> ?r")
@@ -2055,7 +2017,7 @@ proof clarsimp
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
         L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
-        is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+        is_upds s f s' \<and> is_upds s' (concat_map fs ps) s'' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }
     "
@@ -2096,7 +2058,7 @@ proof clarsimp
         p < length L \<and> set ps \<subseteq> {0..<n_ps} \<and> p \<notin> set ps \<and> distinct ps \<and> sorted ps \<and>
         check_bexp s b True \<and> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
         L' = (fold (\<lambda>p L . L[p := ls' p]) ps L)[p := l'] \<and>
-        is_upd s f s' \<and> is_upds s' (map fs ps) s'' \<and>
+        is_upds s f s' \<and> is_upds s' (concat_map fs ps) s'' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s''
       }"
       unfolding trans_broad_def broadcast_def[simplified]
@@ -2250,7 +2212,7 @@ fun bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bool" and
 
 definition mk_updsi ::
   "int list \<Rightarrow> (nat \<times> (nat, int) exp) list \<Rightarrow> int list" where
-  "mk_updsi s upds = fold (\<lambda>(x, upd) s'. s'[x := evali s upd]) upds s"
+  "mk_updsi s upds = fold (\<lambda>(x, upd) s. s[x := evali s upd]) upds s"
 
 context Simple_Network_Impl_nat_defs
 begin
@@ -2428,30 +2390,20 @@ lemma mk_upds_mk_updsi:
   if assms: "state_rel s si" "\<forall> (_, e) \<in> set upds. \<forall>x \<in> vars_of_exp e. x < n_vs"
     "\<forall> (x, e) \<in> set upds. x < n_vs"
 proof -
-  have upd_stepI: "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
+  have upd_stepI: "state_rel (mk_upd (x, e) s') (si'[x := evali si' e])"
     if "state_rel s' si'" "\<forall>x \<in> vars_of_exp e. x < n_vs" "x < n_vs"
     for s' si' x e
-    using that assms unfolding state_rel_def by (auto simp: state_rel_def eval_evali)
-  have "state_rel
-        (fold (\<lambda>(x, upd) s'. s'(x \<mapsto> eval (the o s) upd)) upds s')
-        (fold (\<lambda>(x, upd) s'. s'[x := evali si upd]) upds si')"
-    if "state_rel s' si'" for s' si'
-    using assms that
-  proof (induction upds arbitrary: s' si')
+    using that assms unfolding mk_upd_def state_rel_def by (auto simp: state_rel_def eval_evali)
+  from assms show ?thesis
+  proof (induction upds arbitrary: s si)
     case Nil
     then show ?case
-      by simp
+      by (simp add: mk_upds_def mk_updsi_def)
   next
     case (Cons upd upds)
-    obtain x e where "upd = (x, e)"
-      by (cases upd) auto
-    from Cons.prems have "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
-      unfolding \<open>upd = _\<close> by (intro upd_stepI) auto
-    from Cons.IH[OF _ _ _ this] Cons.prems show ?case
-      unfolding \<open>upd = _\<close> by (auto simp: fun_upd_def comp_def)
+    then show ?case
+      by (simp add: mk_upds_def mk_updsi_def split: prod.splits) (rprem, auto intro!: upd_stepI)
   qed
-  from this[OF \<open>state_rel s si\<close>] show ?thesis
-    unfolding mk_upds_def mk_updsi_def .
 qed
 
 lemma check_bounded_check_boundedi:
