@@ -25,7 +25,17 @@ Therefore we end up with the following type definition:\<close>
 type_synonym 'a sync = "(nat \<times> 'a \<times> bool) list"
 
 type_synonym
-  ('a, 's, 'c, 't, 'x, 'v) nta = "'a sync set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
+  ('a, 'b) upd = "(('a * ('a, 'b) exp) * nat) list"
+
+type_synonym
+  ('a, 's, 'c, 't, 'x, 'v) transition =
+  "'s \<times> ('x, 'v) bexp \<times> ('c, 't) cconstraint \<times> 'a \<times> ('x, 'v) upd \<times> 'c list \<times> 's"
+
+type_synonym ('a, 's, 'c, 't, 'x, 'v) sta =
+  "'s set \<times> 's set \<times> ('a, 's, 'c, 't, 'x, 'v) transition set \<times> ('c, 't, 's) invassn"
+
+type_synonym ('a, 's, 'c, 't, 'x, 'v) nta =
+  "'a sync set \<times> ('a act, 's, 'c, 't, 'x, 'v) sta list \<times> ('x \<rightharpoonup> 'v * 'v)"
 
 context begin
 
@@ -40,9 +50,37 @@ end
 
 datatype 'b label = Del | Internal 'b | Sync "'b sync"
 
+definition committed :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
+  "committed A \<equiv> fst A"
+
+definition urgent :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
+  "urgent A \<equiv> fst (snd A)"
+
+definition trans :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('a, 's, 'c, 't, 'x, 'v) transition set"
+  where
+  "trans A \<equiv> fst (snd (snd A))"
+
+definition inv :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> ('c, 't, 's) invassn" where
+  "inv A \<equiv> snd (snd (snd A))"
+
 no_notation step_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 no_notation steps_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>* \<langle>_, _, _\<rangle>" [61, 61, 61,61,61] 61)
 no_notation Simple_Network_Language.step_u ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
+
+text \<open>Note that @{term sort_key} is stable (@{thm stable_sort_key_sort_key}).
+Particularly, if all updates have the same priority, they will be ordered by the process order given
+by the synchronization vector.
+\<close>
+
+definition sort_upds where
+  "sort_upds upds_idxs \<equiv> map fst (sort_key snd upds_idxs)"
+
+definition is_upd_idxs where
+  "is_upd_idxs s upds_idxs s' \<equiv> is_upds s (sort_upds upds_idxs) s'"
+
+definition is_upds_idxs where
+  "is_upds_idxs s upds_idxs s' \<equiv> is_upds s (sort_upds (concat upds_idxs)) s'"
+
 
 inductive step_u ::
   "('a, 's, 'c, 't :: time, 'x, 'v :: linorder) nta \<Rightarrow> 's list \<Rightarrow> ('x \<rightharpoonup> 'v) \<Rightarrow> ('c, 't) cval
@@ -68,7 +106,7 @@ where
       ''range''         \<bar> p < length L;
       ''new loc''       \<bar> L' = L[p := l'];
       ''new valuation'' \<bar> u' = [r\<rightarrow>0]u;
-      ''is_upd''        \<bar> is_upd s f s';
+      ''is_upd''        \<bar> is_upd_idxs s f s';
       ''bounded''       \<bar> bounded B s'
     \<rbrakk>
     \<Longrightarrow> (syncs, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Internal a\<^esub> \<langle>L', s', u'\<rangle>" |
@@ -93,7 +131,7 @@ where
       SEL ''sublist'' \<bar> subseq ps (map fst sync);
       ''new loc'' \<bar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L;
       ''new valuation'' \<bar> u' = [concat (map rs ps)\<rightarrow>0]u;
-      ''upds''    \<bar> is_upds s (map fs ps) s';
+      ''upds''    \<bar> is_upds_idxs s (map fs ps) s';
       ''bounded'' \<bar> bounded B s'
     \<rbrakk>
     \<Longrightarrow> (syncs, N, B) \<turnstile> \<langle>L, s, u\<rangle> \<rightarrow>\<^bsub>Sync sync\<^esub> \<langle>L', s', u'\<rangle>"
@@ -163,7 +201,7 @@ definition
     {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
       (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
       (l \<in> committed (N p) \<or> (\<forall>p < n_ps. L ! p \<notin> committed (N p))) \<and>
-      L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and> check_bexp s b True \<and>
+      L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd_idxs s f s' \<and> check_bexp s b True \<and>
       L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
     }"
 
@@ -186,7 +224,7 @@ definition trans_sync_tagged_def:
       SEL ''range'' \<bbar> set ps \<subseteq> {0..<n_ps} \<and> SEL ''sublist'' \<bbar> subseq ps (map fst sync) \<and>
       ''bexp'' \<bbar> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       ''new loc'' \<bbar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L \<and>
-      ''upds''    \<bbar> is_upds s (map fs ps) s' \<and>
+      ''upds''    \<bbar> is_upds_idxs s (map fs ps) s' \<and>
       L \<in> states \<and> ''bounded'' \<bbar> bounded bounds s \<and> ''bounded'' \<bbar> bounded bounds s'
     }"
 

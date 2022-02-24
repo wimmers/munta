@@ -1,5 +1,5 @@
 theory Generalized_Network_Language_Impl_Refine
-  imports Generalized_Network_Language_Impl "~/Code/explorer/Guess_Explore"
+  imports Simple_Network_Language_Impl_Refine Generalized_Network_Language_Impl
 begin
 
 unbundle no_library_syntax
@@ -7,127 +7,35 @@ notation fun_rel_syn (infixr "\<rightarrow>" 60)
 
 paragraph \<open>Expression evaluation\<close>
 
-fun bval :: "('a \<Rightarrow> 'b) \<Rightarrow> ('a, 'b :: linorder) bexp \<Rightarrow> bool" and eval where
-  "bval _ bexp.true \<longleftrightarrow> True" |
-  "bval s (not e) \<longleftrightarrow> \<not> bval s e" |
-  "bval s (and e1 e2) \<longleftrightarrow> bval s e1 \<and> bval s e2" |
-  "bval s (bexp.or e1 e2) \<longleftrightarrow> bval s e1 \<or> bval s e2" |
-  "bval s (imply e1 e2) \<longleftrightarrow> bval s e1 \<longrightarrow> bval s e2" |
-  "bval s (eq i x) \<longleftrightarrow> eval s i = eval s x" |
-  "bval s (le i x) \<longleftrightarrow> eval s i \<le> eval s x" |
-  "bval s (lt i x) \<longleftrightarrow> eval s i < eval s x" |
-  "bval s (ge i x) \<longleftrightarrow> eval s i \<ge> eval s x" |
-  "bval s (gt i x) \<longleftrightarrow> eval s i > eval s x"
-| "eval s (const c) = c"
-| "eval s (var x)   = s x"
-| "eval s (if_then_else b e1 e2) = (if bval s b then eval s e1 else eval s e2)"
-| "eval s (binop f e1 e2) = f (eval s e1) (eval s e2)"
-| "eval s (unop f e) = f (eval s e)"
+definition mk_upd_idxs where
+  "mk_upd_idxs s upds_idxs \<equiv> mk_upds s (sort_upds upds_idxs)"
 
-lemma check_bexp_determ:
-  "check_bexp s b b1 \<Longrightarrow> check_bexp s b b2 \<Longrightarrow> b1 = b2"
-  and is_val_determ: "is_val s e v1 \<Longrightarrow> is_val s e v2 \<Longrightarrow> v1 = v2"
-  by (induction b and e arbitrary: b1 b2 and v1 v2)
-     (auto dest:  elim!: is_val_elims check_bexp_elims)+
+definition mk_upds_idxs where
+  "mk_upds_idxs s upds_idxs \<equiv> mk_upds s (sort_upds (concat upds_idxs))"
 
-lemma is_upd_determ:
-  "s1 = s2" if "is_upd s f s1" "is_upd s f s2"
-  using that
-  unfolding is_upd_def
-  apply auto
-  apply (fo_rule fun_cong)
-  apply (fo_rule arg_cong)
-  by (smt
-      case_prodE case_prodE' case_prod_conv is_val_determ list.rel_eq list_all2_swap list_all2_trans
-     )
+lemma dom_mk_upds_aux:
+  "dom s \<subseteq> dom (fold (\<lambda>(x, upd) s'. s'(x \<mapsto> f upd)) xs s)"
+  by (induction xs arbitrary: s) (auto simp: dom_def Collect_mono_iff)
 
-lemma is_upds_determ:
-  "s1 = s2" if "is_upds s fs s1" "is_upds s fs s2"
-  using that
-  by (induction fs arbitrary: s) (auto 4 4 elim: is_upds.cases dest: is_upd_determ)
-
-lemma check_bexp_bval:
-  "\<forall>x \<in> vars_of_bexp b. x \<in> dom s \<Longrightarrow> check_bexp s b (bval (the o s) b)"
-and is_val_eval:
-  "\<forall>x \<in> vars_of_exp e. x \<in> dom s \<Longrightarrow> is_val s e (eval (the o s) e)"
-  apply (induction b and e)
-                apply (simp; (subst eq_commute)?; rule check_bexp_is_val.intros; simp add: dom_def)+
-    apply ((subst eq_commute eval.simps)?; rule check_bexp_is_val.intros; simp add: dom_def)+
-  done
-
-lemma is_upd_dom:
-  "dom s' = dom s" if "is_upd s upds s'" "\<forall> (x, _) \<in> set upds. x \<in> dom s"
-proof -
-  have *: "dom (fold (\<lambda>(l, r) s. s(l \<mapsto> r)) xs s) = dom s" if "\<forall>(x, _) \<in> set xs. x \<in> dom s" for xs
-    using that
-  proof (induction xs arbitrary: s)
-    case Nil
-    then show ?case 
-      by simp
-  next
-    case (Cons x xs)
-    from Cons.prems show ?case
-      by simp (subst Cons.IH[simplified], auto split: if_split_asm simp: Cons.IH[simplified])
-  qed
-  from that show ?thesis
-    unfolding is_upd_def by (fastforce dest: list_all2_set2 intro!: *)
-qed
-
-lemma is_upds_dom:
-  "dom s' = dom s" if "is_upds s upds s'" "\<forall>upd \<in> set upds. \<forall> (x, e) \<in> set upd. x \<in> dom s"
-  using that by (induction upds arbitrary: s) (erule is_upds.cases; auto simp: is_upd_dom)+
-
-definition mk_upds ::
-  "('a \<Rightarrow> ('b :: linorder) option) \<Rightarrow> ('a \<times> ('a, 'b) exp) list \<Rightarrow> ('a \<Rightarrow> 'b option)" where
-  "mk_upds s upds = fold (\<lambda>(x, upd) s'. s'(x \<mapsto> eval (the o s) upd)) upds s"
-
-lemma is_upd_make_updI:
-  "is_upd s upds (mk_upds s upds)" if "\<forall> (_, e) \<in> set upds. \<forall>x \<in> vars_of_exp e. x \<in> dom s"
+lemma dom_mk_upds:
+  "dom s \<subseteq> dom (mk_upds s upds)"
   unfolding mk_upds_def
-  unfolding is_upd_def
-  apply (inst_existentials "map (\<lambda> (x, e). (x, eval (the o s) e)) upds")
-  subgoal
-    using that by (intro list_all2_all_nthI) (auto 4 3 dest!: nth_mem intro: is_val_eval)
-  subgoal
-    apply (subst fold_map)
-    apply (fo_rule fun_cong)
-    apply (fo_rule fun_cong)
-    apply (fo_rule arg_cong)
-    apply auto
-    done
-  done
+  by (induction upds arbitrary: s; simp) (rule subset_trans[rotated], assumption, rule dom_mk_upd)
 
-lemma is_upds_make_updsI:
-  "is_upds s upds (fold (\<lambda>upd s. mk_upds s upd) upds s)"
-  if "\<forall>upd \<in> set upds. \<forall> (_, e) \<in> set upd. \<forall>x \<in> vars_of_exp e. x \<in> dom s"
-    "\<forall>upd \<in> set upds. \<forall> (x, e) \<in> set upd. x \<in> dom s"
-  using that
-proof (induction upds arbitrary: s)
-  case Nil
-  then show ?case
-    by (auto intro: is_upds.intros)
-next
-  case (Cons a upds)
-  show ?case
-    apply (rule is_upds.intros)
-     apply (rule is_upd_make_updI)
-    subgoal
-      using Cons.prems by auto
-    apply simp
-    apply (rule Cons.IH)
-    subgoal
-      using Cons.prems by intros (subst is_upd_dom, auto 4 4 intro: is_upd_make_updI)
-    subgoal
-      using Cons.prems by intros (subst is_upd_dom, auto 4 4 intro: is_upd_make_updI)
-    done
-qed
+lemma is_upd_idxs_mk_upd_idxsI:
+  "is_upd_idxs s upds (mk_upd_idxs s upds)"
+  if "\<forall> ((_, e), _) \<in> set upds. \<forall>x \<in> vars_of_exp e. x \<in> dom s"
+  unfolding mk_upd_idxs_def is_upd_idxs_def sort_upds_def
+  using that by (intro is_upds_make_updsI) force
+
+lemma is_upds_idxs_mk_upds_idxsI:
+  "is_upds_idxs s upds (mk_upds_idxs s upds)"
+  if "\<forall>upd \<in> set upds. \<forall> ((_, e), _) \<in> set upd. \<forall>x \<in> vars_of_exp e. x \<in> dom s"
+  unfolding mk_upds_idxs_def is_upds_idxs_def sort_upds_def
+  using that by (intro is_upds_make_updsI) force
 
 
 paragraph \<open>Implementation auxiliaries\<close>
-
-definition
-  "union_map_of xs =
-    fold (\<lambda> (x, y) m. case m x of None \<Rightarrow> m(x \<mapsto> [y]) | Some ys \<Rightarrow> m(x \<mapsto> y # ys)) xs Map.empty"
 
 lemma union_map_of_alt_def:
   "union_map_of xs x = (let
@@ -324,7 +232,7 @@ definition
     let trans = trans_i_map p l
     in
     List.map_filter (\<lambda> (b, g, a, f, r, l').
-      let s' = mk_upds s f in
+      let s' = mk_upd_idxs s f in
         if bval (the o s) b \<and> check_bounded s' then Some (g, Internal a, r, (L[p := l'], s'))
         else None
     ) trans"
@@ -360,19 +268,6 @@ definition
 
 
 definition
-  "pairs_by_action L s OUT IN \<equiv>
-  concat (
-    map (\<lambda> (p, b1, g1, a1, f1, r1, l1).
-      List.map_filter (\<lambda> (q, b2, g2, a2, f2, r2, l2).
-        if p = q then None else
-          let s' = mk_upds (mk_upds s f1) f2 in
-          if bval (the o s) b1 \<and> bval (the o s) b2 \<and> check_bounded s'
-          then Some (g1 @ g2, Bin a1, r1 @ r2, (L[p := l1, q := l2], s'))
-          else None
-    ) OUT) IN)
-  "
-
-definition
   "trans_sil_map i j \<equiv>
     List.map_filter
       (\<lambda> (b, g, a, m, l'). case a of Sil a \<Rightarrow> Some (b, g, a, m, l') | _ \<Rightarrow> None)
@@ -383,20 +278,6 @@ definition
     List.map_filter
       (\<lambda> (b, g, a, m, l'). case a of Com a \<Rightarrow> Some (b, g, a, m, l') | _ \<Rightarrow> None)
     (trans_map i j)"
-\<^cancel>\<open>
-definition
-  "trans_com_broad_map i j \<equiv>
-    List.map_filter
-      (\<lambda> (b, g, a, m, l').
-      case a of Com a \<Rightarrow> if a \<in> set broadcast then Some (b, g, a, m, l') else None | _ \<Rightarrow> None)
-    (trans_map i j)"
-
-definition
-  "trans_out_broad_map i j \<equiv>
-    List.map_filter
-      (\<lambda> (b, g, a, m, l').
-      case a of Out a \<Rightarrow> if a \<in> set broadcast then Some (b, g, a, m, l') else None | _ \<Rightarrow> None)
-    (trans_map i j)"\<close>
 
 \<comment> \<open>Sort transitions by action\<close>
 definition
@@ -461,16 +342,28 @@ definition is_sync_enabled where
     list_all
       (\<lambda>(i, a, strong). \<not> (strong \<and> xs ! i ! a = [])) sync"
 
-definition make_trans_from_combs where "
+\<^cancel>\<open>definition make_trans_from_combs where "
   make_trans_from_combs sync \<equiv> \<lambda>(L, s) combs. List.map_filter (\<lambda>comb.
     let (g, a, r, L', s) =
       fold
         (\<lambda>(q, _, g2, _, f2, r2, l2) (g1, a, r1, (L, s)).
-          (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
+          (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upd_idxs s f2))
         )
         comb
         ([], Sync sync, [], (L, s))
     in if check_bounded s then Some (g, a, r, L', s) else None
+  ) combs
+  "\<close>
+
+definition make_trans_from_combs where "
+  make_trans_from_combs sync \<equiv> \<lambda>(L, s) combs. List.map_filter (\<lambda>comb.
+    let
+      g = concat_map (\<lambda>(q, _, g, _, f, r, l). g) comb;
+      r = concat_map (\<lambda>(q, _, g, _, f, r, l). r) comb;
+      a = Sync sync;
+      s' = mk_upds_idxs s (map (\<lambda>(q, _, g, _, f, r, l). f) comb);
+      L' = fold (\<lambda>(q, _, g, _, f, r, l) L. L[q := l]) comb L
+    in if check_bounded s' then Some (g, a, r, L', s') else None
   ) combs
   "
 
@@ -571,74 +464,71 @@ lemma get_committed_distinct: "distinct (get_committed L)"
   unfolding get_committed_def by (rule distinct_map_filterI) (auto simp: Let_def)
 
 lemma is_upd_make_updI2:
-  "is_upd s upds (mk_upds s upds)"
-  if "(l, b, g, a, upds, r, l') \<in> trans (N p)" "p < n_ps"
-    "dom s = {0..<n_vs}"
+  "is_upd_idxs s upds (mk_upd_idxs s upds)"
+  if "(l, b, g, a, upds, r, l') \<in> trans (N p)" "p < n_ps" "dom s = {0..<n_vs}"
   using that var_set
-  by (intro is_upd_make_updI, subst (asm) mem_trans_N_iff)
-     (auto 4 5 simp flip: length_automata_eq_n_ps dest!: nth_mem)
+  by - (intro is_upd_idxs_mk_upd_idxsI, subst (asm) mem_trans_N_iff;
+        clarsimp simp flip: length_automata_eq_n_ps dest!: nth_mem; fastforce)
 
 lemma var_setD:
-  "\<forall>(x, upd)\<in>set f. x < n_vs \<and> (\<forall>i\<in>vars_of_exp upd. i < n_vs)"
+  "\<forall>((x, upd), _)\<in>set f. x < n_vs \<and> (\<forall>i\<in>vars_of_exp upd. i < n_vs)"
   if "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   using var_set that
-  by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)+
+  by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)
 
 lemma var_setD2:
   "\<forall>i\<in>vars_of_bexp b. i < n_vs"
   if "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   using var_set that
-  by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)+
+  by (force dest: nth_mem simp flip: length_automata_eq_n_ps simp: mem_trans_N_iff)
+
+lemma sort_upds_set:
+  "set (sort_upds xs) = fst ` set xs"
+  unfolding sort_upds_def by simp
 
 lemma is_upd_dom2:
-  "dom s' = {0..<n_vs}" if "is_upd s f s'"
+  "dom s' = {0..<n_vs}" if "is_upd_idxs s f s'"
   "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
-  unfolding that(4)[symmetric] using that by - (drule (1) var_setD, erule is_upd_dom, auto)
+  unfolding that(4)[symmetric] using that unfolding is_upd_idxs_def sort_upds_set
+  by - (drule (1) var_setD, erule is_upds_dom, auto simp: sort_upds_set)
 
 lemma is_updD:
-  "s' = mk_upds s f" if "is_upd s f s'"
+  "s' = mk_upd_idxs s f" if "is_upd_idxs s f s'"
   "(l, b, g, a, f, r, l') \<in> trans (N p)" "p < n_ps"
   "dom s = {0..<n_vs}"
 proof -
-  from is_upd_make_updI2[OF that(2-)] have "is_upd s f (mk_upds s f)" .
-  from is_upd_determ[OF that(1) this] show ?thesis .
+  from is_upd_make_updI2[OF that(2-)] have "is_upd_idxs s f (mk_upd_idxs s f)" .
+  with that(1)[unfolded is_upd_idxs_def] show ?thesis
+    unfolding is_upd_idxs_def by (rule is_upds_determ)
 qed
 
 lemma is_upds_make_updsI2:
-  "is_upds s upds (fold (\<lambda>upd s. mk_upds s upd) upds s)"
+  "is_upds_idxs s upds (mk_upds_idxs s upds)"
   if "dom s = {0..<n_vs}" 
     "\<forall>upd \<in> set upds. \<exists>p < n_ps. \<exists>l b g a r l'.
         (l, b, g, a, upd, r, l') \<in> trans (N p)"
-  apply (rule is_upds_make_updsI)
-  subgoal
-    using that using var_set
-    apply intros
-    apply (drule bspec)
-     apply assumption
-    apply elims
-    apply (auto 4 5 simp flip: length_automata_eq_n_ps simp add: mem_trans_N_iff dest!: nth_mem)
-    done
-  subgoal
-    using that using var_set
-    apply intros
-    apply (drule bspec)
-     apply assumption
-    apply elims
-    apply (auto 4 5 simp flip: length_automata_eq_n_ps simp add: mem_trans_N_iff dest!: nth_mem)
-    done
+  apply (rule is_upds_idxs_mk_upds_idxsI)
+  using that using var_set
+  apply intros
+  apply (drule bspec)
+  apply assumption
+  apply elims
+  apply (clarsimp simp flip: length_automata_eq_n_ps simp add: mem_trans_N_iff dest!: nth_mem)
+  apply fastforce
   done
 
 lemma is_upds_dom2:
-  assumes "is_upds s upds s'"
+  assumes "is_upds_idxs s upds s'"
     and "\<forall>f \<in> set upds. \<exists> p < n_ps. \<exists> l b g a r l'.
       (l, b, g, a, f, r, l') \<in> trans (N p)"
     and "dom s = {0..<n_vs}"
   shows "dom s' = dom s"
-  using assms by (elim is_upds_dom) (auto dest!: var_setD)
+  using assms var_setD unfolding is_upds_idxs_def
+  by (elim is_upds_dom, clarsimp) (fastforce simp: sort_upds_set)
 
 lemma is_upds_dom3:
-  assumes "is_upds s (map fs ps) s'"
+  assumes "is_upds_idxs s (map fs ps) s'"
     and "\<forall>p\<in>set ps. (L ! p, bs p, gs p, as p, fs p, rs p, ls' p) \<in> trans (N p)"
     and "set ps \<subseteq> {0..<n_ps}"
     and "dom s = {0..<n_vs}"
@@ -646,7 +536,7 @@ lemma is_upds_dom3:
   using assms by (elim is_upds_dom2; force)
 
 lemma is_upds_make_updsI3:
-  "is_upds s (map fs ps) (fold (\<lambda>upd s. mk_upds s upd) (map fs ps) s)"
+  "is_upds_idxs s (map fs ps) (mk_upds_idxs s (map fs ps))"
   if "dom s = {0..<n_vs}" 
     and "\<forall>p\<in>set ps. (L ! p, bs p, gs p, as p, fs p, rs p, ls' p) \<in> trans (N p)"
     and "set ps \<subseteq> {0..<n_ps}"
@@ -660,14 +550,13 @@ lemma is_updsD:
         (ls p, bs p, gs p, as p, fs p, rs p, ls' p)
         \<in> trans (N p)" and
     "set ps \<subseteq> {0..<n_ps}" and
-    "is_upds s (map fs ps) s'"
-  shows "s' = fold (\<lambda>p s. mk_upds s (fs p)) ps s"
+    "is_upds_idxs s (map fs ps) s'"
+  shows "s' = mk_upds_idxs s (map fs ps)"
 proof -
-  let ?upds = "map fs ps"
-  have "is_upds s ?upds (fold (\<lambda>upd s. mk_upds s upd) ?upds s)"
+  have "is_upds_idxs s (map fs ps) (mk_upds_idxs s (map fs ps))"
     using assms(1-3) by (intro is_upds_make_updsI2; force)
-  from is_upds_determ[OF assms(4) this] show ?thesis
-    by (simp add: fold_map comp_def)
+  with assms(4) show ?thesis
+    unfolding is_upds_idxs_def by (rule is_upds_determ)
 qed
 
 
@@ -792,7 +681,7 @@ proof clarsimp
         (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         (\<forall>p < n_ps. L ! p \<notin> committed (N p)) \<and>
         check_bexp s b True \<and>
-        L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
+        L!p = l \<and> p < length L \<and> L' = L[p := l'] \<and> is_upd_idxs s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
       unfolding get_committed_empty_iff[symmetric] trans_int_def by blast
@@ -819,7 +708,7 @@ proof clarsimp
       ((L, s), g, a, r, L', s') \<in> {((L, s), g, Internal a, r, (L', s')) | L s l b g f p a r l' L' s'.
         (l, b, g, Sil a, f, r, l') \<in> trans (N p) \<and>
         l \<in> committed (N p) \<and>
-        L!p = l \<and> p < length L \<and> check_bexp s b True \<and> L' = L[p := l'] \<and> is_upd s f s' \<and>
+        L!p = l \<and> p < length L \<and> check_bexp s b True \<and> L' = L[p := l'] \<and> is_upd_idxs s f s' \<and>
         L \<in> states \<and> bounded bounds s \<and> bounded bounds s'
       }"
       unfolding get_committed_empty_iff[symmetric] trans_int_def by blast
@@ -1110,31 +999,11 @@ definition is_select_maximal where
 definition is_sync_result where
   "is_sync_result L s sync ps as fs ls' L' s'  \<equiv>
     ''new loc'' \<bbar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L \<and>
-    ''upds''    \<bbar> is_upds s (map fs ps) s'"
+    ''upds''    \<bbar> is_upds_idxs s (map fs ps) s'"
 
 definition is_select_committed where
   "is_select_committed L ps \<equiv>
     ''committed'' \<bar> (\<exists>p\<in>set ps. L ! p \<in> committed (N p)) \<or> (\<forall>p<n_ps. L ! p \<notin> committed (N p))"
-
-definition trans_from_combs_folder where
-  "trans_from_combs_folder \<equiv> \<lambda>(q, b2, g2, a2, f2, r2, l2) (g1, a, r1, L, s).
-                  (g1 @ g2, a, r1 @ r2, L[q := l2], mk_upds s f2)"
-
-lemma make_trans_from_combs_alt_def: "
-  make_trans_from_combs sync \<equiv> \<lambda>(L, s) combs. List.map_filter (\<lambda>comb.
-    let (g, a, r, L', s) =
-      fold trans_from_combs_folder comb ([], Sync sync, [], (L, s))
-    in if check_bounded s then Some (g, a, r, L', s) else None
-  ) combs"
-  unfolding make_trans_from_combs_def trans_from_combs_folder_def .
-
-lemma trans_from_combs_folder_folding: "
-  fold trans_from_combs_folder
-    (map (\<lambda>p. (p, bs p, gs p, as p, fs p, rs p, ls' p)) ps) (g, a, r, L, s)
-  = (g @ concat (map gs ps), a, r @ concat (map rs ps),
-      fold (\<lambda>p L. L[p := ls' p]) ps L, fold (\<lambda>p s. mk_upds s (fs p)) ps s)
-    " for ps bs gs a' fs rs ls' g as r L s
-  unfolding trans_from_combs_folder_def by (induction ps arbitrary: g a r L s; simp)
 
 lemma sync_trans_from_correct:
   "(sync_trans_from, trans_sync) \<in> transition_rel states'"
@@ -1517,39 +1386,27 @@ proof clarsimp
           unfolding is_select_committed_def by (untag, force)
       qed
     qed
-    moreover have "fold trans_from_combs_folder xs ([], Sync sync, [], L, s)
-    = (concat (map gs ps), Sync sync, concat (map rs ps),
-       fold (\<lambda>p L. L[p := ls' p]) ps L, fold (\<lambda>p s. mk_upds s (fs p)) ps s)"
-    proof -
-      have "xs = (map (\<lambda>p. (p, bs p, gs p, as p, fs p, rs p, ls' p)) ps)"
-        unfolding defs
-        apply (rule nth_equalityI)
-         apply (simp; fail)
-        subgoal for i
-          by (cases "xs ! i") (auto simp: to_map dest: nth_mem)
-        done
-      then show ?thesis
-        by (simp add: trans_from_combs_folder_folding)
-    qed
-    moreover have "is_upds s (map fs ps) (fold (\<lambda>p s. mk_upds s (fs p)) ps s)"
-    proof -
-      have "fold (\<lambda>p s. mk_upds s (fs p)) ps s = fold (\<lambda>upd s. mk_upds s upd) (map fs ps) s"
-        unfolding fold_map comp_def ..
-      moreover have "is_upds s (map fs ps) \<dots>"
-        using \<open>dom s = _\<close> range * by (elim is_upds_make_updsI3) auto
-      ultimately show ?thesis
-        by simp
-    qed
-    moreover have "dom (fold (\<lambda>p s. mk_upds s (fs p)) ps s) = {0..<n_vs}"
-      using \<open>is_upds s _ _\<close> * range \<open>dom s = _\<close> by (subst is_upds_dom3; (assumption | force))
+    moreover have "is_upds_idxs s (map fs ps) (mk_upds_idxs s (map fs ps))"
+      using \<open>dom s = _\<close> range * by (elim is_upds_make_updsI3) auto
+    moreover have "dom (mk_upds_idxs s (map fs ps)) = {0..<n_vs}"
+      using \<open>is_upds_idxs s _ _\<close> * range \<open>dom s = _\<close> by (subst is_upds_dom3; (assumption | force))
+    moreover have
+      "map (\<lambda>(q, _, g, _, f, r, l). g) xs = map gs ps"
+      "map (\<lambda>(q, _, g, _, f, r, l). f) xs = map fs ps"
+      "map (\<lambda>(q, _, g, _, f, r, l). r) xs = map rs ps"
+      unfolding defs by (auto simp: to_map)
+    moreover have
+      "fold (\<lambda>(q, _, g, _, f, r, l) L. L[q := l]) xs L = fold (\<lambda>p L. L[p := ls' p]) ps L"
+      unfolding defs by (auto simp: fold_map to_map intro: fold_cong)
     ultimately consider ps bs gs as fs rs ls' where
       "is_select_basic L s sync ps bs gs as fs rs ls'" "is_select_maximal L s sync ps"
-      "is_upds s (map fs ps) (fold (\<lambda>p s. mk_upds s (fs p)) ps s)"
+      "is_upds_idxs s (map fs ps) (mk_upds_idxs s (map fs ps))"
       "is_select_committed L ps"
-      "fold trans_from_combs_folder xs ([], Sync sync, [], L, s)
-    = (concat (map gs ps), Sync sync, concat (map rs ps),
-       fold (\<lambda>p L. L[p := ls' p]) ps L, fold (\<lambda>p s. mk_upds s (fs p)) ps s)"
-      "dom (fold (\<lambda>p s. mk_upds s (fs p)) ps s) = {0..<n_vs}"
+      "map (\<lambda>(q, _, g, _, f, r, l). g) xs = map gs ps"
+      "map (\<lambda>(q, _, g, _, f, r, l). f) xs = map fs ps"
+      "map (\<lambda>(q, _, g, _, f, r, l). r) xs = map rs ps"
+      "fold (\<lambda>(q, _, g, _, f, r, l) L. L[q := l]) xs L = fold (\<lambda>p L. L[p := ls' p]) ps L"
+      "dom (mk_upds_idxs s (map fs ps)) = {0..<n_vs}"
       by blast
   } note make_combsI = this
   have make_transI:
@@ -1575,15 +1432,13 @@ proof clarsimp
         \<comment> \<open>Or simply disallow it: a) via static constraints b) in the semantics\<close>
         \<comment> \<open>Tending towards b) now, but what do other tools do?\<close>
         sorry
-      apply (clarsimp simp: make_trans_from_combs_alt_def set_map_filter Let_def split: prod.split)
+      apply (clarsimp simp: make_trans_from_combs_def set_map_filter Let_def split: prod.split)
       unfolding is_sync_result_def is_select_basic_def apply (elim conjE)
       apply (tag- \<open>TRANS _\<close> \<open>SEL ''range''\<close> \<open>''upds''\<close> \<open>''new loc''\<close>)
       supply [forward4] = is_upds_dom3 is_updsD[rotated 3]
       apply frules_all
       apply intros
-            apply assumption
-           apply (simp add: trans_from_combs_folder_folding; fail)+
-      apply (auto simp add: trans_from_combs_folder_folding check_bounded_iff[symmetric])
+      apply (auto simp:  check_bounded_iff[symmetric] comp_def fold_map)
       done
     moreover have "is_sync_enabled_committed sync COM' (get_committed L)" if "get_committed L \<noteq> []"
       using assms that by (intro make_combs_sync_enabled_committed)
@@ -1602,16 +1457,16 @@ proof clarsimp
     if "sync \<in> set syncs" "(g, a, r, L', s') \<in> set (make_trans sync)"
     for sync g a r L' s'
     using that(1,2)
-    unfolding make_trans_def make_trans_from_combs_alt_def
+    unfolding make_trans_def make_trans_from_combs_def
     unfolding is_sync_result_def
     apply untag
     apply (clarsimp simp: Let_def set_map_filter split: if_split_asm)
      apply (erule (2) make_combsI, (simp; fail))
      apply (subst check_bounded_iff, simp split: if_split_asm)
-     apply (fastforce split: if_split_asm)
+     apply (intros; (assumption | simp); fail)
     apply (erule (1) make_combsI, (simp add: is_sync_enabled_committed_def; fail), (simp; fail))
     apply (subst check_bounded_iff, simp split: if_split_asm)
-    apply (fastforce split: if_split_asm)
+    apply (intros; (assumption | simp); fail)
     done
 
   show "(((L, s), g, a, r, L', s') \<in> trans_sync) =
@@ -1696,26 +1551,11 @@ end (* Anonymous context for simp setup *)
 
 end (* Simple Network Impl nat *)
 
-fun bvali :: "_ \<Rightarrow> (nat, 'b :: linorder) bexp \<Rightarrow> bool" and evali where
-  "bvali s bexp.true = True" |
-  "bvali s (not e) \<longleftrightarrow> \<not> bvali s e" |
-  "bvali s (and e1 e2) \<longleftrightarrow> bvali s e1 \<and> bvali s e2" |
-  "bvali s (bexp.or e1 e2) \<longleftrightarrow> bvali s e1 \<or> bvali s e2" |
-  "bvali s (imply e1 e2) \<longleftrightarrow> bvali s e1 \<longrightarrow> bvali s e2" |
-  "bvali s (eq i x) \<longleftrightarrow> evali s i = evali s x" |
-  "bvali s (le i x) \<longleftrightarrow> evali s i \<le> evali s x" |
-  "bvali s (lt i x) \<longleftrightarrow> evali s i < evali s x" |
-  "bvali s (ge i x) \<longleftrightarrow> evali s i \<ge> evali s x" |
-  "bvali s (gt i x) \<longleftrightarrow> evali s i > evali s x"
-| "evali s (const c) = c"
-| "evali s (var x)   = s ! x"
-| "evali s (if_then_else b e1 e2) = (if bvali s b then evali s e1 else evali s e2)"
-| "evali s (binop f e1 e2) = f (evali s e1) (evali s e2)"
-| "evali s (unop f e) = f (evali s e)"
+definition mk_upd_idxsi where
+  "mk_upd_idxsi s upds_idxs \<equiv> mk_updsi s (sort_upds upds_idxs)"
 
-definition mk_updsi ::
-  "int list \<Rightarrow> (nat \<times> (nat, int) exp) list \<Rightarrow> int list" where
-  "mk_updsi s upds = fold (\<lambda>(x, upd) s'. s'[x := evali s upd]) upds s"
+definition mk_upds_idxsi where
+  "mk_upds_idxsi s upds_idxs \<equiv> mk_updsi s (sort_upds (concat upds_idxs))"
 
 context Generalized_Network_Impl_nat_defs
 begin
@@ -1731,8 +1571,8 @@ definition
   "int_trans_from_loc_impl p l L s \<equiv>
     let trans = trans_i_map p l
     in
-    List.map_filter (\<lambda> (b, g, a, f, r, l').
-      let s' = mk_updsi s f in
+    List.map_filter (\<lambda>(b, g, a, f, r, l').
+      let s' = mk_upd_idxsi s f in
         if bvali s b \<and> check_boundedi s' then Some (g, Internal a, r, (L[p := l'], s'))
         else None
     ) trans"
@@ -1754,41 +1594,15 @@ definition
   "
 
 definition
-  "pairs_by_action_impl L s OUT IN \<equiv>
-  concat (
-    map (\<lambda> (p, b1, g1, a1, f1, r1, l1).
-      List.map_filter (\<lambda> (q, b2, g2, a2, f2, r2, l2).
-        if p = q then None else
-          let s' = mk_updsi (mk_updsi s f1) f2 in
-          if bvali s b1 \<and> bvali s b2 \<and> check_boundedi s'
-          then Some (g1 @ g2, Bin a1, r1 @ r2, (L[p := l1, q := l2], s'))
-          else None
-    ) OUT) IN)
-  "
-
-definition
-  "compute_upds init \<equiv> List.map_filter (\<lambda>comb.
-  let (g, a, r, L', s) =
-    fold
-      (\<lambda>(q, b2, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
-        (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_upds s f2))
-      )
-      comb
-      init
-  in if check_bounded s then Some (g, a, r, L', s) else None
-)"
-
-definition
-  "make_trans_from_combs_impl sync \<equiv> \<lambda>(L, s). List.map_filter (\<lambda>comb.
-    let (g, a, r, L', s) =
-      fold
-        (\<lambda>(q, b2, g2, a2, f2, r2, l2) (g1, a, r1, (L, s)).
-          (g1 @ g2, a, r1 @ r2, (L[q := l2], mk_updsi s f2))
-        )
-        comb
-        ([], Sync sync, [], (L, s))
-    in if check_boundedi s then Some (g, a, r, L', s) else None
-  )"
+  "make_trans_from_combs_impl sync \<equiv> \<lambda>(L, s) combs. List.map_filter (\<lambda>comb.
+    let
+      g = concat_map (\<lambda>(q, _, g, _, f, r, l). g) comb;
+      r = concat_map (\<lambda>(q, _, g, _, f, r, l). r) comb;
+      a = Sync sync;
+      s' = mk_upds_idxsi s (map (\<lambda>(q, _, g, _, f, r, l). f) comb);
+      L' = fold (\<lambda>(q, _, g, _, f, r, l) L. L[q := l]) comb L
+    in if check_boundedi s' then Some (g, a, r, L', s') else None
+  ) combs"
 
 definition trans_from where
   "trans_from st = int_trans_from st @ sync_trans_from st"
@@ -1842,30 +1656,20 @@ lemma mk_upds_mk_updsi:
   if assms: "state_rel s si" "\<forall> (_, e) \<in> set upds. \<forall>x \<in> vars_of_exp e. x < n_vs"
     "\<forall> (x, e) \<in> set upds. x < n_vs"
 proof -
-  have upd_stepI: "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
+  have upd_stepI: "state_rel (mk_upd (x, e) s') (si'[x := evali si' e])"
     if "state_rel s' si'" "\<forall>x \<in> vars_of_exp e. x < n_vs" "x < n_vs"
     for s' si' x e
-    using that assms unfolding state_rel_def by (auto simp: state_rel_def eval_evali)
-  have "state_rel
-        (fold (\<lambda>(x, upd) s'. s'(x \<mapsto> eval (the o s) upd)) upds s')
-        (fold (\<lambda>(x, upd) s'. s'[x := evali si upd]) upds si')"
-    if "state_rel s' si'" for s' si'
-    using assms that
-  proof (induction upds arbitrary: s' si')
+    using that assms unfolding mk_upd_def state_rel_def by (auto simp: state_rel_def eval_evali)
+  from assms show ?thesis
+  proof (induction upds arbitrary: s si)
     case Nil
     then show ?case
-      by simp
+      by (simp add: mk_upds_def mk_updsi_def)
   next
     case (Cons upd upds)
-    obtain x e where "upd = (x, e)"
-      by (cases upd) auto
-    from Cons.prems have "state_rel (s'(x \<mapsto> eval (the o s) e)) (si'[x := evali si e])"
-      unfolding \<open>upd = _\<close> by (intro upd_stepI) auto
-    from Cons.IH[OF _ _ _ this] Cons.prems show ?case
-      unfolding \<open>upd = _\<close> by (auto simp: fun_upd_def comp_def)
+    then show ?case
+      by (simp add: mk_upds_def mk_updsi_def split: prod.splits) (rprem, auto intro!: upd_stepI)
   qed
-  from this[OF \<open>state_rel s si\<close>] show ?thesis
-    unfolding mk_upds_def mk_updsi_def .
 qed
 
 lemma check_bounded_check_boundedi:
@@ -1880,6 +1684,9 @@ definition
 
 context includes lifting_syntax begin
 notation rel_prod (infixr "\<times>\<^sub>R" 56)
+
+abbreviation
+  "valid_upd_idx \<equiv> \<lambda>(upd, idx). valid_upd upd"
 
 (* XXX Move *)
 definition is_at_least_equality where
@@ -1926,10 +1733,6 @@ lemma is_at_least_equality_Let:
   "(S ===> ((=) ===> R) ===> R) Let Let" if "is_at_least_equality S" for R
   using that unfolding is_at_least_equality_def
   by (intro rel_funI) (erule Let_transfer[THEN rel_funD, THEN rel_funD, rotated], auto)
-
-\<comment> \<open>XXX: remove?\<close>
-\<^cancel>\<open>lemma is_equality_rel_acconstraint[is_at_least_equality]: "is_equality (rel_acconstraint (=) (=))"
-  by (tactic \<open>Transfer.eq_tac @{context} 1\<close>)\<close>
 
 lemma map_transfer_length:
   fixes R S n
@@ -2055,6 +1858,57 @@ lemma mk_upds_mk_updsi_transfer[transfer_rule]:
     done
   done
 
+\<comment> \<open>XXX: move\<close>
+lemma insort_key_transfer[transfer_rule]:
+  "((R ===> (=)) ===> R ===> list_all2 R ===> list_all2 R) insort_key insort_key"
+  proof (intro rel_funI)
+  fix f :: "'a \<Rightarrow> 'b" and g :: "'c \<Rightarrow> 'b" and x :: 'a and y :: 'c and xs ys
+  assume
+    rel[THEN rel_funD]: "(R ===> (=)) f g" and
+    "R x y" and "list_all2 R xs ys"
+  from this(3,2) show "list_all2 R (insort_key f x xs) (insort_key g y ys)"
+  proof (induction arbitrary: x y)
+    case Nil
+    then show ?case
+      by simp
+  next
+    case (Cons x' xs y' ys)
+    then show ?case
+      by (auto dest!: rel)
+  qed
+qed
+
+\<comment> \<open>XXX: move\<close>
+lemma sort_key_transfer[transfer_rule]:
+  "((R ===> (=)) ===> list_all2 R ===> list_all2 R) sort_key sort_key"
+  unfolding sort_key_def by transfer_prover
+
+lemma valid_upd_idx_snd_transfer:
+  "(eq_onp valid_upd_idx ===> (=)) snd snd"
+  by (intro rel_funI) (auto simp: eq_onp_def)
+
+lemma valid_upd_idx_fst_transfer:
+  "(eq_onp valid_upd_idx ===> eq_onp valid_upd) fst fst"
+  by (intro rel_funI) (auto simp: eq_onp_def)
+
+lemma sort_upds_transfer:
+  "(list_all2 (eq_onp valid_upd_idx) ===> list_all2 (eq_onp valid_upd))
+    sort_upds sort_upds"
+  supply [transfer_rule] = valid_upd_idx_fst_transfer valid_upd_idx_snd_transfer
+  unfolding sort_upds_def by transfer_prover
+
+lemma mk_upd_idxs_mk_upds_idxsi_transfer[transfer_rule]:
+  "(state_rel ===> list_all2 (eq_onp valid_upd_idx) ===> state_rel)
+    mk_upd_idxs mk_upd_idxsi"
+  supply [transfer_rule] = sort_upds_transfer
+  unfolding mk_upd_idxs_def mk_upd_idxsi_def by transfer_prover
+
+lemma mk_upds_idxs_mk_upds_idxsi_transfer[transfer_rule]:
+  "(state_rel ===> list_all2 (list_all2 (eq_onp valid_upd_idx)) ===> state_rel)
+    mk_upds_idxs mk_upds_idxsi"
+  supply [transfer_rule] = sort_upds_transfer
+  unfolding mk_upds_idxs_def mk_upds_idxsi_def by transfer_prover
+
 lemma check_bounded_transfer[transfer_rule]:
   "(state_rel ===> (=)) check_bounded check_boundedi"
   by (simp add: check_bounded_check_boundedi rel_funI)
@@ -2063,7 +1917,7 @@ lemma trans_map_transfer:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===>
     list_all2 (
       eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (pred_act (\<lambda>x. x < num_actions))
-      \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)
+      \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R (=)
    )) trans_map trans_map"
   apply (intro rel_funI, simp add: eq_onp_def, intro list.rel_refl_strong)
   apply clarsimp
@@ -2074,7 +1928,7 @@ lemma trans_map_transfer:
 
 lemma trans_map_transfer':
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===>
-    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R (=))
   ) trans_map trans_map"
   apply (intro rel_funI, simp add: eq_onp_def, intro list.rel_refl_strong)
   apply clarsimp
@@ -2082,28 +1936,24 @@ lemma trans_map_transfer':
     apply (auto 4 4 dest: var_setD trans_mapD var_setD2 simp: valid_upd_def valid_check_def)
   done
 
+\<comment> \<open>XXX: move\<close>
 lemma map_filter_transfer[transfer_rule]:
   "((S ===> rel_option R) ===> list_all2 S ===> list_all2 R) List.map_filter List.map_filter"
   unfolding map_filter_def
-  apply (auto intro!: rel_funI)
+  apply (intro rel_funI)
   subgoal for f g xs ys
-  apply (rule list.map_transfer[THEN rel_funD, THEN rel_funD, of "\<lambda> x y. f x \<noteq> None \<and> S x y"])
-   apply (rule rel_funI)
-  subgoal for a b
-    apply (cases "f a")
-    apply (auto simp: option_rel_Some1 option_rel_Some2 dest!: rel_funD)
+    apply (rule list.map_transfer[THEN rel_funD, THEN rel_funD, of "\<lambda> x y. f x \<noteq> None \<and> S x y"])
+    apply (rule rel_funI)
+    subgoal for a b
+      by (cases "f a") (auto simp: option_rel_Some1 option_rel_Some2 dest!: rel_funD)
+    subgoal premises prems
+      using prems(2,1) by (induction rule: list_all2_induct) (auto dest: rel_funD)
     done
-  subgoal
-    apply rotate_tac
-    apply (induction rule: list_all2_induct)
-     apply (auto dest: rel_funD)
-    done
-  done
   done
 
 lemma trans_i_map_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=) ===>
-    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R (=))
    ) trans_i_map trans_i_map"
   supply [transfer_rule] = trans_map_transfer'
   unfolding trans_i_map_def by transfer_prover
@@ -2179,17 +2029,6 @@ lemma int_trans_from_transfer:
   unfolding int_trans_impl_def int_trans_from_def Let_def
   by transfer_prover
 
-lemma pairs_by_action_transfer[transfer_rule]:
-  "((\<lambda>x y. list_all2 (=) x y \<and> length x = n) ===> state_rel ===>
-    list_all2 ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=) \<times>\<^sub>R (=))
-    ===>
-    list_all2 ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=) \<times>\<^sub>R (=))
-    ===>
-    list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel))
-   pairs_by_action pairs_by_action_impl"
-  supply [transfer_rule] = list_update_transfer'''
-  unfolding pairs_by_action_def pairs_by_action_impl_def by transfer_prover
-
 lemmas rel_elims =
   rel_prod.cases
   rel_funD
@@ -2197,25 +2036,12 @@ lemmas rel_elims =
 lemmas rel_intros =
   rel_funI
 
-lemma pairs_by_action_transfer':
-  "((\<lambda>x y. list_all2 (=) x y \<and> length x = n) ===> state_rel ===>
-    list_all2 (B \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R C \<times>\<^sub>R D \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R E \<times>\<^sub>R F) ===>
-    list_all2 (B \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R C \<times>\<^sub>R D \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R E \<times>\<^sub>R F) ===>
-    list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel))
-   pairs_by_action pairs_by_action_impl"
-  if "\<And>x y. B x y \<Longrightarrow> x = y"
-    "\<And>x y. C x y \<Longrightarrow> x = y" "\<And>x y. D x y \<Longrightarrow> x = y"
-    "\<And>x y. E x y \<Longrightarrow> x = y" "\<And>x y. F x y \<Longrightarrow> x = y"
-  for B C D E F
-  apply (intro rel_funI)
-  apply (rule pairs_by_action_transfer[THEN rel_funD, THEN rel_funD, THEN rel_funD, THEN rel_funD])
-     apply (assumption | erule that list_all2_mono prod.rel_mono_strong)+
-  done
 
 lemma trans_com_map_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=)
     ===> list_all2 (
-    eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>a. a < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+      eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>a. a < num_actions)
+      \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R (=))
    ) trans_com_map trans_com_map"
   supply [transfer_rule] = trans_map_transfer[folded act.rel_eq_onp]
   unfolding trans_com_map_def by transfer_prover
@@ -2223,8 +2049,10 @@ lemma trans_com_map_transfer[transfer_rule]:
 lemma actions_by_state_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i < n_ps) ===>
     list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < n) \<times>\<^sub>R (=)) ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n) ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n)
+    (\<lambda> x y. list_all2 (list_all2 (
+      eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n) ===>
+    (\<lambda> x y. list_all2 (list_all2
+      (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R (=) \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n) \<times>\<^sub>R (=))) x y \<and> length x = n)
   )
   actions_by_state actions_by_state" for n
   supply [transfer_rule] = list_update_transfer''
@@ -2233,7 +2061,8 @@ lemma actions_by_state_transfer[transfer_rule]:
 lemma actions_by_state_transfer'[transfer_rule]:
   "(
     eq_onp (\<lambda>i. i < n_ps) ===>
-    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < n) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)) ===>
+    list_all2 (
+      eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < n) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)) ===>
     (\<lambda> x y. list_all2 (list_all2 (
         eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < n)
         \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = n) ===>
@@ -2254,11 +2083,16 @@ lemma transfer_consts:
 lemma all_actions_by_state_transfer[transfer_rule]:
   "
   (
-    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===>
+      list_all2 (
+        eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions)
+        \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
     ===>
     (\<lambda>x y. list_all2 (=) x y \<and> length x = n_ps)
     ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = num_actions)
+    (\<lambda> x y. list_all2 (list_all2 (
+      eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions)
+      \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = num_actions)
   )
   all_actions_by_state all_actions_by_state"
   supply [transfer_rule] = map_transfer_length upt_0_transfer upt_length_transfer transfer_consts
@@ -2268,11 +2102,14 @@ lemma all_actions_by_state_transfer[transfer_rule]:
 lemma all_actions_from_vec_transfer[transfer_rule]:
   "
   (
-    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
+    (eq_onp (\<lambda>i. i<n_ps) ===> (=) ===> list_all2 (eq_onp valid_check \<times>\<^sub>R (=) 
+      \<times>\<^sub>R eq_onp (\<lambda>i. i < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=)))
     ===>
     list_all2 (eq_onp (\<lambda>i. i < n_ps) \<times>\<^sub>R (=))
     ===>
-    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y \<and> length x = num_actions)
+    (\<lambda> x y. list_all2 (list_all2 (eq_onp (\<lambda>i. i<n_ps) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R (=)
+      \<times>\<^sub>R eq_onp (\<lambda>i. i<num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
+      \<and> length x = num_actions)
   )
   all_actions_from_vec all_actions_from_vec"
   supply [transfer_rule] = map_transfer_length upt_length_transfer transfer_consts
@@ -2307,7 +2144,7 @@ abbreviation
 lemma make_trans_from_combs_transfer:
   "(list_all2 ((=) \<times>\<^sub>R (=) \<times>\<^sub>R (=)) ===> state'_rel n
   ===> list_all2 (list_all2
-        ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd)
+        ((=) \<times>\<^sub>R eq_onp valid_check \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx)
         \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) ===>
   list_all2 (
     list_all2 (=) \<times>\<^sub>R (=) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (\<lambda>x y. list_all2 (=) x y \<and> length x = n) \<times>\<^sub>R state_rel
@@ -2318,9 +2155,13 @@ lemma make_trans_from_combs_transfer:
 
 text \<open>We are using the ``equality version'' of parametricty for @{term "(!)"} here.\<close>
 lemma actions_by_state'_transfer[transfer_rule]:
-  "(list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))
+  "(list_all2 (
+    eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions)
+    \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R (=))
   ===> (\<lambda> x y. list_all2 (
-    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
+    list_all2 (
+      eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions)
+      \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R (=))) x y
     \<and> length x = num_actions
   ))
   actions_by_state' actions_by_state'"
@@ -2333,7 +2174,9 @@ lemma actions_by_state'_transfer[transfer_rule]:
 lemma trans_com_grouped_transfer[transfer_rule]:
   "(eq_onp (\<lambda>i. i<n_ps) ===> (=)
   ===> (\<lambda> x y. list_all2 (
-    list_all2 (eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd) \<times>\<^sub>R (=))) x y
+    list_all2 (
+      eq_onp valid_check \<times>\<^sub>R (=) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions)
+      \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R (=))) x y
     \<and> length x = num_actions
   )) trans_com_grouped trans_com_grouped"
   unfolding trans_com_grouped_def by transfer_prover
@@ -2410,7 +2253,7 @@ proof -
           eq_onp valid_check \<times>\<^sub>R
           list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R
           eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
-          list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) ===>
+          list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))) ===>
       list_all2
        (list_all2 (=) \<times>\<^sub>R
         (=) \<times>\<^sub>R
@@ -2439,7 +2282,7 @@ proof -
         (\<lambda>x y. list_all2 (\<lambda>x y. list_all2 (list_all2
           (eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R
            eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
-           list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)))
+           list_all2 (eq_onp valid_upd_idx) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)))
           x y \<and> length x = num_actions) x y \<and> length x = n_ps) ===>
         (=)
     ) is_sync_enabled is_sync_enabled"
@@ -2448,8 +2291,9 @@ proof -
   have is_sync_enabled_committed_transfer[transfer_rule]: "
     (sync_rel ===>
         (\<lambda>x y. list_all2 (\<lambda>x y. list_all2 (list_all2
-          (eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
-           list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)))
+          (eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=))
+          \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx)
+          \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)))
           x y \<and> length x = num_actions) x y \<and> length x = n_ps) ===>
         list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R (=)) ===>
         (=)
@@ -2460,12 +2304,14 @@ proof -
   have make_combs_from_sync_transfer: "
     (sync_rel ===>
         (\<lambda>x y. list_all2 (\<lambda>x y. list_all2 (list_all2
-          (eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
-           list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)))
+          (eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=))
+          \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx)
+          \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=)))
           x y \<and> length x = num_actions) x y \<and> length x = n_ps) ===>
         list_all2 (list_all2 (eq_onp (\<lambda>x. x < n_ps) \<times>\<^sub>R
-          eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=)) \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R
-          list_all2 (eq_onp valid_upd) \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))
+          eq_onp valid_check \<times>\<^sub>R list_all2 (rel_acconstraint (=) (=))
+          \<times>\<^sub>R eq_onp (\<lambda>x. x < num_actions) \<times>\<^sub>R list_all2 (eq_onp valid_upd_idx)
+          \<times>\<^sub>R list_all2 (=) \<times>\<^sub>R (=))
         )
     ) make_combs_from_sync make_combs_from_sync"
     apply (intro rel_funI)

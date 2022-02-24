@@ -1,5 +1,6 @@
 theory Generalized_Network_Language_Impl
   imports
+    Simple_Network_Language_Impl 
     Generalized_Network_Language
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     "HOL-Library.IArray" "HOL-Library.AList"
@@ -129,7 +130,7 @@ lemma (in Prod_TA_Defs) trans_sync_tagged_def:
       SEL ''range'' \<bbar> set ps \<subseteq> {0..<n_ps} \<and> SEL ''sublist'' \<bbar> subseq ps (map fst sync) \<and>
       ''bexp'' \<bbar> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       ''new loc'' \<bbar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L \<and>
-      ''upds''    \<bbar> is_upds s (map fs ps) s' \<and>
+      ''upds''    \<bbar> is_upds_idxs s (map fs ps) s' \<and>
       L \<in> states \<and> ''bounded'' \<bbar> bounded bounds s \<and> ''bounded'' \<bbar> bounded bounds s'
     }"
   unfolding trans_sync_def by untag standard
@@ -153,7 +154,7 @@ lemma (in Prod_TA_Defs) trans_sync_alt_def:
       SEL ''range'' \<bbar> set ps \<subseteq> {0..<n_ps} \<and> SEL ''sublist'' \<bbar> subseq ps (map fst sync) \<and>
       ''bexp'' \<bbar> (\<forall>p \<in> set ps. check_bexp s (bs p) True) \<and>
       ''new loc'' \<bbar> L' = fold (\<lambda>p L . L[p := ls' p]) ps L \<and>
-      ''upds''    \<bbar> is_upds s (map fs ps) s' \<and>
+      ''upds''    \<bbar> is_upds_idxs s (map fs ps) s' \<and>
       L \<in> states \<and> ''bounded'' \<bbar> bounded bounds s \<and> ''bounded'' \<bbar> bounded bounds s' \<and>
       ''fix conds''  \<bbar> (\<forall>p. p\<notin>set ps \<longrightarrow> bs p = bexp.true) \<and>
       ''fix guards'' \<bbar> (\<forall>p. p\<notin>set ps \<longrightarrow> gs p = []) \<and>
@@ -173,14 +174,14 @@ proof ((intro Collect_eqI iffI; elims add: more_elims), goal_cases)
 qed blast
 
 
-definition
+definition conv_automaton where
   "conv_automaton \<equiv> \<lambda>(committed, urgent, trans, inv).
     (committed,
      urgent,
      map (\<lambda>(l, b, g, a, f, r, l'). (l, b, conv_cc g, a, f, r, l')) trans,
      map (\<lambda>(s, cc). (s, conv_cc cc)) inv)"
 
-definition
+definition automaton_of where
   "automaton_of \<equiv>
     \<lambda>(committed, urgent, trans, inv). (set committed, set urgent, set trans, default_map_of [] inv)"
 
@@ -763,28 +764,11 @@ end (* Simple Network Impl *)
 
 paragraph \<open>Collecting variables from expressions.\<close>
 
-fun vars_of_bexp and vars_of_exp where
-  "vars_of_bexp (not e) = vars_of_bexp e"
-| "vars_of_bexp (and e1 e2) = (vars_of_bexp e1 \<union> vars_of_bexp e2)"
-| "vars_of_bexp (bexp.or e1 e2) = (vars_of_bexp e1 \<union> vars_of_bexp e2)"
-| "vars_of_bexp (imply e1 e2) = (vars_of_bexp e1 \<union> vars_of_bexp e2)"
-| "vars_of_bexp (eq i x) = vars_of_exp i \<union> vars_of_exp x"
-| "vars_of_bexp (le i x) = vars_of_exp i \<union> vars_of_exp x"
-| "vars_of_bexp (lt i x) = vars_of_exp i \<union> vars_of_exp x"
-| "vars_of_bexp (ge i x) = vars_of_exp i \<union> vars_of_exp x"
-| "vars_of_bexp (gt i x) = vars_of_exp i \<union> vars_of_exp x"
-| "vars_of_bexp bexp.true = {}"
-| "vars_of_exp (const c) = {}"
-| "vars_of_exp (var x) = {x}"
-| "vars_of_exp (if_then_else b e1 e2) = vars_of_bexp b \<union> vars_of_exp e1 \<union> vars_of_exp e2"
-| "vars_of_exp (binop _ e1 e2) = vars_of_exp e1 \<union> vars_of_exp e2"
-| "vars_of_exp (unop _ e) = vars_of_exp e"
-
 definition (in Prod_TA_Defs)
   "var_set =
   (\<Union>S \<in> {(fst \<circ> snd) ` trans (N p) | p. p < n_ps}. \<Union>b \<in> S. vars_of_bexp b) \<union>
   (\<Union>S \<in> {(fst \<circ> snd \<circ> snd \<circ> snd \<circ> snd) ` trans (N p) | p. p < n_ps}.
-    \<Union>f \<in> S. \<Union> (x, e) \<in> set f. {x} \<union> vars_of_exp e)"
+    \<Union>f \<in> S. \<Union> ((x, e), _) \<in> set f. {x} \<union> vars_of_exp e)"
 
 locale Generalized_Network_Impl_nat_defs =
   Generalized_Network_Impl automata
@@ -805,7 +789,7 @@ locale Generalized_Network_Impl_nat =
     "\<forall>i < n_ps. let (_, _, _, inv) = (automata ! i) in \<forall> (x, _) \<in> set inv. x < num_states i"
   assumes var_set:
     "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, _, _, f, _, _) \<in> set trans.
-      \<forall>(x, upd) \<in> set f. x < n_vs \<and> (\<forall>i \<in> vars_of_exp upd. i < n_vs)"
+      \<forall>((x, upd), _) \<in> set f. x < n_vs \<and> (\<forall>i \<in> vars_of_exp upd. i < n_vs)"
     "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, b, _, _, _, _, _) \<in> set trans.
       \<forall>i \<in> vars_of_bexp b. i < n_vs"
   assumes bounds:
