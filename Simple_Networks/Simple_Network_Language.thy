@@ -89,6 +89,11 @@ inductive is_upds where
   "is_upds s [] s" |
   "is_upds s (x # xs) s''" if "is_upd s x s'" "is_upds s' xs s''"
 
+inductive_cases is_upds_NilE:
+  "is_upds s [] s'"
+and is_upds_ConsE:
+  "is_upds s (e # es) s'"
+
 definition committed :: "('a, 's, 'c, 't, 'x, 'v) sta \<Rightarrow> 's set" where
   "committed A \<equiv> fst A"
 

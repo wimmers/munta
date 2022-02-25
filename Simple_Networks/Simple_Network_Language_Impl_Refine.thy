@@ -1494,11 +1494,6 @@ lemma list_all2_fst_aux:
   "map fst xs = ys" if "list_all2 (\<lambda>x y. fst x = y) xs ys"
   using that by (induction) auto
 
-inductive_cases is_upds_NilE:
-  "is_upds s [] s'"
-
-thm is_upds_NilE
-
 lemma broad_trans_from_correct:
   "(broad_trans_from, trans_broad) \<in> transition_rel states'"
   unfolding transition_rel_def
