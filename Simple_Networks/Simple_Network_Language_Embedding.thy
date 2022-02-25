@@ -94,15 +94,15 @@ definition
 definition
   "mk_broadcast_sync n a p \<equiv> (p, Out a, True) # map (\<lambda>p. (p, In a, False)) ([0..<p] @ [p+1..<n])"
 
-thm mk_broadcast_sync_def
-
 definition
   "mk_syncs n broadcast actions =
     {mk_bin_sync n a p q | p q a. p < n \<and> q < n \<and> p \<noteq> q \<and> a \<notin> broadcast \<and> a \<in> actions}
   \<union> {mk_broadcast_sync n a p | p a. p < n \<and> a \<in> broadcast}"
 
 definition actions :: "(_, 's, 'c, 't, 'x, 'v) Simple_Network_Language.sta \<Rightarrow> 'a set" where
-  "actions A = {a. \<exists>l b g f r l'. (l,b,g,In a,f,r,l') \<in> trans A \<or> (l,b,g,Out a,f,r,l') \<in> trans A}"
+  "actions A = {a. \<exists>l b g f r l'.
+      (l,b,g,In a,f,r,l') \<in> Simple_Network_Language.trans A
+    \<or> (l,b,g,Out a,f,r,l') \<in> Simple_Network_Language.trans A}"
 
 \<comment> \<open>Clone of @{term Simple_Network_Language.conv_t}\<close>
 definition t_to_s_a where "t_to_s_a a \<equiv> case a of
@@ -111,7 +111,10 @@ definition t_to_s_a where "t_to_s_a a \<equiv> case a of
 | Sil a' \<Rightarrow> act.Sil (Sil a')
 "
 
-definition t_to_s_t where "t_to_s_t \<equiv> \<lambda> (l,b,g,a,f,r,l'). (l,b,g,t_to_s_a a,f,r,l')"
+definition t_to_s_f where
+  "t_to_s_f \<equiv> map (\<lambda>upd. (upd, 0))"
+
+definition t_to_s_t where "t_to_s_t \<equiv> \<lambda> (l,b,g,a,f,r,l'). (l,b,g,t_to_s_a a,t_to_s_f f,r,l')"
 
 \<comment> \<open>Clone of @{term Simple_Network_Language.conv_A}\<close>
 definition t_to_s_A where "t_to_s_A \<equiv> \<lambda> (C, U, T, I). (C, U, t_to_s_t ` T, I)"
@@ -192,29 +195,97 @@ lemma mk_sync_simps:
   unfolding mk_bin_sync_def mk_broadcast_sync_def by auto
 
 lemma inv_t_to_s_A_id [simp]:
-  "inv (t_to_s_A N) = inv N"
-  unfolding t_to_s_A_def inv_def by (simp split: prod.split)
+  "inv (t_to_s_A N) = Simple_Network_Language.inv N"
+  unfolding t_to_s_A_def inv_def Simple_Network_Language.inv_def by (simp split: prod.split)
 
 lemma urgent_t_to_s_A_id [simp]:
-  "urgent (t_to_s_A A) = urgent A"
-  unfolding t_to_s_A_def urgent_def by (simp split: prod.split)
+  "urgent (t_to_s_A A) = Simple_Network_Language.urgent A"
+  unfolding t_to_s_A_def Simple_Network_Language.urgent_def  urgent_def by (simp split: prod.split)
 
 lemma committed_t_to_s_A_id [simp]:
-  "committed (t_to_s_A A) = committed A"
-  unfolding t_to_s_A_def committed_def by (simp split: prod.split)
+  "committed (t_to_s_A A) = Simple_Network_Language.committed A"
+  unfolding t_to_s_A_def committed_def Simple_Network_Language.committed_def
+  by (simp split: prod.split)
 
 lemma t_to_s_a_inj:
   "a = a'" if "t_to_s_a a = t_to_s_a a'"
   using that unfolding t_to_s_a_def by (cases a; cases a'; simp)
 
+lemmas trans_defs = trans_def Simple_Network_Language.trans_def
+
+lemmas t_to_s_defs = t_to_s_A_def t_to_s_t_def t_to_s_f_def
+
 lemma trans_t_to_s_A_iff:
-  "(l, b, g, a, f, r, l') \<in> trans A \<longleftrightarrow> (l, b, g, t_to_s_a a, f, r, l') \<in> trans (t_to_s_A A)"
-  by (auto split: prod.split simp: t_to_s_A_def t_to_s_t_def trans_def image_def dest: t_to_s_a_inj)
+  "(l, b, g, a, f, r, l') \<in> Simple_Network_Language.trans A
+  \<longleftrightarrow> (l, b, g, t_to_s_a a, t_to_s_f f, r, l') \<in> trans (t_to_s_A A)"
+  by (auto split: prod.split simp: t_to_s_defs trans_defs image_def dest: t_to_s_a_inj)
 
 lemma trans_t_to_s_A_E:
   assumes "(l, b, g, a, f, r, l') \<in> trans (t_to_s_A A)"
-  obtains a' where "(l, b, g, a', f, r, l') \<in> trans A" "a = t_to_s_a a'"
-  using assms by (auto split: prod.split_asm simp: t_to_s_A_def t_to_s_t_def trans_def)
+  obtains a' f' where
+    "(l, b, g, a', f', r, l') \<in> Simple_Network_Language.trans A"
+   "a = t_to_s_a a'" "f = t_to_s_f f'"
+  using assms by (auto split: prod.split_asm simp: t_to_s_defs trans_defs)
+
+lemma sort_upds_t_to_s_f_eq:
+  "sort_upds (t_to_s_f f) = f"
+proof -
+  have "sort_key snd (t_to_s_f f) = t_to_s_f f"
+    using sort_key_stable[where f = snd and k = 0 and xs = "t_to_s_f f"]
+    unfolding t_to_s_f_def by simp
+  moreover have "map fst \<dots> = f"
+    unfolding t_to_s_f_def by (simp add: comp_def)
+  ultimately show ?thesis
+    unfolding sort_upds_def by metis
+qed
+
+lemma is_upds_NilD:
+  "s' = s" if "is_upds s [] s'"
+  using that by (rule is_upds_NilE)
+
+lemma is_upds_all_NilD:
+  assumes "is_upds s (concat upds) s'" "(\<forall>xs\<in>set upds. xs = [])"
+  shows "s' = s"
+  using assms by (simp del: Nil_eq_concat_conv flip: concat_eq_Nil_conv) (rule is_upds_NilD)
+
+lemma is_upds_idxs_t_to_s_f_iff:
+  "is_upd_idxs s (t_to_s_f f) s' \<longleftrightarrow> is_upds s f s'"
+  unfolding sort_upds_t_to_s_f_eq is_upd_idxs_def by auto
+
+lemma t_to_s_f_append:
+  "t_to_s_f f1 @ t_to_s_f f2 = t_to_s_f (f1 @ f2)"
+  unfolding t_to_s_f_def by simp
+
+lemma is_upds_appendI:
+  "is_upds s f1 s1 \<Longrightarrow> is_upds s1 f2 s2 \<Longrightarrow> is_upds s (f1 @ f2) s2"
+  by (induction rule: is_upds.induct) (auto intro: is_upds.intros)
+
+lemma is_upds_appendE:
+  assumes "is_upds s (f1 @ f2) s2"
+  obtains s1 where "is_upds s f1 s1" "is_upds s1 f2 s2"
+  using assms by (induction f1 arbitrary: s; fastforce elim: is_upds_ConsE intro: is_upds.intros)
+
+lemma sort_upds_aux:
+  "sort_upds (concat_map t_to_s_f fs) = concat fs"
+  by (metis map_concat sort_upds_t_to_s_f_eq t_to_s_defs(3))
+
+lemma is_upds_idxs_binI:
+  assumes \<open>is_upds s f1 s1\<close> \<open>is_upds s1 f2 s2\<close>
+  shows \<open>is_upds_idxs s [t_to_s_f f1, t_to_s_f f2] s2\<close>
+  unfolding is_upds_idxs_def using assms
+  by (auto intro: is_upds_appendI simp: sort_upds_aux[of "[f1, f2]", simplified])
+
+lemma is_upds_idxs_concatI:
+  assumes "is_upds s (concat fs) s'"
+  shows "is_upds_idxs s (map t_to_s_f fs) s'"
+  using assms unfolding is_upds_idxs_def sort_upds_aux .
+
+lemma action_eqs: "t_to_s_a (In a) = Com (In a)" "t_to_s_a (Out a) = Com (Out a)"
+  unfolding t_to_s_a_def by auto
+
+lemmas trans_t_to_s_A_iff' =
+  trans_t_to_s_A_iff[where a = "In a" for a, symmetric, unfolded action_eqs]
+  trans_t_to_s_A_iff[where a = "Out a" for a, symmetric, unfolded action_eqs]
 
 lemma s_to_t:
   fixes N n
@@ -237,10 +308,12 @@ next
     by (simp add: conv_action_def)
   moreover have *: "t_to_s_a (Sil a'') = act.Sil (Sil a'')"
     unfolding t_to_s_a_def by simp
+  \<^cancel>\<open>moreover have "t_to_s_f f = ()"\<close>
   ultimately show ?thesis
     using \<open>N = _\<close> lengths usingT \<open>''range''\<close>
-    by (elim thesisI, simp add: N'_def t_to_s_def)
-       (rule step_u.step_int[where p = p]; tag; simp add: trans_t_to_s_A_iff *; fail)
+    apply (elim thesisI, simp add: N'_def t_to_s_def, intro step_u.step_int[where p = p])
+              apply   (tag; simp add: trans_t_to_s_A_iff * is_upds_idxs_t_to_s_f_iff)+
+    done
 next
   case [tagged]: (step_bin a'' broadcast l1 b1 g1 f1 r1 l1' As p l2 b2 g2 f2 r2 l2' q s' B)
   from assms(2) \<open>N = _\<close> have \<open>length As = n\<close>
@@ -255,7 +328,7 @@ next
         and as = "\<lambda>i. if i = p then In a'' else Out a''"
         and bs = "\<lambda>i. if i = p then b1 else b2"
         and gs = "\<lambda>i. if i = p then g1 else g2"
-        and fs = "\<lambda>i. if i = p then f1 else f2"
+        and fs = "\<lambda>i. if i = p then t_to_s_f f1 else t_to_s_f f2"
         and rs = "\<lambda>i. if i = p then r1 else r2"
         and ls' = "\<lambda>i. if i = p then l1' else l2'"
         ]
@@ -279,7 +352,7 @@ next
     subgoal actions
       by (tag \<open>''different''\<close>, auto simp: mk_bin_sync_def)
     subgoal sync
-      by (tag "TRANS _" "SEND _" "RECV _", auto simp: lengths trans_t_to_s_A_iff t_to_s_a_def)
+      by (tag "TRANS _" "SEND _" "RECV _", auto simp: lengths trans_t_to_s_A_iff')
     subgoal committed
       by (tag "SEND _" "RECV _", auto simp: lengths)
     subgoal bexp
@@ -299,7 +372,8 @@ next
     subgoal new_valuation
       by (tag "''different''", auto)
     subgoal upds
-      by (tag "''different''" "''upd''", auto, blast intro: is_upds.intros)
+      by (tag "''different''" "''upd''", clarsimp simp: sort_upds_t_to_s_f_eq)
+         (rule is_upds_idxs_binI)
     done
 next
   case [tagged, untagged]:
@@ -310,14 +384,17 @@ next
   from \<open>a = _\<close> \<open>p < _\<close> have sync:
     "conv_action n (Sync (mk_broadcast_sync n a'' p)) = Some a"
     by (simp add: lengths conv_action_def mk_sync_simps)
+  let ?fs = "\<lambda>q. t_to_s_f ((fs(p := f)) q)"
   note the_rule = step_u.step_sync[
       where ps = "p # ps"
         and as = "\<lambda>i. if i = p then Out a'' else In a''"
         and bs = "bs(p := b)"
         and gs = "gs(p := g)"
         and rs = "rs(p := r)"
-        and fs = "fs(p := f)"
+        and fs = "\<lambda>q. t_to_s_f ((fs(p := f)) q)"
         and ls'= "ls'(p := l')"]
+  have upds_simp: "concat (map ?fs (p # ps)) = concat_map t_to_s_f (map (fs(p := f)) (p # ps))"
+    by (simp add: comp_def)
   from \<open>N = _\<close> \<open>a = _\<close> sync show ?thesis
     apply (elim thesisI)
     unfolding N'_def t_to_s_def
@@ -332,15 +409,16 @@ next
     preferT \<open>''actions''\<close> subgoal
       by (tag, auto simp: mk_broadcast_sync_def lengths)
     preferT \<open>TRANS ''sync''\<close> subgoal
-      by (tag "TRANS _" "SEND _" "SEL ''range''", auto simp: lengths trans_t_to_s_A_iff t_to_s_a_def)
+      by (tag "TRANS _" "SEND _" "SEL ''range''", auto simp: lengths trans_t_to_s_A_iff')
     preferT \<open>''committed''\<close> subgoal
       by (tag "SEND _" "SEL ''range''", auto simp: lengths subset_code(1))
     preferT \<open>''bexp''\<close> subgoal
       by (tag, auto)
     preferT \<open>''guard''\<close> subgoal
       by (tag, auto)
-    preferT \<open>''maximal''\<close> subgoal
-      by (tag, force simp: lengths trans_t_to_s_A_iff t_to_s_a_def mk_broadcast_sync_def)
+   preferT \<open>''maximal''\<close> subgoal
+      by (tag, clarsimp simp: lengths mk_broadcast_sync_def, erule trans_t_to_s_A_E)
+         (simp add: t_to_s_f_def t_to_s_a_def split: Networks.act.splits, fast)
     preferT \<open>''target invariant''\<close> subgoal
       by (tag, simp)
     preferT \<open>SEL ''range''\<close> subgoal
@@ -353,7 +431,8 @@ next
     preferT \<open>''new valuation''\<close> subgoal
       by (tag "SEL _" "''new valuation''", auto)
     preferT \<open>''upds''\<close> subgoal
-      by (tag "SEL _" "''upds''" "''upd''", simp add: is_upds.intros)
+      by (tag "SEL _" "''upds''" "''upd''", unfold is_upds_idxs_def sort_upds_aux upds_simp)
+         (auto intro: is_upds_appendI)
     preferT \<open>''bounded''\<close> subgoal
       by tag
     done
@@ -394,8 +473,6 @@ next
        (fastforce simp: mk_syncs_def mk_bin_sync_def)+
 qed
 
-
-
 lemma t_to_s:
   fixes N n
   assumes "length L = n" "length (fst (snd N)) = n"
@@ -425,8 +502,9 @@ proof -
       done
   next
     case [tagged]: (step_int l b g a'' f r l' p)
-    obtain a1 where trans:
-      "a'' = Sil a1" "(l, b, g, Sil a1, f, r, l') \<in> Simple_Network_Language.trans (As ! p)"
+    obtain a1 f1 where trans:
+      "a'' = Sil a1" "f = t_to_s_f f1"
+      "(l, b, g, Sil a1, f1, r, l') \<in> Simple_Network_Language.trans (As ! p)"
       usingT \<open>TRANS _\<close> \<open>''range''\<close>
       by (auto elim!: trans_t_to_s_A_E simp: t_to_s_a_def split: Networks.act.split_asm)
     with \<open>a' = _\<close> have
@@ -436,11 +514,20 @@ proof -
       apply (rule thesisI)
       apply (simp only: \<open>N = _\<close>)
       apply (rule Simple_Network_Language.step_u.step_int)
-      preferT \<open>TRANS ''silent''\<close> apply (untag, rule trans(2))
-      usingT \<open>''range''\<close> apply (tag, simp; fail)+
+      preferT \<open>TRANS ''silent''\<close> apply (untag, rule trans(3))
+      usingT \<open>''range''\<close> apply (tag, simp add: is_upds_idxs_t_to_s_f_iff \<open>f = _\<close>; fail)+
       done
   next
     case [tagged, untagged]: (step_sync sync ps as bs gs fs rs ls')
+    have fs_from_t_to_s_f: "\<exists>f. fs p = t_to_s_f f" if "p \<in> set ps" for p
+      usingT- \<open>TRANS _\<close> using that \<open>set ps \<subseteq> _\<close> by (fastforce elim: trans_t_to_s_A_E)
+    from fs_from_t_to_s_f obtain fs' where fs_eq:
+      "fs p = t_to_s_f (fs' p)" if "p \<in> set ps" for p
+      using that by metis
+    then have "map t_to_s_f (map fs' ps) = map fs ps"
+      by simp
+    then have sort_upds_eq: "sort_upds (concat_map fs ps) = concat_map fs' ps"
+      using sort_upds_aux[of "map fs' ps"] by metis
     from \<open>sync \<in> ?syncs\<close> consider
       (bin) a p q t where
         "sync = [(p, In a, True), (q, Out a, True)]"
@@ -454,9 +541,9 @@ proof -
       case bin
       then have "ps = [p, q]"
         using \<open>a' = _\<close> usingT \<open>''enabled''\<close> by (tag "SEL _") (simp add: subseq_binD)
-      from \<open>ps = _\<close> obtain s1 where
-        [tag \<open>''upd''\<close>]: \<open>is_upd s (fs p) s1\<close> \<open>is_upd s1 (fs q) s'\<close>
-        usingT \<open>''upds''\<close> unfolding TAG_def by simp ((subst (asm) is_upds.simps; simp)+, fast)
+      with \<open>ps = _\<close> obtain s1 where
+        [tag \<open>''upd''\<close>]: \<open>is_upds s (fs' p) s1\<close> \<open>is_upds s1 (fs' q) s'\<close>
+        usingT \<open>''upds''\<close> unfolding is_upds_idxs_def sort_upds_eq by (auto elim: is_upds_appendE)
       from \<open>ps = _\<close> \<open>sync = _\<close> have
         [tag \<open>TRANS ''in''\<close>]: "as p = In a" and [tag \<open>TRANS ''out''\<close>]: "as q = Out a"
         by - (tag "''actions''", simp add: mk_bin_sync_def)+
@@ -471,9 +558,9 @@ proof -
         apply (rule step_u.step_bin)
         preferT \<open>''not broadcast''\<close> apply (tag, assumption)
         preferT \<open>TRANS ''in''\<close>
-          apply (tag \<open>TRANS ''sync''\<close>, simp add: trans_t_to_s_A_iff t_to_s_a_def, fast)
+          apply (tag \<open>TRANS ''sync''\<close>, simp add: trans_t_to_s_A_iff t_to_s_a_def fs_eq, fast)
         preferT \<open>TRANS ''out''\<close>
-          apply (tag \<open>TRANS ''sync''\<close>, simp add: trans_t_to_s_A_iff t_to_s_a_def, fast)
+          apply (tag \<open>TRANS ''sync''\<close>, simp add: trans_t_to_s_A_iff t_to_s_a_def fs_eq, fast)
         apply (tag, simp; fail)+
         done
     next
@@ -505,21 +592,21 @@ proof -
         by - (rule subseq_sorted[where ys = "[0..<n]"], auto intro!: subseq_upt_split)
       then have [tag "SEL ''sorted''"]: "sorted ps'"
         using \<open>subseq ps' _\<close> by (untag, rule subseq_sorted)
-      from \<open>ps = _\<close> obtain s1 where [tag \<open>''upd''\<close>]: \<open>is_upd s (fs p) s1\<close>
-        and [tag \<open>''upds''\<close>]: \<open>is_upds s1 (map fs ps') s'\<close>
-        usingT \<open>''upds''\<close> by (untag, subst (asm) (2) is_upds.simps, auto)
+      with \<open>ps = _\<close> obtain s1 where [tag \<open>''upd''\<close>]: \<open>is_upds s (fs' p) s1\<close>
+        and [tag \<open>''upds''\<close>]: \<open>is_upds s1 (concat_map fs' ps') s'\<close>
+        usingT \<open>''upds''\<close> unfolding is_upds_idxs_def sort_upds_eq by (auto elim: is_upds_appendE)
       note [simp] = subset_code(1) trans_t_to_s_A_iff t_to_s_a_def
       note the_rule = step_u.step_broad[where
-          ps = "ps'" and bs = bs and gs = gs and fs = fs and rs = rs and ls' = ls']
+          ps = "ps'" and bs = bs and gs = gs and fs = fs' and rs = rs and ls' = ls']
       show ?thesis
         using \<open>conv_action n a' = _\<close> *(1)
         apply (elim thesisI)
         unfolding \<open>N = _\<close>
         apply (rule the_rule)
         preferT \<open>TRANS ''out''\<close>
-          apply (tag \<open>TRANS ''sync''\<close>, simp; fast)
+          apply (tag \<open>TRANS ''sync''\<close>, simp add: fs_eq; fast)
         preferT \<open>TRANS ''in''\<close>
-          apply (tag \<open>TRANS ''sync''\<close>, simp; fail)
+          apply (tag \<open>TRANS ''sync''\<close>, simp add: fs_eq; fail)
         preferT \<open>''maximal''\<close>
         subgoal
           apply (tag, simp)
