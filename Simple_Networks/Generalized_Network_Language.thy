@@ -3,7 +3,7 @@ theory Generalized_Network_Language
     Networks.State_Networks
     Uppaal_Networks.UPPAAL_State_Networks_Impl
     FinFun.FinFun
-    Simple_Network_Language
+    Simple_Networks.Simple_Network_Language
 begin
 
 notation (input) TAG ("_ \<bbar> _" [40, 40] 41)
