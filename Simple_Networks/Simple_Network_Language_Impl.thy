@@ -240,25 +240,6 @@ lemma covn_N_eq:
 
 end
 
-inductive_cases check_bexp_elims:
-  "check_bexp s bexp.true bv"
-  "check_bexp s (bexp.not b) bv"
-  "check_bexp s (bexp.and b1 b2) bv"
-  "check_bexp s (bexp.or b1 b2) bv"
-  "check_bexp s (bexp.imply b1 b2) bv"
-  "check_bexp s (le i x) bv"
-  "check_bexp s (lt i x) bv"
-  "check_bexp s (ge i x) bv"
-  "check_bexp s (eq i x) bv"
-  "check_bexp s (gt i x) bv"
-
-inductive_cases is_val_elims:
-  "is_val s (const c) d"
-  "is_val s (var x)   v"
-  "is_val s (if_then_else b e1 e2) v"
-  "is_val s (binop f e1 e2) v"
-  "is_val s (unop f e) v"
-
 method fprem =
   (match premises in R: _ \<Rightarrow> \<open>rule R[elim_format]\<close>, assumption)
 

@@ -1899,7 +1899,7 @@ proof clarsimp
       "f :: (nat \<times> (nat, int) exp) list"
       "r :: nat list"
       l'
-      "undefined :: nat \<Rightarrow> (nat, int) Simple_Network_Language.bexp"
+      "undefined :: nat \<Rightarrow> (nat, int) bexp"
       "undefined :: nat \<Rightarrow> (nat, int) acconstraint list"
       "undefined :: nat \<Rightarrow> (nat \<times> (nat, int) exp) list"
       "undefined :: nat \<Rightarrow> nat list"

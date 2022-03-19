@@ -239,15 +239,6 @@ proof -
     unfolding sort_upds_def by metis
 qed
 
-lemma is_upds_NilD:
-  "s' = s" if "is_upds s [] s'"
-  using that by (rule is_upds_NilE)
-
-lemma is_upds_all_NilD:
-  assumes "is_upds s (concat upds) s'" "(\<forall>xs\<in>set upds. xs = [])"
-  shows "s' = s"
-  using assms by (simp del: Nil_eq_concat_conv flip: concat_eq_Nil_conv) (rule is_upds_NilD)
-
 lemma is_upds_idxs_t_to_s_f_iff:
   "is_upd_idxs s (t_to_s_f f) s' \<longleftrightarrow> is_upds s f s'"
   unfolding sort_upds_t_to_s_f_eq is_upd_idxs_def by auto
@@ -255,15 +246,6 @@ lemma is_upds_idxs_t_to_s_f_iff:
 lemma t_to_s_f_append:
   "t_to_s_f f1 @ t_to_s_f f2 = t_to_s_f (f1 @ f2)"
   unfolding t_to_s_f_def by simp
-
-lemma is_upds_appendI:
-  "is_upds s f1 s1 \<Longrightarrow> is_upds s1 f2 s2 \<Longrightarrow> is_upds s (f1 @ f2) s2"
-  by (induction rule: is_upds.induct) (auto intro: is_upds.intros)
-
-lemma is_upds_appendE:
-  assumes "is_upds s (f1 @ f2) s2"
-  obtains s1 where "is_upds s f1 s1" "is_upds s1 f2 s2"
-  using assms by (induction f1 arbitrary: s; fastforce elim: is_upds_ConsE intro: is_upds.intros)
 
 lemma sort_upds_aux:
   "sort_upds (concat_map t_to_s_f fs) = concat fs"
