@@ -1,6 +1,6 @@
 theory JANI_Embedding
   imports
-    Simple_Networks.Generalized_Network_Language_Impl_Refine
+    Generalized_Networks.Generalized_Network_Language_Impl_Refine
     JANI
 begin
 

@@ -1,17 +1,16 @@
 theory Generalized_Network_Language_Impl
   imports
-    Simple_Network_Language_Impl 
+    Simple_Networks.Simple_Network_Language_Impl 
     Generalized_Network_Language
     TA_Impl.Normalized_Zone_Semantics_Impl_Refine
     "HOL-Library.IArray" "HOL-Library.AList"
     TA_Library.More_Methods
     TA_Library.Bijective_Embedding
-    TA_Impl_Misc2
-    TA_More2
-    TA_Equivalences
+    Simple_Networks.TA_Impl_Misc2
+    Simple_Networks.TA_More2
+    Simple_Networks.TA_Equivalences
     "HOL-Eisbach.Eisbach_Tools"
     TA_Library.TA_Syntax_Bundles
-    "Tag_Explorer"
 begin
 
 unbundle no_library_syntax

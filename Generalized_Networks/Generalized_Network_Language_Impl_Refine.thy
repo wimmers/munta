@@ -1,5 +1,5 @@
 theory Generalized_Network_Language_Impl_Refine
-  imports Simple_Network_Language_Impl_Refine Generalized_Network_Language_Impl
+  imports Simple_Networks.Simple_Network_Language_Impl_Refine Generalized_Network_Language_Impl
 begin
 
 unbundle no_library_syntax

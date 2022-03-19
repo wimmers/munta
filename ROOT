@@ -92,6 +92,15 @@ session Simple_Networks in Simple_Networks = Uppaal_Networks +
   theories
     Simple_Network_Language_Model_Checking
 
+session Generalized_Networks in Generalized_Networks = Simple_Networks +
+  theories
+    Generalized_Network_Language_Model_Checking
+    Simple_Network_Language_Embedding
+
+session JANI in JANI = Generalized_Networks +
+  theories
+    JANI_Embedding
+
 session Deadlock in Deadlock = Uppaal_Networks +
   theories
     Deadlock_Checking
