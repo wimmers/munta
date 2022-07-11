@@ -6,6 +6,7 @@ begin
 section \<open>Product Bisimulation\<close>
 
 no_notation State_Networks.step_sn ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
+no_notation Simple_Network_Language.step_u ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
 
 text \<open>
   We have proved the necessary theorems already but we need to lift it to
