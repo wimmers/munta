@@ -1,6 +1,11 @@
+section \<open>Renaming Models\<close>
+
 theory Generalized_Network_Language_Renaming
   imports Generalized_Network_Language_Model_Checking
 begin
+
+
+subsection \<open>Preliminaries\<close>
 
 unbundle no_library_syntax
 notation (input) TAG ("_ \<bbar> _" [40, 40] 41)
@@ -38,6 +43,9 @@ method prop_monos =
   erule all_mono_rule
   | erule (1) imp_mono_rule
   | erule disj_mono[rule_format, rotated 2]
+
+
+subsection \<open>Urgency Construction\<close>
 
 locale Prod_TA_Defs_urge =
   fixes A :: "('a, 's, 'c, 't :: {zero}, 'x, 'v :: linorder) nta" and urge :: 'c
@@ -502,6 +510,7 @@ lemmas urge_bisim = Bisimulation_Invariant_axioms
 end (* Prod TA sem urge *)
 
 
+
 (* XXX All this stuff is duplicated *)
 context Generalized_Network_Impl_Defs
 begin
@@ -516,6 +525,9 @@ lemma covn_N_eq:
   using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
 
 end
+
+
+subsection \<open>More Preliminaries\<close>
 
 context Generalized_Network_Impl_Defs
 begin
@@ -570,7 +582,6 @@ lemma states_loc_setD:
 
 end (* Generalized Network Impl Defs *)
 
-
 context Generalized_Network_Impl
 begin
 
@@ -597,105 +608,6 @@ lemma sem_states_eq:
       force simp:  conv_automaton_def trans_def automaton_of_def n_ps_def split: prod.splits)+
 
 end (* Generalized Network Impl *)
-
-
-locale Generalized_Network_Rename_Defs =
-  Generalized_Network_Impl_Defs automata syncs bounds' for automata ::
-    "('s list \<times> 's list \<times> (('a :: countable) act, 's, 'c, 't, 'x :: countable, int) transition list
-      \<times> (('s :: countable) \<times> ('c :: countable, 't) cconstraint) list) list"
-    and syncs bounds' +
-  fixes renum_acts   :: "'a \<Rightarrow> nat"
-    and renum_vars   :: "'x \<Rightarrow> nat"
-    and renum_clocks :: "'c \<Rightarrow> nat"
-    and renum_states :: "nat \<Rightarrow> 's \<Rightarrow> nat"
-begin
-
-definition
-  "map_cconstraint f g xs = map (map_acconstraint f g) xs"
-
-definition
-  "renum_cconstraint = map_cconstraint renum_clocks id"
-
-definition
-  "renum_act = map_act renum_acts"
-
-definition
-  "renum_bexp = map_bexp renum_vars"
-
-definition
-  "renum_exp = map_exp renum_vars"
-
-definition
-  "renum_upd = (\<lambda>((x, upd), index). ((renum_vars x, renum_exp upd), index))"
-
-abbreviation
-  "renum_upds \<equiv> map renum_upd"
-
-definition
-  "renum_reset = map renum_clocks"
-
-definition renum_automaton where
-  "renum_automaton i \<equiv> \<lambda>(committed, urgent, trans, inv). let
-    committed' = map (renum_states i) committed;
-    urgent' = map (renum_states i) urgent;
-    trans' = map (\<lambda>(l, b, g, a, upd, r, l').
-      (renum_states i l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upds upd,
-       renum_reset r,  renum_states i l')
-    ) trans;
-    inv' = map (\<lambda>(l, g). (renum_states i l, renum_cconstraint g)) inv
-  in (committed', urgent', trans', inv')
-"
-
-definition
-  "vars_inv \<equiv> the_inv renum_vars"
-
-definition
-  "map_st \<equiv> \<lambda>(L, s). (map_index renum_states L, s o vars_inv)"
-
-definition
-  "clocks_inv \<equiv> the_inv renum_clocks"
-
-definition
-  "map_u u = u o clocks_inv"
-
-lemma map_u_add[simp]:
-  "map_u (u \<oplus> d) = map_u u \<oplus> d"
-  by (auto simp: map_u_def cval_add_def)
-
-definition renum_label where
-  "renum_label = map_label renum_acts"
-
-definition
-  "renum_sync = map (\<lambda>(p, a, weak). (p, renum_acts a, weak))"
-
-sublocale renum: Generalized_Network_Impl_Defs
-  "map_index renum_automaton automata"
-  "map renum_sync syncs"
-  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
-  .
-
-lemma renum_n_ps_simp[simp]:
-  "renum.n_ps = n_ps"
-  unfolding n_ps_def renum.n_ps_def by simp
-
-end (* Generalized Network Rename Defs *)
-
-
-locale Generalized_Network_Rename_Defs_int =
-  Generalized_Network_Rename_Defs automata +
-  Generalized_Network_Impl automata
-  for automata ::
-    "('s list \<times> 's list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
-      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list"
-begin
-
-sublocale renum: Generalized_Network_Impl
-  "map_index renum_automaton automata"
-  "map renum_sync syncs"
-  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
-  .
-
-end (* Generalized Network Rename Defs int *)
 
 lemma
   fixes f :: "'b :: countable \<Rightarrow> nat"
@@ -779,23 +691,6 @@ where
   "map_formula f g h (AG \<phi>) = AG (map_sexp f g h \<phi>)" |
   "map_formula f g h (Leadsto \<phi> \<psi>) = Leadsto (map_sexp f g h \<phi>) (map_sexp f g h \<psi>)"
 
-
-locale Generalized_Network_Impl_real =
-  fixes automata ::
-    "('s list \<times> 's list \<times> ('a act, 's, 'c, real, 'x, int) transition list
-      \<times> ('s \<times> ('c, real) cconstraint) list) list"
-    and syncs :: "'a sync list"
-    and bounds' :: "('x \<times> (int \<times> int)) list"
-begin
-
-sublocale Generalized_Network_Impl_Defs automata syncs bounds' .
-
-abbreviation "sem \<equiv> (set syncs, map automaton_of automata, map_of bounds')"
-
-sublocale Prod_TA_sem "(set syncs, map automaton_of automata, map_of bounds')" .
-
-end
-
 context Generalized_Network_Impl
 begin
 
@@ -816,6 +711,125 @@ lemma sem_var_set_eq:
   "sem.var_set = var_set"
   unfolding sem.var_set_def var_set_def n_ps_eq using sem_state_guard_eq sem_state_update_eq
   by (simp cong: image_cong_simp add: setcompr_eq_image)
+
+end
+
+
+subsection \<open>Definition of Construction\<close>
+
+locale Generalized_Network_Rename_Defs =
+  Generalized_Network_Impl_Defs automata syncs bounds' for automata ::
+    "('s list \<times> 's list \<times> (('a :: countable) act, 's, 'c, 't, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, 't) cconstraint) list) list"
+    and syncs bounds' +
+  fixes renum_acts   :: "'a \<Rightarrow> nat"
+    and renum_vars   :: "'x \<Rightarrow> nat"
+    and renum_clocks :: "'c \<Rightarrow> nat"
+    and renum_states :: "nat \<Rightarrow> 's \<Rightarrow> nat"
+begin
+
+definition
+  "map_cconstraint f g xs = map (map_acconstraint f g) xs"
+
+definition
+  "renum_cconstraint = map_cconstraint renum_clocks id"
+
+definition
+  "renum_act = map_act renum_acts"
+
+definition
+  "renum_bexp = map_bexp renum_vars"
+
+definition
+  "renum_exp = map_exp renum_vars"
+
+definition
+  "renum_upd = (\<lambda>((x, upd), index). ((renum_vars x, renum_exp upd), index))"
+
+abbreviation
+  "renum_upds \<equiv> map renum_upd"
+
+definition
+  "renum_reset = map renum_clocks"
+
+definition renum_automaton where
+  "renum_automaton i \<equiv> \<lambda>(committed, urgent, trans, inv). let
+    committed' = map (renum_states i) committed;
+    urgent' = map (renum_states i) urgent;
+    trans' = map (\<lambda>(l, b, g, a, upd, r, l').
+      (renum_states i l, renum_bexp b, renum_cconstraint g, renum_act a, renum_upds upd,
+       renum_reset r,  renum_states i l')
+    ) trans;
+    inv' = map (\<lambda>(l, g). (renum_states i l, renum_cconstraint g)) inv
+  in (committed', urgent', trans', inv')
+"
+
+definition
+  "vars_inv \<equiv> the_inv renum_vars"
+
+definition
+  "map_st \<equiv> \<lambda>(L, s). (map_index renum_states L, s o vars_inv)"
+
+definition
+  "clocks_inv \<equiv> the_inv renum_clocks"
+
+definition
+  "map_u u = u o clocks_inv"
+
+lemma map_u_add[simp]:
+  "map_u (u \<oplus> d) = map_u u \<oplus> d"
+  by (auto simp: map_u_def cval_add_def)
+
+definition renum_label where
+  "renum_label = map_label renum_acts"
+
+definition
+  "renum_sync = map (\<lambda>(p, a, weak). (p, renum_acts a, weak))"
+
+sublocale renum: Generalized_Network_Impl_Defs
+  "map_index renum_automaton automata"
+  "map renum_sync syncs"
+  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
+  .
+
+lemma renum_n_ps_simp[simp]:
+  "renum.n_ps = n_ps"
+  unfolding n_ps_def renum.n_ps_def by simp
+
+end (* Generalized Network Rename Defs *)
+
+
+subsection \<open>Auxiliary Locales\<close>
+
+locale Generalized_Network_Rename_Defs_int =
+  Generalized_Network_Rename_Defs automata +
+  Generalized_Network_Impl automata
+  for automata ::
+    "('s list \<times> 's list \<times> (('a :: countable) act, 's, 'c, int, 'x :: countable, int) transition list
+      \<times> (('s :: countable) \<times> ('c :: countable, int) cconstraint) list) list"
+begin
+
+sublocale renum: Generalized_Network_Impl
+  "map_index renum_automaton automata"
+  "map renum_sync syncs"
+  "map (\<lambda>(a,p). (renum_vars a, p)) bounds'"
+  .
+
+end (* Generalized Network Rename Defs int *)
+
+locale Generalized_Network_Impl_real =
+  fixes automata ::
+    "('s list \<times> 's list \<times> ('a act, 's, 'c, real, 'x, int) transition list
+      \<times> ('s \<times> ('c, real) cconstraint) list) list"
+    and syncs :: "'a sync list"
+    and bounds' :: "('x \<times> (int \<times> int)) list"
+begin
+
+sublocale Generalized_Network_Impl_Defs automata syncs bounds' .
+
+abbreviation "sem \<equiv> (set syncs, map automaton_of automata, map_of bounds')"
+
+sublocale Prod_TA_sem "(set syncs, map automaton_of automata, map_of bounds')" .
 
 end
 
@@ -846,6 +860,9 @@ locale Generalized_Network_Rename' =
       and bij_renum_vars: "bij renum_vars"
       and bounds'_var_set: "fst ` set bounds' = var_set"
       and inj_renum_acts: "inj renum_acts"
+
+
+subsection \<open>The Main Bisimulation\<close>
 
 locale Generalized_Network_Rename_real =
   Generalized_Network_Rename_Defs_real where automata = automata +
@@ -2111,6 +2128,9 @@ lemmas renum_bisim = Bisimulation_Invariant_axioms
 
 end
 
+
+subsection \<open>Derived Results\<close>
+
 locale Generalized_Network_Impl_Formula_real =
   Generalized_Network_Rename_real where automata = automata
   for automata ::
@@ -2485,6 +2505,7 @@ qed
 end (* Generalized Network Rename Formula int *)
 
 
+subsection \<open>Combination With Urgency\<close>
 
 (* XXX Move *)
 lemma vars_of_bexp_finite[finite_intros]:
@@ -2652,6 +2673,9 @@ lemma (in Generalized_Network_Rename_Defs) conv_automaton_of:
   by (force split: prod.splits
       simp: default_map_of_alt_def map_of_map Generalized_Network_Language.conv_t_def
      )
+
+
+subsection \<open>Implementation\<close>
 
 locale Generalized_Network_Rename =
   Generalized_Network_Rename_Defs_int_urge where automata = automata for automata ::
