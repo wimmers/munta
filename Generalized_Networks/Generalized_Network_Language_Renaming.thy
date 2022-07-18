@@ -44,6 +44,55 @@ method prop_monos =
   | erule (1) imp_mono_rule
   | erule disj_mono[rule_format, rotated 2]
 
+lemma Bisimulation_Invariants_Bisimulation_Invariant:
+  assumes "Bisimulation_Invariants A B sim PA PA PB PB"
+  shows "Bisimulation_Invariant A B sim PA PB"
+proof -
+  interpret Bisimulation_Invariants A B sim PA PA PB PB
+    by (rule assms)
+  show ?thesis
+    by (standard; blast intro: A_B_step B_A_step)
+qed
+
+lemma Bisimulation_Invariants_Bisimulation_Invariant_iff:
+  "Bisimulation_Invariants A B sim PA PA PB PB \<longleftrightarrow> Bisimulation_Invariant A B sim PA PB"
+  using
+    Bisimulation_Invariants_Bisimulation_Invariant Bisimulation_Invariant_Bisimulation_Invariants
+  by blast
+
+lemmas Bisimulation_Invariant_composition =
+  Bisimulation_Invariant_Invariants_composition[
+    THEN Bisimulation_Invariants_Bisimulation_Invariant,
+    OF _ Bisimulation_Invariant_Bisimulation_Invariants]
+
+lemma Bisimulation_Invariant_refl:
+  "Bisimulation_Invariant A A (=) P P" if "\<And>a b. P a \<Longrightarrow> A a b \<Longrightarrow> P b"
+  by (rule Bisimulation_Invariant.intro) (auto intro: that)
+
+lemma vars_of_bexp_finite[finite_intros]:
+  "finite (vars_of_bexp (b::('a, 'b) bexp))"
+and vars_of_exp_finite[finite_intros]:
+  "finite (vars_of_exp (e::('a, 'b) exp))"
+  by (induction b and e) auto
+
+lemma set_bexp_vars_of_bexp:
+  "set_bexp (b::('a, 'b) bexp) = vars_of_bexp b"
+and set_exp_vars_of_exp:
+  "set_exp (e::('a, 'b) exp) = vars_of_exp e"
+  by (induction b and e) auto
+
+\<comment> \<open>This is a generalized version of @{thm map_of_distinct_upd2}. Move to library.\<close>
+lemma map_of_distinct_upd2:
+  assumes "x \<notin> set (map fst xs)"
+  shows "map_of (xs @ (x,y) # ys) = (map_of (xs @ ys))(x \<mapsto> y)"
+  using assms by (induction xs) auto
+
+\<comment> \<open>This is a generalized version of @{thm map_of_distinct_lookup}. Move to library.\<close>
+lemma map_of_distinct_lookup:
+  assumes "x \<notin> set (map fst xs)"
+  shows "map_of (xs @ (x,y) # ys) x = Some y"
+  using map_of_distinct_upd2[OF assms] by auto
+
 
 subsection \<open>Urgency Construction\<close>
 
@@ -510,23 +559,6 @@ lemmas urge_bisim = Bisimulation_Invariant_axioms
 end (* Prod TA sem urge *)
 
 
-
-(* XXX All this stuff is duplicated *)
-context Generalized_Network_Impl_Defs
-begin
-
-lemma N_eq:
-  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
-  using that unfolding N_def n_ps_def fst_conv snd_conv by (subst nth_map; simp)
-
-(* XXX Remove? *)
-lemma covn_N_eq:
-  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
-  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
-
-end
-
-
 subsection \<open>More Preliminaries\<close>
 
 context Generalized_Network_Impl_Defs
@@ -663,6 +695,27 @@ lemma map_of_NoneI:
 lemma bij_f_the_inv_f:
   "f (the_inv f x) = x" if "bij f"
   using that f_the_inv_f unfolding bij_def by (simp add: f_the_inv_f)
+
+lemma map_insort_key_commute:
+  "map f (insort_key k' x xs) = insort_key k (f x) (map f xs)"
+  if "\<forall>x \<in> set xs. k (f x) = k' x" "k (f x) = k' x"
+  using that by (induction xs arbitrary: x) auto
+
+lemma sort_key_map_commute:
+  "sort_key k (map f xs) = map f (sort_key k' xs)" if assm: "\<forall>x \<in> set xs. k (f x) = k' x"
+proof -
+  have set_foldr_insort_key: "set (foldr (insort_key k') xs a) = set xs \<union> set a" for xs a
+    by (induction xs arbitrary: a) (auto simp: set_insort_key)
+  have *: "foldr (insort_key k \<circ> f) xs (map f a) = map f (foldr (insort_key k') xs a)"
+    if "\<forall>x \<in> set a. k (f x) = k' x" for a
+    using that assm
+    by (induction xs arbitrary: a)
+       (auto intro!: map_insort_key_commute[symmetric] simp: set_foldr_insort_key)
+  show ?thesis
+    unfolding sort_key_def foldr_map
+    \<comment> \<open>E-Matching would be nice here, like: \<open>by (rule [ematch] *; simp)\<close>\<close>
+    by (subst *[symmetric]; simp)
+qed
 
 
 fun map_sexp ::
@@ -1333,29 +1386,6 @@ lemma is_upds_renumD:
   shows "is_upds (s1 o vars_inv) (map renum_upd' ps) (s' o vars_inv)"
   using assms by induction (auto intro: is_upds.intros simp: comp_def dest!: is_upd_renumD)
 
-(* XXX Move *)
-lemma map_insort_key_commute:
-  "map f (insort_key k' x xs) = insort_key k (f x) (map f xs)"
-  if "\<forall>x \<in> set xs. k (f x) = k' x" "k (f x) = k' x"
-  using that by (induction xs arbitrary: x) auto
-
-(* XXX Move *)
-lemma sort_key_map_commute:
-  "sort_key k (map f xs) = map f (sort_key k' xs)" if assm: "\<forall>x \<in> set xs. k (f x) = k' x"
-proof -
-  have set_foldr_insort_key: "set (foldr (insort_key k') xs a) = set xs \<union> set a" for xs a
-    by (induction xs arbitrary: a) (auto simp: set_insort_key)
-  have *: "foldr (insort_key k \<circ> f) xs (map f a) = map f (foldr (insort_key k') xs a)"
-    if "\<forall>x \<in> set a. k (f x) = k' x" for a
-    using that assm
-    by (induction xs arbitrary: a)
-       (auto intro!: map_insort_key_commute[symmetric] simp: set_foldr_insort_key)
-  show ?thesis
-    unfolding sort_key_def foldr_map
-    \<comment> \<open>E-Matching would be nice here, like: \<open>by (rule [ematch] *; simp)\<close>\<close>
-    by (subst *[symmetric]; simp)
-qed
-
 lemma sort_upds_renum_upds_eq:
   "sort_upds (renum_upds f) = map renum_upd' (sort_upds f)"
   unfolding sort_upds_def renum_upd_def renum_upd'_def
@@ -1811,7 +1841,6 @@ method prop_monos =
   | erule (1) imp_mono_rule
   | erule disj_mono[rule_format, rotated 2]
 
-(* XXX Rename *)
 lemma inv_sem_N_renum_syncI:
   assumes
   "\<forall>pa<n_ps.
@@ -1846,15 +1875,13 @@ proof -
     by (auto dest: inv_renum_sem_D simp: renum_reset_map_u simp del: map_map_index set_map)
 qed
 
-(* XXX Delete comments *)
 method solve_triv =
   assumption
   | erule (1) bounded_renumD'; fail
   | rule inv_renum_sem_D[OF _ _ sem_states_loc_setD]; simp; fail
   | rule check_bexp_renumI; simp; fail
   | rule map_u_renum_cconstraint_clock_valD; simp; fail
-  \<^cancel>\<open>| rule is_upd_renumI is_upd_renumI'' is_upds_renumI' is_upds_renumI'' is_upds_concat_renumI'',\<close>
-  | rule is_upd_idxs_renumI' is_upds_idxs_renumI' (* XXX *) \<^cancel>\<open>is_upds_concat_renumI''\<close>,
+  | rule is_upd_idxs_renumI' is_upds_idxs_renumI',
     simp; fail
   | simp; fail
   | simp add:
@@ -2247,35 +2274,6 @@ end (* Context for assumptions *)
 
 end (* Generalized Network Rename real *)
 
-
-(* XXX Move *)
-lemma Bisimulation_Invariants_Bisimulation_Invariant:
-  assumes "Bisimulation_Invariants A B sim PA PA PB PB"
-  shows "Bisimulation_Invariant A B sim PA PB"
-proof -
-  interpret Bisimulation_Invariants A B sim PA PA PB PB
-    by (rule assms)
-  show ?thesis
-    by (standard; blast intro: A_B_step B_A_step)
-qed
-
-(* XXX Move *)
-lemma Bisimulation_Invariants_Bisimulation_Invariant_iff:
-  "Bisimulation_Invariants A B sim PA PA PB PB \<longleftrightarrow> Bisimulation_Invariant A B sim PA PB"
-  using
-    Bisimulation_Invariants_Bisimulation_Invariant Bisimulation_Invariant_Bisimulation_Invariants
-  by blast
-
-lemmas Bisimulation_Invariant_composition =
-  Bisimulation_Invariant_Invariants_composition[
-    THEN Bisimulation_Invariants_Bisimulation_Invariant,
-    OF _ Bisimulation_Invariant_Bisimulation_Invariants]
-
-lemma Bisimulation_Invariant_refl:
-  "Bisimulation_Invariant A A (=) P P" if "\<And>a b. P a \<Longrightarrow> A a b \<Longrightarrow> P b"
-  by (rule Bisimulation_Invariant.intro) (auto intro: that)
-
-
 locale Generalized_Network_Rename_int =
   Generalized_Network_Rename_Defs_int where automata = automata +
   Generalized_Network_Rename' where automata = automata
@@ -2507,19 +2505,6 @@ end (* Generalized Network Rename Formula int *)
 
 subsection \<open>Combination With Urgency\<close>
 
-(* XXX Move *)
-lemma vars_of_bexp_finite[finite_intros]:
-  "finite (vars_of_bexp (b::('a, 'b) bexp))"
-and vars_of_exp_finite[finite_intros]:
-  "finite (vars_of_exp (e::('a, 'b) exp))"
-  by (induction b and e) auto
-
-lemma set_bexp_vars_of_bexp:
-  "set_bexp (b::('a, 'b) bexp) = vars_of_bexp b"
-and set_exp_vars_of_exp:
-  "set_exp (e::('a, 'b) exp) = vars_of_exp e"
-  by (induction b and e) auto
-
 definition (in Prod_TA_Defs)
   "act_set \<equiv> (\<Union> p \<in> {0..<n_ps}. \<Union> (l, e, g, a, _) \<in> trans (N p). act.set_act a)
            \<union> (\<Union>sync \<in> syncs. (fst o snd) ` set sync)"
@@ -2581,18 +2566,6 @@ definition
      [],
      map (\<lambda>(l, b, g, a, f, r, l'). (l, b, g, a, f, urge # r, l')) trans,
      merge_pairs (map (\<lambda>l. (l, [acconstraint.LE urge 0])) urgent) inv)"
-
-(* XXX Generalized version. Move to library *)
-lemma map_of_distinct_upd2:
-  assumes "x \<notin> set (map fst xs)"
-  shows "map_of (xs @ (x,y) # ys) = (map_of (xs @ ys))(x \<mapsto> y)"
-  using assms by (induction xs) auto
-
-(* XXX Generalized version. Move to library *)
-lemma map_of_distinct_lookup:
-  assumes "x \<notin> set (map fst xs)"
-  shows "map_of (xs @ (x,y) # ys) x = Some y"
-  using map_of_distinct_upd2[OF assms] by auto
 
 lemma find_remove_SomeD:
   assumes "find_remove P xs = Some (x, ys)"
@@ -2701,7 +2674,6 @@ lemma clk_set'_finite:
   "finite clk_set'"
   unfolding clk_set'_def unfolding clkp_set'_def by (intro finite_intros) auto
 
-(* XXX Move *)
 lemmas [finite_intros] = trans_N_finite
 
 lemma set_act_finite[finite_intros]:
@@ -2712,7 +2684,6 @@ lemma loc_set_finite:
   "finite loc_set"
   unfolding loc_set_def by (auto intro!: finite_intros)
 
-(* XXX Move *)
 lemma var_set_finite[finite_intros]:
   "finite var_set"
   unfolding var_set_def by (auto intro!: finite_intros)

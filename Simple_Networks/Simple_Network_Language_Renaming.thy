@@ -572,21 +572,6 @@ lemmas urge_bisim = Bisimulation_Invariant_axioms
 end (* Prod TA sem urge *)
 
 
-(* XXX All this stuff is duplicated *)
-context Simple_Network_Impl_Defs
-begin
-
-lemma N_eq:
-  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
-  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
-
-(* XXX Remove? *)
-lemma covn_N_eq:
-  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
-  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
-
-end
-
 context Simple_Network_Impl_Defs
 begin
 

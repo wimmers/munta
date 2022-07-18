@@ -205,17 +205,11 @@ lemma L_len[intro, dest]:
   "length L = n_ps" if "L \<in> states"
   using that unfolding states_def by simp
 
-end
+lemma N_eq:
+  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
+  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
 
-(*
-locale Generalized_Network_Impl =
-  Generalized_Network_Impl_Defs automata broadcast bounds
-  for
-    automata ::
-    "('s list \<times> ('a act, 's, 'c, int, 'x, int) transition list
-      \<times> ('s \<times> ('c, int) cconstraint) list) list"
-  and broadcast bounds
-*)
+end
 
 locale Generalized_Network_Impl =
   fixes automata ::
@@ -235,20 +229,6 @@ paragraph \<open>Mapping through the product construction\<close>
 lemma f_the_inv_f:
   "f (the_inv f x) = x" if "inj f" "x \<in> range f"
   using that by (auto simp: the_inv_f_f)
-
-context Generalized_Network_Impl
-begin
-
-lemma N_eq:
-  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
-  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
-
-(* XXX Remove? *)
-lemma covn_N_eq:
-  \<open>N i = automaton_of (automata ! i)\<close> if \<open>i < n_ps\<close>
-  using that unfolding N_def n_ps_def fst_conv snd_conv by (intro nth_map; simp)
-
-end
 
 method fprem =
   (match premises in R: _ \<Rightarrow> \<open>rule R[elim_format]\<close>, assumption)
@@ -792,8 +772,9 @@ locale Generalized_Network_Impl_nat =
       (\<forall> (c, x) \<in> collect_clock_pairs g. 0 < c \<and> c \<le> m \<and> x \<in> \<nat>)
       "
   assumes weak_synchronizations:
-    "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, g, a, _, _, _) \<in> set trans. \<forall>sync \<in> set syncs.
-      case a of Com a \<Rightarrow> (p, a, False) \<in> set sync \<longrightarrow> g = [] | _ \<Rightarrow> True"
+    "\<forall>(_, _, trans, _) \<in> set automata. \<forall>(_, _, g, a, _, _, _) \<in> set trans. case a of
+      Com a \<Rightarrow> \<forall>sync \<in> set syncs. \<forall>(p, a', b) \<in> set sync. \<not>b \<and> a = a' \<longrightarrow> g = []
+     | _    \<Rightarrow> True"
 begin
 
 lemma weak_synchronizations_unguarded:
