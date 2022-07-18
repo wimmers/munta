@@ -16,24 +16,24 @@ respectively, while \<open>P3\<close> and \<open>P4\<close> \<^emph>\<open>will\
 The order of processes in the synchronization specifies the order of updates.
 Therefore we end up with the following type definition:\<close>
 
-type_synonym identifier = string
+type_synonym identifier = String.literal
 
 type_synonym lvalue = identifier
 
 record element =
-  automaton :: string
+  automaton :: String.literal
   input_enable :: "identifier list" \<comment> \<open>Kill option for convenience\<close>
-  comment :: "string option"
+  comment :: "String.literal option"
 
 record sync =
   synchronise :: "identifier option list"
   result :: "identifier option" \<comment> \<open>NB: we label transitions with \<open>sync\<close> not just \<open>result\<close>\<close>
-  comment :: "string option"
+  comment :: "String.literal option"
 
 record composition =
   elements :: "element list"
   syncs :: "sync list" \<comment> \<open>Kill option for convenience\<close>
-  comment :: "string option"
+  comment :: "String.literal option"
 
 text \<open>Conversion procedure:
 \<^item> Map \<open>field?: typ\<close> to \<open>field :: typ option\<close>
@@ -64,13 +64,13 @@ record variable_declaration =
 
 record action =
   name :: identifier
-  comment :: "string option"
+  comment :: "String.literal option"
 
 record transient_value =
   ref :: lvalue \<comment> \<open>what to set the value for\<close>
   "value" :: expression \<comment> \<open>the value, must not contain references to transient variables or variables of type\<close>
                         \<comment> \<open>"clock" or "continuous"\<close>
-  comment :: "string option" \<comment> \<open>an optional comment\<close>
+  comment :: "String.literal option" \<comment> \<open>an optional comment\<close>
 
 record location =
   name :: identifier \<comment> \<open>the name of the location, unique among all locations of this automaton\<close>
@@ -84,13 +84,13 @@ record assignment =
   ref :: lvalue
   "value" :: expression
   "index" :: nat \<comment> \<open>Kill option for convenience\<close>
-  "comment" :: "string option"
+  "comment" :: "String.literal option"
 
 record destination =
   location :: identifier
   probability :: "unit option"
   assignments :: "assignment list" \<comment> \<open>Kill option for convenience\<close>
-  "comment" :: "string option"
+  "comment" :: "String.literal option"
 
 record edge =
   location :: identifier
@@ -98,7 +98,7 @@ record edge =
   rate :: "unit option"
   guard :: "condition" \<comment> \<open>Kill option for convenience\<close>
   destinations :: "destination list"
-  "comment" :: "string option"
+  "comment" :: "String.literal option"
 
 record automaton =
   name :: identifier
@@ -107,11 +107,11 @@ record automaton =
   locations :: "location list"
   initial_locations :: "identifier list"
   edges :: "edge list"
-  "comment" :: "string option"
+  "comment" :: "String.literal option"
 
 record model =
   jani_version :: int
-  name :: string
+  name :: String.literal
   metadata :: unit
   type :: unit
   features :: "unit option"

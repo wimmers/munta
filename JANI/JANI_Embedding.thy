@@ -170,12 +170,12 @@ definition get_destination where
   "get_destination e \<equiv> List.hd (destinations e)"
 
 definition mk_action where
-  "mk_action a \<equiv> case a of None \<Rightarrow> Sil '''' | Some a \<Rightarrow> Com a"
+  "mk_action a \<equiv> case a of None \<Rightarrow> Sil (STR '''') | Some a \<Rightarrow> Com a"
 
 definition mk_label where
   "mk_label a \<equiv> case a of
     Del \<Rightarrow> Generalized_Network_Language.Del
-  | Internal \<Rightarrow> Generalized_Network_Language.Internal ''''
+  | Internal \<Rightarrow> Generalized_Network_Language.Internal (STR '''')
   | Sync sync \<Rightarrow> Generalized_Network_Language.Sync (mk_sync (synchronise sync))"
 
 definition
@@ -428,7 +428,7 @@ lemma sorted_mk_sync:
   "sorted (map fst (mk_sync xs))"
 proof -
   have "sorted (map fst (List.map_filter id (map_index' i (\<lambda>p. map_option (\<lambda>a. (p, f p a))) xs)))"
-    for f :: "nat \<Rightarrow> char list \<Rightarrow> 'a" and i
+    for f :: "nat \<Rightarrow> _ \<Rightarrow> 'a" and i
   by (induction xs arbitrary: i)
      (auto simp: set_map_filter map_filter_simps split: option.split)
   then show ?thesis
@@ -442,7 +442,7 @@ proof -
     subseq
       (map fst
         (List.map_filter id (map_index' i (\<lambda>p. map_option (\<lambda>a. (p, f p a))) xs))) [i..<length xs+i]"
-    for f :: "nat \<Rightarrow> char list \<Rightarrow> 'a" and i
+    for f :: "nat \<Rightarrow> _ \<Rightarrow> 'a" and i
     supply [simp] = map_filter_simps and [simp del] = upt_Suc
     apply (induction xs arbitrary: i)
       apply (simp; fail)
@@ -535,7 +535,7 @@ next
     usingT \<open>''new loc''\<close> \<open>''destination''\<close> \<open>TRANS ''edge''\<close> by (simp,intro states_preservation_updI)
   have [simp]: "get_destination e = destination"
     usingT \<open>''destination''\<close> by simp
-  have \<open>mk_label a = Generalized_Network_Language.Internal ''''\<close>
+  have \<open>mk_label a = Generalized_Network_Language.Internal (STR '''')\<close>
     unfolding mk_label_def \<open>a = _\<close> by simp
   with \<open>L \<in> states\<close> \<open>p < n_ps\<close> show ?thesis
     apply (simp add: conv_systemG step_int(1))
@@ -698,7 +698,7 @@ proof -
       [tag \<open>''loc''\<close>]: \<open>l = edge.location e\<close> and
       [tag \<open>''bexp''\<close>]: \<open>b = get_cond (guard e)\<close> and
       [tag \<open>''guard''\<close>]: \<open>g = map conv_ac (get_cconstr (guard e))\<close> and
-      [tag \<open>TRANS ''silent''\<close>]: \<open>action e = None\<close> \<open>a' = []\<close> and
+      [tag \<open>TRANS ''silent''\<close>]: \<open>action e = None\<close> \<open>a' = STR ''''\<close> and
       [tag \<open>''is_upd''\<close>]: \<open>f = get_upds (get_destination e) @ mk_transient_resets\<close> and
       [tag \<open>''new valuation''\<close>]: \<open>r = get_resets (get_destination e)\<close> and
       [tag \<open>''new loc''\<close>]: \<open>l' = destination.location (get_destination e)\<close>
@@ -714,7 +714,7 @@ proof -
       "is_upds s1 transient_vars_upds s'"
       usingT- \<open>''is_upd''\<close> \<open>TRANS _\<close> \<open>''destination''\<close> unfolding is_upd_idxs_def
       by (simp add: sort_upds_transient_resets_split) (erule is_upds_appendE)
-    from \<open>a = _\<close> \<open>a' = []\<close> have "a = mk_label Internal"
+    from \<open>a = _\<close> \<open>a' = _\<close> have "a = mk_label Internal"
       unfolding mk_label_def by simp
     then show ?thesis
       apply (rule thesisI)
