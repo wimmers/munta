@@ -1,3 +1,4 @@
+subsection \<open>Code for the Model Checker Core\<close>
 theory Generalized_Network_Language_Export_Code
   imports
     Generalized_Networks.Generalized_Network_Language_Renaming
@@ -6,17 +7,16 @@ theory Generalized_Network_Language_Export_Code
     TA_Library.Error_List_Monad
 begin
 
-datatype result =
-  Renaming_Failed | Preconds_Unsat | Sat | Unsat
+paragraph \<open>Checking Preconditions\<close>
 
 abbreviation "renum_automaton \<equiv> Generalized_Network_Rename_Defs.renum_automaton"
 abbreviation "renum_sync \<equiv> Generalized_Network_Rename_Defs.renum_sync"
 
 locale Generalized_Network_Rename_Formula_String_Defs =
   Generalized_Network_Rename_Defs_int where automata = automata for automata ::
-    "(nat list \<times> nat list \<times>
-      (String.literal act, nat, String.literal, int, String.literal, int) transition list
-      \<times> (nat \<times> (String.literal, int) cconstraint) list)
+    "(String.literal list \<times> String.literal list \<times>
+      (String.literal act, String.literal, String.literal, int, String.literal, int) transition list
+      \<times> (String.literal \<times> (String.literal, int) cconstraint) list)
     list"
 begin
 
@@ -59,9 +59,9 @@ end (* Generalized_Network_Rename_Formula_String_Defs *)
 locale Generalized_Network_Rename_Formula_String =
   Generalized_Network_Rename_Formula_String_Defs +
   fixes urge :: String.literal
-  fixes \<Phi> :: "(nat, nat, String.literal, int) formula"
+  fixes \<Phi> :: "(nat, String.literal, String.literal, int) formula"
     and s\<^sub>0 :: "(String.literal \<times> int) list"
-    and L\<^sub>0 :: "nat list"
+    and L\<^sub>0 :: "String.literal list"
   assumes renum_states_inj:
     "\<forall>i<n_ps. \<forall>x\<in>loc_set. \<forall>y\<in>loc_set. renum_states i x = renum_states i y \<longrightarrow> x = y"
   and renum_clocks_inj: "inj_on renum_clocks (insert urge clk_set')"
@@ -90,8 +90,6 @@ interpretation Generalized_Network_Rename_Formula
 lemmas Generalized_Network_Rename_intro = Generalized_Network_Rename_Formula_axioms
 
 end
-
-print_statement Generalized_Network_Rename_Formula_String_def
 
 lemma is_result_assert_iff:
   "is_result (assert b m) \<longleftrightarrow> b"
@@ -236,6 +234,8 @@ lemma check_precond:
 end
 
 
+paragraph \<open>Show Utilities\<close>
+
 derive "show" acconstraint act sexp formula
 
 fun shows_exp and shows_bexp where
@@ -352,6 +352,9 @@ in
     None}
 "
 
+datatype result =
+  Renaming_Failed | Preconds_Unsat | Sat | Unsat
+
 definition rename_mc where
   "rename_mc dc syncs bounds' automata k urge L\<^sub>0 s\<^sub>0 formula
     m num_states num_actions renum_acts renum_vars renum_clocks renum_states
@@ -374,55 +377,8 @@ do {
 }
 "
 
-(*
-definition rename_mc where
-  "rename_mc dc syncs bounds' automata k L\<^sub>0 s\<^sub>0 formula
-    m num_states num_actions renum_acts renum_vars renum_clocks renum_states
-    inv_renum_states inv_renum_vars inv_renum_clocks
-\<equiv>
-let
-   _ = println (STR ''Checking renaming'');
-  formula = (if dc then formula.EX (not sexp.true) else formula);
-   renaming_valid = Generalized_Network_Rename_Formula_String_Defs.check_renaming
-      syncs bounds' renum_vars renum_clocks renum_states automata formula L\<^sub>0 s\<^sub>0;
-   _ = println (STR ''Renaming network'');
-   (syncs, automata, bounds') = rename_network
-      syncs bounds' automata renum_acts renum_vars renum_clocks renum_states;
-   _ = println (STR ''Automata after renaming'');
-   _ = map (\<lambda>a. show a |> String.implode |> println) automata;
-   _ = println (STR ''Renaming formula'');
-   formula =
-    (if dc then formula.EX (not sexp.true) else map_formula renum_states renum_vars id formula);
-    _ = println (STR ''Renaming state'');
-   L\<^sub>0 = map_index renum_states L\<^sub>0;
-   s\<^sub>0 = map (\<lambda>(x, v). (renum_vars x, v)) s\<^sub>0;
-   show_clock = show o inv_renum_clocks;
-   show_state = show_state inv_renum_states inv_renum_vars
-in
-  if is_result renaming_valid then do {
-    let _ = println (STR ''Checking preconditions'');
-    let r = Generalized_Network_Impl_nat_defs.check_precond
-      syncs bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula;
-    let _ = (case r of Result _ \<Rightarrow> [()]
-      | Error es \<Rightarrow> let _ = println (STR ''The following pre-conditions were not satisified'') in
-          map println es);
-    let _ = println (STR ''Running precond_mc'');
-    r \<leftarrow> (if dc
-      then precond_dc show_clock show_state
-        syncs bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula
-      else precond_mc show_clock show_state
-        syncs bounds' automata m num_states num_actions k L\<^sub>0 s\<^sub>0 formula);
-    case r of
-      None \<Rightarrow> return Preconds_Unsat
-    | Some False \<Rightarrow> return Unsat
-    | Some True \<Rightarrow> return Sat
-  } 
-  else do {
-    let _ = println (STR ''The following conditions on the renaming were not satisfied:'');
-    let _ = the_errors renaming_valid |> map println;
-    return Renaming_Failed}
-"
-*)
+
+paragraph \<open>Main Correctness Theorems\<close>
 
 theorem model_check_rename:
   "<emp> rename_mc False syncs bounds automata k urge L\<^sub>0 s\<^sub>0 formula
@@ -817,6 +773,9 @@ paragraph \<open>Calculating the Renaming\<close>
 
 definition "mem_assoc x = list_ex (\<lambda>(y, _). x = y)"
 
+definition failwith where
+  "failwith msg \<equiv> let () = println msg in undefined"
+
 definition "mk_renaming str xs \<equiv>
 do {
   mapping \<leftarrow> fold_error
@@ -827,12 +786,12 @@ do {
     m = map_of mapping;
     f = (\<lambda>x.
       case m x of
-        None \<Rightarrow> let _ = println (STR ''Key error: '' + str x) in undefined
+        None \<Rightarrow> failwith (STR ''Key error: '' + str x)
       | Some v \<Rightarrow> v);
     m = map_of (map prod.swap mapping);
     f_inv = (\<lambda>x.
       case m x of
-        None \<Rightarrow> let _ = println (STR ''Key error: '' + String.implode (show x)) in undefined
+        None \<Rightarrow> failwith (STR ''Key error: '' + String.implode (show x))
       | Some v \<Rightarrow> v)
   in (f, f_inv)
   )
@@ -948,6 +907,7 @@ definition "preproc_mc \<equiv> \<lambda>dc ids_to_names (syncs, automata, bound
     let _ = println (STR ''Renaming'');
     let (syncs', automata', bounds') = rename_network
       syncs bounds automata renum_acts renum_vars renum_clocks renum_states;
+    let bounds = sort_key (\<lambda>(s, _, _). renum_vars s) bounds; \<comment> \<open>XXX: add this to legacy code\<close>
     let _ = println (STR ''Calculating ceiling'');
     let k = Generalized_Network_Impl_nat_defs.local_ceiling syncs' bounds' automata' m num_states;
     let _ = println (STR ''Running model checker'');
@@ -989,54 +949,18 @@ export_code do_preproc_mc in SML module_name Main
 
 
 
-\<^cancel>\<open>paragraph \<open>Unsafe Glue Code for Printing\<close>
+paragraph \<open>Unsafe Glue Code for Printing\<close>
 
 code_printing
   constant print \<rightharpoonup> (SML) "writeln _"
        and        (OCaml) "print'_string _"
 code_printing
   constant println \<rightharpoonup> (SML) "writeln _"
-       and          (OCaml) "print'_string _"
+       and          (OCaml) "print'_endline _"
 
-definition parse_convert_run_print where
-  "parse_convert_run_print dc s \<equiv>
-   case parse json s \<bind> convert of
-     Error es \<Rightarrow> do {let _ = map println es; return ()}
-   | Result (ids_to_names, _, syncs, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow> do {
-      r \<leftarrow> do_preproc_mc dc ids_to_names (syncs, automata, bounds) L\<^sub>0 s\<^sub>0 formula;
-      case r of
-        Error es \<Rightarrow> do {let _ = map println es; return ()}
-      | Result s \<Rightarrow> do {let _ = println s; return ()}
-  }"
-
-definition parse_convert_run where
-  "parse_convert_run dc s \<equiv>
-   case
-      parse json s \<bind> (\<lambda>r.
-      let
-      s' = show r |> String.implode;
-      _  = trace_level 2 (\<lambda>_. return s')
-      in parse json s' \<bind> (\<lambda>r'.
-      assert (r = r') STR ''Parse-print-parse loop failed!'' \<bind> (\<lambda>_. convert r)))
-   of
-     Error es \<Rightarrow> return (Error es)
-   | Result (ids_to_names, _, syncs, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
-      do_preproc_mc dc ids_to_names (syncs, automata, bounds) L\<^sub>0 s\<^sub>0 formula
-"
-
-definition convert_run where
-  "convert_run dc json_data \<equiv>
-   case (
-      let
-      s' = show json_data |> String.implode;
-      _  = trace_level 2 (\<lambda>_. return s')
-      in parse json s' \<bind> (\<lambda>r'.
-      assert (json_data = r') STR ''Parse-print-parse loop failed!'' \<bind> (\<lambda>_. convert json_data)))
-   of
-     Error es \<Rightarrow> return (Error es)
-   | Result (ids_to_names, _, syncs, automata, bounds, formula, L\<^sub>0, s\<^sub>0) \<Rightarrow>
-      do_preproc_mc dc ids_to_names (syncs, automata, bounds) L\<^sub>0 s\<^sub>0 formula
-"\<close>
+code_printing
+  constant failwith \<rightharpoonup> (SML) "raise Fail _"
+       and           (OCaml) "failwith _"
 
 
 text \<open>Eliminate Gabow statistics\<close>
@@ -1098,81 +1022,12 @@ text \<open>To disable state tracing:\<close>
   and (OCaml) "(fun n show_state show_clock ty x -> -> ()) _ _ _" *)
 
 
-export_code do_preproc_mc Result Error
+export_code
+  do_preproc_mc Result Error
 in SML module_name Model_Checker file "../ML/Generalized_Model_Checker.sml"
 
 export_code
   do_preproc_mc Result Error String.explode int_of_integer nat_of_integer
 in OCaml module_name Model_Checker file "../OCaml/Generalized_Model_Checker.ml"
-
-
-\<^cancel>\<open>definition parse_convert_run_test where
-  "parse_convert_run_test dc s \<equiv> do {
-    x \<leftarrow> parse_convert_run dc s;
-    case x of
-      Error es \<Rightarrow> do {let _ = map println es; return (STR ''Fail'')}
-    | Result r \<Rightarrow> return r
-  }"
-
-
-ML \<open>
-  fun assert comp exp =
-    if comp = exp then () else error ("Assertion failed! expected: " ^ exp ^ " but got: " ^ comp)
-  fun test dc file =
-  let
-    val s = file_to_string file;
-  in
-    @{code parse_convert_run_test} dc s end
-\<close>
-
-
-ML_val \<open>assert
-  (test false "benchmarks/HDDI_02.muntax" ())
-  "Property is not satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/HDDI_02.muntax" ())
-  "Model has no deadlock!"\<close>
-
-ML_val \<open>assert
-  (test false "benchmarks/simple.muntax" ())
-  "Property is satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/simple.muntax" ())
-  "Model has no deadlock!"\<close>
-
-ML_val \<open>assert
-  (test false "benchmarks/light_switch.muntax" ())
-  "Property is satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/light_switch.muntax" ())
-  "Model has no deadlock!"\<close>
-
-ML_val \<open>assert
-  (test false "benchmarks/PM_test.muntax" ())
-  "Property is not satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/PM_test.muntax" ())
-  "Model has a deadlock!"\<close>
-
-ML_val \<open>assert
-  (test false "benchmarks/bridge.muntax" ())
-  "Property is satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/bridge.muntax" ())
-  "Model has no deadlock!"\<close>
-
-ML_val \<open>assert
-  (test false "benchmarks/fischer.muntax" ())
-  "Property is satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/fischer.muntax" ())
-  "Model has no deadlock!"\<close>
-
-ML_val \<open>assert
-  (test false "benchmarks/PM_all_4.muntax" ())
-  "Property is not satisfied!"\<close>
-ML_val \<open>assert
-  (test true "benchmarks/PM_all_4.muntax" ())
-  "Model has no deadlock!"\<close>\<close>
 
 end
