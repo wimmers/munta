@@ -93,6 +93,8 @@ session Simple_Networks in Simple_Networks = Uppaal_Networks +
     Simple_Network_Language_Model_Checking
 
 session Generalized_Networks in Generalized_Networks = Simple_Networks +
+  options
+    [quick_and_dirty]
   theories
     Generalized_Network_Language_Model_Checking
     Simple_Network_Language_Embedding

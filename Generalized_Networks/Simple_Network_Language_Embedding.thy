@@ -1,5 +1,8 @@
 theory Simple_Network_Language_Embedding
-  imports Generalized_Network_Language TA_Impl_Misc2 Tagging "Tag_Explorer" "Tagging_Cases"
+  imports
+    Generalized_Network_Language
+    Simple_Networks.TA_Impl_Misc2
+    Simple_Networks.Tagging Simple_Networks.Tag_Explorer Simple_Networks.Tagging_Cases
 begin
 
 paragraph \<open>More Tagging\<close>
