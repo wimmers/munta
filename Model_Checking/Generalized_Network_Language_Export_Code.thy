@@ -1028,6 +1028,6 @@ in SML module_name Model_Checker file "../ML/Generalized_Model_Checker.sml"
 
 export_code
   do_preproc_mc Result Error String.explode int_of_integer nat_of_integer
-in OCaml module_name Model_Checker file "../OCaml/Generalized_Model_Checker.ml"
+in OCaml module_name Model_Checker
 
 end

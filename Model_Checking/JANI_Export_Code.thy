@@ -502,6 +502,6 @@ export_code
   op_and_bool op_or_bool op_not_bool
   JANI.vars JANI.clks list_of_set
   JANI.L\<^sub>0 JANI.s\<^sub>0
-in OCaml module_name Model_Checker file "../OCaml/munta/lib/JANI_Model_Checker.ml"
+in OCaml module_name Model_Checker file "../OCaml/lib/JANI_Model_Checker.ml"
 
 end
