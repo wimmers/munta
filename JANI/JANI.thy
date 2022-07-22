@@ -185,7 +185,14 @@ definition N where
 
 definition inv where
   "inv i l \<equiv> the_default true
-    (time_progress (the (find (\<lambda>loc. location.name loc = l) (locations (N i)))))"
+    (Option.bind
+      (find (\<lambda>loc. location.name loc = l) (locations (N i)))
+      time_progress
+    )"
+
+\<^cancel>\<open>definition inv where
+  "inv i l \<equiv> the_default true
+    (time_progress (the (find (\<lambda>loc. location.name loc = l) (locations (N i)))))"\<close>
 
 definition
   "n_ps = length (elements (system model))"
