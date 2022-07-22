@@ -259,21 +259,22 @@ attribute_setup untagged =
 
 notepad begin
   fix t1 t2 :: 'a and P Q :: bool
+  assume F: False
 
   have [tagged]: "t1 \<bar> P" "Some t2 \<bar> Q"
-    sorry
+    using F by auto
 
   have False
     using [[get_tagged \<open>t1\<close>]] \<^cancel>\<open>[[get_tagged \<open>t2\<close>]]\<close> [[get_tagged \<open>Some _\<close>]]
-    sorry
+    using F by simp
 
   have False thm tagged
     usingT \<^cancel>\<open>\<open>''hi''\<close>\<close> \<open>Some _\<close> \<open>t1\<close>
-    sorry
+    using F by simp
 
   have False
     apply (insertT \<^cancel>\<open>\<open>''hi''\<close>\<close> \<open>Some _\<close> \<open>t1\<close>)
-    sorry
+    using F by simp
 
   have [tagged]: "t1 \<bar> True" unfolding TAG_def ..
 
