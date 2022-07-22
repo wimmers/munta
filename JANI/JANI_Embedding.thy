@@ -154,6 +154,19 @@ lemma is_upds_const_remove_many:
 
 subsubsection \<open>Construction\<close>
 
+context JANI
+begin
+
+definition vars where
+  "vars \<equiv> {variable_declaration.name decl | decl. \<exists>bounds.
+    variable_declaration.type decl = TBounded bounds \<and> decl \<in> set (variables model)}"
+
+definition clks where
+  "clks \<equiv> {variable_declaration.name decl | decl.
+    variable_declaration.type decl = TClock \<and> decl \<in> set (variables model)}"
+
+end
+
 locale JANI_Embed_Defs = JANI +
   fixes get_cconstr :: "condition \<Rightarrow> (identifier, int) cconstraint"
     and get_cond  :: "condition \<Rightarrow> (identifier, int) bexp"
@@ -229,10 +242,6 @@ definition states where
   "states \<equiv>
     {L. length L = n_ps \<and> (\<forall>p < n_ps. \<exists>l \<in> set (locations (N p)). location.name l = L ! p)}"
 
-definition vars where
-  "vars \<equiv> {variable_declaration.name decl | decl. \<exists>bounds.
-    variable_declaration.type decl = TBounded bounds \<and> decl \<in> set (variables model)}"
-
 end
 
 no_notation Generalized_Network_Language.step_u ("_ \<turnstile> \<langle>_, _, _\<rangle> \<rightarrow>\<^bsub>_\<^esub> \<langle>_, _, _\<rangle>" [61,61,61,61,61] 61)
@@ -246,35 +255,47 @@ subsubsection \<open>Embedding Proofs\<close>
 
 locale JANI_Embed = JANI_Embed_Defs +
   \<comment> \<open>Computable\<close>
-  assumes variable_declarations_names_distinct:
-    "distinct (map variable_declaration.name (variables model))"
-  assumes all_variables_initialized:
-    "x \<in> set (model.variables model) \<Longrightarrow> \<exists>c. initial_value x = Some (exp.const c)"
-  assumes transient_bounds_declared:
-    "decl \<in> set (model.variables model) \<Longrightarrow> transient decl \<Longrightarrow>
-     \<exists>bounds. variable_declaration.type decl = TBounded bounds"
-  assumes locations_distinct[rule_format]:
-    "\<forall>p<n_ps. distinct (map location.name (locations (N p)))"
-  assumes destinations_length:
-    "\<forall>p<n_ps. \<forall>e \<in> set (edges (N p)). length (destinations e) = 1"
-  assumes transient_vars_upds_empty_or_no_weak_only_syncs:
-    "transient_vars_upds = [] \<or>
+  assumes variable_declarations_names_distinct [untagged]:
+    "STR ''Declared variables have distinct names'' \<bar>
+      distinct (map variable_declaration.name (variables model))"
+  assumes all_variables_initialized [untagged, rule_format]:
+    "STR ''All variables are initalized'' \<bar>
+      \<forall>x \<in> set (model.variables model). \<exists>c. initial_value x = Some (exp.const c)"
+  assumes transient_bounds_declared [untagged, rule_format]:
+    "STR ''All transient variables are bounded'' \<bar>
+      \<forall>decl \<in> set (model.variables model). transient decl \<longrightarrow>
+      (\<exists>bounds. variable_declaration.type decl = TBounded bounds)"
+  assumes locations_distinct [untagged, rule_format]:
+    "STR ''All location names are distinct (per automaton)'' \<bar>
+      \<forall>p<n_ps. distinct (map location.name (locations (N p)))"
+  assumes destinations_length [untagged]:
+    "STR ''Destinations are deterministic'' \<bar>
+      \<forall>p<n_ps. \<forall>e \<in> set (edges (N p)). length (destinations e) = 1"
+  assumes transient_vars_upds_empty_or_no_weak_only_syncs [untagged]:
+    "STR ''No transient variables or at least one strong sync per vector'' \<bar>
+     transient_vars_upds = [] \<or>
      (\<forall>sync\<in>set (syncs (system model)). \<exists>p<n_ps. \<exists>a. synchronise sync ! p = Some a \<and> \<not> is_weak p a)"
-  assumes length_synchronise[rule_format]:
-    "\<forall>sync \<in> set (syncs (system model)). length (synchronise sync) = n_ps"
-  assumes destinations_preconds: "\<forall>p<n_ps. \<forall>e\<in>set (edges (N p)). \<forall>destination\<in>set (destinations e).
-    (\<forall>((x, e), i) \<in> set (get_upds destination). x \<in> vars) \<and>
-    (\<exists>l\<in>set (locations (N p)). location.name l = destination.location destination)"
+  assumes length_synchronise[untagged, rule_format]:
+    "STR ''Sync vectors have the right length'' \<bar>
+      \<forall>sync \<in> set (syncs (system model)). length (synchronise sync) = n_ps"
+  assumes destinations_preconds [untagged]:
+    "STR ''Destinations'' \<bar>
+      \<forall>p<n_ps. \<forall>e\<in>set (edges (N p)). \<forall>destination\<in>set (destinations e).
+        (\<forall>((x, e), i) \<in> set (get_upds destination). x \<in> vars) \<and>
+        (\<exists>l\<in>set (locations (N p)). location.name l = destination.location destination)"
   \<comment> \<open>Not directly computable\<close>
-  assumes invs_splittable:
-    "\<forall>p<n_ps. \<forall>l \<in> set (locations (N p)). case time_progress l of
-      Some cc \<Rightarrow> is_splittable cc | _ \<Rightarrow> True"
-  assumes guards_splittable:
-    "\<forall>p<n_ps. \<forall>e \<in> set (edges (N p)). is_splittable (guard e)"
-  assumes get_cond_time_progress[rule_format]:
-    "\<forall>p<n_ps. \<forall>l \<in> set (locations (N p)). \<forall>g. time_progress l = Some g \<longrightarrow> get_cond g = bexp.true"
-  assumes get_cconstr_true:
-    "get_cconstr bexp.true = []"
+  assumes invs_splittable [untagged]:
+    "STR ''Invariants are splittable'' \<bar>
+      \<forall>p<n_ps. \<forall>l \<in> set (locations (N p)). case time_progress l of
+        Some cc \<Rightarrow> is_splittable cc | _ \<Rightarrow> True"
+  assumes guards_splittable [untagged]:
+    "STR ''Guards are splittable'' \<bar>
+      \<forall>p<n_ps. \<forall>e \<in> set (edges (N p)). is_splittable (guard e)"
+  assumes get_cond_time_progress[untagged, rule_format]:
+    "STR ''Time progress conditions are clock constraints'' \<bar>
+      \<forall>p<n_ps. \<forall>l \<in> set (locations (N p)). \<forall>g. time_progress l = Some g \<longrightarrow> get_cond g = bexp.true"
+  assumes get_cconstr_true [untagged]:
+    "STR ''Splitting true'' \<bar> get_cconstr bexp.true = []"
 begin
 
 lemma destinations_unique:
