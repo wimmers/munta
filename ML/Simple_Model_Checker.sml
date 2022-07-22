@@ -965,27 +965,6 @@ val hashable_nat =
   {hashcode = hashcode_nat, def_hashmap_size = def_hashmap_size_nat} :
   nat hashable;
 
-datatype ('a, 'b) phantom = Phantom of 'b;
-
-val finite_UNIV_nata : (nat, bool) phantom = Phantom false;
-
-val card_UNIV_nata : (nat, nat) phantom = Phantom zero_nata;
-
-type 'a finite_UNIV = {finite_UNIV : ('a, bool) phantom};
-val finite_UNIV = #finite_UNIV : 'a finite_UNIV -> ('a, bool) phantom;
-
-type 'a card_UNIV =
-  {finite_UNIV_card_UNIV : 'a finite_UNIV, card_UNIV : ('a, nat) phantom};
-val finite_UNIV_card_UNIV = #finite_UNIV_card_UNIV :
-  'a card_UNIV -> 'a finite_UNIV;
-val card_UNIV = #card_UNIV : 'a card_UNIV -> ('a, nat) phantom;
-
-val finite_UNIV_nat = {finite_UNIV = finite_UNIV_nata} : nat finite_UNIV;
-
-val card_UNIV_nat =
-  {finite_UNIV_card_UNIV = finite_UNIV_nat, card_UNIV = card_UNIV_nata} :
-  nat card_UNIV;
-
 fun eq A_ a b = equal A_ a b;
 
 fun equal_lista A_ [] (x21 :: x22) = false
@@ -1375,17 +1354,6 @@ val show_literal =
 
 val countable_literal = {} : string countable;
 
-val finite_UNIV_literala : (string, bool) phantom = Phantom false;
-
-val card_UNIV_literala : (string, nat) phantom = Phantom zero_nata;
-
-val finite_UNIV_literal = {finite_UNIV = finite_UNIV_literala} :
-  string finite_UNIV;
-
-val card_UNIV_literal =
-  {finite_UNIV_card_UNIV = finite_UNIV_literal, card_UNIV = card_UNIV_literala}
-  : string card_UNIV;
-
 datatype fract = Rata of bool * int * int;
 
 fun equal_fract (Rata (x1, x2, x3)) (Rata (y1, y2, y3)) =
@@ -1632,6 +1600,21 @@ fun show_exp A_ B_ =
   {shows_prec = shows_prec_exp A_ B_, shows_list = shows_list_exp A_ B_} :
   ('a, 'b) exp show;
 
+fun shows_prec_bexp A_ B_ p e rest = shows_bexp A_ B_ e @ rest;
+
+fun shows_list_bexp A_ B_ es s =
+  [Chara (true, true, false, true, true, false, true, false)] @
+    concat
+      (intersperse
+        [Chara (false, false, true, true, false, true, false, false),
+          Chara (false, false, false, false, false, true, false, false)]
+        (map (shows_bexp A_ B_) es)) @
+      [Chara (true, false, true, true, true, false, true, false)] @ s;
+
+fun show_bexp A_ B_ =
+  {shows_prec = shows_prec_bexp A_ B_, shows_list = shows_list_bexp A_ B_} :
+  ('a, 'b) bexp show;
+
 datatype ('a, 'b) acconstraint = LT of 'a * 'b | LE of 'a * 'b | EQ of 'a * 'b |
   GT of 'a * 'b | GE of 'a * 'b;
 
@@ -1696,21 +1679,6 @@ fun show_acconstraint A_ B_ =
   {shows_prec = shows_prec_acconstraint A_ B_,
     shows_list = shows_list_acconstraint A_ B_}
   : ('a, 'b) acconstraint show;
-
-fun shows_prec_bexp A_ B_ p e rest = shows_bexp A_ B_ e @ rest;
-
-fun shows_list_bexp A_ B_ es s =
-  [Chara (true, true, false, true, true, false, true, false)] @
-    concat
-      (intersperse
-        [Chara (false, false, true, true, false, true, false, false),
-          Chara (false, false, false, false, false, true, false, false)]
-        (map (shows_bexp A_ B_) es)) @
-      [Chara (true, false, true, true, true, false, true, false)] @ s;
-
-fun show_bexp A_ B_ =
-  {shows_prec = shows_prec_bexp A_ B_, shows_list = shows_list_bexp A_ B_} :
-  ('a, 'b) bexp show;
 
 datatype 'a set = Set of 'a list | Coset of 'a list;
 
@@ -2650,14 +2618,6 @@ fun find_index uu [] = zero_nata
 
 fun index A_ xs = (fn a => find_index (fn x => eq A_ x a) xs);
 
-fun of_phantom (Phantom x) = x;
-
-fun size_list x = gen_length zero_nata x;
-
-fun card (A1_, A2_) (Coset xs) =
-  minus_nat (of_phantom (card_UNIV A1_)) (size_list (remdups A2_ xs))
-  | card (A1_, A2_) (Set xs) = size_list (remdups A2_ xs);
-
 fun neg_dbm_entry A_ (Le a) = Lt (uminus A_ a)
   | neg_dbm_entry A_ (Lt a) = Le (uminus A_ a)
   | neg_dbm_entry A_ INF = INF;
@@ -2718,41 +2678,6 @@ fun ht_upd (A1_, A2_, A3_) B_ k v ht =
             end)
       end);
 
-val top_set : 'a set = Coset [];
-
-fun eq_set (A1_, A2_) (Coset xs) (Coset ys) =
-  list_all (membera A2_ ys) xs andalso list_all (membera A2_ xs) ys
-  | eq_set (A1_, A2_) (Set xs) (Set ys) =
-    list_all (membera A2_ ys) xs andalso list_all (membera A2_ xs) ys
-  | eq_set (A1_, A2_) (Set ys) (Coset xs) =
-    let
-      val n = card (A1_, A2_) top_set;
-    in
-      (if equal_nata n zero_nata then false
-        else let
-               val xsa = remdups A2_ xs;
-               val ysa = remdups A2_ ys;
-             in
-               equal_nata (plus_nata (size_list xsa) (size_list ysa)) n andalso
-                 (list_all (fn x => not (membera A2_ ysa x)) xsa andalso
-                   list_all (fn y => not (membera A2_ xsa y)) ysa)
-             end)
-    end
-  | eq_set (A1_, A2_) (Coset xs) (Set ys) =
-    let
-      val n = card (A1_, A2_) top_set;
-    in
-      (if equal_nata n zero_nata then false
-        else let
-               val xsa = remdups A2_ xs;
-               val ysa = remdups A2_ ys;
-             in
-               equal_nata (plus_nata (size_list xsa) (size_list ysa)) n andalso
-                 (list_all (fn x => not (membera A2_ ysa x)) xsa andalso
-                   list_all (fn y => not (membera A2_ xsa y)) ysa)
-             end)
-    end;
-
 fun map_default b f a = (case f a of NONE => b | SOME ba => ba);
 
 fun ht_insls (A1_, A2_, A3_) B_ [] ht = (fn () => ht)
@@ -2775,15 +2700,6 @@ fun product_lists [] = [[]]
     maps (fn x => map (fn a => x :: a) (product_lists xss)) xs;
 
 fun app f a = f a;
-
-fun subset (A1_, A2_) (Coset xs) (Set ys) =
-  let
-    val n = card (A1_, A2_) top_set;
-  in
-    less_nat zero_nata n andalso equal_nata (card (A1_, A2_) (Set (xs @ ys))) n
-  end
-  | subset (A1_, A2_) (Set ys) b = list_all (fn y => member A2_ y b) ys
-  | subset (A1_, A2_) a (Coset ys) = list_all (fn y => not (member A2_ y a)) ys;
 
 fun hm_isEmpty ht = (fn () => (equal_nata (the_size ht) zero_nata));
 
@@ -3918,6 +3834,8 @@ fun amtx_copy A_ = array_copy A_;
 
 fun amtx_dflt A_ n m v = make A_ (times_nat n m) (fn _ => v);
 
+fun size_list x = gen_length zero_nata x;
+
 fun ll_from_list l = LL (size_list l, l);
 
 fun show_pres (Inr (ll, uu)) = Inr ll
@@ -3995,6 +3913,12 @@ fun as_is_empty s = equal_nata (snd s) zero_nata;
 
 fun times_int k l =
   Int_of_integer (IntInf.* (integer_of_int k, integer_of_int l));
+
+fun less_eq_set A_ (Coset []) (Set []) = false
+  | less_eq_set A_ a (Coset ys) = list_all (fn y => not (member A_ y a)) ys
+  | less_eq_set A_ (Set xs) b = list_all (fn x => member A_ x b) xs;
+
+fun equal_set A_ a b = less_eq_set A_ a b andalso less_eq_set A_ b a;
 
 fun minus_set A_ a (Coset xs) = Set (filter (fn x => member A_ x a) xs)
   | minus_set A_ a (Set xs) = fold (remove A_) xs a;
@@ -4203,6 +4127,45 @@ fun upd_entries_impl n =
       (fn x =>
         imp_nfoldli x (fn _ => (fn () => true))
           (fn xb => fn sigma => (fn () => (xb :: sigma))) op_list_empty));
+
+fun map_exp f (Const x1) = Const x1
+  | map_exp f (Var x2) = Var (f x2)
+  | map_exp f (If_then_else (x31, x32, x33)) =
+    If_then_else (map_bexp f x31, map_exp f x32, map_exp f x33)
+  | map_exp f (Binop (x41, x42, x43)) =
+    Binop (x41, map_exp f x42, map_exp f x43)
+  | map_exp f (Unop (x51, x52)) = Unop (x51, map_exp f x52)
+and map_bexp f True = True
+  | map_bexp f (Not x2) = Not (map_bexp f x2)
+  | map_bexp f (And (x31, x32)) = And (map_bexp f x31, map_bexp f x32)
+  | map_bexp f (Or (x41, x42)) = Or (map_bexp f x41, map_bexp f x42)
+  | map_bexp f (Imply (x51, x52)) = Imply (map_bexp f x51, map_bexp f x52)
+  | map_bexp f (Eq (x61, x62)) = Eq (map_exp f x61, map_exp f x62)
+  | map_bexp f (Lea (x71, x72)) = Lea (map_exp f x71, map_exp f x72)
+  | map_bexp f (Lta (x81, x82)) = Lta (map_exp f x81, map_exp f x82)
+  | map_bexp f (Ge (x91, x92)) = Ge (map_exp f x91, map_exp f x92)
+  | map_bexp f (Gt (x101, x102)) = Gt (map_exp f x101, map_exp f x102);
+
+fun set_exp A_ (Const x1) = bot_set
+  | set_exp A_ (Var x2) = insert A_ x2 bot_set
+  | set_exp A_ (If_then_else (x31, x32, x33)) =
+    sup_set A_ (sup_set A_ (set_bexp A_ x31) (set_exp A_ x32)) (set_exp A_ x33)
+  | set_exp A_ (Binop (x41, x42, x43)) =
+    sup_set A_ (set_exp A_ x42) (set_exp A_ x43)
+  | set_exp A_ (Unop (x51, x52)) = set_exp A_ x52
+and set_bexp A_ True = bot_set
+  | set_bexp A_ (Not x2) = set_bexp A_ x2
+  | set_bexp A_ (And (x31, x32)) =
+    sup_set A_ (set_bexp A_ x31) (set_bexp A_ x32)
+  | set_bexp A_ (Or (x41, x42)) = sup_set A_ (set_bexp A_ x41) (set_bexp A_ x42)
+  | set_bexp A_ (Imply (x51, x52)) =
+    sup_set A_ (set_bexp A_ x51) (set_bexp A_ x52)
+  | set_bexp A_ (Eq (x61, x62)) = sup_set A_ (set_exp A_ x61) (set_exp A_ x62)
+  | set_bexp A_ (Lea (x71, x72)) = sup_set A_ (set_exp A_ x71) (set_exp A_ x72)
+  | set_bexp A_ (Lta (x81, x82)) = sup_set A_ (set_exp A_ x81) (set_exp A_ x82)
+  | set_bexp A_ (Ge (x91, x92)) = sup_set A_ (set_exp A_ x91) (set_exp A_ x92)
+  | set_bexp A_ (Gt (x101, x102)) =
+    sup_set A_ (set_exp A_ x101) (set_exp A_ x102);
 
 fun constraint_pair (LT (x, m)) = (x, m)
   | constraint_pair (LE (x, m)) = (x, m)
@@ -4482,45 +4445,6 @@ fun compute_SCC_tra (A1_, A2_) =
     (def_hashmap_size A2_ Type);
 
 fun collect_clock_pairs cc = image constraint_pair (Set cc);
-
-fun map_exp f (Const x1) = Const x1
-  | map_exp f (Var x2) = Var (f x2)
-  | map_exp f (If_then_else (x31, x32, x33)) =
-    If_then_else (map_bexp f x31, map_exp f x32, map_exp f x33)
-  | map_exp f (Binop (x41, x42, x43)) =
-    Binop (x41, map_exp f x42, map_exp f x43)
-  | map_exp f (Unop (x51, x52)) = Unop (x51, map_exp f x52)
-and map_bexp f True = True
-  | map_bexp f (Not x2) = Not (map_bexp f x2)
-  | map_bexp f (And (x31, x32)) = And (map_bexp f x31, map_bexp f x32)
-  | map_bexp f (Or (x41, x42)) = Or (map_bexp f x41, map_bexp f x42)
-  | map_bexp f (Imply (x51, x52)) = Imply (map_bexp f x51, map_bexp f x52)
-  | map_bexp f (Eq (x61, x62)) = Eq (map_exp f x61, map_exp f x62)
-  | map_bexp f (Lea (x71, x72)) = Lea (map_exp f x71, map_exp f x72)
-  | map_bexp f (Lta (x81, x82)) = Lta (map_exp f x81, map_exp f x82)
-  | map_bexp f (Ge (x91, x92)) = Ge (map_exp f x91, map_exp f x92)
-  | map_bexp f (Gt (x101, x102)) = Gt (map_exp f x101, map_exp f x102);
-
-fun set_exp A_ (Const x1) = bot_set
-  | set_exp A_ (Var x2) = insert A_ x2 bot_set
-  | set_exp A_ (If_then_else (x31, x32, x33)) =
-    sup_set A_ (sup_set A_ (set_bexp A_ x31) (set_exp A_ x32)) (set_exp A_ x33)
-  | set_exp A_ (Binop (x41, x42, x43)) =
-    sup_set A_ (set_exp A_ x42) (set_exp A_ x43)
-  | set_exp A_ (Unop (x51, x52)) = set_exp A_ x52
-and set_bexp A_ True = bot_set
-  | set_bexp A_ (Not x2) = set_bexp A_ x2
-  | set_bexp A_ (And (x31, x32)) =
-    sup_set A_ (set_bexp A_ x31) (set_bexp A_ x32)
-  | set_bexp A_ (Or (x41, x42)) = sup_set A_ (set_bexp A_ x41) (set_bexp A_ x42)
-  | set_bexp A_ (Imply (x51, x52)) =
-    sup_set A_ (set_bexp A_ x51) (set_bexp A_ x52)
-  | set_bexp A_ (Eq (x61, x62)) = sup_set A_ (set_exp A_ x61) (set_exp A_ x62)
-  | set_bexp A_ (Lea (x71, x72)) = sup_set A_ (set_exp A_ x71) (set_exp A_ x72)
-  | set_bexp A_ (Lta (x81, x82)) = sup_set A_ (set_exp A_ x81) (set_exp A_ x82)
-  | set_bexp A_ (Ge (x91, x92)) = sup_set A_ (set_exp A_ x91) (set_exp A_ x92)
-  | set_bexp A_ (Gt (x101, x102)) =
-    sup_set A_ (set_exp A_ x101) (set_exp A_ x102);
 
 fun dfs_map_impl_0 A_ (B1_, B2_, B3_) succsi lei keyi copyi x =
   let
@@ -5569,8 +5493,8 @@ fun compile_invariant clocks vars inv =
              binda (sexp_to_bexp e)
                (fn b =>
                  binda (assert
-                         (subset (card_UNIV_literal, equal_literal)
-                           (set_bexp equal_literal b) (Set vars))
+                         (less_eq_set equal_literal (set_bexp equal_literal b)
+                           (Set vars))
                          (implode
                            ([Chara (true, false, true, false, true, false, true,
                                      false),
@@ -6328,7 +6252,7 @@ true, false)])
                           "Process names are ambiguous")
                     (fn _ =>
                       binda (assert
-                              (subset (card_UNIV_literal, equal_literal)
+                              (less_eq_set equal_literal
                                 (locs_of_formula equal_literal formulab)
                                 (Set process_names))
                               "Unknown process name in formula")
@@ -6386,7 +6310,7 @@ binda (rename_locs_formula (fn i => geta show_literal (nth names i)) formulac)
 
 fun mk_updsi s upds =
   fold (fn (x, upd) => fn sa =>
-         list_update sa x (evali (equal_int, linorder_int) s upd))
+         list_update sa x (evali (equal_int, linorder_int) sa upd))
     upds s;
 
 fun map_formula f g h (EX phi) = EX (map_sexp f g h phi)
@@ -6475,7 +6399,7 @@ fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
        zero_nata (size_list automata) andalso
        (list_all (fn (_, (_, (_, inv))) => distinct equal_nat (map fst inv))
           automata andalso
-         (eq_set (card_UNIV_nat, equal_nat) (image fst (Set s_0))
+         (equal_set equal_nat (image fst (Set s_0))
             (image fst (Set bounds)) andalso
            ball (image fst (Set s_0))
              (fn x =>
@@ -6489,7 +6413,7 @@ fun simple_Network_Impl_nat_ceiling_start_state_axioms broadcast bounds automata
              member equal_nat (nth l_0 i)
                (image fst (Set ((fst o snd o snd) (nth automata i)))))
            zero_nata (size_list automata) andalso
-          subset (card_UNIV_nat, equal_nat) (vars_of_formula equal_nat formula)
+          less_eq_set equal_nat (vars_of_formula equal_nat formula)
             (Set (upt zero_nata (n_vs bounds))))));
 
 fun simple_Network_Impl_nat_urge_axioms automata =
@@ -9274,7 +9198,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
             (Set broadcast)))
         "Action renaming is injective",
       assert
-        (eq_set (card_UNIV_literal, equal_literal) (image fst (Set bounds))
+        (equal_set equal_literal (image fst (Set bounds))
           (sup_set equal_literal
             (sup_seta equal_literal
               (image
@@ -9300,7 +9224,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
                   (image (fn (_, (_, (t, _))) => t) (Set automata)))))))
         "Bound set is exactly the variable set",
       assert
-        (subset (card_UNIV_nat, equal_nat)
+        (less_eq_set equal_nat
           (sup_seta equal_nat
             (image (fn g => image fst (Set g))
               (Set (map (snd o snd o snd) automata))))
@@ -9315,7 +9239,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
               (Set automata))))
         "Invariant locations are contained in the location set",
       assert
-        (subset (card_UNIV_nat, equal_nat)
+        (less_eq_set equal_nat
           (sup_seta equal_nat (image (Set o fst) (Set automata)))
           (sup_seta equal_nat
             (image
@@ -9328,7 +9252,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
               (Set automata))))
         "Broadcast locations are containted in the location set",
       assert
-        (subset (card_UNIV_nat, equal_nat)
+        (less_eq_set equal_nat
           (sup_seta equal_nat
             (image (fn x => Set (fst (snd x))) (Set automata)))
           (sup_seta equal_nat
@@ -9356,7 +9280,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
             zero_nata (size_list automata))
         "Initial location is in the state set",
       assert
-        (eq_set (card_UNIV_literal, equal_literal) (image fst (Set s_0))
+        (equal_set equal_literal (image fst (Set s_0))
           (sup_set equal_literal
             (sup_seta equal_literal
               (image
@@ -9384,7 +9308,7 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
       assert (distinct equal_literal (map fst s_0))
         "Initial state is unambiguous",
       assert
-        (subset (card_UNIV_nat, equal_nat) (set2_formula equal_nat phi)
+        (less_eq_set equal_nat (set2_formula equal_nat phi)
           (sup_seta equal_nat
             (image
               (fn (_, (_, (t, _))) =>
@@ -9396,12 +9320,11 @@ fun check_renaming broadcast bounds renum_acts renum_vars renum_clocks
               (Set automata))))
         "Formula locations are contained in the location set",
       assert
-        (subset (card_UNIV_nat, equal_nat) (locs_of_formula equal_nat phi)
+        (less_eq_set equal_nat (locs_of_formula equal_nat phi)
           (Set (upt zero_nata (size_list automata))))
         "Formula automata are contained in the automata set",
       assert
-        (subset (card_UNIV_literal, equal_literal)
-          (vars_of_formula equal_literal phi)
+        (less_eq_set equal_literal (vars_of_formula equal_literal phi)
           (sup_set equal_literal
             (sup_seta equal_literal
               (image
@@ -9489,7 +9412,7 @@ fun check_precond2 broadcast bounds automata m num_states k l_0 s_0 formula =
           automata)
         "Unambiguous invariants",
       assert
-        (eq_set (card_UNIV_nat, equal_nat) (image fst (Set s_0))
+        (equal_set equal_nat (image fst (Set s_0))
            (image fst (Set bounds)) andalso
           ball (image fst (Set s_0))
             (fn x =>
@@ -9508,7 +9431,7 @@ fun check_precond2 broadcast bounds automata m num_states k l_0 s_0 formula =
           zero_nata (size_list automata))
         "Initial state has outgoing transitions",
       assert
-        (subset (card_UNIV_nat, equal_nat) (vars_of_formula equal_nat formula)
+        (less_eq_set equal_nat (vars_of_formula equal_nat formula)
           (Set (upt zero_nata (n_vs bounds))))
         "Variable set of formula"];
 
@@ -9654,7 +9577,7 @@ fun renum_bexp A_ renum_vars = map_bexp renum_vars;
 fun renum_exp A_ renum_vars = map_exp renum_vars;
 
 fun renum_upd A_ renum_vars =
-  map (fn (x, upd) => (renum_vars x, renum_exp A_ renum_vars upd));
+  (fn (x, upd) => (renum_vars x, renum_exp A_ renum_vars upd));
 
 fun renum_act A_ renum_acts = map_act renum_acts;
 
@@ -9674,7 +9597,7 @@ fun renum_automaton A_ B_ C_ D_ renum_acts renum_vars renum_clocks renum_states
                       (renum_bexp B_ renum_vars b,
                         (renum_cconstraint C_ renum_clocks g,
                           (renum_act A_ renum_acts ac,
-                            (renum_upd B_ renum_vars upd,
+                            (map (renum_upd B_ renum_vars) upd,
                               (renum_reset C_ renum_clocks r,
                                 renum_states i la))))))
                   end)
@@ -10093,7 +10016,7 @@ fun make_renaming (A1_, A2_) =
                             nth (map snd renum_states_list);
                         in
                           binda (assert
-                                  (subset (card_UNIV_literal, equal_literal)
+                                  (less_eq_set equal_literal
                                     (image fst (Set bounds)) (Set var_set))
                                   "State variables are declared but do not appear in model")
                             (fn _ =>
