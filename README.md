@@ -62,6 +62,22 @@ To list MUNTA's command line options, run:
 ML/munta -h
 ```
 
+## OCaml
+
+The [JANI](https://jani-spec.org/) interface is exposed as an OCaml module.
+The corresponding [dune](https://dune.build/) and [opam](https://opam.ocaml.org/) setup is located in subfolder `OCaml`.
+
+To install this package for use from your OCaml projects, make sure you have opam installed, and run:
+
+```sh
+cd OCaml
+opam install .
+```
+
+If the exported OCaml code changes, you can run `opam upgrade munta` from anywhere to recompile and update.
+
+It is recommended to interact with the module `Munta.MC`.
+
 ## Documentation
 
 ### Input Format
