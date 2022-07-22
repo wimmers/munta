@@ -90,25 +90,25 @@ module IsabelleMapping = struct
 
 type 'a array_type = 'a array;;
 
-let new_array (a:'a) (n:Big_int.big_int) = array (Big_int.int_of_big_int n, a);;
+let new_array (a:'a) (n:Z.t) = array (Z.to_int n, a);;
 
-let array_length (a:'a array_type) = Big_int.big_int_of_int (length a);;
+let array_length (a:'a array_type) = Z.of_int (length a);;
 
-let array_get (a:'a array_type) (i:Big_int.big_int) = sub (a, Big_int.int_of_big_int i);;
+let array_get (a:'a array_type) (i:Z.t) = sub (a, Z.to_int i);;
 
-let array_set (a:'a array_type) (i:Big_int.big_int) (e:'a) = update (a, Big_int.int_of_big_int i, e);;
+let array_set (a:'a array_type) (i:Z.t) (e:'a) = update (a, Z.to_int i, e);;
 
 let array_of_list (xs:'a list) = fromList xs;;
 
-let array_grow (a:'a array_type) (i:Big_int.big_int) (x:'a) = grow (a, Big_int.int_of_big_int i, x);;
+let array_grow (a:'a array_type) (i:Z.t) (x:'a) = grow (a, Z.to_int i, x);;
 
-let array_shrink (a:'a array_type) (sz:Big_int.big_int) = shrink (a,Big_int.int_of_big_int sz);;
+let array_shrink (a:'a array_type) (sz:Z.t) = shrink (a,Z.to_int sz);;
 
-let array_get_oo (d:'a) (a:'a array_type) (i:Big_int.big_int) =
-  try sub (a,Big_int.int_of_big_int i) with Invalid_argument _ -> d
+let array_get_oo (d:'a) (a:'a array_type) (i:Z.t) =
+  try sub (a,Z.to_int i) with Invalid_argument _ -> d
 
-let array_set_oo (d:(unit->'a array_type)) (a:'a array_type) (i:Big_int.big_int) (e:'a) =
-  try update (a, Big_int.int_of_big_int i, e) with Invalid_argument _ -> d ()
+let array_set_oo (d:(unit->'a array_type)) (a:'a array_type) (i:Z.t) (e:'a) =
+  try update (a, Z.to_int i, e) with Invalid_argument _ -> d ()
 
 end;;
 
