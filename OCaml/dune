@@ -1,0 +1,11 @@
+; Disable warnings that are triggered by code produced by Isabelle's generator:
+; - unused rec flag
+; - inexhaustive pattern matches
+; - unused variables
+; - unused constructor
+; - unused value
+; - unused type declaration
+; - unused extra argument
+(env
+  (dev
+    (flags (:standard -w -39 -w -8 -w -27 -w -37 -w -32 -w -34 -w -20))))

@@ -1,0 +1,6 @@
+(library
+ (public_name munta)
+ (name munta)
+ (libraries yojson zarith)
+ (preprocess (pps ppx_yojson_conv))
+ )

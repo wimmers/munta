@@ -1,0 +1,26 @@
+(lang dune 3.2)
+
+(name munta)
+
+(generate_opam_files true)
+
+(source
+ (github wimmers/munta))
+
+(authors "Simon Wimmer")
+
+(maintainers "Simon Wimmer")
+
+(license MIT)
+
+(documentation https://github.com/wimmers/munta)
+
+(package
+ (name munta)
+ (synopsis "OCaml code extracted from the verified model checker Munta")
+ (description "OCaml code extracted from the verified model checker Munta")
+ (depends ocaml dune zarith)
+ (tags
+  ("timed automata" "model checking" "verification")))
+
+; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
