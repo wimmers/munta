@@ -455,7 +455,7 @@ next
       apply (simp add: is_urgent_simp *)
       apply (rule step_u.intros)
       subgoal
-        by tag(auto dest!: inv_add_invD inv_N_urge_updD simp: inv_N_urge clock_val_reset_delay)
+        by tag (auto dest!: inv_add_invD inv_N_urge_updD simp: inv_N_urge clock_val_reset_delay)
         apply (tag, assumption)
        apply (tag- "''target invariant''" "''nonnegative''")
        apply (auto simp add: is_urgent_simp2 is_urgent_simp dest: inv_N_urge_urges)

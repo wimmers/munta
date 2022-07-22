@@ -1,10 +1,13 @@
 theory Tag_Explorer
-  imports Tagging "~/Code/explorer/Explorer"
-  keywords "print_tag" "explore_tagged" :: diag
+  imports Simple_Networks.Tagging "~/Code/explorer/Explorer"
+  keywords "print_tag" "explore_tagged_subgoals" "explore_tags" :: diag
 begin
 
 ML \<open>
 \<comment> \<open>Stolen from \<open>Explorer\<close>, modifications are highlighted\<close>
+
+datatype explore_kind = PREFER | SUBGOAL \<comment> \<open>modified\<close>
+
 fun split_clause t =
   let
     val (fixes, horn) = funpow_yield (length (Term.strip_all_vars t)) Logic.dest_all_global t;
@@ -59,9 +62,28 @@ fun subgoal_text ctxt aim enclosure (fixes, _, goal) =
       ]
     in space_implode "\n  " lines end;
 
+fun prefer_text ctxt aim enclosure (_, _, goal) = \<comment> \<open>modified/new\<close>
+  let
+    val tag_opt = extract_tag_trm goal
+    val kw_prefer = "preferT"
+    val kw_prefer_opt = (case tag_opt of
+      NONE => []
+    | SOME tag => [kw_prefer, Syntax.string_of_term ctxt tag |> enclosure])
+    val kw_tac = "apply (tag)"
+    val lines = map (space_implode " ")
+      [
+        kw_prefer_opt,
+        [kw_tac]
+      ]
+    in space_implode "\n  " lines end;
+
 fun generate_text SUBGOAL context enclosure clauses =
    let
      val lines = map (subgoal_text context SUBGOAL enclosure) clauses
+   in (separate "" lines @ ["done"]) end
+| generate_text PREFER context enclosure clauses =
+   let
+     val lines = map (prefer_text context PREFER enclosure) clauses
    in (separate "" lines @ ["done"]) end;
 
 fun explore aim st =
@@ -82,12 +104,20 @@ fun explore aim st =
   end
 
 val explore_tagged_cmd = \<comment> \<open>modified\<close>
-  Toplevel.keep_proof (K () o explore Explorer.SUBGOAL)
+  Toplevel.keep_proof (K () o explore SUBGOAL)
+
+val explore_tags_cmd = \<comment> \<open>modified\<close>
+  Toplevel.keep_proof (K () o explore PREFER)
 
 val _ = \<comment> \<open>modified\<close>
-  Outer_Syntax.command @{command_keyword "explore_tagged"}
+  Outer_Syntax.command @{command_keyword "explore_tagged_subgoals"}
     "explore current goal state as apply-style subgoals, tagging subgoals where appropriate"
     (Scan.succeed explore_tagged_cmd)
+
+val _ = \<comment> \<open>modified\<close>
+  Outer_Syntax.command @{command_keyword "explore_tags"}
+    "explore current goal state as a number of \<open>preferT\<close> statements"
+    (Scan.succeed explore_tags_cmd)
 \<close>
 
 ML \<open>
@@ -127,7 +157,7 @@ fun explore aim st =
   end
 
 val print_tag_cmd = \<comment> \<open>modified\<close>
-  Toplevel.keep_proof (K () o explore Explorer.SUBGOAL)
+  Toplevel.keep_proof (K () o explore SUBGOAL)
 
 val _ = \<comment> \<open>modified\<close>
   Outer_Syntax.command @{command_keyword "print_tag"}
@@ -139,7 +169,8 @@ notepad begin
   fix t1 t2 :: 'a and P Q :: bool
 
   have [tagged]: "t1 \<bar> P" "Some t2 \<bar> Q"
-    explore_tagged
+    explore_tagged_subgoals
+    explore_tags
     print_tag
     sorry
 
