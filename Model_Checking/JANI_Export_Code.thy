@@ -451,6 +451,12 @@ definition op_div_int :: "int \<Rightarrow> int \<Rightarrow> int" where
 definition op_neg_int :: "int \<Rightarrow> int" where
   "op_neg_int a \<equiv> a"
 
+definition
+  "vars \<equiv> list_of_set o JANI.vars"
+
+definition
+  "clks \<equiv> list_of_set o JANI.clks"
+
 lemmas [code] =
   JANI.N_G'_def
   JANI.B_G'_def
@@ -500,7 +506,7 @@ export_code
   formula.EX sexp.true bexp.true
   op_plus_int op_minus_int op_mul_int op_div_int op_neg_int
   op_and_bool op_or_bool op_not_bool
-  JANI.vars JANI.clks list_of_set
+  vars clks
   JANI.L\<^sub>0 JANI.s\<^sub>0
 in OCaml module_name Model_Checker file "../OCaml/lib/JANI_Model_Checker.ml"
 
