@@ -12,6 +12,33 @@ paragraph \<open>Checking Preconditions\<close>
 abbreviation "renum_automaton \<equiv> Generalized_Network_Rename_Defs.renum_automaton"
 abbreviation "renum_sync \<equiv> Generalized_Network_Rename_Defs.renum_sync"
 
+context Generalized_Network_Impl_Defs
+begin
+
+definition check_renaming_preconds where "check_renaming_preconds \<Phi> L\<^sub>0 s\<^sub>0 \<equiv> combine [
+    assert (\<Union> ((\<lambda>g. fst ` set g) ` set (map (snd o snd o snd) automata)) \<subseteq> loc_set)
+      STR ''Invariant locations are contained in the location set'',
+    assert (\<Union> ((set o fst) ` set automata) \<subseteq> loc_set)
+      STR ''Broadcast locations are containted in the location set'',
+    assert ((\<Union>x\<in>set automata. set (fst (snd x))) \<subseteq> loc_set)
+      STR ''Urgent locations are containted in the location set'',
+    assert (L\<^sub>0 \<in> states)
+      STR ''Initial location is in the state set'',
+    assert (fst ` set s\<^sub>0 = var_set)
+      STR ''Initial state has the correct domain'',
+    assert (distinct (map fst s\<^sub>0))
+      STR ''Initial state is unambiguous'',
+    assert (set2_formula \<Phi> \<subseteq> loc_set)
+      STR ''Formula locations are contained in the location set'',
+    assert (locs_of_formula \<Phi> \<subseteq> {0..<n_ps})
+      STR ''Formula automata are contained in the automata set'',
+    assert (vars_of_formula \<Phi> \<subseteq> var_set)
+      STR ''Variables of the formula are contained in the variable set''
+  ]
+"
+
+end
+
 locale Generalized_Network_Rename_Formula_String_Defs =
   Generalized_Network_Rename_Defs_int where automata = automata for automata ::
     "(String.literal list \<times> String.literal list \<times>
@@ -31,27 +58,9 @@ definition check_renaming where "check_renaming urge \<Phi> L\<^sub>0 s\<^sub>0 
       STR ''Action renaming is injective'',
     assert (fst ` set bounds' = var_set)
       STR ''Bound set is exactly the variable set'',
-    assert (\<Union> ((\<lambda>g. fst ` set g) ` set (map (snd o snd o snd) automata)) \<subseteq> loc_set)
-      STR ''Invariant locations are contained in the location set'',
-    assert (\<Union> ((set o fst) ` set automata) \<subseteq> loc_set)
-      STR ''Broadcast locations are containted in the location set'',
-    assert ((\<Union>x\<in>set automata. set (fst (snd x))) \<subseteq> loc_set)
-      STR ''Urgent locations are containted in the location set'',
     assert (urge \<notin> clk_set')
-      STR ''Urge not in clock set'',
-    assert (L\<^sub>0 \<in> states)
-      STR ''Initial location is in the state set'',
-    assert (fst ` set s\<^sub>0 = var_set)
-      STR ''Initial state has the correct domain'',
-    assert (distinct (map fst s\<^sub>0))
-      STR ''Initial state is unambiguous'',
-    assert (set2_formula \<Phi> \<subseteq> loc_set)
-      STR ''Formula locations are contained in the location set'',
-    assert (locs_of_formula \<Phi> \<subseteq> {0..<n_ps})
-      STR ''Formula automata are contained in the automata set'',
-    assert (vars_of_formula \<Phi> \<subseteq> var_set)
-      STR ''Variables of the formula are contained in the variable set''
-  ]
+      STR ''Urge not in clock set''
+  ] <|> check_renaming_preconds \<Phi> L\<^sub>0 s\<^sub>0
 "
 
 end (* Generalized_Network_Rename_Formula_String_Defs *)
@@ -114,7 +123,10 @@ lemma check_renaming:
   is_result (check_renaming urge \<Phi> L\<^sub>0 s\<^sub>0)
   "
   unfolding check_renaming_def Generalized_Network_Rename_Formula_String_def
-  by (simp add: is_result_combine_Cons_iff is_result_assert_iff del: combine.simps(2))
+  unfolding check_renaming_preconds_def
+  by (simp add: is_result_combine_Cons_iff is_result_assert_iff is_result_combine_iff
+           del: combine.simps(2))
+     fast
 
 end
 
@@ -619,6 +631,7 @@ lemmas [code] =
   Generalized_Network_Rename_Defs.renum_act_def
   Generalized_Network_Rename_Defs.renum_exp_def
   Generalized_Network_Rename_Defs.renum_bexp_def
+  Generalized_Network_Impl_Defs.check_renaming_preconds_def
   Generalized_Network_Rename_Formula_String_Defs.check_renaming_def
   Generalized_Network_Impl_nat_defs.check_precond_def
   Generalized_Network_Impl_nat_defs.check_precond1_def[unfolded int_Nat_range_iff]
@@ -900,7 +913,10 @@ definition "make_renaming \<equiv> \<lambda> syncs automata bounds.
 
 definition "preproc_mc \<equiv> \<lambda>dc ids_to_names (syncs, automata, bounds) L\<^sub>0 s\<^sub>0 formula.
   let _ = println (STR ''Make renaming'') in
-  case make_renaming syncs automata bounds of
+  case do {
+    Generalized_Network_Impl_Defs.check_renaming_preconds automata syncs bounds formula L\<^sub>0 s\<^sub>0;
+    make_renaming syncs automata bounds
+  } of
     Error e \<Rightarrow> return (Error e)
   | Result (m, num_states, num_actions, renum_acts, renum_vars, renum_clocks, renum_states,
       inv_renum_states, inv_renum_vars, inv_renum_clocks) \<Rightarrow> do {
