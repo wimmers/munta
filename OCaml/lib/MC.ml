@@ -1,7 +1,7 @@
 open JANI_Model_Checker
 open Ppx_yojson_conv_lib
 
-(** Extend Z with support for `ppx_deriving` and `ppx_show`. *)
+(** Extend Z with support for [ppx_deriving] and [ppx_show]. *)
 module Z = struct
   include Z
 
@@ -35,7 +35,7 @@ let yojson_of_nat x = yojson_of_int (int_of_nat x)
 
 
 (** Copy the JANI "record" definitions to derive utility functions.
-    Unforunately, I didn't get `ppx_import` to work to reduce the boilerplate.
+    Unforunately, I didn't get [ppx_import] to work to reduce the boilerplate.
 *)
 
 type int = Model_Checker.int = Int_of_integer of Z.t
