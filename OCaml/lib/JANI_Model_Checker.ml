@@ -238,12 +238,12 @@ end;; (*struct Bits_Integer*)
 module Model_Checker : sig
   type int = Int_of_integer of Z.t
   val integer_of_int : int -> Z.t
-  type 'a equal
   type nat
   val integer_of_nat : nat -> Z.t
   val nat_of_integer : Z.t -> nat
   type char
   type 'a show
+  type 'a set
   type 'a bounded_type_ext = Bounded_type_ext of int * int * 'a
   type typea = TBounded of unit bounded_type_ext | TClock
   val explode : string -> char list
@@ -258,7 +258,6 @@ module Model_Checker : sig
     Unop of ('b -> 'b) * ('a, 'b) exp
   type ('a, 'b) acconstraint
   type 'a act
-  type 'a set
   type 'a assignment_ext =
     Assignment_ext of string * (string, int) exp * nat * string option * 'a
   type 'a destination_ext =
@@ -305,8 +304,8 @@ module Model_Checker : sig
     EG of ('a, 'b, 'c, 'd) sexp | AX of ('a, 'b, 'c, 'd) sexp |
     AG of ('a, 'b, 'c, 'd) sexp |
     Leadsto of ('a, 'b, 'c, 'd) sexp * ('a, 'b, 'c, 'd) sexp
-  val clks : unit model_ext -> string set
-  val vars : unit model_ext -> string set
+  val clks : unit model_ext -> string list
+  val vars : unit model_ext -> string list
   val op_div_int : int -> int -> int
   val op_mul_int : int -> int -> int
   val op_neg_int : int -> int
@@ -318,7 +317,6 @@ module Model_Checker : sig
   val l_0 : unit model_ext -> string list
   val s_0 : unit model_ext -> (string * int) list
   val ids_to_names : unit model_ext -> nat -> string -> string
-  val list_of_set : 'a equal -> 'a set -> 'a list
   val do_preproc_mc_jani :
     'a show ->
       bool ->
@@ -886,9 +884,30 @@ let hashable_nat =
 
 let linorder_nat = ({order_linorder = order_nat} : nat linorder);;
 
-type 'a bounded_type_ext = Bounded_type_ext of int * int * 'a;;
+let rec list_all p x1 = match p, x1 with p, [] -> true
+                   | p, x :: xs -> p x && list_all p xs;;
+
+type 'a set = Set of 'a list | Coset of 'a list;;
 
 let rec eq _A a b = equal _A a b;;
+
+let rec membera _A x0 y = match x0, y with [], y -> false
+                     | x :: xs, y -> eq _A x y || membera _A xs y;;
+
+let rec member _A
+  x xa1 = match x, xa1 with x, Coset xs -> not (membera _A xs x)
+    | x, Set xs -> membera _A xs x;;
+
+let rec less_eq_set _A
+  a b = match a, b with Coset [], Set [] -> false
+    | a, Coset ys -> list_all (fun y -> not (member _A y a)) ys
+    | Set xs, b -> list_all (fun x -> member _A x b) xs;;
+
+let rec equal_seta _A a b = less_eq_set _A a b && less_eq_set _A b a;;
+
+let rec equal_set _A = ({equal = equal_seta _A} : 'a set equal);;
+
+type 'a bounded_type_ext = Bounded_type_ext of int * int * 'a;;
 
 let rec equal_bounded_type_ext _A
   (Bounded_type_ext (lower_bounda, upper_bounda, morea))
@@ -1477,8 +1496,6 @@ let rec show_act _A =
   ({shows_prec = shows_prec_act _A; shows_list = shows_list_act _A} :
     'a act show);;
 
-type 'a set = Set of 'a list | Coset of 'a list;;
-
 type 'a iarray = IArray of 'a list;;
 
 type message = ExploredState;;
@@ -1576,9 +1593,6 @@ let rec rev xs = fold (fun a b -> a :: b) xs [];;
 
 let rec upt i j = (if less_nat i j then i :: upt (suc i) j else []);;
 
-let rec list_all p x1 = match p, x1 with p, [] -> true
-                   | p, x :: xs -> p x && list_all p xs;;
-
 let rec ball (Set xs) p = list_all p xs;;
 
 let rec len _A
@@ -1627,18 +1641,11 @@ let rec removeAll _A
     | x, y :: xs ->
         (if eq _A x y then removeAll _A x xs else y :: removeAll _A x xs);;
 
-let rec membera _A x0 y = match x0, y with [], y -> false
-                     | x :: xs, y -> eq _A x y || membera _A xs y;;
-
 let rec inserta _A x xs = (if membera _A xs x then xs else x :: xs);;
 
 let rec insert _A
   x xa1 = match x, xa1 with x, Coset xs -> Coset (removeAll _A x xs)
     | x, Set xs -> Set (inserta _A x xs);;
-
-let rec member _A
-  x xa1 = match x, xa1 with x, Coset xs -> not (membera _A xs x)
-    | x, Set xs -> membera _A xs x;;
 
 let rec remove _A
   x xa1 = match x, xa1 with x, Coset xs -> Coset (inserta _A x xs)
@@ -2109,6 +2116,29 @@ let rec op_list_rev x = rev x;;
 let rec synchronise
   (Sync_ext (synchronise, result, comment, more)) = synchronise;;
 
+let rec list_of_set _A
+  xs = remdups _A ((fun x -> match x with Set xs -> xs) xs);;
+
+let rec clksa
+  model =
+    image nameb
+      (Set (filter
+             (fun decl ->
+               (match typea decl with TBounded _ -> false | TClock -> true))
+             (variables model)));;
+
+let rec clks x = comp (list_of_set equal_literal) clksa x;;
+
+let rec varsa
+  model =
+    image nameb
+      (Set (filter
+             (fun decl ->
+               (match typea decl with TBounded _ -> true | TClock -> false))
+             (variables model)));;
+
+let rec vars x = comp (list_of_set equal_literal) varsa x;;
+
 let rec all_interval_nat
   p i j = less_eq_nat j i || p i && all_interval_nat p (suc i) j;;
 
@@ -2442,22 +2472,6 @@ let rec locations
     (name, variables, restrict_initial, locations, initial_locations, edges,
       comment, more))
     = locations;;
-
-let rec clks
-  model =
-    image nameb
-      (Set (filter
-             (fun decl ->
-               (match typea decl with TBounded _ -> false | TClock -> true))
-             (variables model)));;
-
-let rec vars
-  model =
-    image nameb
-      (Set (filter
-             (fun decl ->
-               (match typea decl with TBounded _ -> true | TClock -> false))
-             (variables model)));;
 
 let rec is_true
   e = (match e with True -> true | Not _ -> false | And (_, _) -> false
@@ -3044,11 +3058,6 @@ and vars_of_bexp _A
     | Gt (i, x) -> sup_set _A (vars_of_exp _A i) (vars_of_exp _A x)
     | True -> bot_set;;
 
-let rec less_eq_set _A
-  a b = match a, b with Coset [], Set [] -> false
-    | a, Coset ys -> list_all (fun y -> not (member _A y a)) ys
-    | Set xs, b -> list_all (fun x -> member _A x b) xs;;
-
 let rec is_atoma _A _B
   clks vars x2 = match clks, vars, x2 with clks, vars, True -> true
     | clks, vars, Not True -> true
@@ -3101,7 +3110,7 @@ let rec get_cconstr
       | Some a ->
         map_filter
           (fun x ->
-            (if is_atoma equal_literal linorder_int (clks model) (vars model)
+            (if is_atoma equal_literal linorder_int (clksa model) (varsa model)
                   x &&
                   not (is_true x)
               then Some (bexp_to_acconstraint x) else None))
@@ -3117,7 +3126,8 @@ let rec get_cond _A
   model e =
     (let Some xs = dest_conj _A e in
       mk_conj
-        (filter (comp not (is_atoma equal_literal _A (clks model) (vars model)))
+        (filter
+          (comp not (is_atoma equal_literal _A (clksa model) (varsa model)))
           xs));;
 
 let rec time_progress
@@ -3223,8 +3233,6 @@ let rec sort_key _B
              xs
            in
           sort_key _B f lts @ eqs @ sort_key _B f gts));;
-
-let rec equal_set _A a b = less_eq_set _A a b && less_eq_set _A b a;;
 
 let rec minus_set _A
   a x1 = match a, x1 with
@@ -3429,6 +3437,216 @@ let rec compute_SCC_tra (_A1, _A2)
 let rec ids_to_names model p l = (let name = namea (n model p) in name ^ l);;
 
 let rec collect_clock_pairs cc = image constraint_pair (Set cc);;
+
+let rec set2_sexp _B
+  = function Truea -> bot_set
+    | Nota x2 -> set2_sexp _B x2
+    | Anda (x31, x32) -> sup_set _B (set2_sexp _B x31) (set2_sexp _B x32)
+    | Ora (x41, x42) -> sup_set _B (set2_sexp _B x41) (set2_sexp _B x42)
+    | Implya (x51, x52) -> sup_set _B (set2_sexp _B x51) (set2_sexp _B x52)
+    | Eqa (x61, x62) -> bot_set
+    | Leb (x71, x72) -> bot_set
+    | Ltb (x81, x82) -> bot_set
+    | Gea (x91, x92) -> bot_set
+    | Gta (x101, x102) -> bot_set
+    | Loc (x111, x112) -> insert _B x112 bot_set;;
+
+let rec set2_formula _B
+  = function EX x1 -> set2_sexp _B x1
+    | EG x2 -> set2_sexp _B x2
+    | AX x3 -> set2_sexp _B x3
+    | AG x4 -> set2_sexp _B x4
+    | Leadsto (x51, x52) -> sup_set _B (set2_sexp _B x51) (set2_sexp _B x52);;
+
+let rec vars_of_sexp _C
+  = function Nota e -> vars_of_sexp _C e
+    | Anda (e1, e2) -> sup_set _C (vars_of_sexp _C e1) (vars_of_sexp _C e2)
+    | Ora (e1, e2) -> sup_set _C (vars_of_sexp _C e1) (vars_of_sexp _C e2)
+    | Implya (e1, e2) -> sup_set _C (vars_of_sexp _C e1) (vars_of_sexp _C e2)
+    | Eqa (i, x) -> insert _C i bot_set
+    | Ltb (i, x) -> insert _C i bot_set
+    | Leb (i, x) -> insert _C i bot_set
+    | Gea (i, x) -> insert _C i bot_set
+    | Gta (i, x) -> insert _C i bot_set
+    | Truea -> bot_set
+    | Loc (v, va) -> bot_set;;
+
+let rec vars_of_formula _C
+  = function EX phi -> vars_of_sexp _C phi
+    | EG phi -> vars_of_sexp _C phi
+    | AX phi -> vars_of_sexp _C phi
+    | AG phi -> vars_of_sexp _C phi
+    | Leadsto (phi, psi) ->
+        sup_set _C (vars_of_sexp _C phi) (vars_of_sexp _C psi);;
+
+let rec locs_of_sexp _A
+  = function Nota e -> locs_of_sexp _A e
+    | Anda (e1, e2) -> sup_set _A (locs_of_sexp _A e1) (locs_of_sexp _A e2)
+    | Ora (e1, e2) -> sup_set _A (locs_of_sexp _A e1) (locs_of_sexp _A e2)
+    | Implya (e1, e2) -> sup_set _A (locs_of_sexp _A e1) (locs_of_sexp _A e2)
+    | Loc (i, x) -> insert _A i bot_set
+    | Truea -> bot_set
+    | Eqa (v, va) -> bot_set
+    | Leb (v, va) -> bot_set
+    | Ltb (v, va) -> bot_set
+    | Gea (v, va) -> bot_set
+    | Gta (v, va) -> bot_set;;
+
+let rec locs_of_formula _A
+  = function EX phi -> locs_of_sexp _A phi
+    | EG phi -> locs_of_sexp _A phi
+    | AX phi -> locs_of_sexp _A phi
+    | AG phi -> locs_of_sexp _A phi
+    | Leadsto (phi, psi) ->
+        sup_set _A (locs_of_sexp _A phi) (locs_of_sexp _A psi);;
+
+let rec default_map_of _B a xs = map_default a (map_of _B xs);;
+
+let rec automaton_of _D
+  = (fun (committed, (urgent, (trans, inv))) ->
+      (Set committed, (Set urgent, (Set trans, default_map_of _D [] inv))));;
+
+let rec n_psa _D a = size_list (fst (snd a));;
+
+let rec check_renaming_preconds _A _B
+  automata syncs bounds phi l_0 s_0 =
+    combine
+      [asserta
+         (less_eq_set _A
+           (sup_seta _A
+             (image (fun g -> image fst (Set g))
+               (Set (map (comp (comp snd snd) snd) automata))))
+           (sup_seta _A
+             (image
+               (fun (_, (_, (t, _))) ->
+                 sup_seta _A
+                   (image
+                     (fun (l, (_, (_, (_, (_, (_, la)))))) ->
+                       insert _A l (insert _A la bot_set))
+                     (Set t)))
+               (Set automata))))
+         "Invariant locations are contained in the location set";
+        asserta
+          (less_eq_set _A
+            (sup_seta _A (image (comp (fun a -> Set a) fst) (Set automata)))
+            (sup_seta _A
+              (image
+                (fun (_, (_, (t, _))) ->
+                  sup_seta _A
+                    (image
+                      (fun (l, (_, (_, (_, (_, (_, la)))))) ->
+                        insert _A l (insert _A la bot_set))
+                      (Set t)))
+                (Set automata))))
+          "Broadcast locations are containted in the location set";
+        asserta
+          (less_eq_set _A
+            (sup_seta _A (image (fun x -> Set (fst (snd x))) (Set automata)))
+            (sup_seta _A
+              (image
+                (fun (_, (_, (t, _))) ->
+                  sup_seta _A
+                    (image
+                      (fun (l, (_, (_, (_, (_, (_, la)))))) ->
+                        insert _A l (insert _A la bot_set))
+                      (Set t)))
+                (Set automata))))
+          "Urgent locations are containted in the location set";
+        asserta
+          (equal_nata (size_list l_0)
+             (n_psa linorder_int
+               (Set syncs,
+                 (map (automaton_of _A) automata, map_of _B bounds))) &&
+            all_interval_nat
+              (fun i ->
+                bex (fst (snd (snd (nth (fst
+  (snd (Set syncs, (map (automaton_of _A) automata, map_of _B bounds))))
+                                     i))))
+                  (fun (l, (_, (_, (_, (_, (_, la)))))) ->
+                    eq _A (nth l_0 i) l || eq _A (nth l_0 i) la))
+              zero_nata
+              (n_psa linorder_int
+                (Set syncs,
+                  (map (automaton_of _A) automata, map_of _B bounds))))
+          "Initial location is in the state set";
+        asserta
+          (eq (equal_set _B) (image fst (Set s_0))
+            (sup_set _B
+              (sup_seta _B
+                (image (fun s -> sup_seta _B (image (vars_of_bexp _B) s))
+                  (image (fun t -> image (comp fst snd) (Set t))
+                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
+              (sup_seta _B
+                (image
+                  (fun s ->
+                    sup_seta _B
+                      (image
+                        (fun f ->
+                          sup_seta _B
+                            (image
+                              (fun (a, b) ->
+                                (let (x, e) = a in
+                                  (fun _ ->
+                                    sup_set _B (insert _B x bot_set)
+                                      (vars_of_exp _B e)))
+                                  b)
+                              (Set f)))
+                        s))
+                  (image
+                    (fun t ->
+                      image (comp (comp (comp (comp fst snd) snd) snd) snd)
+                        (Set t))
+                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
+          "Initial state has the correct domain";
+        asserta (distinct _B (map fst s_0)) "Initial state is unambiguous";
+        asserta
+          (less_eq_set _A (set2_formula _A phi)
+            (sup_seta _A
+              (image
+                (fun (_, (_, (t, _))) ->
+                  sup_seta _A
+                    (image
+                      (fun (l, (_, (_, (_, (_, (_, la)))))) ->
+                        insert _A l (insert _A la bot_set))
+                      (Set t)))
+                (Set automata))))
+          "Formula locations are contained in the location set";
+        asserta
+          (less_eq_set equal_nat (locs_of_formula equal_nat phi)
+            (Set (upt zero_nata
+                   (n_psa linorder_int
+                     (Set syncs,
+                       (map (automaton_of _A) automata, map_of _B bounds))))))
+          "Formula automata are contained in the automata set";
+        asserta
+          (less_eq_set _B (vars_of_formula _B phi)
+            (sup_set _B
+              (sup_seta _B
+                (image (fun s -> sup_seta _B (image (vars_of_bexp _B) s))
+                  (image (fun t -> image (comp fst snd) (Set t))
+                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
+              (sup_seta _B
+                (image
+                  (fun s ->
+                    sup_seta _B
+                      (image
+                        (fun f ->
+                          sup_seta _B
+                            (image
+                              (fun (a, b) ->
+                                (let (x, e) = a in
+                                  (fun _ ->
+                                    sup_set _B (insert _B x bot_set)
+                                      (vars_of_exp _B e)))
+                                  b)
+                              (Set f)))
+                        s))
+                  (image
+                    (fun t ->
+                      image (comp (comp (comp (comp fst snd) snd) snd) snd)
+                        (Set t))
+                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
+          "Variables of the formula are contained in the variable set"];;
 
 let rec na num_states q = num_states q;;
 
@@ -3736,9 +3954,6 @@ let rec mk_renaminga (_A1, _A2)
   xs = mk_renaming _A1 (comp implode (fun x -> shows_prec _A2 zero_nata x []))
          xs;;
 
-let rec list_of_set _A
-  xs = remdups _A ((fun x -> match x with Set xs -> xs) xs);;
-
 let rec make_renaming (_A1, _A2)
   = (fun syncs automata bounds ->
       (let action_seta =
@@ -3851,27 +4066,6 @@ let rec make_renaming (_A1, _A2)
 
 let rec n_vs bounds = size_list bounds;;
 
-let rec vars_of_sexp _C
-  = function Nota e -> vars_of_sexp _C e
-    | Anda (e1, e2) -> sup_set _C (vars_of_sexp _C e1) (vars_of_sexp _C e2)
-    | Ora (e1, e2) -> sup_set _C (vars_of_sexp _C e1) (vars_of_sexp _C e2)
-    | Implya (e1, e2) -> sup_set _C (vars_of_sexp _C e1) (vars_of_sexp _C e2)
-    | Eqa (i, x) -> insert _C i bot_set
-    | Ltb (i, x) -> insert _C i bot_set
-    | Leb (i, x) -> insert _C i bot_set
-    | Gea (i, x) -> insert _C i bot_set
-    | Gta (i, x) -> insert _C i bot_set
-    | Truea -> bot_set
-    | Loc (v, va) -> bot_set;;
-
-let rec vars_of_formula _C
-  = function EX phi -> vars_of_sexp _C phi
-    | EG phi -> vars_of_sexp _C phi
-    | AX phi -> vars_of_sexp _C phi
-    | AG phi -> vars_of_sexp _C phi
-    | Leadsto (phi, psi) ->
-        sup_set _C (vars_of_sexp _C phi) (vars_of_sexp _C psi);;
-
 let rec generalized_Network_Impl_nat_ceiling_start_state_axioms
   syncs bounds automata m num_states k l_0 s_0 formula =
     all_interval_nat
@@ -3919,7 +4113,7 @@ let rec generalized_Network_Impl_nat_ceiling_start_state_axioms
          zero_nata (size_list automata) &&
          (list_all (fun (_, (_, (_, inv))) -> distinct equal_nat (map fst inv))
             automata &&
-           (equal_set equal_nat (image fst (Set s_0))
+           (equal_seta equal_nat (image fst (Set s_0))
               (image fst (Set bounds)) &&
              ball (image fst (Set s_0))
                (fun x ->
@@ -4449,8 +4643,6 @@ let rec reset_canonical_upd_impl (_A1, _A2, _A3)
                                        (xb, bia)
                                        (plus_DBMEntrya _A1 (Le (uminus _A2 bi))
  x_e)))))))));;
-
-let rec default_map_of _B a xs = map_default a (map_of _B xs);;
 
 let rec up_canonical_upd_impl (_A1, _A2)
   n = (fun ai bi ->
@@ -6069,321 +6261,132 @@ let rec precond_mc
              (fun x -> (fun () -> (Some x)))
       else (fun () -> None));;
 
-let rec set2_sexp _B
-  = function Truea -> bot_set
-    | Nota x2 -> set2_sexp _B x2
-    | Anda (x31, x32) -> sup_set _B (set2_sexp _B x31) (set2_sexp _B x32)
-    | Ora (x41, x42) -> sup_set _B (set2_sexp _B x41) (set2_sexp _B x42)
-    | Implya (x51, x52) -> sup_set _B (set2_sexp _B x51) (set2_sexp _B x52)
-    | Eqa (x61, x62) -> bot_set
-    | Leb (x71, x72) -> bot_set
-    | Ltb (x81, x82) -> bot_set
-    | Gea (x91, x92) -> bot_set
-    | Gta (x101, x102) -> bot_set
-    | Loc (x111, x112) -> insert _B x112 bot_set;;
-
-let rec set2_formula _B
-  = function EX x1 -> set2_sexp _B x1
-    | EG x2 -> set2_sexp _B x2
-    | AX x3 -> set2_sexp _B x3
-    | AG x4 -> set2_sexp _B x4
-    | Leadsto (x51, x52) -> sup_set _B (set2_sexp _B x51) (set2_sexp _B x52);;
-
-let rec locs_of_sexp _A
-  = function Nota e -> locs_of_sexp _A e
-    | Anda (e1, e2) -> sup_set _A (locs_of_sexp _A e1) (locs_of_sexp _A e2)
-    | Ora (e1, e2) -> sup_set _A (locs_of_sexp _A e1) (locs_of_sexp _A e2)
-    | Implya (e1, e2) -> sup_set _A (locs_of_sexp _A e1) (locs_of_sexp _A e2)
-    | Loc (i, x) -> insert _A i bot_set
-    | Truea -> bot_set
-    | Eqa (v, va) -> bot_set
-    | Leb (v, va) -> bot_set
-    | Ltb (v, va) -> bot_set
-    | Gea (v, va) -> bot_set
-    | Gta (v, va) -> bot_set;;
-
-let rec locs_of_formula _A
-  = function EX phi -> locs_of_sexp _A phi
-    | EG phi -> locs_of_sexp _A phi
-    | AX phi -> locs_of_sexp _A phi
-    | AG phi -> locs_of_sexp _A phi
-    | Leadsto (phi, psi) ->
-        sup_set _A (locs_of_sexp _A phi) (locs_of_sexp _A psi);;
-
-let rec automaton_of _D
-  = (fun (committed, (urgent, (trans, inv))) ->
-      (Set committed, (Set urgent, (Set trans, default_map_of _D [] inv))));;
-
 let rec check_renaming
   syncs bounds renum_acts renum_vars renum_clocks renum_states automata urge phi
     l_0 s_0 =
-    combine
-      [asserta
-         (all_interval_nat
-           (fun i ->
-             ball (sup_seta equal_literal
-                    (image
-                      (fun (_, (_, (t, _))) ->
-                        sup_seta equal_literal
+    combine2
+      (combine
+        [asserta
+           (all_interval_nat
+             (fun i ->
+               ball (sup_seta equal_literal
+                      (image
+                        (fun (_, (_, (t, _))) ->
+                          sup_seta equal_literal
+                            (image
+                              (fun (l, (_, (_, (_, (_, (_, la)))))) ->
+                                insert equal_literal l
+                                  (insert equal_literal la bot_set))
+                              (Set t)))
+                        (Set automata)))
+                 (fun x ->
+                   ball (sup_seta equal_literal
                           (image
-                            (fun (l, (_, (_, (_, (_, (_, la)))))) ->
-                              insert equal_literal l
-                                (insert equal_literal la bot_set))
-                            (Set t)))
-                      (Set automata)))
-               (fun x ->
-                 ball (sup_seta equal_literal
+                            (fun (_, (_, (t, _))) ->
+                              sup_seta equal_literal
+                                (image
+                                  (fun (l, (_, (_, (_, (_, (_, la)))))) ->
+                                    insert equal_literal l
+                                      (insert equal_literal la bot_set))
+                                  (Set t)))
+                            (Set automata)))
+                     (fun y ->
+                       (if equal_nata (renum_states i x) (renum_states i y)
+                         then ((x : string) = y) else true))))
+             zero_nata (size_list automata))
+           "Location renamings are injective";
+          asserta
+            (inj_on equal_literal equal_nat renum_clocks
+              (insert equal_literal urge (clk_set equal_literal automata)))
+            "Clock renaming is injective";
+          asserta
+            (inj_on equal_literal equal_nat renum_vars
+              (sup_set equal_literal
+                (sup_seta equal_literal
+                  (image
+                    (fun s ->
+                      sup_seta equal_literal
+                        (image (vars_of_bexp equal_literal) s))
+                    (image (fun t -> image (comp fst snd) (Set t))
+                      (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
+                (sup_seta equal_literal
+                  (image
+                    (fun s ->
+                      sup_seta equal_literal
                         (image
-                          (fun (_, (_, (t, _))) ->
+                          (fun f ->
                             sup_seta equal_literal
                               (image
-                                (fun (l, (_, (_, (_, (_, (_, la)))))) ->
-                                  insert equal_literal l
-                                    (insert equal_literal la bot_set))
-                                (Set t)))
-                          (Set automata)))
-                   (fun y ->
-                     (if equal_nata (renum_states i x) (renum_states i y)
-                       then ((x : string) = y) else true))))
-           zero_nata (size_list automata))
-         "Location renamings are injective";
-        asserta
-          (inj_on equal_literal equal_nat renum_clocks
-            (insert equal_literal urge (clk_set equal_literal automata)))
-          "Clock renaming is injective";
-        asserta
-          (inj_on equal_literal equal_nat renum_vars
-            (sup_set equal_literal
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image (vars_of_bexp equal_literal) s))
-                  (image (fun t -> image (comp fst snd) (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image
-                        (fun f ->
-                          sup_seta equal_literal
-                            (image
-                              (fun (a, b) ->
-                                (let (x, e) = a in
-                                  (fun _ ->
-                                    sup_set equal_literal
-                                      (insert equal_literal x bot_set)
-                                      (vars_of_exp equal_literal e)))
-                                  b)
-                              (Set f)))
-                        s))
-                  (image
-                    (fun t ->
-                      image (comp (comp (comp (comp fst snd) snd) snd) snd)
-                        (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
-          "Variable renaming is injective";
-        asserta
-          (inj_on equal_literal equal_nat renum_acts
-            (sup_set equal_literal
-              (sup_seta equal_literal
-                (image
-                  (fun (_, (_, (t, _))) ->
-                    sup_seta equal_literal
-                      (image
-                        (fun (_, a) ->
-                          (let (_, aa) = a in
-                           let (_, ab) = aa in
-                           let (ac, _) = ab in
-                            set_act equal_literal ac))
-                        (Set t)))
-                  (Set automata)))
-              (sup_seta equal_literal
-                (image (fun sync -> image (comp fst snd) (Set sync))
-                  (Set syncs)))))
-          "Action renaming is injective";
-        asserta
-          (equal_set equal_literal (image fst (Set bounds))
-            (sup_set equal_literal
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image (vars_of_bexp equal_literal) s))
-                  (image (fun t -> image (comp fst snd) (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image
-                        (fun f ->
-                          sup_seta equal_literal
-                            (image
-                              (fun (a, b) ->
-                                (let (x, e) = a in
-                                  (fun _ ->
-                                    sup_set equal_literal
-                                      (insert equal_literal x bot_set)
-                                      (vars_of_exp equal_literal e)))
-                                  b)
-                              (Set f)))
-                        s))
-                  (image
-                    (fun t ->
-                      image (comp (comp (comp (comp fst snd) snd) snd) snd)
-                        (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
-          "Bound set is exactly the variable set";
-        asserta
-          (less_eq_set equal_literal
-            (sup_seta equal_literal
-              (image (fun g -> image fst (Set g))
-                (Set (map (comp (comp snd snd) snd) automata))))
-            (sup_seta equal_literal
-              (image
-                (fun (_, (_, (t, _))) ->
-                  sup_seta equal_literal
+                                (fun (a, b) ->
+                                  (let (x, e) = a in
+                                    (fun _ ->
+                                      sup_set equal_literal
+(insert equal_literal x bot_set) (vars_of_exp equal_literal e)))
+                                    b)
+                                (Set f)))
+                          s))
                     (image
-                      (fun (l, (_, (_, (_, (_, (_, la)))))) ->
-                        insert equal_literal l
-                          (insert equal_literal la bot_set))
-                      (Set t)))
-                (Set automata))))
-          "Invariant locations are contained in the location set";
-        asserta
-          (less_eq_set equal_literal
-            (sup_seta equal_literal
-              (image (comp (fun a -> Set a) fst) (Set automata)))
-            (sup_seta equal_literal
-              (image
-                (fun (_, (_, (t, _))) ->
-                  sup_seta equal_literal
-                    (image
-                      (fun (l, (_, (_, (_, (_, (_, la)))))) ->
-                        insert equal_literal l
-                          (insert equal_literal la bot_set))
-                      (Set t)))
-                (Set automata))))
-          "Broadcast locations are containted in the location set";
-        asserta
-          (less_eq_set equal_literal
-            (sup_seta equal_literal
-              (image (fun x -> Set (fst (snd x))) (Set automata)))
-            (sup_seta equal_literal
-              (image
-                (fun (_, (_, (t, _))) ->
-                  sup_seta equal_literal
-                    (image
-                      (fun (l, (_, (_, (_, (_, (_, la)))))) ->
-                        insert equal_literal l
-                          (insert equal_literal la bot_set))
-                      (Set t)))
-                (Set automata))))
-          "Urgent locations are containted in the location set";
-        asserta
-          (not (member equal_literal urge (clk_set equal_literal automata)))
-          "Urge not in clock set";
-        asserta
-          (equal_nata (size_list l_0) (size_list automata) &&
-            all_interval_nat
-              (fun i ->
-                bex (fst (snd (snd (nth (fst
-  (snd (Set syncs,
-         (map (automaton_of equal_literal) automata,
-           map_of equal_literal bounds))))
-                                     i))))
-                  (fun (l, (_, (_, (_, (_, (_, la)))))) ->
-                    (((nth l_0 i) : string) = l) ||
-                      (((nth l_0 i) : string) = la)))
-              zero_nata (size_list automata))
-          "Initial location is in the state set";
-        asserta
-          (equal_set equal_literal (image fst (Set s_0))
-            (sup_set equal_literal
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image (vars_of_bexp equal_literal) s))
-                  (image (fun t -> image (comp fst snd) (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image
-                        (fun f ->
-                          sup_seta equal_literal
-                            (image
-                              (fun (a, b) ->
-                                (let (x, e) = a in
-                                  (fun _ ->
-                                    sup_set equal_literal
-                                      (insert equal_literal x bot_set)
-                                      (vars_of_exp equal_literal e)))
-                                  b)
-                              (Set f)))
-                        s))
+                      (fun t ->
+                        image (comp (comp (comp (comp fst snd) snd) snd) snd)
+                          (Set t))
+                      (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
+            "Variable renaming is injective";
+          asserta
+            (inj_on equal_literal equal_nat renum_acts
+              (sup_set equal_literal
+                (sup_seta equal_literal
                   (image
-                    (fun t ->
-                      image (comp (comp (comp (comp fst snd) snd) snd) snd)
-                        (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
-          "Initial state has the correct domain";
-        asserta (distinct equal_literal (map fst s_0))
-          "Initial state is unambiguous";
-        asserta
-          (less_eq_set equal_literal (set2_formula equal_literal phi)
-            (sup_seta equal_literal
-              (image
-                (fun (_, (_, (t, _))) ->
-                  sup_seta equal_literal
-                    (image
-                      (fun (l, (_, (_, (_, (_, (_, la)))))) ->
-                        insert equal_literal l
-                          (insert equal_literal la bot_set))
-                      (Set t)))
-                (Set automata))))
-          "Formula locations are contained in the location set";
-        asserta
-          (less_eq_set equal_nat (locs_of_formula equal_nat phi)
-            (Set (upt zero_nata (size_list automata))))
-          "Formula automata are contained in the automata set";
-        asserta
-          (less_eq_set equal_literal (vars_of_formula equal_literal phi)
-            (sup_set equal_literal
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image (vars_of_bexp equal_literal) s))
-                  (image (fun t -> image (comp fst snd) (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
-              (sup_seta equal_literal
-                (image
-                  (fun s ->
-                    sup_seta equal_literal
-                      (image
-                        (fun f ->
-                          sup_seta equal_literal
-                            (image
-                              (fun (a, b) ->
-                                (let (x, e) = a in
-                                  (fun _ ->
-                                    sup_set equal_literal
-                                      (insert equal_literal x bot_set)
-                                      (vars_of_exp equal_literal e)))
-                                  b)
-                              (Set f)))
-                        s))
+                    (fun (_, (_, (t, _))) ->
+                      sup_seta equal_literal
+                        (image
+                          (fun (_, a) ->
+                            (let (_, aa) = a in
+                             let (_, ab) = aa in
+                             let (ac, _) = ab in
+                              set_act equal_literal ac))
+                          (Set t)))
+                    (Set automata)))
+                (sup_seta equal_literal
+                  (image (fun sync -> image (comp fst snd) (Set sync))
+                    (Set syncs)))))
+            "Action renaming is injective";
+          asserta
+            (equal_seta equal_literal (image fst (Set bounds))
+              (sup_set equal_literal
+                (sup_seta equal_literal
                   (image
-                    (fun t ->
-                      image (comp (comp (comp (comp fst snd) snd) snd) snd)
-                        (Set t))
-                    (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
-          "Variables of the formula are contained in the variable set"];;
+                    (fun s ->
+                      sup_seta equal_literal
+                        (image (vars_of_bexp equal_literal) s))
+                    (image (fun t -> image (comp fst snd) (Set t))
+                      (image (fun (_, (_, (t, _))) -> t) (Set automata)))))
+                (sup_seta equal_literal
+                  (image
+                    (fun s ->
+                      sup_seta equal_literal
+                        (image
+                          (fun f ->
+                            sup_seta equal_literal
+                              (image
+                                (fun (a, b) ->
+                                  (let (x, e) = a in
+                                    (fun _ ->
+                                      sup_set equal_literal
+(insert equal_literal x bot_set) (vars_of_exp equal_literal e)))
+                                    b)
+                                (Set f)))
+                          s))
+                    (image
+                      (fun t ->
+                        image (comp (comp (comp (comp fst snd) snd) snd) snd)
+                          (Set t))
+                      (image (fun (_, (_, (t, _))) -> t) (Set automata)))))))
+            "Bound set is exactly the variable set";
+          asserta
+            (not (member equal_literal urge (clk_set equal_literal automata)))
+            "Urge not in clock set"])
+      (check_renaming_preconds equal_literal equal_literal automata syncs bounds
+        phi l_0 s_0);;
 
 let rec check_precond2
   syncs bounds automata m num_states k l_0 s_0 formula =
@@ -6450,7 +6453,8 @@ let rec check_precond2
             automata)
           "Unambiguous invariants";
         asserta
-          (equal_set equal_nat (image fst (Set s_0)) (image fst (Set bounds)) &&
+          (equal_seta equal_nat (image fst (Set s_0))
+             (image fst (Set bounds)) &&
             ball (image fst (Set s_0))
               (fun x ->
                 less_eq_int (fst (the (map_of equal_nat bounds x)))
@@ -6792,7 +6796,11 @@ let rec rename_mc _A _B _C
 let rec preproc_mc _A
   = (fun dc ids_to_names (syncs, (automata, bounds)) l_0 s_0 formula ->
       (let _ = print_endline "Make renaming" in
-        (match make_renaming (equal_literal, show_literal) syncs automata bounds
+        (match
+          bind (check_renaming_preconds equal_literal equal_literal automata
+                 syncs bounds formula l_0 s_0)
+            (fun _ ->
+              make_renaming (equal_literal, show_literal) syncs automata bounds)
           with Result
                  (m, (num_states,
                        (num_actions,
@@ -6889,7 +6897,8 @@ let rec check_jani_embed_preconds
                   list_all
                     (fun destination ->
                       list_all
-                        (fun ((x, _), _) -> member equal_literal x (vars model))
+                        (fun ((x, _), _) ->
+                          member equal_literal x (varsa model))
                         (get_upds model destination) &&
                         list_ex
                           (fun l ->
