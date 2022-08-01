@@ -324,12 +324,23 @@ locale Reachability_Problem_Impl_Precise =
 begin
 *)
 
+locale TA_Impl_Ext =
+  TA_Impl +
+  fixes states_mem_impl
+  assumes states_mem_impl: "(states_mem_impl, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
+
 locale TA_Impl_Precise =
   TA_Impl _ _ _ l\<^sub>0 _ _ _ _ _ l\<^sub>0i
   + op_precise: E_Precise_Bisim _ l\<^sub>0 for l\<^sub>0 :: 's and l\<^sub>0i :: "'si:: {hashable,heap}" +
   fixes op_impl and states_mem_impl
   assumes op_impl: "(uncurry4 op_impl, uncurry4 (\<lambda> l r. RETURN ooo PR_CONST f l r)) \<in> op_impl_assn"
       and states_mem_impl: "(states_mem_impl, (\<lambda>l. l \<in> states')) \<in> loc_rel \<rightarrow> bool_rel"
+begin
+
+sublocale TA_Impl_Ext
+  by (standard) (rule states_mem_impl)
+
+end
 
 locale Reachability_Problem_Impl_Precise =
   TA_Impl_Precise _ show_state A
@@ -344,6 +355,8 @@ locale Reachability_Problem_Impl_Precise =
       and F'_F1: "\<And>l u Z. u \<in> Z \<Longrightarrow> F' (l, u) \<Longrightarrow> F1 (l, Z)"
       and F_impl: "(F_impl, RETURN o PR_CONST F) \<in> state_assn'\<^sup>d \<rightarrow>\<^sub>a bool_assn"
 
+
+paragraph \<open>Successor Implementation\<close>
 context TA_Impl_Precise
 begin
 
@@ -475,6 +488,16 @@ lemma succs_precise_finite:
   "\<forall>l S. \<forall>(l', S')\<in>set (succs_precise l S). finite S \<longrightarrow> finite S'"
   unfolding succs_precise_def by auto
 
+lemma E_from_op_states:
+  "l' \<in> states'" if "op_precise.E_from_op (l, M) (l', M')" "l \<in> states'"
+  using that unfolding op_precise.E_from_op_def by auto
+
+end (* TA Impl Precise *)
+
+
+context TA_Impl_Ext
+begin
+
 definition
   "wf_dbm' D \<equiv> (canonical' D \<or> check_diag n D) \<and>
      (list_all (\<lambda>i. D (i, i) \<le> 0) [0..<n+1]) \<and> list_all (\<lambda>i. D (0, i) \<le> 0) [0..<n+1]"
@@ -517,6 +540,8 @@ lemma canonical'_compute:
   "
   unfolding list_all_iff by auto force
 
+interpretation DBM_Impl n .
+
 sepref_definition canonical'_impl is
   "RETURN o PR_CONST canonical'" :: "mtx_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding canonical'_compute list_all_foldli PR_CONST_def by sepref
@@ -547,7 +572,7 @@ sepref_register states_mem
   "RETURN o PR_CONST states_mem" :: "(pure loc_rel)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   unfolding PR_CONST_def by sepref *)
 
-sepref_register wf_dbm' :: "'c DBMEntry i_mtx \<Rightarrow> bool"
+sepref_register wf_dbm' :: "'fresh DBMEntry i_mtx \<Rightarrow> bool"
 
 lemmas [sepref_fr_rules] =
   (* is_in_states_impl.refine_raw *)
@@ -567,63 +592,14 @@ lemma P_impl_refine:
     by (sep_auto simp: pure_def)
   done
 
-lemma E_from_op_states:
-  "l' \<in> states'" if "op_precise.E_from_op (l, M) (l', M')" "l \<in> states'"
-  using that unfolding op_precise.E_from_op_def by auto
-
 lemmas [safe_constraint_rules] = location_assn_constraints
 
 end (* TA Impl Precise *)
 
 
+paragraph \<open>Deriving the Main Simulation Theorems\<close>
 context Reachability_Problem_Impl_Precise
 begin
-
-context
-  fixes L_list :: "'si list" and P_loc
-  assumes state_impl_abstract: "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
-  assumes P_loc: "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
-begin
-
-definition
-  "L \<equiv> map (\<lambda>li. SOME l. (li, l) \<in> loc_rel) L_list"
-
-lemma mem_states'I:
-  "l \<in> states'" if "states_mem_impl li" "(li, l) \<in> loc_rel" for l li
-  using states_mem_impl that by (auto dest: fun_relD)
-
-lemma L_list_rel:
-  "(L_list, L) \<in> \<langle>location_rel\<rangle>list_rel"
-  unfolding list_rel_def L_def
-  using P_loc
-  apply (clarsimp simp: list.pred_rel list.rel_map)
-  apply (elim list_all2_mono)
-  apply (clarsimp simp: eq_onp_def)
-  apply (meson someI_ex state_impl_abstract)
-  apply (erule mem_states'I, meson someI_ex state_impl_abstract)
-  done
-
-lemma L_list_hnr:
-  "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST (set L))))
-  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn location_assn"
-proof -
-  have "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) = pure location_rel"
-    unfolding pure_def by auto
-  then have "list_assn (\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) = pure (\<langle>location_rel\<rangle>list_rel)"
-    by (simp add: fcomp_norm_unfold)
-  then have "emp \<Longrightarrow>\<^sub>A list_assn (\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) L L_list * true"
-    by (sep_auto simp: pure_def intro: L_list_rel)
-  then show ?thesis
-    by sepref_to_hoare (sep_auto simp: lso_assn_def hr_comp_def br_def)
-qed
-
-sepref_register "list_to_dbm n"
-
-lemmas [sepref_fr_rules] = of_list_list_to_dbm[of n]
-
-sepref_register set
-
-lemmas [sepref_fr_rules] = set_of_list_hnr'
 
 lemmas step_z_dbm_complete = step_z_dbm_complete[OF global_clock_numbering']
 
@@ -776,6 +752,25 @@ lemma op_precise_unreachable_correct':
   using op_precise_unreachable_correct by (clarsimp simp: pw_le_iff pw_nres_rel_iff)
 *)
 
+end
+
+
+
+
+paragraph \<open>Refinement setup: \<open>list_to_dbm\<close>/\<open>set\<close>\<close>
+context TA_Impl
+begin
+
+term placeholder
+
+sepref_register "list_to_dbm n"
+
+lemmas [sepref_fr_rules] = of_list_list_to_dbm[of n]
+
+sepref_register set
+
+lemmas [sepref_fr_rules] = set_of_list_hnr'
+
 
 lemma IArray_list_to_dbm_rel[param]:
   "(IArray, list_to_dbm n)
@@ -789,6 +784,57 @@ lemma IArray_list_to_dbm_rel':
   \<in> \<langle>{(a, b). iarray_mtx_rel (Suc n) (Suc n) b a}\<rangle>list_set_rel"
   if "list_all (\<lambda>xs. length xs = Suc n * Suc n) xs"
   using that by (rule map_set_rel) (rule IArray_list_to_dbm_rel)
+
+end
+
+
+paragraph \<open>Implementing Invariants as Tables\<close>
+context Reachability_Problem_Impl_Precise
+begin
+
+text \<open>Note: These table implementations could be made independent from
+\<open>Reachability_Problem_Impl_Precise\<close> by generalizing over \<^term>\<open>states_mem_impl\<close>/\<^term>\<open>loc_rel\<close> and
+derived constants. See what we started for locale \<open>TA_Impl_Ext\<close>.
+\<close>
+context
+  fixes L_list :: "'si list" and P_loc
+  assumes state_impl_abstract: "\<And>li. P_loc li \<Longrightarrow> \<exists>l. (li, l) \<in> loc_rel"
+  assumes P_loc: "list_all (\<lambda>x. P_loc x \<and> states_mem_impl x) L_list"
+begin
+
+definition
+  "L \<equiv> map (\<lambda>li. SOME l. (li, l) \<in> loc_rel) L_list"
+
+lemma mem_states'I:
+  "l \<in> states'" if "states_mem_impl li" "(li, l) \<in> loc_rel" for l li
+  using states_mem_impl that by (auto dest: fun_relD)
+
+lemma L_list_rel:
+  "(L_list, L) \<in> \<langle>location_rel\<rangle>list_rel"
+  unfolding list_rel_def L_def
+  using P_loc
+  apply (clarsimp simp: list.pred_rel list.rel_map)
+  apply (elim list_all2_mono)
+  apply (clarsimp simp: eq_onp_def)
+  apply (meson someI_ex state_impl_abstract)
+  apply (erule mem_states'I, meson someI_ex state_impl_abstract)
+  done
+
+lemma L_list_hnr:
+  "(uncurry0 (return L_list), uncurry0 (RETURN (PR_CONST (set L))))
+  \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a lso_assn location_assn"
+proof -
+  have "(\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) = pure location_rel"
+    unfolding pure_def by auto
+  then have "list_assn (\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) = pure (\<langle>location_rel\<rangle>list_rel)"
+    by (simp add: fcomp_norm_unfold)
+  then have "emp \<Longrightarrow>\<^sub>A list_assn (\<lambda>a c. \<up> ((c, a) \<in> loc_rel \<and> a \<in> states')) L L_list * true"
+    by (sep_auto simp: pure_def intro: L_list_rel)
+  then show ?thesis
+    by sepref_to_hoare (sep_auto simp: lso_assn_def hr_comp_def br_def)
+qed
+
+
 
 
 
@@ -1018,6 +1064,21 @@ sepref_definition M_table is
 
 lemmas dom_M_eq = dom_M_eq1[OF M_assms, folded M_alt_def M_list'_def]
 
+definition
+  "Mi = hashmap_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
+
+lemma Mi_alt_def:
+  "Mi = M1i TYPE(int DBMEntry list) M_list IArray"
+  unfolding Mi_def M1i_def ..
+
+lemmas map_of_M_list_M_rel = map_of_M_list_M_rel1[OF M_assms, folded M_alt_def]
+
+lemmas Mi_M = Mi_M1[OF M_assms, folded M_alt_def Mi_alt_def]
+
+lemmas L_dom_M_eqI = L_dom_M_eqI1[OF M_assms, folded M_alt_def]
+
+
+paragraph \<open>Deriving the Reachability Checker\<close>
 interpretation
   Reachability_Impl
   where A = mtx_assn
@@ -1090,19 +1151,6 @@ interpretation
   done
 
 lemmas reachability_impl = Reachability_Impl_axioms
-
-definition
-  "Mi = hashmap_of_list (map (\<lambda>(k, dbms). (k, map IArray dbms)) M_list)"
-
-lemma Mi_alt_def:
-  "Mi = M1i TYPE(int DBMEntry list) M_list IArray"
-  unfolding Mi_def M1i_def ..
-
-lemmas map_of_M_list_M_rel = map_of_M_list_M_rel1[OF M_assms, folded M_alt_def]
-
-lemmas Mi_M = Mi_M1[OF M_assms, folded M_alt_def Mi_alt_def]
-
-lemmas L_dom_M_eqI = L_dom_M_eqI1[OF M_assms, folded M_alt_def]
 
 context
   fixes Li_split :: "'si list list"
@@ -1255,6 +1303,7 @@ end (* Splitter *)
 end (* M *)
 
 
+paragraph \<open>Tables for Indexed Invariants\<close>
 context
   fixes M_list :: "('si \<times> (int DBMEntry list \<times> nat) list) list"
   assumes M_list_covered: "fst ` set M_list \<subseteq> set L_list"
@@ -1306,6 +1355,8 @@ lemmas map_of_M_list_M_rel2 = map_of_M_list_M_rel1[OF M2_assms, folded M2_alt_de
 
 lemmas Mi_M2 = Mi_M1[OF M2_assms, folded M2i_alt_def M2_alt_def]
 
+
+paragraph \<open>Deriving the Büchi Checker\<close>
 interpretation
   Buechi_Impl_pre
   where F = F
@@ -1497,6 +1548,7 @@ end (* L *)
 end (* Reachability Problem Impl Precise *)
 
 
+paragraph \<open>Deriving the Deadlock Checker\<close>
 
 context TA_Impl_Precise
 begin
