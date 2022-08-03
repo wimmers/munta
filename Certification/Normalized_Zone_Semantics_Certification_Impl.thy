@@ -620,7 +620,7 @@ interpretation B:
 interpretation
   Simulation
   "\<lambda> (l, u) (l', u'). conv_A A \<turnstile>' \<langle>l, u\<rangle> \<rightarrow> \<langle>l', u'\<rangle>"
-  "\<lambda> (l, M) (l', M'). \<exists> a. step_z_dbm' (conv_A A) l M v n a l' M' \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
+  "\<lambda> (l, M) (l', M'). \<exists> a. conv_A A \<turnstile>' \<langle>l, M\<rangle> \<leadsto>\<^bsub>v,n,a\<^esub> \<langle>l', M'\<rangle> \<and> [M']\<^bsub>v,n\<^esub> \<noteq> {}"
   "\<lambda> (l, u) (l', M). l' = l \<and> u \<in> [M]\<^bsub>v,n\<^esub>"
   by (rule Simulation_Composition, rule A.Simulation_axioms, rule B.Simulation_axioms) auto
 
