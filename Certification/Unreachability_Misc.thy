@@ -318,7 +318,19 @@ qed
 
 paragraph \<open>Abstract \<open>nres\<close> algorithm\<close>
 
-context Reachability_Invariant_paired_defs
+locale Paired_Graph =
+  fixes E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"
+
+sublocale Reachability_Invariant_paired_pre_defs \<subseteq> Paired_Graph .
+
+locale Paired_Graph_Set =
+  Paired_Graph where E = E for E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool" +
+  fixes M :: "'l \<Rightarrow> 's set"
+    and L :: "'l set"
+
+sublocale Reachability_Invariant_paired_defs \<subseteq> Paired_Graph_Set .
+
+context Paired_Graph_Set
 begin
 
 context
