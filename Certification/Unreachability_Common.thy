@@ -14,8 +14,8 @@ sublocale Unreachability_Invariant_paired_pre_defs \<subseteq> Paired_Graph_Inva
 
 sublocale Unreachability_Invariant_paired_defs \<subseteq> Paired_Graph_Set_Invariant .
 
-locale Reachability_Impl_base2 =
-  Reachability_Impl_base where E = E +
+locale Reachability_Impl_base =
+  Certification_Impl_base where E = E +
   Unreachability_Invariant_paired_pre_defs where E = E
   for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes P' and F
@@ -23,12 +23,12 @@ locale Reachability_Impl_base2 =
   assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
 
 locale Reachability_Impl_pre =
+  Certification_Impl_base where E = E +
   Reachability_Impl_base where E = E +
-  Reachability_Impl_base2 where E = E +
   Paired_Graph_Set where E = E for E :: "'l \<times> 's \<Rightarrow> _"
 begin
 
-sublocale Reachability_Impl_New
+sublocale Certification_Impl
   where R = "\<lambda>l s xs. Bex xs (\<lambda>s'. s \<preceq> s')"
     and R_impl =
       "\<lambda>l s xs. do {xs \<leftarrow> SPEC (\<lambda>ys. set ys = xs); monadic_list_ex (\<lambda>s'. RETURN (s \<preceq> s')) xs}"
@@ -41,7 +41,7 @@ locale Reachability_Impl_pre_start =
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
 begin
 
-sublocale Reachability_Impl_New_start
+sublocale Certification_Impl_Start
   where R = "\<lambda>l s xs. Bex xs (\<lambda>s'. s \<preceq> s')"
     and R_impl =
       "\<lambda>l s xs. do {xs \<leftarrow> SPEC (\<lambda>ys. set ys = xs); monadic_list_ex (\<lambda>s'. RETURN (s \<preceq> s')) xs}"
@@ -49,9 +49,6 @@ sublocale Reachability_Impl_New_start
 
 end
 
-lemma (in Reachability_Impl_New_start) certify_unreachable_correct:
-  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec \<and> check_final_spec)"
-  unfolding certify_unreachable_def by (refine_vcg check_all_correct check_final_correct; fast)
 
 locale Reachability_Impl_correct =
   Reachability_Impl_pre_start where E = E +
@@ -128,7 +125,7 @@ end
 
 locale Buechi_Impl_pre =
   Buechi_Impl_invariant where M = M +
-  Reachability_Impl_base2 for M :: "'l \<Rightarrow> ('s \<times> nat) set" +
+  Reachability_Impl_base for M :: "'l \<Rightarrow> ('s \<times> nat) set" +
   assumes finite: "finite L" "\<forall>l \<in> L. finite (M l)"
 begin
 
@@ -312,7 +309,7 @@ end (* Buechi Impl pre *)
 
 
 locale Reachability_Impl =
-  Certification_Impl where M = M and K = K and A = A +
+  Certification_Impl_imp where M = M and K = K and A = A +
   Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
     for M :: "'k \<Rightarrow> 'a set option"
     and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn"

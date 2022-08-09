@@ -61,30 +61,30 @@ end
 
 end
 
-locale Reachability_Impl_base_defs =
+locale Certification_Impl_base_defs =
   Paired_Graph where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes succs :: "'l \<Rightarrow> 's set \<Rightarrow> ('l \<times> 's set) list"
 
-locale Reachability_Impl_base =
-  Reachability_Impl_base_defs +
+locale Certification_Impl_base =
+  Certification_Impl_base_defs +
   fixes P
   assumes succs_correct:
     "\<And>l. \<forall>s \<in> xs. P (l, s)
   \<Longrightarrow> {(l', s')| l' ys s'. (l', ys) \<in> set (succs l xs) \<and> s' \<in> ys}
     = (\<Union> s \<in> xs. Collect (E (l, s)))"
 
-locale Reachability_Impl_invariant_defs =
-  Reachability_Impl_base_defs where E = E +
+locale Certification_Impl_invariant_defs =
+  Certification_Impl_base_defs where E = E +
   Paired_Graph_Set where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes R :: "'l \<Rightarrow> 's \<Rightarrow> 's set \<Rightarrow> bool"
   fixes R_impl :: "'l \<Rightarrow> 's \<Rightarrow> 's set \<Rightarrow> bool nres"
 
-locale Reachability_Impl_invariant =
-  Reachability_Impl_base +
-  Reachability_Impl_invariant_defs +
+locale Certification_Impl_invariant =
+  Certification_Impl_base +
+  Certification_Impl_invariant_defs +
   assumes R_impl_correct[unfolded RETURN_SPEC_conv]: "\<And>l s xs. R_impl l s xs \<le> RETURN (R l s xs)"
 
-context Reachability_Impl_invariant_defs
+context Certification_Impl_invariant_defs
 begin
 
 definition "check_invariant L' \<equiv>
@@ -121,7 +121,7 @@ definition
 
 end
 
-context Reachability_Impl_invariant
+context Certification_Impl_invariant
 begin
 
 lemma check_invariant_correct_pre:
@@ -157,15 +157,15 @@ lemma check_invariant_correct:
 
 end
 
-end (* Reachability Impl Invariant *)
+end (* Certification Impl Invariant *)
 
 
-locale Reachability_Problem_defs =
-  Reachability_Impl_invariant_defs where E = E
+locale Certification_Problem_defs =
+  Certification_Impl_invariant_defs where E = E
   for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes P' F :: "'l \<times> 's \<Rightarrow> bool"
 
-locale Reachability_Problem_no_subsumption_defs =
+locale Certification_Problem_no_subsumption_defs =
   fixes succs :: "'l \<Rightarrow> 's set \<Rightarrow> ('l \<times> 's set) list"
     and M :: "'l \<Rightarrow> 's set"
     and L :: "'l set"
@@ -174,7 +174,7 @@ locale Reachability_Problem_no_subsumption_defs =
     and F :: "'l \<times> 's \<Rightarrow> bool"
 begin
 
-sublocale Reachability_Impl_base_defs .
+sublocale Certification_Impl_base_defs .
 
 sublocale Paired_Graph_Set .
 
@@ -204,10 +204,10 @@ lemma check_final_nofail:
 
 end
 
-context Reachability_Problem_defs
+context Certification_Problem_defs
 begin
 
-sublocale Reachability_Problem_no_subsumption_defs .
+sublocale Certification_Problem_no_subsumption_defs .
 
 definition
   "check_init l\<^sub>0 s\<^sub>0 \<equiv> do {
@@ -243,24 +243,24 @@ definition
 
 end
 
-locale Reachability_Problem_Start_defs =
-  Reachability_Problem_defs where E = E
+locale Certification_Problem_Start_defs =
+  Certification_Problem_defs where E = E
   for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
 
-locale Reachability_Impl_defs =
-  Reachability_Impl_invariant_defs +
-  Reachability_Problem_Start_defs
+locale Certification_Impl_defs =
+  Certification_Impl_invariant_defs +
+  Certification_Problem_Start_defs
 
-locale Reachability_Impl_New =
-  Reachability_Problem_defs +
-  Reachability_Impl_invariant
+locale Certification_Impl =
+  Certification_Problem_defs +
+  Certification_Impl_invariant
 
-locale Reachability_Impl_New_start =
-  Reachability_Impl_defs +
-  Reachability_Impl_New
+locale Certification_Impl_Start =
+  Certification_Impl_defs +
+  Certification_Impl
 
-context Reachability_Impl_New
+context Certification_Impl
 begin
 
 lemma check_all_pre_correct:
@@ -275,7 +275,7 @@ lemma check_init_correct:
 
 end
 
-context Reachability_Impl_defs
+context Certification_Impl_defs
 begin
 
 definition
@@ -308,7 +308,7 @@ lemma certify_unreachable_alt_def:
 
 end
 
-context Reachability_Impl_New_start
+context Certification_Impl_Start
 begin
 
 definition
@@ -322,16 +322,21 @@ lemma check_all_correct:
 
 end
 
-locale Reachability_Impl_correct_base =
-  Reachability_Impl_base where E = E +
-  Reachability_Impl_base_defs where E = E
+lemma (in Certification_Impl_Start) certify_unreachable_correct:
+  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec \<and> check_final_spec)"
+  unfolding certify_unreachable_def by (refine_vcg check_all_correct check_final_correct; fast)
+
+
+locale Certification_Impl_correct_base =
+  Certification_Impl_base where E = E +
+  Certification_Impl_base_defs where E = E
     for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes P' F :: "'l \<times> 's \<Rightarrow> bool"
   assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
 
 
 locale Buechi_Impl_invariant =
-  Reachability_Impl_base where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
+  Certification_Impl_base where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
   fixes L :: "'l set" and M :: "'l \<Rightarrow> ('s \<times> nat) set"
 begin
 
@@ -403,8 +408,8 @@ qed
 end
 
 
-locale Reachability_Impl_common_defs =
-  Reachability_Problem_no_subsumption_defs where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+locale Certification_Impl_common_defs =
+  Certification_Problem_no_subsumption_defs where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for M :: "'k \<Rightarrow> 'b set option"
 begin
 
@@ -469,8 +474,8 @@ lemma check_prop'_alt_def:
 
 end
 
-locale Reachability_Impl_common =
-  Reachability_Impl_common_defs +
+locale Certification_Impl_common =
+  Certification_Impl_common_defs +
   assumes L_finite: "finite L"
       and M_ran_finite: "\<forall>S \<in> ran M. finite S"
       and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
@@ -499,8 +504,10 @@ lemma check_prop_gt_SUCCEED:
 end
 
 
-locale Certification_Impl_correct_base =
-  Reachability_Impl_correct_base where E = E
+paragraph \<open>Locales For Imperative Implementations\<close>
+
+locale Certification_Impl_imp_base =
+  Certification_Impl_correct_base where E = E
     for E :: "'k \<times> 's \<Rightarrow> _" +
   fixes A :: "'s \<Rightarrow> ('si :: heap) \<Rightarrow> assn"
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn"
@@ -516,9 +523,9 @@ locale Certification_Impl_correct_base =
   assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
   assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
 
-locale Certification_Impl =
-  Reachability_Impl_common where M = M +
-  Certification_Impl_correct_base where K = K and A = A
+locale Certification_Impl_imp =
+  Certification_Impl_common where M = M +
+  Certification_Impl_imp_base where K = K and A = A
   for M :: "'k \<Rightarrow> 'a set option"
   and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn" and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn" +
   fixes l\<^sub>0 :: 'k and s\<^sub>0 :: 'a fixes l\<^sub>0i :: "'ki Heap" and s\<^sub>0i :: "'ai Heap"

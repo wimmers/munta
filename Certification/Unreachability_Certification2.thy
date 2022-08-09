@@ -109,7 +109,7 @@ lemma list_all_default_split:
 
 
 locale Reachability_Impl_pure_base =
-  Reachability_Impl_base2 where less_eq = less_eq
+  Reachability_Impl_base where less_eq = less_eq
   for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) +
   fixes get_succs and K and A and L and Li and lei
     and Li_split :: "'ki list list"
@@ -146,7 +146,7 @@ end
 
 
 locale Reachability_Impl_pure_invariant =
-  Reachability_Impl_invariant where M = M +
+  Certification_Impl_invariant where M = M +
   Reachability_Impl_pure_base where Li_split = Li_split
   for M :: "'k \<Rightarrow> 'a set" and Li_split :: "'ki list list"
 
@@ -157,17 +157,8 @@ locale Reachability_Impl_pure_base2 =
   assumes Pi_P'[refine,param]: "(Pi, P') \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
   assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
 
-\<^cancel>\<open>locale Reachability_Impl_pure_base =
-  Reachability_Impl_pure_invariant where less_eq = less_eq and M = M and Li_split = Li_split +
-  Reachability_Impl_pre where less_eq = less_eq and M = M
-  for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'a set"
-  and Li_split :: "'ki list list" +
-  fixes Pi and Fi
-  assumes Pi_P'[refine,param]: "(Pi, P') \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
-  assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"\<close>
-
 locale Reachability_Impl_pure =
-  Reachability_Impl_common where M = M +
+  Certification_Impl_common where M = M +
   Reachability_Impl_pure_base2 +
   Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for M :: "'k \<Rightarrow> 'a set option" +
@@ -960,8 +951,8 @@ end (* Reachability_Impl_pure *)
 
 \<comment> \<open>Note: no implementation of ordering.\<close>
 locale Reachability_Impl_imp_base =
-  Reachability_Impl_base2 +
-  Certification_Impl_correct_base
+  Reachability_Impl_base +
+  Certification_Impl_imp_base
 
 locale Reachability_Impl_imp_to_pure_base = Reachability_Impl_imp_base
   where K = K and A = A
