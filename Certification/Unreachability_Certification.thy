@@ -5,7 +5,7 @@ theory Unreachability_Certification
     TA_Library.Printing
     TA_Library.Imperative_Loops
     TA_Library.Trace_Timing
-    Unreachability_Misc
+    Unreachability_Common
 begin
 
 context
