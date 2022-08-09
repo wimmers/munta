@@ -36,8 +36,7 @@ definition
 
 lemma is_member_refine:
   "is_member x L \<le> mop_set_member x L"
-  unfolding mop_set_member_alt is_member_def
-  by (refine_vcg monadic_list_ex_rule) (auto simp: list_ex_iff)
+  unfolding mop_set_member_alt is_member_def by (refine_vcg monadic_list_ex_rule) auto
 
 lemma is_member_correct:
   "(uncurry is_member, uncurry (RETURN \<circ>\<circ> op_set_member)) \<in> Id \<times>\<^sub>r Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
@@ -90,9 +89,9 @@ lemma succs_listD:
   shows "\<exists> xs. set xs = S'"
   using assms succs_finite by (force intro!: finite_list)
 
-lemma check_invariant'_refine:
-  "check_invariant' L_part M \<le> check_invariant L_part" if "L = dom M" "set L_part \<subseteq> L"
-  unfolding check_invariant_def check_invariant'_def
+lemma check_invariant'_0_refine:
+  "check_invariant' L_part M \<le> check_invariant0 L_part" if "L = dom M" "set L_part \<subseteq> L"
+  unfolding check_invariant'_def check_invariant0_def
   unfolding PR_CONST_def
   apply refine_mono
   apply (clarsimp split: option.splits simp: succs_empty)
@@ -101,16 +100,21 @@ lemma check_invariant'_refine:
   apply safe
   subgoal
     by refine_mono (auto simp: bind_RES monadic_list_all_False dest: M_listD)
-  subgoal
+  subgoal for l _ l'
     apply refine_mono
     apply clarsimp
     apply refine_mono
     apply clarsimp
     subgoal for xs1 xs2
-      using monadic_list_all_list_ex_is_RETURN[of "\<lambda> x y. less_eq x y" xs2 xs1]
+      using monadic_list_all_list_ex_is_RETURN[of "\<lambda> x y. x \<preceq> y" xs2 xs1]
       by (auto simp: bind_RES \<open>L = dom M\<close>)
     done
   done
+
+lemma check_invariant'_refine:
+  "check_invariant' L_part M \<le> check_invariant L_part" if "L = dom M" "set L_part \<subseteq> L"
+  using check_invariant'_0_refine[OF that] check_invariant0_refine
+  by (rule preorder_class.order.trans)
 
 lemma check_invariant'_no_fail:
   "nofail (check_invariant' L' M')"
@@ -131,8 +135,7 @@ lemma check_invariant'_correct_pre1:
   "check_invariant' L' M'
   \<le> RETURN (check_invariant_spec_pre1 L' (\<lambda>l. case M' l of None \<Rightarrow> {} | Some S \<Rightarrow> S))"
   unfolding check_invariant'_def check_invariant_spec_pre1_def
-  by (refine_vcg monadic_list_all_rule monadic_list_ex_rule)
-     (auto simp: list_all_iff list_ex_iff succs_empty)
+  by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: succs_empty)
 
 
 lemmas [safe_constraint_rules] = pure_K left_unique_K right_unique_K
@@ -283,17 +286,13 @@ lemma check_all_pre'_refine:
   apply (cases "op_map_lookup l\<^sub>0 M"; simp add: bind_RES)
    apply (cases "check_prop P'")
     apply (clarsimp_all intro: less_eq_Sup simp: bind_RES check_prop_alt_def)
-  apply (rule less_eq_Sup)
-  subgoal for a v
-    apply clarsimp
+  subgoal for a
     apply (rule Sup_least)
-    apply clarsimp
-    supply [refine_mono] = monadic_list_ex_mono monadic_list_ex_RETURN_mono
+    apply (clarsimp simp: PRINT_CHECK_def)
+    supply [refine_mono] = monadic_list_ex_mono monadic_list_ex_RETURN_mono less_eq_Sup
     apply refine_mono
-    apply (simp add: PRINT_CHECK_def)
+    apply (auto intro: monadic_list_ex_RETURN_mono)
     done
-  subgoal
-    by (auto dest: M_listD)
   done
 
 lemma check_all'_refine:
@@ -500,7 +499,7 @@ proof -
     have "check_invariant' L_part M \<le> RETURN (check_invariant_spec_pre L_part)"
       using full_split[of L'] that assms by - (rule check_invariant'_correct_pre, auto)
     then show ?thesis
-      using Orderings.order.trans nres_order_simps(20) by metis
+      using preorder_class.order.trans by fastforce
   qed
   then have "list_all (\<lambda>x. RETURN True \<le> check_invariant' x M) (splitter L')
     \<longrightarrow> list_all (\<lambda>xs. check_invariant_spec_pre xs) (splitter L')"

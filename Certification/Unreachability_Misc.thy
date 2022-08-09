@@ -134,6 +134,31 @@ lemma bind_RES_gt_SUCCEED_I:
   shows "do {x \<leftarrow> RES S; f x} > SUCCEED"
   by (metis RES_bind_choose assms(1) assms(2) le_less preorder_class.less_le_not_le set_notEmptyE)
 
+lemma RETURN_eqI:
+  fixes m
+  assumes "m \<le> RETURN r" "m > SUCCEED"
+  shows "m = RETURN r"
+  using assms
+  unfolding RETURN_def
+  by (cases m) auto
+
+lemma bind_gt_SUCCEED_I:
+  assumes "m \<le> SPEC \<Phi>" "m > SUCCEED" "\<And>s. \<Phi> s \<Longrightarrow> f s > SUCCEED"
+  shows "do {x \<leftarrow> m; f x} > SUCCEED"
+  by (metis assms bot.not_eq_extremum inres_simps(2) leD mem_Collect_eq
+        nofail_simps(2) pw_bind_le_iff pw_ords_iff(1))
+
+lemma bind_gt_SUCCEED_I':
+  assumes "l \<le> RETURN r" "m \<le> SPEC \<Phi>" "\<And>s. \<Phi> s \<Longrightarrow> f s \<le> RETURN r" "m > SUCCEED"
+    "\<And>s. \<Phi> s \<Longrightarrow> f s > SUCCEED"
+  shows "l \<le> do {x \<leftarrow> m; f x}"
+  apply (rule ord_class.ord_le_eq_trans[rotated], rule HOL.sym, rule RETURN_eqI)
+  using assms by (auto simp: pw_bind_le_iff refine_pw_simps pw_ords_iff intro: bind_gt_SUCCEED_I)
+
+
+named_theorems succeed_rules
+
+lemmas [succeed_rules] = bind_RES_gt_SUCCEED_I SUCCEED_lt_RETURN
 
 paragraph \<open>Monadic \<open>list_all\<close> and \<open>list_ex\<close>\<close>
 
@@ -184,7 +209,7 @@ lemma monadic_list_all_fail_monadic_list_all_fail':
     apply auto
   done
 
-lemma monadic_list_all_rule:
+lemma monadic_list_all_rule [unfolded list_all_iff]:
   assumes "\<And>x. Pi x \<le> SPEC (\<lambda>r. r = P x)"
   shows "monadic_list_all Pi xs \<le> SPEC (\<lambda>r. r \<longleftrightarrow> list_all P xs)"
   using assms unfolding monadic_list_all_def
@@ -193,7 +218,7 @@ lemma monadic_list_all_rule:
 definition
   "monadic_list_ex P xs \<equiv> nfoldli xs Not (\<lambda>x _. P x) False"
 
-lemma monadic_list_ex_rule:
+lemma monadic_list_ex_rule [unfolded list_ex_iff]:
   assumes "\<And>x. Pi x \<le> SPEC (\<lambda>r. r = P x)"
   shows "monadic_list_ex Pi xs \<le> SPEC (\<lambda>r. r \<longleftrightarrow> list_ex P xs)"
   using assms unfolding monadic_list_ex_def
@@ -264,11 +289,11 @@ proof (induction xs arbitrary: a)
     by (cases "g x"; force intro: bind_RES_gt_SUCCEED_I simp: monadic_list_all_def)
 qed simp
 
-lemma monadic_list_all_gt_SUCCEED:
+lemma monadic_list_all_gt_SUCCEED [succeed_rules]:
   "monadic_list_all g xs > SUCCEED"
   using nfoldli_gt_SUCCEED unfolding monadic_list_all_def .
 
-lemma monadic_list_ex_gt_SUCCEED:
+lemma monadic_list_ex_gt_SUCCEED [succeed_rules]:
   "monadic_list_ex g xs > SUCCEED"
   using nfoldli_gt_SUCCEED unfolding monadic_list_ex_def .
 
@@ -318,6 +343,8 @@ qed
 
 paragraph \<open>Abstract \<open>nres\<close> algorithm\<close>
 
+text \<open>We introduce some locales that correspond to the ones we have already have
+for simulation graphs, but without requiring an order to facilitate reuse.\<close>
 locale Paired_Graph =
   fixes E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"
 
@@ -329,6 +356,23 @@ locale Paired_Graph_Set =
     and L :: "'l set"
 
 sublocale Reachability_Invariant_paired_defs \<subseteq> Paired_Graph_Set .
+
+locale Paired_Graph_Invariant =
+  Paired_Graph where E = E
+    for E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"+
+  fixes P :: "('l \<times> 's) \<Rightarrow> bool"
+
+sublocale Unreachability_Invariant_paired_pre_defs \<subseteq> Paired_Graph_Invariant .
+
+locale Paired_Graph_Set_Invariant =
+  Paired_Graph_Invariant where E = E and P = P +
+  Paired_Graph_Set where E = E and M = M and L = L
+    for E :: "('l \<times> 's) \<Rightarrow> ('l \<times> 's) \<Rightarrow> bool"
+    and M :: "'l \<Rightarrow> 's set"
+    and L :: "'l set"
+    and P :: "('l \<times> 's) \<Rightarrow> bool"
+
+sublocale Unreachability_Invariant_paired_defs \<subseteq> Paired_Graph_Set_Invariant .
 
 context Paired_Graph_Set
 begin
@@ -349,25 +393,36 @@ do {
 
 lemma check_prop_correct:
   "check_prop \<le> SPEC (\<lambda>r. r \<longleftrightarrow> (\<forall>l \<in> L. \<forall>s \<in> M l. P (l, s)))"
-  unfolding check_prop_def
-  by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff)
+  unfolding check_prop_def by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) auto
 
 end
 
 end
 
+locale Reachability_Impl_base_defs =
+  Paired_Graph where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes succs :: "'l \<Rightarrow> 's set \<Rightarrow> ('l \<times> 's set) list"
 
 locale Reachability_Impl_base =
-  Unreachability_Invariant_paired_pre_defs where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
-  fixes succs :: "'l \<Rightarrow> 's set \<Rightarrow> ('l \<times> 's set) list"
+  Reachability_Impl_base_defs +
+  fixes P
   assumes succs_correct:
     "\<And>l. \<forall>s \<in> xs. P (l, s)
   \<Longrightarrow> {(l', s')| l' ys s'. (l', ys) \<in> set (succs l xs) \<and> s' \<in> ys}
     = (\<Union> s \<in> xs. Collect (E (l, s)))"
 
+locale Reachability_Impl_invariant_defs =
+  Reachability_Impl_base_defs where E = E +
+  Paired_Graph_Set where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes R :: "'l \<Rightarrow> 's \<Rightarrow> 's set \<Rightarrow> bool"
+  fixes R_impl :: "'l \<Rightarrow> 's \<Rightarrow> 's set \<Rightarrow> bool nres"
+
 locale Reachability_Impl_invariant =
-  Reachability_Impl_base where E = E +
-  Unreachability_Invariant_paired_defs where E = E for E :: "'l \<times> 's \<Rightarrow> _"
+  Reachability_Impl_base +
+  Reachability_Impl_invariant_defs +
+  assumes R_impl_correct[unfolded RETURN_SPEC_conv]: "\<And>l s xs. R_impl l s xs \<le> RETURN (R l s xs)"
+
+context Reachability_Impl_invariant_defs
 begin
 
 definition "check_invariant L' \<equiv>
@@ -381,9 +436,8 @@ do {
       xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
       if xs = [] then RETURN True else do {
         b1 \<leftarrow> RETURN (l' \<in> L);
-        ys \<leftarrow> SPEC (\<lambda>xs. set xs = M l');
         b2 \<leftarrow> monadic_list_all (\<lambda>x.
-          monadic_list_ex (\<lambda>y. RETURN (x \<preceq> y)) ys
+          R_impl l' x (M l')
         ) xs;
         RETURN (b1 \<and> b2)
       }
@@ -396,16 +450,22 @@ do {
 
 definition
   "check_invariant_spec L' \<equiv>
-  \<forall>l \<in> L'. \<forall>s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s'' \<in> M l'. s' \<preceq> s'')"
+  \<forall>l \<in> L'. \<forall>s \<in> M l. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> R l' s' (M l')"
 
 definition
   "check_invariant_spec_pre L' \<equiv>
-  \<forall>l \<in> set L'. \<forall>(l',ys) \<in> set (succs l (M l)). \<forall>s' \<in> ys. l' \<in> L \<and> (\<exists>s'' \<in> M l'. s' \<preceq> s'')"
+  \<forall>l \<in> set L'. \<forall>(l',xs) \<in> set (succs l (M l)). \<^cancel>\<open>\<forall>pair \<in> set (succs l (M l)). case pair of (l',xs) \<Rightarrow>\<close>
+    (\<forall>s' \<in> xs. l' \<in> L \<and> R l' s' (M l'))"
+
+end
+
+context Reachability_Impl_invariant
+begin
 
 lemma check_invariant_correct_pre:
   "check_invariant L' \<le> RETURN (check_invariant_spec_pre L')"
   unfolding check_invariant_def check_invariant_spec_pre_def
-  by (refine_vcg monadic_list_all_rule monadic_list_ex_rule) (auto simp: list_all_iff list_ex_iff)
+  by (refine_vcg monadic_list_all_rule R_impl_correct) auto
 
 context
   fixes L'
@@ -415,30 +475,10 @@ begin
 lemma check_invariant_spec_pre_eq_check_invariant_spec:
   "check_invariant_spec_pre L' = check_invariant_spec (set L')"
 proof -
-  have *: "(\<forall> (l',ys) \<in> set (succs l xs). \<forall> s' \<in> ys. l' \<in> L \<and> (\<exists> s'' \<in> M l'. s' \<preceq> s'')) =
-       (\<forall>s\<in>M l.
-           \<forall>l' s'.
-              E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> (\<exists>s''\<in>M l'. s' \<preceq> s''))"
-    if "xs = M l" "l \<in> L"
-     for l xs
-    using succs_correct[of xs l] pre(1) that
-    apply clarsimp
-    apply safe
-       apply clarsimp_all
-       apply fastforce
-      apply fastforce
-    (* or: apply force *)
-    subgoal premises prems for a b s'
-    proof -
-      from prems have "\<forall>s\<in>xs. P (l, s)"
-        by auto
-      from succs_correct[OF this] prems(3,6,7) obtain s where "s \<in> M l" "E (l, s) (a, s')"
-        by fastforce
-      with prems show ?thesis
-        by auto
-    qed
-    apply fastforce
-    done
+  have *: "(\<forall>x\<in>set (succs l xs). case x of (l', xs) \<Rightarrow> \<forall>s'\<in>xs. l' \<in> L \<and> R l' s' (M l')) =
+           (\<forall>s\<in>xs. \<forall>l' s'. E (l, s) (l', s') \<longrightarrow> l' \<in> L \<and> R l' s' (M l'))"
+    if "xs = M l" "l \<in> L" for l xs
+    using succs_correct[of xs l] pre(1) that by fastforce
   then show ?thesis
     unfolding check_invariant_spec_def check_invariant_spec_pre_def
     by (simp add: * pre(2)[THEN subsetD])
@@ -458,32 +498,23 @@ end
 end (* Reachability Impl Invariant *)
 
 
-locale Reachability_Impl_base2 =
-  Reachability_Impl_base where E = E +
-  Unreachability_Invariant_paired_pre_defs where E = E
+locale Reachability_Problem_defs =
+  Reachability_Impl_invariant_defs where E = E
   for E :: "'l \<times> 's \<Rightarrow> _" +
-  fixes P' and F
-  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
-  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
+  fixes P' F :: "'l \<times> 's \<Rightarrow> bool"
 
-
-\<^cancel>\<open>locale Reachability_Impl_base2 =
-  Reachability_Impl_base where E = E +
-  Unreachability_Invariant_paired_pre where E = E
-  for E :: "'l \<times> 's \<Rightarrow> _" +
-  fixes P' and F
-  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
-  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"\<close>
-
-\<^cancel>\<open>locale Reachability_Impl_pre =
-  Reachability_Impl_invariant where E = E +
-  Reachability_Impl_base2 where E = E for E :: "'l \<times> 's \<Rightarrow> _"
-begin\<close>
-
-locale Reachability_Impl_pre =
-  Reachability_Impl_invariant where E = E +
-  Reachability_Impl_base2 where E = E for E :: "'l \<times> 's \<Rightarrow> _"
+locale Reachability_Problem_no_subsumption_defs =
+  fixes succs :: "'l \<Rightarrow> 's set \<Rightarrow> ('l \<times> 's set) list"
+    and M :: "'l \<Rightarrow> 's set"
+    and L :: "'l set"
+    and E :: "'l \<times> 's \<Rightarrow> 'l \<times> 's \<Rightarrow> bool"
+    and P' :: "'l \<times> 's \<Rightarrow> bool"
+    and F :: "'l \<times> 's \<Rightarrow> bool"
 begin
+
+sublocale Reachability_Impl_base_defs .
+
+sublocale Paired_Graph_Set .
 
 definition
   "check_final \<equiv> do {
@@ -503,19 +534,24 @@ definition
 
 lemma check_final_correct:
   "check_final \<le> SPEC (\<lambda>r. r \<longleftrightarrow> check_final_spec)"
-  unfolding check_final_def check_final_spec_def
-  by (refine_vcg monadic_list_all_rule) (auto simp: list_all_iff list_ex_iff)
+  unfolding check_final_def check_final_spec_def by (refine_vcg monadic_list_all_rule) auto
 
 lemma check_final_nofail:
   "nofail check_final"
   by (metis check_final_correct nofail_simps(2) pwD1)
 
+end
+
+context Reachability_Problem_defs
+begin
+
+sublocale Reachability_Problem_no_subsumption_defs .
+
 definition
   "check_init l\<^sub>0 s\<^sub>0 \<equiv> do {
   b1 \<leftarrow> RETURN (l\<^sub>0 \<in> L);
   b2 \<leftarrow> RETURN (P' (l\<^sub>0, s\<^sub>0));
-  xs \<leftarrow> SPEC (\<lambda>xs. set xs = M l\<^sub>0);
-  b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (s\<^sub>0 \<preceq> s)) xs;
+  b3 \<leftarrow> R_impl l\<^sub>0 s\<^sub>0 (M l\<^sub>0);
   RETURN (b1 \<and> b2 \<and> b3)
   }"
 
@@ -530,36 +566,54 @@ lemma check_all_pre_def:
   "check_all_pre l\<^sub>0 s\<^sub>0 = do {
   b1 \<leftarrow> RETURN (l\<^sub>0 \<in> L);
   b2 \<leftarrow> RETURN (P' (l\<^sub>0, s\<^sub>0));
-  xs \<leftarrow> SPEC (\<lambda>xs. set xs = M l\<^sub>0);
-  b3 \<leftarrow> monadic_list_ex (\<lambda>s. RETURN (s\<^sub>0 \<preceq> s)) xs;
+  b3 \<leftarrow> R_impl l\<^sub>0 s\<^sub>0 (M l\<^sub>0);
   b4 \<leftarrow> check_prop P';
   RETURN (b1 \<and> b2 \<and> b3 \<and> b4)
   }"
   unfolding check_all_pre_alt_def check_init_def by simp
 
 definition
-  "check_init_spec l\<^sub>0 s\<^sub>0 \<equiv> l\<^sub>0 \<in> L \<and> (\<exists> s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s') \<and> P' (l\<^sub>0, s\<^sub>0)"
+  "check_init_spec l\<^sub>0 s\<^sub>0 \<equiv> l\<^sub>0 \<in> L \<and> (R l\<^sub>0 s\<^sub>0 (M l\<^sub>0)) \<and> P' (l\<^sub>0, s\<^sub>0)"
 
 definition
   "check_all_pre_spec l\<^sub>0 s\<^sub>0 \<equiv>
-  (\<forall>l \<in> L. \<forall>s \<in> M l. P' (l, s)) \<and> l\<^sub>0 \<in> L \<and> (\<exists> s' \<in> M l\<^sub>0. s\<^sub>0 \<preceq> s') \<and> P' (l\<^sub>0, s\<^sub>0)"
+  (\<forall>l \<in> L. \<forall>s \<in> M l. P' (l, s)) \<and> l\<^sub>0 \<in> L \<and> (R l\<^sub>0 s\<^sub>0 (M l\<^sub>0)) \<and> P' (l\<^sub>0, s\<^sub>0)"
+
+end
+
+locale Reachability_Problem_Start_defs =
+  Reachability_Problem_defs where E = E
+  for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
+
+locale Reachability_Impl_defs =
+  Reachability_Impl_invariant_defs +
+  Reachability_Problem_Start_defs
+
+locale Reachability_Impl_New =
+  Reachability_Problem_defs +
+  Reachability_Impl_invariant
+
+locale Reachability_Impl_New_start =
+  Reachability_Impl_defs +
+  Reachability_Impl_New
+
+context Reachability_Impl_New
+begin
 
 lemma check_all_pre_correct:
   "check_all_pre l\<^sub>0 s\<^sub>0 \<le> RETURN (check_all_pre_spec l\<^sub>0 s\<^sub>0)"
   unfolding check_all_pre_def check_all_pre_spec_def
-  by (refine_vcg check_prop_correct monadic_list_ex_rule; standard; auto simp: list_ex_iff)
+  by (refine_vcg check_prop_correct R_impl_correct; auto simp: list_ex_iff)
 
 lemma check_init_correct:
   "check_init l\<^sub>0 s\<^sub>0 \<le> RETURN (check_init_spec l\<^sub>0 s\<^sub>0)"
   unfolding check_init_def check_init_spec_def
-  by (refine_vcg monadic_list_ex_rule; standard; auto simp: list_ex_iff)
+  by (refine_vcg R_impl_correct; auto simp: list_ex_iff)
 
 end
 
-
-locale Reachability_Impl_pre_start =
-  Reachability_Impl_pre where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
-  fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
+context Reachability_Impl_defs
 begin
 
 definition
@@ -587,7 +641,13 @@ lemma certify_unreachable_alt_def:
   apply (fo_rule arg_cong2, auto)
   apply (rule ext)
   apply auto
-  by (metis RETURN_rule Refine_Basic.bind_mono(1) dual_order.eq_iff let_to_bind_conv lhs_step_bind nofail_simps(2))
+  by (metis RETURN_rule Refine_Basic.bind_mono(1) dual_order.eq_iff
+      let_to_bind_conv lhs_step_bind nofail_simps(2))
+
+end
+
+context Reachability_Impl_New_start
+begin
 
 definition
   "check_all_spec \<equiv> check_all_pre_spec l\<^sub>0 s\<^sub>0 \<and> check_invariant_spec L"
@@ -595,11 +655,57 @@ definition
 lemma check_all_correct:
   "check_all \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec)"
   unfolding check_all_def check_all_spec_def check_all_pre_def check_all_pre_spec_def
-  by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule)
-     (auto simp: list_ex_iff dest: P'_P)
+  by (refine_vcg check_prop_correct check_invariant_correct monadic_list_ex_rule R_impl_correct)
+     auto
 
 end
 
+locale Reachability_Impl_correct_base =
+  Reachability_Impl_base where E = E +
+  Reachability_Impl_base_defs where E = E
+    for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes P' F :: "'l \<times> 's \<Rightarrow> bool"
+  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
+
+locale Reachability_Impl_base2 =
+  Reachability_Impl_base where E = E +
+  Unreachability_Invariant_paired_pre_defs where E = E
+  for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes P' and F
+  assumes P'_P: "\<And> l s. P' (l, s) \<Longrightarrow> P (l, s)"
+  assumes F_mono: "\<And>a b. P a \<Longrightarrow> F a \<Longrightarrow> (\<lambda>(l, s) (l', s'). l' = l \<and> s \<preceq> s') a b \<Longrightarrow> P b \<Longrightarrow> F b"
+
+locale Reachability_Impl_pre =
+  Reachability_Impl_base where E = E +
+  Reachability_Impl_base2 where E = E +
+  Paired_Graph_Set where E = E for E :: "'l \<times> 's \<Rightarrow> _"
+begin
+
+sublocale Reachability_Impl_New
+  where R = "\<lambda>l s xs. Bex xs (\<lambda>s'. s \<preceq> s')"
+    and R_impl =
+      "\<lambda>l s xs. do {xs \<leftarrow> SPEC (\<lambda>ys. set ys = xs); monadic_list_ex (\<lambda>s'. RETURN (s \<preceq> s')) xs}"
+  by standard (refine_vcg monadic_list_ex_rule, auto)
+
+end
+
+
+locale Reachability_Impl_pre_start =
+  Reachability_Impl_pre where E = E for E :: "'l \<times> 's \<Rightarrow> _" +
+  fixes l\<^sub>0 :: 'l and s\<^sub>0 :: 's
+begin
+
+sublocale Reachability_Impl_New_start
+  where R = "\<lambda>l s xs. Bex xs (\<lambda>s'. s \<preceq> s')"
+    and R_impl =
+      "\<lambda>l s xs. do {xs \<leftarrow> SPEC (\<lambda>ys. set ys = xs); monadic_list_ex (\<lambda>s'. RETURN (s \<preceq> s')) xs}"
+  ..
+
+end
+
+lemma (in Reachability_Impl_New_start) certify_unreachable_correct:
+  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec \<and> check_final_spec)"
+  unfolding certify_unreachable_def by (refine_vcg check_all_correct check_final_correct; fast)
 
 locale Reachability_Impl_correct =
   Reachability_Impl_pre_start where E = E +
@@ -622,13 +728,55 @@ lemma certify_unreachableI:
   by (rule impI Unreachability_Invariant_paired.final_unreachable Unreachability_Invariant_pairedI)+
      (auto intro: F_mono simp: check_final_spec_def)
 
-lemma certify_unreachable_correct:
-  "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> check_all_spec \<and> check_final_spec)"
-  unfolding certify_unreachable_def by (refine_vcg check_all_correct check_final_correct; fast)
-
 lemma certify_unreachable_correct':
   "certify_unreachable \<le> SPEC (\<lambda>r. r \<longrightarrow> (\<nexists>s'. E\<^sup>*\<^sup>* (l\<^sub>0, s\<^sub>0) s' \<and> F s'))"
   by (refine_vcg certify_unreachableI[rule_format] certify_unreachable_correct; fast)
+
+definition "check_invariant0 L' \<equiv>
+do {
+  monadic_list_all (\<lambda>l.
+  do {
+    let as = M l;
+    let succs = succs l as;
+    monadic_list_all (\<lambda>(l', xs).
+    do {
+      xs \<leftarrow> SPEC (\<lambda>xs'. set xs' = xs);
+      if xs = [] then RETURN True else do {
+        b1 \<leftarrow> RETURN (l' \<in> L);
+        ys \<leftarrow> SPEC (\<lambda>xs. set xs = M l');
+        b2 \<leftarrow> monadic_list_all (\<lambda>x.
+          monadic_list_ex (\<lambda>y. RETURN (x \<preceq> y)) ys
+        ) xs;
+        RETURN (b1 \<and> b2)
+      }
+    }
+    ) succs
+  }
+  ) L'
+}
+"
+
+lemma check_invariant0_refine:
+  "check_invariant0 L' \<le> check_invariant L'"
+  unfolding check_invariant0_def check_invariant_def
+  unfolding PR_CONST_def Let_def
+  apply refine_mono
+  apply (rule ballI)
+  apply refine_mono
+  apply clarsimp
+  subgoal for l _ l'
+    apply refine_mono
+    apply (rule specify_left)
+     apply refine_mono
+    subgoal for xs1 in_L xs2
+      apply (rule bind_gt_SUCCEED_I'[where r = "in_L \<and> (\<forall>x \<in> set xs1. \<exists>y \<in> set xs2. x \<preceq> y)"])
+          apply (refine_vcg monadic_list_all_rule monadic_list_ex_rule)
+           apply auto
+       apply (refine_vcg monadic_list_all_rule monadic_list_ex_rule)
+         apply (auto intro: succeed_rules)
+      done
+    done
+  done
 
 end
 
@@ -682,17 +830,17 @@ proof -
     (\<forall>l \<in> set L'. \<forall>(s, i) \<in> M l. \<forall>(l',ys) \<in> set (succs l {s}). (\<forall>s' \<in> ys. l' \<in> L \<and>
       (\<exists>(s'', j) \<in> M l'. R l l' i j s s' s''))))"
     unfolding check_invariant_buechi_def
-    apply (rule monadic_list_all_rule[unfolded list_all_iff])
+    apply (rule monadic_list_all_rule)
     apply refine_vcg
     subgoal for l xs
-      apply (refine_vcg monadic_list_all_rule[unfolded list_all_iff, where P = "?P l"])
+      apply (refine_vcg monadic_list_all_rule[where P = "?P l"])
       subgoal for _ s i
-        apply (refine_vcg monadic_list_all_rule[unfolded list_all_iff, where P = "?Q l s i"])
+        apply (refine_vcg monadic_list_all_rule[where P = "?Q l s i"])
           apply (auto; fail)
         subgoal for _ l'
-          apply (refine_vcg monadic_list_all_rule[unfolded list_all_iff, where P = "?R l s i l'"])
+          apply (refine_vcg monadic_list_all_rule[where P = "?R l s i l'"])
           subgoal for s'
-            apply (refine_vcg monadic_list_ex_rule[unfolded list_ex_iff])
+            apply (refine_vcg monadic_list_ex_rule)
             by auto
           by auto
         by auto
@@ -704,7 +852,6 @@ proof -
 qed
 
 end
-
 
 locale Buechi_Impl_pre =
   Buechi_Impl_invariant where M = M +
@@ -890,32 +1037,10 @@ qed
 
 end (* Buechi Impl pre *)
 
-
-locale Reachability_Impl_common =
-  Reachability_Impl_pre where less_eq = less_eq and M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
-  for less_eq :: "'b \<Rightarrow> 'b \<Rightarrow> bool" (infix "\<preceq>" 50) and M :: "'k \<Rightarrow> 'b set option" +
-  assumes L_finite: "finite L"
-      and M_ran_finite: "\<forall>S \<in> ran M. finite S"
-      and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
-      and succs_empty: "\<And>l. succs l {} = []"
-      (* This could be weakened to state that \<open>succs l {}\<close> only contains empty sets *)
+locale Reachability_Impl_common_defs =
+  Reachability_Problem_no_subsumption_defs where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  for M :: "'k \<Rightarrow> 'b set option"
 begin
-
-lemma M_listD:
-  assumes "M l = Some S"
-  shows "\<exists> xs. set xs = S"
-  using M_ran_finite assms unfolding ran_def by (auto intro: finite_list)
-
-lemma L_listD:
-  shows "\<exists> xs. set xs = L"
-  using L_finite by (rule finite_list)
-
-lemma check_prop_gt_SUCCEED:
-  "check_prop P' > SUCCEED"
-  unfolding check_prop_def using L_listD
-  by (fastforce split: option.split dest: M_listD
-        intro: monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I
-     )
 
 definition
   "check_final' L' M' = do {
@@ -978,12 +1103,42 @@ lemma check_prop'_alt_def:
 
 end
 
+locale Reachability_Impl_common =
+  Reachability_Impl_common_defs +
+  assumes L_finite: "finite L"
+      and M_ran_finite: "\<forall>S \<in> ran M. finite S"
+      and succs_finite: "\<forall>l S. \<forall>(l', S') \<in> set (succs l S). finite S \<longrightarrow> finite S'"
+      and succs_empty: "\<And>l. succs l {} = []"
+      \<comment> \<open>NB: This could be weakened to state that \<open>succs l {}\<close> only contains empty sets\<close>
+begin
 
-locale Certification_Impl_base = Reachability_Impl_base2 where less = less
-  for less :: "'s \<Rightarrow> 's \<Rightarrow> bool" (infix "\<prec>" 50) +
+\<comment> \<open>Note that these three lemmas do not use @{thm succs_finite} and @{thm succs_empty}.\<close>
+
+lemma M_listD:
+  assumes "M l = Some S"
+  shows "\<exists> xs. set xs = S"
+  using M_ran_finite assms unfolding ran_def by (auto intro: finite_list)
+
+lemma L_listD:
+  shows "\<exists> xs. set xs = L"
+  using L_finite by (rule finite_list)
+
+lemma check_prop_gt_SUCCEED:
+  "check_prop P' > SUCCEED"
+  unfolding check_prop_def using L_listD
+  by (fastforce split: option.split dest: M_listD
+        intro: monadic_list_all_gt_SUCCEED bind_RES_gt_SUCCEED_I
+     )
+
+end
+
+
+locale Certification_Impl_correct_base =
+  Reachability_Impl_correct_base where E = E
+    for E :: "'k \<times> 's \<Rightarrow> _" +
   fixes A :: "'s \<Rightarrow> ('si :: heap) \<Rightarrow> assn"
     and K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn"
-    and Fi and keyi and Pi and copyi and Lei and succsi
+    and Fi and keyi and Pi and copyi \<^cancel>\<open>and Lei\<close> and succsi
   assumes [sepref_fr_rules]: "(keyi,RETURN o PR_CONST fst) \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a K"
   assumes copyi[sepref_fr_rules]: "(copyi, RETURN o COPY) \<in> A\<^sup>k \<rightarrow>\<^sub>a A"
   assumes Pi_P'[sepref_fr_rules]: "(Pi,RETURN o PR_CONST P') \<in> (prod_assn K A)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -991,23 +1146,30 @@ locale Certification_Impl_base = Reachability_Impl_base2 where less = less
   assumes succsi[sepref_fr_rules]:
     "(uncurry succsi,uncurry (RETURN oo PR_CONST succs))
     \<in> K\<^sup>k *\<^sub>a (lso_assn A)\<^sup>d \<rightarrow>\<^sub>a list_assn (K \<times>\<^sub>a lso_assn A)"
-  assumes Lei[sepref_fr_rules]:
-    "(uncurry Lei,uncurry (RETURN oo PR_CONST less_eq)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
   assumes pure_K: "is_pure K"
   assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
   assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
 
-locale Reachability_Impl =
+locale Certification_Impl =
   Reachability_Impl_common where M = M +
-  Certification_Impl_base where K = K and A = A +
-  Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  Certification_Impl_correct_base where K = K and A = A
   for M :: "'k \<Rightarrow> 'a set option"
   and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn" and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn" +
-  fixes l\<^sub>0i :: "'ki Heap" and s\<^sub>0i :: "'ai Heap"
+  fixes l\<^sub>0 :: 'k and s\<^sub>0 :: 'a fixes l\<^sub>0i :: "'ki Heap" and s\<^sub>0i :: "'ai Heap"
   assumes l\<^sub>0i_l\<^sub>0[sepref_fr_rules]:
     "(uncurry0 l\<^sub>0i, uncurry0 (RETURN (PR_CONST l\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a K"
   assumes s\<^sub>0i_s\<^sub>0[sepref_fr_rules]:
     "(uncurry0 s\<^sub>0i, uncurry0 (RETURN (PR_CONST s\<^sub>0))) \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a A"
+
+locale Reachability_Impl =
+  Certification_Impl where M = M and K = K and A = A +
+  Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+    for M :: "'k \<Rightarrow> 'a set option"
+    and K :: "'k \<Rightarrow> 'ki :: {hashable,heap} \<Rightarrow> assn"
+    and A :: "'a \<Rightarrow> 'ai :: heap \<Rightarrow> assn" +
+  fixes Lei
+  assumes Lei[sepref_fr_rules]:
+    "(uncurry Lei,uncurry (RETURN oo PR_CONST less_eq)) \<in> A\<^sup>k *\<^sub>a A\<^sup>k \<rightarrow>\<^sub>a bool_assn"
 
 
 

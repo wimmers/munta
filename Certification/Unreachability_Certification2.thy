@@ -109,7 +109,7 @@ lemma list_all_default_split:
 
 
 locale Reachability_Impl_pure_base =
-  Reachability_Impl_base where less_eq = less_eq
+  Reachability_Impl_base2 where less_eq = less_eq
   for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) +
   fixes get_succs and K and A and L and Li and lei
     and Li_split :: "'ki list list"
@@ -151,8 +151,7 @@ locale Reachability_Impl_pure_invariant =
   for M :: "'k \<Rightarrow> 'a set" and Li_split :: "'ki list list"
 
 locale Reachability_Impl_pure_base2 =
-  Reachability_Impl_pure_base where less_eq = less_eq and Li_split = Li_split +
-  Reachability_Impl_base2 where less_eq = less_eq
+  Reachability_Impl_pure_base where less_eq = less_eq and Li_split = Li_split
   for less_eq :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<preceq>" 50) and Li_split :: "'ki list list" +
   fixes Pi and Fi
   assumes Pi_P'[refine,param]: "(Pi, P') \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
@@ -167,11 +166,10 @@ locale Reachability_Impl_pure_base2 =
   assumes Pi_P'[refine,param]: "(Pi, P') \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"
   assumes Fi_F[refine]: "(Fi, F) \<in> K \<times>\<^sub>r A \<rightarrow> bool_rel"\<close>
 
-
 locale Reachability_Impl_pure =
   Reachability_Impl_common where M = M +
   Reachability_Impl_pure_base2 +
-  Reachability_Impl_pre_start where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
+  Reachability_Impl_correct where M = "\<lambda>x. case M x of None \<Rightarrow> {} | Some S \<Rightarrow> S"
   for M :: "'k \<Rightarrow> 'a set option" +
   fixes Mi l\<^sub>0i s\<^sub>0i
   assumes Mi_M[param]: "(Mi, M) \<in> K \<rightarrow> \<langle>\<langle>A\<rangle>list_set_rel\<rangle>option_rel"
@@ -214,10 +212,10 @@ proof -
     by auto
 qed
 
-lemma check_invariant1_refine[refine]:
-  "check_invariant1 L1 \<le> check_invariant L'"
-  if "(L1, L') \<in> \<langle>K\<rangle>list_rel" "L = dom M" "set L' \<subseteq> L"
-  unfolding check_invariant1_def check_invariant_def Let_def monadic_list_all_split_def
+lemma check_invariant1_0_refine:
+  "check_invariant1 L1 \<le> check_invariant0 L'"
+  if "(L1, L') \<in> \<langle>K\<rangle>list_rel" "L = dom M" \<^cancel>\<open>"set L' \<subseteq> L"\<close>
+  unfolding check_invariant1_def check_invariant0_def Let_def monadic_list_all_split_def
   apply (refine_rcg monadic_list_all_mono' refine_IdI that)
   apply (clarsimp split: option.splits simp: succs_empty; safe)
    apply (simp flip: Mi_M_None_iff; fail)
@@ -252,6 +250,12 @@ lemma check_invariant1_refine[refine]:
       done
   qed
   done
+
+lemma check_invariant1_refine[refine]:
+  "check_invariant1 L1 \<le> check_invariant L'"
+  if "(L1, L') \<in> \<langle>K\<rangle>list_rel" "L = dom M" \<^cancel>\<open>"set L' \<subseteq> L"\<close>
+  using check_invariant1_0_refine[OF that] check_invariant0_refine
+  by (rule preorder_class.order.trans)
 
 definition check_prop1 where
   "check_prop1 L' M' = do {
@@ -814,7 +818,7 @@ proof -
   note [refine_mono] = case_prod_mono monadic_list_all_mono'
     (* NB: if the rhs is phrased with RETURN, refine_vcg will fail *)
   have [refine]: "monadic_list_all (\<lambda>(l\<^sub>0, s\<^sub>0). check_init1 l\<^sub>0 s\<^sub>0) initsi
-    \<le> SPEC (\<lambda>r. r = list_all (\<lambda>(l\<^sub>0, s\<^sub>0). reachability.check_init_spec l\<^sub>0 s\<^sub>0) inits')"
+    \<le> SPEC (\<lambda>r. r = (\<forall>(l\<^sub>0, s\<^sub>0) \<in> set inits'. reachability.check_init_spec l\<^sub>0 s\<^sub>0))"
     by (rule Orderings.order.trans, refine_mono) (refine_vcg monadic_list_all_rule; auto)
   note check_prop1_refine[THEN fun_relD, THEN fun_relD, THEN nres_relD, THEN refine_IdD,
       OF Li_L Mi_M, unfolded check_prop_alt_def[OF \<open>L =  _\<close>]]
@@ -954,8 +958,12 @@ theorem certify_no_buechi_run_impl_pure_correct:
 
 end (* Reachability_Impl_pure *)
 
+\<comment> \<open>Note: no implementation of ordering.\<close>
+locale Reachability_Impl_imp_base =
+  Reachability_Impl_base2 +
+  Certification_Impl_correct_base
 
-locale Reachability_Impl_imp_to_pure_base = Certification_Impl_base
+locale Reachability_Impl_imp_to_pure_base = Reachability_Impl_imp_base
   where K = K and A = A
   for K :: "'k \<Rightarrow> ('ki :: {hashable,heap}) \<Rightarrow> assn" and A :: "'s \<Rightarrow> ('si :: heap) \<Rightarrow> assn"
   +
