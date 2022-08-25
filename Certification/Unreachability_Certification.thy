@@ -8,55 +8,6 @@ theory Unreachability_Certification
     Unreachability_Common
 begin
 
-context
-  fixes K :: "'k \<Rightarrow> ('ki :: {heap}) \<Rightarrow> assn"
-  assumes pure_K: "is_pure K"
-  assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
-  assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
-begin
-
-lemma pure_equality_impl:
-  "(uncurry (return oo (=)), uncurry (RETURN oo (=))) \<in> (K\<^sup>k *\<^sub>a K\<^sup>k) \<rightarrow>\<^sub>a bool_assn"
-proof -
-  have 1: "K = pure (the_pure K)"
-    using pure_K by auto
-  have [dest]: "a = b" if "(bi, b) \<in> the_pure K" "(bi, a) \<in> the_pure K" for bi a b
-    using that right_unique_K by (elim single_valuedD) auto
-  have [dest]: "a = b" if "(a, bi) \<in> the_pure K" "(b, bi) \<in> the_pure K" for bi a b
-    using that left_unique_K unfolding IS_LEFT_UNIQUE_def by (elim single_valuedD) auto
-  show ?thesis
-    by (subst 1, subst (2) 1, sepref_to_hoare, sep_auto)
-qed
-
-definition
-  "is_member x L \<equiv> do {
-    xs \<leftarrow> SPEC (\<lambda>xs. set xs = L);
-    monadic_list_ex (\<lambda>y. RETURN (y = x)) xs
-  }"
-
-lemma is_member_refine:
-  "is_member x L \<le> mop_set_member x L"
-  unfolding mop_set_member_alt is_member_def by (refine_vcg monadic_list_ex_rule) auto
-
-lemma is_member_correct:
-  "(uncurry is_member, uncurry (RETURN \<circ>\<circ> op_set_member)) \<in> Id \<times>\<^sub>r Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
-  using is_member_refine by (force simp: pw_le_iff pw_nres_rel_iff)
-
-lemmas [sepref_fr_rules] = lso_id_hnr
-
-sepref_definition is_member_impl is
-  "uncurry is_member" :: "K\<^sup>k *\<^sub>a (lso_assn K)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
-  supply [sepref_fr_rules] = pure_equality_impl
-  supply [safe_constraint_rules] = pure_K left_unique_K right_unique_K
-  unfolding is_member_def monadic_list_ex_def list_of_set_def[symmetric] by sepref
-
-lemmas op_set_member_lso_hnr = is_member_impl.refine[FCOMP is_member_correct]
-
-end
-
-
-
-
 paragraph \<open>Concrete Implementations\<close>
 
 context Reachability_Impl

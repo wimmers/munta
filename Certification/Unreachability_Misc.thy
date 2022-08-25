@@ -8,7 +8,7 @@ begin
 
 paragraph \<open>Misc\<close>
 
-theorem (in -) arg_max_nat_lemma2:
+theorem arg_max_nat_lemma2:
   fixes f :: "'a \<Rightarrow> nat"
   assumes "P k"
     and "finite (Collect P)"
@@ -19,6 +19,54 @@ proof -
     by (auto intro: Max_ge le_imp_less_Suc)
   with assms(1) show ?thesis
     by (rule arg_max_nat_lemma)
+qed
+
+lemma list_all_split:
+  assumes "set xs = (\<Union>xs \<in> set split. set xs)"
+  shows "list_all P xs = list_all id (map (list_all P) split)"
+  unfolding list_all_iff using assms by auto
+
+lemma list_all_default_split:
+  "list_all P xs = list_all id (map P xs)"
+  unfolding list_all_iff by auto
+
+lemma pred_stream_stream_all2_combine:
+  assumes "pred_stream P xs" "stream_all2 Q xs ys" "\<And>x y. P x \<Longrightarrow> Q x y \<Longrightarrow> R x y"
+  shows "stream_all2 R xs ys"
+  using assms by (auto intro: stream_all2_combine simp: stream.pred_rel eq_onp_def)
+
+lemma stream_all2_pred_stream_combine:
+  assumes "stream_all2 Q xs ys" "pred_stream P ys" "\<And>x y. Q x y \<Longrightarrow> P y \<Longrightarrow> R x y"
+  shows "stream_all2 R xs ys"
+  using assms by (auto intro: stream_all2_combine simp: stream.pred_rel eq_onp_def)
+
+paragraph \<open>Misc transition systems\<close>
+
+lemma (in Graph_Defs) run_first_reaches:
+  "pred_stream (reaches x) xs" if "run (x ## xs)"
+proof -
+  from that obtain a where "run (a ## xs)" "reaches x a"
+    by auto
+  then show ?thesis
+    by (coinduction arbitrary: a xs rule: stream_pred_coinduct) (auto 4 3 elim: run.cases)
+qed
+
+lemma (in Graph_Start_Defs) run_reachable:
+  "pred_stream reachable xs" if "run (s\<^sub>0 ## xs)"
+  using run_first_reaches[OF that] unfolding reachable_def .
+
+lemma Simulation_Composition:
+  fixes A B C
+  assumes
+    "Simulation A B sim1" "Simulation B C sim2" "\<And>a c. (\<exists> b. sim1 a b \<and> sim2 b c) \<longleftrightarrow> sim a c"
+  shows "Simulation A C sim"
+proof -
+  interpret A: Simulation A B sim1
+    by (rule assms)
+  interpret B: Simulation B C sim2
+    by (rule assms)
+  show ?thesis
+    by standard (auto dest!: B.A_B_step A.A_B_step simp: assms(3)[symmetric])
 qed
 
 paragraph \<open>Misc \<open>heap\<close>\<close>
@@ -94,6 +142,25 @@ definition
 
 
 paragraph \<open>Misc \<open>nres\<close>\<close>
+
+lemma case_prod_mono:
+  "(case x of (a, b) \<Rightarrow> f a b) \<le> (case y of (a, b) \<Rightarrow> g a b)"
+  if "(x, y) \<in> K \<times>\<^sub>r A" "\<And>ai bi a b. (ai, a) \<in> K \<Longrightarrow> (bi, b) \<in> A \<Longrightarrow> f ai bi \<le> g a b" for x y f g
+  using that unfolding prod_rel_def by auto
+
+lemma case_option_mono:
+  "(case x of None \<Rightarrow> a | Some x' \<Rightarrow> f x', case y of None \<Rightarrow> b | Some x' \<Rightarrow> g x') \<in> R"
+  if "(x, y) \<in> \<langle>S\<rangle>option_rel" "(a, b) \<in> R" "(f, g) \<in> S \<rightarrow> R"
+  by (metis fun_relD2 param_case_option' that)
+
+lemmas case_option_mono' =
+  case_option_mono[where R = "\<langle>R\<rangle>nres_rel" for R, THEN nres_relD, THEN refine_IdD]
+
+lemma bind_mono:
+  assumes "m \<le> \<Down> R m'"
+    and "\<And>x y. (x, y) \<in> R \<Longrightarrow> f x \<le> f' y"
+  shows "Refine_Basic.bind m f \<le> m' \<bind> f'"
+  using assms by (force simp: refine_pw_simps pw_le_iff)
 
 lemma no_fail_RES_bindI:
   assumes "\<And>x. x \<in> S \<Longrightarrow> nofail (f x)"
@@ -321,7 +388,7 @@ proof -
     by (simp add: monadic_list_all_RETURN)
 qed
 
-lemma monadic_list_all_mono[refine_mono]:
+lemma monadic_list_all_mono_refl[refine_mono]:
   "monadic_list_all P xs \<le> monadic_list_all Q xs" if "\<forall> x \<in> set xs. P x \<le> Q x"
 proof -
   have "nfoldli xs id (\<lambda>x _. P x) a \<le> nfoldli xs id (\<lambda>x _. Q x) a" for a
@@ -330,7 +397,7 @@ proof -
     unfolding monadic_list_all_def .
 qed
 
-lemma monadic_list_ex_mono[refine_mono]:
+lemma monadic_list_ex_mono_refl[refine_mono]:
   "monadic_list_ex P xs \<le> monadic_list_ex Q xs" if "\<forall> x \<in> set xs. P x \<le> Q x"
 proof -
   have "nfoldli xs Not (\<lambda>x _. P x) a \<le> nfoldli xs Not (\<lambda>x _. Q x) a" for a
@@ -339,6 +406,39 @@ proof -
     unfolding monadic_list_ex_def .
 qed
 
+lemma monadic_list_all_mono:
+  "monadic_list_all P xs \<le> monadic_list_all Q ys" if "list_all2 (\<lambda> x y. P x \<le> Q y) xs ys"
+proof -
+  have "nfoldli xs id (\<lambda>x _. P x) a \<le> nfoldli ys id (\<lambda>x _. Q x) a" for a
+    using that by (induction xs ys arbitrary: a; clarsimp; refine_mono)
+  then show ?thesis
+    unfolding monadic_list_all_def .
+qed
+
+lemma monadic_list_all_mono':
+  "monadic_list_all P xs \<le> monadic_list_all Q ys"
+  if "(xs, ys) \<in> \<langle>R\<rangle>list_rel" "\<And> x y. (x, y) \<in> R \<Longrightarrow> P x \<le> Q y"
+   using that by (intro monadic_list_all_mono) (auto simp: list_all2_iff list_rel_def)
+
+lemma monadic_list_ex_mono:
+  "monadic_list_ex P xs \<le> monadic_list_ex Q ys" if "list_all2 (\<lambda> x y. P x \<le> Q y) xs ys"
+proof -
+  have "nfoldli xs Not (\<lambda>x _. P x) a \<le> nfoldli ys Not (\<lambda>x _. Q x) a" for a
+    using that by (induction xs ys arbitrary: a; clarsimp; refine_mono)
+  then show ?thesis
+    unfolding monadic_list_ex_def .
+qed
+
+lemma monadic_list_ex_mono':
+  "monadic_list_ex P xs \<le> monadic_list_ex Q ys"
+  if "(xs, ys) \<in> \<langle>R\<rangle>list_rel" "\<And> x y. (x, y) \<in> R \<Longrightarrow> P x \<le> Q y"
+  using that by (intro monadic_list_ex_mono) (auto simp: list_all2_iff list_rel_def)
+
+lemma monadic_list_all_rule':
+  assumes "\<And>x. x \<in> set xs \<Longrightarrow> Pi x \<le> SPEC (\<lambda>r. r \<longleftrightarrow> P x)"
+  shows "monadic_list_all Pi xs \<le> SPEC (\<lambda>r. r \<longleftrightarrow> list_all P xs)"
+  using assms unfolding monadic_list_all_def
+  by (intro nfoldli_rule[where I = "\<lambda>as bs b. b = list_all P as \<and> set (as @ bs) = set xs"]) auto
 
 paragraph \<open>Printing utilities\<close>
 
@@ -477,5 +577,121 @@ lemma copy_list_lso_assn_refine:
   supply [sep_heap_rules] =
     monadic_map_refine'[OF that, to_hnr, unfolded copy_list_COPY hn_refine_def hn_ctxt_def, simplified]
   unfolding lso_assn_def hr_comp_def by sepref_to_hoare sep_auto
+
+paragraph \<open>Set member implementation\<close>
+
+context
+  fixes K :: "'k \<Rightarrow> ('ki :: {heap}) \<Rightarrow> assn"
+  assumes pure_K: "is_pure K"
+  assumes left_unique_K: "IS_LEFT_UNIQUE (the_pure K)"
+  assumes right_unique_K: "IS_RIGHT_UNIQUE (the_pure K)"
+begin
+
+lemma pure_equality_impl:
+  "(uncurry (return oo (=)), uncurry (RETURN oo (=))) \<in> (K\<^sup>k *\<^sub>a K\<^sup>k) \<rightarrow>\<^sub>a bool_assn"
+proof -
+  have 1: "K = pure (the_pure K)"
+    using pure_K by auto
+  have [dest]: "a = b" if "(bi, b) \<in> the_pure K" "(bi, a) \<in> the_pure K" for bi a b
+    using that right_unique_K by (elim single_valuedD) auto
+  have [dest]: "a = b" if "(a, bi) \<in> the_pure K" "(b, bi) \<in> the_pure K" for bi a b
+    using that left_unique_K unfolding IS_LEFT_UNIQUE_def by (elim single_valuedD) auto
+  show ?thesis
+    by (subst 1, subst (2) 1, sepref_to_hoare, sep_auto)
+qed
+
+definition
+  "is_member x L \<equiv> do {
+    xs \<leftarrow> SPEC (\<lambda>xs. set xs = L);
+    monadic_list_ex (\<lambda>y. RETURN (y = x)) xs
+  }"
+
+lemma is_member_refine:
+  "is_member x L \<le> mop_set_member x L"
+  unfolding mop_set_member_alt is_member_def by (refine_vcg monadic_list_ex_rule) auto
+
+lemma is_member_correct:
+  "(uncurry is_member, uncurry (RETURN \<circ>\<circ> op_set_member)) \<in> Id \<times>\<^sub>r Id \<rightarrow> \<langle>bool_rel\<rangle>nres_rel"
+  using is_member_refine by (force simp: pw_le_iff pw_nres_rel_iff)
+
+lemmas [sepref_fr_rules] = lso_id_hnr
+
+sepref_definition is_member_impl is
+  "uncurry is_member" :: "K\<^sup>k *\<^sub>a (lso_assn K)\<^sup>k \<rightarrow>\<^sub>a bool_assn"
+  supply [sepref_fr_rules] = pure_equality_impl
+  supply [safe_constraint_rules] = pure_K left_unique_K right_unique_K
+  unfolding is_member_def monadic_list_ex_def list_of_set_def[symmetric] by sepref
+
+lemmas op_set_member_lso_hnr = is_member_impl.refine[FCOMP is_member_correct]
+
+end
+
+paragraph \<open>\<open>set_of_list\<close>\<close>
+
+definition
+  "set_of_list xs = SPEC (\<lambda>S. set xs = S)"
+
+(* XXX Move *)
+lemma set_of_list_hnr:
+  "(return o id, set_of_list) \<in> (list_assn A)\<^sup>d \<rightarrow>\<^sub>a lso_assn A"
+  unfolding set_of_list_def lso_assn_def hr_comp_def br_def by sepref_to_hoare sep_auto
+
+lemma set_of_list_alt_def:
+  "set_of_list = RETURN o set"
+  unfolding set_of_list_def by auto
+
+lemmas set_of_list_hnr' = set_of_list_hnr[unfolded set_of_list_alt_def]
+
+paragraph \<open>An alternative definition of \<^term>\<open>list_set_rel\<close>\<close>
+
+text \<open>Compared to ours, the existing version of \<^term>\<open>list_set_rel\<close> requires distinct lists.\<close>
+
+hide_const (open) list_set_rel
+
+definition list_set_rel where [to_relAPP]:
+  "list_set_rel R \<equiv> \<langle>R\<rangle>list_rel O {(xs, S). set xs = S}"
+
+lemma list_set_relE:
+  assumes "(xs, zs) \<in> \<langle>R\<rangle>list_set_rel"
+  obtains ys where "(xs, ys) \<in> \<langle>R\<rangle>list_rel" "set ys = zs"
+  using assms unfolding list_set_rel_def by auto
+
+lemma list_set_rel_Nil[simp, intro]:
+  "([], {}) \<in> \<langle>Id\<rangle>list_set_rel"
+  unfolding list_set_rel_def by auto
+
+lemma specify_right:
+  "c \<le> SPEC P \<bind> c'" if "P x" "c \<le> c' x"
+  using that by (auto intro: SUP_upper2[where i = x] simp: bind_RES)
+
+lemma res_right:
+  "c \<le> RES S \<bind> c'" if "x \<in> S" "c \<le> c' x"
+  using that by (auto intro: SUP_upper2[where i = x] simp: bind_RES)
+
+lemma nres_relD:
+  "c \<le> \<Down>R a" if "(c, a) \<in> \<langle>R\<rangle>nres_rel"
+  using that unfolding nres_rel_def by simp
+
+lemma list_rel_setE1:
+  assumes "x \<in> set xs" "(xs, ys) \<in> \<langle>R\<rangle>list_rel"
+  obtains y where "y \<in> set ys" "(x, y) \<in> R"
+  using assms unfolding list_rel_def by (auto dest!: list_all2_set1)
+
+lemma list_rel_setE2:
+  assumes "y \<in> set ys" "(xs, ys) \<in> \<langle>R\<rangle>list_rel"
+  obtains x where "x \<in> set xs" "(x, y) \<in> R"
+  using assms unfolding list_rel_def by (auto dest!: list_all2_set2)
+
+lemma list_of_set_impl[autoref_rules]:
+  "(\<lambda>xs. RETURN xs, list_of_set) \<in> \<langle>R\<rangle>list_set_rel \<rightarrow> \<langle>\<langle>R\<rangle>list_rel\<rangle>nres_rel"
+  unfolding list_of_set_def by refine_rcg (auto elim!: list_set_relE intro: RETURN_SPEC_refine)
+
+lemma map_set_rel:
+  assumes "list_all P xs" "(f, g) \<in> {(xs, ys). xs = ys \<and> P xs} \<rightarrow> B"
+  shows "(map f xs, g ` set xs) \<in> \<langle>B\<rangle>list_set_rel"
+  unfolding list_set_rel_def
+  apply (rule relcompI[where b = "map g xs"])
+  apply parametricity
+  using assms unfolding list_rel_def list_all_iff by (auto intro: list.rel_refl_strong)
 
 end
