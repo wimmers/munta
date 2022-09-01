@@ -1004,7 +1004,7 @@ lemma unreachability_checker_def:
     M_table \<leftarrow> impl.M_table M_list;
     let _ = save_time STR ''Time for loading certificate'';
     r \<leftarrow> certify_unreachable_impl_inner
-      Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i (split_k num_split) L_list M_table;
+      Fi Pi copyi succsi l\<^sub>0i s\<^sub>0i Lei (split_k num_split) L_list M_table;
     Heap_Monad.return r
   }"
   by (subst impl.unreachability_checker_alt_def[OF
@@ -1051,7 +1051,7 @@ lemma no_deadlock_certifier_alt_def1:
     M_table \<leftarrow> impl.M_table M_list;
     let _ = save_time STR ''Time for loading certificate'';
     r \<leftarrow> certify_unreachable_impl_inner
-      Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i (split_k num_split) L_list M_table;
+      Fi Pi copyi succsi l\<^sub>0i s\<^sub>0i Lei (split_k num_split) L_list M_table;
     Heap_Monad.return r
   }"
   unfolding no_deadlock_certifier_def
@@ -1413,7 +1413,7 @@ definition
     show_dbm = show_dbm_impl_all m show_clock show
   in do {
     M_table \<leftarrow> M_table M_list;
-    r \<leftarrow> check_invariant_fail_impl copy Lei succs L_list M_table;
+    r \<leftarrow> check_invariant_fail_impl copy succs Lei L_list M_table;
     case r of None \<Rightarrow> Heap_Monad.return ()
     | Some (Inl (Inl (l, l', xs))) \<Rightarrow> do {
         let _ = println (STR ''The successor is not contained in L:'');

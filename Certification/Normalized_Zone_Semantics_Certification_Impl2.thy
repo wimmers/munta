@@ -30,8 +30,8 @@ lemma certify_unreachable_impl_hnr:
   assumes "set (L L_list) = dom (M M_list)"
   shows
   "(uncurry0
-    (certify_unreachable_impl F_impl P_impl amtx_copy (dbm_subset_impl n) succs_precise'_impl
-    (return l\<^sub>0i) init_dbm_impl L_list (M_table M_list) splitteri),
+    (certify_unreachable_impl F_impl P_impl amtx_copy succs_precise'_impl
+    (return l\<^sub>0i) init_dbm_impl (dbm_subset_impl n) L_list (M_table M_list) splitteri),
     uncurry0 (SPEC (\<lambda>r. r \<longrightarrow>
       (\<nexists>u l' u'. (\<forall>c\<le>n. u c = 0) \<and> conv_A A \<turnstile>' \<langle>l\<^sub>0, u\<rangle> \<rightarrow>* \<langle>l', u'\<rangle> \<and> F' (l', u')))))
   \<in> unit_assn\<^sup>k \<rightarrow>\<^sub>a bool_assn"
@@ -50,7 +50,7 @@ definition
     succsi = succs_precise'_impl;
     M_table = M_table M_list
   in
-    certify_unreachable_impl Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i L_list M_table splitteri"
+    certify_unreachable_impl Fi Pi copyi succsi l\<^sub>0i s\<^sub>0i Lei L_list M_table splitteri"
 
 lemma unreachability_checker_alt_def:
   "unreachability_checker' \<equiv>
@@ -64,7 +64,7 @@ lemma unreachability_checker_alt_def:
     succsi = succs_precise'_impl
   in do {
     M_table \<leftarrow> M_table M_list;
-    certify_unreachable_impl_inner Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i splitteri L_list M_table
+    certify_unreachable_impl_inner Fi Pi copyi succsi l\<^sub>0i s\<^sub>0i Lei splitteri L_list M_table
   }"
   unfolding unreachability_checker'_def certify_unreachable_impl_def Let_def .
 
@@ -85,7 +85,7 @@ definition
     succsi = succs_precise'_impl;
     M_table = M_table M_list
   in
-    certify_unreachable_impl2 Fi Pi copyi Lei succsi l\<^sub>0i s\<^sub>0i splitteri L_list M_table"
+    certify_unreachable_impl2 Fi Pi copyi succsi l\<^sub>0i s\<^sub>0i Lei splitteri L_list M_table"
 
 lemma unreachability_checker2_refine:
   assumes "fst ` set M_list = set L_list" "unreachability_checker2 L_list M_list splitteri"
@@ -237,6 +237,5 @@ end (* TA Impl Precise *)
 
 concrete_definition (in -) unreachability_checker
   uses Reachability_Problem_Impl_Precise.unreachability_checker_alt_def
-
 
 end

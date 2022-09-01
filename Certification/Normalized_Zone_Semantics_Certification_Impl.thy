@@ -1169,7 +1169,6 @@ interpretation Buechi_Impl_imp_to_pure_correct
     and succsi = succs_precise'_impl
     and less = "\<lambda> x y. dbm_subset n x y \<and> \<not> dbm_subset n y x"
     and less_eq = "dbm_subset n"
-    and Lei = "dbm_subset_impl n"
     and lei = "\<lambda>as bs.
       (\<exists>i\<le>n. IArray.sub as (i + i * n + i) < Le 0) \<or> array_all2 (Suc n * Suc n) (\<le>) as bs"
     and E = op_precise.E_from_op_empty
@@ -1195,6 +1194,7 @@ interpretation Buechi_Impl_imp_to_pure_correct
     and inits = inits
     and initsi = "initsi"
   apply standard
+  apply (erule P'_P; fail)
   subgoal (* key refine *)
     by sepref_to_hoare sep_auto
            apply (rule amtx_copy_hnr; fail)
@@ -1204,7 +1204,6 @@ interpretation Buechi_Impl_imp_to_pure_correct
     by (rule F_impl)
   subgoal (* succs refine *)
     using succs_precise_impl_refine unfolding b_assn_pure_conv .
-       apply (rule dbm_subset_impl.refine; fail)
     apply (rule location_assn_constraints; fail)+
   subgoal
     using L_list_rel by simp
